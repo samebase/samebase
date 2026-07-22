@@ -51,7 +51,6 @@ async function createExistingRepositoryVaultWithConvex(args: {
       teamId: "team-id",
       projectId: "convex-project",
       origin: args.origin,
-      createdAt: 14,
     });
     if (args.origin === "provisioned") {
       await ctx.db.insert("providerConnections", {
@@ -167,7 +166,6 @@ async function createSamebaseManagedVaultWithConvex(args: { withProject: boolean
         teamId: "team-id",
         projectId: "convex-project",
         origin: "provisioned",
-        createdAt: 14,
       });
     }
 
@@ -262,7 +260,6 @@ describe("vault deletion Convex resource planning", () => {
         teamId: "other-team",
         projectId: "other-project",
         origin: "provisioned",
-        createdAt: 16,
       });
     });
 

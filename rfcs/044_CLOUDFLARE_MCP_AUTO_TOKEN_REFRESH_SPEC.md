@@ -53,7 +53,7 @@ load/focus, debounce, lock, and clear runtime state.
 ### Repository Refresh Comparison At Spec Time
 
 This comparison is historical. Current repository refresh queue behavior is defined by
-`specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`; Cloudflare token refresh still reuses the generic
+`archive/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`; Cloudflare token refresh still reuses the generic
 browser duplicate-request guard.
 
 1. Frontend triggers on focus and page-load:

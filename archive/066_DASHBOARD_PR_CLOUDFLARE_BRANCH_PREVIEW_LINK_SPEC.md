@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Superseded by `rfcs/087_PR_CHECKS_BASED_REFRESH_PLAN.md`
+- Status: Superseded by `specs/116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`
 - Owner: Vault dashboard + GitHub/Cloudflare integration
 - Last updated: 2026-07-04
 - Related specs:

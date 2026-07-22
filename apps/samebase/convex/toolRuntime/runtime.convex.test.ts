@@ -31,7 +31,6 @@ describe("toolRuntime scope enforcement", () => {
         workerName: "worker-1",
         workerTag: "worker-tag-1",
         origin: "selected_existing",
-        createdAt: 1,
       });
       const seededConvexProjectId = await ctx.db.insert("vaultConvexProjects", {
         vaultId: seededVaultId,
@@ -40,7 +39,6 @@ describe("toolRuntime scope enforcement", () => {
         projectId: "project_1",
         convexConfigPath: "convex.json",
         origin: "selected_existing",
-        createdAt: 1,
       });
       return {
         convexProjectId: seededConvexProjectId,

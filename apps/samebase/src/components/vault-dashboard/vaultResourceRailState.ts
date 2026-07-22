@@ -786,7 +786,15 @@ export function buildVaultDashboardResourceRailState({
   ) => void;
 }): VaultResourceRailState {
   let githubRow: VaultResourceRailRowState<"github">;
-  if (vault.sourceSetup.status === "failed" || vault.state === "failed") {
+  if (vault.hasConnectedGitHubRepository) {
+    githubRow = {
+      provider: "github",
+      rowId: "github",
+      status: "available",
+      value: vault.repositoryFullName,
+      href: githubRepositoryUrl,
+    };
+  } else if (vault.sourceSetup.status === "failed") {
     githubRow = {
       provider: "github",
       rowId: "github",
@@ -794,24 +802,13 @@ export function buildVaultDashboardResourceRailState({
       value: vault.repositoryFullName,
       description: "Repository setup failed.",
     };
-  } else if (!vault.hasConnectedGitHubRepository) {
-    githubRow = {
-      provider: "github",
-      rowId: "github",
-      status: vault.state === "ready" ? "missing" : "loading",
-      value: vault.repositoryFullName,
-      description:
-        vault.state === "ready"
-          ? "GitHub repository connection is missing."
-          : "Loading from GitHub...",
-    };
   } else {
     githubRow = {
       provider: "github",
       rowId: "github",
-      status: "available",
+      status: "loading",
       value: vault.repositoryFullName,
-      href: githubRepositoryUrl,
+      description: "Loading from GitHub...",
     };
   }
 

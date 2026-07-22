@@ -100,9 +100,7 @@ describe("vault Convex project attachment mutations", () => {
     const projects = await t.run(async (ctx) => {
       return await ctx.db
         .query("vaultConvexProjects")
-        .withIndex("by_vault_and_config_path", (q) =>
-          q.eq("vaultId", ids.primaryVaultId).eq("convexConfigPath", "apps/web/convex.json"),
-        )
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.primaryVaultId))
         .collect();
     });
     expect(projects).toHaveLength(2);

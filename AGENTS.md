@@ -234,7 +234,6 @@ Key domain entities:
 - `vaults`
 - `workflow_vaultProvisioning_plans`
 - `workflow_vaultProvisioning_writeLocks`
-- `vaultDomains`
 - `vaultStagedFiles`
 - `aiProductionReadRequests`
 - `audit_aiProductionRead_events`

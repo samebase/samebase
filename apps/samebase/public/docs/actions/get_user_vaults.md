@@ -4,9 +4,11 @@
 
 MCP tool `vault_dashboard_getUserVaults` · scope `access_dashboard` · read_only
 
-Returns every vault the authenticated account can see. Provider resources are stable identities
-only. Current Cloudflare and Convex state, including the Worker-to-project marker, is loaded from
-those providers when a relevant view opens; it is not mirrored by this query.
+Returns every vault the authenticated account can see. Repository connection, source setup, provider
+setup, and deletion are independent axes; a source-setup failure does not revoke an already
+connected repository. Provider resources are stable identities only. Current Cloudflare and Convex
+state, including the Worker-to-project marker, is loaded from those providers when a relevant view
+opens; it is not mirrored by this query.
 
 ## Arguments
 
@@ -40,7 +42,7 @@ JSON Schema for the tool's `structuredContent`:
           "repositoryFullName": {
             "type": "string"
           },
-          "commitSHA": {
+          "defaultBranch": {
             "type": "string"
           },
           "fileCount": {
@@ -48,44 +50,6 @@ JSON Schema for the tool's `structuredContent`:
           },
           "lastEditTime": {
             "type": "number"
-          },
-          "lastTreeRefreshAt": {
-            "type": "number"
-          },
-          "treeRefreshStartedAt": {
-            "type": "number"
-          },
-          "lastTreeRefreshFailedAt": {
-            "type": "number"
-          },
-          "treeRefreshFailureKind": {
-            "anyOf": [
-              {
-                "const": "failed"
-              },
-              {
-                "const": "rate_limited"
-              }
-            ]
-          },
-          "treeRefreshFailureMessage": {
-            "type": "string"
-          },
-          "treeRefreshCooldownUntil": {
-            "type": "number"
-          },
-          "state": {
-            "anyOf": [
-              {
-                "const": "copying_files"
-              },
-              {
-                "const": "ready"
-              },
-              {
-                "const": "failed"
-              }
-            ]
           },
           "sourceSetup": {
             "anyOf": [
@@ -142,31 +106,7 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "connect_github"
                       },
                       {
-                        "const": "create_vault"
-                      },
-                      {
                         "const": "sync_tree"
-                      },
-                      {
-                        "const": "claim_infra"
-                      },
-                      {
-                        "const": "attach_convex"
-                      },
-                      {
-                        "const": "attach_worker"
-                      },
-                      {
-                        "const": "configure_workers_builds_for_github"
-                      },
-                      {
-                        "const": "rotate_convex_deploy_keys_for_workers_builds"
-                      },
-                      {
-                        "const": "record_domains"
-                      },
-                      {
-                        "const": "finish"
                       }
                     ]
                   },
@@ -210,31 +150,7 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "connect_github"
                       },
                       {
-                        "const": "create_vault"
-                      },
-                      {
                         "const": "sync_tree"
-                      },
-                      {
-                        "const": "claim_infra"
-                      },
-                      {
-                        "const": "attach_convex"
-                      },
-                      {
-                        "const": "attach_worker"
-                      },
-                      {
-                        "const": "configure_workers_builds_for_github"
-                      },
-                      {
-                        "const": "rotate_convex_deploy_keys_for_workers_builds"
-                      },
-                      {
-                        "const": "record_domains"
-                      },
-                      {
-                        "const": "finish"
                       }
                     ]
                   },
@@ -294,33 +210,6 @@ JSON Schema for the tool's `structuredContent`:
                   "step": {
                     "anyOf": [
                       {
-                        "const": "run_created"
-                      },
-                      {
-                        "const": "initialize_vault"
-                      },
-                      {
-                        "const": "validate_connections"
-                      },
-                      {
-                        "const": "create_github_repo"
-                      },
-                      {
-                        "const": "fetch_github_repo"
-                      },
-                      {
-                        "const": "seed_starter"
-                      },
-                      {
-                        "const": "connect_github"
-                      },
-                      {
-                        "const": "create_vault"
-                      },
-                      {
-                        "const": "sync_tree"
-                      },
-                      {
                         "const": "claim_infra"
                       },
                       {
@@ -334,9 +223,6 @@ JSON Schema for the tool's `structuredContent`:
                       },
                       {
                         "const": "rotate_convex_deploy_keys_for_workers_builds"
-                      },
-                      {
-                        "const": "record_domains"
                       },
                       {
                         "const": "finish"
@@ -372,33 +258,6 @@ JSON Schema for the tool's `structuredContent`:
                   "step": {
                     "anyOf": [
                       {
-                        "const": "run_created"
-                      },
-                      {
-                        "const": "initialize_vault"
-                      },
-                      {
-                        "const": "validate_connections"
-                      },
-                      {
-                        "const": "create_github_repo"
-                      },
-                      {
-                        "const": "fetch_github_repo"
-                      },
-                      {
-                        "const": "seed_starter"
-                      },
-                      {
-                        "const": "connect_github"
-                      },
-                      {
-                        "const": "create_vault"
-                      },
-                      {
-                        "const": "sync_tree"
-                      },
-                      {
                         "const": "claim_infra"
                       },
                       {
@@ -412,9 +271,6 @@ JSON Schema for the tool's `structuredContent`:
                       },
                       {
                         "const": "rotate_convex_deploy_keys_for_workers_builds"
-                      },
-                      {
-                        "const": "record_domains"
                       },
                       {
                         "const": "finish"
@@ -698,7 +554,6 @@ JSON Schema for the tool's `structuredContent`:
           "ghRepoName",
           "repositoryFullName",
           "fileCount",
-          "state",
           "sourceSetup",
           "providerSetup",
           "deletion",

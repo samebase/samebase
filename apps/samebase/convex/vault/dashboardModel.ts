@@ -1,18 +1,16 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
-const { array, boolean, id, number, object, optional, string } = v;
+const { array, boolean, id, number, object, string } = v;
 
 export const vaultDashboardTables = {
-  /** Per-user choices controlling which pull-request branches appear for one vault. */
-  ui_vaultBranches_filters: defineTable({
+  /** Per-user choices controlling which pull requests appear for one vault. */
+  ui_vaultPullRequests_filters: defineTable({
     userId: id("users"),
     vaultId: id("vaults"),
     hiddenLabels: array(string()),
     includeDrafts: boolean(),
-    // Keep this optional so rows saved before unlabeled-branch support remain
-    // readable until each user re-saves their filters.
-    includeNoLabel: optional(boolean()),
+    includeNoLabel: boolean(),
   })
     .index("by_user", ["userId"])
     .index("by_user_and_vault", ["userId", "vaultId"])
@@ -21,7 +19,7 @@ export const vaultDashboardTables = {
   /**
    * One user's choice to keep the resource-links rail open for one vault.
    * New vault creation inserts an open row so the connection rail starts visible.
-   * Missing rows still use the dashboard's collapsed fallback for legacy or directly seeded vaults.
+   * A missing preference means the rail is collapsed.
    */
   ui_vaultResourceLinks_settings: defineTable({
     userId: id("users"),

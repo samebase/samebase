@@ -1,18 +1,29 @@
 import { v, type Infer } from "convex/values";
 
-import { vAppProvisioningRunStep } from "../../appProvisioningModel";
-import { vTreeRefreshFailureKind } from "../model";
 import { vVaultDeletionStep } from "../deletion/model";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
-const treeRefreshFailureFields = {
-  lastTreeRefreshFailedAt: optional(number()),
-  treeRefreshFailureKind: optional(vTreeRefreshFailureKind),
-  treeRefreshFailureMessage: optional(string()),
-  treeRefreshCooldownUntil: optional(number()),
-} as const;
+export const vSourceSetupStep = union(
+  literal("run_created"),
+  literal("initialize_vault"),
+  literal("validate_connections"),
+  literal("create_github_repo"),
+  literal("fetch_github_repo"),
+  literal("seed_starter"),
+  literal("connect_github"),
+  literal("sync_tree"),
+);
+
+export const vProviderSetupStep = union(
+  literal("claim_infra"),
+  literal("attach_convex"),
+  literal("attach_worker"),
+  literal("configure_workers_builds_for_github"),
+  literal("rotate_convex_deploy_keys_for_workers_builds"),
+  literal("finish"),
+);
 
 export const vSourceSetupSummary = union(
   object({
@@ -24,13 +35,13 @@ export const vSourceSetupSummary = union(
   object({
     status: literal("running"),
     runId: id("workflow_vaultProvisioning_runs"),
-    step: vAppProvisioningRunStep,
+    step: vSourceSetupStep,
     updatedAt: number(),
   }),
   object({
     status: literal("failed"),
     runId: id("workflow_vaultProvisioning_runs"),
-    step: vAppProvisioningRunStep,
+    step: vSourceSetupStep,
     message: string(),
     updatedAt: number(),
   }),
@@ -49,14 +60,14 @@ export const vProviderSetupSummary = union(
     status: literal("running"),
     provider: providerSetupProvider,
     runId: id("workflow_vaultProvisioning_runs"),
-    step: vAppProvisioningRunStep,
+    step: vProviderSetupStep,
     updatedAt: number(),
   }),
   object({
     status: literal("failed"),
     provider: providerSetupProvider,
     runId: id("workflow_vaultProvisioning_runs"),
-    step: vAppProvisioningRunStep,
+    step: vProviderSetupStep,
     message: string(),
     updatedAt: number(),
   }),
@@ -101,13 +112,9 @@ const vUserVaultsResult = array(
     ghRepoOwner: string(),
     ghRepoName: string(),
     repositoryFullName: string(),
-    commitSHA: optional(string()),
+    defaultBranch: optional(string()),
     fileCount: number(),
     lastEditTime: optional(number()),
-    lastTreeRefreshAt: optional(number()),
-    treeRefreshStartedAt: optional(number()),
-    ...treeRefreshFailureFields,
-    state: union(literal("copying_files"), literal("ready"), literal("failed")),
     sourceSetup: vSourceSetupSummary,
     providerSetup: vProviderSetupSummary,
     deletion: vVaultDeletionSummary,
@@ -155,13 +162,17 @@ export const getUserVaultsContract = {
     },
     inputDescriptions: {},
   } satisfies AppFunctionMcpMetadata,
-  doc: `Returns every vault the authenticated account can see. Provider resources are stable
-identities only. Current Cloudflare and Convex state, including the Worker-to-project marker, is
-loaded from those providers when a relevant view opens; it is not mirrored by this query.`,
+  doc: `Returns every vault the authenticated account can see. Repository connection, source
+setup, provider setup, and deletion are independent axes; a source-setup failure does not revoke an
+already connected repository. Provider resources are stable identities only. Current Cloudflare
+and Convex state, including the Worker-to-project marker, is loaded from those providers when a
+relevant view opens; it is not mirrored by this query.`,
 } as const;
 
 export type SourceSetupSummary = Infer<typeof vSourceSetupSummary>;
+export type SourceSetupStep = Infer<typeof vSourceSetupStep>;
 export type ProviderSetupSummary = Infer<typeof vProviderSetupSummary>;
+export type ProviderSetupStep = Infer<typeof vProviderSetupStep>;
 export type VaultDeletionSummary = Infer<typeof vVaultDeletionSummary>;
 export type UserVaultsResult = Infer<typeof getUserVaultsContract.returns>;
 export type UserVaultResult = UserVaultsResult[number];

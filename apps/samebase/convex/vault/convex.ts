@@ -445,10 +445,6 @@ async function createProjectForManagedWorkflow(
   let projectId: string;
   if (checkpoint.state === "created") {
     projectId = checkpoint.projectId;
-  } else if (checkpoint.state === "creating") {
-    throw new Error(
-      "The previous Convex project create may have completed without recording its identity. Inspect Convex before retrying.",
-    );
   } else {
     const projects = await listProjectsForConnection(connection);
     if (
@@ -456,17 +452,24 @@ async function createProjectForManagedWorkflow(
         (project) => project.name === validation.value || project.slug === validation.value,
       )
     ) {
+      if (checkpoint.state === "creating") {
+        throw new Error(
+          `Convex project ${validation.value} exists after an interrupted create. Delete it in the Convex dashboard, then retry.`,
+        );
+      }
       throw new Error(
         `Convex project name ${validation.value} already exists. Choose another project name and try again.`,
       );
     }
-    await ctx.runMutation(internal.vault.convexMutations.beginManagedProjectCreate, {
-      vaultId: args.vaultId,
-      runId: args.runId,
-      userId: args.userId,
-      projectName: validation.value,
-      teamId: connection.teamId,
-    });
+    if (checkpoint.state === "planned") {
+      await ctx.runMutation(internal.vault.convexMutations.beginManagedProjectCreate, {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+        projectName: validation.value,
+        teamId: connection.teamId,
+      });
+    }
     const created = await requestConvexManagementApi(
       connection.token,
       "POST",

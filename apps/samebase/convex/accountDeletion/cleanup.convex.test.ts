@@ -401,36 +401,6 @@ describe("account-local deletion cleanup", () => {
     await expect(t.run(async (ctx) => await ctx.db.get(settingsId))).resolves.not.toBeNull();
   });
 
-  it("deletes terminal refresh requests after their vault row is already gone", async () => {
-    const t = makeConvexTest();
-    const userId = await seedUser(t, "owner@example.com");
-    const requestId = await t.run(async (ctx) => {
-      const vaultId = await ctx.db.insert("vaults", {
-        userId,
-        state: "not_connected",
-        deletion: { state: "not_deleting" },
-      });
-      const seededRequestId = await ctx.db.insert("vaultRepositoryRefreshRequests", {
-        userId,
-        vaultId,
-        dedupeKey: `${vaultId}:main`,
-        demand: { scope: "branch", branch: "main", source: "file_view" },
-        lifecycle: { state: "canceled", canceledAt: 1, reason: "vault_deleted" },
-        createdAt: 1,
-        updatedAt: 1,
-      });
-      await ctx.db.delete(vaultId);
-      return seededRequestId;
-    });
-
-    await expect(runCleanup(t, userId)).resolves.toEqual({
-      state: "needs_more",
-      target: "vaultRepositoryRefreshRequests",
-      rowsChanged: 1,
-    });
-    await expect(t.run(async (ctx) => await ctx.db.get(requestId))).resolves.toBeNull();
-  });
-
   it("revokes machine bearer access before deleting machine identity rows", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "owner@example.com");
@@ -654,99 +624,6 @@ describe("account-local deletion cleanup", () => {
       });
     });
   }
-
-  it("preserves repository commit check caches shared with another vault", async () => {
-    const t = makeConvexTest();
-    const userId = await seedUser(t, "owner@example.com");
-    const survivingUserId = await seedUser(t, "surviving-owner@example.com");
-    const survivingVaultId = await t.run(async (ctx) => {
-      const vaultId = await ctx.db.insert("vaults", {
-        userId,
-        state: "not_connected",
-        deletion: { state: "not_deleting" },
-      });
-      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
-        vaultId,
-        repositoryFullName: "owner/repository",
-        trigger: "create",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 1,
-        updatedAt: 2,
-        completedAt: 2,
-      });
-      await ctx.db.replace(vaultId, {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "create_repository",
-        runId,
-        ghRepoId: "shared-repository-id",
-        owner: "owner",
-        name: "repository",
-        defaultBranch: "main",
-        visibility: "private",
-        connectedAt: 2,
-      });
-
-      const survivingVaultId = await ctx.db.insert("vaults", {
-        userId: survivingUserId,
-        state: "not_connected",
-        deletion: { state: "not_deleting" },
-      });
-      const survivingRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId: survivingUserId,
-        vaultId: survivingVaultId,
-        repositoryFullName: "owner/repository",
-        trigger: "connect_existing_repository",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 1,
-        updatedAt: 2,
-        completedAt: 2,
-      });
-      await ctx.db.replace(survivingVaultId, {
-        userId: survivingUserId,
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "connect_existing_repository",
-        runId: survivingRunId,
-        ghRepoId: "shared-repository-id",
-        owner: "owner",
-        name: "repository",
-        defaultBranch: "main",
-        visibility: "private",
-        connectedAt: 2,
-      });
-      return survivingVaultId;
-    });
-    await t.mutation(internal.commitChecks.replaceGitHubCommitChecks, {
-      githubRepositoryId: "shared-repository-id",
-      commitSha: "commit-sha",
-      syncedAt: 3,
-      items: [
-        {
-          source: "check_run",
-          sourceKey: "check-1",
-          name: "tests",
-          state: "success",
-          status: "completed",
-        },
-      ],
-    });
-
-    let result = await runCleanup(t, userId);
-    for (let attempt = 0; attempt < 20 && result.state !== "done"; attempt += 1) {
-      result = await runCleanup(t, userId);
-    }
-    expect(result).toEqual({ state: "done" });
-    await t.run(async (ctx) => {
-      expect(await ctx.db.get(survivingVaultId)).not.toBeNull();
-      expect(await ctx.db.query("observations_githubCommit_checks").collect()).toHaveLength(1);
-      expect(await ctx.db.query("derived_githubCommit_checkSummaries").collect()).toHaveLength(1);
-    });
-  });
 
   it("removes MCP credentials before grants", async () => {
     const t = makeConvexTest();

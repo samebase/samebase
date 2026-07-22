@@ -2,12 +2,12 @@
 
 ## Document Control
 
-- Status: Implemented; hidden-label server-side filtering deferred
+- Status: Superseded
 - Owner: Samebase dashboard and Convex vault
 - Last updated: 2026-07-04
 - Related specs:
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
-  - `specs/067_VAULT_BRANCH_FILTERS_SPEC.md`
+  - `specs/067_VAULT_PULL_REQUEST_FILTERS_SPEC.md`
   - `specs/100_CONVEX_VAULT_MODULE_LAYOUT_SPEC.md`
   - `specs/110_VAULT_ROUTE_SURFACE_SPEC.md`
 - Related RFCs:
@@ -27,6 +27,10 @@
   - [Convex React `usePaginatedQuery`](https://docs.convex.dev/api/modules/react#usepaginatedquery)
   - [TanStack Virtual React adapter](https://tanstack.com/virtual/latest/docs/framework/react/react-virtual)
   - [TanStack Virtual infinite scroll example](https://tanstack.com/virtual/v3/docs/framework/react/examples/infinite-scroll)
+
+This plan describes the deleted Convex branch catalog and server-side ranking model. The current
+dashboard forwards GitHub's native pull request cursor through a browser-owned TanStack infinite
+query as specified by `specs/116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`.
 
 ## Summary
 

@@ -46,6 +46,8 @@ type CloudflareWorkerTagSource = {
 };
 type CloudflareBuildTokenRecord = Readable<components["schemas"]["builds_ListTokensResponse"]>;
 export type CloudflareBuildTrigger = Readable<components["schemas"]["builds_TriggerResponse"]>;
+export type CloudflareWorkerBuild = Readable<components["schemas"]["builds_BuildResponse"]>;
+export type CloudflareWorkerVersion = Readable<components["schemas"]["workers_Version"]>;
 type CloudflareBuildEnvVars = components["schemas"]["builds_EnvironmentVariablesRequest"];
 type CloudflareBuildEnvVarsResponse = components["schemas"]["builds_EnvironmentVariablesResponse"];
 type CloudflareApiCallOptions = {
@@ -208,6 +210,7 @@ type CloudflareWorkerIdentity = {
 };
 
 type CloudflareWorkerDetails = {
+  previewUrlsEnabled: boolean | undefined;
   workersDevEnabled: boolean;
   workerName: string;
   workerTag: string;
@@ -253,10 +256,6 @@ export type CloudflareWorkerDiscoveryItem = CloudflareWorkerInventoryItem & {
 export type CloudflareWorkerProviderDiscoveryItem = CloudflareWorkerDiscoveryItem & {
   convexBuildAccess: CloudflareConvexBuildAccessObservation | { state: "unavailable" };
 };
-
-export type ExistingCloudflareWorkerIdentity =
-  | { state: "planned" }
-  | { state: "created"; workerTag: string };
 
 export function buildCloudflareWorkerCreateBody(workerName: string): CloudflareWorkerCreateBody {
   return {
@@ -324,7 +323,7 @@ function readTrimmedCloudflareString(value: string | undefined): string | null {
   return trimmed && trimmed.length > 0 ? trimmed : null;
 }
 
-function normalizeCloudflareBuildRoot(value: string | null | undefined): string | null {
+export function normalizeCloudflareBuildRoot(value: string | null | undefined): string | null {
   let root = value?.trim();
   if (!root) {
     return null;
@@ -435,6 +434,7 @@ export async function readCloudflareWorkerIdentity(
     return null;
   }
   return {
+    previewUrlsEnabled: worker.subdomain.previews_enabled,
     workersDevEnabled: worker.subdomain.enabled,
     workerName: args.workerName,
     workerTag: readCloudflareWorkerTag(worker, args.workerName),
@@ -747,47 +747,16 @@ export async function createCloudflareWorker(args: {
   workerName: string;
   transport: CloudflareApiTransport;
 }): Promise<CloudflareWorkerIdentity> {
-  return await ensureWorker({
-    token: args.token,
-    accountId: args.accountId,
-    workerName: args.workerName,
-    transport: args.transport,
-    existingWorker: {
-      state: "created",
-      workerTag: "",
-    },
-  });
-}
-
-async function ensureWorker(
-  args: {
-    token: string;
-    accountId: string;
-    workerName: string;
-    existingWorker: ExistingCloudflareWorkerIdentity;
-  } & CloudflareApiCallOptions,
-): Promise<CloudflareWorkerIdentity> {
   const existing = await readWorker({
     token: args.token,
     accountId: args.accountId,
     workerName: args.workerName,
     transport: args.transport,
-    recordApiCall: args.recordApiCall,
   });
   if (existing) {
-    const workerTag = readCloudflareWorkerTag(existing, args.workerName);
-    if (args.existingWorker.state === "created" && args.existingWorker.workerTag !== workerTag) {
-      throw new Error(
-        `Cloudflare Worker name ${args.workerName} already exists. Choose another Worker name and try again.`,
-      );
-    }
-    // The planned target owns the Worker name before provider writes. If the
-    // previous run created the Worker but failed before recording its tag, retry
-    // uses Cloudflare's identity as the missing checkpoint.
-    return {
-      workerName: args.workerName,
-      workerTag,
-    };
+    throw new Error(
+      `Cloudflare Worker name ${args.workerName} already exists. Choose another Worker name and try again.`,
+    );
   }
 
   const createdRaw = await requestCloudflareApi({
@@ -800,7 +769,6 @@ async function ensureWorker(
         account_id: args.accountId,
       },
     },
-    recordApiCall: args.recordApiCall,
     body: buildCloudflareWorkerCreateBody(args.workerName),
   });
   const created = requireCloudflareResult(
@@ -2298,6 +2266,68 @@ export async function readCloudflareWorkerStatus(
     raw: JSON.stringify({ worker: workerRecord, triggers }, null, 2),
     rowCount: 1,
   };
+}
+
+export async function readCloudflareWorkerBuildsPage(args: {
+  token: string;
+  transport: CloudflareApiTransport;
+  accountId: string;
+  workerTag: string;
+  page: number;
+  perPage: number;
+}): Promise<CloudflareWorkerBuild[]> {
+  const builds = await requestCloudflareApi({
+    token: args.token,
+    transport: args.transport,
+    method: "GET",
+    path: "/accounts/{account_id}/builds/workers/{external_script_id}/builds",
+    params: {
+      path: {
+        account_id: args.accountId,
+        external_script_id: args.workerTag,
+      },
+      query: {
+        page: args.page,
+        per_page: args.perPage,
+      },
+    },
+  });
+
+  return requireCloudflareResult(
+    builds,
+    `Cloudflare Workers Builds did not return builds for Worker ${args.workerTag}.`,
+  );
+}
+
+export async function readCloudflareWorkerVersionsPage(args: {
+  token: string;
+  transport: CloudflareApiTransport;
+  accountId: string;
+  workerName: string;
+  page: number;
+  perPage: number;
+}): Promise<CloudflareWorkerVersion[]> {
+  const versions = await requestCloudflareApi({
+    token: args.token,
+    transport: args.transport,
+    method: "GET",
+    path: "/accounts/{account_id}/workers/workers/{worker_id}/versions",
+    params: {
+      path: {
+        account_id: args.accountId,
+        worker_id: args.workerName,
+      },
+      query: {
+        page: args.page,
+        per_page: args.perPage,
+      },
+    },
+  });
+
+  return requireCloudflareResult(
+    versions,
+    `Cloudflare did not return versions for Worker ${args.workerName}.`,
+  );
 }
 
 type ReadCloudflareLogsArgs = {

@@ -2,16 +2,21 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Superseded
 - Owner: Noter dashboard/frontend + Convex infra
 - Last updated: 2026-05-12
 - Related specs:
-  - `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
+  - `archive/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
-  - `specs/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md`
+  - `archive/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md`
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
   - `rfcs/046_VAULT_MULTI_BRANCH_ROLLOUT_PLAN.md`
+
+The direct-link model in this RFC depended on the deleted `vaultDomains` and branch mirrors. The
+current dashboard resolves Worker builds and Convex previews live for GitHub pull request ids under
+`specs/116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`. Thumbnail ideas below remain historical research,
+not an active storage proposal.
 
 ## Summary
 
@@ -20,7 +25,7 @@ accepted direct-link implementation.
 
 The accepted implementation plan for direct branch preview links now lives in:
 
-- `specs/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md`
+- `archive/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md`
 
 This RFC remains useful for two related exploratory ideas:
 
@@ -155,7 +160,7 @@ Current refresh ownership changed after this RFC was written. The dashboard now 
 refresh demand to Convex, and backend policy chooses GitHub metadata and provider-link work.
 
 If this RFC resumes, integrate branch preview syncing behind the backend repository refresh policy
-in `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`.
+in `archive/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`.
 
 This keeps branch-sync work in one place instead of inventing a separate dashboard polling loop.
 

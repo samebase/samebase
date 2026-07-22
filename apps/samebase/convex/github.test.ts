@@ -1,33 +1,125 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  applyRepositoryTreeMetadataSyncBudget,
-  computeRepositoryRefreshPlan,
-  computeRepositoryTreeMetadataSyncPlan,
-  collectLatestOpenPullRequestsByBranch,
-  computeRepositoryTreeUpdatePlan,
   describeRepositoryTreeRefreshFailure,
   isRepositoryMediaPreviewTooLarge,
   listGitHubRepositoryPreview,
   listGitHubRepositories,
   normalizeGitHubRepositoryListItem,
+  readExactRepositoryBranch,
   readGitHubNextPageUrl,
-  readPullRequestLabels,
   resolveStagedRepositoryMediaAsset,
-  resolveAheadBehindBaseBranch,
-  shouldBypassRecentSuccessDebounceForBranchRefresh,
-  shouldRefreshBranchTree,
-  shouldRefreshRepositoryMetadata,
-  shouldSyncBranchHeadCommitCheckSnapshots,
 } from "./github";
 
-const repositoryMetadataSyncRequest = {
-  includeAheadBehind: false,
-  includePullRequestLinks: false,
-  includeBranchHeadCommitCheckSnapshots: false,
-  branchHeadCommitCheckBranchNames: [],
-  intent: "manual",
-} satisfies Parameters<typeof computeRepositoryTreeMetadataSyncPlan>[0];
+describe("readExactRepositoryBranch", () => {
+  it("reads the immutable tree named by the observed branch generation", async () => {
+    const requestedTreeShas: string[] = [];
+
+    await expect(
+      readExactRepositoryBranch({
+        getBranch: async () => ({
+          commitSha: "commit-2",
+          treeSha: "tree-2",
+        }),
+        getTree: async (treeSha) => {
+          requestedTreeShas.push(treeSha);
+          return {
+            sha: treeSha,
+            truncated: false,
+            tree: [],
+          };
+        },
+        confirmRepository: async () => undefined,
+      }),
+    ).resolves.toEqual({
+      kind: "ready",
+      commitSha: "commit-2",
+      treeData: {
+        sha: "tree-2",
+        truncated: false,
+        tree: [],
+      },
+    });
+    expect(requestedTreeShas).toEqual(["tree-2"]);
+  });
+
+  it("rejects an incomplete recursive tree instead of publishing it as ready", async () => {
+    await expect(
+      readExactRepositoryBranch({
+        getBranch: async () => ({
+          commitSha: "commit-2",
+          treeSha: "tree-2",
+        }),
+        getTree: async () => ({
+          sha: "tree-2",
+          truncated: true,
+          tree: [{ path: "partial.txt", mode: "100644", type: "blob", sha: "blob-1" }],
+        }),
+        confirmRepository: async () => undefined,
+      }),
+    ).resolves.toMatchObject({
+      kind: "failed",
+      error: expect.objectContaining({
+        message: "GitHub returned an incomplete recursive repository tree.",
+      }),
+    });
+  });
+
+  it("confirms the repository before reporting an absent branch", async () => {
+    let repositoryConfirmations = 0;
+
+    await expect(
+      readExactRepositoryBranch({
+        getBranch: async () => {
+          throw Object.assign(new Error("Not Found"), { status: 404 });
+        },
+        getTree: async () => {
+          throw new Error("Tree should not be read.");
+        },
+        confirmRepository: async () => {
+          repositoryConfirmations += 1;
+        },
+      }),
+    ).resolves.toEqual({ kind: "not_found" });
+    expect(repositoryConfirmations).toBe(1);
+  });
+
+  it("keeps repository access failure distinct from branch absence", async () => {
+    const repositoryError = Object.assign(new Error("Forbidden"), { status: 403 });
+
+    await expect(
+      readExactRepositoryBranch({
+        getBranch: async () => {
+          throw Object.assign(new Error("Not Found"), { status: 404 });
+        },
+        getTree: async () => {
+          throw new Error("Tree should not be read.");
+        },
+        confirmRepository: async () => {
+          throw repositoryError;
+        },
+      }),
+    ).resolves.toEqual({ kind: "unavailable", error: repositoryError });
+  });
+
+  it("keeps repository confirmation failures distinct from access loss", async () => {
+    const repositoryError = Object.assign(new Error("Provider failed"), { status: 500 });
+
+    await expect(
+      readExactRepositoryBranch({
+        getBranch: async () => {
+          throw Object.assign(new Error("Not Found"), { status: 404 });
+        },
+        getTree: async () => {
+          throw new Error("Tree should not be read.");
+        },
+        confirmRepository: async () => {
+          throw repositoryError;
+        },
+      }),
+    ).resolves.toEqual({ kind: "failed", error: repositoryError });
+  });
+});
 
 describe("normalizeGitHubRepositoryListItem", () => {
   it("drops extra fields from GitHub repository payloads", () => {
@@ -93,27 +185,6 @@ describe("readGitHubNextPageUrl", () => {
   });
 });
 
-describe("readPullRequestLabels", () => {
-  it("returns ordered unique label metadata from GitHub PR payloads", () => {
-    expect(
-      readPullRequestLabels([
-        { name: "bug", color: "d73a4a" },
-        { name: "needs review", color: "fbca04" },
-        { name: "bug", color: "000000" },
-      ]),
-    ).toEqual([
-      { name: "bug", color: "d73a4a" },
-      { name: "needs review", color: "fbca04" },
-    ]);
-  });
-
-  it("ignores malformed labels and supports string payloads", () => {
-    expect(readPullRequestLabels(["release", { name: "" }, { color: "ff0000" }, null, 42])).toEqual(
-      [{ name: "release", color: undefined }],
-    );
-  });
-});
-
 describe("isRepositoryMediaPreviewTooLarge", () => {
   it("allows missing sizes and blobs at the preview limit", () => {
     expect(isRepositoryMediaPreviewTooLarge(undefined)).toBe(false);
@@ -123,38 +194,6 @@ describe("isRepositoryMediaPreviewTooLarge", () => {
 
   it("rejects blobs above the preview limit", () => {
     expect(isRepositoryMediaPreviewTooLarge(1_000_001)).toBe(true);
-  });
-});
-
-describe("shouldSyncBranchHeadCommitCheckSnapshots", () => {
-  it("requires check-snapshot enrichment and selected branch heads", () => {
-    expect(
-      shouldSyncBranchHeadCommitCheckSnapshots({
-        includeBranchHeadCommitCheckSnapshots: true,
-        branches: [
-          { name: "main", headCommitSha: "abc123" },
-          { name: "feature/login", headCommitSha: "def456" },
-        ],
-      }),
-    ).toBe(true);
-  });
-
-  it("skips check snapshots when enrichment is not requested", () => {
-    expect(
-      shouldSyncBranchHeadCommitCheckSnapshots({
-        includeBranchHeadCommitCheckSnapshots: false,
-        branches: [{ name: "main", headCommitSha: "abc123" }],
-      }),
-    ).toBe(false);
-  });
-
-  it("skips check snapshots when no branches were targeted for hydration", () => {
-    expect(
-      shouldSyncBranchHeadCommitCheckSnapshots({
-        includeBranchHeadCommitCheckSnapshots: true,
-        branches: [],
-      }),
-    ).toBe(false);
   });
 });
 
@@ -257,55 +296,6 @@ describe("describeRepositoryTreeRefreshFailure", () => {
       message: "GitHub sync failed. Showing cached state.",
       cooldownUntil: now + 60_000,
     });
-  });
-});
-
-describe("shouldBypassRecentSuccessDebounceForBranchRefresh", () => {
-  it("bypasses debounce when branch metadata is stale", () => {
-    expect(
-      shouldBypassRecentSuccessDebounceForBranchRefresh({
-        requestedBranch: "feature",
-        defaultBranch: "main",
-        branchNotFound: false,
-        hasResolvedBranchTree: false,
-      }),
-    ).toBe(true);
-  });
-
-  it("only bypasses missing-branch refreshes when the missing branch was not confirmed recently", () => {
-    const now = Date.parse("2026-03-26T18:00:00Z");
-
-    expect(
-      shouldBypassRecentSuccessDebounceForBranchRefresh({
-        requestedBranch: "feature",
-        defaultBranch: "main",
-        branchNotFound: true,
-        hasResolvedBranchTree: true,
-        now,
-        lastRepositoryMetadataRefreshAt: now - 31_000,
-      }),
-    ).toBe(true);
-    expect(
-      shouldBypassRecentSuccessDebounceForBranchRefresh({
-        requestedBranch: "feature",
-        defaultBranch: "main",
-        branchNotFound: true,
-        hasResolvedBranchTree: true,
-        now,
-        lastRepositoryMetadataRefreshAt: now - 5_000,
-      }),
-    ).toBe(false);
-  });
-
-  it("keeps default-branch refreshes on the repo debounce path", () => {
-    expect(
-      shouldBypassRecentSuccessDebounceForBranchRefresh({
-        requestedBranch: "main",
-        defaultBranch: "main",
-        branchNotFound: false,
-        hasResolvedBranchTree: false,
-      }),
-    ).toBe(false);
   });
 });
 
@@ -414,450 +404,6 @@ describe("resolveStagedRepositoryMediaAsset", () => {
       found: false,
       reason: "missing",
     });
-  });
-});
-describe("shouldRefreshRepositoryMetadata", () => {
-  const now = Date.parse("2026-03-27T12:00:00Z");
-
-  it("refreshes metadata on manual intent", () => {
-    expect(
-      shouldRefreshRepositoryMetadata({
-        intent: "manual",
-        branchNotFound: false,
-        includeBranchHeadCommitCheckSnapshots: false,
-        now,
-      }),
-    ).toBe(true);
-  });
-
-  it("keeps branch file views on the tree-only path while repo metadata is fresh", () => {
-    expect(
-      shouldRefreshRepositoryMetadata({
-        intent: "passive",
-        requestedBranch: "feature/login",
-        branchNotFound: false,
-        includeBranchHeadCommitCheckSnapshots: false,
-        lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
-        now,
-      }),
-    ).toBe(false);
-  });
-
-  it("keeps passive repository metadata stale-gated", () => {
-    expect(
-      shouldRefreshRepositoryMetadata({
-        intent: "passive",
-        branchNotFound: false,
-        includeBranchHeadCommitCheckSnapshots: false,
-        lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
-        now,
-      }),
-    ).toBe(false);
-  });
-
-  it("keeps passive check snapshots on the repository metadata stale gate", () => {
-    expect(
-      shouldRefreshRepositoryMetadata({
-        intent: "passive",
-        branchNotFound: false,
-        includeBranchHeadCommitCheckSnapshots: true,
-        lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
-        now,
-      }),
-    ).toBe(false);
-  });
-
-  it("refreshes repo-scoped source setup even when cached metadata is fresh", () => {
-    expect(
-      shouldRefreshRepositoryMetadata({
-        intent: "source_setup",
-        branchNotFound: false,
-        includeBranchHeadCommitCheckSnapshots: true,
-        lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
-        now,
-      }),
-    ).toBe(true);
-  });
-
-  it("refreshes stale repo metadata from branch-scoped views", () => {
-    expect(
-      shouldRefreshRepositoryMetadata({
-        intent: "passive",
-        requestedBranch: "feature/login",
-        branchNotFound: false,
-        includeBranchHeadCommitCheckSnapshots: false,
-        lastRepositoryMetadataRefreshAt: now - 11 * 60 * 1000,
-        now,
-      }),
-    ).toBe(true);
-  });
-
-  it("refreshes stale dashboard metadata on passive activation", () => {
-    expect(
-      shouldRefreshRepositoryMetadata({
-        intent: "passive",
-        branchNotFound: false,
-        includeBranchHeadCommitCheckSnapshots: false,
-        lastRepositoryMetadataRefreshAt: now - 11 * 60 * 1000,
-        now,
-      }),
-    ).toBe(true);
-  });
-
-  it("rechecks missing branches only after the missing-branch debounce expires", () => {
-    expect(
-      shouldRefreshRepositoryMetadata({
-        intent: "passive",
-        requestedBranch: "feature/login",
-        branchNotFound: true,
-        includeBranchHeadCommitCheckSnapshots: false,
-        lastRepositoryMetadataRefreshAt: now - 31_000,
-        now,
-      }),
-    ).toBe(true);
-    expect(
-      shouldRefreshRepositoryMetadata({
-        intent: "passive",
-        requestedBranch: "feature/login",
-        branchNotFound: true,
-        includeBranchHeadCommitCheckSnapshots: false,
-        lastRepositoryMetadataRefreshAt: now - 5_000,
-        now,
-      }),
-    ).toBe(false);
-  });
-});
-
-describe("computeRepositoryRefreshPlan", () => {
-  const now = Date.parse("2026-03-27T12:00:00Z");
-
-  it("re-enables branch tree refresh after metadata sync resolves a missing branch", () => {
-    expect(
-      computeRepositoryRefreshPlan({
-        intent: "passive",
-        requestedBranch: "feature/login",
-        branchNotFound: true,
-        includeBranchHeadCommitCheckSnapshots: false,
-        lastRepositoryMetadataRefreshAt: now - 11 * 60 * 1000,
-        now,
-      }),
-    ).toEqual({
-      shouldSyncMetadata: true,
-      shouldRefreshTreeData: false,
-    });
-
-    expect(
-      computeRepositoryRefreshPlan({
-        intent: "passive",
-        requestedBranch: "feature/login",
-        branchNotFound: false,
-        includeBranchHeadCommitCheckSnapshots: false,
-        lastRepositoryMetadataRefreshAt: now,
-        now,
-      }),
-    ).toEqual({
-      shouldSyncMetadata: false,
-      shouldRefreshTreeData: true,
-    });
-  });
-});
-
-describe("computeRepositoryTreeMetadataSyncPlan", () => {
-  it("skips repo metadata sync for branch-only refreshes by default", () => {
-    expect(
-      computeRepositoryTreeMetadataSyncPlan({
-        ...repositoryMetadataSyncRequest,
-        targetBranch: "feature/login",
-      }),
-    ).toEqual({
-      shouldSyncMetadata: false,
-      includeAheadBehind: false,
-      includePullRequestLinks: false,
-      includeBranchHeadCommitCheckSnapshots: false,
-      includeLastCommitTimestamps: false,
-    });
-  });
-
-  it("keeps repo metadata sync for repo-scoped refreshes", () => {
-    expect(computeRepositoryTreeMetadataSyncPlan(repositoryMetadataSyncRequest)).toEqual({
-      shouldSyncMetadata: true,
-      includeAheadBehind: false,
-      includePullRequestLinks: false,
-      includeBranchHeadCommitCheckSnapshots: false,
-      includeLastCommitTimestamps: true,
-    });
-  });
-
-  it("treats branch-head check enrichment as an explicit metadata sync request", () => {
-    expect(
-      computeRepositoryTreeMetadataSyncPlan({
-        ...repositoryMetadataSyncRequest,
-        targetBranch: "feature/login",
-        includeBranchHeadCommitCheckSnapshots: true,
-      }),
-    ).toEqual({
-      shouldSyncMetadata: true,
-      includeAheadBehind: false,
-      includePullRequestLinks: false,
-      includeBranchHeadCommitCheckSnapshots: true,
-      includeLastCommitTimestamps: true,
-    });
-  });
-
-  it("keeps automatic large-repo refreshes on the cheap ahead/behind path without dropping branch ordering metadata", () => {
-    expect(
-      computeRepositoryTreeMetadataSyncPlan({
-        ...repositoryMetadataSyncRequest,
-        intent: "passive",
-        remoteBranchCount: 75,
-      }),
-    ).toEqual({
-      shouldSyncMetadata: true,
-      includeAheadBehind: false,
-      includePullRequestLinks: false,
-      includeBranchHeadCommitCheckSnapshots: false,
-      includeLastCommitTimestamps: true,
-    });
-  });
-
-  it("treats the 40-branch boundary as still eligible for full enrichment", () => {
-    expect(
-      computeRepositoryTreeMetadataSyncPlan({
-        ...repositoryMetadataSyncRequest,
-        includeAheadBehind: true,
-        includePullRequestLinks: true,
-        includeBranchHeadCommitCheckSnapshots: true,
-        intent: "passive",
-        remoteBranchCount: 40,
-      }),
-    ).toEqual({
-      shouldSyncMetadata: true,
-      includeAheadBehind: true,
-      includePullRequestLinks: true,
-      includeBranchHeadCommitCheckSnapshots: true,
-      includeLastCommitTimestamps: true,
-    });
-  });
-
-  it("keeps manual refreshes fully enriched even for large repos", () => {
-    expect(
-      computeRepositoryTreeMetadataSyncPlan({
-        ...repositoryMetadataSyncRequest,
-        includeAheadBehind: true,
-        includePullRequestLinks: true,
-        intent: "manual",
-        remoteBranchCount: 75,
-      }),
-    ).toEqual({
-      shouldSyncMetadata: true,
-      includeAheadBehind: true,
-      includePullRequestLinks: true,
-      includeBranchHeadCommitCheckSnapshots: false,
-      includeLastCommitTimestamps: true,
-    });
-  });
-
-  it("keeps source-setup check snapshots for large repos", () => {
-    expect(
-      computeRepositoryTreeMetadataSyncPlan({
-        ...repositoryMetadataSyncRequest,
-        includeAheadBehind: true,
-        includePullRequestLinks: true,
-        includeBranchHeadCommitCheckSnapshots: true,
-        intent: "source_setup",
-        remoteBranchCount: 75,
-      }),
-    ).toEqual({
-      shouldSyncMetadata: true,
-      includeAheadBehind: true,
-      includePullRequestLinks: true,
-      includeBranchHeadCommitCheckSnapshots: true,
-      includeLastCommitTimestamps: true,
-    });
-  });
-
-  it("skips broad check snapshots during automatic large-repo refreshes while preserving commit timestamps", () => {
-    expect(
-      computeRepositoryTreeMetadataSyncPlan({
-        ...repositoryMetadataSyncRequest,
-        targetBranch: "feature/login",
-        includeBranchHeadCommitCheckSnapshots: true,
-        intent: "passive",
-        remoteBranchCount: 75,
-      }),
-    ).toEqual({
-      shouldSyncMetadata: true,
-      includeAheadBehind: false,
-      includePullRequestLinks: false,
-      includeBranchHeadCommitCheckSnapshots: false,
-      includeLastCommitTimestamps: true,
-    });
-  });
-
-  it("keeps targeted check snapshots during automatic large-repo refreshes", () => {
-    expect(
-      computeRepositoryTreeMetadataSyncPlan({
-        ...repositoryMetadataSyncRequest,
-        targetBranch: "feature/login",
-        includeBranchHeadCommitCheckSnapshots: true,
-        branchHeadCommitCheckBranchNames: ["feature/login"],
-        intent: "passive",
-        remoteBranchCount: 75,
-      }),
-    ).toEqual({
-      shouldSyncMetadata: true,
-      includeAheadBehind: false,
-      includePullRequestLinks: false,
-      includeBranchHeadCommitCheckSnapshots: true,
-      includeLastCommitTimestamps: true,
-    });
-  });
-});
-
-describe("applyRepositoryTreeMetadataSyncBudget", () => {
-  it("caps the first automatic large-repo refresh once branch discovery knows the real size without dropping commit timestamps", () => {
-    expect(
-      applyRepositoryTreeMetadataSyncBudget({
-        shouldSyncMetadata: true,
-        includeAheadBehind: true,
-        includePullRequestLinks: true,
-        includeBranchHeadCommitCheckSnapshots: true,
-        branchHeadCommitCheckBranchNames: [],
-        includeLastCommitTimestamps: true,
-        intent: "passive",
-        remoteBranchCount: 75,
-      }),
-    ).toEqual({
-      shouldSyncMetadata: true,
-      includeAheadBehind: false,
-      includePullRequestLinks: true,
-      includeBranchHeadCommitCheckSnapshots: false,
-      includeLastCommitTimestamps: true,
-    });
-  });
-
-  it("treats the 40-branch boundary as below the automatic budget cap", () => {
-    expect(
-      applyRepositoryTreeMetadataSyncBudget({
-        shouldSyncMetadata: true,
-        includeAheadBehind: true,
-        includePullRequestLinks: true,
-        includeBranchHeadCommitCheckSnapshots: true,
-        branchHeadCommitCheckBranchNames: [],
-        includeLastCommitTimestamps: true,
-        intent: "passive",
-        remoteBranchCount: 40,
-      }),
-    ).toEqual({
-      shouldSyncMetadata: true,
-      includeAheadBehind: true,
-      includePullRequestLinks: true,
-      includeBranchHeadCommitCheckSnapshots: true,
-      includeLastCommitTimestamps: true,
-    });
-  });
-
-  it("keeps manual large-repo refreshes fully enriched", () => {
-    expect(
-      applyRepositoryTreeMetadataSyncBudget({
-        shouldSyncMetadata: true,
-        includeAheadBehind: true,
-        includePullRequestLinks: true,
-        includeBranchHeadCommitCheckSnapshots: true,
-        branchHeadCommitCheckBranchNames: [],
-        includeLastCommitTimestamps: true,
-        intent: "manual",
-        remoteBranchCount: 75,
-      }),
-    ).toEqual({
-      shouldSyncMetadata: true,
-      includeAheadBehind: true,
-      includePullRequestLinks: true,
-      includeBranchHeadCommitCheckSnapshots: true,
-      includeLastCommitTimestamps: true,
-    });
-  });
-
-  it("keeps source-setup large-repo refreshes fully enriched", () => {
-    expect(
-      applyRepositoryTreeMetadataSyncBudget({
-        shouldSyncMetadata: true,
-        includeAheadBehind: true,
-        includePullRequestLinks: true,
-        includeBranchHeadCommitCheckSnapshots: true,
-        branchHeadCommitCheckBranchNames: [],
-        includeLastCommitTimestamps: true,
-        intent: "source_setup",
-        remoteBranchCount: 75,
-      }),
-    ).toEqual({
-      shouldSyncMetadata: true,
-      includeAheadBehind: true,
-      includePullRequestLinks: true,
-      includeBranchHeadCommitCheckSnapshots: true,
-      includeLastCommitTimestamps: true,
-    });
-  });
-
-  it("keeps targeted check snapshots enabled during automatic large-repo refreshes", () => {
-    expect(
-      applyRepositoryTreeMetadataSyncBudget({
-        shouldSyncMetadata: true,
-        includeAheadBehind: true,
-        includePullRequestLinks: true,
-        includeBranchHeadCommitCheckSnapshots: true,
-        branchHeadCommitCheckBranchNames: ["feature/login"],
-        includeLastCommitTimestamps: true,
-        intent: "passive",
-        remoteBranchCount: 75,
-      }),
-    ).toEqual({
-      shouldSyncMetadata: true,
-      includeAheadBehind: false,
-      includePullRequestLinks: true,
-      includeBranchHeadCommitCheckSnapshots: true,
-      includeLastCommitTimestamps: true,
-    });
-  });
-});
-
-describe("shouldRefreshBranchTree", () => {
-  it("refreshes branch views on passive activation", () => {
-    expect(
-      shouldRefreshBranchTree({
-        intent: "passive",
-        requestedBranch: "feature/login",
-        branchNotFound: false,
-      }),
-    ).toBe(true);
-  });
-
-  it("skips default-branch dashboard refreshes on passive activation", () => {
-    expect(
-      shouldRefreshBranchTree({
-        intent: "passive",
-        branchNotFound: false,
-      }),
-    ).toBe(false);
-  });
-
-  it("refreshes the default branch tree after source setup", () => {
-    expect(
-      shouldRefreshBranchTree({
-        intent: "source_setup",
-        branchNotFound: false,
-      }),
-    ).toBe(true);
-  });
-
-  it("skips tree refresh entirely while the requested branch is still missing", () => {
-    expect(
-      shouldRefreshBranchTree({
-        intent: "manual",
-        requestedBranch: "feature/login",
-        branchNotFound: true,
-      }),
-    ).toBe(false);
   });
 });
 describe("listGitHubRepositories", () => {
@@ -1132,256 +678,5 @@ describe("listGitHubRepositoryPreview", () => {
       ],
       hasMore: false,
     });
-  });
-});
-
-describe("computeRepositoryTreeUpdatePlan", () => {
-  it("updates only branch cache for non-default branches", () => {
-    const plan = computeRepositoryTreeUpdatePlan({
-      resolvedBranch: "feature/multi-branch",
-      fetchedTreeSHA: "tree-feature",
-      fetchedCommitSHA: "commit-feature",
-      cachedBranchTree: null,
-    });
-
-    expect(plan).toEqual({
-      shouldUpdateBranchTree: true,
-    });
-  });
-
-  it("updates branch cache when the cached tree changed", () => {
-    const plan = computeRepositoryTreeUpdatePlan({
-      resolvedBranch: "main",
-      fetchedTreeSHA: "tree-main-new",
-      fetchedCommitSHA: "commit-main-new",
-      cachedBranchTree: {
-        treeSHA: "tree-main-old",
-        commitSHA: "commit-main-old",
-      },
-    });
-
-    expect(plan).toEqual({
-      shouldUpdateBranchTree: true,
-    });
-  });
-
-  it("keeps branch cache untouched when tree and commit match", () => {
-    const plan = computeRepositoryTreeUpdatePlan({
-      resolvedBranch: "main",
-      fetchedTreeSHA: "tree-main",
-      fetchedCommitSHA: "commit-main",
-      cachedBranchTree: {
-        treeSHA: "tree-main",
-        commitSHA: "commit-main",
-      },
-    });
-
-    expect(plan).toEqual({
-      shouldUpdateBranchTree: false,
-    });
-  });
-});
-
-describe("collectLatestOpenPullRequestsByBranch", () => {
-  it("keeps the latest same-repo pull request and preserves its title", () => {
-    const pullRequestsByBranch = collectLatestOpenPullRequestsByBranch({
-      branchNames: ["feature/pr-title"],
-      repositoryFullName: "owner/noter",
-      pullRequests: [
-        {
-          head: {
-            ref: "feature/pr-title",
-            repo: {
-              full_name: "owner/noter",
-            },
-          },
-          html_url: "https://github.com/owner/noter/pull/11",
-          number: 11,
-          title: "Older title",
-          updated_at: "2026-03-20T10:00:00Z",
-        },
-        {
-          head: {
-            ref: "feature/pr-title",
-            repo: {
-              full_name: "fork/noter",
-            },
-          },
-          html_url: "https://github.com/owner/noter/pull/12",
-          number: 12,
-          title: "Fork PR should be ignored",
-          updated_at: "2026-03-21T10:00:00Z",
-        },
-        {
-          head: {
-            ref: "feature/pr-title",
-            repo: {
-              full_name: "owner/noter",
-            },
-          },
-          html_url: "https://github.com/owner/noter/pull/13",
-          number: 13,
-          title: "Show PR title above branch name",
-          updated_at: "2026-03-22T10:00:00Z",
-        },
-      ],
-    });
-
-    expect(pullRequestsByBranch.get("feature/pr-title")).toEqual({
-      url: "https://github.com/owner/noter/pull/13",
-      number: 13,
-      labels: [],
-      title: "Show PR title above branch name",
-      isDraft: false,
-    });
-  });
-
-  it("falls back to created_at when updated_at is missing", () => {
-    const pullRequestsByBranch = collectLatestOpenPullRequestsByBranch({
-      branchNames: ["feature/pr-title"],
-      repositoryFullName: "owner/noter",
-      pullRequests: [
-        {
-          head: {
-            ref: "feature/pr-title",
-            repo: {
-              full_name: "owner/noter",
-            },
-          },
-          html_url: "https://github.com/owner/noter/pull/21",
-          number: 21,
-          title: "Earlier PR",
-          created_at: "2026-03-20T10:00:00Z",
-        },
-        {
-          head: {
-            ref: "feature/pr-title",
-            repo: {
-              full_name: "owner/noter",
-            },
-          },
-          html_url: "https://github.com/owner/noter/pull/22",
-          number: 22,
-          title: "Later PR",
-          created_at: "2026-03-21T10:00:00Z",
-        },
-      ],
-    });
-
-    expect(pullRequestsByBranch.get("feature/pr-title")).toEqual({
-      url: "https://github.com/owner/noter/pull/22",
-      number: 22,
-      labels: [],
-      title: "Later PR",
-      isDraft: false,
-    });
-  });
-
-  it("keeps the latest same-repo pull request even when it targets a non-default base branch", () => {
-    const pullRequestsByBranch = collectLatestOpenPullRequestsByBranch({
-      branchNames: ["feature/pr-title"],
-      repositoryFullName: "owner/noter",
-      pullRequests: [
-        {
-          head: {
-            ref: "feature/pr-title",
-            repo: {
-              full_name: "owner/noter",
-            },
-          },
-          base: {
-            ref: "release/1.2",
-          },
-          html_url: "https://github.com/owner/noter/pull/21",
-          number: 21,
-          title: "Release PR",
-          updated_at: "2026-03-23T10:00:00Z",
-          labels: [{ name: "release", color: "1d76db" }],
-        },
-        {
-          head: {
-            ref: "feature/pr-title",
-            repo: {
-              full_name: "owner/noter",
-            },
-          },
-          base: {
-            ref: "main",
-          },
-          html_url: "https://github.com/owner/noter/pull/22",
-          number: 22,
-          title: "Default branch PR",
-          updated_at: "2026-03-22T10:00:00Z",
-          labels: [{ name: "needs review", color: "fbca04" }],
-        },
-      ],
-    });
-
-    expect(pullRequestsByBranch.get("feature/pr-title")).toEqual({
-      url: "https://github.com/owner/noter/pull/21",
-      number: 21,
-      labels: [{ name: "release", color: "1d76db" }],
-      title: "Release PR",
-      isDraft: false,
-    });
-  });
-
-  it("preserves draft state for the latest same-repo pull request", () => {
-    const pullRequestsByBranch = collectLatestOpenPullRequestsByBranch({
-      branchNames: ["feature/pr-title"],
-      repositoryFullName: "owner/noter",
-      pullRequests: [
-        {
-          head: {
-            ref: "feature/pr-title",
-            repo: {
-              full_name: "owner/noter",
-            },
-          },
-          html_url: "https://github.com/owner/noter/pull/21",
-          number: 21,
-          title: "Draft PR",
-          updated_at: "2026-03-23T10:00:00Z",
-          draft: true,
-        },
-      ],
-    });
-
-    expect(pullRequestsByBranch.get("feature/pr-title")).toEqual({
-      url: "https://github.com/owner/noter/pull/21",
-      number: 21,
-      labels: [],
-      title: "Draft PR",
-      isDraft: true,
-    });
-  });
-});
-
-describe("resolveAheadBehindBaseBranch", () => {
-  it("uses repository default branch when it exists among remote branches", () => {
-    expect(
-      resolveAheadBehindBaseBranch({
-        branchNames: ["feature/a", "main", "feature/b"],
-        defaultBranch: "main",
-      }),
-    ).toBe("main");
-  });
-
-  it("returns undefined when default branch does not exist", () => {
-    expect(
-      resolveAheadBehindBaseBranch({
-        branchNames: ["master", "feature/a"],
-        defaultBranch: "trunk",
-      }),
-    ).toBeUndefined();
-  });
-
-  it("supports non-main default branches", () => {
-    expect(
-      resolveAheadBehindBaseBranch({
-        branchNames: ["feature/a", "trunk", "feature/b"],
-        defaultBranch: "trunk",
-      }),
-    ).toBe("trunk");
   });
 });

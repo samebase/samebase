@@ -10,33 +10,29 @@ type VaultDashboardVault = NonNullable<
   (typeof api.vault.dashboard.getUserVaults)["_returnType"]
 >[number];
 
-export type VaultBranchProductionLinkProvider = "cloudflare" | "convex";
+export type VaultProductionLinkProvider = "cloudflare" | "convex";
 
-export type VaultBranchProductionLink = {
+type VaultProductionLink = {
   href: string;
   label: string;
-  provider: VaultBranchProductionLinkProvider;
+  provider: VaultProductionLinkProvider;
   title: string;
 };
 
-export type VaultBranchProductionRoot = {
+export type VaultProductionRoot = {
   rootDirectory: string;
-  links: readonly VaultBranchProductionLink[];
+  links: readonly VaultProductionLink[];
 };
 
-type VaultBranchProductionLinkInput = {
+type VaultProductionLinkInput = VaultProductionLink & {
   rootDirectory: string;
-  href: string;
-  label: string;
-  provider: VaultBranchProductionLinkProvider;
   sortKey: string;
-  title: string;
 };
 
-function buildVaultBranchProductionRoots(
-  links: VaultBranchProductionLinkInput[],
-): VaultBranchProductionRoot[] {
-  const linksByRoot = new Map<string, VaultBranchProductionLinkInput[]>();
+function groupVaultProductionLinks(
+  links: readonly VaultProductionLinkInput[],
+): VaultProductionRoot[] {
+  const linksByRoot = new Map<string, VaultProductionLinkInput[]>();
 
   for (const link of links) {
     linksByRoot.set(link.rootDirectory, [...(linksByRoot.get(link.rootDirectory) ?? []), link]);
@@ -55,27 +51,20 @@ function buildVaultBranchProductionRoots(
       }
       return leftRoot.localeCompare(rightRoot);
     })
-    .map(([rootDirectory, rootLinks]) => {
-      return {
-        rootDirectory,
-        links: [...rootLinks]
-          .sort(
-            (left, right) =>
-              left.provider.localeCompare(right.provider) ||
-              left.sortKey.localeCompare(right.sortKey) ||
-              left.href.localeCompare(right.href),
-          )
-          .map((link) => ({
-            href: link.href,
-            label: link.label,
-            provider: link.provider,
-            title: link.title,
-          })),
-      };
-    });
+    .map(([rootDirectory, rootLinks]) => ({
+      rootDirectory,
+      links: [...rootLinks]
+        .sort(
+          (left, right) =>
+            left.provider.localeCompare(right.provider) ||
+            left.sortKey.localeCompare(right.sortKey) ||
+            left.href.localeCompare(right.href),
+        )
+        .map(({ href, label, provider, title }) => ({ href, label, provider, title })),
+    }));
 }
 
-function buildVaultBranchProductionUrlLabel(url: string): string {
+function buildProductionUrlLabel(url: string): string {
   try {
     return new URL(url).host;
   } catch {
@@ -90,6 +79,12 @@ function buildConvexDeploymentDashboardUrl(
   return `https://dashboard.convex.dev/t/${encodeURIComponent(project.teamSlug)}/${encodeURIComponent(project.projectSlug)}/${encodeURIComponent(deploymentName)}`;
 }
 
+/**
+ * Joins durable provider attachments with current provider observations for the
+ * production-resource group on the default-branch surface. This derives
+ * presentation data only; it does not persist provider facts or create a
+ * branch/resource model.
+ */
 export function buildVaultProductionRoots({
   cloudflareObservations,
   convexObservations,
@@ -98,32 +93,33 @@ export function buildVaultProductionRoots({
   cloudflareObservations: VaultCloudflareProviderObservationState;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
   vault: VaultDashboardVault;
-}): VaultBranchProductionRoot[] {
+}): VaultProductionRoot[] {
   const workerObservations = cloudflareObservations.workers;
   const buildsObservations = cloudflareObservations.builds;
-  const cloudflareLinks: VaultBranchProductionLinkInput[] =
+  const cloudflareLinks: VaultProductionLinkInput[] =
     workerObservations.state === "loaded" && buildsObservations.state === "loaded"
       ? vault.cloudflareWorkers.flatMap((worker) => {
-          const observation = workerObservations.observations.find(
+          const workerObservation = workerObservations.observations.find(
             (candidate) => candidate.workerId === worker.workerId,
           );
           const buildsObservation = buildsObservations.observations.find(
             (candidate) => candidate.workerId === worker.workerId,
           );
           if (
-            observation?.state !== "available" ||
-            observation.workersDev.state !== "enabled" ||
+            workerObservation?.state !== "available" ||
+            workerObservation.workersDev.state !== "enabled" ||
             buildsObservation?.state !== "available" ||
             buildsObservation.repository.state !== "ready"
           ) {
             return [];
           }
+
           const rootDirectory = buildsObservation.repository.rootDirectory;
           return [
             {
               rootDirectory,
-              href: observation.workersDev.url,
-              label: buildVaultBranchProductionUrlLabel(observation.workersDev.url),
+              href: workerObservation.workersDev.url,
+              label: buildProductionUrlLabel(workerObservation.workersDev.url),
               provider: "cloudflare" as const,
               sortKey: worker.workerName,
               title:
@@ -134,7 +130,7 @@ export function buildVaultProductionRoots({
           ];
         })
       : [];
-  const convexLinks: VaultBranchProductionLinkInput[] =
+  const convexLinks: VaultProductionLinkInput[] =
     convexObservations.state === "loaded"
       ? vault.convexProjects.flatMap((project) => {
           const observation = convexObservations.observations.find(
@@ -148,12 +144,13 @@ export function buildVaultProductionRoots({
           ) {
             return [];
           }
+
           const deployment = provider.productionDeployment;
           return [
             {
               rootDirectory: getConvexConfigRootDirectory(project.convexConfigPath),
               href: buildConvexDeploymentDashboardUrl(provider, deployment.deploymentName),
-              label: `Production: ${deployment.deploymentName}`,
+              label: deployment.deploymentName,
               provider: "convex" as const,
               sortKey: deployment.deploymentName,
               title: `Open production Convex deployment ${deployment.deploymentName}`,
@@ -162,5 +159,5 @@ export function buildVaultProductionRoots({
         })
       : [];
 
-  return buildVaultBranchProductionRoots([...cloudflareLinks, ...convexLinks]);
+  return groupVaultProductionLinks([...cloudflareLinks, ...convexLinks]);
 }

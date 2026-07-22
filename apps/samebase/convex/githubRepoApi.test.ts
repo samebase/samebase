@@ -22,13 +22,13 @@ vi.mock("@octokit/rest", () => ({
   },
 }));
 
-import { fetchGitHubConvexConfigDiscovery } from "./githubRepoApi";
+import { fetchGitHubConvexConfigDiscovery, fetchGitHubRepoIdentity } from "./githubRepoApi";
 
 function encodeBlob(value: string): string {
   return Buffer.from(value, "utf-8").toString("base64");
 }
 
-describe("GitHub Convex config discovery", () => {
+describe("GitHub repository API", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     octokitMocks.getRepository.mockResolvedValue({
@@ -36,6 +36,25 @@ describe("GitHub Convex config discovery", () => {
     });
     octokitMocks.getRef.mockResolvedValue({ data: { object: { sha: "commit-sha" } } });
     octokitMocks.getCommit.mockResolvedValue({ data: { tree: { sha: "tree-sha" } } });
+  });
+
+  it("passes the caller's abort deadline to the repository identity request", async () => {
+    const signal = new AbortController().signal;
+
+    await expect(
+      fetchGitHubRepoIdentity({
+        githubAccessToken: "github-token",
+        owner: "samebase",
+        repo: "samebase",
+        expectedRepoId: "123",
+        signal,
+      }),
+    ).resolves.toEqual({ ownerId: "456", defaultBranch: "trunk" });
+    expect(octokitMocks.getRepository).toHaveBeenCalledWith({
+      owner: "samebase",
+      repo: "samebase",
+      request: { signal },
+    });
   });
 
   it("reads exact regular convex.json blobs from the current default branch", async () => {

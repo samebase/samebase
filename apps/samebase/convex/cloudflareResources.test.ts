@@ -23,6 +23,7 @@ import {
   readCloudflareWorkerIdentity,
   readCloudflareWorkerRepositoryDiscoveryForIdentity,
   readCloudflareWorkerTag,
+  readCloudflareWorkerVersionsPage,
   selectCurrentBuildTokenUuid,
   selectReusableBuildTokenUuid,
   rotateConvexDeployKeysForCloudflareWorkerBuilds,
@@ -75,6 +76,7 @@ const cloudflareWorkerReadEnvelope = JSON.stringify({
     },
     subdomain: {
       enabled: false,
+      previews_enabled: true,
     },
     tags: [],
     tail_consumers: [],
@@ -438,11 +440,55 @@ describe("cloudflare resources", () => {
         workerName: "samebase-app",
       }),
     ).resolves.toEqual({
+      previewUrlsEnabled: true,
       workersDevEnabled: false,
       workerName: "samebase-app",
       workerTag: "worker-tag",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads exact preview URLs from Worker versions with Cloudflare's nullable envelope", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              success: true,
+              errors: null,
+              messages: null,
+              result: [
+                {
+                  created_on: "2026-07-20T10:00:30.000Z",
+                  id: "version-1",
+                  number: 17,
+                  urls: ["https://a1b2c3d4-samebase.samebase.workers.dev"],
+                },
+              ],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+      ),
+    );
+
+    await expect(
+      readCloudflareWorkerVersionsPage({
+        token: "oauth-token",
+        transport: "direct",
+        accountId: "account-id",
+        workerName: "samebase",
+        page: 1,
+        perPage: 100,
+      }),
+    ).resolves.toEqual([
+      {
+        created_on: "2026-07-20T10:00:30.000Z",
+        id: "version-1",
+        number: 17,
+        urls: ["https://a1b2c3d4-samebase.samebase.workers.dev"],
+      },
+    ]);
   });
 
   it("deletes a Worker by its immutable tag", async () => {

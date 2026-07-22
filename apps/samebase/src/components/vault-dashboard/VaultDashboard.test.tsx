@@ -11,14 +11,14 @@ import {
   VaultDashboardDeleteDialog,
   VaultDashboardVaultPickerPane,
   VaultDashboardView,
-  VaultBranchLinkContent,
   VaultProviderSetupSection,
 } from "./VaultDashboard";
 import { validateRootRouteSearch } from "@/routeSearch/root";
 import { VaultDashboardCloudflareAccountDialog } from "./VaultDashboardCloudflareAccountDialog";
 import { VaultDashboardRepositoryCard } from "./VaultDashboardChrome";
-import { buildVaultBranchRowViewModel } from "./vaultDashboardBranchRowViewModel";
+import { VaultDefaultBranch } from "./VaultDefaultBranch";
 import { buildVaultDashboardResourceRailState } from "./vaultResourceRailState";
+import { buildVaultProductionRoots } from "./vaultProductionRoots";
 import type {
   VaultCloudflareProviderObservationState,
   VaultCloudflareWorkerBuildsObservation,
@@ -29,7 +29,6 @@ import {
   resolveVaultProviderSetupStatus,
   resolveVaultProviderSetupStepProvider,
 } from "./vaultProviderSetup";
-import { buildVaultProductionRoots } from "./vaultProductionRoots";
 import { formatVaultSourceSetupStep } from "./vaultSourceSetup";
 
 vi.mock("convex/react", async (importOriginal) => {
@@ -213,8 +212,8 @@ function makeResourceRailBuilderVault(
     ghRepoOwner: "ada",
     ghRepoName: "demo",
     repositoryFullName: "ada/demo",
+    defaultBranch: "main",
     fileCount: 0,
-    state: "ready",
     sourceSetup: { status: "ready" },
     providerSetup: { status: "not_applicable" },
     deletion: {
@@ -233,518 +232,158 @@ function makeResourceRailBuilderVault(
   return { ...vault, ...overrides };
 }
 
-describe("VaultBranchLinkContent", () => {
-  it("models checks as commit data without requiring a pull request", () => {
-    const viewModel = buildVaultBranchRowViewModel({
-      repositoryFullName: "samebase/samebase",
-      branch: {
-        name: "main",
-        headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
-        commits: [
-          {
-            sha: "abcdef1234567890abcdef1234567890abcdef12",
-            title: "Build dashboard branch rows from commits",
-            checks: {
-              state: "success",
-              totalCount: 4,
-              checkRunCount: 4,
-              statusContextCount: 0,
-              successCount: 4,
-              failureCount: 0,
-              runningCount: 0,
-              neutralCount: 0,
-              unknownCount: 0,
-              primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/123",
-              syncedAt: 1,
-            },
-          },
-        ],
-        isDefault: true,
-        isProtected: false,
-        lastSyncedAt: 0,
-        remoteState: "active",
-      },
-    });
-
-    expect(viewModel.pullRequest).toBeUndefined();
-    expect(viewModel.commits).toMatchObject([
-      {
-        shortSha: "abcdef1",
-        title: "Build dashboard branch rows from commits",
-        checks: {
-          state: "success",
-          primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/123",
-        },
-        isHead: true,
-      },
-    ]);
-  });
-
-  it("renders commit checks for default branches without pull request metadata", () => {
+describe("VaultDefaultBranch", () => {
+  it("keeps the durable default branch visible without provider observations", () => {
     const markup = renderToStaticMarkup(
-      <TestRouterProvider>
-        <VaultBranchLinkContent
-          repositoryFullName="samebase/samebase"
-          branch={{
-            name: "main",
-            headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
-            commits: [
-              {
-                sha: "abcdef1234567890abcdef1234567890abcdef12",
-                title: "Run checks on main",
-                checks: {
-                  state: "failure",
-                  totalCount: 4,
-                  checkRunCount: 4,
-                  statusContextCount: 0,
-                  successCount: 2,
-                  failureCount: 2,
-                  runningCount: 0,
-                  neutralCount: 0,
-                  unknownCount: 0,
-                  primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/456",
-                  syncedAt: 1,
-                },
-              },
-            ],
-            previewUrl: "https://preview-branch.example.workers.dev",
-            isDefault: true,
-            isProtected: false,
-            lastSyncedAt: 0,
-            remoteState: "active",
-          }}
+      <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
+        <VaultDefaultBranch
+          defaultBranch="release/2026 Q3"
+          githubBranchUrl="https://github.com/ada/demo/tree/release/2026%20Q3"
+          productionRoots={[]}
+          samebaseEditorUrl="/vault/ada/demo/fs/release%2F2026%20Q3"
         />
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain('href="https://github.com/samebase/samebase/actions/runs/456"');
-    expect(markup).toContain('href="https://preview-branch.example.workers.dev"');
-    expect(markup).toContain(">2 failed<");
-    expect(markup).toContain(">Preview<");
+    expect(markup).toContain('data-vault-default-branch=""');
+    expect(markup).toContain('aria-label="Default branch release/2026 Q3"');
+    expect(markup).toContain('href="https://github.com/ada/demo/tree/release/2026%20Q3"');
+    expect(markup).toContain('href="/vault/ada/demo/fs/release%2F2026%20Q3"');
+    expect(markup).toContain("<span>Edit</span>");
+    expect(markup).not.toContain("?compare");
     expect(markup).not.toContain("Pull request");
   });
 
-  it("keeps a visible commit link when a branch has no checks and no ahead-behind delta", () => {
+  it("renders every live production root without turning one into a pull request", () => {
     const markup = renderToStaticMarkup(
-      <TestRouterProvider>
-        <VaultBranchLinkContent
-          repositoryFullName="samebase/samebase"
-          branch={{
-            name: "main",
-            headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
-            commits: [{ sha: "abcdef1234567890abcdef1234567890abcdef12" }],
-            aheadBy: 0,
-            behindBy: 0,
-            isDefault: true,
-            isProtected: false,
-            lastSyncedAt: 0,
-            remoteState: "active",
-          }}
-        />
-      </TestRouterProvider>,
-    );
-
-    expect(markup).toContain(
-      'href="https://github.com/samebase/samebase/commit/abcdef1234567890abcdef1234567890abcdef12"',
-    );
-    expect(markup).toContain(">Head abcdef1<");
-  });
-
-  it("shows when the visible branch commits are only a history window", () => {
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider>
-        <VaultBranchLinkContent
-          repositoryFullName="samebase/samebase"
-          branch={{
-            name: "codex/history-window",
-            headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
-            commits: [
-              {
-                sha: "abcdef1234567890abcdef1234567890abcdef12",
-                checks: {
-                  state: "running",
-                  totalCount: 2,
-                  checkRunCount: 2,
-                  statusContextCount: 0,
-                  successCount: 0,
-                  failureCount: 0,
-                  runningCount: 2,
-                  neutralCount: 0,
-                  unknownCount: 0,
-                  syncedAt: 1,
-                },
-              },
-              {
-                sha: "654321abcdef1234567890abcdef1234567890ab",
-                checks: {
-                  state: "success",
-                  totalCount: 3,
-                  checkRunCount: 3,
-                  statusContextCount: 0,
-                  successCount: 3,
-                  failureCount: 0,
-                  runningCount: 0,
-                  neutralCount: 0,
-                  unknownCount: 0,
-                  syncedAt: 1,
-                },
-              },
-            ],
-            aheadBy: 5,
-            behindBy: 2,
-            isDefault: false,
-            isProtected: false,
-            lastSyncedAt: 0,
-            remoteState: "active",
-          }}
-        />
-      </TestRouterProvider>,
-    );
-
-    expect(markup).toContain(">Head abcdef1<");
-    expect(markup).toContain(">654321a<");
-    expect(markup).toContain(">↑5 ↓2<");
-    expect(markup).toContain(">+3 more<");
-    expect(markup).toContain('aria-label="3 more ahead commits not shown"');
-  });
-
-  it("labels zero-check summaries as no checks", () => {
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider>
-        <VaultBranchLinkContent
-          repositoryFullName="samebase/samebase"
-          branch={{
-            name: "codex/no-checks",
-            headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
-            commits: [
-              {
-                sha: "abcdef1234567890abcdef1234567890abcdef12",
-                checks: {
-                  state: "unknown",
-                  totalCount: 0,
-                  checkRunCount: 0,
-                  statusContextCount: 0,
-                  successCount: 0,
-                  failureCount: 0,
-                  runningCount: 0,
-                  neutralCount: 0,
-                  unknownCount: 0,
-                  syncedAt: 1,
-                },
-              },
-            ],
-            isDefault: false,
-            isProtected: false,
-            lastSyncedAt: 0,
-            remoteState: "active",
-          }}
-        />
-      </TestRouterProvider>,
-    );
-
-    expect(markup).toContain(">No checks<");
-    expect(markup).not.toContain(">0 unknown<");
-    expect(markup).toContain('aria-label="No checks"');
-  });
-
-  it("links the visible branch label to the GitHub branch tree", () => {
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider>
-        <VaultBranchLinkContent
-          repositoryFullName="samebase/samebase"
-          branch={{
-            name: "codex/dashboard branch-link",
-            headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
-            commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
-            isDefault: false,
-            isProtected: false,
-            lastSyncedAt: 0,
-            remoteState: "active",
-          }}
-        />
-      </TestRouterProvider>,
-    );
-
-    expect(markup).toContain(
-      'href="https://github.com/samebase/samebase/tree/codex/dashboard%20branch-link"',
-    );
-    expect(markup).toContain('title="Open branch on GitHub"');
-  });
-
-  it("keeps the default branch Samebase link pointed at the branch editor", () => {
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider>
-        <VaultBranchLinkContent
-          repositoryFullName="samebase/samebase"
-          branch={{
-            name: "main",
-            headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
-            commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
-            isDefault: true,
-            isProtected: false,
-            lastSyncedAt: 0,
-            remoteState: "active",
-          }}
-        />
-      </TestRouterProvider>,
-    );
-
-    expect(markup).toContain('href="/vault/samebase/samebase/fs/main"');
-    expect(markup).toContain('title="Open branch in Samebase"');
-    expect(markup).toContain(">Edit<");
-    expect(markup).not.toContain(">View changes<");
-    expect(markup).not.toContain("?compare");
-  });
-
-  it("links default branch Convex tools to their project attachment routes", () => {
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider>
-        <VaultBranchLinkContent
-          repositoryFullName="samebase/samebase"
-          branch={{
-            name: "main",
-            headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
-            commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
-            isDefault: true,
-            isProtected: false,
-            lastSyncedAt: 0,
-            remoteState: "active",
-          }}
-          convexProjects={[
-            {
-              convexProjectId: fakeConvexProjectId(),
-              convexConfigPath: "convex.json",
-              teamId: "team-1",
-              projectId: "samebase-project",
-            },
-          ]}
-          schemaGraphAccessEnabled
-        />
-      </TestRouterProvider>,
-    );
-
-    expect(markup).toContain('href="/vault/samebase/samebase/db/main/project/convex-project-root"');
-    expect(markup).toContain('title="Open production data for samebase-project"');
-    expect(markup).toContain(">Data<");
-    expect(markup).toContain(
-      'href="/vault/samebase/samebase/schema/main/project/convex-project-root"',
-    );
-    expect(markup).toContain('title="Open Convex schema for samebase-project"');
-    expect(markup).toContain(">Schema<");
-  });
-
-  it("hides default branch schema tools without schema graph access", () => {
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider>
-        <VaultBranchLinkContent
-          repositoryFullName="samebase/samebase"
-          branch={{
-            name: "main",
-            headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
-            commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
-            isDefault: true,
-            isProtected: false,
-            lastSyncedAt: 0,
-            remoteState: "active",
-          }}
-          convexProjects={[
-            {
-              convexProjectId: fakeConvexProjectId(),
-              convexConfigPath: "convex.json",
-              teamId: "team-1",
-              projectId: "samebase-project",
-            },
-          ]}
-        />
-      </TestRouterProvider>,
-    );
-
-    expect(markup).toContain('href="/vault/samebase/samebase/db/main/project/convex-project-root"');
-    expect(markup).toContain(">Data<");
-    expect(markup).not.toContain("/schema/main/project/");
-    expect(markup).not.toContain(">Schema<");
-  });
-
-  it("links non-default branch Samebase actions to changed files", () => {
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider>
-        <VaultBranchLinkContent
-          repositoryFullName="samebase/samebase"
-          branch={{
-            name: "codex/view changes",
-            headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
-            commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
-            isDefault: false,
-            isProtected: false,
-            lastSyncedAt: 0,
-            remoteState: "active",
-          }}
-        />
-      </TestRouterProvider>,
-    );
-
-    expect(markup).toContain('href="/vault/samebase/samebase/fs/codex%2Fview%20changes?compare"');
-    expect(markup).toContain('title="View changes in Samebase"');
-    expect(markup).toContain(">View changes<");
-    expect(markup).not.toContain(">Edit<");
-    expect(markup).not.toContain(">Data<");
-  });
-
-  it("links the default branch to the production app URL", () => {
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider>
-        <VaultBranchLinkContent
-          repositoryFullName="samebase/samebase"
-          productionRoots={[
-            {
-              rootDirectory: "/",
-              links: [
-                {
-                  href: "https://tmp-flow.nicuchiciuc.workers.dev",
-                  label: "tmp-flow.nicuchiciuc.workers.dev",
-                  provider: "cloudflare",
-                  title: "Open production app",
-                },
-              ],
-            },
-          ]}
-          branch={{
-            name: "main",
-            headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
-            commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
-            isDefault: true,
-            isProtected: false,
-            lastSyncedAt: 0,
-            remoteState: "active",
-          }}
-        />
-      </TestRouterProvider>,
-    );
-
-    expect(markup).toContain('href="https://tmp-flow.nicuchiciuc.workers.dev"');
-    expect(markup).toContain('title="Open production app"');
-    expect(markup).toContain(">tmp-flow.nicuchiciuc.workers.dev<");
-    expect(markup.indexOf(">tmp-flow.nicuchiciuc.workers.dev<")).toBeLessThan(
-      markup.indexOf(">main<"),
-    );
-  });
-
-  it("links the default branch to every monorepo production root URL", () => {
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider>
-        <VaultBranchLinkContent
-          repositoryFullName="samebase/samebase"
+      <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
+        <VaultDefaultBranch
+          defaultBranch="main"
+          githubBranchUrl="https://github.com/ada/demo/tree/main"
+          samebaseEditorUrl="/vault/ada/demo/fs/main"
           productionRoots={[
             {
               rootDirectory: "apps/api",
               links: [
                 {
-                  href: "https://api.pfp.workers.dev",
-                  label: "api.pfp.workers.dev",
+                  href: "https://api.ada.workers.dev",
+                  label: "api.ada.workers.dev",
                   provider: "cloudflare",
                   title: "Open production app for apps/api",
                 },
               ],
             },
             {
-              rootDirectory: "apps/samebase",
+              rootDirectory: "apps/web",
               links: [
                 {
-                  href: "https://samebase.pfp.workers.dev",
-                  label: "samebase.pfp.workers.dev",
+                  href: "https://web.ada.workers.dev",
+                  label: "web.ada.workers.dev",
                   provider: "cloudflare",
-                  title: "Open production app for apps/samebase",
+                  title: "Open production app for apps/web",
                 },
                 {
-                  href: "https://dashboard.convex.dev/t/samebase/samebase/calm-swan-123",
-                  label: "Production: calm-swan-123",
+                  href: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
+                  label: "calm-swan-123",
                   provider: "convex",
                   title: "Open production Convex deployment calm-swan-123",
                 },
               ],
             },
           ]}
-          branch={{
-            name: "main",
-            headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
-            commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
-            isDefault: true,
-            isProtected: false,
-            lastSyncedAt: 0,
-            remoteState: "active",
-          }}
         />
       </TestRouterProvider>,
     );
 
     expect(markup).toContain("apps/api");
-    expect(markup).toContain('href="https://api.pfp.workers.dev"');
-    expect(markup).toContain("apps/samebase");
-    expect(markup).toContain('href="https://samebase.pfp.workers.dev"');
-    expect(markup).toContain(
-      'href="https://dashboard.convex.dev/t/samebase/samebase/calm-swan-123"',
-    );
-    expect(markup).toContain(">Production: calm-swan-123<");
-    expect(markup.indexOf("apps/api")).toBeLessThan(markup.indexOf("apps/samebase"));
-    expect(markup.indexOf("apps/samebase")).toBeLessThan(
-      markup.indexOf("Production: calm-swan-123"),
-    );
+    expect(markup).toContain('href="https://api.ada.workers.dev"');
+    expect(markup).toContain("apps/web");
+    expect(markup).toContain('href="https://web.ada.workers.dev"');
+    expect(markup).toContain('href="https://dashboard.convex.dev/t/ada/demo/calm-swan-123"');
+    expect(markup).not.toContain("PR #");
   });
 });
 
-describe("VaultDashboardRepositoryCard", () => {
-  it("renders the onboarding empty state when the loaded vault list is empty", () => {
-    const rootRouteSearch = validateRootRouteSearch({});
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault"]}>
-        <VaultDashboardView
-          deleteModeActive={false}
-          developerToolsVisible={false}
-          cloudflareObservations={makeLoadingCloudflareObservations()}
-          cloudflareWorkerConfigurationActionInFlight={null}
-          convexObservations={{ state: "loading" }}
-          isRemovingVault={false}
-          providerAttachmentDetachmentInFlight={null}
-          reconcilingConvexProjectId={null}
-          retryingDeletionRunId={null}
-          retryingInfrastructureVaultId={null}
-          now={0}
-          viewModel={{
-            vaults: [],
-            remoteBranchCatalogByVaultId: new Map(),
-            remoteBranchPagesByVaultId: new Map(),
-            stagedBranchSummariesByVaultId: new Map(),
-          }}
-          logoRouteSearch={rootRouteSearch}
-          replaceLogoRouteSearch={() => {}}
-          openDeveloperToolsByVaultId={{}}
-          persistedVaultBranchFiltersByVaultId={new Map()}
-          persistedVaultResourceLinksOpenByVaultId={new Map()}
-          schemaGraphAccessEnabled={false}
-          rootRouteSearch={rootRouteSearch}
-          onConfigureWorkersBuildsForGitHub={() => {}}
-          onChangeConvexProjectConfigPath={() => {}}
-          onReconcileConvexProjectTeam={() => {}}
-          onRotateConvexDeployKeysForWorkersBuilds={() => {}}
-          onOpenDeveloperToolsChange={() => {}}
-          onManualRepositoryRefresh={() => {}}
-          onDetachCloudflareWorker={() => {}}
-          onDetachConvexProject={() => {}}
-          onRetryInfrastructureProvisioning={() => {}}
-          onRetryVaultDeletion={() => {}}
-          onSaveVaultBranchFilters={() => {}}
-          onResourceLinksOpenChange={() => {}}
-        />
-      </TestRouterProvider>,
-    );
+describe("buildVaultProductionRoots", () => {
+  it("joins direct attachments to matching live Worker and Convex observations", () => {
+    const workerId = fakeCloudflareWorkerId();
+    const convexProjectId = fakeConvexProjectId();
+    const vault = makeResourceRailBuilderVault({
+      cloudflareWorkers: [makeResourceRailCloudflareWorker({ workerId })],
+      convexProjects: [
+        makeResourceRailConvexProject({
+          convexProjectId,
+          convexConfigPath: "apps/web/convex.json",
+        }),
+      ],
+    });
 
-    expect(markup).toContain('data-testid="vault-dashboard-empty-state"');
-    expect(markup).not.toContain(
-      "Select a vault from the left sidebar or add one from the right sidebar.",
-    );
+    const roots = buildVaultProductionRoots({
+      vault,
+      cloudflareObservations: makeLoadedCloudflareObservations({
+        workers: [makeAvailableResourceRailCloudflareObservation({ workerId })],
+        builds: [
+          makeAvailableResourceRailCloudflareBuildsObservation({
+            workerId,
+            repository: {
+              state: "ready",
+              rootDirectory: "apps/web",
+              builds: { state: "not_available" },
+            },
+          }),
+        ],
+        convexBuildAccess: [],
+      }),
+      convexObservations: {
+        state: "loaded",
+        reload: () => {},
+        observations: [
+          {
+            observedAt: 1,
+            convexProjectId,
+            projectId: "demo-project-id",
+            convexConfigPath: "apps/web/convex.json",
+            source: { state: "valid", blobSha: "blob-1" },
+            provider: {
+              state: "current",
+              teamId: "team-1",
+              projectName: "Demo",
+              projectSlug: "demo",
+              teamSlug: "ada",
+              productionDeployment: {
+                state: "available",
+                deploymentName: "calm-swan-123",
+                cloudUrl: "https://calm-swan-123.convex.cloud",
+                siteUrl: "https://calm-swan-123.convex.site",
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    expect(roots).toEqual([
+      {
+        rootDirectory: "apps/web",
+        links: [
+          {
+            href: "https://demo-worker.ada.workers.dev",
+            label: "demo-worker.ada.workers.dev",
+            provider: "cloudflare",
+            title: "Open production app for apps/web",
+          },
+          {
+            href: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
+            label: "calm-swan-123",
+            provider: "convex",
+            title: "Open production Convex deployment calm-swan-123",
+          },
+        ],
+      },
+    ]);
   });
 
-  it("omits production links when live provider observations report missing resources", () => {
+  it("does not manufacture links from attachments when live resources are missing", () => {
     const workerId = fakeCloudflareWorkerId();
     const convexProjectId = fakeConvexProjectId();
     const vault = makeResourceRailBuilderVault({
@@ -777,6 +416,127 @@ describe("VaultDashboardRepositoryCard", () => {
       }),
     ).toEqual([]);
   });
+});
+
+describe("VaultDashboardRepositoryCard", () => {
+  it("renders the onboarding empty state when the loaded vault list is empty", () => {
+    const rootRouteSearch = validateRootRouteSearch({});
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault"]}>
+        <VaultDashboardView
+          deleteModeActive={false}
+          developerToolsVisible={false}
+          cloudflareObservations={makeLoadingCloudflareObservations()}
+          cloudflareWorkerConfigurationActionInFlight={null}
+          convexObservations={{ state: "loading" }}
+          isRemovingVault={false}
+          providerAttachmentDetachmentInFlight={null}
+          pullRequests={{ state: "not_requested" }}
+          reconcilingConvexProjectId={null}
+          retryingDeletionRunId={null}
+          retryingInfrastructureVaultId={null}
+          viewModel={{ vaults: [] }}
+          logoRouteSearch={rootRouteSearch}
+          replaceLogoRouteSearch={() => {}}
+          openDeveloperToolsByVaultId={{}}
+          persistedVaultPullRequestFiltersByVaultId={new Map()}
+          persistedVaultResourceLinksOpenByVaultId={new Map()}
+          rootRouteSearch={rootRouteSearch}
+          onConfigureWorkersBuildsForGitHub={() => {}}
+          onChangeConvexProjectConfigPath={() => {}}
+          onReconcileConvexProjectTeam={() => {}}
+          onRotateConvexDeployKeysForWorkersBuilds={() => {}}
+          onOpenDeveloperToolsChange={() => {}}
+          onDetachCloudflareWorker={() => {}}
+          onDetachConvexProject={() => {}}
+          onRetryInfrastructureProvisioning={() => {}}
+          onRetryVaultDeletion={() => {}}
+          onSaveVaultPullRequestFilters={() => {}}
+          onResourceLinksOpenChange={() => {}}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain('data-testid="vault-dashboard-empty-state"');
+    expect(markup).not.toContain(
+      "Select a vault from the left sidebar or add one from the right sidebar.",
+    );
+  });
+
+  it("shows live pull requests while connected source setup is failed", () => {
+    const rootRouteSearch = validateRootRouteSearch({});
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
+        <VaultDashboardView
+          deleteModeActive={false}
+          developerToolsVisible={false}
+          cloudflareObservations={makeLoadingCloudflareObservations()}
+          cloudflareWorkerConfigurationActionInFlight={null}
+          convexObservations={{ state: "loading" }}
+          isRemovingVault={false}
+          providerAttachmentDetachmentInFlight={null}
+          pullRequests={{
+            state: "current",
+            pullRequests: [],
+            allPullRequests: [],
+            refreshing: false,
+            resourceState: "current",
+            resourcesByPullRequestId: new Map(),
+            hasMore: false,
+            isLoadingMore: false,
+            canLoadMore: false,
+            loadMoreFailed: false,
+            loadMore: () => {},
+          }}
+          reconcilingConvexProjectId={null}
+          retryingDeletionRunId={null}
+          retryingInfrastructureVaultId={null}
+          viewModel={{
+            vaults: [
+              makeResourceRailBuilderVault({
+                sourceSetup: {
+                  status: "failed",
+                  runId: fakeRunId(),
+                  step: "sync_tree",
+                  message: "Initial tree sync failed.",
+                  updatedAt: 30,
+                },
+              }),
+            ],
+          }}
+          logoRouteSearch={rootRouteSearch}
+          replaceLogoRouteSearch={() => {}}
+          openDeveloperToolsByVaultId={{}}
+          persistedVaultPullRequestFiltersByVaultId={new Map()}
+          persistedVaultResourceLinksOpenByVaultId={new Map()}
+          rootRouteSearch={rootRouteSearch}
+          onConfigureWorkersBuildsForGitHub={() => {}}
+          onChangeConvexProjectConfigPath={() => {}}
+          onReconcileConvexProjectTeam={() => {}}
+          onRotateConvexDeployKeysForWorkersBuilds={() => {}}
+          onOpenDeveloperToolsChange={() => {}}
+          onDetachCloudflareWorker={() => {}}
+          onDetachConvexProject={() => {}}
+          onRetryInfrastructureProvisioning={() => {}}
+          onRetryVaultDeletion={() => {}}
+          onSaveVaultPullRequestFilters={() => {}}
+          onResourceLinksOpenChange={() => {}}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain("Initial tree sync failed.");
+    expect(markup).toContain('data-vault-default-branch=""');
+    expect(markup).toContain('href="https://github.com/ada/demo/tree/main"');
+    expect(markup).toContain('href="/vault/ada/demo/fs/main"');
+    expect(markup.indexOf('data-vault-default-branch=""')).toBeLessThan(
+      markup.indexOf('aria-label="Open pull requests"'),
+    );
+    expect(markup).toContain('aria-label="Open pull requests"');
+    expect(markup).toContain("No open pull requests");
+    expect(markup).not.toContain("bg-muted/30 opacity-75");
+    expect(markup).not.toContain("/fs/main?compare");
+  });
 
   it("renders the root dashboard vault picker in the main pane", () => {
     const markup = renderToStaticMarkup(
@@ -804,7 +564,7 @@ describe("VaultDashboardRepositoryCard", () => {
   it("keeps the repository title passive when no title href is provided", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardRepositoryCard
-        isReady={false}
+        muted
         repositoryName="samebase"
         repositoryLinksOpen={false}
         onRepositoryLinksOpenChange={() => {}}
@@ -823,7 +583,7 @@ describe("VaultDashboardRepositoryCard", () => {
   it("keeps resource links collapsed behind a header trigger", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardRepositoryCard
-        isReady={true}
+        muted={false}
         repositoryName="samebase"
         repositoryLinks={
           <nav aria-label="Repository resources">
@@ -846,7 +606,7 @@ describe("VaultDashboardRepositoryCard", () => {
   it("shows resource links when the persisted header state is open", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardRepositoryCard
-        isReady={true}
+        muted={false}
         repositoryName="samebase"
         repositoryLinks={
           <nav aria-label="Repository resources">
@@ -889,7 +649,6 @@ describe("formatVaultSourceSetupStep", () => {
   it("uses dashboard labels for create-app setup steps", () => {
     expect(formatVaultSourceSetupStep("connect_github")).toBe("connect GitHub");
     expect(formatVaultSourceSetupStep("fetch_github_repo")).toBe("fetch GitHub repo");
-    expect(formatVaultSourceSetupStep("create_vault")).toBe("connect GitHub");
     expect(formatVaultSourceSetupStep("seed_starter")).toBe("seed starter");
     expect(formatVaultSourceSetupStep("sync_tree")).toBe("sync tree");
   });
@@ -1577,6 +1336,29 @@ describe("VaultDashboardCloudflareDialog", () => {
 });
 
 describe("buildVaultDashboardResourceRailState", () => {
+  it("keeps the GitHub connection available when source setup fails", () => {
+    const state = buildVaultDashboardResourceRailState({
+      vault: makeResourceRailBuilderVault({
+        sourceSetup: {
+          status: "failed",
+          runId: fakeRunId(),
+          step: "sync_tree",
+          message: "Initial tree sync failed.",
+          updatedAt: 30,
+        },
+      }),
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      cloudflareObservations: makeLoadingCloudflareObservations(),
+      convexObservations: { state: "loading" },
+    });
+
+    expect(state.githubRow).toMatchObject({
+      provider: "github",
+      status: "available",
+      href: "https://github.com/ada/demo",
+    });
+  });
+
   it("groups resources by observed roots and keeps unresolved Workers in attention", () => {
     const readyWorkerId = fakeCloudflareWorkerId("worker-ready");
     const unresolvedWorkerId = fakeCloudflareWorkerId("worker-unresolved");
@@ -1818,69 +1600,5 @@ describe("buildVaultDashboardResourceRailState", () => {
     });
     expect(staleTeamRow.description).toContain("still use team-old/alpha-project-id");
     expect(staleTeamRow.actions?.map((action) => action.label)).toEqual(["Repair keys for alpha"]);
-  });
-});
-
-describe("buildVaultProductionRoots", () => {
-  it("combines live Cloudflare and Convex links at the same root", () => {
-    const workerId = fakeCloudflareWorkerId();
-    const convexProjectId = fakeConvexProjectId();
-    const vault = makeResourceRailBuilderVault({
-      cloudflareWorkers: [makeResourceRailCloudflareWorker({ workerId })],
-      convexProjects: [
-        makeResourceRailConvexProject({
-          convexProjectId,
-          convexConfigPath: "apps/web/convex.json",
-        }),
-      ],
-    });
-
-    const roots = buildVaultProductionRoots({
-      vault,
-      cloudflareObservations: makeLoadedCloudflareObservations({
-        workers: [makeAvailableResourceRailCloudflareObservation({ workerId })],
-        builds: [
-          makeAvailableResourceRailCloudflareBuildsObservation({
-            workerId,
-            repository: {
-              state: "ready",
-              rootDirectory: "apps/web",
-              builds: { state: "not_available" },
-            },
-          }),
-        ],
-        convexBuildAccess: [],
-      }),
-      convexObservations: {
-        state: "loaded",
-        reload: () => {},
-        observations: [
-          {
-            observedAt: 1,
-            convexProjectId,
-            projectId: "demo-project-id",
-            convexConfigPath: "apps/web/convex.json",
-            source: { state: "valid", blobSha: "blob-1" },
-            provider: {
-              state: "current",
-              teamId: "team-1",
-              projectName: "Demo",
-              projectSlug: "demo",
-              teamSlug: "ada",
-              productionDeployment: {
-                state: "available",
-                deploymentName: "calm-swan-123",
-                cloudUrl: "https://calm-swan-123.convex.cloud",
-                siteUrl: "https://calm-swan-123.convex.site",
-              },
-            },
-          },
-        ],
-      },
-    });
-
-    expect(roots).toHaveLength(1);
-    expect(roots[0]?.rootDirectory).toBe("apps/web");
-    expect(roots[0]?.links.map((link) => link.provider)).toEqual(["cloudflare", "convex"]);
   });
 });

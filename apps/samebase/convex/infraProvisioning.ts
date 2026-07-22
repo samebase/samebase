@@ -15,7 +15,6 @@ import {
   isCloudflareGitHubAppRepositoryAuthorizationError,
 } from "./cloudflareResources";
 import type { AppProvisioningStep } from "./appProvisioningModel";
-import { isLiveConnectedVault, isSamebaseManagedVault } from "./vault/state";
 import type { ProviderApiCallRecorder } from "./providerApiLog";
 
 type ConvexDeployKeyAllowedAction = NonNullable<
@@ -29,8 +28,6 @@ const CONVEX_DEPLOY_KEY_ALLOWED_ACTIONS = [
   "deployment:env:write",
   "deployment:data:view",
 ] satisfies ConvexDeployKeyAllowedAction[];
-
-const infrastructurePatchResult = v.object({ applied: v.boolean() });
 
 type ConvexDeployKeyResult = {
   deployKey: string;
@@ -467,58 +464,6 @@ export async function resolveCloudflareProvisioningConnection(
   };
 }
 
-export const upsertDomainRecord = internalMutation({
-  args: {
-    vaultId: v.id("vaults"),
-    branch: v.string(),
-    kind: v.union(v.literal("main"), v.literal("branch_preview")),
-    url: v.string(),
-    source: v.union(
-      v.literal("cloudflare_workers_default"),
-      v.literal("cloudflare_workers_custom"),
-      v.literal("cloudflare_workers_preview"),
-    ),
-    active: v.boolean(),
-  },
-  returns: infrastructurePatchResult,
-  handler: async (ctx, args) => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || !isSamebaseManagedVault(vault)) {
-      return { applied: false };
-    }
-
-    const existing = await ctx.db
-      .query("vaultDomains")
-      .withIndex("by_vault_and_branch", (q) =>
-        q.eq("vaultId", args.vaultId).eq("branch", args.branch),
-      )
-      .first();
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        kind: args.kind,
-        url: args.url,
-        source: args.source,
-        active: args.active,
-        lastSyncedAt: Date.now(),
-      });
-      return { applied: true };
-    }
-
-    await ctx.db.insert("vaultDomains", {
-      vaultId: args.vaultId,
-      branch: args.branch,
-      kind: args.kind,
-      url: args.url,
-      source: args.source,
-      active: args.active,
-      lastSyncedAt: Date.now(),
-    });
-
-    return { applied: true };
-  },
-});
-
 export const markWorkflowStartupFailed = internalMutation({
   args: {
     runId: v.id("workflow_vaultProvisioning_runs"),
@@ -685,7 +630,6 @@ function isCreateAppPreInfrastructureStep(step: string): boolean {
     step === "create_github_repo" ||
     step === "fetch_github_repo" ||
     step === "connect_github" ||
-    step === "create_vault" ||
     step === "seed_starter" ||
     step === "sync_tree"
   );

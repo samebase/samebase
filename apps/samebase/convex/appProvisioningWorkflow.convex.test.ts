@@ -154,7 +154,6 @@ async function attachComposedResources({
       projectId: "convex-project",
       convexConfigPath: "convex.json",
       origin: "provisioned",
-      createdAt: 40,
     });
     const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
       vaultId: ids.vaultId,
@@ -163,7 +162,6 @@ async function attachComposedResources({
       workerName: "composed-app",
       workerTag: "composed-worker-tag",
       origin: "provisioned",
-      createdAt: 50,
     });
     return { convexProjectId, workerId };
   });

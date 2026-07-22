@@ -3,6 +3,12 @@ import { Octokit } from "@octokit/rest";
 import { getConvexConfigRootDirectory } from "../shared/convexConfigPath";
 import type { ProviderApiCallRecorder } from "./providerApiLog";
 
+const GITHUB_REQUEST_DEADLINE_MS = 15_000;
+
+export function createGitHubRequestDeadlineSignal(): AbortSignal {
+  return AbortSignal.timeout(GITHUB_REQUEST_DEADLINE_MS);
+}
+
 export type GitHubConvexConfigCandidate =
   | {
       state: "valid";
@@ -31,6 +37,7 @@ export async function fetchGitHubRepoIdentity(args: {
   owner: string;
   repo: string;
   expectedRepoId: string;
+  signal?: AbortSignal;
   recordApiCall?: ProviderApiCallRecorder;
 }): Promise<{ ownerId: string; defaultBranch: string }> {
   await args.recordApiCall?.({
@@ -48,9 +55,11 @@ export async function fetchGitHubRepoIdentity(args: {
   });
 
   const octokit = new Octokit({ auth: args.githubAccessToken });
+  const signal = args.signal ?? createGitHubRequestDeadlineSignal();
   const response = await octokit.rest.repos.get({
     owner: args.owner,
     repo: args.repo,
+    request: { signal },
   });
   const repoId = String(response.data.id);
   const ownerId = String(response.data.owner.id);

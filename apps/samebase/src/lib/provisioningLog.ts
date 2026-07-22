@@ -7,14 +7,12 @@ export type ProvisioningLogStep =
   | "fetch_github_repo"
   | "seed_starter"
   | "connect_github"
-  | "create_vault"
   | "sync_tree"
   | "claim_infra"
   | "attach_convex"
   | "attach_worker"
   | "configure_workers_builds_for_github"
   | "rotate_convex_deploy_keys_for_workers_builds"
-  | "record_domains"
   | "finish";
 
 export type ProvisioningLogEvent = {
@@ -46,14 +44,12 @@ const provisioningStepLabels = {
   fetch_github_repo: "fetch GitHub repo",
   seed_starter: "seed starter",
   connect_github: "connect GitHub",
-  create_vault: "connect GitHub",
   sync_tree: "sync tree",
   claim_infra: "claim infra",
   attach_convex: "attach Convex",
   attach_worker: "attach Worker",
   configure_workers_builds_for_github: "configure Workers Builds for GitHub",
   rotate_convex_deploy_keys_for_workers_builds: "rotate Convex deploy keys for Workers Builds",
-  record_domains: "record domains",
   finish: "finish",
 } satisfies Record<ProvisioningLogStep, string>;
 

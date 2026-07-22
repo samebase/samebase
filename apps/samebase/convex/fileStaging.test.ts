@@ -30,6 +30,7 @@ function createClearAllStagingTestContext(args: {
     deletion: { state: "not_deleting" };
     owner: string;
     name: string;
+    defaultBranch: string;
   } | null;
   stagedFiles: Array<{ _id: string; vaultId: string; branch: string }>;
 }) {
@@ -171,7 +172,7 @@ describe("selectRepositoryTreeForBranch", () => {
     ).toThrow('Branch tree is not cached for "feature/login"');
   });
 
-  it("throws for default branch before the legacy tree cache is synced", () => {
+  it("throws for the default branch before its exact tree observation exists", () => {
     expect(() =>
       selectRepositoryTreeForBranch({
         requestedBranch: "main",
@@ -369,6 +370,7 @@ describe("buildClearAllStagingPlan", () => {
           userId: "users:owner",
           owner: "octo",
           name: "repo",
+          defaultBranch: "main",
         },
       }),
     ).toEqual({
@@ -386,11 +388,7 @@ describe("buildClearAllStagingPlan", () => {
         userId: "users:owner",
         owner: "octo",
         repo: "repo",
-        target: { scope: "branch", branch: "feature/login" },
-        includeAheadBehind: false,
-        includePullRequestLinks: false,
-        includeBranchHeadCommitCheckSnapshots: false,
-        branchHeadCommitCheckBranchNames: [],
+        branch: "feature/login",
       },
     });
   });
@@ -404,6 +402,7 @@ describe("buildClearAllStagingPlan", () => {
           userId: "users:owner",
           owner: "octo",
           name: "repo",
+          defaultBranch: "main",
         },
       }),
     ).toEqual({
@@ -420,11 +419,7 @@ describe("buildClearAllStagingPlan", () => {
         userId: "users:owner",
         owner: "octo",
         repo: "repo",
-        target: { scope: "repository" },
-        includeAheadBehind: false,
-        includePullRequestLinks: false,
-        includeBranchHeadCommitCheckSnapshots: false,
-        branchHeadCommitCheckBranchNames: [],
+        branch: "main",
       },
     });
   });
@@ -463,6 +458,7 @@ describe("buildClearAllStagingPlan", () => {
         deletion: { state: "not_deleting" },
         owner: "octo",
         name: "repo",
+        defaultBranch: "main",
       },
       stagedFiles: [
         { _id: "feature-1", vaultId: targetVaultId, branch: targetBranch },
@@ -506,11 +502,7 @@ describe("buildClearAllStagingPlan", () => {
           userId: "users:owner",
           owner: "octo",
           repo: "repo",
-          target: { scope: "branch", branch: targetBranch },
-          includeAheadBehind: false,
-          includePullRequestLinks: false,
-          includeBranchHeadCommitCheckSnapshots: false,
-          branchHeadCommitCheckBranchNames: [],
+          branch: targetBranch,
         },
       },
     ]);

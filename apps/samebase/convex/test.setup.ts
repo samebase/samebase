@@ -2,7 +2,6 @@
 
 import agentTest from "@convex-dev/agent/test";
 import workflowTest from "@convex-dev/workflow/test";
-import workpoolTest from "@convex-dev/workpool/test";
 import { convexTest } from "convex-test";
 
 import schema from "./schema";
@@ -24,6 +23,5 @@ export function makeConvexTest() {
   const t = convexTest(schema, modules);
   agentTest.register(t);
   workflowTest.register(t);
-  workpoolTest.register(t, "repositoryRefreshWorkpool");
   return t;
 }

@@ -212,4 +212,118 @@ describe("vault records Convex contract", () => {
       }),
     ).resolves.toBe(true);
   });
+
+  it("keeps an explicit branch independent from the cached branch catalog", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const otherUserId = await ctx.db.insert("users", {
+        name: "Grace",
+        email: "grace@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/exact-branch",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 3,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "exact-branch",
+        defaultBranch: "main",
+        visibility: "private",
+        connectedAt: 4,
+      });
+      await ctx.db.insert("observations_vaultRepository_branchTrees", {
+        vaultId,
+        branch: "main",
+        commitSHA: "main-commit",
+        treeData: {
+          sha: "main-tree",
+          truncated: false,
+          tree: [],
+        },
+        lastTreeRefreshAt: 5,
+      });
+      return { userId, otherUserId, vaultId };
+    });
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    const unhydratedBranch = await asUser.query(api.vault.records.getVaultByRepository, {
+      repositoryFullName: "ada/exact-branch",
+      branch: "feature/pr",
+    });
+    expect(unhydratedBranch).toMatchObject({
+      resolvedBranch: "feature/pr",
+      branchTreeState: "unhydrated",
+    });
+    expect(unhydratedBranch).not.toHaveProperty("treeSHA");
+    expect(unhydratedBranch).not.toHaveProperty("treeData");
+
+    await t.mutation(internal.vault.branches.upsertVaultBranchTree, {
+      vaultId: ids.vaultId,
+      branch: "feature/pr",
+      commitSHA: "feature-commit",
+      treeData: {
+        sha: "feature-tree",
+        truncated: false,
+        tree: [],
+      },
+    });
+    await expect(
+      asUser.query(api.vault.records.getVaultByRepository, {
+        repositoryFullName: "ada/exact-branch",
+        branch: "feature/pr",
+      }),
+    ).resolves.toMatchObject({
+      resolvedBranch: "feature/pr",
+      branchTreeState: "ready",
+      treeSHA: "feature-tree",
+      commitSHA: "feature-commit",
+    });
+    await expect(
+      asUser.query(api.vault.records.getVaultByRepository, {
+        repositoryFullName: "ada/exact-branch",
+      }),
+    ).resolves.toMatchObject({
+      resolvedBranch: "main",
+      branchTreeState: "ready",
+      treeSHA: "main-tree",
+    });
+
+    const asOtherUser = t.withIdentity({
+      subject: `${ids.otherUserId}|other-session`,
+      tokenIdentifier: `test:${ids.otherUserId}`,
+    });
+    await expect(
+      asOtherUser.query(api.vault.records.getVaultByRepository, {
+        repositoryFullName: "ada/exact-branch",
+        branch: "feature/pr",
+      }),
+    ).resolves.toBeNull();
+  });
 });

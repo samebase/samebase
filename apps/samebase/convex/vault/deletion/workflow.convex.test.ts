@@ -45,7 +45,7 @@ describe("vault deletion workflow", () => {
       await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
-        treeSHA: "tree",
+        commitSHA: "commit",
         treeData: {
           sha: "tree",
           truncated: false,
@@ -100,7 +100,7 @@ describe("vault deletion workflow", () => {
       await ctx.db.insert("observations_vaultRepository_branchTrees", {
         vaultId,
         branch: "main",
-        treeSHA: "tree",
+        commitSHA: "commit",
         treeData: {
           sha: "tree",
           truncated: false,
@@ -220,7 +220,6 @@ describe("vault deletion workflow", () => {
         workerName: "existing-repo-worker",
         workerTag: "worker-tag",
         origin: "provisioned",
-        createdAt: 7,
       });
       await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId,
@@ -229,7 +228,6 @@ describe("vault deletion workflow", () => {
         workerName: "existing-repo-selected-worker",
         workerTag: "selected-worker-tag",
         origin: "selected_existing",
-        createdAt: 8,
       });
 
       return { userId, vaultId };
@@ -273,7 +271,6 @@ describe("vault deletion workflow", () => {
         workerName: "unchecked-worker",
         workerTag: "unchecked-worker-tag",
         origin: "provisioned",
-        createdAt: 7,
       });
     });
 
@@ -363,31 +360,9 @@ describe("vault deletion workflow", () => {
 
     const claim = await t.mutation(internal.vault.branches.claimTreeRefresh, {
       vaultId: ids.vaultId,
-      force: true,
-    });
-    await t.mutation(internal.vault.branches.syncVaultRemoteBranches, {
-      vaultId: ids.vaultId,
-      syncedAt: 10,
-      branches: [
-        {
-          name: "main",
-          headCommitSha: "abc",
-          aheadBehindState: "unavailable",
-          pullRequestState: "preserve",
-          isDefault: true,
-          isProtected: false,
-        },
-      ],
-    });
-    const remoteBranches = await t.run(async (ctx) => {
-      return await ctx.db
-        .query("observations_vaultRepository_branches")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-        .collect();
     });
 
-    expect(claim).toEqual({ claimed: false });
-    expect(remoteBranches).toHaveLength(0);
+    expect(claim).toEqual({ claimed: false, reason: "unavailable" });
   });
 
   it("returns the dashboard delete disabled reason while source setup runs", async () => {
@@ -465,7 +440,7 @@ describe("vault deletion workflow", () => {
         await ctx.db.insert("observations_vaultRepository_branchTrees", {
           vaultId,
           branch: `branch-${index}`,
-          treeSHA: `tree-${index}`,
+          commitSHA: `commit-${index}`,
           treeData: {
             sha: `tree-${index}`,
             truncated: false,
@@ -481,7 +456,6 @@ describe("vault deletion workflow", () => {
         workerName: "delete-me-worker",
         workerTag: "worker-tag",
         origin: "provisioned",
-        createdAt: 7,
       });
 
       return { userId, vaultId };

@@ -30,8 +30,7 @@ const DEVELOPER_TOOLS_TRIGGER_CLASS_NAME =
   "h-auto gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180";
 const DEVELOPER_TOOLS_PLACEHOLDER_TRIGGER_CLASS_NAME =
   "invisible pointer-events-none h-auto gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180";
-const VAULT_DASHBOARD_BRANCH_LIST_END_SELECTOR = "[data-vault-dashboard-branch-list-end]";
-const VAULT_DASHBOARD_BRANCH_ROW_SELECTOR = "[data-vault-dashboard-branch-row]";
+const VAULT_DASHBOARD_PRIMARY_ROW_SELECTOR = "[data-pull-request-row]";
 const VAULT_DASHBOARD_REPOSITORY_HEADER_SELECTOR = "[data-vault-dashboard-repository-header]";
 
 export type VaultDashboardProviderActionViewModel = {
@@ -427,26 +426,19 @@ export function VaultDashboardRepositoryList({ children }: { children: ReactNode
 
 /**
  * Chooses the content that should remain visible at max scroll: the final
- * branch row below the sticky header, or the whole card when there are no
- * branch rows.
+ * primary row below the sticky header, or the whole card when there are no
+ * rows.
  */
 function resolveVaultDashboardScrollEndTarget(target: HTMLElement): {
   element: HTMLElement;
   topPx: number;
 } {
-  const branchListEnd = target.querySelector<HTMLElement>(VAULT_DASHBOARD_BRANCH_LIST_END_SELECTOR);
-  const branchRows = target.querySelectorAll<HTMLElement>(VAULT_DASHBOARD_BRANCH_ROW_SELECTOR);
+  const primaryRows = target.querySelectorAll<HTMLElement>(VAULT_DASHBOARD_PRIMARY_ROW_SELECTOR);
   const header = target.querySelector<HTMLElement>(VAULT_DASHBOARD_REPOSITORY_HEADER_SELECTOR);
-  if (branchListEnd && header) {
+  if (primaryRows.length > 0 && header) {
+    const lastPrimaryRow = primaryRows[primaryRows.length - 1];
     return {
-      element: branchListEnd,
-      topPx: header.offsetHeight,
-    };
-  }
-  if (branchRows.length > 0 && header) {
-    const lastBranchRow = branchRows[branchRows.length - 1];
-    return {
-      element: lastBranchRow,
+      element: lastPrimaryRow,
       topPx: header.offsetHeight,
     };
   }
@@ -459,7 +451,7 @@ function resolveVaultDashboardScrollEndTarget(target: HTMLElement): {
 /**
  * Adds just enough trailing height for the immediately preceding repository
  * card to reach the scrollport top. It depends on production dashboard markers
- * for branch rows and the sticky header, then keeps the height fresh by
+ * for primary rows and the sticky header, then keeps the height fresh by
  * observing the target card, its list container, the scrollport, child changes,
  * and window resizes.
  */
@@ -488,7 +480,7 @@ export function VaultDashboardScrollTargetEndPadding() {
       const targetTopAtScrollStartPx = targetRect.top - scrollportRect.top + scrollport.scrollTop;
       const targetTopAtScrollEndPx = targetTopAtScrollStartPx - maxScrollTopPx;
 
-      // Branch rows are the final meaningful content: keep the vault header
+      // Primary rows are the final meaningful content: keep the vault header
       // sticky and let earlier rows scroll underneath it.
       const nextHeightPx = Math.max(
         element.offsetHeight + targetTopAtScrollEndPx - scrollEndTarget.topPx,
@@ -563,21 +555,20 @@ export function VaultDashboardSidebarContent({ children }: { children: ReactNode
 }
 
 export function VaultDashboardRepositoryCard({
-  branchSection,
   developerToolsSection,
   footerActions,
   headerControls,
-  isReady,
+  muted,
   repositoryName,
   repositoryLinks,
   repositoryLinksOpen,
   repositoryStatus,
   onRepositoryLinksOpenChange,
+  primarySection,
   setupSection,
   titleSuffix,
   topRightAction,
 }: {
-  branchSection?: ReactNode;
   developerToolsSection?: {
     content: ReactNode;
     onOpenChange: (isOpen: boolean) => void;
@@ -586,25 +577,26 @@ export function VaultDashboardRepositoryCard({
   };
   footerActions?: ReactNode;
   headerControls?: ReactNode;
-  isReady: boolean;
+  muted: boolean;
   repositoryName: string;
   repositoryLinks?: ReactNode;
   repositoryLinksOpen: boolean;
   repositoryStatus?: ReactNode;
   onRepositoryLinksOpenChange: (isOpen: boolean) => void;
+  primarySection?: ReactNode;
   setupSection?: ReactNode;
   titleSuffix?: ReactNode;
   topRightAction?: ReactNode;
 }) {
   const hasBodyContent = Boolean(
-    branchSection || developerToolsSection || footerActions || setupSection,
+    primarySection || developerToolsSection || footerActions || setupSection,
   );
   const hasRepositoryLinks = Boolean(repositoryLinks);
   const hasTopRightAction = Boolean(topRightAction);
   const repositoryLinksLabel = repositoryLinksOpen ? "Hide resource links" : "Show resource links";
-  // Keep long branch lists anchored to their repository without taking over
+  // Keep long primary lists anchored to their repository without taking over
   // unrelated card content.
-  const shouldStickHeader = Boolean(branchSection);
+  const shouldStickHeader = Boolean(primarySection);
   const titleContent = (
     <h3 className="min-w-0 text-base font-semibold leading-6">
       <span className="flex min-w-0 items-start gap-2">
@@ -642,7 +634,7 @@ export function VaultDashboardRepositoryCard({
   );
 
   return (
-    <div className={clsx("relative p-4", !isReady && "bg-muted/30 opacity-75")}>
+    <div className={clsx("relative p-4", muted && "bg-muted/30 opacity-75")}>
       <div>
         <div
           data-vault-dashboard-repository-header=""
@@ -686,7 +678,7 @@ export function VaultDashboardRepositoryCard({
         <div className="space-y-3">
           {setupSection}
 
-          {branchSection}
+          {primarySection}
 
           {developerToolsSection ? (
             developerToolsSection.visible ? (

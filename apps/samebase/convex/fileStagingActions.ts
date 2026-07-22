@@ -2240,21 +2240,6 @@ export const createDraftPullRequest = action({
       baseBranch: defaultBranch,
     });
     if (existingPullRequest) {
-      try {
-        await ctx.runAction(internal.github.updateRepositoryTree, {
-          userId,
-          owner: vault.owner,
-          repo: vault.name,
-          target: { scope: "repository" },
-          includeAheadBehind: true,
-          includePullRequestLinks: true,
-          includeBranchHeadCommitCheckSnapshots: false,
-          branchHeadCommitCheckBranchNames: [],
-        });
-      } catch (error) {
-        console.warn("Failed to refresh remote branch metadata after opening existing PR:", error);
-      }
-
       return {
         ...existingPullRequest,
         existing: true,
@@ -2288,21 +2273,6 @@ export const createDraftPullRequest = action({
         draft: true,
       });
 
-      try {
-        await ctx.runAction(internal.github.updateRepositoryTree, {
-          userId,
-          owner: vault.owner,
-          repo: vault.name,
-          target: { scope: "repository" },
-          includeAheadBehind: true,
-          includePullRequestLinks: true,
-          includeBranchHeadCommitCheckSnapshots: false,
-          branchHeadCommitCheckBranchNames: [],
-        });
-      } catch (error) {
-        console.warn("Failed to refresh remote branch metadata after creating draft PR:", error);
-      }
-
       return {
         url: response.data.html_url,
         number: response.data.number,
@@ -2317,23 +2287,6 @@ export const createDraftPullRequest = action({
         baseBranch: defaultBranch,
       });
       if (currentPullRequest) {
-        try {
-          await ctx.runAction(internal.github.updateRepositoryTree, {
-            userId,
-            owner: vault.owner,
-            repo: vault.name,
-            target: { scope: "repository" },
-            includeAheadBehind: true,
-            includePullRequestLinks: true,
-            includeBranchHeadCommitCheckSnapshots: false,
-            branchHeadCommitCheckBranchNames: [],
-          });
-        } catch (refreshError) {
-          console.warn(
-            "Failed to refresh remote branch metadata after discovering existing PR:",
-            refreshError,
-          );
-        }
         return {
           ...currentPullRequest,
           existing: true,
@@ -2528,24 +2481,6 @@ export const createDraftPullRequestFromDefaultBranch = action({
         stagedFiles,
       });
 
-      try {
-        await ctx.runAction(internal.github.updateRepositoryTree, {
-          userId,
-          owner: vault.owner,
-          repo: vault.name,
-          target: { scope: "repository" },
-          includeAheadBehind: true,
-          includePullRequestLinks: true,
-          includeBranchHeadCommitCheckSnapshots: false,
-          branchHeadCommitCheckBranchNames: [],
-        });
-      } catch (error) {
-        console.warn(
-          "Failed to refresh remote branch metadata after creating default-branch draft PR:",
-          error,
-        );
-      }
-
       return {
         branch: targetBranch,
         url,
@@ -2572,58 +2507,10 @@ export const pullFromGitHub = action({
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;
 
-    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
-      vaultId: args.vaultId,
+    await ctx.runAction(internal.fileStagingActions.pullFromGitHubInternal, {
       userId,
+      vaultId: args.vaultId,
     });
-    if (!vault) {
-      throw new Error("Vault not found");
-    }
-
-    // Atomically claim the refresh lock; force because user explicitly requested pull
-    const claim = await ctx.runMutation(internal.vault.branches.claimTreeRefresh, {
-      vaultId: vault._id,
-      force: true,
-    });
-    if (!claim.claimed) return null;
-    if (typeof claim.startedAt !== "number") {
-      throw new Error("Tree refresh claim missing start timestamp");
-    }
-
-    try {
-      await ctx.runAction(internal.fileStagingActions.pullFromGitHubInternal, {
-        userId,
-        vaultId: args.vaultId,
-      });
-      await ctx.runMutation(internal.vault.branches.releaseTreeRefresh, {
-        vaultId: vault._id,
-        startedAt: claim.startedAt,
-        markRefreshed: true,
-      });
-    } catch (error) {
-      const failure = describeRepositoryTreeRefreshFailure(error);
-      if (failure.kind === "rate_limited") {
-        githubRateLimitResetByUser.set(userId, failure.cooldownUntil);
-      }
-      const releaseResult = await ctx.runMutation(internal.vault.branches.releaseTreeRefresh, {
-        vaultId: vault._id,
-        startedAt: claim.startedAt,
-        markRefreshed: false,
-        failureKind: failure.kind,
-        failureMessage: failure.message,
-        cooldownUntil: failure.cooldownUntil,
-      });
-      if (!releaseResult.released) {
-        await ctx.runMutation(internal.vault.branches.recordTreeRefreshFailure, {
-          vaultId: vault._id,
-          startedAt: claim.startedAt,
-          failureKind: failure.kind,
-          failureMessage: failure.message,
-          cooldownUntil: failure.cooldownUntil,
-        });
-      }
-      throw error;
-    }
 
     return null;
   },
@@ -2849,31 +2736,18 @@ export const pullFromGitHubInternal = internalAction({
     }
 
     // 5. Refresh touched branch caches after reconciliation
-    const touchedBranches = listTouchedBranchesForRefresh(allStaged.map((item) => item.branch));
+    const touchedBranches = listTouchedBranchesForRefresh([
+      ...allStaged.map((item) => item.branch),
+      connectedVault.defaultBranch,
+    ]);
     for (const branch of touchedBranches) {
       await ctx.runAction(internal.github.updateRepositoryTree, {
         userId: args.userId,
         owner: connectedVault.owner,
         repo: connectedVault.name,
-        target: { scope: "branch", branch },
-        includeAheadBehind: false,
-        includePullRequestLinks: false,
-        includeBranchHeadCommitCheckSnapshots: false,
-        branchHeadCommitCheckBranchNames: [],
+        branch,
       });
     }
-
-    // Also refresh repository metadata and the vault's resolved branch.
-    await ctx.runAction(internal.github.updateRepositoryTree, {
-      userId: args.userId,
-      owner: connectedVault.owner,
-      repo: connectedVault.name,
-      target: { scope: "repository" },
-      includeAheadBehind: false,
-      includePullRequestLinks: false,
-      includeBranchHeadCommitCheckSnapshots: false,
-      branchHeadCommitCheckBranchNames: [],
-    });
 
     return null;
   },
@@ -2920,11 +2794,7 @@ export const batchReadFiles = action({
           userId,
           owner: connectedVault.owner,
           repo: connectedVault.name,
-          target: { scope: "branch", branch: branchToLoad },
-          includeAheadBehind: false,
-          includePullRequestLinks: false,
-          includeBranchHeadCommitCheckSnapshots: false,
-          branchHeadCommitCheckBranchNames: [],
+          branch: branchToLoad,
         });
         branchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
           vaultId: args.vaultId,
@@ -3906,11 +3776,7 @@ export const commitAllStaged = internalAction({
             userId: args.userId,
             owner: repoOwner,
             repo: repoName,
-            target: { scope: "branch", branch: commitBranch },
-            includeAheadBehind: false,
-            includePullRequestLinks: false,
-            includeBranchHeadCommitCheckSnapshots: false,
-            branchHeadCommitCheckBranchNames: [],
+            branch: commitBranch,
           });
         },
         loadUpdatedVault: async () =>

@@ -266,42 +266,6 @@ describe("account deletion workflow ownership and outcomes", () => {
     });
   });
 
-  it("cancels branch refresh demand that would otherwise remain queued", async () => {
-    const { ids, t } = await seedRunningDeletion();
-    const requestId = await t.run(async (ctx) => {
-      const vaultId = await ctx.db.insert("vaults", {
-        userId: ids.userId,
-        state: "not_connected",
-        deletion: { state: "not_deleting" },
-      });
-      return await ctx.db.insert("vaultRepositoryRefreshRequests", {
-        userId: ids.userId,
-        vaultId,
-        dedupeKey: `${vaultId}:main`,
-        demand: { scope: "branch", branch: "main", source: "file_view" },
-        lifecycle: { state: "queued", notBefore: now, queuedAt: now },
-        createdAt: now,
-        updatedAt: now,
-      });
-    });
-
-    await expect(
-      t.mutation(internal.repositoryRefresh.quiesceForAccountDeletion, {
-        runId: ids.runId,
-        workflowId,
-      }),
-    ).resolves.toEqual({ state: "needs_more" });
-    await expect(t.run(async (ctx) => await ctx.db.get(requestId))).resolves.toMatchObject({
-      lifecycle: { state: "canceled", reason: "worker_canceled" },
-    });
-    await expect(
-      t.mutation(internal.repositoryRefresh.quiesceForAccountDeletion, {
-        runId: ids.runId,
-        workflowId,
-      }),
-    ).resolves.toEqual({ state: "done" });
-  });
-
   it("deletes provider connections in bounded idempotent batches", async () => {
     const { ids, t } = await seedRunningDeletion();
     await t.run(async (ctx) => {

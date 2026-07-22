@@ -51,11 +51,10 @@ flowchart LR
 
 - `vault/actions.ts` - public actions for GitHub repository ownership, connect/create, provisioning
   retry, and deletion retry.
-- `vault/dashboard.ts` - public dashboard queries for vault cards, branch filters, and
-  infrastructure/domain summaries.
+- `vault/dashboard.ts` - public dashboard queries for vault cards, pull request display preferences,
+  and infrastructure summaries.
 - `vault/records.ts` - vault row creation, lookup, readiness, and GitHub connection mutations.
-- `vault/branches.ts` - remote branch sync, branch-tree cache, tree refresh claims, and branch
-  selection helpers.
+- `vault/branches.ts` - exact branch-tree cache and tree refresh claims.
 - `vault/model.ts` + `vault/state.ts` - validators and runtime guards.
 - `vault/deletion/` - deletion eligibility, runs, events, local cleanup, workflow orchestration, and
   provider actions.
@@ -74,7 +73,6 @@ flowchart LR
 - Entrypoint: `internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning`
 - State tracking: `workflow_vaultProvisioning_plans`, `workflow_vaultProvisioning_writeLocks`,
   `vaultConvexProjects`, and `vaultCloudflareWorkers`
-- Domain tracking: `vaultDomains` table
 - Retry path: `api.vault.actions.retryInfrastructureProvisioning`
 
 ### Chat Approval Flows

@@ -129,7 +129,7 @@ General rule:
 
 Example:
 
-- Dashboard branch list containers should use the simplest border and muted background that
+- Dashboard pull request list containers should use the simplest border and muted background that
   communicate the grouping.
 
 ## Prefer Named Branching Helpers
@@ -150,9 +150,8 @@ General rule:
 
 Example:
 
-- Dashboard repository refresh status should be rendered by a helper that checks `syncing`,
-  `rate_limited`, `cooldown`, `failed`, then `lastSyncedAt`, rather than by a nested ternary inside
-  the card props.
+- Dashboard pull request resource status should be rendered by a helper that orders loading, stale,
+  failed, and current states rather than by a nested ternary inside the card props.
 
 ## Extract Named Workflows
 
@@ -176,9 +175,9 @@ General rule:
 
 Example:
 
-- Dashboard repository freshness should live in a named refresh-demand hook that reports page-load,
-  visibility, and manual-click demand to Convex. The dashboard should not inline GitHub action
-  calls, vault loops, branch preview hydration, or debounce policy inside `VaultDashboard`.
+- Provider-backed pull request pagination and resource enrichment should live in the named
+  `useVaultPullRequests` hook. The dashboard should not inline GitHub action calls, vault loops, or
+  refetch policy inside `VaultDashboard`.
 
 ## Document Side Effects
 

@@ -13,15 +13,8 @@ import {
   vGitHubRepositoryVisibility,
 } from "./model";
 import { VAULT_ROOT_DIRECTORY } from "../../shared/vaultRootDirectory";
-import {
-  assertConnectedVault,
-  isConnectedVault,
-  isLiveConnectedVault,
-  isSamebaseManagedVault,
-} from "./state";
+import { isConnectedVault, isLiveConnectedVault, isSamebaseManagedVault } from "./state";
 import { isVaultDeletingOrDeleteFailed } from "./deletion/state";
-import { countActiveRemoteBranches, resolveVaultBranchSelection } from "./branches";
-import { getLastRepositoryMetadataRefreshAt } from "../../shared/treeRefresh";
 
 const nullValidator = v.null();
 const { boolean, id, object, optional, string } = v;
@@ -89,18 +82,10 @@ async function assertUserHasNoVaultForRepository(
   }
 }
 
-function pickProvisioningVaultOperationalFields(vault: ProvisioningVault) {
+function pickProvisioningVaultCoreFields(vault: ProvisioningVault) {
   return {
     userId: vault.userId,
     deletion: vault.deletion,
-    lastTreeRefreshAt: vault.lastTreeRefreshAt,
-    treeRefreshStartedAt: vault.treeRefreshStartedAt,
-    lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
-    treeRefreshFailureKind: vault.treeRefreshFailureKind,
-    treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
-    treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
-    activeCodespaceId: vault.activeCodespaceId,
-    devcontainerConfig: vault.devcontainerConfig,
   };
 }
 
@@ -254,14 +239,6 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
     await ctx.db.replace(args.vaultId, {
       userId: vault.userId,
       deletion: vault.deletion,
-      lastTreeRefreshAt: vault.lastTreeRefreshAt,
-      treeRefreshStartedAt: vault.treeRefreshStartedAt,
-      lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
-      treeRefreshFailureKind: vault.treeRefreshFailureKind,
-      treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
-      treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
-      activeCodespaceId: vault.activeCodespaceId,
-      devcontainerConfig: vault.devcontainerConfig,
       state: "connected",
       githubMode: "connect_existing_repository",
       runId: args.runId,
@@ -423,14 +400,6 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
     await ctx.db.replace(args.vaultId, {
       userId: vault.userId,
       deletion: vault.deletion,
-      lastTreeRefreshAt: vault.lastTreeRefreshAt,
-      treeRefreshStartedAt: vault.treeRefreshStartedAt,
-      lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
-      treeRefreshFailureKind: vault.treeRefreshFailureKind,
-      treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
-      treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
-      activeCodespaceId: vault.activeCodespaceId,
-      devcontainerConfig: vault.devcontainerConfig,
       state: "connected",
       githubMode: "create_repository",
       runId: args.runId,
@@ -464,10 +433,10 @@ export const markGithubProvisioningFailed = internalMutation({
       return null;
     }
 
-    const operationalFields = pickProvisioningVaultOperationalFields(vault);
+    const coreFields = pickProvisioningVaultCoreFields(vault);
     if (vault.githubMode === "create_repository") {
       await ctx.db.replace(vault._id, {
-        ...operationalFields,
+        ...coreFields,
         state: "failed",
         githubMode: "create_repository",
         runId: args.runId,
@@ -480,7 +449,7 @@ export const markGithubProvisioningFailed = internalMutation({
     }
 
     await ctx.db.replace(vault._id, {
-      ...operationalFields,
+      ...coreFields,
       state: "failed",
       githubMode: "connect_existing_repository",
       runId: args.runId,
@@ -489,16 +458,6 @@ export const markGithubProvisioningFailed = internalMutation({
       failedAt: Date.now(),
     });
 
-    return null;
-  },
-});
-
-export const markVaultAsReady = internalMutation({
-  args: {
-    vaultId: v.id("vaults"),
-  },
-  handler: async (ctx, args) => {
-    assertConnectedVault(await ctx.db.get(args.vaultId));
     return null;
   },
 });
@@ -574,15 +533,7 @@ async function getVaultByRepositoryHelper(
       ? args.branch.trim()
       : undefined;
 
-  const remoteBranches = await ctx.db
-    .query("observations_vaultRepository_branches")
-    .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-    .collect();
-  const { defaultBranch, resolvedBranch, branchNotFound } = resolveVaultBranchSelection({
-    requestedBranch,
-    defaultBranch: vault.defaultBranch,
-    remoteBranches,
-  });
+  const resolvedBranch = requestedBranch ?? vault.defaultBranch;
 
   const branchTree = await ctx.db
     .query("observations_vaultRepository_branchTrees")
@@ -600,23 +551,18 @@ async function getVaultByRepositoryHelper(
     owner: vault.owner,
     name: vault.name,
     repositoryFullName: `${vault.owner}/${vault.name}`,
-    treeSHA: branchTree?.treeSHA,
+    treeSHA: branchTree?.treeData.sha,
     commitSHA: branchTree?.commitSHA,
     treeData: branchTree?.treeData,
-    treeRefreshStartedAt: branchTree?.treeRefreshStartedAt ?? vault.treeRefreshStartedAt,
-    lastTreeRefreshAt: branchTree?.lastTreeRefreshAt ?? vault.lastTreeRefreshAt,
+    treeRefreshStartedAt: vault.treeRefreshStartedAt,
+    lastTreeRefreshAt: branchTree?.lastTreeRefreshAt,
     lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
     treeRefreshFailureKind: vault.treeRefreshFailureKind,
     treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
     treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
-    lastRepositoryMetadataRefreshAt: getLastRepositoryMetadataRefreshAt(remoteBranches),
-    // Budget automatic refreshes from live remote branches only; retained
-    // deleted-upstream rows are local recovery state, not GitHub fan-out.
-    remoteBranchCount: countActiveRemoteBranches(remoteBranches),
-    hasResolvedBranchTree: Boolean(branchTree),
-    defaultBranch,
+    branchTreeState: branchTree ? ("ready" as const) : ("unhydrated" as const),
+    defaultBranch: vault.defaultBranch,
     resolvedBranch,
-    branchNotFound,
   };
 }
 

@@ -142,6 +142,58 @@ async function createCloudflareConnectedVault() {
   };
 }
 
+async function createManagedWorkerCreatingFixture() {
+  const fixture = await createCloudflareConnectedVault();
+  const runId = await fixture.t.run(async (ctx) => {
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      userId: fixture.userId,
+      vaultId: fixture.vaultId,
+      repositoryFullName: "ada/demo",
+      trigger: "retry",
+      state: "running",
+      currentStep: "attach_worker",
+      createdAt: 3,
+      updatedAt: 3,
+    });
+    await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+      vaultId: fixture.vaultId,
+      runId,
+      state: "active",
+      updatedAt: 3,
+    });
+    await ctx.db.insert("workflow_vaultProvisioning_plans", {
+      vaultId: fixture.vaultId,
+      userId: fixture.userId,
+      convexConfigPath: "convex.json",
+      convex: { state: "planned", projectName: "managed-project" },
+      cloudflare: {
+        state: "planned",
+        accountId,
+        workerName: "managed-worker",
+        build: {
+          rootDirectory: "/",
+          buildCommand: "pnpm run build",
+          deployCommand: "pnpm run deploy",
+          previewDeployCommand: "pnpm run deploy:preview",
+          pathIncludes: ["*"],
+          pathExcludes: [],
+        },
+      },
+      createdAt: 3,
+      updatedAt: 3,
+    });
+    return runId;
+  });
+  await fixture.t.mutation(internal.vault.cloudflareMutations.beginManagedWorkerCreate, {
+    vaultId: fixture.vaultId,
+    runId,
+    userId: fixture.userId,
+    accountId,
+    workerName: "managed-worker",
+  });
+  return { ...fixture, runId };
+}
+
 function stubExistingWorkersProvider(
   roots: Record<string, string>,
   ambiguousWorkerName?: string,
@@ -350,6 +402,89 @@ describe("vault Cloudflare Worker attachments", () => {
     ).resolves.toHaveLength(0);
   });
 
+  it("requires dashboard deletion when an interrupted managed create left a Worker", async () => {
+    const { runId, t, userId, vaultId } = await createManagedWorkerCreatingFixture();
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      const method = input instanceof Request ? input.method : (init?.method ?? "GET");
+      if (url.pathname === "/client/v4/accounts") {
+        return cloudflareResponse([{ id: accountId, name: "Ada Cloudflare", type: "standard" }]);
+      }
+      if (method === "GET" && url.pathname.endsWith("/workers/workers/managed-worker")) {
+        return cloudflareResponse(workerDetails("managed-worker", "managed-worker-tag"));
+      }
+      throw new Error(`Unexpected provider request: ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      t.action(internal.vault.cloudflare.ensureCloudflareWorkerConnection, {
+        vaultId,
+        runId,
+        userId,
+        accountId,
+        workerName: "managed-worker",
+      }),
+    ).rejects.toThrow("Delete it in the Cloudflare dashboard, then retry.");
+    expect(
+      fetchMock.mock.calls.some(
+        ([input, init]) => (input instanceof Request ? input.method : init?.method) === "POST",
+      ),
+    ).toBe(false);
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("vaultCloudflareWorkers").collect()),
+    ).resolves.toEqual([]);
+  });
+
+  it("retries an interrupted managed create after the Worker was deleted", async () => {
+    const { runId, t, userId, vaultId } = await createManagedWorkerCreatingFixture();
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      const method = input instanceof Request ? input.method : (init?.method ?? "GET");
+      if (url.pathname === "/client/v4/accounts") {
+        return cloudflareResponse([{ id: accountId, name: "Ada Cloudflare", type: "standard" }]);
+      }
+      if (method === "GET" && url.pathname.endsWith("/workers/workers/managed-worker")) {
+        return jsonResponse(
+          {
+            success: false,
+            errors: [{ code: 10007, message: "Worker not found" }],
+            messages: [],
+            result: null,
+          },
+          404,
+        );
+      }
+      if (method === "POST" && url.pathname.endsWith("/workers/workers")) {
+        return cloudflareResponse(workerDetails("managed-worker", "managed-worker-tag"));
+      }
+      throw new Error(`Unexpected provider request: ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const workerId = await t.action(internal.vault.cloudflare.ensureCloudflareWorkerConnection, {
+      vaultId,
+      runId,
+      userId,
+      accountId,
+      workerName: "managed-worker",
+    });
+
+    await expect(t.run(async (ctx) => await ctx.db.get(workerId))).resolves.toMatchObject({
+      vaultId,
+      userId,
+      accountId,
+      workerName: "managed-worker",
+      workerTag: "managed-worker-tag",
+      origin: "provisioned",
+    });
+    expect(
+      fetchMock.mock.calls.filter(
+        ([input, init]) => (input instanceof Request ? input.method : init?.method) === "POST",
+      ),
+    ).toHaveLength(1);
+  });
+
   it("detaches explicitly without using provider absence as authority", async () => {
     const { asUser, t, userId, vaultId } = await createCloudflareConnectedVault();
     const workerId = await t.run(
@@ -361,7 +496,6 @@ describe("vault Cloudflare Worker attachments", () => {
           workerName: "still-live",
           workerTag: "worker-tag",
           origin: "selected_existing",
-          createdAt: 3,
         }),
     );
     const fetchMock = vi.fn();
@@ -384,7 +518,6 @@ describe("vault Cloudflare Worker attachments", () => {
         workerName: "managed",
         workerTag: "managed-tag",
         origin: "provisioned",
-        createdAt: 3,
       });
       const managedRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,

@@ -217,19 +217,6 @@ async function readReactFlowViewportTransform(container: Locator): Promise<strin
   });
 }
 
-test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
-  await page.setViewportSize({ width: 640, height: 180 });
-  await openVaultDashboardVisualFixture(page, "vault-branch-pr-labels");
-
-  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
-  await expect(fixture).toHaveScreenshot("vault-branch-pr-labels.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.03,
-  });
-});
-
 test("vault dashboard fixture (developer tools query spacing)", async ({ page }) => {
   await page.setViewportSize({ width: 640, height: 260 });
   await openVaultDashboardVisualFixture(page, "vault-dashboard-dev-tools-hidden");
@@ -722,11 +709,55 @@ test("vault dashboard fixture (Cloudflare missing Builds trigger repair)", async
     name: "Configure tmp-my-super-app-234 Builds",
   });
   await expect(repairDialog).toBeVisible();
-  await expect(repairDialog.getByRole("combobox", { name: "Repository root" })).toHaveValue("/");
+  const repositoryRoot = repairDialog.getByRole("combobox", { name: "Repository root" });
+  await expect(repositoryRoot).toHaveValue("/");
+  await expect(repositoryRoot).toHaveAttribute("aria-expanded", "true");
+  await repositoryRoot.press("Escape");
+  await expect(repositoryRoot).toHaveAttribute("aria-expanded", "false");
   await expect(
     repairDialog.getByRole("button", { name: "Configure Workers Builds" }),
   ).toBeVisible();
   await expect(page).toHaveScreenshot("vault-dashboard-cloudflare-builds-repair-dialog.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
+test("vault dashboard fixture (default branch surface)", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 620 });
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-default-branch");
+
+  const defaultBranchSurface = page.getByRole("region", { name: "Default branch main" });
+  const pullRequests = page.getByRole("region", { name: "Open pull requests" });
+  await expect(defaultBranchSurface).toBeVisible();
+  await expect(
+    defaultBranchSurface.getByRole("link", { name: "Open main branch on GitHub" }),
+  ).toHaveAttribute("href", "https://github.com/samebase/samebase/tree/main");
+  const samebaseEditor = defaultBranchSurface.getByRole("link", { name: "Edit" });
+  await expect(samebaseEditor).toHaveAttribute("href", "/vault/samebase/samebase/fs/main");
+  await expect(samebaseEditor).not.toHaveAttribute("href", /compare/);
+  await expect(
+    defaultBranchSurface.getByRole("link", { name: "domain-router.samebase.workers.dev" }),
+  ).toHaveAttribute("href", "https://domain-router.samebase.workers.dev");
+  await expect(
+    defaultBranchSurface.getByRole("link", { name: "samebase.samebase.workers.dev" }),
+  ).toHaveAttribute("href", "https://samebase.samebase.workers.dev");
+  await expect(defaultBranchSurface.getByRole("link", { name: "calm-swan-123" })).toHaveAttribute(
+    "href",
+    "https://dashboard.convex.dev/t/samebase/samebase/calm-swan-123",
+  );
+  await expect(defaultBranchSurface.locator("[data-pull-request-row]")).toHaveCount(0);
+  await expect(pullRequests.locator("[data-pull-request-row]")).toHaveCount(2);
+  const [defaultBranchBounds, pullRequestBounds] = await Promise.all([
+    readRequiredBounds(defaultBranchSurface, "default branch surface"),
+    readRequiredBounds(pullRequests, "pull request list"),
+  ]);
+  expect(defaultBranchBounds.y + defaultBranchBounds.height).toBeLessThanOrEqual(
+    pullRequestBounds.y + 1,
+  );
+  await expect(defaultBranchSurface).toHaveScreenshot("vault-dashboard-default-branch.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
@@ -746,11 +777,14 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await expect(deleteLink).toHaveAttribute("href", "/vault/samebase/samebase?delete");
   const repositoryCard = fixture.locator("[data-vault-dashboard-repository-card]").first();
   await expect(repositoryCard).toBeVisible();
+  const resourceRail = fixture.getByTestId("vault-resource-rail");
   const resourceLinksTrigger = fixture.getByRole("button", {
     name: "Show resource links",
   });
   await expect(resourceLinksTrigger).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Open Convex: nicu/samebase" })).toHaveCount(0);
+  await expect(resourceRail.getByRole("link", { name: "Open Convex: nicu/samebase" })).toHaveCount(
+    0,
+  );
   await expect(repositoryCard).toHaveScreenshot("vault-dashboard-list-spacing.png", {
     animations: "disabled",
     caret: "hide",
@@ -760,24 +794,49 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
 
   await resourceLinksTrigger.click();
   await expect(fixture.getByRole("button", { name: "Hide resource links" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Open GitHub: samebase/samebase" })).toBeVisible();
-  await expect(fixture.getByText("Loading from Convex...")).toBeVisible();
-  await expect(fixture.getByText("Loading from Cloudflare...")).toHaveCount(2);
-  await expect(fixture.getByText("apps/samebase", { exact: true })).toBeVisible();
-  await expect(fixture.getByText("Needs attention", { exact: true })).toBeVisible();
-  await expect(fixture.getByText("domain-router", { exact: true })).toBeVisible();
+  await expect(
+    resourceRail.getByRole("link", { name: "Open GitHub: samebase/samebase" }),
+  ).toBeVisible();
+  await expect(resourceRail.getByText("Loading from Convex...")).toBeVisible();
+  await expect(resourceRail.getByText("Loading from Cloudflare...")).toHaveCount(2);
+  await expect(resourceRail.getByText("apps/samebase", { exact: true })).toBeVisible();
+  await expect(resourceRail.getByText("Needs attention", { exact: true })).toBeVisible();
+  await expect(resourceRail.getByText("domain-router", { exact: true })).toBeVisible();
   await expect(
     fixture.getByRole("link", {
-      name: "PR #321 Use the full dashboard main pane",
+      name: "Open pull request 1260 on GitHub",
     }),
   ).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "2 checks pending" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Edit" }).first()).toBeVisible();
+  await expect(fixture.getByText("4 passed", { exact: true })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "View changes" }).first()).toBeVisible();
   await expect(
-    fixture.getByRole("link", {
-      name: "codex/dashboard-main-pane-spacing",
-    }),
+    fixture
+      .getByRole("region", { name: "Open pull requests" })
+      .getByText("samebase-worker", { exact: true }),
   ).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "precise-otter-1260" })).toBeVisible();
+});
+
+test("vault dashboard keeps live pull requests available after source setup fails", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 900, height: 700 });
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-source-setup-failed");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(fixture.getByText("Initial tree sync failed.")).toBeVisible();
+  await expect(
+    fixture.getByRole("link", { name: "Open pull request 1260 on GitHub" }),
+  ).toBeVisible();
+  await expect(fixture.getByText("Add app root")).toHaveCount(0);
+  await expect(fixture.getByRole("button", { name: "Add Convex" })).toHaveCount(0);
+  await expect(fixture.getByRole("button", { name: "Add Cloudflare" })).toHaveCount(0);
+  await expect(fixture).toHaveScreenshot("vault-dashboard-source-setup-failed.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 });
 
 test("vault dashboard fixture (sidebar list)", async ({ page }) => {
@@ -879,11 +938,14 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   await expect(deleteLink).toHaveAttribute("href", "/vault/samebase/samebase?delete");
   const repositoryCard = fixture.locator("[data-vault-dashboard-repository-card]").first();
   await expect(repositoryCard).toBeVisible();
+  const resourceRail = fixture.getByTestId("vault-resource-rail");
   const resourceLinksTrigger = fixture.getByRole("button", {
     name: "Show resource links",
   });
   await expect(resourceLinksTrigger).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Open Convex: nicu/samebase" })).toHaveCount(0);
+  await expect(resourceRail.getByRole("link", { name: "Open Convex: nicu/samebase" })).toHaveCount(
+    0,
+  );
   await expect(repositoryCard).toHaveScreenshot("vault-dashboard-list-spacing-desktop.png", {
     animations: "disabled",
     caret: "hide",
@@ -893,70 +955,27 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
 
   await resourceLinksTrigger.click();
   await expect(fixture.getByRole("button", { name: "Hide resource links" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Open GitHub: samebase/samebase" })).toBeVisible();
-  await expect(fixture.getByText("Loading from Convex...")).toBeVisible();
-  await expect(fixture.getByText("Loading from Cloudflare...")).toHaveCount(2);
-  await expect(fixture.getByText("apps/samebase", { exact: true })).toBeVisible();
-  await expect(fixture.getByText("Needs attention", { exact: true })).toBeVisible();
-  await expect(fixture.getByText("domain-router", { exact: true })).toBeVisible();
+  await expect(
+    resourceRail.getByRole("link", { name: "Open GitHub: samebase/samebase" }),
+  ).toBeVisible();
+  await expect(resourceRail.getByText("Loading from Convex...")).toBeVisible();
+  await expect(resourceRail.getByText("Loading from Cloudflare...")).toHaveCount(2);
+  await expect(resourceRail.getByText("apps/samebase", { exact: true })).toBeVisible();
+  await expect(resourceRail.getByText("Needs attention", { exact: true })).toBeVisible();
+  await expect(resourceRail.getByText("domain-router", { exact: true })).toBeVisible();
   await expect(
     fixture.getByRole("link", {
-      name: "PR #321 Use the full dashboard main pane",
+      name: "Open pull request 1260 on GitHub",
     }),
   ).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "2 checks pending" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Edit" }).first()).toBeVisible();
+  await expect(fixture.getByText("4 passed", { exact: true })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "View changes" }).first()).toBeVisible();
   await expect(
-    fixture.getByRole("link", {
-      name: "codex/dashboard-main-pane-spacing",
-    }),
+    fixture
+      .getByRole("region", { name: "Open pull requests" })
+      .getByText("samebase-worker", { exact: true }),
   ).toBeVisible();
-});
-
-test("vault dashboard fixture keeps virtual branch offsets after resource links expand", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 960, height: 520 });
-  await openVaultDashboardVisualFixture(page, "vault-dashboard-sticky-header");
-
-  const scrollport = page
-    .getByTestId("workspace-layout-v2-main-viewport")
-    .locator("section > div")
-    .nth(1);
-  const header = page.getByTestId("vault-dashboard-repository-header");
-  const branchList = page.locator("[data-vault-dashboard-branch-list]").first();
-  const resourceLinksTrigger = page.getByRole("button", {
-    name: "Show resource links",
-  });
-
-  await scrollport.evaluate((element) => {
-    element.scrollTop = 560;
-  });
-
-  await expect
-    .poll(async () => {
-      const [headerBox, scrollportBox] = await Promise.all([
-        header.boundingBox(),
-        scrollport.boundingBox(),
-      ]);
-      if (headerBox === null || scrollportBox === null) {
-        return Number.POSITIVE_INFINITY;
-      }
-
-      return Math.abs(headerBox.y - scrollportBox.y);
-    })
-    .toBeLessThanOrEqual(1);
-
-  const scrollMarginBefore = Number((await branchList.getAttribute("data-scroll-margin")) ?? "0");
-
-  await resourceLinksTrigger.click();
-  await expect(page.getByRole("button", { name: "Hide resource links" })).toBeVisible();
-
-  await expect
-    .poll(async () => {
-      return Number((await branchList.getAttribute("data-scroll-margin")) ?? "0");
-    })
-    .toBeGreaterThan(scrollMarginBefore);
+  await expect(fixture.getByRole("link", { name: "precise-otter-1260" })).toBeVisible();
 });
 
 test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
@@ -965,11 +984,11 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
 
   const scrollport = page
     .getByTestId("workspace-layout-v2-main-viewport")
-    .locator("section > div")
-    .nth(1);
+    .locator('[data-scroll-restoration-id="workspace-layout-v2-main"]');
   const header = page.getByTestId("vault-dashboard-repository-header");
 
   await expect(page.getByRole("button", { name: /Show .* branches/ })).toHaveCount(0);
+  await expect(page.locator("[data-pull-request-row]")).toHaveCount(25);
   await scrollport.evaluate((element) => {
     element.scrollTop = 560;
   });
@@ -988,16 +1007,13 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
     })
     .toBeLessThanOrEqual(1);
   await expect(header.getByText("samebase", { exact: true })).toBeVisible();
-  const branchFilterCount = header.getByText("28 of 32", { exact: true });
-  const branchFiltersButton = header.getByRole("button", {
+  const pullRequestFiltersButton = header.getByRole("button", {
     name: "Filters",
     exact: true,
   });
-  await expect(branchFilterCount).toBeVisible();
-  await expect(branchFiltersButton).toBeVisible();
-  await expectElementInsideContainer(branchFilterCount, header);
-  await expectElementInsideContainer(branchFiltersButton, header);
-  await expect(page.getByText("codex/sticky-dashboard-branch-05")).toBeVisible();
+  await expect(pullRequestFiltersButton).toBeVisible();
+  await expectElementInsideContainer(pullRequestFiltersButton, header);
+  await expect(page.getByRole("link", { name: "Open pull request 1255 on GitHub" })).toBeVisible();
   await expect(page).toHaveScreenshot("vault-dashboard-sticky-header.png", {
     animations: "disabled",
     caret: "hide",
@@ -1006,84 +1022,57 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
   });
 });
 
-test("vault dashboard fixture (large branch virtual list)", async ({ page }) => {
-  await page.setViewportSize({ width: 1600, height: 1000 });
-  await openVaultDashboardVisualFixture(page, "vault-dashboard-large-branch-list");
-
-  const fixture = page.getByTestId("large-branch-pagination-fixture");
-  const scrollport = page
-    .getByTestId("workspace-layout-v2-main-viewport")
-    .locator("section > div")
-    .nth(1);
-  const branchRows = page.locator("[data-vault-dashboard-branch-row]");
-
-  await expect(fixture).toHaveAttribute("data-loaded-branch-count", "25");
-  await expect(fixture).toHaveAttribute("data-total-branch-count", "1000");
-  await expect(page.getByText("codex/large-branch-0001")).toBeVisible();
-  await expect(page.getByText("codex/large-branch-0999")).toHaveCount(0);
-  await expect.poll(async () => branchRows.count()).toBeLessThan(80);
-
-  let loadedBranchCount = 25;
-  for (let attempt = 0; attempt < 50 && loadedBranchCount < 1000; attempt += 1) {
-    await scrollport.evaluate(async (element) => {
-      element.scrollTop = element.scrollHeight;
-      element.dispatchEvent(new Event("scroll", { bubbles: true }));
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            resolve();
-          });
-        });
-      });
-    });
-    await expect
-      .poll(async () => Number((await fixture.getAttribute("data-loaded-branch-count")) ?? "0"), {
-        timeout: 5000,
-      })
-      .toBeGreaterThan(loadedBranchCount);
-    loadedBranchCount = Number((await fixture.getAttribute("data-loaded-branch-count")) ?? "0");
-    await expect.poll(async () => branchRows.count()).toBeLessThan(80);
-  }
-
-  expect(loadedBranchCount).toBe(1000);
-  await expect(fixture).toHaveAttribute("data-loaded-branch-count", "1000");
-  const loadMoreCallCountAtEnd = await fixture.getAttribute("data-load-more-call-count");
-  if (loadMoreCallCountAtEnd === null) {
-    throw new Error("Large branch fixture did not expose loadMore call count.");
-  }
-
-  await scrollport.evaluate(async (element) => {
-    element.scrollTop = element.scrollHeight;
-    element.dispatchEvent(new Event("scroll", { bubbles: true }));
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          resolve();
-        });
-      });
-    });
-  });
-  await expect(fixture).toHaveAttribute("data-load-more-call-count", loadMoreCallCountAtEnd);
-  await expect(page.getByText("codex/large-branch-0999")).toBeVisible();
-  await expect.poll(async () => branchRows.count()).toBeLessThan(80);
-});
-
 test("vault dashboard fixture (list spacing)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 620 });
   await openVaultDashboardVisualFixture(page, "vault-dashboard-list-spacing");
 
-  await expect(page.getByText("codex/dashboard-main-pane-spacing")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open pull request 1260 on GitHub" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "a1b2c3d4-samebase-worker.samebase.workers.dev" }),
+  ).toHaveAttribute("href", "https://a1b2c3d4-samebase-worker.samebase.workers.dev");
+  await expect(
+    page.getByText("codex/live-provider-truth-01 → main", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open pull request 1258 on GitHub" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Show .* branches/ })).toHaveCount(0);
-  await expect(page.getByText("codex/archive-doc-taxonomy")).toHaveCount(0);
 });
 
-test("vault dashboard fixture (branch filters popover)", async ({ page }) => {
+test("vault dashboard automatically loads the next pull request page at the scroll end", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 900, height: 520 });
+  await openVaultDashboardVisualFixture(page, "vault-pull-request-auto-pagination");
+
+  const list = page.getByRole("region", { name: "Open pull requests" });
+  const sentinel = list.locator("[data-pull-request-load-more-sentinel]");
+  await expect(list.locator("[data-pull-request-row]")).toHaveCount(6);
+  await expect(list.getByText("Pull request data may be out of date")).toBeVisible();
+  await expect(list.getByRole("button", { name: "Retry" })).toHaveCount(0);
+  await expect(list.getByRole("button", { name: "Load more" })).toHaveCount(0);
+  await expect(list.getByRole("link", { name: "GitHub", exact: true })).toHaveCount(0);
+  await expect(sentinel).toHaveCount(1);
+  await expect(page).toHaveScreenshot("vault-pull-request-auto-pagination.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+
+  await sentinel.evaluate((element) => element.scrollIntoView({ block: "end" }));
+  await expect(list.locator("[data-pull-request-row]")).toHaveCount(8);
+  await expect(sentinel).toHaveCount(0);
+});
+
+test("vault dashboard fixture (pull request filters popover)", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 560 });
-  await openVaultDashboardVisualFixture(page, "vault-branch-filters");
+  await openVaultDashboardVisualFixture(page, "vault-pull-request-filters");
+  await expect(page.getByRole("link", { name: "Open pull request 1260 on GitHub" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open pull request 1259 on GitHub" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Open pull request 1258 on GitHub" })).toHaveCount(0);
   await page.getByRole("button", { name: "Filters", exact: true }).click();
 
   await expectMobileSafeTextEntrySize(page.getByPlaceholder("Filter labels"));
-  await expect(page).toHaveScreenshot("vault-branch-filters-popover.png", {
+  await expect(page).toHaveScreenshot("vault-pull-request-filters-popover.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
@@ -1091,7 +1080,9 @@ test("vault dashboard fixture (branch filters popover)", async ({ page }) => {
   });
 });
 
-test("vault dashboard fixture (branch filters mobile sheet)", async ({ browser }, testInfo) => {
+test("vault dashboard fixture (pull request filters mobile sheet)", async ({
+  browser,
+}, testInfo) => {
   const baseURL = testInfo.project.use.baseURL;
   if (typeof baseURL !== "string") {
     throw new Error("Playwright baseURL is required for mobile fixture tests.");
@@ -1104,7 +1095,7 @@ test("vault dashboard fixture (branch filters mobile sheet)", async ({ browser }
   });
   const page = await context.newPage();
 
-  await openVaultDashboardVisualFixture(page, "vault-branch-filters");
+  await openVaultDashboardVisualFixture(page, "vault-pull-request-filters");
   await page.getByRole("button", { name: "Filters", exact: true }).click();
 
   const sheet = page.locator("[data-slot='sheet-content']");
@@ -1113,7 +1104,7 @@ test("vault dashboard fixture (branch filters mobile sheet)", async ({ browser }
     sheet.getByRole("button", { name: "Reset all" }),
     sheet.getByRole("button", { name: "Close" }),
   );
-  await expect(page).toHaveScreenshot("vault-branch-filters-mobile.png", {
+  await expect(page).toHaveScreenshot("vault-pull-request-filters-mobile.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
@@ -1121,22 +1112,4 @@ test("vault dashboard fixture (branch filters mobile sheet)", async ({ browser }
   });
 
   await context.close();
-});
-
-test("vault dashboard fixture (mobile branch alignment)", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openVaultDashboardVisualFixture(page, "vault-branch-mobile-alignment");
-
-  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
-  const deleteLink = fixture.getByRole("link", {
-    name: "Remove vault samebase/samebase",
-  });
-  await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/vault/samebase/samebase?delete");
-  await expect(fixture).toHaveScreenshot("vault-branch-mobile-alignment.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.03,
-  });
 });

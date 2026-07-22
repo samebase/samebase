@@ -131,19 +131,4 @@ describe("account deletion late-write fences", () => {
       expect(await ctx.db.query("workflow_vaultProvisioning_runs").collect()).toHaveLength(1);
     });
   });
-
-  it("rejects refresh demand created by in-flight setup work", async () => {
-    const { ids, t } = await seedDeletingUserWithConnectedVault();
-
-    await expect(
-      t.mutation(internal.repositoryRefresh.enqueueSourceSetupRepositoryRefresh, {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        runId: ids.provisioningRunId,
-      }),
-    ).rejects.toThrow("Repository refresh is unavailable during account deletion.");
-    await t.run(async (ctx) => {
-      expect(await ctx.db.query("vaultRepositoryRefreshRequests").collect()).toEqual([]);
-    });
-  });
 });

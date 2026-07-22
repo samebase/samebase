@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
-  buildVaultBranchFilterOptions,
-  filterVaultRemoteBranches,
-  getDefaultVaultBranchFilters,
-  normalizeVaultBranchFilters,
-  setVaultBranchFilterLabelIncluded,
-} from "./vaultDashboardBranchFilters";
+  buildVaultPullRequestFilterOptions,
+  filterVaultPullRequests,
+  getDefaultVaultPullRequestFilters,
+  normalizeVaultPullRequestFilters,
+  setVaultPullRequestFilterLabelIncluded,
+} from "./vaultDashboardPullRequestFilters";
 
-describe("ui_vaultBranches_filters", () => {
+describe("ui_vaultPullRequests_filters", () => {
   it("defaults to hidden drafts with all labels included", () => {
-    expect(getDefaultVaultBranchFilters()).toEqual({
+    expect(getDefaultVaultPullRequestFilters()).toEqual({
       hiddenLabels: [],
       includeDrafts: false,
       includeNoLabel: true,
@@ -18,9 +18,10 @@ describe("ui_vaultBranches_filters", () => {
 
   it("normalizes duplicate hidden labels case-insensitively", () => {
     expect(
-      normalizeVaultBranchFilters({
+      normalizeVaultPullRequestFilters({
         hiddenLabels: [" Research ", "research", "wip"],
         includeDrafts: false,
+        includeNoLabel: true,
       }),
     ).toEqual({
       hiddenLabels: ["Research", "wip"],
@@ -30,7 +31,7 @@ describe("ui_vaultBranches_filters", () => {
   });
 
   it("toggles included labels without duplicating case variants", () => {
-    const withoutResearch = setVaultBranchFilterLabelIncluded({
+    const withoutResearch = setVaultPullRequestFilterLabelIncluded({
       hiddenLabels: ["WIP"],
       labelName: "research",
       included: false,
@@ -39,7 +40,7 @@ describe("ui_vaultBranches_filters", () => {
     expect(withoutResearch).toEqual(["research", "WIP"]);
 
     expect(
-      setVaultBranchFilterLabelIncluded({
+      setVaultPullRequestFilterLabelIncluded({
         hiddenLabels: withoutResearch,
         labelName: "wip",
         included: true,
@@ -47,27 +48,27 @@ describe("ui_vaultBranches_filters", () => {
     ).toEqual(["research"]);
   });
 
-  it("hides branches that match an excluded label and hides drafts by default", () => {
-    const branches = [
+  it("hides pull requests that match an excluded label and hides drafts by default", () => {
+    const pullRequests = [
       {
         name: "main",
-        pullRequestLabels: [{ name: "Research", color: "cccccc" }],
-        pullRequestIsDraft: false,
+        labels: [{ name: "Research", color: "cccccc" }],
+        isDraft: false,
       },
       {
         name: "draft-task",
-        pullRequestLabels: [{ name: "ops", color: "ffffff" }],
-        pullRequestIsDraft: true,
+        labels: [{ name: "ops", color: "ffffff" }],
+        isDraft: true,
       },
       {
         name: "ready-task",
-        pullRequestLabels: [{ name: "ops", color: "ffffff" }],
-        pullRequestIsDraft: false,
+        labels: [{ name: "ops", color: "ffffff" }],
+        isDraft: false,
       },
     ];
 
     expect(
-      filterVaultRemoteBranches(branches, {
+      filterVaultPullRequests(pullRequests, {
         hiddenLabels: ["research"],
         includeDrafts: false,
         includeNoLabel: true,
@@ -75,38 +76,38 @@ describe("ui_vaultBranches_filters", () => {
     ).toEqual([
       {
         name: "ready-task",
-        pullRequestLabels: [{ name: "ops", color: "ffffff" }],
-        pullRequestIsDraft: false,
+        labels: [{ name: "ops", color: "ffffff" }],
+        isDraft: false,
       },
     ]);
   });
 
   it("includes drafts when the toggle is enabled", () => {
-    const branches = [
-      { name: "draft-task", pullRequestIsDraft: true },
-      { name: "ready-task", pullRequestIsDraft: false },
+    const pullRequests = [
+      { name: "draft-task", isDraft: true },
+      { name: "ready-task", isDraft: false },
     ];
 
     expect(
-      filterVaultRemoteBranches(branches, {
+      filterVaultPullRequests(pullRequests, {
         hiddenLabels: [],
         includeDrafts: true,
         includeNoLabel: true,
       }),
-    ).toEqual(branches);
+    ).toEqual(pullRequests);
   });
 
-  it("hides unlabeled branches when the no-label option is deselected", () => {
-    const branches = [
+  it("hides unlabeled pull requests when the no-label option is deselected", () => {
+    const pullRequests = [
       { name: "unlabeled" },
       {
         name: "labeled",
-        pullRequestLabels: [{ name: "ops", color: "ffffff" }],
+        labels: [{ name: "ops", color: "ffffff" }],
       },
     ];
 
     expect(
-      filterVaultRemoteBranches(branches, {
+      filterVaultPullRequests(pullRequests, {
         hiddenLabels: [],
         includeDrafts: false,
         includeNoLabel: false,
@@ -114,20 +115,20 @@ describe("ui_vaultBranches_filters", () => {
     ).toEqual([
       {
         name: "labeled",
-        pullRequestLabels: [{ name: "ops", color: "ffffff" }],
+        labels: [{ name: "ops", color: "ffffff" }],
       },
     ]);
   });
 
   it("sorts filter options alphabetically and keeps no-label last", () => {
     expect(
-      buildVaultBranchFilterOptions({
-        branches: [
+      buildVaultPullRequestFilterOptions({
+        pullRequests: [
           {
-            pullRequestLabels: [{ name: "customer", color: "1a7f37" }],
+            labels: [{ name: "customer", color: "1a7f37" }],
           },
           {
-            pullRequestLabels: [{ name: "bug", color: "d73a4a" }],
+            labels: [{ name: "bug", color: "d73a4a" }],
           },
           {},
         ],
@@ -139,7 +140,6 @@ describe("ui_vaultBranches_filters", () => {
         key: "bug",
         name: "bug",
         color: "#d73a4a",
-        count: 1,
         included: true,
         isNoLabel: false,
       },
@@ -147,21 +147,18 @@ describe("ui_vaultBranches_filters", () => {
         key: "customer",
         name: "customer",
         color: "#1a7f37",
-        count: 1,
         included: true,
         isNoLabel: false,
       },
       {
         key: "research",
         name: "research",
-        count: 0,
         included: false,
         isNoLabel: false,
       },
       {
         key: "\u0000no-label",
         name: "No label",
-        count: 1,
         included: false,
         isNoLabel: true,
       },
@@ -170,10 +167,10 @@ describe("ui_vaultBranches_filters", () => {
 
   it("keeps the synthetic no-label option distinct from a real label key", () => {
     expect(
-      buildVaultBranchFilterOptions({
-        branches: [
+      buildVaultPullRequestFilterOptions({
+        pullRequests: [
           {
-            pullRequestLabels: [{ name: "__no_label__", color: "d73a4a" }],
+            labels: [{ name: "__no_label__", color: "d73a4a" }],
           },
           {},
         ],
@@ -185,14 +182,12 @@ describe("ui_vaultBranches_filters", () => {
         key: "__no_label__",
         name: "__no_label__",
         color: "#d73a4a",
-        count: 1,
         included: false,
         isNoLabel: false,
       },
       {
         key: "\u0000no-label",
         name: "No label",
-        count: 1,
         included: true,
         isNoLabel: true,
       },

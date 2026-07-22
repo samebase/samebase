@@ -2,7 +2,6 @@ import { defineApp } from "convex/server";
 import { v } from "convex/values";
 import agent from "@convex-dev/agent/convex.config";
 import workflow from "@convex-dev/workflow/convex.config";
-import workpool from "@convex-dev/workpool/convex.config";
 
 const app = defineApp({
   env: {
@@ -16,6 +15,5 @@ const app = defineApp({
 
 app.use(agent);
 app.use(workflow);
-app.use(workpool, { name: "repositoryRefreshWorkpool" });
 
 export default app;

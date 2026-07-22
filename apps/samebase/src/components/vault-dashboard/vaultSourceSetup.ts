@@ -23,26 +23,10 @@ export function formatVaultSourceSetupStep(step: VaultDashboardSourceSetupStep):
       return "fetch GitHub repo";
     case "connect_github":
       return "connect GitHub";
-    case "create_vault":
-      return "connect GitHub";
     case "seed_starter":
       return "seed starter";
     case "sync_tree":
       return "sync tree";
-    case "claim_infra":
-      return "claim infra";
-    case "attach_convex":
-      return "attach Convex";
-    case "attach_worker":
-      return "attach Worker";
-    case "configure_workers_builds_for_github":
-      return "configure Workers Builds for GitHub";
-    case "rotate_convex_deploy_keys_for_workers_builds":
-      return "rotate Convex deploy keys for Workers Builds";
-    case "record_domains":
-      return "record domains";
-    case "finish":
-      return "finish";
   }
   step satisfies never;
   return step;

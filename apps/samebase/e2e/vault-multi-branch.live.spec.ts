@@ -32,14 +32,6 @@ function buildFileRoute(branch: string, filePath: string): string {
   return `${buildBranchRoute(branch)}/${filePath}`;
 }
 
-function branchLinkLocator(page: Page, branch: string): Locator {
-  return page.locator(`a[href="${buildBranchRoute(branch)}"]`).first();
-}
-
-function branchRowLocator(page: Page, branch: string): Locator {
-  return branchLinkLocator(page, branch).locator("xpath=ancestor::div[1]");
-}
-
 async function requireVaultOrSkip(page: Page): Promise<void> {
   const vaultHeading = page.getByRole("heading", { name: REPO_NAME }).first();
   test.skip(
@@ -94,36 +86,17 @@ async function readBranchFile(page: Page, branch: string, fileName: string): Pro
   return textbox.innerText();
 }
 
-test.describe("vault multi-branch live flows", () => {
+test.describe("vault exact-branch live flows", () => {
   test.describe.configure({ mode: "serial" });
 
-  test("dashboard branch list includes ahead/behind labels and encoded slash routes", async ({
-    page,
-  }) => {
+  test("an exact encoded slash branch remains selected across reload", async ({ page }) => {
     await page.goto(VAULT_DASHBOARD_ROUTE);
     await signInIfNeeded(page, VAULT_DASHBOARD_ROUTE);
     await requireVaultOrSkip(page);
-    await expect(branchLinkLocator(page, BRANCHES.main)).toBeVisible({
-      timeout: 15_000,
+
+    await page.goto(buildBranchRoute(BRANCHES.slash), {
+      waitUntil: "domcontentloaded",
     });
-
-    const dashboardBranches = [
-      BRANCHES.main,
-      BRANCHES.beta,
-      BRANCHES.alpha,
-      BRANCHES.slash,
-    ] as const;
-
-    for (const branch of dashboardBranches) {
-      const link = branchLinkLocator(page, branch);
-      await expect(link).toBeVisible();
-
-      const rowText = await branchRowLocator(page, branch).innerText();
-      expect(rowText).toContain("↑");
-      expect(rowText).toContain("↓");
-    }
-
-    await branchLinkLocator(page, BRANCHES.slash).click();
     await expect(page).toHaveURL(
       new RegExp(`/vault/${REPO_OWNER}/${REPO_NAME}/${encodeBranchSegment(BRANCHES.slash)}`),
     );
