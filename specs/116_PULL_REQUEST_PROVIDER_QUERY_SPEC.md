@@ -92,6 +92,14 @@ invent a root. An available build exposes its state and a direct Cloudflare dash
 exact build's logs. That URL is derived from the verified account, Worker, and build identities in
 the same live resource result.
 
+The resource read asks GitHub for check suites filtered to Cloudflare's stable GitHub App id on the
+pull request head commit. A Cloudflare branch preview belongs to a build only when one filtered
+check run has an `externalId` equal to the verified Cloudflare build UUID and names the same Worker.
+The row links the `Preview Alias URL` published by that exact check because it remains stable as new
+commits build on the branch. The version-specific `Preview URL` is not the row's navigation target.
+Samebase never downloads general pull request comments or guesses Cloudflare's alias normalization
+from the branch name. Missing, incomplete, malformed, or contradictory check output fails closed.
+
 A Convex preview belongs to that build only when:
 
 1. the pull request head is in the vault repository;
@@ -170,6 +178,7 @@ Tests must prove:
 - a pull request that leaves the open set during resource enrichment does not fail sibling rows;
 - resource links require exact cross-provider identity;
 - an exact Cloudflare build exposes its provider logs link;
+- an exact Cloudflare build check exposes its stable branch preview instead of its version preview;
 - an exact branch tree uses the immutable tree SHA returned for that branch commit;
 - no deleted table or action remains in generated Convex bindings, cleanup registries, or tests.
 

@@ -1034,8 +1034,13 @@ test("vault dashboard fixture (list spacing)", async ({ page }) => {
 
   await expect(page.getByRole("link", { name: "Open pull request 1260 on GitHub" })).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "a1b2c3d4-samebase-worker.samebase.workers.dev" }),
-  ).toHaveAttribute("href", "https://a1b2c3d4-samebase-worker.samebase.workers.dev");
+    page.getByRole("link", {
+      name: "codex-restore-convex-dashboard-links-samebase-worker.samebase.workers.dev",
+    }),
+  ).toHaveAttribute(
+    "href",
+    "https://codex-restore-convex-dashboard-links-samebase-worker.samebase.workers.dev",
+  );
   await expect(page.getByRole("link", { name: "Build logs" }).first()).toHaveAttribute(
     "href",
     "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-worker/production/builds/da8f8183-6ef8-4e92-bc32-34c04f117f6f",

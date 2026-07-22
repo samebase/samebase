@@ -494,9 +494,9 @@ function fixturePullRequests(
                         logsUrl:
                           "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-worker/production/builds/da8f8183-6ef8-4e92-bc32-34c04f117f6f",
                       },
-                      cloudflarePreview: {
+                      cloudflareBranchPreview: {
                         state: "available" as const,
-                        url: "https://a1b2c3d4-samebase-worker.samebase.workers.dev",
+                        url: "https://codex-restore-convex-dashboard-links-samebase-worker.samebase.workers.dev",
                       },
                       convexPreview: {
                         state: "available" as const,
@@ -519,7 +519,7 @@ function fixturePullRequests(
                           logsUrl:
                             "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/domain-router/production/builds/running-build-1259",
                         },
-                        cloudflarePreview: { state: "absent" as const },
+                        cloudflareBranchPreview: { state: "absent" as const },
                         convexPreview: { state: "unavailable" as const },
                       },
                     ]

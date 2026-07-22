@@ -215,11 +215,11 @@ function CloudflareBuildResource({
   );
 }
 
-function CloudflarePreviewResource({
+function CloudflareBranchPreviewResource({
   preview,
   workerName,
 }: {
-  preview: Extract<PullRequestWorkerResource, { state: "available" }>["cloudflarePreview"];
+  preview: Extract<PullRequestWorkerResource, { state: "available" }>["cloudflareBranchPreview"];
   workerName: string;
 }) {
   if (preview.state !== "available") {
@@ -232,7 +232,7 @@ function CloudflarePreviewResource({
       target="_blank"
       rel="noreferrer noopener"
       className={metadataLinkClassName}
-      title={`Open Cloudflare preview for ${workerName}`}
+      title={`Open Cloudflare branch preview for ${workerName}`}
     >
       {new URL(preview.url).hostname}
     </a>
@@ -323,8 +323,8 @@ function WorkerResource({ worker }: { worker: PullRequestWorkerResource }) {
       </span>
       <span className="font-mono text-xs text-muted-foreground">{worker.rootDirectory}</span>
       <CloudflareBuildResource build={worker.cloudflareBuild} workerName={worker.workerName} />
-      <CloudflarePreviewResource
-        preview={worker.cloudflarePreview}
+      <CloudflareBranchPreviewResource
+        preview={worker.cloudflareBranchPreview}
         workerName={worker.workerName}
       />
       <ConvexPreviewResource

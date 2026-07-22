@@ -13,10 +13,8 @@ import {
   readCloudflareWorkerBuildsPage,
   readCloudflareWorkerConvexBuildAccess,
   readCloudflareWorkerIdentity,
-  readCloudflareWorkerVersionsPage,
   type CloudflareConvexBuildAccessObservation,
   type CloudflareWorkerBuild,
-  type CloudflareWorkerVersion,
 } from "../cloudflareResources";
 import { action } from "../functions";
 import { createGitHubRequestDeadlineSignal, fetchGitHubRepoIdentity } from "../githubRepoApi";
@@ -27,6 +25,7 @@ const { array, id, literal, object, string, union } = v;
 
 const CLOUDFLARE_BUILD_PAGE_SIZE = 100;
 const CLOUDFLARE_BUILD_MAX_PAGES = 2;
+const CLOUDFLARE_GITHUB_APP_DATABASE_ID = 85455;
 const GITHUB_PULL_REQUEST_RESOURCE_LIMIT = 100;
 
 const vCloudflareBuildState = union(
@@ -47,7 +46,7 @@ const vConvexPreview = union(
   object({ state: literal("absent") }),
   object({ state: literal("unavailable") }),
 );
-const vCloudflarePreview = union(
+const vCloudflareBranchPreview = union(
   object({ state: literal("available"), url: string() }),
   object({ state: literal("absent") }),
   object({ state: literal("unavailable") }),
@@ -70,7 +69,7 @@ const vPullRequestWorkerResource = union(
     state: literal("available"),
     ...observedWorkerIdentityFields,
     cloudflareBuild: vCloudflareBuild,
-    cloudflarePreview: vCloudflarePreview,
+    cloudflareBranchPreview: vCloudflareBranchPreview,
     convexPreview: vConvexPreview,
   }),
   object({
@@ -96,6 +95,13 @@ const providerPullRequestResourceIdentitySchema = z.object({
   state: z.enum(["OPEN", "CLOSED", "MERGED"]),
   repository: z.object({ databaseId: z.number().int().positive() }),
 });
+const providerCloudflareCheckRunSchema = z.object({
+  name: z.string().min(1),
+  externalId: z.string().min(1).nullable(),
+  status: z.string().min(1),
+  conclusion: z.string().min(1).nullable(),
+  summary: z.string().nullable(),
+});
 const providerPullRequestResourceHeadSchema = providerPullRequestResourceIdentitySchema.extend({
   url: z.url(),
   isCrossRepository: z.boolean(),
@@ -103,6 +109,26 @@ const providerPullRequestResourceHeadSchema = providerPullRequestResourceIdentit
   headRepository: z.object({ id: z.string().min(1) }).nullable(),
   headRefName: z.string().min(1),
   headRefOid: z.string().min(1),
+  commits: z.object({
+    nodes: z.array(
+      z.object({
+        commit: z.object({
+          oid: z.string().min(1),
+          checkSuites: z.object({
+            totalCount: z.number().int().nonnegative(),
+            nodes: z.array(
+              z.object({
+                checkRuns: z.object({
+                  totalCount: z.number().int().nonnegative(),
+                  nodes: z.array(providerCloudflareCheckRunSchema),
+                }),
+              }),
+            ),
+          }),
+        }),
+      }),
+    ),
+  }),
 });
 const providerPullRequestResourceHeadsSchema = z.object({ nodes: z.array(z.unknown()) });
 const providerMissingPullRequestNodeErrorsSchema = z
@@ -119,18 +145,22 @@ const providerMissingPullRequestNodesErrorSchema = z.object({
   data: z.unknown(),
 });
 type ProviderPullRequestResourceHead = z.infer<typeof providerPullRequestResourceHeadSchema>;
+type ProviderCloudflareCheckRun = z.infer<typeof providerCloudflareCheckRunSchema>;
 export type PullRequestResourceHead = Pick<
   ProviderPullRequestResourceHead,
   "id" | "url" | "isCrossRepository" | "headRefName" | "headRefOid"
 > & {
   headRepositoryId: string | null;
+  cloudflareChecks:
+    | { state: "available"; runs: ProviderCloudflareCheckRun[] }
+    | { state: "unavailable" };
 };
 type PullRequestResourceHeadRead =
   | { state: "available"; head: PullRequestResourceHead }
   | { state: "unavailable"; pullRequestId: string };
 
 const PULL_REQUEST_RESOURCE_HEADS_QUERY = `
-  query PullRequestResourceHeads($ids: [ID!]!) {
+  query PullRequestResourceHeads($ids: [ID!]!, $cloudflareAppId: Int!) {
     nodes(ids: $ids) {
       __typename
       ... on PullRequest {
@@ -142,6 +172,22 @@ const PULL_REQUEST_RESOURCE_HEADS_QUERY = `
         headRepository { id }
         headRefName
         headRefOid
+        commits(last: 1) {
+          nodes {
+            commit {
+              oid
+              checkSuites(first: 20, filterBy: { appId: $cloudflareAppId }) {
+                totalCount
+                nodes {
+                  checkRuns(first: 100) {
+                    totalCount
+                    nodes { name externalId status conclusion summary }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -172,6 +218,14 @@ export function normalizeGitHubPullRequestResourceHeadReads(
       return { state: "unavailable", pullRequestId };
     }
     const head = providerPullRequestResourceHeadSchema.parse(value);
+    const commit = head.commits.nodes.at(0)?.commit;
+    const completeCloudflareChecks =
+      head.commits.nodes.length === 1 &&
+      commit?.oid === head.headRefOid &&
+      commit.checkSuites.totalCount === commit.checkSuites.nodes.length &&
+      commit.checkSuites.nodes.every(
+        (suite) => suite.checkRuns.totalCount === suite.checkRuns.nodes.length,
+      );
     return {
       state: "available",
       head: {
@@ -181,6 +235,12 @@ export function normalizeGitHubPullRequestResourceHeadReads(
         headRepositoryId: head.headRepository?.id ?? null,
         headRefName: head.headRefName,
         headRefOid: head.headRefOid,
+        cloudflareChecks: completeCloudflareChecks
+          ? {
+              state: "available",
+              runs: commit.checkSuites.nodes.flatMap((suite) => suite.checkRuns.nodes),
+            }
+          : { state: "unavailable" },
       },
     };
   });
@@ -220,12 +280,8 @@ type ConvexPreviewRead =
 type ConvexBuildAccessRead =
   | { state: "available"; buildAccess: CloudflareConvexBuildAccessObservation }
   | { state: "failed" };
-type CloudflareVersionsRead =
-  | { state: "available"; versions: CloudflareWorkerVersion[] }
-  | { state: "failed" };
 type PullRequestProviderFailureOperation =
   | "read_cloudflare_convex_build_access"
-  | "read_cloudflare_worker_versions"
   | "read_cloudflare_worker_resources"
   | "read_convex_preview"
   | "resolve_cloudflare_connection";
@@ -415,45 +471,63 @@ export function resolveConvexPreviewDeployment(args: {
   return { state: "available", deployment: matches[0] };
 }
 
-export function resolveCloudflarePreviewUrl(args: {
-  versions: readonly CloudflareWorkerVersion[];
+export function resolveCloudflareBranchPreviewUrl(args: {
+  checks: PullRequestResourceHead["cloudflareChecks"];
   workerName: string;
-  build: Pick<
-    Extract<BuildMatch, { state: "available" }>,
-    "buildState" | "createdAt" | "finishedAt"
-  >;
+  build: Pick<Extract<BuildMatch, { state: "available" }>, "buildUuid" | "buildState">;
 }):
   | { state: "available"; url: string }
   | { state: "absent" }
-  | { state: "unavailable"; reason: "version_ambiguous" | "url_ambiguous" } {
-  if (args.build.buildState !== "success" || args.build.finishedAt === null) {
+  | {
+      state: "unavailable";
+      reason: "checks_unavailable" | "check_ambiguous" | "provider_disagreement" | "url_ambiguous";
+    } {
+  if (args.build.buildState !== "success") {
     return { state: "absent" };
   }
-  const finishedAt = args.build.finishedAt;
-  const versions = args.versions.filter((version) => {
-    const createdAt = providerTimestamp(version.created_on);
-    return createdAt !== null && createdAt >= args.build.createdAt && createdAt <= finishedAt;
-  });
-  if (versions.length === 0) {
-    return { state: "absent" };
-  }
-  if (versions.length > 1) {
-    return { state: "unavailable", reason: "version_ambiguous" };
+  if (args.checks.state === "unavailable") {
+    return { state: "unavailable", reason: "checks_unavailable" };
   }
 
-  const previewUrls = versions[0].urls.filter((url) => {
-    try {
-      const parsed = new URL(url);
-      return (
-        parsed.protocol === "https:" &&
-        parsed.pathname === "/" &&
-        parsed.hostname.endsWith(".workers.dev") &&
-        parsed.hostname.includes(`-${args.workerName}.`)
-      );
-    } catch {
-      return false;
-    }
-  });
+  const checks = args.checks.runs.filter((check) => check.externalId === args.build.buildUuid);
+  if (checks.length === 0) {
+    return { state: "absent" };
+  }
+  if (checks.length > 1) {
+    return { state: "unavailable", reason: "check_ambiguous" };
+  }
+  const check = checks[0];
+  if (check.name !== `Workers Builds: ${args.workerName}`) {
+    return { state: "unavailable", reason: "provider_disagreement" };
+  }
+  if (check.status !== "COMPLETED" || check.conclusion !== "SUCCESS") {
+    return { state: "absent" };
+  }
+
+  const previewAliasLabel = "Preview Alias URL: ";
+  const previewUrls = (check.summary ?? "")
+    .split(/\r?\n/)
+    .flatMap((line) =>
+      line.startsWith(previewAliasLabel) ? [line.slice(previewAliasLabel.length).trim()] : [],
+    )
+    .filter((url) => {
+      try {
+        const parsed = new URL(url);
+        return (
+          parsed.protocol === "https:" &&
+          parsed.username === "" &&
+          parsed.password === "" &&
+          parsed.port === "" &&
+          parsed.pathname === "/" &&
+          parsed.search === "" &&
+          parsed.hash === "" &&
+          parsed.hostname.endsWith(".workers.dev") &&
+          parsed.hostname.includes(`-${args.workerName}.`)
+        );
+      } catch {
+        return false;
+      }
+    });
   if (previewUrls.length === 0) {
     return { state: "absent" };
   }
@@ -621,34 +695,6 @@ async function readWorkerResourcesForHeads(args: {
     convexBuildAccessRead = request;
     return request;
   };
-  let cloudflareVersionsRead: Promise<CloudflareVersionsRead> | undefined;
-  const readCloudflareVersions = () => {
-    const existing = cloudflareVersionsRead;
-    if (existing) {
-      return existing;
-    }
-    const request = readCloudflareWorkerVersionsPage({
-      token: args.cloudflareToken,
-      transport: args.cloudflareTransport,
-      accountId: args.worker.accountId,
-      workerName: args.worker.workerName,
-      page: 1,
-      perPage: CLOUDFLARE_BUILD_PAGE_SIZE,
-    }).then(
-      (versions) => ({ state: "available" as const, versions }),
-      (error) => {
-        reportPullRequestProviderFailure({
-          operation: "read_cloudflare_worker_versions",
-          error,
-          workerId: args.worker.workerId,
-        });
-        return { state: "failed" as const };
-      },
-    );
-    cloudflareVersionsRead = request;
-    return request;
-  };
-
   return await Promise.all(
     args.heads.map(async (head): Promise<PullRequestWorkerResource> => {
       const match = matchCloudflareWorkerBuild({
@@ -677,26 +723,21 @@ async function readWorkerResourcesForHeads(args: {
       }
 
       const unavailablePreview = () => ({ state: "unavailable" as const });
-      let cloudflarePreview: AvailableWorkerResource["cloudflarePreview"];
+      let cloudflareBranchPreview: AvailableWorkerResource["cloudflareBranchPreview"];
       if (identity.previewUrlsEnabled === false || match.buildState !== "success") {
-        cloudflarePreview = { state: "absent" };
+        cloudflareBranchPreview = { state: "absent" };
       } else {
-        const versionsRead = await readCloudflareVersions();
-        if (versionsRead.state === "failed") {
-          cloudflarePreview = unavailablePreview();
-        } else {
-          const resolved = resolveCloudflarePreviewUrl({
-            versions: versionsRead.versions,
-            workerName: args.worker.workerName,
-            build: match,
-          });
-          cloudflarePreview =
-            resolved.state === "available"
-              ? { state: "available", url: resolved.url }
-              : resolved.state === "absent"
-                ? { state: "absent" }
-                : unavailablePreview();
-        }
+        const resolved = resolveCloudflareBranchPreviewUrl({
+          checks: head.cloudflareChecks,
+          workerName: args.worker.workerName,
+          build: match,
+        });
+        cloudflareBranchPreview =
+          resolved.state === "available"
+            ? { state: "available", url: resolved.url }
+            : resolved.state === "absent"
+              ? { state: "absent" }
+              : unavailablePreview();
       }
       let convexPreview: AvailableWorkerResource["convexPreview"];
       const buildAccessRead = await readConvexBuildAccess();
@@ -763,7 +804,7 @@ async function readWorkerResourcesForHeads(args: {
             buildUuid: match.buildUuid,
           }),
         },
-        cloudflarePreview,
+        cloudflareBranchPreview,
         convexPreview,
       };
     }),
@@ -793,6 +834,7 @@ async function readGitHubPullRequestResourceHeadReads(args: {
   try {
     response = await args.octokit.graphql(PULL_REQUEST_RESOURCE_HEADS_QUERY, {
       ids: args.pullRequestIds,
+      cloudflareAppId: CLOUDFLARE_GITHUB_APP_DATABASE_ID,
       request: { signal: args.signal },
     });
   } catch (error) {

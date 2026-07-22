@@ -73,9 +73,9 @@ function settledState(
               logsUrl:
                 "https://dash.cloudflare.com/account-1/workers/services/view/samebase-worker/production/builds/build-1243",
             },
-            cloudflarePreview: {
+            cloudflareBranchPreview: {
               state: "available" as const,
-              url: "https://a1b2c3d4-samebase-worker.samebase.workers.dev",
+              url: "https://codex-live-provider-truth-samebase-worker.samebase.workers.dev",
             },
             convexPreview: {
               state: "available" as const,
@@ -130,8 +130,11 @@ describe("VaultPullRequestList", () => {
       'href="https://dash.cloudflare.com/account-1/workers/services/view/samebase-worker/production/builds/build-1243"',
     );
     expect(markup).toContain("Build logs");
-    expect(markup).toContain("a1b2c3d4-samebase-worker.samebase.workers.dev");
-    expect(markup).toContain('href="https://a1b2c3d4-samebase-worker.samebase.workers.dev"');
+    expect(markup).toContain("codex-live-provider-truth-samebase-worker.samebase.workers.dev");
+    expect(markup).toContain(
+      'href="https://codex-live-provider-truth-samebase-worker.samebase.workers.dev"',
+    );
+    expect(markup).toContain('title="Open Cloudflare branch preview for samebase-worker"');
     expect(markup).toContain("precise-otter-1243");
     expect(markup).toContain(
       'href="https://dashboard.convex.dev/t/samebase/samebase/precise-otter-1243/data"',
