@@ -828,42 +828,44 @@ function LandingPreviewOverview() {
               <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
                 standard stack
               </p>
-              <div className="mt-4 flex flex-wrap items-center gap-x-7 gap-y-4">
-                <img
-                  alt="Vite+"
-                  className="h-[18px] w-auto dark:hidden"
-                  height="15"
-                  src="/landing-preview/logos/vite-plus.svg"
-                  width="103"
-                />
-                <img
-                  alt="Vite+"
-                  className="hidden h-[18px] w-auto dark:block"
-                  height="15"
-                  src="/landing-preview/logos/vite-plus-dark.svg"
-                  width="103"
-                />
-                <div className="flex items-center gap-1.5">
+              <div className="mt-4 grid grid-cols-2 items-center gap-x-5 gap-y-4 @3xl:grid-cols-[auto_auto_auto] @3xl:justify-start @3xl:gap-x-7">
+                <div className="flex h-6 items-center">
+                  <img
+                    alt="Vite+"
+                    className="h-4 w-auto dark:hidden"
+                    height="15"
+                    src="/landing-preview/logos/vite-plus.svg"
+                    width="103"
+                  />
+                  <img
+                    alt="Vite+"
+                    className="hidden h-4 w-auto dark:block"
+                    height="15"
+                    src="/landing-preview/logos/vite-plus-dark.svg"
+                    width="103"
+                  />
+                </div>
+                <div className="flex h-6 items-center gap-1.5">
                   <img
                     alt="TanStack"
-                    className="h-5 w-auto dark:hidden"
+                    className="h-4 w-auto dark:hidden"
                     height="660"
                     src="/landing-preview/logos/tanstack.svg"
                     width="3178"
                   />
                   <img
                     alt="TanStack"
-                    className="hidden h-5 w-auto dark:block"
+                    className="hidden h-4 w-auto dark:block"
                     height="660"
                     src="/landing-preview/logos/tanstack-dark.svg"
                     width="3178"
                   />
                   <span className="text-sm font-semibold">Start</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="col-span-2 flex h-6 items-center justify-self-center gap-1.5 @3xl:col-span-1 @3xl:justify-self-start">
                   <img
                     alt=""
-                    className="h-[18px] w-auto"
+                    className="h-4 w-auto"
                     height="33"
                     src="/landing-preview/logos/tailwindcss.svg"
                     width="54"
