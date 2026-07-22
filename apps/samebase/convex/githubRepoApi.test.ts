@@ -22,11 +22,7 @@ vi.mock("@octokit/rest", () => ({
   },
 }));
 
-import { fetchGitHubConvexConfigDiscovery, fetchGitHubRepoIdentity } from "./githubRepoApi";
-
-function encodeBlob(value: string): string {
-  return Buffer.from(value, "utf-8").toString("base64");
-}
+import { fetchGitHubConvexCodeLocationDiscovery, fetchGitHubRepoIdentity } from "./githubRepoApi";
 
 describe("GitHub repository API", () => {
   beforeEach(() => {
@@ -57,7 +53,7 @@ describe("GitHub repository API", () => {
     });
   });
 
-  it("reads exact regular convex.json blobs from the current default branch", async () => {
+  it("discovers exact regular convex.json blobs from default-branch tree metadata", async () => {
     octokitMocks.getTree.mockResolvedValue({
       data: {
         truncated: true,
@@ -91,17 +87,8 @@ describe("GitHub repository API", () => {
         ],
       },
     });
-    const contents = new Map([
-      ["root-sha", "{}"],
-      ["web-sha", '{"functions":"convex"}'],
-      ["admin-sha", '{"functions":'],
-    ]);
-    octokitMocks.getBlob.mockImplementation(async ({ file_sha }: { file_sha: string }) => ({
-      data: { encoding: "base64", content: encodeBlob(contents.get(file_sha) ?? "") },
-    }));
-
     await expect(
-      fetchGitHubConvexConfigDiscovery({
+      fetchGitHubConvexCodeLocationDiscovery({
         githubAccessToken: "github-token",
         owner: "samebase",
         repo: "samebase",
@@ -112,22 +99,21 @@ describe("GitHub repository API", () => {
       defaultBranch: "trunk",
       commitSha: "commit-sha",
       treeSha: "tree-sha",
-      configs: [
+      locations: [
         {
-          state: "invalid",
+          kind: "config",
           convexConfigPath: "apps/admin/convex.json",
           rootDirectory: "apps/admin",
           blobSha: "admin-sha",
-          reason: "invalid_json_object",
         },
         {
-          state: "valid",
+          kind: "config",
           convexConfigPath: "apps/web/convex.json",
           rootDirectory: "apps/web",
           blobSha: "web-sha",
         },
         {
-          state: "valid",
+          kind: "config",
           convexConfigPath: "convex.json",
           rootDirectory: "/",
           blobSha: "root-sha",
@@ -139,7 +125,111 @@ describe("GitHub repository API", () => {
       repo: "samebase",
       ref: "heads/trunk",
     });
-    expect(octokitMocks.getBlob).toHaveBeenCalledTimes(3);
+    expect(octokitMocks.getBlob).not.toHaveBeenCalled();
+  });
+
+  it("discovers default Convex directories beside package.json without reading file contents", async () => {
+    octokitMocks.getTree.mockResolvedValue({
+      data: {
+        truncated: false,
+        tree: [
+          { type: "blob", mode: "100644", path: "package.json", sha: "root-package-sha" },
+          { type: "tree", mode: "040000", path: "convex", sha: "root-convex-sha" },
+          {
+            type: "blob",
+            mode: "100644",
+            path: "apps/web/package.json",
+            sha: "web-package-sha",
+          },
+          {
+            type: "tree",
+            mode: "040000",
+            path: "apps/web/convex",
+            sha: "web-convex-sha",
+          },
+          {
+            type: "blob",
+            mode: "100644",
+            path: "apps/configured/package.json",
+            sha: "configured-package-sha",
+          },
+          {
+            type: "tree",
+            mode: "040000",
+            path: "apps/configured/convex",
+            sha: "configured-convex-sha",
+          },
+          {
+            type: "blob",
+            mode: "100644",
+            path: "apps/configured/convex.json",
+            sha: "configured-config-sha",
+          },
+          {
+            type: "tree",
+            mode: "040000",
+            path: "apps/no-package/convex",
+            sha: "no-package-convex-sha",
+          },
+          {
+            type: "blob",
+            mode: "100644",
+            path: "apps/no-convex/package.json",
+            sha: "no-convex-package-sha",
+          },
+          {
+            type: "blob",
+            mode: "100644",
+            path: "apps/not-a-tree/convex",
+            sha: "convex-blob-sha",
+          },
+          {
+            type: "tree",
+            mode: "040000",
+            path: "apps/case/Convex",
+            sha: "case-convex-sha",
+          },
+        ],
+      },
+    });
+    await expect(
+      fetchGitHubConvexCodeLocationDiscovery({
+        githubAccessToken: "github-token",
+        owner: "samebase",
+        repo: "samebase",
+        expectedRepoId: "123",
+      }),
+    ).resolves.toEqual({
+      completeness: "complete",
+      defaultBranch: "trunk",
+      commitSha: "commit-sha",
+      treeSha: "tree-sha",
+      locations: [
+        {
+          kind: "config",
+          convexConfigPath: "apps/configured/convex.json",
+          rootDirectory: "apps/configured",
+          blobSha: "configured-config-sha",
+        },
+        {
+          kind: "directory",
+          convexDirectoryPath: "apps/web/convex",
+          rootDirectory: "apps/web",
+          convexDirectoryTreeSha: "web-convex-sha",
+          packageJsonPath: "apps/web/package.json",
+          packageJsonBlobSha: "web-package-sha",
+        },
+        {
+          kind: "directory",
+          convexDirectoryPath: "convex",
+          rootDirectory: "/",
+          convexDirectoryTreeSha: "root-convex-sha",
+          packageJsonPath: "package.json",
+          packageJsonBlobSha: "root-package-sha",
+        },
+      ],
+    });
+    expect(octokitMocks.getBlob).not.toHaveBeenCalled();
   });
 
   it("rejects a repository whose immutable id no longer matches the vault", async () => {
@@ -148,7 +238,7 @@ describe("GitHub repository API", () => {
     });
 
     await expect(
-      fetchGitHubConvexConfigDiscovery({
+      fetchGitHubConvexCodeLocationDiscovery({
         githubAccessToken: "github-token",
         owner: "samebase",
         repo: "samebase",

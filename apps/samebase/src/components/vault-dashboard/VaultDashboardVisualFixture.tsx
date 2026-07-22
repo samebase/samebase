@@ -47,8 +47,10 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-dev-tools-hidden"
   | "vault-dashboard-dev-tools-visible"
   | "vault-dashboard-connect-cloudflare-open"
+  | "vault-dashboard-connect-cloudflare-loading"
   | "vault-dashboard-connect-cloudflare-mobile-shell-open"
   | "vault-dashboard-connect-convex-open"
+  | "vault-dashboard-connect-convex-loading"
   | "vault-dashboard-connect-convex-error"
   | "vault-dashboard-delete-open"
   | "vault-dashboard-infra-setup"
@@ -226,7 +228,7 @@ const LIST_SPACING_VAULT = {
   convexProjects: [
     {
       convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
-      convexConfigPath: "apps/samebase/convex.json",
+      codeLocation: { kind: "config", convexConfigPath: "apps/samebase/convex.json" },
       teamId: "samebase-team-id",
       projectId: "samebase",
     },
@@ -299,8 +301,8 @@ const LIST_SPACING_CONVEX_OBSERVATIONS = {
       observedAt: FIXTURE_NOW,
       convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
       projectId: "samebase",
-      convexConfigPath: "apps/samebase/convex.json",
-      source: { state: "valid", blobSha: "fixture-samebase-convex-config" },
+      codeLocation: { kind: "config", convexConfigPath: "apps/samebase/convex.json" },
+      source: { kind: "config", state: "valid", blobSha: "fixture-samebase-convex-config" },
       provider: {
         state: "current",
         teamId: "samebase-team-id",
@@ -349,7 +351,7 @@ const CLOUDFLARE_BUILD_TRIGGER_MISSING_VAULT = {
   convexProjects: [
     {
       convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
-      convexConfigPath: "convex.json",
+      codeLocation: { kind: "config", convexConfigPath: "convex.json" },
       teamId: "nicu-team-id",
       projectId: "tmp-my-super-app-2",
     },
@@ -847,8 +849,8 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
                 observedAt: FIXTURE_NOW,
                 convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
                 projectId: "tmp-my-super-app-2",
-                convexConfigPath: "convex.json",
-                source: { state: "valid", blobSha: "fixture-convex-config" },
+                codeLocation: { kind: "config", convexConfigPath: "convex.json" },
+                source: { kind: "config", state: "valid", blobSha: "fixture-convex-config" },
                 provider: {
                   state: "current",
                   teamId: "nicu-team-id",
@@ -1474,7 +1476,7 @@ function VaultConvexSchemaRouteMobileFixture() {
   }, []);
   const context = {
     branch: "main",
-    convexConfigPath: "convex.json",
+    convexCodePath: "convex.json",
     projectId: "samebase-project",
     repositoryFullName: "samebase/samebase",
   } satisfies VaultConvexSchemaGraphRouteContext;
@@ -1534,7 +1536,7 @@ function VaultDashboardDeleteOpenFixture() {
   );
 }
 
-function FixtureCloudflareConnectDialog() {
+function FixtureCloudflareConnectDialog({ isLoading = false }: { isLoading?: boolean }) {
   const [mode, setMode] = useState<"connect" | "create" | "existing">("existing");
   const [rootDirectory, setRootDirectory] = useState("apps/atelier");
   const [workerToConnect, setWorkerToConnect] = useState<{
@@ -1555,7 +1557,7 @@ function FixtureCloudflareConnectDialog() {
       didAddWorker={false}
       error={null}
       folderSuggestions={["apps", "apps/admin", "apps/atelier", "apps/portal", "packages/shared"]}
-      isLoading={false}
+      isLoading={isLoading}
       isSubmitting={false}
       inventoryState="complete"
       mode={mode}
@@ -1643,10 +1645,12 @@ function VaultDashboardConnectCloudflareMobileShellOpenFixture() {
 
 function VaultDashboardConnectConvexOpenFixture({
   error,
-  selectedProjectConfigPaths,
+  isLoading = false,
+  selectedProjectCodeLocationKeys,
 }: {
   error: string | null;
-  selectedProjectConfigPaths: Readonly<Record<string, string | undefined>>;
+  isLoading?: boolean;
+  selectedProjectCodeLocationKeys: Readonly<Record<string, string | undefined>>;
 }) {
   return (
     <div
@@ -1667,15 +1671,15 @@ function VaultDashboardConnectConvexOpenFixture({
           />
         </VaultDashboardRepositoryList>
         <VaultDashboardConvexDialog
-          configs={[
+          codeLocations={[
             {
-              state: "valid",
+              kind: "config",
               convexConfigPath: "convex.json",
               rootDirectory: "/",
               blobSha: "fixture-convex-config",
             },
           ]}
-          createConfigPath="convex.json"
+          createCodeLocationKey="config:convex.json"
           createProjectName="samebase-app"
           projects={[
             {
@@ -1713,19 +1717,19 @@ function VaultDashboardConnectConvexOpenFixture({
             },
           ]}
           error={error}
-          isLoading={false}
+          isLoading={isLoading}
           isSubmitting={false}
           mode="existing"
-          onCreateConfigPathChange={() => {}}
+          onCreateCodeLocationKeyChange={() => {}}
           onCreateProjectNameChange={() => {}}
           onModeChange={() => {}}
           onOpenChange={() => {}}
-          onProjectConfigPathChange={() => {}}
+          onProjectCodeLocationKeyChange={() => {}}
           onProjectToggle={() => {}}
           onSubmit={() => {}}
           open={true}
           repairProject={null}
-          selectedProjectConfigPaths={selectedProjectConfigPaths}
+          selectedProjectCodeLocationKeys={selectedProjectCodeLocationKeys}
           sourceCompleteness="complete"
           vault={{
             id: fakeVaultId(),
@@ -1940,19 +1944,45 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
     return <VaultDashboardConnectCloudflareOpenFixture />;
   }
 
+  if (mode === "vault-dashboard-connect-cloudflare-loading") {
+    return (
+      <div
+        data-testid="vault-dashboard-visual-fixture"
+        data-mode="vault-dashboard-connect-cloudflare-loading"
+        className="w-full bg-background p-4 text-foreground"
+      >
+        <TestRouterProvider>
+          <FixtureCloudflareConnectDialog isLoading />
+        </TestRouterProvider>
+      </div>
+    );
+  }
+
   if (mode === "vault-dashboard-connect-cloudflare-mobile-shell-open") {
     return <VaultDashboardConnectCloudflareMobileShellOpenFixture />;
   }
 
   if (mode === "vault-dashboard-connect-convex-open") {
-    return <VaultDashboardConnectConvexOpenFixture error={null} selectedProjectConfigPaths={{}} />;
+    return (
+      <VaultDashboardConnectConvexOpenFixture error={null} selectedProjectCodeLocationKeys={{}} />
+    );
+  }
+
+  if (mode === "vault-dashboard-connect-convex-loading") {
+    return (
+      <VaultDashboardConnectConvexOpenFixture
+        error={null}
+        isLoading
+        selectedProjectCodeLocationKeys={{}}
+      />
+    );
   }
 
   if (mode === "vault-dashboard-connect-convex-error") {
     return (
       <VaultDashboardConnectConvexOpenFixture
         error="Could not attach the selected Convex project."
-        selectedProjectConfigPaths={{ "jaded-heron-123": "convex.json" }}
+        selectedProjectCodeLocationKeys={{ "jaded-heron-123": "config:convex.json" }}
       />
     );
   }

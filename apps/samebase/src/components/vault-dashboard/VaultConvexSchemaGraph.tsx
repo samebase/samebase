@@ -63,7 +63,7 @@ type VaultConvexSchemaGraphContentProps = {
 };
 export type VaultConvexSchemaGraphRouteContext = {
   branch: string;
-  convexConfigPath: string;
+  convexCodePath: string;
   projectId: string;
   repositoryFullName: string;
 };
@@ -943,9 +943,9 @@ function VaultConvexSchemaGraphRouteSidebar({
 
           <div className="grid gap-1 text-xs text-muted-foreground">
             <div className="flex min-w-0 justify-between gap-2">
-              <span>Config</span>
+              <span>Code</span>
               <span className="min-w-0 truncate font-mono text-foreground">
-                {context.convexConfigPath}
+                {context.convexCodePath}
               </span>
             </div>
             <div className="flex min-w-0 justify-between gap-2">

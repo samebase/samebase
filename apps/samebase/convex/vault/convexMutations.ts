@@ -7,7 +7,14 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from "../_generated/server";
+import {
+  getConvexCodeLocationKey,
+  normalizeConvexCodeLocation,
+  readConvexCodeLocation,
+  type ConvexCodeLocation,
+} from "../../shared/convexCodeLocation";
 import { normalizeConvexConfigPath } from "../../shared/convexConfigPath";
+import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import { vVaultProviderResourceOrigin, type VaultProviderResourceOrigin } from "./model";
 import { isLiveConnectedVault } from "./state";
 
@@ -79,18 +86,19 @@ async function insertProject(
     userId: Id<"users">;
     teamId: string;
     projectId: string;
-    convexConfigPath: string;
+    codeLocation: ConvexCodeLocation;
     origin: VaultProviderResourceOrigin;
   },
 ): Promise<Id<"vaultConvexProjects">> {
-  const convexConfigPath = normalizeConvexConfigPath(args.convexConfigPath);
+  const codeLocation = normalizeConvexCodeLocation(args.codeLocation);
   const existing = await readProjectByProjectId(ctx, args.projectId);
   if (existing) {
     if (
       existing.vaultId === args.vaultId &&
       existing.userId === args.userId &&
       existing.teamId === args.teamId &&
-      existing.convexConfigPath === convexConfigPath
+      getConvexCodeLocationKey(readConvexCodeLocation(existing)) ===
+        getConvexCodeLocationKey(codeLocation)
     ) {
       if (args.origin === "provisioned" && existing.origin !== "provisioned") {
         await ctx.db.patch(existing._id, { origin: "provisioned" });
@@ -100,14 +108,28 @@ async function insertProject(
     throw new Error("Convex project is already attached.");
   }
 
-  return await ctx.db.insert("vaultConvexProjects", {
+  const commonFields = {
     vaultId: args.vaultId,
     userId: args.userId,
     teamId: args.teamId,
     projectId: args.projectId,
-    convexConfigPath,
     origin: args.origin,
-  });
+  };
+  switch (codeLocation.kind) {
+    case "config":
+      return await ctx.db.insert("vaultConvexProjects", {
+        ...commonFields,
+        convexConfigPath: codeLocation.convexConfigPath,
+      });
+    case "directory":
+      return await ctx.db.insert("vaultConvexProjects", {
+        ...commonFields,
+        convexDirectoryPath: codeLocation.convexDirectoryPath,
+      });
+    default:
+      codeLocation satisfies never;
+      throw new Error("Unsupported Convex code location.");
+  }
 }
 
 export const requireConvexProjectConnectionVault = internalQuery({
@@ -131,7 +153,7 @@ export const readProjectAttachmentContext = internalQuery({
   returns: object({
     teamId: string(),
     projectId: string(),
-    convexConfigPath: string(),
+    codeLocation: vConvexCodeLocation,
   }),
   handler: async (ctx, args) => {
     await requireConnectedVault(ctx, args);
@@ -142,7 +164,7 @@ export const readProjectAttachmentContext = internalQuery({
     return {
       teamId: project.teamId,
       projectId: project.projectId,
-      convexConfigPath: project.convexConfigPath,
+      codeLocation: readConvexCodeLocation(project),
     };
   },
 });
@@ -241,7 +263,7 @@ export const recordManagedProjectCreated = internalMutation({
       }
       return await insertProject(ctx, {
         ...args,
-        convexConfigPath,
+        codeLocation: { kind: "config", convexConfigPath },
         origin: "provisioned",
       });
     }
@@ -259,7 +281,7 @@ export const recordManagedProjectCreated = internalMutation({
     });
     return await insertProject(ctx, {
       ...args,
-      convexConfigPath,
+      codeLocation: { kind: "config", convexConfigPath },
       origin: "provisioned",
     });
   },
@@ -273,7 +295,7 @@ export const attachProjects = internalMutation({
       object({
         teamId: string(),
         projectId: string(),
-        convexConfigPath: string(),
+        codeLocation: vConvexCodeLocation,
         origin: vVaultProviderResourceOrigin,
       }),
     ),
@@ -285,7 +307,7 @@ export const attachProjects = internalMutation({
     const projectIds = new Set<string>();
     const projects = args.projects.map((project) => ({
       ...project,
-      convexConfigPath: normalizeConvexConfigPath(project.convexConfigPath),
+      codeLocation: normalizeConvexCodeLocation(project.codeLocation),
     }));
     for (const project of projects) {
       if (projectIds.has(project.projectId)) {
@@ -335,31 +357,55 @@ export const reconcileProjectTeam = internalMutation({
   },
 });
 
-export const reconcileProjectConvexConfigPath = internalMutation({
+export const reconcileProjectCodeLocation = internalMutation({
   args: {
     vaultId: id("vaults"),
     userId: id("users"),
     convexProjectId: id("vaultConvexProjects"),
     projectId: string(),
-    expectedConvexConfigPath: string(),
-    nextConvexConfigPath: string(),
+    expectedCodeLocation: vConvexCodeLocation,
+    nextCodeLocation: vConvexCodeLocation,
   },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
     await requireConnectedVault(ctx, args);
     const project = await ctx.db.get(args.convexProjectId);
-    const expectedConvexConfigPath = normalizeConvexConfigPath(args.expectedConvexConfigPath);
-    const nextConvexConfigPath = normalizeConvexConfigPath(args.nextConvexConfigPath);
+    const expectedCodeLocation = normalizeConvexCodeLocation(args.expectedCodeLocation);
+    const nextCodeLocation = normalizeConvexCodeLocation(args.nextCodeLocation);
     if (
       !project ||
       project.vaultId !== args.vaultId ||
       project.userId !== args.userId ||
       project.projectId !== args.projectId ||
-      project.convexConfigPath !== expectedConvexConfigPath
+      getConvexCodeLocationKey(readConvexCodeLocation(project)) !==
+        getConvexCodeLocationKey(expectedCodeLocation)
     ) {
-      throw new Error("Convex project attachment changed before config path reconciliation.");
+      throw new Error("Convex project attachment changed before code location reconciliation.");
     }
-    await ctx.db.patch(project._id, { convexConfigPath: nextConvexConfigPath });
+    const commonFields = {
+      vaultId: project.vaultId,
+      userId: project.userId,
+      teamId: project.teamId,
+      projectId: project.projectId,
+      origin: project.origin,
+    };
+    switch (nextCodeLocation.kind) {
+      case "config":
+        await ctx.db.replace(project._id, {
+          ...commonFields,
+          convexConfigPath: nextCodeLocation.convexConfigPath,
+        });
+        break;
+      case "directory":
+        await ctx.db.replace(project._id, {
+          ...commonFields,
+          convexDirectoryPath: nextCodeLocation.convexDirectoryPath,
+        });
+        break;
+      default:
+        nextCodeLocation satisfies never;
+        throw new Error("Unsupported Convex code location.");
+    }
     return null;
   },
 });
@@ -371,7 +417,7 @@ export const detachProject = internalMutation({
     convexProjectId: id("vaultConvexProjects"),
     teamId: string(),
     projectId: string(),
-    convexConfigPath: string(),
+    codeLocation: vConvexCodeLocation,
   },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
@@ -383,7 +429,8 @@ export const detachProject = internalMutation({
     if (
       project.teamId !== args.teamId ||
       project.projectId !== args.projectId ||
-      project.convexConfigPath !== normalizeConvexConfigPath(args.convexConfigPath)
+      getConvexCodeLocationKey(readConvexCodeLocation(project)) !==
+        getConvexCodeLocationKey(normalizeConvexCodeLocation(args.codeLocation))
     ) {
       throw new Error("Convex project attachment changed before removal.");
     }

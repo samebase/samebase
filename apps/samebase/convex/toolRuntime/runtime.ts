@@ -205,7 +205,7 @@ export const convexDiscoverProjectsTool = internalAction({
       const structuredContent = await discoverProjectsForUser(ctx, discoveryArgs);
       return {
         status: "ok",
-        text: `Found ${structuredContent.projects.length} ${structuredContent.projects.length === 1 ? "project" : "projects"} and ${structuredContent.source.configs.length} ${structuredContent.source.configs.length === 1 ? "config" : "configs"}.`,
+        text: `Found ${structuredContent.projects.length} ${structuredContent.projects.length === 1 ? "project" : "projects"} and ${structuredContent.source.locations.length} code ${structuredContent.source.locations.length === 1 ? "location" : "locations"}.`,
         structuredContent,
       };
     } catch (error) {

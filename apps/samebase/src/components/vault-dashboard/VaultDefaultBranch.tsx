@@ -14,11 +14,15 @@ import { Link } from "@tanstack/react-router";
 import { clsx } from "clsx";
 import { GitBranch } from "lucide-react";
 import type { ReactNode } from "react";
-import { getConvexConfigRootDirectory } from "../../../shared/convexConfigPath";
+import {
+  getConvexCodeLocationKey,
+  getConvexCodeRootDirectory,
+  type ConvexCodeLocation,
+} from "../../../shared/convexCodeLocation";
 import type { VaultDefaultBranchChecks as DefaultBranchChecks } from "@/hooks/useVaultPullRequests";
 
 type VaultDefaultBranchConvexProject = {
-  convexConfigPath: string;
+  codeLocation: ConvexCodeLocation;
   convexProjectId: string;
   projectId: string;
 };
@@ -112,12 +116,14 @@ export function VaultDefaultBranch({
   const convexLinks = [...convexProjects]
     .sort(
       (left, right) =>
-        left.convexConfigPath.localeCompare(right.convexConfigPath) ||
+        getConvexCodeLocationKey(left.codeLocation).localeCompare(
+          getConvexCodeLocationKey(right.codeLocation),
+        ) ||
         left.projectId.localeCompare(right.projectId) ||
         left.convexProjectId.localeCompare(right.convexProjectId),
     )
     .flatMap((project) => {
-      const rootDirectory = getConvexConfigRootDirectory(project.convexConfigPath);
+      const rootDirectory = getConvexCodeRootDirectory(project.codeLocation);
       const rootLabel = rootDirectory === "/" ? "" : `: ${rootDirectory}`;
       const rootTitle = rootDirectory === "/" ? "" : ` at ${rootDirectory}`;
       const links = [

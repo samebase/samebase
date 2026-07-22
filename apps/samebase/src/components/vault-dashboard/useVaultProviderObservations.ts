@@ -2,6 +2,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAction } from "convex/react";
+import type { ConvexCodeLocation } from "../../../shared/convexCodeLocation";
 
 export type VaultCloudflareWorkerObservation =
   (typeof api.vault.providerObservations.observeCloudflareWorkers)["_returnType"][number];
@@ -27,7 +28,7 @@ type VaultProviderObservationTarget = {
   _id: Id<"vaults">;
   cloudflareWorkers: readonly { workerId: Id<"vaultCloudflareWorkers"> }[];
   convexProjects: readonly {
-    convexConfigPath: string;
+    codeLocation: ConvexCodeLocation;
     convexProjectId: Id<"vaultConvexProjects">;
     projectId: string;
     teamId: string;
@@ -59,7 +60,7 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
     .sort((left, right) => left.localeCompare(right));
   const convexProjectTargets = [...(vault?.convexProjects ?? [])]
     .map((project) => ({
-      convexConfigPath: project.convexConfigPath,
+      codeLocation: project.codeLocation,
       convexProjectId: project.convexProjectId,
       projectId: project.projectId,
       teamId: project.teamId,

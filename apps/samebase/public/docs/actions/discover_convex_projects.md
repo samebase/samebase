@@ -4,15 +4,16 @@
 
 MCP tool `vault_convex_discoverProjects` · scope `access_provider_connections` · read_only
 
-Reads the vault's exact default-branch Git tree and blob contents to find regular files named
-convex.json whose contents parse as JSON objects. It also lists projects available through the
-connected Convex team and annotates current Cloudflare Worker marker references when available. A
-partial source scan never proves that an unlisted config is absent.
+Reads the vault's exact default-branch Git tree to find explicit convex.json files and default
+package.json plus convex/ layouts. Discovery uses exact tree entry types, paths, and object SHAs
+only. It does not read or validate convex.json or package.json contents. It also lists projects
+available through the connected Convex team and annotates current Cloudflare Worker marker
+references when available. A partial source scan never proves that an unlisted code location is
+absent.
 
 ## Arguments
 
-- `vaultId` (string, required): Samebase vault whose repository config locations should be
-  discovered.
+- `vaultId` (string, required): Samebase vault whose repository code locations should be discovered.
 
 ## Returns
 
@@ -44,15 +45,15 @@ JSON Schema for the tool's `structuredContent`:
         "treeSha": {
           "type": "string"
         },
-        "configs": {
+        "locations": {
           "type": "array",
           "items": {
             "anyOf": [
               {
                 "type": "object",
                 "properties": {
-                  "state": {
-                    "const": "valid"
+                  "kind": {
+                    "const": "config"
                   },
                   "convexConfigPath": {
                     "type": "string"
@@ -64,36 +65,46 @@ JSON Schema for the tool's `structuredContent`:
                     "type": "string"
                   }
                 },
-                "required": ["state", "convexConfigPath", "rootDirectory", "blobSha"],
+                "required": ["kind", "convexConfigPath", "rootDirectory", "blobSha"],
                 "additionalProperties": false
               },
               {
                 "type": "object",
                 "properties": {
-                  "state": {
-                    "const": "invalid"
+                  "kind": {
+                    "const": "directory"
                   },
-                  "convexConfigPath": {
+                  "convexDirectoryPath": {
                     "type": "string"
                   },
                   "rootDirectory": {
                     "type": "string"
                   },
-                  "blobSha": {
+                  "convexDirectoryTreeSha": {
                     "type": "string"
                   },
-                  "reason": {
-                    "const": "invalid_json_object"
+                  "packageJsonPath": {
+                    "type": "string"
+                  },
+                  "packageJsonBlobSha": {
+                    "type": "string"
                   }
                 },
-                "required": ["state", "convexConfigPath", "rootDirectory", "blobSha", "reason"],
+                "required": [
+                  "kind",
+                  "convexDirectoryPath",
+                  "rootDirectory",
+                  "convexDirectoryTreeSha",
+                  "packageJsonPath",
+                  "packageJsonBlobSha"
+                ],
                 "additionalProperties": false
               }
             ]
           }
         }
       },
-      "required": ["completeness", "defaultBranch", "commitSha", "treeSha", "configs"],
+      "required": ["completeness", "defaultBranch", "commitSha", "treeSha", "locations"],
       "additionalProperties": false
     },
     "projects": {

@@ -15,8 +15,9 @@ import {
 } from "../cloudflareResources";
 import { requestConvexManagementApi } from "../convexManagementApi/client";
 import { isConvexManagementNotFoundError } from "../convexManagementApi/errors";
-import { fetchGitHubConvexConfigDiscovery, fetchGitHubRepoIdentity } from "../githubRepoApi";
+import { fetchGitHubConvexCodeLocationDiscovery, fetchGitHubRepoIdentity } from "../githubRepoApi";
 import { vCloudflareWorkerRepositoryDiscovery } from "./contracts/cloudflareAttachments";
+import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import { buildConvexSiteUrl, readConvexProductionDeployment } from "./convexProjectResources";
 import type { VaultProviderObservationContext } from "./providerObservationQueries";
 
@@ -122,14 +123,17 @@ const vConvexProductionDeploymentObservation = union(
   }),
   object({ state: literal("missing") }),
 );
-const vConvexConfigPathObservation = union(
+const vConvexCodeLocationObservation = union(
   object({
     state: literal("valid"),
+    kind: literal("config"),
     blobSha: string(),
   }),
   object({
-    state: literal("invalid"),
-    blobSha: string(),
+    state: literal("valid"),
+    kind: literal("directory"),
+    convexDirectoryTreeSha: string(),
+    packageJsonBlobSha: string(),
   }),
   object({ state: literal("missing") }),
   object({ state: literal("unavailable_partial") }),
@@ -166,8 +170,8 @@ const vConvexProjectObservation = object({
   observedAt: number(),
   convexProjectId: id("vaultConvexProjects"),
   projectId: string(),
-  convexConfigPath: string(),
-  source: vConvexConfigPathObservation,
+  codeLocation: vConvexCodeLocation,
+  source: vConvexCodeLocationObservation,
   provider: vConvexProjectProviderObservation,
 });
 type CloudflareWorkerObservation = Infer<typeof vCloudflareWorkerObservation>;
@@ -176,7 +180,7 @@ type CloudflareWorkerConvexBuildAccessObservation = Infer<
   typeof vCloudflareWorkerConvexBuildAccessObservation
 >;
 type ConvexProjectObservation = Infer<typeof vConvexProjectObservation>;
-type ConvexConfigPathObservation = ConvexProjectObservation["source"];
+type ConvexCodeLocationObservation = ConvexProjectObservation["source"];
 type ConvexProjectProviderObservation = ConvexProjectObservation["provider"];
 
 function resolveObservedConvexBuildAccess(
@@ -532,7 +536,7 @@ export const observeConvexProjects = action({
     let sourceResolution:
       | {
           state: "available";
-          discovery: Awaited<ReturnType<typeof fetchGitHubConvexConfigDiscovery>>;
+          discovery: Awaited<ReturnType<typeof fetchGitHubConvexCodeLocationDiscovery>>;
         }
       | { state: "unavailable"; reason: "connection_required" | "request_failed" };
     if (!githubAccessToken) {
@@ -541,7 +545,7 @@ export const observeConvexProjects = action({
       try {
         sourceResolution = {
           state: "available",
-          discovery: await fetchGitHubConvexConfigDiscovery({
+          discovery: await fetchGitHubConvexCodeLocationDiscovery({
             githubAccessToken,
             owner: context.owner,
             repo: context.name,
@@ -555,17 +559,36 @@ export const observeConvexProjects = action({
 
     return await Promise.all(
       context.convexProjects.map(async (project) => {
-        let source: ConvexConfigPathObservation;
+        let source: ConvexCodeLocationObservation;
         if (sourceResolution.state === "unavailable") {
           source = { state: "unavailable", reason: sourceResolution.reason };
         } else {
-          const config = sourceResolution.discovery.configs.find(
-            (candidate) => candidate.convexConfigPath === project.convexConfigPath,
-          );
-          if (config?.state === "valid") {
-            source = { state: "valid", blobSha: config.blobSha };
-          } else if (config?.state === "invalid") {
-            source = { state: "invalid", blobSha: config.blobSha };
+          const location = sourceResolution.discovery.locations.find((candidate) => {
+            switch (project.codeLocation.kind) {
+              case "config":
+                return (
+                  candidate.kind === "config" &&
+                  candidate.convexConfigPath === project.codeLocation.convexConfigPath
+                );
+              case "directory":
+                return (
+                  candidate.kind === "directory" &&
+                  candidate.convexDirectoryPath === project.codeLocation.convexDirectoryPath
+                );
+              default:
+                project.codeLocation satisfies never;
+                return false;
+            }
+          });
+          if (location?.kind === "config") {
+            source = { state: "valid", kind: "config", blobSha: location.blobSha };
+          } else if (location?.kind === "directory") {
+            source = {
+              state: "valid",
+              kind: "directory",
+              convexDirectoryTreeSha: location.convexDirectoryTreeSha,
+              packageJsonBlobSha: location.packageJsonBlobSha,
+            };
           } else {
             source =
               sourceResolution.discovery.completeness === "partial"
@@ -581,7 +604,7 @@ export const observeConvexProjects = action({
             observedAt: Date.now(),
             convexProjectId: project.convexProjectId,
             projectId: project.projectId,
-            convexConfigPath: project.convexConfigPath,
+            codeLocation: project.codeLocation,
             source,
             provider,
           };
@@ -628,7 +651,7 @@ export const observeConvexProjects = action({
             observedAt: Date.now(),
             convexProjectId: project.convexProjectId,
             projectId: project.projectId,
-            convexConfigPath: project.convexConfigPath,
+            codeLocation: project.codeLocation,
             source,
             provider,
           };
@@ -640,7 +663,7 @@ export const observeConvexProjects = action({
             observedAt: Date.now(),
             convexProjectId: project.convexProjectId,
             projectId: project.projectId,
-            convexConfigPath: project.convexConfigPath,
+            codeLocation: project.codeLocation,
             source,
             provider,
           };

@@ -133,7 +133,7 @@ let currentConvexProjects: Array<{
   convexProjectId: Id<"vaultConvexProjects">;
   teamId: string;
   projectId: string;
-  convexConfigPath: string;
+  codeLocation: { kind: "config"; convexConfigPath: string };
 }> = [];
 
 function Harness() {
@@ -399,7 +399,7 @@ describe("useVaultPullRequests", () => {
         convexProjectId: fakeConvexProjectId(),
         teamId: "team:test",
         projectId: "project:test",
-        convexConfigPath: "apps/samebase/convex.json",
+        codeLocation: { kind: "config", convexConfigPath: "apps/samebase/convex.json" },
       },
     ];
     await renderHarness();

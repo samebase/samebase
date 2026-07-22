@@ -1,6 +1,9 @@
 import type { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { getConvexConfigRootDirectory } from "../../../shared/convexConfigPath";
+import {
+  getConvexCodeLocationPath,
+  getConvexCodeRootDirectory,
+} from "../../../shared/convexCodeLocation";
 import type {
   VaultResourceRailAction,
   VaultResourceRailActionList,
@@ -630,23 +633,20 @@ function buildConvexRow({
     switch (observation.source.state) {
       case "valid":
         return undefined;
-      case "invalid":
-        return `${observation.convexConfigPath} is not a valid Convex config.`;
       case "missing":
-        return `${observation.convexConfigPath} is missing.`;
+        return `${getConvexCodeLocationPath(observation.codeLocation)} is no longer discoverable on the default branch.`;
       case "unavailable_partial":
         return "The repository could not be fully scanned.";
       case "unavailable":
         return observation.source.reason === "connection_required"
-          ? "Connect GitHub to verify the Convex config."
-          : "Could not verify the Convex config.";
+          ? "Connect GitHub to verify the Convex code location."
+          : "Could not verify the Convex code location.";
     }
     observation.source satisfies never;
     return undefined;
   })();
   const changeConfigAction =
-    (observation.source.state === "invalid" || observation.source.state === "missing") &&
-    changeConvexProjectConfigPathOnClick
+    observation.source.state === "missing" && changeConvexProjectConfigPathOnClick
       ? {
           kind: "configure" as const,
           label: "Change code location",
@@ -837,7 +837,7 @@ export function buildVaultDashboardResourceRailState({
       left.convexProjectId.localeCompare(right.convexProjectId),
   )) {
     addRowToRoot(
-      getConvexConfigRootDirectory(project.convexConfigPath),
+      getConvexCodeRootDirectory(project.codeLocation),
       buildConvexRow({
         changeConvexProjectConfigPathOnClick,
         detachConvexProjectOnClick,

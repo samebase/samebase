@@ -42,7 +42,7 @@ or `fs` is addressed through the filesystem surface, such as `/vault/:owner/:rep
 
 Database and Schema routes include the `vaultConvexProjects` attachment ID because the selected
 project is part of the resource identity, not an optional view filter. A root path cannot identify a
-project because several projects may intentionally use the same `convex.json` location. The server
+project because several projects may intentionally use the same Convex code location. The server
 verifies that the attachment belongs to the vault before reading provider data.
 
 File compare and commit review remain the `?compare` and `?diff` query params on filesystem routes.

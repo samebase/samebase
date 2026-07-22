@@ -144,7 +144,7 @@ The live observation reports these states without guessing:
 
 Provider-owned state is observed directly from Convex and Cloudflare for one requested vault.
 Cloudflare Worker axes return explicit `available`, `missing`, or `failed` results where those
-states apply. Each Convex attachment returns source placement as `valid`, `invalid`, `missing`,
+states apply. Each Convex attachment returns source placement as `valid`, `missing`,
 `unavailable_partial`, or `unavailable`, and provider continuity as `current`, `moved`,
 `missing_ambiguous`, or `unavailable`. Every result carries an observation timestamp. The dashboard
 may cache those results in the browser for a short bounded interval, but the actions do not write
@@ -263,15 +263,16 @@ Repository default branch:
 
 10. `api.vault.convex.discoverProjects` and `api.vault.convex.attachProjects`
 
-- Discover returns provider projects plus exact discovered `convex.json` candidates.
-- Attach requires one verified config path per selected project and commits the batch atomically.
+- Discover returns provider projects plus exact discovered `convex.json` or default-layout
+  `package.json` and sibling `convex/` candidates.
+- Attach requires one verified code location per selected project and commits the batch atomically.
 
 11. `api.vault.convex.createProject` and `api.vault.convex.detachProject`
 
 - Create records the provider checkpoint and provisioned attachment before metadata refresh.
 - Detach changes only Samebase user intent.
 
-12. `api.vault.convex.changeProjectConfigPath` and `api.vault.convex.reconcileProjectTeam`
+12. `api.vault.convex.changeProjectCodeLocation` and `api.vault.convex.reconcileProjectTeam`
 
 - Both are explicit provider-verified compare-and-swap repairs of one attachment field.
 

@@ -1,5 +1,9 @@
 import { Octokit } from "@octokit/rest";
 
+import {
+  getConvexDirectoryRootDirectory,
+  normalizeConvexDirectoryPath,
+} from "../shared/convexCodeLocation";
 import { getConvexConfigRootDirectory } from "../shared/convexConfigPath";
 import type { ProviderApiCallRecorder } from "./providerApiLog";
 
@@ -9,27 +13,28 @@ export function createGitHubRequestDeadlineSignal(): AbortSignal {
   return AbortSignal.timeout(GITHUB_REQUEST_DEADLINE_MS);
 }
 
-export type GitHubConvexConfigCandidate =
+export type GitHubConvexCodeLocationCandidate =
   | {
-      state: "valid";
+      kind: "config";
       convexConfigPath: string;
       rootDirectory: string;
       blobSha: string;
     }
   | {
-      state: "invalid";
-      convexConfigPath: string;
+      kind: "directory";
+      convexDirectoryPath: string;
       rootDirectory: string;
-      blobSha: string;
-      reason: "invalid_json_object";
+      convexDirectoryTreeSha: string;
+      packageJsonPath: string;
+      packageJsonBlobSha: string;
     };
 
-export type GitHubConvexConfigDiscovery = {
+export type GitHubConvexCodeLocationDiscovery = {
   completeness: "complete" | "partial";
   defaultBranch: string;
   commitSha: string;
   treeSha: string;
-  configs: GitHubConvexConfigCandidate[];
+  locations: GitHubConvexCodeLocationCandidate[];
 };
 
 export async function fetchGitHubRepoIdentity(args: {
@@ -77,48 +82,25 @@ function isConvexConfigPath(path: string): boolean {
   return path === "convex.json" || path.endsWith("/convex.json");
 }
 
-function parseConvexConfigCandidate(args: {
-  convexConfigPath: string;
-  blobSha: string;
-  content: string;
-}): GitHubConvexConfigCandidate {
-  const rootDirectory = getConvexConfigRootDirectory(args.convexConfigPath);
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(args.content);
-  } catch {
-    return {
-      state: "invalid",
-      convexConfigPath: args.convexConfigPath,
-      rootDirectory,
-      blobSha: args.blobSha,
-      reason: "invalid_json_object",
-    };
-  }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    return {
-      state: "invalid",
-      convexConfigPath: args.convexConfigPath,
-      rootDirectory,
-      blobSha: args.blobSha,
-      reason: "invalid_json_object",
-    };
-  }
-  return {
-    state: "valid",
-    convexConfigPath: args.convexConfigPath,
-    rootDirectory,
-    blobSha: args.blobSha,
-  };
+function isPackageJsonPath(path: string): boolean {
+  return path === "package.json" || path.endsWith("/package.json");
 }
 
-export async function fetchGitHubConvexConfigDiscovery(args: {
+function isConvexDirectoryPath(path: string): boolean {
+  return path === "convex" || path.endsWith("/convex");
+}
+
+function getPackageJsonPath(rootDirectory: string): string {
+  return rootDirectory === "/" ? "package.json" : `${rootDirectory}/package.json`;
+}
+
+export async function fetchGitHubConvexCodeLocationDiscovery(args: {
   githubAccessToken: string;
   owner: string;
   repo: string;
   expectedRepoId: string;
   recordApiCall?: ProviderApiCallRecorder;
-}): Promise<GitHubConvexConfigDiscovery> {
+}): Promise<GitHubConvexCodeLocationDiscovery> {
   const octokit = new Octokit({ auth: args.githubAccessToken });
   await args.recordApiCall?.({
     provider: "GitHub",
@@ -185,6 +167,8 @@ export async function fetchGitHubConvexConfigDiscovery(args: {
     recursive: "1",
   });
   const configBlobs: { path: string; sha: string }[] = [];
+  const packageJsonBlobs = new Map<string, string>();
+  const convexDirectories: { path: string; sha: string }[] = [];
   for (const item of tree.data.tree) {
     if (
       item.type === "blob" &&
@@ -195,44 +179,71 @@ export async function fetchGitHubConvexConfigDiscovery(args: {
     ) {
       configBlobs.push({ path: item.path, sha: item.sha });
     }
+    if (
+      item.type === "blob" &&
+      (item.mode === "100644" || item.mode === "100755") &&
+      item.path &&
+      item.sha &&
+      isPackageJsonPath(item.path)
+    ) {
+      packageJsonBlobs.set(item.path, item.sha);
+    }
+    if (
+      item.type === "tree" &&
+      item.mode === "040000" &&
+      item.path &&
+      item.sha &&
+      isConvexDirectoryPath(item.path)
+    ) {
+      convexDirectories.push({
+        path: normalizeConvexDirectoryPath(item.path),
+        sha: item.sha,
+      });
+    }
   }
   configBlobs.sort(
     (left, right) => left.path.localeCompare(right.path) || left.sha.localeCompare(right.sha),
   );
-  const configs: GitHubConvexConfigCandidate[] = [];
-  for (const configBlob of configBlobs) {
-    await args.recordApiCall?.({
-      provider: "GitHub",
-      method: "GET",
-      endpoint: "/repos/{owner}/{repo}/git/blobs/{file_sha}",
-      values: {
-        params: {
-          path: { owner: args.owner, repo: args.repo, file_sha: configBlob.sha },
-        },
-      },
-    });
-    const blob = await octokit.rest.git.getBlob({
-      owner: args.owner,
-      repo: args.repo,
-      file_sha: configBlob.sha,
-    });
-    if (blob.data.encoding !== "base64") {
-      throw new Error(`GitHub returned an unsupported encoding for ${configBlob.path}.`);
+  const locations: GitHubConvexCodeLocationCandidate[] = configBlobs.map((configBlob) => ({
+    kind: "config",
+    convexConfigPath: configBlob.path,
+    rootDirectory: getConvexConfigRootDirectory(configBlob.path),
+    blobSha: configBlob.sha,
+  }));
+
+  const configRootDirectories = new Set(
+    configBlobs.map((config) => getConvexConfigRootDirectory(config.path)),
+  );
+  for (const directory of convexDirectories) {
+    const rootDirectory = getConvexDirectoryRootDirectory(directory.path);
+    if (configRootDirectories.has(rootDirectory)) {
+      continue;
     }
-    configs.push(
-      parseConvexConfigCandidate({
-        convexConfigPath: configBlob.path,
-        blobSha: configBlob.sha,
-        content: Buffer.from(blob.data.content.replace(/\n/g, ""), "base64").toString("utf-8"),
-      }),
-    );
+    const packageJsonPath = getPackageJsonPath(rootDirectory);
+    const packageJsonBlobSha = packageJsonBlobs.get(packageJsonPath);
+    if (!packageJsonBlobSha) {
+      continue;
+    }
+    locations.push({
+      kind: "directory",
+      convexDirectoryPath: directory.path,
+      rootDirectory,
+      convexDirectoryTreeSha: directory.sha,
+      packageJsonPath,
+      packageJsonBlobSha,
+    });
   }
+  locations.sort((left, right) => {
+    const leftPath = left.kind === "config" ? left.convexConfigPath : left.convexDirectoryPath;
+    const rightPath = right.kind === "config" ? right.convexConfigPath : right.convexDirectoryPath;
+    return leftPath.localeCompare(rightPath);
+  });
 
   return {
     completeness: tree.data.truncated ? "partial" : "complete",
     defaultBranch,
     commitSha,
     treeSha,
-    configs,
+    locations,
   };
 }

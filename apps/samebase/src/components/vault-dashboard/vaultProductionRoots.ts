@@ -1,5 +1,5 @@
 import type { api } from "../../../convex/_generated/api";
-import { getConvexConfigRootDirectory } from "../../../shared/convexConfigPath";
+import { getConvexCodeRootDirectory } from "../../../shared/convexCodeLocation";
 import type {
   VaultCloudflareProviderObservationState,
   VaultConvexProjectObservation,
@@ -161,7 +161,7 @@ export function buildVaultProductionRoots({
           const deployment = provider.productionDeployment;
           return [
             {
-              rootDirectory: getConvexConfigRootDirectory(project.convexConfigPath),
+              rootDirectory: getConvexCodeRootDirectory(project.codeLocation),
               href: buildConvexDeploymentDashboardUrl(provider, deployment.deploymentName),
               label: deployment.deploymentName,
               provider: "convex" as const,

@@ -538,11 +538,38 @@ JSON Schema for the tool's `structuredContent`:
                 "projectId": {
                   "type": "string"
                 },
-                "convexConfigPath": {
-                  "type": "string"
+                "codeLocation": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "config"
+                        },
+                        "convexConfigPath": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["kind", "convexConfigPath"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "directory"
+                        },
+                        "convexDirectoryPath": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["kind", "convexDirectoryPath"],
+                      "additionalProperties": false
+                    }
+                  ]
                 }
               },
-              "required": ["convexProjectId", "teamId", "projectId", "convexConfigPath"],
+              "required": ["convexProjectId", "teamId", "projectId", "codeLocation"],
               "additionalProperties": false
             }
           }

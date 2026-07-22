@@ -14,25 +14,32 @@ import {
 import type { ProjectResponse } from "../convexManagementApi/types.generated";
 import { action } from "../functions";
 import {
-  fetchGitHubConvexConfigDiscovery,
-  type GitHubConvexConfigDiscovery,
+  fetchGitHubConvexCodeLocationDiscovery,
+  type GitHubConvexCodeLocationDiscovery,
 } from "../githubRepoApi";
 import { toErrorMessage } from "../jsonUtils";
 import { validateAppResourceName } from "../../shared/appResourceNames";
+import {
+  getConvexCodeLocationPath,
+  normalizeConvexDirectoryPath,
+  type ConvexCodeLocation,
+} from "../../shared/convexCodeLocation";
 import { normalizeConvexConfigPath } from "../../shared/convexConfigPath";
 import {
   convexAttachProjectsContract,
-  convexChangeProjectConfigPathContract,
+  convexChangeProjectCodeLocationContract,
   convexCreateProjectContract,
   convexDetachProjectContract,
   convexDiscoverProjectsContract,
   convexReconcileProjectTeamContract,
   vConvexAttachmentProject,
+  vConvexCodeLocationSelection,
 } from "./contracts/convexAttachments";
 
 const { id } = v;
 
 type ConvexAttachmentProject = Infer<typeof vConvexAttachmentProject>;
+type ConvexCodeLocationSelection = Infer<typeof vConvexCodeLocationSelection>;
 type ConvexActionConnection = {
   token: string;
   teamId: string;
@@ -86,12 +93,12 @@ async function readProviderAttachmentVaultContext(
   );
 }
 
-async function discoverConvexConfigs(
+async function discoverConvexCodeLocations(
   ctx: Pick<ActionCtx, "runQuery">,
   args: { vaultId: Id<"vaults">; userId: Id<"users"> },
 ): Promise<{
   context: ProviderAttachmentVaultContext;
-  source: GitHubConvexConfigDiscovery;
+  source: GitHubConvexCodeLocationDiscovery;
 }> {
   const [context, githubAccessToken] = await Promise.all([
     readProviderAttachmentVaultContext(ctx, {
@@ -100,7 +107,7 @@ async function discoverConvexConfigs(
     }),
     resolveGitHubAccessToken(ctx, args.userId),
   ]);
-  const source = await fetchGitHubConvexConfigDiscovery({
+  const source = await fetchGitHubConvexCodeLocationDiscovery({
     githubAccessToken,
     owner: context.owner,
     repo: context.name,
@@ -109,18 +116,71 @@ async function discoverConvexConfigs(
   return { context, source };
 }
 
-function requireVerifiedConvexConfig(
-  source: GitHubConvexConfigDiscovery,
-  args: { convexConfigPath: string; blobSha: string },
+function normalizeConvexCodeLocationSelection(
+  selection: ConvexCodeLocationSelection,
+): ConvexCodeLocationSelection {
+  switch (selection.kind) {
+    case "config":
+      return {
+        kind: "config",
+        convexConfigPath: normalizeConvexConfigPath(selection.convexConfigPath),
+        blobSha: selection.blobSha.trim(),
+      };
+    case "directory":
+      return {
+        kind: "directory",
+        convexDirectoryPath: normalizeConvexDirectoryPath(selection.convexDirectoryPath),
+        convexDirectoryTreeSha: selection.convexDirectoryTreeSha.trim(),
+        packageJsonBlobSha: selection.packageJsonBlobSha.trim(),
+      };
+    default:
+      selection satisfies never;
+      throw new Error("Unsupported Convex code location.");
+  }
+}
+
+function removeConvexCodeLocationEvidence(
+  selection: ConvexCodeLocationSelection,
+): ConvexCodeLocation {
+  switch (selection.kind) {
+    case "config":
+      return { kind: "config", convexConfigPath: selection.convexConfigPath };
+    case "directory":
+      return { kind: "directory", convexDirectoryPath: selection.convexDirectoryPath };
+    default:
+      selection satisfies never;
+      throw new Error("Unsupported Convex code location.");
+  }
+}
+
+function requireVerifiedConvexCodeLocation(
+  source: GitHubConvexCodeLocationDiscovery,
+  selection: ConvexCodeLocationSelection,
 ): void {
-  const convexConfigPath = normalizeConvexConfigPath(args.convexConfigPath);
-  const blobSha = args.blobSha.trim();
-  const candidate = source.configs.find(
-    (config) => config.convexConfigPath === convexConfigPath && config.blobSha === blobSha,
-  );
-  if (!candidate || candidate.state !== "valid") {
+  const normalized = normalizeConvexCodeLocationSelection(selection);
+  const candidate = source.locations.find((location) => {
+    switch (normalized.kind) {
+      case "config":
+        return (
+          location.kind === "config" &&
+          location.convexConfigPath === normalized.convexConfigPath &&
+          location.blobSha === normalized.blobSha
+        );
+      case "directory":
+        return (
+          location.kind === "directory" &&
+          location.convexDirectoryPath === normalized.convexDirectoryPath &&
+          location.convexDirectoryTreeSha === normalized.convexDirectoryTreeSha &&
+          location.packageJsonBlobSha === normalized.packageJsonBlobSha
+        );
+      default:
+        normalized satisfies never;
+        return false;
+    }
+  });
+  if (!candidate) {
     throw new Error(
-      `GitHub no longer has the selected valid Convex config at ${convexConfigPath}. Scan the repository again.`,
+      `GitHub no longer has the selected Convex code location at ${getConvexCodeLocationPath(removeConvexCodeLocationEvidence(normalized))}. Scan the repository again.`,
     );
   }
 }
@@ -253,7 +313,7 @@ export async function discoverProjectsForUser(
   args: { vaultId: Id<"vaults">; userId: Id<"users"> },
 ) {
   const [sourceDiscovery, connection] = await Promise.all([
-    discoverConvexConfigs(ctx, args),
+    discoverConvexCodeLocations(ctx, args),
     resolveConvexConnection(ctx, args.userId),
   ]);
   const [providerProjects, workerReferences] = await Promise.all([
@@ -275,7 +335,7 @@ export async function attachExistingProjectsForUser(
   args: {
     vaultId: Id<"vaults">;
     userId: Id<"users">;
-    projects: Array<{ projectId: string; convexConfigPath: string; blobSha: string }>;
+    projects: Array<{ projectId: string; codeLocation: ConvexCodeLocationSelection }>;
   },
 ): Promise<Array<Id<"vaultConvexProjects">>> {
   if (args.projects.length === 0) {
@@ -283,8 +343,7 @@ export async function attachExistingProjectsForUser(
   }
   const normalizedProjects = args.projects.map((project) => ({
     projectId: project.projectId.trim(),
-    convexConfigPath: normalizeConvexConfigPath(project.convexConfigPath),
-    blobSha: project.blobSha.trim(),
+    codeLocation: normalizeConvexCodeLocationSelection(project.codeLocation),
   }));
   if (
     normalizedProjects.some((project) => !project.projectId) ||
@@ -295,21 +354,11 @@ export async function attachExistingProjectsForUser(
   }
 
   const [sourceDiscovery, connection] = await Promise.all([
-    discoverConvexConfigs(ctx, args),
+    discoverConvexCodeLocations(ctx, args),
     resolveConvexConnection(ctx, args.userId),
   ]);
   for (const project of normalizedProjects) {
-    const source = sourceDiscovery.source.configs.find(
-      (config) =>
-        config.state === "valid" &&
-        config.convexConfigPath === project.convexConfigPath &&
-        config.blobSha === project.blobSha,
-    );
-    if (!source) {
-      throw new Error(
-        `GitHub no longer has the selected valid Convex config at ${project.convexConfigPath}. Scan the repository again.`,
-      );
-    }
+    requireVerifiedConvexCodeLocation(sourceDiscovery.source, project.codeLocation);
   }
   const providerProjects = await Promise.all(
     normalizedProjects.map(
@@ -328,7 +377,7 @@ export async function attachExistingProjectsForUser(
     projects: normalizedProjects.map((project) => ({
       teamId: connection.teamId,
       projectId: project.projectId,
-      convexConfigPath: project.convexConfigPath,
+      codeLocation: removeConvexCodeLocationEvidence(project.codeLocation),
       origin: "selected_existing" as const,
     })),
   });
@@ -340,23 +389,19 @@ async function createProjectForUser(
     vaultId: Id<"vaults">;
     userId: Id<"users">;
     projectName: string;
-    convexConfigPath: string;
-    blobSha: string;
+    codeLocation: ConvexCodeLocationSelection;
   },
 ): Promise<Id<"vaultConvexProjects">> {
   const validation = validateAppResourceName(args.projectName, "convex");
   if (!validation.valid) {
     throw new Error(validation.message);
   }
-  const convexConfigPath = normalizeConvexConfigPath(args.convexConfigPath);
+  const codeLocation = normalizeConvexCodeLocationSelection(args.codeLocation);
   const [sourceDiscovery, connection] = await Promise.all([
-    discoverConvexConfigs(ctx, args),
+    discoverConvexCodeLocations(ctx, args),
     resolveConvexConnection(ctx, args.userId),
   ]);
-  requireVerifiedConvexConfig(sourceDiscovery.source, {
-    convexConfigPath,
-    blobSha: args.blobSha,
-  });
+  requireVerifiedConvexCodeLocation(sourceDiscovery.source, codeLocation);
   const projects = await listProjectsForConnection(connection);
   if (
     projects.some(
@@ -388,7 +433,7 @@ async function createProjectForUser(
           {
             teamId: connection.teamId,
             projectId: created.id,
-            convexConfigPath,
+            codeLocation: removeConvexCodeLocationEvidence(codeLocation),
             origin: "provisioned",
           },
         ],
@@ -521,10 +566,10 @@ export const createProject = action({
     await createProjectForUser(ctx, { ...args, userId: ctx.viewer.userId }),
 });
 
-export const changeProjectConfigPath = action({
-  access: convexChangeProjectConfigPathContract.access,
-  args: convexChangeProjectConfigPathContract.args,
-  returns: convexChangeProjectConfigPathContract.returns,
+export const changeProjectCodeLocation = action({
+  access: convexChangeProjectCodeLocationContract.access,
+  args: convexChangeProjectCodeLocationContract.args,
+  returns: convexChangeProjectCodeLocationContract.returns,
   handler: async (ctx, args): Promise<null> => {
     const [attachment, sourceDiscovery] = await Promise.all([
       ctx.runQuery(internal.vault.convexMutations.readProjectAttachmentContext, {
@@ -532,23 +577,20 @@ export const changeProjectConfigPath = action({
         userId: ctx.viewer.userId,
         convexProjectId: args.convexProjectId,
       }),
-      discoverConvexConfigs(ctx, {
+      discoverConvexCodeLocations(ctx, {
         vaultId: args.vaultId,
         userId: ctx.viewer.userId,
       }),
     ]);
-    const convexConfigPath = normalizeConvexConfigPath(args.convexConfigPath);
-    requireVerifiedConvexConfig(sourceDiscovery.source, {
-      convexConfigPath,
-      blobSha: args.blobSha,
-    });
-    await ctx.runMutation(internal.vault.convexMutations.reconcileProjectConvexConfigPath, {
+    const codeLocation = normalizeConvexCodeLocationSelection(args.codeLocation);
+    requireVerifiedConvexCodeLocation(sourceDiscovery.source, codeLocation);
+    await ctx.runMutation(internal.vault.convexMutations.reconcileProjectCodeLocation, {
       vaultId: args.vaultId,
       userId: ctx.viewer.userId,
       convexProjectId: args.convexProjectId,
       projectId: attachment.projectId,
-      expectedConvexConfigPath: attachment.convexConfigPath,
-      nextConvexConfigPath: convexConfigPath,
+      expectedCodeLocation: attachment.codeLocation,
+      nextCodeLocation: removeConvexCodeLocationEvidence(codeLocation),
     });
     return null;
   },
@@ -592,7 +634,7 @@ export const detachProject = action({
       userId: ctx.viewer.userId,
       teamId: attachment.teamId,
       projectId: attachment.projectId,
-      convexConfigPath: attachment.convexConfigPath,
+      codeLocation: attachment.codeLocation,
     });
     return null;
   },

@@ -36,7 +36,6 @@ export const vWorkerConvexProjectConfigurationContext = object({
     convexProjectId: id("vaultConvexProjects"),
     teamId: string(),
     projectId: string(),
-    convexConfigPath: string(),
   }),
 });
 export type WorkerConvexProjectConfigurationContext = Infer<
@@ -50,7 +49,6 @@ export const vManagedWorkerConvexProjectConfigurationContext = object({
     convexProjectId: id("vaultConvexProjects"),
     teamId: string(),
     projectId: string(),
-    convexConfigPath: string(),
   }),
 });
 export type ManagedWorkerConvexProjectConfigurationContext = Infer<
@@ -462,7 +460,6 @@ export const readWorkerConvexProjectConfigurationContext = internalQuery({
         convexProjectId: project._id,
         teamId: project.teamId,
         projectId: project.projectId,
-        convexConfigPath: project.convexConfigPath,
       },
     };
   },
@@ -496,6 +493,7 @@ export const readManagedWorkerConvexProjectConfigurationContext = internalQuery(
       plan.convex.state !== "created" ||
       plan.convex.teamId !== project.teamId ||
       plan.convex.projectId !== project.projectId ||
+      !("convexConfigPath" in project) ||
       plan.convexConfigPath !== project.convexConfigPath
     ) {
       throw new Error("Managed Convex project does not match the active provisioning run.");
@@ -513,7 +511,6 @@ export const readManagedWorkerConvexProjectConfigurationContext = internalQuery(
         convexProjectId: project._id,
         teamId: project.teamId,
         projectId: project.projectId,
-        convexConfigPath: project.convexConfigPath,
       },
     };
   },

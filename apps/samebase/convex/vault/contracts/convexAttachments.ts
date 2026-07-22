@@ -5,19 +5,45 @@ import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolic
 const { array, id, literal, null: nullValue, object, string, union } = v;
 const providerConnectionAccess = "access_provider_connections" as const;
 
-export const vGitHubConvexConfigCandidate = union(
+export const vGitHubConvexCodeLocationCandidate = union(
   object({
-    state: literal("valid"),
+    kind: literal("config"),
     convexConfigPath: string(),
     rootDirectory: string(),
     blobSha: string(),
   }),
   object({
-    state: literal("invalid"),
-    convexConfigPath: string(),
+    kind: literal("directory"),
+    convexDirectoryPath: string(),
     rootDirectory: string(),
+    convexDirectoryTreeSha: string(),
+    packageJsonPath: string(),
+    packageJsonBlobSha: string(),
+  }),
+);
+
+export const vConvexCodeLocation = union(
+  object({
+    kind: literal("config"),
+    convexConfigPath: string(),
+  }),
+  object({
+    kind: literal("directory"),
+    convexDirectoryPath: string(),
+  }),
+);
+
+export const vConvexCodeLocationSelection = union(
+  object({
+    kind: literal("config"),
+    convexConfigPath: string(),
     blobSha: string(),
-    reason: literal("invalid_json_object"),
+  }),
+  object({
+    kind: literal("directory"),
+    convexDirectoryPath: string(),
+    convexDirectoryTreeSha: string(),
+    packageJsonBlobSha: string(),
   }),
 );
 
@@ -45,7 +71,7 @@ const vConvexProjectDiscoveryResult = object({
     defaultBranch: string(),
     commitSha: string(),
     treeSha: string(),
-    configs: array(vGitHubConvexConfigCandidate),
+    locations: array(vGitHubConvexCodeLocationCandidate),
   }),
   projects: array(vConvexAttachmentProject),
 });
@@ -60,7 +86,7 @@ export const convexDiscoverProjectsContract = {
     title: "Discover Convex projects",
     name: "vault_convex_discoverProjects",
     description:
-      "Discover valid convex.json locations in a vault's GitHub repository and projects available through the connected Convex team.",
+      "Discover Convex code locations in a vault's GitHub repository and projects available through the connected Convex team.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
@@ -68,19 +94,20 @@ export const convexDiscoverProjectsContract = {
       destructiveHint: false,
     },
     inputDescriptions: {
-      vaultId: "Samebase vault whose repository config locations should be discovered.",
+      vaultId: "Samebase vault whose repository code locations should be discovered.",
     },
   } satisfies AppFunctionMcpMetadata,
-  doc: `Reads the vault's exact default-branch Git tree and blob contents to find regular files
-named convex.json whose contents parse as JSON objects. It also lists projects available through
-the connected Convex team and annotates current Cloudflare Worker marker references when
-available. A partial source scan never proves that an unlisted config is absent.`,
+  doc: `Reads the vault's exact default-branch Git tree to find explicit convex.json files and
+default package.json plus convex/ layouts. Discovery uses exact tree entry types, paths, and object
+SHAs only. It does not read or validate convex.json or package.json contents. It also lists projects
+available through the connected Convex team and annotates current Cloudflare Worker marker
+references when available. A partial source scan never proves that an unlisted code location is
+absent.`,
 } as const;
 
-const vConvexProjectConfigSelection = object({
+const vConvexProjectCodeLocationSelection = object({
   projectId: string(),
-  convexConfigPath: string(),
-  blobSha: string(),
+  codeLocation: vConvexCodeLocationSelection,
 });
 
 export const convexAttachProjectsContract = {
@@ -88,7 +115,7 @@ export const convexAttachProjectsContract = {
   access: providerConnectionAccess,
   args: {
     vaultId: id("vaults"),
-    projects: array(vConvexProjectConfigSelection),
+    projects: array(vConvexProjectCodeLocationSelection),
   },
   returns: array(id("vaultConvexProjects")),
   structuredContent: object({ convexProjectIds: array(id("vaultConvexProjects")) }),
@@ -96,7 +123,7 @@ export const convexAttachProjectsContract = {
     title: "Attach Convex projects",
     name: "vault_convex_attachProjects",
     description:
-      "Attach selected existing Convex projects to a vault at explicit discovered convex.json locations.",
+      "Attach selected existing Convex projects to a vault at discovered repository code locations.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -106,12 +133,12 @@ export const convexAttachProjectsContract = {
     inputDescriptions: {
       vaultId: "Samebase vault receiving the project attachments.",
       projects:
-        "One or more project id, convex.json path, and blob SHA selections returned by discover_convex_projects.",
+        "One or more project id and code location selections returned by discover_convex_projects.",
     },
   } satisfies AppFunctionMcpMetadata,
-  doc: `Re-reads every selected Convex project and exact convex.json blob before writing any
-attachment. The final Samebase mutation is atomic: either every selected project and confirmed
-config path is attached or none are. Convex projects and GitHub files are not modified.`,
+  doc: `Re-reads every selected Convex project and exact repository code location before writing
+any attachment. The final Samebase mutation is atomic: either every selected project and confirmed
+location is attached or none are. Convex projects and GitHub files are not modified.`,
 } as const;
 
 export const convexCreateProjectContract = {
@@ -119,19 +146,17 @@ export const convexCreateProjectContract = {
   args: {
     vaultId: id("vaults"),
     projectName: string(),
-    convexConfigPath: string(),
-    blobSha: string(),
+    codeLocation: vConvexCodeLocationSelection,
   },
   returns: id("vaultConvexProjects"),
 } as const;
 
-export const convexChangeProjectConfigPathContract = {
+export const convexChangeProjectCodeLocationContract = {
   access: providerConnectionAccess,
   args: {
     vaultId: id("vaults"),
     convexProjectId: id("vaultConvexProjects"),
-    convexConfigPath: string(),
-    blobSha: string(),
+    codeLocation: vConvexCodeLocationSelection,
   },
   returns: nullValue(),
 } as const;

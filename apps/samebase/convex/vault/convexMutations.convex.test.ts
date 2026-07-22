@@ -71,13 +71,13 @@ describe("vault Convex project attachment mutations", () => {
         {
           teamId: "team-1",
           projectId: "project-1",
-          convexConfigPath: "apps/web/convex.json",
+          codeLocation: { kind: "config", convexConfigPath: "apps/web/convex.json" },
           origin: "selected_existing",
         },
         {
           teamId: "team-1",
           projectId: "project-2",
-          convexConfigPath: "apps/web/convex.json",
+          codeLocation: { kind: "config", convexConfigPath: "apps/web/convex.json" },
           origin: "provisioned",
         },
       ],
@@ -90,7 +90,7 @@ describe("vault Convex project attachment mutations", () => {
           {
             teamId: "team-1",
             projectId: "project-1",
-            convexConfigPath: "apps/web/convex.json",
+            codeLocation: { kind: "config", convexConfigPath: "apps/web/convex.json" },
             origin: "provisioned",
           },
         ],
@@ -116,7 +116,7 @@ describe("vault Convex project attachment mutations", () => {
         {
           teamId: "team-1",
           projectId: "shared-project",
-          convexConfigPath: "convex.json",
+          codeLocation: { kind: "config", convexConfigPath: "convex.json" },
           origin: "selected_existing",
         },
       ],
@@ -130,13 +130,13 @@ describe("vault Convex project attachment mutations", () => {
           {
             teamId: "team-1",
             projectId: "new-project",
-            convexConfigPath: "convex.json",
+            codeLocation: { kind: "config", convexConfigPath: "convex.json" },
             origin: "selected_existing",
           },
           {
             teamId: "team-2",
             projectId: "shared-project",
-            convexConfigPath: "apps/admin/convex.json",
+            codeLocation: { kind: "config", convexConfigPath: "apps/admin/convex.json" },
             origin: "selected_existing",
           },
         ],
@@ -162,7 +162,7 @@ describe("vault Convex project attachment mutations", () => {
         {
           teamId: "team-1",
           projectId: "project-1",
-          convexConfigPath: "convex.json",
+          codeLocation: { kind: "config", convexConfigPath: "convex.json" },
           origin: "selected_existing",
         },
       ],
@@ -189,13 +189,13 @@ describe("vault Convex project attachment mutations", () => {
       expectedTeamId: "team-1",
       nextTeamId: "team-2",
     });
-    await t.mutation(internal.vault.convexMutations.reconcileProjectConvexConfigPath, {
+    await t.mutation(internal.vault.convexMutations.reconcileProjectCodeLocation, {
       vaultId: ids.primaryVaultId,
       userId: ids.userId,
       convexProjectId,
       projectId: "project-1",
-      expectedConvexConfigPath: "convex.json",
-      nextConvexConfigPath: "apps/web/convex.json",
+      expectedCodeLocation: { kind: "config", convexConfigPath: "convex.json" },
+      nextCodeLocation: { kind: "config", convexConfigPath: "apps/web/convex.json" },
     });
 
     await expect(
@@ -205,7 +205,7 @@ describe("vault Convex project attachment mutations", () => {
         convexProjectId,
         teamId: "team-1",
         projectId: "project-1",
-        convexConfigPath: "apps/web/convex.json",
+        codeLocation: { kind: "config", convexConfigPath: "apps/web/convex.json" },
       }),
     ).rejects.toThrow("Convex project attachment changed before removal.");
     await expect(
@@ -215,7 +215,7 @@ describe("vault Convex project attachment mutations", () => {
         convexProjectId,
         teamId: "team-2",
         projectId: "project-1",
-        convexConfigPath: "apps/web/convex.json",
+        codeLocation: { kind: "config", convexConfigPath: "apps/web/convex.json" },
       }),
     ).resolves.toBeNull();
   });

@@ -13,7 +13,7 @@ import { VaultResourceRail } from "@/components/vault-dashboard/VaultResourceRai
 import { VaultRepositoryRootInput } from "@/components/vault-dashboard/VaultRepositoryRootInput";
 import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
 import { buildVaultProductionRoots } from "@/components/vault-dashboard/vaultProductionRoots";
-import { TrashIcon, UpdateIcon } from "@/lib/radixIcons";
+import { ClockIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
 import { Loader2 } from "lucide-react";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { Link, useLocation, useNavigate, useRouter } from "@tanstack/react-router";
@@ -85,6 +85,12 @@ import { buildDefaultAppResourceName } from "../../../shared/appResourceNames";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { tryParseRepositoryFullName } from "../../../shared/repoName";
 import {
+  getConvexCodeLocationKey,
+  getConvexCodeLocationPath,
+  type ConvexCodeLocation,
+} from "../../../shared/convexCodeLocation";
+import { formatStopwatchDuration } from "@/lib/stopwatch";
+import {
   useVaultProviderObservations,
   type VaultCloudflareProviderObservationState,
   type VaultConvexProjectObservation,
@@ -138,10 +144,8 @@ type CloudflareInventoryState =
   (typeof api.vault.cloudflare.discoverWorkers)["_returnType"]["inventoryState"];
 type ConvexProjectOption =
   (typeof api.vault.convex.discoverProjects)["_returnType"]["projects"][number];
-type ConvexConfigOption = Extract<
-  (typeof api.vault.convex.discoverProjects)["_returnType"]["source"]["configs"][number],
-  { state: "valid" }
->;
+type ConvexCodeLocationOption =
+  (typeof api.vault.convex.discoverProjects)["_returnType"]["source"]["locations"][number];
 type ConvexSourceCompleteness =
   (typeof api.vault.convex.discoverProjects)["_returnType"]["source"]["completeness"];
 type ConvexProjectConnectMode = "existing" | "create";
@@ -178,7 +182,7 @@ type ProviderAttachmentDetachmentInFlight =
       vaultId: Id<"vaults">;
       convexProjectId: Id<"vaultConvexProjects">;
     };
-type ConvexConfigPathRepairTarget = {
+type ConvexCodeLocationRepairTarget = {
   convexProjectId: Id<"vaultConvexProjects">;
   vaultId: Id<"vaults">;
 };
@@ -217,6 +221,48 @@ function compareConvexProjectOption(left: ConvexProjectOption, right: ConvexProj
   );
 }
 
+function readConvexCodeLocationOption(option: ConvexCodeLocationOption): ConvexCodeLocation {
+  switch (option.kind) {
+    case "config":
+      return { kind: "config", convexConfigPath: option.convexConfigPath };
+    case "directory":
+      return { kind: "directory", convexDirectoryPath: option.convexDirectoryPath };
+    default:
+      option satisfies never;
+      throw new Error("Unsupported Convex code location.");
+  }
+}
+
+function getConvexCodeLocationOptionKey(option: ConvexCodeLocationOption): string {
+  return getConvexCodeLocationKey(readConvexCodeLocationOption(option));
+}
+
+function getConvexCodeLocationOptionLabel(option: ConvexCodeLocationOption): string {
+  const path = getConvexCodeLocationPath(readConvexCodeLocationOption(option));
+  return option.kind === "directory" ? `${path} (default layout)` : path;
+}
+
+function getConvexCodeLocationSelection(option: ConvexCodeLocationOption) {
+  switch (option.kind) {
+    case "config":
+      return {
+        kind: "config" as const,
+        convexConfigPath: option.convexConfigPath,
+        blobSha: option.blobSha,
+      };
+    case "directory":
+      return {
+        kind: "directory" as const,
+        convexDirectoryPath: option.convexDirectoryPath,
+        convexDirectoryTreeSha: option.convexDirectoryTreeSha,
+        packageJsonBlobSha: option.packageJsonBlobSha,
+      };
+    default:
+      option satisfies never;
+      throw new Error("Unsupported Convex code location.");
+  }
+}
+
 type VaultDashboardLocalState = {
   cloudflareConnectDialog: {
     accounts: CloudflareAccountOption[];
@@ -234,15 +280,15 @@ type VaultDashboardLocalState = {
     workers: CloudflareWorkerOption[];
   };
   convexConnectDialog: {
-    configs: ConvexConfigOption[];
+    codeLocations: ConvexCodeLocationOption[];
     connectMode: ConvexProjectConnectMode;
-    createConfigPath: string;
+    createCodeLocationKey: string;
     createProjectName: string;
     error: string | null;
     isLoadingResources: boolean;
     isSubmittingProject: boolean;
     projects: ConvexProjectOption[];
-    selectedProjectConfigPaths: Record<string, string | undefined>;
+    selectedProjectCodeLocationKeys: Record<string, string | undefined>;
     sourceCompleteness: ConvexSourceCompleteness | null;
   };
   commitError: string | null;
@@ -262,15 +308,15 @@ type VaultDashboardLocalState = {
 
 function readInitialConvexConnectDialogState(): VaultDashboardLocalState["convexConnectDialog"] {
   return {
-    configs: [],
+    codeLocations: [],
     connectMode: "existing",
-    createConfigPath: "",
+    createCodeLocationKey: "",
     createProjectName: "",
     error: null,
     isLoadingResources: false,
     isSubmittingProject: false,
     projects: [],
-    selectedProjectConfigPaths: {},
+    selectedProjectCodeLocationKeys: {},
     sourceCompleteness: null,
   };
 }
@@ -495,14 +541,16 @@ function useVaultDashboardLocalStore() {
         convexConnectDialog: { ...state.convexConnectDialog, createProjectName },
       }));
     },
-    setConvexConnectDialogConfigs: (configs: ConvexConfigOption[]) => {
+    setConvexConnectDialogCodeLocations: (codeLocations: ConvexCodeLocationOption[]) => {
       setState((state) => ({
         ...state,
         convexConnectDialog: {
           ...state.convexConnectDialog,
-          configs,
-          createConfigPath: configs[0]?.convexConfigPath ?? "",
-          selectedProjectConfigPaths: {},
+          codeLocations,
+          createCodeLocationKey: codeLocations[0]
+            ? getConvexCodeLocationOptionKey(codeLocations[0])
+            : "",
+          selectedProjectCodeLocationKeys: {},
         },
       }));
     },
@@ -512,7 +560,7 @@ function useVaultDashboardLocalStore() {
         convexConnectDialog: {
           ...state.convexConnectDialog,
           projects,
-          selectedProjectConfigPaths: {},
+          selectedProjectCodeLocationKeys: {},
         },
       }));
     },
@@ -536,43 +584,46 @@ function useVaultDashboardLocalStore() {
         convexConnectDialog: { ...state.convexConnectDialog, sourceCompleteness },
       }));
     },
-    setConvexConnectDialogCreateConfigPath: (createConfigPath: string) => {
+    setConvexConnectDialogCreateCodeLocationKey: (createCodeLocationKey: string) => {
       setState((state) => ({
         ...state,
-        convexConnectDialog: { ...state.convexConnectDialog, createConfigPath },
+        convexConnectDialog: { ...state.convexConnectDialog, createCodeLocationKey },
       }));
     },
-    setConvexConnectDialogProjectConfigPath: (projectId: string, convexConfigPath: string) => {
+    setConvexConnectDialogProjectCodeLocationKey: (projectId: string, codeLocationKey: string) => {
       setState((state) => ({
         ...state,
         convexConnectDialog: {
           ...state.convexConnectDialog,
-          selectedProjectConfigPaths: {
-            ...state.convexConnectDialog.selectedProjectConfigPaths,
-            [projectId]: convexConfigPath,
+          selectedProjectCodeLocationKeys: {
+            ...state.convexConnectDialog.selectedProjectCodeLocationKeys,
+            [projectId]: codeLocationKey,
           },
         },
       }));
     },
     toggleConvexConnectDialogProject: (projectId: string) => {
       setState((state) => {
-        const selectedConfigPath = state.convexConnectDialog.selectedProjectConfigPaths[projectId];
-        const selectedProjectConfigPaths =
-          selectedConfigPath !== undefined
+        const selectedCodeLocationKey =
+          state.convexConnectDialog.selectedProjectCodeLocationKeys[projectId];
+        const selectedProjectCodeLocationKeys =
+          selectedCodeLocationKey !== undefined
             ? Object.fromEntries(
-                Object.entries(state.convexConnectDialog.selectedProjectConfigPaths).filter(
+                Object.entries(state.convexConnectDialog.selectedProjectCodeLocationKeys).filter(
                   ([candidate]) => candidate !== projectId,
                 ),
               )
             : {
-                ...state.convexConnectDialog.selectedProjectConfigPaths,
-                [projectId]: state.convexConnectDialog.configs[0]?.convexConfigPath ?? "",
+                ...state.convexConnectDialog.selectedProjectCodeLocationKeys,
+                [projectId]: state.convexConnectDialog.codeLocations[0]
+                  ? getConvexCodeLocationOptionKey(state.convexConnectDialog.codeLocations[0])
+                  : "",
               };
         return {
           ...state,
           convexConnectDialog: {
             ...state.convexConnectDialog,
-            selectedProjectConfigPaths,
+            selectedProjectCodeLocationKeys,
           },
         };
       });
@@ -894,63 +945,84 @@ export function VaultDashboardDeleteDialog({
   );
 }
 
+function VaultProviderDiscoveryLoadingState({ label }: { label: string }) {
+  const [startedAt] = useState(Date.now);
+  const now = useNow({ intervalMs: 100 });
+  const elapsedLabel = formatStopwatchDuration(now - startedAt);
+
+  return (
+    <div role="status" className="flex items-center justify-between gap-3 border-y py-3 text-sm">
+      <span className="flex min-w-0 items-center gap-2">
+        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+        <span>{label}</span>
+      </span>
+      <span className="inline-flex shrink-0 items-center gap-1.5 font-mono text-xs text-muted-foreground">
+        <ClockIcon className="h-3.5 w-3.5" />
+        <span aria-label={`Elapsed search time ${elapsedLabel}`}>{elapsedLabel}</span>
+      </span>
+    </div>
+  );
+}
+
 export function VaultDashboardConvexDialog({
-  configs,
-  createConfigPath,
+  codeLocations,
+  createCodeLocationKey,
   createProjectName,
   projects,
   error,
   isLoading,
   isSubmitting,
   mode,
-  onCreateConfigPathChange,
+  onCreateCodeLocationKeyChange,
   onCreateProjectNameChange,
   onModeChange,
   onOpenChange,
-  onProjectConfigPathChange,
+  onProjectCodeLocationKeyChange,
   onProjectToggle,
   onSubmit,
   open,
   repairProject,
-  selectedProjectConfigPaths,
+  selectedProjectCodeLocationKeys,
   sourceCompleteness,
   vault,
 }: {
-  configs: readonly ConvexConfigOption[];
-  createConfigPath: string;
+  codeLocations: readonly ConvexCodeLocationOption[];
+  createCodeLocationKey: string;
   createProjectName: string;
   projects: readonly ConvexProjectOption[];
   error: string | null;
   isLoading: boolean;
   isSubmitting: boolean;
   mode: ConvexProjectConnectMode;
-  onCreateConfigPathChange: (convexConfigPath: string) => void;
+  onCreateCodeLocationKeyChange: (codeLocationKey: string) => void;
   onCreateProjectNameChange: (projectName: string) => void;
   onModeChange: (mode: ConvexProjectConnectMode) => void;
   onOpenChange: (isOpen: boolean) => void;
-  onProjectConfigPathChange: (projectId: string, convexConfigPath: string) => void;
+  onProjectCodeLocationKeyChange: (projectId: string, codeLocationKey: string) => void;
   onProjectToggle: (projectId: string) => void;
   onSubmit: () => void;
   open: boolean;
-  repairProject: { convexConfigPath: string; projectId: string } | null;
-  selectedProjectConfigPaths: Readonly<Record<string, string | undefined>>;
+  repairProject: { codeLocation: ConvexCodeLocation; projectId: string } | null;
+  selectedProjectCodeLocationKeys: Readonly<Record<string, string | undefined>>;
   sourceCompleteness: ConvexSourceCompleteness | null;
   vault: VaultConvexDialogTarget | null;
 }) {
-  const configPaths = configs.map((config) => config.convexConfigPath);
+  const codeLocationOptions = codeLocations.map((location) => ({
+    key: getConvexCodeLocationOptionKey(location),
+    label: getConvexCodeLocationOptionLabel(location),
+  }));
   const sortedProjects = useMemo(() => [...projects].sort(compareConvexProjectOption), [projects]);
-  const discoveryResultsAvailable = !isLoading && sourceCompleteness !== null;
-  const selectedProjectCount = Object.keys(selectedProjectConfigPaths).length;
+  const selectedProjectCount = Object.keys(selectedProjectCodeLocationKeys).length;
   const submitDisabled =
     isLoading ||
     isSubmitting ||
-    configPaths.length === 0 ||
+    codeLocationOptions.length === 0 ||
     (repairProject
-      ? !createConfigPath
+      ? !createCodeLocationKey
       : mode === "existing"
         ? selectedProjectCount === 0 ||
-          Object.values(selectedProjectConfigPaths).some((path) => !path)
-        : !createProjectName.trim() || !createConfigPath);
+          Object.values(selectedProjectCodeLocationKeys).some((key) => !key)
+        : !createProjectName.trim() || !createCodeLocationKey);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -965,154 +1037,163 @@ export function VaultDashboardConvexDialog({
           </DialogTitle>
           <DialogDescription>
             {repairProject
-              ? `Choose the convex.json file for this project. Current location: ${repairProject.convexConfigPath}.`
+              ? `Choose the code location for this project. Current location: ${getConvexCodeLocationPath(repairProject.codeLocation)}.`
               : mode === "existing"
-                ? "Choose one or more projects and the convex.json file for each."
-                : "Choose a project name and its convex.json file."}
+                ? "Choose one or more projects and the code location for each."
+                : "Choose a project name and its code location."}
           </DialogDescription>
         </DialogHeader>
         {vault ? (
           <div className="space-y-3">
-            {!repairProject ? (
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant={mode === "existing" ? "default" : "outline"}
-                  onClick={() => onModeChange("existing")}
-                  disabled={isLoading || isSubmitting}
-                >
-                  Existing
-                </Button>
-                <Button
-                  type="button"
-                  variant={mode === "create" ? "default" : "outline"}
-                  onClick={() => onModeChange("create")}
-                  disabled={isLoading || isSubmitting}
-                >
-                  Create
-                </Button>
-              </div>
-            ) : null}
-            {discoveryResultsAvailable && sourceCompleteness === "partial" ? (
-              <div className="text-sm text-muted-foreground">
-                The repository could not be fully scanned. Verified configs found so far are shown.
-              </div>
-            ) : null}
-            {!discoveryResultsAvailable ? null : configPaths.length === 0 ? (
-              sourceCompleteness === "complete" ? (
-                <div className="text-sm text-muted-foreground">
-                  No valid convex.json files were found on the default branch.
-                </div>
-              ) : null
-            ) : repairProject ? (
-              <Select
-                modal={false}
-                value={createConfigPath}
-                onValueChange={onCreateConfigPathChange}
-                disabled={isSubmitting}
-              >
-                <SelectTrigger aria-label="New Convex config path" className="w-full">
-                  <SelectValue placeholder="convex.json" />
-                </SelectTrigger>
-                <AppSelectContent>
-                  {configPaths.map((path) => (
-                    <AppSelectItem key={path} value={path}>
-                      <span className="font-mono">{path}</span>
-                    </AppSelectItem>
-                  ))}
-                </AppSelectContent>
-              </Select>
-            ) : mode === "existing" ? (
-              sortedProjects.length === 0 ? (
-                <div className="text-sm text-muted-foreground">
-                  No unattached Convex projects are available.
-                </div>
-              ) : (
-                <div className="grid max-h-80 gap-3 overflow-y-auto">
-                  {sortedProjects.map((project) => {
-                    const selectedConfigPath = selectedProjectConfigPaths[project.projectId];
-                    const selected = selectedConfigPath !== undefined;
-                    return (
-                      <div
-                        key={project.projectId}
-                        className="grid gap-2 border-b pb-3 last:border-b-0"
-                      >
-                        <label className="flex min-w-0 items-start gap-2">
-                          <Checkbox
-                            checked={selected}
-                            disabled={isSubmitting}
-                            onCheckedChange={() => onProjectToggle(project.projectId)}
-                          />
-                          <span className="grid min-w-0 gap-0.5">
-                            <span className="truncate text-sm">{project.projectName}</span>
-                            <span className="truncate text-xs text-muted-foreground">
-                              {project.teamSlug}/{project.projectSlug}
-                            </span>
-                            {project.workerReferences.length > 0 ? (
-                              <span className="truncate text-xs text-muted-foreground">
-                                Used by{" "}
-                                {project.workerReferences
-                                  .map((worker) => worker.workerName)
-                                  .join(", ")}
-                              </span>
-                            ) : null}
-                          </span>
-                        </label>
-                        {selected ? (
-                          <Select
-                            modal={false}
-                            value={selectedConfigPath}
-                            onValueChange={(convexConfigPath) =>
-                              onProjectConfigPathChange(project.projectId, convexConfigPath)
-                            }
-                            disabled={isSubmitting}
-                          >
-                            <SelectTrigger
-                              aria-label={`convex.json for ${project.projectName}`}
-                              className="w-full"
-                            >
-                              <SelectValue />
-                            </SelectTrigger>
-                            <AppSelectContent>
-                              {configPaths.map((path) => (
-                                <AppSelectItem key={path} value={path}>
-                                  <span className="font-mono">{path}</span>
-                                </AppSelectItem>
-                              ))}
-                            </AppSelectContent>
-                          </Select>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              )
+            {isLoading ? (
+              <VaultProviderDiscoveryLoadingState label="Searching for Convex code and projects" />
             ) : (
-              <div className="grid gap-3">
-                <Input
-                  value={createProjectName}
-                  onChange={(event) => onCreateProjectNameChange(event.target.value)}
-                  disabled={isSubmitting}
-                  placeholder="Project name"
-                />
-                <Select
-                  modal={false}
-                  value={createConfigPath}
-                  onValueChange={onCreateConfigPathChange}
-                  disabled={isSubmitting}
-                >
-                  <SelectTrigger aria-label="Convex config path" className="w-full">
-                    <SelectValue placeholder="convex.json" />
-                  </SelectTrigger>
-                  <AppSelectContent>
-                    {configPaths.map((path) => (
-                      <AppSelectItem key={path} value={path}>
-                        <span className="font-mono">{path}</span>
-                      </AppSelectItem>
-                    ))}
-                  </AppSelectContent>
-                </Select>
-              </div>
+              <>
+                {!repairProject ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant={mode === "existing" ? "default" : "outline"}
+                      onClick={() => onModeChange("existing")}
+                      disabled={isSubmitting}
+                    >
+                      Existing
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={mode === "create" ? "default" : "outline"}
+                      onClick={() => onModeChange("create")}
+                      disabled={isSubmitting}
+                    >
+                      Create
+                    </Button>
+                  </div>
+                ) : null}
+                {sourceCompleteness === "partial" ? (
+                  <div className="text-sm text-muted-foreground">
+                    The repository could not be fully scanned. Verified locations found so far are
+                    shown.
+                  </div>
+                ) : null}
+                {codeLocationOptions.length === 0 ? (
+                  sourceCompleteness === "complete" ? (
+                    <div className="text-sm text-muted-foreground">
+                      No convex.json or package.json with a sibling convex/ directory was found on
+                      the default branch.
+                    </div>
+                  ) : null
+                ) : repairProject ? (
+                  <Select
+                    modal={false}
+                    value={createCodeLocationKey}
+                    onValueChange={onCreateCodeLocationKeyChange}
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger aria-label="New Convex code location" className="w-full">
+                      <SelectValue placeholder="Convex code location" />
+                    </SelectTrigger>
+                    <AppSelectContent>
+                      {codeLocationOptions.map((location) => (
+                        <AppSelectItem key={location.key} value={location.key}>
+                          <span className="font-mono">{location.label}</span>
+                        </AppSelectItem>
+                      ))}
+                    </AppSelectContent>
+                  </Select>
+                ) : mode === "existing" ? (
+                  sortedProjects.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">
+                      No unattached Convex projects are available.
+                    </div>
+                  ) : (
+                    <div className="grid max-h-80 gap-3 overflow-y-auto">
+                      {sortedProjects.map((project) => {
+                        const selectedCodeLocationKey =
+                          selectedProjectCodeLocationKeys[project.projectId];
+                        const selected = selectedCodeLocationKey !== undefined;
+                        return (
+                          <div
+                            key={project.projectId}
+                            className="grid gap-2 border-b pb-3 last:border-b-0"
+                          >
+                            <label className="flex min-w-0 items-start gap-2">
+                              <Checkbox
+                                checked={selected}
+                                disabled={isSubmitting}
+                                onCheckedChange={() => onProjectToggle(project.projectId)}
+                              />
+                              <span className="grid min-w-0 gap-0.5">
+                                <span className="truncate text-sm">{project.projectName}</span>
+                                <span className="truncate text-xs text-muted-foreground">
+                                  {project.teamSlug}/{project.projectSlug}
+                                </span>
+                                {project.workerReferences.length > 0 ? (
+                                  <span className="truncate text-xs text-muted-foreground">
+                                    Used by{" "}
+                                    {project.workerReferences
+                                      .map((worker) => worker.workerName)
+                                      .join(", ")}
+                                  </span>
+                                ) : null}
+                              </span>
+                            </label>
+                            {selected ? (
+                              <Select
+                                modal={false}
+                                value={selectedCodeLocationKey}
+                                onValueChange={(codeLocationKey) =>
+                                  onProjectCodeLocationKeyChange(project.projectId, codeLocationKey)
+                                }
+                                disabled={isSubmitting}
+                              >
+                                <SelectTrigger
+                                  aria-label={`Code location for ${project.projectName}`}
+                                  className="w-full"
+                                >
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <AppSelectContent>
+                                  {codeLocationOptions.map((location) => (
+                                    <AppSelectItem key={location.key} value={location.key}>
+                                      <span className="font-mono">{location.label}</span>
+                                    </AppSelectItem>
+                                  ))}
+                                </AppSelectContent>
+                              </Select>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )
+                ) : (
+                  <div className="grid gap-3">
+                    <Input
+                      value={createProjectName}
+                      onChange={(event) => onCreateProjectNameChange(event.target.value)}
+                      disabled={isSubmitting}
+                      placeholder="Project name"
+                    />
+                    <Select
+                      modal={false}
+                      value={createCodeLocationKey}
+                      onValueChange={onCreateCodeLocationKeyChange}
+                      disabled={isSubmitting}
+                    >
+                      <SelectTrigger aria-label="Convex code location" className="w-full">
+                        <SelectValue placeholder="Convex code location" />
+                      </SelectTrigger>
+                      <AppSelectContent>
+                        {codeLocationOptions.map((location) => (
+                          <AppSelectItem key={location.key} value={location.key}>
+                            <span className="font-mono">{location.label}</span>
+                          </AppSelectItem>
+                        ))}
+                      </AppSelectContent>
+                    </Select>
+                  </div>
+                )}
+              </>
             )}
             {error ? <div className="text-sm text-red-600">{error}</div> : null}
           </div>
@@ -1127,16 +1208,18 @@ export function VaultDashboardConvexDialog({
           >
             Cancel
           </Button>
-          <Button onClick={onSubmit} disabled={submitDisabled}>
-            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {repairProject
-              ? "Change code location"
-              : mode === "existing"
-                ? selectedProjectCount === 0
-                  ? "Add projects"
-                  : `Add ${selectedProjectCount} project${selectedProjectCount === 1 ? "" : "s"}`
-                : "Create project"}
-          </Button>
+          {!isLoading ? (
+            <Button onClick={onSubmit} disabled={submitDisabled}>
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {repairProject
+                ? "Change code location"
+                : mode === "existing"
+                  ? selectedProjectCount === 0
+                    ? "Add projects"
+                    : `Add ${selectedProjectCount} project${selectedProjectCount === 1 ? "" : "s"}`
+                  : "Create project"}
+            </Button>
+          ) : null}
         </DialogFooter>
       </AppDialogContent>
     </Dialog>
@@ -1293,6 +1376,8 @@ export function VaultDashboardCloudflareDialog({
                 onValueChange={onCreateRootDirectoryChange}
                 value={createRootDirectory}
               />
+            ) : isLoading ? (
+              <VaultProviderDiscoveryLoadingState label="Searching for Cloudflare Workers" />
             ) : mode === "connect" ? (
               <div className="grid gap-3">
                 <div className="grid gap-1.5">
@@ -1335,15 +1420,9 @@ export function VaultDashboardCloudflareDialog({
               </div>
             ) : (
               <>
-                <Select
-                  value={selectedAccountId}
-                  onValueChange={onAccountChange}
-                  disabled={isLoading}
-                >
+                <Select value={selectedAccountId} onValueChange={onAccountChange}>
                   <SelectTrigger aria-label="Cloudflare account" className="w-full">
-                    <SelectValue
-                      placeholder={isLoading ? "Loading accounts" : "Cloudflare account"}
-                    >
+                    <SelectValue placeholder="Cloudflare account">
                       {selectedAccount?.accountName}
                     </SelectValue>
                   </SelectTrigger>
@@ -1360,7 +1439,7 @@ export function VaultDashboardCloudflareDialog({
                     type="button"
                     variant={mode === "existing" ? "default" : "outline"}
                     onClick={() => onModeChange("existing")}
-                    disabled={isLoading || isSubmitting}
+                    disabled={isSubmitting}
                   >
                     Existing
                   </Button>
@@ -1368,7 +1447,7 @@ export function VaultDashboardCloudflareDialog({
                     type="button"
                     variant={mode === "create" ? "default" : "outline"}
                     onClick={() => onModeChange("create")}
-                    disabled={isLoading || isSubmitting}
+                    disabled={isSubmitting}
                   >
                     Create
                   </Button>
@@ -1394,7 +1473,7 @@ export function VaultDashboardCloudflareDialog({
                               >
                                 <Checkbox
                                   checked={selectedWorkerTags.includes(worker.workerTag)}
-                                  disabled={isLoading || isSubmitting}
+                                  disabled={isSubmitting}
                                   onCheckedChange={() => onWorkerToggle(worker.workerTag)}
                                 />
                                 <span className="truncate text-sm">{worker.workerName}</span>
@@ -1403,8 +1482,7 @@ export function VaultDashboardCloudflareDialog({
                           </div>
                         ))}
                       </div>
-                    ) : !isLoading &&
-                      selectedAccountId &&
+                    ) : selectedAccountId &&
                       inventoryState !== "partial" &&
                       unconnectedWorkers.length === 0 ? (
                       <div className="text-sm text-muted-foreground">
@@ -1415,7 +1493,7 @@ export function VaultDashboardCloudflareDialog({
                       <Button
                         type="button"
                         variant="outline"
-                        disabled={isLoading || isSubmitting}
+                        disabled={isSubmitting}
                         onClick={() => onModeChange("connect")}
                       >
                         Connect another Worker
@@ -1427,11 +1505,11 @@ export function VaultDashboardCloudflareDialog({
                     <Input
                       value={createWorkerName}
                       onChange={(event) => onCreateWorkerNameChange(event.target.value)}
-                      disabled={isLoading || isSubmitting}
+                      disabled={isSubmitting}
                       placeholder="Worker name"
                     />
                     <VaultRepositoryRootInput
-                      disabled={isLoading || isSubmitting}
+                      disabled={isSubmitting}
                       folderSuggestions={folderSuggestions}
                       onValueChange={onCreateRootDirectoryChange}
                       value={createRootDirectory}
@@ -1463,18 +1541,20 @@ export function VaultDashboardCloudflareDialog({
                   : "Done"
                 : "Cancel"}
           </Button>
-          <Button onClick={onSubmit} disabled={submitDisabled}>
-            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {repairWorker
-              ? "Configure Workers Builds"
-              : mode === "connect"
-                ? "Connect and add"
-                : mode === "existing"
-                  ? selectedWorkerTags.length === 0
-                    ? "Add Workers"
-                    : `Add ${selectedWorkerTags.length} Worker${selectedWorkerTags.length === 1 ? "" : "s"}`
-                  : "Create Worker"}
-          </Button>
+          {!isLoading ? (
+            <Button onClick={onSubmit} disabled={submitDisabled}>
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {repairWorker
+                ? "Configure Workers Builds"
+                : mode === "connect"
+                  ? "Connect and add"
+                  : mode === "existing"
+                    ? selectedWorkerTags.length === 0
+                      ? "Add Workers"
+                      : `Add ${selectedWorkerTags.length} Worker${selectedWorkerTags.length === 1 ? "" : "s"}`
+                    : "Create Worker"}
+            </Button>
+          ) : null}
         </DialogFooter>
       </AppDialogContent>
     </Dialog>
@@ -2302,7 +2382,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const commitStaging = useAction(api.fileStagingActions.commitStaging);
   const discoverConvexProjects = useAction(api.vault.convex.discoverProjects);
   const attachConvexProjects = useAction(api.vault.convex.attachProjects);
-  const changeConvexProjectConfigPath = useAction(api.vault.convex.changeProjectConfigPath);
+  const changeConvexProjectCodeLocation = useAction(api.vault.convex.changeProjectCodeLocation);
   const createConvexProject = useAction(api.vault.convex.createProject);
   const reconcileConvexProjectTeam = useAction(api.vault.convex.reconcileProjectTeam);
   const listCloudflareAccounts = useAction(api.vault.cloudflare.listAccounts);
@@ -2326,8 +2406,8 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     useState<Id<"vaults"> | null>(null);
   const [providerAttachmentDetachmentInFlight, setProviderAttachmentDetachmentInFlight] =
     useState<ProviderAttachmentDetachmentInFlight | null>(null);
-  const [convexConfigPathRepairTarget, setConvexConfigPathRepairTarget] =
-    useState<ConvexConfigPathRepairTarget | null>(null);
+  const [convexCodeLocationRepairTarget, setConvexCodeLocationRepairTarget] =
+    useState<ConvexCodeLocationRepairTarget | null>(null);
   const [cloudflareBuildsRepairTarget, setCloudflareBuildsRepairTarget] =
     useState<CloudflareBuildsRepairTarget | null>(null);
   const [reconcilingConvexProjectId, setReconcilingConvexProjectId] =
@@ -2476,15 +2556,15 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     workers: cloudflareWorkers,
   } = cloudflareConnectDialog;
   const {
-    configs: convexConfigs,
+    codeLocations: convexCodeLocations,
     connectMode: convexConnectMode,
-    createConfigPath: convexCreateConfigPath,
+    createCodeLocationKey: convexCreateCodeLocationKey,
     createProjectName: convexCreateProjectName,
     projects: convexProjects,
     error: convexDialogError,
     isLoadingResources: isLoadingConvexResources,
     isSubmittingProject: isSubmittingConvexProject,
-    selectedProjectConfigPaths: selectedConvexProjectConfigPaths,
+    selectedProjectCodeLocationKeys: selectedConvexProjectCodeLocationKeys,
     sourceCompleteness: convexSourceCompleteness,
   } = convexConnectDialog;
   const {
@@ -2508,13 +2588,13 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     toggleCloudflareConnectDialogWorker,
     setCommitError,
     setConvexConnectDialogConnectMode,
-    setConvexConnectDialogConfigs,
-    setConvexConnectDialogCreateConfigPath,
+    setConvexConnectDialogCodeLocations,
+    setConvexConnectDialogCreateCodeLocationKey,
     setConvexConnectDialogCreateProjectName,
     setConvexConnectDialogProjects,
     setConvexConnectDialogError,
     setConvexConnectDialogLoading,
-    setConvexConnectDialogProjectConfigPath,
+    setConvexConnectDialogProjectCodeLocationKey,
     setConvexConnectDialogSubmitting,
     setConvexConnectDialogSourceCompleteness,
     setDeleteError,
@@ -2549,10 +2629,10 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       repositoryName: addConvexDialogVault.ghRepoName,
     };
   }, [addConvexDialogVault]);
-  const convexConfigPathRepairProject =
-    vaultToConnectConvex && convexConfigPathRepairTarget?.vaultId === vaultToConnectConvex.id
+  const convexCodeLocationRepairProject =
+    vaultToConnectConvex && convexCodeLocationRepairTarget?.vaultId === vaultToConnectConvex.id
       ? (addConvexDialogVault?.convexProjects.find(
-          (project) => project.convexProjectId === convexConfigPathRepairTarget.convexProjectId,
+          (project) => project.convexProjectId === convexCodeLocationRepairTarget.convexProjectId,
         ) ?? null)
       : null;
   const unattachedConvexProjects = useMemo(() => {
@@ -2646,9 +2726,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         if (convexDialogResourcesRequestIdRef.current !== requestId) {
           return;
         }
-        setConvexConnectDialogConfigs(
-          discovery.source.configs.filter((config) => config.state === "valid"),
-        );
+        setConvexConnectDialogCodeLocations(discovery.source.locations);
         setConvexConnectDialogProjects(discovery.projects);
         setConvexConnectDialogSourceCompleteness(discovery.source.completeness);
       } catch (error) {
@@ -2666,7 +2744,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     },
     [
       discoverConvexProjects,
-      setConvexConnectDialogConfigs,
+      setConvexConnectDialogCodeLocations,
       setConvexConnectDialogError,
       setConvexConnectDialogLoading,
       setConvexConnectDialogProjects,
@@ -2814,7 +2892,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
 
   useEffect(() => {
     if (!vaultToConnectConvex) {
-      setConvexConfigPathRepairTarget(null);
+      setConvexCodeLocationRepairTarget(null);
       if (preparedAddConvexRepositoryRef.current) {
         preparedAddConvexRepositoryRef.current = null;
         resetConvexDialogState();
@@ -2933,33 +3011,31 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     setConvexConnectDialogError(null);
     setConvexConnectDialogSubmitting(true);
     try {
-      const configsByPath = new Map(
-        convexConfigs.map((config) => [config.convexConfigPath, config]),
+      const codeLocationsByKey = new Map(
+        convexCodeLocations.map((location) => [getConvexCodeLocationOptionKey(location), location]),
       );
-      if (convexConfigPathRepairProject) {
-        const config = configsByPath.get(convexCreateConfigPath);
-        if (!config) {
-          throw new Error("Choose a discovered convex.json file.");
+      if (convexCodeLocationRepairProject) {
+        const codeLocation = codeLocationsByKey.get(convexCreateCodeLocationKey);
+        if (!codeLocation) {
+          throw new Error("Choose a discovered Convex code location.");
         }
-        await changeConvexProjectConfigPath({
+        await changeConvexProjectCodeLocation({
           vaultId: vaultToConnectConvex.id,
-          convexProjectId: convexConfigPathRepairProject.convexProjectId,
-          convexConfigPath: config.convexConfigPath,
-          blobSha: config.blobSha,
+          convexProjectId: convexCodeLocationRepairProject.convexProjectId,
+          codeLocation: getConvexCodeLocationSelection(codeLocation),
         });
       } else if (convexConnectMode === "existing") {
-        const projects = Object.entries(selectedConvexProjectConfigPaths).map(
-          ([projectId, convexConfigPath]) => {
-            if (!convexConfigPath) {
-              throw new Error("Choose a discovered convex.json file for every project.");
+        const projects = Object.entries(selectedConvexProjectCodeLocationKeys).map(
+          ([projectId, codeLocationKey]) => {
+            if (!codeLocationKey) {
+              throw new Error("Choose a discovered Convex code location for every project.");
             }
-            const config = configsByPath.get(convexConfigPath);
-            if (!config) {
-              throw new Error("Choose a discovered convex.json file for every project.");
+            const codeLocation = codeLocationsByKey.get(codeLocationKey);
+            if (!codeLocation) {
+              throw new Error("Choose a discovered Convex code location for every project.");
             }
             return {
-              blobSha: config.blobSha,
-              convexConfigPath: config.convexConfigPath,
+              codeLocation: getConvexCodeLocationSelection(codeLocation),
               projectId,
             };
           },
@@ -2972,19 +3048,18 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
           projects,
         });
       } else {
-        const config = configsByPath.get(convexCreateConfigPath);
-        if (!config) {
-          throw new Error("Choose a discovered convex.json file.");
+        const codeLocation = codeLocationsByKey.get(convexCreateCodeLocationKey);
+        if (!codeLocation) {
+          throw new Error("Choose a discovered Convex code location.");
         }
         await createConvexProject({
           vaultId: vaultToConnectConvex.id,
           projectName: convexCreateProjectName,
-          convexConfigPath: config.convexConfigPath,
-          blobSha: config.blobSha,
+          codeLocation: getConvexCodeLocationSelection(codeLocation),
         });
       }
       void providerObservations.invalidate();
-      setConvexConfigPathRepairTarget(null);
+      setConvexCodeLocationRepairTarget(null);
       resetConvexDialogState();
       closeVaultDashboardDialog("add-convex");
     } catch (error) {
@@ -3145,7 +3220,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     vaultId: Id<"vaults">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => {
-    setConvexConfigPathRepairTarget({ vaultId, convexProjectId });
+    setConvexCodeLocationRepairTarget({ vaultId, convexProjectId });
     void navigate({
       resetScroll: false,
       to: ".",
@@ -3535,15 +3610,15 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         vaultToDelete={vaultToDelete}
       />
       <VaultDashboardConvexDialog
-        configs={convexConfigs}
-        createConfigPath={convexCreateConfigPath}
+        codeLocations={convexCodeLocations}
+        createCodeLocationKey={convexCreateCodeLocationKey}
         createProjectName={convexCreateProjectName}
         projects={unattachedConvexProjects}
         repairProject={
-          convexConfigPathRepairProject
+          convexCodeLocationRepairProject
             ? {
-                convexConfigPath: convexConfigPathRepairProject.convexConfigPath,
-                projectId: convexConfigPathRepairProject.projectId,
+                codeLocation: convexCodeLocationRepairProject.codeLocation,
+                projectId: convexCodeLocationRepairProject.projectId,
               }
             : null
         }
@@ -3551,17 +3626,17 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         isLoading={isLoadingConvexResources}
         isSubmitting={isSubmittingConvexProject}
         mode={convexConnectMode}
-        onCreateConfigPathChange={setConvexConnectDialogCreateConfigPath}
+        onCreateCodeLocationKeyChange={setConvexConnectDialogCreateCodeLocationKey}
         onCreateProjectNameChange={setConvexConnectDialogCreateProjectName}
         onModeChange={setConvexConnectDialogConnectMode}
         onOpenChange={handleConnectConvexDialogOpenChange}
-        onProjectConfigPathChange={setConvexConnectDialogProjectConfigPath}
+        onProjectCodeLocationKeyChange={setConvexConnectDialogProjectCodeLocationKey}
         onProjectToggle={toggleConvexConnectDialogProject}
         onSubmit={() => {
           void handleSubmitConvexProject();
         }}
         open={vaultToConnectConvex !== null}
-        selectedProjectConfigPaths={selectedConvexProjectConfigPaths}
+        selectedProjectCodeLocationKeys={selectedConvexProjectCodeLocationKeys}
         sourceCompleteness={convexSourceCompleteness}
         vault={vaultToConnectConvex}
       />
