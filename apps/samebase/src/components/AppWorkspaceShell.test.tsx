@@ -247,6 +247,16 @@ describe("AppWorkspaceShell", () => {
     mainPane.setAttribute("data-workspace-layout-v2-mobile-pane", "main");
     mainPaneSurface.setAttribute("data-workspace-layout-v2-mobile-main-pane-surface", "");
     mainPane.append(mainPaneSurface);
+    if (includeLeftPane) {
+      const leftMainSeparator = document.createElement("div");
+      leftMainSeparator.setAttribute("data-workspace-layout-v2-mobile-separator", "left-main");
+      mainPane.append(leftMainSeparator);
+    }
+    if (includeRightPane) {
+      const mainRightSeparator = document.createElement("div");
+      mainRightSeparator.setAttribute("data-workspace-layout-v2-mobile-separator", "main-right");
+      mainPane.append(mainRightSeparator);
+    }
     carousel.append(mainPane);
 
     if (includeRightPane) {
@@ -771,6 +781,11 @@ describe("AppWorkspaceShell", () => {
     expect(carousel.scrollLeft).toBe(600);
     expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("right");
     expect(layoutRoot.hasAttribute("data-workspace-layout-v2-mobile-merged-side")).toBe(false);
+    expect(
+      carousel
+        .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
+        ?.querySelectorAll("[data-workspace-layout-v2-mobile-separator]").length,
+    ).toBe(2);
     expect(
       carousel
         .querySelector("[data-workspace-layout-v2-mobile-main-pane]")

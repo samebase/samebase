@@ -27,14 +27,16 @@ type WorkspaceLayoutV2ViewportProps = WorkspaceLayoutV2ResolvedPaneContent & {
   showRightPane: boolean;
 };
 
-function renderMobileSeparator(edge: "left-main" | "main-right", positionPx: string) {
+function renderMobileSeparator(edge: "left-main" | "main-right") {
   return (
     <div
       aria-hidden="true"
       data-testid={`workspace-layout-v2-mobile-separator-${edge}`}
       data-workspace-layout-v2-mobile-separator={edge}
-      className="pointer-events-none absolute inset-y-0 z-[29] w-px -translate-x-1/2 bg-border md:hidden"
-      style={{ left: positionPx }}
+      className={cn(
+        "pointer-events-none absolute inset-y-0 z-[29] w-px -translate-x-1/2 bg-border md:hidden",
+        edge === "left-main" ? "left-0" : "left-full",
+      )}
     />
   );
 }
@@ -68,13 +70,6 @@ export function WorkspaceLayoutV2Viewport({
   const rightPaneWidth = hasMeasuredViewport
     ? `${rightWidthPx}px`
     : "var(--workspace-layout-v2-right-mobile-width, 0px)";
-  const leftMainSeparatorPosition = hasMeasuredViewport
-    ? `${leftWidthPx}px`
-    : "var(--workspace-layout-v2-left-mobile-width, 0px)";
-  const mainRightSeparatorPosition = hasMeasuredViewport
-    ? `${leftWidthPx + paneWidthPx}px`
-    : "calc(var(--workspace-layout-v2-left-mobile-width, 0px) + var(--workspace-layout-v2-main-mobile-width, 100vw))";
-
   function renderLeftPane() {
     if (!showLeftPane) {
       return null;
@@ -108,7 +103,7 @@ export function WorkspaceLayoutV2Viewport({
         data-workspace-layout-v2-mobile-main-pane
         data-workspace-layout-v2-mobile-pane="main"
         className={cn(
-          "workspace-layout-v2-responsive-main-pane h-full min-h-0 shrink-0",
+          "workspace-layout-v2-responsive-main-pane relative h-full min-h-0 shrink-0",
           "snap-center snap-always",
         )}
         style={{ width: mainPaneWidth }}
@@ -119,6 +114,8 @@ export function WorkspaceLayoutV2Viewport({
         >
           {mainContent}
         </div>
+        {showLeftPane ? renderMobileSeparator("left-main") : null}
+        {showRightPane ? renderMobileSeparator("main-right") : null}
       </div>
     );
   }
@@ -164,8 +161,6 @@ export function WorkspaceLayoutV2Viewport({
       {renderLeftPane()}
       {renderMainPane()}
       {renderRightPane()}
-      {showLeftPane ? renderMobileSeparator("left-main", leftMainSeparatorPosition) : null}
-      {showRightPane ? renderMobileSeparator("main-right", mainRightSeparatorPosition) : null}
     </div>
   );
 }

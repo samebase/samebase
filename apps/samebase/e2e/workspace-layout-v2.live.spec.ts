@@ -211,7 +211,7 @@ test("mobile v2 fixture renders sidebar grip targets on the active sidebar", asy
   await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(0);
 });
 
-test("mobile v2 fixture keeps one layout-owned separator per adjacent pane edge", async ({
+test("mobile v2 fixture keeps both separators on the main pane across pane changes", async ({
   page,
 }) => {
   const viewport = page.viewportSize();
@@ -220,24 +220,31 @@ test("mobile v2 fixture keeps one layout-owned separator per adjacent pane edge"
   await openWorkspaceLayoutV2Fixture(page);
 
   const layout = page.locator("[data-workspace-layout-v2]");
+  const mainPane = layout.locator("[data-workspace-layout-v2-mobile-main-pane]");
   await expect(page.locator("[data-workspace-layout-v2-mobile-separator-pane]")).toHaveCount(0);
+  await expect(mainPane.locator("[data-workspace-layout-v2-mobile-separator]")).toHaveCount(2);
+  await expect(
+    layout.locator(
+      '[data-workspace-layout-v2-mobile-pane="left"] [data-workspace-layout-v2-mobile-separator], [data-workspace-layout-v2-mobile-pane="right"] [data-workspace-layout-v2-mobile-separator]',
+    ),
+  ).toHaveCount(0);
 
   await scrollWorkspaceCarouselToPane(page, "left");
   await expect(layout).toHaveAttribute("data-mobile-pane", "left");
   await expect
-    .poll(async () => getMobileSeparatorEdges(layout))
+    .poll(async () => getMobileSeparatorEdges(mainPane))
     .toEqual(["left-main", "main-right"]);
 
   await scrollWorkspaceCarouselToPane(page, "main");
   await expect(layout).toHaveAttribute("data-mobile-pane", "main");
   await expect
-    .poll(async () => getMobileSeparatorEdges(layout))
+    .poll(async () => getMobileSeparatorEdges(mainPane))
     .toEqual(["left-main", "main-right"]);
 
   await scrollWorkspaceCarouselToPane(page, "right");
   await expect(layout).toHaveAttribute("data-mobile-pane", "right");
   await expect
-    .poll(async () => getMobileSeparatorEdges(layout))
+    .poll(async () => getMobileSeparatorEdges(mainPane))
     .toEqual(["left-main", "main-right"]);
 });
 
