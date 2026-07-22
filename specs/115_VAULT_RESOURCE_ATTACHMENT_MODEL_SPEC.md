@@ -102,11 +102,11 @@ attachment authority.
 
 The Convex dialog discovers regular `convex.json` files from exact default-branch Git tree and blob
 evidence. It also discovers the default layout when a regular `package.json` blob and sibling
-`convex/` tree exist, without reading or searching the package contents. It supports selecting
-several projects and requires one discovered code location for each selected project. Projects
-referenced by discovered Worker markers sort first and show that evidence, but remain unselected
-until the user expresses attachment intent. Confirmation re-verifies every selected Git evidence set
-and project before one atomic attachment mutation.
+`convex/` tree exist. Neither form reads or validates file contents. It supports selecting several
+projects and requires one discovered code location for each selected project. Projects referenced by
+discovered Worker markers sort first and show that evidence, but remain unselected until the user
+expresses attachment intent. Confirmation re-verifies every selected Git evidence set and project
+before one atomic attachment mutation.
 
 Creating a Worker may ask for a repository root because the same operation writes that value to
 Cloudflare Workers Builds. Samebase records the created provider identity and `provisioned`

@@ -144,7 +144,7 @@ The live observation reports these states without guessing:
 
 Provider-owned state is observed directly from Convex and Cloudflare for one requested vault.
 Cloudflare Worker axes return explicit `available`, `missing`, or `failed` results where those
-states apply. Each Convex attachment returns source placement as `valid`, `invalid`, `missing`,
+states apply. Each Convex attachment returns source placement as `valid`, `missing`,
 `unavailable_partial`, or `unavailable`, and provider continuity as `current`, `moved`,
 `missing_ambiguous`, or `unavailable`. Every result carries an observation timestamp. The dashboard
 may cache those results in the browser for a short bounded interval, but the actions do not write

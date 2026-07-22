@@ -28,7 +28,6 @@ import { makeConvexTest } from "../test.setup";
 type GitHubConfigFixture = {
   path: string;
   sha: string;
-  content: string;
 };
 
 function jsonResponse(value: unknown): Response {
@@ -50,13 +49,6 @@ function setGitHubConfigs(configs: GitHubConfigFixture[], truncated = false): vo
       })),
     },
   });
-  const contents = new Map(configs.map((config) => [config.sha, config.content]));
-  octokitMocks.getBlob.mockImplementation(async ({ file_sha }: { file_sha: string }) => ({
-    data: {
-      encoding: "base64",
-      content: Buffer.from(contents.get(file_sha) ?? "", "utf-8").toString("base64"),
-    },
-  }));
 }
 
 function convexProjectResponse(projectId: string, teamId: string): Response {
@@ -207,8 +199,8 @@ describe("vault Convex project attachments", () => {
 
   it("re-verifies and atomically attaches several project and config selections", async () => {
     setGitHubConfigs([
-      { path: "convex.json", sha: "root-sha", content: "{}" },
-      { path: "apps/web/convex.json", sha: "web-sha", content: '{"functions":"convex"}' },
+      { path: "convex.json", sha: "root-sha" },
+      { path: "apps/web/convex.json", sha: "web-sha" },
     ]);
     const fetchMock = vi.fn(async (input: Request) => {
       if (input.url.endsWith("/projects/1001")) {
@@ -267,7 +259,7 @@ describe("vault Convex project attachments", () => {
         origin: "selected_existing",
       },
     ]);
-    expect(octokitMocks.getBlob).toHaveBeenCalledTimes(2);
+    expect(octokitMocks.getBlob).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
@@ -326,7 +318,7 @@ describe("vault Convex project attachments", () => {
   });
 
   it("records a newly created project before refreshing provider metadata", async () => {
-    setGitHubConfigs([{ path: "convex.json", sha: "root-sha", content: "{}" }]);
+    setGitHubConfigs([{ path: "convex.json", sha: "root-sha" }]);
     const fetchMock = vi.fn(async (input: Request) => {
       if (input.url.includes("/teams/1000/projects?limit=100")) {
         return jsonResponse({ items: [], pagination: { hasMore: false } });
@@ -438,7 +430,7 @@ describe("vault Convex project attachments", () => {
   });
 
   it("rejects the whole selection when the selected GitHub blob changed", async () => {
-    setGitHubConfigs([{ path: "convex.json", sha: "current-sha", content: "{}" }]);
+    setGitHubConfigs([{ path: "convex.json", sha: "current-sha" }]);
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const { asUser, t, vaultId } = await createConnectedVault();
@@ -465,7 +457,7 @@ describe("vault Convex project attachments", () => {
   });
 
   it("rejects the whole selection when a project is no longer under the connected team", async () => {
-    setGitHubConfigs([{ path: "convex.json", sha: "root-sha", content: "{}" }]);
+    setGitHubConfigs([{ path: "convex.json", sha: "root-sha" }]);
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: Request) => {
@@ -508,10 +500,8 @@ describe("vault Convex project attachments", () => {
     ).resolves.toEqual([]);
   });
 
-  it("changes only the config path after re-reading its exact GitHub blob", async () => {
-    setGitHubConfigs([
-      { path: "apps/web/convex.json", sha: "web-sha", content: '{"functions":"convex"}' },
-    ]);
+  it("changes only the config path after re-reading its exact GitHub tree metadata", async () => {
+    setGitHubConfigs([{ path: "apps/web/convex.json", sha: "web-sha" }]);
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const { asUser, t, userId, vaultId } = await createConnectedVault();
@@ -586,7 +576,7 @@ describe("vault Convex project attachments", () => {
   });
 
   it("reports a 404 as ambiguous and keeps the attachment", async () => {
-    setGitHubConfigs([{ path: "convex.json", sha: "root-sha", content: "{}" }]);
+    setGitHubConfigs([{ path: "convex.json", sha: "root-sha" }]);
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: Request) => {

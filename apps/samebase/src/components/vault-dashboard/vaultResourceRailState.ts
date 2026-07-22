@@ -633,10 +633,8 @@ function buildConvexRow({
     switch (observation.source.state) {
       case "valid":
         return undefined;
-      case "invalid":
-        return `${getConvexCodeLocationPath(observation.codeLocation)} is not a valid Convex code location.`;
       case "missing":
-        return `${getConvexCodeLocationPath(observation.codeLocation)} is missing.`;
+        return `${getConvexCodeLocationPath(observation.codeLocation)} is no longer discoverable on the default branch.`;
       case "unavailable_partial":
         return "The repository could not be fully scanned.";
       case "unavailable":
@@ -648,8 +646,7 @@ function buildConvexRow({
     return undefined;
   })();
   const changeConfigAction =
-    (observation.source.state === "invalid" || observation.source.state === "missing") &&
-    changeConvexProjectConfigPathOnClick
+    observation.source.state === "missing" && changeConvexProjectConfigPathOnClick
       ? {
           kind: "configure" as const,
           label: "Change code location",

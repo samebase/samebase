@@ -135,10 +135,6 @@ const vConvexCodeLocationObservation = union(
     convexDirectoryTreeSha: string(),
     packageJsonBlobSha: string(),
   }),
-  object({
-    state: literal("invalid"),
-    blobSha: string(),
-  }),
   object({ state: literal("missing") }),
   object({ state: literal("unavailable_partial") }),
   object({ state: literal("unavailable"), reason: vObservationFailureReason }),
@@ -584,7 +580,7 @@ export const observeConvexProjects = action({
                 return false;
             }
           });
-          if (location?.state === "valid" && location.kind === "config") {
+          if (location?.kind === "config") {
             source = { state: "valid", kind: "config", blobSha: location.blobSha };
           } else if (location?.kind === "directory") {
             source = {
@@ -593,8 +589,6 @@ export const observeConvexProjects = action({
               convexDirectoryTreeSha: location.convexDirectoryTreeSha,
               packageJsonBlobSha: location.packageJsonBlobSha,
             };
-          } else if (location?.state === "invalid") {
-            source = { state: "invalid", blobSha: location.blobSha };
           } else {
             source =
               sourceResolution.discovery.completeness === "partial"

@@ -46,12 +46,11 @@ existence remain live provider observations.
 
 Samebase resolves the exact default-branch HEAD and recursive Git tree. It offers either:
 
-- an explicit regular blob whose repository-relative path ends in exactly `convex.json` and whose
-  body parses as a JSON object; or
+- an explicit regular blob whose repository-relative path ends in exactly `convex.json`; or
 - a default-layout directory named exactly `convex` whose parent contains a regular `package.json`
   blob.
 
-Default-layout discovery uses Git tree metadata only. Samebase does not read or search the
+Both forms use Git tree metadata only. Samebase does not read or validate the `convex.json` or
 `package.json` body. An explicit `convex.json` at a root suppresses the default-layout candidate at
 that same root. A truncated tree cannot prove that no code location exists.
 
@@ -66,12 +65,13 @@ The code location selector is closed over discovered evidence. There is no free-
 4. The user selects one discovered code location for every selected project. Several projects may
    select the same location.
 5. Samebase re-verifies every exact config blob or default-layout tree entry plus `package.json`
-   blob, and reads every project, then writes the full selection in one transaction. Any invalid
-   source, inaccessible project, or attachment conflict rejects the whole confirmation.
+   blob by object SHA, and reads every project, then writes the full selection in one transaction.
+   Any changed or missing source, inaccessible project, or attachment conflict rejects the whole
+   confirmation.
 
 ### Create project flow
 
-The user chooses one discovered code location and a project name. Samebase validates the source,
+The user chooses one discovered code location and a project name. Samebase re-verifies the source,
 creates the project with a production deployment, reads the project back, and attaches it at that
 location. If the provider create succeeds but attachment fails, Samebase reports the ambiguous
 external state and does not delete the project automatically.

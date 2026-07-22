@@ -144,10 +144,8 @@ type CloudflareInventoryState =
   (typeof api.vault.cloudflare.discoverWorkers)["_returnType"]["inventoryState"];
 type ConvexProjectOption =
   (typeof api.vault.convex.discoverProjects)["_returnType"]["projects"][number];
-type ConvexCodeLocationOption = Extract<
-  (typeof api.vault.convex.discoverProjects)["_returnType"]["source"]["locations"][number],
-  { state: "valid" }
->;
+type ConvexCodeLocationOption =
+  (typeof api.vault.convex.discoverProjects)["_returnType"]["source"]["locations"][number];
 type ConvexSourceCompleteness =
   (typeof api.vault.convex.discoverProjects)["_returnType"]["source"]["completeness"];
 type ConvexProjectConnectMode = "existing" | "create";
@@ -2728,9 +2726,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         if (convexDialogResourcesRequestIdRef.current !== requestId) {
           return;
         }
-        setConvexConnectDialogCodeLocations(
-          discovery.source.locations.filter((location) => location.state === "valid"),
-        );
+        setConvexConnectDialogCodeLocations(discovery.source.locations);
         setConvexConnectDialogProjects(discovery.projects);
         setConvexConnectDialogSourceCompleteness(discovery.source.completeness);
       } catch (error) {

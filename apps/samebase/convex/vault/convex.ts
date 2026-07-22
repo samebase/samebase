@@ -162,7 +162,6 @@ function requireVerifiedConvexCodeLocation(
     switch (normalized.kind) {
       case "config":
         return (
-          location.state === "valid" &&
           location.kind === "config" &&
           location.convexConfigPath === normalized.convexConfigPath &&
           location.blobSha === normalized.blobSha

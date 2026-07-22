@@ -5,10 +5,11 @@
 MCP tool `vault_convex_discoverProjects` · scope `access_provider_connections` · read_only
 
 Reads the vault's exact default-branch Git tree to find explicit convex.json files and default
-package.json plus convex/ layouts. Only convex.json contents are read, to verify that they parse as
-JSON objects. It also lists projects available through the connected Convex team and annotates
-current Cloudflare Worker marker references when available. A partial source scan never proves that
-an unlisted code location is absent.
+package.json plus convex/ layouts. Discovery uses exact tree entry types, paths, and object SHAs
+only. It does not read or validate convex.json or package.json contents. It also lists projects
+available through the connected Convex team and annotates current Cloudflare Worker marker
+references when available. A partial source scan never proves that an unlisted code location is
+absent.
 
 ## Arguments
 
@@ -51,9 +52,6 @@ JSON Schema for the tool's `structuredContent`:
               {
                 "type": "object",
                 "properties": {
-                  "state": {
-                    "const": "valid"
-                  },
                   "kind": {
                     "const": "config"
                   },
@@ -67,47 +65,12 @@ JSON Schema for the tool's `structuredContent`:
                     "type": "string"
                   }
                 },
-                "required": ["state", "kind", "convexConfigPath", "rootDirectory", "blobSha"],
+                "required": ["kind", "convexConfigPath", "rootDirectory", "blobSha"],
                 "additionalProperties": false
               },
               {
                 "type": "object",
                 "properties": {
-                  "state": {
-                    "const": "invalid"
-                  },
-                  "kind": {
-                    "const": "config"
-                  },
-                  "convexConfigPath": {
-                    "type": "string"
-                  },
-                  "rootDirectory": {
-                    "type": "string"
-                  },
-                  "blobSha": {
-                    "type": "string"
-                  },
-                  "reason": {
-                    "const": "invalid_json_object"
-                  }
-                },
-                "required": [
-                  "state",
-                  "kind",
-                  "convexConfigPath",
-                  "rootDirectory",
-                  "blobSha",
-                  "reason"
-                ],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "const": "valid"
-                  },
                   "kind": {
                     "const": "directory"
                   },
@@ -128,7 +91,6 @@ JSON Schema for the tool's `structuredContent`:
                   }
                 },
                 "required": [
-                  "state",
                   "kind",
                   "convexDirectoryPath",
                   "rootDirectory",

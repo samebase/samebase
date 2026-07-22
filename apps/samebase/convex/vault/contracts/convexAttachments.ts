@@ -7,22 +7,12 @@ const providerConnectionAccess = "access_provider_connections" as const;
 
 export const vGitHubConvexCodeLocationCandidate = union(
   object({
-    state: literal("valid"),
     kind: literal("config"),
     convexConfigPath: string(),
     rootDirectory: string(),
     blobSha: string(),
   }),
   object({
-    state: literal("invalid"),
-    kind: literal("config"),
-    convexConfigPath: string(),
-    rootDirectory: string(),
-    blobSha: string(),
-    reason: literal("invalid_json_object"),
-  }),
-  object({
-    state: literal("valid"),
     kind: literal("directory"),
     convexDirectoryPath: string(),
     rootDirectory: string(),
@@ -108,10 +98,11 @@ export const convexDiscoverProjectsContract = {
     },
   } satisfies AppFunctionMcpMetadata,
   doc: `Reads the vault's exact default-branch Git tree to find explicit convex.json files and
-default package.json plus convex/ layouts. Only convex.json contents are read, to verify that they
-parse as JSON objects. It also lists projects available through the connected Convex team and
-annotates current Cloudflare Worker marker references when available. A partial source scan never
-proves that an unlisted code location is absent.`,
+default package.json plus convex/ layouts. Discovery uses exact tree entry types, paths, and object
+SHAs only. It does not read or validate convex.json or package.json contents. It also lists projects
+available through the connected Convex team and annotates current Cloudflare Worker marker
+references when available. A partial source scan never proves that an unlisted code location is
+absent.`,
 } as const;
 
 const vConvexProjectCodeLocationSelection = object({

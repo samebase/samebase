@@ -1673,7 +1673,6 @@ function VaultDashboardConnectConvexOpenFixture({
         <VaultDashboardConvexDialog
           codeLocations={[
             {
-              state: "valid",
               kind: "config",
               convexConfigPath: "convex.json",
               rootDirectory: "/",
