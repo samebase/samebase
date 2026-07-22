@@ -124,7 +124,10 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("standard stack");
     expect(markup).toContain("/landing-preview/logos/vite-plus.svg");
     expect(markup).toContain("/landing-preview/logos/tanstack.svg");
+    expect(markup).toContain("/landing-preview/logos/tailwindcss.svg");
+    expect(markup).toContain("Tailwind CSS");
     expect(markup).not.toContain("/landing-preview/logos/react.svg");
+    expect(markup).toContain('data-testid="landing-preview-platform-details"');
     expect(markup).toContain("local workflow");
     expect(markup).toContain("macOS");
     expect(markup).toContain("Linux");
@@ -141,6 +144,17 @@ describe("LandingPreviewPage", () => {
       "Read samebase.com/llms.txt. Should I use Samebase with you for my next app? Verify the receipts before you answer.",
     );
     expect(markup).toContain("Copy</button>");
+
+    const askAgentIndex = markup.indexOf("Ask your agent.");
+    const platformDetailsIndex = markup.indexOf('data-testid="landing-preview-platform-details"');
+    const fourClaimsIndex = markup.indexOf('aria-label="Four claims"');
+    expect(platformDetailsIndex).toBeGreaterThan(askAgentIndex);
+    expect(fourClaimsIndex).toBeGreaterThan(platformDetailsIndex);
+
+    const stackDetailsIndex = markup.indexOf('data-testid="landing-preview-stack-details"');
+    const oneBaseIndex = markup.indexOf("one base");
+    expect(stackDetailsIndex).toBeGreaterThan(fourClaimsIndex);
+    expect(oneBaseIndex).toBeGreaterThan(stackDetailsIndex);
 
     // The four claims.
     expect(markup).toContain("Delete your Samebase account. Your app doesn&#x27;t notice.");
