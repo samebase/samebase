@@ -447,6 +447,43 @@ test("vault dashboard fixture (add Cloudflare dialog)", async ({ page }) => {
   });
 });
 
+test("vault dashboard fixture (timed provider discovery states)", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 360 });
+  await page.addInitScript(() => {
+    Date.now = () => 1_721_668_800_000;
+  });
+
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-connect-cloudflare-loading");
+  const cloudflareDialog = page.getByRole("dialog", {
+    name: "Add Cloudflare to samebase/atelier",
+  });
+  await expect(
+    cloudflareDialog.getByRole("status").getByText("Searching for Cloudflare Workers"),
+  ).toBeVisible();
+  await expect(cloudflareDialog.getByLabel("Elapsed search time 00:00")).toBeVisible();
+  await expect(cloudflareDialog.getByRole("button", { name: "Cancel" })).toBeEnabled();
+  await expect(page).toHaveScreenshot("vault-dashboard-connect-cloudflare-loading.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-connect-convex-loading");
+  const convexDialog = page.getByRole("dialog", { name: "Add Convex to samebase/app" });
+  await expect(
+    convexDialog.getByRole("status").getByText("Searching for Convex code and projects"),
+  ).toBeVisible();
+  await expect(convexDialog.getByLabel("Elapsed search time 00:00")).toBeVisible();
+  await expect(convexDialog.getByRole("button", { name: "Cancel" })).toBeEnabled();
+  await expect(page).toHaveScreenshot("vault-dashboard-connect-convex-loading.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
 test("vault dashboard fixture (add Cloudflare Workers mobile)", async ({ browser }, testInfo) => {
   const baseURL = testInfo.project.use.baseURL;
   if (typeof baseURL !== "string") {

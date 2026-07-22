@@ -13,6 +13,7 @@ import { summarizePullRequestChecks, type PullRequestCheckSummary } from "@/lib/
 import { useInfiniteQuery, useQueries } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { useCallback, useMemo } from "react";
+import type { ConvexCodeLocation } from "../../shared/convexCodeLocation";
 
 const PULL_REQUEST_STALE_MS = 60_000;
 const PULL_REQUEST_GC_MS = 5 * 60_000;
@@ -36,7 +37,7 @@ type VaultPullRequestTarget = {
     convexProjectId: Id<"vaultConvexProjects">;
     teamId: string;
     projectId: string;
-    convexConfigPath: string;
+    codeLocation: ConvexCodeLocation;
   }[];
 };
 
@@ -156,7 +157,7 @@ export function useVaultPullRequests(args: {
       convexProjectId: project.convexProjectId,
       teamId: project.teamId,
       projectId: project.projectId,
-      convexConfigPath: project.convexConfigPath,
+      codeLocation: project.codeLocation,
     }))
     .sort((left, right) => left.convexProjectId.localeCompare(right.convexProjectId));
   const pullRequestQuery = useInfiniteQuery({

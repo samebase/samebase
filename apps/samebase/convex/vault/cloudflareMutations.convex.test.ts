@@ -306,7 +306,7 @@ describe("vault Cloudflare Worker attachment mutations", () => {
         {
           teamId: "team-1",
           projectId: "shared-backend",
-          convexConfigPath: "apps/api/convex.json",
+          codeLocation: { kind: "config", convexConfigPath: "apps/api/convex.json" },
           origin: "selected_existing",
         },
       ],

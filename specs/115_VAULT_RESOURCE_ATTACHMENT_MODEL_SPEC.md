@@ -43,6 +43,7 @@ The durable Convex attachment is:
   teamId;
   projectId;
   convexConfigPath;
+  // or convexDirectoryPath
   origin;
 }
 ```
@@ -54,16 +55,17 @@ domain field.
 is the stable Convex project continuity key. `teamId` is the last team under which Samebase verified
 that project and is updated only by explicit provider-verified reconciliation.
 
-`convexConfigPath` is the user-confirmed repository placement of the Convex project. It names an
-exact regular file named `convex.json` on the repository's default branch. Multiple Convex projects
-may intentionally select the same config path.
+Convex placement is exactly one of two row variants: `convexConfigPath` names an exact regular
+`convex.json` file, or `convexDirectoryPath` names an exact `convex/` tree whose parent contains a
+regular `package.json` blob. Multiple Convex projects may intentionally select the same code
+location.
 
 ### Observations and projection
 
 Provider observations are current evidence, not attachment identity:
 
-- GitHub supplies whether the stored `convexConfigPath` currently exists and parses as a JSON
-  object.
+- GitHub supplies whether the stored code location still has its required config blob or
+  default-layout tree metadata.
 - Cloudflare Workers Builds supplies the Worker's current GitHub repository and normalized root
   directory.
 - `SAMEBASE_CONVEX_PROJECT` supplies the Worker's current declared Convex project coordinates.
@@ -71,7 +73,7 @@ Provider observations are current evidence, not attachment identity:
 
 The dashboard derives a resource tree at read time:
 
-- a Convex project's root is the parent directory of `convexConfigPath`;
+- a Convex project's root is the parent directory of `convexConfigPath` or `convexDirectoryPath`;
 - a Worker's root is its current verified Cloudflare Workers Builds root;
 - resources group only when those normalized paths are exactly equal;
 - a resource group has no ID, lifecycle, persisted row, or empty state;
@@ -98,17 +100,19 @@ the user may deselect any of them. Confirmation re-reads the selected Worker ide
 triggers, roots, and markers before one atomic attachment mutation. A request-provided root is never
 attachment authority.
 
-The Convex dialog discovers regular `convex.json` files from the exact default-branch Git tree and
-blob contents. It supports selecting several projects and requires one discovered config path for
-each selected project. Projects referenced by discovered Worker markers sort first and show that
-evidence, but remain unselected until the user expresses attachment intent. Confirmation re-reads
-every selected config blob and project before one atomic attachment mutation.
+The Convex dialog discovers regular `convex.json` files from exact default-branch Git tree and blob
+evidence. It also discovers the default layout when a regular `package.json` blob and sibling
+`convex/` tree exist, without reading or searching the package contents. It supports selecting
+several projects and requires one discovered code location for each selected project. Projects
+referenced by discovered Worker markers sort first and show that evidence, but remain unselected
+until the user expresses attachment intent. Confirmation re-verifies every selected Git evidence set
+and project before one atomic attachment mutation.
 
 Creating a Worker may ask for a repository root because the same operation writes that value to
 Cloudflare Workers Builds. Samebase records the created provider identity and `provisioned`
 attachment together before later configuration can fail, so cleanup ownership is never lost. The
 Worker remains attached under `Needs attention` until Builds verifies a root. Creating a Convex
-project requires a discovered `convexConfigPath`; Samebase verifies the source before provider
+project requires a discovered Convex code location; Samebase verifies the source before provider
 creation and records the returned project checkpoint and attachment together.
 
 Configuring Builds for an attached Worker reuses its current unambiguous live root. If no live root
@@ -117,9 +121,10 @@ input does not become attachment state.
 
 ### Drift and deletion
 
-Moving or deleting `convex.json` does not silently move or detach a project. Samebase keeps the
-stored expected path and reports the GitHub observation. `Change code location` verifies a newly
-selected config and compare-and-swaps only `convexConfigPath`.
+Moving or deleting `convex.json`, `convex/`, or its sibling `package.json` does not silently move or
+detach a project. Samebase keeps the stored expected location and reports the GitHub observation.
+`Change code location` verifies a newly selected location and compare-and-swaps only that placement
+variant.
 
 Changing a Worker's Cloudflare Builds root automatically changes its derived dashboard group after
 the next observation. Samebase does not mirror the previous root.
@@ -130,7 +135,8 @@ or transferred. It never authorizes automatic removal.
 
 When the connected Convex credential verifies the same `projectId` under a different team, Samebase
 offers reconciliation. Confirmation compare-and-swaps only `teamId`; it preserves the attachment ID,
-config path, origin, and creation time. Provider writes fail closed while the stored team is stale.
+code location, origin, and creation time. Provider writes fail closed while the stored team is
+stale.
 
 Removing either provider attachment is an explicit change to user intent. Provider absence may
 explain why removal is useful, but is not the mutation authority.
@@ -139,7 +145,7 @@ explain why removal is useful, but is not the mutation authority.
 
 Data and Schema routes identify a `vaultConvexProjects` attachment directly. They never select a
 project through a root path or choose the first project in a group. This remains unambiguous when
-several projects share one config path.
+several projects share one code location.
 
 ### Managed provisioning
 
@@ -161,17 +167,17 @@ never use the derived root tree as authority.
 
 - Schema and mutation tests prove there is no `vaultApps` table or `appId` field, provider
   identities are globally exclusive, batch attachment is atomic, and several projects may share a
-  config path.
-- GitHub tests cover root and nested configs, malformed or non-regular files, truncated trees,
-  changed blobs at confirmation, and explicit path reconciliation.
+  code location.
+- GitHub tests cover root and nested configs, default-layout metadata, malformed or non-regular
+  files, truncated trees, changed evidence at confirmation, and explicit location reconciliation.
 - Cloudflare tests cover complete pagination, partial fallback, exact GitHub repository matching,
   ambiguous roots, root drift, missing Workers, and marker disagreement.
 - Convex tests cover project continuity by `projectId`, verified team reconciliation, concurrent
   changes, and inaccessible projects that fail closed.
-- Route and UI tests cover bare provider flags, multi-selection, closed config selectors, read-only
-  observed Worker roots, default Worker selection, Worker-referenced Convex ordering, exact build
-  access targets, exact root grouping, `Needs attention`, and project-attachment Data and Schema
-  routes.
+- Route and UI tests cover bare provider flags, multi-selection, closed code-location selectors,
+  read-only observed Worker roots, default Worker selection, Worker-referenced Convex ordering,
+  exact build access targets, exact root grouping, `Needs attention`, and project-attachment Data
+  and Schema routes.
 
 ## Rollout
 

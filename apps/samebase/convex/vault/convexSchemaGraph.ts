@@ -1,5 +1,8 @@
 import { Infer, v } from "convex/values";
-import { getConvexConfigRootDirectory } from "../../shared/convexConfigPath";
+import {
+  getConvexCodeRootDirectory,
+  readConvexCodeLocation,
+} from "../../shared/convexCodeLocation";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
@@ -23,7 +26,7 @@ import {
   type ConvexSchemaGraphTable,
   type ConvexSchemaGraphTableSource,
 } from "./convexSchemaGraphModel";
-import { vaultTables } from "./model";
+import { vVaultConvexProjectDocument } from "./model";
 import { readConvexProductionDeployment } from "./convexProjectResources";
 
 const { array, id, literal, null: nullValue, number, object, optional, string, union } = v;
@@ -75,15 +78,10 @@ const CONVEX_SCHEMA_DEPLOY_KEY_ALLOWED_ACTIONS = [
 ] satisfies ConvexDeployKeyAllowedAction[];
 
 const vConvexProviderAuthMethod = union(literal("api_key"), literal("oauth"));
-const vConnectedConvexProject = vaultTables.vaultConvexProjects.validator.extend({
-  _id: id("vaultConvexProjects"),
-  _creationTime: number(),
-});
-
 const vConvexSchemaRefreshTarget = object({
   token: string(),
   authMethod: vConvexProviderAuthMethod,
-  project: vConnectedConvexProject,
+  project: vVaultConvexProjectDocument,
 });
 
 const vConvexSchemaGraphLayoutPoint = object({
@@ -150,7 +148,7 @@ function readSchemaGraphLayoutTableName(nodeId: string): string {
 function readProjectOption(project: Doc<"vaultConvexProjects">) {
   return {
     convexProjectId: project._id,
-    rootDirectory: getConvexConfigRootDirectory(project.convexConfigPath),
+    rootDirectory: getConvexCodeRootDirectory(readConvexCodeLocation(project)),
     projectId: project.projectId,
   };
 }

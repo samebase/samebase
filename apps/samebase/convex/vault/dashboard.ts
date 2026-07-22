@@ -15,6 +15,7 @@ import { hasStagedFileChanges } from "../../shared/stagedFiles";
 import { vVaultResourceLinksState } from "./dashboardModel";
 import { canAccess } from "../../shared/accessModel";
 import type { AppProvisioningRunStep } from "../appProvisioningModel";
+import { getConvexCodeLocationKey, readConvexCodeLocation } from "../../shared/convexCodeLocation";
 import {
   getUserVaultsContract,
   type ProviderSetupSummary,
@@ -369,7 +370,9 @@ function compareCloudflareWorkerSortOrder(left: CloudflareWorker, right: Cloudfl
 
 function compareConvexProjectSortOrder(left: ConvexProject, right: ConvexProject): number {
   return (
-    left.convexConfigPath.localeCompare(right.convexConfigPath) ||
+    getConvexCodeLocationKey(readConvexCodeLocation(left)).localeCompare(
+      getConvexCodeLocationKey(readConvexCodeLocation(right)),
+    ) ||
     left.projectId.localeCompare(right.projectId) ||
     left.teamId.localeCompare(right.teamId) ||
     left._id.localeCompare(right._id)
@@ -629,7 +632,7 @@ async function readUserVaults(
         convexProjectId: project._id,
         teamId: project.teamId,
         projectId: project.projectId,
-        convexConfigPath: project.convexConfigPath,
+        codeLocation: readConvexCodeLocation(project),
       }));
       if (deletion.state !== "not_deleting") {
         return {

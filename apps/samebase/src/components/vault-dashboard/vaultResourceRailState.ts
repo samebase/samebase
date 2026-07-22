@@ -1,6 +1,9 @@
 import type { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { getConvexConfigRootDirectory } from "../../../shared/convexConfigPath";
+import {
+  getConvexCodeLocationPath,
+  getConvexCodeRootDirectory,
+} from "../../../shared/convexCodeLocation";
 import type {
   VaultResourceRailAction,
   VaultResourceRailActionList,
@@ -631,15 +634,15 @@ function buildConvexRow({
       case "valid":
         return undefined;
       case "invalid":
-        return `${observation.convexConfigPath} is not a valid Convex config.`;
+        return `${getConvexCodeLocationPath(observation.codeLocation)} is not a valid Convex code location.`;
       case "missing":
-        return `${observation.convexConfigPath} is missing.`;
+        return `${getConvexCodeLocationPath(observation.codeLocation)} is missing.`;
       case "unavailable_partial":
         return "The repository could not be fully scanned.";
       case "unavailable":
         return observation.source.reason === "connection_required"
-          ? "Connect GitHub to verify the Convex config."
-          : "Could not verify the Convex config.";
+          ? "Connect GitHub to verify the Convex code location."
+          : "Could not verify the Convex code location.";
     }
     observation.source satisfies never;
     return undefined;
@@ -837,7 +840,7 @@ export function buildVaultDashboardResourceRailState({
       left.convexProjectId.localeCompare(right.convexProjectId),
   )) {
     addRowToRoot(
-      getConvexConfigRootDirectory(project.convexConfigPath),
+      getConvexCodeRootDirectory(project.codeLocation),
       buildConvexRow({
         changeConvexProjectConfigPathOnClick,
         detachConvexProjectOnClick,

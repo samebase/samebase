@@ -196,7 +196,7 @@ function makeResourceRailConvexProject(
 ): ResourceRailConvexProject {
   return {
     convexProjectId: fakeConvexProjectId(),
-    convexConfigPath: "convex.json",
+    codeLocation: { kind: "config", convexConfigPath: "convex.json" },
     teamId: "team-1",
     projectId: "demo-project-id",
     ...overrides,
@@ -265,7 +265,7 @@ describe("VaultDefaultBranch", () => {
           convexProjects={[
             {
               convexProjectId: fakeConvexProjectId(),
-              convexConfigPath: "apps/web/convex.json",
+              codeLocation: { kind: "config", convexConfigPath: "apps/web/convex.json" },
               projectId: "demo-project-id",
             },
           ]}
@@ -328,7 +328,7 @@ describe("VaultDefaultBranch", () => {
           convexProjects={[
             {
               convexProjectId: fakeConvexProjectId(),
-              convexConfigPath: "convex.json",
+              codeLocation: { kind: "config", convexConfigPath: "convex.json" },
               projectId: "demo-project-id",
             },
           ]}
@@ -357,7 +357,7 @@ describe("buildVaultProductionRoots", () => {
       convexProjects: [
         makeResourceRailConvexProject({
           convexProjectId,
-          convexConfigPath: "apps/web/convex.json",
+          codeLocation: { kind: "config", convexConfigPath: "apps/web/convex.json" },
         }),
       ],
     });
@@ -386,8 +386,8 @@ describe("buildVaultProductionRoots", () => {
             observedAt: 1,
             convexProjectId,
             projectId: "demo-project-id",
-            convexConfigPath: "apps/web/convex.json",
-            source: { state: "valid", blobSha: "blob-1" },
+            codeLocation: { kind: "config", convexConfigPath: "apps/web/convex.json" },
+            source: { kind: "config", state: "valid", blobSha: "blob-1" },
             provider: {
               state: "current",
               teamId: "team-1",
@@ -451,8 +451,8 @@ describe("buildVaultProductionRoots", () => {
               observedAt: 1,
               convexProjectId,
               projectId: "demo-project-id",
-              convexConfigPath: "convex.json",
-              source: { state: "valid", blobSha: "blob-1" },
+              codeLocation: { kind: "config", convexConfigPath: "convex.json" },
+              source: { kind: "config", state: "valid", blobSha: "blob-1" },
               provider: { state: "missing_ambiguous", teamId: "team-1" },
             },
           ],
@@ -885,18 +885,29 @@ describe("VaultDashboardConvexDialog", () => {
     repositoryName: "demo",
   };
 
-  const configs = [
+  const codeLocations = [
     {
       state: "valid" as const,
+      kind: "config" as const,
       convexConfigPath: "convex.json",
       rootDirectory: "/",
       blobSha: "blob-root",
     },
     {
       state: "valid" as const,
+      kind: "config" as const,
       convexConfigPath: "apps/web/convex.json",
       rootDirectory: "apps/web",
       blobSha: "blob-web",
+    },
+    {
+      state: "valid" as const,
+      kind: "directory" as const,
+      convexDirectoryPath: "apps/api/convex",
+      rootDirectory: "apps/api",
+      convexDirectoryTreeSha: "tree-api",
+      packageJsonPath: "apps/api/package.json",
+      packageJsonBlobSha: "blob-api-package",
     },
   ];
 
@@ -931,26 +942,26 @@ describe("VaultDashboardConvexDialog", () => {
   it("supports selecting multiple existing projects with an explicit config for each", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardConvexDialog
-        configs={configs}
-        createConfigPath="convex.json"
+        codeLocations={codeLocations}
+        createCodeLocationKey="config:convex.json"
         createProjectName=""
         projects={[projects[1], projects[0]]}
         error={null}
         isLoading={false}
         isSubmitting={false}
         mode="existing"
-        onCreateConfigPathChange={() => {}}
+        onCreateCodeLocationKeyChange={() => {}}
         onCreateProjectNameChange={() => {}}
         onModeChange={() => {}}
         onOpenChange={() => {}}
-        onProjectConfigPathChange={() => {}}
+        onProjectCodeLocationKeyChange={() => {}}
         onProjectToggle={() => {}}
         onSubmit={() => {}}
         open
         repairProject={null}
-        selectedProjectConfigPaths={{
-          "project-1": "apps/web/convex.json",
-          "project-2": "convex.json",
+        selectedProjectCodeLocationKeys={{
+          "project-1": "config:apps/web/convex.json",
+          "project-2": "config:convex.json",
         }}
         sourceCompleteness="complete"
         vault={vault}
@@ -969,24 +980,24 @@ describe("VaultDashboardConvexDialog", () => {
   it("keeps the discovered selection retryable after a submit error", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardConvexDialog
-        configs={configs}
-        createConfigPath="convex.json"
+        codeLocations={codeLocations}
+        createCodeLocationKey="config:convex.json"
         createProjectName=""
         projects={projects}
         error="Could not attach the selected Convex project."
         isLoading={false}
         isSubmitting={false}
         mode="existing"
-        onCreateConfigPathChange={() => {}}
+        onCreateCodeLocationKeyChange={() => {}}
         onCreateProjectNameChange={() => {}}
         onModeChange={() => {}}
         onOpenChange={() => {}}
-        onProjectConfigPathChange={() => {}}
+        onProjectCodeLocationKeyChange={() => {}}
         onProjectToggle={() => {}}
         onSubmit={() => {}}
         open
         repairProject={null}
-        selectedProjectConfigPaths={{ "project-1": "apps/web/convex.json" }}
+        selectedProjectCodeLocationKeys={{ "project-1": "config:apps/web/convex.json" }}
         sourceCompleteness="complete"
         vault={vault}
       />,
@@ -1001,62 +1012,62 @@ describe("VaultDashboardConvexDialog", () => {
 
   it("shows empty discovery messages only after a successful complete scan", () => {
     const renderDiscoveryState = ({
-      configs,
+      codeLocations,
       error,
       isLoading,
       sourceCompleteness,
-    }: Pick<ConvexDialogProps, "configs" | "error" | "isLoading" | "sourceCompleteness">) =>
+    }: Pick<ConvexDialogProps, "codeLocations" | "error" | "isLoading" | "sourceCompleteness">) =>
       renderToStaticMarkup(
         <VaultDashboardConvexDialog
-          configs={configs}
-          createConfigPath=""
+          codeLocations={codeLocations}
+          createCodeLocationKey=""
           createProjectName=""
           projects={[]}
           error={error}
           isLoading={isLoading}
           isSubmitting={false}
           mode="existing"
-          onCreateConfigPathChange={() => {}}
+          onCreateCodeLocationKeyChange={() => {}}
           onCreateProjectNameChange={() => {}}
           onModeChange={() => {}}
           onOpenChange={() => {}}
-          onProjectConfigPathChange={() => {}}
+          onProjectCodeLocationKeyChange={() => {}}
           onProjectToggle={() => {}}
           onSubmit={() => {}}
           open
           repairProject={null}
-          selectedProjectConfigPaths={{}}
+          selectedProjectCodeLocationKeys={{}}
           sourceCompleteness={sourceCompleteness}
           vault={vault}
         />,
       );
 
     const beforeDiscoveryStarts = renderDiscoveryState({
-      configs: [],
+      codeLocations: [],
       error: null,
       isLoading: false,
       sourceCompleteness: null,
     });
     const whileLoading = renderDiscoveryState({
-      configs: [],
+      codeLocations: [],
       error: null,
       isLoading: true,
       sourceCompleteness: null,
     });
     const afterFailure = renderDiscoveryState({
-      configs: [],
+      codeLocations: [],
       error: "Could not discover Convex projects.",
       isLoading: false,
       sourceCompleteness: null,
     });
-    const completeWithoutConfigs = renderDiscoveryState({
-      configs: [],
+    const completeWithoutCodeLocations = renderDiscoveryState({
+      codeLocations: [],
       error: null,
       isLoading: false,
       sourceCompleteness: "complete",
     });
     const completeWithoutProjects = renderDiscoveryState({
-      configs,
+      codeLocations,
       error: null,
       isLoading: false,
       sourceCompleteness: "complete",
@@ -1066,32 +1077,41 @@ describe("VaultDashboardConvexDialog", () => {
       expect(markup).not.toContain("No valid convex.json files were found");
       expect(markup).not.toContain("No unattached Convex projects are available");
     }
+    expect(whileLoading).toContain('role="status"');
+    expect(whileLoading).toContain("Searching for Convex code and projects");
+    expect(whileLoading).toContain("Elapsed search time");
+    expect(whileLoading).not.toContain(">Existing<");
     expect(afterFailure).toContain("Could not discover Convex projects.");
-    expect(completeWithoutConfigs).toContain("No valid convex.json files were found");
+    expect(completeWithoutCodeLocations).toContain(
+      "No convex.json or package.json with a sibling convex/ directory was found",
+    );
     expect(completeWithoutProjects).toContain("No unattached Convex projects are available");
   });
 
-  it("uses the same closed config selector to repair a moved code location", () => {
+  it("uses the same closed selector to repair a moved code location", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardConvexDialog
-        configs={configs}
-        createConfigPath="apps/web/convex.json"
+        codeLocations={codeLocations}
+        createCodeLocationKey="config:apps/web/convex.json"
         createProjectName=""
         projects={projects}
         error={null}
         isLoading={false}
         isSubmitting={false}
         mode="existing"
-        onCreateConfigPathChange={() => {}}
+        onCreateCodeLocationKeyChange={() => {}}
         onCreateProjectNameChange={() => {}}
         onModeChange={() => {}}
         onOpenChange={() => {}}
-        onProjectConfigPathChange={() => {}}
+        onProjectCodeLocationKeyChange={() => {}}
         onProjectToggle={() => {}}
         onSubmit={() => {}}
         open
-        repairProject={{ convexConfigPath: "convex.json", projectId: "project-1" }}
-        selectedProjectConfigPaths={{}}
+        repairProject={{
+          codeLocation: { kind: "config", convexConfigPath: "convex.json" },
+          projectId: "project-1",
+        }}
+        selectedProjectCodeLocationKeys={{}}
         sourceCompleteness="complete"
         vault={vault}
       />,
@@ -1107,24 +1127,24 @@ describe("VaultDashboardConvexDialog", () => {
   it("does not claim that no configs exist after a partial source scan", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardConvexDialog
-        configs={[]}
-        createConfigPath=""
+        codeLocations={[]}
+        createCodeLocationKey=""
         createProjectName=""
         projects={[]}
         error={null}
         isLoading={false}
         isSubmitting={false}
         mode="existing"
-        onCreateConfigPathChange={() => {}}
+        onCreateCodeLocationKeyChange={() => {}}
         onCreateProjectNameChange={() => {}}
         onModeChange={() => {}}
         onOpenChange={() => {}}
-        onProjectConfigPathChange={() => {}}
+        onProjectCodeLocationKeyChange={() => {}}
         onProjectToggle={() => {}}
         onSubmit={() => {}}
         open
         repairProject={null}
-        selectedProjectConfigPaths={{}}
+        selectedProjectCodeLocationKeys={{}}
         sourceCompleteness="partial"
         vault={vault}
       />,
@@ -1141,6 +1161,45 @@ describe("VaultDashboardCloudflareDialog", () => {
     repositoryFullName: "ada/demo",
     repositoryName: "demo",
   };
+
+  it("replaces disabled controls with a timed loading state while searching", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardCloudflareDialog
+        accounts={[]}
+        createRootDirectory="/"
+        createWorkerName=""
+        didAddWorker={false}
+        error={null}
+        folderSuggestions={[]}
+        isLoading
+        isSubmitting={false}
+        inventoryState={null}
+        mode="existing"
+        onAccountChange={() => {}}
+        onCreateRootDirectoryChange={() => {}}
+        onCreateWorkerNameChange={() => {}}
+        onConnectWorker={() => {}}
+        onConnectWorkerBack={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onSubmit={() => {}}
+        onWorkerToggle={() => {}}
+        open
+        repairWorker={null}
+        selectedAccountId=""
+        selectedWorkerTags={[]}
+        vault={vault}
+        workerToConnect={null}
+        workers={[]}
+      />,
+    );
+
+    expect(markup).toContain('role="status"');
+    expect(markup).toContain("Searching for Cloudflare Workers");
+    expect(markup).toContain("Elapsed search time");
+    expect(markup).not.toContain("Cloudflare account");
+    expect(markup).not.toContain(">Existing<");
+  });
 
   it("separates connected selections and keeps them pending after another Worker is added", () => {
     const markup = renderToStaticMarkup(
@@ -1446,7 +1505,7 @@ describe("buildVaultDashboardResourceRailState", () => {
             observedAt: 1,
             convexProjectId,
             projectId: "api-project",
-            convexConfigPath: "packages/api/convex.json",
+            codeLocation: { kind: "config", convexConfigPath: "packages/api/convex.json" },
             source: { state: "missing" },
             provider: {
               state: "moved",
@@ -1479,7 +1538,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         convexProjects: [
           makeResourceRailConvexProject({
             convexProjectId,
-            convexConfigPath: "packages/api/convex.json",
+            codeLocation: { kind: "config", convexConfigPath: "packages/api/convex.json" },
             projectId: "api-project",
           }),
         ],
@@ -1532,8 +1591,8 @@ describe("buildVaultDashboardResourceRailState", () => {
           observedAt: 1,
           convexProjectId: alphaProjectId,
           projectId: "alpha-project-id",
-          convexConfigPath: "convex.json",
-          source: { state: "valid" as const, blobSha: "alpha-blob" },
+          codeLocation: { kind: "config" as const, convexConfigPath: "convex.json" },
+          source: { kind: "config" as const, state: "valid" as const, blobSha: "alpha-blob" },
           provider: {
             state: "current" as const,
             teamId: "team-alpha",
@@ -1547,8 +1606,8 @@ describe("buildVaultDashboardResourceRailState", () => {
           observedAt: 1,
           convexProjectId: betaProjectId,
           projectId: "beta-project-id",
-          convexConfigPath: "convex.json",
-          source: { state: "valid" as const, blobSha: "beta-blob" },
+          codeLocation: { kind: "config" as const, convexConfigPath: "convex.json" },
+          source: { kind: "config" as const, state: "valid" as const, blobSha: "beta-blob" },
           provider: {
             state: "current" as const,
             teamId: "team-beta",

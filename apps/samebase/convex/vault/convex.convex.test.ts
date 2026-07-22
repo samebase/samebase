@@ -225,11 +225,21 @@ describe("vault Convex project attachments", () => {
     const convexProjectIds = await asUser.action(api.vault.convex.attachProjects, {
       vaultId,
       projects: [
-        { projectId: "1001", convexConfigPath: "convex.json", blobSha: "root-sha" },
+        {
+          projectId: "1001",
+          codeLocation: {
+            kind: "config",
+            convexConfigPath: "convex.json",
+            blobSha: "root-sha",
+          },
+        },
         {
           projectId: "1002",
-          convexConfigPath: "apps/web/convex.json",
-          blobSha: "web-sha",
+          codeLocation: {
+            kind: "config",
+            convexConfigPath: "apps/web/convex.json",
+            blobSha: "web-sha",
+          },
         },
       ],
     });
@@ -261,6 +271,60 @@ describe("vault Convex project attachments", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("attaches the default Convex directory using repository metadata only", async () => {
+    octokitMocks.getTree.mockResolvedValue({
+      data: {
+        truncated: false,
+        tree: [
+          {
+            type: "blob",
+            mode: "100644",
+            path: "package.json",
+            sha: "package-sha",
+          },
+          {
+            type: "tree",
+            mode: "040000",
+            path: "convex",
+            sha: "convex-tree-sha",
+          },
+        ],
+      },
+    });
+    const fetchMock = vi.fn(async (input: Request) => {
+      if (input.url.endsWith("/projects/1001")) {
+        return convexProjectResponse("1001", "1000");
+      }
+      throw new Error(`Unexpected Convex request: ${input.method} ${input.url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { asUser, t, vaultId } = await createConnectedVault();
+
+    const [convexProjectId] = await asUser.action(api.vault.convex.attachProjects, {
+      vaultId,
+      projects: [
+        {
+          projectId: "1001",
+          codeLocation: {
+            kind: "directory",
+            convexDirectoryPath: "convex",
+            convexDirectoryTreeSha: "convex-tree-sha",
+            packageJsonBlobSha: "package-sha",
+          },
+        },
+      ],
+    });
+
+    await expect(t.run(async (ctx) => await ctx.db.get(convexProjectId))).resolves.toMatchObject({
+      teamId: "1000",
+      projectId: "1001",
+      convexDirectoryPath: "convex",
+      origin: "selected_existing",
+    });
+    expect(octokitMocks.getBlob).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("records a newly created project before refreshing provider metadata", async () => {
     setGitHubConfigs([{ path: "convex.json", sha: "root-sha", content: "{}" }]);
     const fetchMock = vi.fn(async (input: Request) => {
@@ -282,8 +346,11 @@ describe("vault Convex project attachments", () => {
     const convexProjectId = await asUser.action(api.vault.convex.createProject, {
       vaultId,
       projectName: "new-project",
-      convexConfigPath: "convex.json",
-      blobSha: "root-sha",
+      codeLocation: {
+        kind: "config",
+        convexConfigPath: "convex.json",
+        blobSha: "root-sha",
+      },
     });
 
     await expect(t.run(async (ctx) => await ctx.db.get(convexProjectId))).resolves.toMatchObject({
@@ -380,10 +447,17 @@ describe("vault Convex project attachments", () => {
       asUser.action(api.vault.convex.attachProjects, {
         vaultId,
         projects: [
-          { projectId: "1001", convexConfigPath: "convex.json", blobSha: "discovered-sha" },
+          {
+            projectId: "1001",
+            codeLocation: {
+              kind: "config",
+              convexConfigPath: "convex.json",
+              blobSha: "discovered-sha",
+            },
+          },
         ],
       }),
-    ).rejects.toThrow("GitHub no longer has the selected valid Convex config");
+    ).rejects.toThrow("GitHub no longer has the selected Convex code location");
     expect(fetchMock).not.toHaveBeenCalled();
     await expect(
       t.run(async (ctx) => await ctx.db.query("vaultConvexProjects").collect()),
@@ -410,8 +484,22 @@ describe("vault Convex project attachments", () => {
       asUser.action(api.vault.convex.attachProjects, {
         vaultId,
         projects: [
-          { projectId: "1001", convexConfigPath: "convex.json", blobSha: "root-sha" },
-          { projectId: "1002", convexConfigPath: "convex.json", blobSha: "root-sha" },
+          {
+            projectId: "1001",
+            codeLocation: {
+              kind: "config",
+              convexConfigPath: "convex.json",
+              blobSha: "root-sha",
+            },
+          },
+          {
+            projectId: "1002",
+            codeLocation: {
+              kind: "config",
+              convexConfigPath: "convex.json",
+              blobSha: "root-sha",
+            },
+          },
         ],
       }),
     ).rejects.toThrow("Convex project is not available under the connected team");
@@ -434,7 +522,7 @@ describe("vault Convex project attachments", () => {
         {
           teamId: "1000",
           projectId: "1001",
-          convexConfigPath: "convex.json",
+          codeLocation: { kind: "config", convexConfigPath: "convex.json" },
           origin: "selected_existing",
         },
       ],
@@ -443,11 +531,14 @@ describe("vault Convex project attachments", () => {
       throw new Error("Expected a project attachment.");
     }
 
-    await asUser.action(api.vault.convex.changeProjectConfigPath, {
+    await asUser.action(api.vault.convex.changeProjectCodeLocation, {
       vaultId,
       convexProjectId,
-      convexConfigPath: "apps/web/convex.json",
-      blobSha: "web-sha",
+      codeLocation: {
+        kind: "config",
+        convexConfigPath: "apps/web/convex.json",
+        blobSha: "web-sha",
+      },
     });
 
     expect(fetchMock).not.toHaveBeenCalled();
@@ -475,7 +566,7 @@ describe("vault Convex project attachments", () => {
         {
           teamId: "1000",
           projectId: "1001",
-          convexConfigPath: "convex.json",
+          codeLocation: { kind: "config", convexConfigPath: "convex.json" },
           origin: "selected_existing",
         },
       ],
@@ -513,7 +604,7 @@ describe("vault Convex project attachments", () => {
         {
           teamId: "1000",
           projectId: "1001",
-          convexConfigPath: "convex.json",
+          codeLocation: { kind: "config", convexConfigPath: "convex.json" },
           origin: "selected_existing",
         },
       ],
@@ -530,7 +621,7 @@ describe("vault Convex project attachments", () => {
     expect(observation).toMatchObject({
       convexProjectId,
       projectId: "1001",
-      convexConfigPath: "convex.json",
+      codeLocation: { kind: "config", convexConfigPath: "convex.json" },
       source: { state: "valid", blobSha: "root-sha" },
       provider: { state: "missing_ambiguous", teamId: "1000" },
     });
@@ -551,7 +642,7 @@ describe("vault Convex project attachments", () => {
         {
           teamId: "1000",
           projectId: "1001",
-          convexConfigPath: "convex.json",
+          codeLocation: { kind: "config", convexConfigPath: "convex.json" },
           origin: "selected_existing",
         },
       ],

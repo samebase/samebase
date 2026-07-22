@@ -4,15 +4,15 @@
 
 MCP tool `vault_convex_attachProjects` · scope `access_provider_connections` · write
 
-Re-reads every selected Convex project and exact convex.json blob before writing any attachment. The
-final Samebase mutation is atomic: either every selected project and confirmed config path is
-attached or none are. Convex projects and GitHub files are not modified.
+Re-reads every selected Convex project and exact repository code location before writing any
+attachment. The final Samebase mutation is atomic: either every selected project and confirmed
+location is attached or none are. Convex projects and GitHub files are not modified.
 
 ## Arguments
 
 - `vaultId` (string, required): Samebase vault receiving the project attachments.
-- `projects` (array, required): One or more project id, convex.json path, and blob SHA selections
-  returned by discover_convex_projects.
+- `projects` (array, required): One or more project id and code location selections returned by
+  discover_convex_projects.
 
 ## Returns
 

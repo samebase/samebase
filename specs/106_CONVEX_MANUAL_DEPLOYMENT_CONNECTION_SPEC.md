@@ -15,7 +15,7 @@
 
 Convex project connection combines two facts:
 
-1. GitHub observation proves an exact `convex.json` location in the vault repository.
+1. GitHub observation proves an exact Convex code location in the vault repository.
 2. The user intends to attach one identified Convex project at that location.
 
 `vaultConvexProjects` stores that intent and the last verified provider coordinates:
@@ -27,13 +27,15 @@ Convex project connection combines two facts:
   teamId;
   projectId;
   convexConfigPath;
+  // or convexDirectoryPath
   origin;
 }
 ```
 
 `projectId` is the stable global continuity key. `teamId` is the last provider team under which
-Samebase verified the project. Several projects may intentionally select the same
-`convexConfigPath`. Convex `_creationTime` records when the attachment was created.
+Samebase verified the project. Each row stores exactly one placement variant: an explicit
+`convexConfigPath`, or a default-layout `convexDirectoryPath`. Several projects may intentionally
+select the same code location. Convex `_creationTime` records when the attachment was created.
 
 Project names, slugs, deployments, URLs, deploy keys, current team, and current repository file
 existence remain live provider observations.
@@ -42,12 +44,18 @@ existence remain live provider observations.
 
 `/vault/<org>/<repo>?add-convex` opens one vault-level dialog.
 
-Samebase resolves the exact default-branch HEAD and recursive Git tree. It offers every regular blob
-whose repository-relative path ends in exactly `convex.json` and whose body parses as a JSON object.
-It does not require a sibling `package.json` or infer packages from path conventions. A truncated
-tree cannot prove that no config exists.
+Samebase resolves the exact default-branch HEAD and recursive Git tree. It offers either:
 
-The config path selector is closed over discovered files. There is no free-form app-root field.
+- an explicit regular blob whose repository-relative path ends in exactly `convex.json` and whose
+  body parses as a JSON object; or
+- a default-layout directory named exactly `convex` whose parent contains a regular `package.json`
+  blob.
+
+Default-layout discovery uses Git tree metadata only. Samebase does not read or search the
+`package.json` body. An explicit `convex.json` at a root suppresses the default-layout candidate at
+that same root. A truncated tree cannot prove that no code location exists.
+
+The code location selector is closed over discovered evidence. There is no free-form app-root field.
 
 ### Existing project flow
 
@@ -55,18 +63,18 @@ The config path selector is closed over discovered files. There is no free-form 
 2. Projects named by discovered Workers' readable `SAMEBASE_CONVEX_PROJECT` markers sort first and
    show that evidence. Observation alone never selects a project.
 3. The user may select several projects.
-4. The user selects one discovered `convex.json` path for every selected project. Several projects
-   may select the same path.
-5. Samebase re-reads every exact config blob and project, then writes the full selection in one
-   transaction. Any invalid source, inaccessible project, or attachment conflict rejects the whole
-   confirmation.
+4. The user selects one discovered code location for every selected project. Several projects may
+   select the same location.
+5. Samebase re-verifies every exact config blob or default-layout tree entry plus `package.json`
+   blob, and reads every project, then writes the full selection in one transaction. Any invalid
+   source, inaccessible project, or attachment conflict rejects the whole confirmation.
 
 ### Create project flow
 
-The user chooses one discovered config path and a project name. Samebase validates the source,
+The user chooses one discovered code location and a project name. Samebase validates the source,
 creates the project with a production deployment, reads the project back, and attaches it at that
-path. If the provider create succeeds but attachment fails, Samebase reports the ambiguous external
-state and does not delete the project automatically.
+location. If the provider create succeeds but attachment fails, Samebase reports the ambiguous
+external state and does not delete the project automatically.
 
 ### Identity, transfer, and writes
 
@@ -80,15 +88,16 @@ transferred, so writes fail closed.
 
 If the connected credential reads the same `projectId` under a different team, Samebase reports team
 drift. Explicit reconciliation re-verifies the destination team and compare-and-swaps only `teamId`.
-It preserves the attachment ID, config path, origin, and creation time.
+It preserves the attachment ID, code location, origin, and creation time.
 
 ### Source drift and removal
 
-Moving or deleting the selected `convex.json` does not detach or silently relocate the project. The
-stored path remains the expected placement and the dashboard reports the GitHub observation.
+Moving or deleting the selected `convex.json`, `convex/`, or sibling `package.json` does not detach
+or silently relocate the project. The stored location remains the expected placement and the
+dashboard reports the GitHub observation.
 
-`Change code location` offers only currently discovered configs, re-verifies the selected blob, and
-compare-and-swaps only `convexConfigPath`.
+`Change code location` offers only currently discovered locations, re-verifies the selected Git
+evidence, and compare-and-swaps only the code location variant.
 
 `Remove from vault` is an explicit user-intent mutation. It removes only the unchanged local
 attachment. It never deletes the Convex project. Provider absence and a stored-team 404 never remove
@@ -109,11 +118,12 @@ project by config root and never choose the first project at a shared path.
 
 ## Validation
 
-- GitHub tests cover root and nested configs, malformed JSON, non-regular files, truncated trees,
-  exact-blob confirmation, and a blob changed between discovery and confirmation.
-- Mutation tests cover atomic batches, global `projectId` uniqueness, shared config paths,
-  idempotency, origin upgrade, config-path compare-and-swap, and team compare-and-swap.
+- GitHub tests cover root and nested configs, default-layout directories, package metadata without
+  package contents, malformed JSON, non-regular files, truncated trees, exact evidence confirmation,
+  and evidence changed between discovery and confirmation.
+- Mutation tests cover atomic batches, global `projectId` uniqueness, shared code locations,
+  idempotency, origin upgrade, code-location compare-and-swap, and team compare-and-swap.
 - Provider tests cover transfers, inaccessible projects, stale markers, and writes that fail closed.
 - UI and route tests cover multi-selection, Worker-reference ordering without automatic selection,
-  closed config selectors, moved configs, shared roots, team reconciliation, explicit removal, and
-  attachment-ID Data and Schema routes.
+  closed code-location selectors, moved code, shared roots, team reconciliation, explicit removal,
+  and attachment-ID Data and Schema routes.

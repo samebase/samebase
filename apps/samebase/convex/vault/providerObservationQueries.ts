@@ -1,6 +1,8 @@
 import { v, type Infer } from "convex/values";
 
 import { internalQuery } from "../_generated/server";
+import { getConvexCodeLocationKey, readConvexCodeLocation } from "../../shared/convexCodeLocation";
+import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import { isLiveConnectedVault } from "./state";
 
 const { array, id, object, string } = v;
@@ -23,7 +25,7 @@ const vVaultProviderObservationContext = object({
       convexProjectId: id("vaultConvexProjects"),
       teamId: string(),
       projectId: string(),
-      convexConfigPath: string(),
+      codeLocation: vConvexCodeLocation,
     }),
   ),
 });
@@ -98,11 +100,13 @@ export const readVaultProviderObservationContext = internalQuery({
           convexProjectId: project._id,
           teamId: project.teamId,
           projectId: project.projectId,
-          convexConfigPath: project.convexConfigPath,
+          codeLocation: readConvexCodeLocation(project),
         }))
         .sort(
           (left, right) =>
-            left.convexConfigPath.localeCompare(right.convexConfigPath) ||
+            getConvexCodeLocationKey(left.codeLocation).localeCompare(
+              getConvexCodeLocationKey(right.codeLocation),
+            ) ||
             left.projectId.localeCompare(right.projectId) ||
             left.convexProjectId.localeCompare(right.convexProjectId),
         ),

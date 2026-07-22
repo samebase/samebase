@@ -263,15 +263,16 @@ Repository default branch:
 
 10. `api.vault.convex.discoverProjects` and `api.vault.convex.attachProjects`
 
-- Discover returns provider projects plus exact discovered `convex.json` candidates.
-- Attach requires one verified config path per selected project and commits the batch atomically.
+- Discover returns provider projects plus exact discovered `convex.json` or default-layout
+  `package.json` and sibling `convex/` candidates.
+- Attach requires one verified code location per selected project and commits the batch atomically.
 
 11. `api.vault.convex.createProject` and `api.vault.convex.detachProject`
 
 - Create records the provider checkpoint and provisioned attachment before metadata refresh.
 - Detach changes only Samebase user intent.
 
-12. `api.vault.convex.changeProjectConfigPath` and `api.vault.convex.reconcileProjectTeam`
+12. `api.vault.convex.changeProjectCodeLocation` and `api.vault.convex.reconcileProjectTeam`
 
 - Both are explicit provider-verified compare-and-swap repairs of one attachment field.
 

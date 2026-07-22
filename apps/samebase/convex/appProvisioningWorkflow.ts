@@ -121,6 +121,7 @@ export const readComposedInfrastructureState = internalQuery({
         convexProject.userId !== args.userId ||
         !convexCheckpoint ||
         convexProject.teamId !== convexCheckpoint.teamId ||
+        !("convexConfigPath" in convexProject) ||
         convexProject.convexConfigPath !== convexConfigPath)
     ) {
       throw new Error("Managed Convex project attachment does not match its checkpoint.");

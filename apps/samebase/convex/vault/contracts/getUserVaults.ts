@@ -2,6 +2,7 @@ import { v, type Infer } from "convex/values";
 
 import { vVaultDeletionStep } from "../deletion/model";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
+import { vConvexCodeLocation } from "./convexAttachments";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -137,7 +138,7 @@ const vUserVaultsResult = array(
         convexProjectId: id("vaultConvexProjects"),
         teamId: string(),
         projectId: string(),
-        convexConfigPath: string(),
+        codeLocation: vConvexCodeLocation,
       }),
     ),
   }),

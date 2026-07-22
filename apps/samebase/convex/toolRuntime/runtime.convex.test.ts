@@ -124,8 +124,11 @@ describe("toolRuntime scope enforcement", () => {
       projects: [
         {
           projectId: "project_1",
-          convexConfigPath: "convex.json",
-          blobSha: "blob_1",
+          codeLocation: {
+            kind: "config",
+            convexConfigPath: "convex.json",
+            blobSha: "blob_1",
+          },
         },
       ],
     });

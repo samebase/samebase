@@ -8,6 +8,7 @@ import { useCacheQuery as useVaultQuery } from "@/lib/convexQueryCache";
 import { findVaultConvexProjectAttachment } from "@/lib/vaultConvexProjectAttachment";
 import { Database, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
+import { getConvexCodeLocationPath } from "../../shared/convexCodeLocation";
 
 type VaultConvexSchemaGraphViewProps = {
   branch: string;
@@ -42,11 +43,11 @@ function VaultConvexSchemaGraphRouteStatusSidebar({
           <span>Project</span>
           <span className="min-w-0 truncate text-foreground">{context.projectId}</span>
         </div>
-        {context.convexConfigPath ? (
+        {context.convexCodePath ? (
           <div className="flex min-w-0 justify-between gap-2">
-            <span>Config</span>
+            <span>Code</span>
             <span className="min-w-0 truncate font-mono text-foreground">
-              {context.convexConfigPath}
+              {context.convexCodePath}
             </span>
           </div>
         ) : null}
@@ -101,7 +102,7 @@ export function VaultConvexSchemaGraphView({
   const project = attachment?.project;
   const context = {
     branch,
-    convexConfigPath: project?.convexConfigPath ?? "",
+    convexCodePath: project ? getConvexCodeLocationPath(project.codeLocation) : "",
     projectId: project?.projectId ?? routeConvexProjectId,
     repositoryFullName,
   } satisfies VaultConvexSchemaGraphRouteContext;

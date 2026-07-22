@@ -45,6 +45,34 @@ export const vVaultProviderResourceOrigin = union(
 );
 export type VaultProviderResourceOrigin = Infer<typeof vVaultProviderResourceOrigin>;
 
+const vVaultConvexProjectConfig = object({
+  vaultId: id("vaults"),
+  userId: id("users"),
+  teamId: string(),
+  projectId: string(),
+  convexConfigPath: string(),
+  origin: vVaultProviderResourceOrigin,
+});
+const vVaultConvexProjectDirectory = object({
+  vaultId: id("vaults"),
+  userId: id("users"),
+  teamId: string(),
+  projectId: string(),
+  convexDirectoryPath: string(),
+  origin: vVaultProviderResourceOrigin,
+});
+export const vVaultConvexProject = union(vVaultConvexProjectConfig, vVaultConvexProjectDirectory);
+export const vVaultConvexProjectDocument = union(
+  vVaultConvexProjectConfig.extend({
+    _id: id("vaultConvexProjects"),
+    _creationTime: number(),
+  }),
+  vVaultConvexProjectDirectory.extend({
+    _id: id("vaultConvexProjects"),
+    _creationTime: number(),
+  }),
+);
+
 const vaultCloudflareBuildConfigFields = {
   rootDirectory: string(),
   buildCommand: string(),
@@ -195,15 +223,8 @@ export const vaultTables = {
     .index("by_account_and_worker", ["accountId", "workerName"])
     .index("by_account_and_worker_tag", ["accountId", "workerTag"]),
 
-  /** Stable Convex project identities attached to repository config paths in a vault. */
-  vaultConvexProjects: defineTable({
-    vaultId: id("vaults"),
-    userId: id("users"),
-    teamId: string(),
-    projectId: string(),
-    convexConfigPath: string(),
-    origin: vVaultProviderResourceOrigin,
-  })
+  /** Stable Convex project identities attached to repository code locations in a vault. */
+  vaultConvexProjects: defineTable(vVaultConvexProject)
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
     .index("by_project", ["projectId"]),
