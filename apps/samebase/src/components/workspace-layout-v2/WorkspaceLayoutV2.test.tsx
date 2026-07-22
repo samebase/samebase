@@ -97,6 +97,9 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).toContain('style="width:var(--workspace-layout-v2-left-mobile-width, 0px)"');
     expect(markup).toContain('style="width:var(--workspace-layout-v2-main-mobile-width, 100vw)"');
     expect(markup).toContain('style="width:var(--workspace-layout-v2-right-mobile-width, 0px)"');
+    expect(markup).toContain(
+      'data-workspace-layout-v2-mobile-pane="main" class="workspace-layout-v2-responsive-main-pane relative',
+    );
     expect(markup).toContain('data-workspace-layout-v2-mobile-separator="left-main"');
     expect(markup).toContain('data-workspace-layout-v2-mobile-separator="main-right"');
     expect(markup).not.toContain("data-workspace-layout-v2-mobile-separator-pane");
