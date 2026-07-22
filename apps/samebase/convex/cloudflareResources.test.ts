@@ -69,7 +69,26 @@ const cloudflareWorkerReadEnvelope = JSON.stringify({
     },
     references: {
       dispatch_namespace_outbounds: [],
-      domains: [],
+      domains: [
+        {
+          hostname: "www.example.com",
+          id: "domain-www",
+          zone_id: "zone-id",
+          zone_name: "example.com",
+        },
+        {
+          hostname: " app.example.com ",
+          id: "domain-app",
+          zone_id: "zone-id",
+          zone_name: "example.com",
+        },
+        {
+          hostname: "app.example.com",
+          id: "domain-app-duplicate",
+          zone_id: "zone-id",
+          zone_name: "example.com",
+        },
+      ],
       durable_objects: [],
       queues: [],
       workers: [],
@@ -422,7 +441,7 @@ describe("cloudflare resources", () => {
     expect(buildCloudflareWorkerCreateBody("samebase-app").observability.traces).toBe(undefined);
   });
 
-  it("reads workers.dev availability from the Worker identity response", async () => {
+  it("reads workers.dev availability and normalized custom domains from the Worker identity response", async () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(cloudflareWorkerReadEnvelope, {
@@ -440,6 +459,7 @@ describe("cloudflare resources", () => {
         workerName: "samebase-app",
       }),
     ).resolves.toEqual({
+      customDomains: ["app.example.com", "www.example.com"],
       previewUrlsEnabled: true,
       workersDevEnabled: false,
       workerName: "samebase-app",

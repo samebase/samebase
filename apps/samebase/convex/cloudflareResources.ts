@@ -210,6 +210,7 @@ type CloudflareWorkerIdentity = {
 };
 
 type CloudflareWorkerDetails = {
+  customDomains: string[];
   previewUrlsEnabled: boolean | undefined;
   workersDevEnabled: boolean;
   workerName: string;
@@ -433,7 +434,18 @@ export async function readCloudflareWorkerIdentity(
   if (!worker) {
     return null;
   }
+
+  const customDomains = [
+    ...new Set(
+      worker.references.domains.flatMap((domain) => {
+        const hostname = domain.hostname.trim();
+        return hostname ? [hostname] : [];
+      }),
+    ),
+  ].sort((left, right) => left.localeCompare(right));
+
   return {
+    customDomains,
     previewUrlsEnabled: worker.subdomain.previews_enabled,
     workersDevEnabled: worker.subdomain.enabled,
     workerName: args.workerName,
