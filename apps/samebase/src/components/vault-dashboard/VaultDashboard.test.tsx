@@ -1081,6 +1081,7 @@ describe("VaultDashboardConvexDialog", () => {
     expect(whileLoading).toContain("Searching for Convex code and projects");
     expect(whileLoading).toContain("Elapsed search time");
     expect(whileLoading).not.toContain(">Existing<");
+    expect(whileLoading).not.toContain("Add projects");
     expect(afterFailure).toContain("Could not discover Convex projects.");
     expect(completeWithoutCodeLocations).toContain(
       "No convex.json or package.json with a sibling convex/ directory was found",
@@ -1199,6 +1200,7 @@ describe("VaultDashboardCloudflareDialog", () => {
     expect(markup).toContain("Elapsed search time");
     expect(markup).not.toContain("Cloudflare account");
     expect(markup).not.toContain(">Existing<");
+    expect(markup).not.toContain("Add Workers");
   });
 
   it("separates connected selections and keeps them pending after another Worker is added", () => {

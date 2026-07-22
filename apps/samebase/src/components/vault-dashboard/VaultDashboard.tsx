@@ -1210,16 +1210,18 @@ export function VaultDashboardConvexDialog({
           >
             Cancel
           </Button>
-          <Button onClick={onSubmit} disabled={submitDisabled}>
-            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {repairProject
-              ? "Change code location"
-              : mode === "existing"
-                ? selectedProjectCount === 0
-                  ? "Add projects"
-                  : `Add ${selectedProjectCount} project${selectedProjectCount === 1 ? "" : "s"}`
-                : "Create project"}
-          </Button>
+          {!isLoading ? (
+            <Button onClick={onSubmit} disabled={submitDisabled}>
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {repairProject
+                ? "Change code location"
+                : mode === "existing"
+                  ? selectedProjectCount === 0
+                    ? "Add projects"
+                    : `Add ${selectedProjectCount} project${selectedProjectCount === 1 ? "" : "s"}`
+                  : "Create project"}
+            </Button>
+          ) : null}
         </DialogFooter>
       </AppDialogContent>
     </Dialog>
@@ -1541,18 +1543,20 @@ export function VaultDashboardCloudflareDialog({
                   : "Done"
                 : "Cancel"}
           </Button>
-          <Button onClick={onSubmit} disabled={submitDisabled}>
-            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {repairWorker
-              ? "Configure Workers Builds"
-              : mode === "connect"
-                ? "Connect and add"
-                : mode === "existing"
-                  ? selectedWorkerTags.length === 0
-                    ? "Add Workers"
-                    : `Add ${selectedWorkerTags.length} Worker${selectedWorkerTags.length === 1 ? "" : "s"}`
-                  : "Create Worker"}
-          </Button>
+          {!isLoading ? (
+            <Button onClick={onSubmit} disabled={submitDisabled}>
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {repairWorker
+                ? "Configure Workers Builds"
+                : mode === "connect"
+                  ? "Connect and add"
+                  : mode === "existing"
+                    ? selectedWorkerTags.length === 0
+                      ? "Add Workers"
+                      : `Add ${selectedWorkerTags.length} Worker${selectedWorkerTags.length === 1 ? "" : "s"}`
+                    : "Create Worker"}
+            </Button>
+          ) : null}
         </DialogFooter>
       </AppDialogContent>
     </Dialog>
