@@ -120,10 +120,18 @@ describe("LandingPreviewPage", () => {
     );
     expect(markup).toContain("Samebase repeats it, so you never choose again.");
     expect(markup).toContain("deploys + domains + edge");
-    expect(markup).toContain("The starter runs natively on macOS, Linux, and Windows.");
-    expect(markup).toContain(
-      "Node 24 runs its repository automation directly from TypeScript, so the core workflow does not depend on Bash or WSL.",
-    );
+    expect(markup).toContain('data-testid="landing-preview-stack-details"');
+    expect(markup).toContain("standard stack");
+    expect(markup).toContain("/landing-preview/logos/vite-plus.svg");
+    expect(markup).toContain("/landing-preview/logos/tanstack.svg");
+    expect(markup).toContain("/landing-preview/logos/react.svg");
+    expect(markup).toContain("local workflow");
+    expect(markup).toContain("macOS");
+    expect(markup).toContain("Linux");
+    expect(markup).toContain("Windows");
+    expect(markup).toContain("Node 24 runs the repository automation directly from TypeScript.");
+    expect(markup).toContain("no Bash");
+    expect(markup).toContain("no WSL");
     expect(markup).toContain('href="/docs/the-stack"');
 
     // Ask your agent.

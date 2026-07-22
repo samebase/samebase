@@ -24,6 +24,7 @@ import {
   LANDING_PREVIEW_ARTICLE_TEST_ID,
   LANDING_PREVIEW_PROVIDER_GRID_TEST_ID,
   LANDING_PREVIEW_ROUTE,
+  LANDING_PREVIEW_STACK_DETAILS_TEST_ID,
   LANDING_PREVIEW_TEST_ID,
 } from "@/routeSearch/landingPreview";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
@@ -678,12 +679,78 @@ function LandingPreviewOverview() {
               role="deploys + domains + edge"
             />
           </div>
-          <p className="mt-7 max-w-[62ch] text-sm leading-relaxed text-primary">
-            The starter runs natively on macOS, Linux, and Windows. Node 24 runs its repository
-            automation directly from TypeScript, so the core workflow does not depend on Bash or
-            WSL.{" "}
-            <LandingInlineLink to={DOCS_THE_STACK_ROUTE}>The stack, in detail</LandingInlineLink>
-          </p>
+          <div
+            className="mt-8 border-y border-border"
+            data-testid={LANDING_PREVIEW_STACK_DETAILS_TEST_ID}
+          >
+            <div className="grid gap-7 py-6 @3xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] @3xl:gap-10">
+              <div>
+                <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                  standard stack
+                </p>
+                <div className="mt-4 flex flex-wrap items-center gap-x-7 gap-y-4">
+                  <img
+                    alt="Vite+"
+                    className="h-[18px] w-auto dark:hidden"
+                    height="15"
+                    src="/landing-preview/logos/vite-plus.svg"
+                    width="103"
+                  />
+                  <img
+                    alt="Vite+"
+                    className="hidden h-[18px] w-auto dark:block"
+                    height="15"
+                    src="/landing-preview/logos/vite-plus-dark.svg"
+                    width="103"
+                  />
+                  <div className="flex items-center gap-1.5">
+                    <img
+                      alt="TanStack"
+                      className="h-5 w-auto dark:hidden"
+                      height="660"
+                      src="/landing-preview/logos/tanstack.svg"
+                      width="3178"
+                    />
+                    <img
+                      alt="TanStack"
+                      className="hidden h-5 w-auto dark:block"
+                      height="660"
+                      src="/landing-preview/logos/tanstack-dark.svg"
+                      width="3178"
+                    />
+                    <span className="text-sm font-semibold">Start</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <img
+                      alt=""
+                      className="h-6 w-auto"
+                      height="20"
+                      src="/landing-preview/logos/react.svg"
+                      width="23"
+                    />
+                    <span className="text-sm font-semibold">React</span>
+                  </div>
+                </div>
+              </div>
+              <div className="@3xl:border-l @3xl:border-border @3xl:pl-10">
+                <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                  local workflow
+                </p>
+                <p className="mt-3 text-lg font-semibold tracking-[-0.01em]">
+                  macOS · Linux · Windows
+                </p>
+                <p className="mt-2 max-w-[48ch] text-sm leading-relaxed text-primary">
+                  Node 24 runs the repository automation directly from TypeScript.
+                  <span className="block font-mono text-[11px] font-semibold text-secondary">
+                    no Bash · no WSL
+                  </span>
+                </p>
+              </div>
+            </div>
+            <p className="border-t border-border py-3 text-sm text-primary">
+              <LandingInlineLink to={DOCS_THE_STACK_ROUTE}>The stack, in detail</LandingInlineLink>
+            </p>
+          </div>
         </LandingSection>
 
         <LandingSection>
