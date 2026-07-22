@@ -15,6 +15,10 @@ import {
   VaultDashboardVisualFixture,
   type VaultDashboardVisualMode,
 } from "@/components/vault-dashboard/VaultDashboardVisualFixture";
+import {
+  VaultOverviewDesignLabVisualFixture,
+  type VaultOverviewDesignLabVisualMode,
+} from "@/components/vault-dashboard/VaultOverviewDesignLabVisualFixture";
 import { CornerNotchVisualFixture } from "@/components/CornerNotchVisualFixture";
 import {
   LogoThreeVisualFixture,
@@ -101,6 +105,7 @@ type VisualFixtureMode =
   | RepositoryMediaVisualMode
   | SidebarMediaUploadVisualMode
   | VaultDashboardVisualMode
+  | VaultOverviewDesignLabVisualMode
   | VaultResourceRailVisualMode
   | VaultSyncStatusVisualMode
   | WorkspaceLayoutV2VisualMode
@@ -181,6 +186,13 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-pull-request-auto-pagination",
   "vault-pull-request-filters",
 ] as const satisfies readonly VaultDashboardVisualMode[];
+
+const VAULT_OVERVIEW_DESIGN_LAB_VISUAL_MODES = [
+  "vault-overview-lab-simple",
+  "vault-overview-lab-monorepo",
+  "vault-overview-lab-stress",
+  "vault-overview-lab-attention",
+] as const satisfies readonly VaultOverviewDesignLabVisualMode[];
 
 const VAULT_RESOURCE_RAIL_VISUAL_MODES = [
   "vault-resource-rail",
@@ -271,6 +283,10 @@ const VISUAL_FIXTURE_GROUPS = [
     modes: VAULT_DASHBOARD_VISUAL_MODES,
   },
   {
+    label: "Vault Overview Design Lab",
+    modes: VAULT_OVERVIEW_DESIGN_LAB_VISUAL_MODES,
+  },
+  {
     label: "Vault Resource Rail",
     modes: VAULT_RESOURCE_RAIL_VISUAL_MODES,
   },
@@ -327,6 +343,15 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "media-png" || mode === "media-svg" || mode === "media-vox") {
     return <RepositoryMediaVisualFixture mode={mode} />;
+  }
+
+  if (
+    mode === "vault-overview-lab-simple" ||
+    mode === "vault-overview-lab-monorepo" ||
+    mode === "vault-overview-lab-stress" ||
+    mode === "vault-overview-lab-attention"
+  ) {
+    return <VaultOverviewDesignLabVisualFixture key={mode} mode={mode} />;
   }
 
   if (
