@@ -2122,10 +2122,12 @@ export function VaultDashboardView({
             <VaultDefaultBranch
               convexProjects={vault.convexProjects}
               defaultBranch={primaryBranch}
+              defaultBranchChecks={settledPullRequests?.defaultBranchChecks ?? null}
               githubBranchUrl={buildGitHubBranchTreeUrl({
                 repositoryFullName: vault.repositoryFullName,
                 branchName: primaryBranch,
               })}
+              githubRepositoryUrl={githubRepositoryUrl}
               owner={vault.ghRepoOwner}
               productionRoots={productionRoots}
               repoName={vault.ghRepoName}

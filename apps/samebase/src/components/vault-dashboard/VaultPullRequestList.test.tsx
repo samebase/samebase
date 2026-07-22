@@ -115,6 +115,7 @@ function settledState(
   );
   return {
     state: args.state ?? "current",
+    defaultBranchChecks: null,
     refreshing: false,
     pullRequests,
     allPullRequests: args.allPullRequests ?? pullRequests,

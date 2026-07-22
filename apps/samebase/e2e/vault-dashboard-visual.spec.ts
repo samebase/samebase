@@ -739,6 +739,9 @@ test("vault dashboard fixture (default branch surface)", async ({ page }) => {
   await expect(samebaseEditor).toHaveAttribute("href", "/vault/samebase/samebase/fs/main");
   await expect(samebaseEditor).not.toHaveAttribute("href", /compare/);
   await expect(
+    defaultBranchSurface.getByRole("button", { name: "4 passed", exact: true }),
+  ).toBeVisible();
+  await expect(
     defaultBranchSurface.getByRole("link", { name: "Data: apps/samebase" }),
   ).toHaveAttribute("href", "/vault/samebase/samebase/db/main/project/convex-project-samebase");
   await expect(
@@ -768,6 +771,32 @@ test("vault dashboard fixture (default branch surface)", async ({ page }) => {
     pullRequestBounds.y + 1,
   );
   await expect(defaultBranchSurface).toHaveScreenshot("vault-dashboard-default-branch.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
+test("vault dashboard fixture (default branch checks popover)", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 620 });
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-default-branch");
+
+  const defaultBranchSurface = page.getByRole("region", { name: "Default branch main" });
+  await defaultBranchSurface.getByRole("button", { name: "4 passed", exact: true }).click();
+
+  const popover = page.locator('[data-slot="popover-content"]');
+  await expect(popover.getByText("Default branch checks", { exact: true })).toBeVisible();
+  await expect(
+    popover.getByRole("link", { name: "Open checks (24.x) check details" }),
+  ).toHaveAttribute("href", "https://github.com/samebase/samebase/actions/runs/1/job/2");
+  await expect(
+    popover.getByRole("link", { name: "Open Workers Builds: samebase check details" }),
+  ).toHaveAttribute(
+    "href",
+    "https://dash.cloudflare.com/account-1/workers/services/view/samebase/production/builds/build-1",
+  );
+  await expect(popover).toHaveScreenshot("vault-default-branch-checks-popover.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",

@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import type { RepositoryPullRequest } from "../../convex/repositoryPullRequests";
-import { summarizePullRequestChecks } from "./pullRequestChecks";
+import type { RepositoryStatusCheckRollup } from "../../convex/repositoryPullRequests";
+import { summarizeRepositoryChecks } from "./repositoryChecks";
 
-type StatusCheckRollup = NonNullable<RepositoryPullRequest["statusCheckRollup"]>;
+type StatusCheckRollup = NonNullable<RepositoryStatusCheckRollup>;
 
-describe("summarizePullRequestChecks", () => {
+describe("summarizeRepositoryChecks", () => {
   it("keeps no checks distinct from a successful rollup", () => {
-    expect(summarizePullRequestChecks(null)).toEqual({
+    expect(summarizeRepositoryChecks(null)).toEqual({
       state: "none",
       totalCount: 0,
       successCount: 0,
@@ -35,7 +35,7 @@ describe("summarizePullRequestChecks", () => {
       },
     } satisfies StatusCheckRollup;
 
-    expect(summarizePullRequestChecks(rollup)).toEqual({
+    expect(summarizeRepositoryChecks(rollup)).toEqual({
       state: "failure",
       totalCount: 5,
       successCount: 2,
@@ -59,7 +59,7 @@ describe("summarizePullRequestChecks", () => {
       },
     } satisfies StatusCheckRollup;
 
-    expect(summarizePullRequestChecks(rollup)).toEqual({
+    expect(summarizeRepositoryChecks(rollup)).toEqual({
       state: "unknown",
       totalCount: 2,
       successCount: 0,

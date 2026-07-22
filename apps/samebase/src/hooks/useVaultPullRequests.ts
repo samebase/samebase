@@ -3,13 +3,14 @@ import type { Id } from "../../convex/_generated/dataModel";
 import type {
   RepositoryPullRequest,
   RepositoryPullRequestPage,
+  RepositoryStatusCheckRollup,
 } from "../../convex/repositoryPullRequests";
 import type { PullRequestResources } from "../../convex/vault/pullRequestResources";
 import {
   filterVaultPullRequests,
   type VaultPullRequestFilters,
 } from "@/components/vault-dashboard/vaultDashboardPullRequestFilters";
-import { summarizePullRequestChecks, type PullRequestCheckSummary } from "@/lib/pullRequestChecks";
+import { summarizeRepositoryChecks, type RepositoryCheckSummary } from "@/lib/repositoryChecks";
 import { useInfiniteQuery, useQueries } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { useCallback, useMemo } from "react";
@@ -42,7 +43,13 @@ type VaultPullRequestTarget = {
 
 export type VaultPullRequest = Omit<RepositoryPullRequest, "labels"> & {
   labels: RepositoryPullRequest["labels"]["nodes"];
-  checks: PullRequestCheckSummary;
+  checks: RepositoryCheckSummary;
+};
+
+export type VaultDefaultBranchChecks = {
+  headCommitOid: string;
+  statusCheckRollup: RepositoryStatusCheckRollup;
+  checks: RepositoryCheckSummary;
 };
 
 export type PullRequestResourceState =
@@ -53,6 +60,7 @@ export type PullRequestResourceState =
 
 type SettledPullRequests = {
   state: "current" | "stale";
+  defaultBranchChecks: VaultDefaultBranchChecks | null;
   pullRequests: VaultPullRequest[];
   allPullRequests: VaultPullRequest[];
   refreshing: boolean;
@@ -83,8 +91,12 @@ function nextCursor(page: RepositoryPullRequestPage | undefined): string | null 
 }
 
 function pageNeedsPolling(page: RepositoryPullRequestPage | undefined): boolean {
-  return pullRequestsFromPage(page).some(
-    (pullRequest) => summarizePullRequestChecks(pullRequest.statusCheckRollup).state === "running",
+  return (
+    summarizeRepositoryChecks(page?.repository?.defaultBranch?.statusCheckRollup ?? null).state ===
+      "running" ||
+    pullRequestsFromPage(page).some(
+      (pullRequest) => summarizeRepositoryChecks(pullRequest.statusCheckRollup).state === "running",
+    )
   );
 }
 
@@ -104,7 +116,21 @@ function presentPullRequest(pullRequest: RepositoryPullRequest): VaultPullReques
   return {
     ...pullRequest,
     labels: pullRequest.labels.nodes,
-    checks: summarizePullRequestChecks(pullRequest.statusCheckRollup),
+    checks: summarizeRepositoryChecks(pullRequest.statusCheckRollup),
+  };
+}
+
+function defaultBranchChecksFromPage(
+  page: RepositoryPullRequestPage | undefined,
+): VaultDefaultBranchChecks | null {
+  const defaultBranch = page?.repository?.defaultBranch;
+  if (!defaultBranch) {
+    return null;
+  }
+  return {
+    headCommitOid: defaultBranch.headCommitOid,
+    statusCheckRollup: defaultBranch.statusCheckRollup,
+    checks: summarizeRepositoryChecks(defaultBranch.statusCheckRollup),
   };
 }
 
@@ -193,6 +219,7 @@ export function useVaultPullRequests(args: {
     [observedPages],
   );
   const allPullRequests = useMemo(() => uniquePullRequests(pages).map(presentPullRequest), [pages]);
+  const defaultBranchChecks = defaultBranchChecksFromPage(pages.at(0));
   const pullRequests = useMemo(
     () => filterVaultPullRequests(allPullRequests, args.filters),
     [allPullRequests, args.filters],
@@ -291,6 +318,7 @@ export function useVaultPullRequests(args: {
       args.now > firstPageObservedAt + PULL_REQUEST_STALE_MS
         ? "stale"
         : "current",
+    defaultBranchChecks,
     pullRequests,
     allPullRequests,
     refreshing: pullRequestQuery.isFetching || resourceQueries.some((query) => query.isFetching),

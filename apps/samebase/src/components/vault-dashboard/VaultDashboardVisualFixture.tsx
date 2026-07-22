@@ -30,7 +30,11 @@ import {
   getDefaultVaultPullRequestFilters,
   type VaultPullRequestFilters,
 } from "@/components/vault-dashboard/vaultDashboardPullRequestFilters";
-import type { VaultPullRequest, VaultPullRequestsState } from "@/hooks/useVaultPullRequests";
+import type {
+  VaultDefaultBranchChecks,
+  VaultPullRequest,
+  VaultPullRequestsState,
+} from "@/hooks/useVaultPullRequests";
 import { validateRootRouteSearch } from "@/routeSearch/root";
 import type {
   VaultCloudflareProviderObservationState,
@@ -434,6 +438,17 @@ const FIXTURE_SUCCESSFUL_STATUS_CHECK_ROLLUP = {
   },
 } satisfies NonNullable<FixturePullRequest["statusCheckRollup"]>;
 
+const FIXTURE_DEFAULT_BRANCH_CHECKS = {
+  headCommitOid: "81145b7d2a32186823452c7515b2d5ba2d79b350",
+  statusCheckRollup: FIXTURE_SUCCESSFUL_STATUS_CHECK_ROLLUP,
+  checks: {
+    ...FIXTURE_NO_CHECKS,
+    state: "success",
+    totalCount: 4,
+    successCount: 4,
+  },
+} satisfies VaultDefaultBranchChecks;
+
 function fixturePullRequest({
   index,
   labels = [],
@@ -516,9 +531,11 @@ const DEFAULT_VISIBLE_PULL_REQUESTS = filterVaultPullRequests(
 
 function fixturePullRequests(
   pullRequests: readonly FixturePullRequest[],
+  defaultBranchChecks: VaultDefaultBranchChecks | null,
 ): Extract<VaultPullRequestsState, { state: "current" | "stale" }> {
   return {
     state: "current",
+    defaultBranchChecks,
     refreshing: false,
     pullRequests: [...pullRequests],
     allPullRequests: [...pullRequests],
@@ -629,7 +646,11 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
         ? AUTO_PAGINATION_PULL_REQUESTS.slice(0, nextPullRequestPageLoaded ? 8 : 6)
         : LIST_SPACING_PULL_REQUESTS;
   const filteredPullRequests = filterVaultPullRequests(sourcePullRequests, vaultPullRequestFilters);
-  const currentPullRequests = fixturePullRequests(filteredPullRequests);
+  const showDefaultProductionResources = mode === "vault-dashboard-default-branch";
+  const currentPullRequests = fixturePullRequests(
+    filteredPullRequests,
+    showDefaultProductionResources ? FIXTURE_DEFAULT_BRANCH_CHECKS : null,
+  );
   const pullRequests: VaultPullRequestsState =
     mode === "vault-pull-request-auto-pagination"
       ? {
@@ -646,7 +667,6 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
   const persistedVaultResourceLinksOpenByVaultId = new Map<string, boolean>([
     [LIST_SPACING_VAULT_ID, resourceLinksOpen],
   ]);
-  const showDefaultProductionResources = mode === "vault-dashboard-default-branch";
   const dashboardView = (
     <VaultDashboardView
       deleteModeActive={false}
@@ -842,7 +862,7 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
           }}
           isRemovingVault={false}
           providerAttachmentDetachmentInFlight={null}
-          pullRequests={fixturePullRequests(DEFAULT_VISIBLE_PULL_REQUESTS)}
+          pullRequests={fixturePullRequests(DEFAULT_VISIBLE_PULL_REQUESTS, null)}
           reconcilingConvexProjectId={null}
           retryingDeletionRunId={null}
           retryingInfrastructureVaultId={null}
@@ -936,7 +956,7 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             convexObservations={{ state: "loading" }}
             isRemovingVault={false}
             providerAttachmentDetachmentInFlight={null}
-            pullRequests={fixturePullRequests(DEFAULT_VISIBLE_PULL_REQUESTS)}
+            pullRequests={fixturePullRequests(DEFAULT_VISIBLE_PULL_REQUESTS, null)}
             reconcilingConvexProjectId={null}
             retryingDeletionRunId={null}
             retryingInfrastructureVaultId={null}
