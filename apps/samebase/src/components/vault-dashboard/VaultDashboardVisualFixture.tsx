@@ -488,7 +488,12 @@ function fixturePullRequests(
                       workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
                       rootDirectory: "apps/samebase",
                       workerName: "samebase-worker",
-                      buildState: "success" as const,
+                      cloudflareBuild: {
+                        uuid: "da8f8183-6ef8-4e92-bc32-34c04f117f6f",
+                        state: "success" as const,
+                        logsUrl:
+                          "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-worker/production/builds/da8f8183-6ef8-4e92-bc32-34c04f117f6f",
+                      },
                       cloudflarePreview: {
                         state: "available" as const,
                         url: "https://a1b2c3d4-samebase-worker.samebase.workers.dev",
@@ -508,7 +513,12 @@ function fixturePullRequests(
                         workerId: LIST_SPACING_DOMAIN_WORKER_ID,
                         rootDirectory: "apps/domain-router",
                         workerName: "domain-router",
-                        buildState: "running" as const,
+                        cloudflareBuild: {
+                          uuid: "running-build-1259",
+                          state: "running" as const,
+                          logsUrl:
+                            "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/domain-router/production/builds/running-build-1259",
+                        },
                         cloudflarePreview: { state: "absent" as const },
                         convexPreview: { state: "unavailable" as const },
                       },

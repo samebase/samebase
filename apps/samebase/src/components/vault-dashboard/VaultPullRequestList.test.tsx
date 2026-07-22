@@ -67,7 +67,12 @@ function settledState(
             workerId: fakeWorkerId("worker:app"),
             rootDirectory: "apps/samebase",
             workerName: "samebase-worker",
-            buildState: "success" as const,
+            cloudflareBuild: {
+              uuid: "build-1243",
+              state: "success" as const,
+              logsUrl:
+                "https://dash.cloudflare.com/account-1/workers/services/view/samebase-worker/production/builds/build-1243",
+            },
             cloudflarePreview: {
               state: "available" as const,
               url: "https://a1b2c3d4-samebase-worker.samebase.workers.dev",
@@ -121,6 +126,10 @@ describe("VaultPullRequestList", () => {
     expect(markup).toContain("PR #1243 Use live provider truth");
     expect(markup).toContain("4 passed");
     expect(markup).toContain("samebase-worker");
+    expect(markup).toContain(
+      'href="https://dash.cloudflare.com/account-1/workers/services/view/samebase-worker/production/builds/build-1243"',
+    );
+    expect(markup).toContain("Build logs");
     expect(markup).toContain("a1b2c3d4-samebase-worker.samebase.workers.dev");
     expect(markup).toContain('href="https://a1b2c3d4-samebase-worker.samebase.workers.dev"');
     expect(markup).toContain("precise-otter-1243");

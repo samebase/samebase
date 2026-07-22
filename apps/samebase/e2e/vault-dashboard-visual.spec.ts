@@ -1036,6 +1036,10 @@ test("vault dashboard fixture (list spacing)", async ({ page }) => {
   await expect(
     page.getByRole("link", { name: "a1b2c3d4-samebase-worker.samebase.workers.dev" }),
   ).toHaveAttribute("href", "https://a1b2c3d4-samebase-worker.samebase.workers.dev");
+  await expect(page.getByRole("link", { name: "Build logs" }).first()).toHaveAttribute(
+    "href",
+    "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-worker/production/builds/da8f8183-6ef8-4e92-bc32-34c04f117f6f",
+  );
   await expect(
     page.getByText("codex/live-provider-truth-01 → main", { exact: true }),
   ).toBeVisible();
@@ -1059,6 +1063,10 @@ test("vault dashboard automatically loads the next pull request page at the scro
   await expect(list.getByRole("link", { name: "Data", exact: true })).toHaveAttribute(
     "href",
     "https://dashboard.convex.dev/t/samebase/samebase/precise-otter-1260/data",
+  );
+  await expect(list.getByRole("link", { name: "Build logs" }).first()).toHaveAttribute(
+    "href",
+    "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-worker/production/builds/da8f8183-6ef8-4e92-bc32-34c04f117f6f",
   );
   await expect(sentinel).toHaveCount(1);
   await expect(page).toHaveScreenshot("vault-pull-request-auto-pagination.png", {

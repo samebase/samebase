@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase dashboard and provider boundaries
-- Last updated: 2026-07-21
+- Last updated: 2026-07-22
 - Related work:
   - [PR #1243: Simplify vault provider resource truth](https://github.com/samebase/samebase/pull/1243)
   - [PR #1234: Replace dashboard branch mirrors with live pull requests](https://github.com/samebase/samebase/pull/1234)
@@ -83,11 +83,14 @@ invalidate that identity. If one requested pull request closes, merges, or disap
 page read and the resource read, only that row becomes unavailable; the rest of the resource batch
 still resolves.
 
-A Worker build belongs to a row only when Cloudflare agrees on the immutable Worker tag, GitHub
-repository id, live normalized Builds root, preview trigger, pull request URL, head SHA, branch, and
-the deploy command reported by both the trigger and build metadata. Samebase does not compare that
-provider-owned command with a locally generated template. If Samebase cannot observe the Worker and
-its Builds repository, the row exposes only stable Worker identity and does not invent a root.
+A Worker build belongs to a row only when Cloudflare agrees on the immutable Worker tag, build UUID,
+GitHub repository id, live normalized Builds root, preview trigger, pull request URL, head SHA,
+branch, and the deploy command reported by both the trigger and build metadata. Samebase does not
+compare that provider-owned command with a locally generated template. If Samebase cannot observe
+the Worker and its Builds repository, the row exposes only stable Worker identity and does not
+invent a root. An available build exposes its state and a direct Cloudflare dashboard link to the
+exact build's logs. That URL is derived from the verified account, Worker, and build identities in
+the same live resource result.
 
 A Convex preview belongs to that build only when:
 
@@ -166,6 +169,7 @@ Tests must prove:
 - resource enrichment derives head identity from a server-side GitHub read, never browser fields;
 - a pull request that leaves the open set during resource enrichment does not fail sibling rows;
 - resource links require exact cross-provider identity;
+- an exact Cloudflare build exposes its provider logs link;
 - an exact branch tree uses the immutable tree SHA returned for that branch commit;
 - no deleted table or action remains in generated Convex bindings, cleanup registries, or tests.
 

@@ -52,6 +52,11 @@ const vCloudflarePreview = union(
   object({ state: literal("absent") }),
   object({ state: literal("unavailable") }),
 );
+const vCloudflareBuild = object({
+  uuid: string(),
+  state: vCloudflareBuildState,
+  logsUrl: string(),
+});
 const stableWorkerIdentityFields = {
   workerId: id("vaultCloudflareWorkers"),
   workerName: string(),
@@ -64,7 +69,7 @@ const vPullRequestWorkerResource = union(
   object({
     state: literal("available"),
     ...observedWorkerIdentityFields,
-    buildState: vCloudflareBuildState,
+    cloudflareBuild: vCloudflareBuild,
     cloudflarePreview: vCloudflarePreview,
     convexPreview: vConvexPreview,
   }),
@@ -196,6 +201,7 @@ type AvailableWorkerResource = Extract<PullRequestWorkerResource, { state: "avai
 type BuildMatch =
   | {
       state: "available";
+      buildUuid: string;
       buildState: CloudflareBuildState;
       createdAt: number;
       finishedAt: number | null;
@@ -337,6 +343,7 @@ export function matchCloudflareWorkerBuild(args: {
   const metadata = build.build_trigger_metadata;
   const createdAt = candidate.createdAt;
   const finishedAt = providerTimestamp(build.stopped_on);
+  const buildUuid = build.build_uuid?.trim();
   const rootDirectory = normalizeCloudflareBuildRoot(args.worker.rootDirectory);
   const triggerRootDirectory = normalizeCloudflareBuildRoot(trigger?.root_directory);
   const metadataRootDirectory = normalizeCloudflareBuildRoot(metadata?.root_directory);
@@ -345,6 +352,7 @@ export function matchCloudflareWorkerBuild(args: {
   if (
     !trigger ||
     !metadata ||
+    !buildUuid ||
     createdAt === null ||
     rootDirectory === null ||
     trigger.external_script_id !== args.worker.workerTag ||
@@ -360,6 +368,7 @@ export function matchCloudflareWorkerBuild(args: {
 
   return {
     state: "available",
+    buildUuid,
     buildState: classifyCloudflareBuildState(build),
     createdAt,
     finishedAt,
@@ -516,6 +525,14 @@ function convexDashboardUrl(args: {
   deploymentName: string;
 }): string {
   return `https://dashboard.convex.dev/t/${encodeURIComponent(args.teamSlug)}/${encodeURIComponent(args.projectSlug)}/${encodeURIComponent(args.deploymentName)}`;
+}
+
+export function cloudflareBuildLogsUrl(args: {
+  accountId: string;
+  workerName: string;
+  buildUuid: string;
+}): string {
+  return `https://dash.cloudflare.com/${encodeURIComponent(args.accountId)}/workers/services/view/${encodeURIComponent(args.workerName)}/production/builds/${encodeURIComponent(args.buildUuid)}`;
 }
 
 async function readWorkerResourcesForHeads(args: {
@@ -737,7 +754,15 @@ async function readWorkerResourcesForHeads(args: {
       return {
         state: "available",
         ...identityFields,
-        buildState: match.buildState,
+        cloudflareBuild: {
+          uuid: match.buildUuid,
+          state: match.buildState,
+          logsUrl: cloudflareBuildLogsUrl({
+            accountId: args.worker.accountId,
+            workerName: args.worker.workerName,
+            buildUuid: match.buildUuid,
+          }),
+        },
         cloudflarePreview,
         convexPreview,
       };

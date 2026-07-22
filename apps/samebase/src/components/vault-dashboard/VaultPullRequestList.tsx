@@ -149,7 +149,7 @@ function CheckSummary({ checks }: { checks: PullRequestChecks }) {
 function BuildState({
   state,
 }: {
-  state: Extract<PullRequestWorkerResource, { state: "available" }>["buildState"];
+  state: Extract<PullRequestWorkerResource, { state: "available" }>["cloudflareBuild"]["state"];
 }) {
   switch (state) {
     case "queued":
@@ -192,6 +192,108 @@ function BuildState({
   }
 }
 
+function CloudflareBuildResource({
+  build,
+  workerName,
+}: {
+  build: Extract<PullRequestWorkerResource, { state: "available" }>["cloudflareBuild"];
+  workerName: string;
+}) {
+  return (
+    <>
+      <BuildState state={build.state} />
+      <a
+        href={build.logsUrl}
+        target="_blank"
+        rel="noreferrer noopener"
+        className={metadataLinkClassName}
+        title={`Open Cloudflare build logs for ${workerName}`}
+      >
+        Build logs
+      </a>
+    </>
+  );
+}
+
+function CloudflarePreviewResource({
+  preview,
+  workerName,
+}: {
+  preview: Extract<PullRequestWorkerResource, { state: "available" }>["cloudflarePreview"];
+  workerName: string;
+}) {
+  if (preview.state !== "available") {
+    return null;
+  }
+
+  return (
+    <a
+      href={preview.url}
+      target="_blank"
+      rel="noreferrer noopener"
+      className={metadataLinkClassName}
+      title={`Open Cloudflare preview for ${workerName}`}
+    >
+      {new URL(preview.url).hostname}
+    </a>
+  );
+}
+
+function ConvexPreviewResource({
+  preview,
+  buildState,
+}: {
+  preview: Extract<PullRequestWorkerResource, { state: "available" }>["convexPreview"];
+  buildState: Extract<
+    PullRequestWorkerResource,
+    { state: "available" }
+  >["cloudflareBuild"]["state"];
+}) {
+  if (preview.state === "available") {
+    return (
+      <>
+        <a
+          href={preview.dashboardUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+          className={metadataLinkClassName}
+          title={`Open Convex preview deployment ${preview.deploymentName}`}
+        >
+          <ConvexProviderLogo />
+          {preview.deploymentName}
+        </a>
+        <a
+          href={`${preview.dashboardUrl}/data`}
+          target="_blank"
+          rel="noreferrer noopener"
+          className={metadataLinkClassName}
+          title={`Open preview data for ${preview.deploymentName}`}
+        >
+          Data
+        </a>
+      </>
+    );
+  }
+  if (preview.state === "absent") {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+        <ConvexProviderLogo />
+        No preview
+      </span>
+    );
+  }
+  if (buildState !== "success") {
+    return null;
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+      <ConvexProviderLogo />
+      Preview unavailable
+    </span>
+  );
+}
+
 function WorkerResource({ worker }: { worker: PullRequestWorkerResource }) {
   if (worker.state === "absent") {
     return (
@@ -220,51 +322,15 @@ function WorkerResource({ worker }: { worker: PullRequestWorkerResource }) {
         <span className="break-words">{worker.workerName}</span>
       </span>
       <span className="font-mono text-xs text-muted-foreground">{worker.rootDirectory}</span>
-      <BuildState state={worker.buildState} />
-      {worker.cloudflarePreview.state === "available" ? (
-        <a
-          href={worker.cloudflarePreview.url}
-          target="_blank"
-          rel="noreferrer noopener"
-          className={metadataLinkClassName}
-          title={`Open Cloudflare preview for ${worker.workerName}`}
-        >
-          {new URL(worker.cloudflarePreview.url).hostname}
-        </a>
-      ) : null}
-      {worker.convexPreview.state === "available" ? (
-        <>
-          <a
-            href={worker.convexPreview.dashboardUrl}
-            target="_blank"
-            rel="noreferrer noopener"
-            className={metadataLinkClassName}
-            title={`Open Convex preview deployment ${worker.convexPreview.deploymentName}`}
-          >
-            <ConvexProviderLogo />
-            {worker.convexPreview.deploymentName}
-          </a>
-          <a
-            href={`${worker.convexPreview.dashboardUrl}/data`}
-            target="_blank"
-            rel="noreferrer noopener"
-            className={metadataLinkClassName}
-            title={`Open preview data for ${worker.convexPreview.deploymentName}`}
-          >
-            Data
-          </a>
-        </>
-      ) : worker.convexPreview.state === "absent" ? (
-        <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-          <ConvexProviderLogo />
-          No preview
-        </span>
-      ) : worker.buildState === "success" ? (
-        <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-          <ConvexProviderLogo />
-          Preview unavailable
-        </span>
-      ) : null}
+      <CloudflareBuildResource build={worker.cloudflareBuild} workerName={worker.workerName} />
+      <CloudflarePreviewResource
+        preview={worker.cloudflarePreview}
+        workerName={worker.workerName}
+      />
+      <ConvexPreviewResource
+        preview={worker.convexPreview}
+        buildState={worker.cloudflareBuild.state}
+      />
     </li>
   );
 }

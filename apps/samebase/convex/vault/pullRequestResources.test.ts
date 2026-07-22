@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import type { CloudflareWorkerBuild, CloudflareWorkerVersion } from "../cloudflareResources";
 import {
+  cloudflareBuildLogsUrl,
   matchCloudflareWorkerBuild,
   normalizeGitHubPullRequestResourceHeadReads,
   recoverGitHubPullRequestResourceHeadsFromError,
@@ -131,6 +132,7 @@ describe("matchCloudflareWorkerBuild", () => {
       }),
     ).toEqual({
       state: "available",
+      buildUuid: "build-1",
       buildState: "success",
       createdAt: Date.parse("2026-07-20T10:00:00.000Z"),
       finishedAt: Date.parse("2026-07-20T10:01:00.000Z"),
@@ -138,6 +140,7 @@ describe("matchCloudflareWorkerBuild", () => {
   });
 
   it.each([
+    ["build UUID", { buildUuid: "" }],
     ["Worker tag", { externalScriptId: "replacement-tag" }],
     ["repository", { repoId: "99" }],
     ["Workers Builds root", { rootDirectory: "apps/docs" }],
@@ -236,6 +239,20 @@ describe("matchCloudflareWorkerBuild", () => {
         previewTriggerUuid: "preview-trigger",
       }),
     ).toEqual({ state: "provider_disagreement" });
+  });
+});
+
+describe("cloudflareBuildLogsUrl", () => {
+  it("links the verified account, Worker, and build identities to the exact Cloudflare logs", () => {
+    expect(
+      cloudflareBuildLogsUrl({
+        accountId: "account/id",
+        workerName: "samebase worker",
+        buildUuid: "build/id",
+      }),
+    ).toBe(
+      "https://dash.cloudflare.com/account%2Fid/workers/services/view/samebase%20worker/production/builds/build%2Fid",
+    );
   });
 });
 
