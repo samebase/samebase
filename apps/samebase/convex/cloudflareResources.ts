@@ -47,6 +47,7 @@ type CloudflareWorkerTagSource = {
 type CloudflareBuildTokenRecord = Readable<components["schemas"]["builds_ListTokensResponse"]>;
 export type CloudflareBuildTrigger = Readable<components["schemas"]["builds_TriggerResponse"]>;
 export type CloudflareWorkerBuild = Readable<components["schemas"]["builds_BuildResponse"]>;
+export type CloudflareWorkerVersion = Readable<components["schemas"]["workers_Version"]>;
 type CloudflareBuildEnvVars = components["schemas"]["builds_EnvironmentVariablesRequest"];
 type CloudflareBuildEnvVarsResponse = components["schemas"]["builds_EnvironmentVariablesResponse"];
 type CloudflareApiCallOptions = {
@@ -209,6 +210,7 @@ type CloudflareWorkerIdentity = {
 };
 
 type CloudflareWorkerDetails = {
+  previewUrlsEnabled: boolean | undefined;
   workersDevEnabled: boolean;
   workerName: string;
   workerTag: string;
@@ -436,6 +438,7 @@ export async function readCloudflareWorkerIdentity(
     return null;
   }
   return {
+    previewUrlsEnabled: worker.subdomain.previews_enabled,
     workersDevEnabled: worker.subdomain.enabled,
     workerName: args.workerName,
     workerTag: readCloudflareWorkerTag(worker, args.workerName),
@@ -2329,6 +2332,37 @@ export async function readCloudflareWorkerBuildsPage(args: {
   return requireCloudflareResult(
     builds,
     `Cloudflare Workers Builds did not return builds for Worker ${args.workerTag}.`,
+  );
+}
+
+export async function readCloudflareWorkerVersionsPage(args: {
+  token: string;
+  transport: CloudflareApiTransport;
+  accountId: string;
+  workerName: string;
+  page: number;
+  perPage: number;
+}): Promise<CloudflareWorkerVersion[]> {
+  const versions = await requestCloudflareApi({
+    token: args.token,
+    transport: args.transport,
+    method: "GET",
+    path: "/accounts/{account_id}/workers/workers/{worker_id}/versions",
+    params: {
+      path: {
+        account_id: args.accountId,
+        worker_id: args.workerName,
+      },
+      query: {
+        page: args.page,
+        per_page: args.perPage,
+      },
+    },
+  });
+
+  return requireCloudflareResult(
+    versions,
+    `Cloudflare did not return versions for Worker ${args.workerName}.`,
   );
 }
 

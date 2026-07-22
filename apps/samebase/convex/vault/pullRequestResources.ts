@@ -13,8 +13,10 @@ import {
   readCloudflareWorkerBuildsPage,
   readCloudflareWorkerConvexBuildAccess,
   readCloudflareWorkerIdentity,
+  readCloudflareWorkerVersionsPage,
   type CloudflareConvexBuildAccessObservation,
   type CloudflareWorkerBuild,
+  type CloudflareWorkerVersion,
 } from "../cloudflareResources";
 import { action } from "../functions";
 import { createGitHubRequestDeadlineSignal, fetchGitHubRepoIdentity } from "../githubRepoApi";
@@ -45,6 +47,11 @@ const vConvexPreview = union(
   object({ state: literal("absent") }),
   object({ state: literal("unavailable") }),
 );
+const vCloudflarePreview = union(
+  object({ state: literal("available"), url: string() }),
+  object({ state: literal("absent") }),
+  object({ state: literal("unavailable") }),
+);
 const stableWorkerIdentityFields = {
   workerId: id("vaultCloudflareWorkers"),
   workerName: string(),
@@ -58,6 +65,7 @@ const vPullRequestWorkerResource = union(
     state: literal("available"),
     ...observedWorkerIdentityFields,
     buildState: vCloudflareBuildState,
+    cloudflarePreview: vCloudflarePreview,
     convexPreview: vConvexPreview,
   }),
   object({
@@ -206,8 +214,12 @@ type ConvexPreviewRead =
 type ConvexBuildAccessRead =
   | { state: "available"; buildAccess: CloudflareConvexBuildAccessObservation }
   | { state: "failed" };
+type CloudflareVersionsRead =
+  | { state: "available"; versions: CloudflareWorkerVersion[] }
+  | { state: "failed" };
 type PullRequestProviderFailureOperation =
   | "read_cloudflare_convex_build_access"
+  | "read_cloudflare_worker_versions"
   | "read_cloudflare_worker_resources"
   | "read_convex_preview"
   | "resolve_cloudflare_connection";
@@ -394,6 +406,54 @@ export function resolveConvexPreviewDeployment(args: {
   return { state: "available", deployment: matches[0] };
 }
 
+export function resolveCloudflarePreviewUrl(args: {
+  versions: readonly CloudflareWorkerVersion[];
+  workerName: string;
+  build: Pick<
+    Extract<BuildMatch, { state: "available" }>,
+    "buildState" | "createdAt" | "finishedAt"
+  >;
+}):
+  | { state: "available"; url: string }
+  | { state: "absent" }
+  | { state: "unavailable"; reason: "version_ambiguous" | "url_ambiguous" } {
+  if (args.build.buildState !== "success" || args.build.finishedAt === null) {
+    return { state: "absent" };
+  }
+  const finishedAt = args.build.finishedAt;
+  const versions = args.versions.filter((version) => {
+    const createdAt = providerTimestamp(version.created_on);
+    return createdAt !== null && createdAt >= args.build.createdAt && createdAt <= finishedAt;
+  });
+  if (versions.length === 0) {
+    return { state: "absent" };
+  }
+  if (versions.length > 1) {
+    return { state: "unavailable", reason: "version_ambiguous" };
+  }
+
+  const previewUrls = versions[0].urls.filter((url) => {
+    try {
+      const parsed = new URL(url);
+      return (
+        parsed.protocol === "https:" &&
+        parsed.pathname === "/" &&
+        parsed.hostname.endsWith(".workers.dev") &&
+        parsed.hostname.includes(`-${args.workerName}.`)
+      );
+    } catch {
+      return false;
+    }
+  });
+  if (previewUrls.length === 0) {
+    return { state: "absent" };
+  }
+  if (previewUrls.length > 1) {
+    return { state: "unavailable", reason: "url_ambiguous" };
+  }
+  return { state: "available", url: previewUrls[0] };
+}
+
 function unavailableWorkerResources(args: {
   heads: readonly PullRequestResourceHead[];
   worker: StableWorker;
@@ -544,6 +604,33 @@ async function readWorkerResourcesForHeads(args: {
     convexBuildAccessRead = request;
     return request;
   };
+  let cloudflareVersionsRead: Promise<CloudflareVersionsRead> | undefined;
+  const readCloudflareVersions = () => {
+    const existing = cloudflareVersionsRead;
+    if (existing) {
+      return existing;
+    }
+    const request = readCloudflareWorkerVersionsPage({
+      token: args.cloudflareToken,
+      transport: args.cloudflareTransport,
+      accountId: args.worker.accountId,
+      workerName: args.worker.workerName,
+      page: 1,
+      perPage: CLOUDFLARE_BUILD_PAGE_SIZE,
+    }).then(
+      (versions) => ({ state: "available" as const, versions }),
+      (error) => {
+        reportPullRequestProviderFailure({
+          operation: "read_cloudflare_worker_versions",
+          error,
+          workerId: args.worker.workerId,
+        });
+        return { state: "failed" as const };
+      },
+    );
+    cloudflareVersionsRead = request;
+    return request;
+  };
 
   return await Promise.all(
     args.heads.map(async (head): Promise<PullRequestWorkerResource> => {
@@ -573,6 +660,27 @@ async function readWorkerResourcesForHeads(args: {
       }
 
       const unavailablePreview = () => ({ state: "unavailable" as const });
+      let cloudflarePreview: AvailableWorkerResource["cloudflarePreview"];
+      if (identity.previewUrlsEnabled === false || match.buildState !== "success") {
+        cloudflarePreview = { state: "absent" };
+      } else {
+        const versionsRead = await readCloudflareVersions();
+        if (versionsRead.state === "failed") {
+          cloudflarePreview = unavailablePreview();
+        } else {
+          const resolved = resolveCloudflarePreviewUrl({
+            versions: versionsRead.versions,
+            workerName: args.worker.workerName,
+            build: match,
+          });
+          cloudflarePreview =
+            resolved.state === "available"
+              ? { state: "available", url: resolved.url }
+              : resolved.state === "absent"
+                ? { state: "absent" }
+                : unavailablePreview();
+        }
+      }
       let convexPreview: AvailableWorkerResource["convexPreview"];
       const buildAccessRead = await readConvexBuildAccess();
       if (buildAccessRead.state === "failed") {
@@ -630,6 +738,7 @@ async function readWorkerResourcesForHeads(args: {
         state: "available",
         ...identityFields,
         buildState: match.buildState,
+        cloudflarePreview,
         convexPreview,
       };
     }),

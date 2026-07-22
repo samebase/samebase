@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
-import type { CloudflareWorkerBuild } from "../cloudflareResources";
+import type { CloudflareWorkerBuild, CloudflareWorkerVersion } from "../cloudflareResources";
 import {
   matchCloudflareWorkerBuild,
   normalizeGitHubPullRequestResourceHeadReads,
   recoverGitHubPullRequestResourceHeadsFromError,
+  resolveCloudflarePreviewUrl,
   resolveConvexPreviewDeployment,
   validatePullRequestResourceIds,
   type PullRequestResourceHead,
@@ -59,6 +60,20 @@ function cloudflareBuild(
       root_directory: rootDirectory,
       trigger_uuid: args.triggerUuid ?? "preview-trigger",
     },
+  };
+}
+
+function cloudflareVersion(args: {
+  createdOn?: string;
+  id?: string;
+  urls?: string[];
+}): CloudflareWorkerVersion {
+  return {
+    created_on: args.createdOn ?? "2026-07-20T10:00:30.000Z",
+    id: args.id ?? "version-1",
+    number: 1,
+    urls: args.urls ?? ["https://a1b2c3d4-samebase-worker.samebase.workers.dev"],
+    usage_model: "standard",
   };
 }
 
@@ -221,6 +236,50 @@ describe("matchCloudflareWorkerBuild", () => {
         previewTriggerUuid: "preview-trigger",
       }),
     ).toEqual({ state: "provider_disagreement" });
+  });
+});
+
+describe("resolveCloudflarePreviewUrl", () => {
+  const build = {
+    buildState: "success" as const,
+    createdAt: Date.parse("2026-07-20T10:00:00.000Z"),
+    finishedAt: Date.parse("2026-07-20T10:01:00.000Z"),
+  };
+
+  it("returns Cloudflare's exact URL for the version created by the build", () => {
+    expect(
+      resolveCloudflarePreviewUrl({
+        versions: [cloudflareVersion({})],
+        workerName: "samebase-worker",
+        build,
+      }),
+    ).toEqual({
+      state: "available",
+      url: "https://a1b2c3d4-samebase-worker.samebase.workers.dev",
+    });
+  });
+
+  it("does not guess a preview when no version URL belongs to the build", () => {
+    expect(
+      resolveCloudflarePreviewUrl({
+        versions: [
+          cloudflareVersion({ createdOn: "2026-07-20T09:59:59.000Z" }),
+          cloudflareVersion({ urls: [] }),
+        ],
+        workerName: "samebase-worker",
+        build,
+      }),
+    ).toEqual({ state: "absent" });
+  });
+
+  it("refuses ambiguous build versions", () => {
+    expect(
+      resolveCloudflarePreviewUrl({
+        versions: [cloudflareVersion({ id: "version-1" }), cloudflareVersion({ id: "version-2" })],
+        workerName: "samebase-worker",
+        build,
+      }),
+    ).toEqual({ state: "unavailable", reason: "version_ambiguous" });
   });
 });
 

@@ -68,6 +68,10 @@ function settledState(
             rootDirectory: "apps/samebase",
             workerName: "samebase-worker",
             buildState: "success" as const,
+            cloudflarePreview: {
+              state: "available" as const,
+              url: "https://a1b2c3d4-samebase-worker.samebase.workers.dev",
+            },
             convexPreview: {
               state: "available" as const,
               deploymentName: "precise-otter-1243",
@@ -117,6 +121,8 @@ describe("VaultPullRequestList", () => {
     expect(markup).toContain("PR #1243 Use live provider truth");
     expect(markup).toContain("4 passed");
     expect(markup).toContain("samebase-worker");
+    expect(markup).toContain("a1b2c3d4-samebase-worker.samebase.workers.dev");
+    expect(markup).toContain('href="https://a1b2c3d4-samebase-worker.samebase.workers.dev"');
     expect(markup).toContain("precise-otter-1243");
     expect(markup).toContain("View changes");
   });

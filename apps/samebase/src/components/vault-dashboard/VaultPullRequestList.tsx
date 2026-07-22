@@ -221,6 +221,17 @@ function WorkerResource({ worker }: { worker: PullRequestWorkerResource }) {
       </span>
       <span className="font-mono text-xs text-muted-foreground">{worker.rootDirectory}</span>
       <BuildState state={worker.buildState} />
+      {worker.cloudflarePreview.state === "available" ? (
+        <a
+          href={worker.cloudflarePreview.url}
+          target="_blank"
+          rel="noreferrer noopener"
+          className={metadataLinkClassName}
+          title={`Open Cloudflare preview for ${worker.workerName}`}
+        >
+          {new URL(worker.cloudflarePreview.url).hostname}
+        </a>
+      ) : null}
       {worker.convexPreview.state === "available" ? (
         <a
           href={worker.convexPreview.dashboardUrl}

@@ -1028,6 +1028,9 @@ test("vault dashboard fixture (list spacing)", async ({ page }) => {
 
   await expect(page.getByRole("link", { name: "Open pull request 1260 on GitHub" })).toBeVisible();
   await expect(
+    page.getByRole("link", { name: "a1b2c3d4-samebase-worker.samebase.workers.dev" }),
+  ).toHaveAttribute("href", "https://a1b2c3d4-samebase-worker.samebase.workers.dev");
+  await expect(
     page.getByText("codex/live-provider-truth-01 → main", { exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "Open pull request 1258 on GitHub" })).toHaveCount(0);

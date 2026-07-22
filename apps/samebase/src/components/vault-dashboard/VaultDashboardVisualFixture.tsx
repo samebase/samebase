@@ -489,6 +489,10 @@ function fixturePullRequests(
                       rootDirectory: "apps/samebase",
                       workerName: "samebase-worker",
                       buildState: "success" as const,
+                      cloudflarePreview: {
+                        state: "available" as const,
+                        url: "https://a1b2c3d4-samebase-worker.samebase.workers.dev",
+                      },
                       convexPreview: {
                         state: "available" as const,
                         deploymentName: "precise-otter-1260",
@@ -505,6 +509,7 @@ function fixturePullRequests(
                         rootDirectory: "apps/domain-router",
                         workerName: "domain-router",
                         buildState: "running" as const,
+                        cloudflarePreview: { state: "absent" as const },
                         convexPreview: { state: "unavailable" as const },
                       },
                     ]
