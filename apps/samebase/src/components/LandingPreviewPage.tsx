@@ -720,16 +720,6 @@ function LandingPreviewOverview() {
                     />
                     <span className="text-sm font-semibold">Start</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <img
-                      alt=""
-                      className="h-6 w-auto"
-                      height="20"
-                      src="/landing-preview/logos/react.svg"
-                      width="23"
-                    />
-                    <span className="text-sm font-semibold">React</span>
-                  </div>
                 </div>
               </div>
               <div className="@3xl:border-l @3xl:border-border @3xl:pl-10">

@@ -217,7 +217,6 @@ test("landing preview route renders the React overview in workspace chrome", asy
   const stackDetails = article.getByTestId(LANDING_PREVIEW_STACK_DETAILS_TEST_ID);
   await expect(stackDetails.getByRole("img", { name: "Vite+" })).toBeVisible();
   await expect(stackDetails.getByRole("img", { name: "TanStack" })).toBeVisible();
-  await expect(stackDetails).toContainText("React");
   await expect(stackDetails).toContainText("macOS · Linux · Windows");
   await expect(article.getByRole("img", { name: "Samebase", exact: true })).toBeVisible();
   // The closing band keeps the one interactive logo slot on the page.

@@ -124,7 +124,7 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("standard stack");
     expect(markup).toContain("/landing-preview/logos/vite-plus.svg");
     expect(markup).toContain("/landing-preview/logos/tanstack.svg");
-    expect(markup).toContain("/landing-preview/logos/react.svg");
+    expect(markup).not.toContain("/landing-preview/logos/react.svg");
     expect(markup).toContain("local workflow");
     expect(markup).toContain("macOS");
     expect(markup).toContain("Linux");
