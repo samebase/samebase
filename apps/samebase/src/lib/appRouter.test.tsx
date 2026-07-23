@@ -178,6 +178,12 @@ vi.mock("@/components/logo/LogoTransitionTransformsLabPage", () => ({
   ),
 }));
 
+vi.mock("@/components/logo/LogoMengerDepthTransitionPage", () => ({
+  LogoMengerDepthTransitionPage: () => (
+    <div data-testid="logo-menger-depth-transition-page">Menger depth transition page</div>
+  ),
+}));
+
 vi.mock("@/components/codex/CodexAppServerResearchPage", () => ({
   CodexAppServerResearchPage: () => (
     <div data-testid="codex-research-page">Codex research page</div>
