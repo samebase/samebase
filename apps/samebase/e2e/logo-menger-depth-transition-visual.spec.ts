@@ -14,7 +14,7 @@ async function waitForPaint(page: Page): Promise<void> {
   });
 }
 
-test("Menger sponge moves from depth one to depth two", async ({ page }) => {
+test("Menger sponge moves from depth one through depth two to depth three", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await signInIfNeeded(page, "/logo/transition/menger");
@@ -36,11 +36,11 @@ test("Menger sponge moves from depth one to depth two", async ({ page }) => {
   }));
   expect(layoutMetrics.pageHeight).toBeLessThanOrEqual(layoutMetrics.viewportHeight);
   expect(layoutMetrics.sceneHeight).toBe(layoutMetrics.pageHeight);
-  await expect(transitionPage).toHaveAttribute("data-phase", "depth-2");
+  await expect(transitionPage).toHaveAttribute("data-phase", "depth-3", { timeout: 10_000 });
 
   await page.getByRole("button", { name: "Replay transition" }).click();
   await expect(transitionPage).toHaveAttribute("data-phase", "transition");
-  await expect(transitionPage).toHaveAttribute("data-phase", "depth-2");
+  await expect(transitionPage).toHaveAttribute("data-phase", "depth-3", { timeout: 10_000 });
 
   await progress.fill("0");
   await expect(progress).toHaveValue("0");
@@ -52,10 +52,24 @@ test("Menger sponge moves from depth one to depth two", async ({ page }) => {
     caret: "hide",
     maxDiffPixelRatio: 0.01,
     scale: "css",
+    timeout: 15_000,
   });
 
   await progress.fill("500");
   await expect(progress).toHaveValue("500");
+  await expect(transitionPage).toHaveAttribute("data-phase", "depth-2");
+  await waitForPaint(page);
+
+  await expect(scene).toHaveScreenshot("logo-menger-depth-transition-depth-two.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+    timeout: 15_000,
+  });
+
+  await progress.fill("700");
+  await expect(progress).toHaveValue("700");
   await expect(transitionPage).toHaveAttribute("data-phase", "transition");
   await waitForPaint(page);
 
@@ -64,6 +78,20 @@ test("Menger sponge moves from depth one to depth two", async ({ page }) => {
     caret: "hide",
     maxDiffPixelRatio: 0.01,
     scale: "css",
+    timeout: 15_000,
+  });
+
+  await progress.fill("1000");
+  await expect(progress).toHaveValue("1000");
+  await expect(transitionPage).toHaveAttribute("data-phase", "depth-3");
+  await waitForPaint(page);
+
+  await expect(scene).toHaveScreenshot("logo-menger-depth-transition-depth-three.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+    timeout: 15_000,
   });
 });
 
@@ -128,6 +156,7 @@ test.describe("Menger sponge on a high-density phone", () => {
       caret: "hide",
       maxDiffPixelRatio: 0.01,
       scale: "css",
+      timeout: 15_000,
     });
   });
 });

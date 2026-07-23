@@ -1,10 +1,9 @@
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { Button } from "@/components/ui/button";
 import {
-  MENGER_DEPTH_TRANSITION_GRID_SIZE,
   MENGER_DEPTH_TRANSITION_MODEL,
-  MENGER_DEPTH_TRANSITION_SPLIT_HOLD_MS,
-  type MengerDepthTransitionMove,
+  MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS,
+  type MengerDepthTransitionStage,
 } from "@/components/logo/logoMengerDepthTransition";
 import {
   getWorldCameraVector,
@@ -18,10 +17,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } f
 import * as THREE from "three";
 
 const CAMERA_FRUSTUM_PADDING = 1.12;
+const MENGER_DEPTH_TRANSITION_WORLD_SIZE = 9;
 const RENDER_PIXEL_RATIO_MAX = 2;
 const TRANSITION_PROGRESS_STEPS = 1_000;
 
-type TransitionPhase = "depth-1" | "depth-2" | "transition";
+type TransitionPhase = "depth-1" | "depth-2" | "depth-3" | "transition";
 
 function easeInOutCubic(value: number): number {
   if (value < 0.5) {
@@ -31,31 +31,29 @@ function easeInOutCubic(value: number): number {
   return 1 - Math.pow(-2 * value + 2, 3) / 2;
 }
 
-function easeMoveProgress(
-  motionStyle: MengerDepthTransitionMove["motionStyle"],
-  value: number,
-): number {
-  switch (motionStyle) {
-    case "drift":
-      return value * value * (3 - 2 * value);
-    case "glide":
-      return easeInOutCubic(value);
-    case "dart":
-      return 1 - Math.pow(1 - value, 4);
-    default:
-      return motionStyle satisfies never;
-  }
+function toWorldCoordinate(
+  coordinate: VoxelCoordinate,
+  gridSize: number,
+): readonly [number, number, number] {
+  const centerOffset = (gridSize - 1) / 2;
+  const voxelSize = MENGER_DEPTH_TRANSITION_WORLD_SIZE / gridSize;
+
+  return [
+    (coordinate[0] - centerOffset) * voxelSize,
+    (coordinate[1] - centerOffset) * voxelSize,
+    (coordinate[2] - centerOffset) * voxelSize,
+  ];
 }
 
-function toWorldCoordinate(coordinate: VoxelCoordinate): readonly [number, number, number] {
-  const centerOffset = (MENGER_DEPTH_TRANSITION_GRID_SIZE - 1) / 2;
-
-  return [coordinate[0] - centerOffset, coordinate[1] - centerOffset, coordinate[2] - centerOffset];
-}
-
-function writeTranslationMatrix(matrix: THREE.Matrix4, coordinate: VoxelCoordinate) {
-  const [x, y, z] = toWorldCoordinate(coordinate);
-  matrix.makeTranslation(x, y, z);
+function writeVoxelMatrix(
+  matrix: THREE.Matrix4,
+  coordinate: VoxelCoordinate,
+  gridSize: number,
+): void {
+  const voxelSize = MENGER_DEPTH_TRANSITION_WORLD_SIZE / gridSize;
+  const [x, y, z] = toWorldCoordinate(coordinate, gridSize);
+  matrix.makeScale(voxelSize, voxelSize, voxelSize);
+  matrix.setPosition(x, y, z);
 }
 
 function MengerDepthTransitionScene({ progress }: { progress: number }) {
@@ -103,40 +101,63 @@ function MengerDepthTransitionScene({ progress }: { progress: number }) {
       materials,
       MENGER_DEPTH_TRANSITION_MODEL.depthOneVoxels.length,
     );
-    const settledMesh = new THREE.InstancedMesh(
+    const depthTwoSettledMesh = new THREE.InstancedMesh(
       geometry,
       materials,
-      MENGER_DEPTH_TRANSITION_MODEL.settledVoxels.length,
+      MENGER_DEPTH_TRANSITION_MODEL.depthTwo.settledVoxels.length,
     );
-    const movingMesh = new THREE.InstancedMesh(
+    const depthTwoMovingMesh = new THREE.InstancedMesh(
       geometry,
       materials,
-      MENGER_DEPTH_TRANSITION_MODEL.moves.length,
+      MENGER_DEPTH_TRANSITION_MODEL.depthTwo.moves.length,
     );
-    movingMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    const depthThreeSettledMesh = new THREE.InstancedMesh(
+      geometry,
+      materials,
+      MENGER_DEPTH_TRANSITION_MODEL.depthThree.settledVoxels.length,
+    );
+    const depthThreeMovingMesh = new THREE.InstancedMesh(
+      geometry,
+      materials,
+      MENGER_DEPTH_TRANSITION_MODEL.depthThree.moves.length,
+    );
+    depthTwoMovingMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    depthThreeMovingMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     const logoGroup = new THREE.Group();
-    logoGroup.add(depthOneMesh, settledMesh, movingMesh);
+    logoGroup.add(
+      depthOneMesh,
+      depthTwoSettledMesh,
+      depthTwoMovingMesh,
+      depthThreeSettledMesh,
+      depthThreeMovingMesh,
+    );
     scene.add(logoGroup);
 
-    const rotation = new THREE.Euler();
     const matrix = new THREE.Matrix4();
-    MENGER_DEPTH_TRANSITION_MODEL.depthOneVoxels.forEach(([x, y, z], index) => {
-      matrix.makeScale(3, 3, 3);
-      matrix.setPosition((x - 1) * 3, (y - 1) * 3, (z - 1) * 3);
+    MENGER_DEPTH_TRANSITION_MODEL.depthOneVoxels.forEach((coordinate, index) => {
+      writeVoxelMatrix(matrix, coordinate, 3);
       depthOneMesh.setMatrixAt(index, matrix);
     });
     depthOneMesh.instanceMatrix.needsUpdate = true;
     depthOneMesh.computeBoundingSphere();
 
-    MENGER_DEPTH_TRANSITION_MODEL.settledVoxels.forEach((coordinate, index) => {
-      writeTranslationMatrix(matrix, coordinate);
-      settledMesh.setMatrixAt(index, matrix);
+    MENGER_DEPTH_TRANSITION_MODEL.depthTwo.settledVoxels.forEach((coordinate, index) => {
+      writeVoxelMatrix(matrix, coordinate, MENGER_DEPTH_TRANSITION_MODEL.depthTwo.gridSize);
+      depthTwoSettledMesh.setMatrixAt(index, matrix);
     });
-    settledMesh.instanceMatrix.needsUpdate = true;
-    settledMesh.computeBoundingSphere();
-    movingMesh.frustumCulled = false;
+    depthTwoSettledMesh.instanceMatrix.needsUpdate = true;
+    depthTwoSettledMesh.computeBoundingSphere();
 
-    const fitRadius = (MENGER_DEPTH_TRANSITION_GRID_SIZE / 2) * Math.sqrt(3);
+    MENGER_DEPTH_TRANSITION_MODEL.depthThree.settledVoxels.forEach((coordinate, index) => {
+      writeVoxelMatrix(matrix, coordinate, MENGER_DEPTH_TRANSITION_MODEL.depthThree.gridSize);
+      depthThreeSettledMesh.setMatrixAt(index, matrix);
+    });
+    depthThreeSettledMesh.instanceMatrix.needsUpdate = true;
+    depthThreeSettledMesh.computeBoundingSphere();
+    depthTwoMovingMesh.frustumCulled = false;
+    depthThreeMovingMesh.frustumCulled = false;
+
+    const fitRadius = (MENGER_DEPTH_TRANSITION_WORLD_SIZE / 2) * Math.sqrt(3);
     const cameraDepthBounds = resolveLogoSceneCameraDepthBounds(fitRadius);
     const [cameraX, cameraY, cameraZ] = getWorldCameraVector(DEFAULT_ELEVATION_DEGREES);
     const [upX, upY, upZ] = getWorldScreenVerticalAxis(DEFAULT_ELEVATION_DEGREES);
@@ -145,17 +166,14 @@ function MengerDepthTransitionScene({ progress }: { progress: number }) {
     camera.lookAt(0, 0, 0);
     camera.far = cameraDepthBounds.far;
 
-    const renderProgress = (nextProgress: number) => {
-      const elapsedMs =
-        THREE.MathUtils.clamp(nextProgress, 0, 1) * MENGER_DEPTH_TRANSITION_MODEL.totalDurationMs;
-      const hasSplit = elapsedMs > MENGER_DEPTH_TRANSITION_SPLIT_HOLD_MS;
-      depthOneMesh.visible = !hasSplit;
-      settledMesh.visible = hasSplit;
-      movingMesh.visible = hasSplit;
-
-      MENGER_DEPTH_TRANSITION_MODEL.moves.forEach((move, index) => {
+    const renderStageMoves = (
+      stage: MengerDepthTransitionStage,
+      movingMesh: THREE.InstancedMesh,
+      elapsedMs: number,
+    ) => {
+      stage.moves.forEach((move, index) => {
         const moveProgress = THREE.MathUtils.clamp(
-          (elapsedMs - move.startTimeMs) / move.durationMs,
+          (elapsedMs - move.startTimeMs) / MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS,
           0,
           1,
         );
@@ -166,25 +184,35 @@ function MengerDepthTransitionScene({ progress }: { progress: number }) {
           return;
         }
 
-        const easedProgress = easeMoveProgress(move.motionStyle, moveProgress);
-        const arcProgress = Math.sin(Math.PI * moveProgress);
-        const [startX, startY, startZ] = toWorldCoordinate(move.from);
-        const [endX, endY, endZ] = toWorldCoordinate(move.to);
-        rotation.set(
-          move.rotation[0] * easedProgress,
-          move.rotation[1] * easedProgress,
-          move.rotation[2] * easedProgress,
-        );
-        matrix.makeRotationFromEuler(rotation);
+        const easedProgress = easeInOutCubic(moveProgress);
+        const [startX, startY, startZ] = toWorldCoordinate(move.from, stage.gridSize);
+        const [endX, endY, endZ] = toWorldCoordinate(move.to, stage.gridSize);
+        const voxelSize = MENGER_DEPTH_TRANSITION_WORLD_SIZE / stage.gridSize;
+        matrix.makeScale(voxelSize, voxelSize, voxelSize);
         matrix.setPosition(
-          startX + (endX - startX) * easedProgress + move.arcOffset[0] * arcProgress,
-          startY + (endY - startY) * easedProgress + move.arcOffset[1] * arcProgress,
-          startZ + (endZ - startZ) * easedProgress + move.arcOffset[2] * arcProgress,
+          startX + (endX - startX) * easedProgress,
+          startY + (endY - startY) * easedProgress,
+          startZ + (endZ - startZ) * easedProgress,
         );
         movingMesh.setMatrixAt(index, matrix);
       });
 
       movingMesh.instanceMatrix.needsUpdate = true;
+    };
+
+    const renderProgress = (nextProgress: number) => {
+      const elapsedMs =
+        THREE.MathUtils.clamp(nextProgress, 0, 1) * MENGER_DEPTH_TRANSITION_MODEL.totalDurationMs;
+      const hasSplitToDepthTwo = elapsedMs > MENGER_DEPTH_TRANSITION_MODEL.depthTwo.splitTimeMs;
+      const hasSplitToDepthThree = elapsedMs > MENGER_DEPTH_TRANSITION_MODEL.depthThree.splitTimeMs;
+      depthOneMesh.visible = !hasSplitToDepthTwo;
+      depthTwoSettledMesh.visible = hasSplitToDepthTwo && !hasSplitToDepthThree;
+      depthTwoMovingMesh.visible = hasSplitToDepthTwo && !hasSplitToDepthThree;
+      depthThreeSettledMesh.visible = hasSplitToDepthThree;
+      depthThreeMovingMesh.visible = hasSplitToDepthThree;
+
+      renderStageMoves(MENGER_DEPTH_TRANSITION_MODEL.depthTwo, depthTwoMovingMesh, elapsedMs);
+      renderStageMoves(MENGER_DEPTH_TRANSITION_MODEL.depthThree, depthThreeMovingMesh, elapsedMs);
       renderer.render(scene, camera);
     };
 
@@ -316,10 +344,27 @@ export function LogoMengerDepthTransitionPage() {
     }
   }, [progress]);
 
-  const phase: TransitionPhase =
-    progress >= 1 ? "depth-2" : progress > 0 || isPlaying ? "transition" : "depth-1";
-  const phaseLabel =
-    phase === "depth-1" ? "Depth 1" : phase === "depth-2" ? "Depth 2" : "Transitioning";
+  const elapsedMs = progress * MENGER_DEPTH_TRANSITION_MODEL.totalDurationMs;
+  let phase: TransitionPhase;
+  let phaseLabel: string;
+  if (progress >= 1) {
+    phase = "depth-3";
+    phaseLabel = "Depth 3";
+  } else if (elapsedMs >= MENGER_DEPTH_TRANSITION_MODEL.depthTwo.endTimeMs) {
+    if (elapsedMs < MENGER_DEPTH_TRANSITION_MODEL.depthThree.splitTimeMs) {
+      phase = "depth-2";
+      phaseLabel = "Depth 2";
+    } else {
+      phase = "transition";
+      phaseLabel = "Depth 2 to 3";
+    }
+  } else if (progress > 0 || isPlaying) {
+    phase = "transition";
+    phaseLabel = "Depth 1 to 2";
+  } else {
+    phase = "depth-1";
+    phaseLabel = "Depth 1";
+  }
 
   const replayTransition = useCallback(() => {
     if (prefersReducedMotionRef.current) {
@@ -382,8 +427,10 @@ export function LogoMengerDepthTransitionPage() {
 
         <div className="grid gap-1 border-t pt-3 font-mono text-xs text-muted-foreground">
           <div>20 large cubes</div>
-          <div>140 absorbed cubes</div>
-          <div>400 final cubes</div>
+          <div>140 absorbed for depth 2</div>
+          <div>400 depth 2 cubes</div>
+          <div>2,800 absorbed for depth 3</div>
+          <div>8,000 final cubes</div>
         </div>
       </div>
     ),
