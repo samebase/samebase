@@ -1063,7 +1063,7 @@ function VaultSidebar({
         return (
           <Link
             key={option.mode}
-            aria-label={`${scenario.repositoryOwner}/${scenario.repositoryName}, main ${compactChecksLabel}, ${appCount} ${appCount === 1 ? "app" : "apps"}${pullRequestCount > 0 ? `, ${pullRequestCount} ${pullRequestCount === 1 ? "PR" : "PRs"}` : ""}`}
+            aria-label={`${scenario.repositoryOwner}/${scenario.repositoryName}, ${compactChecksLabel}, ${appCount} ${appCount === 1 ? "app" : "apps"}${pullRequestCount > 0 ? `, ${pullRequestCount} ${pullRequestCount === 1 ? "PR" : "PRs"}` : ""}`}
             aria-current={active ? "page" : undefined}
             className={
               active
@@ -1094,9 +1094,6 @@ function VaultSidebar({
                 <span className={commitStateStyle.dot} />
               </span>
               <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
-                <span className="@max-[120px]:hidden" data-vault-sidebar-branch>
-                  main{" "}
-                </span>
                 <span data-vault-sidebar-checks>{compactChecksLabel}</span>
                 <span className="@max-[200px]:hidden" data-vault-sidebar-totals>
                   {` · ${appCount} ${appCount === 1 ? "app" : "apps"}`}
@@ -1209,7 +1206,6 @@ function DefaultBranchSection({ scenario }: { scenario: LabScenario }) {
             <GitBranch className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="text-sm font-semibold text-foreground">main</span>
                 <span className="font-mono text-xs text-muted-foreground">
                   {scenario.commit.hash}
                 </span>
@@ -1431,9 +1427,6 @@ function RepositorySettings({ scenario }: { scenario: LabScenario }) {
               <div className="min-w-0">
                 <div className="truncate text-sm font-medium text-foreground">
                   {scenario.repositoryOwner}/{scenario.repositoryName}
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  Default branch <span className="font-mono text-foreground">main</span>
                 </div>
               </div>
             </div>

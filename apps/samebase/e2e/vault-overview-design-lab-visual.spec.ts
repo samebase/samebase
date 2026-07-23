@@ -91,7 +91,7 @@ test("keeps repository identity useful at the desktop sidebar floor", async ({ p
   });
 
   const activeVault = page.getByRole("link", {
-    name: "samebase/commerce-order-fulfillment-platform, main 24/24, 12 apps, 6 PRs",
+    name: "samebase/commerce-order-fulfillment-platform, 24/24, 12 apps, 6 PRs",
   });
   await expect(activeVault).toBeVisible();
   await expect(activeVault.locator("[data-vault-sidebar-owner]")).toHaveText("samebase/");
@@ -180,11 +180,10 @@ test.describe("touch-first phone", () => {
     });
 
     const activeVault = page.getByRole("link", {
-      name: "samebase/commerce-order-fulfillment-platform, main 24/24, 12 apps, 6 PRs",
+      name: "samebase/commerce-order-fulfillment-platform, 24/24, 12 apps, 6 PRs",
     });
     await expect(activeVault).toBeVisible();
     await expect(activeVault.locator("[data-vault-sidebar-owner]")).toBeHidden();
-    await expect(activeVault.locator("[data-vault-sidebar-branch]")).toBeHidden();
     await expect(activeVault.locator("[data-vault-sidebar-totals]")).toBeHidden();
     await expect(activeVault.locator("[data-vault-sidebar-checks]")).toHaveText("24/24");
     await expect(lab).toHaveScreenshot("vault-overview-design-lab-minimum-mobile-sidebar.png", {
