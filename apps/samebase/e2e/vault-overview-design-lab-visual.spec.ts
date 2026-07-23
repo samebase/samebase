@@ -74,7 +74,10 @@ test("shows default branch and pull request apps in the monorepo concept", async
     "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/domain-router/production/settings",
   );
   await expect(
-    defaultBranch.getByRole("link", { name: "Open domain-router workers.dev", exact: true }),
+    defaultBranch.getByRole("link", {
+      name: "Open domain-router domain-router.samebase.workers.dev",
+      exact: true,
+    }),
   ).toHaveAttribute("href", "https://domain-router.samebase.workers.dev");
   await expect(lab).toHaveScreenshot("vault-overview-design-lab-monorepo.png", {
     animations: "disabled",
@@ -206,10 +209,23 @@ test("keeps repository connections and uncommon repairs in settings", async ({ p
   );
   await expect(
     checkoutRoot.getByRole("link", {
-      name: "Open commerce-checkout Custom domain",
+      name: "Open commerce-checkout checkout.commerce.example",
       exact: true,
     }),
   ).toHaveAttribute("href", "https://checkout.commerce.example");
+  const storefrontRoot = page.locator('[data-settings-root="apps/storefront"]');
+  await expect(
+    storefrontRoot.getByRole("link", {
+      name: "Open commerce-storefront commerce.example",
+      exact: true,
+    }),
+  ).toHaveAttribute("href", "https://commerce.example");
+  await expect(
+    storefrontRoot.getByRole("link", {
+      name: "Open commerce-storefront commerce-storefront.commerce-platform.workers.dev",
+      exact: true,
+    }),
+  ).toHaveAttribute("href", "https://commerce-storefront.commerce-platform.workers.dev");
   await expect(lab).toHaveScreenshot("vault-overview-design-lab-settings.png", {
     animations: "disabled",
     caret: "hide",

@@ -272,7 +272,7 @@ const MONOREPO_PRODUCTION_ROOTS = [
         ...SAMEBASE_CLOUDFLARE_ACCOUNT,
         destinations: [
           {
-            label: "workers.dev",
+            label: "domain-router.samebase.workers.dev",
             url: "https://domain-router.samebase.workers.dev",
           },
         ],
@@ -304,9 +304,9 @@ const MONOREPO_PRODUCTION_ROOTS = [
         kind: "cloudflare",
         ...SAMEBASE_CLOUDFLARE_ACCOUNT,
         destinations: [
-          { label: "Custom domain", url: "https://samebase.com" },
+          { label: "samebase.com", url: "https://samebase.com" },
           {
-            label: "workers.dev",
+            label: "samebase-worker.samebase.workers.dev",
             url: "https://samebase-worker.samebase.workers.dev",
           },
         ],
@@ -488,7 +488,7 @@ const STRESS_PRODUCTION_ROOTS = [
         ...COMMERCE_CLOUDFLARE_ACCOUNT,
         destinations: [
           {
-            label: "Custom domain",
+            label: "admin.commerce.example",
             url: "https://admin.commerce.example",
           },
         ],
@@ -535,7 +535,7 @@ const STRESS_PRODUCTION_ROOTS = [
         ...COMMERCE_CLOUDFLARE_ACCOUNT,
         destinations: [
           {
-            label: "Custom domain",
+            label: "checkout.commerce.example",
             url: "https://checkout.commerce.example",
           },
         ],
@@ -605,11 +605,11 @@ const STRESS_PRODUCTION_ROOTS = [
         ...COMMERCE_CLOUDFLARE_ACCOUNT,
         destinations: [
           {
-            label: "Custom domain",
+            label: "commerce.example",
             url: "https://commerce.example",
           },
           {
-            label: "workers.dev",
+            label: "commerce-storefront.commerce-platform.workers.dev",
             url: "https://commerce-storefront.commerce-platform.workers.dev",
           },
         ],
@@ -959,7 +959,7 @@ const SCENARIOS = {
             ...NOTER_CLOUDFLARE_ACCOUNT,
             destinations: [
               {
-                label: "Custom domain",
+                label: "guestbook.samebase.app",
                 url: "https://guestbook.samebase.app",
               },
             ],
@@ -1141,7 +1141,7 @@ const SCENARIOS = {
             ...SAMEBASE_CLOUDFLARE_ACCOUNT,
             destinations: [
               {
-                label: "Custom domain",
+                label: "plugins.samebase.com",
                 url: "https://plugins.samebase.com",
               },
             ],
