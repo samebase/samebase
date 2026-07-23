@@ -42,4 +42,26 @@ describe("Menger depth transition", () => {
       ),
     ).toBe(true);
   });
+
+  it("gives the absorbed cubes varied deterministic motion", () => {
+    const moves = MENGER_DEPTH_TRANSITION_MODEL.moves;
+
+    expect(new Set(moves.map((move) => move.startTimeMs)).size).toBeGreaterThan(80);
+    expect(new Set(moves.map((move) => move.durationMs)).size).toBeGreaterThan(80);
+    expect(new Set(moves.map((move) => move.motionStyle))).toEqual(
+      new Set(["dart", "drift", "glide"]),
+    );
+    expect(
+      moves.some((move) => move.arcOffset.every((axisOffset) => Math.abs(axisOffset) < 0.15)),
+    ).toBe(true);
+    expect(
+      moves.some((move) => move.arcOffset.some((axisOffset) => Math.abs(axisOffset) > 0.3)),
+    ).toBe(true);
+    expect(
+      moves.every(
+        (move) =>
+          move.startTimeMs + move.durationMs <= MENGER_DEPTH_TRANSITION_MODEL.totalDurationMs,
+      ),
+    ).toBe(true);
+  });
 });

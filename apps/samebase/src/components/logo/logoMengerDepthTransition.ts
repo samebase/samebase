@@ -6,12 +6,17 @@ import {
 } from "@/components/logo/logoVoxelState";
 
 export const MENGER_DEPTH_TRANSITION_GRID_SIZE = 9;
-export const MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS = 1_800;
 export const MENGER_DEPTH_TRANSITION_SPLIT_HOLD_MS = 240;
-const MENGER_DEPTH_TRANSITION_CENTER_DELAY_MS = 260;
+const MENGER_DEPTH_TRANSITION_MOVE_DURATION_BASE_MS = 1_050;
+const MENGER_DEPTH_TRANSITION_MOVE_DURATION_VARIATION_MS = 1_050;
+const MENGER_DEPTH_TRANSITION_MOVE_STAGGER_MS = 560;
 
 export type MengerDepthTransitionMove = {
+  arcOffset: readonly [number, number, number];
+  durationMs: number;
   from: VoxelCoordinate;
+  motionStyle: "dart" | "drift" | "glide";
+  rotation: readonly [number, number, number];
   startTimeMs: number;
   to: VoxelCoordinate;
 };
@@ -50,6 +55,15 @@ function toDepthTwoCoordinate(parent: VoxelCoordinate, child: VoxelCoordinate): 
 
 function manhattanDistance(left: VoxelCoordinate, right: VoxelCoordinate): number {
   return Math.abs(left[0] - right[0]) + Math.abs(left[1] - right[1]) + Math.abs(left[2] - right[2]);
+}
+
+function readMovementNoise(coordinate: VoxelCoordinate, channel: number): number {
+  const value = Math.sin(
+    coordinate[0] * 12.9898 + coordinate[1] * 78.233 + coordinate[2] * 37.719 + channel * 53.123,
+  );
+  const scaledValue = value * 43_758.5453;
+
+  return scaledValue - Math.floor(scaledValue);
 }
 
 function readNearestRetainedChild(
@@ -95,11 +109,52 @@ function createMengerDepthTransitionModel(): MengerDepthTransitionModel {
 
           const middleAxisCount = child.filter((axis) => axis === 1).length;
           const nearestRetainedChild = readNearestRetainedChild(child, retainedChildren);
+          const motionStyleNoise = readMovementNoise(coordinate, 6);
+          const motionStyle =
+            motionStyleNoise < 1 / 3 ? "drift" : motionStyleNoise < 2 / 3 ? "glide" : "dart";
+          const dominantArcAxis = Math.floor(readMovementNoise(coordinate, 0) * 3);
+          const arcDirection = readMovementNoise(coordinate, 1) < 0.5 ? -1 : 1;
+          const arcNoise = readMovementNoise(coordinate, 2);
+          const arcMagnitude =
+            motionStyle === "drift"
+              ? 0.25 + arcNoise * 0.3
+              : motionStyle === "glide"
+                ? 0.1 + arcNoise * 0.2
+                : arcNoise * 0.08;
+          const rotationMagnitude =
+            motionStyle === "drift"
+              ? Math.PI * 1.5
+              : motionStyle === "glide"
+                ? Math.PI * 0.75
+                : Math.PI * 0.2;
           moves.push({
+            arcOffset: [
+              (readMovementNoise(coordinate, 3) - 0.5) * 0.08 +
+                (dominantArcAxis === 0 ? arcDirection * arcMagnitude : 0),
+              (readMovementNoise(coordinate, 4) - 0.5) * 0.08 +
+                (dominantArcAxis === 1 ? arcDirection * arcMagnitude : 0),
+              (readMovementNoise(coordinate, 5) - 0.5) * 0.08 +
+                (dominantArcAxis === 2 ? arcDirection * arcMagnitude : 0),
+            ],
+            durationMs:
+              MENGER_DEPTH_TRANSITION_MOVE_DURATION_BASE_MS +
+              Math.round(
+                readMovementNoise(coordinate, 7) *
+                  MENGER_DEPTH_TRANSITION_MOVE_DURATION_VARIATION_MS,
+              ),
             from: coordinate,
+            motionStyle,
+            rotation: [
+              (readMovementNoise(coordinate, 8) - 0.5) * 2 * rotationMagnitude,
+              (readMovementNoise(coordinate, 9) - 0.5) * 2 * rotationMagnitude,
+              (readMovementNoise(coordinate, 10) - 0.5) * 2 * rotationMagnitude,
+            ],
             startTimeMs:
               MENGER_DEPTH_TRANSITION_SPLIT_HOLD_MS +
-              (middleAxisCount === 3 ? MENGER_DEPTH_TRANSITION_CENTER_DELAY_MS : 0),
+              Math.round(
+                readMovementNoise(coordinate, 11) * MENGER_DEPTH_TRANSITION_MOVE_STAGGER_MS,
+              ) +
+              (middleAxisCount === 3 ? Math.round(readMovementNoise(coordinate, 12) * 180) : 0),
             to: toDepthTwoCoordinate(parent, nearestRetainedChild),
           });
         }
@@ -112,15 +167,16 @@ function createMengerDepthTransitionModel(): MengerDepthTransitionModel {
     (left, right) =>
       left.startTimeMs - right.startTimeMs || compareVoxelCoordinates(left.from, right.from),
   );
+  const totalDurationMs = moves.reduce(
+    (latestEndTimeMs, move) => Math.max(latestEndTimeMs, move.startTimeMs + move.durationMs),
+    MENGER_DEPTH_TRANSITION_SPLIT_HOLD_MS,
+  );
 
   return {
     depthOneVoxels: retainedChildren,
     moves,
     settledVoxels,
-    totalDurationMs:
-      MENGER_DEPTH_TRANSITION_SPLIT_HOLD_MS +
-      MENGER_DEPTH_TRANSITION_CENTER_DELAY_MS +
-      MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS,
+    totalDurationMs,
   };
 }
 

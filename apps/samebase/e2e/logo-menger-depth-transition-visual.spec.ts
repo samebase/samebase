@@ -91,7 +91,8 @@ test.describe("Menger sponge on a high-density phone", () => {
       }
 
       carousel.style.scrollSnapType = "none";
-      carousel.scrollLeft = mainPane.offsetLeft;
+      carousel.scrollLeft =
+        mainPane.offsetLeft - Number.parseFloat(window.getComputedStyle(carousel).paddingLeft);
       carousel.dispatchEvent(new Event("scroll", { bubbles: true }));
     });
     await expect(workspaceLayout).toHaveAttribute("data-mobile-pane", "main");

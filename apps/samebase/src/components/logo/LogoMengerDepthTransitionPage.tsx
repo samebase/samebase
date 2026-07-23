@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import {
   MENGER_DEPTH_TRANSITION_GRID_SIZE,
   MENGER_DEPTH_TRANSITION_MODEL,
-  MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS,
   MENGER_DEPTH_TRANSITION_SPLIT_HOLD_MS,
+  type MengerDepthTransitionMove,
 } from "@/components/logo/logoMengerDepthTransition";
 import {
   getWorldCameraVector,
@@ -29,6 +29,22 @@ function easeInOutCubic(value: number): number {
   }
 
   return 1 - Math.pow(-2 * value + 2, 3) / 2;
+}
+
+function easeMoveProgress(
+  motionStyle: MengerDepthTransitionMove["motionStyle"],
+  value: number,
+): number {
+  switch (motionStyle) {
+    case "drift":
+      return value * value * (3 - 2 * value);
+    case "glide":
+      return easeInOutCubic(value);
+    case "dart":
+      return 1 - Math.pow(1 - value, 4);
+    default:
+      return motionStyle satisfies never;
+  }
 }
 
 function toWorldCoordinate(coordinate: VoxelCoordinate): readonly [number, number, number] {
@@ -102,6 +118,7 @@ function MengerDepthTransitionScene({ progress }: { progress: number }) {
     logoGroup.add(depthOneMesh, settledMesh, movingMesh);
     scene.add(logoGroup);
 
+    const rotation = new THREE.Euler();
     const matrix = new THREE.Matrix4();
     MENGER_DEPTH_TRANSITION_MODEL.depthOneVoxels.forEach(([x, y, z], index) => {
       matrix.makeScale(3, 3, 3);
@@ -138,7 +155,7 @@ function MengerDepthTransitionScene({ progress }: { progress: number }) {
 
       MENGER_DEPTH_TRANSITION_MODEL.moves.forEach((move, index) => {
         const moveProgress = THREE.MathUtils.clamp(
-          (elapsedMs - move.startTimeMs) / MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS,
+          (elapsedMs - move.startTimeMs) / move.durationMs,
           0,
           1,
         );
@@ -149,13 +166,20 @@ function MengerDepthTransitionScene({ progress }: { progress: number }) {
           return;
         }
 
-        const easedProgress = easeInOutCubic(moveProgress);
+        const easedProgress = easeMoveProgress(move.motionStyle, moveProgress);
+        const arcProgress = Math.sin(Math.PI * moveProgress);
         const [startX, startY, startZ] = toWorldCoordinate(move.from);
         const [endX, endY, endZ] = toWorldCoordinate(move.to);
-        matrix.makeTranslation(
-          startX + (endX - startX) * easedProgress,
-          startY + (endY - startY) * easedProgress,
-          startZ + (endZ - startZ) * easedProgress,
+        rotation.set(
+          move.rotation[0] * easedProgress,
+          move.rotation[1] * easedProgress,
+          move.rotation[2] * easedProgress,
+        );
+        matrix.makeRotationFromEuler(rotation);
+        matrix.setPosition(
+          startX + (endX - startX) * easedProgress + move.arcOffset[0] * arcProgress,
+          startY + (endY - startY) * easedProgress + move.arcOffset[1] * arcProgress,
+          startZ + (endZ - startZ) * easedProgress + move.arcOffset[2] * arcProgress,
         );
         movingMesh.setMatrixAt(index, matrix);
       });
