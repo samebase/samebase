@@ -56,6 +56,8 @@ test("shows default branch and pull request apps in the monorepo concept", async
   await expect(
     page.getByRole("button", { name: /Discover default-layout Convex projects/ }),
   ).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("button", { name: "14 passed" })).toBeVisible();
+  await expect(page.getByText("Live", { exact: true })).toHaveCount(0);
   await expect(lab).toHaveScreenshot("vault-overview-design-lab-monorepo.png", {
     animations: "disabled",
     caret: "hide",
@@ -91,7 +93,7 @@ test("keeps repository identity useful at the desktop sidebar floor", async ({ p
   });
 
   const activeVault = page.getByRole("link", {
-    name: "samebase/commerce-order-fulfillment-platform, 24/24, 12 apps, 6 PRs",
+    name: "samebase/commerce-order-fulfillment-platform, 24/24, 10 Cloudflare Workers, 5 Convex projects, 6 PRs",
   });
   await expect(activeVault).toBeVisible();
   await expect(activeVault.locator("[data-vault-sidebar-owner]")).toHaveText("samebase/");
@@ -133,8 +135,9 @@ test("keeps repository connections and uncommon repairs in settings", async ({ p
     "aria-current",
     "page",
   );
-  await expect(page.getByRole("button", { name: "Add Cloudflare" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Add Convex" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add Cloudflare Worker" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add Convex project" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Repository" })).toHaveCount(0);
   await expect(page.locator('[data-settings-root="apps/checkout"]')).toBeVisible();
   await expect(page.getByText("Worker", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Production deployment", { exact: true })).toHaveCount(0);
@@ -180,7 +183,7 @@ test.describe("touch-first phone", () => {
     });
 
     const activeVault = page.getByRole("link", {
-      name: "samebase/commerce-order-fulfillment-platform, 24/24, 12 apps, 6 PRs",
+      name: "samebase/commerce-order-fulfillment-platform, 24/24, 10 Cloudflare Workers, 5 Convex projects, 6 PRs",
     });
     await expect(activeVault).toBeVisible();
     await expect(activeVault.locator("[data-vault-sidebar-owner]")).toBeHidden();
@@ -197,6 +200,14 @@ test.describe("touch-first phone", () => {
   test("collapses a single-root app without losing its resources", async ({ page }) => {
     const lab = await openVaultOverviewDesignLab(page, "vault-overview-lab-simple");
 
+    const checks = page.getByRole("button", { name: "6 passed" });
+    await expect(checks).toBeVisible();
+    const checksBounds = await checks.boundingBox();
+    if (!checksBounds) {
+      throw new Error("Default branch checks button has no rendered bounds");
+    }
+    expect(checksBounds.height).toBeGreaterThanOrEqual(32);
+    await expect(page.locator("[data-pull-request-title]")).toHaveCSS("-webkit-line-clamp", "3");
     await expect(page.getByText("guestbook", { exact: true }).first()).toBeVisible();
     await expect(page.getByLabel("Cloudflare").first()).toBeVisible();
     await expect(page.getByLabel("Convex").first()).toBeVisible();
@@ -207,6 +218,8 @@ test.describe("touch-first phone", () => {
       maxDiffPixelRatio: 0.02,
       scale: "css",
     });
+    await checks.click();
+    await expect(page.getByText("Default branch checks", { exact: true })).toBeVisible();
   });
 
   test("keeps repository roots distinct from their settings resources", async ({ page }) => {

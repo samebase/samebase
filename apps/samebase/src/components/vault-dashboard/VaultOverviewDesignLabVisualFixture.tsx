@@ -6,8 +6,9 @@ import {
   ChevronDown,
   CircleDot,
   ExternalLink,
-  GitBranch,
+  GitCommitHorizontal,
   GitPullRequest,
+  LayoutList,
   LoaderCircle,
   MoreHorizontal,
   Settings,
@@ -25,6 +26,8 @@ import {
   ConvexProviderLogo,
   GitHubProviderLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
+import { VaultChecksPopover } from "@/components/vault-dashboard/VaultChecksPopover";
+import type { VaultDefaultBranchChecks } from "@/hooks/useVaultPullRequests";
 
 export type VaultOverviewDesignLabVisualMode =
   | "vault-overview-lab-simple"
@@ -73,6 +76,7 @@ type LabScenario = {
   alert: LabAlert | null;
   commit: {
     author: string;
+    checks: LabChecks;
     checksLabel: string;
     hash: string;
     state: EventState;
@@ -88,6 +92,65 @@ type LabScenario = {
   repositoryOwner: string;
   repositoryUrl: string;
 };
+
+type LabChecks = Pick<VaultDefaultBranchChecks, "checks" | "statusCheckRollup">;
+
+function labChecks({
+  failureCount,
+  runningCount,
+  successCount,
+}: {
+  failureCount: number;
+  runningCount: number;
+  successCount: number;
+}): LabChecks {
+  const totalCount = failureCount + runningCount + successCount;
+  const state = failureCount > 0 ? "failure" : runningCount > 0 ? "running" : "success";
+
+  return {
+    checks: {
+      state,
+      totalCount,
+      successCount,
+      failureCount,
+      runningCount,
+      neutralCount: 0,
+      unknownCount: 0,
+    },
+    statusCheckRollup: {
+      state: failureCount > 0 ? "FAILURE" : runningCount > 0 ? "PENDING" : "SUCCESS",
+      contexts: {
+        totalCount,
+        checkRunCount: totalCount,
+        statusContextCount: 0,
+        checkRunCountsByState: [
+          ...(failureCount > 0 ? [{ state: "FAILURE", count: failureCount } as const] : []),
+          ...(runningCount > 0 ? [{ state: "IN_PROGRESS", count: runningCount } as const] : []),
+          ...(successCount > 0 ? [{ state: "SUCCESS", count: successCount } as const] : []),
+        ],
+        statusContextCountsByState: [],
+        nodes: [
+          {
+            kind: "check_run",
+            name: "Tests",
+            status: "COMPLETED",
+            conclusion: failureCount > 0 ? "FAILURE" : "SUCCESS",
+            detailsUrl: "https://github.com/samebase/samebase/actions",
+            title: null,
+          },
+          {
+            kind: "check_run",
+            name: "Cloudflare Workers Builds",
+            status: runningCount > 0 ? "IN_PROGRESS" : "COMPLETED",
+            conclusion: runningCount > 0 ? null : failureCount > 0 ? "FAILURE" : "SUCCESS",
+            detailsUrl: "https://dash.cloudflare.com/",
+            title: null,
+          },
+        ],
+      },
+    },
+  };
+}
 
 const LAB_MODES = [
   { label: "Simple", mode: "vault-overview-lab-simple" },
@@ -206,7 +269,7 @@ const MONOREPO_PULL_REQUESTS = [
     author: "nicu",
     checksLabel: "14/14 checks",
     number: 1263,
-    rootSummary: "1 app observed",
+    rootSummary: "1 preview",
     roots: [
       {
         rootDirectory: "apps/samebase",
@@ -231,7 +294,7 @@ const MONOREPO_PULL_REQUESTS = [
     author: "codex",
     checksLabel: "9/14 checks",
     number: 1262,
-    rootSummary: "2 apps observed",
+    rootSummary: "2 previews",
     roots: [
       {
         rootDirectory: "apps/domain-router",
@@ -269,7 +332,7 @@ const MONOREPO_PULL_REQUESTS = [
     author: "claude",
     checksLabel: "14/14 checks",
     number: 1259,
-    rootSummary: "1 app observed",
+    rootSummary: "No preview needed",
     roots: [
       {
         rootDirectory: "apps/samebase",
@@ -480,7 +543,7 @@ const STRESS_PULL_REQUESTS = [
     author: "maya",
     checksLabel: "21/24 checks",
     number: 842,
-    rootSummary: "12 apps checked, 2 previews",
+    rootSummary: "2 previews",
     roots: [
       {
         rootDirectory: "apps/checkout",
@@ -526,7 +589,7 @@ const STRESS_PULL_REQUESTS = [
     author: "leo",
     checksLabel: "24/24 checks",
     number: 841,
-    rootSummary: "12 apps checked, 1 preview",
+    rootSummary: "1 preview",
     roots: [
       {
         rootDirectory: "apps/search",
@@ -551,7 +614,7 @@ const STRESS_PULL_REQUESTS = [
     author: "sana",
     checksLabel: "24/24 checks",
     number: 839,
-    rootSummary: "12 apps checked, no previews",
+    rootSummary: "No preview needed",
     roots: [
       {
         rootDirectory: "services/email",
@@ -576,7 +639,7 @@ const STRESS_PULL_REQUESTS = [
     author: "owen",
     checksLabel: "18/24 checks",
     number: 837,
-    rootSummary: "12 apps checked, 1 preview",
+    rootSummary: "1 preview",
     roots: [
       {
         rootDirectory: "apps/admin",
@@ -601,7 +664,7 @@ const STRESS_PULL_REQUESTS = [
     author: "mia",
     checksLabel: "24/24 checks",
     number: 836,
-    rootSummary: "12 apps checked, no previews",
+    rootSummary: "No preview available",
     roots: [
       {
         rootDirectory: "apps/analytics",
@@ -626,7 +689,7 @@ const STRESS_PULL_REQUESTS = [
     author: "noah",
     checksLabel: "24/24 checks",
     number: 832,
-    rootSummary: "12 apps checked, 1 preview",
+    rootSummary: "1 preview",
     roots: [
       {
         rootDirectory: "services/webhooks",
@@ -654,6 +717,7 @@ const SCENARIOS = {
     alert: null,
     commit: {
       author: "noter-guest",
+      checks: labChecks({ failureCount: 0, runningCount: 0, successCount: 6 }),
       checksLabel: "6/6 checks",
       hash: "8f2ac16",
       state: "ready",
@@ -691,7 +755,7 @@ const SCENARIOS = {
         author: "noter-guest",
         checksLabel: "6/6 checks",
         number: 48,
-        rootSummary: "Preview ready",
+        rootSummary: "1 preview",
         roots: [
           {
             rootDirectory: "/",
@@ -709,7 +773,7 @@ const SCENARIOS = {
         ],
         state: "ready",
         stateLabel: "Ready",
-        title: "Make entries sortable",
+        title: "Make guestbook entries sortable by creation date and author without changing links",
         updatedAt: "34 min ago",
       },
     ],
@@ -721,6 +785,7 @@ const SCENARIOS = {
     alert: null,
     commit: {
       author: "nicu",
+      checks: labChecks({ failureCount: 0, runningCount: 0, successCount: 14 }),
       checksLabel: "14/14 checks",
       hash: "9111562",
       state: "ready",
@@ -740,6 +805,7 @@ const SCENARIOS = {
     alert: null,
     commit: {
       author: "maya",
+      checks: labChecks({ failureCount: 0, runningCount: 0, successCount: 24 }),
       checksLabel: "24/24 checks",
       hash: "4ad90cb",
       state: "ready",
@@ -762,6 +828,7 @@ const SCENARIOS = {
     },
     commit: {
       author: "nicu",
+      checks: labChecks({ failureCount: 1, runningCount: 0, successCount: 13 }),
       checksLabel: "13/14 checks",
       hash: "a12fbc8",
       state: "attention",
@@ -855,7 +922,7 @@ const SCENARIOS = {
         author: "codex",
         checksLabel: "8/8 checks",
         number: 214,
-        rootSummary: "1 app observed",
+        rootSummary: "1 preview",
         roots: [
           {
             rootDirectory: "packages/registry",
@@ -895,7 +962,13 @@ function ResourceIcon({ kind }: { kind: ResourceKind }) {
   }
 }
 
-function ResourceRow({ resource }: { resource: LabResource }) {
+function ResourceRow({
+  resource,
+  showLiveStatus,
+}: {
+  resource: LabResource;
+  showLiveStatus: boolean;
+}) {
   const style = RESOURCE_STATE_STYLE[resource.state];
   const title = (
     <span className="min-w-0 truncate font-medium text-foreground">{resource.label}</span>
@@ -934,20 +1007,44 @@ function ResourceRow({ resource }: { resource: LabResource }) {
           ) : null}
         </div>
       </div>
-      <div className={style.status}>
-        {style.icon}
-        {resource.stateLabel}
-      </div>
+      {showLiveStatus || resource.state !== "live" ? (
+        <div className={style.status}>
+          {style.icon}
+          {resource.stateLabel}
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+function RootDirectoryLabel({
+  needsAttention,
+  rootDirectory,
+}: {
+  needsAttention: boolean;
+  rootDirectory: string;
+}) {
+  return (
+    <span
+      className={
+        needsAttention
+          ? "block font-mono text-sm font-semibold text-red-700 [overflow-wrap:anywhere]"
+          : "block font-mono text-sm font-semibold text-foreground [overflow-wrap:anywhere]"
+      }
+    >
+      {rootDirectory}
+    </span>
   );
 }
 
 function RootGroup({
   group,
   hideRootDirectory,
+  showLiveStatus,
 }: {
   group: LabRootGroup;
   hideRootDirectory: boolean;
+  showLiveStatus: boolean;
 }) {
   return (
     <div className="relative border-b border-border/50 last:border-b-0">
@@ -956,41 +1053,46 @@ function RootGroup({
         className="absolute -left-5 top-[1.35rem] w-4 border-t border-border"
       />
       {hideRootDirectory ? null : (
-        <div
-          className="pt-3 font-mono text-xs font-medium text-foreground"
-          data-root-directory={group.rootDirectory}
-        >
-          {group.rootDirectory}
+        <div className="pt-3" data-root-directory={group.rootDirectory}>
+          <RootDirectoryLabel
+            needsAttention={group.rootDirectory === "Needs attention"}
+            rootDirectory={group.rootDirectory}
+          />
         </div>
       )}
       <div className={hideRootDirectory ? "py-0.5" : "pb-0.5"}>
         {group.resources.map((resource) => (
-          <ResourceRow key={`${resource.kind}-${resource.label}`} resource={resource} />
+          <ResourceRow
+            key={`${resource.kind}-${resource.label}`}
+            resource={resource}
+            showLiveStatus={showLiveStatus}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function RootRail({ roots }: { roots: readonly LabRootGroup[] }) {
+function RootRail({
+  roots,
+  showLiveStatus,
+}: {
+  roots: readonly LabRootGroup[];
+  showLiveStatus: boolean;
+}) {
   const hideRootDirectory = roots.length === 1 && roots[0]?.rootDirectory === "/";
 
   return (
     <div className="ml-2.5 border-l border-border pl-5">
       {roots.map((root) => (
-        <RootGroup key={root.rootDirectory} group={root} hideRootDirectory={hideRootDirectory} />
+        <RootGroup
+          key={root.rootDirectory}
+          group={root}
+          hideRootDirectory={hideRootDirectory}
+          showLiveStatus={showLiveStatus}
+        />
       ))}
     </div>
-  );
-}
-
-function EventStatus({ label, state }: { label: string; state: EventState }) {
-  const style = EVENT_STATE_STYLE[state];
-  return (
-    <span className={style.status}>
-      <span className={style.dot} />
-      {label}
-    </span>
   );
 }
 
@@ -1054,21 +1156,34 @@ function VaultSidebar({
       {LAB_MODES.map((option) => {
         const scenario = SCENARIOS[option.mode];
         const active = option.mode === mode;
-        const appCount = scenario.productionRoots.filter(
-          (root) => root.rootDirectory !== "Needs attention",
-        ).length;
+        let workerCount = 0;
+        let convexProjectCount = 0;
+        for (const root of scenario.productionRoots) {
+          for (const resource of root.resources) {
+            switch (resource.kind) {
+              case "cloudflare":
+                workerCount += 1;
+                break;
+              case "convex":
+                convexProjectCount += 1;
+                break;
+              default:
+                resource satisfies never;
+            }
+          }
+        }
         const pullRequestCount = scenario.pullRequests.length;
         const commitStateStyle = EVENT_STATE_STYLE[scenario.commit.state];
         const compactChecksLabel = scenario.commit.checksLabel.replace(" checks", "");
         return (
           <Link
             key={option.mode}
-            aria-label={`${scenario.repositoryOwner}/${scenario.repositoryName}, ${compactChecksLabel}, ${appCount} ${appCount === 1 ? "app" : "apps"}${pullRequestCount > 0 ? `, ${pullRequestCount} ${pullRequestCount === 1 ? "PR" : "PRs"}` : ""}`}
+            aria-label={`${scenario.repositoryOwner}/${scenario.repositoryName}, ${compactChecksLabel}, ${workerCount} ${workerCount === 1 ? "Cloudflare Worker" : "Cloudflare Workers"}, ${convexProjectCount} Convex ${convexProjectCount === 1 ? "project" : "projects"}${pullRequestCount > 0 ? `, ${pullRequestCount} ${pullRequestCount === 1 ? "PR" : "PRs"}` : ""}`}
             aria-current={active ? "page" : undefined}
             className={
               active
-                ? "mx-2 block min-w-0 bg-muted px-2 py-2.5 text-left no-underline hover:no-underline @max-[200px]:mx-1 @max-[200px]:px-1 @max-[120px]:mx-0"
-                : "mx-2 block min-w-0 px-2 py-2.5 text-left no-underline hover:bg-muted hover:no-underline @max-[200px]:mx-1 @max-[200px]:px-1 @max-[120px]:mx-0"
+                ? "block min-w-0 bg-muted px-3 py-2.5 text-left no-underline hover:no-underline @max-[200px]:px-2 @max-[120px]:px-1"
+                : "block min-w-0 px-3 py-2.5 text-left no-underline hover:bg-muted hover:no-underline @max-[200px]:px-2 @max-[120px]:px-1"
             }
             search={(current) => ({
               ...current,
@@ -1096,7 +1211,28 @@ function VaultSidebar({
               <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
                 <span data-vault-sidebar-checks>{compactChecksLabel}</span>
                 <span className="@max-[200px]:hidden" data-vault-sidebar-totals>
-                  {` · ${appCount} ${appCount === 1 ? "app" : "apps"}`}
+                  <span
+                    aria-label={`${workerCount} Cloudflare Workers`}
+                    className="inline-flex"
+                    title={`${workerCount} Cloudflare Workers`}
+                  >
+                    {" · "}
+                    {workerCount}
+                    <span className="ml-1 inline-flex h-3 w-4 items-center justify-center">
+                      <CloudflareProviderLogo />
+                    </span>
+                  </span>
+                  <span
+                    aria-label={`${convexProjectCount} Convex projects`}
+                    className="inline-flex"
+                    title={`${convexProjectCount} Convex projects`}
+                  >
+                    {" · "}
+                    {convexProjectCount}
+                    <span className="ml-1 inline-flex h-3 w-4 items-center justify-center">
+                      <ConvexProviderLogo />
+                    </span>
+                  </span>
                   {pullRequestCount > 0
                     ? ` · ${pullRequestCount} ${pullRequestCount === 1 ? "PR" : "PRs"}`
                     : ""}
@@ -1120,49 +1256,56 @@ function RepositoryHeader({
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-background">
       <div className="mx-auto flex w-full max-w-[1100px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 @3xl:px-6 @5xl:px-8">
-        <div className="min-w-0 w-full @3xl:w-auto @3xl:flex-1">
-          <div className="flex min-w-0 items-baseline gap-1 text-base">
-            <span className="truncate text-muted-foreground">{scenario.repositoryOwner}</span>
-            <span className="text-muted-foreground">/</span>
-            <h1 className="truncate font-semibold text-foreground">{scenario.repositoryName}</h1>
+        <a
+          aria-label={`Open ${scenario.repositoryOwner}/${scenario.repositoryName} on GitHub`}
+          className="flex min-w-0 w-full items-start gap-2 text-left no-underline hover:no-underline @3xl:w-auto @3xl:flex-1"
+          href={scenario.repositoryUrl}
+          rel="noreferrer"
+          target="_blank"
+        >
+          <div className="min-w-0 flex-1 text-base">
+            <span className="block line-clamp-2 text-muted-foreground [overflow-wrap:anywhere] @3xl:inline">
+              {scenario.repositoryOwner}/
+            </span>
+            <h1 className="block line-clamp-3 font-semibold text-foreground [overflow-wrap:anywhere] @3xl:ml-1 @3xl:inline">
+              {scenario.repositoryName}
+            </h1>
           </div>
-        </div>
-        <div className="flex w-full items-center gap-3 text-xs @3xl:w-auto">
-          <a
-            className="inline-flex items-center gap-1 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
-            href={scenario.repositoryUrl}
-            rel="noreferrer"
-            target="_blank"
+          <span
+            aria-hidden="true"
+            className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center text-foreground"
           >
-            GitHub
-            <ExternalLink className="h-3 w-3" />
-          </a>
+            <GitHubProviderLogo />
+          </span>
+        </a>
+        <nav aria-label="Repository" className="flex w-full items-center gap-1 @3xl:w-auto">
           <Link
             aria-current={page === "overview" ? "page" : undefined}
             className={
               page === "overview"
-                ? "font-medium text-foreground"
-                : "text-muted-foreground hover:text-foreground"
+                ? "inline-flex min-h-8 items-center gap-1.5 bg-muted px-2 text-sm font-medium text-foreground no-underline hover:no-underline"
+                : "inline-flex min-h-8 items-center gap-1.5 px-2 text-sm text-muted-foreground no-underline hover:bg-muted hover:text-foreground hover:no-underline"
             }
             search={(current) => ({ ...current, view: undefined })}
             to="/visual-fixture"
           >
+            <LayoutList className="h-4 w-4" />
             Overview
           </Link>
           <Link
             aria-current={page === "settings" ? "page" : undefined}
             className={
               page === "settings"
-                ? "inline-flex items-center gap-1 font-medium text-foreground"
-                : "inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                ? "inline-flex min-h-8 items-center gap-1.5 bg-muted px-2 text-sm font-medium text-foreground no-underline hover:no-underline"
+                : "inline-flex min-h-8 items-center gap-1.5 px-2 text-sm text-muted-foreground no-underline hover:bg-muted hover:text-foreground hover:no-underline"
             }
             search={(current) => ({ ...current, view: "settings" })}
             to="/visual-fixture"
           >
-            <Settings className="h-3.5 w-3.5" />
+            <Settings className="h-4 w-4" />
             Settings
           </Link>
-        </div>
+        </nav>
       </div>
     </header>
   );
@@ -1190,37 +1333,41 @@ function DefaultBranchSection({ scenario }: { scenario: LabScenario }) {
   const hiddenRootCount = scenario.productionRoots.length - visibleRoots.length;
 
   return (
-    <section aria-labelledby="vault-overview-default-branch-heading">
-      <div className="mb-3">
-        <h2
-          id="vault-overview-default-branch-heading"
-          className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
-        >
-          Default branch
-        </h2>
-      </div>
-
-      <div className="border-y border-border py-4">
+    <section aria-label="Default branch">
+      <div className="border-b border-border pb-4">
         <div className="grid gap-3 @4xl:grid-cols-[minmax(0,1fr)_auto] @4xl:items-start">
           <div className="flex min-w-0 items-start gap-3">
-            <GitBranch className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <GitCommitHorizontal className="mt-1.5 h-4 w-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="font-mono text-xs text-muted-foreground">
+                <a
+                  className="inline-flex min-h-8 items-center font-mono text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
+                  href={`${scenario.repositoryUrl}/commit/${scenario.commit.hash}`}
+                  rel="noreferrer"
+                  target="_blank"
+                >
                   {scenario.commit.hash}
-                </span>
+                </a>
               </div>
-              <div className="mt-1 text-sm leading-6 text-foreground">{scenario.commit.title}</div>
+              <div className="text-sm leading-6 text-foreground">{scenario.commit.title}</div>
               <div className="mt-1 text-xs leading-5 text-muted-foreground">
                 {scenario.commit.author} · {scenario.commit.updatedAt}
               </div>
             </div>
           </div>
-          <EventStatus label={scenario.commit.checksLabel} state={scenario.commit.state} />
+          <div className="justify-self-start @4xl:justify-self-end">
+            <VaultChecksPopover
+              checks={scenario.commit.checks.checks}
+              detailsUrl={`${scenario.repositoryUrl}/commit/${scenario.commit.hash}/checks`}
+              heading="Default branch checks"
+              statusCheckRollup={scenario.commit.checks.statusCheckRollup}
+              triggerTitle="Show default branch checks"
+            />
+          </div>
         </div>
 
         <div className="mt-3">
-          <RootRail roots={visibleRoots} />
+          <RootRail roots={visibleRoots} showLiveStatus={false} />
           {hiddenRootCount > 0 ? (
             <button
               className="ml-8 mt-2 text-xs font-medium text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
@@ -1282,14 +1429,17 @@ function PullRequestSection({
               >
                 <span className="flex min-w-0 items-start gap-3">
                   <GitPullRequest className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0">
-                    <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                      <span className="text-sm font-medium leading-5 text-foreground">
-                        {pullRequest.title}
-                      </span>
-                      <span className="text-xs text-muted-foreground">#{pullRequest.number}</span>
+                  <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2">
+                    <span
+                      className="line-clamp-3 text-sm font-medium leading-5 text-foreground [overflow-wrap:anywhere]"
+                      data-pull-request-title
+                    >
+                      {pullRequest.title}
                     </span>
-                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                    <span className="text-xs leading-5 text-muted-foreground">
+                      #{pullRequest.number}
+                    </span>
+                    <span className="col-span-2 mt-1 block text-xs leading-5 text-muted-foreground">
                       {pullRequest.author} · {pullRequest.updatedAt} · {pullRequest.checksLabel} ·{" "}
                       {pullRequest.rootSummary}
                     </span>
@@ -1311,7 +1461,7 @@ function PullRequestSection({
               </button>
               {expanded ? (
                 <div className="pb-4 pl-7">
-                  <RootRail roots={pullRequest.roots} />
+                  <RootRail roots={pullRequest.roots} showLiveStatus />
                 </div>
               ) : null}
             </article>
@@ -1385,14 +1535,8 @@ function SettingsRootGroup({ group }: { group: LabRootGroup }) {
       className="grid min-w-0 border-b border-border/60 last:border-b-0 @4xl:grid-cols-[minmax(10rem,0.32fr)_minmax(0,1fr)]"
       data-settings-root={group.rootDirectory}
     >
-      <div
-        className={
-          needsAttention
-            ? "min-w-0 pt-4 pb-1 font-mono text-sm font-semibold text-red-700 @4xl:py-3 @4xl:pr-5 @4xl:text-xs"
-            : "min-w-0 pt-4 pb-1 font-mono text-sm font-semibold text-foreground @4xl:py-3 @4xl:pr-5 @4xl:text-xs"
-        }
-      >
-        <span className="block [overflow-wrap:anywhere]">{group.rootDirectory}</span>
+      <div className="min-w-0 pt-4 pb-1 @4xl:py-3 @4xl:pr-5">
+        <RootDirectoryLabel needsAttention={needsAttention} rootDirectory={group.rootDirectory} />
       </div>
       <div className="min-w-0 pb-2 pl-5 @4xl:border-l @4xl:pb-0 @4xl:pl-5">
         {group.resources.map((resource) => (
@@ -1408,40 +1552,6 @@ function RepositorySettings({ scenario }: { scenario: LabScenario }) {
     <div className="min-h-full bg-background text-foreground">
       <RepositoryHeader page="settings" scenario={scenario} />
       <main className="mx-auto grid w-full max-w-[960px] gap-8 px-4 py-6 @3xl:px-6 @5xl:px-8 @5xl:py-8">
-        <section aria-labelledby="vault-settings-repository-heading">
-          <h2
-            id="vault-settings-repository-heading"
-            className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
-          >
-            Repository
-          </h2>
-          <div className="grid gap-3 border-y border-border py-4 @3xl:grid-cols-[minmax(0,1fr)_auto] @3xl:items-center">
-            <div className="flex min-w-0 items-start gap-3">
-              <span
-                aria-label="GitHub"
-                className="mt-0.5 flex h-4 w-5 shrink-0 items-center justify-center"
-                role="img"
-              >
-                <GitHubProviderLogo />
-              </span>
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-foreground">
-                  {scenario.repositoryOwner}/{scenario.repositoryName}
-                </div>
-              </div>
-            </div>
-            <a
-              className="inline-flex items-center gap-1 justify-self-start text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @3xl:justify-self-end"
-              href={scenario.repositoryUrl}
-              rel="noreferrer"
-              target="_blank"
-            >
-              Open on GitHub
-              <ExternalLink className="h-3 w-3" />
-            </a>
-          </div>
-        </section>
-
         <section aria-labelledby="vault-settings-connections-heading">
           <div className="mb-3 grid gap-3 @4xl:grid-cols-[minmax(0,1fr)_auto] @4xl:items-end">
             <h2
@@ -1453,11 +1563,11 @@ function RepositorySettings({ scenario }: { scenario: LabScenario }) {
             <div className="flex flex-wrap gap-2">
               <Button className="shadow-none" size="sm" type="button" variant="outline">
                 <CloudflareProviderLogo />
-                Add Cloudflare
+                Add Cloudflare Worker
               </Button>
               <Button className="shadow-none" size="sm" type="button" variant="outline">
                 <ConvexProviderLogo />
-                Add Convex
+                Add Convex project
               </Button>
             </div>
           </div>
@@ -1530,9 +1640,8 @@ export function VaultOverviewDesignLabVisualFixture({
       dataTestId="vault-overview-design-lab"
       left={{
         header: (
-          <div className="flex h-full items-center justify-between px-3 text-xs font-medium text-foreground">
-            <span>Vaults</span>
-            <span className="tabular-nums text-muted-foreground">{LAB_MODES.length}</span>
+          <div className="flex h-full items-center px-3 text-xs font-medium text-foreground">
+            Vaults
           </div>
         ),
         content: <VaultSidebar mode={mode} page={page} />,
