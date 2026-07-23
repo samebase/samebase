@@ -1834,19 +1834,24 @@ function PullRequestSection({
                     >
                       {pullRequest.title}
                     </span>
-                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                      {pullRequest.author} ·{" "}
-                      <span className="font-mono [overflow-wrap:anywhere]">
-                        {pullRequest.branch}
-                      </span>{" "}
-                      · {pullRequest.updatedAt} · {pullRequest.checksLabel} ·{" "}
-                      {pullRequest.rootSummary}
+                    <span className="mt-1 block font-mono text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+                      {pullRequest.branch}
+                    </span>
+                    <span className="flex flex-wrap gap-x-3 text-xs leading-5 text-muted-foreground">
+                      <span>{pullRequest.author}</span>
+                      <span>{pullRequest.updatedAt}</span>
                     </span>
                   </span>
-                  <span className="flex items-center justify-between gap-3 @4xl:justify-end">
-                    <span className={stateStyle.status}>
-                      <span className={stateStyle.dot} />
-                      {pullRequest.stateLabel}
+                  <span className="flex min-w-0 items-start justify-between gap-3 @4xl:justify-end">
+                    <span className="min-w-0">
+                      <span className={stateStyle.status}>
+                        <span className={stateStyle.dot} />
+                        {pullRequest.stateLabel}
+                      </span>
+                      <span className="mt-1 flex flex-wrap gap-x-3 text-xs leading-5 text-muted-foreground @4xl:justify-end">
+                        <span>{pullRequest.checksLabel}</span>
+                        <span>{pullRequest.rootSummary}</span>
+                      </span>
                     </span>
                     <ChevronDown
                       className={
