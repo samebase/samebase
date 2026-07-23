@@ -16,7 +16,7 @@ const LOGO_PRESENTATION_TILT_MAX_FRAME_SECONDS = 0.064;
 // The target stays unbounded; only its visible angular rate is bounded so a
 // distant source or resumed frame cannot turn into a one-frame jump.
 const LOGO_PRESENTATION_TILT_MAX_DEGREES_PER_SECOND = 120;
-const POINTER_TILT_DEGREES_PER_SHORTEST_SIDE = 6 / 1.25;
+const POINTER_TILT_DEGREES_PER_SHORTEST_SIDE = 10 / 1.25;
 
 export function getLogoPresentationTiltTransitionAlpha({
   deltaSeconds,
