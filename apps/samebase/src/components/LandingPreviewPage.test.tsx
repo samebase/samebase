@@ -132,7 +132,9 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("macOS");
     expect(markup).toContain("Linux");
     expect(markup).toContain("Windows");
-    expect(markup).toContain("Node 24 runs the repository automation directly from TypeScript.");
+    expect(markup).toContain(
+      "Everything is TypeScript, even the scripts you&#x27;d usually write in Bash.",
+    );
     expect(markup).toContain("no Bash");
     expect(markup).toContain("no WSL");
     expect(markup).toContain('href="/docs/the-stack"');

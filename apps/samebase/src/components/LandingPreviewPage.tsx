@@ -719,7 +719,7 @@ function LandingPreviewOverview() {
             <div className="mt-3 grid gap-3 @3xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] @3xl:items-start @3xl:gap-10">
               <p className="text-lg font-semibold tracking-[-0.01em]">macOS · Linux · Windows</p>
               <p className="max-w-[48ch] text-sm leading-relaxed text-primary">
-                Node 24 runs the repository automation directly from TypeScript.
+                Everything is TypeScript, even the scripts you'd usually write in Bash.
                 <span className="block font-mono text-[11px] font-semibold text-secondary">
                   no Bash · no WSL
                 </span>
