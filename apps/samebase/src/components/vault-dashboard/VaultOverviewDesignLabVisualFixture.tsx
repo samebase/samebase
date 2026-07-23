@@ -118,7 +118,6 @@ type LabScenario = {
   };
   defaultBranch: string;
   defaultExpandedPullRequest: number | null;
-  label: string;
   productionRoots: readonly LabRootGroup[];
   productionVisibleRootCount: number;
   pullRequests: readonly LabPullRequest[];
@@ -188,14 +187,11 @@ function labChecks({
 }
 
 const LAB_MODES = [
-  { label: "Simple", mode: "vault-overview-lab-simple" },
-  { label: "Monorepo", mode: "vault-overview-lab-monorepo" },
-  { label: "Large", mode: "vault-overview-lab-stress" },
-  { label: "Attention", mode: "vault-overview-lab-attention" },
-] as const satisfies readonly {
-  label: string;
-  mode: VaultOverviewDesignLabVisualMode;
-}[];
+  "vault-overview-lab-simple",
+  "vault-overview-lab-monorepo",
+  "vault-overview-lab-stress",
+  "vault-overview-lab-attention",
+] as const satisfies readonly VaultOverviewDesignLabVisualMode[];
 
 const RESOURCE_STATE_STYLE = {
   attention: {
@@ -967,7 +963,6 @@ const SCENARIOS = {
     },
     defaultBranch: "main",
     defaultExpandedPullRequest: 48,
-    label: "Simple app",
     productionRoots: [
       {
         rootDirectory: "/",
@@ -1060,7 +1055,6 @@ const SCENARIOS = {
     },
     defaultBranch: "main",
     defaultExpandedPullRequest: 1263,
-    label: "Monorepo",
     productionRoots: MONOREPO_PRODUCTION_ROOTS,
     productionVisibleRootCount: 3,
     pullRequests: MONOREPO_PULL_REQUESTS,
@@ -1082,7 +1076,6 @@ const SCENARIOS = {
     },
     defaultBranch: "main",
     defaultExpandedPullRequest: 842,
-    label: "Large monorepo",
     productionRoots: STRESS_PRODUCTION_ROOTS,
     productionVisibleRootCount: 5,
     pullRequests: STRESS_PULL_REQUESTS,
@@ -1137,7 +1130,6 @@ const SCENARIOS = {
     },
     defaultBranch: "main",
     defaultExpandedPullRequest: 217,
-    label: "Needs attention",
     productionRoots: [
       {
         rootDirectory: "Needs attention",
@@ -1539,54 +1531,6 @@ function RootRail({
   );
 }
 
-function LabHeader({
-  mode,
-  page,
-  scenario,
-}: {
-  mode: VaultOverviewDesignLabVisualMode;
-  page: VaultOverviewDesignLabPage;
-  scenario: LabScenario;
-}) {
-  return (
-    <div className="flex h-full min-w-0 flex-1 items-center gap-3 overflow-x-auto px-2">
-      <span className="shrink-0 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground @3xl:hidden">
-        Lab
-      </span>
-      <span className="hidden shrink-0 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground @3xl:inline">
-        Vault overview lab
-      </span>
-      <div className="flex h-full items-center">
-        {LAB_MODES.map((option) => {
-          const active = option.mode === mode;
-          return (
-            <Link
-              key={option.mode}
-              aria-current={active ? "page" : undefined}
-              className={
-                active
-                  ? "flex h-full items-center border-b-2 border-foreground px-2 text-xs font-medium text-foreground"
-                  : "flex h-full items-center border-b-2 border-transparent px-2 text-xs text-muted-foreground hover:text-foreground"
-              }
-              search={(current) => ({
-                ...current,
-                mode: option.mode,
-                view: page === "settings" ? "settings" : undefined,
-              })}
-              to="/visual-fixture"
-            >
-              {option.label}
-            </Link>
-          );
-        })}
-      </div>
-      <span className="ml-auto hidden shrink-0 text-xs text-muted-foreground @4xl:inline">
-        {scenario.label}
-      </span>
-    </div>
-  );
-}
-
 function VaultSidebar({
   mode,
   page,
@@ -1596,9 +1540,9 @@ function VaultSidebar({
 }) {
   return (
     <nav aria-label="Vaults" className="@container min-h-full py-2">
-      {LAB_MODES.map((option) => {
-        const scenario = SCENARIOS[option.mode];
-        const active = option.mode === mode;
+      {LAB_MODES.map((optionMode) => {
+        const scenario = SCENARIOS[optionMode];
+        const active = optionMode === mode;
         let workerCount = 0;
         let convexProjectCount = 0;
         for (const root of scenario.productionRoots) {
@@ -1620,7 +1564,7 @@ function VaultSidebar({
         const compactChecksLabel = scenario.commit.checksLabel.replace(" checks", "");
         return (
           <Link
-            key={option.mode}
+            key={optionMode}
             aria-label={`${scenario.repositoryOwner}/${scenario.repositoryName}, ${compactChecksLabel}, ${workerCount} ${workerCount === 1 ? "Cloudflare Worker" : "Cloudflare Workers"}, ${convexProjectCount} Convex ${convexProjectCount === 1 ? "project" : "projects"}${pullRequestCount > 0 ? `, ${pullRequestCount} ${pullRequestCount === 1 ? "PR" : "PRs"}` : ""}`}
             aria-current={active ? "page" : undefined}
             className={
@@ -1630,7 +1574,7 @@ function VaultSidebar({
             }
             search={(current) => ({
               ...current,
-              mode: option.mode,
+              mode: optionMode,
               view: page === "settings" ? "settings" : undefined,
             })}
             title={`${scenario.repositoryOwner}/${scenario.repositoryName}`}
@@ -2259,7 +2203,6 @@ export function VaultOverviewDesignLabVisualFixture({
           ) : (
             <VaultOverview scenario={scenario} />
           ),
-        headerAccessory: <LabHeader mode={mode} page={page} scenario={scenario} />,
       }}
       shortcutPaneSide="left"
     />
