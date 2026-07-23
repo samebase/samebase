@@ -175,7 +175,7 @@ function MengerDepthTransitionScene({ progress }: { progress: number }) {
       );
 
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, RENDER_PIXEL_RATIO_MAX));
-      renderer.setSize(width, height, false);
+      renderer.setSize(width, height);
       camera.left = -frustumHalfHeight * aspect;
       camera.right = frustumHalfHeight * aspect;
       camera.top = frustumHalfHeight;

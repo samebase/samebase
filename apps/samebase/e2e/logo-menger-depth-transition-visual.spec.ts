@@ -66,3 +66,67 @@ test("Menger sponge moves from depth one to depth two", async ({ page }) => {
     scale: "css",
   });
 });
+
+test.describe("Menger sponge on a high-density phone", () => {
+  test.use({
+    deviceScaleFactor: 2,
+    hasTouch: true,
+    isMobile: true,
+    viewport: { width: 390, height: 844 },
+  });
+
+  test("keeps the WebGL canvas inside the visible main pane", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await signInIfNeeded(page, "/logo/transition/menger");
+
+    const transitionPage = page.getByTestId("logo-menger-depth-transition-page");
+    const scene = page.getByTestId("logo-menger-depth-transition-scene");
+    const canvas = scene.locator("canvas");
+    const workspaceLayout = page.locator("[data-workspace-layout-v2]");
+
+    await page.getByTestId("workspace-layout-v2-pane-main").evaluate((carousel) => {
+      const mainPane = carousel.querySelector("[data-workspace-layout-v2-mobile-main-pane]");
+      if (!(mainPane instanceof HTMLElement)) {
+        throw new Error("Expected the mobile main pane.");
+      }
+
+      carousel.style.scrollSnapType = "none";
+      carousel.scrollLeft = mainPane.offsetLeft;
+      carousel.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    await expect(workspaceLayout).toHaveAttribute("data-mobile-pane", "main");
+    await expect(canvas).toBeVisible();
+    const layoutMetrics = await transitionPage.evaluate((element) => {
+      const sceneElement = element.querySelector(
+        '[data-testid="logo-menger-depth-transition-scene"]',
+      );
+      const canvasElement = sceneElement?.querySelector("canvas");
+
+      return {
+        canvasHeight: canvasElement?.clientHeight ?? 0,
+        canvasWidth: canvasElement?.clientWidth ?? 0,
+        documentWidth: document.documentElement.scrollWidth,
+        pageHeight: element.clientHeight,
+        pageWidth: element.clientWidth,
+        sceneHeight: sceneElement?.clientHeight ?? 0,
+        sceneWidth: sceneElement?.clientWidth ?? 0,
+        viewportHeight: window.innerHeight,
+        viewportWidth: window.innerWidth,
+      };
+    });
+
+    expect(layoutMetrics.documentWidth).toBe(layoutMetrics.viewportWidth);
+    expect(layoutMetrics.pageHeight).toBeLessThanOrEqual(layoutMetrics.viewportHeight);
+    expect(layoutMetrics.canvasHeight).toBe(layoutMetrics.sceneHeight);
+    expect(layoutMetrics.canvasWidth).toBe(layoutMetrics.sceneWidth);
+    expect(layoutMetrics.sceneHeight).toBe(layoutMetrics.pageHeight);
+    expect(layoutMetrics.sceneWidth).toBe(layoutMetrics.pageWidth);
+
+    await expect(page).toHaveScreenshot("logo-menger-depth-transition-phone.png", {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.01,
+      scale: "css",
+    });
+  });
+});
