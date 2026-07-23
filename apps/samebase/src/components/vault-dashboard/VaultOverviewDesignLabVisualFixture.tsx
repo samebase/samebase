@@ -1083,7 +1083,7 @@ function VaultSidebar({
                 className="block min-w-0 truncate text-muted-foreground @max-[120px]:hidden"
                 data-vault-sidebar-owner
               >
-                {scenario.repositoryOwner}
+                {scenario.repositoryOwner}/
               </span>
               <span className="block min-w-0 line-clamp-2 font-medium text-foreground [overflow-wrap:anywhere]">
                 {scenario.repositoryName}
