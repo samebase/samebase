@@ -821,61 +821,79 @@ function LandingPreviewOverview() {
 
         <LandingSection>
           <div
-            className="mb-8 border-y border-border"
+            className="mb-12 text-center @3xl:mb-16"
             data-testid={LANDING_PREVIEW_STACK_DETAILS_TEST_ID}
           >
-            <div className="py-6">
-              <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                standard stack
-              </p>
-              <div className="mt-4 grid grid-cols-2 items-center gap-x-5 gap-y-4 @3xl:grid-cols-[auto_auto_auto] @3xl:justify-start @3xl:gap-x-7">
-                <div className="flex h-6 items-center">
+            <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+              standard stack
+            </p>
+            <h2 className="mx-auto mt-3 max-w-[24ch] text-[clamp(24px,3cqw,32px)] font-semibold leading-[1.25] tracking-[-0.02em]">
+              Chosen for how agents build now.
+            </h2>
+            <div className="mt-8 grid gap-8 @3xl:grid-cols-3 @3xl:gap-10">
+              <div>
+                <div className="flex h-8 items-center justify-center">
                   <img
                     alt="Vite+"
-                    className="h-4 w-auto dark:hidden"
+                    className="h-5 w-auto dark:hidden"
                     height="15"
                     src="/landing-preview/logos/vite-plus.svg"
                     width="103"
                   />
                   <img
                     alt="Vite+"
-                    className="hidden h-4 w-auto dark:block"
+                    className="hidden h-5 w-auto dark:block"
                     height="15"
                     src="/landing-preview/logos/vite-plus-dark.svg"
                     width="103"
                   />
                 </div>
-                <div className="flex h-6 items-center gap-1.5">
+                <p className="mx-auto mt-2 max-w-[26ch] text-sm leading-relaxed text-primary">
+                  One fast toolchain for the agent loop.
+                </p>
+              </div>
+              <div>
+                <div className="flex h-8 items-center justify-center gap-1.5">
                   <img
                     alt="TanStack"
-                    className="h-4 w-auto dark:hidden"
+                    className="h-5 w-auto dark:hidden"
                     height="660"
                     src="/landing-preview/logos/tanstack.svg"
                     width="3178"
                   />
                   <img
                     alt="TanStack"
-                    className="hidden h-4 w-auto dark:block"
+                    className="hidden h-5 w-auto dark:block"
                     height="660"
                     src="/landing-preview/logos/tanstack-dark.svg"
                     width="3178"
                   />
-                  <span className="text-sm font-semibold">Start</span>
+                  <span className="text-base font-semibold">Start</span>
                 </div>
-                <div className="col-span-2 flex h-6 items-center justify-self-center gap-1.5 @3xl:col-span-1 @3xl:justify-self-start">
+                <p className="mx-auto mt-2 max-w-[26ch] text-sm leading-relaxed text-primary">
+                  Full-stack TypeScript with official support for Cloudflare Workers.
+                </p>
+              </div>
+              <div>
+                <div className="flex h-8 items-center justify-center gap-1.5">
                   <img
                     alt=""
-                    className="h-4 w-auto"
+                    className="h-5 w-auto"
                     height="33"
                     src="/landing-preview/logos/tailwindcss.svg"
                     width="54"
                   />
-                  <span className="text-sm font-semibold">Tailwind CSS</span>
+                  <span className="text-base font-semibold">Tailwind CSS</span>
                 </div>
+                <p className="mx-auto mt-2 max-w-[26ch] text-sm leading-relaxed text-primary">
+                  One styling language from product UI to landing pages.
+                </p>
               </div>
             </div>
-            <p className="border-t border-border py-3 text-sm text-primary">
-              <LandingInlineLink to={DOCS_THE_STACK_ROUTE}>The stack, in detail</LandingInlineLink>
+            <p className="mt-7 text-sm text-primary">
+              <LandingInlineLink to={DOCS_THE_STACK_ROUTE}>
+                Why we chose this stack
+              </LandingInlineLink>
             </p>
           </div>
           <LandingSectionIntro

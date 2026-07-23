@@ -122,10 +122,15 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("deploys + domains + edge");
     expect(markup).toContain('data-testid="landing-preview-stack-details"');
     expect(markup).toContain("standard stack");
+    expect(markup).toContain("Chosen for how agents build now.");
     expect(markup).toContain("/landing-preview/logos/vite-plus.svg");
     expect(markup).toContain("/landing-preview/logos/tanstack.svg");
     expect(markup).toContain("/landing-preview/logos/tailwindcss.svg");
     expect(markup).toContain("Tailwind CSS");
+    expect(markup).toContain("One fast toolchain for the agent loop.");
+    expect(markup).toContain("Full-stack TypeScript with official support for Cloudflare Workers.");
+    expect(markup).toContain("One styling language from product UI to landing pages.");
+    expect(markup).toContain("Why we chose this stack");
     expect(markup).not.toContain("/landing-preview/logos/react.svg");
     expect(markup).toContain('data-testid="landing-preview-platform-details"');
     expect(markup).toContain("local workflow");

@@ -26,6 +26,10 @@ nothing it is not completely sure of. The deploy pipeline serves whatever you bu
 index.html with vanilla JavaScript and it ships exactly the same way. You can swap the UI framework
 if you insist. I don't recommend it. You can.
 
+Cloudflare and TanStack both document TanStack Start on Workers through the official Cloudflare Vite
+plugin. That gives the template a first-class path from the Vite development model to the runtime it
+deploys on, without making the framework or the application Cloudflare-specific.
+
 The overview applies a leaving test to infrastructure. This is the same test, applied to the
 framework.
 
@@ -36,9 +40,11 @@ always the taste here; agents turned it into leverage. An agent working inside t
 caught by the compiler before a mistake ships. The stricter the types, the better your agent
 performs.
 
-## Styling
+## One styling language
 
-Tailwind and shadcn/ui by default. Neither is load-bearing; both are replaceable.
+Tailwind is an unusually good surface for agents: the styling vocabulary lives beside the markup
+they edit, and the same tool works for dense product UI and public landing pages. The template pairs
+it with shadcn/ui. Neither is load-bearing; both are replaceable.
 
 ## One base, more than one shape
 

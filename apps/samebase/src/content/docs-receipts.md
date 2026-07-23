@@ -173,6 +173,11 @@ misconfigure (see the Convex section above).
   Source:
   [TanStack Start overview](https://tanstack.com/start/latest/docs/framework/react/overview),
   checked 2026-07-02.
+- Cloudflare's official Vite plugin supports TanStack Start server-side rendering, and TanStack
+  lists Cloudflare as an official hosting partner with a documented Workers deployment path.
+  Sources: [Cloudflare Vite plugin](https://developers.cloudflare.com/workers/vite-plugin/) and
+  [TanStack Start hosting](https://tanstack.com/start/latest/docs/framework/react/guide/hosting),
+  checked 2026-07-23.
 
 ## Ownership: the leaving test
 
