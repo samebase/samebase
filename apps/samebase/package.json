@@ -44,7 +44,7 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.79",
-    "@auth/core": "^0.41.2",
+    "@auth/core": "^0.41.3",
     "@base-ui/react": "^1.4.1",
     "@codemirror/collab": "^6.1.1",
     "@codemirror/commands": "^6.10.3",

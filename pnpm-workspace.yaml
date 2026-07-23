@@ -9,6 +9,9 @@ minimumReleaseAge: 10080
 # Keep release-age exceptions exact so future Convex releases do not bypass the
 # cooling period automatically.
 minimumReleaseAgeExclude:
+  # TODO(2026-07-23): Remove this release-age exception after the normal
+  # 7-day cooling period has passed.
+  - "@auth/core@0.41.3"
   # TODO(2026-07-22): Remove the fast-uri@3.1.4 and @hono/node-server@2.0.10
   # exceptions after the normal 7-day cooling period has passed.
   - "@hono/node-server@2.0.10"
@@ -51,7 +54,7 @@ overrides:
   "minimatch@3": 3.1.5
   "picomatch@2": 2.3.2
   "picomatch@4.0.3": 4.0.4
-  postcss: 8.5.10
+  postcss: 8.5.19
   protobufjs: 7.6.3
   qs: 6.15.2
   sharp: 0.35.3
