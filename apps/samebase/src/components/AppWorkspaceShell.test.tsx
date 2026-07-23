@@ -431,7 +431,6 @@ describe("AppWorkspaceShell", () => {
       "/logo/single-cube",
       "/logo/svg",
       "/logo/transition",
-      "/logo/transition/menger",
       "/logo/transition/transforms",
       "/machines/connect",
       "/new-app",

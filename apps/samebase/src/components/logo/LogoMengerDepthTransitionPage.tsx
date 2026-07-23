@@ -1,3 +1,4 @@
+import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { Button } from "@/components/ui/button";
 import {
   MENGER_DEPTH_TRANSITION_GRID_SIZE,
@@ -13,7 +14,7 @@ import { DEFAULT_ELEVATION_DEGREES, type VoxelCoordinate } from "@/components/lo
 import { getTailwindColorHex } from "@/components/logo/logoTailwindColors";
 import { resolveLogoSceneCameraDepthBounds } from "@/components/logo/logoSceneCameraDepth";
 import { Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import * as THREE from "three";
 
 const CAMERA_FRUSTUM_PADDING = 1.12;
@@ -210,7 +211,7 @@ function MengerDepthTransitionScene({ progress }: { progress: number }) {
     <div
       ref={containerRef}
       aria-label="Menger sponge depth transition"
-      className="h-full min-h-[28rem] w-full @3xl:min-h-[38rem]"
+      className="h-full min-h-0 w-full"
       data-testid="logo-menger-depth-transition-scene"
       role="img"
     />
@@ -223,6 +224,7 @@ export function LogoMengerDepthTransitionPage() {
   const [playbackVersion, setPlaybackVersion] = useState(0);
   const playbackStartProgressRef = useRef(0);
   const prefersReducedMotionRef = useRef(false);
+  const progressInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -284,19 +286,39 @@ export function LogoMengerDepthTransitionPage() {
     };
   }, [isPlaying, playbackVersion]);
 
+  useEffect(() => {
+    if (progressInputRef.current) {
+      progressInputRef.current.value = String(Math.round(progress * TRANSITION_PROGRESS_STEPS));
+    }
+  }, [progress]);
+
   const phase: TransitionPhase =
     progress >= 1 ? "depth-2" : progress > 0 || isPlaying ? "transition" : "depth-1";
   const phaseLabel =
     phase === "depth-1" ? "Depth 1" : phase === "depth-2" ? "Depth 2" : "Transitioning";
-  const progressPercent = Math.round(progress * 100);
 
-  return (
-    <div
-      className="mx-auto grid w-full max-w-7xl gap-4 p-4 @2xl:p-6"
-      data-phase={phase}
-      data-testid="logo-menger-depth-transition-page"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+  const replayTransition = useCallback(() => {
+    if (prefersReducedMotionRef.current) {
+      setIsPlaying(false);
+      setProgress(1);
+      return;
+    }
+
+    playbackStartProgressRef.current = 0;
+    setProgress(0);
+    setPlaybackVersion((currentVersion) => currentVersion + 1);
+    setIsPlaying(true);
+  }, []);
+  const updateProgress = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setIsPlaying(false);
+    setProgress(Number(event.target.value) / TRANSITION_PROGRESS_STEPS);
+  }, []);
+  const controlsContent = useMemo(
+    () => (
+      <div
+        className="grid content-start gap-4 p-3"
+        data-testid="logo-menger-depth-transition-controls"
+      >
         <div className="flex flex-wrap items-center gap-2">
           <Button asChild className="rounded-none" size="sm" variant="outline">
             <Link to="/logo">3D</Link>
@@ -308,72 +330,52 @@ export function LogoMengerDepthTransitionPage() {
             Menger transition
           </div>
         </div>
-        <div aria-live="polite" className="font-mono text-xs text-muted-foreground">
-          {phaseLabel}
-        </div>
-      </div>
 
-      <div className="grid gap-4 @5xl:grid-cols-[minmax(0,1fr)_18rem]">
-        <div className="border bg-background">
-          <MengerDepthTransitionScene progress={progress} />
-        </div>
-
-        <div className="grid content-start gap-5 border p-4">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">Depth 1 to depth 2</h1>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              The packed subdivision preserves the depth-1 silhouette. Then 140 surplus cubes move
-              into retained cubes to expose the depth-2 holes.
-            </p>
-          </div>
-
-          <div className="grid gap-2">
-            <div className="flex items-center justify-between text-xs">
-              <label htmlFor="menger-depth-transition-progress">Progress</label>
-              <span className="font-mono text-muted-foreground">{progressPercent}%</span>
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between text-xs">
+            <label htmlFor="menger-depth-transition-progress">Depth</label>
+            <div aria-live="polite" className="font-mono text-xs text-muted-foreground">
+              {phaseLabel}
             </div>
-            <input
-              id="menger-depth-transition-progress"
-              aria-label="Transition progress"
-              className="h-2 w-full cursor-pointer accent-foreground"
-              max={TRANSITION_PROGRESS_STEPS}
-              min="0"
-              onChange={(event) => {
-                setIsPlaying(false);
-                setProgress(Number(event.target.value) / TRANSITION_PROGRESS_STEPS);
-              }}
-              step="1"
-              type="range"
-              value={Math.round(progress * TRANSITION_PROGRESS_STEPS)}
-            />
           </div>
+          <input
+            ref={progressInputRef}
+            id="menger-depth-transition-progress"
+            aria-label="Transition progress"
+            className="h-2 w-full cursor-pointer accent-foreground"
+            defaultValue="0"
+            max={TRANSITION_PROGRESS_STEPS}
+            min="0"
+            onChange={updateProgress}
+            step="1"
+            type="range"
+          />
+        </div>
 
-          <Button
-            className="rounded-none"
-            onClick={() => {
-              if (prefersReducedMotionRef.current) {
-                setIsPlaying(false);
-                setProgress(1);
-                return;
-              }
+        <Button className="rounded-none" onClick={replayTransition} type="button">
+          Replay transition
+        </Button>
 
-              playbackStartProgressRef.current = 0;
-              setProgress(0);
-              setPlaybackVersion((currentVersion) => currentVersion + 1);
-              setIsPlaying(true);
-            }}
-            type="button"
-          >
-            Replay transition
-          </Button>
-
-          <div className="grid gap-1 border-t pt-4 font-mono text-xs text-muted-foreground">
-            <div>540 packed children</div>
-            <div>140 moving cubes</div>
-            <div>400 settled cubes</div>
-          </div>
+        <div className="grid gap-1 border-t pt-3 font-mono text-xs text-muted-foreground">
+          <div>20 large cubes</div>
+          <div>140 absorbed cubes</div>
+          <div>400 final cubes</div>
         </div>
       </div>
-    </div>
+    ),
+    [phaseLabel, replayTransition, updateProgress],
+  );
+  const leftPane = useMemo(() => ({ content: controlsContent }), [controlsContent]);
+
+  return (
+    <AppWorkspaceRouteChrome left={leftPane}>
+      <div
+        className="h-full min-h-0 w-full"
+        data-phase={phase}
+        data-testid="logo-menger-depth-transition-page"
+      >
+        <MengerDepthTransitionScene progress={progress} />
+      </div>
+    </AppWorkspaceRouteChrome>
   );
 }
