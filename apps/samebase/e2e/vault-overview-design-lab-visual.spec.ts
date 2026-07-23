@@ -62,6 +62,16 @@ test("shows default branch and pull request apps in the monorepo concept", async
   await expect(
     page.getByRole("link", { name: "Open pull request #1263 on GitHub" }),
   ).toHaveAttribute("href", "https://github.com/samebase/samebase/pull/1263");
+  const defaultBranch = page.getByRole("region", { name: "Default branch" });
+  await expect(
+    defaultBranch.getByRole("link", { name: "domain-router", exact: true }),
+  ).toHaveAttribute(
+    "href",
+    "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/domain-router/production/settings",
+  );
+  await expect(
+    defaultBranch.getByRole("link", { name: "Open domain-router deployment", exact: true }),
+  ).toHaveAttribute("href", "https://domain-router.samebase.workers.dev");
   await expect(lab).toHaveScreenshot("vault-overview-design-lab-monorepo.png", {
     animations: "disabled",
     caret: "hide",
@@ -145,6 +155,25 @@ test("keeps repository connections and uncommon repairs in settings", async ({ p
   await expect(page.locator('[data-settings-root="apps/checkout"]')).toBeVisible();
   await expect(page.getByText("Worker", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Production deployment", { exact: true })).toHaveCount(0);
+  const checkoutRoot = page.locator('[data-settings-root="apps/checkout"]');
+  await expect(checkoutRoot.getByText("Commerce Platform/", { exact: true })).toBeVisible();
+  await expect(checkoutRoot.getByText("commerce-platform/", { exact: true })).toBeVisible();
+  await expect(
+    checkoutRoot.getByRole("link", { name: "commerce-checkout", exact: true }),
+  ).toHaveAttribute(
+    "href",
+    "https://dash.cloudflare.com/?to=/commerce-platform/workers/services/view/commerce-checkout/production/settings",
+  );
+  await expect(checkoutRoot.getByRole("link", { name: "checkout", exact: true })).toHaveAttribute(
+    "href",
+    "https://dashboard.convex.dev/t/commerce-platform/checkout/settings",
+  );
+  await expect(
+    checkoutRoot.getByRole("link", {
+      name: "Open commerce-checkout deployment",
+      exact: true,
+    }),
+  ).toHaveAttribute("href", "https://checkout.commerce.example");
   await expect(lab).toHaveScreenshot("vault-overview-design-lab-settings.png", {
     animations: "disabled",
     caret: "hide",

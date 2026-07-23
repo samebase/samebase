@@ -41,14 +41,26 @@ type ResourceKind = "cloudflare" | "convex";
 type ResourceState = "attention" | "building" | "live" | "ready" | "reused" | "unavailable";
 type EventState = "attention" | "building" | "live" | "ready";
 
-type LabResource = {
-  kind: ResourceKind;
-  label: string;
-  href: string | null;
-  relationship: string | null;
-  state: ResourceState;
-  stateLabel: string;
-};
+type LabResource =
+  | {
+      kind: "cloudflare";
+      accountId: string;
+      accountName: string;
+      label: string;
+      publicUrl: string | null;
+      relationship: string | null;
+      state: ResourceState;
+      stateLabel: string;
+    }
+  | {
+      kind: "convex";
+      label: string;
+      publicUrl: string | null;
+      relationship: string | null;
+      state: ResourceState;
+      stateLabel: string;
+      teamSlug: string;
+    };
 
 type LabRootGroup = {
   rootDirectory: string;
@@ -215,14 +227,30 @@ const EVENT_STATE_STYLE = {
   },
 } satisfies Record<EventState, { dot: string; status: string }>;
 
+const SAMEBASE_CLOUDFLARE_ACCOUNT = {
+  accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
+  accountName: "Samebase",
+} as const;
+
+const COMMERCE_CLOUDFLARE_ACCOUNT = {
+  accountId: "commerce-platform",
+  accountName: "Commerce Platform",
+} as const;
+
+const NOTER_CLOUDFLARE_ACCOUNT = {
+  accountId: "noter-guest",
+  accountName: "Noter Guest",
+} as const;
+
 const MONOREPO_PRODUCTION_ROOTS = [
   {
     rootDirectory: "apps/domain-router",
     resources: [
       {
         kind: "cloudflare",
+        ...SAMEBASE_CLOUDFLARE_ACCOUNT,
         label: "domain-router",
-        href: "https://domain-router.samebase.workers.dev",
+        publicUrl: "https://domain-router.samebase.workers.dev",
         relationship: null,
         state: "live",
         stateLabel: "Live",
@@ -234,8 +262,9 @@ const MONOREPO_PRODUCTION_ROOTS = [
     resources: [
       {
         kind: "cloudflare",
+        ...SAMEBASE_CLOUDFLARE_ACCOUNT,
         label: "posthog-proxy",
-        href: null,
+        publicUrl: null,
         relationship: null,
         state: "live",
         stateLabel: "Live",
@@ -247,8 +276,9 @@ const MONOREPO_PRODUCTION_ROOTS = [
     resources: [
       {
         kind: "cloudflare",
+        ...SAMEBASE_CLOUDFLARE_ACCOUNT,
         label: "samebase-worker",
-        href: "https://samebase.com",
+        publicUrl: "https://samebase.com",
         relationship: null,
         state: "live",
         stateLabel: "Live",
@@ -256,10 +286,11 @@ const MONOREPO_PRODUCTION_ROOTS = [
       {
         kind: "convex",
         label: "samebase",
-        href: null,
+        publicUrl: null,
         relationship: null,
         state: "live",
         stateLabel: "Live",
+        teamSlug: "samebase",
       },
     ],
   },
@@ -278,8 +309,9 @@ const MONOREPO_PULL_REQUESTS = [
         resources: [
           {
             kind: "cloudflare",
+            ...SAMEBASE_CLOUDFLARE_ACCOUNT,
             label: "samebase-worker",
-            href: "https://1263.samebase.workers.dev",
+            publicUrl: "https://1263.samebase.workers.dev",
             relationship: "Convex preview verified from this build",
             state: "ready",
             stateLabel: "Preview ready",
@@ -304,8 +336,9 @@ const MONOREPO_PULL_REQUESTS = [
         resources: [
           {
             kind: "cloudflare",
+            ...SAMEBASE_CLOUDFLARE_ACCOUNT,
             label: "domain-router",
-            href: "https://1262.domain-router.workers.dev",
+            publicUrl: "https://1262.domain-router.workers.dev",
             relationship: null,
             state: "ready",
             stateLabel: "Preview ready",
@@ -317,8 +350,9 @@ const MONOREPO_PULL_REQUESTS = [
         resources: [
           {
             kind: "cloudflare",
+            ...SAMEBASE_CLOUDFLARE_ACCOUNT,
             label: "samebase-worker",
-            href: null,
+            publicUrl: null,
             relationship: "Waiting for the verified Convex preview",
             state: "building",
             stateLabel: "Building",
@@ -343,8 +377,9 @@ const MONOREPO_PULL_REQUESTS = [
         resources: [
           {
             kind: "cloudflare",
+            ...SAMEBASE_CLOUDFLARE_ACCOUNT,
             label: "samebase-worker",
-            href: "https://samebase.com",
+            publicUrl: "https://samebase.com",
             relationship: null,
             state: "reused",
             stateLabel: "No preview needed",
@@ -365,8 +400,9 @@ const STRESS_PRODUCTION_ROOTS = [
     resources: [
       {
         kind: "cloudflare",
+        ...COMMERCE_CLOUDFLARE_ACCOUNT,
         label: "commerce-edge",
-        href: null,
+        publicUrl: null,
         relationship: null,
         state: "live",
         stateLabel: "Live",
@@ -379,10 +415,11 @@ const STRESS_PRODUCTION_ROOTS = [
       {
         kind: "convex",
         label: "accounts",
-        href: null,
+        publicUrl: null,
         relationship: null,
         state: "live",
         stateLabel: "Live",
+        teamSlug: "commerce-platform",
       },
     ],
   },
@@ -391,8 +428,9 @@ const STRESS_PRODUCTION_ROOTS = [
     resources: [
       {
         kind: "cloudflare",
+        ...COMMERCE_CLOUDFLARE_ACCOUNT,
         label: "commerce-admin",
-        href: "https://admin.commerce.example",
+        publicUrl: "https://admin.commerce.example",
         relationship: null,
         state: "live",
         stateLabel: "Live",
@@ -404,8 +442,9 @@ const STRESS_PRODUCTION_ROOTS = [
     resources: [
       {
         kind: "cloudflare",
+        ...COMMERCE_CLOUDFLARE_ACCOUNT,
         label: "commerce-analytics",
-        href: null,
+        publicUrl: null,
         relationship: null,
         state: "live",
         stateLabel: "Live",
@@ -418,10 +457,11 @@ const STRESS_PRODUCTION_ROOTS = [
       {
         kind: "convex",
         label: "catalog",
-        href: null,
+        publicUrl: null,
         relationship: null,
         state: "live",
         stateLabel: "Live",
+        teamSlug: "commerce-platform",
       },
     ],
   },
@@ -430,8 +470,9 @@ const STRESS_PRODUCTION_ROOTS = [
     resources: [
       {
         kind: "cloudflare",
+        ...COMMERCE_CLOUDFLARE_ACCOUNT,
         label: "commerce-checkout",
-        href: "https://checkout.commerce.example",
+        publicUrl: "https://checkout.commerce.example",
         relationship: null,
         state: "live",
         stateLabel: "Live",
@@ -439,10 +480,11 @@ const STRESS_PRODUCTION_ROOTS = [
       {
         kind: "convex",
         label: "checkout",
-        href: null,
+        publicUrl: null,
         relationship: null,
         state: "live",
         stateLabel: "Live",
+        teamSlug: "commerce-platform",
       },
     ],
   },
@@ -451,8 +493,9 @@ const STRESS_PRODUCTION_ROOTS = [
     resources: [
       {
         kind: "cloudflare",
+        ...COMMERCE_CLOUDFLARE_ACCOUNT,
         label: "commerce-content",
-        href: null,
+        publicUrl: null,
         relationship: null,
         state: "live",
         stateLabel: "Live",
@@ -465,10 +508,11 @@ const STRESS_PRODUCTION_ROOTS = [
       {
         kind: "convex",
         label: "notifications",
-        href: null,
+        publicUrl: null,
         relationship: null,
         state: "live",
         stateLabel: "Live",
+        teamSlug: "commerce-platform",
       },
     ],
   },
@@ -477,8 +521,9 @@ const STRESS_PRODUCTION_ROOTS = [
     resources: [
       {
         kind: "cloudflare",
+        ...COMMERCE_CLOUDFLARE_ACCOUNT,
         label: "commerce-search",
-        href: null,
+        publicUrl: null,
         relationship: null,
         state: "live",
         stateLabel: "Live",
@@ -490,16 +535,18 @@ const STRESS_PRODUCTION_ROOTS = [
     resources: [
       {
         kind: "cloudflare",
+        ...COMMERCE_CLOUDFLARE_ACCOUNT,
         label: "commerce-storefront",
-        href: "https://commerce.example",
+        publicUrl: "https://commerce.example",
         relationship: null,
         state: "live",
         stateLabel: "Live",
       },
       {
         kind: "cloudflare",
+        ...COMMERCE_CLOUDFLARE_ACCOUNT,
         label: "commerce-images",
-        href: null,
+        publicUrl: null,
         relationship: null,
         state: "live",
         stateLabel: "Live",
@@ -507,10 +554,11 @@ const STRESS_PRODUCTION_ROOTS = [
       {
         kind: "convex",
         label: "storefront",
-        href: null,
+        publicUrl: null,
         relationship: null,
         state: "live",
         stateLabel: "Live",
+        teamSlug: "commerce-platform",
       },
     ],
   },
@@ -519,8 +567,9 @@ const STRESS_PRODUCTION_ROOTS = [
     resources: [
       {
         kind: "cloudflare",
+        ...COMMERCE_CLOUDFLARE_ACCOUNT,
         label: "commerce-email",
-        href: null,
+        publicUrl: null,
         relationship: null,
         state: "live",
         stateLabel: "Live",
@@ -532,8 +581,9 @@ const STRESS_PRODUCTION_ROOTS = [
     resources: [
       {
         kind: "cloudflare",
+        ...COMMERCE_CLOUDFLARE_ACCOUNT,
         label: "commerce-webhooks",
-        href: null,
+        publicUrl: null,
         relationship: null,
         state: "live",
         stateLabel: "Live",
@@ -555,8 +605,9 @@ const STRESS_PULL_REQUESTS = [
         resources: [
           {
             kind: "cloudflare",
+            ...COMMERCE_CLOUDFLARE_ACCOUNT,
             label: "commerce-checkout",
-            href: "https://842.checkout.commerce.example",
+            publicUrl: "https://842.checkout.commerce.example",
             relationship: "Convex preview verified from this build",
             state: "ready",
             stateLabel: "Preview ready",
@@ -568,16 +619,18 @@ const STRESS_PULL_REQUESTS = [
         resources: [
           {
             kind: "cloudflare",
+            ...COMMERCE_CLOUDFLARE_ACCOUNT,
             label: "commerce-storefront",
-            href: "https://842.commerce.example",
+            publicUrl: "https://842.commerce.example",
             relationship: null,
             state: "ready",
             stateLabel: "Preview ready",
           },
           {
             kind: "cloudflare",
+            ...COMMERCE_CLOUDFLARE_ACCOUNT,
             label: "commerce-images",
-            href: null,
+            publicUrl: null,
             relationship: null,
             state: "unavailable",
             stateLabel: "Unavailable",
@@ -602,8 +655,9 @@ const STRESS_PULL_REQUESTS = [
         resources: [
           {
             kind: "cloudflare",
+            ...COMMERCE_CLOUDFLARE_ACCOUNT,
             label: "commerce-search",
-            href: "https://841.search.commerce.example",
+            publicUrl: "https://841.search.commerce.example",
             relationship: null,
             state: "ready",
             stateLabel: "Preview ready",
@@ -628,8 +682,9 @@ const STRESS_PULL_REQUESTS = [
         resources: [
           {
             kind: "cloudflare",
+            ...COMMERCE_CLOUDFLARE_ACCOUNT,
             label: "commerce-email",
-            href: null,
+            publicUrl: null,
             relationship: null,
             state: "reused",
             stateLabel: "No preview needed",
@@ -654,8 +709,9 @@ const STRESS_PULL_REQUESTS = [
         resources: [
           {
             kind: "cloudflare",
+            ...COMMERCE_CLOUDFLARE_ACCOUNT,
             label: "commerce-admin",
-            href: null,
+            publicUrl: null,
             relationship: null,
             state: "building",
             stateLabel: "Building",
@@ -680,8 +736,9 @@ const STRESS_PULL_REQUESTS = [
         resources: [
           {
             kind: "cloudflare",
+            ...COMMERCE_CLOUDFLARE_ACCOUNT,
             label: "commerce-analytics",
-            href: null,
+            publicUrl: null,
             relationship: null,
             state: "unavailable",
             stateLabel: "Unavailable",
@@ -706,8 +763,9 @@ const STRESS_PULL_REQUESTS = [
         resources: [
           {
             kind: "cloudflare",
+            ...COMMERCE_CLOUDFLARE_ACCOUNT,
             label: "commerce-webhooks",
-            href: "https://832.webhooks.commerce.example",
+            publicUrl: "https://832.webhooks.commerce.example",
             relationship: null,
             state: "ready",
             stateLabel: "Preview ready",
@@ -742,8 +800,9 @@ const SCENARIOS = {
         resources: [
           {
             kind: "cloudflare",
+            ...NOTER_CLOUDFLARE_ACCOUNT,
             label: "guestbook",
-            href: "https://guestbook.samebase.app",
+            publicUrl: "https://guestbook.samebase.app",
             relationship: null,
             state: "live",
             stateLabel: "Live",
@@ -751,10 +810,11 @@ const SCENARIOS = {
           {
             kind: "convex",
             label: "guestbook",
-            href: null,
+            publicUrl: null,
             relationship: null,
             state: "live",
             stateLabel: "Live",
+            teamSlug: "noter-guest",
           },
         ],
       },
@@ -773,8 +833,9 @@ const SCENARIOS = {
             resources: [
               {
                 kind: "cloudflare",
+                ...NOTER_CLOUDFLARE_ACCOUNT,
                 label: "guestbook",
-                href: "https://48.guestbook.samebase.app",
+                publicUrl: "https://48.guestbook.samebase.app",
                 relationship: "Convex preview verified from this build",
                 state: "ready",
                 stateLabel: "Preview ready",
@@ -854,8 +915,9 @@ const SCENARIOS = {
         resources: [
           {
             kind: "cloudflare",
+            ...SAMEBASE_CLOUDFLARE_ACCOUNT,
             label: "plugin-preview-router",
-            href: null,
+            publicUrl: null,
             relationship: null,
             state: "attention",
             stateLabel: "Root missing",
@@ -867,8 +929,9 @@ const SCENARIOS = {
         resources: [
           {
             kind: "cloudflare",
+            ...SAMEBASE_CLOUDFLARE_ACCOUNT,
             label: "plugin-directory",
-            href: "https://plugins.samebase.com",
+            publicUrl: "https://plugins.samebase.com",
             relationship: null,
             state: "live",
             stateLabel: "Live",
@@ -881,10 +944,11 @@ const SCENARIOS = {
           {
             kind: "convex",
             label: "plugin-registry",
-            href: null,
+            publicUrl: null,
             relationship: null,
             state: "live",
             stateLabel: "Live",
+            teamSlug: "samebase",
           },
         ],
       },
@@ -903,8 +967,9 @@ const SCENARIOS = {
             resources: [
               {
                 kind: "cloudflare",
+                ...SAMEBASE_CLOUDFLARE_ACCOUNT,
                 label: "plugin-preview-router",
-                href: null,
+                publicUrl: null,
                 relationship: null,
                 state: "attention",
                 stateLabel: "Root missing",
@@ -916,8 +981,9 @@ const SCENARIOS = {
             resources: [
               {
                 kind: "cloudflare",
+                ...SAMEBASE_CLOUDFLARE_ACCOUNT,
                 label: "plugin-directory",
-                href: "https://217.plugins.samebase.com",
+                publicUrl: "https://217.plugins.samebase.com",
                 relationship: null,
                 state: "ready",
                 stateLabel: "Preview ready",
@@ -942,8 +1008,9 @@ const SCENARIOS = {
             resources: [
               {
                 kind: "cloudflare",
+                ...SAMEBASE_CLOUDFLARE_ACCOUNT,
                 label: "plugin-registry-api",
-                href: "https://214.registry.samebase.com",
+                publicUrl: "https://214.registry.samebase.com",
                 relationship: "Convex preview verified from this build",
                 state: "ready",
                 stateLabel: "Preview ready",
@@ -975,6 +1042,30 @@ function ResourceIcon({ kind }: { kind: ResourceKind }) {
   }
 }
 
+function resourceDashboardUrl(resource: LabResource) {
+  switch (resource.kind) {
+    case "cloudflare":
+      return `https://dash.cloudflare.com/?to=/${encodeURIComponent(resource.accountId)}/workers/services/view/${encodeURIComponent(resource.label)}/production/settings`;
+    case "convex":
+      return `https://dashboard.convex.dev/t/${encodeURIComponent(resource.teamSlug)}/${encodeURIComponent(resource.label)}/settings`;
+    default:
+      resource satisfies never;
+      return "";
+  }
+}
+
+function resourceOwner(resource: LabResource) {
+  switch (resource.kind) {
+    case "cloudflare":
+      return resource.accountName;
+    case "convex":
+      return resource.teamSlug;
+    default:
+      resource satisfies never;
+      return "";
+  }
+}
+
 function ResourceRow({
   resource,
   showLiveStatus,
@@ -983,9 +1074,6 @@ function ResourceRow({
   showLiveStatus: boolean;
 }) {
   const style = RESOURCE_STATE_STYLE[resource.state];
-  const title = (
-    <span className="min-w-0 truncate font-medium text-foreground">{resource.label}</span>
-  );
 
   return (
     <div className="grid min-w-0 gap-2 py-2.5 @3xl:grid-cols-[minmax(0,1fr)_auto] @3xl:items-center">
@@ -999,19 +1087,25 @@ function ResourceRow({
         </span>
         <div className="min-w-0">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-            {resource.href ? (
+            <a
+              className="min-w-0 truncate font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+              href={resourceDashboardUrl(resource)}
+              rel="noreferrer"
+              target="_blank"
+            >
+              {resource.label}
+            </a>
+            {resource.publicUrl ? (
               <a
-                className="inline-flex min-w-0 items-center gap-1 underline decoration-border underline-offset-4 hover:decoration-foreground"
-                href={resource.href}
+                aria-label={`Open ${resource.label} deployment`}
+                className="-my-2 inline-flex h-8 w-8 shrink-0 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground"
+                href={resource.publicUrl}
                 rel="noreferrer"
                 target="_blank"
               >
-                {title}
-                <ExternalLink className="h-3 w-3 shrink-0" />
+                <ExternalLink className="h-3.5 w-3.5" />
               </a>
-            ) : (
-              title
-            )}
+            ) : null}
           </div>
           {resource.relationship ? (
             <div className="mt-1 text-xs leading-5 text-muted-foreground">
@@ -1532,7 +1626,30 @@ function SettingsResourceRow({ resource }: { resource: LabResource }) {
           <ResourceIcon kind={resource.kind} />
         </span>
         <div className="min-w-0">
-          <div className="truncate text-sm font-medium text-foreground">{resource.label}</div>
+          <div className="line-clamp-2 text-xs leading-4 text-muted-foreground">
+            {resourceOwner(resource)}/
+          </div>
+          <div className="flex min-w-0 items-center gap-1">
+            <a
+              className="line-clamp-2 min-w-0 text-sm font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+              href={resourceDashboardUrl(resource)}
+              rel="noreferrer"
+              target="_blank"
+            >
+              {resource.label}
+            </a>
+            {resource.publicUrl ? (
+              <a
+                aria-label={`Open ${resource.label} deployment`}
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground"
+                href={resource.publicUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            ) : null}
+          </div>
           {needsAttention ? (
             <div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-red-700">
               <AlertTriangle className="h-3.5 w-3.5" />
