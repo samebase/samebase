@@ -94,7 +94,8 @@ test("keeps repository identity useful at the desktop sidebar floor", async ({ p
     name: "samebase/commerce-order-fulfillment-platform, main 24/24, 12 apps, 6 PRs",
   });
   await expect(activeVault).toBeVisible();
-  await expect(activeVault.locator("[data-vault-sidebar-owner]")).toBeHidden();
+  await expect(activeVault.locator("[data-vault-sidebar-owner]")).toHaveText("samebase");
+  await expect(activeVault).toHaveCSS("text-decoration-line", "none");
   await expect(lab).toHaveScreenshot("vault-overview-design-lab-narrow-sidebar.png", {
     animations: "disabled",
     caret: "hide",

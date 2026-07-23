@@ -1067,8 +1067,8 @@ function VaultSidebar({
             aria-current={active ? "page" : undefined}
             className={
               active
-                ? "mx-2 block min-w-0 bg-muted px-2 py-2.5 text-left @max-[200px]:mx-1 @max-[200px]:px-1 @max-[120px]:mx-0"
-                : "mx-2 block min-w-0 px-2 py-2.5 text-left hover:bg-muted @max-[200px]:mx-1 @max-[200px]:px-1 @max-[120px]:mx-0"
+                ? "mx-2 block min-w-0 bg-muted px-2 py-2.5 text-left no-underline hover:no-underline @max-[200px]:mx-1 @max-[200px]:px-1 @max-[120px]:mx-0"
+                : "mx-2 block min-w-0 px-2 py-2.5 text-left no-underline hover:bg-muted hover:no-underline @max-[200px]:mx-1 @max-[200px]:px-1 @max-[120px]:mx-0"
             }
             search={(current) => ({
               ...current,
@@ -1078,14 +1078,14 @@ function VaultSidebar({
             title={`${scenario.repositoryOwner}/${scenario.repositoryName}`}
             to="/visual-fixture"
           >
-            <span className="flex min-w-0 items-baseline text-sm leading-5">
+            <span className="block min-w-0 text-sm leading-5">
               <span
-                className="mr-1 shrink-0 text-muted-foreground @max-[200px]:hidden"
+                className="block min-w-0 truncate text-muted-foreground @max-[120px]:hidden"
                 data-vault-sidebar-owner
               >
-                {scenario.repositoryOwner} /
+                {scenario.repositoryOwner}
               </span>
-              <span className="min-w-0 line-clamp-2 font-medium text-foreground [overflow-wrap:anywhere]">
+              <span className="block min-w-0 line-clamp-2 font-medium text-foreground [overflow-wrap:anywhere]">
                 {scenario.repositoryName}
               </span>
             </span>
