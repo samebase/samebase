@@ -280,7 +280,7 @@ describe("PublicLandingLogo", () => {
     });
 
     expect(latestLandingLogoSceneProps.current?.presentationTiltTarget).toEqual({
-      horizontal: 6,
+      horizontal: 15,
       vertical: 0,
     });
     expect(latestLandingLogoSceneProps.current?.elevationDegrees).toBe(
