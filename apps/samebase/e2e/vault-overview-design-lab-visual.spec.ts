@@ -56,9 +56,13 @@ test("shows default branch and pull request apps in the monorepo concept", async
   await expect(
     page.getByRole("button", { name: /Discover default-layout Convex projects/ }),
   ).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByRole("button", { name: "14 passed" })).toBeVisible();
+  await expect(page.getByTitle("Show default branch checks")).toHaveText("14 passed");
   await expect(page.getByText("Live", { exact: true })).toHaveCount(0);
   await expect(page.getByText("codex/discover-default-layout-convex-projects")).toBeVisible();
+  await expect(page.getByRole("link", { name: "main", exact: true })).toHaveAttribute(
+    "href",
+    "https://github.com/samebase/samebase/tree/main",
+  );
   await expect(
     page.getByRole("link", { name: "Open pull request #1263 on GitHub" }),
   ).toHaveAttribute("href", "https://github.com/samebase/samebase/pull/1263");
@@ -70,7 +74,7 @@ test("shows default branch and pull request apps in the monorepo concept", async
     "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/domain-router/production/settings",
   );
   await expect(
-    defaultBranch.getByRole("link", { name: "Open domain-router deployment", exact: true }),
+    defaultBranch.getByRole("link", { name: "Open domain-router workers.dev", exact: true }),
   ).toHaveAttribute("href", "https://domain-router.samebase.workers.dev");
   await expect(lab).toHaveScreenshot("vault-overview-design-lab-monorepo.png", {
     animations: "disabled",
@@ -91,6 +95,27 @@ test("keeps the large monorepo compact until apps are requested", async ({ page 
   await expect(
     page.getByRole("button", { name: /Retry partner webhooks with jitter/ }),
   ).toHaveAttribute("aria-expanded", "false");
+  const pullRequestChecks = page.getByTitle("Show pull request #842 checks");
+  await expect(pullRequestChecks).toHaveText("3 pending");
+  await pullRequestChecks.click();
+  await expect(page.getByText("Pull request #842 checks", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("link", { name: "View changes" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Open commerce-checkout Preview", exact: true }),
+  ).toHaveAttribute("href", "https://842.checkout.commerce.example");
+  await expect(
+    page.getByRole("link", { name: "Open commerce-checkout Build logs", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", {
+      name: "Open precise-otter-842 Preview deployment",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Open precise-otter-842 Data", exact: true }),
+  ).toBeVisible();
   await expect(lab).toHaveScreenshot("vault-overview-design-lab-stress.png", {
     animations: "disabled",
     caret: "hide",
@@ -152,6 +177,17 @@ test("keeps repository connections and uncommon repairs in settings", async ({ p
   await expect(page.getByRole("button", { name: "Add Cloudflare Worker" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add Convex project" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Repository" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Attention required" })).toBeVisible();
+  await expect(
+    page.locator('[data-settings-issue="commerce-images"]').getByRole("button", {
+      name: "Configure Builds",
+    }),
+  ).toBeVisible();
+  await expect(
+    page.locator('[data-settings-issue="catalog"]').getByRole("button", {
+      name: "Repair deploy keys",
+    }),
+  ).toBeVisible();
   await expect(page.locator('[data-settings-root="apps/checkout"]')).toBeVisible();
   await expect(page.getByText("Worker", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Production deployment", { exact: true })).toHaveCount(0);
@@ -170,7 +206,7 @@ test("keeps repository connections and uncommon repairs in settings", async ({ p
   );
   await expect(
     checkoutRoot.getByRole("link", {
-      name: "Open commerce-checkout deployment",
+      name: "Open commerce-checkout Custom domain",
       exact: true,
     }),
   ).toHaveAttribute("href", "https://checkout.commerce.example");
@@ -182,7 +218,7 @@ test("keeps repository connections and uncommon repairs in settings", async ({ p
   });
 });
 
-test("localizes root repair controls to the affected settings row", async ({ page }) => {
+test("localizes provider repairs to the affected settings rows", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openVaultOverviewDesignLab(
     page,
@@ -191,14 +227,14 @@ test("localizes root repair controls to the affected settings row", async ({ pag
     "settings",
   );
 
-  const attentionRoot = page.locator('[data-settings-root="Needs attention"]');
-  await expect(attentionRoot.getByText("plugin-preview-router")).toBeVisible();
-  await expect(attentionRoot.getByRole("button", { name: "Configure Builds" })).toBeVisible();
+  const workerIssue = page.locator('[data-settings-issue="plugin-preview-router"]');
+  await expect(workerIssue.getByText("plugin-preview-router")).toBeVisible();
+  await expect(workerIssue.getByRole("button", { name: "Choose code location" })).toBeVisible();
   await expect(
-    page.locator('[data-settings-root="packages/codex-plugin"]').getByRole("button", {
-      name: "Configure Builds",
+    page.locator('[data-settings-issue="plugin-registry"]').getByRole("button", {
+      name: "Repair deploy keys",
     }),
-  ).toHaveCount(0);
+  ).toBeVisible();
 });
 
 test.describe("touch-first phone", () => {
@@ -233,7 +269,8 @@ test.describe("touch-first phone", () => {
   test("collapses a single-root app without losing its resources", async ({ page }) => {
     const lab = await openVaultOverviewDesignLab(page, "vault-overview-lab-simple");
 
-    const checks = page.getByRole("button", { name: "6 passed" });
+    const checks = page.getByTitle("Show default branch checks");
+    await expect(checks).toHaveText("6 passed");
     await expect(checks).toBeVisible();
     const checksBounds = await checks.boundingBox();
     if (!checksBounds) {
