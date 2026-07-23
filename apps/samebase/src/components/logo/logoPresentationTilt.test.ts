@@ -58,7 +58,7 @@ describe("logo presentation tilt", () => {
     ).toBe(NEUTRAL_LOGO_PRESENTATION_TILT_TARGET);
   });
 
-  it("adds fifteen degrees per 1.25 shortest-side distances without a cap", () => {
+  it("adds twelve degrees per 1.25 shortest-side distances without a cap", () => {
     const near = getPointerLogoPresentationTiltTarget({
       bounds: BOUNDS,
       clientX: 550,
@@ -71,20 +71,20 @@ describe("logo presentation tilt", () => {
     });
 
     expect(near.vertical).toBe(0);
-    expect(near.horizontal).toBeCloseTo(15);
-    expect(far).toEqual({ horizontal: 30, vertical: 0 });
+    expect(near.horizontal).toBeCloseTo(12);
+    expect(far).toEqual({ horizontal: 24, vertical: 0 });
   });
 
-  it("preserves direction while allowing diagonal strength beyond thirty degrees", () => {
+  it("preserves direction while allowing diagonal strength beyond twenty-four degrees", () => {
     const target = getPointerLogoPresentationTiltTarget({
       bounds: BOUNDS,
       clientX: 800,
       clientY: -400,
     });
 
-    expect(target.horizontal).toBeCloseTo(30);
-    expect(target.vertical).toBeCloseTo(30);
-    expect(Math.hypot(target.horizontal, target.vertical)).toBeGreaterThan(30);
+    expect(target.horizontal).toBeCloseTo(24);
+    expect(target.vertical).toBeCloseTo(24);
+    expect(Math.hypot(target.horizontal, target.vertical)).toBeGreaterThan(24);
   });
 
   it("resolves interchangeable degree inputs to the renderer contract", () => {
