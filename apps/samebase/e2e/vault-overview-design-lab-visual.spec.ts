@@ -58,6 +58,10 @@ test("shows default branch and pull request apps in the monorepo concept", async
   ).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByRole("button", { name: "14 passed" })).toBeVisible();
   await expect(page.getByText("Live", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("codex/discover-default-layout-convex-projects")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Open pull request #1263 on GitHub" }),
+  ).toHaveAttribute("href", "https://github.com/samebase/samebase/pull/1263");
   await expect(lab).toHaveScreenshot("vault-overview-design-lab-monorepo.png", {
     animations: "disabled",
     caret: "hide",
@@ -208,6 +212,18 @@ test.describe("touch-first phone", () => {
     }
     expect(checksBounds.height).toBeGreaterThanOrEqual(32);
     await expect(page.locator("[data-pull-request-title]")).toHaveCSS("-webkit-line-clamp", "3");
+    const pullRequestLink = page.getByRole("link", {
+      name: "Open pull request #48 on GitHub",
+    });
+    await expect(pullRequestLink).toHaveAttribute(
+      "href",
+      "https://github.com/noter-guest/guestbook/pull/48",
+    );
+    const pullRequestLinkBounds = await pullRequestLink.boundingBox();
+    if (!pullRequestLinkBounds) {
+      throw new Error("Pull request GitHub link has no rendered bounds");
+    }
+    expect(pullRequestLinkBounds.height).toBeGreaterThanOrEqual(32);
     await expect(page.getByText("guestbook", { exact: true }).first()).toBeVisible();
     await expect(page.getByLabel("Cloudflare").first()).toBeVisible();
     await expect(page.getByLabel("Convex").first()).toBeVisible();

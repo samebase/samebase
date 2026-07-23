@@ -57,6 +57,7 @@ type LabRootGroup = {
 
 type LabPullRequest = {
   author: string;
+  branch: string;
   checksLabel: string;
   number: number;
   rootSummary: string;
@@ -267,6 +268,7 @@ const MONOREPO_PRODUCTION_ROOTS = [
 const MONOREPO_PULL_REQUESTS = [
   {
     author: "nicu",
+    branch: "codex/discover-default-layout-convex-projects",
     checksLabel: "14/14 checks",
     number: 1263,
     rootSummary: "1 preview",
@@ -292,6 +294,7 @@ const MONOREPO_PULL_REQUESTS = [
   },
   {
     author: "codex",
+    branch: "codex/pr-observation-model",
     checksLabel: "9/14 checks",
     number: 1262,
     rootSummary: "2 previews",
@@ -330,6 +333,7 @@ const MONOREPO_PULL_REQUESTS = [
   },
   {
     author: "claude",
+    branch: "claude/workspace-scroll",
     checksLabel: "14/14 checks",
     number: 1259,
     rootSummary: "No preview needed",
@@ -541,6 +545,7 @@ const STRESS_PRODUCTION_ROOTS = [
 const STRESS_PULL_REQUESTS = [
   {
     author: "maya",
+    branch: "maya/checkout-retries",
     checksLabel: "21/24 checks",
     number: 842,
     rootSummary: "2 previews",
@@ -587,6 +592,7 @@ const STRESS_PULL_REQUESTS = [
   },
   {
     author: "leo",
+    branch: "leo/search-index-refresh",
     checksLabel: "24/24 checks",
     number: 841,
     rootSummary: "1 preview",
@@ -612,6 +618,7 @@ const STRESS_PULL_REQUESTS = [
   },
   {
     author: "sana",
+    branch: "sana/payment-email-copy",
     checksLabel: "24/24 checks",
     number: 839,
     rootSummary: "No preview needed",
@@ -637,6 +644,7 @@ const STRESS_PULL_REQUESTS = [
   },
   {
     author: "owen",
+    branch: "owen/bulk-catalog-editing",
     checksLabel: "18/24 checks",
     number: 837,
     rootSummary: "1 preview",
@@ -662,6 +670,7 @@ const STRESS_PULL_REQUESTS = [
   },
   {
     author: "mia",
+    branch: "mia/refund-conversion",
     checksLabel: "24/24 checks",
     number: 836,
     rootSummary: "No preview available",
@@ -687,6 +696,7 @@ const STRESS_PULL_REQUESTS = [
   },
   {
     author: "noah",
+    branch: "noah/webhook-jitter",
     checksLabel: "24/24 checks",
     number: 832,
     rootSummary: "1 preview",
@@ -753,6 +763,7 @@ const SCENARIOS = {
     pullRequests: [
       {
         author: "noter-guest",
+        branch: "noter/sort-guestbook-entries",
         checksLabel: "6/6 checks",
         number: 48,
         rootSummary: "1 preview",
@@ -882,6 +893,7 @@ const SCENARIOS = {
     pullRequests: [
       {
         author: "nicu",
+        branch: "codex/plugin-preview-router",
         checksLabel: "11/14 checks",
         number: 217,
         rootSummary: "1 resource needs attention",
@@ -920,6 +932,7 @@ const SCENARIOS = {
       },
       {
         author: "codex",
+        branch: "codex/plugin-compatibility-metadata",
         checksLabel: "8/8 checks",
         number: 214,
         rootSummary: "1 preview",
@@ -1402,9 +1415,11 @@ function DefaultBranchSection({ scenario }: { scenario: LabScenario }) {
 function PullRequestSection({
   defaultExpandedPullRequest,
   pullRequests,
+  repositoryUrl,
 }: {
   defaultExpandedPullRequest: number | null;
   pullRequests: readonly LabPullRequest[];
+  repositoryUrl: string;
 }) {
   const [expandedPullRequest, setExpandedPullRequest] = useState<number | null>(
     defaultExpandedPullRequest,
@@ -1428,44 +1443,62 @@ function PullRequestSection({
           const stateStyle = EVENT_STATE_STYLE[pullRequest.state];
           return (
             <article key={pullRequest.number} className="border-b border-border last:border-b-0">
-              <button
-                aria-expanded={expanded}
-                className="grid w-full gap-3 px-0 py-4 text-left @4xl:grid-cols-[minmax(0,1fr)_auto] @4xl:items-start"
-                type="button"
-                onClick={() => setExpandedPullRequest(expanded ? null : pullRequest.number)}
-              >
-                <span className="flex min-w-0 items-start gap-3">
-                  <GitPullRequest className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2">
-                    <span
-                      className="line-clamp-3 text-sm font-medium leading-5 text-foreground [overflow-wrap:anywhere]"
-                      data-pull-request-title
-                    >
-                      {pullRequest.title}
-                    </span>
-                    <span className="text-xs leading-5 text-muted-foreground">
-                      #{pullRequest.number}
-                    </span>
-                    <span className="col-span-2 mt-1 block text-xs leading-5 text-muted-foreground">
-                      {pullRequest.author} · {pullRequest.updatedAt} · {pullRequest.checksLabel} ·{" "}
-                      {pullRequest.rootSummary}
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start">
+                <button
+                  aria-expanded={expanded}
+                  className="grid min-w-0 gap-3 py-4 pr-1 text-left @4xl:grid-cols-[minmax(0,1fr)_auto] @4xl:items-start"
+                  type="button"
+                  onClick={() => setExpandedPullRequest(expanded ? null : pullRequest.number)}
+                >
+                  <span className="flex min-w-0 items-start gap-3">
+                    <GitPullRequest className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className="line-clamp-3 text-sm font-medium leading-5 text-foreground [overflow-wrap:anywhere]"
+                        data-pull-request-title
+                      >
+                        {pullRequest.title}
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                        {pullRequest.author} ·{" "}
+                        <span className="font-mono [overflow-wrap:anywhere]">
+                          {pullRequest.branch}
+                        </span>{" "}
+                        · {pullRequest.updatedAt} · {pullRequest.checksLabel} ·{" "}
+                        {pullRequest.rootSummary}
+                      </span>
                     </span>
                   </span>
-                </span>
-                <span className="flex items-center justify-between gap-3 pl-7 @4xl:justify-end @4xl:pl-0">
-                  <span className={stateStyle.status}>
-                    <span className={stateStyle.dot} />
-                    {pullRequest.stateLabel}
+                  <span className="flex items-center justify-between gap-3 pl-7 @4xl:justify-end @4xl:pl-0">
+                    <span className={stateStyle.status}>
+                      <span className={stateStyle.dot} />
+                      {pullRequest.stateLabel}
+                    </span>
+                    <ChevronDown
+                      className={
+                        expanded
+                          ? "h-4 w-4 rotate-180 text-muted-foreground"
+                          : "h-4 w-4 text-muted-foreground"
+                      }
+                    />
                   </span>
-                  <ChevronDown
-                    className={
-                      expanded
-                        ? "h-4 w-4 rotate-180 text-muted-foreground"
-                        : "h-4 w-4 text-muted-foreground"
-                    }
-                  />
-                </span>
-              </button>
+                </button>
+                <a
+                  aria-label={`Open pull request #${pullRequest.number} on GitHub`}
+                  className="mt-2 inline-flex min-h-8 items-center gap-1.5 px-2 text-xs font-medium text-muted-foreground no-underline hover:bg-muted hover:text-foreground hover:no-underline"
+                  href={`${repositoryUrl}/pull/${pullRequest.number}`}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  <span>#{pullRequest.number}</span>
+                  <span
+                    aria-hidden="true"
+                    className="flex h-4 w-4 items-center justify-center text-foreground"
+                  >
+                    <GitHubProviderLogo />
+                  </span>
+                </a>
+              </div>
               {expanded ? (
                 <div className="pb-4 pl-7">
                   <RootRail roots={pullRequest.roots} separateRoots showLiveStatus />
@@ -1622,6 +1655,7 @@ function VaultOverview({ scenario }: { scenario: LabScenario }) {
         <PullRequestSection
           defaultExpandedPullRequest={scenario.defaultExpandedPullRequest}
           pullRequests={scenario.pullRequests}
+          repositoryUrl={scenario.repositoryUrl}
         />
         <div aria-hidden="true" className="h-[20svh] min-h-20" />
       </main>
