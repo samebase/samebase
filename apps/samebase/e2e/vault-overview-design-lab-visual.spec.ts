@@ -103,10 +103,18 @@ test("keeps the large monorepo compact until apps are requested", async ({ page 
   await pullRequestChecks.click();
   await expect(page.getByText("Pull request #842 checks", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("link", { name: "View changes" })).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "Open commerce-checkout Preview", exact: true }),
-  ).toHaveAttribute("href", "https://842.checkout.commerce.example");
+  const samebaseChanges = page.getByRole("link", { name: "View changes" });
+  await expect(samebaseChanges).toHaveAttribute(
+    "href",
+    "/vault/samebase/commerce-order-fulfillment-platform/fs/maya/checkout-retries?compare",
+  );
+  await expect(samebaseChanges).not.toHaveAttribute("target");
+  const branchPreview = page.getByRole("link", {
+    name: "Open commerce-checkout Branch preview",
+    exact: true,
+  });
+  await expect(branchPreview).toHaveAttribute("href", "https://842.checkout.commerce.example");
+  await expect(branchPreview).toHaveAttribute("target", "_blank");
   await expect(
     page.getByRole("link", { name: "Open commerce-checkout Build logs", exact: true }),
   ).toBeVisible();
@@ -118,7 +126,7 @@ test("keeps the large monorepo compact until apps are requested", async ({ page 
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Open precise-otter-842 Data", exact: true }),
-  ).toBeVisible();
+  ).toHaveAttribute("target", "_blank");
   await expect(lab).toHaveScreenshot("vault-overview-design-lab-stress.png", {
     animations: "disabled",
     caret: "hide",

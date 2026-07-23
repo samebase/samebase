@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import {
   AlertTriangle,
   Check,
@@ -24,6 +24,7 @@ import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
   GitHubProviderLogo,
+  SamebaseLogoMark,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { VaultChecksPopover } from "@/components/vault-dashboard/VaultChecksPopover";
 import type { VaultDefaultBranchChecks } from "@/hooks/useVaultPullRequests";
@@ -83,7 +84,6 @@ type LabPullRequest = {
     labels: readonly string[];
   } | null;
   number: number;
-  rootSummary: string;
   roots: readonly LabRootGroup[];
   state: EventState;
   stateLabel: string;
@@ -344,7 +344,6 @@ const MONOREPO_PULL_REQUESTS = [
     checksLabel: "14/14 checks",
     details: null,
     number: 1263,
-    rootSummary: "1 preview",
     roots: [
       {
         rootDirectory: "apps/samebase",
@@ -354,7 +353,7 @@ const MONOREPO_PULL_REQUESTS = [
             ...SAMEBASE_CLOUDFLARE_ACCOUNT,
             destinations: [
               {
-                label: "Preview",
+                label: "Branch preview",
                 url: "https://1263.samebase.workers.dev",
               },
             ],
@@ -378,7 +377,6 @@ const MONOREPO_PULL_REQUESTS = [
     checksLabel: "9/14 checks",
     details: null,
     number: 1262,
-    rootSummary: "2 previews",
     roots: [
       {
         rootDirectory: "apps/domain-router",
@@ -388,7 +386,7 @@ const MONOREPO_PULL_REQUESTS = [
             ...SAMEBASE_CLOUDFLARE_ACCOUNT,
             destinations: [
               {
-                label: "Preview",
+                label: "Branch preview",
                 url: "https://1262.domain-router.workers.dev",
               },
             ],
@@ -426,7 +424,6 @@ const MONOREPO_PULL_REQUESTS = [
     checksLabel: "14/14 checks",
     details: null,
     number: 1259,
-    rootSummary: "No preview needed",
     roots: [
       {
         rootDirectory: "apps/samebase",
@@ -682,11 +679,10 @@ const STRESS_PULL_REQUESTS = [
       baseBranch: "main",
       changeSummary: "+184 −42 · 7 files",
       changesUrl:
-        "https://samebase.com/vault/samebase/commerce-order-fulfillment-platform/pull/842",
+        "/vault/samebase/commerce-order-fulfillment-platform/fs/maya/checkout-retries?compare",
       labels: ["needs review", "customer"],
     },
     number: 842,
-    rootSummary: "2 previews",
     roots: [
       {
         rootDirectory: "apps/checkout",
@@ -696,7 +692,7 @@ const STRESS_PULL_REQUESTS = [
             ...COMMERCE_CLOUDFLARE_ACCOUNT,
             destinations: [
               {
-                label: "Preview",
+                label: "Branch preview",
                 url: "https://842.checkout.commerce.example",
               },
               {
@@ -737,7 +733,7 @@ const STRESS_PULL_REQUESTS = [
             ...COMMERCE_CLOUDFLARE_ACCOUNT,
             destinations: [
               {
-                label: "Preview",
+                label: "Branch preview",
                 url: "https://842.commerce.example",
               },
               {
@@ -779,7 +775,6 @@ const STRESS_PULL_REQUESTS = [
     checksLabel: "24/24 checks",
     details: null,
     number: 841,
-    rootSummary: "1 preview",
     roots: [
       {
         rootDirectory: "apps/search",
@@ -789,7 +784,7 @@ const STRESS_PULL_REQUESTS = [
             ...COMMERCE_CLOUDFLARE_ACCOUNT,
             destinations: [
               {
-                label: "Preview",
+                label: "Branch preview",
                 url: "https://841.search.commerce.example",
               },
             ],
@@ -813,7 +808,6 @@ const STRESS_PULL_REQUESTS = [
     checksLabel: "24/24 checks",
     details: null,
     number: 839,
-    rootSummary: "No preview needed",
     roots: [
       {
         rootDirectory: "services/email",
@@ -842,7 +836,6 @@ const STRESS_PULL_REQUESTS = [
     checksLabel: "18/24 checks",
     details: null,
     number: 837,
-    rootSummary: "1 preview",
     roots: [
       {
         rootDirectory: "apps/admin",
@@ -876,7 +869,6 @@ const STRESS_PULL_REQUESTS = [
     checksLabel: "24/24 checks",
     details: null,
     number: 836,
-    rootSummary: "No preview available",
     roots: [
       {
         rootDirectory: "apps/analytics",
@@ -905,7 +897,6 @@ const STRESS_PULL_REQUESTS = [
     checksLabel: "24/24 checks",
     details: null,
     number: 832,
-    rootSummary: "1 preview",
     roots: [
       {
         rootDirectory: "services/webhooks",
@@ -915,7 +906,7 @@ const STRESS_PULL_REQUESTS = [
             ...COMMERCE_CLOUDFLARE_ACCOUNT,
             destinations: [
               {
-                label: "Preview",
+                label: "Branch preview",
                 url: "https://832.webhooks.commerce.example",
               },
             ],
@@ -993,7 +984,6 @@ const SCENARIOS = {
         checksLabel: "6/6 checks",
         details: null,
         number: 48,
-        rootSummary: "1 preview",
         roots: [
           {
             rootDirectory: "/",
@@ -1003,7 +993,7 @@ const SCENARIOS = {
                 ...NOTER_CLOUDFLARE_ACCOUNT,
                 destinations: [
                   {
-                    label: "Preview",
+                    label: "Branch preview",
                     url: "https://48.guestbook.samebase.app",
                   },
                 ],
@@ -1175,7 +1165,6 @@ const SCENARIOS = {
         checksLabel: "11/14 checks",
         details: null,
         number: 217,
-        rootSummary: "1 resource needs attention",
         roots: [
           {
             rootDirectory: "Needs attention",
@@ -1204,7 +1193,7 @@ const SCENARIOS = {
                 ...SAMEBASE_CLOUDFLARE_ACCOUNT,
                 destinations: [
                   {
-                    label: "Preview",
+                    label: "Branch preview",
                     url: "https://217.plugins.samebase.com",
                   },
                 ],
@@ -1228,7 +1217,6 @@ const SCENARIOS = {
         checksLabel: "8/8 checks",
         details: null,
         number: 214,
-        rootSummary: "1 preview",
         roots: [
           {
             rootDirectory: "packages/registry",
@@ -1238,7 +1226,7 @@ const SCENARIOS = {
                 ...SAMEBASE_CLOUDFLARE_ACCOUNT,
                 destinations: [
                   {
-                    label: "Preview",
+                    label: "Branch preview",
                     url: "https://214.registry.samebase.com",
                   },
                 ],
@@ -1349,6 +1337,36 @@ function ResourceDestinationLinks({ resource }: { resource: LabResource }) {
         </a>
       ))}
     </div>
+  );
+}
+
+function SamebaseChangesLink({ href }: { href: string }) {
+  const router = useRouter();
+
+  return (
+    <a
+      className="inline-flex min-h-8 items-center gap-1 font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+      href={href}
+      title="View this branch's changes in Samebase"
+      onClick={(event) => {
+        if (
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        ) {
+          return;
+        }
+        event.preventDefault();
+        void router.navigate({ href });
+      }}
+    >
+      <span aria-hidden="true" className="flex h-4 w-4 items-center justify-center">
+        <SamebaseLogoMark />
+      </span>
+      View changes
+    </a>
   );
 }
 
@@ -1848,9 +1866,8 @@ function PullRequestSection({
                         <span className={stateStyle.dot} />
                         {pullRequest.stateLabel}
                       </span>
-                      <span className="mt-1 flex flex-wrap gap-x-3 text-xs leading-5 text-muted-foreground @4xl:justify-end">
-                        <span>{pullRequest.checksLabel}</span>
-                        <span>{pullRequest.rootSummary}</span>
+                      <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                        {pullRequest.checksLabel}
                       </span>
                     </span>
                     <ChevronDown
@@ -1904,15 +1921,7 @@ function PullRequestSection({
                             {label}
                           </span>
                         ))}
-                        <a
-                          className="inline-flex min-h-8 items-center gap-1 font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
-                          href={pullRequest.details.changesUrl}
-                          rel="noreferrer"
-                          target="_blank"
-                        >
-                          View changes
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
+                        <SamebaseChangesLink href={pullRequest.details.changesUrl} />
                       </>
                     ) : null}
                   </div>
