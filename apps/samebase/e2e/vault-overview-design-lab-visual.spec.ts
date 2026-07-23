@@ -208,4 +208,24 @@ test.describe("touch-first phone", () => {
       scale: "css",
     });
   });
+
+  test("keeps repository roots distinct from their settings resources", async ({ page }) => {
+    const lab = await openVaultOverviewDesignLab(
+      page,
+      "vault-overview-lab-stress",
+      VAULT_OVERVIEW_DESIGN_LAB_SIDEBAR_STATE,
+      "settings",
+    );
+
+    const checkoutRoot = page.locator('[data-settings-root="apps/checkout"]');
+    await expect(checkoutRoot.getByText("apps/checkout", { exact: true })).toBeVisible();
+    await expect(checkoutRoot.getByText("commerce-checkout", { exact: true })).toBeVisible();
+    await expect(checkoutRoot.getByText("checkout", { exact: true })).toBeVisible();
+    await expect(lab).toHaveScreenshot("vault-overview-design-lab-settings-mobile.png", {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    });
+  });
 });

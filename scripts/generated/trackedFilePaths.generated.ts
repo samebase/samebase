@@ -552,6 +552,7 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/vault-overview-design-lab-visual.spec.ts-snapshots/vault-overview-design-lab-minimum-mobile-sidebar.png",
   "apps/samebase/e2e/vault-overview-design-lab-visual.spec.ts-snapshots/vault-overview-design-lab-monorepo.png",
   "apps/samebase/e2e/vault-overview-design-lab-visual.spec.ts-snapshots/vault-overview-design-lab-narrow-sidebar.png",
+  "apps/samebase/e2e/vault-overview-design-lab-visual.spec.ts-snapshots/vault-overview-design-lab-settings-mobile.png",
   "apps/samebase/e2e/vault-overview-design-lab-visual.spec.ts-snapshots/vault-overview-design-lab-settings.png",
   "apps/samebase/e2e/vault-overview-design-lab-visual.spec.ts-snapshots/vault-overview-design-lab-simple-mobile.png",
   "apps/samebase/e2e/vault-overview-design-lab-visual.spec.ts-snapshots/vault-overview-design-lab-stress.png",

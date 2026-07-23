@@ -1330,7 +1330,13 @@ function SettingsResourceRow({ resource }: { resource: LabResource }) {
   const needsAttention = resource.state === "attention";
 
   return (
-    <div className="grid min-w-0 gap-3 border-b border-border/40 py-3 last:border-b-0 @3xl:grid-cols-[minmax(0,1fr)_auto] @3xl:items-center">
+    <div
+      className={
+        needsAttention
+          ? "grid min-w-0 gap-3 py-2.5 @3xl:grid-cols-[minmax(0,1fr)_auto] @3xl:items-center"
+          : "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2.5"
+      }
+    >
       <div className="flex min-w-0 items-start gap-2.5">
         <span
           aria-label={resource.kind === "cloudflare" ? "Cloudflare" : "Convex"}
@@ -1386,13 +1392,13 @@ function SettingsRootGroup({ group }: { group: LabRootGroup }) {
       <div
         className={
           needsAttention
-            ? "min-w-0 py-3 font-mono text-xs font-medium text-red-700 @4xl:pr-5"
-            : "min-w-0 py-3 font-mono text-xs font-medium text-foreground @4xl:pr-5"
+            ? "min-w-0 pt-4 pb-1 font-mono text-sm font-semibold text-red-700 @4xl:py-3 @4xl:pr-5 @4xl:text-xs"
+            : "min-w-0 pt-4 pb-1 font-mono text-sm font-semibold text-foreground @4xl:py-3 @4xl:pr-5 @4xl:text-xs"
         }
       >
         <span className="block [overflow-wrap:anywhere]">{group.rootDirectory}</span>
       </div>
-      <div className="min-w-0 border-t border-border/40 @4xl:border-l @4xl:border-t-0 @4xl:pl-5">
+      <div className="min-w-0 pb-2 pl-5 @4xl:border-l @4xl:pb-0 @4xl:pl-5">
         {group.resources.map((resource) => (
           <SettingsResourceRow key={`${resource.kind}-${resource.label}`} resource={resource} />
         ))}
@@ -1445,17 +1451,12 @@ function RepositorySettings({ scenario }: { scenario: LabScenario }) {
 
         <section aria-labelledby="vault-settings-connections-heading">
           <div className="mb-3 grid gap-3 @4xl:grid-cols-[minmax(0,1fr)_auto] @4xl:items-end">
-            <div>
-              <h2
-                id="vault-settings-connections-heading"
-                className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
-              >
-                Connections
-              </h2>
-              <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                Resources are grouped by their repository root.
-              </p>
-            </div>
+            <h2
+              id="vault-settings-connections-heading"
+              className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
+            >
+              Connections
+            </h2>
             <div className="flex flex-wrap gap-2">
               <Button className="shadow-none" size="sm" type="button" variant="outline">
                 <CloudflareProviderLogo />
