@@ -7,7 +7,6 @@ import {
   CircleDot,
   ExternalLink,
   GitCommitHorizontal,
-  GitPullRequest,
   LayoutList,
   LoaderCircle,
   MoreHorizontal,
@@ -1828,26 +1827,23 @@ function PullRequestSection({
                   type="button"
                   onClick={() => setExpandedPullRequest(expanded ? null : pullRequest.number)}
                 >
-                  <span className="flex min-w-0 items-start gap-3">
-                    <GitPullRequest className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1">
-                      <span
-                        className="line-clamp-3 text-sm font-medium leading-5 text-foreground [overflow-wrap:anywhere]"
-                        data-pull-request-title
-                      >
-                        {pullRequest.title}
-                      </span>
-                      <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                        {pullRequest.author} ·{" "}
-                        <span className="font-mono [overflow-wrap:anywhere]">
-                          {pullRequest.branch}
-                        </span>{" "}
-                        · {pullRequest.updatedAt} · {pullRequest.checksLabel} ·{" "}
-                        {pullRequest.rootSummary}
-                      </span>
+                  <span className="min-w-0">
+                    <span
+                      className="line-clamp-3 text-sm font-medium leading-5 text-foreground [overflow-wrap:anywhere]"
+                      data-pull-request-title
+                    >
+                      {pullRequest.title}
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                      {pullRequest.author} ·{" "}
+                      <span className="font-mono [overflow-wrap:anywhere]">
+                        {pullRequest.branch}
+                      </span>{" "}
+                      · {pullRequest.updatedAt} · {pullRequest.checksLabel} ·{" "}
+                      {pullRequest.rootSummary}
                     </span>
                   </span>
-                  <span className="flex items-center justify-between gap-3 pl-7 @4xl:justify-end @4xl:pl-0">
+                  <span className="flex items-center justify-between gap-3 @4xl:justify-end">
                     <span className={stateStyle.status}>
                       <span className={stateStyle.dot} />
                       {pullRequest.stateLabel}
@@ -1878,7 +1874,7 @@ function PullRequestSection({
                 </a>
               </div>
               {expanded ? (
-                <div className="pb-4 pl-7">
+                <div className="pb-4">
                   <div className="mb-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     <VaultChecksPopover
                       checks={pullRequest.checks.checks}
