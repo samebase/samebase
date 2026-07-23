@@ -73,13 +73,15 @@ type LabRootGroup = {
 };
 
 type LabPullRequest = {
+  additions: number;
   author: string;
   branch: string;
+  changedFiles: number;
   checks: LabChecks;
   checksLabel: string;
+  deletions: number;
   details: {
     baseBranch: string;
-    changeSummary: string;
     changesUrl: string;
     labels: readonly string[];
   } | null;
@@ -338,10 +340,13 @@ const MONOREPO_PRODUCTION_ROOTS = [
 
 const MONOREPO_PULL_REQUESTS = [
   {
+    additions: 86,
     author: "nicu",
     branch: "codex/discover-default-layout-convex-projects",
+    changedFiles: 6,
     checks: labChecks({ failureCount: 0, runningCount: 0, successCount: 14 }),
     checksLabel: "14/14 checks",
+    deletions: 24,
     details: null,
     number: 1263,
     roots: [
@@ -371,10 +376,13 @@ const MONOREPO_PULL_REQUESTS = [
     updatedAt: "18 min ago",
   },
   {
+    additions: 312,
     author: "codex",
     branch: "codex/pr-observation-model",
+    changedFiles: 14,
     checks: labChecks({ failureCount: 0, runningCount: 5, successCount: 9 }),
     checksLabel: "9/14 checks",
+    deletions: 97,
     details: null,
     number: 1262,
     roots: [
@@ -418,10 +426,13 @@ const MONOREPO_PULL_REQUESTS = [
     updatedAt: "42 min ago",
   },
   {
+    additions: 48,
     author: "claude",
     branch: "claude/workspace-scroll",
+    changedFiles: 5,
     checks: labChecks({ failureCount: 0, runningCount: 0, successCount: 14 }),
     checksLabel: "14/14 checks",
+    deletions: 33,
     details: null,
     number: 1259,
     roots: [
@@ -671,13 +682,15 @@ const STRESS_PRODUCTION_ROOTS = [
 
 const STRESS_PULL_REQUESTS = [
   {
+    additions: 184,
     author: "maya",
     branch: "maya/checkout-retries",
+    changedFiles: 7,
     checks: labChecks({ failureCount: 0, runningCount: 3, successCount: 21 }),
     checksLabel: "21/24 checks",
+    deletions: 42,
     details: {
       baseBranch: "main",
-      changeSummary: "+184 −42 · 7 files",
       changesUrl:
         "/vault/samebase/commerce-order-fulfillment-platform/fs/maya/checkout-retries?compare",
       labels: ["needs review", "customer"],
@@ -769,10 +782,13 @@ const STRESS_PULL_REQUESTS = [
     updatedAt: "9 min ago",
   },
   {
+    additions: 126,
     author: "leo",
     branch: "leo/search-index-refresh",
+    changedFiles: 9,
     checks: labChecks({ failureCount: 0, runningCount: 0, successCount: 24 }),
     checksLabel: "24/24 checks",
+    deletions: 18,
     details: null,
     number: 841,
     roots: [
@@ -802,10 +818,13 @@ const STRESS_PULL_REQUESTS = [
     updatedAt: "26 min ago",
   },
   {
+    additions: 34,
     author: "sana",
     branch: "sana/payment-email-copy",
+    changedFiles: 4,
     checks: labChecks({ failureCount: 0, runningCount: 0, successCount: 24 }),
     checksLabel: "24/24 checks",
+    deletions: 21,
     details: null,
     number: 839,
     roots: [
@@ -830,10 +849,13 @@ const STRESS_PULL_REQUESTS = [
     updatedAt: "1 hr ago",
   },
   {
+    additions: 418,
     author: "owen",
     branch: "owen/bulk-catalog-editing",
+    changedFiles: 18,
     checks: labChecks({ failureCount: 0, runningCount: 6, successCount: 18 }),
     checksLabel: "18/24 checks",
+    deletions: 76,
     details: null,
     number: 837,
     roots: [
@@ -863,10 +885,13 @@ const STRESS_PULL_REQUESTS = [
     updatedAt: "2 hr ago",
   },
   {
+    additions: 92,
     author: "mia",
     branch: "mia/refund-conversion",
+    changedFiles: 6,
     checks: labChecks({ failureCount: 0, runningCount: 0, successCount: 24 }),
     checksLabel: "24/24 checks",
+    deletions: 37,
     details: null,
     number: 836,
     roots: [
@@ -891,10 +916,13 @@ const STRESS_PULL_REQUESTS = [
     updatedAt: "4 hr ago",
   },
   {
+    additions: 67,
     author: "noah",
     branch: "noah/webhook-jitter",
+    changedFiles: 5,
     checks: labChecks({ failureCount: 0, runningCount: 0, successCount: 24 }),
     checksLabel: "24/24 checks",
+    deletions: 14,
     details: null,
     number: 832,
     roots: [
@@ -978,10 +1006,13 @@ const SCENARIOS = {
     productionVisibleRootCount: 1,
     pullRequests: [
       {
+        additions: 38,
         author: "noter-guest",
         branch: "noter/sort-guestbook-entries",
+        changedFiles: 4,
         checks: labChecks({ failureCount: 0, runningCount: 0, successCount: 6 }),
         checksLabel: "6/6 checks",
+        deletions: 12,
         details: null,
         number: 48,
         roots: [
@@ -1159,10 +1190,13 @@ const SCENARIOS = {
     productionVisibleRootCount: 3,
     pullRequests: [
       {
+        additions: 205,
         author: "nicu",
         branch: "codex/plugin-preview-router",
+        changedFiles: 11,
         checks: labChecks({ failureCount: 1, runningCount: 2, successCount: 11 }),
         checksLabel: "11/14 checks",
+        deletions: 61,
         details: null,
         number: 217,
         roots: [
@@ -1211,10 +1245,13 @@ const SCENARIOS = {
         updatedAt: "29 min ago",
       },
       {
+        additions: 74,
         author: "codex",
         branch: "codex/plugin-compatibility-metadata",
+        changedFiles: 6,
         checks: labChecks({ failureCount: 0, runningCount: 0, successCount: 8 }),
         checksLabel: "8/8 checks",
+        deletions: 19,
         details: null,
         number: 214,
         roots: [
@@ -1869,6 +1906,17 @@ function PullRequestSection({
                       <span className="mt-1 block text-xs leading-5 text-muted-foreground">
                         {pullRequest.checksLabel}
                       </span>
+                      <span
+                        className="mt-1 flex flex-wrap gap-x-2 font-mono text-xs leading-5 tabular-nums @4xl:justify-end"
+                        data-pull-request-scope
+                      >
+                        <span className="text-emerald-600">+{pullRequest.additions}</span>
+                        <span className="text-destructive">−{pullRequest.deletions}</span>
+                        <span className="text-muted-foreground">
+                          {pullRequest.changedFiles}{" "}
+                          {pullRequest.changedFiles === 1 ? "file" : "files"}
+                        </span>
+                      </span>
                     </span>
                     <ChevronDown
                       className={
@@ -1912,9 +1960,6 @@ function PullRequestSection({
                           <span className="font-mono text-foreground">
                             {pullRequest.details.baseBranch}
                           </span>
-                        </span>
-                        <span className="font-mono tabular-nums">
-                          {pullRequest.details.changeSummary}
                         </span>
                         {pullRequest.details.labels.map((label) => (
                           <span key={label} className="bg-muted px-1.5 py-0.5 text-foreground">

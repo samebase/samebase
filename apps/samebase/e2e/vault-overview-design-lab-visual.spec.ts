@@ -92,12 +92,22 @@ test("keeps the large monorepo compact until apps are requested", async ({ page 
   const lab = await openVaultOverviewDesignLab(page, "vault-overview-lab-stress");
 
   await expect(page.getByRole("button", { name: "Show 7 more apps" })).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: /Make checkout retries idempotent/ }),
-  ).toHaveAttribute("aria-expanded", "true");
+  const checkoutPullRequest = page.getByRole("button", {
+    name: /Make checkout retries idempotent/,
+  });
+  await expect(checkoutPullRequest).toHaveAttribute("aria-expanded", "true");
   await expect(
     page.getByRole("button", { name: /Retry partner webhooks with jitter/ }),
   ).toHaveAttribute("aria-expanded", "false");
+  const checkoutScope = checkoutPullRequest.locator("[data-pull-request-scope]");
+  await expect(checkoutScope).toContainText("+184");
+  await expect(checkoutScope).toContainText("−42");
+  await expect(checkoutScope).toContainText("7 files");
+  await checkoutPullRequest.click();
+  await expect(checkoutPullRequest).toHaveAttribute("aria-expanded", "false");
+  await expect(checkoutScope).toBeVisible();
+  await checkoutPullRequest.click();
+  await expect(checkoutPullRequest).toHaveAttribute("aria-expanded", "true");
   const pullRequestChecks = page.getByTitle("Show pull request #842 checks");
   await expect(pullRequestChecks).toHaveText("3 pending");
   await pullRequestChecks.click();
