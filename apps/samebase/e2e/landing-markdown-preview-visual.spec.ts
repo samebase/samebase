@@ -6,8 +6,10 @@ import {
   DOCS_SIDEBAR_TEST_ID,
   DOCS_THE_STACK_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
+  LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID,
   LANDING_PREVIEW_PROVIDER_GRID_TEST_ID,
   LANDING_PREVIEW_ROUTE,
+  LANDING_PREVIEW_STACK_DETAILS_TEST_ID,
   LANDING_PREVIEW_TEST_ID,
 } from "../src/routeSearch/landingPreview";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
@@ -213,6 +215,49 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(article.getByRole("img", { name: "GitHub" })).toBeVisible();
   await expect(article.getByRole("img", { name: "Convex" })).toBeVisible();
   await expect(article).toContainText("Cloudflare");
+  const stackDetails = article.getByTestId(LANDING_PREVIEW_STACK_DETAILS_TEST_ID);
+  const platformDetails = article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID);
+  await expect(stackDetails.getByRole("img", { name: "Vite+" })).toBeVisible();
+  await expect(stackDetails.getByRole("img", { name: "TanStack" })).toBeVisible();
+  await expect(stackDetails).toContainText("Tailwind CSS");
+  await expect(platformDetails).toContainText("macOS · Linux · Windows");
+  await expect
+    .poll(async () => {
+      const [askTop, platformTop, firstClaimTop] = await Promise.all([
+        article
+          .getByRole("heading", { exact: true, name: "Ask your agent." })
+          .evaluate((element) => element.getBoundingClientRect().top),
+        platformDetails.evaluate((element) => element.getBoundingClientRect().top),
+        article
+          .getByRole("heading", {
+            exact: true,
+            name: "Delete your Samebase account. Your app doesn't notice.",
+          })
+          .evaluate((element) => element.getBoundingClientRect().top),
+      ]);
+      return askTop < platformTop && platformTop < firstClaimTop;
+    })
+    .toBe(true);
+  await expect
+    .poll(async () => {
+      const [setupTop, stackTop, oneBaseTop] = await Promise.all([
+        article
+          .getByRole("heading", {
+            exact: true,
+            name: "Setup is three OAuth connects and one GitHub app. We filmed all of it.",
+          })
+          .evaluate((element) => element.getBoundingClientRect().top),
+        stackDetails.evaluate((element) => element.getBoundingClientRect().top),
+        article
+          .getByRole("heading", {
+            exact: true,
+            name: "More products, not more systems to maintain.",
+          })
+          .evaluate((element) => element.getBoundingClientRect().top),
+      ]);
+      return setupTop < stackTop && stackTop < oneBaseTop;
+    })
+    .toBe(true);
   await expect(article.getByRole("img", { name: "Samebase", exact: true })).toBeVisible();
   // The closing band keeps the one interactive logo slot on the page.
   await expect(article.getByRole("img", { name: "Samebase logo", exact: true })).toHaveCount(1);
@@ -245,6 +290,18 @@ test("landing preview route renders the React overview in workspace chrome", asy
       scale: "css",
     },
   );
+  await expect(stackDetails).toHaveScreenshot("landing-preview-stack-desktop.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+  await expect(platformDetails).toHaveScreenshot("landing-preview-platform-desktop.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
   await page
     .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
     .getByRole("link", { name: "Do it yourself", exact: true })
@@ -352,6 +409,24 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
   });
   await expect(article.getByTestId(LANDING_PREVIEW_PROVIDER_GRID_TEST_ID)).toHaveScreenshot(
     "landing-preview-provider-grid-narrow-pane.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    },
+  );
+  await expect(article.getByTestId(LANDING_PREVIEW_STACK_DETAILS_TEST_ID)).toHaveScreenshot(
+    "landing-preview-stack-narrow-pane.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    },
+  );
+  await expect(article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID)).toHaveScreenshot(
+    "landing-preview-platform-narrow-pane.png",
     {
       animations: "disabled",
       caret: "hide",
@@ -474,6 +549,24 @@ test.describe("mobile landing preview", () => {
     });
     await expect(article.getByTestId(LANDING_PREVIEW_PROVIDER_GRID_TEST_ID)).toHaveScreenshot(
       "landing-preview-provider-grid-mobile.png",
+      {
+        animations: "disabled",
+        caret: "hide",
+        maxDiffPixelRatio: 0.02,
+        scale: "css",
+      },
+    );
+    await expect(article.getByTestId(LANDING_PREVIEW_STACK_DETAILS_TEST_ID)).toHaveScreenshot(
+      "landing-preview-stack-mobile.png",
+      {
+        animations: "disabled",
+        caret: "hide",
+        maxDiffPixelRatio: 0.02,
+        scale: "css",
+      },
+    );
+    await expect(article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID)).toHaveScreenshot(
+      "landing-preview-platform-mobile.png",
       {
         animations: "disabled",
         caret: "hide",

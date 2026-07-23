@@ -160,9 +160,12 @@ For a Workers version of the artifact:
 - Make `package.json` `deploy` and `deploy:preview` repo-owned wrappers around `wrangler deploy` and
   `wrangler versions upload` so the real Worker name can come from Cloudflare's connected-build
   environment or Samebase automation.
-- Keep deploy/build helper scripts runnable by plain `node` in Cloudflare's Workers Builds image. If
-  those helpers are TypeScript, pin Node 24 with `.node-version` or `NODE_VERSION`; otherwise use
-  ESM JavaScript helpers or an explicit TypeScript runner.
+- Keep repository automation in erasable TypeScript runnable by plain `node` in Cloudflare's Workers
+  Builds image, and pin Node 24 with `.node-version` or `NODE_VERSION`.
+- Keep the core workflow native on macOS, Linux, and Windows. Do not add Bash scripts, POSIX-only
+  inline environment assignment, shell parameter expansion, or required Unix-only utilities. Use
+  Node process APIs for environment variables, working directories, and argument arrays, and handle
+  Windows `.cmd` entry points explicitly when needed.
 - Keep `build.command` out of the reusable `wrangler.jsonc`; Workers Builds has its own dashboard
   `Build command`, and local deploy wrappers can run the build before Wrangler.
 - Do not tell users to leave the Cloudflare Workers Git build command empty. Workers Builds has its

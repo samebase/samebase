@@ -125,8 +125,8 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 - In copy, docs, and examples: never use Vercel as an example provider; use Netlify when a
   non-Cloudflare provider example is needed. The product is provider-agnostic; Samebase itself runs
   on and recommends Cloudflare.
-- Prefer shell commands first and Node/ECMAScript second; do not reach for Python first in this
-  repo.
+- Use shell for one-offs. Checked-in TypeScript automation must run on macOS, Linux, and Windows
+  without Bash or PowerShell. Do not reach for Python first.
 - Use template literals instead of arrays joined with `'\n'` for multi-line JavaScript and
   TypeScript snippets.
 - Format documents with oxfmt.

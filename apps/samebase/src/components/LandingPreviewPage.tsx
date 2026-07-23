@@ -22,8 +22,10 @@ import {
   DOCS_SIDEBAR_TEST_ID,
   DOCS_THE_STACK_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
+  LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID,
   LANDING_PREVIEW_PROVIDER_GRID_TEST_ID,
   LANDING_PREVIEW_ROUTE,
+  LANDING_PREVIEW_STACK_DETAILS_TEST_ID,
   LANDING_PREVIEW_TEST_ID,
 } from "@/routeSearch/landingPreview";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
@@ -678,9 +680,6 @@ function LandingPreviewOverview() {
               role="deploys + domains + edge"
             />
           </div>
-          <p className="mt-7 text-sm text-primary">
-            <LandingInlineLink to={DOCS_THE_STACK_ROUTE}>The stack, in detail</LandingInlineLink>
-          </p>
         </LandingSection>
 
         <LandingSection>
@@ -708,6 +707,23 @@ function LandingPreviewOverview() {
                 </p>
                 <LandingCopyPromptButton />
               </div>
+            </div>
+          </div>
+          <div
+            className="mt-8 border-y border-border py-6"
+            data-testid={LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID}
+          >
+            <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+              local workflow
+            </p>
+            <div className="mt-3 grid gap-3 @3xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] @3xl:items-start @3xl:gap-10">
+              <p className="text-lg font-semibold tracking-[-0.01em]">macOS · Linux · Windows</p>
+              <p className="max-w-[48ch] text-sm leading-relaxed text-primary">
+                Everything is TypeScript, even the scripts you'd usually write in Bash.
+                <span className="block font-mono text-[11px] font-semibold text-secondary">
+                  no Bash · no WSL
+                </span>
+              </p>
             </div>
           </div>
         </LandingSection>
@@ -804,6 +820,82 @@ function LandingPreviewOverview() {
         </LandingSection>
 
         <LandingSection>
+          <div
+            className="mb-12 text-center @3xl:mb-16"
+            data-testid={LANDING_PREVIEW_STACK_DETAILS_TEST_ID}
+          >
+            <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+              standard stack
+            </p>
+            <h2 className="mx-auto mt-3 max-w-[24ch] text-[clamp(24px,3cqw,32px)] font-semibold leading-[1.25] tracking-[-0.02em]">
+              Chosen for how agents build now.
+            </h2>
+            <div className="mt-8 grid gap-8 @3xl:grid-cols-3 @3xl:gap-10">
+              <div>
+                <div className="flex h-8 items-center justify-center">
+                  <img
+                    alt="Vite+"
+                    className="h-5 w-auto dark:hidden"
+                    height="15"
+                    src="/landing-preview/logos/vite-plus.svg"
+                    width="103"
+                  />
+                  <img
+                    alt="Vite+"
+                    className="hidden h-5 w-auto dark:block"
+                    height="15"
+                    src="/landing-preview/logos/vite-plus-dark.svg"
+                    width="103"
+                  />
+                </div>
+                <p className="mx-auto mt-2 max-w-[26ch] text-sm leading-relaxed text-primary">
+                  One fast toolchain for the agent loop.
+                </p>
+              </div>
+              <div>
+                <div className="flex h-8 items-center justify-center gap-1.5">
+                  <img
+                    alt="TanStack"
+                    className="h-5 w-auto dark:hidden"
+                    height="660"
+                    src="/landing-preview/logos/tanstack.svg"
+                    width="3178"
+                  />
+                  <img
+                    alt="TanStack"
+                    className="hidden h-5 w-auto dark:block"
+                    height="660"
+                    src="/landing-preview/logos/tanstack-dark.svg"
+                    width="3178"
+                  />
+                  <span className="text-base font-semibold">Start</span>
+                </div>
+                <p className="mx-auto mt-2 max-w-[26ch] text-sm leading-relaxed text-primary">
+                  Full-stack TypeScript with official support for Cloudflare Workers.
+                </p>
+              </div>
+              <div>
+                <div className="flex h-8 items-center justify-center gap-1.5">
+                  <img
+                    alt=""
+                    className="h-5 w-auto"
+                    height="33"
+                    src="/landing-preview/logos/tailwindcss.svg"
+                    width="54"
+                  />
+                  <span className="text-base font-semibold">Tailwind CSS</span>
+                </div>
+                <p className="mx-auto mt-2 max-w-[26ch] text-sm leading-relaxed text-primary">
+                  One styling language from product UI to landing pages.
+                </p>
+              </div>
+            </div>
+            <p className="mt-7 text-sm text-primary">
+              <LandingInlineLink to={DOCS_THE_STACK_ROUTE}>
+                Why we chose this stack
+              </LandingInlineLink>
+            </p>
+          </div>
           <LandingSectionIntro
             heading="More products, not more systems to maintain."
             kicker="one base"

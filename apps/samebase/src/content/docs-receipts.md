@@ -161,11 +161,23 @@ misconfigure (see the Convex section above).
 - Vite+ (`vp`) bundles the dev server, test runner, linter, formatter, and bundler behind one CLI;
   it was announced as alpha on March 13, 2026, MIT-licensed. Sources:
   [viteplus.dev guide](https://viteplus.dev/guide) and
-  [the repository](https://github.com/voidzero-dev/vite-plus), checked 2026-07-02.
+  [the repository](https://github.com/voidzero-dev/vite-plus), checked 2026-07-23.
+- The Vite+ guide publishes separate installers for macOS/Linux and Windows. Its support table lists
+  macOS x64 and arm64, Linux x64 and arm64, and Windows x64 as Tier 1; Windows arm64 is Tier 2.
+  Source: [viteplus.dev guide](https://viteplus.dev/guide), checked 2026-07-23.
+- Node runs erasable TypeScript directly with type stripping enabled by default. Node marks type
+  stripping stable from v24.12.0 and documents that it does not read `tsconfig.json` or transform
+  TypeScript features that require JavaScript generation. Source:
+  [Node.js TypeScript documentation](https://nodejs.org/api/typescript.html), checked 2026-07-23.
 - TanStack Start is a v1 release candidate, not a stable v1. We say RC because that is what it is.
   Source:
   [TanStack Start overview](https://tanstack.com/start/latest/docs/framework/react/overview),
   checked 2026-07-02.
+- Cloudflare's official Vite plugin supports TanStack Start server-side rendering, and TanStack
+  lists Cloudflare as an official hosting partner with a documented Workers deployment path.
+  Sources: [Cloudflare Vite plugin](https://developers.cloudflare.com/workers/vite-plugin/) and
+  [TanStack Start hosting](https://tanstack.com/start/latest/docs/framework/react/guide/hosting),
+  checked 2026-07-23.
 
 ## Ownership: the leaving test
 

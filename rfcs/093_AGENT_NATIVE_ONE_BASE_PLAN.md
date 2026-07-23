@@ -189,12 +189,14 @@ remains a calibration probe, not a forced Samebase win.
 Below the fold stays minimal, in this order:
 
 1. the best-stack conviction;
-2. why repeating it reduces maintenance across several apps;
-3. Samebase works inside the user's chosen coding-agent interface;
-4. start new or connect an existing repository;
-5. begin GitHub-only, then attach Convex and Cloudflare later;
-6. connected-app inventory, monorepo roots, verification, and repair; and
-7. provider ownership and the Leaving Test.
+2. the starter's core workflow runs natively on macOS, Linux, and Windows because repository
+   automation is TypeScript run by Node 24 rather than Bash;
+3. why repeating the base reduces maintenance across several apps;
+4. Samebase works inside the user's chosen coding-agent interface;
+5. start new or connect an existing repository;
+6. begin GitHub-only, then attach Convex and Cloudflare later;
+7. connected-app inventory, monorepo roots, verification, and repair; and
+8. provider ownership and the Leaving Test.
 
 Delivery is one requirement with three renderings, in priority order. The requirement: every corpus
 page (and the landing itself) must deliver its full content in a single unauthenticated fetch, with
