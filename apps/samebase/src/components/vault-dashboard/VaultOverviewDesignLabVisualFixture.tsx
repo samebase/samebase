@@ -1040,14 +1040,18 @@ function RootDirectoryLabel({
 function RootGroup({
   group,
   hideRootDirectory,
+  separateRoots,
   showLiveStatus,
 }: {
   group: LabRootGroup;
   hideRootDirectory: boolean;
+  separateRoots: boolean;
   showLiveStatus: boolean;
 }) {
   return (
-    <div className="relative border-b border-border/50 last:border-b-0">
+    <div
+      className={separateRoots ? "relative border-b border-border/50 last:border-b-0" : "relative"}
+    >
       <span
         aria-hidden="true"
         className="absolute -left-5 top-[1.35rem] w-4 border-t border-border"
@@ -1075,9 +1079,11 @@ function RootGroup({
 
 function RootRail({
   roots,
+  separateRoots,
   showLiveStatus,
 }: {
   roots: readonly LabRootGroup[];
+  separateRoots: boolean;
   showLiveStatus: boolean;
 }) {
   const hideRootDirectory = roots.length === 1 && roots[0]?.rootDirectory === "/";
@@ -1089,6 +1095,7 @@ function RootRail({
           key={root.rootDirectory}
           group={root}
           hideRootDirectory={hideRootDirectory}
+          separateRoots={separateRoots}
           showLiveStatus={showLiveStatus}
         />
       ))}
@@ -1367,7 +1374,7 @@ function DefaultBranchSection({ scenario }: { scenario: LabScenario }) {
         </div>
 
         <div className="mt-3">
-          <RootRail roots={visibleRoots} showLiveStatus={false} />
+          <RootRail roots={visibleRoots} separateRoots={false} showLiveStatus={false} />
           {hiddenRootCount > 0 ? (
             <button
               className="ml-8 mt-2 text-xs font-medium text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
@@ -1461,7 +1468,7 @@ function PullRequestSection({
               </button>
               {expanded ? (
                 <div className="pb-4 pl-7">
-                  <RootRail roots={pullRequest.roots} showLiveStatus />
+                  <RootRail roots={pullRequest.roots} separateRoots showLiveStatus />
                 </div>
               ) : null}
             </article>
