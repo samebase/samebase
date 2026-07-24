@@ -185,27 +185,14 @@ function MengerDepthTransitionScene({ progress }: { progress: number }) {
         }
 
         const easedProgress = easeInOutCubic(moveProgress);
-        let segmentStart = move.from;
-        let segmentEnd = move.to;
-        let segmentProgress = easedProgress;
-        if (move.kind === "via") {
-          if (easedProgress < 0.5) {
-            segmentEnd = move.via;
-            segmentProgress = easedProgress * 2;
-          } else {
-            segmentStart = move.via;
-            segmentProgress = (easedProgress - 0.5) * 2;
-          }
-        }
-
-        const [startX, startY, startZ] = toWorldCoordinate(segmentStart, stage.gridSize);
-        const [endX, endY, endZ] = toWorldCoordinate(segmentEnd, stage.gridSize);
+        const [startX, startY, startZ] = toWorldCoordinate(move.from, stage.gridSize);
+        const [endX, endY, endZ] = toWorldCoordinate(move.to, stage.gridSize);
         const voxelSize = MENGER_DEPTH_TRANSITION_WORLD_SIZE / stage.gridSize;
         matrix.makeScale(voxelSize, voxelSize, voxelSize);
         matrix.setPosition(
-          startX + (endX - startX) * segmentProgress,
-          startY + (endY - startY) * segmentProgress,
-          startZ + (endZ - startZ) * segmentProgress,
+          startX + (endX - startX) * easedProgress,
+          startY + (endY - startY) * easedProgress,
+          startZ + (endZ - startZ) * easedProgress,
         );
         movingMesh.setMatrixAt(index, matrix);
       });
@@ -440,9 +427,9 @@ export function LogoMengerDepthTransitionPage() {
 
         <div className="grid gap-1 border-t pt-3 font-mono text-xs text-muted-foreground">
           <div>20 large cubes</div>
-          <div>140 absorbed for depth 2</div>
+          <div>120 absorbed for depth 2</div>
           <div>400 depth 2 cubes</div>
-          <div>2,800 absorbed for depth 3</div>
+          <div>2,400 absorbed for depth 3</div>
           <div>8,000 final cubes</div>
         </div>
       </div>

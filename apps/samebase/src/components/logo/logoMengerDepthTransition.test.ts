@@ -40,7 +40,7 @@ function expectStageShape(
   expect(stage.settledVoxels).toHaveLength(settledCount);
   expect(stage.moves).toHaveLength(moveCount);
   expect(moverOriginKeys.size).toBe(moveCount);
-  expect(splitKeys.size).toBe(sourceCount * 27);
+  expect(splitKeys.size).toBe(sourceCount * 26);
   expect(stage.moves.every((move) => settledKeys.has(coordinateKey(move.to)))).toBe(true);
   expect(
     stage.settledVoxels.every(([x, y, z]) =>
@@ -52,8 +52,8 @@ function expectStageShape(
 describe("Menger depth transition", () => {
   it("turns each packed subdivision into the exact next Menger depth", () => {
     expect(MENGER_DEPTH_TRANSITION_MODEL.depthOneVoxels).toHaveLength(20);
-    expectStageShape(MENGER_DEPTH_TRANSITION_MODEL.depthTwo, 20, 400, 140);
-    expectStageShape(MENGER_DEPTH_TRANSITION_MODEL.depthThree, 400, 8_000, 2_800);
+    expectStageShape(MENGER_DEPTH_TRANSITION_MODEL.depthTwo, 20, 400, 120);
+    expectStageShape(MENGER_DEPTH_TRANSITION_MODEL.depthThree, 400, 8_000, 2_400);
   });
 
   it("keeps every absorbed cube inside its original parent cube", () => {
@@ -62,15 +62,12 @@ describe("Menger depth transition", () => {
       MENGER_DEPTH_TRANSITION_MODEL.depthThree,
     ]) {
       expect(
-        stage.moves.every((move) => {
-          const destinations = move.kind === "via" ? [move.via, move.to] : [move.to];
-          return destinations.every(
-            (destination) =>
-              Math.floor(move.from[0] / 3) === Math.floor(destination[0] / 3) &&
-              Math.floor(move.from[1] / 3) === Math.floor(destination[1] / 3) &&
-              Math.floor(move.from[2] / 3) === Math.floor(destination[2] / 3),
-          );
-        }),
+        stage.moves.every(
+          (move) =>
+            Math.floor(move.from[0] / 3) === Math.floor(move.to[0] / 3) &&
+            Math.floor(move.from[1] / 3) === Math.floor(move.to[1] / 3) &&
+            Math.floor(move.from[2] / 3) === Math.floor(move.to[2] / 3),
+        ),
       ).toBe(true);
     }
   });
@@ -82,23 +79,14 @@ describe("Menger depth transition", () => {
     ]) {
       const directionKeys = new Set<string>();
       for (const move of stage.moves) {
-        const firstDestination = move.kind === "via" ? move.via : move.to;
-        directionKeys.add(readDirectionKey(move.from, firstDestination));
-        expect(readManhattanDistance(move.from, firstDestination)).toBe(1);
-
-        if (move.kind === "via") {
-          directionKeys.add(readDirectionKey(move.via, move.to));
-          expect(readManhattanDistance(move.via, move.to)).toBe(1);
-        }
+        directionKeys.add(readDirectionKey(move.from, move.to));
+        expect(readManhattanDistance(move.from, move.to)).toBe(1);
       }
 
       expect(directionKeys).toEqual(
         new Set(["-1,0,0", "0,-1,0", "0,0,-1", "0,0,1", "0,1,0", "1,0,0"]),
       );
-      expect(stage.moves.filter((move) => move.kind === "via")).toHaveLength(
-        stage.sourceVoxels.length,
-      );
-      expect(new Set(stage.moves.map((move) => move.startTimeMs)).size).toBe(2);
+      expect(new Set(stage.moves.map((move) => move.startTimeMs)).size).toBe(1);
       expect(
         stage.moves.every(
           (move) => move.startTimeMs + MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS <= stage.endTimeMs,

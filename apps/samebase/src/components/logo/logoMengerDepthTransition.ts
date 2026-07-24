@@ -8,7 +8,6 @@ import {
 export const MENGER_DEPTH_TRANSITION_SPLIT_HOLD_MS = 240;
 export const MENGER_DEPTH_TRANSITION_DEPTH_HOLD_MS = 700;
 export const MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS = 1_800;
-const MENGER_DEPTH_TRANSITION_CENTER_DELAY_MS = 260;
 const FACE_NEIGHBOR_OFFSETS: readonly VoxelCoordinate[] = [
   [-1, 0, 0],
   [1, 0, 0],
@@ -18,20 +17,11 @@ const FACE_NEIGHBOR_OFFSETS: readonly VoxelCoordinate[] = [
   [0, 0, 1],
 ];
 
-export type MengerDepthTransitionMove =
-  | {
-      kind: "direct";
-      from: VoxelCoordinate;
-      startTimeMs: number;
-      to: VoxelCoordinate;
-    }
-  | {
-      kind: "via";
-      from: VoxelCoordinate;
-      startTimeMs: number;
-      to: VoxelCoordinate;
-      via: VoxelCoordinate;
-    };
+export type MengerDepthTransitionMove = {
+  from: VoxelCoordinate;
+  startTimeMs: number;
+  to: VoxelCoordinate;
+};
 
 export type MengerDepthTransitionStage = {
   depth: 2 | 3;
@@ -78,15 +68,13 @@ function toChildCoordinate(parent: VoxelCoordinate, child: VoxelCoordinate): Vox
 function readDirectionNoise(
   coordinate: VoxelCoordinate,
   depth: MengerDepthTransitionStage["depth"],
-  channel: number,
 ): number {
   const depthChannel = (depth - 2) * 17;
   const value = Math.sin(
     coordinate[0] * 12.9898 +
       coordinate[1] * 78.233 +
       coordinate[2] * 37.719 +
-      depthChannel * 53.123 +
-      channel * 91.417,
+      depthChannel * 53.123,
   );
   const scaledValue = value * 43_758.5453;
 
@@ -105,46 +93,17 @@ function readFaceNeighbors(child: VoxelCoordinate): VoxelCoordinate[] {
   return faceNeighbors;
 }
 
-function readMoveDestination(
-  parent: VoxelCoordinate,
+function readDestinationChild(
   child: VoxelCoordinate,
   coordinate: VoxelCoordinate,
   depth: MengerDepthTransitionStage["depth"],
   retainedChildKeys: ReadonlySet<string>,
-):
-  | { kind: "direct"; to: VoxelCoordinate }
-  | { kind: "via"; to: VoxelCoordinate; via: VoxelCoordinate } {
-  const faceNeighbors = readFaceNeighbors(child);
-  const directDestinations = faceNeighbors.filter(([x, y, z]) =>
+): VoxelCoordinate {
+  const destinations = readFaceNeighbors(child).filter(([x, y, z]) =>
     retainedChildKeys.has(`${x},${y},${z}`),
   );
 
-  if (directDestinations.length > 0) {
-    const destination =
-      directDestinations[
-        Math.floor(readDirectionNoise(coordinate, depth, 0) * directDestinations.length)
-      ];
-    return {
-      kind: "direct",
-      to: toChildCoordinate(parent, destination),
-    };
-  }
-
-  const viaChild =
-    faceNeighbors[Math.floor(readDirectionNoise(coordinate, depth, 1) * faceNeighbors.length)];
-  const finalDestinations = readFaceNeighbors(viaChild).filter(([x, y, z]) =>
-    retainedChildKeys.has(`${x},${y},${z}`),
-  );
-  const finalChild =
-    finalDestinations[
-      Math.floor(readDirectionNoise(coordinate, depth, 2) * finalDestinations.length)
-    ];
-
-  return {
-    kind: "via",
-    to: toChildCoordinate(parent, finalChild),
-    via: toChildCoordinate(parent, viaChild),
-  };
+  return destinations[Math.floor(readDirectionNoise(coordinate, depth) * destinations.length)];
 }
 
 function createMengerDepthTransitionStage(
@@ -171,18 +130,20 @@ function createMengerDepthTransitionStage(
           }
 
           const middleAxisCount = child.filter((axis) => axis === 1).length;
-          const destination = readMoveDestination(
-            parent,
+          if (middleAxisCount === 3) {
+            continue;
+          }
+
+          const destinationChild = readDestinationChild(
             child,
             coordinate,
             depth,
             retainedChildKeys,
           );
           moves.push({
-            ...destination,
             from: coordinate,
-            startTimeMs:
-              splitTimeMs + (middleAxisCount === 3 ? MENGER_DEPTH_TRANSITION_CENTER_DELAY_MS : 0),
+            startTimeMs: splitTimeMs,
+            to: toChildCoordinate(parent, destinationChild),
           });
         }
       }
