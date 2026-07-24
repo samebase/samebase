@@ -8,6 +8,8 @@ import {
 export const MENGER_DEPTH_TRANSITION_SPLIT_HOLD_MS = 240;
 export const MENGER_DEPTH_TRANSITION_DEPTH_HOLD_MS = 700;
 export const MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS = 1_800;
+export const MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT = 3;
+export const MENGER_DEPTH_TRANSITION_MAX_STAGGER_GROUP_COUNT = 27;
 const FACE_NEIGHBOR_OFFSETS: readonly VoxelCoordinate[] = [
   [-1, 0, 0],
   [1, 0, 0],
@@ -81,6 +83,39 @@ function readDirectionNoise(
   return scaledValue - Math.floor(scaledValue);
 }
 
+function createStaggerGroups(
+  depth: MengerDepthTransitionStage["depth"],
+  staggerGroupCount: number,
+): ReadonlyMap<number, number> {
+  const channels = Array.from(
+    { length: MENGER_DEPTH_TRANSITION_MAX_STAGGER_GROUP_COUNT },
+    (_, channel) => channel,
+  );
+  channels.sort(
+    (left, right) =>
+      readDirectionNoise([left, depth, 29], depth) -
+        readDirectionNoise([right, depth, 29], depth) || left - right,
+  );
+
+  return new Map(
+    channels.map((channel, rank) => [
+      channel,
+      Math.floor((rank * staggerGroupCount) / channels.length),
+    ]),
+  );
+}
+
+function readStaggerChannel(
+  parent: VoxelCoordinate,
+  child: VoxelCoordinate,
+  destinationChild: VoxelCoordinate,
+): number {
+  const movementAxis = child.findIndex((axis, axisIndex) => axis !== destinationChild[axisIndex]);
+  const faceCoordinates = parent.filter((_, axisIndex) => axisIndex !== movementAxis);
+
+  return movementAxis * 9 + (faceCoordinates[0] % 3) * 3 + (faceCoordinates[1] % 3);
+}
+
 function readFaceNeighbors(child: VoxelCoordinate): VoxelCoordinate[] {
   const faceNeighbors: VoxelCoordinate[] = [];
   for (const [offsetX, offsetY, offsetZ] of FACE_NEIGHBOR_OFFSETS) {
@@ -110,12 +145,14 @@ function createMengerDepthTransitionStage(
   sourceVoxels: VoxelCoordinate[],
   depth: MengerDepthTransitionStage["depth"],
   startTimeMs: number,
+  staggerGroupCount: number,
 ): MengerDepthTransitionStage {
   const retainedChildren = readMengerCoordinates();
   const retainedChildKeys = new Set(retainedChildren.map(([x, y, z]) => `${x},${y},${z}`));
   const settledVoxels: VoxelCoordinate[] = [];
   const moves: MengerDepthTransitionMove[] = [];
   const splitTimeMs = startTimeMs + MENGER_DEPTH_TRANSITION_SPLIT_HOLD_MS;
+  const staggerGroups = createStaggerGroups(depth, staggerGroupCount);
 
   for (const parent of sourceVoxels) {
     for (let x = 0; x < 3; x += 1) {
@@ -140,9 +177,16 @@ function createMengerDepthTransitionStage(
             depth,
             retainedChildKeys,
           );
+          const staggerChannel = readStaggerChannel(parent, child, destinationChild);
+          const staggerGroup = staggerGroups.get(staggerChannel);
+          if (staggerGroup === undefined) {
+            throw new Error("Every Menger transition move must resolve to a stagger group.");
+          }
           moves.push({
             from: coordinate,
-            startTimeMs: splitTimeMs,
+            startTimeMs:
+              splitTimeMs +
+              (staggerGroup * MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS) / staggerGroupCount,
             to: toChildCoordinate(parent, destinationChild),
           });
         }
@@ -172,13 +216,23 @@ function createMengerDepthTransitionStage(
   };
 }
 
-function createMengerDepthTransitionModel(): MengerDepthTransitionModel {
+export function createMengerDepthTransitionModel(
+  requestedStaggerGroupCount: number,
+): MengerDepthTransitionModel {
+  const staggerGroupCount = Math.max(
+    1,
+    Math.min(
+      MENGER_DEPTH_TRANSITION_MAX_STAGGER_GROUP_COUNT,
+      Math.round(requestedStaggerGroupCount),
+    ),
+  );
   const depthOneVoxels = readMengerCoordinates();
-  const depthTwo = createMengerDepthTransitionStage(depthOneVoxels, 2, 0);
+  const depthTwo = createMengerDepthTransitionStage(depthOneVoxels, 2, 0, staggerGroupCount);
   const depthThree = createMengerDepthTransitionStage(
     depthTwo.settledVoxels,
     3,
     depthTwo.endTimeMs + MENGER_DEPTH_TRANSITION_DEPTH_HOLD_MS,
+    staggerGroupCount,
   );
 
   return {
@@ -189,4 +243,4 @@ function createMengerDepthTransitionModel(): MengerDepthTransitionModel {
   };
 }
 
-export const MENGER_DEPTH_TRANSITION_MODEL = createMengerDepthTransitionModel();
+export const MENGER_DEPTH_TRANSITION_MODEL = createMengerDepthTransitionModel(1);

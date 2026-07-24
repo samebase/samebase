@@ -1,8 +1,12 @@
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { Button } from "@/components/ui/button";
 import {
+  MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT,
+  MENGER_DEPTH_TRANSITION_MAX_STAGGER_GROUP_COUNT,
   MENGER_DEPTH_TRANSITION_MODEL,
   MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS,
+  createMengerDepthTransitionModel,
+  type MengerDepthTransitionModel,
   type MengerDepthTransitionStage,
 } from "@/components/logo/logoMengerDepthTransition";
 import {
@@ -66,16 +70,19 @@ function writeVoxelMatrix(
 
 function MengerDepthTransitionScene({
   elevationDegrees,
+  model,
   onViewChange,
   progress,
   rotationDegrees,
 }: {
   elevationDegrees: number;
+  model: MengerDepthTransitionModel;
   onViewChange: (nextView: LogoViewState) => void;
   progress: number;
   rotationDegrees: number;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const modelRef = useRef(model);
   const progressRef = useRef(progress);
   const renderProgressRef = useRef<(nextProgress: number) => void>(() => {});
   const viewRef = useRef<LogoViewState>({ elevationDegrees, rotationDegrees });
@@ -227,18 +234,18 @@ function MengerDepthTransitionScene({
     };
 
     const renderProgress = (nextProgress: number) => {
-      const elapsedMs =
-        THREE.MathUtils.clamp(nextProgress, 0, 1) * MENGER_DEPTH_TRANSITION_MODEL.totalDurationMs;
-      const hasSplitToDepthTwo = elapsedMs > MENGER_DEPTH_TRANSITION_MODEL.depthTwo.splitTimeMs;
-      const hasSplitToDepthThree = elapsedMs > MENGER_DEPTH_TRANSITION_MODEL.depthThree.splitTimeMs;
+      const currentModel = modelRef.current;
+      const elapsedMs = THREE.MathUtils.clamp(nextProgress, 0, 1) * currentModel.totalDurationMs;
+      const hasSplitToDepthTwo = elapsedMs > currentModel.depthTwo.splitTimeMs;
+      const hasSplitToDepthThree = elapsedMs > currentModel.depthThree.splitTimeMs;
       depthOneMesh.visible = !hasSplitToDepthTwo;
       depthTwoSettledMesh.visible = hasSplitToDepthTwo && !hasSplitToDepthThree;
       depthTwoMovingMesh.visible = hasSplitToDepthTwo && !hasSplitToDepthThree;
       depthThreeSettledMesh.visible = hasSplitToDepthThree;
       depthThreeMovingMesh.visible = hasSplitToDepthThree;
 
-      renderStageMoves(MENGER_DEPTH_TRANSITION_MODEL.depthTwo, depthTwoMovingMesh, elapsedMs);
-      renderStageMoves(MENGER_DEPTH_TRANSITION_MODEL.depthThree, depthThreeMovingMesh, elapsedMs);
+      renderStageMoves(currentModel.depthTwo, depthTwoMovingMesh, elapsedMs);
+      renderStageMoves(currentModel.depthThree, depthThreeMovingMesh, elapsedMs);
       const view = viewRef.current;
       const [cameraX, cameraY, cameraZ] = getWorldCameraVector(view.elevationDegrees);
       const [upX, upY, upZ] = getWorldScreenVerticalAxis(view.elevationDegrees);
@@ -295,6 +302,11 @@ function MengerDepthTransitionScene({
   }, [progress]);
 
   useEffect(() => {
+    modelRef.current = model;
+    renderProgressRef.current(progressRef.current);
+  }, [model]);
+
+  useEffect(() => {
     viewRef.current = { elevationDegrees, rotationDegrees };
     renderProgressRef.current(progressRef.current);
   }, [elevationDegrees, rotationDegrees]);
@@ -321,6 +333,9 @@ export function LogoMengerDepthTransitionPage() {
   const [progress, setProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackVersion, setPlaybackVersion] = useState(0);
+  const [staggerGroupCount, setStaggerGroupCount] = useState(
+    MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT,
+  );
   const [view, setView] = useState<LogoViewState>({
     elevationDegrees: DEFAULT_ELEVATION_DEGREES,
     rotationDegrees: DEFAULT_ROTATION_DEGREES,
@@ -328,6 +343,10 @@ export function LogoMengerDepthTransitionPage() {
   const playbackStartProgressRef = useRef(0);
   const prefersReducedMotionRef = useRef(false);
   const progressInputRef = useRef<HTMLInputElement | null>(null);
+  const model = useMemo(
+    () => createMengerDepthTransitionModel(staggerGroupCount),
+    [staggerGroupCount],
+  );
 
   useEffect(() => {
     const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -363,15 +382,11 @@ export function LogoMengerDepthTransitionPage() {
     }
 
     const startedAtMs =
-      performance.now() -
-      playbackStartProgressRef.current * MENGER_DEPTH_TRANSITION_MODEL.totalDurationMs;
+      performance.now() - playbackStartProgressRef.current * model.totalDurationMs;
     let animationFrameId = 0;
 
     const animate = (timestampMs: number) => {
-      const nextProgress = Math.min(
-        (timestampMs - startedAtMs) / MENGER_DEPTH_TRANSITION_MODEL.totalDurationMs,
-        1,
-      );
+      const nextProgress = Math.min((timestampMs - startedAtMs) / model.totalDurationMs, 1);
       setProgress(nextProgress);
 
       if (nextProgress < 1) {
@@ -387,7 +402,7 @@ export function LogoMengerDepthTransitionPage() {
     return () => {
       window.cancelAnimationFrame(animationFrameId);
     };
-  }, [isPlaying, playbackVersion]);
+  }, [isPlaying, model.totalDurationMs, playbackVersion]);
 
   useEffect(() => {
     if (progressInputRef.current) {
@@ -395,14 +410,14 @@ export function LogoMengerDepthTransitionPage() {
     }
   }, [progress]);
 
-  const elapsedMs = progress * MENGER_DEPTH_TRANSITION_MODEL.totalDurationMs;
+  const elapsedMs = progress * model.totalDurationMs;
   let phase: TransitionPhase;
   let phaseLabel: string;
   if (progress >= 1) {
     phase = "depth-3";
     phaseLabel = "Depth 3";
-  } else if (elapsedMs >= MENGER_DEPTH_TRANSITION_MODEL.depthTwo.endTimeMs) {
-    if (elapsedMs < MENGER_DEPTH_TRANSITION_MODEL.depthThree.splitTimeMs) {
+  } else if (elapsedMs >= model.depthTwo.endTimeMs) {
+    if (elapsedMs < model.depthThree.splitTimeMs) {
       phase = "depth-2";
       phaseLabel = "Depth 2";
     } else {
@@ -433,6 +448,13 @@ export function LogoMengerDepthTransitionPage() {
     setIsPlaying(false);
     setProgress(Number(event.target.value) / TRANSITION_PROGRESS_STEPS);
   }, []);
+  const updateStaggerGroupCount = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setStaggerGroupCount(Number(event.target.value));
+    playbackStartProgressRef.current = 0;
+    setProgress(prefersReducedMotionRef.current ? 1 : 0);
+    setPlaybackVersion((currentVersion) => currentVersion + 1);
+    setIsPlaying(!prefersReducedMotionRef.current);
+  }, []);
   const controlsContent = useMemo(
     () => (
       <div
@@ -449,6 +471,29 @@ export function LogoMengerDepthTransitionPage() {
           >
             Menger transition
           </div>
+        </div>
+
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between text-xs">
+            <label htmlFor="menger-depth-transition-stagger-groups">Stagger groups</label>
+            <output
+              className="font-mono text-xs text-muted-foreground"
+              htmlFor="menger-depth-transition-stagger-groups"
+            >
+              {staggerGroupCount}
+            </output>
+          </div>
+          <input
+            id="menger-depth-transition-stagger-groups"
+            aria-label="Stagger groups"
+            className="h-2 w-full cursor-pointer accent-foreground"
+            max={MENGER_DEPTH_TRANSITION_MAX_STAGGER_GROUP_COUNT}
+            min="1"
+            onChange={updateStaggerGroupCount}
+            step="1"
+            type="range"
+            value={staggerGroupCount}
+          />
         </div>
 
         <div className="grid gap-2">
@@ -485,7 +530,7 @@ export function LogoMengerDepthTransitionPage() {
         </div>
       </div>
     ),
-    [phaseLabel, replayTransition, updateProgress],
+    [phaseLabel, replayTransition, staggerGroupCount, updateProgress, updateStaggerGroupCount],
   );
   const leftPane = useMemo(() => ({ content: controlsContent }), [controlsContent]);
 
@@ -498,6 +543,7 @@ export function LogoMengerDepthTransitionPage() {
       >
         <MengerDepthTransitionScene
           elevationDegrees={view.elevationDegrees}
+          model={model}
           onViewChange={setView}
           progress={progress}
           rotationDegrees={view.rotationDegrees}
