@@ -1,4 +1,5 @@
 import { useLocation } from "@tanstack/react-router";
+import { mapEntries } from "@samebase/dependent/object";
 import {
   LOGO_ROUTE_SEARCH_KEYS,
   LOGO_ROUTE_SEARCH_PARAM_METADATA,
@@ -118,44 +119,35 @@ export function clearVaultDashboardQueryDialogSearch(
   return applySearchPatch(currentSearch, VAULT_DASHBOARD_DIALOG_CLEAR_PATCHES[dialog]);
 }
 
-function globalLogoRouteSearchParam(key: keyof typeof LOGO_ROUTE_SEARCH_PARAM_METADATA) {
-  return {
-    ...LOGO_ROUTE_SEARCH_PARAM_METADATA[key],
-    group: "fun" as const,
-    suggestion: "global" as const,
-  };
-}
-
 const rootRouteSearchOwnParamMetadata = readRouteSearchParamMetadata(RouteSearchSchema_root);
 
+const rootLogoRouteSearchParamMetadata = mapEntries(
+  LOGO_ROUTE_SEARCH_PARAM_METADATA,
+  ([key, metadata]) => [
+    key,
+    {
+      ...metadata,
+      suggestion: "global",
+    },
+  ],
+) satisfies RouteSearchParamMetadataByKey<LogoRouteSearch>;
+
 const rootRouteSearchParamMetadata = {
-  ...LOGO_ROUTE_SEARCH_PARAM_METADATA,
+  ...rootLogoRouteSearchParamMetadata,
   "add-cloudflare": rootRouteSearchOwnParamMetadata["add-cloudflare"],
   "add-convex": rootRouteSearchOwnParamMetadata["add-convex"],
   "auth-return": rootRouteSearchOwnParamMetadata["auth-return"],
   auth: rootRouteSearchOwnParamMetadata.auth,
   code: rootRouteSearchOwnParamMetadata.code,
   "create-account": rootRouteSearchOwnParamMetadata["create-account"],
-  background: globalLogoRouteSearchParam("background"),
-  border: globalLogoRouteSearchParam("border"),
-  dark: globalLogoRouteSearchParam("dark"),
   delete: rootRouteSearchOwnParamMetadata.delete,
-  depth: globalLogoRouteSearchParam("depth"),
-  dev: globalLogoRouteSearchParam("dev"),
   devtools: rootRouteSearchOwnParamMetadata.devtools,
-  dist: globalLogoRouteSearchParam("dist"),
-  gridSize: globalLogoRouteSearchParam("gridSize"),
-  light: globalLogoRouteSearchParam("light"),
   [MOBILE_SIDEBAR_DEBUG_QUERY_PARAM]:
     rootRouteSearchOwnParamMetadata[MOBILE_SIDEBAR_DEBUG_QUERY_PARAM],
-  primary: globalLogoRouteSearchParam("primary"),
   "prod-ui": rootRouteSearchOwnParamMetadata["prod-ui"],
   [SEARCH_RESET_QUERY_PARAM]: rootRouteSearchOwnParamMetadata[SEARCH_RESET_QUERY_PARAM],
-  secondary: globalLogoRouteSearchParam("secondary"),
   signup: rootRouteSearchOwnParamMetadata.signup,
   "sign-in": rootRouteSearchOwnParamMetadata["sign-in"],
-  top: globalLogoRouteSearchParam("top"),
-  zoom: globalLogoRouteSearchParam("zoom"),
 } as const satisfies RouteSearchParamMetadataByKey<RootRouteSearch>;
 
 const ROOT_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(rootRouteSearchParamMetadata);

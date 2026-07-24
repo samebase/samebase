@@ -120,11 +120,11 @@ entries unchanged; a pre-existing dirty entry canonicalizes on traversal exactly
 1. **Settings to vault (implemented).** On `/settings?delete-account`, editing the path to `/vault`
    navigates to `/vault` with the key dropped. Typing `/settings?delete-account` from `/vault` keeps
    the key, because `/settings` accepts it.
-2. **Fun params are app-wide.** The interactive logo ships on `/` and `/vault`, not only `/logo`, so
-   its appearance controls (theme colors, `dark`/`light`, `zoom`, `depth`, ...) are app-level state:
-   set them anywhere, keep them everywhere, including across `/settings` and `/pricing`. Slice 2
-   formalizes this by moving them into the root schema, which is what "root-owned" already means
-   structurally.
+2. **Logo params remain accepted app-wide but are recommended locally.** The interactive logo ships
+   on `/` and `/vault`, not only `/logo`, so its appearance controls remain root-owned state: direct
+   URLs keep them across `/settings` and `/pricing`. The editor recommends only app theme controls
+   globally. Logo appearance, motion, and view controls are recommended on logo routes, where their
+   purpose is clear.
 3. **Renderer params are route-owned (implemented).** `isoSide`/`isoStyle` configure the `/logo/iso`
    renderer and live in `RouteSearchSchema_logoIso` (the shared logo schema plus the iso params);
    `/logo?isoStyle=shaded-edge` redirects to `/logo` on load, and editor drafts drop the iso keys on
@@ -158,10 +158,10 @@ key-by-key disposition in Open Questions, splits
 `LogoRouteSearch`/`buildLogoRouteSearch`/`replaceRootLogoRouteSearch`, and rewrites the
 `appRouter.test.tsx` retention tests to the new contract.
 
-**Slice 3 (done) - param groups.** Add a `group` metadata field (first value: `"fun"`) and ship it
-together with its consumer: the route URL editor renders grouped suggestion sections separating
-playful controls from functional globals like `prod-ui` and `reset`. `group` is presentation
-semantics; it never affects acceptance.
+**Slice 3 (done) - param groups.** Add a `group` metadata field and ship it together with its
+consumer: the route URL editor renders `Theme`, `Logo`, `Logo motion`, and `Logo view` suggestion
+sections after functional globals like `prod-ui` and `reset`. `group` is presentation semantics; it
+never affects acceptance.
 
 **Slice 4 — presence-flag derivation.** Derive `ROUTE_SEARCH_PRESENCE_FLAG_KEYS` from the union of
 schema presence keys and amend `specs/090` (its hand-enumerated list is already stale: `left`,
@@ -196,15 +196,11 @@ pruning never rewrites restored entries.
    excludes non-accepted keys — the same boundary where canonicalization already reorders query
    params after blur. Fitting new behavior into this existing mental model, instead of adding editor
    states or events, is the standing design rule for this plan.
-2. **The initial group vocabulary contains only `fun`.** No separate debug or auth group is
-   introduced until a shipped UI needs another visible section.
-
-## Open Questions
-
-1. **Per-key disposition for slice 2:** proposed split — app-wide fun (root-owned): `background`,
-   `border`, `dark`, `light`, `primary`, `secondary`, `top`, `zoom`, `depth`, `dist`, `gridSize`,
-   `dev`, `elev`, `rot`, `axis`, `freeView`, `leftFace`, `vox`; route-owned: `isoSide`, `isoStyle`
-   (`/logo/iso` family), raster seam controls. Confirm or adjust.
+2. **The closed group vocabulary is `theme`, `logo`, `logo-motion`, and `logo-view`.** No separate
+   debug or auth group is introduced until a shipped UI needs another visible section.
+3. **Logo keys remain root-owned for acceptance, while recommendation scope is narrower.** Theme
+   colors and `dark`/`light` are recommended globally. Logo appearance, motion, and view controls
+   are recommended only on logo routes. Direct URLs can still use accepted logo keys elsewhere.
 
 ## Non-Goals
 

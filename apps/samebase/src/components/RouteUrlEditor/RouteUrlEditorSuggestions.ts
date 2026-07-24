@@ -1,5 +1,6 @@
 import { readMatchingRouteSearchParamSuggestions } from "@/routing/address";
 import {
+  ROUTE_SEARCH_PARAM_SUGGESTION_GROUPS,
   canAccessRouteAccess,
   type RouteAccessViewer,
   type RouteSearchParamSuggestion,
@@ -311,6 +312,21 @@ function readSearchParamSampleValue(
   }
 }
 
+function canRecommendSearchParam(
+  group: RouteSearchParamSuggestionGroup | undefined,
+  routePath: string,
+): boolean {
+  switch (group) {
+    case undefined:
+    case "theme":
+      return true;
+    case "logo":
+    case "logo-motion":
+    case "logo-view":
+      return routePath === "/logo" || routePath.startsWith("/logo/");
+  }
+}
+
 /**
 Turns route metadata into query-key dropdown rows.
 
@@ -326,6 +342,7 @@ function readSearchRows(args: {
   viewer: RouteAccessViewer;
 }): SearchSuggestion[] {
   const suggestions: SearchSuggestion[] = [];
+  const routePath = parseRouteAddress(args.routeAddress).path;
   const existingKeys = readRouteAddressSearchKeysOutsideToken(
     args.routeAddress,
     args.searchKeyToken,
@@ -335,6 +352,10 @@ function readSearchRows(args: {
     args.routeSearchParamSuggestions,
     args.viewer,
   )) {
+    if (!canRecommendSearchParam(searchParamSuggestion.group, routePath)) {
+      continue;
+    }
+
     if (existingKeys.has(searchParamSuggestion.key)) {
       continue;
     }
@@ -395,7 +416,11 @@ function readSearchRows(args: {
       return left.value.localeCompare(right.value);
     }
 
-    return left.group === null ? -1 : 1;
+    const leftGroupIndex =
+      left.group === null ? -1 : ROUTE_SEARCH_PARAM_SUGGESTION_GROUPS.indexOf(left.group);
+    const rightGroupIndex =
+      right.group === null ? -1 : ROUTE_SEARCH_PARAM_SUGGESTION_GROUPS.indexOf(right.group);
+    return leftGroupIndex - rightGroupIndex;
   });
 }
 

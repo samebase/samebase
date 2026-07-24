@@ -445,10 +445,20 @@ test.describe("route URL editor touch scroll picker", () => {
 
     await input.press("End");
     const suggestionList = page.getByTestId("route-url-editor-suggestions");
-    const funGroup = suggestionList.getByRole("group", { name: "Fun" });
+    const themeGroup = suggestionList.getByRole("group", { name: "Theme" });
+    const logoGroup = suggestionList.getByRole("group", { name: "Logo", exact: true });
+    const logoMotionGroup = suggestionList.getByRole("group", { name: "Logo motion" });
+    const logoViewGroup = suggestionList.getByRole("group", { name: "Logo view" });
     const suggestions = suggestionList.getByRole("option");
-    await expect(funGroup.getByText("Fun", { exact: true })).toBeVisible();
-    await expect(funGroup.getByRole("option", { exact: true, name: "?top=sky-500" })).toBeVisible();
+    await expect(themeGroup.getByText("Theme", { exact: true })).toBeVisible();
+    await expect(themeGroup.getByRole("option", { exact: true, name: "?dark" })).toBeVisible();
+    await expect(
+      logoGroup.getByRole("option", { exact: true, name: "?top=sky-500" }),
+    ).toBeVisible();
+    await expect(
+      logoMotionGroup.getByRole("option", { exact: true, name: "?auto-rotate" }),
+    ).toBeVisible();
+    await expect(logoViewGroup.getByRole("option", { exact: true, name: "?rot=46" })).toBeVisible();
     await expect(page.getByTestId("route-url-editor-scroll-slate")).toBeVisible();
     await expect(input).not.toHaveAttribute("aria-activedescendant", /.+/);
     expect(
@@ -456,7 +466,15 @@ test.describe("route URL editor touch scroll picker", () => {
         options.map((option) => option.getAttribute("data-route-url-editor-suggestion-index")),
       ),
     ).toEqual(await suggestions.evaluateAll((options) => options.map((_, index) => `${index}`)));
-    await expectTouchSlateAlignedToSuggestion(page, "?prod-ui");
+    await expectTouchSlateAlignedToSuggestion(page, "?dev");
+
+    await scrollTouchPickerToSuggestion(page, "?auto-rotate");
+    await expect(input).toHaveValue(`${prefix}logo?auto-rotate&`);
+    await expectTouchSlateAlignedToSuggestion(page, "?auto-rotate");
+
+    await scrollTouchPickerToSuggestion(page, "?zoom=0.5");
+    await expect(input).toHaveValue(`${prefix}logo?zoom=0.5`);
+    await expectTouchSlateAlignedToSuggestion(page, "?zoom=0.5");
 
     const topSuggestion = await scrollTouchPickerToSuggestion(page, "?top=sky-500");
 
@@ -593,7 +611,10 @@ test.describe("route URL editor touch scroll picker", () => {
     await input.press("End");
     await expectInputSelection(input, appendedQuerySlotValue.length);
     await expect(page.getByRole("option", { exact: true, name: "&dev" })).toHaveCount(0);
-    await expect(page.getByRole("option", { exact: true, name: "&top=sky-500" })).toBeVisible();
+    await expect(page.getByRole("option", { exact: true, name: "&top=sky-500" })).toHaveCount(0);
+    await expect(
+      page.getByRole("option", { exact: true, name: "&background=stone-50" }),
+    ).toBeVisible();
 
     await input.press("Home");
 

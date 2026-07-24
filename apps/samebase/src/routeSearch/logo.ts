@@ -121,8 +121,16 @@ const LOGO_VOXEL_STATE_VALUE_SUGGESTIONS = [
   ...REMAINING_LOGO_PRESETS.map((preset) => preset.voxelState),
 ] satisfies RouteSearchParamValueSuggestions;
 const DEFAULT_LOGO_VOXEL_STATE_VALUE_SUGGESTION = getLogoPreset(DEFAULT_LOGO_PRESET_ID).voxelState;
-const logoFunRouteSearchSuggestion = {
-  group: "fun",
+const logoRouteSearchSuggestion = {
+  group: "logo",
+  suggestion: "route",
+} as const;
+const logoMotionRouteSearchSuggestion = {
+  group: "logo-motion",
+  suggestion: "route",
+} as const;
+const logoViewRouteSearchSuggestion = {
+  group: "logo-view",
   suggestion: "route",
 } as const;
 export const MIN_LOGO_OPACITY = 0;
@@ -194,24 +202,24 @@ const canonicalVoxelStateSearchValue = pure((value) => {
 const RouteSearchSchema_logo = defineRouteSearchParams({
   "animate-colors": routeSearchPresenceParam({
     access: "access_public",
-    ...logoFunRouteSearchSuggestion,
+    ...logoMotionRouteSearchSuggestion,
   }),
   "animate-stripes": routeSearchPresenceParam({
     access: "access_public",
-    ...logoFunRouteSearchSuggestion,
+    ...logoMotionRouteSearchSuggestion,
   }),
   "auto-rotate": routeSearchPresenceParam({
     access: "access_public",
-    ...logoFunRouteSearchSuggestion,
+    ...logoMotionRouteSearchSuggestion,
   }),
   "auto-shuffle": routeSearchPresenceParam({
     access: "access_public",
-    ...logoFunRouteSearchSuggestion,
+    ...logoMotionRouteSearchSuggestion,
   }),
   axis: routeSearchValueParam(routeSearchStringValue(LOGO_ROTATION_AXIS_MODE_VALUES), {
     access: "access_public",
     sampleValue: "screen-vertical",
-    ...logoFunRouteSearchSuggestion,
+    ...logoMotionRouteSearchSuggestion,
     valueSuggestions: LOGO_ROTATION_AXIS_MODE_VALUES,
     valueType: "options",
   }),
@@ -234,7 +242,7 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
       numericStepValue: 1,
       access: "access_public",
       sampleValue: `${DEFAULT_LOGO_FRACTAL_DEPTH + 1}`,
-      ...logoFunRouteSearchSuggestion,
+      ...logoRouteSearchSuggestion,
       valueSuggestions: null,
       valueType: "numeric",
     },
@@ -248,7 +256,7 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
     numericStepValue: 1,
     access: "access_public",
     sampleValue: `${LOGO_DISTANCE_SCALE.defaultValue + 1}`,
-    ...logoFunRouteSearchSuggestion,
+    ...logoViewRouteSearchSuggestion,
     valueSuggestions: ["1", "1.2", "1.4", "1.6", "1.8", "2"],
     valueType: "numeric",
   }),
@@ -262,13 +270,13 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
     numericStepValue: 1,
     access: "access_public",
     sampleValue: `${DEFAULT_ELEVATION_DEGREES + 1}`,
-    ...logoFunRouteSearchSuggestion,
+    ...logoViewRouteSearchSuggestion,
     valueSuggestions: null,
     valueType: "numeric",
   }),
   freeView: routeSearchPresenceParam({
     access: "access_public",
-    ...logoFunRouteSearchSuggestion,
+    ...logoViewRouteSearchSuggestion,
   }),
   gridSize: routeSearchValueParam(logoGridSizeSearchValue, {
     numericDefaultValue: DEFAULT_LOGO_GRID_SIZE,
@@ -280,14 +288,14 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
     numericStepValue: 1,
     access: "access_public",
     sampleValue: `${MIN_LOGO_GRID_SIZE}`,
-    ...logoFunRouteSearchSuggestion,
+    ...logoRouteSearchSuggestion,
     valueSuggestions: null,
     valueType: "numeric",
   }),
   leftFace: routeSearchValueParam(logoLeftFaceStyleSearchValue, {
     access: "access_public",
     sampleValue: "secondary",
-    ...logoFunRouteSearchSuggestion,
+    ...logoRouteSearchSuggestion,
     valueSuggestions: LOGO_LEFT_FACE_STYLE_KINDS,
     valueType: "options",
   }),
@@ -302,7 +310,7 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
     numericStepValue: LOGO_OPACITY_STEP,
     access: "access_public",
     sampleValue: "0.5",
-    ...logoFunRouteSearchSuggestion,
+    ...logoRouteSearchSuggestion,
     valueSuggestions: ["0", "0.25", "0.5", "0.75", "1"],
     valueType: "numeric",
   }),
@@ -317,7 +325,7 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
     numericStepValue: 1,
     access: "access_public",
     sampleValue: `${DEFAULT_ROTATION_DEGREES + 1}`,
-    ...logoFunRouteSearchSuggestion,
+    ...logoViewRouteSearchSuggestion,
     valueSuggestions: null,
     valueType: "numeric",
   }),
@@ -326,7 +334,7 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
     numericDefaultValue: DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
     access: "access_public",
     sampleValue: "2",
-    ...logoFunRouteSearchSuggestion,
+    ...logoMotionRouteSearchSuggestion,
     valueSuggestions: LOGO_SHUFFLE_PARALLEL_MOVES_VALUE_SUGGESTIONS,
     valueType: "numeric-options",
   }),
@@ -344,7 +352,7 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
       sampleValue: `${normalizeLogoLeftFaceStripeAngleDegrees(
         LOGO_LEFT_FACE_STRIPE.angleDegrees.defaultValue + 1,
       )}`,
-      ...logoFunRouteSearchSuggestion,
+      ...logoRouteSearchSuggestion,
       valueSuggestions: null,
       valueType: "numeric",
     },
@@ -352,7 +360,7 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
   stripeBasis: routeSearchValueParam(logoLeftFaceStripeBasisSearchValue, {
     access: "access_public",
     sampleValue: "horizontal",
-    ...logoFunRouteSearchSuggestion,
+    ...logoRouteSearchSuggestion,
     valueSuggestions: LOGO_LEFT_FACE_STRIPE_BASIS_VALUES,
     valueType: "options",
   }),
@@ -368,14 +376,14 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
       numericStepValue: LOGO_LEFT_FACE_STRIPE.gap.step,
       access: "access_public",
       sampleValue: `${normalizeLogoLeftFaceStripeGap(LOGO_LEFT_FACE_STRIPE.gap.defaultValue + 1)}`,
-      ...logoFunRouteSearchSuggestion,
+      ...logoRouteSearchSuggestion,
       valueSuggestions: null,
       valueType: "numeric",
     },
   ),
   stripeLink: routeSearchPresenceParam({
     access: "access_public",
-    ...logoFunRouteSearchSuggestion,
+    ...logoRouteSearchSuggestion,
   }),
   stripeO: routeSearchValueParam(
     routeSearchNormalizedFiniteNumber(normalizeLogoLeftFaceStripeOffset),
@@ -389,7 +397,7 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
       numericStepValue: LOGO_LEFT_FACE_STRIPE.offset.step,
       access: "access_public",
       sampleValue: `${normalizeLogoLeftFaceStripeOffset(LOGO_LEFT_FACE_STRIPE.offset.defaultValue + 1)}`,
-      ...logoFunRouteSearchSuggestion,
+      ...logoRouteSearchSuggestion,
       valueSuggestions: null,
       valueType: "numeric",
     },
@@ -406,7 +414,7 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
       numericStepValue: LOGO_LEFT_FACE_STRIPE.width.step,
       access: "access_public",
       sampleValue: `${normalizeLogoLeftFaceStripeWidth(LOGO_LEFT_FACE_STRIPE.width.defaultValue + 1)}`,
-      ...logoFunRouteSearchSuggestion,
+      ...logoRouteSearchSuggestion,
       valueSuggestions: null,
       valueType: "numeric",
     },
@@ -415,7 +423,7 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
   vox: routeSearchValueParam(canonicalVoxelStateSearchValue, {
     access: "access_public",
     sampleValue: DEFAULT_LOGO_VOXEL_STATE_VALUE_SUGGESTION,
-    ...logoFunRouteSearchSuggestion,
+    ...logoRouteSearchSuggestion,
     valueSuggestions: LOGO_VOXEL_STATE_VALUE_SUGGESTIONS,
     valueType: "options",
   }),
@@ -429,7 +437,7 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
     numericStepValue: LOGO_PREVIEW_ZOOM.step,
     access: "access_public",
     sampleValue: "0.5",
-    ...logoFunRouteSearchSuggestion,
+    ...logoViewRouteSearchSuggestion,
     valueSuggestions: ["0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "1"],
     valueType: "numeric",
   }),
@@ -455,7 +463,7 @@ const RouteSearchSchema_logoIso = defineRouteSearchParams({
       sampleValue: `${normalizeLogoIsometricCubeSidePixels(
         LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue + LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.step,
       )}`,
-      ...logoFunRouteSearchSuggestion,
+      ...logoRouteSearchSuggestion,
       valueSuggestions: null,
       valueType: "numeric",
     },
@@ -463,7 +471,7 @@ const RouteSearchSchema_logoIso = defineRouteSearchParams({
   isoStyle: routeSearchValueParam(logoIsometricStyleSearchValue, {
     access: "access_public",
     sampleValue: "shaded-edge",
-    ...logoFunRouteSearchSuggestion,
+    ...logoRouteSearchSuggestion,
     valueSuggestions: LOGO_ISOMETRIC_STYLE_VALUES,
     valueType: "options",
   }),

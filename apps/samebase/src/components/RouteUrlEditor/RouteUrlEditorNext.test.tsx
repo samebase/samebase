@@ -115,7 +115,7 @@ describe("RouteUrlEditorNext", () => {
     expect(display.value).toBe("/logo");
   });
 
-  it("renders fun query suggestions as a labelled group without changing option indexes", () => {
+  it("renders scoped query suggestion groups without changing option indexes", () => {
     const display = renderEditor(["/logo"]);
 
     act(() => {
@@ -123,23 +123,46 @@ describe("RouteUrlEditorNext", () => {
     });
 
     const suggestions = [...(rootElement?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])];
-    const funGroup = rootElement?.querySelector<HTMLElement>('[role="group"][aria-label="Fun"]');
-    const funLabel = funGroup?.querySelector<HTMLElement>('[aria-hidden="true"]');
+    const groups = [...(rootElement?.querySelectorAll<HTMLElement>('[role="group"]') ?? [])];
 
-    expect(funGroup).not.toBeNull();
-    expect(funLabel?.textContent.trim()).toBe("Fun");
-    expect(funLabel?.classList.contains("font-bold")).toBe(true);
-    expect(funLabel?.hasAttribute("data-route-url-editor-suggestion-index")).toBe(false);
+    expect(groups.map((group) => group.getAttribute("aria-label"))).toEqual([
+      "Theme",
+      "Logo",
+      "Logo motion",
+      "Logo view",
+    ]);
+    for (const group of groups) {
+      const label = group.querySelector<HTMLElement>('[aria-hidden="true"]');
+      expect(label?.classList.contains("font-bold")).toBe(true);
+      expect(label?.hasAttribute("data-route-url-editor-suggestion-index")).toBe(false);
+    }
     expect(
       suggestions.map((suggestion) =>
         suggestion.getAttribute("data-route-url-editor-suggestion-index"),
       ),
     ).toEqual(suggestions.map((_, suggestionIndex) => `${suggestionIndex}`));
     expect(
-      [...(funGroup?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])].map((option) =>
+      [...(groups[1]?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])].map((option) =>
         option.textContent.trim(),
       ),
     ).toContain("?top=sky-500");
+  });
+
+  it("shows only the Theme group outside logo routes", () => {
+    const display = renderEditor(["/terms"]);
+
+    act(() => {
+      display.focus();
+    });
+
+    expect(
+      [...(rootElement?.querySelectorAll<HTMLElement>('[role="group"]') ?? [])].map((group) =>
+        group.getAttribute("aria-label"),
+      ),
+    ).toEqual(["Theme"]);
+    expect(readSuggestionValues()).not.toEqual(
+      expect.arrayContaining(["?top=sky-500", "?auto-rotate", "?rot=46"]),
+    );
   });
 
   it("suggests page-owned hashes from the current document", async () => {

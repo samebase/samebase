@@ -73,7 +73,14 @@ export type RouteSearchParamAccess<Key extends string = string> = {
   access: RouteAccess;
 };
 
-export type RouteSearchParamSuggestionGroup = "fun";
+export const ROUTE_SEARCH_PARAM_SUGGESTION_GROUPS = [
+  "theme",
+  "logo",
+  "logo-motion",
+  "logo-view",
+] as const;
+
+export type RouteSearchParamSuggestionGroup = (typeof ROUTE_SEARCH_PARAM_SUGGESTION_GROUPS)[number];
 
 export type RouteSearchParamSuggestion<Key extends string = string> = RouteSearchParamAccess<Key> &
   RouteSearchParamSemantics & {

@@ -1,5 +1,9 @@
 import { useEffect } from "react";
 import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
+import {
+  ROUTE_SEARCH_PARAM_SUGGESTION_GROUPS,
+  type RouteSearchParamSuggestionGroup,
+} from "@/routing/permissions";
 import { useRouteEditorVm } from "./useRouteEditorVm";
 import type { Suggestion } from "./RouteUrlEditorSuggestions";
 import { readRouteEditorNavigationApi, useNavigationControls } from "./useNavigationControls";
@@ -39,6 +43,13 @@ const routeUrlEditorNextSuggestionSampleClassName =
 
 const routeUrlEditorNextSuggestionGroupLabelClassName =
   "mt-2 flex h-7 items-center px-2 text-sm font-bold";
+
+const routeUrlEditorNextSuggestionGroupLabels = {
+  theme: "Theme",
+  logo: "Logo",
+  "logo-motion": "Logo motion",
+  "logo-view": "Logo view",
+} satisfies Record<RouteSearchParamSuggestionGroup, string>;
 
 const routeUrlEditorNextTouchScrollSlateClassName =
   "pointer-events-none absolute inset-x-0 z-10 border-y border-ring/70";
@@ -85,9 +96,11 @@ export function RouteUrlEditorNext() {
     touchScrollPicker.active && vm.state.kind === "focused" && vm.state.focusMode === "suggestion"
       ? (vm.suggestions[vm.state.previewRoute.suggestionIndex] ?? null)
       : null;
-  const funSuggestionStartIndex = vm.suggestions.findIndex(
-    (suggestion) => suggestion.kind === "search" && suggestion.group === "fun",
+  const firstGroupedSuggestionIndex = vm.suggestions.findIndex(
+    (suggestion) => suggestion.kind === "search" && suggestion.group !== null,
   );
+  const ungroupedSuggestionCount =
+    firstGroupedSuggestionIndex === -1 ? vm.suggestions.length : firstGroupedSuggestionIndex;
 
   function renderSuggestionRows(
     suggestionRows: readonly Suggestion[],
@@ -260,25 +273,32 @@ export function RouteUrlEditorNext() {
                 style={{ height: touchScrollPicker.metrics.topSpacerHeightPx }}
               />
             ) : null}
-            {funSuggestionStartIndex === -1 ? (
-              renderSuggestionRows(vm.suggestions, 0)
-            ) : (
-              <>
-                {renderSuggestionRows(vm.suggestions.slice(0, funSuggestionStartIndex), 0)}
-                <div aria-label="Fun" role="group">
+            {renderSuggestionRows(vm.suggestions.slice(0, ungroupedSuggestionCount), 0)}
+            {ROUTE_SEARCH_PARAM_SUGGESTION_GROUPS.map((group) => {
+              const firstSuggestionIndex = vm.suggestions.findIndex(
+                (suggestion) => suggestion.kind === "search" && suggestion.group === group,
+              );
+              if (firstSuggestionIndex === -1) {
+                return null;
+              }
+
+              const suggestionRows = vm.suggestions.filter(
+                (suggestion) => suggestion.kind === "search" && suggestion.group === group,
+              );
+              const label = routeUrlEditorNextSuggestionGroupLabels[group];
+
+              return (
+                <div aria-label={label} key={group} role="group">
                   <div
                     aria-hidden="true"
                     className={routeUrlEditorNextSuggestionGroupLabelClassName}
                   >
-                    Fun
+                    {label}
                   </div>
-                  {renderSuggestionRows(
-                    vm.suggestions.slice(funSuggestionStartIndex),
-                    funSuggestionStartIndex,
-                  )}
+                  {renderSuggestionRows(suggestionRows, firstSuggestionIndex)}
                 </div>
-              </>
-            )}
+              );
+            })}
             {touchScrollPicker.active ? (
               <div
                 aria-hidden="true"
