@@ -9,7 +9,7 @@ export const MENGER_DEPTH_TRANSITION_SPLIT_HOLD_MS = 240;
 export const MENGER_DEPTH_TRANSITION_DEPTH_HOLD_MS = 700;
 export const MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS = 1_800;
 export const MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT = 3;
-export const MENGER_DEPTH_TRANSITION_MAX_STAGGER_GROUP_COUNT = 27;
+export const MENGER_DEPTH_TRANSITION_MAX_STAGGER_GROUP_COUNT = 243;
 const FACE_NEIGHBOR_OFFSETS: readonly VoxelCoordinate[] = [
   [-1, 0, 0],
   [1, 0, 0],
@@ -85,33 +85,43 @@ function readDirectionNoise(
 
 function createStaggerGroups(
   depth: MengerDepthTransitionStage["depth"],
-  staggerGroupCount: number,
-): ReadonlyMap<number, number> {
-  const channels = Array.from(
-    { length: MENGER_DEPTH_TRANSITION_MAX_STAGGER_GROUP_COUNT },
-    (_, channel) => channel,
-  );
+  requestedStaggerGroupCount: number,
+) {
+  const faceGridSize = 3 ** (depth - 1);
+  const faceColumnCount = 3 * faceGridSize * faceGridSize;
+  const staggerGroupCount = Math.min(requestedStaggerGroupCount, faceColumnCount);
+  const channels = Array.from({ length: faceColumnCount }, (_, channel) => channel);
   channels.sort(
     (left, right) =>
       readDirectionNoise([left, depth, 29], depth) -
         readDirectionNoise([right, depth, 29], depth) || left - right,
   );
 
-  return new Map(
-    channels.map((channel, rank) => [
-      channel,
-      Math.floor((rank * staggerGroupCount) / channels.length),
-    ]),
-  );
+  return {
+    faceGridSize,
+    staggerGroupCount,
+    staggerGroups: new Map(
+      channels.map((channel, rank) => [
+        channel,
+        Math.floor((rank * staggerGroupCount) / channels.length),
+      ]),
+    ),
+  };
 }
 
-function readFaceColumnChannel(parent: VoxelCoordinate, child: VoxelCoordinate): number {
+function readFaceColumnChannel(
+  parent: VoxelCoordinate,
+  child: VoxelCoordinate,
+  faceGridSize: number,
+): number {
   const holeAxis = child.findIndex((axis) => axis !== 1);
   // Ignore depth along the hole axis so an entire face-on ray shares one
   // movement pattern and one start time.
   const faceCoordinates = parent.filter((_, axisIndex) => axisIndex !== holeAxis);
 
-  return holeAxis * 9 + (faceCoordinates[0] % 3) * 3 + (faceCoordinates[1] % 3);
+  return (
+    holeAxis * faceGridSize * faceGridSize + faceCoordinates[0] * faceGridSize + faceCoordinates[1]
+  );
 }
 
 function readFaceNeighbors(child: VoxelCoordinate): VoxelCoordinate[] {
@@ -152,7 +162,7 @@ function createMengerDepthTransitionStage(
   const settledVoxels: VoxelCoordinate[] = [];
   const moves: MengerDepthTransitionMove[] = [];
   const splitTimeMs = startTimeMs + MENGER_DEPTH_TRANSITION_SPLIT_HOLD_MS;
-  const staggerGroups = createStaggerGroups(depth, staggerGroupCount);
+  const stageStagger = createStaggerGroups(depth, staggerGroupCount);
 
   for (const parent of sourceVoxels) {
     for (let x = 0; x < 3; x += 1) {
@@ -171,14 +181,14 @@ function createMengerDepthTransitionStage(
             continue;
           }
 
-          const faceColumnChannel = readFaceColumnChannel(parent, child);
+          const faceColumnChannel = readFaceColumnChannel(parent, child, stageStagger.faceGridSize);
           const destinationChild = readDestinationChild(
             child,
             faceColumnChannel,
             depth,
             retainedChildKeys,
           );
-          const staggerGroup = staggerGroups.get(faceColumnChannel);
+          const staggerGroup = stageStagger.staggerGroups.get(faceColumnChannel);
           if (staggerGroup === undefined) {
             throw new Error("Every Menger transition move must resolve to a stagger group.");
           }
@@ -186,7 +196,8 @@ function createMengerDepthTransitionStage(
             from: coordinate,
             startTimeMs:
               splitTimeMs +
-              (staggerGroup * MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS) / staggerGroupCount,
+              (staggerGroup * MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS) /
+                stageStagger.staggerGroupCount,
             to: toChildCoordinate(parent, destinationChild),
           });
         }
