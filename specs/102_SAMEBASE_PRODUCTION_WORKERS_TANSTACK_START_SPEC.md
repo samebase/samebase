@@ -312,7 +312,7 @@ Validation:
 
 1. unauthenticated landing routes load
 2. auth redirects keep the intended origin
-3. connected-machine files serve as static assets
+3. public documentation and install assets serve as static assets
 4. Convex subscriptions connect
 5. branch-preview URLs can be surfaced without Pages-only parsing
 

@@ -53,8 +53,8 @@ issues, attempted fixes, and outcomes from each landed slice.
 ## Current Constraints
 
 - `apps/samebase/src/lib/appRouter.ts` currently owns the shipped route tree and router factory.
-- The shipped route tree includes explicit root, public, research, authenticated, machines,
-  codespace, and vault/file surfaces.
+- The shipped route tree includes explicit root, public, authenticated, codespace, and vault/file
+  surfaces.
 - `apps/samebase/src/lib/tanstackSearchParams.ts` intentionally preserves human-readable query
   params such as `/?dev`.
 - `apps/samebase/src/main.tsx` and `apps/samebase/src/test/TestRouterProvider.tsx` already mount the

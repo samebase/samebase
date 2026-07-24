@@ -61,9 +61,9 @@ problems, attempted fixes, and outcomes.
 - `apps/samebase/src/entry.tsx` now loads directly from `index.html`, while
   `apps/samebase/src/main.tsx` only owns the reusable routed app mount logic.
 - `apps/samebase/src/lib/appRouter.ts` now owns the simple standalone public and dev-only routes
-  (`/privacy`, `/terms`, `/logo*`, `/pitch*`, and the Codex research paths) plus the non-root
-  authenticated app routes (MCP consent, pricing, add-repository, machines, machine connect,
-  codespace chat, and the vault/file surfaces), plus the explicit root routes for `/` and `/test`.
+  (`/privacy`, `/terms`, `/logo*`, and `/pitch*`) plus the non-root authenticated app routes (MCP
+  consent, pricing, add-repository, codespace chat, and the vault/file surfaces), plus the explicit
+  root routes for `/` and `/test`.
 - `apps/samebase/src/components/RootIndexRoutePage.tsx` now owns public `/` rendering, and public
   Google sign-in entrypoints now pass `/vault` as the provider return route when the user starts
   sign-in from `/`. Authenticated users can still browse the public landing route because
@@ -78,10 +78,9 @@ problems, attempted fixes, and outcomes.
 - `apps/samebase/src/lib/appRouter.ts` now uses repo-owned plain-string search parsing/stringifying
   so route-owned TanStack search can preserve the app's existing human-readable query semantics
   instead of falling back to TanStack's JSON-like default search serialization.
-- The meaningful app-owned search surfaces (landing, MCP consent, machine connect, pricing,
-  machines, logo, and the research routes) now validate through route-owned TanStack search
-  contracts, so the remaining work is cleanup and simplification rather than finishing search
-  ownership.
+- The meaningful app-owned search surfaces (landing, MCP consent, pricing, and logo) now validate
+  through route-owned TanStack search contracts, so the remaining work is cleanup and simplification
+  rather than finishing search ownership.
 - Post-migration cleanup now lives in `specs/082_TANSTACK_ROUTER_CLEANUP_SPEC.md` so this document
   can stay focused on the migration itself.
 - The shared workspace wrapper migration in `specs/080` is a separate track. Router and bootstrap

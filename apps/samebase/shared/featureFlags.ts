@@ -7,8 +7,7 @@ export const CHAT_ENABLED: boolean = false;
 
 /**
  * GitHub Codespaces remains a possible hosted runtime, but it is not part of
- * the default product surface while local and machine-backed workflows carry
- * the day-to-day path.
+ * the current product surface.
  */
 export const CODESPACES_ENABLED: boolean = false;
 

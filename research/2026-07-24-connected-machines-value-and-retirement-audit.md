@@ -238,8 +238,13 @@ entries, presence and ordering helpers, and these five tables:
 5. `machineControlTokens`
 
 Remove the connected-machines account-deletion progress field, cleanup handlers, UI label, and tests
-in the same change. If obsolete operator-only rows conflict with the narrowed schema, delete those
-rows directly. Do not build a migration framework for them.
+in the same change. Before deploying the narrowed schema, directly delete any active
+`workflow_accountDeletion_runs` row whose `dataDeletion` still contains `connectedMachines` and any
+`ui_workspaceSidebar_layouts` row whose `workspaceKey` is `machines`.
+
+Removing a table definition from `schema.ts` does not delete stored Convex tables. After deploying
+the backend removal, delete the five tables directly from each persistent deployment. Do not build a
+migration framework for these rows or tables.
 
 Keep `access_machines` while Codespaces remains because Codespaces shares that key. Its deletion
 belongs to the separate Codespaces cleanup.

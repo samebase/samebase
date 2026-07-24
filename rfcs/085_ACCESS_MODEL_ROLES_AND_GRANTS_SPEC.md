@@ -44,7 +44,7 @@ Member MVP: `role_member` holds `access_public`, `access_user_preferences`, `acc
 `access_files_read`, and `access_files_write`. Members can sign in, persist signed-in app-shell
 preferences, connect provider accounts, connect/import their own repositories, create Noter-managed
 apps after provider-readiness checks pass, monitor/resync app state, and use owned file surfaces
-behind per-vault ownership checks. Machines, MCP, and admin surfaces stay staff-only until
+behind per-vault ownership checks. Codespaces, MCP, and admin surfaces stay staff-only until
 deliberately opened. Enabling more later is a grant edit plus route/function reclassification, not a
 redesign.
 
@@ -60,7 +60,7 @@ became structural via access-key function wrappers.
 2. Server-side enforcement that fails closed and cannot be forgotten per function: public Convex
    queries, mutations, and actions must be wrapped with an explicit access key.
 3. Member MVP includes account/repo/app-creation/app-status capabilities, with the path to files,
-   machines, and MCP being grant edits plus targeted reclassification, not a redesign.
+   Codespaces, and MCP being grant edits plus targeted reclassification, not a redesign.
 4. Keep billing (plan/add-ons) outside this access model: access keys gate who may call; current
    member app creation is not gated by billing state. Existing billing specs are plumbing notes, not
    enforceable product decisions. Future quotas, credits, or plan enforcement need their own
@@ -206,7 +206,7 @@ Capability split locked in by this RFC:
 | `access_app_refresh`          | Reload/resync app, repository, branch, deployment, and provider-status metadata.                             |
 | `access_files_read`           | Read file trees, file contents, diffs, staged-change summaries, and review data.                             |
 | `access_files_write`          | Edit files, stage changes, upload/delete/rename, commit, open PRs, or run AI/file-compute workflows.         |
-| `access_machines`             | Connected-machine, local-machine, codespace executor, and machine-control flows.                             |
+| `access_machines`             | Codespaces executor and lifecycle flows.                                                                     |
 | `access_mcp`                  | MCP OAuth consent and MCP-facing tool entry points.                                                          |
 | `access_admin`                | Internal operator, debug, research, prod-read, test, and unreleased surfaces.                                |
 
@@ -478,11 +478,11 @@ spec/test updates).
 app-owned `query`/`mutation`/`action`; lint rule; migrate every exported public query, mutation, and
 action onto an explicit access key. Authenticated-but-unapproved callers resolve to
 `role_waitlisted` and lose access to everything beyond public reads and signed-in shell preferences
-— that is the point. Sub-split by area for review: auth/public → dashboard → provider connections →
-repo connect/app create/app refresh → files read/write → machines → admin/chat → mixed. Anything
-unclear starts as `access_admin`. Convex tests gain role fixtures (`t.withIdentity` + seeded
-approved/unapproved users); state-axis enumeration test for `ROLE_ACCESS_GRANTS` (e.g. "every key a
-member holds, staff holds").
+because that restriction is the point. Sub-split by area for review: auth/public → dashboard →
+provider connections → repo connect/app create/app refresh → files read/write → Codespaces →
+admin/chat → mixed. Anything unclear starts as `access_admin`. Convex tests gain role fixtures
+(`t.withIdentity` + seeded approved/unapproved users); state-axis enumeration test for
+`ROLE_ACCESS_GRANTS` (e.g. "every key a member holds, staff holds").
 
 **Phase 2 — frontend runtime gate.** The metadata field rename (`permission` → `access`),
 search-param classification, URL-editor `currentViewerAccess` wiring, `RouteAccessOutlet`, and
