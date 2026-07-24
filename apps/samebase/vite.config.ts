@@ -16,6 +16,7 @@ import { readEnvFileValue, resolveBrowserConvexProxyTarget } from "./browserConv
 import { resolveAppCommitNumber } from "./dev/appBuildMetadata";
 import { readBuildLandingSlogan } from "./dev/landingSlogan";
 import { readPublicPrerenderPages } from "./dev/publicPrerenderPages";
+import { writePublicPrerenderWithoutModulePreloads } from "./scripts/strip-public-prerender-modulepreloads";
 import type { AppBuildConfig } from "./src/lib/appBuildConfig";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
@@ -416,6 +417,20 @@ export default defineConfig({
         crawlLinks: false,
         enabled: true,
         ...(prerenderHeaders ? { headers: prerenderHeaders } : {}),
+        onSuccess({ page, html }) {
+          const publicPrerenderPage = publicPrerenderPages.find(
+            (candidate) => candidate.path === page.path,
+          );
+          if (!publicPrerenderPage) {
+            return;
+          }
+
+          writePublicPrerenderWithoutModulePreloads({
+            clientDistDir: path.resolve(currentDir, "dist/client"),
+            html,
+            page: publicPrerenderPage,
+          });
+        },
       },
       spa: {
         enabled: true,

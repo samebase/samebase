@@ -4,6 +4,7 @@ import {
   createCloudflarePrerenderRedirectsBlock,
   GENERATED_REDIRECTS_END_TAG,
   GENERATED_REDIRECTS_START_TAG,
+  readPrerenderHtmlOutputPath,
   type PublicPrerenderPage,
   replaceGeneratedCloudflareRedirectsBlock,
 } from "./generate-cloudflare-redirects.js";
@@ -94,16 +95,17 @@ describe("generate-cloudflare-redirects", () => {
   });
 
   it("keeps prerender pages from taking the Cloudflare SPA shell path", () => {
-    expect(() =>
-      createCloudflarePrerenderRedirectsBlock([
-        {
-          path: "/",
-          prerender: {
-            enabled: true,
-            outputPath: "/index.html",
-          },
-        },
-      ]),
-    ).toThrow("Cloudflare SPA mode serves that file");
+    const workerSsrRootPage = {
+      path: "/",
+      prerender: {
+        enabled: true,
+        outputPath: "/index.html",
+      },
+    } satisfies PublicPrerenderPage;
+
+    expect(readPrerenderHtmlOutputPath(workerSsrRootPage)).toBe("/index.html");
+    expect(() => createCloudflarePrerenderRedirectsBlock([workerSsrRootPage])).toThrow(
+      "Cloudflare SPA mode serves that file",
+    );
   });
 });

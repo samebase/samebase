@@ -78,6 +78,15 @@ function assertRedirectPath(label: string, value: string) {
   }
 }
 
+export function readPrerenderHtmlOutputPath(page: PublicPrerenderPage) {
+  const outputPath = page.prerender.outputPath ?? `${page.path}/index.html`;
+  const htmlOutputPath = outputPath.endsWith(".html") ? outputPath : `${outputPath}.html`;
+
+  assertRedirectPath("Prerender output path", htmlOutputPath);
+
+  return htmlOutputPath;
+}
+
 export function readCloudflarePrerenderHtmlOutputPath(page: PublicPrerenderPage) {
   if (page.path === "/" && !page.prerender.outputPath) {
     throw new Error(
@@ -85,10 +94,7 @@ export function readCloudflarePrerenderHtmlOutputPath(page: PublicPrerenderPage)
     );
   }
 
-  const outputPath = page.prerender.outputPath ?? `${page.path}/index.html`;
-  const htmlOutputPath = outputPath.endsWith(".html") ? outputPath : `${outputPath}.html`;
-
-  assertRedirectPath("Prerender output path", htmlOutputPath);
+  const htmlOutputPath = readPrerenderHtmlOutputPath(page);
   if (htmlOutputPath === "/index.html") {
     throw new Error(
       "Prerender pages must not output /index.html because Cloudflare SPA mode serves that file for unknown app routes.",

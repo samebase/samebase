@@ -110,12 +110,11 @@ Workers Static Assets deploys only `dist/client`, and the tagged generated block
 live outside that block. Unknown app-route navigations use Workers' `single-page-application`
 fallback to the SPA shell at `/index.html`.
 
-After `vp build`, the production build post-processes public prerendered HTML files to remove
+As TanStack Start writes each configured public prerender, its success hook removes
 `<link rel="modulepreload">` hints. Cold public visits should let HTML and CSS reach first paint
-before hydration chunks compete for bandwidth. The post-processing must preserve the module entry
-script that hydrates the page, must fail if any `modulepreload` reference remains in public
-prerendered HTML, and must not strip modulepreload links from the SPA fallback at
-`dist/client/index.html`.
+before hydration chunks compete for bandwidth. The hook must preserve the module entry script that
+hydrates the page, must fail if any `modulepreload` reference remains in public prerendered HTML,
+and must not run for the separate SPA mask page at `dist/client/index.html`.
 
 This section describes the production branch. The stable `ssr` proof branch keeps request-time
 Worker SSR enabled for unmatched app routes, but it should still prerender public routes at build
@@ -217,8 +216,8 @@ Samebase production itself.
    - `notFoundMode: "root"`
    - custom `parseSearch`
    - custom `stringifySearch`
-7. Strip modulepreload hints from public prerendered HTML after the TanStack Start build, while
-   leaving `dist/client/index.html` unchanged.
+7. Strip modulepreload hints from configured public prerenders through TanStack Start's prerender
+   success hook, while leaving the separate SPA mask page at `dist/client/index.html` unchanged.
 8. Move the existing provider stack into the Start root/document path without changing app behavior:
    - `AppBootErrorBoundary`
    - `OptionalThemeProvider`
