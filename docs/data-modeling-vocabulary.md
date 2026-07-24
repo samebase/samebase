@@ -74,7 +74,3 @@ meaning or the persisted UI choice.
 Do not use `target`, `ownership`, `claim`, `handoff`, `item`, `record`, `data`, `history`, or bare
 `state` as a generic persisted-row noun. These words describe a relationship or container without
 saying what the row is. Replace them with the concrete domain noun or an approved lifecycle noun.
-
-Do not use bare `connector` in a model comment. In the connected-machine domain, the machine
-connector is specifically the local `samebase-sync run` process. Prefer the command name and say
-what it sends or receives.

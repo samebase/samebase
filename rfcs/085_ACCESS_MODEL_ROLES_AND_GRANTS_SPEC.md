@@ -397,17 +397,17 @@ they are.
 
 ### Route assignments (MVP)
 
-| Access key            | Routes                                                                                                                                                                                                                                                                                                                |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `access_public`       | `/`, `/logo`, `/oauth/mcp/consent` (hidden from route path suggestions), `/privacy`, `/terms`, `/visual-fixture` (local-only)                                                                                                                                                                                         |
-| `access_dashboard`    | `/vault`, `/vault/$owner/$repo`, `/pricing`                                                                                                                                                                                                                                                                           |
-| `access_repo_connect` | `/connect-repo` shell for importing/linking an existing repository; specific provider buttons also depend on `access_provider_connections`                                                                                                                                                                            |
-| `access_app_create`   | `/new-app` managed app creation shell; managed provisioning actions also keep backend `access_app_create` checks                                                                                                                                                                                                      |
-| `access_files_read`   | `/vault/$` read shell                                                                                                                                                                                                                                                                                                 |
-| `access_files_write`  | File edit/staging/commit actions inside `/vault/$`; no separate route required at MVP                                                                                                                                                                                                                                 |
-| `access_machines`     | `/machines`, `/machines/connect`                                                                                                                                                                                                                                                                                      |
-| `access_mcp`          | MCP-facing backend entry points and token-granted tool scopes; the consent URL itself is a public OAuth entrypoint so signed-out users can keep the request ID through sign-in                                                                                                                                        |
-| `access_admin`        | `/pitch`, `/pitch/print`, `/pitch/print/mobile`, `/landing-preview`, `/research/codex-app-server`, `/research/codex-app-server/browser`, `/test`, `/indexDB`, `/localStorage`, `/logo/iso`, `/logo/raster`, `/logo/raster-seams`, `/logo/single-cube`, `/logo/svg`, `/logo/transition`, `/logo/transition/transforms` |
+| Access key            | Routes                                                                                                                                                                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `access_public`       | `/`, `/logo`, `/oauth/mcp/consent` (hidden from route path suggestions), `/privacy`, `/terms`, `/visual-fixture` (local-only)                                                                                                                     |
+| `access_dashboard`    | `/vault`, `/vault/$owner/$repo`, `/pricing`                                                                                                                                                                                                       |
+| `access_repo_connect` | `/connect-repo` shell for importing/linking an existing repository; specific provider buttons also depend on `access_provider_connections`                                                                                                        |
+| `access_app_create`   | `/new-app` managed app creation shell; managed provisioning actions also keep backend `access_app_create` checks                                                                                                                                  |
+| `access_files_read`   | `/vault/$` read shell                                                                                                                                                                                                                             |
+| `access_files_write`  | File edit/staging/commit actions inside `/vault/$`; no separate route required at MVP                                                                                                                                                             |
+| `access_machines`     | Dormant Codespaces chat route under `/vault/$owner/$repo/codespace/$branch/chat`                                                                                                                                                                  |
+| `access_mcp`          | MCP-facing backend entry points and token-granted tool scopes; the consent URL itself is a public OAuth entrypoint so signed-out users can keep the request ID through sign-in                                                                    |
+| `access_admin`        | `/pitch`, `/pitch/print`, `/pitch/print/mobile`, `/landing-preview`, `/test`, `/indexDB`, `/localStorage`, `/logo/iso`, `/logo/raster`, `/logo/raster-seams`, `/logo/single-cube`, `/logo/svg`, `/logo/transition`, `/logo/transition/transforms` |
 
 With MVP grants, members reach public, dashboard, provider-connection, repo-connect, app-create,
 app-refresh, file-read, and file-write capabilities; staff reach everything. The ~40 admin-marked
@@ -416,11 +416,10 @@ search params reclassify alongside their routes: dashboard/billing params (`dele
 `access_provider_connections`; repo/app setup params (`add-app-root`, `app-root`) →
 `access_repo_connect`; managed app setup params (`new-app`) and managed provisioning actions →
 `access_app_create`; file-view params (`compare`, `diff`, `review`, `mobileLineNumbers`) →
-`access_files_read`; file edit/staging params → `access_files_write`; machine params →
-`access_machines`; MCP OAuth entry params (`mcp_consent_request`, `mcp_login_required`) → hidden
-`access_public`; public presentation toggles such as logo/landing `dev`, `prod-ui`, and devtools
-visibility remain `access_public`; operator-only debug params and landing-preview params →
-`access_admin`.
+`access_files_read`; file edit/staging params → `access_files_write`; MCP OAuth entry params
+(`mcp_consent_request`, `mcp_login_required`) → hidden `access_public`; public presentation toggles
+such as logo/landing `dev`, `prod-ui`, and devtools visibility remain `access_public`; operator-only
+debug params and landing-preview params → `access_admin`.
 
 ### Billing stays orthogonal
 

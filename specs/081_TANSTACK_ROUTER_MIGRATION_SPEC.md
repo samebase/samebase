@@ -216,17 +216,9 @@ problems, attempted fixes, and outcomes.
   metadata, unauthenticated sign-in fallback, and the global chat FAB. Tried: extracted a shared
   authenticated route page shell plus shared app-auth runtime effects, then promoted `/pricing` and
   `/add` into explicit TanStack routes and removed those branches from the `App.tsx` pathname
-  resolver. Result: pricing and add-repository are now route-owned without forcing the heavier
-  machines or vault routes into the same patch, and `App.tsx` only keeps the remaining unresolved
-  authenticated branches.
-
-- Problem: `/machines` and `/machines/connect` still looked like switchboard paths in `App.tsx`,
-  even though both pages already behave like standalone authenticated app surfaces with route-local
-  search state. Tried: reused the shared authenticated route shell from the pricing/add step,
-  promoted both machine routes into explicit TanStack routes, and removed those cases from the old
-  authenticated pathname resolver. Result: the machines surfaces are now route-owned, `App.tsx` only
-  keeps codespace and vault/file routing branches, and the later typed-search phase can focus on
-  search ownership instead of path ownership.
+  resolver. Result: pricing and add-repository are now route-owned without forcing the heavier vault
+  routes into the same patch, and `App.tsx` only keeps the remaining unresolved authenticated
+  branches.
 
 - Problem: the last unresolved non-root authenticated paths were still the coupled vault surfaces,
   where the generic file route and the chat-only codespace route overlap under the same `/vault/*`

@@ -117,8 +117,6 @@ Some code may be useful without Daytona but should not keep Daytona ownership:
    to describe that boundary directly.
 2. If deployment-profile detection still needs a deploy-key fallback, rename the env contract away
    from `DAYTONA_CONVEX_DEPLOY_KEY` and migrate callers.
-3. If any PTY logic is still useful for connected machines, reintroduce it under the
-   connected-machine boundary instead of importing Daytona helpers.
 
 If a neutralized path is not used end to end by the current app, delete it.
 

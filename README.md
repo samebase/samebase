@@ -105,15 +105,6 @@ pnpm dev
 
 Notes:
 
-- In Windows PowerShell, direct hosted-file `samebase.ts` commands should use `curl.exe`, not the
-  built-in `curl` alias.
-- The `samebase.ts connect` flow now prints a `next:` approval URL instead of trying to open a
-  browser automatically. Open that printed link manually in a signed-in browser. This keeps the flow
-  consistent across native Windows and Linux sandbox environments.
-- Windows `samebase.ts` resolution also supports Codex installed through Volta, as long as the
-  `codex` and `volta` commands are available on `PATH`. Samebase resolves that shim from the current
-  workspace so project-scoped Volta setups launch the same Codex binary that the later runtime
-  command would use.
 - On a brand-new machine, the first `pnpm dev` run may pause for an interactive Convex CLI
   login/bootstrap prompt before `apps/samebase/.env.local` exists.
 - On native Windows primary checkouts, `pnpm dev` now retries local `SITE_URL` sync after the
@@ -122,10 +113,6 @@ Notes:
 - `pnpm dev` now tries to stop stale local `convex-local-backend` listeners on `3210` before
   bootstrap. If it still reports that `3210` is occupied, stop the leftover backend process manually
   and retry.
-- For local connected-machine testing with `/samebase.ts` on a fresh Windows checkout that does not
-  already have a cloud dev source env, use the dated troubleshooting notes in
-  `research/windows-native-connected-machine-walkthrough-2026-04-01.md` if you need the older
-  step-by-step debugging sequence.
 - The primary checkout path above works without GNU Make, and the worktree bootstrap flow now uses
   root package scripts too. Prefer `pnpm dev` as the normal command in both primary and worktree
   checkouts. Use `pnpm dev:worktree` / `pnpm dev:worktree:once` only when you need to force the

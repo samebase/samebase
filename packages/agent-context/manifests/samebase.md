@@ -57,7 +57,7 @@ accepted/current or the repo chooses to keep that pointer permanently.
 | shadcn primitive ownership           | yes  | n/a                            | n/a; use `../../../rfcs/063_SHADCN_WRAPPER_ENTRYPOINT_SPEC.md` plus compact `AGENTS.md` pointer                  |
 | bare workflow shortcut command       | yes  | PR or cleanup skill by task    | `samebase-operator-workflows`; keep compact `AGENTS.md` command table until overlay loading is guaranteed        |
 | PR, CI, review, or blocker triage    | yes  | `pr-workflow-review`           | `samebase-operator-workflows` for build labels, ready/draft defaults, and review-bot requirements                |
-| cleanup, archive, stale resources    | yes  | `exact-resource-cleanup`       | `samebase-operator-workflows` for vaults, previews, machine state, and Codex archive/pin checks                  |
+| cleanup, archive, stale resources    | yes  | `exact-resource-cleanup`       | `samebase-operator-workflows` for vaults, previews, and Codex archive/pin checks                                 |
 | ambiguous research to implementation | yes  | `research-to-implementation`   | `samebase-app-template`, `samebase-convex`, or `samebase-operator-workflows` only when the evidence points there |
 | extracting agent workflow context    | yes  | `agent-context-extraction-lab` | repo overlays, docs, specs, or thread evidence only after the sample points there                                |
 

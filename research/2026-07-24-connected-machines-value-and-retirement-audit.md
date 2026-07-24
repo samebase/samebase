@@ -7,11 +7,23 @@
   integrations
 - Project context: pre-beta, with the operator as the only real user and no compatibility commitment
   to external data
-- Outcome: preserve the transferable design lessons, but retire the product implementation
+- Outcome: product implementation retired; transferable design lessons preserved here and in Git
+  history
 
 ## Decision
 
 Remove connected machines from the active product and codebase.
+
+Implementation completed on 2026-07-24:
+
+1. removed the machine routes, browser UI, connector distribution, and machine-only Codex research
+   runtime
+2. deleted the five Convex tables directly, along with their HTTP functions and generated API
+3. removed the connected-machines account-deletion group and reused the remaining generic cleanup
+   machinery for its tests
+4. deleted machine-only URL suggestion logic, token creation, CI checks, operator shortcuts, specs,
+   RFCs, and manual tests
+5. retained `access_machines` only because dormant Codespaces still owns that access key
 
 This recommendation does not rely on user count. Samebase has not offered beta access, and the
 operator is the product's only real user. Zero external users is therefore neutral evidence, not a

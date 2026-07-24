@@ -279,7 +279,7 @@ Validation:
 1. `pnpm dev:worktree`
 2. `pnpm --filter samebase check`
 3. `pnpm --filter samebase build`
-4. browser smoke test of `/`, `/vault`, `/vault/$`, `/samebase.ts`, and `/samebase-connect.json`
+4. browser smoke test of `/`, `/vault`, and `/vault/$`
 
 ### Phase 2: Worker Dry Run
 

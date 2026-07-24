@@ -338,8 +338,8 @@ Referrer-Policy: no-referrer
 Content-Security-Policy: frame-ancestors 'none'
 ```
 
-The current static `_headers` file is minimal and only sets content type for `/samebase.ts` plus
-immutable caching for assets. This flow needs explicit browser-page protections.
+The current static `_headers` file is minimal and primarily sets immutable caching for assets. This
+flow needs explicit browser-page protections.
 
 ### Clickjacking And CSRF
 
