@@ -29,10 +29,24 @@ function createCompactIdentitySvgMarkupForGeometry({
 
 /**
  * The compact Samebase identity is the clean, straight-on version 1 mark.
- * Its outer edge is one eighth of the canvas and its opening is one third of
- * the dark square, so every edge stays square at 16px and 32px.
+ * The dark square occupies 70% of the canvas, leaving its corners visibly
+ * inside a circular crop. Its opening remains one third of the dark square.
  */
 export function createCompactIdentitySvgMarkup() {
+  return createCompactIdentitySvgMarkupForGeometry({
+    inset: 9,
+    markSize: 42,
+    openingInset: 23,
+    openingSize: 14,
+    viewBoxSize: 60,
+  });
+}
+
+/**
+ * Browser favicons retain the denser 8px grid so their edges align exactly
+ * when rasterized at 16px and 32px.
+ */
+export function createFaviconCompactIdentitySvgMarkup() {
   return createCompactIdentitySvgMarkupForGeometry({
     inset: 1,
     markSize: 6,

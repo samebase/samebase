@@ -97,9 +97,13 @@ gets the same stripe phase.
 - Treatment-named assets under `apps/samebase/public/brand/logo/` preserve both `duotone` and
   `striped` exports for each identity view.
 - `/brand/icon/compact-v1.svg` is the treatmentless source for the compact icon.
+- The default compact icon keeps the outer square at 70% of the canvas, leaving 15% clear space on
+  every side so all four corners remain visible through a centered circular crop.
 - `/samebase-icon.svg` and `/install-icon.svg` are stable aliases of the compact icon source.
 - Favicons, Apple touch, manifest, ChatGPT plugin, structured identity metadata, and compact in-app
   marks all use the same clean version 1 geometry.
+- The 16px and 32px favicon rasters retain their denser pixel-aligned spacing instead of inheriting
+  the avatar-safe clear space.
 - Maskable manifest assets preserve the same square-ring geometry with additional white safety space
   so platform crops do not clip the outer square.
 

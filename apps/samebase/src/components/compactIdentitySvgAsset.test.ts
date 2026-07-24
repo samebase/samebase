@@ -10,6 +10,7 @@ import {
   INSTALL_ICON_SVG_URL,
   MASKABLE_COMPACT_IDENTITY_SOURCE_SVG_URL,
   createCompactIdentitySvgMarkup,
+  createFaviconCompactIdentitySvgMarkup,
   createMaskableCompactIdentitySvgMarkup,
 } from "@/components/compactIdentitySvgAsset";
 
@@ -54,34 +55,34 @@ const rasterContracts = [
   {
     canvasSize: 180,
     filename: "apple-touch-icon.png",
-    inset: 22,
-    markSize: 135,
-    openingInset: 67,
-    openingSize: 45,
+    inset: 27,
+    markSize: 126,
+    openingInset: 69,
+    openingSize: 42,
   },
   {
     canvasSize: 192,
     filename: "icon-192.png",
-    inset: 24,
-    markSize: 144,
-    openingInset: 72,
-    openingSize: 48,
+    inset: 29,
+    markSize: 134,
+    openingInset: 74,
+    openingSize: 44,
   },
   {
     canvasSize: 256,
     filename: "chatgpt-app-icon.png",
-    inset: 32,
-    markSize: 192,
-    openingInset: 96,
-    openingSize: 64,
+    inset: 38,
+    markSize: 180,
+    openingInset: 98,
+    openingSize: 60,
   },
   {
     canvasSize: 512,
     filename: "icon-512.png",
-    inset: 64,
-    markSize: 384,
-    openingInset: 192,
-    openingSize: 128,
+    inset: 77,
+    markSize: 358,
+    openingInset: 196,
+    openingSize: 120,
   },
   {
     canvasSize: 192,
@@ -110,11 +111,18 @@ describe("compactIdentitySvgAsset", () => {
     expect(readPublicSvg(INSTALL_ICON_SVG_URL)).toBe(generatedSvg);
   });
 
-  it("uses exact square geometry for the standard mark", () => {
+  it("keeps the standard mark inside a circular crop", () => {
     const generatedSvg = createCompactIdentitySvgMarkup();
 
     expect(generatedSvg).toContain(`fill="${COMPACT_IDENTITY_BACKGROUND_COLOR}"`);
     expect(generatedSvg).toContain(`fill="${COMPACT_IDENTITY_FOREGROUND_COLOR}"`);
+    expect(generatedSvg).toContain('x="9" y="9" width="42" height="42"');
+    expect(generatedSvg).toContain('x="23" y="23" width="14" height="14"');
+  });
+
+  it("keeps favicon geometry aligned to the 8px grid", () => {
+    const generatedSvg = createFaviconCompactIdentitySvgMarkup();
+
     expect(generatedSvg).toContain('x="1" y="1" width="6" height="6"');
     expect(generatedSvg).toContain('x="3" y="3" width="2" height="2"');
   });
