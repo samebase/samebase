@@ -124,6 +124,9 @@ const vRepositoryDefaultBranch = union(
   object({
     name: string(),
     headCommitOid: string(),
+    headCommitTitle: string(),
+    headCommitCommittedAt: string(),
+    headCommitUrl: string(),
     statusCheckRollup: vStatusCheckRollup,
   }),
 );
@@ -261,6 +264,9 @@ const providerDefaultBranchSchema = z
     target: z.object({
       __typename: z.literal("Commit"),
       oid: z.string().min(1),
+      messageHeadline: z.string(),
+      committedDate: z.iso.datetime(),
+      url: z.url(),
       statusCheckRollup: statusCheckRollupSchema,
     }),
   })
@@ -302,6 +308,9 @@ const REPOSITORY_PULL_REQUEST_PAGE_QUERY = `
           __typename
           ... on Commit {
             oid
+            messageHeadline
+            committedDate
+            url
             statusCheckRollup { ...StatusCheckRollupFields }
           }
         }
@@ -446,6 +455,9 @@ export function normalizeGitHubPullRequestPage(value: unknown): RepositoryPullRe
           : {
               name: repository.defaultBranch.name,
               headCommitOid: repository.defaultBranch.target.oid,
+              headCommitTitle: repository.defaultBranch.target.messageHeadline,
+              headCommitCommittedAt: repository.defaultBranch.target.committedDate,
+              headCommitUrl: repository.defaultBranch.target.url,
               statusCheckRollup: normalizeStatusCheckRollup(
                 repository.defaultBranch.target.statusCheckRollup,
               ),

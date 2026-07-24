@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  buildVault2DashboardRoute,
+  buildVault2SettingsRoute,
   buildVaultDashboardRoute,
   buildVaultDatabaseRoute,
   buildVaultFileRoute,
@@ -19,6 +21,17 @@ describe("buildVaultDashboardRoute", () => {
   });
 });
 
+describe("buildVault2DashboardRoute", () => {
+  it("builds the alternate repository overview and settings routes", () => {
+    const repository = {
+      owner: "octo",
+      repoName: "web",
+    };
+
+    expect(buildVault2DashboardRoute(repository)).toBe("/vault2/octo/web");
+    expect(buildVault2SettingsRoute(repository)).toBe("/vault2/octo/web/settings");
+  });
+});
 describe("buildVaultFileRoute", () => {
   it("encodes branch names with slashes for file routes", () => {
     expect(

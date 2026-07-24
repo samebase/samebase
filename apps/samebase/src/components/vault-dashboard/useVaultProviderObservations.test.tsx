@@ -18,6 +18,60 @@ function fakeVaultId(value: string): Id<"vaults"> {
 }
 
 describe("useVaultProviderObservations", () => {
+  it("settles empty provider collections without leaving disabled queries loading", async () => {
+    const queryClient = new QueryClient();
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    let latest: ReturnType<typeof useVaultProviderObservations> | undefined;
+
+    function Probe() {
+      latest = useVaultProviderObservations({
+        _id: fakeVaultId("vault-empty"),
+        cloudflareWorkers: [],
+        convexProjects: [],
+      });
+      return null;
+    }
+
+    try {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <Probe />
+          </QueryClientProvider>,
+        );
+      });
+
+      expect(latest?.cloudflare.workers).toMatchObject({
+        state: "loaded",
+        observations: [],
+        refreshing: false,
+      });
+      expect(latest?.cloudflare.builds).toMatchObject({
+        state: "loaded",
+        observations: [],
+        refreshing: false,
+      });
+      expect(latest?.cloudflare.convexBuildAccess).toMatchObject({
+        state: "loaded",
+        observations: [],
+        refreshing: false,
+      });
+      expect(latest?.convex).toMatchObject({
+        state: "loaded",
+        observations: [],
+        refreshing: false,
+      });
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      queryClient.clear();
+      rootElement.remove();
+    }
+  });
+
   it("invalidates only the selected vault's provider observations", async () => {
     const vaultId = fakeVaultId("vault-a");
     const otherVaultId = fakeVaultId("vault-b");

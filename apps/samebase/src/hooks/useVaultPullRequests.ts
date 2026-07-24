@@ -47,8 +47,11 @@ export type VaultPullRequest = Omit<RepositoryPullRequest, "labels"> & {
   checks: RepositoryCheckSummary;
 };
 
-export type VaultDefaultBranchChecks = {
+export type VaultDefaultBranchObservation = {
   headCommitOid: string;
+  headCommitTitle: string;
+  headCommitCommittedAt: string;
+  headCommitUrl: string;
   statusCheckRollup: RepositoryStatusCheckRollup;
   checks: RepositoryCheckSummary;
 };
@@ -61,7 +64,7 @@ export type PullRequestResourceState =
 
 type SettledPullRequests = {
   state: "current" | "stale";
-  defaultBranchChecks: VaultDefaultBranchChecks | null;
+  defaultBranch: VaultDefaultBranchObservation | null;
   pullRequests: VaultPullRequest[];
   allPullRequests: VaultPullRequest[];
   refreshing: boolean;
@@ -77,7 +80,7 @@ type SettledPullRequests = {
 export type VaultPullRequestsState =
   | { state: "not_requested" }
   | { state: "loading" }
-  | { state: "problem" }
+  | { state: "problem"; reload: () => void }
   | SettledPullRequests;
 
 function pullRequestsFromPage(
@@ -121,15 +124,18 @@ function presentPullRequest(pullRequest: RepositoryPullRequest): VaultPullReques
   };
 }
 
-function defaultBranchChecksFromPage(
+function defaultBranchFromPage(
   page: RepositoryPullRequestPage | undefined,
-): VaultDefaultBranchChecks | null {
+): VaultDefaultBranchObservation | null {
   const defaultBranch = page?.repository?.defaultBranch;
   if (!defaultBranch) {
     return null;
   }
   return {
     headCommitOid: defaultBranch.headCommitOid,
+    headCommitTitle: defaultBranch.headCommitTitle,
+    headCommitCommittedAt: defaultBranch.headCommitCommittedAt,
+    headCommitUrl: defaultBranch.headCommitUrl,
     statusCheckRollup: defaultBranch.statusCheckRollup,
     checks: summarizeRepositoryChecks(defaultBranch.statusCheckRollup),
   };
@@ -220,7 +226,7 @@ export function useVaultPullRequests(args: {
     [observedPages],
   );
   const allPullRequests = useMemo(() => uniquePullRequests(pages).map(presentPullRequest), [pages]);
-  const defaultBranchChecks = defaultBranchChecksFromPage(pages.at(0));
+  const defaultBranch = defaultBranchFromPage(pages.at(0));
   const pullRequests = useMemo(
     () => filterVaultPullRequests(allPullRequests, args.filters),
     [allPullRequests, args.filters],
@@ -287,6 +293,7 @@ export function useVaultPullRequests(args: {
         ? "loading"
         : "current";
   const fetchNextPage = pullRequestQuery.fetchNextPage;
+  const refetchPullRequests = pullRequestQuery.refetch;
   const hasNextPage = pullRequestQuery.hasNextPage;
   const isFetchNextPageError = pullRequestQuery.isFetchNextPageError;
   const isFetchingNextPage = pullRequestQuery.isFetchingNextPage;
@@ -296,11 +303,14 @@ export function useVaultPullRequests(args: {
     }
     void fetchNextPage();
   }, [fetchNextPage, hasNextPage, isFetchNextPageError, isFetchingNextPage]);
+  const reload = useCallback(() => {
+    void refetchPullRequests();
+  }, [refetchPullRequests]);
   if (!vaultId) {
     return { state: "not_requested" };
   }
   if (!pullRequestQuery.data) {
-    return pullRequestQuery.isError ? { state: "problem" } : { state: "loading" };
+    return pullRequestQuery.isError ? { state: "problem", reload } : { state: "loading" };
   }
 
   const lastPage = pages.at(-1);
@@ -319,7 +329,7 @@ export function useVaultPullRequests(args: {
       args.now > firstPageObservedAt + PULL_REQUEST_STALE_MS
         ? "stale"
         : "current",
-    defaultBranchChecks,
+    defaultBranch,
     pullRequests,
     allPullRequests,
     refreshing: pullRequestQuery.isFetching || resourceQueries.some((query) => query.isFetching),

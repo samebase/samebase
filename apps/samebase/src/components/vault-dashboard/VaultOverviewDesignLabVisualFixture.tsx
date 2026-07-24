@@ -27,7 +27,7 @@ import {
   SamebaseLogoMark,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { VaultChecksPopover } from "@/components/vault-dashboard/VaultChecksPopover";
-import type { VaultDefaultBranchChecks } from "@/hooks/useVaultPullRequests";
+import type { VaultDefaultBranchObservation } from "@/hooks/useVaultPullRequests";
 
 export type VaultOverviewDesignLabVisualMode =
   | "vault-overview-lab-simple"
@@ -127,7 +127,7 @@ type LabScenario = {
   settingsIssues: readonly LabSettingsIssue[];
 };
 
-type LabChecks = Pick<VaultDefaultBranchChecks, "checks" | "statusCheckRollup">;
+type LabChecks = Pick<VaultDefaultBranchObservation, "checks" | "statusCheckRollup">;
 
 function labChecks({
   failureCount,

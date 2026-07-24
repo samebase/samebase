@@ -5,6 +5,15 @@ import {
   VaultDashboardRepositoryList,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
 import {
+  VaultOverviewLoadingPage,
+  VaultOverviewPage,
+  VaultOverviewSidebar,
+  VaultOverviewSidebarLoading,
+} from "@/components/vault-dashboard/VaultOverviewPage";
+import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
+import { buildVaultProductionRoots } from "@/components/vault-dashboard/vaultProductionRoots";
+import type { VaultWorkspaceSelected } from "@/components/vault-dashboard/vaultWorkspaceModel";
+import {
   VaultConvexSchemaGraphContent,
   VaultConvexSchemaGraphRouteWorkspaceContent,
   type VaultConvexSchemaGraphRouteContext,
@@ -31,7 +40,7 @@ import {
   type VaultPullRequestFilters,
 } from "@/components/vault-dashboard/vaultDashboardPullRequestFilters";
 import type {
-  VaultDefaultBranchChecks,
+  VaultDefaultBranchObservation,
   VaultPullRequest,
   VaultPullRequestsState,
 } from "@/hooks/useVaultPullRequests";
@@ -66,7 +75,12 @@ export type VaultDashboardVisualMode =
   | "vault-convex-schema-graph"
   | "vault-convex-schema-route-mobile"
   | "vault-pull-request-auto-pagination"
-  | "vault-pull-request-filters";
+  | "vault-pull-request-filters"
+  | "vault-overview-v2"
+  | "vault-overview-v2-dev"
+  | "vault-overview-v2-loading"
+  | "vault-overview-v2-partial-loading"
+  | "vault-overview-v2-settings";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
 const LOADING_CLOUDFLARE_OBSERVATIONS = {
@@ -238,6 +252,8 @@ const LIST_SPACING_VAULT = {
 const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
   workers: {
     state: "loaded",
+    freshness: "current",
+    refreshing: false,
     reload: () => {},
     observations: [
       {
@@ -264,6 +280,8 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
   },
   builds: {
     state: "loaded",
+    freshness: "current",
+    refreshing: false,
     reload: () => {},
     observations: [
       {
@@ -290,11 +308,19 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
       },
     ],
   },
-  convexBuildAccess: { state: "loaded", reload: () => {}, observations: [] },
+  convexBuildAccess: {
+    state: "loaded",
+    freshness: "current",
+    refreshing: false,
+    reload: () => {},
+    observations: [],
+  },
 } satisfies VaultCloudflareProviderObservationState;
 
 const LIST_SPACING_CONVEX_OBSERVATIONS = {
   state: "loaded",
+  freshness: "current",
+  refreshing: false,
   reload: () => {},
   observations: [
     {
@@ -362,7 +388,7 @@ const SIDEBAR_LIST_SELECTED_VAULT_ID = fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c
 const SIDEBAR_LIST_VAULTS = [
   {
     ...LIST_SPACING_VAULT,
-    _id: fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8b"),
+    _id: LIST_SPACING_VAULT_ID,
     ghRepoOwner: "samebase",
     ghRepoName: "samebase",
     repositoryFullName: "samebase/samebase",
@@ -442,6 +468,10 @@ const FIXTURE_SUCCESSFUL_STATUS_CHECK_ROLLUP = {
 
 const FIXTURE_DEFAULT_BRANCH_CHECKS = {
   headCommitOid: "81145b7d2a32186823452c7515b2d5ba2d79b350",
+  headCommitTitle: "Keep vault provider observations explicit",
+  headCommitCommittedAt: "2026-07-21T09:30:00Z",
+  headCommitUrl:
+    "https://github.com/samebase/samebase/commit/81145b7d2a32186823452c7515b2d5ba2d79b350",
   statusCheckRollup: FIXTURE_SUCCESSFUL_STATUS_CHECK_ROLLUP,
   checks: {
     ...FIXTURE_NO_CHECKS,
@@ -449,7 +479,7 @@ const FIXTURE_DEFAULT_BRANCH_CHECKS = {
     totalCount: 4,
     successCount: 4,
   },
-} satisfies VaultDefaultBranchChecks;
+} satisfies VaultDefaultBranchObservation;
 
 function fixturePullRequest({
   index,
@@ -533,11 +563,11 @@ const DEFAULT_VISIBLE_PULL_REQUESTS = filterVaultPullRequests(
 
 function fixturePullRequests(
   pullRequests: readonly FixturePullRequest[],
-  defaultBranchChecks: VaultDefaultBranchChecks | null,
+  defaultBranch: VaultDefaultBranchObservation | null,
 ): Extract<VaultPullRequestsState, { state: "current" | "stale" }> {
   return {
     state: "current",
-    defaultBranchChecks,
+    defaultBranch,
     refreshing: false,
     pullRequests: [...pullRequests],
     allPullRequests: [...pullRequests],
@@ -603,6 +633,136 @@ function fixturePullRequests(
     loadMoreFailed: false,
     loadMore: () => {},
   };
+}
+
+function VaultOverviewV2Fixture({
+  mode,
+}: {
+  mode:
+    | "vault-overview-v2"
+    | "vault-overview-v2-dev"
+    | "vault-overview-v2-loading"
+    | "vault-overview-v2-partial-loading"
+    | "vault-overview-v2-settings";
+}) {
+  const [pullRequestFilters, setPullRequestFilters] = useState(() =>
+    getDefaultVaultPullRequestFilters(),
+  );
+  const page = mode === "vault-overview-v2-settings" ? "settings" : "overview";
+
+  if (mode === "vault-overview-v2-loading") {
+    return (
+      <TestRouterProvider initialEntries={["/vault2/samebase/samebase"]}>
+        <WorkspaceLayoutV2FixtureFrame
+          dataTestId="vault-overview-v2-loading"
+          left={{
+            header: (
+              <div className="flex h-full items-center px-2 text-sm font-medium text-foreground">
+                Vaults
+              </div>
+            ),
+            content: <VaultOverviewSidebarLoading />,
+          }}
+          main={{
+            content: (
+              <VaultOverviewLoadingPage owner="samebase" page="overview" repoName="samebase" />
+            ),
+          }}
+          shortcutPaneSide="left"
+        />
+      </TestRouterProvider>
+    );
+  }
+
+  const partialLoading = mode === "vault-overview-v2-partial-loading";
+  const cloudflareObservations = partialLoading
+    ? LOADING_CLOUDFLARE_OBSERVATIONS
+    : LIST_SPACING_CLOUDFLARE_OBSERVATIONS;
+  const convexObservations: VaultProviderObservationState<VaultConvexProjectObservation> =
+    partialLoading ? { state: "loading" } : LIST_SPACING_CONVEX_OBSERVATIONS;
+  const pullRequests = fixturePullRequests(
+    filterVaultPullRequests(LIST_SPACING_PULL_REQUESTS, pullRequestFilters),
+    FIXTURE_DEFAULT_BRANCH_CHECKS,
+  );
+  const workspace = {
+    access: { state: "ready", schemaGraphEnabled: true },
+    cloudflareConnection: {
+      state: "ready",
+      connection: {
+        connected: true,
+        accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
+        accountName: "Samebase",
+      },
+    },
+    cloudflareObservations,
+    convexObservations,
+    githubRepositoryUrl: "https://github.com/samebase/samebase",
+    productionRoots: buildVaultProductionRoots({
+      cloudflareObservations,
+      convexObservations,
+      vault: LIST_SPACING_VAULT,
+    }),
+    pullRequestFilters,
+    pullRequests,
+    vault: LIST_SPACING_VAULT,
+  } satisfies VaultWorkspaceSelected;
+  const resourceRailState = buildVaultDashboardResourceRailState({
+    addCloudflareWorkerOnClick: () => {},
+    addConvexOnClick: () => {},
+    changeConvexProjectConfigPathOnClick: () => {},
+    cloudflareObservations,
+    convexObservations,
+    configureWorkersBuildsForGitHubOnClick: () => {},
+    detachCloudflareWorkerOnClick: () => {},
+    detachConvexProjectOnClick: () => {},
+    githubRepositoryUrl: workspace.githubRepositoryUrl,
+    reconcileConvexProjectTeamOnClick: () => {},
+    rotateConvexDeployKeysForWorkersBuildsOnClick: () => {},
+    vault: LIST_SPACING_VAULT,
+  });
+
+  return (
+    <TestRouterProvider
+      initialEntries={[
+        page === "settings" ? "/vault2/samebase/samebase/settings" : "/vault2/samebase/samebase",
+      ]}
+    >
+      <WorkspaceLayoutV2FixtureFrame
+        dataTestId={mode}
+        left={{
+          header: (
+            <div className="flex h-full items-center px-2 text-sm font-medium text-foreground">
+              Vaults
+            </div>
+          ),
+          content: (
+            <VaultOverviewSidebar
+              page={page}
+              selectedVaultId={LIST_SPACING_VAULT_ID}
+              vaults={SIDEBAR_LIST_VAULTS}
+              workspace={workspace}
+            />
+          ),
+        }}
+        main={{
+          content: (
+            <VaultOverviewPage
+              developerToolsVisible={mode === "vault-overview-v2-dev"}
+              isRemovingVault={false}
+              page={page}
+              resourceRailState={resourceRailState}
+              workspace={workspace}
+              onOpenDeleteDialog={() => {}}
+              onPullRequestFiltersChange={setPullRequestFilters}
+              onRetryInfrastructureProvisioning={() => {}}
+              onRetryVaultDeletion={() => {}}
+            />
+          ),
+        }}
+        shortcutPaneSide="left"
+      />
+    </TestRouterProvider>
+  );
 }
 
 const STICKY_HEADER_PULL_REQUESTS = [
@@ -761,6 +921,8 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
           cloudflareObservations={{
             workers: {
               state: "loaded",
+              freshness: "current",
+              refreshing: false,
               reload: () => {},
               observations: [
                 {
@@ -787,6 +949,8 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
             },
             builds: {
               state: "loaded",
+              freshness: "current",
+              refreshing: false,
               reload: () => {},
               observations: [
                 {
@@ -819,6 +983,8 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
             },
             convexBuildAccess: {
               state: "loaded",
+              freshness: "current",
+              refreshing: false,
               reload: () => {},
               observations: [
                 {
@@ -843,6 +1009,8 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
           cloudflareWorkerConfigurationActionInFlight={null}
           convexObservations={{
             state: "loaded",
+            freshness: "current",
+            refreshing: false,
             reload: () => {},
             observations: [
               {
@@ -1863,6 +2031,16 @@ function FixtureDashboardShell({
 }
 
 export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisualMode }) {
+  if (
+    mode === "vault-overview-v2" ||
+    mode === "vault-overview-v2-dev" ||
+    mode === "vault-overview-v2-loading" ||
+    mode === "vault-overview-v2-partial-loading" ||
+    mode === "vault-overview-v2-settings"
+  ) {
+    return <VaultOverviewV2Fixture mode={mode} />;
+  }
+
   if (mode === "vault-dashboard-dev-tools-hidden") {
     return <VaultDashboardDeveloperToolsFixture visible={false} />;
   }

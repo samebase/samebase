@@ -13,6 +13,9 @@ function providerPage() {
         target: {
           __typename: "Commit",
           oid: "main123",
+          messageHeadline: "Keep the workspace model explicit",
+          committedDate: "2026-07-21T09:30:00Z",
+          url: "https://github.com/samebase/samebase/commit/main123",
           statusCheckRollup: {
             state: "SUCCESS",
             contexts: {
@@ -115,6 +118,9 @@ describe("normalizeGitHubPullRequestPage", () => {
         defaultBranch: {
           name: "main",
           headCommitOid: "main123",
+          headCommitTitle: "Keep the workspace model explicit",
+          headCommitCommittedAt: "2026-07-21T09:30:00Z",
+          headCommitUrl: "https://github.com/samebase/samebase/commit/main123",
           statusCheckRollup: expect.objectContaining({
             state: "SUCCESS",
             contexts: expect.objectContaining({

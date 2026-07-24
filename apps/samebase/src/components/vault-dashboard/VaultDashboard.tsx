@@ -10,6 +10,13 @@ import { VaultProvisioningLog } from "@/components/vault-dashboard/VaultProvisio
 import { VaultDefaultBranch } from "@/components/vault-dashboard/VaultDefaultBranch";
 import { VaultPullRequestList } from "@/components/vault-dashboard/VaultPullRequestList";
 import { VaultResourceRail } from "@/components/vault-dashboard/VaultResourceRail";
+import {
+  VaultOverviewLoadingPage,
+  VaultOverviewPage,
+  VaultOverviewSidebar,
+  VaultOverviewSidebarLoading,
+  type VaultOverviewPageKind,
+} from "@/components/vault-dashboard/VaultOverviewPage";
 import { VaultRepositoryRootInput } from "@/components/vault-dashboard/VaultRepositoryRootInput";
 import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
 import { buildVaultProductionRoots } from "@/components/vault-dashboard/vaultProductionRoots";
@@ -19,9 +26,8 @@ import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { Link, useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 import { linkStyle } from "../styles";
 import { clsx } from "clsx";
-import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { useNow } from "@/hooks/useNow";
-import { useVaultPullRequests, type VaultPullRequestsState } from "@/hooks/useVaultPullRequests";
+import type { VaultPullRequestsState } from "@/hooks/useVaultPullRequests";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { buildFileViewRouteSearch, buildFileViewSearchHref } from "@/routeSearch/fileView";
@@ -84,11 +90,11 @@ import {
 } from "../../../shared/convexCodeLocation";
 import { formatStopwatchDuration } from "@/lib/stopwatch";
 import {
-  useVaultProviderObservations,
   type VaultCloudflareProviderObservationState,
   type VaultConvexProjectObservation,
   type VaultProviderObservationState,
 } from "@/components/vault-dashboard/useVaultProviderObservations";
+import { useVaultWorkspaceModel } from "@/components/vault-dashboard/useVaultWorkspaceModel";
 
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 const EMPTY_REPOSITORY_FOLDER_SUGGESTIONS: readonly string[] = [];
@@ -97,9 +103,11 @@ export type VaultDashboardVault = NonNullable<
   (typeof api.vault.dashboard.getUserVaults)["_returnType"]
 >[number];
 export type VaultDashboardViewModel = {
-  vaults: VaultDashboardVault[];
+  vaults: readonly VaultDashboardVault[];
 };
 export type VaultDashboardProps = {
+  page?: VaultOverviewPageKind;
+  presentation?: "legacy" | "v2";
   selectedRepositoryFullName?: string;
 };
 
@@ -1849,7 +1857,7 @@ export function VaultDashboardVaultList({
   vaults,
 }: {
   selectedVaultId: Id<"vaults"> | null;
-  vaults: VaultDashboardVault[];
+  vaults: readonly VaultDashboardVault[];
 }) {
   return (
     <VaultDashboardSidebarContent>
@@ -1898,7 +1906,11 @@ function VaultDashboardVaultListHeader() {
   );
 }
 
-export function VaultDashboardVaultPickerPane({ vaults }: { vaults: VaultDashboardVault[] }) {
+export function VaultDashboardVaultPickerPane({
+  vaults,
+}: {
+  vaults: readonly VaultDashboardVault[];
+}) {
   return (
     <div className="flex min-h-full min-w-0 flex-col">
       <div className="flex h-8 shrink-0 items-center border-b border-border">
@@ -2148,7 +2160,7 @@ export function VaultDashboardView({
             <VaultDefaultBranch
               convexProjects={vault.convexProjects}
               defaultBranch={primaryBranch}
-              defaultBranchChecks={settledPullRequests?.defaultBranchChecks ?? null}
+              defaultBranchObservation={settledPullRequests?.defaultBranch ?? null}
               githubBranchUrl={buildGitHubBranchTreeUrl({
                 repositoryFullName: vault.repositoryFullName,
                 branchName: primaryBranch,
@@ -2265,38 +2277,30 @@ export function VaultDashboardView({
   );
 }
 
-export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardProps) {
+export function VaultDashboard({
+  page = "overview",
+  presentation = "legacy",
+  selectedRepositoryFullName,
+}: VaultDashboardProps) {
   const navigate = useNavigate();
   const router = useRouter();
   const vaultDashboardDialogHistoryEntry = useLocation({
     select: (location) => location.state.vaultDashboardDialog,
   });
+  const dashboardRoutePathname = useLocation({
+    select: (location) => location.pathname,
+  });
   const rootRouteSearch = useRootRouteSearch();
   const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
-  const vaults = useQuery(api.vault.dashboard.getUserVaults);
-  const selectedVault = useMemo(() => {
-    if (!vaults || vaults.length === 0) {
-      return null;
-    }
-    if (!selectedRepositoryFullName) {
-      return null;
-    }
-    return vaults.find((vault) => vault.repositoryFullName === selectedRepositoryFullName) ?? null;
-  }, [selectedRepositoryFullName, vaults]);
-  const providerObservations = useVaultProviderObservations(selectedVault);
-  const dashboardData = useMemo(
-    () =>
-      vaults
-        ? {
-            allVaults: vaults,
-            viewModel: {
-              vaults: selectedVault ? [selectedVault] : [],
-            },
-          }
-        : null,
-    [selectedVault, vaults],
+  const { commands: workspaceCommands, model: workspaceModel } = useVaultWorkspaceModel(
+    selectedRepositoryFullName,
   );
-  const now = useNow({ intervalMs: 15_000 });
+  const vaults = workspaceModel.state === "ready" ? workspaceModel.vaults : undefined;
+  const selectedWorkspace =
+    workspaceModel.state === "ready" && workspaceModel.selection.state === "selected"
+      ? workspaceModel.selection.workspace
+      : null;
+  const selectedVault = selectedWorkspace?.vault ?? null;
   const deleteVault = useAction(api.vault.actions.deleteVault);
   const retryDeleteVault = useAction(api.vault.actions.retryDeleteVault);
   const retryInfrastructureProvisioning = useAction(
@@ -2357,10 +2361,12 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const userVaultResourceLinksState = useConvexQuery(
     api.vault.dashboard.getUserVaultResourceLinksState,
   );
-  const viewerAccess = useConvexQuery(api.users.currentViewerAccess);
   const schemaGraphAccessEnabled =
-    viewerAccess?.accessKeys.includes("access_schema_graph") === true;
-  const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus);
+    selectedWorkspace?.access.state === "ready" && selectedWorkspace.access.schemaGraphEnabled;
+  const cloudflareConnection =
+    selectedWorkspace?.cloudflareConnection.state === "ready"
+      ? selectedWorkspace.cloudflareConnection.connection
+      : undefined;
   const connectedCloudflareConnection =
     cloudflareConnection?.connected === true ? cloudflareConnection : null;
   const deleteModeActive = rootRouteSearch.delete === true;
@@ -2949,7 +2955,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
           codeLocation: getConvexCodeLocationSelection(codeLocation),
         });
       }
-      void providerObservations.invalidate();
+      void workspaceCommands.invalidateProviderObservations();
       setConvexCodeLocationRepairTarget(null);
       resetConvexDialogState();
       closeVaultDashboardDialog("add-convex");
@@ -2983,7 +2989,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
           workerTag: cloudflareWorkerToConnect.workerTag,
           rootDirectory: cloudflareCreateRootDirectory,
         });
-        void providerObservations.invalidate();
+        void workspaceCommands.invalidateProviderObservations();
         markCloudflareConnectDialogWorkerAdded(cloudflareWorkerToConnect.workerTag);
         if (result.state === "added_with_notice") {
           setCloudflareConnectDialogError(result.message);
@@ -3016,7 +3022,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
           rootDirectory: cloudflareCreateRootDirectory,
         });
       }
-      void providerObservations.invalidate();
+      void workspaceCommands.invalidateProviderObservations();
       setCloudflareBuildsRepairTarget(null);
       resetCloudflareDialogState();
       closeVaultDashboardDialog("add-cloudflare");
@@ -3135,7 +3141,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       });
     } finally {
       setReconcilingConvexProjectId(null);
-      void providerObservations.invalidate();
+      void workspaceCommands.invalidateProviderObservations();
     }
   };
 
@@ -3199,7 +3205,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       await configureWorkersBuildsForGitHub({ workerId, vaultId, rootDirectory });
     } finally {
       setCloudflareWorkerConfigurationActionInFlight(null);
-      void providerObservations.invalidate();
+      void workspaceCommands.invalidateProviderObservations();
     }
   };
 
@@ -3261,7 +3267,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       });
     } finally {
       setCloudflareWorkerConfigurationActionInFlight(null);
-      void providerObservations.invalidate();
+      void workspaceCommands.invalidateProviderObservations();
     }
   };
 
@@ -3283,17 +3289,37 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     }
   };
 
-  if (!dashboardData) {
-    return null;
+  if (workspaceModel.state === "loading") {
+    if (presentation !== "v2" || !selectedRepositoryFullName) {
+      return null;
+    }
+    const loadingRepository = tryParseRepositoryFullName(selectedRepositoryFullName);
+    if (!loadingRepository) {
+      return null;
+    }
+    return (
+      <AppWorkspaceRouteChrome
+        left={{
+          header: <VaultDashboardVaultListHeader />,
+          content: <VaultOverviewSidebarLoading />,
+        }}
+      >
+        <VaultOverviewLoadingPage
+          owner={loadingRepository.owner}
+          page={page}
+          repoName={loadingRepository.name}
+        />
+      </AppWorkspaceRouteChrome>
+    );
   }
 
-  const { allVaults, viewModel: dashboardViewModel } = dashboardData;
+  const allVaults = workspaceModel.vaults;
+  const dashboardViewModel = {
+    vaults: selectedVault ? [selectedVault] : [],
+  };
 
   const persistedVaultPullRequestFiltersByVaultId = new Map<string, VaultPullRequestFiltersState>(
-    (userVaultPullRequestFilters ?? []).map((vaultPullRequestFilter) => [
-      vaultPullRequestFilter.vaultId,
-      normalizeVaultPullRequestFilters(vaultPullRequestFilter),
-    ]),
+    selectedWorkspace ? [[selectedWorkspace.vault._id, selectedWorkspace.pullRequestFilters]] : [],
   );
   const persistedVaultResourceLinksOpenByVaultId = new Map<string, boolean>(
     (userVaultResourceLinksState ?? []).map((state) => [state.vaultId, state.resourceLinksOpen]),
@@ -3359,13 +3385,145 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     closeVaultDashboardDialog("delete");
   };
 
+  const openSelectedProviderAddDialog = (provider: "cloudflare" | "convex") => {
+    void navigate({
+      resetScroll: false,
+      to: ".",
+      search: (currentSearch) =>
+        applyVaultDashboardProviderAddSearch({
+          currentSearch,
+          provider,
+        }),
+      state: (currentState) => ({
+        ...currentState,
+        vaultDashboardDialog: provider === "convex" ? "add-convex" : "add-cloudflare",
+      }),
+    });
+  };
+  const openSelectedVaultDeleteDialog = () => {
+    void navigate({
+      resetScroll: false,
+      to: ".",
+      search: (currentSearch) => ({ ...currentSearch, delete: true }),
+      state: (currentState) => ({
+        ...currentState,
+        vaultDashboardDialog: "delete",
+      }),
+    });
+  };
+  const canManageSelectedProviderAttachments =
+    selectedWorkspace?.vault.hasConnectedGitHubRepository === true &&
+    selectedWorkspace.vault.deletion.state === "not_deleting";
+  const selectedResourceRailState = selectedWorkspace
+    ? buildVaultDashboardResourceRailState({
+        buildAddCloudflareWorkerHref: canManageSelectedProviderAttachments
+          ? () =>
+              buildVaultDashboardProviderAddHref({
+                dashboardRoutePathname,
+                provider: "cloudflare",
+                rootRouteSearch,
+              })
+          : undefined,
+        addCloudflareWorkerOnClick: canManageSelectedProviderAttachments
+          ? () => openSelectedProviderAddDialog("cloudflare")
+          : undefined,
+        buildAddConvexHref: canManageSelectedProviderAttachments
+          ? () =>
+              buildVaultDashboardProviderAddHref({
+                dashboardRoutePathname,
+                provider: "convex",
+                rootRouteSearch,
+              })
+          : undefined,
+        addConvexOnClick: canManageSelectedProviderAttachments
+          ? () => openSelectedProviderAddDialog("convex")
+          : undefined,
+        configureWorkersBuildsForGitHubOnClick:
+          !canManageSelectedProviderAttachments || cloudflareWorkerConfigurationActionInFlight
+            ? undefined
+            : (workerId, rootDirectory) => {
+                handleConfigureWorkersBuildsForGitHub(
+                  selectedWorkspace.vault._id,
+                  workerId,
+                  rootDirectory,
+                );
+              },
+        changeConvexProjectConfigPathOnClick: canManageSelectedProviderAttachments
+          ? (convexProjectId) => {
+              handleChangeConvexProjectConfigPath(selectedWorkspace.vault._id, convexProjectId);
+            }
+          : undefined,
+        cloudflareObservations: selectedWorkspace.cloudflareObservations,
+        convexObservations: selectedWorkspace.convexObservations,
+        githubRepositoryUrl: selectedWorkspace.githubRepositoryUrl,
+        isConfiguringWorkersBuildsForGitHub: (workerId) =>
+          cloudflareWorkerConfigurationActionInFlight?.kind ===
+            "configure_workers_builds_for_github" &&
+          cloudflareWorkerConfigurationActionInFlight.vaultId === selectedWorkspace.vault._id &&
+          cloudflareWorkerConfigurationActionInFlight.workerId === workerId,
+        isDetachingCloudflareWorker: (workerId) =>
+          providerAttachmentDetachmentInFlight?.provider === "cloudflare" &&
+          providerAttachmentDetachmentInFlight.vaultId === selectedWorkspace.vault._id &&
+          providerAttachmentDetachmentInFlight.workerId === workerId,
+        isDetachingConvexProject: (convexProjectId) =>
+          providerAttachmentDetachmentInFlight?.provider === "convex" &&
+          providerAttachmentDetachmentInFlight.vaultId === selectedWorkspace.vault._id &&
+          providerAttachmentDetachmentInFlight.convexProjectId === convexProjectId,
+        isReconcilingConvexProjectTeam: (convexProjectId) =>
+          reconcilingConvexProjectId === convexProjectId,
+        isRotatingConvexDeployKeysForWorkersBuilds: (workerId, convexProjectId) =>
+          cloudflareWorkerConfigurationActionInFlight?.kind ===
+            "rotate_convex_deploy_keys_for_workers_builds" &&
+          cloudflareWorkerConfigurationActionInFlight.vaultId === selectedWorkspace.vault._id &&
+          cloudflareWorkerConfigurationActionInFlight.workerId === workerId &&
+          cloudflareWorkerConfigurationActionInFlight.convexProjectId === convexProjectId,
+        vault: selectedWorkspace.vault,
+        detachCloudflareWorkerOnClick:
+          !canManageSelectedProviderAttachments || providerAttachmentDetachmentInFlight
+            ? undefined
+            : (workerId) => {
+                void handleDetachCloudflareWorker(selectedWorkspace.vault._id, workerId);
+              },
+        detachConvexProjectOnClick:
+          !canManageSelectedProviderAttachments || providerAttachmentDetachmentInFlight
+            ? undefined
+            : (convexProjectId) => {
+                void handleDetachConvexProject(selectedWorkspace.vault._id, convexProjectId);
+              },
+        reconcileConvexProjectTeamOnClick:
+          !canManageSelectedProviderAttachments || reconcilingConvexProjectId
+            ? undefined
+            : (convexProjectId) => {
+                void handleReconcileConvexProjectTeam(selectedWorkspace.vault._id, convexProjectId);
+              },
+        rotateConvexDeployKeysForWorkersBuildsOnClick:
+          !canManageSelectedProviderAttachments || cloudflareWorkerConfigurationActionInFlight
+            ? undefined
+            : (workerId, convexProjectId) => {
+                void handleRotateConvexDeployKeysForWorkersBuilds(
+                  selectedWorkspace.vault._id,
+                  workerId,
+                  convexProjectId,
+                );
+              },
+      })
+    : null;
+
   const selectedVaultMissing = Boolean(selectedRepositoryFullName) && selectedVault === null;
   const isVaultRootRoute = selectedRepositoryFullName === undefined;
   const leftPane = {
     header: <VaultDashboardVaultListHeader />,
-    content: (
-      <VaultDashboardVaultList selectedVaultId={selectedVault?._id ?? null} vaults={allVaults} />
-    ),
+    content:
+      presentation === "v2" ? (
+        <VaultOverviewSidebar
+          page={page}
+          selectedVaultId={selectedVault?._id ?? null}
+          vaults={allVaults}
+          workspace={selectedWorkspace}
+        />
+      ) : (
+        <VaultDashboardVaultList selectedVaultId={selectedVault?._id ?? null} vaults={allVaults} />
+      ),
   };
   const dashboardBody =
     selectedVaultMissing && selectedRepositoryFullName ? (
@@ -3380,17 +3538,43 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
           Select a vault from the left sidebar or add one from the right sidebar.
         </VaultDashboardPaneMessage>
       )
+    ) : presentation === "v2" && selectedWorkspace && selectedResourceRailState ? (
+      <VaultOverviewPage
+        developerToolsVisible={developerToolsVisible}
+        isRemovingVault={isDeleting || isCommitting}
+        page={page}
+        resourceRailState={selectedResourceRailState}
+        workspace={selectedWorkspace}
+        onOpenDeleteDialog={openSelectedVaultDeleteDialog}
+        onPullRequestFiltersChange={(filters) => {
+          handleVaultPullRequestFiltersChange(selectedWorkspace.vault._id, filters);
+        }}
+        onRetryInfrastructureProvisioning={() => {
+          void handleRetryInfrastructureProvisioning(selectedWorkspace.vault._id);
+        }}
+        onRetryVaultDeletion={() => {
+          if (selectedWorkspace.vault.deletion.state === "delete_failed") {
+            void handleRetryVaultDeletion(selectedWorkspace.vault.deletion.runId);
+          }
+        }}
+      />
     ) : (
       <VaultDashboardView
         deleteModeActive={deleteModeActive}
         developerToolsVisible={developerToolsVisible}
         schemaGraphAccessEnabled={schemaGraphAccessEnabled}
-        cloudflareObservations={providerObservations.cloudflare}
+        cloudflareObservations={
+          selectedWorkspace?.cloudflareObservations ?? {
+            workers: { state: "loading" },
+            builds: { state: "loading" },
+            convexBuildAccess: { state: "loading" },
+          }
+        }
         cloudflareWorkerConfigurationActionInFlight={cloudflareWorkerConfigurationActionInFlight}
-        convexObservations={providerObservations.convex}
+        convexObservations={selectedWorkspace?.convexObservations ?? { state: "loading" }}
         isRemovingVault={isDeleting || isCommitting}
         providerAttachmentDetachmentInFlight={providerAttachmentDetachmentInFlight}
-        pullRequests={pullRequests}
+        pullRequests={selectedWorkspace?.pullRequests ?? { state: "not_requested" }}
         reconcilingConvexProjectId={reconcilingConvexProjectId}
         retryingDeletionRunId={retryingDeletionRunId}
         retryingInfrastructureVaultId={retryingInfrastructureVaultId}

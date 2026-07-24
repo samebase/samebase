@@ -174,10 +174,24 @@ function makeLoadedCloudflareObservations({
   convexBuildAccess: readonly VaultCloudflareWorkerConvexBuildAccessObservation[];
 }): VaultCloudflareProviderObservationState {
   return {
-    workers: { state: "loaded", reload: () => {}, observations: workers },
-    builds: { state: "loaded", reload: () => {}, observations: builds },
+    workers: {
+      state: "loaded",
+      freshness: "current",
+      refreshing: false,
+      reload: () => {},
+      observations: workers,
+    },
+    builds: {
+      state: "loaded",
+      freshness: "current",
+      refreshing: false,
+      reload: () => {},
+      observations: builds,
+    },
     convexBuildAccess: {
       state: "loaded",
+      freshness: "current",
+      refreshing: false,
       reload: () => {},
       observations: convexBuildAccess,
     },
@@ -240,7 +254,7 @@ describe("VaultDefaultBranch", () => {
         <VaultDefaultBranch
           convexProjects={[]}
           defaultBranch="release/2026 Q3"
-          defaultBranchChecks={null}
+          defaultBranchObservation={null}
           githubBranchUrl="https://github.com/ada/demo/tree/release/2026%20Q3"
           githubRepositoryUrl="https://github.com/ada/demo"
           owner="ada"
@@ -273,8 +287,11 @@ describe("VaultDefaultBranch", () => {
             },
           ]}
           defaultBranch="main"
-          defaultBranchChecks={{
+          defaultBranchObservation={{
             headCommitOid: "abc123",
+            headCommitTitle: "Ship the provider model",
+            headCommitCommittedAt: "2026-07-21T09:30:00Z",
+            headCommitUrl: "https://github.com/ada/demo/commit/abc123",
             statusCheckRollup: {
               state: "SUCCESS",
               contexts: {
@@ -371,7 +388,7 @@ describe("VaultDefaultBranch", () => {
             },
           ]}
           defaultBranch="main"
-          defaultBranchChecks={null}
+          defaultBranchObservation={null}
           githubBranchUrl="https://github.com/ada/demo/tree/main"
           githubRepositoryUrl="https://github.com/ada/demo"
           owner="ada"
@@ -425,6 +442,8 @@ describe("buildVaultProductionRoots", () => {
       }),
       convexObservations: {
         state: "loaded",
+        freshness: "current",
+        refreshing: false,
         reload: () => {},
         observations: [
           {
@@ -503,7 +522,13 @@ describe("buildVaultProductionRoots", () => {
         builds: [makeAvailableResourceRailCloudflareBuildsObservation({ workerId })],
         convexBuildAccess: [],
       }),
-      convexObservations: { state: "loaded", reload: () => {}, observations: [] },
+      convexObservations: {
+        state: "loaded",
+        freshness: "current",
+        refreshing: false,
+        reload: () => {},
+        observations: [],
+      },
     });
 
     expect(roots).toEqual([
@@ -539,6 +564,8 @@ describe("buildVaultProductionRoots", () => {
         }),
         convexObservations: {
           state: "loaded",
+          freshness: "current",
+          refreshing: false,
           reload: () => {},
           observations: [
             {
@@ -617,7 +644,7 @@ describe("VaultDashboardRepositoryCard", () => {
           providerAttachmentDetachmentInFlight={null}
           pullRequests={{
             state: "current",
-            defaultBranchChecks: null,
+            defaultBranch: null,
             pullRequests: [],
             allPullRequests: [],
             refreshing: false,
@@ -1594,6 +1621,8 @@ describe("buildVaultDashboardResourceRailState", () => {
       }),
       convexObservations: {
         state: "loaded",
+        freshness: "current",
+        refreshing: false,
         reload: () => {},
         observations: [
           {
@@ -1680,6 +1709,8 @@ describe("buildVaultDashboardResourceRailState", () => {
     });
     const convexObservations = {
       state: "loaded" as const,
+      freshness: "current" as const,
+      refreshing: false,
       reload: () => {},
       observations: [
         {

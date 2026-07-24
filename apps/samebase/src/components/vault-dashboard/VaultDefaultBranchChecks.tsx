@@ -1,11 +1,11 @@
 import { VaultChecksPopover } from "@/components/vault-dashboard/VaultChecksPopover";
-import type { VaultDefaultBranchChecks as DefaultBranchChecks } from "@/hooks/useVaultPullRequests";
+import type { VaultDefaultBranchObservation } from "@/hooks/useVaultPullRequests";
 
 export function VaultDefaultBranchChecks({
   checks,
   githubRepositoryUrl,
 }: {
-  checks: DefaultBranchChecks;
+  checks: VaultDefaultBranchObservation;
   githubRepositoryUrl: string;
 }) {
   return (

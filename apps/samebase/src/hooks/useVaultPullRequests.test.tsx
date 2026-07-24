@@ -58,6 +58,10 @@ function page(args: {
       defaultBranch: {
         name: "main",
         headCommitOid: "81145b7d2a32186823452c7515b2d5ba2d79b350",
+        headCommitTitle: "Keep the workspace model explicit",
+        headCommitCommittedAt: "2026-07-20T11:45:00Z",
+        headCommitUrl:
+          "https://github.com/samebase/samebase/commit/81145b7d2a32186823452c7515b2d5ba2d79b350",
         statusCheckRollup: {
           state: "SUCCESS",
           contexts: {
@@ -261,8 +265,9 @@ describe("useVaultPullRequests", () => {
       after: null,
     });
     expect(settledState().pullRequests).toEqual([]);
-    expect(settledState().defaultBranchChecks).toMatchObject({
+    expect(settledState().defaultBranch).toMatchObject({
       headCommitOid: "81145b7d2a32186823452c7515b2d5ba2d79b350",
+      headCommitTitle: "Keep the workspace model explicit",
       checks: { state: "success", totalCount: 1, successCount: 1 },
     });
     expect(settledState().hasMore).toBe(true);

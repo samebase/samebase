@@ -182,6 +182,11 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-dashboard-list-spacing",
   "vault-dashboard-default-branch",
   "vault-dashboard-source-setup-failed",
+  "vault-overview-v2",
+  "vault-overview-v2-dev",
+  "vault-overview-v2-loading",
+  "vault-overview-v2-partial-loading",
+  "vault-overview-v2-settings",
   "vault-convex-schema-graph",
   "vault-convex-schema-route-mobile",
   "vault-pull-request-auto-pagination",
@@ -393,6 +398,11 @@ function renderVisualFixture(mode: VisualFixtureMode, page: VaultOverviewDesignL
     mode === "vault-dashboard-list-spacing" ||
     mode === "vault-dashboard-default-branch" ||
     mode === "vault-dashboard-source-setup-failed" ||
+    mode === "vault-overview-v2" ||
+    mode === "vault-overview-v2-dev" ||
+    mode === "vault-overview-v2-loading" ||
+    mode === "vault-overview-v2-partial-loading" ||
+    mode === "vault-overview-v2-settings" ||
     mode === "vault-convex-schema-graph" ||
     mode === "vault-convex-schema-route-mobile" ||
     mode === "vault-pull-request-auto-pagination" ||
