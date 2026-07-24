@@ -214,6 +214,21 @@ describe("readSuggestions", () => {
     expect(values).not.toContain("/logo");
   });
 
+  it("orders functional query suggestions before the fun group", () => {
+    const rows = readRows({
+      routeAddress: "/logo?",
+      routeTextBeforeCursor: "/logo?",
+    });
+
+    expect(
+      rows.slice(0, 2).map((row) => [row.kind === "search" ? row.group : null, row.value]),
+    ).toEqual([
+      [null, "?prod-ui"],
+      [null, "?reset"],
+    ]);
+    expect(rows.slice(2).every((row) => row.kind === "search" && row.group === "fun")).toBe(true);
+  });
+
   it("keeps the next query slot before an existing hash", () => {
     const rows = readRows({
       routeAddress: "/logo?de#top",
@@ -222,6 +237,7 @@ describe("readSuggestions", () => {
 
     expect(rows).toContainEqual({
       kind: "search",
+      group: "fun",
       nextSelectionRouteIndex: "/logo?dev&".length,
       previewRouteAddress: "/logo?dev&#top",
       previewSelectionRouteIndex: "/logo?".length,
@@ -248,6 +264,7 @@ describe("readSuggestions", () => {
 
     expect(rows).toContainEqual({
       kind: "search",
+      group: "fun",
       nextSelectionRouteIndex: "/logo?dark&border=".length,
       previewRouteAddress: "/logo?dark&border=stone-300&top=blue-200",
       previewSelectionRouteIndex: "/logo?dark&".length,
@@ -422,6 +439,7 @@ describe("readSuggestions", () => {
 
     expect(keyRows).toContainEqual({
       kind: "search",
+      group: "fun",
       nextSelectionRouteIndex: "/logo?top=".length,
       previewRouteAddress: "/logo?top=sky-500",
       previewSelectionRouteIndex: "/logo?".length,
@@ -431,6 +449,7 @@ describe("readSuggestions", () => {
     });
     expect(keyRows).toContainEqual({
       kind: "search",
+      group: "fun",
       nextSelectionRouteIndex: "/logo?dev&".length,
       previewRouteAddress: "/logo?dev&",
       previewSelectionRouteIndex: "/logo?".length,
@@ -447,6 +466,7 @@ describe("readSuggestions", () => {
 
     expect(rows).toContainEqual({
       kind: "search",
+      group: "fun",
       nextSelectionRouteIndex: "/logo?zoom=".length,
       previewRouteAddress: "/logo?zoom=0.5",
       previewSelectionRouteIndex: "/logo?".length,

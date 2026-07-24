@@ -14,22 +14,28 @@ import {
   type RouteAccess,
   type RouteSearchParamSemantics,
   type RouteSearchParamAccess,
+  type RouteSearchParamSuggestionGroup,
   type RouteSearchParamValueSemantics,
   type RouteSearchParamValueSuggestions,
   type RouteSearchParamSuggestion,
 } from "@/routing/permissions";
 
-type RouteSearchParamSuggestionSurface = "global" | "hidden" | "route";
+/**
+Controls how the route URL editor exposes this param.
 
-type RouteSearchParamMetadataBase = {
+This is not the same as whether the param is available on a route.
+*/
+type RouteSearchParamSuggestionSurface =
+  | {
+      suggestion: "hidden";
+    }
+  | {
+      group?: RouteSearchParamSuggestionGroup;
+      suggestion: "global" | "route";
+    };
+
+type RouteSearchParamMetadataBase = RouteSearchParamSuggestionSurface & {
   access: RouteAccess;
-
-  /**
-  Controls how the route URL editor exposes this param.
-
-  This is not the same as whether the param is available on a route.
-  */
-  suggestion: RouteSearchParamSuggestionSurface;
 };
 
 export type RouteSearchParamMetadata = RouteSearchParamMetadataBase & RouteSearchParamSemantics;
@@ -169,7 +175,7 @@ export function readRouteSearchParamSuggestions<
   const Metadata extends Readonly<Record<string, RouteSearchParamMetadata>>,
 >(
   metadata: Metadata,
-  surface: RouteSearchParamSuggestionSurface,
+  surface: RouteSearchParamSuggestionSurface["suggestion"],
 ): readonly RouteSearchParamSuggestion<keyof Metadata & string>[] {
   const suggestions: RouteSearchParamSuggestion<keyof Metadata & string>[] = [];
 

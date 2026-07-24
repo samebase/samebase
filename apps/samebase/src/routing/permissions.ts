@@ -73,8 +73,12 @@ export type RouteSearchParamAccess<Key extends string = string> = {
   access: RouteAccess;
 };
 
+export type RouteSearchParamSuggestionGroup = "fun";
+
 export type RouteSearchParamSuggestion<Key extends string = string> = RouteSearchParamAccess<Key> &
-  RouteSearchParamSemantics;
+  RouteSearchParamSemantics & {
+    group?: RouteSearchParamSuggestionGroup;
+  };
 
 export type RouteSearchParamValueSuggestion<Key extends string = string> = Extract<
   RouteSearchParamSuggestion<Key>,

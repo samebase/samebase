@@ -254,11 +254,19 @@ async function scrollTouchPickerToSuggestion(
 
   expect(suggestionIndex).toBeGreaterThanOrEqual(0);
 
-  const rowHeight = await suggestions.first().evaluate((element) => {
-    return element.getBoundingClientRect().height;
+  const nextScrollTop = await suggestions.nth(suggestionIndex).evaluate((element) => {
+    const slate = document.querySelector('[data-testid="route-url-editor-scroll-slate"]');
+    const scrollport = document.querySelector('[data-testid="route-url-editor-suggestions"]');
+    if (!(slate instanceof HTMLElement) || !(scrollport instanceof HTMLElement)) {
+      throw new Error("Expected route URL editor touch picker.");
+    }
+
+    return (
+      scrollport.scrollTop + element.getBoundingClientRect().top - slate.getBoundingClientRect().top
+    );
   });
 
-  await scrollTouchPickerTo(page, suggestionIndex * rowHeight);
+  await scrollTouchPickerTo(page, nextScrollTop);
 
   return suggestions.nth(suggestionIndex);
 }
@@ -288,14 +296,13 @@ async function readTouchSlateSuggestionAlignment(page: Page, suggestionValue: st
       throw new Error(`Expected route URL editor suggestion: ${value}`);
     }
 
-    const firstSuggestion = suggestions[0];
-    if (!firstSuggestion) {
-      throw new Error("Expected at least one route URL editor suggestion.");
-    }
-
     return {
       differencePx: suggestion.getBoundingClientRect().top - slate.getBoundingClientRect().top,
-      expectedScrollTop: suggestionIndex * firstSuggestion.getBoundingClientRect().height,
+      expectedScrollTop:
+        scrollport.scrollTop +
+        suggestion.getBoundingClientRect().top -
+        slate.getBoundingClientRect().top,
+      flatSuggestionIndex: suggestion.getAttribute("data-route-url-editor-suggestion-index"),
       scrollTop: scrollport.scrollTop,
     };
   }, suggestionValue);
@@ -316,6 +323,7 @@ async function expectTouchSlateAlignedToSuggestion(
 
   const alignment = await readTouchSlateSuggestionAlignment(page, suggestionValue);
   expect(Math.abs(alignment.scrollTop - alignment.expectedScrollTop)).toBeLessThanOrEqual(1);
+  expect(alignment.flatSuggestionIndex).not.toBeNull();
 }
 
 async function scrollTouchPickerTo(page: Page, scrollTop: number): Promise<void> {
@@ -436,13 +444,24 @@ test.describe("route URL editor touch scroll picker", () => {
     const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo");
 
     await input.press("End");
-    await expect(page.getByRole("option", { exact: true, name: "?top=sky-500" })).toBeVisible();
+    const suggestionList = page.getByTestId("route-url-editor-suggestions");
+    const funGroup = suggestionList.getByRole("group", { name: "Fun" });
+    const suggestions = suggestionList.getByRole("option");
+    await expect(funGroup.getByText("Fun", { exact: true })).toBeVisible();
+    await expect(funGroup.getByRole("option", { exact: true, name: "?top=sky-500" })).toBeVisible();
     await expect(page.getByTestId("route-url-editor-scroll-slate")).toBeVisible();
     await expect(input).not.toHaveAttribute("aria-activedescendant", /.+/);
+    expect(
+      await suggestions.evaluateAll((options) =>
+        options.map((option) => option.getAttribute("data-route-url-editor-suggestion-index")),
+      ),
+    ).toEqual(await suggestions.evaluateAll((options) => options.map((_, index) => `${index}`)));
+    await expectTouchSlateAlignedToSuggestion(page, "?prod-ui");
 
     const topSuggestion = await scrollTouchPickerToSuggestion(page, "?top=sky-500");
 
     await expect(input).toHaveValue(`${prefix}logo?top=sky-500`);
+    await expectTouchSlateAlignedToSuggestion(page, "?top=sky-500");
     await expectInputSelection(input, `${prefix}logo?`.length);
     await expect(page).toHaveURL(/\/logo\?top=sky-500$/);
     await expect(page.getByTestId("route-url-editor-scroll-slate")).toBeVisible();
@@ -490,6 +509,7 @@ test.describe("route URL editor touch scroll picker", () => {
     const zoomSuggestion = await scrollTouchPickerToSuggestion(page, "?zoom=0.5");
 
     await expect(input).toHaveValue(`${prefix}logo?zoom=0.5`);
+    await expectTouchSlateAlignedToSuggestion(page, "?zoom=0.5");
     await expectInputSelection(input, `${prefix}logo?`.length);
     await expect(page).toHaveURL(/\/logo\?zoom=0\.5$/);
     await expect(page.getByRole("option", { exact: true, name: "?zoom=0.5" })).toBeVisible();

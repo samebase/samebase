@@ -121,6 +121,7 @@ export function clearVaultDashboardQueryDialogSearch(
 function globalLogoRouteSearchParam(key: keyof typeof LOGO_ROUTE_SEARCH_PARAM_METADATA) {
   return {
     ...LOGO_ROUTE_SEARCH_PARAM_METADATA[key],
+    group: "fun" as const,
     suggestion: "global" as const,
   };
 }

@@ -3,6 +3,7 @@ import {
   canAccessRouteAccess,
   type RouteAccessViewer,
   type RouteSearchParamSuggestion,
+  type RouteSearchParamSuggestionGroup,
   type RouteSearchParamValueSuggestion,
 } from "@/routing/permissions";
 import {
@@ -41,9 +42,8 @@ for Tailwind shades.
 `nextSelectionRouteIndex` moves the cursor to the next editing slot after that commit. A row such
 as `?depth=2` can select `/logo?depth=2` while placing the cursor after `depth=` so value rows stay
 visible.
-*/
-export type Suggestion = {
-  kind: "hash" | "path" | "search" | "searchValuePrefix" | "searchValue";
+ */
+type SuggestionFields = {
   nextSelectionRouteIndex: number;
   previewRouteAddress: string;
   previewSelectionRouteIndex: number;
@@ -51,6 +51,17 @@ export type Suggestion = {
   selectedRouteAddress: string;
   value: string;
 };
+
+export type Suggestion =
+  | ({
+      kind: "search";
+      group: RouteSearchParamSuggestionGroup | null;
+    } & SuggestionFields)
+  | ({
+      kind: "hash" | "path" | "searchValuePrefix" | "searchValue";
+    } & SuggestionFields);
+
+type SearchSuggestion = Extract<Suggestion, { kind: "search" }>;
 
 export function readCurrentRouteUrlEditorSuggestionIndex(args: {
   prefix: string;
@@ -313,8 +324,8 @@ function readSearchRows(args: {
   routeSearchParamSuggestions: readonly RouteSearchParamSuggestion[];
   searchKeyToken: RouteAddressSearchToken;
   viewer: RouteAccessViewer;
-}): Suggestion[] {
-  const suggestions: Suggestion[] = [];
+}): SearchSuggestion[] {
+  const suggestions: SearchSuggestion[] = [];
   const existingKeys = readRouteAddressSearchKeysOutsideToken(
     args.routeAddress,
     args.searchKeyToken,
@@ -367,6 +378,7 @@ function readSearchRows(args: {
 
     suggestions.push({
       kind: "search",
+      group: searchParamSuggestion.group ?? null,
       nextSelectionRouteIndex: shouldPromptForNextKey
         ? (finalSelectedRoute.selectionRouteIndex ?? selectedRoute.replacementTokenStart)
         : selectedRoute.replacementTokenStart + 1 + selectedTokenText.length,
@@ -378,7 +390,13 @@ function readSearchRows(args: {
     });
   }
 
-  return suggestions.sort((left, right) => left.value.localeCompare(right.value));
+  return suggestions.sort((left, right) => {
+    if (left.group === right.group) {
+      return left.value.localeCompare(right.value);
+    }
+
+    return left.group === null ? -1 : 1;
+  });
 }
 
 /**

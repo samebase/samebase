@@ -158,10 +158,10 @@ key-by-key disposition in Open Questions, splits
 `LogoRouteSearch`/`buildLogoRouteSearch`/`replaceRootLogoRouteSearch`, and rewrites the
 `appRouter.test.tsx` retention tests to the new contract.
 
-**Slice 3 — param groups.** Add a `group` metadata field (first value: `"fun"`) and ship it together
-with its consumer: the route URL editor renders grouped suggestion sections separating playful
-controls from functional globals like `prod-ui` and `reset`. `group` is presentation semantics; it
-never affects acceptance.
+**Slice 3 (done) - param groups.** Add a `group` metadata field (first value: `"fun"`) and ship it
+together with its consumer: the route URL editor renders grouped suggestion sections separating
+playful controls from functional globals like `prod-ui` and `reset`. `group` is presentation
+semantics; it never affects acceptance.
 
 **Slice 4 — presence-flag derivation.** Derive `ROUTE_SEARCH_PRESENCE_FLAG_KEYS` from the union of
 schema presence keys and amend `specs/090` (its hand-enumerated list is already stale: `left`,
@@ -196,6 +196,8 @@ pruning never rewrites restored entries.
    excludes non-accepted keys — the same boundary where canonicalization already reorders query
    params after blur. Fitting new behavior into this existing mental model, instead of adding editor
    states or events, is the standing design rule for this plan.
+2. **The initial group vocabulary contains only `fun`.** No separate debug or auth group is
+   introduced until a shipped UI needs another visible section.
 
 ## Open Questions
 
@@ -203,8 +205,6 @@ pruning never rewrites restored entries.
    `border`, `dark`, `light`, `primary`, `secondary`, `top`, `zoom`, `depth`, `dist`, `gridSize`,
    `dev`, `elev`, `rot`, `axis`, `freeView`, `leftFace`, `vox`; route-owned: `isoSide`, `isoStyle`
    (`/logo/iso` family), raster seam controls. Confirm or adjust.
-2. **Group vocabulary:** is `"fun"` the only group, or also `"debug"` (`devtools`, `dev`) and
-   `"auth"` (`auth`, `auth-return`, `sign-in`)?
 
 ## Non-Goals
 
