@@ -19,6 +19,7 @@ const VAULT_OVERVIEW_V2_SIDEBAR_STATE = {
 type VaultOverviewV2VisualMode = Extract<
   VaultDashboardVisualMode,
   | "vault-overview-v2"
+  | "vault-overview-v2-auto-pagination"
   | "vault-overview-v2-dev"
   | "vault-overview-v2-loading"
   | "vault-overview-v2-partial-loading"
@@ -119,6 +120,21 @@ test("shows the shared overview model on desktop", async ({ page }) => {
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
+});
+
+test("loads the next pull request page at the scroll end", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 520 });
+  const fixture = await openVaultOverviewV2(page, "vault-overview-v2-auto-pagination");
+  const pullRequests = fixture.getByRole("region", { name: "Open pull requests" });
+  const sentinel = pullRequests.locator("[data-pull-request-load-more-sentinel]");
+
+  await expect(pullRequests.locator("[data-pull-request-number]")).toHaveCount(6);
+  await expect(pullRequests.getByRole("button", { name: "Load more" })).toHaveCount(0);
+  await expect(sentinel).toHaveCount(1);
+
+  await sentinel.evaluate((element) => element.scrollIntoView({ block: "end" }));
+  await expect(pullRequests.locator("[data-pull-request-number]")).toHaveCount(8);
+  await expect(sentinel).toHaveCount(0);
 });
 
 test("keeps the overview hierarchy and pull request actions clear on mobile", async ({ page }) => {

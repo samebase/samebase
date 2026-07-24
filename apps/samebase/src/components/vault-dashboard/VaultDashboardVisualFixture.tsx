@@ -78,6 +78,7 @@ export type VaultDashboardVisualMode =
   | "vault-pull-request-auto-pagination"
   | "vault-pull-request-filters"
   | "vault-overview-v2"
+  | "vault-overview-v2-auto-pagination"
   | "vault-overview-v2-dev"
   | "vault-overview-v2-loading"
   | "vault-overview-v2-partial-loading"
@@ -637,11 +638,17 @@ function fixturePullRequests(
   };
 }
 
+const AUTO_PAGINATION_PULL_REQUESTS = [
+  ...LIST_SPACING_PULL_REQUESTS.slice(0, 2),
+  ...Array.from({ length: 6 }, (_, index) => fixturePullRequest({ index: index + 3 })),
+];
+
 function VaultOverviewV2Fixture({
   mode,
 }: {
   mode:
     | "vault-overview-v2"
+    | "vault-overview-v2-auto-pagination"
     | "vault-overview-v2-dev"
     | "vault-overview-v2-loading"
     | "vault-overview-v2-partial-loading"
@@ -651,6 +658,7 @@ function VaultOverviewV2Fixture({
   const [pullRequestFilters, setPullRequestFilters] = useState(() =>
     getDefaultVaultPullRequestFilters(),
   );
+  const [nextPullRequestPageLoaded, setNextPullRequestPageLoaded] = useState(false);
   const page = mode === "vault-overview-v2-settings" ? "settings" : "overview";
 
   if (mode === "vault-overview-v2-root") {
@@ -697,10 +705,23 @@ function VaultOverviewV2Fixture({
     : LIST_SPACING_CLOUDFLARE_OBSERVATIONS;
   const convexObservations: VaultProviderObservationState<VaultConvexProjectObservation> =
     partialLoading ? { state: "loading" } : LIST_SPACING_CONVEX_OBSERVATIONS;
-  const pullRequests = fixturePullRequests(
-    filterVaultPullRequests(LIST_SPACING_PULL_REQUESTS, pullRequestFilters),
+  const sourcePullRequests =
+    mode === "vault-overview-v2-auto-pagination"
+      ? AUTO_PAGINATION_PULL_REQUESTS.slice(0, nextPullRequestPageLoaded ? 8 : 6)
+      : LIST_SPACING_PULL_REQUESTS;
+  const currentPullRequests = fixturePullRequests(
+    filterVaultPullRequests(sourcePullRequests, pullRequestFilters),
     FIXTURE_DEFAULT_BRANCH_CHECKS,
   );
+  const pullRequests: VaultPullRequestsState =
+    mode === "vault-overview-v2-auto-pagination"
+      ? {
+          ...currentPullRequests,
+          hasMore: !nextPullRequestPageLoaded,
+          canLoadMore: !nextPullRequestPageLoaded,
+          loadMore: () => setNextPullRequestPageLoaded(true),
+        }
+      : currentPullRequests;
   const workspace = {
     access: { state: "ready", schemaGraphEnabled: true },
     cloudflareConnection: {
@@ -785,10 +806,6 @@ function VaultOverviewV2Fixture({
 const STICKY_HEADER_PULL_REQUESTS = [
   ...LIST_SPACING_PULL_REQUESTS.slice(0, 2),
   ...Array.from({ length: 23 }, (_, index) => fixturePullRequest({ index: index + 3 })),
-];
-const AUTO_PAGINATION_PULL_REQUESTS = [
-  ...LIST_SPACING_PULL_REQUESTS.slice(0, 2),
-  ...Array.from({ length: 6 }, (_, index) => fixturePullRequest({ index: index + 3 })),
 ];
 
 function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisualMode }) {
@@ -2051,6 +2068,7 @@ function FixtureDashboardShell({
 export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisualMode }) {
   if (
     mode === "vault-overview-v2" ||
+    mode === "vault-overview-v2-auto-pagination" ||
     mode === "vault-overview-v2-dev" ||
     mode === "vault-overview-v2-loading" ||
     mode === "vault-overview-v2-partial-loading" ||

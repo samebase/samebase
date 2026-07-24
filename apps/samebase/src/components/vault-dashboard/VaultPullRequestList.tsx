@@ -372,7 +372,7 @@ function PullRequestRow({
   );
 }
 
-function PullRequestLoadMoreSentinel({ loadMore }: { loadMore: () => void }) {
+export function VaultPullRequestLoadMoreSentinel({ loadMore }: { loadMore: () => void }) {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -471,7 +471,7 @@ export function VaultPullRequestList({
           Could not load more pull requests
         </div>
       ) : pullRequests.canLoadMore ? (
-        <PullRequestLoadMoreSentinel loadMore={pullRequests.loadMore} />
+        <VaultPullRequestLoadMoreSentinel loadMore={pullRequests.loadMore} />
       ) : null}
     </section>
   );

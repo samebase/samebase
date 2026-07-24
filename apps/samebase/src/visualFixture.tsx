@@ -183,6 +183,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-dashboard-default-branch",
   "vault-dashboard-source-setup-failed",
   "vault-overview-v2",
+  "vault-overview-v2-auto-pagination",
   "vault-overview-v2-dev",
   "vault-overview-v2-loading",
   "vault-overview-v2-partial-loading",
@@ -400,6 +401,7 @@ function renderVisualFixture(mode: VisualFixtureMode, page: VaultOverviewDesignL
     mode === "vault-dashboard-default-branch" ||
     mode === "vault-dashboard-source-setup-failed" ||
     mode === "vault-overview-v2" ||
+    mode === "vault-overview-v2-auto-pagination" ||
     mode === "vault-overview-v2-dev" ||
     mode === "vault-overview-v2-loading" ||
     mode === "vault-overview-v2-partial-loading" ||

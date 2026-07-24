@@ -13,6 +13,7 @@ import {
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { VaultChecksPopover } from "@/components/vault-dashboard/VaultChecksPopover";
 import { VaultPullRequestFiltersControl } from "@/components/vault-dashboard/VaultPullRequestFilters";
+import { VaultPullRequestLoadMoreSentinel } from "@/components/vault-dashboard/VaultPullRequestList";
 import type {
   VaultResourceRailAction,
   VaultResourceRailRowState,
@@ -1003,15 +1004,7 @@ function PullRequestsSection({
                 Could not load more pull requests.
               </div>
             ) : pullRequests.canLoadMore ? (
-              <Button
-                className="my-3"
-                size="sm"
-                type="button"
-                variant="outline"
-                onClick={pullRequests.loadMore}
-              >
-                Load more
-              </Button>
+              <VaultPullRequestLoadMoreSentinel loadMore={pullRequests.loadMore} />
             ) : null}
           </>
         )}
