@@ -8,10 +8,18 @@ import {
 import {
   getWorldCameraVector,
   getWorldScreenVerticalAxis,
+  toRenderedRotationDegrees,
 } from "@/components/logo/logoRotationMath";
-import { DEFAULT_ELEVATION_DEGREES, type VoxelCoordinate } from "@/components/logo/logoVoxelState";
+import {
+  DEFAULT_ELEVATION_DEGREES,
+  DEFAULT_ROTATION_DEGREES,
+  type VoxelCoordinate,
+} from "@/components/logo/logoVoxelState";
 import { getTailwindColorHex } from "@/components/logo/logoTailwindColors";
 import { resolveLogoSceneCameraDepthBounds } from "@/components/logo/logoSceneCameraDepth";
+import { type LogoViewState } from "@/components/logo/logoViewDrag";
+import { useLogoViewDrag } from "@/components/logo/useLogoViewDrag";
+import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
 import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import * as THREE from "three";
@@ -56,10 +64,33 @@ function writeVoxelMatrix(
   matrix.setPosition(x, y, z);
 }
 
-function MengerDepthTransitionScene({ progress }: { progress: number }) {
+function MengerDepthTransitionScene({
+  elevationDegrees,
+  onViewChange,
+  progress,
+  rotationDegrees,
+}: {
+  elevationDegrees: number;
+  onViewChange: (nextView: LogoViewState) => void;
+  progress: number;
+  rotationDegrees: number;
+}) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const progressRef = useRef(progress);
   const renderProgressRef = useRef<(nextProgress: number) => void>(() => {});
+  const viewRef = useRef<LogoViewState>({ elevationDegrees, rotationDegrees });
+  const {
+    handleContextMenu,
+    handlePointerCancel,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+  } = useLogoViewDrag<HTMLDivElement>({
+    elevationDegrees,
+    onViewChange,
+    rotationDegrees,
+    viewDragConfig: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+  });
 
   useEffect(() => {
     const container = containerRef.current;
@@ -159,11 +190,6 @@ function MengerDepthTransitionScene({ progress }: { progress: number }) {
 
     const fitRadius = (MENGER_DEPTH_TRANSITION_WORLD_SIZE / 2) * Math.sqrt(3);
     const cameraDepthBounds = resolveLogoSceneCameraDepthBounds(fitRadius);
-    const [cameraX, cameraY, cameraZ] = getWorldCameraVector(DEFAULT_ELEVATION_DEGREES);
-    const [upX, upY, upZ] = getWorldScreenVerticalAxis(DEFAULT_ELEVATION_DEGREES);
-    camera.position.set(cameraX, cameraY, cameraZ).setLength(cameraDepthBounds.distance);
-    camera.up.set(upX, upY, upZ);
-    camera.lookAt(0, 0, 0);
     camera.far = cameraDepthBounds.far;
 
     const renderStageMoves = (
@@ -213,6 +239,15 @@ function MengerDepthTransitionScene({ progress }: { progress: number }) {
 
       renderStageMoves(MENGER_DEPTH_TRANSITION_MODEL.depthTwo, depthTwoMovingMesh, elapsedMs);
       renderStageMoves(MENGER_DEPTH_TRANSITION_MODEL.depthThree, depthThreeMovingMesh, elapsedMs);
+      const view = viewRef.current;
+      const [cameraX, cameraY, cameraZ] = getWorldCameraVector(view.elevationDegrees);
+      const [upX, upY, upZ] = getWorldScreenVerticalAxis(view.elevationDegrees);
+      camera.position.set(cameraX, cameraY, cameraZ).setLength(cameraDepthBounds.distance);
+      camera.up.set(upX, upY, upZ);
+      camera.lookAt(0, 0, 0);
+      logoGroup.rotation.y = THREE.MathUtils.degToRad(
+        toRenderedRotationDegrees(view.rotationDegrees),
+      );
       renderer.render(scene, camera);
     };
 
@@ -259,12 +294,24 @@ function MengerDepthTransitionScene({ progress }: { progress: number }) {
     renderProgressRef.current(progress);
   }, [progress]);
 
+  useEffect(() => {
+    viewRef.current = { elevationDegrees, rotationDegrees };
+    renderProgressRef.current(progressRef.current);
+  }, [elevationDegrees, rotationDegrees]);
+
   return (
     <div
       ref={containerRef}
       aria-label="Menger sponge depth transition"
-      className="h-full min-h-0 w-full"
+      className="h-full min-h-0 w-full cursor-grab touch-none select-none active:cursor-grabbing"
+      data-logo-elevation-degrees={elevationDegrees}
+      data-logo-rotation-degrees={rotationDegrees}
       data-testid="logo-menger-depth-transition-scene"
+      onContextMenu={handleContextMenu}
+      onPointerCancel={handlePointerCancel}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
       role="img"
     />
   );
@@ -274,6 +321,10 @@ export function LogoMengerDepthTransitionPage() {
   const [progress, setProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackVersion, setPlaybackVersion] = useState(0);
+  const [view, setView] = useState<LogoViewState>({
+    elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+    rotationDegrees: DEFAULT_ROTATION_DEGREES,
+  });
   const playbackStartProgressRef = useRef(0);
   const prefersReducedMotionRef = useRef(false);
   const progressInputRef = useRef<HTMLInputElement | null>(null);
@@ -445,7 +496,12 @@ export function LogoMengerDepthTransitionPage() {
         data-phase={phase}
         data-testid="logo-menger-depth-transition-page"
       >
-        <MengerDepthTransitionScene progress={progress} />
+        <MengerDepthTransitionScene
+          elevationDegrees={view.elevationDegrees}
+          onViewChange={setView}
+          progress={progress}
+          rotationDegrees={view.rotationDegrees}
+        />
       </div>
     </AppWorkspaceRouteChrome>
   );
