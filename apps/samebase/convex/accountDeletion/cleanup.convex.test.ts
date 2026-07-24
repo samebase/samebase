@@ -163,23 +163,16 @@ describe("account-local deletion cleanup", () => {
     const userId = await seedUser(t, "owner@example.com");
     const runId = await seedRunningDeletion(t, userId);
     await t.run(async (ctx) => {
-      await ctx.db.insert("connectedMachines", {
+      await ctx.db.insert("ui_user_settings", {
         userId,
-        machineId: "machine-1",
-        displayName: "Machine 1",
-        hostname: "host-1",
-        os: "linux",
-        status: "offline",
-        lastSeenAt: 1,
-        connectorVersion: "test",
-        capabilities: ["presence"],
-        allowedRoots: [],
+        providersPanelOpen: false,
+        pricingBillingCycle: "monthly",
       });
     });
     const args = {
       runId,
       workflowId: "workflow-1",
-      group: "connectedMachines" as const,
+      group: "preferences" as const,
     };
 
     await expect(
@@ -401,67 +394,6 @@ describe("account-local deletion cleanup", () => {
     await expect(t.run(async (ctx) => await ctx.db.get(settingsId))).resolves.not.toBeNull();
   });
 
-  it("revokes machine bearer access before deleting machine identity rows", async () => {
-    const t = makeConvexTest();
-    const userId = await seedUser(t, "owner@example.com");
-    await t.run(async (ctx) => {
-      await ctx.db.insert("machineCredentials", {
-        userId,
-        machineId: "machine-1",
-        credentialHash: "credential-hash",
-        createdAt: 1,
-      });
-      await ctx.db.insert("machineControlTokens", {
-        userId,
-        machineId: "machine-1",
-        tokenHash: "control-token-hash",
-        createdAt: 1,
-        expiresAt: 2,
-      });
-      await ctx.db.insert("machineRegistrationRequests", {
-        requestId: "registration-1",
-        credentialHash: "registration-hash",
-        userId,
-        machineId: "machine-1",
-        displayName: "Machine 1",
-        hostname: "host-1",
-        os: "linux",
-        connectorVersion: "test",
-        createdAt: 1,
-        expiresAt: 2,
-      });
-      await ctx.db.insert("connectedMachines", {
-        userId,
-        machineId: "machine-1",
-        displayName: "Machine 1",
-        hostname: "host-1",
-        os: "linux",
-        status: "offline",
-        lastSeenAt: 1,
-        connectorVersion: "test",
-        capabilities: ["presence"],
-        allowedRoots: [],
-      });
-    });
-
-    await expect(runCleanup(t, userId)).resolves.toMatchObject({
-      state: "needs_more",
-      target: "machineCredentials",
-    });
-    await expect(runCleanup(t, userId)).resolves.toMatchObject({
-      state: "needs_more",
-      target: "machineControlTokens",
-    });
-    await expect(runCleanup(t, userId)).resolves.toMatchObject({
-      state: "needs_more",
-      target: "machineRegistrationRequests",
-    });
-    await expect(runCleanup(t, userId)).resolves.toMatchObject({
-      state: "needs_more",
-      target: "connectedMachines",
-    });
-  });
-
   it("deletes staged storage before its vault and proceeds in bounded batches", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "owner@example.com");
@@ -489,17 +421,10 @@ describe("account-local deletion cleanup", () => {
         version: 1,
       });
       for (let index = 0; index < 30; index += 1) {
-        await ctx.db.insert("connectedMachines", {
+        await ctx.db.insert("ui_user_settings", {
           userId,
-          machineId: `machine-${index}`,
-          displayName: `Machine ${index}`,
-          hostname: `host-${index}`,
-          os: "linux",
-          status: "offline",
-          lastSeenAt: 1,
-          connectorVersion: "test",
-          capabilities: ["presence"],
-          allowedRoots: [],
+          providersPanelOpen: index % 2 === 0,
+          pricingBillingCycle: "monthly",
         });
       }
       return { storageId, vaultId };
@@ -519,7 +444,7 @@ describe("account-local deletion cleanup", () => {
     expect(result).toEqual({ state: "done" });
     await t.run(async (ctx) => {
       expect(await ctx.db.get(vaultId)).toBeNull();
-      expect(await ctx.db.query("connectedMachines").collect()).toEqual([]);
+      expect(await ctx.db.query("ui_user_settings").collect()).toEqual([]);
     });
   });
 

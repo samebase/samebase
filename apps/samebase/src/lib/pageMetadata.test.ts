@@ -192,10 +192,6 @@ describe("page metadata", () => {
     }
   });
 
-  it("returns a dedicated title for the machine connect route", () => {
-    expect(resolveAppPageTitle("/machines/connect")).toBe("Connect This Machine | Samebase");
-  });
-
   it("keeps the trailing-slash handoff route non-indexed and canonical", () => {
     expect(
       resolvePageMetadata({
@@ -209,10 +205,6 @@ describe("page metadata", () => {
       robots: "noindex,nofollow",
       title: "Connect Samebase | Samebase",
     });
-  });
-
-  it("returns a dedicated title for the machines route", () => {
-    expect(resolveAppPageTitle("/machines")).toBe("Machines | Samebase");
   });
 
   it("keeps the public root metadata separate from the dashboard app metadata", () => {
@@ -276,17 +268,6 @@ describe("page metadata", () => {
     });
   });
 
-  it("gives the codex research route a dedicated app title", () => {
-    expect(resolveAppPageTitle("/research/codex-app-server")).toBe(
-      "Codex App Server Research | Samebase",
-    );
-  });
-
-  it("gives the codex browser research route a dedicated app title", () => {
-    expect(resolveAppPageTitle("/research/codex-app-server/browser")).toBe(
-      "Codex Thread Browser Research | Samebase",
-    );
-  });
   it("keeps the Start document shell aligned with the real public homepage", () => {
     const rootHead = buildRootHead();
 

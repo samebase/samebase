@@ -1,6 +1,3 @@
-/samebase.ts
-  Content-Type: application/typescript; charset=utf-8
-
 /agents/connect
   Cache-Control: no-store
   Content-Security-Policy: frame-ancestors 'none'

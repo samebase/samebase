@@ -54,7 +54,6 @@ const ACCOUNT_DELETION_STEP_RANK = {
 
 const DATA_DELETION_GROUP_ACTION_NAMES = {
   chatsAndAgentData: "delete_chat_and_agent_data",
-  connectedMachines: "delete_connected_machines",
   preferences: "delete_preferences",
   appAccessAndTokens: "delete_app_access_and_tokens",
   accessRequestsAndHistory: "delete_access_requests_and_history",

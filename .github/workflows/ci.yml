@@ -154,7 +154,7 @@ jobs:
             apps/samebase/e2e/playwright-report
             apps/samebase/e2e/test-results
 
-  sync-windows:
+  windows-smoke:
     runs-on: blacksmith-4vcpu-windows-2025
     timeout-minutes: 15
     needs: supply_chain
@@ -184,11 +184,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run sync smoke tests on Windows
-        run:
-          pnpm exec vp test run packages/sync/samebase.test.ts
-          apps/samebase/src/lib/samebaseSyncPublicScript.test.ts
-
       - name: Run anonymous predev smoke on Windows
         working-directory: apps/samebase
         env:
@@ -202,7 +197,7 @@ jobs:
   ci:
     name: ci (24.x)
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    needs: [supply_chain, checks, playwright, sync-windows]
+    needs: [supply_chain, checks, playwright, windows-smoke]
     if: ${{ always() }}
 
     steps:
@@ -221,13 +216,13 @@ jobs:
           fi
 
           if [ "${{ github.event_name }}" = "push" ]; then
-            if [ "${{ needs.playwright.result }}" != "success" ] || [ "${{ needs.sync-windows.result }}" != "success" ]; then
+            if [ "${{ needs.playwright.result }}" != "success" ] || [ "${{ needs.windows-smoke.result }}" != "success" ]; then
               echo "playwright: ${{ needs.playwright.result }}"
-              echo "sync-windows: ${{ needs.sync-windows.result }}"
+              echo "windows-smoke: ${{ needs.windows-smoke.result }}"
               exit 1
             fi
           else
             echo "playwright: ${{ needs.playwright.result }}"
-            echo "sync-windows: ${{ needs.sync-windows.result }}"
+            echo "windows-smoke: ${{ needs.windows-smoke.result }}"
             echo "Heavy jobs are intentionally skipped on pull requests."
           fi

@@ -3,11 +3,6 @@ import { auth } from "./auth";
 import { finishCloudflareOAuth, startCloudflareOAuth } from "./cloudflareOAuth";
 import { finishCloudflareMcpOAuth, startCloudflareMcpOAuth } from "./cloudflareMcpOAuth";
 import { finishConvexOAuth, startConvexOAuth } from "./convexOAuth";
-import {
-  createMachineRegistrationRequest,
-  introspectMachineControlToken,
-  publishMachineHeartbeat,
-} from "./connectedMachineHttp";
 import { finishGithubOAuth, startGithubOAuth } from "./githubOAuth";
 import {
   authorizeMcpOauthRequest,
@@ -91,24 +86,6 @@ http.route({
   path: "/oauth/github/callback",
   method: "GET",
   handler: finishGithubOAuth,
-});
-
-http.route({
-  path: "/connected-machines/bootstrap",
-  method: "POST",
-  handler: createMachineRegistrationRequest,
-});
-
-http.route({
-  path: "/connected-machines/heartbeat",
-  method: "POST",
-  handler: publishMachineHeartbeat,
-});
-
-http.route({
-  path: "/connected-machines/control/introspect",
-  method: "POST",
-  handler: introspectMachineControlToken,
 });
 
 http.route({

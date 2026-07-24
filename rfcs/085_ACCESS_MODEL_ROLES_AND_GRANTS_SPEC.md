@@ -44,7 +44,7 @@ Member MVP: `role_member` holds `access_public`, `access_user_preferences`, `acc
 `access_files_read`, and `access_files_write`. Members can sign in, persist signed-in app-shell
 preferences, connect provider accounts, connect/import their own repositories, create Noter-managed
 apps after provider-readiness checks pass, monitor/resync app state, and use owned file surfaces
-behind per-vault ownership checks. Machines, MCP, and admin surfaces stay staff-only until
+behind per-vault ownership checks. Codespaces, MCP, and admin surfaces stay staff-only until
 deliberately opened. Enabling more later is a grant edit plus route/function reclassification, not a
 redesign.
 
@@ -60,7 +60,7 @@ became structural via access-key function wrappers.
 2. Server-side enforcement that fails closed and cannot be forgotten per function: public Convex
    queries, mutations, and actions must be wrapped with an explicit access key.
 3. Member MVP includes account/repo/app-creation/app-status capabilities, with the path to files,
-   machines, and MCP being grant edits plus targeted reclassification, not a redesign.
+   Codespaces, and MCP being grant edits plus targeted reclassification, not a redesign.
 4. Keep billing (plan/add-ons) outside this access model: access keys gate who may call; current
    member app creation is not gated by billing state. Existing billing specs are plumbing notes, not
    enforceable product decisions. Future quotas, credits, or plan enforcement need their own
@@ -206,7 +206,7 @@ Capability split locked in by this RFC:
 | `access_app_refresh`          | Reload/resync app, repository, branch, deployment, and provider-status metadata.                             |
 | `access_files_read`           | Read file trees, file contents, diffs, staged-change summaries, and review data.                             |
 | `access_files_write`          | Edit files, stage changes, upload/delete/rename, commit, open PRs, or run AI/file-compute workflows.         |
-| `access_machines`             | Connected-machine, local-machine, codespace executor, and machine-control flows.                             |
+| `access_machines`             | Codespaces executor and lifecycle flows.                                                                     |
 | `access_mcp`                  | MCP OAuth consent and MCP-facing tool entry points.                                                          |
 | `access_admin`                | Internal operator, debug, research, prod-read, test, and unreleased surfaces.                                |
 
@@ -397,17 +397,17 @@ they are.
 
 ### Route assignments (MVP)
 
-| Access key            | Routes                                                                                                                                                                                                                                                                                                                |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `access_public`       | `/`, `/logo`, `/oauth/mcp/consent` (hidden from route path suggestions), `/privacy`, `/terms`, `/visual-fixture` (local-only)                                                                                                                                                                                         |
-| `access_dashboard`    | `/vault`, `/vault/$owner/$repo`, `/pricing`                                                                                                                                                                                                                                                                           |
-| `access_repo_connect` | `/connect-repo` shell for importing/linking an existing repository; specific provider buttons also depend on `access_provider_connections`                                                                                                                                                                            |
-| `access_app_create`   | `/new-app` managed app creation shell; managed provisioning actions also keep backend `access_app_create` checks                                                                                                                                                                                                      |
-| `access_files_read`   | `/vault/$` read shell                                                                                                                                                                                                                                                                                                 |
-| `access_files_write`  | File edit/staging/commit actions inside `/vault/$`; no separate route required at MVP                                                                                                                                                                                                                                 |
-| `access_machines`     | `/machines`, `/machines/connect`                                                                                                                                                                                                                                                                                      |
-| `access_mcp`          | MCP-facing backend entry points and token-granted tool scopes; the consent URL itself is a public OAuth entrypoint so signed-out users can keep the request ID through sign-in                                                                                                                                        |
-| `access_admin`        | `/pitch`, `/pitch/print`, `/pitch/print/mobile`, `/landing-preview`, `/research/codex-app-server`, `/research/codex-app-server/browser`, `/test`, `/indexDB`, `/localStorage`, `/logo/iso`, `/logo/raster`, `/logo/raster-seams`, `/logo/single-cube`, `/logo/svg`, `/logo/transition`, `/logo/transition/transforms` |
+| Access key            | Routes                                                                                                                                                                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `access_public`       | `/`, `/logo`, `/oauth/mcp/consent` (hidden from route path suggestions), `/privacy`, `/terms`, `/visual-fixture` (local-only)                                                                                                                     |
+| `access_dashboard`    | `/vault`, `/vault/$owner/$repo`, `/pricing`                                                                                                                                                                                                       |
+| `access_repo_connect` | `/connect-repo` shell for importing/linking an existing repository; specific provider buttons also depend on `access_provider_connections`                                                                                                        |
+| `access_app_create`   | `/new-app` managed app creation shell; managed provisioning actions also keep backend `access_app_create` checks                                                                                                                                  |
+| `access_files_read`   | `/vault/$` read shell                                                                                                                                                                                                                             |
+| `access_files_write`  | File edit/staging/commit actions inside `/vault/$`; no separate route required at MVP                                                                                                                                                             |
+| `access_machines`     | Dormant Codespaces chat route under `/vault/$owner/$repo/codespace/$branch/chat`                                                                                                                                                                  |
+| `access_mcp`          | MCP-facing backend entry points and token-granted tool scopes; the consent URL itself is a public OAuth entrypoint so signed-out users can keep the request ID through sign-in                                                                    |
+| `access_admin`        | `/pitch`, `/pitch/print`, `/pitch/print/mobile`, `/landing-preview`, `/test`, `/indexDB`, `/localStorage`, `/logo/iso`, `/logo/raster`, `/logo/raster-seams`, `/logo/single-cube`, `/logo/svg`, `/logo/transition`, `/logo/transition/transforms` |
 
 With MVP grants, members reach public, dashboard, provider-connection, repo-connect, app-create,
 app-refresh, file-read, and file-write capabilities; staff reach everything. The ~40 admin-marked
@@ -416,11 +416,10 @@ search params reclassify alongside their routes: dashboard/billing params (`dele
 `access_provider_connections`; repo/app setup params (`add-app-root`, `app-root`) →
 `access_repo_connect`; managed app setup params (`new-app`) and managed provisioning actions →
 `access_app_create`; file-view params (`compare`, `diff`, `review`, `mobileLineNumbers`) →
-`access_files_read`; file edit/staging params → `access_files_write`; machine params →
-`access_machines`; MCP OAuth entry params (`mcp_consent_request`, `mcp_login_required`) → hidden
-`access_public`; public presentation toggles such as logo/landing `dev`, `prod-ui`, and devtools
-visibility remain `access_public`; operator-only debug params and landing-preview params →
-`access_admin`.
+`access_files_read`; file edit/staging params → `access_files_write`; MCP OAuth entry params
+(`mcp_consent_request`, `mcp_login_required`) → hidden `access_public`; public presentation toggles
+such as logo/landing `dev`, `prod-ui`, and devtools visibility remain `access_public`; operator-only
+debug params and landing-preview params → `access_admin`.
 
 ### Billing stays orthogonal
 
@@ -479,11 +478,11 @@ spec/test updates).
 app-owned `query`/`mutation`/`action`; lint rule; migrate every exported public query, mutation, and
 action onto an explicit access key. Authenticated-but-unapproved callers resolve to
 `role_waitlisted` and lose access to everything beyond public reads and signed-in shell preferences
-— that is the point. Sub-split by area for review: auth/public → dashboard → provider connections →
-repo connect/app create/app refresh → files read/write → machines → admin/chat → mixed. Anything
-unclear starts as `access_admin`. Convex tests gain role fixtures (`t.withIdentity` + seeded
-approved/unapproved users); state-axis enumeration test for `ROLE_ACCESS_GRANTS` (e.g. "every key a
-member holds, staff holds").
+because that restriction is the point. Sub-split by area for review: auth/public → dashboard →
+provider connections → repo connect/app create/app refresh → files read/write → Codespaces →
+admin/chat → mixed. Anything unclear starts as `access_admin`. Convex tests gain role fixtures
+(`t.withIdentity` + seeded approved/unapproved users); state-axis enumeration test for
+`ROLE_ACCESS_GRANTS` (e.g. "every key a member holds, staff holds").
 
 **Phase 2 — frontend runtime gate.** The metadata field rename (`permission` → `access`),
 search-param classification, URL-editor `currentViewerAccess` wiring, `RouteAccessOutlet`, and

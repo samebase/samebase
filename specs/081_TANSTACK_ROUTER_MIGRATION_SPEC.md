@@ -61,9 +61,9 @@ problems, attempted fixes, and outcomes.
 - `apps/samebase/src/entry.tsx` now loads directly from `index.html`, while
   `apps/samebase/src/main.tsx` only owns the reusable routed app mount logic.
 - `apps/samebase/src/lib/appRouter.ts` now owns the simple standalone public and dev-only routes
-  (`/privacy`, `/terms`, `/logo*`, `/pitch*`, and the Codex research paths) plus the non-root
-  authenticated app routes (MCP consent, pricing, add-repository, machines, machine connect,
-  codespace chat, and the vault/file surfaces), plus the explicit root routes for `/` and `/test`.
+  (`/privacy`, `/terms`, `/logo*`, and `/pitch*`) plus the non-root authenticated app routes (MCP
+  consent, pricing, add-repository, codespace chat, and the vault/file surfaces), plus the explicit
+  root routes for `/` and `/test`.
 - `apps/samebase/src/components/RootIndexRoutePage.tsx` now owns public `/` rendering, and public
   Google sign-in entrypoints now pass `/vault` as the provider return route when the user starts
   sign-in from `/`. Authenticated users can still browse the public landing route because
@@ -78,10 +78,9 @@ problems, attempted fixes, and outcomes.
 - `apps/samebase/src/lib/appRouter.ts` now uses repo-owned plain-string search parsing/stringifying
   so route-owned TanStack search can preserve the app's existing human-readable query semantics
   instead of falling back to TanStack's JSON-like default search serialization.
-- The meaningful app-owned search surfaces (landing, MCP consent, machine connect, pricing,
-  machines, logo, and the research routes) now validate through route-owned TanStack search
-  contracts, so the remaining work is cleanup and simplification rather than finishing search
-  ownership.
+- The meaningful app-owned search surfaces (landing, MCP consent, pricing, and logo) now validate
+  through route-owned TanStack search contracts, so the remaining work is cleanup and simplification
+  rather than finishing search ownership.
 - Post-migration cleanup now lives in `specs/082_TANSTACK_ROUTER_CLEANUP_SPEC.md` so this document
   can stay focused on the migration itself.
 - The shared workspace wrapper migration in `specs/080` is a separate track. Router and bootstrap
@@ -216,17 +215,9 @@ problems, attempted fixes, and outcomes.
   metadata, unauthenticated sign-in fallback, and the global chat FAB. Tried: extracted a shared
   authenticated route page shell plus shared app-auth runtime effects, then promoted `/pricing` and
   `/add` into explicit TanStack routes and removed those branches from the `App.tsx` pathname
-  resolver. Result: pricing and add-repository are now route-owned without forcing the heavier
-  machines or vault routes into the same patch, and `App.tsx` only keeps the remaining unresolved
-  authenticated branches.
-
-- Problem: `/machines` and `/machines/connect` still looked like switchboard paths in `App.tsx`,
-  even though both pages already behave like standalone authenticated app surfaces with route-local
-  search state. Tried: reused the shared authenticated route shell from the pricing/add step,
-  promoted both machine routes into explicit TanStack routes, and removed those cases from the old
-  authenticated pathname resolver. Result: the machines surfaces are now route-owned, `App.tsx` only
-  keeps codespace and vault/file routing branches, and the later typed-search phase can focus on
-  search ownership instead of path ownership.
+  resolver. Result: pricing and add-repository are now route-owned without forcing the heavier vault
+  routes into the same patch, and `App.tsx` only keeps the remaining unresolved authenticated
+  branches.
 
 - Problem: the last unresolved non-root authenticated paths were still the coupled vault surfaces,
   where the generic file route and the chat-only codespace route overlap under the same `/vault/*`

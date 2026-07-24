@@ -24,9 +24,9 @@ route accepts, how values parse, which keys are presence flags, and what metadat
 editor can use. This plan makes each route's schema the source of truth for one more output: the set
 of query keys that may appear on a destination path at all.
 
-The user-visible bug this fixes first: editing the route URL from `/machines?machineId=x` to
-`/vault` kept `?machineId=x` on `/vault` even though no `/vault` surface reads it. Query params now
-need to become more durable objects, because the access-model rollout (`rfcs/085`) will attach
+The user-visible bug this fixes first: editing the route URL from `/settings?delete-account` to
+`/vault` kept `?delete-account` on `/vault` even though no `/vault` surface reads it. Query params
+now need to become more durable objects, because the access-model rollout (`rfcs/085`) will attach
 permission metadata to each of them.
 
 ## Vocabulary: accepted keys, not availability
@@ -50,8 +50,8 @@ search keys**:
 Route search schema constants use an uppercase greppable stem:
 
 ```ts
-const RouteSearchSchema_machines = defineRouteSearchParams({
-  // /machines-owned params
+const RouteSearchSchema_settings = defineRouteSearchParams({
+  // /settings-owned params
 });
 ```
 
@@ -74,8 +74,8 @@ Slice 1 renamed all twelve existing schema constants (they previously used camel
 Every route schema derives one route search `staticData` fragment:
 
 ```ts
-export const MACHINES_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
-  machinesRouteSearchParamMetadata,
+export const SETTINGS_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
+  settingsRouteSearchParamMetadata,
 );
 ```
 
@@ -84,7 +84,7 @@ and declares them on the route:
 ```ts
 staticData: {
   ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
-  ...MACHINES_ROUTE_SEARCH_STATIC_DATA,
+  ...SETTINGS_ROUTE_SEARCH_STATIC_DATA,
 },
 ```
 
@@ -97,7 +97,7 @@ Acceptance is enforced at two points:
 1. **Editor route updates**: `readRouteAddressRouteUpdateDraft` filters draft tokens, so typed or
    suggestion-selected destinations never carry non-accepted keys. (Plain `Link`/`navigate` calls
    without a `search` prop already drop non-retained keys via the root retain middleware plus
-   TanStack's final search middleware; the editor's raw `history.push` path was the `machineId`
+   TanStack's final search middleware; the editor's raw `history.push` path was the `delete-account`
    leak. Cross-route `search: true` or spread-prev navigations would be the remaining carriers; do
    not introduce them.)
 2. **Load-time canonical redirect**: the existing root `beforeLoad` redirect (the same mechanism
@@ -117,12 +117,12 @@ entries unchanged; a pre-existing dirty entry canonicalizes on traversal exactly
 
 ## User Stories
 
-1. **Machines to vault (implemented).** On `/machines?machineId=x&threadId=y`, editing the path to
-   `/vault` navigates to `/vault` with both keys dropped. Typing `/machines?machineId=x` from
-   `/vault` keeps the keys, because `/machines` accepts them.
+1. **Settings to vault (implemented).** On `/settings?delete-account`, editing the path to `/vault`
+   navigates to `/vault` with the key dropped. Typing `/settings?delete-account` from `/vault` keeps
+   the key, because `/settings` accepts it.
 2. **Fun params are app-wide.** The interactive logo ships on `/` and `/vault`, not only `/logo`, so
    its appearance controls (theme colors, `dark`/`light`, `zoom`, `depth`, ...) are app-level state:
-   set them anywhere, keep them everywhere, including across `/machines` and `/pricing`. Slice 2
+   set them anywhere, keep them everywhere, including across `/settings` and `/pricing`. Slice 2
    formalizes this by moving them into the root schema, which is what "root-owned" already means
    structurally.
 3. **Renderer params are route-owned (implemented).** `isoSide`/`isoStyle` configure the `/logo/iso`
@@ -141,12 +141,12 @@ entries unchanged; a pre-existing dirty entry canonicalizes on traversal exactly
 
 **Slice 1 (this PR, done).** Rename the twelve schema constants to `RouteSearchSchema_*`; add
 `readRouteSearchAcceptedKeys`; declare `staticData.acceptedSearchKeys` on every schema-bearing route
-(machines, machine-connect, pricing, mcp-consent, vault-file, codex research x2, landing-preview,
-all eight logo routes, visual-fixture); make the editor's route update filter acceptance-based; add
-the load-time canonical redirect to root `beforeLoad`; split `isoSide`/`isoStyle` into
-`RouteSearchSchema_logoIso` ahead of the full logo split (the first route-owned params). Unit
-coverage in `routeAddress.test.ts`, `rootRouteSearch.test.ts`, `logoRouteSearch.test.ts`, and
-load-redirect coverage in `appRouter.test.tsx`.
+(settings, pricing, mcp-consent, vault-file, landing-preview, all eight logo routes,
+visual-fixture); make the editor's route update filter acceptance-based; add the load-time canonical
+redirect to root `beforeLoad`; split `isoSide`/`isoStyle` into `RouteSearchSchema_logoIso` ahead of
+the full logo split (the first route-owned params). Unit coverage in `routeAddress.test.ts`,
+`rootRouteSearch.test.ts`, `logoRouteSearch.test.ts`, and load-redirect coverage in
+`appRouter.test.tsx`.
 
 **Slice 2 — root ownership transfer and logo split.** Move the app-wide logo params into the root
 schema as the single declaration of "accepted everywhere + retained across navigation"; derive the
@@ -176,8 +176,8 @@ them while route-owned params inherit their owning route's key.
 
 Implemented in `routeAddress.test.ts`:
 
-1. `/machines?machineId=...` draft to `/vault` drops the machine keys
-2. drafts to `/machines` keep `machineId`/`threadId`
+1. `/settings?delete-account` draft to `/vault` drops the settings key
+2. drafts to `/settings` keep `delete-account`
 3. root-owned params (`prod-ui`, `dark`) survive on schema-less destinations
 4. hidden root-owned params (`devtools`) survive on every destination
 5. keys no schema accepts are dropped everywhere

@@ -65,8 +65,7 @@ Already completed in this step:
 1. `apps/samebase/src/lib/landingDevMode.ts`
 2. `apps/samebase/src/lib/noterSync.ts`
 3. route-local builders like `buildPricingPath()` in `apps/samebase/src/components/PricingPage.tsx`
-4. route-local research helpers in `apps/samebase/src/components/CodexAppServerResearchPage.tsx` and
-   `apps/samebase/src/components/CodexAppServerThreadBrowserResearchPage.tsx`
+4. the route-local research helpers that were later retired with their routes
 5. the route-local `buildLocationHref()` helper that used to mirror TanStack's current
    `location.href` in `apps/samebase/src/components/RootIndexRoutePage.tsx`
 6. the `buildGithubOAuthReturnToPath()` helper that used to reassemble the current route from

@@ -26,8 +26,6 @@
   - `apps/samebase/convex/schema.ts`
   - `apps/samebase/convex/auth.ts`
   - `apps/samebase/src/components/McpConsentRoutePage.tsx`
-  - `apps/samebase/src/components/MachineConnectPage.tsx`
-  - `apps/samebase/src/routeSearch/machineConnect.ts`
 - External references:
   - [OAuth 2.0 for Native Apps, RFC 8252](https://datatracker.ietf.org/doc/html/rfc8252)
   - [OAuth 2.0 Security Best Current Practice, RFC 9700](https://datatracker.ietf.org/doc/html/rfc9700)
@@ -338,8 +336,8 @@ Referrer-Policy: no-referrer
 Content-Security-Policy: frame-ancestors 'none'
 ```
 
-The current static `_headers` file is minimal and only sets content type for `/samebase.ts` plus
-immutable caching for assets. This flow needs explicit browser-page protections.
+The current static `_headers` file is minimal and primarily sets immutable caching for assets. This
+flow needs explicit browser-page protections.
 
 ### Clickjacking And CSRF
 

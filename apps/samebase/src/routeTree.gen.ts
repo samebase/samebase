@@ -18,7 +18,6 @@ import { Route as privacyRouteImport } from "./routes/privacy";
 import { Route as pricingRouteImport } from "./routes/pricing";
 import { Route as pitchRouteImport } from "./routes/pitch";
 import { Route as newAppRouteImport } from "./routes/new-app";
-import { Route as machinesRouteImport } from "./routes/machines";
 import { Route as logoRouteImport } from "./routes/logo";
 import { Route as localStorageRouteImport } from "./routes/localStorage";
 import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
@@ -28,9 +27,7 @@ import { Route as connectRepoRouteImport } from "./routes/connect-repo";
 import { Route as accountDeletionRouteImport } from "./routes/account-deletion";
 import { Route as indexRouteImport } from "./routes/index";
 import { Route as vaultFileRouteImport } from "./routes/vault-file";
-import { Route as codexResearchRouteImport } from "./routes/codex-research";
 import { Route as pitchPrintRouteImport } from "./routes/pitch-print";
-import { Route as machineConnectRouteImport } from "./routes/machine-connect";
 import { Route as logoTransitionLabRouteImport } from "./routes/logo-transition-lab";
 import { Route as logoSvgRouteImport } from "./routes/logo-svg";
 import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
@@ -44,7 +41,6 @@ import { Route as agentsConnectRouteImport } from "./routes/agents-connect";
 import { Route as adminAccountDeletionsRouteImport } from "./routes/admin-account-deletions";
 import { Route as vaultDashboardRootRouteImport } from "./routes/vault-dashboard-root";
 import { Route as vaultDashboardRouteImport } from "./routes/vault-dashboard";
-import { Route as codexThreadBrowserResearchRouteImport } from "./routes/codex-thread-browser-research";
 import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
 import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
 import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-transition-transforms-lab";
@@ -98,11 +94,6 @@ const newAppRoute = newAppRouteImport.update({
   path: "/new-app",
   getParentRoute: () => rootRouteImport,
 } as any);
-const machinesRoute = machinesRouteImport.update({
-  id: "/machines",
-  path: "/machines",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const logoRoute = logoRouteImport.update({
   id: "/logo",
   path: "/logo",
@@ -148,19 +139,9 @@ const vaultFileRoute = vaultFileRouteImport.update({
   path: "/vault/$",
   getParentRoute: () => rootRouteImport,
 } as any);
-const codexResearchRoute = codexResearchRouteImport.update({
-  id: "/research/codex-app-server",
-  path: "/research/codex-app-server",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const pitchPrintRoute = pitchPrintRouteImport.update({
   id: "/pitch/print",
   path: "/pitch/print",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const machineConnectRoute = machineConnectRouteImport.update({
-  id: "/machines/connect",
-  path: "/machines/connect",
   getParentRoute: () => rootRouteImport,
 } as any);
 const logoTransitionLabRoute = logoTransitionLabRouteImport.update({
@@ -228,12 +209,6 @@ const vaultDashboardRoute = vaultDashboardRouteImport.update({
   path: "/vault/$owner/$repo",
   getParentRoute: () => rootRouteImport,
 } as any);
-const codexThreadBrowserResearchRoute =
-  codexThreadBrowserResearchRouteImport.update({
-    id: "/research/codex-app-server/browser",
-    path: "/research/codex-app-server/browser",
-    getParentRoute: () => rootRouteImport,
-  } as any);
 const pitchPrintMobileRoute = pitchPrintMobileRouteImport.update({
   id: "/pitch/print/mobile",
   path: "/pitch/print/mobile",
@@ -281,7 +256,6 @@ export interface FileRoutesByFullPath {
   "/landing-preview": typeof landingPreviewRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
-  "/machines": typeof machinesRoute;
   "/new-app": typeof newAppRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
@@ -303,15 +277,12 @@ export interface FileRoutesByFullPath {
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
-  "/machines/connect": typeof machineConnectRoute;
   "/pitch/print": typeof pitchPrintRoute;
-  "/research/codex-app-server": typeof codexResearchRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
-  "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
   "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
   "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
@@ -326,7 +297,6 @@ export interface FileRoutesByTo {
   "/landing-preview": typeof landingPreviewRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
-  "/machines": typeof machinesRoute;
   "/new-app": typeof newAppRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
@@ -348,15 +318,12 @@ export interface FileRoutesByTo {
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
-  "/machines/connect": typeof machineConnectRoute;
   "/pitch/print": typeof pitchPrintRoute;
-  "/research/codex-app-server": typeof codexResearchRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
-  "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
   "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
   "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
@@ -372,7 +339,6 @@ export interface FileRoutesById {
   "/landing-preview": typeof landingPreviewRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
-  "/machines": typeof machinesRoute;
   "/new-app": typeof newAppRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
@@ -394,15 +360,12 @@ export interface FileRoutesById {
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
-  "/machines/connect": typeof machineConnectRoute;
   "/pitch/print": typeof pitchPrintRoute;
-  "/research/codex-app-server": typeof codexResearchRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
-  "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
   "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
   "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
@@ -419,7 +382,6 @@ export interface FileRouteTypes {
     | "/landing-preview"
     | "/localStorage"
     | "/logo"
-    | "/machines"
     | "/new-app"
     | "/pitch"
     | "/pricing"
@@ -441,15 +403,12 @@ export interface FileRouteTypes {
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
-    | "/machines/connect"
     | "/pitch/print"
-    | "/research/codex-app-server"
     | "/vault/$"
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
-    | "/research/codex-app-server/browser"
     | "/vault/$owner/$repo"
     | "/vault/$owner/$repo/codespace/$branch/chat"
     | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
@@ -464,7 +423,6 @@ export interface FileRouteTypes {
     | "/landing-preview"
     | "/localStorage"
     | "/logo"
-    | "/machines"
     | "/new-app"
     | "/pitch"
     | "/pricing"
@@ -486,15 +444,12 @@ export interface FileRouteTypes {
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
-    | "/machines/connect"
     | "/pitch/print"
-    | "/research/codex-app-server"
     | "/vault/$"
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
-    | "/research/codex-app-server/browser"
     | "/vault/$owner/$repo"
     | "/vault/$owner/$repo/codespace/$branch/chat"
     | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
@@ -509,7 +464,6 @@ export interface FileRouteTypes {
     | "/landing-preview"
     | "/localStorage"
     | "/logo"
-    | "/machines"
     | "/new-app"
     | "/pitch"
     | "/pricing"
@@ -531,15 +485,12 @@ export interface FileRouteTypes {
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
-    | "/machines/connect"
     | "/pitch/print"
-    | "/research/codex-app-server"
     | "/vault/$"
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
-    | "/research/codex-app-server/browser"
     | "/vault/$owner/$repo"
     | "/vault/$owner/$repo/codespace/$branch/chat"
     | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
@@ -555,7 +506,6 @@ export interface RootRouteChildren {
   landingPreviewRoute: typeof landingPreviewRoute;
   localStorageRoute: typeof localStorageRoute;
   logoRoute: typeof logoRoute;
-  machinesRoute: typeof machinesRoute;
   newAppRoute: typeof newAppRoute;
   pitchRoute: typeof pitchRoute;
   pricingRoute: typeof pricingRoute;
@@ -577,15 +527,12 @@ export interface RootRouteChildren {
   logoIsoStudyRoute: typeof logoIsoStudyRoute;
   logoSvgRoute: typeof logoSvgRoute;
   logoTransitionLabRoute: typeof logoTransitionLabRoute;
-  machineConnectRoute: typeof machineConnectRoute;
   pitchPrintRoute: typeof pitchPrintRoute;
-  codexResearchRoute: typeof codexResearchRoute;
   vaultFileRoute: typeof vaultFileRoute;
   logoMengerTransitionResearchRoute: typeof logoMengerTransitionResearchRoute;
   logoTransitionTransformsLabRoute: typeof logoTransitionTransformsLabRoute;
   mcpConsentRoute: typeof mcpConsentRoute;
   pitchPrintMobileRoute: typeof pitchPrintMobileRoute;
-  codexThreadBrowserResearchRoute: typeof codexThreadBrowserResearchRoute;
   vaultDashboardRoute: typeof vaultDashboardRoute;
   codespaceChatRoute: typeof codespaceChatRoute;
   vaultDatabaseProjectRoute: typeof vaultDatabaseProjectRoute;
@@ -657,13 +604,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof newAppRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/machines": {
-      id: "/machines";
-      path: "/machines";
-      fullPath: "/machines";
-      preLoaderRoute: typeof machinesRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/logo": {
       id: "/logo";
       path: "/logo";
@@ -727,25 +667,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof vaultFileRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/research/codex-app-server": {
-      id: "/research/codex-app-server";
-      path: "/research/codex-app-server";
-      fullPath: "/research/codex-app-server";
-      preLoaderRoute: typeof codexResearchRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/pitch/print": {
       id: "/pitch/print";
       path: "/pitch/print";
       fullPath: "/pitch/print";
       preLoaderRoute: typeof pitchPrintRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/machines/connect": {
-      id: "/machines/connect";
-      path: "/machines/connect";
-      fullPath: "/machines/connect";
-      preLoaderRoute: typeof machineConnectRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/logo/transition": {
@@ -839,13 +765,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof vaultDashboardRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/research/codex-app-server/browser": {
-      id: "/research/codex-app-server/browser";
-      path: "/research/codex-app-server/browser";
-      fullPath: "/research/codex-app-server/browser";
-      preLoaderRoute: typeof codexThreadBrowserResearchRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/pitch/print/mobile": {
       id: "/pitch/print/mobile";
       path: "/pitch/print/mobile";
@@ -907,7 +826,6 @@ const rootRouteChildren: RootRouteChildren = {
   landingPreviewRoute: landingPreviewRoute,
   localStorageRoute: localStorageRoute,
   logoRoute: logoRoute,
-  machinesRoute: machinesRoute,
   newAppRoute: newAppRoute,
   pitchRoute: pitchRoute,
   pricingRoute: pricingRoute,
@@ -929,15 +847,12 @@ const rootRouteChildren: RootRouteChildren = {
   logoIsoStudyRoute: logoIsoStudyRoute,
   logoSvgRoute: logoSvgRoute,
   logoTransitionLabRoute: logoTransitionLabRoute,
-  machineConnectRoute: machineConnectRoute,
   pitchPrintRoute: pitchPrintRoute,
-  codexResearchRoute: codexResearchRoute,
   vaultFileRoute: vaultFileRoute,
   logoMengerTransitionResearchRoute: logoMengerTransitionResearchRoute,
   logoTransitionTransformsLabRoute: logoTransitionTransformsLabRoute,
   mcpConsentRoute: mcpConsentRoute,
   pitchPrintMobileRoute: pitchPrintMobileRoute,
-  codexThreadBrowserResearchRoute: codexThreadBrowserResearchRoute,
   vaultDashboardRoute: vaultDashboardRoute,
   codespaceChatRoute: codespaceChatRoute,
   vaultDatabaseProjectRoute: vaultDatabaseProjectRoute,

@@ -24,19 +24,18 @@ silently drops the tail (`pnpm check:agents-budget` enforces the budget; history
 
 When the user says one of these commands, execute it directly:
 
-| Command        | Action                                                                                                                                                             |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `commit`       | Stage changes and create a concise commit                                                                                                                          |
-| `push`         | Commit if needed, then push                                                                                                                                        |
-| `create pr`    | Push if needed, then create or update a ready PR whose title starts with the current `v<N>:` label                                                                 |
-| `create draft` | Push if needed, then create or update a draft PR whose title starts with the current `v<N>:` label                                                                 |
-| `ready`        | Mark the current PR ready                                                                                                                                          |
-| `wait`         | Watch CI and report status                                                                                                                                         |
-| `squash`       | Squash-merge the current PR                                                                                                                                        |
-| `link machine` | Run the current checkout's `samebase.ts` machine-link flow with worktree isolation when needed                                                                     |
-| `clean vaults` | Remove temporary Samebase-managed vaults for the current worktree                                                                                                  |
-| `clean`        | Run `clean vaults`, clean samebase.com PR preview resources, remove the current worktree's local machine link, then remove the merged or closed-PR worktree/branch |
-| `status`       | Report branch, local changes, and PR state                                                                                                                         |
+| Command        | Action                                                                                                           |
+| -------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `commit`       | Stage changes and create a concise commit                                                                        |
+| `push`         | Commit if needed, then push                                                                                      |
+| `create pr`    | Push if needed, then create or update a ready PR whose title starts with the current `v<N>:` label               |
+| `create draft` | Push if needed, then create or update a draft PR whose title starts with the current `v<N>:` label               |
+| `ready`        | Mark the current PR ready                                                                                        |
+| `wait`         | Watch CI and report status                                                                                       |
+| `squash`       | Squash-merge the current PR                                                                                      |
+| `clean vaults` | Remove temporary Samebase-managed vaults for the current worktree                                                |
+| `clean`        | Run `clean vaults`, clean samebase.com PR preview resources, then remove the merged or closed-PR worktree/branch |
+| `status`       | Report branch, local changes, and PR state                                                                       |
 
 ## Workflow Rules
 
@@ -77,9 +76,6 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
   Prefer squash merge by default.
 - Use the exact temporary vault prefix `tmp-<worktree-id>-<intent>` for Playwright/manual test repos
   created from a worktree.
-- `link machine` must use the current checkout's `samebase.ts` flow and keep every local repo
-  checkout isolated with its own `--state-dir` under `~/.samebase/checkouts/<checkout-id>`. Never
-  overwrite the default `~/.samebase` install as part of local dev linking or cleanup.
 - `clean vaults` must fail closed and only remove matching Samebase-managed vaults through the
   dashboard delete flow.
 - `clean` requires a terminal PR (`MERGED`/`CLOSED`) and must follow
@@ -223,9 +219,9 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 - Editor: Monaco plus CodeMirror 6 / `@prosemark/core`
 - UI: Tailwind CSS, Base UI, shadcn/ui
 - State: Convex subscriptions plus TanStack Query
-- Chat/agent, GitHub Codespaces, and remote-machine features are dormant: they have no active users
-  or planned release. Preserve them cheaply, but do not let them drive migrations or expand task
-  scope unless the operator explicitly reactivates them.
+- Chat/agent and GitHub Codespaces features are dormant: they have no active users or planned
+  release. Preserve them cheaply, but do not let them drive migrations or expand task scope unless
+  the operator explicitly reactivates them.
 
 Key domain entities:
 

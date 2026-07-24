@@ -64,11 +64,6 @@ const routeAccessMetadataByPath = {
     access: "access_admin",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
-  "/machines": { access: "access_machines" },
-  "/machines/connect": {
-    access: "access_machines",
-    appWorkspaceRouteChrome: { leftPane: "none" },
-  },
   "/new-app": {
     access: "access_app_create",
     appWorkspaceRouteChrome: { leftPane: "none" },
@@ -88,14 +83,6 @@ const routeAccessMetadataByPath = {
   "/privacy": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/providers": {
     access: "access_provider_connections",
-    appWorkspaceRouteChrome: { leftPane: "none" },
-  },
-  "/research/codex-app-server": {
-    access: "access_admin",
-    appWorkspaceRouteChrome: { leftPane: "none" },
-  },
-  "/research/codex-app-server/browser": {
-    access: "access_admin",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
   "/settings": {

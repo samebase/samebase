@@ -17,10 +17,10 @@
 
 Retire Samebase's Daytona integration from the live app and codebase.
 
-Daytona is currently paused while Samebase focuses on local-machine Codex and connected-machine
-workflows. The pause switch prevents normal runtime use, but the implementation still threads
-Daytona through active routes, Convex schema shapes, generated API surface, Vite config, env
-allowlists, package dependencies, tests, scripts, workflows, manual tests, and accepted docs.
+Daytona is currently paused, and Samebase has no active development-environment product direction.
+The pause switch prevents normal runtime use, but the implementation still threads Daytona through
+active routes, Convex schema shapes, generated API surface, Vite config, env allowlists, package
+dependencies, tests, scripts, workflows, manual tests, and accepted docs.
 
 That live scaffolding is now more expensive than useful. It makes the current product direction
 harder to understand, gives agents stale implementation paths to follow, and keeps
@@ -63,7 +63,7 @@ Even paused, Daytona remained active codebase context:
 
 ## Goals
 
-1. Make local-machine Codex and connected-machine flows the clear development environment direction.
+1. Remove Daytona without designating a replacement development-environment product.
 2. Remove Daytona code that can mislead future implementation work.
 3. Reduce active dependency, env, script, and workflow surface.
 4. Preserve only provider-neutral infrastructure that is still used end to end.
@@ -117,8 +117,6 @@ Some code may be useful without Daytona but should not keep Daytona ownership:
    to describe that boundary directly.
 2. If deployment-profile detection still needs a deploy-key fallback, rename the env contract away
    from `DAYTONA_CONVEX_DEPLOY_KEY` and migrate callers.
-3. If any PTY logic is still useful for connected machines, reintroduce it under the
-   connected-machine boundary instead of importing Daytona helpers.
 
 If a neutralized path is not used end to end by the current app, delete it.
 
@@ -155,7 +153,7 @@ Retire docs in the same branch that removes the corresponding implementation:
 3. Do not keep compatibility shims for app-internal Daytona imports.
 4. Do not leak old Daytona env values, tokens, deploy keys, snapshot names, or logs into docs,
    tests, screenshots, or PR text.
-5. Preserve connected-machine and local-worktree behavior while removing Daytona.
+5. Preserve local-worktree development behavior while removing Daytona.
 6. Keep deletion batches small enough that review can distinguish UI removal, runtime removal, data
    migration, and doc retirement.
 
@@ -206,8 +204,8 @@ Each cleanup PR should verify the part it changes:
 3. Unit tests for deployment-profile/proxy behavior if those pieces are generalized.
 4. Migration dry run before mutating production data.
 5. Schema validation after the narrow deploy.
-6. Route-level smoke tests for vault dashboard, file view, provider settings, connected-machine, and
-   local-worktree flows.
+6. Route-level smoke tests for vault dashboard, file view, and provider settings, plus
+   local-worktree startup validation.
 
 ## Exit Criteria
 
@@ -218,5 +216,5 @@ Daytona retirement is complete when:
 2. `vaults` no longer stores Daytona fields.
 3. `daytonaSnapshots` no longer exists in active schema.
 4. Current specs no longer describe Daytona as an available product direction.
-5. Local-machine Codex and connected-machine docs remain the only current development-environment
-   path.
+5. Current docs do not describe Daytona or connected machines as an available
+   development-environment product path.

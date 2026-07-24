@@ -1,8 +1,4 @@
 import { index, rootRoute, route } from "@tanstack/virtual-file-routes";
-import {
-  CODEX_APP_SERVER_RESEARCH_ROUTE,
-  CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
-} from "./codex/appServerResearch";
 import { CONNECT_REPO_ROUTE } from "./lib/connectRepoRoute";
 import { DASHBOARD_ROUTE } from "./lib/dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./lib/indexedDbRoute";
@@ -14,7 +10,6 @@ import {
 } from "./routeSearch/landingPreview";
 import { LOCAL_STORAGE_ROUTE } from "./lib/localStorageRoute";
 import { NEW_APP_ROUTE } from "./lib/newAppRoute";
-import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "./lib/samebaseSync";
 import { AGENT_BROWSER_HANDOFF_ROUTE } from "../shared/agentBrowserHandoff";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 import { PROVIDERS_ROUTE } from "./lib/providersRoute";
@@ -46,8 +41,6 @@ export const routes = rootRoute("root.tsx", [
   route("/pitch/print", "pitch-print.tsx"),
   route("/pitch/print/mobile", "pitch-print-mobile.tsx"),
   route("/visual-fixture", "visual-fixture.tsx"),
-  route(CODEX_APP_SERVER_RESEARCH_ROUTE, "codex-research.tsx"),
-  route(CODEX_APP_SERVER_THREAD_BROWSER_ROUTE, "codex-thread-browser-research.tsx"),
   route(AGENT_BROWSER_HANDOFF_ROUTE, "agents-connect.tsx"),
   route(MCP_CONSENT_APP_PATH, "mcp-consent.tsx"),
   route("/landing", "landing.tsx"),
@@ -62,8 +55,6 @@ export const routes = rootRoute("root.tsx", [
   route(SETTINGS_ROUTE, "settings.tsx"),
   route(ACCOUNT_DELETION_ROUTE, "account-deletion.tsx"),
   route("/admin/account-deletions", "admin-account-deletions.tsx"),
-  route(MACHINES_ROUTE, "machines.tsx"),
-  route(MACHINE_CONNECT_ROUTE, "machine-connect.tsx"),
   route(DASHBOARD_ROUTE, [index("vault-dashboard-root.tsx"), route("$", "vault-file.tsx")]),
   route(`${DASHBOARD_ROUTE}/$owner/$repo`, "vault-dashboard.tsx"),
   route(`${DASHBOARD_ROUTE}/$owner/$repo/codespace/$branch/chat`, "codespace-chat.tsx"),

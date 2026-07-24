@@ -215,7 +215,7 @@ Tradeoff:
 
 ### Option C. Add a dedicated self-hosted visual lane
 
-This could be a real operator machine or a stable long-lived Noter-connected machine.
+This could be a real operator machine or a stable long-lived self-hosted runner.
 
 Best use:
 

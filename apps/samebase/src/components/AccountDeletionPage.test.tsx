@@ -29,7 +29,6 @@ const dataDeletionInProgress = {
     deletedVaultCount: 1,
     currentVaultPhase: "staged_changes",
   },
-  connectedMachines: { state: "not_started" },
   preferences: { state: "not_started" },
   appAccessAndTokens: { state: "not_started" },
   accessRequestsAndHistory: { state: "not_started" },
@@ -48,14 +47,9 @@ const dataDeletionCompleted = {
     deletedVaultCount: 2,
     currentVaultPhase: null,
   },
-  connectedMachines: {
-    state: "completed",
-    startedAt: Date.UTC(2026, 6, 12, 12, 3),
-    completedAt: Date.UTC(2026, 6, 12, 12, 4),
-  },
   preferences: {
     state: "completed",
-    startedAt: Date.UTC(2026, 6, 12, 12, 4),
+    startedAt: Date.UTC(2026, 6, 12, 12, 3),
     completedAt: Date.UTC(2026, 6, 12, 12, 5),
   },
   appAccessAndTokens: {
@@ -151,7 +145,7 @@ describe("AccountDeletionPage", () => {
     const mounted = await renderPage();
     try {
       const groups = mounted.rootElement.querySelectorAll("[data-account-deletion-data-group]");
-      expect(groups).toHaveLength(6);
+      expect(groups).toHaveLength(5);
       expect(
         mounted.rootElement
           .querySelector('[data-account-deletion-data-group="chatsAndAgentData"]')
@@ -167,7 +161,7 @@ describe("AccountDeletionPage", () => {
       expect(vaults?.querySelector(".animate-spin")).not.toBeNull();
       expect(
         mounted.rootElement
-          .querySelector('[data-account-deletion-data-group="connectedMachines"]')
+          .querySelector('[data-account-deletion-data-group="preferences"]')
           ?.getAttribute("data-group-state"),
       ).toBe("upcoming");
     } finally {
@@ -186,7 +180,7 @@ describe("AccountDeletionPage", () => {
     const mounted = await renderPage();
     try {
       const groups = mounted.rootElement.querySelectorAll("[data-account-deletion-data-group]");
-      expect(groups).toHaveLength(6);
+      expect(groups).toHaveLength(5);
       const vaults = mounted.rootElement.querySelector(
         '[data-account-deletion-data-group="vaultsAndStagedChanges"]',
       );

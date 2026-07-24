@@ -1,7 +1,3 @@
-import {
-  CODEX_APP_SERVER_RESEARCH_ROUTE,
-  CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
-} from "@/codex/appServerResearch";
 import { DASHBOARD_ROUTE } from "./dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./indexedDbRoute";
 import {
@@ -12,7 +8,6 @@ import {
   LANDING_PREVIEW_ROUTE,
 } from "@/routeSearch/landingPreview";
 import { LOCAL_STORAGE_ROUTE } from "./localStorageRoute";
-import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "./samebaseSync";
 import { SAMEBASE_BRAND_COPY } from "./samebaseBrandCopy";
 import {
   AGENT_BROWSER_HANDOFF_ROUTE,
@@ -92,22 +87,6 @@ export const NOT_FOUND_PAGE_METADATA: PageMetadata = {
   title: "Page not available | Samebase",
   description: "The requested Samebase page is not available.",
   canonicalPath: "/",
-  robots: "noindex,nofollow",
-  openGraphType: "website",
-};
-
-export const MACHINE_CONNECT_PAGE_METADATA: PageMetadata = {
-  title: "Connect This Machine | Samebase",
-  description: "Connect a Codex machine to Samebase with a deploy-scoped bootstrap command.",
-  canonicalPath: MACHINE_CONNECT_ROUTE,
-  robots: "noindex,nofollow",
-  openGraphType: "website",
-};
-
-export const MACHINES_PAGE_METADATA: PageMetadata = {
-  title: "Machines | Samebase",
-  description: "Browse connected machines and continue machine-local Codex threads from Samebase.",
-  canonicalPath: MACHINES_ROUTE,
   robots: "noindex,nofollow",
   openGraphType: "website",
 };
@@ -205,22 +184,6 @@ export function resolveAppPageTitle(pathname: string): string {
     return PITCH_DECK_MOBILE_PRINT_PAGE_METADATA.title;
   }
 
-  if (pathname === CODEX_APP_SERVER_RESEARCH_ROUTE) {
-    return "Codex App Server Research | Samebase";
-  }
-
-  if (pathname === CODEX_APP_SERVER_THREAD_BROWSER_ROUTE) {
-    return "Codex Thread Browser Research | Samebase";
-  }
-
-  if (pathname === MACHINE_CONNECT_ROUTE) {
-    return MACHINE_CONNECT_PAGE_METADATA.title;
-  }
-
-  if (pathname === MACHINES_ROUTE) {
-    return MACHINES_PAGE_METADATA.title;
-  }
-
   if (pathname === LANDING_PREVIEW_ROUTE) {
     return LANDING_PREVIEW_PAGE_METADATA.title;
   }
@@ -274,14 +237,6 @@ export function resolvePageMetadata(args: {
 
   if (args.pathname === "/pitch/print/mobile") {
     return PITCH_DECK_MOBILE_PRINT_PAGE_METADATA;
-  }
-
-  if (args.pathname === MACHINE_CONNECT_ROUTE) {
-    return MACHINE_CONNECT_PAGE_METADATA;
-  }
-
-  if (args.pathname === MACHINES_ROUTE) {
-    return MACHINES_PAGE_METADATA;
   }
 
   if (args.pathname === LANDING_PREVIEW_ROUTE) {

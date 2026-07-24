@@ -26,7 +26,6 @@ export function AccountDeletionStatusVisualFixture({
             deletedVaultCount: 1,
             currentVaultPhase: "staged_changes",
           },
-          connectedMachines: { state: "not_started" },
           preferences: { state: "not_started" },
           appAccessAndTokens: { state: "not_started" },
           accessRequestsAndHistory: { state: "not_started" },

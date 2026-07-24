@@ -6,7 +6,6 @@ const { boolean, id, literal, number, object, optional, union } = v;
 export const vWorkspaceSidebarStateKey = union(
   literal("app"),
   literal("dashboard"),
-  literal("machines"),
   literal("repository"),
 );
 export type WorkspaceSidebarStateKey = Infer<typeof vWorkspaceSidebarStateKey>;

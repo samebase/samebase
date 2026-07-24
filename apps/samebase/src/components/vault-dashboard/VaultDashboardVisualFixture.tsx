@@ -1110,11 +1110,21 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             ],
           },
           {
-            name: "connectedMachines",
+            name: "codespaces",
             source: "declared",
-            documentCount: 6,
-            indexes: [{ name: "by_user_machine_id", fields: ["userId", "machineId"] }],
+            documentCount: 2,
+            indexes: [
+              { name: "by_vault", fields: ["vaultId"] },
+              { name: "by_user", fields: ["userId"] },
+            ],
             fields: [
+              {
+                path: "vaultId",
+                kind: "Id<vaults>",
+                optional: false,
+                source: "declared",
+                targetTable: "vaults",
+              },
               {
                 path: "userId",
                 kind: "Id<users>",
@@ -1123,15 +1133,15 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
                 targetTable: "users",
               },
               {
-                path: "machineId",
-                kind: "string",
+                path: "state",
+                kind: "union",
                 optional: false,
                 source: "declared",
               },
               {
-                path: "lastSeenAt",
-                kind: "number",
-                optional: true,
+                path: "branch",
+                kind: "string",
+                optional: false,
                 source: "declared",
               },
             ],
@@ -1355,10 +1365,17 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             source: "declared",
           },
           {
-            id: "declared:connectedMachines:userId:users",
-            fromTable: "connectedMachines",
+            id: "declared:codespaces:userId:users",
+            fromTable: "codespaces",
             fromField: "userId",
             toTable: "users",
+            source: "declared",
+          },
+          {
+            id: "declared:codespaces:vaultId:vaults",
+            fromTable: "codespaces",
+            fromField: "vaultId",
+            toTable: "vaults",
             source: "declared",
           },
           {

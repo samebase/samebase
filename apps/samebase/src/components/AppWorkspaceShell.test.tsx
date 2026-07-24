@@ -157,7 +157,7 @@ describe("AppWorkspaceShell", () => {
 
     act(() => {
       root?.render(
-        <TestRouterProvider initialEntries={["/machines"]}>
+        <TestRouterProvider initialEntries={["/logo"]}>
           <AppWorkspaceShell>
             <RouteChromeProbe />
           </AppWorkspaceShell>
@@ -279,7 +279,7 @@ describe("AppWorkspaceShell", () => {
     };
   }
 
-  async function hydrateClientShellFromServerMarkup(initialEntry = "/machines") {
+  async function hydrateClientShellFromServerMarkup(initialEntry = "/logo") {
     const recoverableErrors: unknown[] = [];
     const container = document.createElement("div");
     rootElement = container;
@@ -388,7 +388,7 @@ describe("AppWorkspaceShell", () => {
 
   it("server-renders route content inside the workspace layout", () => {
     const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/machines"]}>
+      <TestRouterProvider initialEntries={["/logo"]}>
         <AppWorkspaceShell>
           <div data-testid="workspace-route-content">workspace route content</div>
         </AppWorkspaceShell>
@@ -432,15 +432,12 @@ describe("AppWorkspaceShell", () => {
       "/logo/svg",
       "/logo/transition",
       "/logo/transition/transforms",
-      "/machines/connect",
       "/new-app",
       "/oauth/mcp/consent?mcp_consent_request=mcpar_test",
       "/pitch",
       "/pitch/print",
       "/pitch/print/mobile",
       "/providers",
-      "/research/codex-app-server",
-      "/research/codex-app-server/browser",
       "/settings",
       "/terms",
       "/privacy",
@@ -483,7 +480,6 @@ describe("AppWorkspaceShell", () => {
 
   it("does not inherit no-left metadata into ordinary child routes", () => {
     for (const route of [
-      "/machines",
       "/logo",
       "/vault/ada/demo",
       "/vault/ada/demo/schema/main/project/convex-attachment",
@@ -526,7 +522,7 @@ describe("AppWorkspaceShell", () => {
 
   it("bounds the workspace shell to the root height instead of a viewport-unit height", () => {
     const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/machines"]}>
+      <TestRouterProvider initialEntries={["/logo"]}>
         <AppWorkspaceShell>
           <div data-testid="workspace-route-content">workspace route content</div>
         </AppWorkspaceShell>
@@ -562,7 +558,7 @@ describe("AppWorkspaceShell", () => {
 
     act(() => {
       root?.render(
-        <TestRouterProvider initialEntries={["/machines"]}>
+        <TestRouterProvider initialEntries={["/logo"]}>
           <AppWorkspaceShell>
             <MobileSidebarToggleRouteChromeProbe />
           </AppWorkspaceShell>
@@ -911,7 +907,7 @@ describe("AppWorkspaceShell", () => {
 
   it("uses default sidebar width fallbacks in server markup", () => {
     const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/machines"]}>
+      <TestRouterProvider initialEntries={["/logo"]}>
         <AppWorkspaceShell>
           <div data-testid="workspace-route-content">workspace route content</div>
         </AppWorkspaceShell>

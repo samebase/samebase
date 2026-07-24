@@ -7,7 +7,6 @@ import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { fileURLToPath } from "node:url";
-import { formatWithVpFmt } from "../../scripts/format-with-vp-fmt.ts";
 import { createCompactIdentitySvgMarkup } from "./src/components/compactIdentitySvgAsset";
 import {
   createLogoIdentitySvgAssets,
@@ -15,7 +14,6 @@ import {
 } from "./src/components/logo/logoStaticSvgAsset";
 import { readEnvFileValue, resolveBrowserConvexProxyTarget } from "./browserConvexProxy";
 import { resolveAppCommitNumber } from "./dev/appBuildMetadata";
-import { codexAppServerResearchBridgePlugin } from "./dev/codexAppServerResearchBridge";
 import { readBuildLandingSlogan } from "./dev/landingSlogan";
 import { readPublicPrerenderPages } from "./dev/publicPrerenderPages";
 import type { AppBuildConfig } from "./src/lib/appBuildConfig";
@@ -119,12 +117,6 @@ const staticCompactIdentitySvgAssetPaths = [
   path.resolve(currentDir, "public/samebase-icon.svg"),
   path.resolve(currentDir, "public/install-icon.svg"),
 ];
-const samebaseSyncPackageScriptPath = path.resolve(gitRoot, "packages/sync/samebase.ts");
-const samebaseConnectConfigPathname = "/samebase-connect.json";
-const runtimeSamebaseConnectConfigPath = path.resolve(
-  currentDir,
-  `dist/client${samebaseConnectConfigPathname}`,
-);
 const spaShellOutputPath = "/index";
 const spaShellMaskPath = "/#__samebase-spa-shell";
 const publicPrerenderPages = readPublicPrerenderPages();
@@ -147,48 +139,6 @@ function readPrerenderHeaders(originValue: string | undefined) {
     "x-forwarded-host": url.host,
     "x-forwarded-proto": url.protocol.replace(/:$/, ""),
   };
-}
-
-function isLoopbackHostname(hostname: string): boolean {
-  return (
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "::1" ||
-    hostname === "[::1]"
-  );
-}
-
-function parseValidatedSamebaseConnectConvexSiteUrl(value: string): string {
-  try {
-    const convexSiteUrl = new URL(value);
-    const isLoopbackHttp =
-      convexSiteUrl.protocol === "http:" && isLoopbackHostname(convexSiteUrl.hostname);
-    if (convexSiteUrl.protocol !== "https:" && !isLoopbackHttp) {
-      throw new Error(
-        "The runtime Convex site URL must use https, except for explicit localhost testing.",
-      );
-    }
-    if (convexSiteUrl.username || convexSiteUrl.password) {
-      throw new Error("The runtime Convex site URL must not include credentials.");
-    }
-    if (convexSiteUrl.search.length > 0 || convexSiteUrl.hash.length > 0) {
-      throw new Error("The runtime Convex site URL must not include query params or hashes.");
-    }
-    if (convexSiteUrl.pathname !== "/") {
-      throw new Error("The runtime Convex site URL must be an origin with no path.");
-    }
-    return convexSiteUrl.toString();
-  } catch (error) {
-    throw new Error(
-      error instanceof Error
-        ? `Invalid samebase-connect.json convexSiteUrl: ${error.message}`
-        : "Invalid samebase-connect.json convexSiteUrl.",
-    );
-  }
-}
-
-function readSamebaseSyncPackageScript(): string {
-  return readFileSync(samebaseSyncPackageScriptPath, "utf8").replace(/\r\n/g, "\n").trimEnd();
 }
 
 function syncStaticLogoSvgAsset() {
@@ -265,55 +215,6 @@ function syncStaticCompactIdentitySvgAssets() {
   }
 }
 
-export async function buildRuntimeSamebaseSyncScript() {
-  const script = readSamebaseSyncPackageScript();
-  return script.endsWith("\n") ? script : `${script}\n`;
-}
-
-function readSamebaseConnectConvexSiteUrl(): string {
-  const configuredSiteUrl = process.env.CONVEX_SITE_URL?.trim();
-  if (configuredSiteUrl) {
-    return parseValidatedSamebaseConnectConvexSiteUrl(configuredSiteUrl);
-  }
-
-  const configuredViteSiteUrl = process.env.VITE_CONVEX_SITE_URL?.trim();
-  if (
-    configuredViteSiteUrl &&
-    (configuredViteSiteUrl.startsWith("https://") || configuredViteSiteUrl.startsWith("http://"))
-  ) {
-    return parseValidatedSamebaseConnectConvexSiteUrl(configuredViteSiteUrl);
-  }
-
-  const localEnvSiteUrl = readEnvFileValue(localEnvPath, "VITE_CONVEX_SITE_URL");
-  if (
-    localEnvSiteUrl &&
-    (localEnvSiteUrl.startsWith("https://") || localEnvSiteUrl.startsWith("http://"))
-  ) {
-    return parseValidatedSamebaseConnectConvexSiteUrl(localEnvSiteUrl);
-  }
-
-  throw new Error(
-    "Missing CONVEX_SITE_URL or an absolute VITE_CONVEX_SITE_URL for samebase-connect.json.",
-  );
-}
-
-async function buildRuntimeSamebaseConnectConfig() {
-  return await formatGeneratedFileContents({
-    filepath: runtimeSamebaseConnectConfigPath,
-    content: JSON.stringify(
-      {
-        convexSiteUrl: readSamebaseConnectConvexSiteUrl(),
-      },
-      null,
-      2,
-    ),
-  });
-}
-
-async function formatGeneratedFileContents(args: { content: string; filepath: string }) {
-  return formatWithVpFmt(args.filepath, args.content);
-}
-
 function syncStaticLogoSvgAssetPlugin() {
   let hasSyncedStaticLogoSvgAsset = false;
 
@@ -362,53 +263,6 @@ function syncStaticCompactIdentitySvgAssetsPlugin() {
     },
     configureServer() {
       syncOnce();
-    },
-  };
-}
-
-function samebaseSyncScriptAssetPlugin() {
-  return {
-    name: "samebase-sync-script-asset",
-    async configureServer(server: ViteDevServer) {
-      // Serve the canonical package source directly in dev.
-      server.middlewares.use(
-        (
-          request: IncomingMessage,
-          response: ServerResponse<IncomingMessage>,
-          next: (error?: Error) => void,
-        ) => {
-          const requestPath = (() => {
-            if (!request.url) {
-              return null;
-            }
-
-            try {
-              return new URL(request.url, "http://vite.local").pathname;
-            } catch {
-              return null;
-            }
-          })();
-
-          if (requestPath !== "/samebase.ts") {
-            next();
-            return;
-          }
-
-          void buildRuntimeSamebaseSyncScript()
-            .then((runtimeScript) => {
-              response.statusCode = 200;
-              response.setHeader("Content-Type", "application/typescript; charset=utf-8");
-              response.end(runtimeScript);
-            })
-            .catch(next);
-        },
-      );
-    },
-    async closeBundle() {
-      const builtScriptPath = path.resolve(currentDir, "dist/client/samebase.ts");
-      const runtimeScript = await buildRuntimeSamebaseSyncScript();
-      mkdirSync(path.dirname(builtScriptPath), { recursive: true });
-      writeFileSync(builtScriptPath, runtimeScript, "utf8");
     },
   };
 }
@@ -486,55 +340,6 @@ function serveContentDocsMarkdownPlugin() {
   };
 }
 
-function syncRuntimeSamebaseConnectConfigAssetPlugin() {
-  const writeRuntimeConfig = async () => {
-    const runtimeConfig = await buildRuntimeSamebaseConnectConfig();
-    mkdirSync(path.dirname(runtimeSamebaseConnectConfigPath), { recursive: true });
-    writeFileSync(runtimeSamebaseConnectConfigPath, runtimeConfig, "utf8");
-  };
-
-  return {
-    name: "sync-runtime-samebase-connect-config-asset",
-    async configureServer(server: ViteDevServer) {
-      server.middlewares.use(
-        (
-          request: IncomingMessage,
-          response: ServerResponse<IncomingMessage>,
-          next: (error?: Error) => void,
-        ) => {
-          const requestPath = (() => {
-            if (!request.url) {
-              return null;
-            }
-
-            try {
-              return new URL(request.url, "http://vite.local").pathname;
-            } catch {
-              return null;
-            }
-          })();
-
-          if (requestPath !== samebaseConnectConfigPathname) {
-            next();
-            return;
-          }
-
-          void buildRuntimeSamebaseConnectConfig()
-            .then((runtimeConfig) => {
-              response.statusCode = 200;
-              response.setHeader("Content-Type", "application/json; charset=utf-8");
-              response.end(runtimeConfig);
-            })
-            .catch(next);
-        },
-      );
-    },
-    async closeBundle() {
-      await writeRuntimeConfig();
-    },
-  };
-}
-
 function stripBrowserConvexProxyPrefix(requestPath: string): string {
   if (
     requestPath !== BROWSER_CONVEX_PROXY_PATH &&
@@ -597,12 +402,7 @@ export default defineConfig({
   plugins: [
     syncStaticLogoSvgAssetPlugin(),
     syncStaticCompactIdentitySvgAssetsPlugin(),
-    samebaseSyncScriptAssetPlugin(),
-    syncRuntimeSamebaseConnectConfigAssetPlugin(),
     serveContentDocsMarkdownPlugin(),
-    codexAppServerResearchBridgePlugin({
-      workspaceRoot: gitRoot,
-    }),
     tailwindcss(),
     tanstackStart({
       router: {

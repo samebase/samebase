@@ -1,8 +1,6 @@
-import { entries } from "@samebase/dependent/object";
 import { readMatchingRouteSearchParamSuggestions } from "@/routing/address";
 import {
   canAccessRouteAccess,
-  canAccessRouteStaticData,
   type RouteAccessViewer,
   type RouteSearchParamSuggestion,
   type RouteSearchParamValueSuggestion,
@@ -100,10 +98,6 @@ export function readCurrentRouteUrlEditorSuggestionIndex(args: {
       );
   }
 }
-
-const ROUTE_URL_HASH_KEYS_BY_PATH: Readonly<Record<string, readonly string[]>> = {
-  "/machines/connect": ["connected-machines"],
-} as const;
 
 function findSuggestionIndex(
   suggestions: readonly Suggestion[],
@@ -531,55 +525,18 @@ function readValueRows(args: {
     });
 }
 
-function readRouteHashKeys(args: {
-  origin: string;
-  routeAddress: string;
-  routesByPath: AppRouter["routesByPath"];
-  viewer: RouteAccessViewer;
-}): readonly string[] {
-  const parsedRouteAddress = parseRouteAddress(args.routeAddress);
-  const routeEnvironment = readRouteUrlPathSuggestionEnvironment({
-    currentHref: args.routeAddress,
-    draftHref: args.routeAddress,
-    origin: args.origin,
-  });
-  const routeEntry = entries(args.routesByPath).find(
-    ([routePath, route]) =>
-      routePath === parsedRouteAddress.path &&
-      canAccessRouteStaticData(route.options.staticData, args.viewer, routeEnvironment),
-  );
-
-  return typeof routeEntry === "undefined"
-    ? []
-    : (ROUTE_URL_HASH_KEYS_BY_PATH[routeEntry[0]] ?? []);
-}
-
 function readHashRows(args: {
   currentRouteAddress: string;
   hashStart: number;
   pageHashKeys: readonly string[];
-  prefix: string;
   routeAddress: string;
-  routesByPath: AppRouter["routesByPath"];
-  viewer: RouteAccessViewer;
 }): Suggestion[] {
-  const origin = args.prefix.slice(0, -1);
   const routeAddressParts = parseRouteAddress(args.routeAddress);
   const currentRouteAddressParts = parseRouteAddress(args.currentRouteAddress);
   const pageHashKeys =
     routeAddressParts.path === currentRouteAddressParts.path ? args.pageHashKeys : [];
 
-  const hashKeys = new Set([
-    ...readRouteHashKeys({
-      origin,
-      routeAddress: args.routeAddress,
-      routesByPath: args.routesByPath,
-      viewer: args.viewer,
-    }),
-    ...pageHashKeys,
-  ]);
-
-  return [...hashKeys].map((key): Suggestion => {
+  return pageHashKeys.map((key): Suggestion => {
     const routeAddress = replaceRouteAddressHash(args.routeAddress, key);
 
     return {
@@ -676,10 +633,7 @@ export function readSuggestions(args: {
       currentRouteAddress: args.currentRouteAddress,
       hashStart: cursorContext.hash.start,
       pageHashKeys: args.pageHashKeys,
-      prefix: args.prefix,
       routeAddress: args.routeAddress,
-      routesByPath: args.routesByPath,
-      viewer: args.viewer,
     });
   }
 

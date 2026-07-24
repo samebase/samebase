@@ -7,15 +7,11 @@
 - Last updated: 2026-03-31
 - Related docs:
   - `specs/012_DEV_ENV_ORIGIN_SITE_URL_SYNC_SPEC.md`
-  - `rfcs/078_TUNNELED_LOCAL_CODEX_CONTROL_SPEC.md`
 
 ## Purpose
 
-Capture the transport learnings from the Cloudflare tunnel research work so the next mobile-control
-slice does not have to rediscover them.
-
-This research started from local anon preview sharing, but the tunnel findings also apply to a
-future machine-local Codex control service.
+Capture the transport learnings from Cloudflare tunnel research so local anonymous preview sharing
+does not have to rediscover them.
 
 ## Verified Findings
 
@@ -40,7 +36,8 @@ Conclusion:
 
 1. tunnel lifecycle must either force strict-port behavior or discover the actual chosen port after
    startup
-2. `noter-sync run` is a better long-running owner for that logic than ad hoc shell steps
+2. a dedicated preview launcher is a better long-running owner for that logic than ad hoc shell
+   steps
 
 ### 3. Anonymous and local browser flows need explicit origin handling
 
@@ -68,33 +65,21 @@ Conclusion:
 Cloudflare Tunnel makes a local service reachable from the public internet, but it does not solve:
 
 1. ownership checks
-2. machine discovery in Noter
-3. browser auth brokerage
-4. command or data modeling
+2. browser authentication
+3. application data modeling
 
 Conclusion:
 
 1. the tunnel URL must not be treated as the security boundary
-2. Noter still needs its own machine-control auth model on top of the tunnel
+2. Samebase still needs its own authorization model on top of the tunnel
 
 ## Transport Guidance
 
-For future mobile-control work, the repo should treat these decisions as the default starting point:
+For future local preview work, the repo should treat these decisions as the default starting point:
 
 1. prefer one public origin over separate public frontend and backend origins
 2. keep private local backends private whenever the browser can stay on one public origin
 3. use quick tunnels for the first prototype and first operator MVP
 4. move to named tunnels only when stable DNS or access policy becomes a real product need
-5. let the machine-scoped local runner own tunnel lifecycle rather than tying it to Vite middleware
-   or hand-written shell instructions
-
-## Relevance To Tunneled Local Codex Control
-
-For the phone-control direction in `rfcs/078_TUNNELED_LOCAL_CODEX_CONTROL_SPEC.md`, this research
-implies:
-
-1. Cloudflare Tunnel is a viable transport layer for a machine-local HTTP control service
-2. an ephemeral quick-tunnel URL is acceptable for the first MVP if Noter publishes the latest live
-   URL on the machine record
-3. Noter should continue to own discovery and auth brokerage instead of pushing those concerns down
-   into the tunnel itself
+5. let a dedicated preview process own tunnel lifecycle rather than tying it to Vite middleware or
+   hand-written shell instructions

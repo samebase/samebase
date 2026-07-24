@@ -30,8 +30,8 @@ Samebase-managed vault infrastructure as part of this workflow.
    primary checkout, the operator-provided environment, or the configured secret source before
    continuing. Do not treat missing local env as evidence that previews do not exist.
 7. If credentials or resource identity still cannot be resolved, stop with `clean` blocked. Do not
-   delete the local branch, remote branch, or checkout-local machine state while Cloudflare or
-   Convex preview cleanup is incomplete.
+   delete the local branch, remote branch, or worktree while Cloudflare or Convex preview cleanup is
+   incomplete.
 
 ## 0. Load Cleanup Credentials
 

@@ -40,8 +40,8 @@ https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-conne
       collapsible tree items, draft PRs hang off the branch as child nodes, and activity/unread
       state should stay visible without opening each branch
 
-- [ ] let users provide their own compute on actual machines; make connected machine setup feel much
-      safer than openclaw!!!!!!
+- [ ] let users provide their own compute on actual machines; make a future user-owned runner setup
+      feel much safer than openclaw!!!!!!
 
 - [ ] something
 

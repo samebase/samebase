@@ -78,7 +78,6 @@ isolation case that proves user B cannot read or mutate user A's rows through pu
 - vaults: ownership, listing, branch filter state, branch/tree visibility
 - chat: thread lifecycle, prod-read approval/rejection/audit state
 - file staging: ownership denial, create/update/delete rows, branch summaries
-- connected machines: registration, approval, heartbeat, control tokens
 - MCP/OAuth HTTP: metadata, registration, authorize, token, MCP request status
 - billing/webhooks: method/status validation and signed-event state changes
 

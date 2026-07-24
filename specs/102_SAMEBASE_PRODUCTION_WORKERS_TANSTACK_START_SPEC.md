@@ -279,7 +279,7 @@ Validation:
 1. `pnpm dev:worktree`
 2. `pnpm --filter samebase check`
 3. `pnpm --filter samebase build`
-4. browser smoke test of `/`, `/vault`, `/vault/$`, `/samebase.ts`, and `/samebase-connect.json`
+4. browser smoke test of `/`, `/vault`, and `/vault/$`
 
 ### Phase 2: Worker Dry Run
 
@@ -312,7 +312,7 @@ Validation:
 
 1. unauthenticated landing routes load
 2. auth redirects keep the intended origin
-3. connected-machine files serve as static assets
+3. public documentation and install assets serve as static assets
 4. Convex subscriptions connect
 5. branch-preview URLs can be surfaced without Pages-only parsing
 
