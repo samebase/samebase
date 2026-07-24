@@ -1,13 +1,10 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
-import { LANDING_DEV_MODE_QUERY_PARAM } from "../src/lib/landingDevMode";
+import { DEV_MODE_QUERY_PARAM } from "../src/lib/devMode";
 import { PUBLIC_LANDING_COPY_TEST_ID } from "../src/lib/publicLanding";
 import { formatRouteSearchPresenceFlagLinkLabel } from "../src/routing/searchFlags";
 
-const landingDevModeLinkLabel = formatRouteSearchPresenceFlagLinkLabel(
-  LANDING_DEV_MODE_QUERY_PARAM,
-  true,
-);
+const landingDevModeLinkLabel = formatRouteSearchPresenceFlagLinkLabel(DEV_MODE_QUERY_PARAM, true);
 
 async function waitForPaint(page: Page) {
   await page.evaluate(async () => {

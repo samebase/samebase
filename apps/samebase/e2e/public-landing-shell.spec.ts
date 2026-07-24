@@ -10,7 +10,7 @@ import {
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
 } from "../src/lib/appBuild";
-import { LANDING_DEV_MODE_QUERY_PARAM } from "../src/lib/landingDevMode";
+import { DEV_MODE_QUERY_PARAM } from "../src/lib/devMode";
 import { PRODUCTION_PUBLIC_HOSTNAME } from "../src/lib/prodUiMode";
 import {
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
@@ -40,12 +40,9 @@ const NAVIGATION_BUDGET_MS = {
 } as const;
 const COPY_SHORTCUT_KEY = process.platform === "darwin" ? "Meta+C" : "Control+C";
 const LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS = ["/terms", "/privacy", "/landing"] as const;
-const landingDevModeLinkLabel = formatRouteSearchPresenceFlagLinkLabel(
-  LANDING_DEV_MODE_QUERY_PARAM,
-  true,
-);
+const landingDevModeLinkLabel = formatRouteSearchPresenceFlagLinkLabel(DEV_MODE_QUERY_PARAM, true);
 const landingDevModeDisableLinkLabel = formatRouteSearchPresenceFlagLinkLabel(
-  LANDING_DEV_MODE_QUERY_PARAM,
+  DEV_MODE_QUERY_PARAM,
   false,
 );
 const rootThemeLightModeLinkLabel = formatRouteSearchPresenceFlagLinkLabel("light", true);
