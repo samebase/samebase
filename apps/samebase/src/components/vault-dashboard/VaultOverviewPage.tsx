@@ -25,6 +25,10 @@ import type {
   VaultPullRequest,
   VaultPullRequestsState,
 } from "@/hooks/useVaultPullRequests";
+import type {
+  VaultSidebarSummariesState,
+  VaultSidebarSummary,
+} from "@/hooks/useVaultSidebarSummaries";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import {
@@ -192,6 +196,8 @@ function compactChecksLabel(checks: RepositoryCheckSummary): string {
 }
 
 function vaultSidebarStatus(args: {
+  sidebarSummaries: VaultSidebarSummariesState;
+  summary: VaultSidebarSummary | undefined;
   selected: boolean;
   vault: UserVaultResult;
   workspace: VaultWorkspaceSelected | null;
@@ -222,37 +228,58 @@ function vaultSidebarStatus(args: {
       label: compactChecksLabel(checks),
     };
   }
+  if (args.summary) {
+    return {
+      dotClassName: checkStateDotClassName(args.summary.checks.state),
+      label: compactChecksLabel(args.summary.checks),
+    };
+  }
+  if (args.sidebarSummaries.state === "failed" || args.sidebarSummaries.state === "loaded") {
+    return {
+      dotClassName: "h-2 w-2 rounded-full bg-muted-foreground/50",
+      label: "Checks unavailable",
+    };
+  }
   return {
     dotClassName: "h-2 w-2 rounded-full bg-muted-foreground/50",
-    label: "Status not loaded",
+    label: "Loading checks",
   };
 }
 
 export function VaultOverviewSidebar({
   page,
   selectedVaultId,
+  sidebarSummaries,
   vaults,
   workspace,
 }: {
   page: VaultOverviewPageKind;
   selectedVaultId: UserVaultResult["_id"] | null;
+  sidebarSummaries: VaultSidebarSummariesState;
   vaults: readonly UserVaultResult[];
   workspace: VaultWorkspaceSelected | null;
 }) {
+  const summaryByVaultId = new Map(
+    sidebarSummaries.state === "loaded"
+      ? sidebarSummaries.summaries.map((summary) => [summary.vaultId, summary])
+      : [],
+  );
+
   return (
     <nav aria-label="Vaults" className="@container min-h-full py-2">
       {vaults.map((vault) => {
         const selected = vault._id === selectedVaultId;
-        const status = vaultSidebarStatus({ selected, vault, workspace });
+        const summary = summaryByVaultId.get(vault._id);
+        const status = vaultSidebarStatus({
+          selected,
+          sidebarSummaries,
+          summary,
+          vault,
+          workspace,
+        });
         const workerCount = vault.cloudflareWorkers.length;
         const convexProjectCount = vault.convexProjects.length;
-        const settledPullRequests =
-          selected &&
-          workspace &&
-          (workspace.pullRequests.state === "current" || workspace.pullRequests.state === "stale")
-            ? workspace.pullRequests
-            : null;
-        const pullRequestCount = settledPullRequests?.pullRequests.length;
+        const pullRequestCount = summary?.openPullRequestCount;
 
         return (
           <div

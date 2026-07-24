@@ -2,6 +2,7 @@ import { api } from "../../../convex/_generated/api";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
 import { useNow } from "@/hooks/useNow";
 import { useVaultPullRequests } from "@/hooks/useVaultPullRequests";
+import { useVaultSidebarSummaries } from "@/hooks/useVaultSidebarSummaries";
 import { useCacheQuery } from "@/lib/convexQueryCache";
 import { useQuery as useConvexQuery } from "convex/react";
 import { useMemo } from "react";
@@ -24,13 +25,17 @@ function selectVault(
   return vaults.find((vault) => vault.repositoryFullName === repositoryFullName) ?? null;
 }
 
-export function useVaultWorkspaceModel(selectedRepositoryFullName: string | undefined): {
+export function useVaultWorkspaceModel(
+  selectedRepositoryFullName: string | undefined,
+  loadSidebarSummaries: boolean,
+): {
   model: VaultWorkspaceModel;
   commands: {
     invalidateProviderObservations: () => Promise<void>;
   };
 } {
   const vaults = useCacheQuery(api.vault.dashboard.getUserVaults);
+  const sidebarSummaries = useVaultSidebarSummaries(loadSidebarSummaries);
   const selectedVault = useMemo(
     () => selectVault(vaults, selectedRepositoryFullName),
     [selectedRepositoryFullName, vaults],
@@ -70,6 +75,7 @@ export function useVaultWorkspaceModel(selectedRepositoryFullName: string | unde
     if (!selectedRepositoryFullName) {
       return {
         state: "ready",
+        sidebarSummaries,
         selection: { state: "root" },
         vaults,
       };
@@ -77,6 +83,7 @@ export function useVaultWorkspaceModel(selectedRepositoryFullName: string | unde
     if (!selectedVault) {
       return {
         state: "ready",
+        sidebarSummaries,
         selection: {
           state: "missing",
           repositoryFullName: selectedRepositoryFullName,
@@ -87,6 +94,7 @@ export function useVaultWorkspaceModel(selectedRepositoryFullName: string | unde
 
     return {
       state: "ready",
+      sidebarSummaries,
       selection: {
         state: "selected",
         workspace: {
@@ -122,6 +130,7 @@ export function useVaultWorkspaceModel(selectedRepositoryFullName: string | unde
     selectedPullRequestFilters,
     selectedRepositoryFullName,
     selectedVault,
+    sidebarSummaries,
     vaults,
     viewerAccess,
   ]);

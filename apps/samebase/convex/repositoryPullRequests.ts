@@ -5,6 +5,7 @@ import { Infer, v } from "convex/values";
 import { z } from "zod";
 
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { action } from "./functions";
 import { createGitHubRequestDeadlineSignal } from "./githubRepoApi";
 import { isLiveConnectedVault } from "./vault/state";
@@ -149,9 +150,20 @@ const vRepositoryPullRequestPage = object({
     }),
   ),
 });
+const vVaultSidebarSummary = object({
+  vaultId: id("vaults"),
+  repository: union(
+    vNull(),
+    object({
+      openPullRequestCount: number(),
+      statusCheckRollup: vStatusCheckRollup,
+    }),
+  ),
+});
 export type RepositoryPullRequestPage = Infer<typeof vRepositoryPullRequestPage>;
 export type RepositoryPullRequest = Infer<typeof vPullRequest>;
 export type RepositoryStatusCheckRollup = Infer<typeof vStatusCheckRollup>;
+export type VaultSidebarSummary = Infer<typeof vVaultSidebarSummary>;
 const vBranchPullRequest = object({
   aheadBy: number(),
   pullRequest: union(
@@ -194,25 +206,33 @@ const providerCheckContextSchema = z.discriminatedUnion("__typename", [
     description: z.string().nullable(),
   }),
 ]);
+const providerStatusCheckCountsSchema = z.object({
+  totalCount: countSchema,
+  checkRunCount: countSchema,
+  statusContextCount: countSchema,
+  checkRunCountsByState: z.array(
+    z.object({
+      state: providerCheckRunStateSchema,
+      count: countSchema,
+    }),
+  ),
+  statusContextCountsByState: z.array(
+    z.object({
+      state: providerStatusStateSchema,
+      count: countSchema,
+    }),
+  ),
+});
+const compactStatusCheckRollupSchema = z
+  .object({
+    state: providerStatusStateSchema,
+    contexts: providerStatusCheckCountsSchema,
+  })
+  .nullable();
 const statusCheckRollupSchema = z
   .object({
     state: providerStatusStateSchema,
-    contexts: z.object({
-      totalCount: countSchema,
-      checkRunCount: countSchema,
-      statusContextCount: countSchema,
-      checkRunCountsByState: z.array(
-        z.object({
-          state: providerCheckRunStateSchema,
-          count: countSchema,
-        }),
-      ),
-      statusContextCountsByState: z.array(
-        z.object({
-          state: providerStatusStateSchema,
-          count: countSchema,
-        }),
-      ),
+    contexts: providerStatusCheckCountsSchema.extend({
       nodes: z.array(providerCheckContextSchema),
     }),
   })
@@ -380,14 +400,98 @@ const REPOSITORY_PULL_REQUEST_PAGE_QUERY = `
   }
 `;
 
+const providerSidebarRepositorySchema = z
+  .object({
+    databaseId: z.number().int().positive(),
+    defaultBranch: z
+      .object({
+        name: z.string().min(1),
+        target: z.object({
+          __typename: z.literal("Commit"),
+          statusCheckRollup: compactStatusCheckRollupSchema,
+        }),
+      })
+      .nullable(),
+    pullRequests: z.object({
+      totalCount: countSchema,
+    }),
+  })
+  .nullable();
+const providerSidebarResponseSchema = z.record(z.string(), providerSidebarRepositorySchema);
+
+type SidebarRepositoryTarget = {
+  vaultId: Id<"vaults">;
+  ghRepoId: string;
+  owner: string;
+  name: string;
+  defaultBranch: string;
+};
+type ProviderCompactStatusCheckRollup = z.infer<typeof compactStatusCheckRollupSchema>;
 type ProviderStatusCheckRollup = z.infer<typeof statusCheckRollupSchema>;
 
-function normalizeStatusCheckRollup(
-  rollup: ProviderStatusCheckRollup,
-): RepositoryStatusCheckRollup {
-  if (rollup === null) {
-    return null;
-  }
+function buildVaultSidebarSummariesQuery(repositories: readonly SidebarRepositoryTarget[]): string {
+  const variableDefinitions = repositories
+    .flatMap((_, index) => [
+      `$owner${index}: String!`,
+      `$name${index}: String!`,
+      `$defaultBranchRef${index}: String!`,
+    ])
+    .join("\n");
+  const repositoryFields = repositories
+    .map(
+      (_, index) => `
+        repository${index}: repository(owner: $owner${index}, name: $name${index}) {
+          databaseId
+          defaultBranch: ref(qualifiedName: $defaultBranchRef${index}) {
+            name
+            target {
+              __typename
+              ... on Commit {
+                statusCheckRollup {
+                  state
+                  contexts(first: 1) {
+                    totalCount
+                    checkRunCount
+                    statusContextCount
+                    checkRunCountsByState { state count }
+                    statusContextCountsByState { state count }
+                  }
+                }
+              }
+            }
+          }
+          pullRequests(states: [OPEN]) {
+            totalCount
+          }
+        }
+      `,
+    )
+    .join("\n");
+
+  return `
+    query VaultSidebarSummaries(
+      ${variableDefinitions}
+    ) {
+      ${repositoryFields}
+    }
+  `;
+}
+
+function vaultSidebarSummariesVariables(
+  repositories: readonly SidebarRepositoryTarget[],
+): Record<string, string> {
+  const variables: Record<string, string> = {};
+  repositories.forEach((repository, index) => {
+    variables[`owner${index}`] = repository.owner;
+    variables[`name${index}`] = repository.name;
+    variables[`defaultBranchRef${index}`] = `refs/heads/${repository.defaultBranch}`;
+  });
+  return variables;
+}
+
+function normalizeStatusCheckCounts(
+  rollup: NonNullable<ProviderCompactStatusCheckRollup>,
+): NonNullable<RepositoryStatusCheckRollup> {
   const checkRunCount = rollup.contexts.checkRunCountsByState.reduce(
     (total, count) => total + count.count,
     0,
@@ -411,6 +515,26 @@ function normalizeStatusCheckRollup(
       statusContextCount: rollup.contexts.statusContextCount,
       checkRunCountsByState: rollup.contexts.checkRunCountsByState,
       statusContextCountsByState: rollup.contexts.statusContextCountsByState,
+      nodes: [],
+    },
+  };
+}
+
+function normalizeStatusCheckRollup(
+  rollup: ProviderStatusCheckRollup,
+): RepositoryStatusCheckRollup {
+  if (rollup === null) {
+    return null;
+  }
+  const counts = normalizeStatusCheckCounts(rollup);
+  return {
+    state: counts.state,
+    contexts: {
+      totalCount: counts.contexts.totalCount,
+      checkRunCount: counts.contexts.checkRunCount,
+      statusContextCount: counts.contexts.statusContextCount,
+      checkRunCountsByState: counts.contexts.checkRunCountsByState,
+      statusContextCountsByState: counts.contexts.statusContextCountsByState,
       nodes: rollup.contexts.nodes.map((context) => {
         if (context.__typename === "CheckRun") {
           return {
@@ -500,6 +624,69 @@ export function normalizeGitHubPullRequestPage(value: unknown): RepositoryPullRe
     },
   };
 }
+
+export function normalizeGitHubVaultSidebarSummaries(
+  value: unknown,
+  repositories: readonly SidebarRepositoryTarget[],
+): VaultSidebarSummary[] {
+  const parsed = providerSidebarResponseSchema.parse(value);
+  return repositories.map((repository, index) => {
+    const providerRepository = parsed[`repository${index}`];
+    if (
+      !providerRepository ||
+      String(providerRepository.databaseId) !== repository.ghRepoId ||
+      providerRepository.defaultBranch?.name !== repository.defaultBranch
+    ) {
+      return {
+        vaultId: repository.vaultId,
+        repository: null,
+      };
+    }
+    return {
+      vaultId: repository.vaultId,
+      repository: {
+        openPullRequestCount: providerRepository.pullRequests.totalCount,
+        statusCheckRollup:
+          providerRepository.defaultBranch.target.statusCheckRollup === null
+            ? null
+            : normalizeStatusCheckCounts(providerRepository.defaultBranch.target.statusCheckRollup),
+      },
+    };
+  });
+}
+
+export const listVaultSidebarSummaries = action({
+  access: "access_dashboard",
+  args: {},
+  returns: array(vVaultSidebarSummary),
+  handler: async (ctx): Promise<VaultSidebarSummary[]> => {
+    const [repositories, githubConnection] = await Promise.all([
+      ctx.runQuery(internal.vault.records.listConnectedRepositoriesForUser, {
+        userId: ctx.viewer.userId,
+      }),
+      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+        userId: ctx.viewer.userId,
+        kind: "github",
+      }),
+    ]);
+    if (githubConnection?.kind !== "github") {
+      throw new Error("GitHub connection unavailable.");
+    }
+    if (repositories.length === 0) {
+      return [];
+    }
+
+    const octokit = new Octokit({ auth: githubConnection.auth.credential });
+    const signal = createGitHubRequestDeadlineSignal();
+    return normalizeGitHubVaultSidebarSummaries(
+      await octokit.graphql(buildVaultSidebarSummariesQuery(repositories), {
+        ...vaultSidebarSummariesVariables(repositories),
+        request: { signal },
+      }),
+      repositories,
+    );
+  },
+});
 
 export const listOpenPullRequests = action({
   access: "access_dashboard",

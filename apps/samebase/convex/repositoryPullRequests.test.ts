@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { normalizeGitHubPullRequestPage } from "./repositoryPullRequests";
+import type { Id } from "./_generated/dataModel";
+import {
+  normalizeGitHubPullRequestPage,
+  normalizeGitHubVaultSidebarSummaries,
+} from "./repositoryPullRequests";
+
+function fakeVaultId(): Id<"vaults"> {
+  // @ts-expect-error Convex ids are strings at runtime; this provider boundary
+  // test only needs a stable vault identity.
+  return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+}
 
 function providerPage() {
   return {
@@ -249,5 +259,78 @@ describe("normalizeGitHubPullRequestPage", () => {
     expect(() => normalizeGitHubPullRequestPage(value)).toThrow(
       "GitHub returned incomplete pull request labels.",
     );
+  });
+});
+
+describe("normalizeGitHubVaultSidebarSummaries", () => {
+  const repository = {
+    vaultId: fakeVaultId(),
+    ghRepoId: "123",
+    owner: "samebase",
+    name: "samebase",
+    defaultBranch: "main",
+  };
+
+  it("keeps only main check counts and the open pull request total", () => {
+    expect(
+      normalizeGitHubVaultSidebarSummaries(
+        {
+          repository0: {
+            databaseId: 123,
+            defaultBranch: {
+              name: "main",
+              target: {
+                __typename: "Commit",
+                statusCheckRollup: {
+                  state: "SUCCESS",
+                  contexts: {
+                    totalCount: 2,
+                    checkRunCount: 1,
+                    statusContextCount: 1,
+                    checkRunCountsByState: [{ state: "SUCCESS", count: 1 }],
+                    statusContextCountsByState: [{ state: "SUCCESS", count: 1 }],
+                  },
+                },
+              },
+            },
+            pullRequests: { totalCount: 7 },
+          },
+        },
+        [repository],
+      ),
+    ).toEqual([
+      {
+        vaultId: repository.vaultId,
+        repository: {
+          openPullRequestCount: 7,
+          statusCheckRollup: {
+            state: "SUCCESS",
+            contexts: {
+              totalCount: 2,
+              checkRunCount: 1,
+              statusContextCount: 1,
+              checkRunCountsByState: [{ state: "SUCCESS", count: 1 }],
+              statusContextCountsByState: [{ state: "SUCCESS", count: 1 }],
+              nodes: [],
+            },
+          },
+        },
+      },
+    ]);
+  });
+
+  it("marks a repository unavailable when GitHub returns another identity", () => {
+    expect(
+      normalizeGitHubVaultSidebarSummaries(
+        {
+          repository0: {
+            databaseId: 456,
+            defaultBranch: null,
+            pullRequests: { totalCount: 0 },
+          },
+        },
+        [repository],
+      ),
+    ).toEqual([{ vaultId: repository.vaultId, repository: null }]);
   });
 });

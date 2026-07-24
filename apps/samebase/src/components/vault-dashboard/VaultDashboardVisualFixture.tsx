@@ -45,6 +45,7 @@ import type {
   VaultPullRequest,
   VaultPullRequestsState,
 } from "@/hooks/useVaultPullRequests";
+import type { VaultSidebarSummariesState } from "@/hooks/useVaultSidebarSummaries";
 import { validateRootRouteSearch } from "@/routeSearch/root";
 import type {
   VaultCloudflareProviderObservationState,
@@ -484,6 +485,15 @@ const FIXTURE_DEFAULT_BRANCH_CHECKS = {
   },
 } satisfies VaultDefaultBranchObservation;
 
+const FIXTURE_SIDEBAR_SUMMARIES = {
+  state: "loaded",
+  summaries: SIDEBAR_LIST_VAULTS.map((vault, index) => ({
+    vaultId: vault._id,
+    openPullRequestCount: index + 1,
+    checks: FIXTURE_DEFAULT_BRANCH_CHECKS.checks,
+  })),
+} satisfies VaultSidebarSummariesState;
+
 function fixturePullRequest({
   index,
   labels = [],
@@ -667,7 +677,12 @@ function VaultOverviewV2Fixture({
         <WorkspaceLayoutV2FixtureFrame
           dataTestId="vault-overview-v2-root"
           main={{
-            content: <VaultOverviewVaultPickerPane vaults={SIDEBAR_LIST_VAULTS} />,
+            content: (
+              <VaultOverviewVaultPickerPane
+                sidebarSummaries={FIXTURE_SIDEBAR_SUMMARIES}
+                vaults={SIDEBAR_LIST_VAULTS}
+              />
+            ),
           }}
           shortcutPaneSide="left"
         />
@@ -777,6 +792,7 @@ function VaultOverviewV2Fixture({
             <VaultOverviewSidebar
               page={page}
               selectedVaultId={LIST_SPACING_VAULT_ID}
+              sidebarSummaries={FIXTURE_SIDEBAR_SUMMARIES}
               vaults={SIDEBAR_LIST_VAULTS}
               workspace={workspace}
             />

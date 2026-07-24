@@ -28,6 +28,7 @@ import { linkStyle } from "../styles";
 import { clsx } from "clsx";
 import { useNow } from "@/hooks/useNow";
 import type { VaultPullRequestsState } from "@/hooks/useVaultPullRequests";
+import type { VaultSidebarSummariesState } from "@/hooks/useVaultSidebarSummaries";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { buildFileViewRouteSearch, buildFileViewSearchHref } from "@/routeSearch/fileView";
@@ -1935,8 +1936,10 @@ export function VaultDashboardVaultPickerPane({
 }
 
 export function VaultOverviewVaultPickerPane({
+  sidebarSummaries,
   vaults,
 }: {
+  sidebarSummaries: VaultSidebarSummariesState;
   vaults: readonly VaultDashboardVault[] | null;
 }) {
   return (
@@ -1952,6 +1955,7 @@ export function VaultOverviewVaultPickerPane({
         <VaultOverviewSidebar
           page="overview"
           selectedVaultId={null}
+          sidebarSummaries={sidebarSummaries}
           vaults={vaults}
           workspace={null}
         />
@@ -2333,6 +2337,7 @@ export function VaultDashboard({
   const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
   const { commands: workspaceCommands, model: workspaceModel } = useVaultWorkspaceModel(
     selectedRepositoryFullName,
+    presentation === "v2",
   );
   const vaults = workspaceModel.state === "ready" ? workspaceModel.vaults : undefined;
   const selectedWorkspace =
@@ -3333,7 +3338,7 @@ export function VaultDashboard({
       return null;
     }
     if (!selectedRepositoryFullName) {
-      return <VaultOverviewVaultPickerPane vaults={null} />;
+      return <VaultOverviewVaultPickerPane sidebarSummaries={{ state: "loading" }} vaults={null} />;
     }
     const loadingRepository = tryParseRepositoryFullName(selectedRepositoryFullName);
     if (!loadingRepository) {
@@ -3560,6 +3565,7 @@ export function VaultDashboard({
         <VaultOverviewSidebar
           page={page}
           selectedVaultId={selectedVault?._id ?? null}
+          sidebarSummaries={workspaceModel.sidebarSummaries}
           vaults={allVaults}
           workspace={selectedWorkspace}
         />
@@ -3573,7 +3579,10 @@ export function VaultDashboard({
   };
   const dashboardBody =
     presentation === "v2" && isVaultRootRoute ? (
-      <VaultOverviewVaultPickerPane vaults={allVaults} />
+      <VaultOverviewVaultPickerPane
+        sidebarSummaries={workspaceModel.sidebarSummaries}
+        vaults={allVaults}
+      />
     ) : selectedVaultMissing && selectedRepositoryFullName ? (
       <VaultDashboardPaneMessage>
         Vault not found: {selectedRepositoryFullName}

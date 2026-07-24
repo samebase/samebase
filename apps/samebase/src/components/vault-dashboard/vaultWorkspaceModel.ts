@@ -1,6 +1,7 @@
 import type { api } from "../../../convex/_generated/api";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
 import type { VaultPullRequestsState } from "@/hooks/useVaultPullRequests";
+import type { VaultSidebarSummariesState } from "@/hooks/useVaultSidebarSummaries";
 import type { VaultPullRequestFilters } from "./vaultDashboardPullRequestFilters";
 import type { VaultProductionRoot } from "./vaultProductionRoots";
 import type {
@@ -44,6 +45,7 @@ export type VaultWorkspaceModel =
     }
   | {
       state: "ready";
+      sidebarSummaries: VaultSidebarSummariesState;
       selection: VaultWorkspaceSelection;
       vaults: readonly UserVaultResult[];
     };

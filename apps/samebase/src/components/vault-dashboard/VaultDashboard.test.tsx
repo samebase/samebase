@@ -708,16 +708,33 @@ describe("VaultDashboardRepositoryCard", () => {
   });
 
   it("renders the new root vault picker in the main pane", () => {
+    const vault = makeResourceRailBuilderVault({
+      ghRepoName: "demo",
+      ghRepoOwner: "ada",
+      repositoryFullName: "ada/demo",
+    });
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane
-          vaults={[
-            makeResourceRailBuilderVault({
-              ghRepoName: "demo",
-              ghRepoOwner: "ada",
-              repositoryFullName: "ada/demo",
-            }),
-          ]}
+          sidebarSummaries={{
+            state: "loaded",
+            summaries: [
+              {
+                vaultId: vault._id,
+                openPullRequestCount: 3,
+                checks: {
+                  state: "success",
+                  totalCount: 1,
+                  successCount: 1,
+                  failureCount: 0,
+                  runningCount: 0,
+                  neutralCount: 0,
+                  unknownCount: 0,
+                },
+              },
+            ],
+          }}
+          vaults={[vault]}
         />
       </TestRouterProvider>,
     );
@@ -725,7 +742,8 @@ describe("VaultDashboardRepositoryCard", () => {
     expect(markup).toContain("Vaults");
     expect(markup).toContain("ada/");
     expect(markup).toContain("demo");
-    expect(markup).toContain("Status not loaded");
+    expect(markup).toContain("1/1 passed");
+    expect(markup).toContain("3 PRs");
     expect(markup).toContain('href="/vault/ada/demo"');
     expect(markup).not.toContain(
       "Select a vault from the left sidebar or add one from the right sidebar.",
@@ -735,12 +753,15 @@ describe("VaultDashboardRepositoryCard", () => {
   it("renders the new root vault picker loading and empty states", () => {
     const loadingMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
-        <VaultOverviewVaultPickerPane vaults={null} />
+        <VaultOverviewVaultPickerPane sidebarSummaries={{ state: "loading" }} vaults={null} />
       </TestRouterProvider>,
     );
     const emptyMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
-        <VaultOverviewVaultPickerPane vaults={[]} />
+        <VaultOverviewVaultPickerPane
+          sidebarSummaries={{ state: "loaded", summaries: [] }}
+          vaults={[]}
+        />
       </TestRouterProvider>,
     );
 
