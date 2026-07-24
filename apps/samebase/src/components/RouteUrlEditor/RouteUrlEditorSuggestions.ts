@@ -1,8 +1,10 @@
 import { readMatchingRouteSearchParamSuggestions } from "@/routing/address";
 import {
+  ROUTE_SEARCH_PARAM_SUGGESTION_GROUPS,
   canAccessRouteAccess,
   type RouteAccessViewer,
   type RouteSearchParamSuggestion,
+  type RouteSearchParamSuggestionGroup,
   type RouteSearchParamValueSuggestion,
 } from "@/routing/permissions";
 import {
@@ -41,9 +43,8 @@ for Tailwind shades.
 `nextSelectionRouteIndex` moves the cursor to the next editing slot after that commit. A row such
 as `?depth=2` can select `/logo?depth=2` while placing the cursor after `depth=` so value rows stay
 visible.
-*/
-export type Suggestion = {
-  kind: "hash" | "path" | "search" | "searchValuePrefix" | "searchValue";
+ */
+type SuggestionFields = {
   nextSelectionRouteIndex: number;
   previewRouteAddress: string;
   previewSelectionRouteIndex: number;
@@ -51,6 +52,17 @@ export type Suggestion = {
   selectedRouteAddress: string;
   value: string;
 };
+
+export type Suggestion =
+  | ({
+      kind: "search";
+      group: RouteSearchParamSuggestionGroup | null;
+    } & SuggestionFields)
+  | ({
+      kind: "hash" | "path" | "searchValuePrefix" | "searchValue";
+    } & SuggestionFields);
+
+type SearchSuggestion = Extract<Suggestion, { kind: "search" }>;
 
 export function readCurrentRouteUrlEditorSuggestionIndex(args: {
   prefix: string;
@@ -300,6 +312,21 @@ function readSearchParamSampleValue(
   }
 }
 
+function canRecommendSearchParam(
+  group: RouteSearchParamSuggestionGroup | undefined,
+  routePath: string,
+): boolean {
+  switch (group) {
+    case undefined:
+    case "theme":
+      return true;
+    case "logo":
+    case "logo-motion":
+    case "logo-view":
+      return routePath === "/logo" || routePath.startsWith("/logo/");
+  }
+}
+
 /**
 Turns route metadata into query-key dropdown rows.
 
@@ -313,8 +340,9 @@ function readSearchRows(args: {
   routeSearchParamSuggestions: readonly RouteSearchParamSuggestion[];
   searchKeyToken: RouteAddressSearchToken;
   viewer: RouteAccessViewer;
-}): Suggestion[] {
-  const suggestions: Suggestion[] = [];
+}): SearchSuggestion[] {
+  const suggestions: SearchSuggestion[] = [];
+  const routePath = parseRouteAddress(args.routeAddress).path;
   const existingKeys = readRouteAddressSearchKeysOutsideToken(
     args.routeAddress,
     args.searchKeyToken,
@@ -324,6 +352,10 @@ function readSearchRows(args: {
     args.routeSearchParamSuggestions,
     args.viewer,
   )) {
+    if (!canRecommendSearchParam(searchParamSuggestion.group, routePath)) {
+      continue;
+    }
+
     if (existingKeys.has(searchParamSuggestion.key)) {
       continue;
     }
@@ -367,6 +399,7 @@ function readSearchRows(args: {
 
     suggestions.push({
       kind: "search",
+      group: searchParamSuggestion.group ?? null,
       nextSelectionRouteIndex: shouldPromptForNextKey
         ? (finalSelectedRoute.selectionRouteIndex ?? selectedRoute.replacementTokenStart)
         : selectedRoute.replacementTokenStart + 1 + selectedTokenText.length,
@@ -378,7 +411,17 @@ function readSearchRows(args: {
     });
   }
 
-  return suggestions.sort((left, right) => left.value.localeCompare(right.value));
+  return suggestions.sort((left, right) => {
+    if (left.group === right.group) {
+      return left.value.localeCompare(right.value);
+    }
+
+    const leftGroupIndex =
+      left.group === null ? -1 : ROUTE_SEARCH_PARAM_SUGGESTION_GROUPS.indexOf(left.group);
+    const rightGroupIndex =
+      right.group === null ? -1 : ROUTE_SEARCH_PARAM_SUGGESTION_GROUPS.indexOf(right.group);
+    return leftGroupIndex - rightGroupIndex;
+  });
 }
 
 /**

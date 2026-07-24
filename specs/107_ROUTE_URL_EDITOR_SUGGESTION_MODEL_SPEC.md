@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase frontend/app shell
-- Last updated: 2026-06-18
+- Last updated: 2026-07-24
 - Depends on:
   - `apps/samebase/src/components/RouteUrlEditor/RouteUrlEditorNext.tsx`
   - `apps/samebase/src/components/RouteUrlEditor/useRouteEditorVm.ts`
@@ -45,6 +45,16 @@ grammar: whether selecting a rendered row commits a URL fragment or opens the ne
    color families move after `-`, and final concrete values move after the value.
 7. `?` and `&` are URL-editor grammar, not route-param metadata. The editor decides the correct
    delimiter from the active URL token and must keep follow-up params inside the query string.
+8. Query-param metadata can place key suggestions in a presentation group. Ungrouped functional
+   suggestions render first. Grouped suggestions then render under visible bold labels in this
+   order: `Theme`, `Logo`, `Logo motion`, and `Logo view`. Suggestions stay alphabetically ordered
+   within each group.
+9. Group labels are not selectable suggestions. Keyboard, pointer, and touch behavior keeps the flat
+   suggestion indexes, while the touch picker measures rendered option positions so group labels do
+   not change which suggestion is previewed or selected.
+10. Recommendation scope is independent from accepted keys. `Theme` suggestions are global. The
+    three logo groups are suggested only on logo routes, even though root search continues accepting
+    and retaining those keys when they are entered directly on another route.
 
 ## Implementation Notes
 
@@ -61,6 +71,10 @@ it from existing param shape:
 - `valueType: "completion"` has a sample value, explicit values, and a completion system.
 - color-token value completion can show family samples, and family selection keeps the cursor in the
   shade slot until the user picks a concrete shade.
+
+`group` is presentation metadata only. It does not change route acceptance, access, preview
+transitions, or selected URL values. The closed group vocabulary is `theme`, `logo`, `logo-motion`,
+and `logo-view`.
 
 The component should avoid treating rendered suggestion labels as patch instructions. Suggestion
 helpers should normalize displayed examples into explicit editor transitions so hover, keyboard,

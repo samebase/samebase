@@ -156,6 +156,9 @@ Current answers:
   `"touch"`. This keeps suggestions anchored to `draftRouteAddress` while the fixed slate scrolls
   over rows. Example: while editing `/logo?`, scrolling to `?top=sky-500` shows `/logo?top=sky-500`
   in the input, but the list still shows query-key rows until tap.
+- Visible suggestion-group labels never enter `previewRoute.suggestionIndex`. The touch picker
+  measures the rendered option positions around those labels and maps the selected option back to
+  the same flat suggestion index used by keyboard and pointer input.
 - Mobile row tap runs `selectedSuggestion`. It commits the row's selected route address into
   `draftRouteAddress` and moves `selection` into the next editing slot, such as after `?`, `&`, or
   `=`.

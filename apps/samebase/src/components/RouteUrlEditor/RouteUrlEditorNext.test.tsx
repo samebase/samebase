@@ -115,6 +115,56 @@ describe("RouteUrlEditorNext", () => {
     expect(display.value).toBe("/logo");
   });
 
+  it("renders scoped query suggestion groups without changing option indexes", () => {
+    const display = renderEditor(["/logo"]);
+
+    act(() => {
+      display.focus();
+    });
+
+    const suggestions = [...(rootElement?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])];
+    const groups = [...(rootElement?.querySelectorAll<HTMLElement>('[role="group"]') ?? [])];
+
+    expect(groups.map((group) => group.getAttribute("aria-label"))).toEqual([
+      "Theme",
+      "Logo",
+      "Logo motion",
+      "Logo view",
+    ]);
+    for (const group of groups) {
+      const label = group.querySelector<HTMLElement>('[aria-hidden="true"]');
+      expect(label?.classList.contains("font-bold")).toBe(true);
+      expect(label?.hasAttribute("data-route-url-editor-suggestion-index")).toBe(false);
+    }
+    expect(
+      suggestions.map((suggestion) =>
+        suggestion.getAttribute("data-route-url-editor-suggestion-index"),
+      ),
+    ).toEqual(suggestions.map((_, suggestionIndex) => `${suggestionIndex}`));
+    expect(
+      [...(groups[1]?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])].map((option) =>
+        option.textContent.trim(),
+      ),
+    ).toContain("?top=sky-500");
+  });
+
+  it("shows only the Theme group outside logo routes", () => {
+    const display = renderEditor(["/terms"]);
+
+    act(() => {
+      display.focus();
+    });
+
+    expect(
+      [...(rootElement?.querySelectorAll<HTMLElement>('[role="group"]') ?? [])].map((group) =>
+        group.getAttribute("aria-label"),
+      ),
+    ).toEqual(["Theme"]);
+    expect(readSuggestionValues()).not.toEqual(
+      expect.arrayContaining(["?top=sky-500", "?auto-rotate", "?rot=46"]),
+    );
+  });
+
   it("suggests page-owned hashes from the current document", async () => {
     const pageHashElement = document.createElement("section");
     pageHashElement.dataset.landingHeadingId = "pricing";

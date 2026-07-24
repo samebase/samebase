@@ -13,6 +13,11 @@ type RouteUrlEditorTouchScrollPickerMetrics = {
   topSpacerHeightPx: number;
 };
 
+type RouteUrlEditorTouchSuggestionScrollTarget = {
+  scrollTopPx: number;
+  suggestionIndex: number;
+};
+
 type RouteUrlEditorTouchScrollPickerCommon = {
   enabled: boolean;
   handleSuggestionsScroll: () => void;
@@ -70,6 +75,38 @@ function readTouchScrollPickerMetrics(
 }
 
 /**
+Measures selectable rows in scroll-content coordinates.
+
+Group labels are not suggestions, so rendered positions cannot be derived from flat suggestion
+indexes.
+*/
+function readTouchSuggestionScrollTargets(
+  scrollport: HTMLElement,
+  slateTopPx: number,
+): RouteUrlEditorTouchSuggestionScrollTarget[] {
+  const scrollportTopPx = scrollport.getBoundingClientRect().top + scrollport.clientTop;
+  const targets: RouteUrlEditorTouchSuggestionScrollTarget[] = [];
+
+  for (const option of scrollport.querySelectorAll<HTMLElement>(
+    "[data-route-url-editor-suggestion-index]",
+  )) {
+    const suggestionIndex = Number(option.dataset.routeUrlEditorSuggestionIndex);
+    if (!Number.isInteger(suggestionIndex) || suggestionIndex < 0) {
+      continue;
+    }
+
+    const optionContentTopPx =
+      option.getBoundingClientRect().top - scrollportTopPx + scrollport.scrollTop;
+    targets.push({
+      scrollTopPx: Math.max(0, optionContentTopPx - slateTopPx),
+      suggestionIndex,
+    });
+  }
+
+  return targets;
+}
+
+/**
 Owns the mobile scroll-picker mechanics for the suggestion list.
 
 Touch lists get spacer rows plus a fixed slate. Scrolling a row under that slate calls
@@ -116,9 +153,21 @@ export function useRouteUrlEditorTouchScrollPicker({
         return;
       }
 
-      const nextScrollTop =
-        suggestionIndex === null ? 0 : suggestionIndex * routeUrlEditorTouchSuggestionRowHeightPx;
-      if (suggestionsElement.scrollTop === nextScrollTop) {
+      let nextScrollTop = 0;
+      if (suggestionIndex !== null) {
+        const metrics = readTouchScrollPickerMetrics(suggestionsElement);
+        const target = readTouchSuggestionScrollTargets(
+          suggestionsElement,
+          metrics.slateTopPx,
+        ).find((candidate) => candidate.suggestionIndex === suggestionIndex);
+        if (!target) {
+          return;
+        }
+
+        nextScrollTop = target.scrollTopPx;
+      }
+
+      if (Math.abs(suggestionsElement.scrollTop - nextScrollTop) < 0.5) {
         return;
       }
 
@@ -231,15 +280,35 @@ export function useRouteUrlEditorTouchScrollPicker({
         return;
       }
 
-      const suggestionIndex = Math.min(
-        suggestions.length - 1,
-        Math.max(
-          0,
-          Math.round(suggestionsElement.scrollTop / routeUrlEditorTouchSuggestionRowHeightPx),
-        ),
+      const targets = readTouchSuggestionScrollTargets(
+        suggestionsElement,
+        touchScrollPickerMetrics.slateTopPx,
       );
-      const suggestion = suggestions[suggestionIndex];
-      previewTouchSuggestion(suggestion, suggestionIndex);
+      let nearestTarget: RouteUrlEditorTouchSuggestionScrollTarget | null = null;
+      let nearestDistancePx = Number.POSITIVE_INFINITY;
+
+      for (const target of targets) {
+        if (target.suggestionIndex >= suggestions.length) {
+          continue;
+        }
+
+        const distancePx = Math.abs(suggestionsElement.scrollTop - target.scrollTopPx);
+        if (distancePx > nearestDistancePx) {
+          continue;
+        }
+
+        nearestDistancePx = distancePx;
+        nearestTarget = target;
+      }
+
+      if (nearestTarget === null) {
+        return;
+      }
+
+      previewTouchSuggestion(
+        suggestions[nearestTarget.suggestionIndex],
+        nearestTarget.suggestionIndex,
+      );
     }, routeUrlEditorTouchScrollSettleDelayMs);
   }, [
     clearTouchScrollSettleTimeout,

@@ -214,19 +214,60 @@ describe("readSuggestions", () => {
     expect(values).not.toContain("/logo");
   });
 
+  it("orders functional and scoped query suggestion groups", () => {
+    const logoRows = readRows({
+      routeAddress: "/logo?",
+      routeTextBeforeCursor: "/logo?",
+    });
+    const termsRows = readRows({
+      routeAddress: "/terms?",
+      routeTextBeforeCursor: "/terms?",
+    });
+
+    expect(
+      logoRows.slice(0, 3).map((row) => [row.kind === "search" ? row.group : null, row.value]),
+    ).toEqual([
+      [null, "?dev"],
+      [null, "?prod-ui"],
+      [null, "?reset"],
+    ]);
+    expect(
+      logoRows.map((row) => (row.kind === "search" ? row.group : null)).filter(Boolean),
+    ).toEqual([
+      ...Array(6).fill("theme"),
+      ...Array(12).fill("logo"),
+      ...Array(6).fill("logo-motion"),
+      ...Array(5).fill("logo-view"),
+    ]);
+    expect(logoRows.map((row) => row.value)).toEqual(
+      expect.arrayContaining(["?dark", "?top=sky-500", "?auto-rotate", "?rot=46"]),
+    );
+
+    expect(
+      termsRows.map((row) => (row.kind === "search" ? row.group : null)).filter(Boolean),
+    ).toEqual(Array(6).fill("theme"));
+    expect(termsRows.map((row) => row.value)).toEqual(
+      expect.arrayContaining(["?dark", "?dev", "?primary=emerald-500"]),
+    );
+    expect(termsRows.map((row) => row.value)).not.toEqual(
+      expect.arrayContaining(["?top=sky-500", "?auto-rotate", "?rot=46"]),
+    );
+  });
+
   it("keeps the next query slot before an existing hash", () => {
     const rows = readRows({
-      routeAddress: "/logo?de#top",
-      routeTextBeforeCursor: "/logo?de",
+      routeAddress: "/logo?da#top",
+      routeTextBeforeCursor: "/logo?da",
     });
 
     expect(rows).toContainEqual({
       kind: "search",
-      nextSelectionRouteIndex: "/logo?dev&".length,
-      previewRouteAddress: "/logo?dev&#top",
+      group: "theme",
+      nextSelectionRouteIndex: "/logo?dark&".length,
+      previewRouteAddress: "/logo?dark&#top",
       previewSelectionRouteIndex: "/logo?".length,
-      selectedRouteAddress: "/logo?dev&#top",
-      value: "?dev",
+      selectedRouteAddress: "/logo?dark&#top",
+      value: "?dark",
     });
   });
 
@@ -248,6 +289,7 @@ describe("readSuggestions", () => {
 
     expect(rows).toContainEqual({
       kind: "search",
+      group: "theme",
       nextSelectionRouteIndex: "/logo?dark&border=".length,
       previewRouteAddress: "/logo?dark&border=stone-300&top=blue-200",
       previewSelectionRouteIndex: "/logo?dark&".length,
@@ -422,6 +464,7 @@ describe("readSuggestions", () => {
 
     expect(keyRows).toContainEqual({
       kind: "search",
+      group: "logo",
       nextSelectionRouteIndex: "/logo?top=".length,
       previewRouteAddress: "/logo?top=sky-500",
       previewSelectionRouteIndex: "/logo?".length,
@@ -431,11 +474,12 @@ describe("readSuggestions", () => {
     });
     expect(keyRows).toContainEqual({
       kind: "search",
-      nextSelectionRouteIndex: "/logo?dev&".length,
-      previewRouteAddress: "/logo?dev&",
+      group: "logo-motion",
+      nextSelectionRouteIndex: "/logo?auto-rotate&".length,
+      previewRouteAddress: "/logo?auto-rotate&",
       previewSelectionRouteIndex: "/logo?".length,
-      selectedRouteAddress: "/logo?dev&",
-      value: "?dev",
+      selectedRouteAddress: "/logo?auto-rotate&",
+      value: "?auto-rotate",
     });
   });
 
@@ -447,6 +491,7 @@ describe("readSuggestions", () => {
 
     expect(rows).toContainEqual({
       kind: "search",
+      group: "logo-view",
       nextSelectionRouteIndex: "/logo?zoom=".length,
       previewRouteAddress: "/logo?zoom=0.5",
       previewSelectionRouteIndex: "/logo?".length,
