@@ -31,6 +31,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/vault");
     expect(suggestions).toContain("/indexDB");
+    expect(suggestions).toContain("/logo/transition/menger");
     expect(suggestions).toContain("/logo/transition/transforms");
     expect(suggestions).toContain("/visual-fixture");
     expect(suggestions).toContain("/vault/$");
@@ -127,7 +128,7 @@ describe("filterRouteUrlPathSuggestions", () => {
         routesByPath,
         viewer: staffViewer,
       }),
-    ).toEqual(["/logo/transition", "/logo/transition/transforms"]);
+    ).toEqual(["/logo/transition", "/logo/transition/menger", "/logo/transition/transforms"]);
   });
 
   it("reads the path from the focused same-origin editor URL", () => {

@@ -178,6 +178,23 @@ vi.mock("@/components/logo/LogoTransitionTransformsLabPage", () => ({
   ),
 }));
 
+vi.mock("@/components/logo/LogoMengerDepthTransitionPage", () => ({
+  LogoMengerDepthTransitionPage: ({
+    routeSearch,
+  }: {
+    routeSearch: { elev?: number; primary?: string; rot?: number };
+  }) => (
+    <div
+      data-elevation={routeSearch.elev}
+      data-primary={routeSearch.primary}
+      data-rotation={routeSearch.rot}
+      data-testid="logo-menger-depth-transition-page"
+    >
+      Menger depth transition page
+    </div>
+  ),
+}));
+
 vi.mock("@/components/codex/CodexAppServerResearchPage", () => ({
   CodexAppServerResearchPage: () => (
     <div data-testid="codex-research-page">Codex research page</div>
@@ -755,6 +772,16 @@ describe("appRouter", () => {
     expect(
       rootElement?.querySelector('[data-testid="landing-preview-page"]')?.textContent,
     ).toContain("Landing preview page");
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("passes shared logo search state to the Menger transition research route", async () => {
+    await renderRoute("/logo/transition/menger?elev=0&primary=emerald-500&rot=0");
+
+    const page = rootElement?.querySelector('[data-testid="logo-menger-depth-transition-page"]');
+    expect(page?.getAttribute("data-elevation")).toBe("0");
+    expect(page?.getAttribute("data-primary")).toBe("emerald-500");
+    expect(page?.getAttribute("data-rotation")).toBe("0");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 

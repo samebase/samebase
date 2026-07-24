@@ -37,6 +37,7 @@ export const routes = rootRoute("root.tsx", [
   route("/logo/svg", "logo-svg.tsx"),
   route("/logo/single-cube", "logo-iso-study.tsx"),
   route("/logo/transition", "logo-transition-lab.tsx"),
+  route("/logo/transition/menger", "logo-menger-transition-research.tsx"),
   route("/logo/transition/transforms", "logo-transition-transforms-lab.tsx"),
   route("/privacy", "privacy.tsx"),
   route("/terms", "terms.tsx"),

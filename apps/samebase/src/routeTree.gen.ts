@@ -48,6 +48,7 @@ import { Route as codexThreadBrowserResearchRouteImport } from "./routes/codex-t
 import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
 import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
 import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-transition-transforms-lab";
+import { Route as logoMengerTransitionResearchRouteImport } from "./routes/logo-menger-transition-research";
 import { Route as codespaceChatRouteImport } from "./routes/codespace-chat";
 import { Route as vaultSchemaProjectRouteImport } from "./routes/vault-schema-project";
 import { Route as vaultDatabaseProjectRouteImport } from "./routes/vault-database-project";
@@ -249,6 +250,12 @@ const logoTransitionTransformsLabRoute =
     path: "/logo/transition/transforms",
     getParentRoute: () => rootRouteImport,
   } as any);
+const logoMengerTransitionResearchRoute =
+  logoMengerTransitionResearchRouteImport.update({
+    id: "/logo/transition/menger",
+    path: "/logo/transition/menger",
+    getParentRoute: () => rootRouteImport,
+  } as any);
 const codespaceChatRoute = codespaceChatRouteImport.update({
   id: "/vault/$owner/$repo/codespace/$branch/chat",
   path: "/vault/$owner/$repo/codespace/$branch/chat",
@@ -300,6 +307,7 @@ export interface FileRoutesByFullPath {
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
   "/vault/$": typeof vaultFileRoute;
+  "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
@@ -344,6 +352,7 @@ export interface FileRoutesByTo {
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
   "/vault/$": typeof vaultFileRoute;
+  "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
@@ -389,6 +398,7 @@ export interface FileRoutesById {
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
   "/vault/$": typeof vaultFileRoute;
+  "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
@@ -435,6 +445,7 @@ export interface FileRouteTypes {
     | "/pitch/print"
     | "/research/codex-app-server"
     | "/vault/$"
+    | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
@@ -479,6 +490,7 @@ export interface FileRouteTypes {
     | "/pitch/print"
     | "/research/codex-app-server"
     | "/vault/$"
+    | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
@@ -523,6 +535,7 @@ export interface FileRouteTypes {
     | "/pitch/print"
     | "/research/codex-app-server"
     | "/vault/$"
+    | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
@@ -568,6 +581,7 @@ export interface RootRouteChildren {
   pitchPrintRoute: typeof pitchPrintRoute;
   codexResearchRoute: typeof codexResearchRoute;
   vaultFileRoute: typeof vaultFileRoute;
+  logoMengerTransitionResearchRoute: typeof logoMengerTransitionResearchRoute;
   logoTransitionTransformsLabRoute: typeof logoTransitionTransformsLabRoute;
   mcpConsentRoute: typeof mcpConsentRoute;
   pitchPrintMobileRoute: typeof pitchPrintMobileRoute;
@@ -853,6 +867,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof logoTransitionTransformsLabRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/logo/transition/menger": {
+      id: "/logo/transition/menger";
+      path: "/logo/transition/menger";
+      fullPath: "/logo/transition/menger";
+      preLoaderRoute: typeof logoMengerTransitionResearchRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/vault/$owner/$repo/codespace/$branch/chat": {
       id: "/vault/$owner/$repo/codespace/$branch/chat";
       path: "/vault/$owner/$repo/codespace/$branch/chat";
@@ -912,6 +933,7 @@ const rootRouteChildren: RootRouteChildren = {
   pitchPrintRoute: pitchPrintRoute,
   codexResearchRoute: codexResearchRoute,
   vaultFileRoute: vaultFileRoute,
+  logoMengerTransitionResearchRoute: logoMengerTransitionResearchRoute,
   logoTransitionTransformsLabRoute: logoTransitionTransformsLabRoute,
   mcpConsentRoute: mcpConsentRoute,
   pitchPrintMobileRoute: pitchPrintMobileRoute,

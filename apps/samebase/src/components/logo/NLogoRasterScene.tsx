@@ -19,10 +19,6 @@ import {
 import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
 import { getShuffleOriginCandidates } from "@/components/logo/logoShuffleRules";
 import {
-  DRAG_ELEVATION_DEGREES_PER_PIXEL,
-  DRAG_ROTATION_DEGREES_PER_PIXEL,
-} from "@/components/logo/logoViewDragConstants";
-import {
   DEFAULT_LOGO_GRID_SIZE,
   createDefaultFilledVoxelSet,
   type LogoGridSize,
@@ -31,11 +27,11 @@ import {
   voxelKey,
   type VoxelCoordinate,
 } from "@/components/logo/logoVoxelState";
-import { resolveLogoViewState, type LogoViewDragConfig } from "@/components/logo/logoViewDrag";
-import { useCallback, useEffect, useRef, type MouseEvent, type PointerEvent } from "react";
+import { type LogoViewDragConfig } from "@/components/logo/logoViewDrag";
+import { useLogoViewDrag } from "@/components/logo/useLogoViewDrag";
+import { useCallback, useEffect, useRef } from "react";
 import { type LogoShuffleAnimationConfig } from "@/components/logo/NLogoScene";
 
-const DRAG_THRESHOLD_PX = 4;
 const RASTER_BACKING_MIN_SIZE = 256;
 const RASTER_BACKING_MAX_SIZE = 1536;
 // Exact offscreen levels keep recursive tiles from sampling transparent
@@ -136,16 +132,6 @@ type RasterMotionState = {
   currentFilledVoxels: Set<string>;
   homeFilledVoxels: Set<string>;
   lastMovedKey: string | null;
-};
-
-type RasterInteraction = {
-  button: 0 | null;
-  pointerId: number | null;
-  startElevationDegrees: number;
-  startRotationDegrees: number;
-  startX: number;
-  startY: number;
-  status: "idle" | "pending" | "dragging";
 };
 
 type NLogoRasterSceneProps = {
@@ -1627,14 +1613,19 @@ export function NLogoRasterScene({
 }: NLogoRasterSceneProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const motionRef = useRef(createRasterMotionState(voxelState, baseGridSize));
-  const interactionRef = useRef<RasterInteraction>({
-    button: null,
-    pointerId: null,
-    startElevationDegrees: elevationDegrees,
-    startRotationDegrees: rotationDegrees,
-    startX: 0,
-    startY: 0,
-    status: "idle",
+  const {
+    handleContextMenu,
+    handlePointerCancel,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+  } = useLogoViewDrag<HTMLCanvasElement>({
+    elevationDegrees,
+    onInteractionEnd,
+    onInteractionStart,
+    onViewChange,
+    rotationDegrees,
+    viewDragConfig,
   });
 
   const renderScene = useCallback(() => {
@@ -1725,96 +1716,6 @@ export function NLogoRasterScene({
     shuffleAnimation.enabled,
     shuffleAnimation.parallelMoves,
   ]);
-
-  const resetInteraction = (target: HTMLCanvasElement, pointerId: number) => {
-    const wasDragging = interactionRef.current.status === "dragging";
-    if (target.hasPointerCapture(pointerId)) {
-      target.releasePointerCapture(pointerId);
-    }
-    if (wasDragging) {
-      onInteractionEnd?.();
-    }
-
-    interactionRef.current = {
-      button: null,
-      pointerId: null,
-      startElevationDegrees: elevationDegrees,
-      startRotationDegrees: rotationDegrees,
-      startX: 0,
-      startY: 0,
-      status: "idle",
-    };
-  };
-
-  const handlePointerDown = (event: PointerEvent<HTMLCanvasElement>) => {
-    if (event.button !== 0) {
-      return;
-    }
-
-    event.currentTarget.setPointerCapture(event.pointerId);
-    interactionRef.current = {
-      button: event.button,
-      pointerId: event.pointerId,
-      startElevationDegrees: elevationDegrees,
-      startRotationDegrees: rotationDegrees,
-      startX: event.clientX,
-      startY: event.clientY,
-      status: "pending",
-    };
-  };
-
-  const handlePointerMove = (event: PointerEvent<HTMLCanvasElement>) => {
-    const interaction = interactionRef.current;
-    if (interaction.pointerId !== event.pointerId || interaction.button !== 0) {
-      return;
-    }
-
-    const deltaX = event.clientX - interaction.startX;
-    const deltaY = event.clientY - interaction.startY;
-
-    if (interaction.status === "pending" && Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD_PX) {
-      interactionRef.current.status = "dragging";
-      onInteractionStart?.();
-    }
-
-    if (interactionRef.current.status !== "dragging") {
-      return;
-    }
-
-    onViewChange(
-      resolveLogoViewState({
-        config: viewDragConfig,
-        disableSnap: event.altKey || event.shiftKey,
-        view: {
-          elevationDegrees:
-            interaction.startElevationDegrees + deltaY * DRAG_ELEVATION_DEGREES_PER_PIXEL,
-          rotationDegrees:
-            interaction.startRotationDegrees + deltaX * DRAG_ROTATION_DEGREES_PER_PIXEL,
-        },
-      }),
-    );
-  };
-
-  const handlePointerUp = (event: PointerEvent<HTMLCanvasElement>) => {
-    const interaction = interactionRef.current;
-    if (interaction.pointerId !== event.pointerId || interaction.button === null) {
-      return;
-    }
-
-    resetInteraction(event.currentTarget, event.pointerId);
-  };
-
-  const handlePointerCancel = (event: PointerEvent<HTMLCanvasElement>) => {
-    if (interactionRef.current.pointerId !== event.pointerId) {
-      return;
-    }
-
-    resetInteraction(event.currentTarget, event.pointerId);
-  };
-
-  const handleContextMenu = (event: MouseEvent<HTMLCanvasElement>) => {
-    event.preventDefault();
-  };
 
   return (
     <canvas

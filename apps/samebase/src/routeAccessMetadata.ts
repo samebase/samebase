@@ -59,6 +59,7 @@ const routeAccessMetadataByPath = {
     access: "access_admin",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
+  "/logo/transition/menger": { access: "access_admin" },
   "/logo/transition/transforms": {
     access: "access_admin",
     appWorkspaceRouteChrome: { leftPane: "none" },

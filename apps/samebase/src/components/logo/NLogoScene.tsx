@@ -31,10 +31,6 @@ import {
   type LogoPresentationTiltTarget,
 } from "@/components/logo/logoPresentationTilt";
 import {
-  DRAG_ELEVATION_DEGREES_PER_PIXEL,
-  DRAG_ROTATION_DEGREES_PER_PIXEL,
-} from "@/components/logo/logoViewDragConstants";
-import {
   DEFAULT_LOGO_FRACTAL_DEPTH,
   DEFAULT_LOGO_GRID_SIZE,
   createDefaultFilledVoxelSet,
@@ -49,21 +45,11 @@ import {
   type VoxelEdit,
   voxelKey,
 } from "@/components/logo/logoVoxelState";
-import {
-  resolveLogoViewState,
-  type LogoViewDragConfig,
-  type LogoViewState,
-} from "@/components/logo/logoViewDrag";
-import {
-  useEffect,
-  useRef,
-  type MouseEvent,
-  type MutableRefObject,
-  type PointerEvent,
-} from "react";
+import { type LogoViewDragConfig, type LogoViewState } from "@/components/logo/logoViewDrag";
+import { useLogoViewDrag } from "@/components/logo/useLogoViewDrag";
+import { useEffect, useRef, type MutableRefObject } from "react";
 import * as THREE from "three";
 
-const DRAG_THRESHOLD_PX = 4;
 const RAYCAST_OFFSET = 0.001;
 const CAMERA_FRUSTUM_PADDING = 1.12;
 const SHUFFLE_MOVE_DURATION_MS = 1800;
@@ -247,16 +233,6 @@ type LogoGeometryRenderState = {
   cameraFitRadius: number;
   meshes: LogoSceneMesh[];
   recursiveTileState: RecursiveTileSceneState | null;
-};
-
-type SceneInteraction = {
-  button: 0 | null;
-  currentView: LogoViewState;
-  pointerId: number | null;
-  startView: LogoViewState;
-  startX: number;
-  startY: number;
-  status: "idle" | "pending" | "dragging";
 };
 
 type ActiveCubeMove = {
@@ -2157,14 +2133,34 @@ export function NLogoScene({
   const renderSceneRef = useRef<(timestampMs: number) => void>(() => {});
   const syncAnimationLoopRef = useRef<() => void>(() => {});
   const lastMovedCubeKeyRef = useRef<string | null>(null);
-  const interactionRef = useRef<SceneInteraction>({
-    button: null,
-    currentView: { elevationDegrees, rotationDegrees },
-    pointerId: null,
-    startView: { elevationDegrees, rotationDegrees },
-    startX: 0,
-    startY: 0,
-    status: "idle",
+  const {
+    handleContextMenu,
+    handlePointerCancel,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    interactionRef,
+  } = useLogoViewDrag<HTMLDivElement>({
+    elevationDegrees,
+    onInteractionEnd,
+    onInteractionStart,
+    onPointerCaptureEnd: () => {
+      renderSceneRef.current(performance.now());
+      syncAnimationLoopRef.current();
+    },
+    onPointerCaptureStart: () => {
+      renderSceneRef.current(performance.now());
+      syncAnimationLoopRef.current();
+    },
+    onPress: (event) => {
+      const edit = pickVoxelEdit(event.clientX, event.clientY, editModeRef.current);
+      if (edit) {
+        onVoxelEdit(edit);
+      }
+    },
+    onViewChange,
+    rotationDegrees,
+    viewDragConfig,
   });
 
   useEffect(() => {
@@ -2648,7 +2644,7 @@ export function NLogoScene({
       renderer.dispose();
       container.replaceChildren();
     };
-  }, []);
+  }, [interactionRef]);
 
   useEffect(() => {
     baseGridSizeRef.current = baseGridSize;
@@ -2823,111 +2819,6 @@ export function NLogoScene({
     }
 
     return { coordinate, kind };
-  };
-
-  const resetInteraction = (target: HTMLDivElement, pointerId: number) => {
-    const interaction = interactionRef.current;
-    const wasDragging = interaction.status === "dragging";
-    const finalView = interaction.currentView;
-    if (target.hasPointerCapture(pointerId)) {
-      target.releasePointerCapture(pointerId);
-    }
-
-    interactionRef.current = {
-      button: null,
-      currentView: finalView,
-      pointerId: null,
-      startView: finalView,
-      startX: 0,
-      startY: 0,
-      status: "idle",
-    };
-    if (wasDragging) {
-      onInteractionEnd?.(finalView);
-    }
-    renderSceneRef.current(performance.now());
-    syncAnimationLoopRef.current();
-  };
-
-  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) {
-      return;
-    }
-
-    event.currentTarget.setPointerCapture(event.pointerId);
-    const currentView = { elevationDegrees, rotationDegrees };
-    interactionRef.current = {
-      button: event.button,
-      currentView,
-      pointerId: event.pointerId,
-      startView: currentView,
-      startX: event.clientX,
-      startY: event.clientY,
-      status: "pending",
-    };
-    renderSceneRef.current(performance.now());
-    syncAnimationLoopRef.current();
-  };
-
-  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    const interaction = interactionRef.current;
-    if (interaction.pointerId !== event.pointerId || interaction.button !== 0) {
-      return;
-    }
-
-    const deltaX = event.clientX - interaction.startX;
-    const deltaY = event.clientY - interaction.startY;
-
-    if (interaction.status === "pending" && Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD_PX) {
-      interaction.status = "dragging";
-      onInteractionStart?.();
-    }
-
-    if (interaction.status !== "dragging") {
-      return;
-    }
-
-    const disableSnap = event.altKey || event.shiftKey;
-    const nextView = resolveLogoViewState({
-      config: viewDragConfig,
-      disableSnap,
-      view: {
-        elevationDegrees:
-          interaction.startView.elevationDegrees + deltaY * DRAG_ELEVATION_DEGREES_PER_PIXEL,
-        rotationDegrees:
-          interaction.startView.rotationDegrees + deltaX * DRAG_ROTATION_DEGREES_PER_PIXEL,
-      },
-    });
-    interaction.currentView = nextView;
-    onViewChange(nextView);
-  };
-
-  const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
-    const interaction = interactionRef.current;
-    if (interaction.pointerId !== event.pointerId || interaction.button === null) {
-      return;
-    }
-
-    if (interaction.status !== "dragging") {
-      const edit = pickVoxelEdit(event.clientX, event.clientY, editModeRef.current);
-      if (edit) {
-        onVoxelEdit(edit);
-      }
-    }
-
-    resetInteraction(event.currentTarget, event.pointerId);
-  };
-
-  const handlePointerCancel = (event: PointerEvent<HTMLDivElement>) => {
-    if (interactionRef.current.pointerId !== event.pointerId) {
-      return;
-    }
-
-    resetInteraction(event.currentTarget, event.pointerId);
-  };
-
-  const handleContextMenu = (event: MouseEvent<HTMLDivElement>) => {
-    event.preventDefault();
   };
 
   return (
