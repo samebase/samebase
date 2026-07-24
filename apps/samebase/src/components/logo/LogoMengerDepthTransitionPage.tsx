@@ -4,18 +4,19 @@ import {
   MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT,
   MENGER_DEPTH_TRANSITION_MAX_STAGGER_GROUP_COUNT,
   MENGER_DEPTH_TRANSITION_MODEL,
-  MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS,
   createMengerDepthTransitionModel,
+  readMengerDepthTransitionMoveProgress,
+  readMengerDepthTransitionStage,
   type MengerDepthTransitionModel,
   type MengerDepthTransitionStage,
-} from "@/components/logo/logoMengerDepthTransition";
+} from "@samebase/logo-model/menger-depth-transition";
 import { readLogoRouteRenderState } from "@/components/logo/logoRouteRenderState";
 import {
   getWorldCameraVector,
   getWorldScreenVerticalAxis,
   toRenderedRotationDegrees,
-} from "@/components/logo/logoRotationMath";
-import { type VoxelCoordinate } from "@/components/logo/logoVoxelState";
+} from "@samebase/logo-model/rotation";
+import { type VoxelCoordinate } from "@samebase/logo-model/voxel";
 import { getTailwindColorHex, type FaceColors } from "@/components/logo/logoTailwindColors";
 import { resolveLogoSceneCameraDepthBounds } from "@/components/logo/logoSceneCameraDepth";
 import { type LogoViewState } from "@/components/logo/logoViewDrag";
@@ -45,14 +46,6 @@ const RENDER_PIXEL_RATIO_MAX = 2;
 const TRANSITION_PROGRESS_STEPS = 1_000;
 
 type TransitionPhase = "depth-1" | "depth-2" | "depth-3" | "transition";
-
-function easeInOutCubic(value: number): number {
-  if (value < 0.5) {
-    return 4 * value * value * value;
-  }
-
-  return 1 - Math.pow(-2 * value + 2, 3) / 2;
-}
 
 function toWorldCoordinate(
   coordinate: VoxelCoordinate,
@@ -226,27 +219,21 @@ function MengerDepthTransitionScene({
       elapsedMs: number,
     ) => {
       stage.moves.forEach((move, index) => {
-        const moveProgress = THREE.MathUtils.clamp(
-          (elapsedMs - move.startTimeMs) / MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS,
-          0,
-          1,
-        );
-
-        if (moveProgress >= 1) {
+        const moveProgress = readMengerDepthTransitionMoveProgress(move, elapsedMs);
+        if (moveProgress === null) {
           matrix.makeScale(0, 0, 0);
           movingMesh.setMatrixAt(index, matrix);
           return;
         }
 
-        const easedProgress = easeInOutCubic(moveProgress);
         const [startX, startY, startZ] = toWorldCoordinate(move.from, stage.gridSize);
         const [endX, endY, endZ] = toWorldCoordinate(move.to, stage.gridSize);
         const voxelSize = MENGER_DEPTH_TRANSITION_WORLD_SIZE / stage.gridSize;
         matrix.makeScale(voxelSize, voxelSize, voxelSize);
         matrix.setPosition(
-          startX + (endX - startX) * easedProgress,
-          startY + (endY - startY) * easedProgress,
-          startZ + (endZ - startZ) * easedProgress,
+          startX + (endX - startX) * moveProgress,
+          startY + (endY - startY) * moveProgress,
+          startZ + (endZ - startZ) * moveProgress,
         );
         movingMesh.setMatrixAt(index, matrix);
       });
@@ -257,13 +244,12 @@ function MengerDepthTransitionScene({
     const renderProgress = (nextProgress: number) => {
       const currentModel = modelRef.current;
       const elapsedMs = THREE.MathUtils.clamp(nextProgress, 0, 1) * currentModel.totalDurationMs;
-      const hasSplitToDepthTwo = elapsedMs > currentModel.depthTwo.splitTimeMs;
-      const hasSplitToDepthThree = elapsedMs > currentModel.depthThree.splitTimeMs;
-      depthOneMesh.visible = !hasSplitToDepthTwo;
-      depthTwoSettledMesh.visible = hasSplitToDepthTwo && !hasSplitToDepthThree;
-      depthTwoMovingMesh.visible = hasSplitToDepthTwo && !hasSplitToDepthThree;
-      depthThreeSettledMesh.visible = hasSplitToDepthThree;
-      depthThreeMovingMesh.visible = hasSplitToDepthThree;
+      const stage = readMengerDepthTransitionStage(currentModel, elapsedMs);
+      depthOneMesh.visible = stage === null;
+      depthTwoSettledMesh.visible = stage?.depth === 2;
+      depthTwoMovingMesh.visible = stage?.depth === 2;
+      depthThreeSettledMesh.visible = stage?.depth === 3;
+      depthThreeMovingMesh.visible = stage?.depth === 3;
 
       renderStageMoves(currentModel.depthTwo, depthTwoMovingMesh, elapsedMs);
       renderStageMoves(currentModel.depthThree, depthThreeMovingMesh, elapsedMs);

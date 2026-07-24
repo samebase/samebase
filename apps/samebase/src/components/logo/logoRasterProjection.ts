@@ -10,7 +10,7 @@ import {
   toRenderedRotationDegrees,
   type LogoRotationAxisMode,
   type Vector3,
-} from "@/components/logo/logoRotationMath";
+} from "@samebase/logo-model/rotation";
 
 export const LOGO_RASTER_RECURSIVE_FRUSTUM_PADDING = 1;
 const LOGO_RASTER_BOUNDING_CUBE_DIAMETER = Math.sqrt(3);

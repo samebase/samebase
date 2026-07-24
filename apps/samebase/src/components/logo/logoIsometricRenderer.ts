@@ -10,7 +10,7 @@ import {
   parseVoxelKey,
   type VoxelCoordinate,
   voxelKey,
-} from "@/components/logo/logoVoxelState";
+} from "@samebase/logo-model/voxel";
 import { getTailwindColorHex, type FaceColors } from "@/components/logo/logoTailwindColors";
 import { includes } from "@samebase/dependent";
 import {

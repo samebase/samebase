@@ -1,7 +1,7 @@
 import { NLogoScene } from "@/components/logo/NLogoScene";
 import { NLogoRasterScene } from "@/components/logo/NLogoRasterScene";
-import { advanceLogoAutoRotation } from "@/components/logo/logoAutoRotation";
-import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
+import { advanceLogoAutoRotation } from "@samebase/logo-model/auto-rotation";
+import { type LogoRotationAxisMode } from "@samebase/logo-model/rotation";
 import {
   readLogoRouteRenderState,
   type LogoRouteRenderMode,
@@ -54,7 +54,7 @@ import {
   type LogoLeftFaceStyleKind,
   type LogoLeftFaceStripeBasis,
   type LogoStripedLeftFaceStyle,
-} from "@/components/logo/logoLeftFaceStyle";
+} from "@samebase/logo-model/left-face-style";
 import {
   clampLogoFractalDepthForRenderer,
   getLogoRendererFractalDepthHardMax,
@@ -110,7 +110,7 @@ import {
   normalizeLogoGridSize,
   normalizeRotationDegrees,
   type VoxelEdit,
-} from "@/components/logo/logoVoxelState";
+} from "@samebase/logo-model/voxel";
 import { resolveLogoViewState, type LogoViewState } from "@/components/logo/logoViewDrag";
 import {
   buildLogoThemeColorSearch,

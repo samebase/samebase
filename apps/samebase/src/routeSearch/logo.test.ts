@@ -14,7 +14,7 @@ import { DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES } from "@/components/logo/logoShuff
 import {
   DEFAULT_LOGO_LEFT_FACE_STYLE,
   LOGO_LEFT_FACE_STRIPE,
-} from "@/components/logo/logoLeftFaceStyle";
+} from "@samebase/logo-model/left-face-style";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_LOGO_FRACTAL_DEPTH,
@@ -27,7 +27,7 @@ import {
   LOGO_GRID_SIZE_5,
   MAX_LOGO_GRID_SIZE,
   createDefaultVoxelState,
-} from "@/components/logo/logoVoxelState";
+} from "@samebase/logo-model/voxel";
 import {
   buildLogoIsoRouteSearch,
   buildLogoRouteSearch,

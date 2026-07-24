@@ -38,10 +38,7 @@ import {
   type RasterSeamLabMergeMode,
   type RasterSeamLabResult,
 } from "@/components/logo/logoRasterSeamLabModel";
-import {
-  normalizeElevationDegrees,
-  normalizeRotationDegrees,
-} from "@/components/logo/logoVoxelState";
+import { normalizeElevationDegrees, normalizeRotationDegrees } from "@samebase/logo-model/voxel";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";

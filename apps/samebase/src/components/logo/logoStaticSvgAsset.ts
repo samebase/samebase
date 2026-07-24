@@ -1,22 +1,24 @@
 import {
   STATIC_LOGO_BACKGROUND_COLOR,
-  STATIC_LOGO_ELEVATION_DEGREES,
   LOGO_IDENTITY_VIEW_CONTRACTS,
+} from "./logoStaticSvgContract";
+import {
+  STATIC_LOGO_ELEVATION_DEGREES,
   STATIC_LOGO_GRID_SIZE,
   STATIC_LOGO_ROTATION_DEGREES,
   STATIC_LOGO_VOXEL_COORDINATES,
   type LogoIdentityViewId,
-} from "./logoStaticSvgContract";
+} from "@samebase/logo-model/identity";
 import {
   DEFAULT_LOGO_FACE_TREATMENT,
   LOGO_FACE_TREATMENTS,
   getLogoLeftFaceStyleForTreatment,
   type LogoFaceTreatment,
-} from "./logoFaceTreatment";
-import { type LogoLeftFaceStyle } from "./logoLeftFaceStyle";
+} from "@samebase/logo-model/face-treatment";
+import { type LogoLeftFaceStyle } from "@samebase/logo-model/left-face-style";
 import { DEFAULT_FACE_COLORS, type FaceColors } from "./logoTailwindColors";
 import { createLogoThreeSvgMarkup } from "./logoThreeSvgRenderer";
-import { createFilledVoxelSet } from "./logoVoxelState";
+import { createFilledVoxelSet } from "@samebase/logo-model/voxel";
 
 type StaticLogoSvgOptions = {
   depth?: number;

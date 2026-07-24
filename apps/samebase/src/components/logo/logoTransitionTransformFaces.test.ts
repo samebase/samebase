@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   STATIC_LOGO_ELEVATION_DEGREES,
   STATIC_LOGO_ROTATION_DEGREES,
-} from "@/components/logo/logoStaticSvgContract";
+} from "@samebase/logo-model/identity";
 import {
   TRANSFORM_LAB_VIEW_BOX,
   createTransformLabScene,

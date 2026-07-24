@@ -1,6 +1,6 @@
-import { normalizeRotationDegrees } from "@/components/logo/logoVoxelState";
+import { normalizeRotationDegrees } from "./voxel.ts";
 
-const LOGO_AUTO_ROTATE_DEGREES_PER_SECOND = 12;
+export const LOGO_AUTO_ROTATE_DEGREES_PER_SECOND = 12;
 
 export function advanceLogoAutoRotation(
   rotationDegrees: number,

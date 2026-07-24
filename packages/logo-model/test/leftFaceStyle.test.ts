@@ -4,7 +4,7 @@ import {
   LOGO_LEFT_FACE_STRIPE,
   getLogoLeftFaceStripeBasisScale,
   normalizeLogoLeftFaceStyle,
-} from "@/components/logo/logoLeftFaceStyle";
+} from "../src/leftFaceStyle";
 
 describe("logoLeftFaceStyle", () => {
   it("defines the canonical single-color stripe treatment", () => {

@@ -1,5 +1,5 @@
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
-import { advanceLogoAutoRotation } from "@/components/logo/logoAutoRotation";
+import { advanceLogoAutoRotation } from "@samebase/logo-model/auto-rotation";
 import {
   createLogoRouteVoxelGrid,
   readLogoRouteRenderState,
@@ -8,13 +8,13 @@ import {
 import {
   STATIC_LOGO_ELEVATION_DEGREES,
   STATIC_LOGO_ROTATION_DEGREES,
-} from "@/components/logo/logoStaticSvgContract";
+} from "@samebase/logo-model/identity";
 import {
   getPointerLogoPresentationTiltTarget,
   NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
   type LogoPresentationTiltTarget,
 } from "@/components/logo/logoPresentationTilt";
-import { DEFAULT_LOGO_FRACTAL_DEPTH } from "@/components/logo/logoVoxelState";
+import { DEFAULT_LOGO_FRACTAL_DEPTH } from "@samebase/logo-model/voxel";
 import {
   PUBLIC_LANDING_LOGO_ALT,
   PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME_BY_STAGE,

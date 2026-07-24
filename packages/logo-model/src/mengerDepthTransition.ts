@@ -3,7 +3,7 @@ import {
   parseVoxelKey,
   parseVoxelState,
   type VoxelCoordinate,
-} from "@/components/logo/logoVoxelState";
+} from "./voxel.ts";
 
 export const MENGER_DEPTH_TRANSITION_SPLIT_HOLD_MS = 240;
 export const MENGER_DEPTH_TRANSITION_DEPTH_HOLD_MS = 700;
@@ -41,6 +41,47 @@ export type MengerDepthTransitionModel = {
   depthTwo: MengerDepthTransitionStage;
   totalDurationMs: number;
 };
+
+export function easeMengerDepthTransitionProgress(value: number): number {
+  const progress = Number.isFinite(value) ? Math.min(Math.max(value, 0), 1) : 0;
+  if (progress < 0.5) {
+    return 4 * progress * progress * progress;
+  }
+
+  return 1 - Math.pow(-2 * progress + 2, 3) / 2;
+}
+
+export function readMengerDepthTransitionStage(
+  model: MengerDepthTransitionModel,
+  elapsedMs: number,
+): MengerDepthTransitionStage | null {
+  if (elapsedMs > model.depthThree.splitTimeMs) {
+    return model.depthThree;
+  }
+  if (elapsedMs > model.depthTwo.splitTimeMs) {
+    return model.depthTwo;
+  }
+
+  return null;
+}
+
+export function readMengerDepthTransitionMoveProgress(
+  move: MengerDepthTransitionMove,
+  elapsedMs: number,
+): number | null {
+  if (elapsedMs === Number.POSITIVE_INFINITY) {
+    return null;
+  }
+
+  const progress =
+    (Number.isFinite(elapsedMs) ? elapsedMs - move.startTimeMs : 0) /
+    MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS;
+  if (progress >= 1) {
+    return null;
+  }
+
+  return easeMengerDepthTransitionProgress(progress);
+}
 
 function compareVoxelCoordinates(left: VoxelCoordinate, right: VoxelCoordinate): number {
   return left[0] - right[0] || left[1] - right[1] || left[2] - right[2];
@@ -117,11 +158,26 @@ function readFaceColumnChannel(
   const holeAxis = child.findIndex((axis) => axis !== 1);
   // Ignore depth along the hole axis so an entire face-on ray shares one
   // movement pattern and one start time.
-  const faceCoordinates = parent.filter((_, axisIndex) => axisIndex !== holeAxis);
+  let faceCoordinateA: number;
+  let faceCoordinateB: number;
+  switch (holeAxis) {
+    case 0:
+      faceCoordinateA = parent[1];
+      faceCoordinateB = parent[2];
+      break;
+    case 1:
+      faceCoordinateA = parent[0];
+      faceCoordinateB = parent[2];
+      break;
+    case 2:
+      faceCoordinateA = parent[0];
+      faceCoordinateB = parent[1];
+      break;
+    default:
+      throw new Error("Every absorbed Menger child must identify a hole axis.");
+  }
 
-  return (
-    holeAxis * faceGridSize * faceGridSize + faceCoordinates[0] * faceGridSize + faceCoordinates[1]
-  );
+  return holeAxis * faceGridSize * faceGridSize + faceCoordinateA * faceGridSize + faceCoordinateB;
 }
 
 function readFaceNeighbors(child: VoxelCoordinate): VoxelCoordinate[] {
@@ -146,9 +202,15 @@ function readDestinationChild(
     retainedChildKeys.has(`${x},${y},${z}`),
   );
 
-  return destinations[
-    Math.floor(readDirectionNoise([faceColumnChannel, depth, 47], depth) * destinations.length)
-  ];
+  const destination =
+    destinations[
+      Math.floor(readDirectionNoise([faceColumnChannel, depth, 47], depth) * destinations.length)
+    ];
+  if (!destination) {
+    throw new Error("Every absorbed Menger child must have a retained face neighbour.");
+  }
+
+  return destination;
 }
 
 function createMengerDepthTransitionStage(
@@ -230,12 +292,12 @@ function createMengerDepthTransitionStage(
 export function createMengerDepthTransitionModel(
   requestedStaggerGroupCount: number,
 ): MengerDepthTransitionModel {
+  const finiteStaggerGroupCount = Number.isFinite(requestedStaggerGroupCount)
+    ? requestedStaggerGroupCount
+    : MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT;
   const staggerGroupCount = Math.max(
     1,
-    Math.min(
-      MENGER_DEPTH_TRANSITION_MAX_STAGGER_GROUP_COUNT,
-      Math.round(requestedStaggerGroupCount),
-    ),
+    Math.min(MENGER_DEPTH_TRANSITION_MAX_STAGGER_GROUP_COUNT, Math.round(finiteStaggerGroupCount)),
   );
   const depthOneVoxels = readMengerCoordinates();
   const depthTwo = createMengerDepthTransitionStage(depthOneVoxels, 2, 0, staggerGroupCount);

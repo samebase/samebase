@@ -1,4 +1,4 @@
-import { FAVICON_ROTATION_DEGREES, normalizeRotationDegrees } from "./logoVoxelState";
+import { FAVICON_ROTATION_DEGREES, normalizeRotationDegrees } from "./voxel.ts";
 
 const ORBIT_RIGHT_AXIS = normalizeVector([1, 0, -1]);
 const WORLD_UP_AXIS = [0, 1, 0] as const;

@@ -1,6 +1,6 @@
 import { NLogoScene } from "@/components/logo/NLogoScene";
 import { DEFAULT_FACE_COLORS, getTailwindColorHex } from "@/components/logo/logoTailwindColors";
-import { STATIC_LOGO_VOXEL_STATE } from "@/components/logo/logoStaticSvgContract";
+import { STATIC_LOGO_VOXEL_STATE } from "@samebase/logo-model/identity";
 import {
   PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ELEVATION_SNAP_DEGREES,
   PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ROTATION_SNAP_DEGREES,

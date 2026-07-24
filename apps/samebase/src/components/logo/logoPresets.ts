@@ -7,7 +7,7 @@ import {
   serializeVoxelState,
   type LogoGridSize,
   type VoxelCoordinate,
-} from "@/components/logo/logoVoxelState";
+} from "@samebase/logo-model/voxel";
 
 export const CUSTOM_LOGO_PRESET_ID = "custom";
 export const DEFAULT_LOGO_PRESET_ID = "checker-lattice-3";

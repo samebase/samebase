@@ -5,9 +5,14 @@ import {
   getWorldScreenVerticalAxis,
   toRenderedRotationDegrees,
   type LogoRotationAxisMode,
-} from "@/components/logo/logoRotationMath";
-import { getShuffleOriginCandidates } from "@/components/logo/logoShuffleRules";
+} from "@samebase/logo-model/rotation";
 import { type LogoShuffleParallelMoves } from "@/components/logo/logoShuffleAnimation";
+import {
+  easeLogoShuffleProgress,
+  getShuffleOriginCandidates,
+  LOGO_SHUFFLE_MOVE_DURATION_MS,
+  LOGO_SHUFFLE_MOVE_STAGGER_MS,
+} from "@samebase/logo-model/shuffle";
 import {
   LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
@@ -17,13 +22,13 @@ import {
   getLogoLeftFaceStripeBasisScale,
   normalizeLogoLeftFaceStyle,
   type LogoLeftFaceStyle,
-} from "@/components/logo/logoLeftFaceStyle";
+} from "@samebase/logo-model/left-face-style";
 import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
 import {
   buildLogoSurfaceQuads,
   getLogoSurfaceFitRadius,
   type LogoSurfaceQuad,
-} from "@/components/logo/logoSurfaceModel";
+} from "@samebase/logo-model/surface";
 import { resolveLogoSceneCameraDepthBounds } from "@/components/logo/logoSceneCameraDepth";
 import {
   getLogoPresentationTiltTransitionAlpha,
@@ -44,7 +49,7 @@ import {
   type VoxelCoordinate,
   type VoxelEdit,
   voxelKey,
-} from "@/components/logo/logoVoxelState";
+} from "@samebase/logo-model/voxel";
 import { type LogoViewDragConfig, type LogoViewState } from "@/components/logo/logoViewDrag";
 import { useLogoViewDrag } from "@/components/logo/useLogoViewDrag";
 import { useEffect, useRef, type MutableRefObject } from "react";
@@ -52,8 +57,6 @@ import * as THREE from "three";
 
 const RAYCAST_OFFSET = 0.001;
 const CAMERA_FRUSTUM_PADDING = 1.12;
-const SHUFFLE_MOVE_DURATION_MS = 1800;
-const SHUFFLE_MOVE_STAGGER_MS = 520;
 const FACE_COLOR_ANIMATION_DEGREES_PER_SECOND = 15;
 const FACE_COLOR_ANIMATION_MIN_LIGHTNESS = 0.38;
 const FACE_COLOR_ANIMATION_MAX_LIGHTNESS = 0.76;
@@ -408,14 +411,6 @@ function setCubeMeshPosition(
   mesh.position.set(x, y, z);
 }
 
-function easeInOutCubic(value: number): number {
-  if (value < 0.5) {
-    return 4 * value * value * value;
-  }
-
-  return 1 - Math.pow(-2 * value + 2, 3) / 2;
-}
-
 function getThreeRenderPixelRatio(leftFaceStyle: LogoLeftFaceStyle): number {
   const normalizedStyle = normalizeLogoLeftFaceStyle(leftFaceStyle);
   const pixelRatioScale = normalizedStyle.kind === "striped" ? 2 : 1;
@@ -437,7 +432,7 @@ function getCubeMovePosition(
 ): readonly [number, number, number] {
   const [startX, startY, startZ] = getVoxelWorldCenter(move.from, gridSize, distanceScale);
   const [endX, endY, endZ] = getVoxelWorldCenter(move.to, gridSize, distanceScale);
-  const travelProgress = easeInOutCubic(progress);
+  const travelProgress = easeLogoShuffleProgress(progress);
   return [
     startX + (endX - startX) * travelProgress,
     startY + (endY - startY) * travelProgress,
@@ -894,7 +889,7 @@ function getTileWorldCenter({
 }
 
 function getTileMoveCoordinate(move: ActiveTileMove, progress: number): VoxelCoordinate {
-  const travelProgress = easeInOutCubic(progress);
+  const travelProgress = easeLogoShuffleProgress(progress);
   return [
     move.from[0] + (move.to[0] - move.from[0]) * travelProgress,
     move.from[1] + (move.to[1] - move.from[1]) * travelProgress,
@@ -1839,7 +1834,7 @@ function scheduleNextCubeMove(
   setCubeMeshPosition(moveMesh, nextMove.from, sceneState.gridSize, sceneState.distanceScale);
   sceneState.logoGroup.add(moveMesh);
   sceneState.activeCubeMoves.push({
-    durationMs: SHUFFLE_MOVE_DURATION_MS,
+    durationMs: LOGO_SHUFFLE_MOVE_DURATION_MS,
     from: nextMove.from,
     fromKey: nextMove.fromKey,
     hasDeparted: false,
@@ -1906,7 +1901,7 @@ function scheduleNextTileMove(
   group.position.set(x, y, z);
   sceneState.logoGroup.add(group);
   sceneState.activeTileMoves.push({
-    durationMs: SHUFFLE_MOVE_DURATION_MS,
+    durationMs: LOGO_SHUFFLE_MOVE_DURATION_MS,
     from: nextMove.from,
     fromKey: nextMove.fromKey,
     group,
@@ -1982,7 +1977,7 @@ function syncTileShuffleAnimation(
       lastMovedCubeKeyRef,
       rotationAxisMode,
       rotationDegrees,
-      timestampMs + sceneState.activeTileMoves.length * SHUFFLE_MOVE_STAGGER_MS,
+      timestampMs + sceneState.activeTileMoves.length * LOGO_SHUFFLE_MOVE_STAGGER_MS,
     );
     if (!didScheduleMove) {
       break;
@@ -2067,7 +2062,7 @@ function syncCubeShuffleAnimation(
       lastMovedCubeKeyRef,
       rotationAxisMode,
       rotationDegrees,
-      timestampMs + sceneState.activeCubeMoves.length * SHUFFLE_MOVE_STAGGER_MS,
+      timestampMs + sceneState.activeCubeMoves.length * LOGO_SHUFFLE_MOVE_STAGGER_MS,
     );
     if (!didScheduleMove) {
       break;

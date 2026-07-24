@@ -1,4 +1,4 @@
-import { normalizeLogoFractalDepth } from "./logoVoxelState";
+import { normalizeLogoFractalDepth } from "@samebase/logo-model/voxel";
 
 export type LogoDepthRenderer = "three" | "svg" | "raster" | "iso";
 

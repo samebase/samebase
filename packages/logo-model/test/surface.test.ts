@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { buildLogoSurfaceQuads, getLogoSurfaceFitRadius } from "@/components/logo/logoSurfaceModel";
+import { buildLogoSurfaceQuads, getLogoSurfaceFitRadius } from "../src/surface";
 import {
   createDefaultFilledVoxelSet,
   createFilledVoxelSet,
   createLogoFractalVoxelGrid,
   LOGO_GRID_SIZE_3,
-} from "@/components/logo/logoVoxelState";
+} from "../src/voxel";
 
 describe("buildLogoSurfaceQuads", () => {
   it("keeps the default logo as exposed faces without renderer-specific state", () => {

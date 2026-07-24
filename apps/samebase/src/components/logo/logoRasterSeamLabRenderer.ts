@@ -4,12 +4,7 @@ import {
   type LogoRasterPoint2D as Point2D,
   type LogoRasterProjection as RasterSeamLabProjection,
 } from "@/components/logo/logoRasterProjection";
-import {
-  addVectors,
-  dotProduct,
-  scaleVector,
-  type Vector3,
-} from "@/components/logo/logoRotationMath";
+import { addVectors, dotProduct, scaleVector, type Vector3 } from "@samebase/logo-model/rotation";
 import {
   RASTER_SEAM_LAB_EMPTY_STATS,
   normalizeRasterSeamLabInflationScale,
