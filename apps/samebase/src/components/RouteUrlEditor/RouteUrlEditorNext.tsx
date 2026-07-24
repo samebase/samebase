@@ -38,7 +38,7 @@ const routeUrlEditorNextSuggestionSampleClassName =
   "text-muted-foreground group-data-[active=true]:text-accent-foreground/60";
 
 const routeUrlEditorNextSuggestionGroupLabelClassName =
-  "flex h-7 items-center px-2 text-sm font-bold";
+  "mt-2 flex h-7 items-center px-2 text-sm font-bold";
 
 const routeUrlEditorNextTouchScrollSlateClassName =
   "pointer-events-none absolute inset-x-0 z-10 border-y border-ring/70";
