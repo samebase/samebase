@@ -274,9 +274,8 @@ test("vault dashboard fixture (Convex schema graph)", async ({ page }) => {
     .getByText("workflow_vaultProvisioning_writeLocks", { exact: true });
   await expect(longTableName).toBeVisible();
   await expect(longTableName).not.toHaveCSS("text-overflow", "ellipsis");
-  await expect(fixture.locator(".react-flow__edge")).toHaveCount(10);
+  await expect(fixture.locator(".react-flow__edge")).toHaveCount(9);
   await expect(fixture.locator('[data-schema-graph-zone="identity"]')).toBeVisible();
-  await expect(fixture.locator('[data-schema-graph-zone="machines"]')).toBeVisible();
   await expect(fixture.locator('[data-schema-graph-zone="vault"]')).toBeVisible();
   await expect(fixture.locator('[data-schema-graph-zone="repository"]')).toBeVisible();
   await expect(fixture.locator('[data-schema-graph-zone="infrastructure"]')).toBeVisible();
@@ -349,7 +348,7 @@ test("vault dashboard fixture (Convex schema route mobile)", async ({ page }) =>
     routeMain.getByTestId("rf__node-users").getByText("users", { exact: true }),
   ).toBeVisible();
   await expect(routeMain.locator('[data-schema-graph-zone="vault"]')).toBeVisible();
-  await expect(routeMain.locator(".react-flow__edge")).toHaveCount(10);
+  await expect(routeMain.locator(".react-flow__edge")).toHaveCount(9);
   await expect(routeMain).toHaveScreenshot("vault-convex-schema-route-mobile.png", {
     animations: "disabled",
     caret: "hide",
