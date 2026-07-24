@@ -12,6 +12,20 @@ function coordinateKey([x, y, z]: readonly [number, number, number]): string {
   return voxelKey(x, y, z);
 }
 
+function readDirectionKey(
+  from: readonly [number, number, number],
+  to: readonly [number, number, number],
+): string {
+  return `${to[0] - from[0]},${to[1] - from[1]},${to[2] - from[2]}`;
+}
+
+function readManhattanDistance(
+  from: readonly [number, number, number],
+  to: readonly [number, number, number],
+): number {
+  return Math.abs(to[0] - from[0]) + Math.abs(to[1] - from[1]) + Math.abs(to[2] - from[2]);
+}
+
 function expectStageShape(
   stage: MengerDepthTransitionStage,
   sourceCount: number,
@@ -48,33 +62,42 @@ describe("Menger depth transition", () => {
       MENGER_DEPTH_TRANSITION_MODEL.depthThree,
     ]) {
       expect(
-        stage.moves.every(
-          (move) =>
-            Math.floor(move.from[0] / 3) === Math.floor(move.to[0] / 3) &&
-            Math.floor(move.from[1] / 3) === Math.floor(move.to[1] / 3) &&
-            Math.floor(move.from[2] / 3) === Math.floor(move.to[2] / 3),
-        ),
+        stage.moves.every((move) => {
+          const destinations = move.kind === "via" ? [move.via, move.to] : [move.to];
+          return destinations.every(
+            (destination) =>
+              Math.floor(move.from[0] / 3) === Math.floor(destination[0] / 3) &&
+              Math.floor(move.from[1] / 3) === Math.floor(destination[1] / 3) &&
+              Math.floor(move.from[2] / 3) === Math.floor(destination[2] / 3),
+          );
+        }),
       ).toBe(true);
     }
   });
 
-  it("varies destination direction while keeping one movement style", () => {
+  it("moves through face neighbours and finishes in retained cubes", () => {
     for (const stage of [
       MENGER_DEPTH_TRANSITION_MODEL.depthTwo,
       MENGER_DEPTH_TRANSITION_MODEL.depthThree,
     ]) {
-      const directionKeys = new Set(
-        stage.moves.map(
-          (move) =>
-            `${move.to[0] - move.from[0]},${move.to[1] - move.from[1]},${move.to[2] - move.from[2]}`,
-        ),
-      );
+      const directionKeys = new Set<string>();
+      for (const move of stage.moves) {
+        const firstDestination = move.kind === "via" ? move.via : move.to;
+        directionKeys.add(readDirectionKey(move.from, firstDestination));
+        expect(readManhattanDistance(move.from, firstDestination)).toBe(1);
 
-      expect(directionKeys.size).toBeGreaterThan(12);
-      for (const axis of [0, 1, 2]) {
-        expect(stage.moves.some((move) => move.to[axis] - move.from[axis] < 0)).toBe(true);
-        expect(stage.moves.some((move) => move.to[axis] - move.from[axis] > 0)).toBe(true);
+        if (move.kind === "via") {
+          directionKeys.add(readDirectionKey(move.via, move.to));
+          expect(readManhattanDistance(move.via, move.to)).toBe(1);
+        }
       }
+
+      expect(directionKeys).toEqual(
+        new Set(["-1,0,0", "0,-1,0", "0,0,-1", "0,0,1", "0,1,0", "1,0,0"]),
+      );
+      expect(stage.moves.filter((move) => move.kind === "via")).toHaveLength(
+        stage.sourceVoxels.length,
+      );
       expect(new Set(stage.moves.map((move) => move.startTimeMs)).size).toBe(2);
       expect(
         stage.moves.every(

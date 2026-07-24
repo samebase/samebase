@@ -55,6 +55,22 @@ test("Menger sponge moves from depth one through depth two to depth three", asyn
     timeout: 15_000,
   });
 
+  await progress.fill("150");
+  await expect(progress).toHaveValue("150");
+  await expect(transitionPage).toHaveAttribute("data-phase", "transition");
+  await waitForPaint(page);
+
+  await expect(workspace).toHaveScreenshot(
+    "logo-menger-depth-transition-depth-two-transition.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.01,
+      scale: "css",
+      timeout: 15_000,
+    },
+  );
+
   await progress.fill("500");
   await expect(progress).toHaveValue("500");
   await expect(transitionPage).toHaveAttribute("data-phase", "depth-2");
