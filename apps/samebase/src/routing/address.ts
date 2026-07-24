@@ -137,14 +137,7 @@ function isRouteAddressSearchTokenReady(
 
   const suggestion = suggestions.find((value) => value.key === token.key);
   if (token.kind === "key") {
-    if (suggestion?.searchParamKind === "presence") {
-      return true;
-    }
-
-    return !(
-      suggestion?.searchParamKind === "value" ||
-      (token.key.length > 0 && suggestions.some((value) => value.key.startsWith(token.key)))
-    );
+    return suggestion?.searchParamKind !== "value";
   }
 
   if (!suggestion || suggestion.searchParamKind === "presence") {
