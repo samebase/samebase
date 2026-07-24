@@ -67,6 +67,8 @@ The retirement audit found and cleaned the following persistent state:
    zero.
 5. MCP authorizations, grants, access tokens, and production-read request tables contained no
    `access_machines` entries.
+6. The final production schema deploy removed the Codespaces functions and indexes, then the empty
+   `codespaces` table was permanently deleted from the Convex dashboard.
 
 The app no longer requests the `codespace` OAuth scope. Existing GitHub authorization was left
 untouched at the operator's direction.
