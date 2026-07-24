@@ -1,16 +1,10 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import path from "node:path";
-import process from "node:process";
-import { fileURLToPath, pathToFileURL } from "node:url";
 import {
-  loadPublicPrerenderPages,
-  readCloudflarePrerenderHtmlOutputPath,
+  readPrerenderHtmlOutputPath,
   type PublicPrerenderPage,
 } from "./generate-cloudflare-redirects.ts";
 
-const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const appDir = path.resolve(currentDir, "..");
-const clientDistDir = path.resolve(appDir, "dist/client");
 const linkTagPattern = /<link\b[^>]*>/gi;
 const relAttributePattern = /\srel\s*=\s*("[^"]*"|'[^']*'|[^\s"'=<>`]+)/i;
 const modulePreloadTextPattern = /\bmodulepreload\b/i;
@@ -94,49 +88,26 @@ export function stripModulePreloadLinks(html: string) {
   };
 }
 
-function readPrerenderHtmlFilePath(page: PublicPrerenderPage) {
-  const htmlOutputPath = readCloudflarePrerenderHtmlOutputPath(page);
-  const htmlFilePath = path.resolve(clientDistDir, htmlOutputPath.slice(1));
-  const relativePath = path.relative(clientDistDir, htmlFilePath);
+/**
+Overwrites the public prerender that TanStack Start just wrote. The caller owns
+selecting configured public pages so the separate production SPA mask page is
+never passed here.
+*/
+export function writePublicPrerenderWithoutModulePreloads(args: {
+  clientDistDir: string;
+  html: string;
+  page: PublicPrerenderPage;
+}) {
+  const htmlOutputPath = readPrerenderHtmlOutputPath(args.page);
+  const htmlFilePath = path.resolve(args.clientDistDir, htmlOutputPath.slice(1));
+  const relativePath = path.relative(args.clientDistDir, htmlFilePath);
   if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
     throw new Error(`Prerender output path escapes dist/client: ${htmlOutputPath}`);
   }
 
-  return htmlFilePath;
-}
+  const result = stripModulePreloadLinks(args.html);
 
-function stripModulePreloads(filePath: string) {
-  const currentHtml = readFileSync(filePath, "utf8");
-  const result = stripModulePreloadLinks(currentHtml);
-
-  if (result.html !== currentHtml) {
-    writeFileSync(filePath, result.html, "utf8");
+  if (result.html !== args.html) {
+    writeFileSync(htmlFilePath, result.html, "utf8");
   }
-
-  return result.strippedLinkCount;
-}
-
-/**
-Runs after `vp build` and removes modulepreload hints only from public
-prerendered HTML files. The SPA fallback keeps its modulepreload links.
-
-@example
-```ts
-await stripPublicPrerenderModulePreloads();
-// Logs: Stripped 75 public prerender modulepreload links.
-```
-*/
-export async function stripPublicPrerenderModulePreloads() {
-  let strippedLinkCount = 0;
-
-  for (const page of await loadPublicPrerenderPages()) {
-    strippedLinkCount += stripModulePreloads(readPrerenderHtmlFilePath(page));
-  }
-
-  console.log(`Stripped ${strippedLinkCount} public prerender modulepreload links.`);
-}
-
-const entrypoint = process.argv[1];
-if (entrypoint && import.meta.url === pathToFileURL(entrypoint).href) {
-  await stripPublicPrerenderModulePreloads();
 }

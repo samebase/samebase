@@ -1,6 +1,21 @@
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
-import { stripModulePreloadLinks } from "./strip-public-prerender-modulepreloads.js";
+import type { PublicPrerenderPage } from "./generate-cloudflare-redirects.js";
+import {
+  stripModulePreloadLinks,
+  writePublicPrerenderWithoutModulePreloads,
+} from "./strip-public-prerender-modulepreloads.js";
+
+const rootPage = {
+  path: "/",
+  prerender: {
+    enabled: true,
+    outputPath: "/_landing.html",
+  },
+} satisfies PublicPrerenderPage;
 
 describe("strip-public-prerender-modulepreloads", () => {
   it("strips current Vite modulepreload links without removing stylesheet or module entry tags", () => {
@@ -47,5 +62,27 @@ describe("strip-public-prerender-modulepreloads", () => {
         ].join(""),
       ),
     ).toThrow("Failed to strip every modulepreload reference");
+  });
+
+  it("overwrites the configured public prerender output", () => {
+    const clientDistDir = mkdtempSync(path.join(tmpdir(), "samebase-public-prerender-"));
+    const landingFilePath = path.join(clientDistDir, "_landing.html");
+    writeFileSync(landingFilePath, "original", "utf8");
+
+    try {
+      writePublicPrerenderWithoutModulePreloads({
+        clientDistDir,
+        html:
+          '<link rel="modulepreload" href="/assets/index.js"/>' +
+          '<script type="module">import("/assets/index.js");</script>',
+        page: rootPage,
+      });
+
+      expect(readFileSync(landingFilePath, "utf8")).toBe(
+        '<script type="module">import("/assets/index.js");</script>',
+      );
+    } finally {
+      rmSync(clientDistDir, { force: true, recursive: true });
+    }
   });
 });
