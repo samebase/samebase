@@ -68,6 +68,14 @@ test("shows the shared overview model on desktop", async ({ page }) => {
     "href",
     "https://github.com/samebase/samebase/tree/main",
   );
+  await expect(fixture.getByRole("link", { name: "Overview", exact: true })).toHaveAttribute(
+    "href",
+    "/vault/samebase/samebase",
+  );
+  await expect(fixture.getByRole("link", { name: "Settings", exact: true })).toHaveAttribute(
+    "href",
+    "/vault/samebase/samebase/settings",
+  );
   await expect(
     fixture.getByRole("link", { name: "Open pull request #1260 on GitHub" }),
   ).toHaveAttribute("href", "https://github.com/samebase/samebase/pull/1260");

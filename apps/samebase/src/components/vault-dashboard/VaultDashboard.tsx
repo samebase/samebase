@@ -52,7 +52,11 @@ import {
   type CloudflareAccountOption,
 } from "@/components/vault-dashboard/vaultDashboardCloudflareAccountOptions";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { buildVaultDashboardRoute, buildVaultFileRoute } from "@/lib/vaultRoutes";
+import {
+  buildVaultDashboardRoute,
+  buildVaultFileRoute,
+  buildVaultOldDashboardRoute,
+} from "@/lib/vaultRoutes";
 import {
   formatVaultSourceSetupStep,
   type VaultDashboardSourceSetup,
@@ -1853,9 +1857,11 @@ function buildVaultDashboardProviderAddHref({
 }
 
 export function VaultDashboardVaultList({
+  presentation,
   selectedVaultId,
   vaults,
 }: {
+  presentation: "legacy" | "v2";
   selectedVaultId: Id<"vaults"> | null;
   vaults: readonly VaultDashboardVault[];
 }) {
@@ -1870,10 +1876,17 @@ export function VaultDashboardVaultList({
               <li key={vault._id}>
                 <Link
                   resetScroll={isSelected ? false : undefined}
-                  to={buildVaultDashboardRoute({
-                    owner: vault.ghRepoOwner,
-                    repoName: vault.ghRepoName,
-                  })}
+                  to={
+                    presentation === "v2"
+                      ? buildVaultDashboardRoute({
+                          owner: vault.ghRepoOwner,
+                          repoName: vault.ghRepoName,
+                        })
+                      : buildVaultOldDashboardRoute({
+                          owner: vault.ghRepoOwner,
+                          repoName: vault.ghRepoName,
+                        })
+                  }
                   search={(currentSearch) =>
                     applySearchPatch(currentSearch, {
                       "add-cloudflare": null,
@@ -1907,8 +1920,10 @@ function VaultDashboardVaultListHeader() {
 }
 
 export function VaultDashboardVaultPickerPane({
+  presentation,
   vaults,
 }: {
+  presentation: "legacy" | "v2";
   vaults: readonly VaultDashboardVault[];
 }) {
   return (
@@ -1916,7 +1931,7 @@ export function VaultDashboardVaultPickerPane({
       <div className="flex h-8 shrink-0 items-center border-b border-border">
         <VaultDashboardVaultListHeader />
       </div>
-      <VaultDashboardVaultList selectedVaultId={null} vaults={vaults} />
+      <VaultDashboardVaultList presentation={presentation} selectedVaultId={null} vaults={vaults} />
     </div>
   );
 }
@@ -2608,9 +2623,9 @@ export function VaultDashboard({
         ...currentState,
         vaultDashboardDialog: undefined,
       }),
-      to: "/vault",
+      to: presentation === "legacy" ? "/vaultold" : "/vault",
     });
-  }, [navigate]);
+  }, [navigate, presentation]);
 
   const loadConvexDialogResources = useCallback(
     async (vaultId: Id<"vaults">) => {
@@ -3522,7 +3537,11 @@ export function VaultDashboard({
           workspace={selectedWorkspace}
         />
       ) : (
-        <VaultDashboardVaultList selectedVaultId={selectedVault?._id ?? null} vaults={allVaults} />
+        <VaultDashboardVaultList
+          presentation="legacy"
+          selectedVaultId={selectedVault?._id ?? null}
+          vaults={allVaults}
+        />
       ),
   };
   const dashboardBody =
@@ -3532,7 +3551,7 @@ export function VaultDashboard({
       </VaultDashboardPaneMessage>
     ) : selectedVault === null && allVaults.length > 0 ? (
       isVaultRootRoute ? (
-        <VaultDashboardVaultPickerPane vaults={allVaults} />
+        <VaultDashboardVaultPickerPane presentation={presentation} vaults={allVaults} />
       ) : (
         <VaultDashboardPaneMessage>
           Select a vault from the left sidebar or add one from the right sidebar.

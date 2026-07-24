@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  buildVault2DashboardRoute,
-  buildVault2SettingsRoute,
   buildVaultDashboardRoute,
   buildVaultDatabaseRoute,
   buildVaultFileRoute,
+  buildVaultOldDashboardRoute,
   buildVaultSchemaRoute,
+  buildVaultSettingsRoute,
   parseVaultPathContext,
 } from "./vaultRoutes";
 
@@ -21,15 +21,25 @@ describe("buildVaultDashboardRoute", () => {
   });
 });
 
-describe("buildVault2DashboardRoute", () => {
-  it("builds the alternate repository overview and settings routes", () => {
+describe("buildVaultSettingsRoute", () => {
+  it("builds the repository settings route", () => {
     const repository = {
       owner: "octo",
       repoName: "web",
     };
 
-    expect(buildVault2DashboardRoute(repository)).toBe("/vault2/octo/web");
-    expect(buildVault2SettingsRoute(repository)).toBe("/vault2/octo/web/settings");
+    expect(buildVaultSettingsRoute(repository)).toBe("/vault/octo/web/settings");
+  });
+});
+
+describe("buildVaultOldDashboardRoute", () => {
+  it("builds the legacy repository overview route", () => {
+    expect(
+      buildVaultOldDashboardRoute({
+        owner: "octo",
+        repoName: "web",
+      }),
+    ).toBe("/vaultold/octo/web");
   });
 });
 describe("buildVaultFileRoute", () => {

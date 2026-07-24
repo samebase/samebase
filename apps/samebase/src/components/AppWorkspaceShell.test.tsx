@@ -445,6 +445,7 @@ describe("AppWorkspaceShell", () => {
       "/test",
       "/vault/",
       "/vault/ada/demo/db/main/project/convex-attachment",
+      "/vaultold/",
     ]) {
       const markup = renderToStaticMarkup(
         <TestRouterProvider initialEntries={[route]}>
@@ -482,6 +483,7 @@ describe("AppWorkspaceShell", () => {
       "/logo",
       "/vault/ada/demo",
       "/vault/ada/demo/schema/main/project/convex-attachment",
+      "/vaultold/ada/demo",
     ]) {
       const markup = renderToStaticMarkup(
         <TestRouterProvider initialEntries={[route]}>

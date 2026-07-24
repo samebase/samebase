@@ -39,15 +39,16 @@ import { Route as docsReceiptsRouteImport } from "./routes/docs-receipts";
 import { Route as docsDoItYourselfRouteImport } from "./routes/docs-do-it-yourself";
 import { Route as agentsConnectRouteImport } from "./routes/agents-connect";
 import { Route as adminAccountDeletionsRouteImport } from "./routes/admin-account-deletions";
+import { Route as vaultoldDashboardRootRouteImport } from "./routes/vaultold-dashboard-root";
 import { Route as vaultDashboardRootRouteImport } from "./routes/vault-dashboard-root";
-import { Route as vault2DashboardRouteImport } from "./routes/vault2-dashboard";
+import { Route as vaultoldDashboardRouteImport } from "./routes/vaultold-dashboard";
 import { Route as vaultDashboardRouteImport } from "./routes/vault-dashboard";
 import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
 import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
 import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-transition-transforms-lab";
 import { Route as logoMengerTransitionResearchRouteImport } from "./routes/logo-menger-transition-research";
 import { Route as logoCarpetHoverResearchRouteImport } from "./routes/logo-carpet-hover-research";
-import { Route as vault2SettingsRouteImport } from "./routes/vault2-settings";
+import { Route as vaultSettingsRouteImport } from "./routes/vault-settings";
 import { Route as vaultSchemaProjectRouteImport } from "./routes/vault-schema-project";
 import { Route as vaultDatabaseProjectRouteImport } from "./routes/vault-database-project";
 
@@ -201,14 +202,19 @@ const adminAccountDeletionsRoute = adminAccountDeletionsRouteImport.update({
   path: "/admin/account-deletions",
   getParentRoute: () => rootRouteImport,
 } as any);
+const vaultoldDashboardRootRoute = vaultoldDashboardRootRouteImport.update({
+  id: "/vaultold/",
+  path: "/vaultold/",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const vaultDashboardRootRoute = vaultDashboardRootRouteImport.update({
   id: "/vault/",
   path: "/vault/",
   getParentRoute: () => rootRouteImport,
 } as any);
-const vault2DashboardRoute = vault2DashboardRouteImport.update({
-  id: "/vault2/$owner/$repo",
-  path: "/vault2/$owner/$repo",
+const vaultoldDashboardRoute = vaultoldDashboardRouteImport.update({
+  id: "/vaultold/$owner/$repo",
+  path: "/vaultold/$owner/$repo",
   getParentRoute: () => rootRouteImport,
 } as any);
 const vaultDashboardRoute = vaultDashboardRouteImport.update({
@@ -243,9 +249,9 @@ const logoCarpetHoverResearchRoute = logoCarpetHoverResearchRouteImport.update({
   path: "/logo/hover/carpet",
   getParentRoute: () => rootRouteImport,
 } as any);
-const vault2SettingsRoute = vault2SettingsRouteImport.update({
-  id: "/vault2/$owner/$repo/settings",
-  path: "/vault2/$owner/$repo/settings",
+const vaultSettingsRoute = vaultSettingsRouteImport.update({
+  id: "/vault/$owner/$repo/settings",
+  path: "/vault/$owner/$repo/settings",
   getParentRoute: () => rootRouteImport,
 } as any);
 const vaultSchemaProjectRoute = vaultSchemaProjectRouteImport.update({
@@ -278,6 +284,7 @@ export interface FileRoutesByFullPath {
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault/": typeof vaultDashboardRootRoute;
+  "/vaultold/": typeof vaultoldDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/agents/connect": typeof agentsConnectRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
@@ -297,8 +304,8 @@ export interface FileRoutesByFullPath {
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
-  "/vault2/$owner/$repo": typeof vault2DashboardRoute;
-  "/vault2/$owner/$repo/settings": typeof vault2SettingsRoute;
+  "/vaultold/$owner/$repo": typeof vaultoldDashboardRoute;
+  "/vault/$owner/$repo/settings": typeof vaultSettingsRoute;
   "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
   "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
 }
@@ -321,6 +328,7 @@ export interface FileRoutesByTo {
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault": typeof vaultDashboardRootRoute;
+  "/vaultold": typeof vaultoldDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/agents/connect": typeof agentsConnectRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
@@ -340,8 +348,8 @@ export interface FileRoutesByTo {
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
-  "/vault2/$owner/$repo": typeof vault2DashboardRoute;
-  "/vault2/$owner/$repo/settings": typeof vault2SettingsRoute;
+  "/vaultold/$owner/$repo": typeof vaultoldDashboardRoute;
+  "/vault/$owner/$repo/settings": typeof vaultSettingsRoute;
   "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
   "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
 }
@@ -365,6 +373,7 @@ export interface FileRoutesById {
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault/": typeof vaultDashboardRootRoute;
+  "/vaultold/": typeof vaultoldDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/agents/connect": typeof agentsConnectRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
@@ -384,8 +393,8 @@ export interface FileRoutesById {
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
-  "/vault2/$owner/$repo": typeof vault2DashboardRoute;
-  "/vault2/$owner/$repo/settings": typeof vault2SettingsRoute;
+  "/vaultold/$owner/$repo": typeof vaultoldDashboardRoute;
+  "/vault/$owner/$repo/settings": typeof vaultSettingsRoute;
   "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
   "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
 }
@@ -410,6 +419,7 @@ export interface FileRouteTypes {
     | "/test"
     | "/visual-fixture"
     | "/vault/"
+    | "/vaultold/"
     | "/admin/account-deletions"
     | "/agents/connect"
     | "/docs/do-it-yourself"
@@ -429,8 +439,8 @@ export interface FileRouteTypes {
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/vault/$owner/$repo"
-    | "/vault2/$owner/$repo"
-    | "/vault2/$owner/$repo/settings"
+    | "/vaultold/$owner/$repo"
+    | "/vault/$owner/$repo/settings"
     | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
     | "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
   fileRoutesByTo: FileRoutesByTo;
@@ -453,6 +463,7 @@ export interface FileRouteTypes {
     | "/test"
     | "/visual-fixture"
     | "/vault"
+    | "/vaultold"
     | "/admin/account-deletions"
     | "/agents/connect"
     | "/docs/do-it-yourself"
@@ -472,8 +483,8 @@ export interface FileRouteTypes {
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/vault/$owner/$repo"
-    | "/vault2/$owner/$repo"
-    | "/vault2/$owner/$repo/settings"
+    | "/vaultold/$owner/$repo"
+    | "/vault/$owner/$repo/settings"
     | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
     | "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
   id:
@@ -496,6 +507,7 @@ export interface FileRouteTypes {
     | "/test"
     | "/visual-fixture"
     | "/vault/"
+    | "/vaultold/"
     | "/admin/account-deletions"
     | "/agents/connect"
     | "/docs/do-it-yourself"
@@ -515,8 +527,8 @@ export interface FileRouteTypes {
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/vault/$owner/$repo"
-    | "/vault2/$owner/$repo"
-    | "/vault2/$owner/$repo/settings"
+    | "/vaultold/$owner/$repo"
+    | "/vault/$owner/$repo/settings"
     | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
     | "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
   fileRoutesById: FileRoutesById;
@@ -540,6 +552,7 @@ export interface RootRouteChildren {
   testRoute: typeof testRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
   vaultDashboardRootRoute: typeof vaultDashboardRootRoute;
+  vaultoldDashboardRootRoute: typeof vaultoldDashboardRootRoute;
   adminAccountDeletionsRoute: typeof adminAccountDeletionsRoute;
   agentsConnectRoute: typeof agentsConnectRoute;
   docsDoItYourselfRoute: typeof docsDoItYourselfRoute;
@@ -559,8 +572,8 @@ export interface RootRouteChildren {
   mcpConsentRoute: typeof mcpConsentRoute;
   pitchPrintMobileRoute: typeof pitchPrintMobileRoute;
   vaultDashboardRoute: typeof vaultDashboardRoute;
-  vault2DashboardRoute: typeof vault2DashboardRoute;
-  vault2SettingsRoute: typeof vault2SettingsRoute;
+  vaultoldDashboardRoute: typeof vaultoldDashboardRoute;
+  vaultSettingsRoute: typeof vaultSettingsRoute;
   vaultDatabaseProjectRoute: typeof vaultDatabaseProjectRoute;
   vaultSchemaProjectRoute: typeof vaultSchemaProjectRoute;
 }
@@ -777,6 +790,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof adminAccountDeletionsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/vaultold/": {
+      id: "/vaultold/";
+      path: "/vaultold";
+      fullPath: "/vaultold/";
+      preLoaderRoute: typeof vaultoldDashboardRootRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/vault/": {
       id: "/vault/";
       path: "/vault";
@@ -784,11 +804,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof vaultDashboardRootRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/vault2/$owner/$repo": {
-      id: "/vault2/$owner/$repo";
-      path: "/vault2/$owner/$repo";
-      fullPath: "/vault2/$owner/$repo";
-      preLoaderRoute: typeof vault2DashboardRouteImport;
+    "/vaultold/$owner/$repo": {
+      id: "/vaultold/$owner/$repo";
+      path: "/vaultold/$owner/$repo";
+      fullPath: "/vaultold/$owner/$repo";
+      preLoaderRoute: typeof vaultoldDashboardRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/vault/$owner/$repo": {
@@ -833,11 +853,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof logoCarpetHoverResearchRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/vault2/$owner/$repo/settings": {
-      id: "/vault2/$owner/$repo/settings";
-      path: "/vault2/$owner/$repo/settings";
-      fullPath: "/vault2/$owner/$repo/settings";
-      preLoaderRoute: typeof vault2SettingsRouteImport;
+    "/vault/$owner/$repo/settings": {
+      id: "/vault/$owner/$repo/settings";
+      path: "/vault/$owner/$repo/settings";
+      fullPath: "/vault/$owner/$repo/settings";
+      preLoaderRoute: typeof vaultSettingsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": {
@@ -876,6 +896,7 @@ const rootRouteChildren: RootRouteChildren = {
   testRoute: testRoute,
   visualFixtureRoute: visualFixtureRoute,
   vaultDashboardRootRoute: vaultDashboardRootRoute,
+  vaultoldDashboardRootRoute: vaultoldDashboardRootRoute,
   adminAccountDeletionsRoute: adminAccountDeletionsRoute,
   agentsConnectRoute: agentsConnectRoute,
   docsDoItYourselfRoute: docsDoItYourselfRoute,
@@ -895,8 +916,8 @@ const rootRouteChildren: RootRouteChildren = {
   mcpConsentRoute: mcpConsentRoute,
   pitchPrintMobileRoute: pitchPrintMobileRoute,
   vaultDashboardRoute: vaultDashboardRoute,
-  vault2DashboardRoute: vault2DashboardRoute,
-  vault2SettingsRoute: vault2SettingsRoute,
+  vaultoldDashboardRoute: vaultoldDashboardRoute,
+  vaultSettingsRoute: vaultSettingsRoute,
   vaultDatabaseProjectRoute: vaultDatabaseProjectRoute,
   vaultSchemaProjectRoute: vaultSchemaProjectRoute,
 };

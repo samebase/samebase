@@ -652,7 +652,7 @@ function VaultOverviewV2Fixture({
 
   if (mode === "vault-overview-v2-loading") {
     return (
-      <TestRouterProvider initialEntries={["/vault2/samebase/samebase"]}>
+      <TestRouterProvider initialEntries={["/vault/samebase/samebase"]}>
         <WorkspaceLayoutV2FixtureFrame
           dataTestId="vault-overview-v2-loading"
           left={{
@@ -724,7 +724,7 @@ function VaultOverviewV2Fixture({
   return (
     <TestRouterProvider
       initialEntries={[
-        page === "settings" ? "/vault2/samebase/samebase/settings" : "/vault2/samebase/samebase",
+        page === "settings" ? "/vault/samebase/samebase/settings" : "/vault/samebase/samebase",
       ]}
     >
       <WorkspaceLayoutV2FixtureFrame
@@ -896,7 +896,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
       data-mode={mode}
       className="w-full bg-background text-foreground"
     >
-      <TestRouterProvider initialEntries={["/vault/samebase/samebase"]}>
+      <TestRouterProvider initialEntries={["/vaultold/samebase/samebase"]}>
         {dashboardView}
       </TestRouterProvider>
     </div>
@@ -913,7 +913,7 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
       data-mode="vault-dashboard-cloudflare-build-trigger-missing"
       className="w-full bg-background text-foreground"
     >
-      <TestRouterProvider initialEntries={["/vault/nicu-chiciuc/tmp-my-super-app-2"]}>
+      <TestRouterProvider initialEntries={["/vaultold/nicu-chiciuc/tmp-my-super-app-2"]}>
         <VaultDashboardView
           deleteModeActive={false}
           developerToolsVisible={false}
@@ -1112,6 +1112,7 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
       <FixtureDashboardShell
         leftContent={
           <VaultDashboardVaultList
+            presentation="legacy"
             selectedVaultId={SIDEBAR_LIST_SELECTED_VAULT_ID}
             vaults={SIDEBAR_LIST_VAULTS}
           />
@@ -1162,8 +1163,8 @@ function VaultDashboardRootPickerFixture({ mode }: { mode: VaultDashboardVisualM
       data-mode={mode}
       className="h-dvh w-full bg-background text-foreground"
     >
-      <TestRouterProvider initialEntries={["/vault/"]}>
-        <VaultDashboardVaultPickerPane vaults={SIDEBAR_LIST_VAULTS} />
+      <TestRouterProvider initialEntries={["/vaultold/"]}>
+        <VaultDashboardVaultPickerPane presentation="legacy" vaults={SIDEBAR_LIST_VAULTS} />
       </TestRouterProvider>
     </div>
   );

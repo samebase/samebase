@@ -27,11 +27,11 @@ import type {
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import {
-  buildVault2DashboardRoute,
-  buildVault2SettingsRoute,
+  buildVaultDashboardRoute,
   buildVaultDatabaseRoute,
   buildVaultFileRoute,
   buildVaultSchemaRoute,
+  buildVaultSettingsRoute,
 } from "@/lib/vaultRoutes";
 import type { RepositoryCheckSummary } from "@/lib/repositoryChecks";
 import { Link, useRouter } from "@tanstack/react-router";
@@ -81,7 +81,7 @@ type PullRequestBuildState = Extract<
 
 function repositoryRoute(vault: UserVaultResult, page: VaultOverviewPageKind): string {
   const args = { owner: vault.ghRepoOwner, repoName: vault.ghRepoName };
-  return page === "settings" ? buildVault2SettingsRoute(args) : buildVault2DashboardRoute(args);
+  return page === "settings" ? buildVaultSettingsRoute(args) : buildVaultDashboardRoute(args);
 }
 
 function RepositoryHeader({
@@ -95,8 +95,8 @@ function RepositoryHeader({
   repoName: string;
   repositoryUrl: string;
 }) {
-  const overviewRoute = buildVault2DashboardRoute({ owner, repoName });
-  const settingsRoute = buildVault2SettingsRoute({ owner, repoName });
+  const overviewRoute = buildVaultDashboardRoute({ owner, repoName });
+  const settingsRoute = buildVaultSettingsRoute({ owner, repoName });
 
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-background">
@@ -932,10 +932,10 @@ function PullRequestsSection({
   }
 
   return (
-    <section aria-labelledby="vault2-pull-requests-heading">
+    <section aria-labelledby="vault-pull-requests-heading">
       <div className="mb-3 flex items-center justify-between gap-4">
         <h2
-          id="vault2-pull-requests-heading"
+          id="vault-pull-requests-heading"
           className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
         >
           Open pull requests
@@ -1395,9 +1395,9 @@ function RepositorySettings({
 
   return (
     <main className="mx-auto grid w-full max-w-[960px] gap-8 px-4 py-6 @3xl:px-6 @5xl:px-8 @5xl:py-8">
-      <section aria-labelledby="vault2-settings-repository-heading">
+      <section aria-labelledby="vault-settings-repository-heading">
         <h2
-          id="vault2-settings-repository-heading"
+          id="vault-settings-repository-heading"
           className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
         >
           Repository
@@ -1425,9 +1425,9 @@ function RepositorySettings({
       </section>
 
       {resourceRailState.attentionRows.length > 0 ? (
-        <section aria-labelledby="vault2-settings-attention-heading">
+        <section aria-labelledby="vault-settings-attention-heading">
           <h2
-            id="vault2-settings-attention-heading"
+            id="vault-settings-attention-heading"
             className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-red-700"
           >
             Attention required
@@ -1442,10 +1442,10 @@ function RepositorySettings({
         </section>
       ) : null}
 
-      <section aria-labelledby="vault2-settings-connections-heading">
+      <section aria-labelledby="vault-settings-connections-heading">
         <div className="mb-3 grid gap-3 @4xl:grid-cols-[minmax(0,1fr)_auto] @4xl:items-end">
           <h2
-            id="vault2-settings-connections-heading"
+            id="vault-settings-connections-heading"
             className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
           >
             Connections
@@ -1485,9 +1485,9 @@ function RepositorySettings({
         </div>
       </section>
 
-      <section aria-labelledby="vault2-settings-remove-heading">
+      <section aria-labelledby="vault-settings-remove-heading">
         <h2
-          id="vault2-settings-remove-heading"
+          id="vault-settings-remove-heading"
           className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
         >
           Remove vault
@@ -1549,9 +1549,9 @@ function VaultWorkspaceDataInspector({
   workspace: VaultWorkspaceSelected;
 }) {
   return (
-    <section aria-labelledby="vault2-data-inspector-heading">
+    <section aria-labelledby="vault-data-inspector-heading">
       <h2
-        id="vault2-data-inspector-heading"
+        id="vault-data-inspector-heading"
         className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
       >
         Data inspector

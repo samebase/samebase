@@ -710,6 +710,7 @@ describe("VaultDashboardRepositoryCard", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultDashboardVaultPickerPane
+          presentation="v2"
           vaults={[
             makeResourceRailBuilderVault({
               ghRepoName: "demo",

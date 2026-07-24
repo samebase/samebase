@@ -831,7 +831,7 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
     name: "Remove vault samebase/samebase",
   });
   await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/vault/samebase/samebase?delete");
+  await expect(deleteLink).toHaveAttribute("href", "/vaultold/samebase/samebase?delete");
   const repositoryCard = fixture.locator("[data-vault-dashboard-repository-card]").first();
   await expect(repositoryCard).toBeVisible();
   const resourceRail = fixture.getByTestId("vault-resource-rail");
@@ -915,7 +915,7 @@ test("vault dashboard fixture (sidebar list)", async ({ page }) => {
   ).toBeVisible();
   await expect(vaultNavigation.getByRole("link", { name: "noter/guestbook" })).toHaveAttribute(
     "href",
-    "/vault/noter/guestbook?mode=vault-dashboard-sidebar-list",
+    "/vaultold/noter/guestbook?mode=vault-dashboard-sidebar-list",
   );
   await expect(page.getByTestId("vault-dashboard-visual-fixture-shell")).toHaveScreenshot(
     "vault-dashboard-sidebar-list.png",
@@ -944,7 +944,7 @@ test("vault dashboard fixture (root picker)", async ({ page }) => {
   ).toBeVisible();
   await expect(vaultNavigation.getByRole("link", { name: "noter/guestbook" })).toHaveAttribute(
     "href",
-    /^\/vault\/noter\/guestbook(?:\?|$)/,
+    /^\/vaultold\/noter\/guestbook(?:\?|$)/,
   );
   await expect(fixture).toHaveScreenshot("vault-dashboard-root-picker.png", {
     animations: "disabled",
@@ -992,7 +992,7 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
     name: "Remove vault samebase/samebase",
   });
   await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/vault/samebase/samebase?delete");
+  await expect(deleteLink).toHaveAttribute("href", "/vaultold/samebase/samebase?delete");
   const repositoryCard = fixture.locator("[data-vault-dashboard-repository-card]").first();
   await expect(repositoryCard).toBeVisible();
   const resourceRail = fixture.getByTestId("vault-resource-rail");

@@ -17,8 +17,18 @@ vi.mock("@/components/RootIndexRoutePage", () => ({
 }));
 
 vi.mock("@/components/DashboardRoutePage", () => ({
-  DashboardRoutePage: ({ selectedRepositoryFullName }: { selectedRepositoryFullName?: string }) => (
-    <div data-testid="dashboard-route">{selectedRepositoryFullName ?? "Dashboard route"}</div>
+  DashboardRoutePage: ({
+    page = "overview",
+    presentation = "legacy",
+    selectedRepositoryFullName,
+  }: {
+    page?: "overview" | "settings";
+    presentation?: "legacy" | "v2";
+    selectedRepositoryFullName?: string;
+  }) => (
+    <div data-testid="dashboard-route" data-page={page} data-presentation={presentation}>
+      {selectedRepositoryFullName ?? "Dashboard route"}
+    </div>
   ),
 }));
 
@@ -395,10 +405,29 @@ describe("appRouter", () => {
   it("renders /vault through the explicit dashboard route", async () => {
     await renderRoute("/vault");
 
-    expect(rootElement?.querySelector('[data-testid="dashboard-route"]')?.textContent).toBe(
-      "Dashboard route",
-    );
+    await act(async () => {
+      await settleRouterRender();
+    });
+
+    const dashboardRoute = rootElement?.querySelector('[data-testid="dashboard-route"]');
+    expect(dashboardRoute?.textContent).toBe("Dashboard route");
+    expect(dashboardRoute?.getAttribute("data-page")).toBe("overview");
+    expect(dashboardRoute?.getAttribute("data-presentation")).toBe("v2");
     expect(rootElement?.querySelector('[data-testid="root-index-route"]')).toBeNull();
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("keeps the previous dashboard available at /vaultold", async () => {
+    await renderRoute("/vaultold");
+
+    await act(async () => {
+      await settleRouterRender();
+    });
+
+    const dashboardRoute = rootElement?.querySelector('[data-testid="dashboard-route"]');
+    expect(dashboardRoute?.textContent).toBe("Dashboard route");
+    expect(dashboardRoute?.getAttribute("data-page")).toBe("overview");
+    expect(dashboardRoute?.getAttribute("data-presentation")).toBe("legacy");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
@@ -884,10 +913,39 @@ describe("appRouter", () => {
       await settleRouterRender();
     });
 
-    expect(rootElement?.querySelector('[data-testid="dashboard-route"]')?.textContent).toBe(
-      "samebase/samebase",
-    );
+    const dashboardRoute = rootElement?.querySelector('[data-testid="dashboard-route"]');
+    expect(dashboardRoute?.textContent).toBe("samebase/samebase");
+    expect(dashboardRoute?.getAttribute("data-page")).toBe("overview");
+    expect(dashboardRoute?.getAttribute("data-presentation")).toBe("v2");
     expect(rootElement?.querySelector('[data-testid="file-view-page"]')).toBeNull();
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("renders canonical vault settings through the new dashboard presentation", async () => {
+    await renderRoute("/vault/samebase/samebase/settings");
+
+    await act(async () => {
+      await settleRouterRender();
+    });
+
+    const dashboardRoute = rootElement?.querySelector('[data-testid="dashboard-route"]');
+    expect(dashboardRoute?.textContent).toBe("samebase/samebase");
+    expect(dashboardRoute?.getAttribute("data-page")).toBe("settings");
+    expect(dashboardRoute?.getAttribute("data-presentation")).toBe("v2");
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("renders a selected legacy vault through /vaultold", async () => {
+    await renderRoute("/vaultold/samebase/samebase");
+
+    await act(async () => {
+      await settleRouterRender();
+    });
+
+    const dashboardRoute = rootElement?.querySelector('[data-testid="dashboard-route"]');
+    expect(dashboardRoute?.textContent).toBe("samebase/samebase");
+    expect(dashboardRoute?.getAttribute("data-page")).toBe("overview");
+    expect(dashboardRoute?.getAttribute("data-presentation")).toBe("legacy");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 

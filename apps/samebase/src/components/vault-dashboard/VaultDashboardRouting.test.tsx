@@ -28,7 +28,7 @@ describe("vault dashboard dialog routing", () => {
     try {
       await act(async () => {
         root.render(
-          <TestRouterProvider initialEntries={["/vault/samebase/samebase?devtools"]}>
+          <TestRouterProvider initialEntries={["/vaultold/samebase/samebase?devtools"]}>
             <VaultDashboardDeleteControl
               repositoryFullName="samebase/samebase"
               deleteAction={{ state: "available" }}

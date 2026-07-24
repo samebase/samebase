@@ -21,12 +21,12 @@ export function buildVaultDashboardRoute(args: { owner: string; repoName: string
   return `/vault/${args.owner}/${args.repoName}`;
 }
 
-export function buildVault2DashboardRoute(args: { owner: string; repoName: string }): string {
-  return `/vault2/${args.owner}/${args.repoName}`;
+export function buildVaultSettingsRoute(args: { owner: string; repoName: string }): string {
+  return `${buildVaultDashboardRoute(args)}/settings`;
 }
 
-export function buildVault2SettingsRoute(args: { owner: string; repoName: string }): string {
-  return `${buildVault2DashboardRoute(args)}/settings`;
+export function buildVaultOldDashboardRoute(args: { owner: string; repoName: string }): string {
+  return `/vaultold/${args.owner}/${args.repoName}`;
 }
 
 /**

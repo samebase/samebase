@@ -25,7 +25,7 @@ function encodeBranchSegment(branch: string): string {
 }
 
 function buildBranchRoute(branch: string): string {
-  return `/vault/${REPOSITORY_FULL_NAME}/${encodeBranchSegment(branch)}`;
+  return `/vault/${REPOSITORY_FULL_NAME}/fs/${encodeBranchSegment(branch)}`;
 }
 
 function buildFileRoute(branch: string, filePath: string): string {
@@ -98,12 +98,12 @@ test.describe("vault exact-branch live flows", () => {
       waitUntil: "domcontentloaded",
     });
     await expect(page).toHaveURL(
-      new RegExp(`/vault/${REPO_OWNER}/${REPO_NAME}/${encodeBranchSegment(BRANCHES.slash)}`),
+      new RegExp(`/vault/${REPO_OWNER}/${REPO_NAME}/fs/${encodeBranchSegment(BRANCHES.slash)}`),
     );
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(
-      new RegExp(`/vault/${REPO_OWNER}/${REPO_NAME}/${encodeBranchSegment(BRANCHES.slash)}`),
+      new RegExp(`/vault/${REPO_OWNER}/${REPO_NAME}/fs/${encodeBranchSegment(BRANCHES.slash)}`),
     );
   });
 
