@@ -105,15 +105,13 @@ function createStaggerGroups(
   );
 }
 
-function readStaggerChannel(
-  parent: VoxelCoordinate,
-  child: VoxelCoordinate,
-  destinationChild: VoxelCoordinate,
-): number {
-  const movementAxis = child.findIndex((axis, axisIndex) => axis !== destinationChild[axisIndex]);
-  const faceCoordinates = parent.filter((_, axisIndex) => axisIndex !== movementAxis);
+function readFaceColumnChannel(parent: VoxelCoordinate, child: VoxelCoordinate): number {
+  const holeAxis = child.findIndex((axis) => axis !== 1);
+  // Ignore depth along the hole axis so an entire face-on ray shares one
+  // movement pattern and one start time.
+  const faceCoordinates = parent.filter((_, axisIndex) => axisIndex !== holeAxis);
 
-  return movementAxis * 9 + (faceCoordinates[0] % 3) * 3 + (faceCoordinates[1] % 3);
+  return holeAxis * 9 + (faceCoordinates[0] % 3) * 3 + (faceCoordinates[1] % 3);
 }
 
 function readFaceNeighbors(child: VoxelCoordinate): VoxelCoordinate[] {
@@ -130,7 +128,7 @@ function readFaceNeighbors(child: VoxelCoordinate): VoxelCoordinate[] {
 
 function readDestinationChild(
   child: VoxelCoordinate,
-  coordinate: VoxelCoordinate,
+  faceColumnChannel: number,
   depth: MengerDepthTransitionStage["depth"],
   retainedChildKeys: ReadonlySet<string>,
 ): VoxelCoordinate {
@@ -138,7 +136,9 @@ function readDestinationChild(
     retainedChildKeys.has(`${x},${y},${z}`),
   );
 
-  return destinations[Math.floor(readDirectionNoise(coordinate, depth) * destinations.length)];
+  return destinations[
+    Math.floor(readDirectionNoise([faceColumnChannel, depth, 47], depth) * destinations.length)
+  ];
 }
 
 function createMengerDepthTransitionStage(
@@ -171,14 +171,14 @@ function createMengerDepthTransitionStage(
             continue;
           }
 
+          const faceColumnChannel = readFaceColumnChannel(parent, child);
           const destinationChild = readDestinationChild(
             child,
-            coordinate,
+            faceColumnChannel,
             depth,
             retainedChildKeys,
           );
-          const staggerChannel = readStaggerChannel(parent, child, destinationChild);
-          const staggerGroup = staggerGroups.get(staggerChannel);
+          const staggerGroup = staggerGroups.get(faceColumnChannel);
           if (staggerGroup === undefined) {
             throw new Error("Every Menger transition move must resolve to a stagger group.");
           }
