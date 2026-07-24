@@ -90,7 +90,6 @@ describe("account deletion late-write fences", () => {
         userId: ids.userId,
         vaultId: ids.vaultId,
         options: {
-          removeCodespaces: false,
           removeGithubRepo: false,
           removeConvexProvision: false,
           removeCloudflareProvision: false,

@@ -137,9 +137,6 @@ Operational cost:
 - New vault creation seeds starter content as exactly one commit.
 - Starter template package manager is pnpm to align with monorepo tooling and reduce package-manager
   variance.
-- Codespace runtime assets are part of the starter contract:
-  - `.devcontainer/devcontainer.json`
-  - `.codespace-agent/**`
 - The starter app `AGENTS.md` must include:
   - exact initialization sequence used to build the template,
   - exact commands run (Vite, Convex, Tailwind, shadcn setup),
@@ -162,23 +159,8 @@ pnpm run template:export -- --branch dev
   - `sourceBranch`
   - `sourceCommit`
   - `contentHash`
-- Do not overlay Samebase-owned `.devcontainer` or `.codespace-agent` assets onto `samebase/app`. If
-  generated apps need an asset, it belongs in `samebase/app`.
-
-## Sync Contract (Added 2026-02-14, Superseded 2026-04-29)
-
-- The superseded contract treated canonical sources as living at monorepo root:
-  - `.devcontainer/devcontainer.json`
-  - `.codespace-agent/**`
-- Starter template copies were synchronized by:
-  - the starter package's codespace sync command
-- The old export command ran sync first so manifest output could not drift from canonical runtime
-  assets.
-- Sync excluded runtime-only artifacts (for example `.codespace-agent/node_modules`,
-  `.codespace-agent/.agent-token`).
-
-This sync contract no longer applies. The generated starter content is exactly the selected
-`samebase/app` snapshot.
+- Do not overlay Samebase-owned files onto `samebase/app`. Generated starter content is exactly the
+  selected `samebase/app` snapshot, and any required starter asset belongs there.
 
 ## Public API / Behavior Changes
 

@@ -176,14 +176,12 @@ async function createSamebaseManagedVaultWithConvex(args: { withProject: boolean
 }
 
 const deleteConvexOptions = {
-  removeCodespaces: false,
   removeGithubRepo: false,
   removeConvexProvision: true,
   removeCloudflareProvision: false,
 };
 
 const deleteCloudflareOptions = {
-  removeCodespaces: false,
   removeGithubRepo: false,
   removeConvexProvision: false,
   removeCloudflareProvision: true,

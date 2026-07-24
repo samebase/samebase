@@ -556,7 +556,6 @@ export function VaultDashboardSidebarContent({ children }: { children: ReactNode
 
 export function VaultDashboardRepositoryCard({
   developerToolsSection,
-  footerActions,
   headerControls,
   muted,
   repositoryName,
@@ -575,7 +574,6 @@ export function VaultDashboardRepositoryCard({
     open: boolean;
     visible: boolean;
   };
-  footerActions?: ReactNode;
   headerControls?: ReactNode;
   muted: boolean;
   repositoryName: string;
@@ -588,9 +586,7 @@ export function VaultDashboardRepositoryCard({
   titleSuffix?: ReactNode;
   topRightAction?: ReactNode;
 }) {
-  const hasBodyContent = Boolean(
-    primarySection || developerToolsSection || footerActions || setupSection,
-  );
+  const hasBodyContent = Boolean(primarySection || developerToolsSection || setupSection);
   const hasRepositoryLinks = Boolean(repositoryLinks);
   const hasTopRightAction = Boolean(topRightAction);
   const repositoryLinksLabel = repositoryLinksOpen ? "Hide resource links" : "Show resource links";
@@ -717,8 +713,6 @@ export function VaultDashboardRepositoryCard({
               </Collapsible>
             )
           ) : null}
-
-          {footerActions}
         </div>
       </div>
     </div>

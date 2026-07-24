@@ -19,8 +19,8 @@ product yet.
   OAuth access tokens, refresh tokens, API keys, expiry times, usernames, team IDs, account IDs, and
   provider-specific identifiers.
 - Repository and workspace metadata. Samebase stores repository owner and name, repository IDs, Git
-  trees, commit SHAs, branch metadata, infrastructure status, domain mappings, Codespaces metadata,
-  and related operational fields.
+  trees, commit SHAs, branch metadata, infrastructure status, domain mappings, and related
+  operational fields.
 - Workspace content. Samebase stores staged file content, initial file content, file paths,
   deduplicated blobs, collaborative editing updates, and other state needed to sync and restore your
   work.
@@ -60,8 +60,8 @@ product yet.
 - To sync collaborative editing state and preserve your workspace, branch, and UI context.
 - To generate AI responses, tool activity, and approval proposals using the configured model
   provider and the repository or file context for the active thread.
-- To create and manage hosted resources, previews, Codespaces, and related operational
-  infrastructure when you enable those features.
+- To create and manage hosted resources, previews, and related operational infrastructure when you
+  enable those features.
 - To create checkout or customer-portal sessions with Polar and keep subscription status in sync.
 - To understand product usage, monitor stability, and capture client-side errors through PostHog.
 - To maintain security, audit, and troubleshooting records for sensitive operations such as
@@ -80,7 +80,7 @@ browser storage and provider integrations described on this page.
   system context, and selected repository or file context to Anthropic's Claude model to generate
   responses.
 - With GitHub when you connect repositories, read repository data, create commits or repositories,
-  manage deploy keys or webhooks, or use GitHub Codespaces.
+  or manage deploy keys or webhooks.
 - With Convex and Cloudflare when you connect those providers or ask Samebase to provision or
   operate related infrastructure.
 - With Polar when you start checkout or open the billing portal, and when subscription state is
@@ -103,7 +103,7 @@ provider-side resource identifiers may be created and stored as part of that wor
 - You can disconnect connected providers, which removes the corresponding provider-connection record
   stored by Samebase.
 - You can delete vaults from the dashboard, and that deletion flow can also remove related GitHub,
-  Codespaces, Convex, and Cloudflare resources when those options are selected.
+  Convex, and Cloudflare resources when those options are selected.
 - You can delete your account from Settings. Deletion locks the account, cancels an active Samebase
   subscription, removes Samebase account, authentication, workspace, stored credential, and related
   product data, and retains a scrubbed operation receipt without your email or user ID.

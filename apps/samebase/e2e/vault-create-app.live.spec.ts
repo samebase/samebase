@@ -196,7 +196,6 @@ async function createAppIfAvailable(page: Page, repoName: string): Promise<void>
 
 type VaultCleanupTargets = {
   cloudflareWorker: boolean;
-  codespaces: boolean;
   convexProject: boolean;
   githubRepository: boolean;
 };
@@ -219,10 +218,6 @@ async function removeTemporaryVault(
     {
       enabled: targets.githubRepository,
       label: "Also remove GitHub repository",
-    },
-    {
-      enabled: targets.codespaces,
-      label: /^Also remove all Codespaces/,
     },
     {
       enabled: targets.convexProject,
@@ -357,7 +352,6 @@ test.describe("vault create app live flow", () => {
         await selectTemporaryVault(page, repositoryName);
         await removeTemporaryVault(page, repositoryName, {
           cloudflareWorker: true,
-          codespaces: true,
           convexProject: true,
           githubRepository: true,
         });
@@ -387,7 +381,6 @@ test.describe("vault create app live flow", () => {
     let vaultConnected = false;
     const cleanupTargets = {
       cloudflareWorker: true,
-      codespaces: false,
       convexProject: true,
       githubRepository: false,
     };

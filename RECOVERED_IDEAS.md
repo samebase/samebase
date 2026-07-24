@@ -1,3 +1,6 @@
+> [!NOTE] This is a recovered historical dump, not an active backlog or product contract. Codespaces
+> references describe the feature retired on 2026-07-24.
+
 ## bd66cc18d4311937d5d0363b2385744bc9be62df 2026-02-15 TODO.md[6]
 
 File: TODO.md

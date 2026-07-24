@@ -7,6 +7,10 @@
 - Last updated: 2026-03-21
 - Depends on: none
 
+> [!NOTE] This is point-in-time GitHub product research. Codespaces references describe GitHub's
+> catalog, not a current Samebase integration. Samebase retired its Codespaces feature on
+> 2026-07-24.
+
 ## Purpose
 
 Capture what GitHub's organization Overview onboarding module appears to be, what

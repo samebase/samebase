@@ -118,7 +118,6 @@ describe("vault deletion workflow", () => {
     });
     const { deletionRunId } = await asUser.action(api.vault.actions.deleteVault, {
       vaultId: ids.vaultId,
-      removeCodespaces: false,
       removeGithubRepo: false,
       removeConvexProvision: false,
       removeCloudflareProvision: false,
@@ -237,7 +236,6 @@ describe("vault deletion workflow", () => {
       userId: ids.userId,
       vaultId: ids.vaultId,
       options: {
-        removeCodespaces: false,
         removeGithubRepo: false,
         removeConvexProvision: false,
         removeCloudflareProvision: true,
@@ -278,7 +276,6 @@ describe("vault deletion workflow", () => {
       userId: ids.userId,
       vaultId: ids.vaultId,
       options: {
-        removeCodespaces: false,
         removeGithubRepo: false,
         removeConvexProvision: false,
         removeCloudflareProvision: false,
@@ -312,7 +309,6 @@ describe("vault deletion workflow", () => {
       userId: ids.userId,
       vaultId: ids.vaultId,
       options: {
-        removeCodespaces: false,
         removeGithubRepo: false,
         removeConvexProvision: false,
         removeCloudflareProvision: false,
@@ -351,7 +347,6 @@ describe("vault deletion workflow", () => {
       userId: ids.userId,
       vaultId: ids.vaultId,
       options: {
-        removeCodespaces: false,
         removeGithubRepo: false,
         removeConvexProvision: false,
         removeCloudflareProvision: false,
@@ -464,7 +459,6 @@ describe("vault deletion workflow", () => {
       userId: ids.userId,
       vaultId: ids.vaultId,
       options: {
-        removeCodespaces: false,
         removeGithubRepo: false,
         removeConvexProvision: false,
         removeCloudflareProvision: false,
@@ -613,7 +607,6 @@ describe("vault deletion workflow", () => {
         userId: ids.userId,
         vaultId: ids.vaultId,
         options: {
-          removeCodespaces: false,
           removeGithubRepo: false,
           removeConvexProvision: false,
           removeCloudflareProvision: false,
@@ -679,91 +672,12 @@ describe("vault deletion workflow", () => {
         userId: ids.userId,
         vaultId: ids.vaultId,
         options: {
-          removeCodespaces: false,
           removeGithubRepo: true,
           removeConvexProvision: false,
           removeCloudflareProvision: false,
         },
       }),
     ).rejects.toThrow("cannot remove the GitHub repository");
-  });
-
-  it("skips Codespaces cleanup while the feature is disabled", async () => {
-    const t = makeConvexTest();
-    const ids = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      const vaultId = await ctx.db.insert("vaults", {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
-        vaultId,
-        repositoryFullName: "ada/codespaces",
-        trigger: "create",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 1,
-        updatedAt: 2,
-        completedAt: 3,
-      });
-      await ctx.db.replace(vaultId, {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "create_repository",
-        runId,
-        ghRepoId: "789",
-        owner: "ada",
-        name: "codespaces",
-        defaultBranch: "main",
-        visibility: "private",
-        connectedAt: 4,
-      });
-
-      return { userId, vaultId };
-    });
-
-    const result = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
-      userId: ids.userId,
-      vaultId: ids.vaultId,
-      options: {
-        removeCodespaces: true,
-        removeGithubRepo: false,
-        removeConvexProvision: false,
-        removeCloudflareProvision: false,
-      },
-    });
-
-    const snapshot = await t.run(async (ctx) => {
-      const vault = await ctx.db.get(ids.vaultId);
-      const runs = await ctx.db
-        .query("workflow_vaultDeletion_runs")
-        .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", ids.vaultId))
-        .collect();
-      return { runs, vault };
-    });
-    expect(snapshot.vault?.deletion).toMatchObject({
-      state: "deleting",
-      runId: result.deletionRunId,
-    });
-    expect(snapshot.runs).toHaveLength(1);
-    expect(snapshot.runs[0]).toMatchObject({
-      snapshot: {
-        state: "retained_for_retry",
-        plan: {
-          codespaces: {
-            action: "skip",
-            reason: "feature_disabled",
-          },
-        },
-      },
-    });
   });
 
   it("retries a failed retained snapshot with a new run", async () => {
@@ -821,7 +735,6 @@ describe("vault deletion workflow", () => {
       userId: ids.userId,
       vaultId: ids.vaultId,
       options: {
-        removeCodespaces: false,
         removeGithubRepo: true,
         removeConvexProvision: false,
         removeCloudflareProvision: false,
@@ -932,7 +845,6 @@ describe("vault deletion workflow", () => {
       userId: ids.userId,
       vaultId: ids.vaultId,
       options: {
-        removeCodespaces: false,
         removeGithubRepo: true,
         removeConvexProvision: false,
         removeCloudflareProvision: false,

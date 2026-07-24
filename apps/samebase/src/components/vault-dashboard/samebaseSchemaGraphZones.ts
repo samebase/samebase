@@ -1,7 +1,6 @@
 export type SamebaseSchemaGraphZoneId =
   | "identity"
   | "providers"
-  | "codespaces"
   | "workspace"
   | "vault"
   | "repository"
@@ -19,7 +18,7 @@ export type SamebaseSchemaGraphZone = {
   order: number;
 };
 
-export const SAMEBASE_SCHEMA_GRAPH_ZONE_LAYOUT_VERSION = "samebase-zones-v3";
+export const SAMEBASE_SCHEMA_GRAPH_ZONE_LAYOUT_VERSION = "samebase-zones-v4";
 
 export const SAMEBASE_SCHEMA_GRAPH_ZONES = [
   {
@@ -37,18 +36,11 @@ export const SAMEBASE_SCHEMA_GRAPH_ZONES = [
     order: 1,
   },
   {
-    id: "codespaces",
-    label: "Codespaces",
-    description: "GitHub Codespaces used as hosted AI execution environments.",
-    column: 0,
-    order: 2,
-  },
-  {
     id: "workspace",
     label: "Workspace UI",
     description: "Per-user dashboard, sidebar, branch, and navigation preferences.",
     column: 0,
-    order: 3,
+    order: 2,
   },
   {
     id: "vault",
@@ -107,8 +99,6 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
   users: "identity",
   providerConnections: "providers",
   providerOAuthCallbackStates: "providers",
-
-  codespaces: "codespaces",
 
   ui_user_settings: "workspace",
   ui_workspaceSidebar_layouts: "workspace",

@@ -462,23 +462,6 @@ export const markGithubProvisioningFailed = internalMutation({
   },
 });
 
-export const updateVaultDevcontainerConfig = internalMutation({
-  args: {
-    vaultId: v.id("vaults"),
-    devcontainerConfig: v.string(),
-  },
-  returns: nullValidator,
-  handler: async (ctx, args) => {
-    if (!isLiveConnectedVault(await ctx.db.get(args.vaultId))) {
-      return null;
-    }
-    await ctx.db.patch(args.vaultId, {
-      devcontainerConfig: args.devcontainerConfig,
-    });
-    return null;
-  },
-});
-
 export const getById = internalQuery({
   args: {
     id: v.id("vaults"),

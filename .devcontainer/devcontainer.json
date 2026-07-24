@@ -32,27 +32,12 @@
   },
 
   "postCreateCommand": "node .devcontainer/postcreate.ts",
-  "postStartCommand": "bash -lc 'cd .codespace-agent && if [ ! -d node_modules ]; then npm install --no-package-lock; fi && if ! pgrep -f \"node server.ts\" >/dev/null; then nohup npm start >/tmp/codespace-agent.log 2>&1 & fi'",
 
-  "forwardPorts": [5173, 3000, 1455],
+  "forwardPorts": [5173],
   "portsAttributes": {
     "5173": {
       "label": "Vite Dev Server",
       "onAutoForward": "notify"
-    },
-    "3000": {
-      "label": "Codespace Agent API",
-      "visibility": "public",
-      "onAutoForward": "silent"
-    },
-    "1455": {
-      "label": "Codex OAuth Callback",
-      "visibility": "private",
-      "onAutoForward": "silent"
     }
-  },
-
-  "remoteEnv": {
-    "WORKSPACE_DIR": "/workspaces/${localWorkspaceFolderBasename}"
   }
 }

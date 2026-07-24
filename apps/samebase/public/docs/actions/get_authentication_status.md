@@ -103,9 +103,6 @@ JSON Schema for the tool's `structuredContent`:
                     "const": "access_files_write"
                   },
                   {
-                    "const": "access_machines"
-                  },
-                  {
                     "const": "access_mcp"
                   },
                   {
@@ -191,9 +188,6 @@ JSON Schema for the tool's `structuredContent`:
                   },
                   {
                     "const": "access_files_write"
-                  },
-                  {
-                    "const": "access_machines"
                   },
                   {
                     "const": "access_mcp"

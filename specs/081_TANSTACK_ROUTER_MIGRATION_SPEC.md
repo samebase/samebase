@@ -62,8 +62,8 @@ problems, attempted fixes, and outcomes.
   `apps/samebase/src/main.tsx` only owns the reusable routed app mount logic.
 - `apps/samebase/src/lib/appRouter.ts` now owns the simple standalone public and dev-only routes
   (`/privacy`, `/terms`, `/logo*`, and `/pitch*`) plus the non-root authenticated app routes (MCP
-  consent, pricing, add-repository, codespace chat, and the vault/file surfaces), plus the explicit
-  root routes for `/` and `/test`.
+  consent, pricing, add-repository, and the vault/file surfaces), plus the explicit root routes for
+  `/` and `/test`.
 - `apps/samebase/src/components/RootIndexRoutePage.tsx` now owns public `/` rendering, and public
   Google sign-in entrypoints now pass `/vault` as the provider return route when the user starts
   sign-in from `/`. Authenticated users can still browse the public landing route because
@@ -134,11 +134,6 @@ problems, attempted fixes, and outcomes.
   the authenticated and unauthenticated `<Routes>/<Route>` trees with a pure pathname resolver plus
   explicit render selection. Result: the router seam no longer needs to model `Routes` or `Route`,
   which shrinks the future TanStack adapter surface down to links and hooks.
-
-- Problem: route params were still coming from router-owned `useParams`. Tried: moved `FileView` and
-  `CodespaceChatOnlyView` onto the repo-owned vault route parser instead of router-provided params.
-  Result: the seam no longer needs to model `useParams`, and route-shape knowledge now lives with
-  the existing vault route utilities instead of the router implementation.
 
 - Problem: step 2 needed a real TanStack route tree without forcing the whole app to peel its
   pathname switchboard in the same patch. Tried: created a minimal code-based route tree with `/`
@@ -218,15 +213,6 @@ problems, attempted fixes, and outcomes.
   resolver. Result: pricing and add-repository are now route-owned without forcing the heavier vault
   routes into the same patch, and `App.tsx` only keeps the remaining unresolved authenticated
   branches.
-
-- Problem: the last unresolved non-root authenticated paths were still the coupled vault surfaces,
-  where the generic file route and the chat-only codespace route overlap under the same `/vault/*`
-  prefix. Tried: promoted the chat-only codespace path into a specific TanStack route first, then
-  added a generic `/vault/$` route for the file surface and removed both cases from the old
-  authenticated pathname resolver. Result: TanStack Router now owns the full non-root path table,
-  the focused route test proves codespace precedence over the generic vault route, and `App.tsx` is
-  down to the root dashboard/test switchboard that will be addressed in the later landing/bootstrap
-  phase.
 
 - Problem: the first typed-search slice on the public/dev routes hit a mismatch between TanStack
   Router's default search serialization and the app's existing query semantics. Tried: wired
@@ -376,7 +362,7 @@ problems, attempted fixes, and outcomes.
 2. Start a TanStack code-based route tree around the current app/layout seams.
 3. Peel the simple standalone pathname branches out of `App.tsx` into explicit TanStack routes.
 4. Promote all remaining non-root authenticated routes into explicit TanStack routes, including MCP
-   consent, pricing/add, machines, codespace chat, and vault/file paths.
+   consent, pricing/add, machines, and vault/file paths.
 5. Move the public/dev explicit routes with meaningful query state onto route-owned TanStack search
    handling, including the logo preview surfaces and the Codex research routes.
 6. Move the authenticated explicit routes with meaningful query state onto route-owned TanStack

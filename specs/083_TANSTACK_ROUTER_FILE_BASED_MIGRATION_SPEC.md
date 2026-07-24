@@ -53,8 +53,7 @@ issues, attempted fixes, and outcomes from each landed slice.
 ## Current Constraints
 
 - `apps/samebase/src/lib/appRouter.ts` currently owns the shipped route tree and router factory.
-- The shipped route tree includes explicit root, public, authenticated, codespace, and vault/file
-  surfaces.
+- The shipped route tree includes explicit root, public, authenticated, and vault/file surfaces.
 - `apps/samebase/src/lib/tanstackSearchParams.ts` intentionally preserves human-readable query
   params such as `/?dev`.
 - `apps/samebase/src/main.tsx` and `apps/samebase/src/test/TestRouterProvider.tsx` already mount the
@@ -101,11 +100,11 @@ issues, attempted fixes, and outcomes from each landed slice.
 
 - Problem: the first file-based slice still left many routes with a two-step hop:
   `routes/*.tsx -> components/*RoutePage.tsx -> real page component`. Tried: inline the route-only
-  wrappers for authenticated routes such as `/add`, `/pricing`, `/vault/$`, and the chat-only
-  codespace route, plus the simple public wrappers for `/privacy`, `/terms`, `/pitch*`, and the logo
-  transition labs. Result: the route files now own those thin wrappers directly, the dead
-  `components/*RoutePage.tsx` files are deleted, and the remaining route-support helper file only
-  carries the shared public-route shell plus the routes that still need a bit more local logic.
+  wrappers for authenticated routes such as `/add`, `/pricing`, and `/vault/$`, plus the simple
+  public wrappers for `/privacy`, `/terms`, `/pitch*`, and the logo transition labs. Result: the
+  route files now own those thin wrappers directly, the dead `components/*RoutePage.tsx` files are
+  deleted, and the remaining route-support helper file only carries the shared public-route shell
+  plus the routes that still need a bit more local logic.
 
 - Problem: the new route files still relied on manual `React.lazy(...)` calls, which duplicated the
   code-splitting responsibility that TanStack Router can own directly and made the next performance

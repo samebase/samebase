@@ -887,7 +887,6 @@ export const deleteVault = action({
   access: "access_app_create",
   args: {
     vaultId: v.id("vaults"),
-    removeCodespaces: v.optional(v.boolean()),
     removeGithubRepo: v.optional(v.boolean()),
     removeConvexProvision: v.optional(v.boolean()),
     removeCloudflareProvision: v.optional(v.boolean()),
@@ -903,7 +902,6 @@ export const deleteVault = action({
         userId,
         vaultId: args.vaultId,
         options: {
-          removeCodespaces: args.removeCodespaces ?? false,
           removeGithubRepo: args.removeGithubRepo ?? false,
           removeConvexProvision: args.removeConvexProvision ?? false,
           removeCloudflareProvision: args.removeCloudflareProvision ?? false,

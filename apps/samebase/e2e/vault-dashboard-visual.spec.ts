@@ -135,13 +135,6 @@ async function expectElementsDoNotOverlap(first: Locator, second: Locator) {
     .toBe(true);
 }
 
-async function expectOptionalCheckboxUnchecked(locator: Locator) {
-  if ((await locator.count()) === 0) {
-    return;
-  }
-  await expect(locator).not.toBeChecked();
-}
-
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
 });
@@ -274,9 +267,8 @@ test("vault dashboard fixture (Convex schema graph)", async ({ page }) => {
     .getByText("workflow_vaultProvisioning_writeLocks", { exact: true });
   await expect(longTableName).toBeVisible();
   await expect(longTableName).not.toHaveCSS("text-overflow", "ellipsis");
-  await expect(fixture.locator(".react-flow__edge")).toHaveCount(11);
+  await expect(fixture.locator(".react-flow__edge")).toHaveCount(9);
   await expect(fixture.locator('[data-schema-graph-zone="identity"]')).toBeVisible();
-  await expect(fixture.locator('[data-schema-graph-zone="codespaces"]')).toBeVisible();
   await expect(fixture.locator('[data-schema-graph-zone="vault"]')).toBeVisible();
   await expect(fixture.locator('[data-schema-graph-zone="repository"]')).toBeVisible();
   await expect(fixture.locator('[data-schema-graph-zone="infrastructure"]')).toBeVisible();
@@ -348,9 +340,8 @@ test("vault dashboard fixture (Convex schema route mobile)", async ({ page }) =>
   await expect(
     routeMain.getByTestId("rf__node-users").getByText("users", { exact: true }),
   ).toBeVisible();
-  await expect(routeMain.locator('[data-schema-graph-zone="codespaces"]')).toBeVisible();
   await expect(routeMain.locator('[data-schema-graph-zone="vault"]')).toBeVisible();
-  await expect(routeMain.locator(".react-flow__edge")).toHaveCount(11);
+  await expect(routeMain.locator(".react-flow__edge")).toHaveCount(9);
   await expect(routeMain).toHaveScreenshot("vault-convex-schema-route-mobile.png", {
     animations: "disabled",
     caret: "hide",
@@ -373,11 +364,6 @@ test("vault dashboard fixture (delete dialog)", async ({ page }) => {
       name: "Also remove GitHub repository",
     }),
   ).not.toBeChecked();
-  await expectOptionalCheckboxUnchecked(
-    deleteDialog.getByRole("checkbox", {
-      name: /^Also remove all Codespaces/,
-    }),
-  );
   await expect(
     deleteDialog.getByRole("checkbox", {
       name: "Also remove Convex project/deployment",
@@ -625,11 +611,6 @@ test("vault dashboard fixture (delete dialog mobile)", async ({ browser }, testI
       name: "Also remove GitHub repository",
     }),
   ).not.toBeChecked();
-  await expectOptionalCheckboxUnchecked(
-    deleteDialog.getByRole("checkbox", {
-      name: /^Also remove all Codespaces/,
-    }),
-  );
   await expect(
     deleteDialog.getByRole("checkbox", {
       name: "Also remove Convex project/deployment",

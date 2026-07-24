@@ -1032,7 +1032,9 @@ function VaultDashboardDeveloperToolsFixture({ visible }: { visible: boolean }) 
                 visible,
                 open: false,
                 onOpenChange: () => {},
-                content: <div className="text-xs text-muted-foreground">Codespace ready</div>,
+                content: (
+                  <div className="text-xs text-muted-foreground">Repository tools ready</div>
+                ),
               }}
             />
           </div>
@@ -1104,43 +1106,6 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
               {
                 path: "auth.method",
                 kind: "union",
-                optional: false,
-                source: "declared",
-              },
-            ],
-          },
-          {
-            name: "codespaces",
-            source: "declared",
-            documentCount: 2,
-            indexes: [
-              { name: "by_vault", fields: ["vaultId"] },
-              { name: "by_user", fields: ["userId"] },
-            ],
-            fields: [
-              {
-                path: "vaultId",
-                kind: "Id<vaults>",
-                optional: false,
-                source: "declared",
-                targetTable: "vaults",
-              },
-              {
-                path: "userId",
-                kind: "Id<users>",
-                optional: false,
-                source: "declared",
-                targetTable: "users",
-              },
-              {
-                path: "state",
-                kind: "union",
-                optional: false,
-                source: "declared",
-              },
-              {
-                path: "branch",
-                kind: "string",
                 optional: false,
                 source: "declared",
               },
@@ -1365,20 +1330,6 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             source: "declared",
           },
           {
-            id: "declared:codespaces:userId:users",
-            fromTable: "codespaces",
-            fromField: "userId",
-            toTable: "users",
-            source: "declared",
-          },
-          {
-            id: "declared:codespaces:vaultId:vaults",
-            fromTable: "codespaces",
-            fromField: "vaultId",
-            toTable: "vaults",
-            source: "declared",
-          },
-          {
             id: "declared:vaults:userId:users",
             fromTable: "vaults",
             fromField: "userId",
@@ -1531,7 +1482,6 @@ function VaultDashboardDeleteOpenFixture() {
         </VaultDashboardRepositoryList>
         <VaultDashboardDeleteDialog
           commitError={null}
-          connectedCodespacesCount={2}
           deleteError={null}
           didAttemptCommit={false}
           isCommitting={false}
@@ -1541,7 +1491,6 @@ function VaultDashboardDeleteOpenFixture() {
           onOpenChange={() => {}}
           onRemoveVault={() => {}}
           open={true}
-          removeCodespaces={false}
           removeConvexProvision={false}
           removeGithubRepo={false}
           removeCloudflareProvision={false}

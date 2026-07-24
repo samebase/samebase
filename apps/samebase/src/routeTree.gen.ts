@@ -45,7 +45,6 @@ import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobil
 import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
 import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-transition-transforms-lab";
 import { Route as logoMengerTransitionResearchRouteImport } from "./routes/logo-menger-transition-research";
-import { Route as codespaceChatRouteImport } from "./routes/codespace-chat";
 import { Route as vaultSchemaProjectRouteImport } from "./routes/vault-schema-project";
 import { Route as vaultDatabaseProjectRouteImport } from "./routes/vault-database-project";
 
@@ -231,11 +230,6 @@ const logoMengerTransitionResearchRoute =
     path: "/logo/transition/menger",
     getParentRoute: () => rootRouteImport,
   } as any);
-const codespaceChatRoute = codespaceChatRouteImport.update({
-  id: "/vault/$owner/$repo/codespace/$branch/chat",
-  path: "/vault/$owner/$repo/codespace/$branch/chat",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const vaultSchemaProjectRoute = vaultSchemaProjectRouteImport.update({
   id: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId",
   path: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId",
@@ -284,7 +278,6 @@ export interface FileRoutesByFullPath {
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
-  "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
   "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
   "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
 }
@@ -325,7 +318,6 @@ export interface FileRoutesByTo {
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
-  "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
   "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
   "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
 }
@@ -367,7 +359,6 @@ export interface FileRoutesById {
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
-  "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
   "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
   "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
 }
@@ -410,7 +401,6 @@ export interface FileRouteTypes {
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/vault/$owner/$repo"
-    | "/vault/$owner/$repo/codespace/$branch/chat"
     | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
     | "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
   fileRoutesByTo: FileRoutesByTo;
@@ -451,7 +441,6 @@ export interface FileRouteTypes {
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/vault/$owner/$repo"
-    | "/vault/$owner/$repo/codespace/$branch/chat"
     | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
     | "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
   id:
@@ -492,7 +481,6 @@ export interface FileRouteTypes {
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/vault/$owner/$repo"
-    | "/vault/$owner/$repo/codespace/$branch/chat"
     | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
     | "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
   fileRoutesById: FileRoutesById;
@@ -534,7 +522,6 @@ export interface RootRouteChildren {
   mcpConsentRoute: typeof mcpConsentRoute;
   pitchPrintMobileRoute: typeof pitchPrintMobileRoute;
   vaultDashboardRoute: typeof vaultDashboardRoute;
-  codespaceChatRoute: typeof codespaceChatRoute;
   vaultDatabaseProjectRoute: typeof vaultDatabaseProjectRoute;
   vaultSchemaProjectRoute: typeof vaultSchemaProjectRoute;
 }
@@ -793,13 +780,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof logoMengerTransitionResearchRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/vault/$owner/$repo/codespace/$branch/chat": {
-      id: "/vault/$owner/$repo/codespace/$branch/chat";
-      path: "/vault/$owner/$repo/codespace/$branch/chat";
-      fullPath: "/vault/$owner/$repo/codespace/$branch/chat";
-      preLoaderRoute: typeof codespaceChatRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": {
       id: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
       path: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
@@ -854,7 +834,6 @@ const rootRouteChildren: RootRouteChildren = {
   mcpConsentRoute: mcpConsentRoute,
   pitchPrintMobileRoute: pitchPrintMobileRoute,
   vaultDashboardRoute: vaultDashboardRoute,
-  codespaceChatRoute: codespaceChatRoute,
   vaultDatabaseProjectRoute: vaultDatabaseProjectRoute,
   vaultSchemaProjectRoute: vaultSchemaProjectRoute,
 };

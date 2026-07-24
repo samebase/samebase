@@ -16,7 +16,6 @@ const deleteOnlyByVaultCleanupTables = union(
   literal("vaultCloudflareWorkers"),
   literal("workflow_vaultProvisioning_plans"),
   literal("workflow_vaultProvisioning_writeLocks"),
-  literal("codespaces"),
   literal("ui_agentGraphNode_layouts"),
 );
 type DeleteOnlyByVaultCleanupTable = Infer<typeof deleteOnlyByVaultCleanupTables>;
@@ -284,10 +283,6 @@ const vaultLocalCleanupRegistry = [
     cleanup: deleteByVaultBatch("workflow_vaultProvisioning_writeLocks"),
   },
   {
-    table: "codespaces",
-    cleanup: deleteByVaultBatch("codespaces"),
-  },
-  {
     table: "ui_agentGraphNode_layouts",
     cleanup: deleteByVaultBatch("ui_agentGraphNode_layouts"),
   },
@@ -331,7 +326,6 @@ const vaultLocalCleanupRegistryByStep = {
     "vaultCloudflareWorkers",
     "workflow_vaultProvisioning_plans",
     "workflow_vaultProvisioning_writeLocks",
-    "codespaces",
     "ui_agentGraphNode_layouts",
   ],
   cleanup_access_state: ["aiProductionReadRequests"],

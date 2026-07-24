@@ -13,12 +13,10 @@ import {
 import { readVaultDeletionEligibility } from "./eligibility";
 import { isConnectedVault } from "../state";
 import { readVaultDeletionState } from "./state";
-import { CODESPACES_ENABLED } from "../../../shared/featureFlags";
 
 const { boolean, id, literal, object, string, union } = v;
 
 const deletionRequestOptions = object({
-  removeCodespaces: boolean(),
   removeGithubRepo: boolean(),
   removeConvexProvision: boolean(),
   removeCloudflareProvision: boolean(),
@@ -109,37 +107,6 @@ async function assertVaultIsQuiescentForDeletion(
   if (eligibility.state === "blocked") {
     throw new Error(eligibility.reason);
   }
-}
-
-async function buildCodespacesPlan(
-  ctx: MutationCtx,
-  args: {
-    userId: Id<"users">;
-    options: DeletionRequestOptions;
-  },
-): Promise<VaultDeletionPlan["codespaces"]> {
-  if (!args.options.removeCodespaces) {
-    return {
-      action: "skip",
-      reason: "not_requested",
-    };
-  }
-
-  if (!CODESPACES_ENABLED) {
-    return {
-      action: "skip",
-      reason: "feature_disabled",
-    };
-  }
-
-  await requireProviderConnection(ctx, {
-    userId: args.userId,
-    kind: "github",
-  });
-
-  return {
-    action: "delete_connected_codespaces",
-  };
 }
 
 function buildConvexProjectDeletionPlan(
@@ -271,10 +238,6 @@ async function buildDeletionPlan(
     options: DeletionRequestOptions;
   },
 ): Promise<VaultDeletionPlan> {
-  const codespaces = await buildCodespacesPlan(ctx, {
-    userId: args.vault.userId,
-    options: args.options,
-  });
   const convex = await buildConvexPlan(ctx, args);
   const cloudflare = await buildCloudflarePlan(ctx, args);
   const repositoryFullName = getRepositoryFullName(args.vault);
@@ -288,7 +251,6 @@ async function buildDeletionPlan(
           );
         }
         return {
-          codespaces,
           convex,
           cloudflare,
           target: {
@@ -313,7 +275,6 @@ async function buildDeletionPlan(
       }
 
       return {
-        codespaces,
         convex,
         cloudflare,
         target: {
@@ -343,7 +304,6 @@ async function buildDeletionPlan(
         );
       }
       return {
-        codespaces,
         convex,
         cloudflare,
         target: {
@@ -373,10 +333,7 @@ async function assertPlanProviderConnections(
     plan: VaultDeletionPlan;
   },
 ): Promise<void> {
-  if (
-    args.plan.codespaces.action === "delete_connected_codespaces" ||
-    args.plan.githubRepository.action === "delete_repository"
-  ) {
+  if (args.plan.githubRepository.action === "delete_repository") {
     await requireProviderConnection(ctx, {
       userId: args.userId,
       kind: "github",

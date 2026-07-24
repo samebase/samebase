@@ -59,7 +59,6 @@ const ACCOUNT_DELETION_TABLE_REGISTRY = {
   workflow_vaultProvisioning_events: "vault_local",
   workflow_vaultDeletion_runs: "account_local",
   workflow_vaultDeletion_events: "account_local",
-  codespaces: "vault_local",
   vaultStagedFiles: "vault_local",
   observations_vaultFiles_blobs: "vault_local",
   ui_vaultFileTree_folderExpansions: "vault_local",
@@ -334,7 +333,6 @@ function vaultCleanupPhase(
     case "vaultCloudflareWorkers":
     case "workflow_vaultProvisioning_plans":
     case "workflow_vaultProvisioning_writeLocks":
-    case "codespaces":
     case "ui_agentGraphNode_layouts":
     case "chatThreadContexts":
       return "app_data";

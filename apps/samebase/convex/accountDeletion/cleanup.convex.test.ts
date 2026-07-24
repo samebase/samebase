@@ -311,7 +311,6 @@ describe("account-local deletion cleanup", () => {
               name: "repository",
               repositoryFullName: "owner/repository",
             },
-            codespaces: { action: "skip", reason: "not_requested" },
             convex: { action: "skip", reason: "not_requested" },
             cloudflare: { action: "skip", reason: "not_requested" },
             githubRepository: { action: "skip", reason: "not_requested" },
