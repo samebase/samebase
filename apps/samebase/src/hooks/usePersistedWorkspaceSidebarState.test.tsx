@@ -52,7 +52,7 @@ function SidebarStateProbe() {
   const sidebarState = usePersistedWorkspaceSidebarState({
     defaults: DEFAULT_SIDEBAR_STATE,
     onPersistedStateApplied: null,
-    workspaceKey: "machines",
+    workspaceKey: "app",
   });
   latestSidebarStateController = sidebarState;
 
@@ -236,7 +236,7 @@ describe("usePersistedWorkspaceSidebarState", () => {
           side: "right",
         },
       },
-      workspaceKey: "machines",
+      workspaceKey: "app",
     });
   });
 });

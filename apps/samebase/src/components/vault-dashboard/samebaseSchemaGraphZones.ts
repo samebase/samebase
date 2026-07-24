@@ -1,7 +1,7 @@
 export type SamebaseSchemaGraphZoneId =
   | "identity"
   | "providers"
-  | "machines"
+  | "codespaces"
   | "workspace"
   | "vault"
   | "repository"
@@ -37,9 +37,9 @@ export const SAMEBASE_SCHEMA_GRAPH_ZONES = [
     order: 1,
   },
   {
-    id: "machines",
-    label: "Machines",
-    description: "Local machine registration, credentials, and live control.",
+    id: "codespaces",
+    label: "Codespaces",
+    description: "GitHub Codespaces used as hosted AI execution environments.",
     column: 0,
     order: 2,
   },
@@ -108,7 +108,7 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
   providerConnections: "providers",
   providerOAuthCallbackStates: "providers",
 
-  codespaces: "machines",
+  codespaces: "codespaces",
 
   ui_user_settings: "workspace",
   ui_workspaceSidebar_layouts: "workspace",
@@ -163,9 +163,6 @@ export function readSamebaseSchemaGraphZoneId(tableName: string): SamebaseSchema
   }
   if (tableName.startsWith("mcp")) {
     return "mcp";
-  }
-  if (tableName.startsWith("machine")) {
-    return "machines";
   }
   if (tableName.startsWith("vaultConvex") || tableName.startsWith("vaultCloudflare")) {
     return "infrastructure";
