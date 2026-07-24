@@ -1,5 +1,9 @@
 ## E2B Sandboxes as the Universal Runtime for Noter
 
+> [!NOTE] Historical exploration. GitHub Codespaces was retired on 2026-07-24. Any future hosted
+> runtime should be designed from current requirements rather than preserving the retired
+> integration.
+
 ### The Problem
 
 Dev containers (Codespaces) take ~3 minutes to start. We currently need them mainly for

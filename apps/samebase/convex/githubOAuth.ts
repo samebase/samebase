@@ -13,7 +13,6 @@ import {
   getGitHubOAuthScopeRequirements,
   isSafeGithubOAuthReturnToPath,
 } from "../shared/githubOAuth";
-import { CODESPACES_ENABLED } from "../shared/featureFlags";
 import { buildProviderOAuthDefaultReturnUrl } from "../shared/providerOAuthReturn";
 import { utf8ToBase64 } from "../shared/base64";
 import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSearchParams";
@@ -47,7 +46,7 @@ function buildGithubOAuthAuthorizeSearchParams(args: {
   return {
     client_id: args.clientId,
     redirect_uri: args.redirectUri,
-    scope: [...requiredScopes, ...(CODESPACES_ENABLED ? ["codespace"] : [])].join(" "),
+    scope: requiredScopes.join(" "),
     state: args.state,
   };
 }

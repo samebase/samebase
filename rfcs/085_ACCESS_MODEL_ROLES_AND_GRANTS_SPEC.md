@@ -23,7 +23,7 @@ prepares the app for external users:
 
 1. **Access keys** (the checkable primitive; what a route, search param, query, mutation, action, or
    MCP grant demands):
-   `access_public | access_user_preferences | access_dashboard | access_provider_connections | access_repo_connect | access_app_create | access_app_refresh | access_files_read | access_files_write | access_machines | access_mcp | access_admin`.
+   `access_public | access_user_preferences | access_dashboard | access_provider_connections | access_repo_connect | access_app_create | access_app_refresh | access_files_read | access_files_write | access_mcp | access_admin`.
 2. **Viewer role bundles** (coarse default grant sources):
    `role_anonymous | role_waitlisted | role_member | role_staff`.
 3. **Grants** (which bundles satisfy which keys): one table, additive-only. Backend code resolves a
@@ -44,9 +44,8 @@ Member MVP: `role_member` holds `access_public`, `access_user_preferences`, `acc
 `access_files_read`, and `access_files_write`. Members can sign in, persist signed-in app-shell
 preferences, connect provider accounts, connect/import their own repositories, create Noter-managed
 apps after provider-readiness checks pass, monitor/resync app state, and use owned file surfaces
-behind per-vault ownership checks. Codespaces, MCP, and admin surfaces stay staff-only until
-deliberately opened. Enabling more later is a grant edit plus route/function reclassification, not a
-redesign.
+behind per-vault ownership checks. MCP and admin surfaces stay staff-only until deliberately opened.
+Enabling more later is a grant edit plus route/function reclassification, not a redesign.
 
 This RFC also closes the approval enforcement gap that existed before the backend wrapper rollout:
 `users.isApproved` was enforced only by the client-side `ApprovalGate`, so backend enforcement
@@ -59,8 +58,8 @@ became structural via access-key function wrappers.
    resulting checks ask whether a viewer has the required `access_*` key.
 2. Server-side enforcement that fails closed and cannot be forgotten per function: public Convex
    queries, mutations, and actions must be wrapped with an explicit access key.
-3. Member MVP includes account/repo/app-creation/app-status capabilities, with the path to files,
-   Codespaces, and MCP being grant edits plus targeted reclassification, not a redesign.
+3. Member MVP includes account/repo/app-creation/app-status capabilities, with the path to files and
+   MCP being grant edits plus targeted reclassification, not a redesign.
 4. Keep billing (plan/add-ons) outside this access model: access keys gate who may call; current
    member app creation is not gated by billing state. Existing billing specs are plumbing notes, not
    enforceable product decisions. Future quotas, credits, or plan enforcement need their own
@@ -143,7 +142,6 @@ export const ACCESS_KEYS = [
   "access_app_refresh",
   "access_files_read",
   "access_files_write",
-  "access_machines",
   "access_mcp",
   "access_admin",
 ] as const;
@@ -206,7 +204,6 @@ Capability split locked in by this RFC:
 | `access_app_refresh`          | Reload/resync app, repository, branch, deployment, and provider-status metadata.                             |
 | `access_files_read`           | Read file trees, file contents, diffs, staged-change summaries, and review data.                             |
 | `access_files_write`          | Edit files, stage changes, upload/delete/rename, commit, open PRs, or run AI/file-compute workflows.         |
-| `access_machines`             | Codespaces executor and lifecycle flows.                                                                     |
 | `access_mcp`                  | MCP OAuth consent and MCP-facing tool entry points.                                                          |
 | `access_admin`                | Internal operator, debug, research, prod-read, test, and unreleased surfaces.                                |
 
@@ -405,7 +402,6 @@ they are.
 | `access_app_create`   | `/new-app` managed app creation shell; managed provisioning actions also keep backend `access_app_create` checks                                                                                                                                  |
 | `access_files_read`   | `/vault/$` read shell                                                                                                                                                                                                                             |
 | `access_files_write`  | File edit/staging/commit actions inside `/vault/$`; no separate route required at MVP                                                                                                                                                             |
-| `access_machines`     | Dormant Codespaces chat route under `/vault/$owner/$repo/codespace/$branch/chat`                                                                                                                                                                  |
 | `access_mcp`          | MCP-facing backend entry points and token-granted tool scopes; the consent URL itself is a public OAuth entrypoint so signed-out users can keep the request ID through sign-in                                                                    |
 | `access_admin`        | `/pitch`, `/pitch/print`, `/pitch/print/mobile`, `/landing-preview`, `/test`, `/indexDB`, `/localStorage`, `/logo/iso`, `/logo/raster`, `/logo/raster-seams`, `/logo/single-cube`, `/logo/svg`, `/logo/transition`, `/logo/transition/transforms` |
 
@@ -479,10 +475,10 @@ app-owned `query`/`mutation`/`action`; lint rule; migrate every exported public 
 action onto an explicit access key. Authenticated-but-unapproved callers resolve to
 `role_waitlisted` and lose access to everything beyond public reads and signed-in shell preferences
 because that restriction is the point. Sub-split by area for review: auth/public → dashboard →
-provider connections → repo connect/app create/app refresh → files read/write → Codespaces →
-admin/chat → mixed. Anything unclear starts as `access_admin`. Convex tests gain role fixtures
-(`t.withIdentity` + seeded approved/unapproved users); state-axis enumeration test for
-`ROLE_ACCESS_GRANTS` (e.g. "every key a member holds, staff holds").
+provider connections → repo connect/app create/app refresh → files read/write → admin/chat → mixed.
+Anything unclear starts as `access_admin`. Convex tests gain role fixtures (`t.withIdentity` +
+seeded approved/unapproved users); state-axis enumeration test for `ROLE_ACCESS_GRANTS` (e.g. "every
+key a member holds, staff holds").
 
 **Phase 2 — frontend runtime gate.** The metadata field rename (`permission` → `access`),
 search-param classification, URL-editor `currentViewerAccess` wiring, `RouteAccessOutlet`, and

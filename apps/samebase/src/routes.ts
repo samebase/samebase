@@ -57,7 +57,6 @@ export const routes = rootRoute("root.tsx", [
   route("/admin/account-deletions", "admin-account-deletions.tsx"),
   route(DASHBOARD_ROUTE, [index("vault-dashboard-root.tsx"), route("$", "vault-file.tsx")]),
   route(`${DASHBOARD_ROUTE}/$owner/$repo`, "vault-dashboard.tsx"),
-  route(`${DASHBOARD_ROUTE}/$owner/$repo/codespace/$branch/chat`, "codespace-chat.tsx"),
   route(
     `${DASHBOARD_ROUTE}/$owner/$repo/db/$branch/project/$convexProjectId`,
     "vault-database-project.tsx",

@@ -1,5 +1,3 @@
-import { CODESPACES_ENABLED } from "./featureFlags";
-
 export const GITHUB_OAUTH_POPUP_NAME = "github-oauth";
 
 const BASE_GITHUB_OAUTH_SCOPES = [
@@ -29,19 +27,8 @@ const BASE_GITHUB_OAUTH_SCOPES = [
   },
 ] as const;
 
-const CODESPACES_GITHUB_OAUTH_SCOPE = {
-  scope: "codespace",
-  label: "Manage Codespaces",
-} as const;
-
-export type GitHubOAuthScopeRequirement =
-  | (typeof BASE_GITHUB_OAUTH_SCOPES)[number]
-  | typeof CODESPACES_GITHUB_OAUTH_SCOPE;
-
 export function getGitHubOAuthScopeRequirements() {
-  return CODESPACES_ENABLED
-    ? [...BASE_GITHUB_OAUTH_SCOPES, CODESPACES_GITHUB_OAUTH_SCOPE]
-    : [...BASE_GITHUB_OAUTH_SCOPES];
+  return [...BASE_GITHUB_OAUTH_SCOPES];
 }
 
 export function buildGitHubOAuthManageUrl(clientId: string): string {

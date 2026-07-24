@@ -891,7 +891,6 @@ describe("VaultProviderSetupSection", () => {
 describe("VaultDashboardDeleteDialog", () => {
   const baseProps = {
     commitError: null,
-    connectedCodespacesCount: 0,
     deleteError: null,
     didAttemptCommit: false,
     isCommitting: false,
@@ -901,7 +900,6 @@ describe("VaultDashboardDeleteDialog", () => {
     onOpenChange: () => {},
     onRemoveVault: () => {},
     open: true,
-    removeCodespaces: false,
     removeConvexProvision: false,
     removeGithubRepo: false,
     removeCloudflareProvision: false,

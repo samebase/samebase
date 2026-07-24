@@ -74,8 +74,8 @@ every failure has the dashboard object users inspect and retry.
 1. Make repo-less vaults usable as source workspaces.
 2. Allow changing the connected GitHub repository identity in place.
 3. Build a generic provider framework.
-4. Redesign unrelated editor, file staging, branch, PR, or Codespaces flows beyond the required
-   connected-GitHub guard.
+4. Redesign unrelated editor, file staging, branch, or PR flows beyond the required connected-GitHub
+   guard.
 5. Add generic user-facing retry without a concrete failed provider workflow block.
 6. Add automatic restart-from-failed-step controls. Step-local backend retries for idempotent
    provider work are still in scope after visibility is clear.
@@ -92,9 +92,8 @@ These behaviors must fail closed or stay hidden unless `vault.state === "connect
 3. collaborative edits
 4. branch metadata refresh
 5. pull request metadata
-6. GitHub Codespaces
-7. commits and media uploads
-8. infrastructure steps that require GitHub repository identity
+6. commits and media uploads
+7. infrastructure steps that require GitHub repository identity
 
 Once a vault reaches connected GitHub state, its `ghRepoId` is immutable. If the user wants to use a
 different repository, the product must create a new vault or archive the old vault instead of
@@ -563,11 +562,10 @@ requests.
 
 These items are intentionally outside the current New App reliability path:
 
-1. Revisit parked Codespaces branch defaults after Codespaces work resumes.
-2. Define explicit manual provider retry UX only when a current failure case needs it. Any future
+1. Define explicit manual provider retry UX only when a current failure case needs it. Any future
    retry action should target one failed provider workflow block, create a new run, and preserve
    older runs and events as history.
-3. Consider a generic restart-from-failed-step abstraction only after manual provider retry has
+2. Consider a generic restart-from-failed-step abstraction only after manual provider retry has
    proven the provider-state model.
 
 ## Testing Plan

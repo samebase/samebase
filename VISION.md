@@ -198,7 +198,6 @@ collaboration, and full-stack development.
 - **Frontend**: React + Vite + TypeScript + Tailwind
 - **Backend**: Convex (real-time database + serverless functions)
 - **Editor**: Monaco with collaborative editing
-- **Development**: GitHub Codespaces integration
 - **Auth**: GitHub OAuth
 - **Deployment**: Netlify + Convex
 
@@ -281,7 +280,6 @@ notifications" and:
 
 - ✅ Collaborative editing
 - ✅ GitHub integration
-- ✅ Codespace creation
 - 🔄 Repository creation flow
 
 ### Phase 2: Agent Creation

@@ -61,15 +61,6 @@ export function buildVaultSchemaRoute(args: {
   return `/vault/${args.owner}/${args.repoName}/schema/${encodeVaultBranchSegment(args.branch)}/project/${encodeURIComponent(args.convexProjectId)}`;
 }
 
-export interface VaultCodespaceChatRouteArgs {
-  repositoryFullName: string;
-  branch: string;
-}
-
-export function buildVaultCodespaceChatRoute(args: VaultCodespaceChatRouteArgs): string {
-  return `/vault/${args.repositoryFullName}/codespace/${encodeVaultBranchSegment(args.branch)}/chat`;
-}
-
 export interface ParsedVaultPathContext {
   owner?: string;
   repositoryFullName?: string;

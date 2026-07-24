@@ -108,9 +108,7 @@ const THIRD_WORDS = [
 ];
 
 const options = parseArgs(process.argv.slice(2));
-const workspaceDir = process.env.WORKSPACE_DIR ?? process.cwd();
-
-process.chdir(workspaceDir);
+const workspaceDir = process.cwd();
 
 if (options.enableBranch) {
   createBranchIfDetached();

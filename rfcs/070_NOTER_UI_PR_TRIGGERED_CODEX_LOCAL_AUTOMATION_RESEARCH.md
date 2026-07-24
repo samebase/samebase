@@ -5,6 +5,10 @@
 - Research
 - Last updated: 2026-03-25
 
+> [!NOTE] This note records the implementation available during the original research. The
+> Codespaces bridge and `.codespace-agent` it cites were retired on 2026-07-24 and are not current
+> architecture.
+
 ## Question
 
 When Noter creates a draft PR from the noter.md UI, how should this machine detect that PR, create

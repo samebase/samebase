@@ -7,7 +7,6 @@
 - Last updated: 2026-02-21
 - Related specs:
   - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
-  - `rfcs/008_CHAT_ONLY_CODESPACE_MODE_SPEC.md`
 
 ## Summary
 

@@ -23,7 +23,8 @@ Implementation completed on 2026-07-24:
    machinery for its tests
 4. deleted machine-only URL suggestion logic, token creation, CI checks, operator shortcuts, specs,
    RFCs, and manual tests
-5. retained `access_machines` only because dormant Codespaces still owns that access key
+5. transferred final `access_machines` ownership to the separate Codespaces retirement, which
+   removed the key
 
 This recommendation does not rely on user count. Samebase has not offered beta access, and the
 operator is the product's only real user. Zero external users is therefore neutral evidence, not a
@@ -56,12 +57,10 @@ port only the proven invariants it needs.
 Samebase has not offered beta access. The operator is the only real user, so the absence of external
 connected-machine users cannot show demand, product failure, or maintenance value.
 
-The current staff-only access gate, hidden navigation, and unpublished npm package describe release
-state, not product merit. Regular members do not receive `access_machines`
-(`apps/samebase/shared/accessModel.ts:37-56`), `/machines` and `/machines/connect` require it
-(`apps/samebase/src/routeAccessMetadata.ts:67-70`), and the nominal package remains version `0.0.0`
-(`packages/sync/package.json:1-17`). The hosted `/samebase.ts` path is nevertheless a real working
-distribution channel.
+The staff-only access gate, hidden navigation, and unpublished npm package described release state,
+not product merit. Before retirement, regular members did not receive `access_machines`, the
+`/machines` routes required it, and the nominal package remained version `0.0.0`. The hosted
+`/samebase.ts` path was nevertheless a real working distribution channel.
 
 The useful priority signal is narrower: repository guidance says remote-machine features are dormant
 and have no planned release (`AGENTS.md:226-228`). "No planned release" matters because it places
@@ -246,8 +245,8 @@ Removing a table definition from `schema.ts` does not delete stored Convex table
 the backend removal, delete the five tables directly from each persistent deployment. Do not build a
 migration framework for these rows or tables.
 
-Keep `access_machines` while Codespaces remains because Codespaces shares that key. Its deletion
-belongs to the separate Codespaces cleanup.
+The separate Codespaces retirement removed `access_machines` after its final owner was deleted. See
+`research/2026-07-24-codespaces-value-and-retirement-audit.md`.
 
 ### 4. Delete machine distribution
 

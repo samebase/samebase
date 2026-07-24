@@ -40,8 +40,7 @@ row again at the end.
 That shape has two unacceptable failure modes:
 
 1. External resources can be removed first, then local Convex cleanup can fail. The dashboard still
-   shows a vault whose backing GitHub, Convex, Cloudflare, or Codespaces resources may already be
-   gone.
+   shows a vault whose backing GitHub, Convex, or Cloudflare resources may already be gone.
 2. Branch-heavy vaults can exceed Convex transaction budgets before cleanup commits. Indexing helps
    only if each mutation also reads and writes a bounded number of rows.
 
@@ -78,8 +77,8 @@ address execution budgets for branch-heavy vaults, not only the immediate uninde
 4. Delete GitHub repositories for existing-repository vaults.
 5. Infer or delete an unknown GitHub repository from a failed create attempt.
 6. Design new account-level chat retention behavior for the unused legacy chat system.
-7. Redesign unrelated app provisioning, branch refresh, editor, or Codespaces behavior beyond the
-   deletion gate they must honor.
+7. Redesign unrelated app provisioning, branch refresh, or editor behavior beyond the deletion gate
+   they must honor.
 8. Accept deletion while source setup, Convex provisioning, Cloudflare provisioning, or another
    vault lifecycle run is active.
 
@@ -255,7 +254,6 @@ then persist a validated deletion plan.
 
 ```ts
 type VaultDeletionRequestOptions = {
-  removeCodespaces: boolean;
   removeGithubRepo: boolean;
   removeConvexProvision: boolean;
   removeCloudflareProvision: boolean;
@@ -330,14 +328,6 @@ persisted plan.
 
 ```ts
 type ProviderCleanupPlan = {
-  codespaces:
-    | {
-        action: "skip";
-        reason: "not_requested";
-      }
-    | {
-        action: "delete_connected_codespaces";
-      };
   convex:
     | {
         action: "skip";
@@ -511,7 +501,6 @@ Add a deletion-specific step union:
 type VaultDeletionStep =
   | "initialize_deletion"
   | "lock_vault"
-  | "delete_codespaces"
   | "delete_cloudflare"
   | "delete_convex"
   | "delete_github_repo"
@@ -529,18 +518,17 @@ Recommended event copy:
 
 1. `initialize_deletion`: "Queued vault deletion."
 2. `lock_vault`: "Blocked new vault work."
-3. `delete_codespaces`: "Removing connected Codespaces."
-4. `delete_cloudflare`: "Removing Cloudflare resources."
-5. `delete_convex`: "Removing Convex resources."
-6. `delete_github_repo`: "Removing GitHub repository."
-7. `cleanup_editor_state`: "Cleaning staged edits and blobs."
-8. `cleanup_source_caches`: "Cleaning branch and source caches."
-9. `cleanup_runtime_state`: "Cleaning vault runtime state."
-10. `cleanup_access_state`: "Detaching production access history."
-11. `detach_agent_context`: "Detaching vault chat context."
-12. `cleanup_provisioning_history`: "Cleaning setup history."
-13. `delete_vault`: "Removing vault."
-14. `finish`: "Deleted vault."
+3. `delete_cloudflare`: "Removing Cloudflare resources."
+4. `delete_convex`: "Removing Convex resources."
+5. `delete_github_repo`: "Removing GitHub repository."
+6. `cleanup_editor_state`: "Cleaning staged edits and blobs."
+7. `cleanup_source_caches`: "Cleaning branch and source caches."
+8. `cleanup_runtime_state`: "Cleaning vault runtime state."
+9. `cleanup_access_state`: "Detaching production access history."
+10. `detach_agent_context`: "Detaching vault chat context."
+11. `cleanup_provisioning_history`: "Cleaning setup history."
+12. `delete_vault`: "Removing vault."
+13. `finish`: "Deleted vault."
 
 ## Target Flow
 
@@ -576,22 +564,21 @@ patch the vault gate to `delete_failed`, append an error event, and return an er
 The deletion Workflow runs:
 
 1. `lock_vault`: claim the run and confirm the vault deletion gate points to this run
-2. `delete_codespaces`: delete connected Codespaces when requested
-3. `delete_cloudflare`: delete the recorded Cloudflare Worker when requested
-4. `delete_convex`: delete the recorded Convex project or deployment when requested
-5. `delete_github_repo`: delete the recorded Samebase-managed GitHub repository when requested
-6. `cleanup_editor_state`: delete `vaultStagedFiles`, `vaultStagedFileUpdates`,
+2. `delete_cloudflare`: delete the recorded Cloudflare Worker when requested
+3. `delete_convex`: delete the recorded Convex project or deployment when requested
+4. `delete_github_repo`: delete the recorded Samebase-managed GitHub repository when requested
+5. `cleanup_editor_state`: delete `vaultStagedFiles`, `vaultStagedFileUpdates`,
    `observations_vaultFiles_blobs`, and backing storage in bounded batches
-7. `cleanup_source_caches`: delete pull request filters, resource-link settings, folder expansion
+6. `cleanup_source_caches`: delete pull request filters, resource-link settings, folder expansion
    state, and `observations_vaultRepository_branchTrees` in bounded batches
-8. `cleanup_runtime_state`: delete app and provider attachments, Convex schema state, provisioning
-   plans and write locks, Codespaces records, and graph layout in bounded batches
-9. `cleanup_access_state`: expire and detach vault-scoped prod-access requests while preserving
+7. `cleanup_runtime_state`: delete app and provider attachments, Convex schema state, provisioning
+   plans, write locks, and graph layout in bounded batches
+8. `cleanup_access_state`: expire and detach vault-scoped prod-access requests while preserving
    audit rows
-10. `detach_agent_context`: detach agent thread context from the vault
-11. `cleanup_provisioning_history`: delete setup runs and setup events in bounded batches
-12. `delete_vault`: delete the vault row once
-13. `finish`: mark the deletion run succeeded and scrub retry-only snapshot identifiers
+9. `detach_agent_context`: detach agent thread context from the vault
+10. `cleanup_provisioning_history`: delete setup runs and setup events in bounded batches
+11. `delete_vault`: delete the vault row once
+12. `finish`: mark the deletion run succeeded and scrub retry-only snapshot identifiers
 
 Each cleanup step repeats bounded cleanup mutations as separate durable Workflow steps until that
 phase is done. A failed or retried workflow may restart a cleanup step from the beginning because
@@ -620,15 +607,6 @@ If the vault row is already gone when a late failure handler runs, the handler m
 deletion run only. It must not recreate the vault or any vault-scoped rows.
 
 ## Provider Teardown Rules
-
-### Codespaces
-
-1. Delete only Codespaces recorded for the vault and user.
-2. Require a GitHub connection when Codespaces teardown is requested.
-3. Mark local Codespaces `deleting` before provider deletion.
-4. Treat GitHub not-found as success.
-5. Clear `activeCodespaceId` before marking local Codespaces `deleted` after provider success.
-6. Delete Codespaces table rows later in `cleanup_runtime_state`.
 
 ### Cloudflare
 
@@ -682,10 +660,9 @@ Delete rows:
 11. `vaultCloudflareWorkers` via `by_vault`
 12. `workflow_vaultProvisioning_plans` via `by_vault`
 13. `workflow_vaultProvisioning_writeLocks` via `by_vault`
-14. `codespaces` via `by_vault`
-15. `ui_agentGraphNode_layouts` via `by_vault`
-16. `workflow_vaultProvisioning_events` via `by_vault_and_created_at`
-17. `workflow_vaultProvisioning_runs` via `by_vault_and_updated_at`
+14. `ui_agentGraphNode_layouts` via `by_vault`
+15. `workflow_vaultProvisioning_events` via `by_vault_and_created_at`
+16. `workflow_vaultProvisioning_runs` via `by_vault_and_updated_at`
 
 Patch or delete rows:
 
@@ -715,11 +692,10 @@ An active or failed deletion gate must block or hide:
 2. commits and media uploads
 3. collaborative edits
 4. branch refresh and remote-branch sync
-5. Codespace create, start, stop, and delete controls
-6. infrastructure provisioning and retry
-7. source setup completion writes for the same vault
-8. AI production access proposals scoped to the vault
-9. chat/tool actions that require a live repository workspace
+5. infrastructure provisioning and retry
+6. source setup completion writes for the same vault
+7. AI production access proposals scoped to the vault
+8. chat/tool actions that require a live repository workspace
 
 Backend functions that already load the vault should check the vault deletion gate in the same
 helper that checks connected GitHub state. Backend functions that currently mutate by `vaultId`
@@ -821,8 +797,8 @@ Phase 2 implementation note:
 3. Update the delete dialog to close after queue acceptance.
 4. Make direct selected-vault `?delete` links no-op into the status card for deleting vaults.
 5. Disable delete with a reason while source or provider setup is running.
-6. Gate staging, collaborative updates, branch refresh, Codespaces, infrastructure provisioning,
-   source setup completion writes, AI prod access, and live-repository chat/tool actions.
+6. Gate staging, collaborative updates, branch refresh, infrastructure provisioning, source setup
+   completion writes, AI prod access, and live-repository chat/tool actions.
 7. Add route-level or production-component tests for deleting, failed-deletion, retry, and blocked
    controls.
 

@@ -349,9 +349,6 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "lock_vault"
                       },
                       {
-                        "const": "delete_codespaces"
-                      },
-                      {
                         "const": "delete_cloudflare"
                       },
                       {
@@ -422,9 +419,6 @@ JSON Schema for the tool's `structuredContent`:
                       },
                       {
                         "const": "lock_vault"
-                      },
-                      {
-                        "const": "delete_codespaces"
                       },
                       {
                         "const": "delete_cloudflare"

@@ -33,7 +33,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { VaultPullRequestFiltersControl } from "@/components/vault-dashboard/VaultPullRequestFilters";
 import { EditorChatPanel } from "@/components/EditorChatPanel";
 import {
@@ -48,11 +47,7 @@ import {
   type CloudflareAccountOption,
 } from "@/components/vault-dashboard/vaultDashboardCloudflareAccountOptions";
 import type { Id } from "../../../convex/_generated/dataModel";
-import {
-  buildVaultDashboardRoute,
-  buildVaultCodespaceChatRoute,
-  buildVaultFileRoute,
-} from "@/lib/vaultRoutes";
+import { buildVaultDashboardRoute, buildVaultFileRoute } from "@/lib/vaultRoutes";
 import {
   formatVaultSourceSetupStep,
   type VaultDashboardSourceSetup,
@@ -80,7 +75,7 @@ import {
   type VaultPullRequestFilters as VaultPullRequestFiltersState,
 } from "@/components/vault-dashboard/vaultDashboardPullRequestFilters";
 import { toast } from "@/components/ui/use-toast";
-import { CHAT_ENABLED, CODESPACES_ENABLED } from "../../../shared/featureFlags";
+import { CHAT_ENABLED } from "../../../shared/featureFlags";
 import { buildDefaultAppResourceName } from "../../../shared/appResourceNames";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { tryParseRepositoryFullName } from "../../../shared/repoName";
@@ -207,7 +202,6 @@ function formatProviderSetupDeveloperLabel(providerSetup: VaultDashboardProvider
 }
 
 export type VaultDeleteOptionKey =
-  | "removeCodespaces"
   | "removeConvexProvision"
   | "removeGithubRepo"
   | "removeCloudflareProvision";
@@ -298,7 +292,6 @@ type VaultDashboardLocalState = {
   isDeleting: boolean;
   isGlobalChatBusy: boolean;
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
-  removeCodespaces: boolean;
   removeConvexProvision: boolean;
   removeGithubRepo: boolean;
   removeCloudflareProvision: boolean;
@@ -346,7 +339,6 @@ function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
     isDeleting: false,
     isGlobalChatBusy: false,
     openDeveloperToolsByVaultId: {},
-    removeCodespaces: false,
     removeConvexProvision: false,
     removeGithubRepo: false,
     removeCloudflareProvision: false,
@@ -363,7 +355,6 @@ function useVaultDashboardLocalStore() {
         commitError: null,
         deleteError: null,
         didAttemptCommit: false,
-        removeCodespaces: false,
         removeConvexProvision: false,
         removeGithubRepo: false,
         removeCloudflareProvision: false,
@@ -404,7 +395,6 @@ function useVaultDashboardLocalStore() {
         commitError: null,
         deleteError: null,
         didAttemptCommit: false,
-        removeCodespaces: false,
         removeConvexProvision: false,
         removeGithubRepo: false,
         removeCloudflareProvision: false,
@@ -643,8 +633,6 @@ function useVaultDashboardLocalStore() {
     setDeleteOption: (option: VaultDeleteOptionKey, value: boolean) => {
       setState((state) => {
         switch (option) {
-          case "removeCodespaces":
-            return { ...state, removeCodespaces: value };
           case "removeConvexProvision":
             return { ...state, removeConvexProvision: value };
           case "removeGithubRepo":
@@ -751,7 +739,6 @@ export function VaultDashboardDeleteControl({
 
 export function VaultDashboardDeleteDialog({
   commitError,
-  connectedCodespacesCount,
   deleteError,
   didAttemptCommit,
   isCommitting,
@@ -761,7 +748,6 @@ export function VaultDashboardDeleteDialog({
   onOpenChange,
   onRemoveVault,
   open,
-  removeCodespaces,
   removeConvexProvision,
   removeGithubRepo,
   removeCloudflareProvision,
@@ -769,7 +755,6 @@ export function VaultDashboardDeleteDialog({
   vaultToDelete,
 }: {
   commitError: string | null;
-  connectedCodespacesCount: number | undefined;
   deleteError: string | null;
   didAttemptCommit: boolean;
   isCommitting: boolean;
@@ -779,7 +764,6 @@ export function VaultDashboardDeleteDialog({
   onOpenChange: (isOpen: boolean) => void;
   onRemoveVault: () => void;
   open: boolean;
-  removeCodespaces: boolean;
   removeConvexProvision: boolean;
   removeGithubRepo: boolean;
   removeCloudflareProvision: boolean;
@@ -789,9 +773,6 @@ export function VaultDashboardDeleteDialog({
   const hasStagedChanges = stagedChangesCount > 0;
   const removeCloudflareCheckboxId = "remove-cloudflare-provision";
   const removeCloudflareLabel = "Also remove Cloudflare Worker";
-  const showCodespacesCleanup =
-    CODESPACES_ENABLED && connectedCodespacesCount !== undefined && connectedCodespacesCount > 0;
-  const isCodespacesCleanupPending = CODESPACES_ENABLED && connectedCodespacesCount === undefined;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -827,22 +808,6 @@ export function VaultDashboardDeleteDialog({
                 ) : null}
               </label>
             </div>
-            {showCodespacesCleanup ? (
-              <div className="flex items-start gap-2">
-                <Checkbox
-                  id="remove-codespaces"
-                  checked={removeCodespaces}
-                  onCheckedChange={(checked) =>
-                    onDeleteOptionChange("removeCodespaces", checked === true)
-                  }
-                  disabled={isDeleting || isCommitting}
-                  className="mt-0.5"
-                />
-                <label htmlFor="remove-codespaces" className="text-sm text-muted-foreground">
-                  Also remove all Codespaces ({connectedCodespacesCount} connected)
-                </label>
-              </div>
-            ) : null}
             {vaultToDelete.hasConvexProvision || vaultToDelete.canRemoveConvexProvision ? (
               <div className="flex items-start gap-2">
                 <Checkbox
@@ -928,7 +893,7 @@ export function VaultDashboardDeleteDialog({
           <Button
             variant="destructive"
             onClick={onRemoveVault}
-            disabled={!vaultToDelete || isDeleting || isCommitting || isCodespacesCleanupPending}
+            disabled={!vaultToDelete || isDeleting || isCommitting}
           >
             {isDeleting ? (
               <>
@@ -2042,13 +2007,6 @@ export function VaultDashboardView({
         const settledPullRequests =
           pullRequests.state === "current" || pullRequests.state === "stale" ? pullRequests : null;
         const primaryBranch = vault.defaultBranch?.trim() || null;
-        const chatRoute =
-          primaryBranch && !isDeletingVault
-            ? buildVaultCodespaceChatRoute({
-                repositoryFullName: vault.repositoryFullName,
-                branch: primaryBranch,
-              })
-            : null;
         const githubRepositoryUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}`;
         const developerToolsOpen =
           developerToolsVisible && (openDeveloperToolsByVaultId[vault._id] ?? false);
@@ -2284,7 +2242,7 @@ export function VaultDashboardView({
               }
               primarySection={primarySection}
               developerToolsSection={
-                canObservePullRequests || hasProvisioningLog
+                hasProvisioningLog
                   ? {
                       open: developerToolsOpen,
                       visible: developerToolsVisible,
@@ -2292,43 +2250,20 @@ export function VaultDashboardView({
                         onOpenDeveloperToolsChange(vault._id, isOpen);
                       },
                       content: (
-                        <>
-                          {canObservePullRequests && CODESPACES_ENABLED ? (
-                            <CodespaceStatus
-                              vaultId={vault._id}
-                              repositoryFullName={vault.repositoryFullName}
-                            />
-                          ) : null}
-                          {hasProvisioningLog ? (
-                            <div className="space-y-2">
-                              {activeProviderSetup ? (
-                                <div className="text-xs text-muted-foreground">
-                                  {formatProviderSetupDeveloperLabel(activeProviderSetup)}
-                                </div>
-                              ) : null}
-                              <VaultProvisioningLog
-                                repositoryFullName={vault.repositoryFullName}
-                                vaultId={vault._id}
-                              />
+                        <div className="space-y-2">
+                          {activeProviderSetup ? (
+                            <div className="text-xs text-muted-foreground">
+                              {formatProviderSetupDeveloperLabel(activeProviderSetup)}
                             </div>
                           ) : null}
-                        </>
+                          <VaultProvisioningLog
+                            repositoryFullName={vault.repositoryFullName}
+                            vaultId={vault._id}
+                          />
+                        </div>
                       ),
                     }
                   : undefined
-              }
-              footerActions={
-                CHAT_ENABLED &&
-                CODESPACES_ENABLED &&
-                developerToolsVisible &&
-                developerToolsOpen &&
-                chatRoute ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button asChild variant="outline" size="sm">
-                      <Link to={chatRoute}>Chat</Link>
-                    </Button>
-                  </div>
-                ) : undefined
               }
               onRepositoryLinksOpenChange={(nextOpen) => {
                 onResourceLinksOpenChange(vault._id, nextOpen);
@@ -2533,7 +2468,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     isDeleting,
     isGlobalChatBusy,
     openDeveloperToolsByVaultId,
-    removeCodespaces,
     removeConvexProvision,
     removeGithubRepo,
     removeCloudflareProvision,
@@ -2668,10 +2602,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         ) ?? null)
       : null;
   const stagedChangesCount = deleteDialogVault?.fileCount ?? 0;
-  const connectedCodespacesCount = useConvexQuery(
-    api.codespaces.mutations.getConnectedCodespacesCount,
-    CODESPACES_ENABLED && vaultToDelete ? { vaultId: vaultToDelete.id } : "skip",
-  );
 
   const replaceVaultDashboardDialogRoute = useCallback(
     (dialog: VaultDashboardQueryDialog) => {
@@ -3139,12 +3069,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   };
 
   const handleRemoveVault = async () => {
-    if (
-      !vaultToDelete ||
-      isDeleting ||
-      isCommitting ||
-      (CODESPACES_ENABLED && connectedCodespacesCount === undefined)
-    ) {
+    if (!vaultToDelete || isDeleting || isCommitting) {
       return;
     }
     setDeleteError(null);
@@ -3153,11 +3078,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       setIsDeleting(true);
       await deleteVault({
         vaultId: vaultToDelete.id,
-        removeCodespaces:
-          CODESPACES_ENABLED &&
-          connectedCodespacesCount !== undefined &&
-          connectedCodespacesCount > 0 &&
-          removeCodespaces,
         removeGithubRepo: vaultToDelete.isSamebaseManaged
           ? vaultToDelete.canRemoveGithubRepo && removeGithubRepo
           : false,
@@ -3588,7 +3508,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
 
       <VaultDashboardDeleteDialog
         commitError={commitError}
-        connectedCodespacesCount={connectedCodespacesCount}
         deleteError={deleteError}
         didAttemptCommit={didAttemptCommit}
         isCommitting={isCommitting}
@@ -3602,7 +3521,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
           void handleRemoveVault();
         }}
         open={vaultToDelete !== null}
-        removeCodespaces={removeCodespaces}
         removeConvexProvision={removeConvexProvision}
         removeGithubRepo={removeGithubRepo}
         removeCloudflareProvision={removeCloudflareProvision}

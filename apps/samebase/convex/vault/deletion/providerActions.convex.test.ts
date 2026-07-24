@@ -69,7 +69,6 @@ describe("vault deletion Convex provider actions", () => {
               name: "demo",
               repositoryFullName: "ada/demo",
             },
-            codespaces: { action: "skip", reason: "not_requested" },
             convex: {
               action: "delete_projects",
               teamId: "team-id",
@@ -138,7 +137,6 @@ describe("vault deletion Convex provider actions", () => {
               name: "demo",
               repositoryFullName: "ada/demo",
             },
-            codespaces: { action: "skip", reason: "not_requested" },
             convex: { action: "delete_project", teamId: "original-team", projectId: "1001" },
             cloudflare: { action: "skip", reason: "not_requested" },
             githubRepository: { action: "skip", reason: "not_requested" },
@@ -202,7 +200,6 @@ describe("vault deletion Convex provider actions", () => {
               name: "demo",
               repositoryFullName: "ada/demo",
             },
-            codespaces: { action: "skip", reason: "not_requested" },
             convex: { action: "skip", reason: "not_requested" },
             cloudflare: { action: "delete_workers", workers: [] },
             githubRepository: { action: "skip", reason: "not_requested" },

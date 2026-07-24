@@ -53,8 +53,8 @@ for Convex's generated guidance.
 - Prefer responsibility-scoped Convex paths such as `api.vault.dashboard.*`, `api.vault.records.*`,
   and `internal.vault.deletion.*`.
 - Use Convex components only when the domain owns isolated tables or a true reusable boundary.
-  Domains that reference Samebase app tables, such as Vault and Codespaces, stay app-owned unless a
-  current spec says otherwise.
+  Domains that reference Samebase app tables, such as Vault, stay app-owned unless a current spec
+  says otherwise.
 
 ## Validators And Types
 

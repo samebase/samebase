@@ -203,7 +203,6 @@ describe("lint config", () => {
       override.files?.includes("apps/samebase/**/*.{ts,tsx}"),
     );
     expect(oxlintConfig.options).toMatchObject({ typeAware: true });
-    expect(oxlintConfig.ignorePatterns).toContain("**/.codespace-agent/**");
     expect(oxlintConfig.ignorePatterns).not.toContain("**/vite.config.ts");
     expect(appWideOverride?.rules?.["@typescript-eslint/no-explicit-any"]).toBeUndefined();
     expect(oxlintConfig.jsPlugins).toEqual(

@@ -1314,7 +1314,6 @@ describe("vault dashboard Convex contract", () => {
               name: "delete-retry",
               repositoryFullName: "ada/delete-retry",
             },
-            codespaces: { action: "skip", reason: "not_requested" },
             convex: { action: "delete_project", teamId: "team-id", projectId: "project-id" },
             cloudflare: { action: "skip", reason: "not_requested" },
             githubRepository: { action: "skip", reason: "not_requested" },
@@ -1547,16 +1546,6 @@ describe("vault dashboard Convex contract", () => {
         state: "succeeded",
         updatedAt: 9,
       });
-      await ctx.db.insert("codespaces", {
-        vaultId,
-        userId,
-        ghCodespaceId: "codespace-id",
-        ghCodespaceName: "codespace-name",
-        state: "stopped",
-        createdAt: 10,
-        commitSha: "commit",
-        branch: "main",
-      });
       await ctx.db.insert("ui_agentGraphNode_layouts", {
         userId: collaboratorId,
         vaultId,
@@ -1658,7 +1647,6 @@ describe("vault dashboard Convex contract", () => {
         "observations_vaultRepository_branchTrees",
         "vaultConvexProjects",
         "workflow_vaultProvisioning_writeLocks",
-        "codespaces",
         "ui_agentGraphNode_layouts",
         "aiProductionReadRequests",
         "chatThreadContexts",

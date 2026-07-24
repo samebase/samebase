@@ -14,7 +14,6 @@ TanStack Start/Vite on the frontend and Convex on the backend.
   - Cloudflare Workers project + environment wiring
   - Infrastructure status surfaced in Vault Dashboard
 - Manual infra retry for failed/partial provisioning
-- GitHub Codespaces integration for cloud execution
 - Persistent in-app chat with approval cards for:
   - Commit proposals
   - Production infrastructure/data read requests

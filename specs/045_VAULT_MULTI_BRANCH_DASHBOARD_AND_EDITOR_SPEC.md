@@ -42,7 +42,6 @@ Canonical branch routes keep the branch in one encoded route segment:
 
 - `/vault/:owner/:repoName/fs/:branch`
 - `/vault/:owner/:repoName/fs/:branch/*`
-- `/vault/:owner/:repoName/codespace/:branch/chat`
 - `/vault/:owner/:repoName/db/:branch/root`
 - `/vault/:owner/:repoName/db/:branch/mono/*`
 - `/vault/:owner/:repoName/schema/:branch/root`

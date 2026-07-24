@@ -219,9 +219,9 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 - Editor: Monaco plus CodeMirror 6 / `@prosemark/core`
 - UI: Tailwind CSS, Base UI, shadcn/ui
 - State: Convex subscriptions plus TanStack Query
-- Chat/agent and GitHub Codespaces features are dormant: they have no active users or planned
-  release. Preserve them cheaply, but do not let them drive migrations or expand task scope unless
-  the operator explicitly reactivates them.
+- Chat/agent features are dormant: they have no active users or planned release. Preserve them
+  cheaply, but do not let them drive migrations or expand task scope unless the operator explicitly
+  reactivates them.
 
 Key domain entities:
 

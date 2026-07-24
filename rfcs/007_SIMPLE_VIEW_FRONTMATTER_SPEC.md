@@ -64,7 +64,7 @@ simpleView:
   exclude:
     - apps/**/src/** # UI source code
     - apps/**/convex/** # Convex backend functions
-    - .codespace-agent/** # Local codespace helper code
+    - .devcontainer/** # Development container config
     - node_modules/** # Dependencies
     - dist/** # Build output
     - "**/*.{ts,tsx,js,jsx,css,html}" # Source file extensions

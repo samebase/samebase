@@ -9,9 +9,11 @@
   - `apps/noter/convex/vaultActions.ts`
   - `apps/noter/convex/fileStagingActions.ts`
   - `apps/noter/convex/github.ts`
-  - `apps/noter/convex/codespaces.ts`
   - `apps/noter/convex/schema.ts`
   - `apps/noter/src/components/AddRepository.tsx`
+
+> [!NOTE] This is point-in-time research. Its Codespaces analysis describes a feature retired on
+> 2026-07-24 and must not guide current implementation.
 
 ## Purpose
 

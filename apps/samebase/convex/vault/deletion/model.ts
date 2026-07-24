@@ -26,7 +26,6 @@ export type VaultDeletionState = Infer<typeof vVaultDeletionState>;
 export const vVaultDeletionStep = union(
   literal("initialize_deletion"),
   literal("lock_vault"),
-  literal("delete_codespaces"),
   literal("delete_cloudflare"),
   literal("delete_convex"),
   literal("delete_github_repo"),
@@ -77,16 +76,6 @@ const repositorySetupCoordinates = {
 } as const;
 
 const providerCleanupPlan = {
-  codespaces: union(
-    skipNotRequested,
-    object({
-      action: literal("skip"),
-      reason: literal("feature_disabled"),
-    }),
-    object({
-      action: literal("delete_connected_codespaces"),
-    }),
-  ),
   convex: union(
     object({
       action: literal("skip"),

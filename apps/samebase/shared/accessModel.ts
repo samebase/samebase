@@ -13,7 +13,6 @@ export const ACCESS_KEYS = [
   "access_app_refresh",
   "access_files_read",
   "access_files_write",
-  "access_machines",
   "access_mcp",
   ACCESS_BROWSER_LOGIN_HANDOFF,
   "access_schema_graph",

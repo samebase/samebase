@@ -28,7 +28,7 @@ Codex runs stay isolated per worktree.
 2. Multiple worktrees can run in parallel without port conflicts.
 3. Each worktree uses an isolated Convex backend instance so data and chat state don’t collide.
 4. Configuration is stored in `noter.md` frontmatter (human + LLM readable).
-5. Default path is local-only (no Netlify, no Codespaces) to keep iteration fast.
+5. Default path is local-only to keep iteration fast.
 
 ## Non-Goals
 

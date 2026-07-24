@@ -1,7 +1,6 @@
 # TODO
 
 !!!github uses `gh` for its documentation, so that's why it works so well
-https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 
 - [ ] specifically left blank
 - [ ] ramura.com works in codex/t3code/paseo etc. since it's a cheap stack and it's basically a
@@ -174,16 +173,6 @@ https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-conne
 - [ ] decide if Turborepo is necessary or if PNPM workspaces alone are enough
 - [ ] chat-first UI: start with chatbot; allow chat messages to render Tailwind/React UI so users
       can promote pieces into the page (ex: sign-in inside chat)
-- [ ] the dev container template, should automatically login with convex so the dev server can be
-      started immediately
-- [ ] devcontainer prebuild alternative: use GitHub Actions to build a devcontainer image and push
-      to GHCR, with a manual UI button to trigger the workflow (auto-trigger later)
-- [ ] security: remove first-request token bootstrap in `.codespace-agent/server.ts`; require
-      preconfigured secret for auth before exposing agent APIs
-- [ ] security: fix codespace agent exposure model (`port 3000` public + `/exec`/file endpoints);
-      restrict reachability or add hardened gateway auth
-- [ ] starter manifest hygiene: exclude `.codespace-agent/node_modules/**` from template export and
-      regenerate deterministic `starterSeedManifest.generated.ts`
 - [ ] starter template hygiene: add CI coverage for `apps/samebase-starter-template` (we missed a
       `node_modules`/ignore drift once because it wasn't being checked)
 - [ ] add help center app, show how easy it is to have one, where everything is markdown
@@ -198,8 +187,7 @@ https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-conne
 2. since agents can be defined using markdown and tools.json, using a repo with files is a nice and
    clear representation (instead of pythong or typescript)
 3. the agents are running on convex for the backend, and netlify (or similar) for frontend
-   deployment React+tailwind+shadcn. It's github codespaces ready, integrates well with worktrees
-   and teh codex workflow
+   deployment React+tailwind+shadcn. It integrates well with worktrees and the Codex workflow
 
 - [ ] check all commits created from noter if we didn't lose anything due to the way it doesn't
       update it's own tree correctly
@@ -357,8 +345,8 @@ information for better coding help.
 - [ ] show actionable error when delete fails due to missing GitHub `delete_repo` scope, with a
       re-login CTA
 - [ ] When repository name already exists show better error
-- [ ] make graphic of the services we use: GitHub for storage, Convex for backend+db, Netlify for
-      domains+frontend, GitHub Codespaces for dev
+- [ ] make graphic of the services we use: GitHub for storage, Convex for backend+db, and Netlify
+      for domains+frontend
 - [ ] Reuse typescript config files (the way we did for ailegis)
 
 ## Meta/Philosophy
@@ -400,45 +388,6 @@ information for better coding help.
       automatically in convex
 - [ ] add idea regarding the jokes about older people don't know how to convert to pdf. But now with
       noter
-- [ ] Codex auth persistence across Codespaces (file-based credential storage):
-
-```
-Yes. When you use file-based credential storage, the OAuth tokens land in ~/.codex/auth.json with this structure:
-
-{
-  "auth_mode": "chatgpt",
-  "tokens": {
-    "access_token": "eyJhbG...",
-    "refresh_token": "v1:refresh:...",
-    "id_token": "...",
-    "expires_at": "2025-12-31T23:59:59Z"
-  },
-  "last_refresh": "2025-01-15T10:30:00Z"
-}
-
-To make sure it uses file storage (not OS keyring, which won't exist in a Codespace), set this in config.toml:
-
-cli_auth_credentials_store = "file"
-
-The strategy for Codespaces:
-1. Do the OAuth flow once locally (or in one Codespace via VS Code Desktop)
-2. Copy the resulting auth.json content
-3. Store the whole JSON blob as a Codespace secret, e.g. CODEX_AUTH_JSON
-4. In your devcontainer postCreateCommand or dotfiles, write it out:
-
-mkdir -p ~/.codex
-echo "$CODEX_AUTH_JSON" > ~/.codex/auth.json
-chmod 600 ~/.codex/auth.json
-
-cat > ~/.codex/config.toml << 'EOF'
-cli_auth_credentials_store = "file"
-EOF
-
-Codex automatically refreshes tokens 8 minutes before expiration, so as long as the refresh_token is still valid, it'll keep working without re-auth. You'd only need to redo the OAuth flow if the refresh token itself expires or gets revoked.
-
-One caveat: Codespace secrets have a 48KB size limit, but auth.json is tiny so that's fine. The main risk is the refresh token eventually expiring -- in practice ChatGPT OAuth refresh tokens seem to be long-lived, but there's no official guarantee on the lifetime.
-```
-
 - [ ] add fish-like aliases, or even better make this input behave like a fish terminal
 - [ ] in dev mode, simple terminal should show/accept the full command format:
       `noter "add todo or whatever paragraph"`

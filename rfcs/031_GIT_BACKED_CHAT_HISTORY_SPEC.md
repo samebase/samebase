@@ -6,7 +6,6 @@
 - Owner: Noter platform
 - Last updated: 2026-03-02
 - Related specs:
-  - `rfcs/008_CHAT_ONLY_CODESPACE_MODE_SPEC.md`
   - `specs/022_AGENT_GRAPH_VIEW_SPEC.md`
   - `rfcs/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md`
   - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
