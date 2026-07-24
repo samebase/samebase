@@ -341,7 +341,7 @@ describe("account deletion auth cleanup", () => {
     ).rejects.toThrow("Only the initiating auth session may remain");
   });
 
-  it("fails closed when provider or machine access races final identity deletion", async () => {
+  it("fails closed when provider access or account data races final identity deletion", async () => {
     const { ids, t } = await seedRunningDeletion();
     const providerConnectionId = await t.run(async (ctx) => {
       await ctx.db.patch(ids.runId, {
@@ -372,11 +372,10 @@ describe("account deletion auth cleanup", () => {
 
     await t.run(async (ctx) => {
       await ctx.db.delete(providerConnectionId);
-      await ctx.db.insert("machineCredentials", {
+      await ctx.db.insert("ui_user_settings", {
         userId: ids.userId,
-        machineId: "late-machine",
-        credentialHash: "late-machine-credential",
-        createdAt: 1,
+        providersPanelOpen: false,
+        pricingBillingCycle: "monthly",
       });
     });
     await expect(

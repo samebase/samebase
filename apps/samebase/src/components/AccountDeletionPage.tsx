@@ -32,7 +32,6 @@ const ACCOUNT_DELETION_STEPS = entries(ACCOUNT_DELETION_STEP_LABELS).map(([step,
 const ACCOUNT_DELETION_DATA_GROUP_LABELS = {
   chatsAndAgentData: "Chats and agent data",
   vaultsAndStagedChanges: "Vaults and staged changes",
-  connectedMachines: "Connected machines",
   preferences: "Preferences",
   appAccessAndTokens: "App access and tokens",
   accessRequestsAndHistory: "Access requests and history",

@@ -108,11 +108,6 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
   providerConnections: "providers",
   providerOAuthCallbackStates: "providers",
 
-  connectedMachines: "machines",
-  machineRegistrationRequests: "machines",
-  machineRegistrationRateLimits: "machines",
-  machineCredentials: "machines",
-  machineControlTokens: "machines",
   codespaces: "machines",
 
   ui_user_settings: "workspace",

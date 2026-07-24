@@ -4,7 +4,6 @@ import {
   createAccessTokenValue,
   createAgentBrowserHandoffTokenValue,
   createAuthorizationCodeValue,
-  createMachineControlTokenValue,
   createRefreshTokenValue,
   isAgentBrowserHandoffTokenValue,
   sha256Hex,
@@ -12,17 +11,15 @@ import {
 } from "./tokens";
 
 describe("opaque token creators", () => {
-  it("creates prefixed authorization, access, refresh, handoff, and machine-control tokens", () => {
+  it("creates prefixed authorization, access, refresh, and handoff tokens", () => {
     const authCode = createAuthorizationCodeValue();
     const accessToken = createAccessTokenValue();
     const browserHandoffToken = createAgentBrowserHandoffTokenValue();
-    const machineControlToken = createMachineControlTokenValue();
     const refreshToken = createRefreshTokenValue();
 
     expect(authCode.startsWith("mcpac_")).toBe(true);
     expect(accessToken.startsWith("mcpat_")).toBe(true);
     expect(isAgentBrowserHandoffTokenValue(browserHandoffToken)).toBe(true);
-    expect(machineControlToken.startsWith("mmct_")).toBe(true);
     expect(refreshToken.startsWith("mcprt_")).toBe(true);
   });
 

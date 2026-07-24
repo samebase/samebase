@@ -1110,33 +1110,6 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             ],
           },
           {
-            name: "connectedMachines",
-            source: "declared",
-            documentCount: 6,
-            indexes: [{ name: "by_user_machine_id", fields: ["userId", "machineId"] }],
-            fields: [
-              {
-                path: "userId",
-                kind: "Id<users>",
-                optional: false,
-                source: "declared",
-                targetTable: "users",
-              },
-              {
-                path: "machineId",
-                kind: "string",
-                optional: false,
-                source: "declared",
-              },
-              {
-                path: "lastSeenAt",
-                kind: "number",
-                optional: true,
-                source: "declared",
-              },
-            ],
-          },
-          {
             name: "vaults",
             source: "mixed",
             documentCount: 48,
@@ -1350,13 +1323,6 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
           {
             id: "declared:providerConnections:userId:users",
             fromTable: "providerConnections",
-            fromField: "userId",
-            toTable: "users",
-            source: "declared",
-          },
-          {
-            id: "declared:connectedMachines:userId:users",
-            fromTable: "connectedMachines",
             fromField: "userId",
             toTable: "users",
             source: "declared",

@@ -6,7 +6,6 @@ import { vaultProvisioningTables } from "./appProvisioningModel";
 import { chatTables } from "./chat/model";
 import { aiProductionReadTables } from "./chat/prodAccessModel";
 import { codespacesTables } from "./codespaces/model";
-import { connectedMachineTables } from "./connectedMachineModel";
 import { vaultEditorTables } from "./editorModel";
 import { identityTables } from "./identityModel";
 import { mcpTables } from "./mcp/model";
@@ -23,7 +22,6 @@ export default defineSchema({
   ...accountDeletionTables,
   ...agentTables,
   ...providerConnectionTables,
-  ...connectedMachineTables,
   ...userPreferenceTables,
   ...vaultDashboardTables,
   ...vaultTables,

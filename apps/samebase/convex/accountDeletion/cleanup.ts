@@ -43,11 +43,6 @@ const ACCOUNT_DELETION_TABLE_REGISTRY = {
   workflow_accountDeletion_events: "receipt",
   agentActionLeases: "action_quiescence",
   providerConnections: "provider_revocation",
-  connectedMachines: "account_local",
-  machineRegistrationRequests: "account_local",
-  machineRegistrationRateLimits: "global",
-  machineCredentials: "account_local",
-  machineControlTokens: "account_local",
   ui_user_settings: "account_local",
   ui_workspaceSidebar_layouts: "account_local",
   ui_vaultPullRequests_filters: "vault_local",
@@ -95,10 +90,6 @@ const accountLocalCleanupTarget = union(
   literal("chatMessagePayloads"),
   literal("chatThreadContexts"),
   literal("vaults"),
-  literal("connectedMachines"),
-  literal("machineRegistrationRequests"),
-  literal("machineCredentials"),
-  literal("machineControlTokens"),
   literal("ui_user_settings"),
   literal("ui_workspaceSidebar_layouts"),
   literal("providerOAuthCallbackStates"),
@@ -136,7 +127,6 @@ type AccountLocalCleanupBatchResult = Infer<typeof accountLocalCleanupBatchResul
 
 export const vSimpleDataDeletionGroup = union(
   literal("chatsAndAgentData"),
-  literal("connectedMachines"),
   literal("preferences"),
   literal("appAccessAndTokens"),
   literal("accessRequestsAndHistory"),
@@ -399,62 +389,6 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
 
     return { state: "needs_more", target: "chatThreadContexts", rowsChanged: 1 };
   },
-  machineCredentials: async (ctx, userId) => {
-    const rows = await ctx.db
-      .query("machineCredentials")
-      .withIndex("by_user_machine_id", (q) => q.eq("userId", userId))
-      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-
-    return rows.length > 0
-      ? {
-          state: "needs_more",
-          target: "machineCredentials",
-          rowsChanged: await deleteRowsById(ctx, rows),
-        }
-      : null;
-  },
-  machineControlTokens: async (ctx, userId) => {
-    const rows = await ctx.db
-      .query("machineControlTokens")
-      .withIndex("by_user_machine_id", (q) => q.eq("userId", userId))
-      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-
-    return rows.length > 0
-      ? {
-          state: "needs_more",
-          target: "machineControlTokens",
-          rowsChanged: await deleteRowsById(ctx, rows),
-        }
-      : null;
-  },
-  machineRegistrationRequests: async (ctx, userId) => {
-    const rows = await ctx.db
-      .query("machineRegistrationRequests")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-
-    return rows.length > 0
-      ? {
-          state: "needs_more",
-          target: "machineRegistrationRequests",
-          rowsChanged: await deleteRowsById(ctx, rows),
-        }
-      : null;
-  },
-  connectedMachines: async (ctx, userId) => {
-    const rows = await ctx.db
-      .query("connectedMachines")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-
-    return rows.length > 0
-      ? {
-          state: "needs_more",
-          target: "connectedMachines",
-          rowsChanged: await deleteRowsById(ctx, rows),
-        }
-      : null;
-  },
   ui_user_settings: async (ctx, userId) => {
     const rows = await ctx.db
       .query("ui_user_settings")
@@ -691,10 +625,6 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
 const ACCOUNT_LOCAL_CLEANUP_GROUPS = {
   chatMessagePayloads: "chatsAndAgentData",
   chatThreadContexts: "chatsAndAgentData",
-  machineCredentials: "connectedMachines",
-  machineControlTokens: "connectedMachines",
-  machineRegistrationRequests: "connectedMachines",
-  connectedMachines: "connectedMachines",
   ui_user_settings: "preferences",
   ui_workspaceSidebar_layouts: "preferences",
   providerOAuthCallbackStates: "appAccessAndTokens",

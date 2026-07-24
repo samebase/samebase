@@ -26,10 +26,6 @@ export function createRefreshTokenValue(): string {
   return createOpaqueToken("mcprt");
 }
 
-export function createMachineControlTokenValue(): string {
-  return createOpaqueToken("mmct");
-}
-
 export function createAgentBrowserHandoffTokenValue(): string {
   return createOpaqueToken("agbh");
 }

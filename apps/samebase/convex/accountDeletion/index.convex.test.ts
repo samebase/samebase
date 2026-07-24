@@ -146,7 +146,6 @@ describe("account deletion foundation", () => {
       dataDeletion: {
         chatsAndAgentData: { state: "not_started" },
         vaultsAndStagedChanges: { state: "not_started" },
-        connectedMachines: { state: "not_started" },
         preferences: { state: "not_started" },
         appAccessAndTokens: { state: "not_started" },
         accessRequestsAndHistory: { state: "not_started" },

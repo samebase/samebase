@@ -138,41 +138,11 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       message: "Owner deletion event.",
       createdAt: 33,
     });
-    const machineRegistrationRequestId = await ctx.db.insert("machineRegistrationRequests", {
-      requestId: "owner-registration",
-      credentialHash: "owner-registration-hash",
-      userId: ownerId,
-      machineId: "pending-machine",
-      displayName: "Pending owner machine",
-      hostname: "pending-owner",
-      os: "macos",
-      connectorVersion: "1.0.0",
-      createdAt: now,
-      expiresAt: now + 60_000,
-    });
-    await ctx.db.insert("connectedMachines", {
-      userId: ownerId,
-      machineId: "owner-machine",
-      displayName: "Owner machine",
-      hostname: "owner-host",
-      sidebarOrder: 1,
-      os: "macos",
-      status: "online",
-      lastSeenAt: now,
-      connectorVersion: "1.0.0",
-      capabilities: ["presence", "liveControl"],
-      allowedRoots: ["/repo"],
-      controlStatus: "ready",
-      controlUrl: "https://owner-machine.example.test",
-      controlUrlUpdatedAt: now,
-    });
-
     return {
       deletionEventId,
       deletionRunId,
       folderExpansionId,
       layoutId,
-      machineRegistrationRequestId,
       otherUserId,
       ownerId,
       stagingId,
@@ -491,70 +461,6 @@ describe("public Convex route ownership checks", () => {
           userId: ids.ownerId,
         },
       ],
-    });
-  });
-
-  it("hides connected machines and pending registration requests from another staff user", async () => {
-    const { ids, t } = await seedOwnedResources("staff");
-    const asOther = asIdentity(t, ids.otherUserId);
-    const asOwner = asIdentity(t, ids.ownerId);
-
-    await expect(asOther.query(api.connectedMachines.listConnectedMachines, {})).resolves.toEqual(
-      [],
-    );
-    await expect(
-      asOther.query(api.connectedMachines.getMachineRegistrationRequestForBrowser, {
-        requestId: "owner-registration",
-      }),
-    ).resolves.toEqual({ kind: "not_found" });
-
-    await expect(asOwner.query(api.connectedMachines.listConnectedMachines, {})).resolves.toEqual([
-      expect.objectContaining({
-        machineId: "owner-machine",
-        displayName: "Owner machine",
-      }),
-    ]);
-    await expect(
-      asOwner.query(api.connectedMachines.getMachineRegistrationRequestForBrowser, {
-        requestId: "owner-registration",
-      }),
-    ).resolves.toMatchObject({
-      kind: "pending",
-      requestId: "owner-registration",
-      machineId: "pending-machine",
-    });
-  });
-
-  it("blocks another staff user from approving or controlling another user's machine", async () => {
-    const { ids, t } = await seedOwnedResources("staff");
-    const asOther = asIdentity(t, ids.otherUserId);
-
-    await expect(
-      asOther.mutation(api.connectedMachines.approveMachineRegistrationRequest, {
-        requestId: "owner-registration",
-      }),
-    ).rejects.toThrow("Machine registration request not found.");
-    await expect(
-      asOther.mutation(api.connectedMachineControl.issueMachineControlToken, {
-        machineId: "owner-machine",
-      }),
-    ).rejects.toThrow("Connected machine not found.");
-
-    await expect(
-      t.run(async (ctx) => {
-        const registrationRequest = await ctx.db.get(ids.machineRegistrationRequestId);
-        return {
-          credentials: await ctx.db.query("machineCredentials").collect(),
-          registrationRequestApprovedAt: registrationRequest?.approvedAt ?? null,
-          registrationRequestUserId: registrationRequest?.userId,
-          tokens: await ctx.db.query("machineControlTokens").collect(),
-        };
-      }),
-    ).resolves.toEqual({
-      credentials: [],
-      registrationRequestApprovedAt: null,
-      registrationRequestUserId: ids.ownerId,
-      tokens: [],
     });
   });
 });

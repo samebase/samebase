@@ -152,7 +152,6 @@ export const vAccountDeletionDataProgress = object({
     vAccountDeletionVaultsInProgress,
     vAccountDeletionVaultsCompleted,
   ),
-  connectedMachines: vAccountDeletionDataGroupProgress,
   preferences: vAccountDeletionDataGroupProgress,
   appAccessAndTokens: vAccountDeletionDataGroupProgress,
   accessRequestsAndHistory: vAccountDeletionDataGroupProgress,
@@ -162,7 +161,6 @@ export type AccountDeletionDataProgress = Infer<typeof vAccountDeletionDataProgr
 export const INITIAL_ACCOUNT_DELETION_DATA_PROGRESS = {
   chatsAndAgentData: { state: "not_started" },
   vaultsAndStagedChanges: { state: "not_started" },
-  connectedMachines: { state: "not_started" },
   preferences: { state: "not_started" },
   appAccessAndTokens: { state: "not_started" },
   accessRequestsAndHistory: { state: "not_started" },
