@@ -1920,10 +1920,8 @@ function VaultDashboardVaultListHeader() {
 }
 
 export function VaultDashboardVaultPickerPane({
-  presentation,
   vaults,
 }: {
-  presentation: "legacy" | "v2";
   vaults: readonly VaultDashboardVault[];
 }) {
   return (
@@ -1931,7 +1929,33 @@ export function VaultDashboardVaultPickerPane({
       <div className="flex h-8 shrink-0 items-center border-b border-border">
         <VaultDashboardVaultListHeader />
       </div>
-      <VaultDashboardVaultList presentation={presentation} selectedVaultId={null} vaults={vaults} />
+      <VaultDashboardVaultList presentation="legacy" selectedVaultId={null} vaults={vaults} />
+    </div>
+  );
+}
+
+export function VaultOverviewVaultPickerPane({
+  vaults,
+}: {
+  vaults: readonly VaultDashboardVault[] | null;
+}) {
+  return (
+    <div className="flex min-h-full min-w-0 flex-col">
+      <div className="flex h-8 shrink-0 items-center border-b border-border">
+        <VaultDashboardVaultListHeader />
+      </div>
+      {vaults === null ? (
+        <VaultOverviewSidebarLoading />
+      ) : vaults.length === 0 ? (
+        <VaultDashboardPaneMessage>No vaults</VaultDashboardPaneMessage>
+      ) : (
+        <VaultOverviewSidebar
+          page="overview"
+          selectedVaultId={null}
+          vaults={vaults}
+          workspace={null}
+        />
+      )}
     </div>
   );
 }
@@ -3305,8 +3329,11 @@ export function VaultDashboard({
   };
 
   if (workspaceModel.state === "loading") {
-    if (presentation !== "v2" || !selectedRepositoryFullName) {
+    if (presentation !== "v2") {
       return null;
+    }
+    if (!selectedRepositoryFullName) {
+      return <VaultOverviewVaultPickerPane vaults={null} />;
     }
     const loadingRepository = tryParseRepositoryFullName(selectedRepositoryFullName);
     if (!loadingRepository) {
@@ -3545,13 +3572,15 @@ export function VaultDashboard({
       ),
   };
   const dashboardBody =
-    selectedVaultMissing && selectedRepositoryFullName ? (
+    presentation === "v2" && isVaultRootRoute ? (
+      <VaultOverviewVaultPickerPane vaults={allVaults} />
+    ) : selectedVaultMissing && selectedRepositoryFullName ? (
       <VaultDashboardPaneMessage>
         Vault not found: {selectedRepositoryFullName}
       </VaultDashboardPaneMessage>
     ) : selectedVault === null && allVaults.length > 0 ? (
       isVaultRootRoute ? (
-        <VaultDashboardVaultPickerPane presentation={presentation} vaults={allVaults} />
+        <VaultDashboardVaultPickerPane vaults={allVaults} />
       ) : (
         <VaultDashboardPaneMessage>
           Select a vault from the left sidebar or add one from the right sidebar.

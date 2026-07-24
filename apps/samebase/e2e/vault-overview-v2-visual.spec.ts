@@ -22,6 +22,7 @@ type VaultOverviewV2VisualMode = Extract<
   | "vault-overview-v2-dev"
   | "vault-overview-v2-loading"
   | "vault-overview-v2-partial-loading"
+  | "vault-overview-v2-root"
   | "vault-overview-v2-settings"
 >;
 
@@ -58,6 +59,27 @@ async function openVaultOverviewV2(
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
+});
+
+test("uses the overview vault rows on the canonical root route", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 640 });
+  const fixture = await openVaultOverviewV2(page, "vault-overview-v2-root");
+  const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
+
+  await expect(vaultNavigation.getByRole("link", { name: /^samebase\/samebase,/ })).toHaveAttribute(
+    "href",
+    "/vault/samebase/samebase",
+  );
+  await expect(vaultNavigation.getByRole("link", { name: /^noter\/guestbook,/ })).toHaveAttribute(
+    "href",
+    "/vault/noter/guestbook",
+  );
+  await expect(fixture).toHaveScreenshot("vault-overview-v2-root.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
 });
 
 test("shows the shared overview model on desktop", async ({ page }) => {

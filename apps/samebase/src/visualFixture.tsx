@@ -186,6 +186,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-overview-v2-dev",
   "vault-overview-v2-loading",
   "vault-overview-v2-partial-loading",
+  "vault-overview-v2-root",
   "vault-overview-v2-settings",
   "vault-convex-schema-graph",
   "vault-convex-schema-route-mobile",
@@ -402,6 +403,7 @@ function renderVisualFixture(mode: VisualFixtureMode, page: VaultOverviewDesignL
     mode === "vault-overview-v2-dev" ||
     mode === "vault-overview-v2-loading" ||
     mode === "vault-overview-v2-partial-loading" ||
+    mode === "vault-overview-v2-root" ||
     mode === "vault-overview-v2-settings" ||
     mode === "vault-convex-schema-graph" ||
     mode === "vault-convex-schema-route-mobile" ||

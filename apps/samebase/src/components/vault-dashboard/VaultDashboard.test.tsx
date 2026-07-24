@@ -11,6 +11,7 @@ import {
   VaultDashboardDeleteDialog,
   VaultDashboardVaultPickerPane,
   VaultDashboardView,
+  VaultOverviewVaultPickerPane,
   VaultProviderSetupSection,
 } from "./VaultDashboard";
 import { validateRootRouteSearch } from "@/routeSearch/root";
@@ -706,11 +707,10 @@ describe("VaultDashboardRepositoryCard", () => {
     expect(markup).not.toContain("/fs/main?compare");
   });
 
-  it("renders the root dashboard vault picker in the main pane", () => {
+  it("renders the new root vault picker in the main pane", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
-        <VaultDashboardVaultPickerPane
-          presentation="v2"
+        <VaultOverviewVaultPickerPane
           vaults={[
             makeResourceRailBuilderVault({
               ghRepoName: "demo",
@@ -723,11 +723,50 @@ describe("VaultDashboardRepositoryCard", () => {
     );
 
     expect(markup).toContain("Vaults");
-    expect(markup).toContain("ada/demo");
+    expect(markup).toContain("ada/");
+    expect(markup).toContain("demo");
+    expect(markup).toContain("Status not loaded");
     expect(markup).toContain('href="/vault/ada/demo"');
     expect(markup).not.toContain(
       "Select a vault from the left sidebar or add one from the right sidebar.",
     );
+  });
+
+  it("renders the new root vault picker loading and empty states", () => {
+    const loadingMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault/"]}>
+        <VaultOverviewVaultPickerPane vaults={null} />
+      </TestRouterProvider>,
+    );
+    const emptyMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault/"]}>
+        <VaultOverviewVaultPickerPane vaults={[]} />
+      </TestRouterProvider>,
+    );
+
+    expect(loadingMarkup).toContain('aria-label="Loading vaults"');
+    expect(emptyMarkup).toContain("No vaults");
+    expect(emptyMarkup).not.toContain("Samebase logo");
+  });
+
+  it("keeps the legacy root vault picker on legacy routes", () => {
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vaultold/"]}>
+        <VaultDashboardVaultPickerPane
+          vaults={[
+            makeResourceRailBuilderVault({
+              ghRepoName: "demo",
+              ghRepoOwner: "ada",
+              repositoryFullName: "ada/demo",
+            }),
+          ]}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain("ada/demo");
+    expect(markup).toContain('href="/vaultold/ada/demo"');
+    expect(markup).not.toContain("Status not loaded");
   });
 
   it("keeps the repository title passive when no title href is provided", () => {

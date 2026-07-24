@@ -28,6 +28,7 @@ import {
   VaultDashboardDeleteDialog,
   VaultDashboardVaultList,
   VaultDashboardVaultPickerPane,
+  VaultOverviewVaultPickerPane,
   type VaultDeleteDialogTarget,
   type VaultDashboardVault,
   VaultProviderSetupSection,
@@ -80,6 +81,7 @@ export type VaultDashboardVisualMode =
   | "vault-overview-v2-dev"
   | "vault-overview-v2-loading"
   | "vault-overview-v2-partial-loading"
+  | "vault-overview-v2-root"
   | "vault-overview-v2-settings";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
@@ -643,12 +645,27 @@ function VaultOverviewV2Fixture({
     | "vault-overview-v2-dev"
     | "vault-overview-v2-loading"
     | "vault-overview-v2-partial-loading"
+    | "vault-overview-v2-root"
     | "vault-overview-v2-settings";
 }) {
   const [pullRequestFilters, setPullRequestFilters] = useState(() =>
     getDefaultVaultPullRequestFilters(),
   );
   const page = mode === "vault-overview-v2-settings" ? "settings" : "overview";
+
+  if (mode === "vault-overview-v2-root") {
+    return (
+      <TestRouterProvider initialEntries={["/vault"]}>
+        <WorkspaceLayoutV2FixtureFrame
+          dataTestId="vault-overview-v2-root"
+          main={{
+            content: <VaultOverviewVaultPickerPane vaults={SIDEBAR_LIST_VAULTS} />,
+          }}
+          shortcutPaneSide="left"
+        />
+      </TestRouterProvider>
+    );
+  }
 
   if (mode === "vault-overview-v2-loading") {
     return (
@@ -1164,7 +1181,7 @@ function VaultDashboardRootPickerFixture({ mode }: { mode: VaultDashboardVisualM
       className="h-dvh w-full bg-background text-foreground"
     >
       <TestRouterProvider initialEntries={["/vaultold/"]}>
-        <VaultDashboardVaultPickerPane presentation="legacy" vaults={SIDEBAR_LIST_VAULTS} />
+        <VaultDashboardVaultPickerPane vaults={SIDEBAR_LIST_VAULTS} />
       </TestRouterProvider>
     </div>
   );
@@ -2037,6 +2054,7 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
     mode === "vault-overview-v2-dev" ||
     mode === "vault-overview-v2-loading" ||
     mode === "vault-overview-v2-partial-loading" ||
+    mode === "vault-overview-v2-root" ||
     mode === "vault-overview-v2-settings"
   ) {
     return <VaultOverviewV2Fixture mode={mode} />;
