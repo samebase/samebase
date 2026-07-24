@@ -134,14 +134,6 @@ vi.mock("@/components/UserSettingsPage", () => ({
   UserSettingsPage: () => <div data-testid="settings-page">Settings page</div>,
 }));
 
-vi.mock("@/components/MachinesWorkspacePage", () => ({
-  MachinesWorkspacePage: () => <div data-testid="machines-page">Machines page</div>,
-}));
-
-vi.mock("@/components/MachineConnectPage", () => ({
-  MachineConnectPage: () => <div data-testid="machine-connect-page">Machine connect page</div>,
-}));
-
 vi.mock("@/components/LandingPreviewPage", () => ({
   DocsDoItYourselfPage: () => (
     <div data-testid="docs-do-it-yourself-page">Docs do it yourself page</div>
@@ -192,18 +184,6 @@ vi.mock("@/components/logo/LogoMengerDepthTransitionPage", () => ({
     >
       Menger depth transition page
     </div>
-  ),
-}));
-
-vi.mock("@/components/codex/CodexAppServerResearchPage", () => ({
-  CodexAppServerResearchPage: () => (
-    <div data-testid="codex-research-page">Codex research page</div>
-  ),
-}));
-
-vi.mock("@/components/codex/CodexAppServerThreadBrowserResearchPage", () => ({
-  CodexAppServerThreadBrowserResearchPage: () => (
-    <div data-testid="codex-thread-browser-page">Codex thread browser page</div>
   ),
 }));
 
@@ -623,13 +603,13 @@ describe("appRouter", () => {
     expect(searchParams.get("isoSide")).toBe("40");
   });
 
-  it("redirects machine params away from /vault on load", async () => {
-    const router = await renderRoute("/vault?machineId=sample-machine&prod-ui");
+  it("redirects unknown params away from /vault on load", async () => {
+    const router = await renderRoute("/vault?stale=1&prod-ui");
 
     const searchParams = new URLSearchParams(router.state.location.searchStr);
 
     expect(router.state.location.pathname).toBe("/vault");
-    expect(searchParams.has("machineId")).toBe(false);
+    expect(searchParams.has("stale")).toBe(false);
     expect(searchParams.has("prod-ui")).toBe(true);
   });
 
@@ -748,24 +728,6 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("renders machines through an explicit TanStack route instead of the App fallback", async () => {
-    await renderRoute("/machines?machineId=machine-123");
-
-    expect(rootElement?.querySelector('[data-testid="machines-page"]')?.textContent).toBe(
-      "Machines page",
-    );
-    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
-  });
-
-  it("renders machine connect through an explicit TanStack route instead of the App fallback", async () => {
-    await renderRoute("/machines/connect?requestId=req_123");
-
-    expect(rootElement?.querySelector('[data-testid="machine-connect-page"]')?.textContent).toBe(
-      "Machine connect page",
-    );
-    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
-  });
-
   it("renders landing preview through an explicit route", async () => {
     await renderRoute("/landing-preview");
 
@@ -868,24 +830,6 @@ describe("appRouter", () => {
     expect(
       rootElement?.querySelector('[data-testid="landing-preview-page"]')?.textContent,
     ).toContain("Landing preview page");
-    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
-  });
-
-  it("accepts a trailing slash on the promoted machines route", async () => {
-    await renderRoute("/machines/");
-
-    expect(rootElement?.querySelector('[data-testid="machines-page"]')?.textContent).toBe(
-      "Machines page",
-    );
-    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
-  });
-
-  it("accepts a trailing slash on the promoted machine connect route", async () => {
-    await renderRoute("/machines/connect/");
-
-    expect(rootElement?.querySelector('[data-testid="machine-connect-page"]')?.textContent).toBe(
-      "Machine connect page",
-    );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 

@@ -7,7 +7,7 @@ describe("EditedFilesCategories", () => {
   it("renders outside the file-view route without requiring an active /vault/$ match", () => {
     expect(() =>
       renderToStaticMarkup(
-        <TestRouterProvider initialEntries={["/machines?mobileLineNumbers=1"]}>
+        <TestRouterProvider initialEntries={["/logo"]}>
           <EditedFilesCategories
             branch="main"
             categories={{

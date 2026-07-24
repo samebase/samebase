@@ -1052,7 +1052,7 @@ describe("WorkspaceLayoutV3 mobile boot alignment", () => {
     act(() => {
       mountedRoot.render(
         renderMobileLayout({
-          mainHeader: <div data-testid="main-header-actions">/machines</div>,
+          mainHeader: <div data-testid="main-header-actions">/logo</div>,
         }),
       );
     });
@@ -1061,7 +1061,7 @@ describe("WorkspaceLayoutV3 mobile boot alignment", () => {
       rootElement.querySelector('[data-testid="workspace-layout-v3-main-header-row"]'),
     ).not.toBeNull();
     expect(rootElement.querySelector('[data-testid="main-header-actions"]')?.textContent).toBe(
-      "/machines",
+      "/logo",
     );
   });
 });

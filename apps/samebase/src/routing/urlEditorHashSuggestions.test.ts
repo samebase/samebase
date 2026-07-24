@@ -8,13 +8,13 @@ describe("readRouteUrlEditorDocumentHashSuggestionKeys", () => {
     const root = document.createElement("div");
     root.innerHTML = `
       <h2 data-landing-heading-id="deploy-a-production-app">Deploy a production app</h2>
-      <section data-route-url-hash-suggestion="#connected-machines"></section>
+      <section data-route-url-hash-suggestion="#provider-settings"></section>
       <h3 data-landing-heading-id="deploy-a-production-app">Duplicate heading mirror</h3>
     `;
 
     expect(readRouteUrlEditorDocumentHashSuggestionKeys(root)).toEqual([
       "deploy-a-production-app",
-      "connected-machines",
+      "provider-settings",
     ]);
   });
 });

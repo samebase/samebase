@@ -108,7 +108,7 @@ describe("WorkspaceLayoutV3FullPage", () => {
             content: <div>left pane</div>,
           }}
           main={{
-            header: <div data-testid="main-header-actions">/machines</div>,
+            header: <div data-testid="main-header-actions">/logo</div>,
             content: <div>main pane</div>,
           }}
           right={{
@@ -119,7 +119,7 @@ describe("WorkspaceLayoutV3FullPage", () => {
     );
 
     expect(markup).toContain('data-testid="main-header-actions"');
-    expect(markup).toContain("/machines");
+    expect(markup).toContain("/logo");
     expect(markup).not.toContain("hidden justify-between md:flex");
     expect((markup.match(/hidden h-8 w-8 md:inline-flex/g) ?? []).length).toBe(2);
   });

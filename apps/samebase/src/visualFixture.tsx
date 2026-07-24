@@ -15,7 +15,6 @@ import {
   VaultDashboardVisualFixture,
   type VaultDashboardVisualMode,
 } from "@/components/vault-dashboard/VaultDashboardVisualFixture";
-import { MachineConnectVisualFixture } from "@/components/MachineConnectVisualFixture";
 import { CornerNotchVisualFixture } from "@/components/CornerNotchVisualFixture";
 import {
   LogoThreeVisualFixture,
@@ -57,15 +56,6 @@ import {
   type AppBootFailureStateVisualMode,
 } from "@/components/AppBootFailureStateVisualFixture";
 import {
-  CodexThreadBrowserVisualFixture,
-  type CodexThreadBrowserVisualMode,
-} from "@/components/codex/CodexThreadBrowserVisualFixture";
-import {
-  CodexAppServerResearchVisualFixture,
-  type CodexAppServerResearchVisualMode,
-} from "@/components/codex/CodexAppServerResearchVisualFixture";
-import { MachinesWorkspaceVisualFixture } from "@/components/MachinesWorkspaceVisualFixture";
-import {
   WorkspaceLayoutV2VisualFixture,
   type WorkspaceLayoutV2VisualMode,
 } from "@/components/WorkspaceLayoutV2VisualFixture";
@@ -73,10 +63,6 @@ import {
   WorkspaceLayoutV3VisualFixture,
   type WorkspaceLayoutV3VisualMode,
 } from "@/components/WorkspaceLayoutV3VisualFixture";
-import {
-  CodexThreadHistoryVisualFixture,
-  type CodexThreadHistoryVisualMode,
-} from "@/components/codex/CodexThreadHistoryVisualFixture";
 import {
   VaultResourceRailVisualFixture,
   type VaultResourceRailVisualMode,
@@ -123,13 +109,8 @@ type VisualFixtureMode =
   | VaultSyncStatusVisualMode
   | WorkspaceLayoutV2VisualMode
   | WorkspaceLayoutV3VisualMode
-  | CodexAppServerResearchVisualMode
-  | CodexThreadBrowserVisualMode
-  | CodexThreadHistoryVisualMode
   | ProviderConnectionsPageVisualMode
   | RouteUrlEditorVisualMode
-  | "machines-workspace"
-  | "machine-connect"
   | "public-account-checking-login"
   | "button"
   | AppBootFailureStateVisualMode
@@ -253,14 +234,9 @@ const PROVIDER_CONNECTIONS_PAGE_VISUAL_MODES = [
 const MISC_VISUAL_MODES = [
   "account-deletion-running",
   "account-deletion-attention",
-  "codex-app-server-research",
-  "codex-thread-browser",
-  "codex-thread-history",
-  "machines-workspace",
   "public-account-checking-login",
   ...WORKSPACE_LAYOUT_V2_VISUAL_MODES,
   ...WORKSPACE_LAYOUT_V3_VISUAL_MODES,
-  "machine-connect",
   "button",
   "app-boot-failure-stale",
   "app-boot-failure-generic",
@@ -443,26 +419,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "fileview-prosemark-flex-height") {
     return <FileViewProsemarkHeightVisualFixture mode={mode} />;
-  }
-
-  if (mode === "codex-thread-history") {
-    return <CodexThreadHistoryVisualFixture mode={mode} />;
-  }
-
-  if (mode === "codex-app-server-research") {
-    return <CodexAppServerResearchVisualFixture mode={mode} />;
-  }
-
-  if (mode === "codex-thread-browser") {
-    return <CodexThreadBrowserVisualFixture mode={mode} />;
-  }
-
-  if (mode === "machine-connect") {
-    return <MachineConnectVisualFixture />;
-  }
-
-  if (mode === "machines-workspace") {
-    return <MachinesWorkspaceVisualFixture />;
   }
 
   if (mode === "public-account-checking-login") {

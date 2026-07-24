@@ -82,7 +82,6 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/new-app");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(suggestions).not.toContain("/pitch");
-    expect(suggestions).not.toContain("/research/codex-app-server");
     expect(suggestions).not.toContain("/vault/$");
   });
 
@@ -97,7 +96,6 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/vault/$");
     expect(suggestions).not.toContain("/indexDB");
     expect(suggestions).not.toContain("/localStorage");
-    expect(suggestions).not.toContain("/machines");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(suggestions).not.toContain("/pricing");
   });
@@ -135,12 +133,12 @@ describe("filterRouteUrlPathSuggestions", () => {
     expect(
       filterRouteUrlPathSuggestions({
         currentHref: "/",
-        draftHref: `${ORIGIN}/machines/c`,
+        draftHref: `${ORIGIN}/logo/r`,
         origin: ORIGIN,
         routesByPath,
         viewer: staffViewer,
       }),
-    ).toEqual(["/machines/connect"]);
+    ).toEqual(["/logo/raster", "/logo/raster-seams"]);
   });
 
   it("filters query and hash drafts against the current route path", () => {
@@ -156,13 +154,13 @@ describe("filterRouteUrlPathSuggestions", () => {
 
     expect(
       filterRouteUrlPathSuggestions({
-        currentHref: "/research/codex-app-server/browser",
+        currentHref: "/logo/transition/menger",
         draftHref: "#thread",
         origin: ORIGIN,
         routesByPath,
         viewer: staffViewer,
       }),
-    ).toEqual(["/research/codex-app-server/browser"]);
+    ).toEqual(["/logo/transition/menger"]);
   });
 
   it("matches dynamic templates against concrete typed path segments", () => {

@@ -132,7 +132,6 @@ export default defineConfig({
           "**/*.config.cjs",
           "**/*.config.ts",
           "**/*.cjs",
-          "packages/sync/**/*.ts",
           "packages/onboarding-video-tools/**/*.ts",
           "apps/samebase/public/**/*.ts",
           "apps/samebase/convex/**/*.{ts,tsx}",

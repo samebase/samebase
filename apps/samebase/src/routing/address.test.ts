@@ -176,7 +176,7 @@ describe("readRouteAddressReadiness", () => {
 
     expect(
       readRouteAddressReadinessForTest({
-        draftRouteAddress: "/machines",
+        draftRouteAddress: "/pitch",
         viewer: memberViewer,
       }),
     ).toEqual({
@@ -247,8 +247,8 @@ describe("readRouteAddressReadiness", () => {
   it("drops route-owned params the destination route does not accept", () => {
     expect(
       readRouteAddressReadinessForTest({
-        currentRouteAddress: "/machines?machineId=sample-machine",
-        draftRouteAddress: "/vault?machineId=sample-machine",
+        currentRouteAddress: "/settings?delete-account",
+        draftRouteAddress: "/vault?delete-account",
       }),
     ).toEqual({
       kind: "readyNormalized",
@@ -259,8 +259,8 @@ describe("readRouteAddressReadiness", () => {
   it("drops stale route-owned params before navigating to pricing", () => {
     expect(
       readRouteAddressReadinessForTest({
-        currentRouteAddress: "/machines?machineId=sample-machine",
-        draftRouteAddress: "/pricing?machineId=sample-machine",
+        currentRouteAddress: "/settings?delete-account",
+        draftRouteAddress: "/pricing?delete-account",
         viewer: memberViewer,
       }),
     ).toEqual({
@@ -273,18 +273,18 @@ describe("readRouteAddressReadiness", () => {
     expect(
       readRouteAddressReadinessForTest({
         currentRouteAddress: "/vault",
-        draftRouteAddress: "/machines?machineId=sample-machine&threadId=sample-thread",
+        draftRouteAddress: "/settings?delete-account",
       }),
     ).toEqual({
       kind: "readyExact",
-      routeAddress: "/machines?machineId=sample-machine&threadId=sample-thread",
+      routeAddress: "/settings?delete-account",
     });
   });
 
   it("keeps root-owned params on destination routes without their own schema", () => {
     expect(
       readRouteAddressReadinessForTest({
-        currentRouteAddress: "/machines?machineId=sample-machine",
+        currentRouteAddress: "/settings?delete-account",
         draftRouteAddress: "/vault?prod-ui&dark",
       }),
     ).toEqual({
@@ -296,7 +296,7 @@ describe("readRouteAddressReadiness", () => {
   it("keeps hidden root-owned params on every destination route", () => {
     expect(
       readRouteAddressReadinessForTest({
-        currentRouteAddress: "/machines",
+        currentRouteAddress: "/logo",
         draftRouteAddress: "/vault?devtools",
       }),
     ).toEqual({

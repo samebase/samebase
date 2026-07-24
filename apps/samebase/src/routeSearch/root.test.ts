@@ -347,7 +347,7 @@ describe("rootRouteSearch", () => {
       readCanonicalRouteAddressForRootSearch({
         acceptedSearchKeys: [],
         pathname: "/vault",
-        searchStr: "?machineId=sample-machine",
+        searchStr: "?stale=1",
         hash: "",
         stripProdUi: false,
       }),
@@ -369,33 +369,33 @@ describe("rootRouteSearch", () => {
   it("keeps accepted route keys and root-owned keys when predicting the redirect", () => {
     expect(
       readCanonicalRouteAddressForRootSearch({
-        acceptedSearchKeys: ["machineId", "threadId"],
-        pathname: "/machines",
-        searchStr: "?prod-ui&machineId=sample-machine&swipe-debug&unknownKey=1",
+        acceptedSearchKeys: ["delete-account"],
+        pathname: "/settings",
+        searchStr: "?prod-ui&delete-account&swipe-debug&unknownKey=1",
         hash: "",
         stripProdUi: false,
       }),
-    ).toBe("/machines?machineId=sample-machine&swipe-debug&prod-ui");
+    ).toBe("/settings?delete-account&swipe-debug&prod-ui");
   });
 
   it("strips prod-ui in production canonicalization while preserving accepted route parts", () => {
     expect(
       readCanonicalRouteAddressForRootSearch({
-        acceptedSearchKeys: ["machineId", "threadId"],
-        pathname: "/machines",
-        searchStr: "?prod-ui&machineId=sample-machine&swipe-debug",
+        acceptedSearchKeys: ["delete-account"],
+        pathname: "/settings",
+        searchStr: "?prod-ui&delete-account&swipe-debug",
         hash: "ready",
         stripProdUi: true,
       }),
-    ).toBe("/machines?machineId=sample-machine&swipe-debug#ready");
+    ).toBe("/settings?delete-account&swipe-debug#ready");
   });
 
   it("does not redirect production canonicalization when prod-ui is absent", () => {
     expect(
       readCanonicalRouteAddressForRootSearch({
-        acceptedSearchKeys: ["machineId", "threadId"],
-        pathname: "/machines",
-        searchStr: "?machineId=sample-machine&swipe-debug",
+        acceptedSearchKeys: ["delete-account"],
+        pathname: "/settings",
+        searchStr: "?delete-account&swipe-debug",
         hash: "ready",
         stripProdUi: true,
       }),
@@ -405,9 +405,9 @@ describe("rootRouteSearch", () => {
   it("does not redirect when every raw key is accepted", () => {
     expect(
       readCanonicalRouteAddressForRootSearch({
-        acceptedSearchKeys: ["machineId"],
-        pathname: "/machines",
-        searchStr: "?machineId=sample-machine",
+        acceptedSearchKeys: ["delete-account"],
+        pathname: "/settings",
+        searchStr: "?delete-account",
         hash: "",
         stripProdUi: false,
       }),

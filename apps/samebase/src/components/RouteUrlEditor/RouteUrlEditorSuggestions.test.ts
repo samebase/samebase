@@ -305,23 +305,9 @@ describe("readSuggestions", () => {
       routeTextBeforeCursor: "/vault/samebase/samebase?",
       viewer: memberViewer,
     });
-    const memberMachineValues = readValues({
-      routeAddress: "/machines?",
-      routeTextBeforeCursor: "/machines?",
-      viewer: memberViewer,
-    });
-    const staffMachineValues = readValues({
-      routeAddress: "/machines?",
-      routeTextBeforeCursor: "/machines?",
-      viewer: staffViewer,
-    });
-
     expect(pathValues).toContain("/vault");
-    expect(pathValues).not.toContain("/machines");
     expect(rootDashboardValues).not.toContain("?delete");
     expect(selectedDashboardValues).toContain("?delete");
-    expect(memberMachineValues).not.toContain("?machineId=sample-machine");
-    expect(staffMachineValues).toContain("?machineId=sample-machine");
   });
 
   it("uses the next-param prefix for later query tokens", () => {
@@ -561,24 +547,6 @@ describe("readSuggestions", () => {
       previewSelectionRouteIndex: "/visual-fixture?mode=".length,
       selectedRouteAddress: "/visual-fixture?mode=route-url-editor&",
       value: "route-url-editor",
-    });
-  });
-
-  it("suggests hashes after the hash marker without filtering by the draft", () => {
-    const rows = readRows({
-      routeAddress: "/machines/connect#top",
-      routeTextBeforeCursor: "/machines/connect#t",
-      viewer: staffViewer,
-    });
-
-    expect(rows.map((row) => row.value)).toEqual(["#connected-machines"]);
-    expect(rows).toContainEqual({
-      kind: "hash",
-      nextSelectionRouteIndex: "/machines/connect#connected-machines".length,
-      previewRouteAddress: "/machines/connect#connected-machines",
-      previewSelectionRouteIndex: "/machines/connect#".length,
-      selectedRouteAddress: "/machines/connect#connected-machines",
-      value: "#connected-machines",
     });
   });
 
