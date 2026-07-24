@@ -9,23 +9,34 @@ import {
   type MengerDepthTransitionModel,
   type MengerDepthTransitionStage,
 } from "@/components/logo/logoMengerDepthTransition";
+import { readLogoRouteRenderState } from "@/components/logo/logoRouteRenderState";
 import {
   getWorldCameraVector,
   getWorldScreenVerticalAxis,
   toRenderedRotationDegrees,
 } from "@/components/logo/logoRotationMath";
-import {
-  DEFAULT_ELEVATION_DEGREES,
-  DEFAULT_ROTATION_DEGREES,
-  type VoxelCoordinate,
-} from "@/components/logo/logoVoxelState";
-import { getTailwindColorHex } from "@/components/logo/logoTailwindColors";
+import { type VoxelCoordinate } from "@/components/logo/logoVoxelState";
+import { getTailwindColorHex, type FaceColors } from "@/components/logo/logoTailwindColors";
 import { resolveLogoSceneCameraDepthBounds } from "@/components/logo/logoSceneCameraDepth";
 import { type LogoViewState } from "@/components/logo/logoViewDrag";
 import { useLogoViewDrag } from "@/components/logo/useLogoViewDrag";
+import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
+import {
+  buildLogoRouteSearch,
+  preserveLogoRouteDevModeSearch,
+  type LogoRouteSearch,
+} from "@/routeSearch/logo";
 import { Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from "react";
 import * as THREE from "three";
 
 const CAMERA_FRUSTUM_PADDING = 1.12;
@@ -70,16 +81,22 @@ function writeVoxelMatrix(
 
 function MengerDepthTransitionScene({
   elevationDegrees,
+  faceColors,
   model,
+  onInteractionEnd,
   onViewChange,
   progress,
   rotationDegrees,
+  viewSnapEnabled,
 }: {
   elevationDegrees: number;
+  faceColors: FaceColors;
   model: MengerDepthTransitionModel;
+  onInteractionEnd: (finalView: LogoViewState) => void;
   onViewChange: (nextView: LogoViewState) => void;
   progress: number;
   rotationDegrees: number;
+  viewSnapEnabled: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const modelRef = useRef(model);
@@ -94,10 +111,14 @@ function MengerDepthTransitionScene({
     handlePointerUp,
   } = useLogoViewDrag<HTMLDivElement>({
     elevationDegrees,
+    onInteractionEnd,
     onViewChange,
     rotationDegrees,
-    viewDragConfig: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+    viewDragConfig: viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined,
   });
+  const leftFaceColor = getTailwindColorHex(faceColors.left);
+  const rightFaceColor = getTailwindColorHex(faceColors.right);
+  const topFaceColor = getTailwindColorHex(faceColors.top);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -118,13 +139,13 @@ function MengerDepthTransitionScene({
 
     const geometry = new THREE.BoxGeometry(1, 1, 1);
     const rightMaterial = new THREE.MeshBasicMaterial({
-      color: getTailwindColorHex("red-800"),
+      color: rightFaceColor,
     });
     const topMaterial = new THREE.MeshBasicMaterial({
-      color: getTailwindColorHex("amber-200"),
+      color: topFaceColor,
     });
     const leftMaterial = new THREE.MeshBasicMaterial({
-      color: getTailwindColorHex("orange-500"),
+      color: leftFaceColor,
     });
     const materials = [
       rightMaterial,
@@ -294,7 +315,7 @@ function MengerDepthTransitionScene({
       scene.clear();
       container.replaceChildren();
     };
-  }, []);
+  }, [leftFaceColor, rightFaceColor, topFaceColor]);
 
   useEffect(() => {
     progressRef.current = progress;
@@ -329,7 +350,22 @@ function MengerDepthTransitionScene({
   );
 }
 
-export function LogoMengerDepthTransitionPage() {
+export function LogoMengerDepthTransitionPage({
+  replaceRouteSearch,
+  routeSearch,
+}: {
+  replaceRouteSearch: (nextSearch: LogoRouteSearch) => void;
+  routeSearch: LogoRouteSearch;
+}) {
+  const routeState = useMemo(
+    () =>
+      readLogoRouteRenderState({
+        renderMode: "three",
+        routeSearch,
+      }),
+    [routeSearch],
+  );
+  const { backgroundColor, faceColors } = useResolvedAppThemeColorState(routeState.themeColors);
   const [progress, setProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackVersion, setPlaybackVersion] = useState(0);
@@ -337,8 +373,8 @@ export function LogoMengerDepthTransitionPage() {
     MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT,
   );
   const [view, setView] = useState<LogoViewState>({
-    elevationDegrees: DEFAULT_ELEVATION_DEGREES,
-    rotationDegrees: DEFAULT_ROTATION_DEGREES,
+    elevationDegrees: routeState.elevationDegrees,
+    rotationDegrees: routeState.rotationDegrees,
   });
   const playbackStartProgressRef = useRef(0);
   const prefersReducedMotionRef = useRef(false);
@@ -347,6 +383,20 @@ export function LogoMengerDepthTransitionPage() {
     () => createMengerDepthTransitionModel(staggerGroupCount),
     [staggerGroupCount],
   );
+
+  useLayoutEffect(() => {
+    const nextView = {
+      elevationDegrees: routeState.elevationDegrees,
+      rotationDegrees: routeState.rotationDegrees,
+    };
+
+    setView((currentView) =>
+      currentView.elevationDegrees === nextView.elevationDegrees &&
+      currentView.rotationDegrees === nextView.rotationDegrees
+        ? currentView
+        : nextView,
+    );
+  }, [routeState.elevationDegrees, routeState.rotationDegrees]);
 
   useEffect(() => {
     const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -455,6 +505,22 @@ export function LogoMengerDepthTransitionPage() {
     setPlaybackVersion((currentVersion) => currentVersion + 1);
     setIsPlaying(!prefersReducedMotionRef.current);
   }, []);
+  const commitView = useCallback(
+    (finalView: LogoViewState) => {
+      replaceRouteSearch(
+        preserveLogoRouteDevModeSearch(
+          buildLogoRouteSearch({
+            ...routeState,
+            elevationDegrees: finalView.elevationDegrees,
+            rotationDegrees: finalView.rotationDegrees,
+            themeModeSearch: routeSearch,
+          }),
+          routeSearch,
+        ),
+      );
+    },
+    [replaceRouteSearch, routeSearch, routeState],
+  );
   const controlsContent = useMemo(
     () => (
       <div
@@ -540,13 +606,17 @@ export function LogoMengerDepthTransitionPage() {
         className="h-full min-h-0 w-full"
         data-phase={phase}
         data-testid="logo-menger-depth-transition-page"
+        style={{ backgroundColor }}
       >
         <MengerDepthTransitionScene
           elevationDegrees={view.elevationDegrees}
+          faceColors={faceColors}
           model={model}
+          onInteractionEnd={commitView}
           onViewChange={setView}
           progress={progress}
           rotationDegrees={view.rotationDegrees}
+          viewSnapEnabled={routeState.viewSnapEnabled}
         />
       </div>
     </AppWorkspaceRouteChrome>
