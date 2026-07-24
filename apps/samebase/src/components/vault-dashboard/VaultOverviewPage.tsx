@@ -254,26 +254,30 @@ export function VaultOverviewSidebar({
         const pullRequestCount = settledPullRequests?.pullRequests.length;
 
         return (
-          <Link
+          <div
             key={vault._id}
-            aria-current={selected ? "page" : undefined}
-            aria-label={`${vault.repositoryFullName}, ${status.label}, ${workerCount} Cloudflare ${workerCount === 1 ? "Worker" : "Workers"}, ${convexProjectCount} Convex ${convexProjectCount === 1 ? "project" : "projects"}${pullRequestCount === undefined ? "" : `, ${pullRequestCount} open ${pullRequestCount === 1 ? "pull request" : "pull requests"}`}`}
             className={
               selected
-                ? "block min-w-0 bg-muted px-3 py-2.5 text-left no-underline hover:no-underline @max-[200px]:px-2 @max-[120px]:px-1"
-                : "block min-w-0 px-3 py-2.5 text-left no-underline hover:bg-muted hover:no-underline @max-[200px]:px-2 @max-[120px]:px-1"
+                ? "min-w-0 bg-muted px-3 py-2.5 @max-[200px]:px-2 @max-[120px]:px-1"
+                : "min-w-0 px-3 py-2.5 @max-[200px]:px-2 @max-[120px]:px-1"
             }
-            title={vault.repositoryFullName}
-            to={repositoryRoute(vault, page)}
           >
-            <span className="block min-w-0 text-sm leading-5">
-              <span className="block min-w-0 truncate text-muted-foreground @max-[120px]:hidden">
-                {vault.ghRepoOwner}/
+            <Link
+              aria-current={selected ? "page" : undefined}
+              aria-label={vault.repositoryFullName}
+              className="block w-fit max-w-full min-w-0 text-left no-underline hover:no-underline"
+              title={vault.repositoryFullName}
+              to={repositoryRoute(vault, page)}
+            >
+              <span className="block min-w-0 max-w-full text-sm leading-5">
+                <span className="block min-w-0 truncate text-muted-foreground @max-[120px]:hidden">
+                  {vault.ghRepoOwner}/
+                </span>
+                <span className="block min-w-0 line-clamp-2 font-medium text-foreground [overflow-wrap:anywhere]">
+                  {vault.ghRepoName}
+                </span>
               </span>
-              <span className="block min-w-0 line-clamp-2 font-medium text-foreground [overflow-wrap:anywhere]">
-                {vault.ghRepoName}
-              </span>
-            </span>
+            </Link>
             <span className="mt-1 flex min-w-0 items-start gap-1.5 text-xs text-muted-foreground">
               <span className="mt-1 flex shrink-0">
                 <span className={status.dotClassName} />
@@ -309,7 +313,7 @@ export function VaultOverviewSidebar({
                 </span>
               </span>
             </span>
-          </Link>
+          </div>
         );
       })}
     </nav>

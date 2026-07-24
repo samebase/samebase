@@ -66,14 +66,24 @@ test("uses the overview vault rows on the canonical root route", async ({ page }
   const fixture = await openVaultOverviewV2(page, "vault-overview-v2-root");
   const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
 
-  await expect(vaultNavigation.getByRole("link", { name: /^samebase\/samebase,/ })).toHaveAttribute(
-    "href",
-    "/vault/samebase/samebase",
-  );
-  await expect(vaultNavigation.getByRole("link", { name: /^noter\/guestbook,/ })).toHaveAttribute(
-    "href",
-    "/vault/noter/guestbook",
-  );
+  const samebaseLink = vaultNavigation.getByRole("link", {
+    name: "samebase/samebase",
+    exact: true,
+  });
+  await expect(samebaseLink).toHaveAttribute("href", "/vault/samebase/samebase");
+  await expect(
+    vaultNavigation.getByRole("link", { name: "noter/guestbook", exact: true }),
+  ).toHaveAttribute("href", "/vault/noter/guestbook");
+
+  const linkBounds = await samebaseLink.boundingBox();
+  const rowBounds = await samebaseLink.locator("..").boundingBox();
+  expect(linkBounds).not.toBeNull();
+  expect(rowBounds).not.toBeNull();
+  if (linkBounds && rowBounds) {
+    expect(linkBounds.width).toBeLessThan(rowBounds.width);
+    await page.mouse.click(rowBounds.x + rowBounds.width - 4, rowBounds.y + rowBounds.height / 2);
+    await expect(page).toHaveURL(/mode=vault-overview-v2-root/);
+  }
   await expect(fixture).toHaveScreenshot("vault-overview-v2-root.png", {
     animations: "disabled",
     caret: "hide",
@@ -188,23 +198,22 @@ test("preserves repository identity at the minimum sidebar width", async ({ page
     leftMobileWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
     mobilePane: "left",
   });
+  const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
 
-  const selectedVault = fixture.getByRole("link", {
-    name: /samebase\/samebase, 4\/4 passed/,
+  const selectedVault = vaultNavigation.getByRole("link", {
+    name: "samebase/samebase",
+    exact: true,
   });
   await expect(selectedVault).toBeVisible();
   await expect(selectedVault.getByText("samebase/", { exact: true })).toBeHidden();
   await expect(selectedVault.getByText("samebase", { exact: true })).toBeVisible();
-  await expect(selectedVault.getByText("4/4 passed", { exact: true })).toBeVisible();
-  await expect(fixture.getByRole("navigation", { name: "Vaults" })).toHaveScreenshot(
-    "vault-overview-v2-minimum-sidebar.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.02,
-      scale: "css",
-    },
-  );
+  await expect(vaultNavigation.getByText("4/4 passed", { exact: true })).toBeVisible();
+  await expect(vaultNavigation).toHaveScreenshot("vault-overview-v2-minimum-sidebar.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
 });
 
 test("exposes each raw source separately in developer mode", async ({ page }) => {
