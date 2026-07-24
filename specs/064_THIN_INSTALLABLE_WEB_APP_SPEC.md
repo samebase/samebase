@@ -144,6 +144,9 @@ Current default:
 
 - use `apps/samebase/public/brand/icon/compact-v1.svg` as the source for the stable
   `/samebase-icon.svg` and `/install-icon.svg` aliases
+- keep the default compact mark at 70% of its canvas so the same source works in circular avatar
+  crops
+- keep the 16px and 32px favicons on their denser pixel-aligned geometry
 - use `apps/samebase/public/brand/icon/compact-v1-maskable.svg` only for maskable raster exports
 - use `apps/samebase/src/components/compactIdentitySvgAsset.ts` as the generator source for all
   compact icon exports

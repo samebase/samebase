@@ -17,6 +17,7 @@ type LogoIdentitySvgAsset = {
 };
 type LogoAssetModules = {
   createCompactIdentitySvgMarkup: () => string;
+  createFaviconCompactIdentitySvgMarkup: () => string;
   createLogoIdentitySvgAssets: () => LogoIdentitySvgAsset[];
   createMaskableCompactIdentitySvgMarkup: () => string;
   createSamebaseSocialCardSvgMarkup: (args: { faceTreatment: LogoFaceTreatment }) => string;
@@ -32,9 +33,12 @@ type SocialAsset = {
 
 type UnknownFunction = (...args: unknown[]) => unknown;
 
-const compactIdentityIconJobs: IconJob[] = [
+const faviconIconJobs: IconJob[] = [
   { canvasSize: 16, filename: "favicon.png" },
   { canvasSize: 32, filename: "favicon-32.png" },
+];
+
+const compactIdentityIconJobs: IconJob[] = [
   { canvasSize: 180, filename: "apple-touch-icon.png" },
   { canvasSize: 192, filename: "icon-192.png" },
   { canvasSize: 256, filename: "chatgpt-app-icon.png" },
@@ -166,6 +170,10 @@ async function loadLogoAssetModules(): Promise<LogoAssetModules> {
       compactIdentityModule,
       "createCompactIdentitySvgMarkup",
     );
+    const createFaviconCompactIdentitySvgMarkup = readUnknownFunction(
+      compactIdentityModule,
+      "createFaviconCompactIdentitySvgMarkup",
+    );
     const createMaskableCompactIdentitySvgMarkup = readUnknownFunction(
       compactIdentityModule,
       "createMaskableCompactIdentitySvgMarkup",
@@ -186,6 +194,11 @@ async function loadLogoAssetModules(): Promise<LogoAssetModules> {
     return {
       createCompactIdentitySvgMarkup: () =>
         readStringResult(createCompactIdentitySvgMarkup(), "createCompactIdentitySvgMarkup"),
+      createFaviconCompactIdentitySvgMarkup: () =>
+        readStringResult(
+          createFaviconCompactIdentitySvgMarkup(),
+          "createFaviconCompactIdentitySvgMarkup",
+        ),
       createLogoIdentitySvgAssets: () =>
         readLogoIdentitySvgAssetsResult(createLogoIdentitySvgAssets()),
       createMaskableCompactIdentitySvgMarkup: () =>
@@ -251,6 +264,27 @@ function generateIconPng({
   );
 }
 
+function generateIconPngFromMarkup({
+  canvasSize,
+  markup,
+  outputAssetPath,
+}: IconJob & {
+  markup: string;
+  outputAssetPath: string;
+}) {
+  const outputPath = toPublicPath(outputAssetPath);
+  mkdirSync(path.dirname(outputPath), { recursive: true });
+
+  execFileSync(
+    "rsvg-convert",
+    ["--width", String(canvasSize), "--height", String(canvasSize), "--output", outputPath],
+    {
+      input: markup,
+      stdio: ["pipe", "inherit", "inherit"],
+    },
+  );
+}
+
 function generatePngAsset(inputAssetPath: string, outputAssetPath: string): void {
   const outputPath = toPublicPath(outputAssetPath);
   mkdirSync(path.dirname(outputPath), { recursive: true });
@@ -273,6 +307,14 @@ function syncCompactIdentityAssets(modules: LogoAssetModules) {
   copyTextAsset(sourceAssetPath, "/samebase-icon.svg");
   copyTextAsset(sourceAssetPath, "/install-icon.svg");
 
+  const faviconMarkup = modules.createFaviconCompactIdentitySvgMarkup();
+  for (const job of faviconIconJobs) {
+    generateIconPngFromMarkup({
+      ...job,
+      markup: faviconMarkup,
+      outputAssetPath: `/${job.filename}`,
+    });
+  }
   for (const job of compactIdentityIconJobs) {
     generateIconPng({
       ...job,
