@@ -1,11 +1,15 @@
 import {
+  MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT,
   MENGER_DEPTH_TRANSITION_DEPTH_HOLD_MS,
   MENGER_DEPTH_TRANSITION_MODEL,
   MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS,
   MENGER_DEPTH_TRANSITION_SPLIT_HOLD_MS,
+  createMengerDepthTransitionModel,
+  readMengerDepthTransitionMoveProgress,
+  readMengerDepthTransitionStage,
   type MengerDepthTransitionStage,
-} from "@/components/logo/logoMengerDepthTransition";
-import { voxelKey } from "@/components/logo/logoVoxelState";
+} from "../src/mengerDepthTransition.ts";
+import { voxelKey } from "../src/voxel.ts";
 import { describe, expect, it } from "vite-plus/test";
 
 function coordinateKey([x, y, z]: readonly [number, number, number]): string {
@@ -103,5 +107,50 @@ describe("Menger depth transition", () => {
     expect(MENGER_DEPTH_TRANSITION_MODEL.totalDurationMs).toBe(
       MENGER_DEPTH_TRANSITION_MODEL.depthThree.endTimeMs,
     );
+  });
+
+  it("selects stages at the exact split boundaries", () => {
+    const { depthThree, depthTwo } = MENGER_DEPTH_TRANSITION_MODEL;
+
+    expect(
+      readMengerDepthTransitionStage(MENGER_DEPTH_TRANSITION_MODEL, depthTwo.splitTimeMs),
+    ).toBeNull();
+    expect(
+      readMengerDepthTransitionStage(MENGER_DEPTH_TRANSITION_MODEL, depthTwo.splitTimeMs + 1),
+    ).toBe(depthTwo);
+    expect(
+      readMengerDepthTransitionStage(MENGER_DEPTH_TRANSITION_MODEL, depthThree.splitTimeMs),
+    ).toBe(depthTwo);
+    expect(
+      readMengerDepthTransitionStage(MENGER_DEPTH_TRANSITION_MODEL, depthThree.splitTimeMs + 1),
+    ).toBe(depthThree);
+  });
+
+  it("returns eased move progress until the move settles", () => {
+    const move = MENGER_DEPTH_TRANSITION_MODEL.depthTwo.moves[0];
+    if (!move) {
+      throw new Error("The depth-two transition must contain a move.");
+    }
+
+    expect(readMengerDepthTransitionMoveProgress(move, move.startTimeMs - 1)).toBe(0);
+    expect(
+      readMengerDepthTransitionMoveProgress(
+        move,
+        move.startTimeMs + MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS / 2,
+      ),
+    ).toBe(0.5);
+    expect(
+      readMengerDepthTransitionMoveProgress(
+        move,
+        move.startTimeMs + MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS,
+      ),
+    ).toBeNull();
+  });
+
+  it("uses the default stagger count for non-finite input", () => {
+    const model = createMengerDepthTransitionModel(Number.NaN);
+    const startTimes = new Set(model.depthTwo.moves.map((move) => move.startTimeMs));
+
+    expect(startTimes.size).toBe(MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT);
   });
 });

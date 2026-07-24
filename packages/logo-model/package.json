@@ -12,6 +12,7 @@
     "./face-treatment": "./src/faceTreatment.ts",
     "./identity": "./src/identity.ts",
     "./left-face-style": "./src/leftFaceStyle.ts",
+    "./menger-depth-transition": "./src/mengerDepthTransition.ts",
     "./rotation": "./src/rotation.ts",
     "./shuffle": "./src/shuffle.ts",
     "./surface": "./src/surface.ts",

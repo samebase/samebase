@@ -13,8 +13,8 @@ traced back to the same base.
 3. Elevate to the exact isometric variant 3 at `35.26438968°`.
 4. Move three cubes with the production adjacent-vacancy shuffle rules, duration, stagger, and
    easing.
-5. Reset to the canonical shape and reveal depth 2 of the Samebase motif.
-6. Switch to depth 2 of the shared Menger motif as the most divergent result.
+5. Reset to the canonical shape, then introduce the shared Menger motif at depth 1.
+6. Run the production Menger transition through depth 2 and depth 3.
 7. Return to the canonical isometric mark and Samebase wordmark.
 
 The on-screen argument is: “start from the same base”, “explore different directions”, “go deeper”,
@@ -41,10 +41,11 @@ requires selecting `MENGER_SPONGE_VOXEL_STATE` before increasing depth.
 
 ## Code boundary
 
-Renderer-independent identity, camera, voxel, surface, auto-rotation, and shuffle behavior belongs
-in `@samebase/logo-model`. The Samebase app and Remotion provide separate live-clock and frame-clock
-renderer adapters over that shared behavior.
+Renderer-independent identity, camera, voxel, surface, auto-rotation, shuffle, and Menger depth
+transition behavior belongs in `@samebase/logo-model`. The Samebase app and Remotion provide
+separate live-clock and frame-clock renderer adapters over that shared behavior.
 
-Crossfade finished canvas layers when changing voxel appearances. Making overlapping, coplanar
-Three.js surface meshes transparent inside one scene causes depth-order artifacts as their faces
-appear and disappear.
+Crossfade separate canvas layers when changing unrelated voxel appearances. Within the Menger
+transition, render the shared settled shape and staggered exposed faces in one canvas. Making
+overlapping, coplanar surface meshes transparent inside one scene causes depth-order artifacts as
+their faces appear and disappear.

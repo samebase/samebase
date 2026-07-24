@@ -8,6 +8,14 @@ import {
   STATIC_LOGO_VOXEL_COORDINATES,
 } from "@samebase/logo-model/identity";
 import {
+  MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT,
+  createMengerDepthTransitionModel,
+  readMengerDepthTransitionMoveProgress,
+  readMengerDepthTransitionStage,
+  type MengerDepthTransitionMove,
+  type MengerDepthTransitionStage,
+} from "@samebase/logo-model/menger-depth-transition";
+import {
   getLogoRotationAxis,
   getWorldCameraVector,
   getWorldScreenVerticalAxis,
@@ -20,19 +28,22 @@ import {
   LOGO_SHUFFLE_MOVE_STAGGER_MS,
 } from "@samebase/logo-model/shuffle";
 import { buildLogoSurfaceQuads, type FaceColorKey } from "@samebase/logo-model/surface";
-import {
-  createFilledVoxelSet,
-  createLogoFractalVoxelGrid,
-  MENGER_SPONGE_VOXEL_STATE,
-  parseVoxelState,
-  voxelKey,
-  type VoxelCoordinate,
-} from "@samebase/logo-model/voxel";
+import { createFilledVoxelSet, voxelKey, type VoxelCoordinate } from "@samebase/logo-model/voxel";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
-import { MathUtils, Quaternion, Vector3 as ThreeVector3 } from "three";
+import { useLayoutEffect, useMemo, useRef } from "react";
+import {
+  Color,
+  InstancedMesh,
+  MathUtils,
+  Matrix4,
+  Quaternion,
+  Vector3 as ThreeVector3,
+} from "three";
 
 export const logoHypeFps = 30;
 export const logoHypeDurationInFrames = 360;
+const MENGER_TRANSITION_START_FRAME = 238;
+const MENGER_TRANSITION_END_FRAME = 326;
 
 type SurfaceMesh = {
   color: string;
@@ -49,23 +60,12 @@ type PlannedShuffleMove = {
   toKey: string;
 };
 
-type LogoSceneKind = "canonical" | "canonical-depth-two" | "menger-depth-two" | "shuffling";
+type LogoSceneKind = "canonical" | "menger-transition" | "shuffling";
 
 const canonicalFilledVoxels = createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
-const canonicalDepthTwoGrid = createLogoFractalVoxelGrid({
-  depth: 2,
-  filledVoxels: canonicalFilledVoxels,
-  gridSize: STATIC_LOGO_GRID_SIZE,
-});
-const parsedMengerState = parseVoxelState(MENGER_SPONGE_VOXEL_STATE);
-if (!parsedMengerState) {
-  throw new Error("The shared Menger motif must remain a valid voxel state");
-}
-const mengerDepthTwoGrid = createLogoFractalVoxelGrid({
-  depth: 2,
-  filledVoxels: parsedMengerState.filledVoxels,
-  gridSize: parsedMengerState.gridSize,
-});
+const mengerDepthTransitionModel = createMengerDepthTransitionModel(
+  MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT,
+);
 
 function mix(from: number, to: number, progress: number): number {
   return from + (to - from) * progress;
@@ -105,13 +105,17 @@ function buildSurfaceMeshes(filledVoxels: ReadonlySet<string>, gridSize: number)
 }
 
 const canonicalSurface = buildSurfaceMeshes(canonicalFilledVoxels, STATIC_LOGO_GRID_SIZE);
-const canonicalDepthTwoSurface = buildSurfaceMeshes(
-  canonicalDepthTwoGrid.filledVoxels,
-  canonicalDepthTwoGrid.gridSize,
+const mengerDepthOneSurface = buildSurfaceMeshes(
+  createFilledVoxelSet(mengerDepthTransitionModel.depthOneVoxels),
+  STATIC_LOGO_GRID_SIZE,
 );
 const mengerDepthTwoSurface = buildSurfaceMeshes(
-  mengerDepthTwoGrid.filledVoxels,
-  mengerDepthTwoGrid.gridSize,
+  createFilledVoxelSet(mengerDepthTransitionModel.depthTwo.settledVoxels),
+  mengerDepthTransitionModel.depthTwo.gridSize,
+);
+const mengerDepthThreeSurface = buildSurfaceMeshes(
+  createFilledVoxelSet(mengerDepthTransitionModel.depthThree.settledVoxels),
+  mengerDepthTransitionModel.depthThree.gridSize,
 );
 
 function planShuffleMoves(): PlannedShuffleMove[] {
@@ -170,6 +174,132 @@ function Surface({ meshes }: { meshes: readonly SurfaceMesh[] }) {
           <meshBasicMaterial color={mesh.color} />
         </mesh>
       ))}
+    </group>
+  );
+}
+
+function MengerMovingFaceGroup({
+  moves,
+  opacity,
+  stage,
+}: {
+  moves: readonly MengerDepthTransitionMove[];
+  opacity: number;
+  stage: MengerDepthTransitionStage;
+}) {
+  const movingMeshRef = useRef<InstancedMesh | null>(null);
+
+  useLayoutEffect(() => {
+    const movingMesh = movingMeshRef.current;
+    if (!movingMesh) {
+      return;
+    }
+
+    const matrix = new Matrix4();
+    const normal = new ThreeVector3();
+    const position = new ThreeVector3();
+    const quaternion = new Quaternion();
+    const scale = new ThreeVector3(1, 1, 1);
+    const planeNormal = new ThreeVector3(0, 0, 1);
+    const faceColors = {
+      left: new Color(DEFAULT_LOGO_FACE_HEX_COLORS.left),
+      right: new Color(DEFAULT_LOGO_FACE_HEX_COLORS.right),
+      top: new Color(DEFAULT_LOGO_FACE_HEX_COLORS.top),
+    };
+    moves.forEach((move, index) => {
+      const localX = move.from[0] % 3;
+      const localY = move.from[1] % 3;
+      if (localX !== 1) {
+        normal.set(localX === 0 ? -1 : 1, 0, 0);
+        movingMesh.setColorAt(index, faceColors.right);
+      } else if (localY !== 1) {
+        normal.set(0, localY === 0 ? -1 : 1, 0);
+        movingMesh.setColorAt(index, faceColors.top);
+      } else {
+        normal.set(0, 0, move.from[2] % 3 === 0 ? -1 : 1);
+        movingMesh.setColorAt(index, faceColors.left);
+      }
+
+      position.set(
+        move.from[0] - stage.gridSize / 2 + 0.5,
+        move.from[1] - stage.gridSize / 2 + 0.5,
+        move.from[2] - stage.gridSize / 2 + 0.5,
+      );
+      position.addScaledVector(normal, 0.5);
+      quaternion.setFromUnitVectors(planeNormal, normal);
+      matrix.compose(position, quaternion, scale);
+      movingMesh.setMatrixAt(index, matrix);
+    });
+
+    movingMesh.count = moves.length;
+    movingMesh.instanceMatrix.needsUpdate = true;
+    if (movingMesh.instanceColor) {
+      movingMesh.instanceColor.needsUpdate = true;
+    }
+  }, [moves, stage.gridSize]);
+
+  return (
+    <instancedMesh
+      ref={movingMeshRef}
+      args={[undefined, undefined, moves.length]}
+      frustumCulled={false}
+    >
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial depthWrite={false} opacity={opacity} transparent />
+    </instancedMesh>
+  );
+}
+
+function MengerMovingFaces({
+  elapsedMs,
+  stage,
+}: {
+  elapsedMs: number;
+  stage: MengerDepthTransitionStage;
+}) {
+  const moveGroups = useMemo(() => {
+    const movesByStartTime = new Map<number, MengerDepthTransitionMove[]>();
+    for (const move of stage.moves) {
+      const moves = movesByStartTime.get(move.startTimeMs);
+      if (moves) {
+        moves.push(move);
+      } else {
+        movesByStartTime.set(move.startTimeMs, [move]);
+      }
+    }
+
+    return [...movesByStartTime.entries()].sort(([left], [right]) => left - right);
+  }, [stage]);
+
+  return moveGroups.map(([startTimeMs, moves]) => {
+    const firstMove = moves[0];
+    if (!firstMove) {
+      return null;
+    }
+
+    const progress = readMengerDepthTransitionMoveProgress(firstMove, elapsedMs);
+    const opacity = progress === null ? 0 : 1 - progress;
+    if (opacity <= 0) {
+      return null;
+    }
+
+    return (
+      <MengerMovingFaceGroup key={startTimeMs} moves={moves} opacity={opacity} stage={stage} />
+    );
+  });
+}
+
+function MengerDepthTransition({ elapsedMs }: { elapsedMs: number }) {
+  const stage = readMengerDepthTransitionStage(mengerDepthTransitionModel, elapsedMs);
+  if (!stage) {
+    return <Surface meshes={mengerDepthOneSurface} />;
+  }
+
+  const surface = stage.depth === 2 ? mengerDepthTwoSurface : mengerDepthThreeSurface;
+  return (
+    <group scale={STATIC_LOGO_GRID_SIZE / stage.gridSize}>
+      <Surface meshes={surface} />
+      <MengerMovingFaces elapsedMs={elapsedMs} stage={stage} />
     </group>
   );
 }
@@ -268,20 +398,19 @@ function LogoScene({
     case "canonical":
       logo = <Surface meshes={canonicalSurface} />;
       break;
-    case "canonical-depth-two":
-      logo = (
-        <group scale={1 / 3}>
-          <Surface meshes={canonicalDepthTwoSurface} />
-        </group>
+    case "menger-transition": {
+      const elapsedMs = interpolate(
+        frame,
+        [MENGER_TRANSITION_START_FRAME, MENGER_TRANSITION_END_FRAME],
+        [0, mengerDepthTransitionModel.totalDurationMs],
+        {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        },
       );
+      logo = <MengerDepthTransition elapsedMs={elapsedMs} />;
       break;
-    case "menger-depth-two":
-      logo = (
-        <group scale={1 / 3}>
-          <Surface meshes={mengerDepthTwoSurface} />
-        </group>
-      );
-      break;
+    }
     case "shuffling":
       logo = <ShufflingCanonicalLogo frame={frame} />;
       break;
@@ -403,10 +532,8 @@ export function LogoHype() {
   const shuffleOpacity = introOpacity * (1 - transitionProgress(frame, 216, 228));
   const resetOpacity =
     transitionProgress(frame, 216, 228) * (1 - transitionProgress(frame, 238, 250));
-  const canonicalDepthOpacity =
-    transitionProgress(frame, 238, 250) * (1 - transitionProgress(frame, 280, 294));
-  const mengerOpacity =
-    transitionProgress(frame, 280, 294) * (1 - transitionProgress(frame, 326, 340));
+  const mengerTransitionOpacity =
+    transitionProgress(frame, 238, 250) * (1 - transitionProgress(frame, 326, 340));
   const canonicalOpacity = resetOpacity + transitionProgress(frame, 326, 340);
   const finalOpacity = transitionProgress(frame, 332, 346);
 
@@ -441,17 +568,8 @@ export function LogoHype() {
         elevationDegrees={elevationDegrees}
         frame={frame}
         height={height}
-        kind="canonical-depth-two"
-        opacity={canonicalDepthOpacity}
-        rotationDegrees={rotationDegrees}
-        width={width}
-      />
-      <LogoLayer
-        elevationDegrees={elevationDegrees}
-        frame={frame}
-        height={height}
-        kind="menger-depth-two"
-        opacity={mengerOpacity}
+        kind="menger-transition"
+        opacity={mengerTransitionOpacity}
         rotationDegrees={rotationDegrees}
         width={width}
       />
