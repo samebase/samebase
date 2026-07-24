@@ -92,7 +92,9 @@ describe("RouteUrlEditorNext", () => {
     }
 
     return [
-      ...rootElement.querySelectorAll<HTMLElement>('[data-testid="route-url-editor-suggestion"]'),
+      ...rootElement.querySelectorAll<HTMLElement>(
+        '[data-testid="route-url-editor-suggestion-value"]',
+      ),
     ].map((element) => element.textContent.trim());
   }
 
@@ -163,6 +165,27 @@ describe("RouteUrlEditorNext", () => {
     expect(readSuggestionValues()).not.toEqual(
       expect.arrayContaining(["?top=sky-500", "?auto-rotate", "?rot=46"]),
     );
+  });
+
+  it("labels recommendations unlocked by dev without changing their value text", () => {
+    const display = renderEditor(["/visual-fixture?dev"]);
+
+    act(() => {
+      display.focus();
+    });
+
+    const modeValue = [
+      ...(rootElement?.querySelectorAll<HTMLElement>(
+        '[data-testid="route-url-editor-suggestion-value"]',
+      ) ?? []),
+    ].find((element) => element.textContent.trim() === "&mode=route-url-editor");
+    const modeRow = modeValue?.closest<HTMLElement>('[data-testid="route-url-editor-suggestion"]');
+    const devBadge = modeRow?.querySelector<HTMLElement>('[data-slot="badge"]');
+
+    expect(modeValue?.textContent.trim()).toBe("&mode=route-url-editor");
+    expect(devBadge?.textContent.trim()).toBe("dev");
+    expect(devBadge?.getAttribute("aria-hidden")).toBe("true");
+    expect(devBadge?.classList.contains("border-sky-500")).toBe(true);
   });
 
   it("suggests page-owned hashes from the current document", async () => {

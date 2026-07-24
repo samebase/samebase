@@ -71,6 +71,51 @@ test("app workspace address chrome exposes the route URL editor", async ({ page 
   await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}/terms?dev`);
 });
 
+test("route URL editor labels developer path suggestions", async ({ page }) => {
+  await page.addInitScript(() => {
+    Math.random = () => 0.57;
+  });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/?dev", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const origin = new URL(page.url()).origin;
+  const routeUrlDisplay = page.getByTestId("route-url-editor-display");
+  await routeUrlDisplay.focus();
+
+  const routeUrlInput = page.getByTestId("route-url-editor-input");
+  const pathCursorPosition = `${origin}/`.length;
+  await routeUrlInput.evaluate((element, position) => {
+    if (!(element instanceof HTMLInputElement)) {
+      throw new Error("Expected route URL editor input.");
+    }
+
+    element.setSelectionRange(position, position);
+    element.dispatchEvent(new Event("select", { bubbles: true }));
+  }, pathCursorPosition);
+  await routeUrlInput.press("v");
+
+  const suggestionsPopover = page.getByTestId("route-url-editor-suggestions-popover");
+  const visualFixtureSuggestion = suggestionsPopover.getByRole("option", {
+    exact: true,
+    name: "/visual-fixture",
+  });
+  const devBadge = visualFixtureSuggestion.getByText("dev", { exact: true });
+
+  await expect(routeUrlInput).toHaveValue(`${origin}/v?dev&`);
+  await expect(visualFixtureSuggestion).toBeVisible();
+  await expect(devBadge).toHaveAttribute("aria-hidden", "true");
+  await expect(suggestionsPopover).toHaveScreenshot("route-url-editor-dev-path-suggestions.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.01,
+  });
+});
+
 test("app workspace route URL editor stays compact for long URLs", async ({ page }) => {
   const longPath =
     "/terms?dev#route-editor-keeps-a-long-address-readable-without-expanding-the-workspace-chrome-on-narrow-viewports";

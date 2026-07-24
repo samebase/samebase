@@ -220,7 +220,9 @@ async function pressArrowDownToSuggestion(
   const suggestions = page.getByTestId("route-url-editor-suggestion");
   await expect(page.getByRole("option", { exact: true, name: suggestionValue })).toBeVisible();
 
-  const suggestionValues = (await suggestions.allTextContents()).map((value) => value.trim());
+  const suggestionValues = (
+    await page.getByTestId("route-url-editor-suggestion-value").allTextContents()
+  ).map((value) => value.trim());
   const suggestionIndex = suggestionValues.indexOf(suggestionValue);
 
   expect(suggestionIndex).toBeGreaterThanOrEqual(0);
@@ -249,7 +251,9 @@ async function scrollTouchPickerToSuggestion(
   const suggestions = page.getByTestId("route-url-editor-suggestion");
   await expect(page.getByRole("option", { exact: true, name: suggestionValue })).toBeVisible();
 
-  const suggestionValues = (await suggestions.allTextContents()).map((value) => value.trim());
+  const suggestionValues = (
+    await page.getByTestId("route-url-editor-suggestion-value").allTextContents()
+  ).map((value) => value.trim());
   const suggestionIndex = suggestionValues.indexOf(suggestionValue);
 
   expect(suggestionIndex).toBeGreaterThanOrEqual(0);
@@ -288,9 +292,12 @@ async function readTouchSlateSuggestionAlignment(page: Page, suggestionValue: st
       }
     }
 
-    const suggestionIndex = suggestions.findIndex(
-      (element) => element.textContent?.trim() === value,
-    );
+    const suggestionIndex = suggestions.findIndex((element) => {
+      const valueElement = element.querySelector(
+        '[data-testid="route-url-editor-suggestion-value"]',
+      );
+      return valueElement?.textContent?.trim() === value;
+    });
     const suggestion = suggestions[suggestionIndex];
     if (!suggestion) {
       throw new Error(`Expected route URL editor suggestion: ${value}`);
@@ -440,6 +447,27 @@ test.describe("route URL editor touch scroll picker", () => {
     await expect(page.getByRole("option", { exact: true, name: "?top=sky-500" })).toBeVisible();
   });
 
+  test("touch path suggestions label rows unlocked by dev", async ({ page }) => {
+    const { input, prefix } = await focusRouteAddressInputDirectly(page, "/?dev");
+    await input.press("Home");
+
+    const visualFixtureSuggestion = page.getByRole("option", {
+      exact: true,
+      name: "/visual-fixture",
+    });
+    const devBadge = visualFixtureSuggestion.getByText("dev", { exact: true });
+
+    await expect(visualFixtureSuggestion).toBeVisible();
+    await expect(devBadge).toBeVisible();
+    await expect(devBadge).toHaveAttribute("aria-hidden", "true");
+
+    await scrollTouchPickerToSuggestion(page, "/visual-fixture");
+
+    await expect(input).toHaveValue(`${prefix}visual-fixture?dev&`);
+    await expectTouchSlateAlignedToSuggestion(page, "/visual-fixture");
+    await expect(page).toHaveURL(/\/visual-fixture\?dev$/);
+  });
+
   test("touch scroll keeps query-key suggestions anchored until tap", async ({ page }) => {
     const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo");
 
@@ -458,6 +486,10 @@ test.describe("route URL editor touch scroll picker", () => {
     await expect(
       logoMotionGroup.getByRole("option", { exact: true, name: "?auto-rotate" }),
     ).toBeVisible();
+    await expect(
+      logoMotionGroup.getByRole("option", { exact: true, name: "?animate-stripes" }),
+    ).toHaveCount(0);
+    await expect(logoGroup.getByRole("option", { name: /^\?stripeA=/ })).toHaveCount(0);
     await expect(logoViewGroup.getByRole("option", { exact: true, name: "?rot=46" })).toBeVisible();
     await expect(page.getByTestId("route-url-editor-scroll-slate")).toBeVisible();
     await expect(input).not.toHaveAttribute("aria-activedescendant", /.+/);

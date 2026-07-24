@@ -37,6 +37,8 @@ const RouteSearchSchema_visualFixture = defineRouteSearchParams({
 
 type VisualFixtureRouteSearch = InferRouteSearch<typeof RouteSearchSchema_visualFixture>;
 
+export type VisualFixtureRouteSearchKey = keyof VisualFixtureRouteSearch;
+
 const visualFixtureRouteSearchParamMetadata = readRouteSearchParamMetadata(
   RouteSearchSchema_visualFixture,
 );

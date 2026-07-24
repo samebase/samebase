@@ -4,6 +4,7 @@ import {
   ROUTE_SEARCH_PARAM_SUGGESTION_GROUPS,
   type RouteSearchParamSuggestionGroup,
 } from "@/routing/permissions";
+import { Badge } from "@/components/ui/badge";
 import { useRouteEditorVm } from "./useRouteEditorVm";
 import type { Suggestion } from "./RouteUrlEditorSuggestions";
 import { readRouteEditorNavigationApi, useNavigationControls } from "./useNavigationControls";
@@ -40,6 +41,9 @@ const routeUrlEditorNextTouchSuggestionButtonClassName = `${routeUrlEditorNextSu
 
 const routeUrlEditorNextSuggestionSampleClassName =
   "text-muted-foreground group-data-[active=true]:text-accent-foreground/60";
+
+const routeUrlEditorNextDevBadgeClassName =
+  "h-4 border-sky-500 px-1.5 py-0 text-[10px] text-sky-700 dark:border-sky-400 dark:text-sky-300";
 
 const routeUrlEditorNextSuggestionGroupLabelClassName =
   "mt-2 flex h-7 items-center px-2 text-sm font-bold";
@@ -128,9 +132,21 @@ export function RouteUrlEditorNext() {
           role="option"
           type="button"
         >
-          <span className="min-w-0 flex-1 truncate text-left">
+          <span
+            className="min-w-0 flex-1 truncate text-left"
+            data-testid="route-url-editor-suggestion-value"
+          >
             {renderRouteUrlEditorNextSuggestionValue(suggestion)}
           </span>
+          {suggestion.dev ? (
+            <Badge
+              aria-hidden="true"
+              className={routeUrlEditorNextDevBadgeClassName}
+              variant="outline"
+            >
+              dev
+            </Badge>
+          ) : null}
         </button>
       );
     });

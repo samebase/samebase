@@ -78,7 +78,7 @@ import {
   serializeVoxelState,
   type LogoGridSize,
 } from "@samebase/logo-model/voxel";
-import { LANDING_DEV_MODE_QUERY_PARAM } from "@/lib/landingDevMode";
+import { DEV_MODE_QUERY_PARAM } from "@/lib/devMode";
 import { DEFAULT_LOGO_PRESET_ID, LOGO_PRESETS, getLogoPreset } from "@/components/logo/logoPresets";
 import { normalizeRouteSearchPresenceFlags } from "@/routing/searchFlags";
 import {
@@ -226,7 +226,7 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
   background: RouteSearchSchema_appThemeColor.shape.background,
   border: RouteSearchSchema_appThemeColor.shape.border,
   dark: RouteSearchSchema_rootThemeMode.shape.dark,
-  [LANDING_DEV_MODE_QUERY_PARAM]: routeSearchPresenceParam({
+  [DEV_MODE_QUERY_PARAM]: routeSearchPresenceParam({
     access: "access_public",
     suggestion: "hidden",
   }),
@@ -565,6 +565,24 @@ export const LOGO_ROUTE_SEARCH_PARAM_METADATA = readRouteSearchParamMetadata(
 ) satisfies RouteSearchParamMetadataByKey<LogoRouteSearch>;
 
 export const LOGO_ROUTE_SEARCH_KEYS = keys(LOGO_ROUTE_SEARCH_PARAM_METADATA);
+
+export function shouldRecommendLogoRouteSearchParam(
+  key: (typeof LOGO_ROUTE_SEARCH_KEYS)[number],
+  search: LogoRouteSearch,
+): boolean {
+  switch (key) {
+    case "animate-stripes":
+    case "stripeA":
+    case "stripeBasis":
+    case "stripeG":
+    case "stripeLink":
+    case "stripeO":
+    case "stripeW":
+      return search.leftFace === "striped";
+    default:
+      return true;
+  }
+}
 
 export const LOGO_ROUTE_SEARCH_PARAM_ACCESS = readRouteSearchParamAccess(
   LOGO_ROUTE_SEARCH_PARAM_METADATA,

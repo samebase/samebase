@@ -1,4 +1,5 @@
 import { readMatchingRouteSearchParamSuggestions } from "@/routing/address";
+import { includes } from "@samebase/dependent";
 import {
   ROUTE_SEARCH_PARAM_SUGGESTION_GROUPS,
   canAccessRouteAccess,
@@ -20,12 +21,22 @@ import {
   replaceRouteAddressSearchValue,
   type RouteAddressSearchToken,
 } from "@/routing/addressParts";
+import { isDevModeEnabled } from "@/lib/devMode";
+import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
   readRouteUrlPathSuggestionEnvironment,
   readRouteUrlPathSuggestions,
 } from "@/routing/urlPathSuggestions";
+import {
+  LOGO_ISO_ROUTE_SEARCH_KEYS,
+  LOGO_ROUTE_SEARCH_KEYS,
+  shouldRecommendLogoRouteSearchParam,
+  validateLogoRouteSearch,
+  type LogoRouteSearch,
+} from "@/routeSearch/logo";
 import { ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS } from "@/routeSearch/root";
 import type { AppRouter } from "@/router";
+import type { VisualFixtureRouteSearchKey } from "@/routes/visual-fixture";
 
 type Selection = {
   start: number;
@@ -45,6 +56,7 @@ as `?depth=2` can select `/logo?depth=2` while placing the cursor after `depth=`
 visible.
  */
 type SuggestionFields = {
+  dev?: true;
   nextSelectionRouteIndex: number;
   previewRouteAddress: string;
   previewSelectionRouteIndex: number;
@@ -217,6 +229,28 @@ function canShowPathSuggestionRow(routePath: string): boolean {
   return !routePath.includes("$");
 }
 
+type AppRoutePath = keyof AppRouter["routesByPath"];
+
+function isDevRoutePathRecommendation(routePath: AppRoutePath): boolean {
+  switch (routePath) {
+    case "/indexDB":
+    case "/localStorage":
+    case "/logo/iso":
+    case "/logo/raster":
+    case "/logo/raster-seams":
+    case "/logo/single-cube":
+    case "/logo/svg":
+    case "/logo/transition":
+    case "/logo/transition/menger":
+    case "/logo/transition/transforms":
+    case "/test":
+    case "/visual-fixture":
+      return true;
+    default:
+      return false;
+  }
+}
+
 type TailwindColorValueCursor =
   | {
       kind: "family";
@@ -312,18 +346,54 @@ function readSearchParamSampleValue(
   }
 }
 
-function canRecommendSearchParam(
-  group: RouteSearchParamSuggestionGroup | undefined,
-  routePath: string,
-): boolean {
-  switch (group) {
+function canRecommendSearchParam(args: {
+  devModeEnabled: boolean;
+  logoRouteSearch: LogoRouteSearch;
+  routePath: string;
+  suggestion: RouteSearchParamSuggestion;
+}): boolean {
+  switch (args.suggestion.group) {
     case undefined:
     case "theme":
-      return true;
+      break;
     case "logo":
     case "logo-motion":
     case "logo-view":
-      return routePath === "/logo" || routePath.startsWith("/logo/");
+      if (args.routePath !== "/logo" && !args.routePath.startsWith("/logo/")) {
+        return false;
+      }
+  }
+
+  if (
+    isDevRouteSearchParamRecommendation(args.routePath, args.suggestion.key) &&
+    !args.devModeEnabled
+  ) {
+    return false;
+  }
+
+  return (
+    !includes(LOGO_ROUTE_SEARCH_KEYS, args.suggestion.key) ||
+    shouldRecommendLogoRouteSearchParam(args.suggestion.key, args.logoRouteSearch)
+  );
+}
+
+const LOGO_ISO_DEV_ROUTE_SEARCH_PARAM_KEYS = [
+  "isoSide",
+  "isoStyle",
+] as const satisfies readonly (typeof LOGO_ISO_ROUTE_SEARCH_KEYS)[number][];
+
+const VISUAL_FIXTURE_DEV_ROUTE_SEARCH_PARAM_KEYS = [
+  "mode",
+] as const satisfies readonly VisualFixtureRouteSearchKey[];
+
+function isDevRouteSearchParamRecommendation(routePath: string, key: string): boolean {
+  switch (routePath) {
+    case "/logo/iso":
+      return includes(LOGO_ISO_DEV_ROUTE_SEARCH_PARAM_KEYS, key);
+    case "/visual-fixture":
+      return includes(VISUAL_FIXTURE_DEV_ROUTE_SEARCH_PARAM_KEYS, key);
+    default:
+      return false;
   }
 }
 
@@ -342,7 +412,11 @@ function readSearchRows(args: {
   viewer: RouteAccessViewer;
 }): SearchSuggestion[] {
   const suggestions: SearchSuggestion[] = [];
-  const routePath = parseRouteAddress(args.routeAddress).path;
+  const routeAddressParts = parseRouteAddress(args.routeAddress);
+  const routePath = routeAddressParts.path;
+  const routeSearch = parseTanStackSearch(routeAddressParts.search?.suffix ?? "");
+  const devModeEnabled = isDevModeEnabled(routeSearch);
+  const logoRouteSearch = validateLogoRouteSearch(routeSearch);
   const existingKeys = readRouteAddressSearchKeysOutsideToken(
     args.routeAddress,
     args.searchKeyToken,
@@ -352,7 +426,14 @@ function readSearchRows(args: {
     args.routeSearchParamSuggestions,
     args.viewer,
   )) {
-    if (!canRecommendSearchParam(searchParamSuggestion.group, routePath)) {
+    if (
+      !canRecommendSearchParam({
+        devModeEnabled,
+        logoRouteSearch,
+        routePath,
+        suggestion: searchParamSuggestion,
+      })
+    ) {
       continue;
     }
 
@@ -396,10 +477,12 @@ function readSearchRows(args: {
     const finalPreviewRoute = shouldPromptForNextKey
       ? openRouteAddressQuerySlot(previewRoute.routeAddress)
       : { routeAddress: previewRoute.routeAddress, selectionRouteIndex: null };
+    const dev = isDevRouteSearchParamRecommendation(routePath, searchParamSuggestion.key);
 
     suggestions.push({
       kind: "search",
       group: searchParamSuggestion.group ?? null,
+      ...(dev ? { dev: true as const } : {}),
       nextSelectionRouteIndex: shouldPromptForNextKey
         ? (finalSelectedRoute.selectionRouteIndex ?? selectedRoute.replacementTokenStart)
         : selectedRoute.replacementTokenStart + 1 + selectedTokenText.length,
@@ -606,6 +689,9 @@ function readPathRows(args: {
   viewer: RouteAccessViewer;
 }): Suggestion[] {
   const origin = args.prefix.slice(0, -1);
+  const routeAddressParts = parseRouteAddress(args.routeAddress);
+  const routeSearch = parseTanStackSearch(routeAddressParts.search?.suffix ?? "");
+  const devModeEnabled = isDevModeEnabled(routeSearch);
 
   return readRouteUrlPathSuggestions(
     args.routesByPath,
@@ -617,14 +703,20 @@ function readPathRows(args: {
     }),
   )
     .filter(canShowPathSuggestionRow)
+    .filter(
+      (suggestionRouteAddress) =>
+        devModeEnabled || !isDevRoutePathRecommendation(suggestionRouteAddress),
+    )
     .map((suggestionRouteAddress) => {
       const routeWithQuerySlot = replaceRouteAddressPathAndOpenQuerySlot(
         args.routeAddress,
         suggestionRouteAddress,
       );
+      const dev = isDevRoutePathRecommendation(suggestionRouteAddress);
 
       return {
         kind: "path",
+        ...(dev ? { dev: true as const } : {}),
         nextSelectionRouteIndex:
           routeWithQuerySlot.selectionRouteIndex ?? routeWithQuerySlot.routeAddress.length,
         previewRouteAddress: routeWithQuerySlot.routeAddress,

@@ -77,6 +77,7 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import { CHAT_ENABLED } from "../../../shared/featureFlags";
 import { buildDefaultAppResourceName } from "../../../shared/appResourceNames";
+import { DEV_MODE_QUERY_PARAM } from "@/lib/devMode";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { tryParseRepositoryFullName } from "../../../shared/repoName";
 import {
@@ -92,7 +93,6 @@ import {
   type VaultProviderObservationState,
 } from "@/components/vault-dashboard/useVaultProviderObservations";
 
-const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 const EMPTY_REPOSITORY_FOLDER_SUGGESTIONS: readonly string[] = [];
 
 export type VaultDashboardVault = NonNullable<
@@ -2284,7 +2284,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     select: (location) => location.state.vaultDashboardDialog,
   });
   const rootRouteSearch = useRootRouteSearch();
-  const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
+  const developerToolsVisible = rootRouteSearch[DEV_MODE_QUERY_PARAM] === true;
   const vaults = useQuery(api.vault.dashboard.getUserVaults);
   const selectedVault = useMemo(() => {
     if (!vaults || vaults.length === 0) {

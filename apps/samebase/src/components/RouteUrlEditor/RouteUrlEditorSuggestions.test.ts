@@ -133,6 +133,25 @@ describe("readSuggestions", () => {
     expect(values).not.toContain("?top=");
   });
 
+  it("unlocks developer path recommendations from the draft dev query", () => {
+    const regularRows = readRows({
+      routeAddress: "/",
+      routeTextBeforeCursor: "/",
+    });
+    const devRows = readRows({
+      routeAddress: "/?dev",
+      routeTextBeforeCursor: "/",
+    });
+    const visualFixtureRow = devRows.find((row) => row.value === "/visual-fixture");
+
+    expect(regularRows.map((row) => row.value)).toContain("/logo");
+    expect(regularRows.map((row) => row.value)).not.toContain("/visual-fixture");
+    expect(regularRows.map((row) => row.value)).not.toContain("/logo/iso");
+    expect(devRows.map((row) => row.value)).toContain("/visual-fixture");
+    expect(devRows.map((row) => row.value)).toContain("/logo/iso");
+    expect(visualFixtureRow?.dev).toBe(true);
+  });
+
   it("preserves query text when building path suggestion rows", () => {
     const rows = readRows({
       routeAddress: "/terms?top=red-",
@@ -235,8 +254,8 @@ describe("readSuggestions", () => {
       logoRows.map((row) => (row.kind === "search" ? row.group : null)).filter(Boolean),
     ).toEqual([
       ...Array(6).fill("theme"),
-      ...Array(12).fill("logo"),
-      ...Array(6).fill("logo-motion"),
+      ...Array(6).fill("logo"),
+      ...Array(5).fill("logo-motion"),
       ...Array(5).fill("logo-view"),
     ]);
     expect(logoRows.map((row) => row.value)).toEqual(
@@ -252,6 +271,60 @@ describe("readSuggestions", () => {
     expect(termsRows.map((row) => row.value)).not.toEqual(
       expect.arrayContaining(["?top=sky-500", "?auto-rotate", "?rot=46"]),
     );
+  });
+
+  it("recommends stripe controls only when the striped left face is selected", () => {
+    const stripeKeys = [
+      "animate-stripes",
+      "stripeA",
+      "stripeBasis",
+      "stripeG",
+      "stripeLink",
+      "stripeO",
+      "stripeW",
+    ];
+    const regularValues = readValues({
+      routeAddress: "/logo?",
+      routeTextBeforeCursor: "/logo?",
+    });
+    const stripedValues = readValues({
+      routeAddress: "/logo?leftFace=striped&",
+      routeTextBeforeCursor: "/logo?leftFace=striped&",
+    });
+
+    for (const key of stripeKeys) {
+      expect(regularValues.some((value) => value.startsWith(`?${key}`))).toBe(false);
+      expect(stripedValues.some((value) => value.startsWith(`&${key}`))).toBe(true);
+    }
+  });
+
+  it("unlocks developer query recommendations from the draft dev query", () => {
+    const regularVisualFixtureRows = readRows({
+      routeAddress: "/visual-fixture?",
+      routeTextBeforeCursor: "/visual-fixture?",
+    });
+    const devVisualFixtureRows = readRows({
+      routeAddress: "/visual-fixture?dev&",
+      routeTextBeforeCursor: "/visual-fixture?dev&",
+    });
+    const regularLogoIsoRows = readRows({
+      routeAddress: "/logo/iso?",
+      routeTextBeforeCursor: "/logo/iso?",
+    });
+    const devLogoIsoRows = readRows({
+      routeAddress: "/logo/iso?dev&",
+      routeTextBeforeCursor: "/logo/iso?dev&",
+    });
+    const modeRow = devVisualFixtureRows.find((row) => row.value.startsWith("&mode="));
+    const isoSideRow = devLogoIsoRows.find((row) => row.value.startsWith("&isoSide="));
+    const isoStyleRow = devLogoIsoRows.find((row) => row.value.startsWith("&isoStyle="));
+
+    expect(regularVisualFixtureRows.some((row) => row.value.startsWith("?mode="))).toBe(false);
+    expect(modeRow?.dev).toBe(true);
+    expect(regularLogoIsoRows.some((row) => row.value.startsWith("?isoSide="))).toBe(false);
+    expect(regularLogoIsoRows.some((row) => row.value.startsWith("?isoStyle="))).toBe(false);
+    expect(isoSideRow?.dev).toBe(true);
+    expect(isoStyleRow?.dev).toBe(true);
   });
 
   it("keeps the next query slot before an existing hash", () => {

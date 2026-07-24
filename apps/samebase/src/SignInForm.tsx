@@ -11,7 +11,7 @@ import {
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
 } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
 import { clampNumber } from "@/lib/clampNumber";
-import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
+import { isDevModeEnabled } from "@/lib/devMode";
 import {
   PUBLIC_LANDING_COPY_TEST_ID,
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
@@ -95,7 +95,7 @@ function LandingPageLogo({
 
 export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: SignInFormProps) {
   const rootRouteSearch = useRootRouteSearch();
-  const landingDevModeEnabled = isLandingDevModeEnabled(rootRouteSearch);
+  const landingDevModeEnabled = isDevModeEnabled(rootRouteSearch);
   const [landingMarkdownDraft, setLandingMarkdownDraft] = useState(landingPageMarkdown);
 
   return (

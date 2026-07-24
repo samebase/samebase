@@ -6,7 +6,7 @@ import {
   formatAppBuildVersionLabel,
   hasSelectedAppBuildVersion,
 } from "@/lib/appBuild";
-import { LANDING_DEV_MODE_QUERY_PARAM, isLandingDevModeEnabled } from "@/lib/landingDevMode";
+import { DEV_MODE_QUERY_PARAM, isDevModeEnabled } from "@/lib/devMode";
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { buildToggledRootThemeModeSearch, readRootThemeMode } from "@/lib/rootThemeModeSearch";
 import { applySearchPatch, formatRouteSearchPresenceFlagLinkLabel } from "@/routing/searchFlags";
@@ -105,7 +105,7 @@ export function AppSidebarMetaSection({
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
 
   const hasHydrated = useHasHydrated();
-  const landingDevEnabled = isLandingDevModeEnabled(rootRouteSearch);
+  const devModeEnabled = isDevModeEnabled(rootRouteSearch);
   const themeMode = readRootThemeMode(rootRouteSearch);
   const showSearchResetLink = hasHydrated && location.searchStr.length > 0;
 
@@ -178,29 +178,24 @@ export function AppSidebarMetaSection({
         </Link>
       </AppSidebarMetaQueryLinkRow>
       <AppSidebarMetaQueryLinkRow
-        active={landingDevEnabled}
+        active={devModeEnabled}
         linkAlignment={linkAlignment}
         suffixTestId="public-landing-dev-toggle-suffix"
       >
         <Link
           id="public-landing-dev-toggle"
           className={APP_SIDEBAR_META_QUERY_LINK_LAYOUT_CLASS_NAME}
-          aria-label={formatRouteSearchPresenceFlagLinkLabel(
-            LANDING_DEV_MODE_QUERY_PARAM,
-            !landingDevEnabled,
-          )}
+          aria-label={formatRouteSearchPresenceFlagLinkLabel(DEV_MODE_QUERY_PARAM, !devModeEnabled)}
           resetScroll={false}
           to={location.pathname}
           hash={location.hash}
           search={() =>
             applySearchPatch(rootRouteSearch, {
-              [LANDING_DEV_MODE_QUERY_PARAM]: isLandingDevModeEnabled(rootRouteSearch)
-                ? null
-                : true,
+              [DEV_MODE_QUERY_PARAM]: devModeEnabled ? null : true,
             })
           }
         >
-          {formatRouteSearchPresenceFlagLinkLabel(LANDING_DEV_MODE_QUERY_PARAM, true)}
+          {formatRouteSearchPresenceFlagLinkLabel(DEV_MODE_QUERY_PARAM, true)}
         </Link>
       </AppSidebarMetaQueryLinkRow>
       {/* Keep query-param shortcuts visually separate from path links. */}
