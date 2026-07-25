@@ -624,15 +624,17 @@ function DefaultBranchSection({
               >
                 {observation.headCommitOid.slice(0, 7)}
               </a>
+              <span className="text-xs text-muted-foreground">{relativeCommitTime}</span>
             </div>
             <div className="line-clamp-3 text-sm leading-6 text-foreground [overflow-wrap:anywhere]">
               {observation.headCommitTitle}
             </div>
-            <div className="mt-1 flex flex-wrap gap-x-2 text-xs leading-5 text-muted-foreground">
-              <span>{relativeCommitTime}</span>
-              {pullRequests.state === "stale" ? <span>May be out of date</span> : null}
-              {pullRequests.refreshing ? <span>Updating</span> : null}
-            </div>
+            {pullRequests.state === "stale" || pullRequests.refreshing ? (
+              <div className="mt-1 flex flex-wrap gap-x-2 text-xs leading-5 text-muted-foreground">
+                {pullRequests.state === "stale" ? <span>May be out of date</span> : null}
+                {pullRequests.refreshing ? <span>Updating</span> : null}
+              </div>
+            ) : null}
           </div>
         </div>
         <div className="justify-self-start @4xl:justify-self-end">
