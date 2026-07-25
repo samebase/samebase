@@ -725,7 +725,7 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
           {worker.workerName}
         </span>
       </div>
-      <div className="ml-[1.875rem] flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+      <div className="ml-[1.875rem] flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm">
         {worker.build.state === "available" ? (
           <a
             className="inline-flex min-h-10 items-center gap-1 underline decoration-border underline-offset-4 hover:decoration-foreground @4xl:min-h-7"
@@ -743,7 +743,7 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
         )}
       </div>
       {worker.destination.state === "available" || worker.actions.length > 0 ? (
-        <div className="ml-[1.875rem] flex min-w-0 items-start gap-1 text-xs">
+        <div className="ml-[1.875rem] flex min-w-0 items-start gap-1 text-sm">
           {worker.destination.state === "available" ? (
             <a
               className="inline-flex min-h-10 min-w-0 items-start gap-1 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-7"
