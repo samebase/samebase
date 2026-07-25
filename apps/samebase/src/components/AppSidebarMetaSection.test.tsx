@@ -114,10 +114,6 @@ describe("AppSidebarMetaSection", () => {
     return recoverableErrors;
   }
 
-  function readLocationText() {
-    return rootElement?.querySelector('[data-testid="router-location"]')?.textContent ?? "";
-  }
-
   function readLocationHref() {
     return (
       rootElement?.querySelector('[data-testid="router-location"]')?.getAttribute("data-href") ?? ""
@@ -146,6 +142,8 @@ describe("AppSidebarMetaSection", () => {
 
     expect(markup).not.toContain('id="public-landing-prod-ui-toggle"');
     expect(markup).not.toContain(">?prod-ui<");
+    expect(markup).not.toContain('id="public-landing-dev-toggle"');
+    expect(markup).not.toContain(">?dev<");
     expect(markup).not.toContain('id="public-local-storage-route-link"');
     expect(markup).not.toContain(`>${LOCAL_STORAGE_ROUTE}<`);
     expect(markup).not.toContain(">/landing-preview<");
@@ -155,11 +153,14 @@ describe("AppSidebarMetaSection", () => {
     await renderSidebarMetaSection();
 
     const prodUiShortcut = rootElement?.querySelector("#public-landing-prod-ui-toggle");
+    const devShortcut = rootElement?.querySelector("#public-landing-dev-toggle");
     const localStorageShortcut = rootElement?.querySelector("#public-local-storage-route-link");
 
     expect(prodUiShortcut).toBeNull();
+    expect(devShortcut).toBeNull();
     expect(localStorageShortcut).toBeNull();
     expect(rootElement?.textContent).not.toContain("?prod-ui");
+    expect(rootElement?.textContent).not.toContain("?dev");
     expect(rootElement?.textContent).not.toContain(LOCAL_STORAGE_ROUTE);
     expect(rootElement?.textContent).not.toContain("/landing-preview");
   });
@@ -185,29 +186,6 @@ describe("AppSidebarMetaSection", () => {
 
     expect(landingPreviewPathLink).toBeUndefined();
     expect(romanianQueryLink).toBeNull();
-  });
-
-  it("keeps active suffixes outside the toggle hit target", async () => {
-    const element = await renderSidebarMetaSection("/?dev");
-    const devSuffix = element.querySelector<HTMLSpanElement>(
-      '[data-testid="public-landing-dev-toggle-suffix"]',
-    );
-    if (!devSuffix) {
-      throw new Error("Expected public landing dev shortcut suffix.");
-    }
-
-    await act(async () => {
-      devSuffix.dispatchEvent(
-        new MouseEvent("click", {
-          bubbles: true,
-          button: 0,
-          cancelable: true,
-        }),
-      );
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/?dev");
   });
 
   it("toggles an active theme shortcut through the committed router location", async () => {

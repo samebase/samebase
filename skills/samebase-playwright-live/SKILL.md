@@ -143,7 +143,7 @@ await page.goto("/admin-route", { waitUntil: "networkidle" });
 ```
 
 2. Keep genuinely public routes unauthenticated. Logo lab routes stay public, while their URL editor
-   suggestions appear only when the edited URL contains `?dev`.
+   suggestions appear only after `?dev` is manually entered in the edited URL.
 3. If a Docker or CI-like run cannot sign in, inspect the bootstrap path before rewriting tests:
    - `scripts/ci-bootstrap-convex.ts`
    - `runtime/localWorktreePasswordAuth.ts`

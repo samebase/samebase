@@ -508,7 +508,7 @@ test.describe("route URL editor touch scroll picker", () => {
         options.map((option) => option.getAttribute("data-route-url-editor-suggestion-index")),
       ),
     ).toEqual(await suggestions.evaluateAll((options) => options.map((_, index) => `${index}`)));
-    await expectTouchSlateAlignedToSuggestion(page, "?dev");
+    await expectTouchSlateAlignedToSuggestion(page, "?prod-ui");
 
     await scrollTouchPickerToSuggestion(page, "?auto-rotate");
     await expect(input).toHaveValue(`${prefix}logo?auto-rotate&`);
@@ -1043,8 +1043,8 @@ test("route URL editor keeps deletion in control after a query suggestion was pr
   await input.press("Backspace");
   await expect(input).toHaveValue(`${prefix}terms?dev`);
 
-  await page.getByRole("option", { exact: true, name: "?dev" }).hover();
-  await expect(input).toHaveValue(`${prefix}terms?dev&`);
+  await page.getByRole("option", { exact: true, name: "?dark" }).hover();
+  await expect(input).toHaveValue(`${prefix}terms?dark&`);
   await expectInputSelection(input, `${prefix}terms?`.length);
 
   await input.press("End");
@@ -1381,14 +1381,15 @@ test.describe("route URL editor public route query stories", () => {
     await expect(input).toBeFocused();
   });
 
-  test("devtools is hidden from query suggestions", async ({ page }) => {
+  test("developer mode params are hidden from query suggestions", async ({ page }) => {
     const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo");
 
     await input.press("End");
     await input.type("dev");
 
     await expect(input).toHaveValue(`${prefix}logo?dev`);
-    await expect(page.getByRole("option", { exact: true, name: "?dev" })).toBeVisible();
+    await expect(page).toHaveURL(/\/logo\?dev$/);
+    await expect(page.getByRole("option", { exact: true, name: "?dev" })).toHaveCount(0);
     await expect(page.getByRole("option", { exact: true, name: "?devtools" })).toHaveCount(0);
   });
 

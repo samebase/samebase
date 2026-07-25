@@ -261,9 +261,9 @@ describe("readSuggestions", () => {
     expect(
       logoRows.slice(0, 3).map((row) => [row.kind === "search" ? row.group : null, row.value]),
     ).toEqual([
-      [null, "?dev"],
       [null, "?prod-ui"],
       [null, "?reset"],
+      ["theme", "?background=stone-50"],
     ]);
     expect(
       logoRows.map((row) => (row.kind === "search" ? row.group : null)).filter(Boolean),
@@ -281,8 +281,9 @@ describe("readSuggestions", () => {
       termsRows.map((row) => (row.kind === "search" ? row.group : null)).filter(Boolean),
     ).toEqual(Array(6).fill("theme"));
     expect(termsRows.map((row) => row.value)).toEqual(
-      expect.arrayContaining(["?dark", "?dev", "?primary=emerald-500"]),
+      expect.arrayContaining(["?dark", "?primary=emerald-500"]),
     );
+    expect(termsRows.map((row) => row.value)).not.toContain("?dev");
     expect(termsRows.map((row) => row.value)).not.toEqual(
       expect.arrayContaining(["?top=sky-500", "?auto-rotate", "?rot=46"]),
     );
@@ -355,13 +356,13 @@ describe("readSuggestions", () => {
     expect(values).toContain("&secondary=rose-500");
   });
 
-  it("hides query params marked hidden in metadata", () => {
+  it("hides developer query params marked hidden in metadata", () => {
     const values = readValues({
       routeAddress: "/logo?",
       routeTextBeforeCursor: "/logo?",
     });
 
-    expect(values).toContain("?dev");
+    expect(values).not.toContain("?dev");
     expect(values).not.toContain("?devtools");
   });
 
