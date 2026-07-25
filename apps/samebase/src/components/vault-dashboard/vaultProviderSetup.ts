@@ -40,17 +40,17 @@ export function formatVaultProviderSetupProvider(
 export function formatVaultProviderSetupStep(step: VaultDashboardProviderSetupStep): string {
   switch (step) {
     case "claim_infra":
-      return "claim infra";
+      return "Preparing provider resources";
     case "attach_convex":
-      return "attach Convex";
+      return "Connecting Convex project";
     case "attach_worker":
-      return "attach Worker";
+      return "Connecting Cloudflare Worker";
     case "configure_workers_builds_for_github":
-      return "configure Workers Builds for GitHub";
+      return "Configuring Cloudflare builds";
     case "rotate_convex_deploy_keys_for_workers_builds":
-      return "rotate Convex deploy keys for Workers Builds";
+      return "Connecting Cloudflare builds to Convex";
     case "finish":
-      return "finish";
+      return "Finishing setup";
   }
   step satisfies never;
   return step;

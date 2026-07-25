@@ -42,6 +42,8 @@ import {
   buildVaultSettingsRoute,
 } from "@/lib/vaultRoutes";
 import { formatRepositoryCheckSummary, type RepositoryCheckSummary } from "@/lib/repositoryChecks";
+import { formatVaultProviderSetupStep } from "./vaultProviderSetup";
+import { formatVaultSourceSetupStep } from "./vaultSourceSetup";
 import { Link, useRouter } from "@tanstack/react-router";
 import {
   AlertTriangle,
@@ -1126,13 +1128,6 @@ function VaultStateNotice({
       </div>
     );
   }
-  if (vault.sourceSetup.status === "running" || vault.providerSetup.status === "running") {
-    return (
-      <div className="border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-        Setting up this vault.
-      </div>
-    );
-  }
   return null;
 }
 
@@ -1619,6 +1614,13 @@ export function VaultOverviewPage({
   resourceRailState,
   workspace,
 }: VaultOverviewPageProps) {
+  const provisioningLabel =
+    workspace.vault.sourceSetup.status === "running"
+      ? formatVaultSourceSetupStep(workspace.vault.sourceSetup.step)
+      : workspace.vault.providerSetup.status === "running"
+        ? formatVaultProviderSetupStep(workspace.vault.providerSetup.step)
+        : null;
+
   return (
     <div className="min-h-full bg-background text-foreground">
       <RepositoryHeader
@@ -1637,19 +1639,37 @@ export function VaultOverviewPage({
         />
       ) : (
         <main className="mx-auto grid w-full max-w-[1100px] gap-8 px-4 py-6 @3xl:px-6 @5xl:px-8 @5xl:py-8">
-          <VaultStateNotice
-            onRetryInfrastructureProvisioning={onRetryInfrastructureProvisioning}
-            onRetryVaultDeletion={onRetryVaultDeletion}
-            vault={workspace.vault}
-          />
-          <DefaultBranchSection workspace={workspace} />
-          <PullRequestsSection pullRequests={workspace.pullRequests} vault={workspace.vault} />
-          {developerToolsVisible ? (
-            <VaultWorkspaceDataInspector
-              resourceRailState={resourceRailState}
-              workspace={workspace}
-            />
-          ) : null}
+          {provisioningLabel ? (
+            <section
+              aria-live="polite"
+              className="flex min-w-0 items-center gap-3 py-2"
+              role="status"
+            >
+              <Loader2
+                aria-hidden="true"
+                className="h-4 w-4 shrink-0 animate-spin text-muted-foreground"
+              />
+              <span className="min-w-0 text-sm font-medium text-foreground">
+                {provisioningLabel}
+              </span>
+            </section>
+          ) : (
+            <>
+              <VaultStateNotice
+                onRetryInfrastructureProvisioning={onRetryInfrastructureProvisioning}
+                onRetryVaultDeletion={onRetryVaultDeletion}
+                vault={workspace.vault}
+              />
+              <DefaultBranchSection workspace={workspace} />
+              <PullRequestsSection pullRequests={workspace.pullRequests} vault={workspace.vault} />
+              {developerToolsVisible ? (
+                <VaultWorkspaceDataInspector
+                  resourceRailState={resourceRailState}
+                  workspace={workspace}
+                />
+              ) : null}
+            </>
+          )}
         </main>
       )}
       <div aria-hidden="true" className="h-[20svh] min-h-20" />

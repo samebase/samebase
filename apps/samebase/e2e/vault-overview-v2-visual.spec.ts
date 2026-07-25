@@ -228,28 +228,30 @@ test("reproduces the observed new repository provisioning states", async ({ page
   await page.setViewportSize({ width: 700, height: 995 });
 
   const sourceFixture = await openVaultOverviewV2(page, "vault-overview-v2-provisioning-source");
-  await expect(sourceFixture.getByText("Setting up this vault.")).toBeVisible();
-  await expect(sourceFixture.getByText("The GitHub repository is not ready yet.")).toBeVisible();
+  await expect(sourceFixture.getByRole("status")).toHaveText("Creating GitHub repository");
+  await expect(sourceFixture.getByText("The GitHub repository is not ready yet.")).toHaveCount(0);
   await expect(sourceFixture.getByRole("heading", { name: "Open pull requests" })).toHaveCount(0);
 
   const githubFixture = await openVaultOverviewV2(page, "vault-overview-v2-provisioning-github");
-  await expect(githubFixture.getByText("Setting up this vault.")).toBeVisible();
-  await expect(githubFixture.getByLabel("Loading default branch")).toBeVisible();
-  await expect(githubFixture.getByRole("heading", { name: "Open pull requests" })).toBeVisible();
+  await expect(githubFixture.getByRole("status")).toHaveText("Syncing repository files");
+  await expect(githubFixture.getByLabel("Loading default branch")).toHaveCount(0);
+  await expect(githubFixture.getByRole("heading", { name: "Open pull requests" })).toHaveCount(0);
 
   const earlyEmptyFixture = await openVaultOverviewV2(
     page,
     "vault-overview-v2-provisioning-early-empty",
   );
-  await expect(earlyEmptyFixture.getByText("Setting up this vault.")).toBeVisible();
-  await expect(earlyEmptyFixture.getByText("No default branch commit is available.")).toBeVisible();
-  await expect(earlyEmptyFixture.getByText("No open pull requests.")).toBeVisible();
+  await expect(earlyEmptyFixture.getByRole("status")).toHaveText("Connecting Cloudflare Worker");
+  await expect(earlyEmptyFixture.getByText("No default branch commit is available.")).toHaveCount(
+    0,
+  );
+  await expect(earlyEmptyFixture.getByText("No open pull requests.")).toHaveCount(0);
 
   const completeEmptyFixture = await openVaultOverviewV2(
     page,
     "vault-overview-v2-provisioning-complete-empty",
   );
-  await expect(completeEmptyFixture.getByText("Setting up this vault.")).toHaveCount(0);
+  await expect(completeEmptyFixture.getByRole("status")).toHaveCount(0);
   await expect(
     completeEmptyFixture.getByText("No default branch commit is available."),
   ).toBeVisible();

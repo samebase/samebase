@@ -777,10 +777,10 @@ describe("GitHubRepositoryNameSlashPreview", () => {
 
 describe("formatVaultSourceSetupStep", () => {
   it("uses dashboard labels for create-app setup steps", () => {
-    expect(formatVaultSourceSetupStep("connect_github")).toBe("connect GitHub");
-    expect(formatVaultSourceSetupStep("fetch_github_repo")).toBe("fetch GitHub repo");
-    expect(formatVaultSourceSetupStep("seed_starter")).toBe("seed starter");
-    expect(formatVaultSourceSetupStep("sync_tree")).toBe("sync tree");
+    expect(formatVaultSourceSetupStep("connect_github")).toBe("Connecting GitHub repository");
+    expect(formatVaultSourceSetupStep("fetch_github_repo")).toBe("Reading GitHub repository");
+    expect(formatVaultSourceSetupStep("seed_starter")).toBe("Adding starter files");
+    expect(formatVaultSourceSetupStep("sync_tree")).toBe("Syncing repository files");
   });
 });
 
