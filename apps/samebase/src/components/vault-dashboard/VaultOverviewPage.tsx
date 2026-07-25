@@ -981,7 +981,7 @@ function PullRequestsSection({
       >
         Open pull requests
       </h2>
-      <div className="border-y border-border">
+      <div className="border-t border-border">
         {pullRequests.state === "loading" ? (
           <div className="px-1 py-4">
             <LoadingLines />
@@ -1712,7 +1712,7 @@ export function VaultOverviewLoadingPage({
         </section>
         <section>
           <div className="mb-3 h-3 w-32 bg-muted motion-safe:animate-pulse" />
-          <div className="border-y border-border py-4">
+          <div className="border-t border-border py-4">
             <LoadingLines />
           </div>
         </section>
