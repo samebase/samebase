@@ -114,8 +114,15 @@ export function LogoSierpinskiCarpetHoverPage({
     },
     [commitSettings, maxDepth, mechanic, revealRadius],
   );
+  // step="any" keeps the input's own value honest for URL-typed radii like
+  // 0.055 (a step grid would snap them); slider emissions round to
+  // hundredths here so dragging still produces tidy shareable values.
   const updateRevealRadius = useCallback((event: ChangeEvent<HTMLInputElement>) => {
-    setRevealRadius(normalizeSierpinskiCarpetHoverRevealRadius(Number(event.target.value)));
+    setRevealRadius(
+      normalizeSierpinskiCarpetHoverRevealRadius(
+        Math.round(Number(event.target.value) * 100) / 100,
+      ),
+    );
   }, []);
   const updateMaxDepth = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     setMaxDepth(readSierpinskiCarpetHoverDepth(Number(event.target.value)));
@@ -220,7 +227,7 @@ export function LogoSierpinskiCarpetHoverPage({
             onChange={updateRevealRadius}
             onKeyUp={commitDraftSettings}
             onPointerUp={commitDraftSettings}
-            step="0.01"
+            step="any"
             type="range"
             value={revealRadius}
           />

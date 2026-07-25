@@ -87,6 +87,18 @@ test("carpet holes reveal around the pointer for both mechanics", async ({ page 
   await waitForPaint(page);
 });
 
+test("typed radius values survive into the slider's own value", async ({ page }) => {
+  await page.goto("/logo/hover/carpet?radius=0.055", { waitUntil: "domcontentloaded" });
+
+  // The slider uses step="any" so a URL-typed radius the 0.01 grid cannot
+  // represent stays exact in the control and its accessible value.
+  await expect(page.getByTestId("logo-carpet-hover-page")).toHaveAttribute(
+    "data-reveal-radius",
+    "0.055",
+  );
+  await expect(page.getByRole("slider", { name: "Reveal radius" })).toHaveValue("0.055");
+});
+
 test("landing hero carpet fallback matches the settled canvas", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion: "reduce" });
