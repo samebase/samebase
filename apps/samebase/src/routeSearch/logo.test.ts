@@ -282,6 +282,8 @@ describe("logoRouteSearch", () => {
     expect(validateLogoCarpetHoverRouteSearch({ radius: "9" })).toEqual({
       radius: SIERPINSKI_CARPET_HOVER_MAX_REVEAL_RADIUS,
     });
+    // Finer-than-slider precision survives the validate and build round trip.
+    expect(validateLogoCarpetHoverRouteSearch({ radius: "0.055" })).toEqual({ radius: 0.055 });
   });
 
   it("clears default carpet state with tombstones when building carpet route search", () => {

@@ -1030,9 +1030,7 @@ export function buildLogoCarpetHoverRouteSearch(
         ? args.carpetMechanic
         : undefined,
     radius:
-      revealRadius !== SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS
-        ? Number(revealRadius.toFixed(2))
-        : undefined,
+      revealRadius !== SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS ? revealRadius : undefined,
   };
 }
 
