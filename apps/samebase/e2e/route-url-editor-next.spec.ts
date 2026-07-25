@@ -1,6 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openRouteAddressQuerySlot } from "../src/routing/addressParts";
-import { signInIfNeeded } from "./liveHelpers";
 
 async function openRouteUrlEditor(page: Page, route = "/privacy"): Promise<Locator> {
   await page.goto(route, {
@@ -449,11 +448,6 @@ test.describe("route URL editor touch scroll picker", () => {
   });
 
   test("touch path suggestions distinguish developer logo routes", async ({ page }) => {
-    await page.goto("/", {
-      waitUntil: "domcontentloaded",
-    });
-    await signInIfNeeded(page);
-
     await focusRouteAddressInputDirectly(page, "/");
     await expect(page.getByRole("option", { exact: true, name: "/logo/iso" })).toHaveCount(0);
 

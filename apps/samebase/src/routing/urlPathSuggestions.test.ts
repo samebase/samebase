@@ -65,7 +65,7 @@ describe("readRouteUrlPathSuggestions", () => {
     );
   });
 
-  it("exposes developer paths only to authorized viewers when requested", () => {
+  it("exposes public developer paths only when requested", () => {
     const standardSuggestions = readRouteUrlPathSuggestions(
       routesByPath,
       staffViewer,
@@ -94,7 +94,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(standardSuggestions).not.toContain("/logo/iso");
     expect(developerSuggestions).toContain("/logo/iso");
     expect(developerSuggestions).toContain("/logo/transition/transforms");
-    expect(anonymousDeveloperSuggestions).not.toContain("/logo/iso");
+    expect(anonymousDeveloperSuggestions).toContain("/logo/iso");
     expect(memberDeveloperSuggestions).toContain("/logo/iso");
   });
 
@@ -114,14 +114,14 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/docs/do-it-yourself");
     expect(suggestions).not.toContain("/landing-preview");
     expect(suggestions).not.toContain("/localStorage");
-    expect(suggestions).not.toContain("/logo/iso");
-    expect(suggestions).not.toContain("/logo/raster");
-    expect(suggestions).not.toContain("/logo/raster-seams");
-    expect(suggestions).not.toContain("/logo/single-cube");
-    expect(suggestions).not.toContain("/logo/svg");
-    expect(suggestions).not.toContain("/logo/transition");
-    expect(suggestions).not.toContain("/logo/transition/menger");
-    expect(suggestions).not.toContain("/logo/transition/transforms");
+    expect(suggestions).toContain("/logo/iso");
+    expect(suggestions).toContain("/logo/raster");
+    expect(suggestions).toContain("/logo/raster-seams");
+    expect(suggestions).toContain("/logo/single-cube");
+    expect(suggestions).toContain("/logo/svg");
+    expect(suggestions).toContain("/logo/transition");
+    expect(suggestions).toContain("/logo/transition/menger");
+    expect(suggestions).toContain("/logo/transition/transforms");
     expect(suggestions).not.toContain("/new-app");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(suggestions).not.toContain("/pitch");
@@ -348,7 +348,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         routesByPath,
         viewer: anonymousViewer,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("accepts concrete dynamic and catch-all route paths", () => {

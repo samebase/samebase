@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { signInIfNeeded } from "./liveHelpers";
 
 const selectAllShortcut = process.platform === "darwin" ? "Meta+A" : "Control+A";
 const localConvexSyncConsoleErrorPattern =
@@ -78,10 +77,9 @@ test("route URL editor distinguishes developer logo routes", async ({ page }) =>
   });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/", {
+  await page.goto("/?dev", {
     waitUntil: "domcontentloaded",
   });
-  await signInIfNeeded(page, "/?dev");
   await page.waitForLoadState("networkidle");
 
   const origin = new URL(page.url()).origin;

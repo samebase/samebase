@@ -166,9 +166,6 @@ describe("RouteUrlEditorNext", () => {
   });
 
   it("uses a blue pill and subtle blue row tint for developer logo routes in dev mode", () => {
-    useQueryMock.mockReturnValue({
-      accessKeys: ["access_public", "access_dashboard"],
-    });
     const display = renderEditor(["/?dev"]);
 
     act(() => {

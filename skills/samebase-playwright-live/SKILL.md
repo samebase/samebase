@@ -142,8 +142,8 @@ await signInIfNeeded(page);
 await page.goto("/admin-route", { waitUntil: "networkidle" });
 ```
 
-2. Keep genuinely public routes unauthenticated. For logo coverage, `/logo` and root query variants
-   such as `/logo?light` stay public; `/logo/**` lab routes require sign-in.
+2. Keep genuinely public routes unauthenticated. Logo lab routes stay public, while their URL editor
+   suggestions appear only when the edited URL contains `?dev`.
 3. If a Docker or CI-like run cannot sign in, inspect the bootstrap path before rewriting tests:
    - `scripts/ci-bootstrap-convex.ts`
    - `runtime/localWorktreePasswordAuth.ts`
