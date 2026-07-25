@@ -28,8 +28,6 @@ import {
 import { Link } from "@tanstack/react-router";
 import { useCallback, useLayoutEffect, useMemo, useState, type ChangeEvent } from "react";
 
-const REVEAL_RADIUS_SLIDER_STEPS = 100;
-
 const HOLE_COUNTS_BY_DEPTH = SIERPINSKI_CARPET_HOVER_DEPTHS.map((depth) => ({
   count: SIERPINSKI_CARPET_HOVER_HOLES.filter((hole) => hole.depth === depth).length,
   depth,
@@ -117,11 +115,7 @@ export function LogoSierpinskiCarpetHoverPage({
     [commitSettings, maxDepth, mechanic, revealRadius],
   );
   const updateRevealRadius = useCallback((event: ChangeEvent<HTMLInputElement>) => {
-    setRevealRadius(
-      normalizeSierpinskiCarpetHoverRevealRadius(
-        Number(event.target.value) / REVEAL_RADIUS_SLIDER_STEPS,
-      ),
-    );
+    setRevealRadius(normalizeSierpinskiCarpetHoverRevealRadius(Number(event.target.value)));
   }, []);
   const updateMaxDepth = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     setMaxDepth(readSierpinskiCarpetHoverDepth(Number(event.target.value)));
@@ -213,22 +207,22 @@ export function LogoSierpinskiCarpetHoverPage({
               className="font-mono text-xs text-muted-foreground"
               htmlFor="carpet-hover-reveal-radius"
             >
-              {revealRadius.toFixed(2)}
+              {String(revealRadius)}
             </output>
           </div>
           <input
             id="carpet-hover-reveal-radius"
             aria-label="Reveal radius"
             className="h-2 w-full cursor-pointer accent-foreground"
-            max={Math.round(SIERPINSKI_CARPET_HOVER_MAX_REVEAL_RADIUS * REVEAL_RADIUS_SLIDER_STEPS)}
-            min={Math.round(SIERPINSKI_CARPET_HOVER_MIN_REVEAL_RADIUS * REVEAL_RADIUS_SLIDER_STEPS)}
+            max={SIERPINSKI_CARPET_HOVER_MAX_REVEAL_RADIUS}
+            min={SIERPINSKI_CARPET_HOVER_MIN_REVEAL_RADIUS}
             onBlur={commitDraftSettings}
             onChange={updateRevealRadius}
             onKeyUp={commitDraftSettings}
             onPointerUp={commitDraftSettings}
-            step="1"
+            step="0.01"
             type="range"
-            value={Math.round(revealRadius * REVEAL_RADIUS_SLIDER_STEPS)}
+            value={revealRadius}
           />
         </div>
 
@@ -289,11 +283,11 @@ export function LogoSierpinskiCarpetHoverPage({
         data-falloff={falloff}
         data-max-depth={maxDepth}
         data-mechanic={mechanic}
-        data-reveal-radius={revealRadius.toFixed(2)}
+        data-reveal-radius={String(revealRadius)}
         data-testid="logo-carpet-hover-page"
         style={{ backgroundColor }}
       >
-        <SierpinskiCarpetHoverScene carpetColor={carpetColor} config={config} />
+        <SierpinskiCarpetHoverScene carpetColor={carpetColor} config={config} touchReveal />
       </div>
     </AppWorkspaceRouteChrome>
   );

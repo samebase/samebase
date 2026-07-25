@@ -606,6 +606,7 @@ function LandingHeroCarpet() {
       <SierpinskiCarpetHoverScene
         carpetColor={getTailwindColorHex(faceColors.right)}
         config={LANDING_HERO_CARPET_CONFIG}
+        touchReveal={false}
       />
     </div>
   );
