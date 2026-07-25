@@ -12,18 +12,14 @@ minimumReleaseAgeExclude:
   # TODO(2026-07-23): Remove this release-age exception after the normal
   # 7-day cooling period has passed.
   - "@auth/core@0.41.3"
-  # TODO(2026-07-22): Remove the fast-uri@3.1.4 and @hono/node-server@2.0.10
-  # exceptions after the normal 7-day cooling period has passed.
-  - "@hono/node-server@2.0.10"
   # TODO(2026-07-30): Remove this release-age exception after the normal
   # 7-day cooling period has passed.
   - brace-expansion@5.0.8
+  # TODO(2026-07-22): Remove the fast-uri@3.1.4 exception after the normal
+  # 7-day cooling period has passed.
   - fast-uri@3.1.4
   - protobufjs@7.6.3
   - qs@6.15.2
-  # TODO(2026-06-25): Remove this release-age exception after upstream
-  # packages no longer resolve the vulnerable version.
-  - undici@7.28.0
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
 # Blocks transitive git/tarball dependencies, including the remote GitHub
