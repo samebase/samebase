@@ -73,6 +73,12 @@ function fakeRunId(): Id<"workflow_vaultProvisioning_runs"> {
   return "kx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
+function fakeDeletionRunId(): Id<"workflow_vaultDeletion_runs"> {
+  // @ts-expect-error Convex ids are strings at runtime; this static render
+  // test only needs a stable run id for component props.
+  return "mx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+}
+
 type CloudflareDialogWorker = Parameters<
   typeof VaultDashboardCloudflareDialog
 >[0]["workers"][number];
@@ -709,6 +715,8 @@ describe("VaultDashboardRepositoryCard", () => {
 
   it("renders the new root vault picker in the main pane", () => {
     const vault = makeResourceRailBuilderVault({
+      cloudflareWorkers: [makeResourceRailCloudflareWorker({})],
+      convexProjects: [makeResourceRailConvexProject({})],
       ghRepoName: "demo",
       ghRepoOwner: "ada",
       repositoryFullName: "ada/demo",
@@ -743,11 +751,60 @@ describe("VaultDashboardRepositoryCard", () => {
     expect(markup).toContain("ada/");
     expect(markup).toContain("demo");
     expect(markup).toContain("1/1 passed");
-    expect(markup).toContain("3 PRs");
+    expect(markup).not.toContain("3 PRs");
+    expect(markup).not.toContain("Cloudflare Workers");
+    expect(markup).not.toContain("Convex projects");
     expect(markup).toContain('href="/vault/ada/demo"');
+    expect(markup).toMatch(/<a[^>]+href="\/vault\/ada\/demo"[^>]*>[\s\S]*1\/1 passed[\s\S]*<\/a>/);
     expect(markup).not.toContain(
       "Select a vault from the left sidebar or add one from the right sidebar.",
     );
+  });
+
+  it("prioritizes active vault workflows in the root vault picker", () => {
+    const settingUpMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault/"]}>
+        <VaultOverviewVaultPickerPane
+          sidebarSummaries={{ state: "loading" }}
+          vaults={[
+            makeResourceRailBuilderVault({
+              sourceSetup: {
+                status: "running",
+                runId: fakeRunId(),
+                step: "sync_tree",
+                updatedAt: 30,
+              },
+            }),
+          ]}
+        />
+      </TestRouterProvider>,
+    );
+    const deletingMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault/"]}>
+        <VaultOverviewVaultPickerPane
+          sidebarSummaries={{ state: "loading" }}
+          vaults={[
+            makeResourceRailBuilderVault({
+              deletion: {
+                state: "deleting",
+                runId: fakeDeletionRunId(),
+                requestedAt: 20,
+                currentStep: "delete_cloudflare",
+                message: "Removing Cloudflare resources.",
+                updatedAt: 30,
+              },
+            }),
+          ]}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(settingUpMarkup).toContain("Setting up");
+    expect(settingUpMarkup).toContain("animate-spin");
+    expect(settingUpMarkup).not.toContain("Loading checks");
+    expect(deletingMarkup).toContain("Deleting");
+    expect(deletingMarkup).toContain("animate-spin");
+    expect(deletingMarkup).not.toContain("Loading checks");
   });
 
   it("renders the new root vault picker loading and empty states", () => {

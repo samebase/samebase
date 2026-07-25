@@ -51,6 +51,7 @@ import {
   ExternalLink,
   GitCommitHorizontal,
   LayoutList,
+  Loader2,
   MoreHorizontal,
   Settings,
 } from "lucide-react";
@@ -201,19 +202,29 @@ function vaultSidebarStatus(args: {
   selected: boolean;
   vault: UserVaultResult;
   workspace: VaultWorkspaceSelected | null;
-}): { dotClassName: string; label: string } {
+}): { kind: "dot"; dotClassName: string; label: string } | { kind: "workflow"; label: string } {
   if (args.vault.deletion.state === "delete_failed") {
-    return { dotClassName: "h-2 w-2 rounded-full bg-red-500", label: "Delete failed" };
+    return {
+      kind: "dot",
+      dotClassName: "h-2 w-2 rounded-full bg-red-500",
+      label: "Delete failed",
+    };
   }
   if (args.vault.sourceSetup.status === "failed" || args.vault.providerSetup.status === "failed") {
-    return { dotClassName: "h-2 w-2 rounded-full bg-red-500", label: "Needs attention" };
+    return {
+      kind: "dot",
+      dotClassName: "h-2 w-2 rounded-full bg-red-500",
+      label: "Needs attention",
+    };
+  }
+  if (args.vault.deletion.state === "deleting") {
+    return { kind: "workflow", label: "Deleting" };
   }
   if (
-    args.vault.deletion.state === "deleting" ||
     args.vault.sourceSetup.status === "running" ||
     args.vault.providerSetup.status === "running"
   ) {
-    return { dotClassName: "h-2 w-2 rounded-full bg-amber-500", label: "Setting up" };
+    return { kind: "workflow", label: "Setting up" };
   }
   if (
     args.selected &&
@@ -224,23 +235,27 @@ function vaultSidebarStatus(args: {
   ) {
     const checks = args.workspace.pullRequests.defaultBranch.checks;
     return {
+      kind: "dot",
       dotClassName: checkStateDotClassName(checks.state),
       label: compactChecksLabel(checks),
     };
   }
   if (args.summary) {
     return {
+      kind: "dot",
       dotClassName: checkStateDotClassName(args.summary.checks.state),
       label: compactChecksLabel(args.summary.checks),
     };
   }
   if (args.sidebarSummaries.state === "failed" || args.sidebarSummaries.state === "loaded") {
     return {
+      kind: "dot",
       dotClassName: "h-2 w-2 rounded-full bg-muted-foreground/50",
       label: "Checks unavailable",
     };
   }
   return {
+    kind: "dot",
     dotClassName: "h-2 w-2 rounded-full bg-muted-foreground/50",
     label: "Loading checks",
   };
@@ -277,71 +292,39 @@ export function VaultOverviewSidebar({
           vault,
           workspace,
         });
-        const workerCount = vault.cloudflareWorkers.length;
-        const convexProjectCount = vault.convexProjects.length;
-        const pullRequestCount = summary?.openPullRequestCount;
 
         return (
-          <div
+          <Link
             key={vault._id}
+            aria-current={selected ? "page" : undefined}
+            aria-label={vault.repositoryFullName}
             className={
               selected
-                ? "min-w-0 bg-muted px-3 py-2.5 @max-[200px]:px-2 @max-[120px]:px-1"
-                : "min-w-0 px-3 py-2.5 @max-[200px]:px-2 @max-[120px]:px-1"
+                ? "block min-w-0 bg-muted px-3 py-2.5 text-left no-underline hover:no-underline @max-[200px]:px-2 @max-[120px]:px-1"
+                : "block min-w-0 px-3 py-2.5 text-left no-underline hover:bg-muted/60 hover:no-underline @max-[200px]:px-2 @max-[120px]:px-1"
             }
+            title={vault.repositoryFullName}
+            to={repositoryRoute(vault, page)}
           >
-            <Link
-              aria-current={selected ? "page" : undefined}
-              aria-label={vault.repositoryFullName}
-              className="block w-fit max-w-full min-w-0 text-left no-underline hover:no-underline"
-              title={vault.repositoryFullName}
-              to={repositoryRoute(vault, page)}
-            >
-              <span className="block min-w-0 max-w-full text-sm leading-5">
-                <span className="block min-w-0 truncate text-muted-foreground @max-[120px]:hidden">
-                  {vault.ghRepoOwner}/
-                </span>
-                <span className="block min-w-0 line-clamp-2 font-medium text-foreground [overflow-wrap:anywhere]">
-                  {vault.ghRepoName}
-                </span>
+            <span className="block min-w-0 max-w-full text-sm leading-5">
+              <span className="block min-w-0 truncate text-muted-foreground @max-[120px]:hidden">
+                {vault.ghRepoOwner}/
               </span>
-            </Link>
-            <span className="mt-1 flex min-w-0 items-start gap-1.5 text-xs text-muted-foreground">
-              <span className="mt-1 flex shrink-0">
-                <span className={status.dotClassName} />
-              </span>
-              <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
-                <span>{status.label}</span>
-                <span className="@max-[200px]:hidden">
-                  <span
-                    aria-label={`${workerCount} Cloudflare Workers`}
-                    className="inline-flex"
-                    title={`${workerCount} Cloudflare Workers`}
-                  >
-                    {" · "}
-                    {workerCount}
-                    <span className="ml-1 inline-flex h-3 w-4 items-center justify-center">
-                      <CloudflareProviderLogo />
-                    </span>
-                  </span>
-                  <span
-                    aria-label={`${convexProjectCount} Convex projects`}
-                    className="inline-flex"
-                    title={`${convexProjectCount} Convex projects`}
-                  >
-                    {" · "}
-                    {convexProjectCount}
-                    <span className="ml-1 inline-flex h-3 w-4 items-center justify-center">
-                      <ConvexProviderLogo />
-                    </span>
-                  </span>
-                  {pullRequestCount === undefined
-                    ? null
-                    : ` · ${pullRequestCount} ${pullRequestCount === 1 ? "PR" : "PRs"}`}
-                </span>
+              <span className="block min-w-0 line-clamp-2 font-medium text-foreground [overflow-wrap:anywhere]">
+                {vault.ghRepoName}
               </span>
             </span>
-          </div>
+            <span className="mt-1 flex min-w-0 items-start gap-1.5 text-xs text-muted-foreground">
+              <span className="mt-1 flex shrink-0">
+                {status.kind === "workflow" ? (
+                  <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin text-amber-600" />
+                ) : (
+                  <span className={status.dotClassName} />
+                )}
+              </span>
+              <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">{status.label}</span>
+            </span>
+          </Link>
         );
       })}
     </nav>
@@ -1426,7 +1409,7 @@ function RepositorySettings({
         >
           Repository
         </h2>
-        <div className="border-y border-border py-3">
+        <div className="border-t border-border py-3">
           <a
             className="flex min-w-0 items-start gap-2.5 text-foreground no-underline hover:no-underline"
             href={workspace.githubRepositoryUrl}
@@ -1456,7 +1439,7 @@ function RepositorySettings({
           >
             Attention required
           </h2>
-          <div className="border-y border-border">
+          <div className="border-t border-border">
             <SettingsRoot
               rootDirectory="Needs attention"
               rows={resourceRailState.attentionRows}
@@ -1491,7 +1474,7 @@ function RepositorySettings({
             ) : null}
           </div>
         </div>
-        <div className="border-y border-border">
+        <div className="border-t border-border">
           {resourceRailState.roots.length > 0 ? (
             resourceRailState.roots.map((root) => (
               <SettingsRoot
@@ -1516,7 +1499,7 @@ function RepositorySettings({
         >
           Remove vault
         </h2>
-        <div className="grid gap-3 border-y border-border py-4 @3xl:grid-cols-[minmax(0,1fr)_auto] @3xl:items-center">
+        <div className="grid gap-3 border-t border-border py-4 @3xl:grid-cols-[minmax(0,1fr)_auto] @3xl:items-center">
           <p className="max-w-xl text-xs leading-5 text-muted-foreground">
             {deleteAction.state === "disabled"
               ? deleteAction.reason
