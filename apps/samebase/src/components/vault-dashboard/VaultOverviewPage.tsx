@@ -725,20 +725,20 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
         )}
       </div>
       {worker.destination.state === "available" || worker.actions.length > 0 ? (
-        <div className="ml-[1.875rem] flex min-w-0 items-start gap-1 text-sm">
+        <div className="ml-[1.875rem] flex min-w-0 items-center gap-1 text-sm">
           {worker.destination.state === "available" ? (
             <a
-              className="inline-flex min-h-10 min-w-0 items-start gap-1 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-7"
+              className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
               href={worker.destination.href}
               rel="noreferrer noopener"
               target="_blank"
               title={worker.destination.title}
             >
-              <span className="mt-1.5 shrink-0">
+              <span className="flex h-4 w-5 shrink-0 items-center justify-center">
                 <DestinationIcon href={worker.destination.href} provider="cloudflare" />
               </span>
-              <span className="min-w-0 break-all py-1">{worker.destination.label}</span>
-              <ExternalLink className="mt-1.5 h-3 w-3 shrink-0" />
+              <span className="min-w-0 break-all leading-5">{worker.destination.label}</span>
+              <ExternalLink className="h-3 w-3 shrink-0" />
             </a>
           ) : null}
           {worker.actions.length > 0 ? (
