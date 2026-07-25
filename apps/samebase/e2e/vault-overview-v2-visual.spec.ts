@@ -23,6 +23,14 @@ type VaultOverviewV2VisualMode = Extract<
   | "vault-overview-v2-dev"
   | "vault-overview-v2-loading"
   | "vault-overview-v2-partial-loading"
+  | "vault-overview-v2-provisioning-source"
+  | "vault-overview-v2-provisioning-github"
+  | "vault-overview-v2-provisioning-early-empty"
+  | "vault-overview-v2-provisioning-complete-empty"
+  | "vault-overview-v2-provisioning-stale-empty"
+  | "vault-overview-v2-provisioning-commit"
+  | "vault-overview-v2-provisioning-worker"
+  | "vault-overview-v2-provisioning-ready"
   | "vault-overview-v2-root"
   | "vault-overview-v2-settings"
 >;
@@ -214,6 +222,60 @@ test("uses stable shells while independent data sources load", async ({ page }) 
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
+});
+
+test("reproduces the observed new repository provisioning states", async ({ page }) => {
+  await page.setViewportSize({ width: 700, height: 995 });
+
+  const sourceFixture = await openVaultOverviewV2(page, "vault-overview-v2-provisioning-source");
+  await expect(sourceFixture.getByText("Setting up this vault.")).toBeVisible();
+  await expect(sourceFixture.getByText("The GitHub repository is not ready yet.")).toBeVisible();
+  await expect(sourceFixture.getByRole("heading", { name: "Open pull requests" })).toHaveCount(0);
+
+  const githubFixture = await openVaultOverviewV2(page, "vault-overview-v2-provisioning-github");
+  await expect(githubFixture.getByText("Setting up this vault.")).toBeVisible();
+  await expect(githubFixture.getByLabel("Loading default branch")).toBeVisible();
+  await expect(githubFixture.getByRole("heading", { name: "Open pull requests" })).toBeVisible();
+
+  const earlyEmptyFixture = await openVaultOverviewV2(
+    page,
+    "vault-overview-v2-provisioning-early-empty",
+  );
+  await expect(earlyEmptyFixture.getByText("Setting up this vault.")).toBeVisible();
+  await expect(earlyEmptyFixture.getByText("No default branch commit is available.")).toBeVisible();
+  await expect(earlyEmptyFixture.getByText("No open pull requests.")).toBeVisible();
+
+  const completeEmptyFixture = await openVaultOverviewV2(
+    page,
+    "vault-overview-v2-provisioning-complete-empty",
+  );
+  await expect(completeEmptyFixture.getByText("Setting up this vault.")).toHaveCount(0);
+  await expect(
+    completeEmptyFixture.getByText("No default branch commit is available."),
+  ).toBeVisible();
+  await expect(completeEmptyFixture.getByText("No open pull requests.")).toBeVisible();
+
+  const staleEmptyFixture = await openVaultOverviewV2(
+    page,
+    "vault-overview-v2-provisioning-stale-empty",
+  );
+  await expect(
+    staleEmptyFixture.getByText("Some pull request data may be out of date."),
+  ).toBeVisible();
+
+  const commitFixture = await openVaultOverviewV2(page, "vault-overview-v2-provisioning-commit");
+  await expect(commitFixture.getByText("chore: seed starter template")).toBeVisible();
+  await expect(commitFixture.getByLabel("Loading Convex deployment")).toBeVisible();
+
+  const workerFixture = await openVaultOverviewV2(page, "vault-overview-v2-provisioning-worker");
+  await expect(
+    workerFixture.getByText("tmp-f149-vault-loading-states.pfp.workers.dev"),
+  ).toBeVisible();
+  await expect(workerFixture.getByLabel("Loading Convex deployment")).toBeVisible();
+
+  const readyFixture = await openVaultOverviewV2(page, "vault-overview-v2-provisioning-ready");
+  await expect(readyFixture.getByText("dazzling-pheasant-894")).toBeVisible();
+  await expect(readyFixture.getByText("No open pull requests.")).toBeVisible();
 });
 
 test("preserves repository identity at the minimum sidebar width", async ({ page }) => {

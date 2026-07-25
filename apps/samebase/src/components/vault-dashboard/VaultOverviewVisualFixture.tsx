@@ -34,6 +34,14 @@ export type VaultOverviewVisualMode =
   | "vault-overview-v2-dev"
   | "vault-overview-v2-loading"
   | "vault-overview-v2-partial-loading"
+  | "vault-overview-v2-provisioning-source"
+  | "vault-overview-v2-provisioning-github"
+  | "vault-overview-v2-provisioning-early-empty"
+  | "vault-overview-v2-provisioning-complete-empty"
+  | "vault-overview-v2-provisioning-stale-empty"
+  | "vault-overview-v2-provisioning-commit"
+  | "vault-overview-v2-provisioning-worker"
+  | "vault-overview-v2-provisioning-ready"
   | "vault-overview-v2-root"
   | "vault-overview-v2-settings";
 
@@ -56,6 +64,12 @@ function fakeCloudflareWorkerId(value: string): Id<"vaultCloudflareWorkers"> {
 }
 
 function fakeConvexProjectId(value: string): Id<"vaultConvexProjects"> {
+  // @ts-expect-error Convex ids are strings at runtime; this fixture only
+  // needs a stable value for static rendering.
+  return value;
+}
+
+function fakeVaultProvisioningRunId(value: string): Id<"workflow_vaultProvisioning_runs"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
   return value;
@@ -389,6 +403,195 @@ const LIST_SPACING_PULL_REQUESTS = [
   fixturePullRequest({ index: 2, isDraft: true }),
 ];
 
+type VaultOverviewProvisioningVisualMode = Extract<
+  VaultOverviewVisualMode,
+  | "vault-overview-v2-provisioning-source"
+  | "vault-overview-v2-provisioning-github"
+  | "vault-overview-v2-provisioning-early-empty"
+  | "vault-overview-v2-provisioning-complete-empty"
+  | "vault-overview-v2-provisioning-stale-empty"
+  | "vault-overview-v2-provisioning-commit"
+  | "vault-overview-v2-provisioning-worker"
+  | "vault-overview-v2-provisioning-ready"
+>;
+
+// Captured from a real Samebase-managed repository. The first five states occurred
+// during provisioning. Reloading the stuck empty state exposed commit, Worker, then
+// Convex data in that order.
+const PROVISIONING_WORKER_ID = fakeCloudflareWorkerId("worker-provisioning-fixture");
+const PROVISIONING_CONVEX_PROJECT_ID = fakeConvexProjectId("convex-project-provisioning-fixture");
+const PROVISIONING_RUN_ID = fakeVaultProvisioningRunId("vault-provisioning-run-fixture");
+const PROVISIONING_VAULT = {
+  ...LIST_SPACING_VAULT,
+  ghRepoOwner: "nicu-chiciuc",
+  ghRepoName: "tmp-f149-vault-loading-states",
+  repositoryFullName: "nicu-chiciuc/tmp-f149-vault-loading-states",
+  cloudflareWorkers: [
+    {
+      workerId: PROVISIONING_WORKER_ID,
+      accountId: "fixture-cloudflare-account",
+      workerName: "tmp-f149-vault-loading-states",
+      workerTag: "tmp-f149-vault-loading-states-tag",
+    },
+  ],
+  convexProjects: [
+    {
+      convexProjectId: PROVISIONING_CONVEX_PROJECT_ID,
+      codeLocation: { kind: "config", convexConfigPath: "convex.json" },
+      teamId: "38516",
+      projectId: "2653471",
+    },
+  ],
+} satisfies VaultDashboardVault;
+
+const PROVISIONING_CLOUDFLARE_OBSERVATIONS = {
+  workers: {
+    state: "loaded",
+    freshness: "current",
+    refreshing: false,
+    reload: () => {},
+    observations: [
+      {
+        state: "available",
+        observedAt: FIXTURE_NOW,
+        workerId: PROVISIONING_WORKER_ID,
+        customDomains: [],
+        workersDev: {
+          state: "enabled",
+          url: "https://tmp-f149-vault-loading-states.pfp.workers.dev",
+        },
+      },
+    ],
+  },
+  builds: {
+    state: "loaded",
+    freshness: "current",
+    refreshing: false,
+    reload: () => {},
+    observations: [
+      {
+        state: "available",
+        observedAt: FIXTURE_NOW,
+        workerId: PROVISIONING_WORKER_ID,
+        repository: {
+          state: "ready",
+          rootDirectory: "/",
+          builds: {
+            state: "available",
+            productionTriggerUuid: "fixture-production-trigger",
+            previewTriggerUuid: "fixture-preview-trigger",
+          },
+        },
+        builds: {
+          state: "connected",
+          productionTriggerUuid: "fixture-production-trigger",
+          previewTriggerUuid: "fixture-preview-trigger",
+        },
+        productionBuild: {
+          state: "available",
+          uuid: "fixture-production-build",
+          buildState: "success",
+        },
+      },
+    ],
+  },
+  convexBuildAccess: {
+    state: "loaded",
+    freshness: "current",
+    refreshing: false,
+    reload: () => {},
+    observations: [
+      {
+        state: "available",
+        observedAt: FIXTURE_NOW,
+        workerId: PROVISIONING_WORKER_ID,
+        convexBuildAccess: {
+          state: "configured",
+          convexProject: {
+            state: "attached",
+            attachedTeamId: "38516",
+            convexProjectId: PROVISIONING_CONVEX_PROJECT_ID,
+            projectId: "2653471",
+            teamId: "38516",
+            teamState: "matches",
+          },
+        },
+      },
+    ],
+  },
+} satisfies VaultCloudflareProviderObservationState;
+
+const PROVISIONING_CONVEX_OBSERVATIONS = {
+  state: "loaded",
+  freshness: "current",
+  refreshing: false,
+  reload: () => {},
+  observations: [
+    {
+      observedAt: FIXTURE_NOW,
+      convexProjectId: PROVISIONING_CONVEX_PROJECT_ID,
+      projectId: "2653471",
+      codeLocation: { kind: "config", convexConfigPath: "convex.json" },
+      source: { kind: "config", state: "valid", blobSha: "fixture-convex-config" },
+      provider: {
+        state: "current",
+        teamId: "38516",
+        projectName: "tmp-f149-vault-loading-states",
+        projectSlug: "tmp-f149-vault-loading-states",
+        teamSlug: "nicu",
+        productionDeployment: {
+          state: "available",
+          deploymentName: "dazzling-pheasant-894",
+          cloudUrl: "https://dazzling-pheasant-894.convex.cloud",
+          siteUrl: "https://dazzling-pheasant-894.convex.site",
+        },
+      },
+    },
+  ],
+} satisfies VaultProviderObservationState<VaultConvexProjectObservation>;
+
+const PROVISIONING_DEFAULT_BRANCH = {
+  headCommitOid: "e027945fddf37a983c3b44e88dcdb7d55ebe2109",
+  headCommitTitle: "chore: seed starter template",
+  headCommitCommittedAt: "2026-07-25T15:40:42Z",
+  headCommitUrl:
+    "https://github.com/nicu-chiciuc/tmp-f149-vault-loading-states/commit/e027945fddf37a983c3b44e88dcdb7d55ebe2109",
+  statusCheckRollup: null,
+  checks: FIXTURE_NO_CHECKS,
+} satisfies VaultDefaultBranchObservation;
+
+const PROVISIONING_EMPTY_CLOUDFLARE_OBSERVATIONS = {
+  workers: {
+    state: "loaded",
+    freshness: "current",
+    observations: [],
+    refreshing: false,
+    reload: () => {},
+  },
+  builds: {
+    state: "loaded",
+    freshness: "current",
+    observations: [],
+    refreshing: false,
+    reload: () => {},
+  },
+  convexBuildAccess: {
+    state: "loaded",
+    freshness: "current",
+    observations: [],
+    refreshing: false,
+    reload: () => {},
+  },
+} satisfies VaultCloudflareProviderObservationState;
+
+const PROVISIONING_EMPTY_CONVEX_OBSERVATIONS = {
+  state: "loaded",
+  freshness: "current",
+  observations: [],
+  refreshing: false,
+  reload: () => {},
+} satisfies VaultProviderObservationState<VaultConvexProjectObservation>;
+
 function fixturePullRequests(
   pullRequests: readonly FixturePullRequest[],
   defaultBranch: VaultDefaultBranchObservation | null,
@@ -468,20 +671,202 @@ const AUTO_PAGINATION_PULL_REQUESTS = [
   ...Array.from({ length: 6 }, (_, index) => fixturePullRequest({ index: index + 3 })),
 ];
 
-function VaultOverviewV2Fixture({
-  mode,
-}: {
-  mode:
-    | "vault-overview-v2"
-    | "vault-overview-v2-auto-pagination"
-    | "vault-overview-v2-dev"
-    | "vault-overview-v2-loading"
-    | "vault-overview-v2-partial-loading"
-    | "vault-overview-v2-root"
-    | "vault-overview-v2-settings";
-}) {
+function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisioningVisualMode }) {
+  let vault: VaultDashboardVault;
+  let pullRequests: VaultPullRequestsState;
+  let cloudflareObservations: VaultCloudflareProviderObservationState;
+  let convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
+
+  switch (mode) {
+    case "vault-overview-v2-provisioning-source":
+      vault = {
+        ...PROVISIONING_VAULT,
+        defaultBranch: undefined,
+        hasConnectedGitHubRepository: false,
+        cloudflareWorkers: [],
+        convexProjects: [],
+        sourceSetup: {
+          status: "running",
+          runId: PROVISIONING_RUN_ID,
+          step: "create_github_repo",
+          updatedAt: FIXTURE_NOW,
+        },
+        providerSetup: { status: "not_applicable" },
+      };
+      pullRequests = { state: "not_requested" };
+      cloudflareObservations = PROVISIONING_EMPTY_CLOUDFLARE_OBSERVATIONS;
+      convexObservations = PROVISIONING_EMPTY_CONVEX_OBSERVATIONS;
+      break;
+    case "vault-overview-v2-provisioning-github":
+      vault = {
+        ...PROVISIONING_VAULT,
+        cloudflareWorkers: [],
+        convexProjects: [],
+        sourceSetup: {
+          status: "running",
+          runId: PROVISIONING_RUN_ID,
+          step: "sync_tree",
+          updatedAt: FIXTURE_NOW,
+        },
+        providerSetup: { status: "not_applicable" },
+      };
+      pullRequests = { state: "loading" };
+      cloudflareObservations = PROVISIONING_EMPTY_CLOUDFLARE_OBSERVATIONS;
+      convexObservations = PROVISIONING_EMPTY_CONVEX_OBSERVATIONS;
+      break;
+    case "vault-overview-v2-provisioning-early-empty":
+      vault = {
+        ...PROVISIONING_VAULT,
+        sourceSetup: { status: "ready" },
+        providerSetup: {
+          status: "running",
+          provider: "cloudflare",
+          runId: PROVISIONING_RUN_ID,
+          step: "attach_worker",
+          updatedAt: FIXTURE_NOW,
+        },
+      };
+      pullRequests = fixturePullRequests([], null);
+      cloudflareObservations = LOADING_CLOUDFLARE_OBSERVATIONS;
+      convexObservations = { state: "loading" };
+      break;
+    case "vault-overview-v2-provisioning-complete-empty":
+      vault = PROVISIONING_VAULT;
+      pullRequests = fixturePullRequests([], null);
+      cloudflareObservations = PROVISIONING_CLOUDFLARE_OBSERVATIONS;
+      convexObservations = PROVISIONING_CONVEX_OBSERVATIONS;
+      break;
+    case "vault-overview-v2-provisioning-stale-empty":
+      vault = PROVISIONING_VAULT;
+      pullRequests = {
+        ...fixturePullRequests([], null),
+        state: "stale",
+      };
+      cloudflareObservations = PROVISIONING_CLOUDFLARE_OBSERVATIONS;
+      convexObservations = PROVISIONING_CONVEX_OBSERVATIONS;
+      break;
+    case "vault-overview-v2-provisioning-commit":
+      vault = PROVISIONING_VAULT;
+      pullRequests = fixturePullRequests([], PROVISIONING_DEFAULT_BRANCH);
+      cloudflareObservations = LOADING_CLOUDFLARE_OBSERVATIONS;
+      convexObservations = { state: "loading" };
+      break;
+    case "vault-overview-v2-provisioning-worker":
+      vault = PROVISIONING_VAULT;
+      pullRequests = fixturePullRequests([], PROVISIONING_DEFAULT_BRANCH);
+      cloudflareObservations = PROVISIONING_CLOUDFLARE_OBSERVATIONS;
+      convexObservations = { state: "loading" };
+      break;
+    case "vault-overview-v2-provisioning-ready":
+      vault = PROVISIONING_VAULT;
+      pullRequests = fixturePullRequests([], PROVISIONING_DEFAULT_BRANCH);
+      cloudflareObservations = PROVISIONING_CLOUDFLARE_OBSERVATIONS;
+      convexObservations = PROVISIONING_CONVEX_OBSERVATIONS;
+      break;
+  }
+
+  const workspace = {
+    access: { state: "ready", schemaGraphEnabled: true },
+    cloudflareConnection: {
+      state: "ready",
+      connection: {
+        connected: true,
+        accountId: "fixture-cloudflare-account",
+        accountName: "Fixture Account",
+      },
+    },
+    cloudflareObservations,
+    convexObservations,
+    githubRepositoryUrl: "https://github.com/nicu-chiciuc/tmp-f149-vault-loading-states",
+    productionRoots: buildVaultProductionRoots({
+      cloudflareObservations,
+      convexObservations,
+      vault,
+    }),
+    pullRequestFilters: getDefaultVaultPullRequestFilters(),
+    pullRequests,
+    vault,
+  } satisfies VaultWorkspaceSelected;
+  const sidebarSummaries = {
+    state: "loaded",
+    summaries: [
+      {
+        vaultId: vault._id,
+        openPullRequestCount: 0,
+        checks: PROVISIONING_DEFAULT_BRANCH.checks,
+      },
+    ],
+  } satisfies VaultSidebarSummariesState;
+  const resourceRailState = buildVaultDashboardResourceRailState({
+    addCloudflareWorkerOnClick: () => {},
+    addConvexOnClick: () => {},
+    changeConvexProjectConfigPathOnClick: () => {},
+    cloudflareObservations,
+    convexObservations,
+    configureWorkersBuildsForGitHubOnClick: () => {},
+    detachCloudflareWorkerOnClick: () => {},
+    detachConvexProjectOnClick: () => {},
+    githubRepositoryUrl: workspace.githubRepositoryUrl,
+    reconcileConvexProjectTeamOnClick: () => {},
+    rotateConvexDeployKeysForWorkersBuildsOnClick: () => {},
+    vault,
+  });
+
+  return (
+    <TestRouterProvider initialEntries={["/vault/nicu-chiciuc/tmp-f149-vault-loading-states"]}>
+      <WorkspaceLayoutV2FixtureFrame
+        dataTestId={mode}
+        left={{
+          header: (
+            <div className="flex h-full items-center px-2 text-sm font-medium text-foreground">
+              Vaults
+            </div>
+          ),
+          content: (
+            <VaultOverviewSidebar
+              page="overview"
+              selectedVaultId={vault._id}
+              sidebarSummaries={sidebarSummaries}
+              vaults={[vault]}
+              workspace={workspace}
+            />
+          ),
+        }}
+        main={{
+          content: (
+            <VaultOverviewPage
+              developerToolsVisible={false}
+              isRemovingVault={false}
+              page="overview"
+              resourceRailState={resourceRailState}
+              workspace={workspace}
+              onOpenDeleteDialog={() => {}}
+              onRetryInfrastructureProvisioning={() => {}}
+              onRetryVaultDeletion={() => {}}
+            />
+          ),
+        }}
+        shortcutPaneSide="left"
+      />
+    </TestRouterProvider>
+  );
+}
+
+function VaultOverviewV2Fixture({ mode }: { mode: VaultOverviewVisualMode }) {
   const [nextPullRequestPageLoaded, setNextPullRequestPageLoaded] = useState(false);
   const page = mode === "vault-overview-v2-settings" ? "settings" : "overview";
+
+  switch (mode) {
+    case "vault-overview-v2-provisioning-source":
+    case "vault-overview-v2-provisioning-github":
+    case "vault-overview-v2-provisioning-early-empty":
+    case "vault-overview-v2-provisioning-complete-empty":
+    case "vault-overview-v2-provisioning-stale-empty":
+    case "vault-overview-v2-provisioning-commit":
+    case "vault-overview-v2-provisioning-worker":
+    case "vault-overview-v2-provisioning-ready":
+      return <VaultOverviewProvisioningFixture mode={mode} />;
+  }
 
   if (mode === "vault-overview-v2-root") {
     return (
