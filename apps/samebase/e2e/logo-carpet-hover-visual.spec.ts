@@ -46,7 +46,8 @@ test("carpet holes reveal around the pointer for both mechanics", async ({ page 
   expect(layoutMetrics.sceneHeight).toBe(layoutMetrics.pageHeight);
 
   await expect(carpetPage).toHaveAttribute("data-mechanic", "grow");
-  await expect(carpetPage).toHaveAttribute("data-falloff", "per-depth");
+  await expect(carpetPage).toHaveAttribute("data-falloff", "shared");
+  await expect(carpetPage).toHaveAttribute("data-max-depth", "5");
   await expect(scene).toHaveAttribute("data-carpet-settled", "true");
   await waitForPaint(page);
 
@@ -73,12 +74,13 @@ test("carpet holes reveal around the pointer for both mechanics", async ({ page 
 
   await expect(scene).toHaveScreenshot("logo-carpet-hover-slide.png", SCREENSHOT_OPTIONS);
 
-  await page.getByRole("button", { exact: true, name: "Shared" }).click();
-  await expect(carpetPage).toHaveAttribute("data-falloff", "shared");
+  await page.getByRole("button", { exact: true, name: "Per-depth" }).click();
+  await expect(carpetPage).toHaveAttribute("data-falloff", "per-depth");
   await page.getByRole("button", { exact: true, name: "Grow" }).click();
   await expect(carpetPage).toHaveAttribute("data-mechanic", "grow");
 
-  // Leaving the carpet heals the surface back to the resting depth-1 state.
+  // The reveal tracks the pointer page-wide, so a mouse parked over the
+  // chrome still resolves to a settled openness state.
   await page.mouse.move(sceneBox.x + sceneBox.width / 2, sceneBox.y - 10);
   await expect(scene).toHaveAttribute("data-carpet-settled", "true");
   await waitForPaint(page);
@@ -102,18 +104,25 @@ test.describe("carpet hover on a high-density phone", () => {
     const canvas = scene.locator("canvas");
     const workspaceLayout = page.locator("[data-workspace-layout-v2]");
 
-    await page.getByTestId("workspace-layout-v2-pane-main").evaluate((carousel) => {
-      const mainPane = carousel.querySelector("[data-workspace-layout-v2-mobile-main-pane]");
-      if (!(mainPane instanceof HTMLElement)) {
-        throw new Error("Expected the mobile main pane.");
-      }
+    // The carousel scroll can race pane detection while the page is still
+    // settling under parallel-suite load, so retry the scroll until the
+    // layout reports the main pane.
+    await expect(async () => {
+      await page.getByTestId("workspace-layout-v2-pane-main").evaluate((carousel) => {
+        const mainPane = carousel.querySelector("[data-workspace-layout-v2-mobile-main-pane]");
+        if (!(mainPane instanceof HTMLElement)) {
+          throw new Error("Expected the mobile main pane.");
+        }
 
-      carousel.style.scrollSnapType = "none";
-      carousel.scrollLeft =
-        mainPane.offsetLeft - Number.parseFloat(window.getComputedStyle(carousel).paddingLeft);
-      carousel.dispatchEvent(new Event("scroll", { bubbles: true }));
-    });
-    await expect(workspaceLayout).toHaveAttribute("data-mobile-pane", "main");
+        carousel.style.scrollSnapType = "none";
+        carousel.scrollLeft =
+          mainPane.offsetLeft - Number.parseFloat(window.getComputedStyle(carousel).paddingLeft);
+        carousel.dispatchEvent(new Event("scroll", { bubbles: true }));
+      });
+      await expect(workspaceLayout).toHaveAttribute("data-mobile-pane", "main", {
+        timeout: 1_000,
+      });
+    }).toPass({ timeout: 20_000 });
     await expect(canvas).toBeVisible();
     await expect(scene).toHaveAttribute("data-carpet-settled", "true");
     const layoutMetrics = await carpetPage.evaluate((element) => {

@@ -17,15 +17,7 @@ import {
   type SierpinskiCarpetHoverPointer,
 } from "@samebase/logo-model/sierpinski-carpet-hover";
 import { Link } from "@tanstack/react-router";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ChangeEvent,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 
 const CARPET_FRAME_PADDING = 1.12;
 const RENDER_PIXEL_RATIO_MAX = 2;
@@ -66,7 +58,7 @@ function SierpinskiCarpetHoverScene({
   const configRef = useRef(config);
   const pointerRef = useRef<SierpinskiCarpetHoverPointer | null>(null);
   // Slide direction outlives the hover so healing wipes keep their anchor
-  // edge after the pointer leaves the carpet.
+  // edge after the pointer leaves the page.
   const lastPointerRef = useRef<SierpinskiCarpetHoverPointer | null>(null);
   const opennessRef = useRef(new Float64Array(SIERPINSKI_CARPET_HOVER_HOLES.length));
   const frameRef = useRef(0);
@@ -83,79 +75,6 @@ function SierpinskiCarpetHoverScene({
       drawRef.current();
     });
   }, []);
-
-  const readUnitPointer = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>): SierpinskiCarpetHoverPointer | null => {
-      const container = containerRef.current;
-      if (!container) {
-        return null;
-      }
-
-      const bounds = container.getBoundingClientRect();
-      const frame = readCarpetFrame(bounds.width, bounds.height);
-      if (frame.side <= 0) {
-        return null;
-      }
-
-      return {
-        x: (event.clientX - bounds.left - frame.originX) / frame.side,
-        y: (event.clientY - bounds.top - frame.originY) / frame.side,
-      };
-    },
-    [],
-  );
-
-  const handlePointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (!event.isPrimary) {
-        return;
-      }
-
-      event.currentTarget.setPointerCapture(event.pointerId);
-      pointerRef.current = readUnitPointer(event);
-      lastPointerRef.current = pointerRef.current ?? lastPointerRef.current;
-      scheduleFrame();
-    },
-    [readUnitPointer, scheduleFrame],
-  );
-  const handlePointerMove = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (!event.isPrimary) {
-        return;
-      }
-
-      pointerRef.current = readUnitPointer(event);
-      lastPointerRef.current = pointerRef.current ?? lastPointerRef.current;
-      scheduleFrame();
-    },
-    [readUnitPointer, scheduleFrame],
-  );
-  const handlePointerEnd = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (!event.isPrimary) {
-        return;
-      }
-
-      // A lifted touch or pen leaves no hover position, so the carpet heals;
-      // a released mouse keeps hovering until pointerleave.
-      if (event.type !== "pointerup" || event.pointerType !== "mouse") {
-        pointerRef.current = null;
-      }
-      scheduleFrame();
-    },
-    [scheduleFrame],
-  );
-  const handlePointerLeave = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (!event.isPrimary) {
-        return;
-      }
-
-      pointerRef.current = null;
-      scheduleFrame();
-    },
-    [scheduleFrame],
-  );
 
   useEffect(() => {
     const container = containerRef.current;
@@ -223,6 +142,48 @@ function SierpinskiCarpetHoverScene({
       draw();
     };
 
+    const readUnitPointer = (event: PointerEvent): SierpinskiCarpetHoverPointer | null => {
+      const bounds = container.getBoundingClientRect();
+      const frame = readCarpetFrame(bounds.width, bounds.height);
+      if (frame.side <= 0) {
+        return null;
+      }
+
+      return {
+        x: (event.clientX - bounds.left - frame.originX) / frame.side,
+        y: (event.clientY - bounds.top - frame.originY) / frame.side,
+      };
+    };
+    // The reveal tracks the pointer across the whole page, not only the
+    // canvas, so nearby holes keep reacting while the mouse is over the
+    // chrome. Healing starts when the pointer leaves the page or a touch or
+    // pen lifts; a released mouse keeps hovering.
+    const onWindowPointerMove = (event: PointerEvent) => {
+      if (!event.isPrimary) {
+        return;
+      }
+
+      pointerRef.current = readUnitPointer(event);
+      lastPointerRef.current = pointerRef.current ?? lastPointerRef.current;
+      scheduleFrame();
+    };
+    const onWindowPointerEnd = (event: PointerEvent) => {
+      if (!event.isPrimary || event.pointerType === "mouse") {
+        return;
+      }
+
+      pointerRef.current = null;
+      scheduleFrame();
+    };
+    const onPagePointerLeave = () => {
+      pointerRef.current = null;
+      scheduleFrame();
+    };
+    window.addEventListener("pointermove", onWindowPointerMove);
+    window.addEventListener("pointerup", onWindowPointerEnd);
+    window.addEventListener("pointercancel", onWindowPointerEnd);
+    document.documentElement.addEventListener("pointerleave", onPagePointerLeave);
+
     drawRef.current = draw;
     const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     prefersReducedMotionRef.current = reducedMotionQuery.matches;
@@ -237,6 +198,10 @@ function SierpinskiCarpetHoverScene({
 
     return () => {
       resizeObserver.disconnect();
+      window.removeEventListener("pointermove", onWindowPointerMove);
+      window.removeEventListener("pointerup", onWindowPointerEnd);
+      window.removeEventListener("pointercancel", onWindowPointerEnd);
+      document.documentElement.removeEventListener("pointerleave", onPagePointerLeave);
       reducedMotionQuery.removeEventListener("change", onReducedMotionChange);
       drawRef.current = () => {};
       if (frameRef.current !== 0) {
@@ -258,11 +223,6 @@ function SierpinskiCarpetHoverScene({
       aria-label="Sierpinski carpet hover reveal"
       className="h-full min-h-0 w-full cursor-crosshair touch-none select-none"
       data-testid="logo-carpet-hover-scene"
-      onPointerCancel={handlePointerEnd}
-      onPointerDown={handlePointerDown}
-      onPointerLeave={handlePointerLeave}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerEnd}
       role="img"
     >
       <canvas ref={canvasRef} aria-hidden="true" className="block h-full w-full" />
@@ -282,9 +242,9 @@ export function LogoSierpinskiCarpetHoverPage({ routeSearch }: { routeSearch: Lo
   const { backgroundColor, faceColors } = useResolvedAppThemeColorState(routeState.themeColors);
   const carpetColor = getTailwindColorHex(faceColors.right);
   const [mechanic, setMechanic] = useState<SierpinskiCarpetHoverMechanic>("grow");
-  const [falloff, setFalloff] = useState<SierpinskiCarpetHoverFalloff>("per-depth");
+  const [falloff, setFalloff] = useState<SierpinskiCarpetHoverFalloff>("shared");
   const [revealRadius, setRevealRadius] = useState(SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS);
-  const [maxDepth, setMaxDepth] = useState<SierpinskiCarpetHoverDepth>(6);
+  const [maxDepth, setMaxDepth] = useState<SierpinskiCarpetHoverDepth>(5);
   const config = useMemo(
     () => ({ falloff, maxDepth, mechanic, revealRadius }),
     [falloff, maxDepth, mechanic, revealRadius],
