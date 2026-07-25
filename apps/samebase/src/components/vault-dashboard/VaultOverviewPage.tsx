@@ -579,7 +579,6 @@ function DefaultBranchSection({
     owner: workspace.vault.ghRepoOwner,
     productionRoots: workspace.productionRoots,
     repoName: workspace.vault.ghRepoName,
-    filesReadEnabled,
     schemaGraphEnabled,
   });
 

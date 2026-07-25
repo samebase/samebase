@@ -106,7 +106,6 @@ export function buildProductionEnvironmentRoots({
   owner,
   productionRoots,
   repoName,
-  filesReadEnabled,
   schemaGraphEnabled,
 }: {
   branch: string;
@@ -118,7 +117,6 @@ export function buildProductionEnvironmentRoots({
   owner: string;
   productionRoots: readonly VaultProductionRoot[];
   repoName: string;
-  filesReadEnabled: boolean;
   schemaGraphEnabled: boolean;
 }): VaultEnvironmentRoot[] {
   const destinations = productionRoots.flatMap((root) => {
@@ -170,20 +168,16 @@ export function buildProductionEnvironmentRoots({
                 kind: "destination" as const,
                 id: `${link.provider}:${link.href}`,
                 actions: [
-                  ...(filesReadEnabled
-                    ? [
-                        {
-                          destination: "samebase" as const,
-                          href: buildVaultDatabaseRoute({
-                            owner,
-                            repoName,
-                            branch,
-                            convexProjectId: link.convexProjectId,
-                          }),
-                          label: "Data",
-                        },
-                      ]
-                    : []),
+                  {
+                    destination: "samebase" as const,
+                    href: buildVaultDatabaseRoute({
+                      owner,
+                      repoName,
+                      branch,
+                      convexProjectId: link.convexProjectId,
+                    }),
+                    label: "Data",
+                  },
                   ...(schemaGraphEnabled
                     ? [
                         {

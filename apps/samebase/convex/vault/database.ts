@@ -177,7 +177,7 @@ async function readVaultDatabaseDeploymentContext(
 }
 
 export const createEmbeddedDashboardCredentials = action({
-  access: "access_files_read",
+  access: "access_dashboard",
   args: {
     owner: string(),
     repoName: string(),
@@ -216,7 +216,7 @@ export const createEmbeddedDashboardCredentials = action({
 });
 
 export const revokeEmbeddedDashboardCredentials = action({
-  access: "access_files_read",
+  access: "access_dashboard",
   args: {
     owner: string(),
     repoName: string(),

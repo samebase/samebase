@@ -481,7 +481,6 @@ describe("vault environment roots", () => {
         owner: "ada",
         productionRoots: [],
         repoName: "demo",
-        filesReadEnabled: true,
         schemaGraphEnabled: true,
       }),
     ).toEqual([
@@ -491,6 +490,57 @@ describe("vault environment roots", () => {
           {
             kind: "convex_loading",
             id: convexProjectId,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("keeps production Data available independently from Schema access", () => {
+    const convexProjectId = fakeConvexProjectId();
+    const dashboardUrl = "https://dashboard.convex.dev/t/ada/demo/calm-swan-123";
+
+    expect(
+      buildProductionEnvironmentRoots({
+        branch: "main",
+        convexObservationState: "loaded",
+        convexProjects: [],
+        owner: "ada",
+        productionRoots: [
+          {
+            rootDirectory: "packages/backend",
+            links: [
+              {
+                provider: "convex",
+                convexProjectId,
+                href: dashboardUrl,
+                label: "calm-swan-123",
+                title: "Open production Convex deployment calm-swan-123",
+              },
+            ],
+          },
+        ],
+        repoName: "demo",
+        schemaGraphEnabled: false,
+      }),
+    ).toEqual([
+      {
+        rootDirectory: "packages/backend",
+        resources: [
+          {
+            kind: "destination",
+            id: `convex:${dashboardUrl}`,
+            actions: [
+              {
+                destination: "samebase",
+                href: `/vault/ada/demo/db/main/project/${convexProjectId}`,
+                label: "Data",
+              },
+            ],
+            href: dashboardUrl,
+            label: "calm-swan-123",
+            provider: "convex",
+            title: "Open production Convex deployment calm-swan-123",
           },
         ],
       },
@@ -537,7 +587,6 @@ describe("vault environment roots", () => {
           },
         ],
         repoName: "demo",
-        filesReadEnabled: true,
         schemaGraphEnabled: true,
       }),
     ).toEqual([
