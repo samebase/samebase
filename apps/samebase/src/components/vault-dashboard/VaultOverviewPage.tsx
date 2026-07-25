@@ -48,7 +48,6 @@ import { Link, useRouter } from "@tanstack/react-router";
 import {
   AlertTriangle,
   ChevronDown,
-  CircleAlert,
   CircleCheck,
   CircleDashed,
   CircleDot,
@@ -354,7 +353,7 @@ function DestinationIcon({ href, provider }: { href: string; provider: "cloudfla
 
 function RootDirectoryLabel({ rootDirectory }: { rootDirectory: string }) {
   return (
-    <span className="block text-sm font-semibold text-foreground [overflow-wrap:anywhere]">
+    <span className="block text-base font-semibold leading-5 text-foreground [overflow-wrap:anywhere]">
       {rootDirectory}
     </span>
   );
@@ -472,9 +471,15 @@ function VaultEnvironmentTree({ roots }: { roots: readonly VaultEnvironmentRoot[
   const hideRootDirectory = roots.length === 1 && roots[0]?.rootDirectory === "/";
 
   return (
-    <div className="ml-2.5 pl-5">
+    <div className={hideRootDirectory ? "ml-2.5 pl-5" : "ml-2.5 border-l border-border pl-5"}>
       {roots.map((root) => (
-        <div key={root.rootDirectory}>
+        <div key={root.rootDirectory} className="relative">
+          {hideRootDirectory ? null : (
+            <span
+              aria-hidden="true"
+              className="absolute -left-5 top-[1.35rem] w-4 border-t border-border"
+            />
+          )}
           {hideRootDirectory ? null : (
             <div className="pt-3">
               <RootDirectoryLabel rootDirectory={root.rootDirectory} />
@@ -691,30 +696,6 @@ function BuildState({ state }: { state: EnvironmentBuildState }) {
 }
 
 function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }) {
-  if (worker.build.state === "absent" && worker.destination.state === "absent") {
-    return (
-      <div className="flex min-w-0 items-center gap-2.5 py-2.5 text-sm text-muted-foreground">
-        <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-          <CloudflareProviderLogo />
-        </span>
-        <span className="min-w-0 truncate">{worker.workerName}</span>
-        <span>No build</span>
-      </div>
-    );
-  }
-  if (worker.build.state === "unavailable" && worker.destination.state === "absent") {
-    return (
-      <div className="flex min-w-0 items-center gap-2.5 py-2.5 text-sm text-muted-foreground">
-        <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-          <CloudflareProviderLogo />
-        </span>
-        <span className="min-w-0 truncate">{worker.workerName}</span>
-        <CircleAlert className="h-3.5 w-3.5" />
-        <span>Unavailable</span>
-      </div>
-    );
-  }
-
   return (
     <div className="grid min-w-0 gap-1.5 py-2.5">
       <div className="flex min-w-0 items-center gap-2.5">
@@ -724,11 +705,9 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
         <span className="min-w-0 truncate text-sm font-medium text-foreground">
           {worker.workerName}
         </span>
-      </div>
-      <div className="ml-[1.875rem] flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm">
         {worker.build.state === "available" ? (
           <a
-            className="inline-flex min-h-10 items-center gap-1 underline decoration-border underline-offset-4 hover:decoration-foreground @4xl:min-h-7"
+            className="inline-flex min-h-10 shrink-0 items-center gap-1 text-sm underline decoration-border underline-offset-4 hover:decoration-foreground @4xl:min-h-8"
             href={worker.build.logsUrl}
             rel="noreferrer noopener"
             target="_blank"
@@ -737,8 +716,8 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
             <ExternalLink className="h-3 w-3 text-muted-foreground" />
           </a>
         ) : (
-          <span className="text-muted-foreground">
-            {worker.build.state === "absent" ? "No build" : "Build unavailable"}
+          <span className="shrink-0 text-sm text-muted-foreground">
+            {worker.build.state === "absent" ? "No build" : "Unavailable"}
           </span>
         )}
       </div>
