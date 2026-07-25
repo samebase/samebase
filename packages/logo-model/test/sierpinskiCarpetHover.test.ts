@@ -269,13 +269,35 @@ describe("Sierpinski carpet hover", () => {
     });
     expect(fromRight?.x).toBeCloseTo(left + hole.size * 0.75, 12);
 
-    // The dominant offset axis wins for diagonal pointers.
+    // Diagonal pointers split the wipe across both axes by the offset ratio,
+    // anchored at the pointer-facing corner, with area equal to the openness.
     const fromMostlyAbove = readSierpinskiCarpetHoleRevealedRect(hole, 0.5, "slide", {
       x: 0.4,
       y: 0.1,
     });
+    expect(fromMostlyAbove?.x).toBeCloseTo(left, 12);
     expect(fromMostlyAbove?.y).toBeCloseTo(top, 12);
-    expect(fromMostlyAbove?.height).toBeCloseTo(hole.size / 2, 12);
+    expect(fromMostlyAbove?.width).toBeCloseTo(hole.size * 0.5 ** 0.2, 12);
+    expect(fromMostlyAbove?.height).toBeCloseTo(hole.size * 0.5 ** 0.8, 12);
+    expect((fromMostlyAbove?.width ?? 0) * (fromMostlyAbove?.height ?? 0)).toBeCloseTo(
+      hole.size * hole.size * 0.5,
+      12,
+    );
+
+    // Crossing the vertical through the hole center flips the horizontal
+    // anchor while that dimension sits at full width, so the wipe does not
+    // jump as the pointer orbits from one side to the other.
+    const justLeftOfVertical = readSierpinskiCarpetHoleRevealedRect(hole, 0.5, "slide", {
+      x: 0.5 - 1e-6,
+      y: 0.2,
+    });
+    const justRightOfVertical = readSierpinskiCarpetHoleRevealedRect(hole, 0.5, "slide", {
+      x: 0.5 + 1e-6,
+      y: 0.2,
+    });
+    expect(justLeftOfVertical?.x).toBeCloseTo(justRightOfVertical?.x ?? Number.NaN, 5);
+    expect(justLeftOfVertical?.width).toBeCloseTo(justRightOfVertical?.width ?? Number.NaN, 5);
+    expect(justLeftOfVertical?.height).toBeCloseTo(justRightOfVertical?.height ?? Number.NaN, 5);
 
     // Without a pointer the wipe stays deterministic and anchored left.
     const fallback = readSierpinskiCarpetHoleRevealedRect(hole, 0.5, "slide", null);

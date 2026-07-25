@@ -14,7 +14,7 @@ export const SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC: SierpinskiCarpetHoverMech
 export const SIERPINSKI_CARPET_HOVER_DEFAULT_FALLOFF: SierpinskiCarpetHoverFalloff = "shared";
 export const SIERPINSKI_CARPET_HOVER_MIN_REVEAL_RADIUS = 0.05;
 export const SIERPINSKI_CARPET_HOVER_MAX_REVEAL_RADIUS = 1;
-export const SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS = 0.35;
+export const SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS = 0.55;
 export const SIERPINSKI_CARPET_HOVER_PER_DEPTH_RADIUS_RATIO = 0.55;
 export const SIERPINSKI_CARPET_HOVER_FULL_OPEN_RADIUS_FRACTION = 0.25;
 
@@ -177,38 +177,44 @@ export function readSierpinskiCarpetHoleOpenness(
 }
 
 type SierpinskiCarpetSlide = {
-  axis: "x" | "y";
-  sign: -1 | 1;
+  signX: -1 | 1;
+  signY: -1 | 1;
+  weightX: number;
 };
 
 /**
-The cover retreats away from the pointer along the dominant axis of the
-pointer-to-center offset, so the opening wipes in from the hole edge facing
-the mouse. Without a pointer the direction falls back to +x, which is only
-reachable for fully open holes where the anchor edge is invisible.
+The wipe splits across both axes by the pointer-to-center offset ratio, so
+the opening is anchored at the pointer-facing corner and morphs continuously
+as the mouse orbits a hole; a pure single-axis wipe only occurs when the
+pointer sits straight beside one edge, where the sign flip of the other axis
+lands while that dimension is at full size and stays invisible. Without a
+pointer the wipe falls back to a left-edge strip.
 */
 function readSlideAwayFromPointer(
   hole: SierpinskiCarpetHoverHole,
   pointer: SierpinskiCarpetHoverPointer | null,
 ): SierpinskiCarpetSlide {
   if (pointer === null) {
-    return { axis: "x", sign: 1 };
+    return { signX: 1, signY: 1, weightX: 1 };
   }
 
   const deltaX = hole.centerX - pointer.x;
   const deltaY = hole.centerY - pointer.y;
-  if (Math.abs(deltaY) > Math.abs(deltaX)) {
-    return { axis: "y", sign: deltaY >= 0 ? 1 : -1 };
-  }
+  const totalDelta = Math.abs(deltaX) + Math.abs(deltaY);
 
-  return { axis: "x", sign: deltaX >= 0 ? 1 : -1 };
+  return {
+    signX: deltaX >= 0 ? 1 : -1,
+    signY: deltaY >= 0 ? 1 : -1,
+    weightX: totalDelta > 0 ? Math.abs(deltaX) / totalDelta : 0.5,
+  };
 }
 
 /**
 The visible open area of a hole at the given openness, in unit carpet
 coordinates. Grow keeps the opening centered; slide anchors it to the hole
-edge facing the pointer, so the wipe follows the mouse around the hole.
-Returns null while the hole is fully covered.
+corner facing the pointer and allocates openness across the two dimensions as
+openness ** weight per axis, which keeps the revealed area equal to the
+openness for every direction. Returns null while the hole is fully covered.
 */
 export function readSierpinskiCarpetHoleRevealedRect(
   hole: SierpinskiCarpetHoverHole,
@@ -234,23 +240,16 @@ export function readSierpinskiCarpetHoleRevealedRect(
     }
     case "slide": {
       const slide = readSlideAwayFromPointer(hole, pointer);
-      const span = hole.size * clampedOpenness;
+      const width = hole.size * clampedOpenness ** slide.weightX;
+      const height = hole.size * clampedOpenness ** (1 - slide.weightX);
       const left = hole.centerX - hole.size / 2;
       const top = hole.centerY - hole.size / 2;
-      if (slide.axis === "x") {
-        return {
-          height: hole.size,
-          width: span,
-          x: slide.sign === 1 ? left : left + hole.size - span,
-          y: top,
-        };
-      }
 
       return {
-        height: span,
-        width: hole.size,
-        x: left,
-        y: slide.sign === 1 ? top : top + hole.size - span,
+        height,
+        width,
+        x: slide.signX === 1 ? left : left + hole.size - width,
+        y: slide.signY === 1 ? top : top + hole.size - height,
       };
     }
     default:
