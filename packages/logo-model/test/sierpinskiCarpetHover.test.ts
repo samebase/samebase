@@ -333,4 +333,49 @@ describe("Sierpinski carpet hover", () => {
     });
     expect(clampedRect?.height).toBeCloseTo(hole.size, 12);
   });
+
+  it("keeps cardinal center crossings continuous", () => {
+    const hole = makeHole(2);
+
+    // Crossing horizontally straight through the hole center: near the
+    // center the axis split relaxes to an even blend, so the rect approaches
+    // the centered square instead of flipping between wide and tall strips.
+    const atCenter = readSierpinskiCarpetHoleRevealedRect(hole, 0.25, "slide", { x: 0.5, y: 0.5 });
+    const justBeforeCenter = readSierpinskiCarpetHoleRevealedRect(hole, 0.25, "slide", {
+      x: 0.5 - 1e-6,
+      y: 0.5,
+    });
+    const justAfterCenter = readSierpinskiCarpetHoleRevealedRect(hole, 0.25, "slide", {
+      x: 0.5 + 1e-6,
+      y: 0.5,
+    });
+    expect(justBeforeCenter?.width).toBeCloseTo(atCenter?.width ?? Number.NaN, 4);
+    expect(justBeforeCenter?.height).toBeCloseTo(atCenter?.height ?? Number.NaN, 4);
+    expect(justBeforeCenter?.x).toBeCloseTo(justAfterCenter?.x ?? Number.NaN, 4);
+    expect(justBeforeCenter?.y).toBeCloseTo(justAfterCenter?.y ?? Number.NaN, 4);
+    expect(justBeforeCenter?.width).toBeCloseTo(justAfterCenter?.width ?? Number.NaN, 4);
+    expect(justBeforeCenter?.height).toBeCloseTo(justAfterCenter?.height ?? Number.NaN, 4);
+
+    // Halfway into the blend zone the split leans toward the approach axis
+    // while the revealed area still equals the openness.
+    const midBlend = readSierpinskiCarpetHoleRevealedRect(hole, 0.25, "slide", {
+      x: 0.5 - hole.size / 4,
+      y: 0.5,
+    });
+    expect(midBlend?.width).toBeCloseTo(hole.size * 0.25 ** 0.75, 12);
+    expect(midBlend?.height).toBeCloseTo(hole.size * 0.25 ** 0.25, 12);
+    expect((midBlend?.width ?? 0) * (midBlend?.height ?? 0)).toBeCloseTo(
+      hole.size * hole.size * 0.25,
+      12,
+    );
+
+    // Beyond half a hole-side the split stays fully directional, matching
+    // the pure-axis expectations above.
+    const outsideBlend = readSierpinskiCarpetHoleRevealedRect(hole, 0.25, "slide", {
+      x: 0.5 - hole.size,
+      y: 0.5,
+    });
+    expect(outsideBlend?.width).toBeCloseTo(hole.size * 0.25, 12);
+    expect(outsideBlend?.height).toBeCloseTo(hole.size, 12);
+  });
 });

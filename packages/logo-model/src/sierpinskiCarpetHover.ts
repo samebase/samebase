@@ -193,7 +193,11 @@ the opening at the near edge, 1 at the far edge, 0.5 centered. The shift
 saturates once the pointer is a half hole-side away, so holes beyond their
 own bounds keep hard edge anchoring, while a pointer crossing directly
 through a hole slides the anchor smoothly instead of flipping corners.
-Without a pointer the wipe falls back to a left-edge strip.
+Within that same half hole-side the axis split relaxes toward an even 0.5:
+a cardinal pass otherwise flips the raw ratio between wide and tall strips
+across a knife-edge at the center, and the blend widens that swing to the
+hole's own footprint so the rect stays continuous. Without a pointer the
+wipe falls back to a left-edge strip.
 */
 function readSlideAwayFromPointer(
   hole: SierpinskiCarpetHoverHole,
@@ -206,11 +210,13 @@ function readSlideAwayFromPointer(
   const deltaX = hole.centerX - pointer.x;
   const deltaY = hole.centerY - pointer.y;
   const totalDelta = Math.abs(deltaX) + Math.abs(deltaY);
+  const directionalBlend = clampUnit(totalDelta / (hole.size / 2));
+  const directionalWeightX = totalDelta > 0 ? Math.abs(deltaX) / totalDelta : 0.5;
 
   return {
     anchorShiftX: clampUnit(0.5 - deltaX / hole.size),
     anchorShiftY: clampUnit(0.5 - deltaY / hole.size),
-    weightX: totalDelta > 0 ? Math.abs(deltaX) / totalDelta : 0.5,
+    weightX: 0.5 + (directionalWeightX - 0.5) * directionalBlend,
   };
 }
 
