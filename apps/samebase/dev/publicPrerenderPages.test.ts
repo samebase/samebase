@@ -10,6 +10,14 @@ describe("readPublicPrerenderPages", () => {
     expect(paths).toContain("/docs/do-it-yourself");
     expect(paths).toContain("/docs/the-stack");
     expect(paths).toContain("/landing-preview");
+    expect(paths).toContain("/logo/iso");
+    expect(paths).toContain("/logo/raster");
+    expect(paths).toContain("/logo/raster-seams");
+    expect(paths).toContain("/logo/single-cube");
+    expect(paths).toContain("/logo/svg");
+    expect(paths).toContain("/logo/transition");
+    expect(paths).toContain("/logo/transition/menger");
+    expect(paths).toContain("/logo/transition/transforms");
     expect(paths).toContain("/pricing");
     expect(paths).toContain("/privacy");
     expect(paths).toContain("/terms");
