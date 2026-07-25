@@ -470,7 +470,7 @@ function VaultEnvironmentTree({ roots }: { roots: readonly VaultEnvironmentRoot[
   const hideRootDirectory = roots.length === 1 && roots[0]?.rootDirectory === "/";
 
   return (
-    <div className="ml-2.5 pl-5">
+    <div className={hideRootDirectory ? undefined : "ml-2.5 pl-5"}>
       {roots.map((root, index) => (
         <div key={root.rootDirectory} className="relative">
           {hideRootDirectory ? null : (
@@ -492,7 +492,7 @@ function VaultEnvironmentTree({ roots }: { roots: readonly VaultEnvironmentRoot[
               <RootDirectoryLabel rootDirectory={root.rootDirectory} />
             </div>
           )}
-          <div className={hideRootDirectory ? "py-0.5" : "pb-0.5"}>
+          <div className={hideRootDirectory ? undefined : "pb-0.5"}>
             {root.resources.map((resource) => (
               <VaultEnvironmentResourceRow
                 key={`${resource.kind}:${resource.id}`}
@@ -655,16 +655,14 @@ function DefaultBranchSection({
           </Link>
         </div>
       ) : null}
-      <div className="mt-3">
-        {productionLoading && environmentRoots.length === 0 ? (
-          <div className="grid gap-2 py-2" aria-label="Loading production destinations">
-            <div className="h-3 w-44 max-w-full bg-muted motion-safe:animate-pulse" />
-            <div className="h-3 w-32 max-w-full bg-muted motion-safe:animate-pulse" />
-          </div>
-        ) : (
-          <VaultEnvironmentTree roots={environmentRoots} />
-        )}
-      </div>
+      {productionLoading && environmentRoots.length === 0 ? (
+        <div className="grid gap-2 py-2" aria-label="Loading production destinations">
+          <div className="h-3 w-44 max-w-full bg-muted motion-safe:animate-pulse" />
+          <div className="h-3 w-32 max-w-full bg-muted motion-safe:animate-pulse" />
+        </div>
+      ) : (
+        <VaultEnvironmentTree roots={environmentRoots} />
+      )}
     </section>
   );
 }
