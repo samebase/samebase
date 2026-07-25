@@ -120,7 +120,7 @@ test("shows the shared overview model on desktop", async ({ page }) => {
   ).toHaveAttribute("href", "https://github.com/samebase/samebase/pull/1260");
   await expect(fixture.getByRole("button", { name: "Filters" })).toHaveCount(0);
   const deploymentActions = fixture.getByRole("button", {
-    name: "Open calm-swan-123 deployment actions",
+    name: "Open calm-swan-123 actions",
   });
   await deploymentActions.click();
   await expect(page.getByRole("menuitem", { name: "Data" })).toBeVisible();
@@ -134,6 +134,17 @@ test("shows the shared overview model on desktop", async ({ page }) => {
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
+});
+
+test("opens the production Convex Schema route", async ({ page }) => {
+  const fixture = await openVaultOverviewV2(page, "vault-overview-v2");
+
+  await fixture.getByRole("button", { name: "Open calm-swan-123 actions" }).click();
+  await page.getByRole("menuitem", { name: "Schema" }).click();
+
+  await expect(page).toHaveURL(
+    "/vault/samebase/samebase/schema/main/project/convex-project-samebase",
+  );
 });
 
 test("loads the next pull request page at the scroll end", async ({ page }) => {

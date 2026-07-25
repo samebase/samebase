@@ -973,46 +973,40 @@ function VaultOverviewV2Fixture({ mode }: { mode: VaultOverviewVisualMode }) {
   });
 
   return (
-    <TestRouterProvider
-      initialEntries={[
-        page === "settings" ? "/vault/samebase/samebase/settings" : "/vault/samebase/samebase",
-      ]}
-    >
-      <WorkspaceLayoutV2FixtureFrame
-        dataTestId={mode}
-        left={{
-          header: (
-            <div className="flex h-full items-center px-2 text-sm font-medium text-foreground">
-              Vaults
-            </div>
-          ),
-          content: (
-            <VaultOverviewSidebar
-              page={page}
-              selectedVaultId={LIST_SPACING_VAULT_ID}
-              sidebarSummaries={FIXTURE_SIDEBAR_SUMMARIES}
-              vaults={SIDEBAR_LIST_VAULTS}
-              workspace={workspace}
-            />
-          ),
-        }}
-        main={{
-          content: (
-            <VaultOverviewPage
-              developerToolsVisible={mode === "vault-overview-v2-dev"}
-              isRemovingVault={false}
-              page={page}
-              resourceRailState={resourceRailState}
-              workspace={workspace}
-              onOpenDeleteDialog={() => {}}
-              onRetryInfrastructureProvisioning={() => {}}
-              onRetryVaultDeletion={() => {}}
-            />
-          ),
-        }}
-        shortcutPaneSide="left"
-      />
-    </TestRouterProvider>
+    <WorkspaceLayoutV2FixtureFrame
+      dataTestId={mode}
+      left={{
+        header: (
+          <div className="flex h-full items-center px-2 text-sm font-medium text-foreground">
+            Vaults
+          </div>
+        ),
+        content: (
+          <VaultOverviewSidebar
+            page={page}
+            selectedVaultId={LIST_SPACING_VAULT_ID}
+            sidebarSummaries={FIXTURE_SIDEBAR_SUMMARIES}
+            vaults={SIDEBAR_LIST_VAULTS}
+            workspace={workspace}
+          />
+        ),
+      }}
+      main={{
+        content: (
+          <VaultOverviewPage
+            developerToolsVisible={mode === "vault-overview-v2-dev"}
+            isRemovingVault={false}
+            page={page}
+            resourceRailState={resourceRailState}
+            workspace={workspace}
+            onOpenDeleteDialog={() => {}}
+            onRetryInfrastructureProvisioning={() => {}}
+            onRetryVaultDeletion={() => {}}
+          />
+        ),
+      }}
+      shortcutPaneSide="left"
+    />
   );
 }
 
