@@ -440,8 +440,13 @@ test("landing document navigation resets new articles and restores history posit
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await showLandingHeroPoster(page);
   await page.goto(LANDING_PREVIEW_ROUTE, {
     waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+  await page.evaluate(async () => {
+    await document.fonts.ready;
   });
 
   const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
