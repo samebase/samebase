@@ -10,7 +10,7 @@ export type SierpinskiCarpetHoverFalloff = (typeof SIERPINSKI_CARPET_HOVER_FALLO
 
 export const SIERPINSKI_CARPET_HOVER_MAX_DEPTH: SierpinskiCarpetHoverDepth = 6;
 export const SIERPINSKI_CARPET_HOVER_DEFAULT_DEPTH: SierpinskiCarpetHoverDepth = 5;
-export const SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC: SierpinskiCarpetHoverMechanic = "grow";
+export const SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC: SierpinskiCarpetHoverMechanic = "slide";
 export const SIERPINSKI_CARPET_HOVER_DEFAULT_FALLOFF: SierpinskiCarpetHoverFalloff = "shared";
 export const SIERPINSKI_CARPET_HOVER_MIN_REVEAL_RADIUS = 0.05;
 export const SIERPINSKI_CARPET_HOVER_MAX_REVEAL_RADIUS = 1;

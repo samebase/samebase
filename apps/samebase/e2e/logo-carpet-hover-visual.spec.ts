@@ -46,7 +46,7 @@ test("carpet holes reveal around the pointer for both mechanics", async ({ page 
   expect(layoutMetrics.pageHeight).toBeLessThanOrEqual(layoutMetrics.viewportHeight);
   expect(layoutMetrics.sceneHeight).toBe(layoutMetrics.pageHeight);
 
-  await expect(carpetPage).toHaveAttribute("data-mechanic", "grow");
+  await expect(carpetPage).toHaveAttribute("data-mechanic", "slide");
   await expect(carpetPage).toHaveAttribute("data-falloff", "shared");
   await expect(carpetPage).toHaveAttribute("data-max-depth", "5");
   await expect(scene).toHaveAttribute("data-carpet-settled", "true");
@@ -65,20 +65,20 @@ test("carpet holes reveal around the pointer for both mechanics", async ({ page 
   await expect(scene).toHaveAttribute("data-carpet-settled", "true");
   await waitForPaint(page);
 
-  await expect(scene).toHaveScreenshot("logo-carpet-hover-grow.png", SCREENSHOT_OPTIONS);
+  await expect(scene).toHaveScreenshot("logo-carpet-hover-slide.png", SCREENSHOT_OPTIONS);
 
-  await page.getByRole("button", { exact: true, name: "Slide" }).click();
-  await expect(carpetPage).toHaveAttribute("data-mechanic", "slide");
+  await page.getByRole("button", { exact: true, name: "Grow" }).click();
+  await expect(carpetPage).toHaveAttribute("data-mechanic", "grow");
   await page.mouse.move(hoverX, hoverY);
   await expect(scene).toHaveAttribute("data-carpet-settled", "true");
   await waitForPaint(page);
 
-  await expect(scene).toHaveScreenshot("logo-carpet-hover-slide.png", SCREENSHOT_OPTIONS);
+  await expect(scene).toHaveScreenshot("logo-carpet-hover-grow.png", SCREENSHOT_OPTIONS);
 
   await page.getByRole("button", { exact: true, name: "Per-depth" }).click();
   await expect(carpetPage).toHaveAttribute("data-falloff", "per-depth");
-  await page.getByRole("button", { exact: true, name: "Grow" }).click();
-  await expect(carpetPage).toHaveAttribute("data-mechanic", "grow");
+  await page.getByRole("button", { exact: true, name: "Slide" }).click();
+  await expect(carpetPage).toHaveAttribute("data-mechanic", "slide");
 
   // The reveal tracks the pointer page-wide, so a mouse parked over the
   // chrome still resolves to a settled openness state.

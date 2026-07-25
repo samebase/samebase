@@ -327,13 +327,13 @@ describe("logoRouteSearch", () => {
     const nonDefaultSearch = buildLogoCarpetHoverRouteSearch({
       ...carpetDefaults,
       carpetFalloff: "per-depth",
-      carpetMechanic: "slide",
+      carpetMechanic: "grow",
       carpetRevealDepth: 3,
       carpetRevealRadius: 0.5,
     });
 
     expect(nonDefaultSearch.falloff).toBe("per-depth");
-    expect(nonDefaultSearch.mechanic).toBe("slide");
+    expect(nonDefaultSearch.mechanic).toBe("grow");
     expect(nonDefaultSearch.depth).toBe(3);
     expect(nonDefaultSearch.radius).toBe(0.5);
   });

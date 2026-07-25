@@ -578,7 +578,7 @@ The lab route at /logo/hover/carpet owns the adjustable knobs.
 const LANDING_HERO_CARPET_CONFIG: SierpinskiCarpetHoverSceneConfig = {
   falloff: "shared",
   maxDepth: 4,
-  mechanic: "grow",
+  mechanic: "slide",
   revealRadius: SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
 };
 
