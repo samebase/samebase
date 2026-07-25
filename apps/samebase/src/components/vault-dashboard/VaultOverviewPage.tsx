@@ -704,33 +704,25 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
         <span className="flex h-4 w-5 shrink-0 items-center justify-center">
           <CloudflareProviderLogo />
         </span>
+        <span className="min-w-0 truncate text-sm font-medium leading-5 text-foreground">
+          {worker.workerName}
+        </span>
         {worker.build.state === "available" ? (
           <a
-            className="inline-flex min-h-10 min-w-0 items-center gap-1 text-foreground no-underline hover:no-underline @4xl:min-h-8"
+            className="inline-flex min-h-10 shrink-0 items-center gap-1 text-sm underline decoration-border underline-offset-4 @4xl:min-h-8"
             href={worker.build.logsUrl}
             rel="noreferrer noopener"
             target="_blank"
             title={`Open build logs for ${worker.workerName}`}
           >
-            <span className="min-w-0 truncate text-sm font-medium leading-5 underline decoration-border underline-offset-4">
-              {worker.workerName}
-            </span>
+            <BuildState state={worker.build.buildState} />
             <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
           </a>
         ) : (
-          <span className="min-w-0 truncate text-sm font-medium leading-5 text-foreground">
-            {worker.workerName}
-          </span>
-        )}
-        {worker.build.state === "available" && worker.build.buildState !== "success" ? (
-          <span className="shrink-0 text-sm">
-            <BuildState state={worker.build.buildState} />
-          </span>
-        ) : worker.build.state !== "available" ? (
           <span className="shrink-0 text-sm text-muted-foreground">
             {worker.build.state === "absent" ? "No build" : "Unavailable"}
           </span>
-        ) : null}
+        )}
       </div>
       {worker.destination.state === "available" || worker.actions.length > 0 ? (
         <div className="ml-[1.875rem] flex min-w-0 items-start gap-1 text-sm">
