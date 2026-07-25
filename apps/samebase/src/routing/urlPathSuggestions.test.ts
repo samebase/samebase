@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { getRouter } from "@/router";
 import {
-  filterRouteUrlPathSuggestions,
   isRouteUrlPathReadyForNavigation,
   readRouteUrlPathSuggestions,
 } from "./urlPathSuggestions";
@@ -9,7 +8,6 @@ import type { RouteAccessViewer } from "@/routing/permissions";
 import { ROLE_ACCESS_GRANTS } from "../../shared/accessModel";
 
 const ORIGIN = "http://localhost:5174";
-const DEPLOYED_ORIGIN = "https://preview.samebase.com";
 const routesByPath = getRouter().routesByPath;
 const staffViewer = {
   accessKeys: ROLE_ACCESS_GRANTS.role_staff,
@@ -174,137 +172,6 @@ describe("readRouteUrlPathSuggestions", () => {
 
     expect(suggestions).not.toContain("/test");
     expect(suggestions).not.toContain("/visual-fixture");
-  });
-});
-
-describe("filterRouteUrlPathSuggestions", () => {
-  it("filters static route paths by the typed draft path", () => {
-    expect(
-      filterRouteUrlPathSuggestions({
-        currentHref: "/",
-        draftHref: "/logo/t?dev",
-        origin: ORIGIN,
-        routesByPath,
-        viewer: staffViewer,
-      }),
-    ).toEqual(["/logo/transition", "/logo/transition/menger", "/logo/transition/transforms"]);
-  });
-
-  it("reads the path from the focused same-origin editor URL", () => {
-    expect(
-      filterRouteUrlPathSuggestions({
-        currentHref: "/",
-        draftHref: `${ORIGIN}/logo/r?dev`,
-        origin: ORIGIN,
-        routesByPath,
-        viewer: staffViewer,
-      }),
-    ).toEqual(["/logo/raster", "/logo/raster-seams"]);
-  });
-
-  it("filters query and hash drafts against the current route path", () => {
-    expect(
-      filterRouteUrlPathSuggestions({
-        currentHref: "/logo/iso?dark&dev#controls",
-        draftHref: "?prod-ui&dev",
-        origin: ORIGIN,
-        routesByPath,
-        viewer: staffViewer,
-      }),
-    ).toEqual(["/logo/iso"]);
-
-    expect(
-      filterRouteUrlPathSuggestions({
-        currentHref: "/logo/transition/menger?dev",
-        draftHref: "?dev#thread",
-        origin: ORIGIN,
-        routesByPath,
-        viewer: staffViewer,
-      }),
-    ).toEqual(["/logo/transition/menger"]);
-  });
-
-  it("matches dynamic templates against concrete typed path segments", () => {
-    expect(
-      filterRouteUrlPathSuggestions({
-        currentHref: "/",
-        draftHref: "/vault/octo/repo/db/main/proj",
-        origin: ORIGIN,
-        routesByPath,
-        viewer: staffViewer,
-      }),
-    ).toEqual(["/vault/$", "/vault/$owner/$repo/db/$branch/project/$convexProjectId"]);
-  });
-
-  it("keeps the catch-all vault route available for file path drafts", () => {
-    expect(
-      filterRouteUrlPathSuggestions({
-        currentHref: "/",
-        draftHref: "/vault/octo/repo/fs/main/src/App.tsx",
-        origin: ORIGIN,
-        routesByPath,
-        viewer: staffViewer,
-      }),
-    ).toEqual(["/vault/$"]);
-  });
-
-  it("returns all paths for an empty draft and rejects external absolute URLs", () => {
-    expect(
-      filterRouteUrlPathSuggestions({
-        currentHref: "/logo",
-        draftHref: "  ",
-        origin: ORIGIN,
-        routesByPath,
-        viewer: staffViewer,
-      }),
-    ).toEqual(readRouteUrlPathSuggestions(routesByPath, staffViewer, localEnvironment, false));
-
-    expect(
-      filterRouteUrlPathSuggestions({
-        currentHref: "/",
-        draftHref: "https://example.com/logo",
-        origin: ORIGIN,
-        routesByPath,
-        viewer: staffViewer,
-      }),
-    ).toEqual([]);
-  });
-
-  it("uses the prod UI query as a path suggestion display filter", () => {
-    const suggestions = filterRouteUrlPathSuggestions({
-      currentHref: "/?prod-ui",
-      draftHref: "  ",
-      origin: ORIGIN,
-      routesByPath,
-      viewer: staffViewer,
-    });
-
-    expect(suggestions).toContain("/logo");
-    expect(suggestions).not.toContain("/visual-fixture");
-  });
-
-  it("hides local-only route suggestions on deployed origins", () => {
-    const suggestions = filterRouteUrlPathSuggestions({
-      currentHref: "/",
-      draftHref: "/vis",
-      origin: DEPLOYED_ORIGIN,
-      routesByPath,
-      viewer: staffViewer,
-    });
-
-    expect(suggestions).toEqual([]);
-  });
-
-  it("hides test route suggestions on deployed origins", () => {
-    const suggestions = filterRouteUrlPathSuggestions({
-      currentHref: "/",
-      draftHref: "/test",
-      origin: DEPLOYED_ORIGIN,
-      routesByPath,
-      viewer: staffViewer,
-    });
-
-    expect(suggestions).toEqual([]);
   });
 });
 

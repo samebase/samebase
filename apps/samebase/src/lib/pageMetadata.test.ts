@@ -4,6 +4,7 @@ import { buildRootHead } from "@/lib/rootHead";
 import {
   APP_PAGE_METADATA,
   applyPageMetadata,
+  buildLogoLabPageHead,
   resolveAppPageTitle,
   resolveNotFoundPageMetadata,
   resolvePageMetadata,
@@ -221,6 +222,35 @@ describe("page metadata", () => {
       openGraphType: "website",
       robots: "index,follow",
       title: SAMEBASE_BRAND_COPY.homepage.title,
+    });
+  });
+
+  it("builds non-indexed server metadata for public logo labs", () => {
+    const head = buildLogoLabPageHead("/logo/iso", "Logo ISO Preview");
+
+    expect(head.meta).toContainEqual({
+      title: "Logo ISO Preview | Samebase",
+    });
+    expect(head.meta).toContainEqual({
+      name: "robots",
+      content: "noindex,nofollow",
+    });
+    expect(head.meta).toContainEqual({
+      property: "og:url",
+      content: "https://samebase.com/logo/iso",
+    });
+    expect(head.links).toEqual([
+      {
+        rel: "canonical",
+        href: "https://samebase.com/logo/iso",
+      },
+    ]);
+  });
+
+  it("omits the homepage canonical from nested route document shells", () => {
+    expect(buildRootHead({ includeHomeCanonical: false }).links).not.toContainEqual({
+      rel: "canonical",
+      href: "https://samebase.com/",
     });
   });
 

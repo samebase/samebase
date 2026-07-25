@@ -6,6 +6,7 @@ import {
 } from "@/routeSearch/logo";
 import { LogoTransitionTransformsLabPage } from "@/components/logo/LogoTransitionTransformsLabPage";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+import { buildLogoLabPageHead } from "@/lib/pageMetadata";
 
 const pathname = "/logo/transition/transforms";
 
@@ -14,6 +15,7 @@ function LogoTransitionTransformsLabRouteComponent() {
 }
 
 export const Route = createFileRoute("/logo/transition/transforms")({
+  head: () => buildLogoLabPageHead(pathname, "Single Cube Transform Lab"),
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     acceptedSearchKeys: LOGO_ROUTE_SEARCH_KEYS,

@@ -7,6 +7,7 @@ import {
   validateLogoRouteSearch,
 } from "@/routeSearch/logo";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+import { buildLogoLabPageHead } from "@/lib/pageMetadata";
 
 const pathname = "/logo/single-cube";
 
@@ -17,6 +18,7 @@ function LogoIsoStudyRouteComponent() {
 }
 
 export const Route = createFileRoute("/logo/single-cube")({
+  head: () => buildLogoLabPageHead(pathname, "Single Cube Rotation Lab"),
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     acceptedSearchKeys: LOGO_ROUTE_SEARCH_KEYS,

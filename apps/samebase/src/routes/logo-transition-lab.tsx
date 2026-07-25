@@ -6,6 +6,7 @@ import {
 } from "@/routeSearch/logo";
 import { LogoTransitionLabPage } from "@/components/logo/LogoTransitionLabPage";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+import { buildLogoLabPageHead } from "@/lib/pageMetadata";
 
 const pathname = "/logo/transition";
 
@@ -14,6 +15,7 @@ function LogoTransitionLabRouteComponent() {
 }
 
 export const Route = createFileRoute("/logo/transition")({
+  head: () => buildLogoLabPageHead(pathname, "Logo Transition Lab"),
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     acceptedSearchKeys: LOGO_ROUTE_SEARCH_KEYS,

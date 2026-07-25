@@ -41,41 +41,6 @@ export function readRouteUrlPathSuggestions(
     .sort(compareRouteUrlPathSuggestion);
 }
 
-export function filterRouteUrlPathSuggestions({
-  currentHref,
-  draftHref,
-  origin,
-  routesByPath,
-  viewer,
-}: RouteUrlPathSuggestionsInput): readonly string[] {
-  const suggestions = readRouteUrlPathSuggestions(
-    routesByPath,
-    viewer,
-    readRouteUrlPathSuggestionEnvironment({
-      currentHref,
-      draftHref,
-      origin,
-    }),
-    routeUrlPathSuggestionsIncludeDeveloperRoutes({
-      currentHref,
-      draftHref,
-      origin,
-    }),
-  );
-  const draftPath = readRouteUrlPathSuggestionDraftPath({
-    currentHref,
-    draftHref,
-    origin,
-  });
-  if (draftPath === null) {
-    return [];
-  }
-
-  return suggestions.filter((pathSuggestion) =>
-    routePathSuggestionMatchesDraft(pathSuggestion, draftPath),
-  );
-}
-
 /**
  * True when the current draft path maps to a navigable route that can load as
  * written. Navigability is access plus environment: `pathSuggestion: "hidden"`
@@ -142,23 +107,6 @@ function isRouteUrlPathSuggestion(
       (staticData.pathSuggestion === "dev" && includeDeveloperSuggestions)) &&
     isRouteUrlNavigablePath(path, staticData, viewer, routeEnvironment)
   );
-}
-
-function routeUrlPathSuggestionsIncludeDeveloperRoutes({
-  currentHref,
-  draftHref,
-  origin,
-}: Omit<RouteUrlPathSuggestionsInput, "routesByPath" | "viewer">): boolean {
-  try {
-    const appOrigin = new URL(origin);
-    const currentUrl = new URL(currentHref, appOrigin);
-    const trimmedDraftHref = draftHref.trim();
-    const draftUrl = trimmedDraftHref ? new URL(trimmedDraftHref, currentUrl) : currentUrl;
-
-    return draftUrl.origin === appOrigin.origin && draftUrl.searchParams.has("dev");
-  } catch {
-    return false;
-  }
 }
 
 function compareRouteUrlPathSuggestion(left: string, right: string): number {
@@ -265,14 +213,6 @@ function readRouteUrlPathSuggestionPathname(pathname: string): string {
   return pathname.replace(/\/+$/, "");
 }
 
-function routePathSuggestionMatchesDraft(pathSuggestion: string, draftPath: string): boolean {
-  if (pathSuggestion.startsWith(draftPath)) {
-    return true;
-  }
-
-  return routePathTemplateMatchesDraft(pathSuggestion, draftPath);
-}
-
 /**
  * Static suggestions require exact path equality; dynamic and catch-all
  * templates must have every required segment before previews can touch router
@@ -284,47 +224,6 @@ function routePathSuggestionCanLoadDraft(pathSuggestion: string, draftPath: stri
   }
 
   return routePathTemplateCanLoadDraft(pathSuggestion, draftPath);
-}
-
-function routePathTemplateMatchesDraft(templatePath: string, draftPath: string): boolean {
-  if (draftPath === "/") {
-    return true;
-  }
-
-  // `$` is the shipped catch-all vault route, while `$name` segments are
-  // templates that should match concrete partial URL drafts.
-  const templateSegments = readRoutePathSegments(templatePath);
-  const draftSegments = readRoutePathSegments(draftPath);
-
-  for (const [index, draftSegment] of draftSegments.entries()) {
-    const templateSegment = templateSegments[index];
-    if (!templateSegment) {
-      return false;
-    }
-
-    const lastDraftSegment = index === draftSegments.length - 1;
-    if (lastDraftSegment && draftSegment === "") {
-      return true;
-    }
-
-    if (templateSegment === "$" && index === templateSegments.length - 1) {
-      return true;
-    }
-
-    if (templateSegment.startsWith("$")) {
-      continue;
-    }
-
-    if (lastDraftSegment && templateSegment.startsWith(draftSegment)) {
-      continue;
-    }
-
-    if (templateSegment !== draftSegment) {
-      return false;
-    }
-  }
-
-  return true;
 }
 
 function routePathTemplateCanLoadDraft(templatePath: string, draftPath: string): boolean {

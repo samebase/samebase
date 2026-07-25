@@ -32,12 +32,7 @@ describe("AppSidebarMetaSection", () => {
   function LocationProbe() {
     const location = useLocation();
 
-    return (
-      <output data-href={location.href} data-testid="router-location">
-        {location.pathname}
-        {location.searchStr}
-      </output>
-    );
+    return <output data-href={location.href} data-testid="router-location" />;
   }
 
   function BackLink() {
@@ -186,6 +181,29 @@ describe("AppSidebarMetaSection", () => {
 
     expect(landingPreviewPathLink).toBeUndefined();
     expect(romanianQueryLink).toBeNull();
+  });
+
+  it("keeps an active theme suffix outside the toggle hit target", async () => {
+    const element = await renderSidebarMetaSection("/?dev&dark");
+    const darkSuffix = element.querySelector<HTMLElement>(
+      '[data-testid="public-landing-theme-dark-toggle-suffix"]',
+    );
+    if (!darkSuffix) {
+      throw new Error("Expected public landing dark shortcut suffix.");
+    }
+
+    await act(async () => {
+      darkSuffix.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          button: 0,
+          cancelable: true,
+        }),
+      );
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationHref()).toBe("/?dev&dark");
   });
 
   it("toggles an active theme shortcut through the committed router location", async () => {

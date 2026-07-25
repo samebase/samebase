@@ -94,7 +94,11 @@ function buildDevRootStylesheetLinks() {
   ];
 }
 
-export function buildRootHead() {
+export function buildRootHead({
+  includeHomeCanonical = true,
+}: {
+  includeHomeCanonical?: boolean;
+} = {}) {
   return {
     links: [
       ...buildDevRootStylesheetLinks(),
@@ -125,10 +129,14 @@ export function buildRootHead() {
         href: "/apple-touch-icon.png",
         sizes: "180x180",
       },
-      {
-        rel: "canonical",
-        href: "https://samebase.com/",
-      },
+      ...(includeHomeCanonical
+        ? [
+            {
+              rel: "canonical",
+              href: "https://samebase.com/",
+            },
+          ]
+        : []),
     ],
     meta: [
       {

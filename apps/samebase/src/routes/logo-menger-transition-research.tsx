@@ -7,6 +7,7 @@ import {
   validateLogoRouteSearchForRenderer,
 } from "@/routeSearch/logo";
 import { createFileRoute } from "@tanstack/react-router";
+import { buildLogoLabPageHead } from "@/lib/pageMetadata";
 
 const pathname = "/logo/transition/menger";
 
@@ -29,6 +30,7 @@ function LogoMengerTransitionRouteComponent() {
 }
 
 export const Route = createFileRoute("/logo/transition/menger")({
+  head: () => buildLogoLabPageHead(pathname, "Menger Depth Transition Lab"),
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     acceptedSearchKeys: LOGO_ROUTE_SEARCH_KEYS,
