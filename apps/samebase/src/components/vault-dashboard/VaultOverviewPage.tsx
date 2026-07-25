@@ -725,18 +725,15 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
       </div>
       <div className="ml-[1.875rem] flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs">
         {worker.build.state === "available" ? (
-          <>
+          <a
+            className="inline-flex min-h-10 items-center gap-1 underline decoration-border underline-offset-4 hover:decoration-foreground @4xl:min-h-7"
+            href={worker.build.logsUrl}
+            rel="noreferrer noopener"
+            target="_blank"
+          >
             <BuildState state={worker.build.buildState} />
-            <a
-              className="inline-flex min-h-10 items-center gap-1 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-7"
-              href={worker.build.logsUrl}
-              rel="noreferrer noopener"
-              target="_blank"
-            >
-              Build logs
-              <ExternalLink className="h-3 w-3" />
-            </a>
-          </>
+            <ExternalLink className="h-3 w-3 text-muted-foreground" />
+          </a>
         ) : (
           <span className="text-muted-foreground">
             {worker.build.state === "absent" ? "No build" : "Build unavailable"}

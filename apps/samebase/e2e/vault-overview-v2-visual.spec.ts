@@ -165,7 +165,7 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
 
   await firstPullRequest.click();
   await expect(fixture.getByRole("link", { name: "Branch preview" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Build logs" }).first()).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Built" }).first()).toBeVisible();
   await expect(fixture.getByRole("link", { name: "View changes" }).first()).toBeVisible();
   await expect(
     fixture.getByRole("link", { name: "precise-otter-1260", exact: true }),
