@@ -255,7 +255,7 @@ export function SierpinskiCarpetHoverScene({
     <div
       ref={containerRef}
       aria-label="Sierpinski carpet hover reveal"
-      className="relative h-full min-h-0 w-full cursor-crosshair touch-none select-none"
+      className="relative h-full min-h-0 w-full touch-none select-none"
       data-carpet-ready={isSceneReady ? "true" : "false"}
       data-testid="logo-carpet-hover-scene"
       role="img"
