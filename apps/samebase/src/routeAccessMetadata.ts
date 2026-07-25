@@ -118,12 +118,6 @@ const routeAccessMetadataByPath = {
   "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": {
     access: "access_schema_graph",
   },
-  "/vaultold/": {
-    access: "access_dashboard",
-    appWorkspaceRouteChrome: { leftPane: "none" },
-    pathSuggestion: "hidden",
-  },
-  "/vaultold/$owner/$repo": { access: "access_dashboard", pathSuggestion: "hidden" },
   "/visual-fixture": {
     access: "access_public",
     appWorkspaceRouteChrome: {

@@ -39,9 +39,7 @@ import { Route as docsReceiptsRouteImport } from "./routes/docs-receipts";
 import { Route as docsDoItYourselfRouteImport } from "./routes/docs-do-it-yourself";
 import { Route as agentsConnectRouteImport } from "./routes/agents-connect";
 import { Route as adminAccountDeletionsRouteImport } from "./routes/admin-account-deletions";
-import { Route as vaultoldDashboardRootRouteImport } from "./routes/vaultold-dashboard-root";
 import { Route as vaultDashboardRootRouteImport } from "./routes/vault-dashboard-root";
-import { Route as vaultoldDashboardRouteImport } from "./routes/vaultold-dashboard";
 import { Route as vaultDashboardRouteImport } from "./routes/vault-dashboard";
 import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
 import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
@@ -202,19 +200,9 @@ const adminAccountDeletionsRoute = adminAccountDeletionsRouteImport.update({
   path: "/admin/account-deletions",
   getParentRoute: () => rootRouteImport,
 } as any);
-const vaultoldDashboardRootRoute = vaultoldDashboardRootRouteImport.update({
-  id: "/vaultold/",
-  path: "/vaultold/",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const vaultDashboardRootRoute = vaultDashboardRootRouteImport.update({
   id: "/vault/",
   path: "/vault/",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const vaultoldDashboardRoute = vaultoldDashboardRouteImport.update({
-  id: "/vaultold/$owner/$repo",
-  path: "/vaultold/$owner/$repo",
   getParentRoute: () => rootRouteImport,
 } as any);
 const vaultDashboardRoute = vaultDashboardRouteImport.update({
@@ -284,7 +272,6 @@ export interface FileRoutesByFullPath {
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault/": typeof vaultDashboardRootRoute;
-  "/vaultold/": typeof vaultoldDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/agents/connect": typeof agentsConnectRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
@@ -304,7 +291,6 @@ export interface FileRoutesByFullPath {
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
-  "/vaultold/$owner/$repo": typeof vaultoldDashboardRoute;
   "/vault/$owner/$repo/settings": typeof vaultSettingsRoute;
   "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
   "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
@@ -328,7 +314,6 @@ export interface FileRoutesByTo {
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault": typeof vaultDashboardRootRoute;
-  "/vaultold": typeof vaultoldDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/agents/connect": typeof agentsConnectRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
@@ -348,7 +333,6 @@ export interface FileRoutesByTo {
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
-  "/vaultold/$owner/$repo": typeof vaultoldDashboardRoute;
   "/vault/$owner/$repo/settings": typeof vaultSettingsRoute;
   "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
   "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
@@ -373,7 +357,6 @@ export interface FileRoutesById {
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault/": typeof vaultDashboardRootRoute;
-  "/vaultold/": typeof vaultoldDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/agents/connect": typeof agentsConnectRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
@@ -393,7 +376,6 @@ export interface FileRoutesById {
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
-  "/vaultold/$owner/$repo": typeof vaultoldDashboardRoute;
   "/vault/$owner/$repo/settings": typeof vaultSettingsRoute;
   "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
   "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
@@ -419,7 +401,6 @@ export interface FileRouteTypes {
     | "/test"
     | "/visual-fixture"
     | "/vault/"
-    | "/vaultold/"
     | "/admin/account-deletions"
     | "/agents/connect"
     | "/docs/do-it-yourself"
@@ -439,7 +420,6 @@ export interface FileRouteTypes {
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/vault/$owner/$repo"
-    | "/vaultold/$owner/$repo"
     | "/vault/$owner/$repo/settings"
     | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
     | "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
@@ -463,7 +443,6 @@ export interface FileRouteTypes {
     | "/test"
     | "/visual-fixture"
     | "/vault"
-    | "/vaultold"
     | "/admin/account-deletions"
     | "/agents/connect"
     | "/docs/do-it-yourself"
@@ -483,7 +462,6 @@ export interface FileRouteTypes {
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/vault/$owner/$repo"
-    | "/vaultold/$owner/$repo"
     | "/vault/$owner/$repo/settings"
     | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
     | "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
@@ -507,7 +485,6 @@ export interface FileRouteTypes {
     | "/test"
     | "/visual-fixture"
     | "/vault/"
-    | "/vaultold/"
     | "/admin/account-deletions"
     | "/agents/connect"
     | "/docs/do-it-yourself"
@@ -527,7 +504,6 @@ export interface FileRouteTypes {
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/vault/$owner/$repo"
-    | "/vaultold/$owner/$repo"
     | "/vault/$owner/$repo/settings"
     | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
     | "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
@@ -552,7 +528,6 @@ export interface RootRouteChildren {
   testRoute: typeof testRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
   vaultDashboardRootRoute: typeof vaultDashboardRootRoute;
-  vaultoldDashboardRootRoute: typeof vaultoldDashboardRootRoute;
   adminAccountDeletionsRoute: typeof adminAccountDeletionsRoute;
   agentsConnectRoute: typeof agentsConnectRoute;
   docsDoItYourselfRoute: typeof docsDoItYourselfRoute;
@@ -572,7 +547,6 @@ export interface RootRouteChildren {
   mcpConsentRoute: typeof mcpConsentRoute;
   pitchPrintMobileRoute: typeof pitchPrintMobileRoute;
   vaultDashboardRoute: typeof vaultDashboardRoute;
-  vaultoldDashboardRoute: typeof vaultoldDashboardRoute;
   vaultSettingsRoute: typeof vaultSettingsRoute;
   vaultDatabaseProjectRoute: typeof vaultDatabaseProjectRoute;
   vaultSchemaProjectRoute: typeof vaultSchemaProjectRoute;
@@ -790,25 +764,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof adminAccountDeletionsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/vaultold/": {
-      id: "/vaultold/";
-      path: "/vaultold";
-      fullPath: "/vaultold/";
-      preLoaderRoute: typeof vaultoldDashboardRootRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/vault/": {
       id: "/vault/";
       path: "/vault";
       fullPath: "/vault/";
       preLoaderRoute: typeof vaultDashboardRootRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/vaultold/$owner/$repo": {
-      id: "/vaultold/$owner/$repo";
-      path: "/vaultold/$owner/$repo";
-      fullPath: "/vaultold/$owner/$repo";
-      preLoaderRoute: typeof vaultoldDashboardRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/vault/$owner/$repo": {
@@ -896,7 +856,6 @@ const rootRouteChildren: RootRouteChildren = {
   testRoute: testRoute,
   visualFixtureRoute: visualFixtureRoute,
   vaultDashboardRootRoute: vaultDashboardRootRoute,
-  vaultoldDashboardRootRoute: vaultoldDashboardRootRoute,
   adminAccountDeletionsRoute: adminAccountDeletionsRoute,
   agentsConnectRoute: agentsConnectRoute,
   docsDoItYourselfRoute: docsDoItYourselfRoute,
@@ -916,7 +875,6 @@ const rootRouteChildren: RootRouteChildren = {
   mcpConsentRoute: mcpConsentRoute,
   pitchPrintMobileRoute: pitchPrintMobileRoute,
   vaultDashboardRoute: vaultDashboardRoute,
-  vaultoldDashboardRoute: vaultoldDashboardRoute,
   vaultSettingsRoute: vaultSettingsRoute,
   vaultDatabaseProjectRoute: vaultDatabaseProjectRoute,
   vaultSchemaProjectRoute: vaultSchemaProjectRoute,

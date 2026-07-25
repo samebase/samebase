@@ -156,12 +156,7 @@ export const AGENT_BROWSER_HANDOFF_PAGE_METADATA: PageMetadata = {
 };
 
 export function resolveAppPageTitle(pathname: string): string {
-  if (
-    pathname === DASHBOARD_ROUTE ||
-    pathname === `${DASHBOARD_ROUTE}/` ||
-    pathname === "/vaultold" ||
-    pathname === "/vaultold/"
-  ) {
+  if (pathname === DASHBOARD_ROUTE || pathname === `${DASHBOARD_ROUTE}/`) {
     return "Vaults | Samebase";
   }
 
@@ -213,7 +208,7 @@ export function resolveAppPageTitle(pathname: string): string {
     return INDEXED_DB_PAGE_METADATA.title;
   }
 
-  if (pathname.startsWith("/vault/") || pathname.startsWith("/vaultold/")) {
+  if (pathname.startsWith("/vault/")) {
     return "Workspace | Samebase";
   }
 

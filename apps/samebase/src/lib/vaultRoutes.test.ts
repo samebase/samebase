@@ -4,7 +4,6 @@ import {
   buildVaultDashboardRoute,
   buildVaultDatabaseRoute,
   buildVaultFileRoute,
-  buildVaultOldDashboardRoute,
   buildVaultSchemaRoute,
   buildVaultSettingsRoute,
   parseVaultPathContext,
@@ -32,16 +31,6 @@ describe("buildVaultSettingsRoute", () => {
   });
 });
 
-describe("buildVaultOldDashboardRoute", () => {
-  it("builds the legacy repository overview route", () => {
-    expect(
-      buildVaultOldDashboardRoute({
-        owner: "octo",
-        repoName: "web",
-      }),
-    ).toBe("/vaultold/octo/web");
-  });
-});
 describe("buildVaultFileRoute", () => {
   it("encodes branch names with slashes for file routes", () => {
     expect(

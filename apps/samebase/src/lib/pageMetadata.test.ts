@@ -212,9 +212,6 @@ describe("page metadata", () => {
     expect(APP_PAGE_METADATA.canonicalPath).toBe("/vault");
     expect(resolveAppPageTitle("/vault")).toBe("Vaults | Samebase");
     expect(resolveAppPageTitle("/vault/")).toBe("Vaults | Samebase");
-    expect(resolveAppPageTitle("/vaultold")).toBe("Vaults | Samebase");
-    expect(resolveAppPageTitle("/vaultold/")).toBe("Vaults | Samebase");
-    expect(resolveAppPageTitle("/vaultold/acme/demo")).toBe("Workspace | Samebase");
     expect(
       resolvePageMetadata({
         pathname: "/",

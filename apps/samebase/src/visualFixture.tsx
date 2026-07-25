@@ -12,14 +12,9 @@ import {
   type FileViewLayoutVisualMode,
 } from "@/components/FileViewLayoutVisualFixture";
 import {
-  VaultDashboardVisualFixture,
-  type VaultDashboardVisualMode,
-} from "@/components/vault-dashboard/VaultDashboardVisualFixture";
-import {
-  VaultOverviewDesignLabVisualFixture,
-  type VaultOverviewDesignLabPage,
-  type VaultOverviewDesignLabVisualMode,
-} from "@/components/vault-dashboard/VaultOverviewDesignLabVisualFixture";
+  VaultOverviewVisualFixture,
+  type VaultOverviewVisualMode,
+} from "@/components/vault-dashboard/VaultOverviewVisualFixture";
 import { CornerNotchVisualFixture } from "@/components/CornerNotchVisualFixture";
 import {
   LogoThreeVisualFixture,
@@ -65,10 +60,6 @@ import {
   type WorkspaceLayoutV2VisualMode,
 } from "@/components/WorkspaceLayoutV2VisualFixture";
 import {
-  VaultResourceRailVisualFixture,
-  type VaultResourceRailVisualMode,
-} from "@/components/vault-dashboard/VaultResourceRailVisualFixture";
-import {
   VaultSyncStatusVisualFixture,
   type VaultSyncStatusVisualMode,
 } from "@/components/VaultSyncStatusVisualFixture";
@@ -105,9 +96,7 @@ type VisualFixtureMode =
   | LogoThreeVisualMode
   | RepositoryMediaVisualMode
   | SidebarMediaUploadVisualMode
-  | VaultDashboardVisualMode
-  | VaultOverviewDesignLabVisualMode
-  | VaultResourceRailVisualMode
+  | VaultOverviewVisualMode
   | VaultSyncStatusVisualMode
   | WorkspaceLayoutV2VisualMode
   | ProviderConnectionsPageVisualMode
@@ -163,48 +152,22 @@ const LOGO_VISUAL_MODES = ["logo-three-reference", "logo-snap-angles"] as const 
 )[];
 
 const VAULT_DASHBOARD_VISUAL_MODES = [
-  "vault-dashboard-dev-tools-hidden",
-  "vault-dashboard-dev-tools-visible",
-  "vault-dashboard-connect-cloudflare-open",
-  "vault-dashboard-connect-cloudflare-loading",
-  "vault-dashboard-connect-cloudflare-mobile-shell-open",
-  "vault-dashboard-connect-convex-open",
-  "vault-dashboard-connect-convex-loading",
-  "vault-dashboard-connect-convex-error",
-  "vault-dashboard-delete-open",
-  "vault-dashboard-infra-setup",
-  "vault-dashboard-cloudflare-github-app-auth-failure",
-  "vault-dashboard-cloudflare-build-trigger-missing",
-  "vault-dashboard-provisioning-log",
-  "vault-dashboard-sticky-header",
-  "vault-dashboard-root-picker",
-  "vault-dashboard-sidebar-list",
-  "vault-dashboard-list-spacing",
-  "vault-dashboard-default-branch",
-  "vault-dashboard-source-setup-failed",
   "vault-overview-v2",
   "vault-overview-v2-auto-pagination",
   "vault-overview-v2-dev",
   "vault-overview-v2-loading",
   "vault-overview-v2-partial-loading",
+  "vault-overview-v2-provisioning-source",
+  "vault-overview-v2-provisioning-github",
+  "vault-overview-v2-provisioning-early-empty",
+  "vault-overview-v2-provisioning-complete-empty",
+  "vault-overview-v2-provisioning-stale-empty",
+  "vault-overview-v2-provisioning-commit",
+  "vault-overview-v2-provisioning-worker",
+  "vault-overview-v2-provisioning-ready",
   "vault-overview-v2-root",
   "vault-overview-v2-settings",
-  "vault-convex-schema-graph",
-  "vault-convex-schema-route-mobile",
-  "vault-pull-request-auto-pagination",
-  "vault-pull-request-filters",
-] as const satisfies readonly VaultDashboardVisualMode[];
-
-const VAULT_OVERVIEW_DESIGN_LAB_VISUAL_MODES = [
-  "vault-overview-lab-simple",
-  "vault-overview-lab-monorepo",
-  "vault-overview-lab-stress",
-  "vault-overview-lab-attention",
-] as const satisfies readonly VaultOverviewDesignLabVisualMode[];
-
-const VAULT_RESOURCE_RAIL_VISUAL_MODES = [
-  "vault-resource-rail",
-] as const satisfies readonly VaultResourceRailVisualMode[];
+] as const satisfies readonly VaultOverviewVisualMode[];
 
 const VAULT_SYNC_STATUS_VISUAL_MODES = [
   "vault-sync-status-states",
@@ -287,16 +250,8 @@ const VISUAL_FIXTURE_GROUPS = [
     modes: SIDEBAR_MEDIA_UPLOAD_VISUAL_MODES,
   },
   {
-    label: "Vault Dashboard",
+    label: "Vault Overview",
     modes: VAULT_DASHBOARD_VISUAL_MODES,
-  },
-  {
-    label: "Vault Overview Design Lab",
-    modes: VAULT_OVERVIEW_DESIGN_LAB_VISUAL_MODES,
-  },
-  {
-    label: "Vault Resource Rail",
-    modes: VAULT_RESOURCE_RAIL_VISUAL_MODES,
   },
   {
     label: "Vault Sync Status",
@@ -344,22 +299,13 @@ function readSelection(modeSearchValue: string | undefined): VisualFixtureSelect
   };
 }
 
-function renderVisualFixture(mode: VisualFixtureMode, page: VaultOverviewDesignLabPage) {
+function renderVisualFixture(mode: VisualFixtureMode) {
   if (mode === "account-deletion-running" || mode === "account-deletion-attention") {
     return <AccountDeletionStatusVisualFixture mode={mode} />;
   }
 
   if (mode === "media-png" || mode === "media-svg" || mode === "media-vox") {
     return <RepositoryMediaVisualFixture mode={mode} />;
-  }
-
-  if (
-    mode === "vault-overview-lab-simple" ||
-    mode === "vault-overview-lab-monorepo" ||
-    mode === "vault-overview-lab-stress" ||
-    mode === "vault-overview-lab-attention"
-  ) {
-    return <VaultOverviewDesignLabVisualFixture key={`${mode}:${page}`} mode={mode} page={page} />;
   }
 
   if (
@@ -381,42 +327,23 @@ function renderVisualFixture(mode: VisualFixtureMode, page: VaultOverviewDesignL
   }
 
   if (
-    mode === "vault-dashboard-dev-tools-hidden" ||
-    mode === "vault-dashboard-dev-tools-visible" ||
-    mode === "vault-dashboard-connect-cloudflare-open" ||
-    mode === "vault-dashboard-connect-cloudflare-loading" ||
-    mode === "vault-dashboard-connect-cloudflare-mobile-shell-open" ||
-    mode === "vault-dashboard-connect-convex-open" ||
-    mode === "vault-dashboard-connect-convex-loading" ||
-    mode === "vault-dashboard-connect-convex-error" ||
-    mode === "vault-dashboard-delete-open" ||
-    mode === "vault-dashboard-infra-setup" ||
-    mode === "vault-dashboard-cloudflare-github-app-auth-failure" ||
-    mode === "vault-dashboard-cloudflare-build-trigger-missing" ||
-    mode === "vault-dashboard-provisioning-log" ||
-    mode === "vault-dashboard-sticky-header" ||
-    mode === "vault-dashboard-root-picker" ||
-    mode === "vault-dashboard-sidebar-list" ||
-    mode === "vault-dashboard-list-spacing" ||
-    mode === "vault-dashboard-default-branch" ||
-    mode === "vault-dashboard-source-setup-failed" ||
     mode === "vault-overview-v2" ||
     mode === "vault-overview-v2-auto-pagination" ||
     mode === "vault-overview-v2-dev" ||
     mode === "vault-overview-v2-loading" ||
     mode === "vault-overview-v2-partial-loading" ||
+    mode === "vault-overview-v2-provisioning-source" ||
+    mode === "vault-overview-v2-provisioning-github" ||
+    mode === "vault-overview-v2-provisioning-early-empty" ||
+    mode === "vault-overview-v2-provisioning-complete-empty" ||
+    mode === "vault-overview-v2-provisioning-stale-empty" ||
+    mode === "vault-overview-v2-provisioning-commit" ||
+    mode === "vault-overview-v2-provisioning-worker" ||
+    mode === "vault-overview-v2-provisioning-ready" ||
     mode === "vault-overview-v2-root" ||
-    mode === "vault-overview-v2-settings" ||
-    mode === "vault-convex-schema-graph" ||
-    mode === "vault-convex-schema-route-mobile" ||
-    mode === "vault-pull-request-auto-pagination" ||
-    mode === "vault-pull-request-filters"
+    mode === "vault-overview-v2-settings"
   ) {
-    return <VaultDashboardVisualFixture mode={mode} />;
-  }
-
-  if (mode === "vault-resource-rail") {
-    return <VaultResourceRailVisualFixture />;
+    return <VaultOverviewVisualFixture mode={mode} />;
   }
 
   if (mode === "vault-sync-status-states") {
@@ -552,9 +479,8 @@ function renderVisualFixtureModeDirectory({ invalidMode }: { invalidMode?: strin
   );
 }
 
-export function VisualFixturePage(props: { mode?: string; view?: string }) {
+export function VisualFixturePage(props: { mode?: string }) {
   const selection = readSelection(props.mode);
-  const page = props.view === "settings" ? "settings" : "overview";
 
   return (
     <DialogProvider>
@@ -564,7 +490,7 @@ export function VisualFixturePage(props: { mode?: string; view?: string }) {
           ? renderVisualFixtureModeDirectory({
               invalidMode: selection.value,
             })
-          : renderVisualFixture(selection.mode, page)}
+          : renderVisualFixture(selection.mode)}
     </DialogProvider>
   );
 }

@@ -9,7 +9,7 @@ import type {
   VaultResourceRailActionList,
   VaultResourceRailRowState,
   VaultResourceRailState,
-} from "./VaultResourceRail";
+} from "./vaultResourceRailModel";
 import type {
   VaultCloudflareProviderObservationState,
   VaultCloudflareWorkerObservation,

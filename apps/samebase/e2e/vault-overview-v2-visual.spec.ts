@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { VaultDashboardVisualMode } from "../src/components/vault-dashboard/VaultDashboardVisualFixture";
+import type { VaultOverviewVisualMode } from "../src/components/vault-dashboard/VaultOverviewVisualFixture";
 import { WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX } from "../src/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
 import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
@@ -17,7 +17,7 @@ const VAULT_OVERVIEW_V2_SIDEBAR_STATE = {
 } satisfies WorkspaceSidebarState;
 
 type VaultOverviewV2VisualMode = Extract<
-  VaultDashboardVisualMode,
+  VaultOverviewVisualMode,
   | "vault-overview-v2"
   | "vault-overview-v2-auto-pagination"
   | "vault-overview-v2-dev"

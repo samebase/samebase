@@ -12,12 +12,11 @@ import {
   SamebaseLogoMark,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { VaultChecksPopover } from "@/components/vault-dashboard/VaultChecksPopover";
-import { VaultPullRequestLoadMoreSentinel } from "@/components/vault-dashboard/VaultPullRequestList";
 import type {
   VaultResourceRailAction,
   VaultResourceRailRowState,
   VaultResourceRailState,
-} from "@/components/vault-dashboard/VaultResourceRail";
+} from "@/components/vault-dashboard/vaultResourceRailModel";
 import {
   buildProductionEnvironmentRoots,
   buildPullRequestEnvironmentRoots,
@@ -59,7 +58,7 @@ import {
   MoreHorizontal,
   Settings,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
 import type { VaultWorkspaceSelected } from "./vaultWorkspaceModel";
 
@@ -1016,6 +1015,34 @@ function PullRequestsSection({
         )}
       </div>
     </section>
+  );
+}
+
+function VaultPullRequestLoadMoreSentinel({ loadMore }: { loadMore: () => void }) {
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) {
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        observer.disconnect();
+        loadMore();
+      }
+    });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadMore]);
+
+  return (
+    <div
+      ref={sentinelRef}
+      aria-hidden="true"
+      className="h-4"
+      data-pull-request-load-more-sentinel=""
+    />
   );
 }
 

@@ -8,13 +8,7 @@ const pathname = "/vault/$owner/$repo/settings";
 function VaultSettingsRouteComponent() {
   const { owner, repo } = Route.useParams();
 
-  return (
-    <DashboardRoutePage
-      page="settings"
-      presentation="v2"
-      selectedRepositoryFullName={`${owner}/${repo}`}
-    />
-  );
+  return <DashboardRoutePage page="settings" selectedRepositoryFullName={`${owner}/${repo}`} />;
 }
 
 export const Route = createFileRoute("/vault/$owner/$repo/settings")({

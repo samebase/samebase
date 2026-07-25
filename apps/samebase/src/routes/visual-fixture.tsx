@@ -7,15 +7,12 @@ import {
   readRouteSearchStaticData,
   routeSearchFiniteNumber,
   routeSearchString,
-  routeSearchStringValue,
   routeSearchValueParam,
 } from "@/routing/searchParamMetadata";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { VisualFixturePage } from "@/visualFixture";
 
 const pathname = "/visual-fixture";
-const VISUAL_FIXTURE_VIEW_VALUES = ["settings"] as const;
-
 const RouteSearchSchema_visualFixture = defineRouteSearchParams({
   elevation: routeSearchValueParam(routeSearchFiniteNumber, {
     access: "access_public",
@@ -34,13 +31,6 @@ const RouteSearchSchema_visualFixture = defineRouteSearchParams({
     sampleValue: "90",
     suggestion: "hidden",
     valueType: "freeform",
-  }),
-  view: routeSearchValueParam(routeSearchStringValue(VISUAL_FIXTURE_VIEW_VALUES), {
-    access: "access_public",
-    sampleValue: "settings",
-    suggestion: "hidden",
-    valueSuggestions: VISUAL_FIXTURE_VIEW_VALUES,
-    valueType: "options",
   }),
 });
 
@@ -61,7 +51,7 @@ function validateVisualFixtureRouteSearch(
 }
 
 function VisualFixtureRouteComponent() {
-  const { mode, view } = Route.useSearch();
+  const { mode } = Route.useSearch();
 
   return (
     <AppWorkspaceRouteChrome
@@ -71,7 +61,7 @@ function VisualFixtureRouteComponent() {
       right={null}
       rightToggleVisibility="hidden"
     >
-      <VisualFixturePage mode={mode} view={view} />
+      <VisualFixturePage mode={mode} />
     </AppWorkspaceRouteChrome>
   );
 }

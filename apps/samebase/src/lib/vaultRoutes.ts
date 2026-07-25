@@ -25,10 +25,6 @@ export function buildVaultSettingsRoute(args: { owner: string; repoName: string 
   return `${buildVaultDashboardRoute(args)}/settings`;
 }
 
-export function buildVaultOldDashboardRoute(args: { owner: string; repoName: string }): string {
-  return `/vaultold/${args.owner}/${args.repoName}`;
-}
-
 /**
  * Build the shipped `/vault/.../fs/...` file route shape.
  *
