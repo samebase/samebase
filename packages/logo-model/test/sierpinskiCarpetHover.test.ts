@@ -3,10 +3,15 @@ import {
   SIERPINSKI_CARPET_HOVER_DEPTHS,
   SIERPINSKI_CARPET_HOVER_FULL_OPEN_RADIUS_FRACTION,
   SIERPINSKI_CARPET_HOVER_HOLES,
+  SIERPINSKI_CARPET_HOVER_MAX_DEPTH,
+  SIERPINSKI_CARPET_HOVER_MAX_REVEAL_RADIUS,
+  SIERPINSKI_CARPET_HOVER_MIN_REVEAL_RADIUS,
   SIERPINSKI_CARPET_HOVER_PER_DEPTH_RADIUS_RATIO,
   createSierpinskiCarpetHoverHoles,
+  normalizeSierpinskiCarpetHoverRevealRadius,
   readSierpinskiCarpetHoleOpenness,
   readSierpinskiCarpetHoleRevealedRect,
+  readSierpinskiCarpetHoverDepth,
   type SierpinskiCarpetHoverConfig,
   type SierpinskiCarpetHoverHole,
 } from "../src/sierpinskiCarpetHover.ts";
@@ -105,6 +110,23 @@ describe("Sierpinski carpet hover", () => {
     }
 
     expect(orderViolationCount).toBe(0);
+  });
+
+  it("normalizes reveal radius and depth inputs to the model bounds", () => {
+    expect(normalizeSierpinskiCarpetHoverRevealRadius(0.5)).toBe(0.5);
+    expect(normalizeSierpinskiCarpetHoverRevealRadius(0)).toBe(
+      SIERPINSKI_CARPET_HOVER_MIN_REVEAL_RADIUS,
+    );
+    expect(normalizeSierpinskiCarpetHoverRevealRadius(9)).toBe(
+      SIERPINSKI_CARPET_HOVER_MAX_REVEAL_RADIUS,
+    );
+    expect(normalizeSierpinskiCarpetHoverRevealRadius(Number.NaN)).toBe(
+      SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
+    );
+
+    expect(readSierpinskiCarpetHoverDepth(5.4)).toBe(5);
+    expect(readSierpinskiCarpetHoverDepth(9)).toBe(SIERPINSKI_CARPET_HOVER_MAX_DEPTH);
+    expect(readSierpinskiCarpetHoverDepth(0)).toBe(1);
   });
 
   it("keeps the depth-one hole open and hidden depths closed without a pointer", () => {

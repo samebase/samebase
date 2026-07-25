@@ -1,13 +1,45 @@
 export const SIERPINSKI_CARPET_HOVER_DEPTHS = [1, 2, 3, 4, 5, 6] as const;
+export const SIERPINSKI_CARPET_HOVER_MECHANICS = ["grow", "slide"] as const;
+export const SIERPINSKI_CARPET_HOVER_FALLOFFS = ["per-depth", "shared"] as const;
+
+export type SierpinskiCarpetHoverDepth = (typeof SIERPINSKI_CARPET_HOVER_DEPTHS)[number];
+
+export type SierpinskiCarpetHoverMechanic = (typeof SIERPINSKI_CARPET_HOVER_MECHANICS)[number];
+
+export type SierpinskiCarpetHoverFalloff = (typeof SIERPINSKI_CARPET_HOVER_FALLOFFS)[number];
+
+export const SIERPINSKI_CARPET_HOVER_MAX_DEPTH: SierpinskiCarpetHoverDepth = 6;
+export const SIERPINSKI_CARPET_HOVER_DEFAULT_DEPTH: SierpinskiCarpetHoverDepth = 5;
+export const SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC: SierpinskiCarpetHoverMechanic = "grow";
+export const SIERPINSKI_CARPET_HOVER_DEFAULT_FALLOFF: SierpinskiCarpetHoverFalloff = "shared";
+export const SIERPINSKI_CARPET_HOVER_MIN_REVEAL_RADIUS = 0.05;
+export const SIERPINSKI_CARPET_HOVER_MAX_REVEAL_RADIUS = 1;
 export const SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS = 0.35;
 export const SIERPINSKI_CARPET_HOVER_PER_DEPTH_RADIUS_RATIO = 0.55;
 export const SIERPINSKI_CARPET_HOVER_FULL_OPEN_RADIUS_FRACTION = 0.25;
 
-export type SierpinskiCarpetHoverDepth = (typeof SIERPINSKI_CARPET_HOVER_DEPTHS)[number];
+export function normalizeSierpinskiCarpetHoverRevealRadius(value: number): number {
+  if (!Number.isFinite(value)) {
+    return SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS;
+  }
 
-export type SierpinskiCarpetHoverMechanic = "grow" | "slide";
+  return Math.min(
+    Math.max(value, SIERPINSKI_CARPET_HOVER_MIN_REVEAL_RADIUS),
+    SIERPINSKI_CARPET_HOVER_MAX_REVEAL_RADIUS,
+  );
+}
 
-export type SierpinskiCarpetHoverFalloff = "per-depth" | "shared";
+export function readSierpinskiCarpetHoverDepth(value: number): SierpinskiCarpetHoverDepth {
+  const rounded = Math.round(value);
+  const matchedDepth = SIERPINSKI_CARPET_HOVER_DEPTHS.find((depth) => depth === rounded);
+  if (matchedDepth !== undefined) {
+    return matchedDepth;
+  }
+
+  return rounded > SIERPINSKI_CARPET_HOVER_MAX_DEPTH
+    ? SIERPINSKI_CARPET_HOVER_MAX_DEPTH
+    : SIERPINSKI_CARPET_HOVER_DEPTHS[0];
+}
 
 export type SierpinskiCarpetHoverPointer = {
   x: number;
