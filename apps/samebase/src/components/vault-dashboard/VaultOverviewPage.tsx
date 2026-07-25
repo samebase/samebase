@@ -471,14 +471,24 @@ function VaultEnvironmentTree({ roots }: { roots: readonly VaultEnvironmentRoot[
   const hideRootDirectory = roots.length === 1 && roots[0]?.rootDirectory === "/";
 
   return (
-    <div className={hideRootDirectory ? "ml-2.5 pl-5" : "ml-2.5 border-l border-border pl-5"}>
-      {roots.map((root) => (
+    <div className="ml-2.5 pl-5">
+      {roots.map((root, index) => (
         <div key={root.rootDirectory} className="relative">
           {hideRootDirectory ? null : (
-            <span
-              aria-hidden="true"
-              className="absolute -left-5 top-[1.35rem] w-4 border-t border-border"
-            />
+            <>
+              <span
+                aria-hidden="true"
+                className={
+                  index === roots.length - 1
+                    ? "absolute -left-5 top-0 h-[1.35rem] border-l border-border"
+                    : "absolute -left-5 inset-y-0 border-l border-border"
+                }
+              />
+              <span
+                aria-hidden="true"
+                className="absolute -left-5 top-[1.35rem] w-4 border-t border-border"
+              />
+            </>
           )}
           {hideRootDirectory ? null : (
             <div className="pt-3">
@@ -518,14 +528,14 @@ function DefaultBranchSection({ workspace }: { workspace: VaultWorkspaceSelected
 
   if (pullRequests.state === "loading") {
     return (
-      <section aria-label="Loading default branch" className="border-b border-border pb-5">
+      <section aria-label="Loading default branch" className="pb-5">
         <LoadingLines rows={2} />
       </section>
     );
   }
   if (pullRequests.state === "problem") {
     return (
-      <section className="border-b border-border pb-5">
+      <section className="pb-5">
         <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
           <span>Could not load the default branch from GitHub.</span>
           <Button size="sm" type="button" variant="outline" onClick={pullRequests.reload}>
@@ -537,7 +547,7 @@ function DefaultBranchSection({ workspace }: { workspace: VaultWorkspaceSelected
   }
   if (pullRequests.state === "not_requested") {
     return (
-      <section className="border-b border-border pb-5 text-sm text-muted-foreground">
+      <section className="pb-5 text-sm text-muted-foreground">
         The GitHub repository is not ready yet.
       </section>
     );
@@ -545,7 +555,7 @@ function DefaultBranchSection({ workspace }: { workspace: VaultWorkspaceSelected
   const observation = pullRequests.defaultBranch;
   if (!observation || !defaultBranch) {
     return (
-      <section className="border-b border-border pb-5 text-sm text-muted-foreground">
+      <section className="pb-5 text-sm text-muted-foreground">
         No default branch commit is available.
       </section>
     );
@@ -584,7 +594,7 @@ function DefaultBranchSection({ workspace }: { workspace: VaultWorkspaceSelected
     <section
       aria-label={`Default branch ${defaultBranch}`}
       aria-busy={pullRequests.refreshing}
-      className="border-b border-border pb-5"
+      className="pb-5"
     >
       <div className="grid gap-3 @4xl:grid-cols-[minmax(0,1fr)_auto] @4xl:items-start">
         <div className="flex min-w-0 items-start gap-3">
