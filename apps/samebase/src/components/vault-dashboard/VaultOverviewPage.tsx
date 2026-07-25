@@ -12,7 +12,6 @@ import {
   SamebaseLogoMark,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { VaultChecksPopover } from "@/components/vault-dashboard/VaultChecksPopover";
-import { VaultPullRequestFiltersControl } from "@/components/vault-dashboard/VaultPullRequestFilters";
 import { VaultPullRequestLoadMoreSentinel } from "@/components/vault-dashboard/VaultPullRequestList";
 import type {
   VaultResourceRailAction,
@@ -58,11 +57,6 @@ import {
 import { useState, type ReactNode } from "react";
 import type { PullRequestWorkerResource } from "../../../convex/vault/pullRequestResources";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
-import { getConvexCodeRootDirectory } from "../../../shared/convexCodeLocation";
-import {
-  buildVaultPullRequestFilterOptions,
-  type VaultPullRequestFilters,
-} from "./vaultDashboardPullRequestFilters";
 import type { VaultWorkspaceSelected } from "./vaultWorkspaceModel";
 
 export type VaultOverviewPageKind = "overview" | "settings";
@@ -71,7 +65,6 @@ type VaultOverviewPageProps = {
   developerToolsVisible: boolean;
   isRemovingVault: boolean;
   onOpenDeleteDialog: () => void;
-  onPullRequestFiltersChange: (filters: VaultPullRequestFilters) => void;
   onRetryInfrastructureProvisioning: () => void;
   onRetryVaultDeletion: () => void;
   page: VaultOverviewPageKind;
@@ -381,7 +374,68 @@ function RootDirectoryLabel({ rootDirectory }: { rootDirectory: string }) {
   );
 }
 
-function ProductionRoots({ roots }: { roots: readonly VaultProductionRoot[] }) {
+type ConvexDeploymentAction =
+  | { destination: "external"; href: string; label: string }
+  | { destination: "samebase"; href: string; label: string };
+
+function ConvexDeploymentActionsMenu({
+  actions,
+  deploymentName,
+}: {
+  actions: readonly ConvexDeploymentAction[];
+  deploymentName: string;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild nativeButton>
+        <Button
+          aria-label={`Open ${deploymentName} deployment actions`}
+          size="icon-sm"
+          type="button"
+          variant="ghost"
+        >
+          <MoreHorizontal />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-36 rounded-none shadow-none">
+        {actions.map((action) => (
+          <DropdownMenuItem key={`${action.destination}:${action.href}`} asChild>
+            {action.destination === "samebase" ? (
+              <Link className="no-underline" to={action.href}>
+                <SamebaseLogoMark />
+                {action.label}
+              </Link>
+            ) : (
+              <a
+                className="no-underline"
+                href={action.href}
+                rel="noreferrer noopener"
+                target="_blank"
+              >
+                {action.label}
+                <ExternalLink />
+              </a>
+            )}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function ProductionRoots({
+  branch,
+  owner,
+  repoName,
+  roots,
+  schemaGraphEnabled,
+}: {
+  branch: string;
+  owner: string;
+  repoName: string;
+  roots: readonly VaultProductionRoot[];
+  schemaGraphEnabled: boolean;
+}) {
   if (roots.length === 0) {
     return null;
   }
@@ -397,24 +451,79 @@ function ProductionRoots({ roots }: { roots: readonly VaultProductionRoot[] }) {
             </div>
           )}
           <div className={hideRootDirectory ? "py-0.5" : "pb-0.5"}>
-            {root.links.map((link) => (
-              <a
-                key={`${link.provider}:${link.href}`}
-                className="flex min-h-10 min-w-0 items-center gap-2.5 py-1.5 text-sm text-foreground no-underline hover:no-underline"
-                href={link.href}
-                rel="noreferrer noopener"
-                target="_blank"
-                title={link.title}
-              >
-                <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-                  <DestinationIcon href={link.href} provider={link.provider} />
-                </span>
-                <span className="min-w-0 truncate font-medium underline decoration-border underline-offset-4">
-                  {link.label}
-                </span>
-                <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
-              </a>
-            ))}
+            {root.links.map((link) => {
+              if (link.provider === "convex") {
+                const actions: ConvexDeploymentAction[] = [
+                  {
+                    destination: "samebase",
+                    href: buildVaultDatabaseRoute({
+                      owner,
+                      repoName,
+                      branch,
+                      convexProjectId: link.convexProjectId,
+                    }),
+                    label: "Data",
+                  },
+                  ...(schemaGraphEnabled
+                    ? [
+                        {
+                          destination: "samebase" as const,
+                          href: buildVaultSchemaRoute({
+                            owner,
+                            repoName,
+                            branch,
+                            convexProjectId: link.convexProjectId,
+                          }),
+                          label: "Schema",
+                        },
+                      ]
+                    : []),
+                ];
+
+                return (
+                  <div
+                    key={`${link.provider}:${link.href}`}
+                    className="flex min-h-10 min-w-0 items-center gap-1 py-1.5 text-sm"
+                  >
+                    <a
+                      className="inline-flex min-w-0 items-center gap-2.5 text-foreground no-underline hover:no-underline"
+                      href={link.href}
+                      rel="noreferrer noopener"
+                      target="_blank"
+                      title={link.title}
+                    >
+                      <span className="flex h-4 w-5 shrink-0 items-center justify-center">
+                        <DestinationIcon href={link.href} provider={link.provider} />
+                      </span>
+                      <span className="min-w-0 truncate font-medium underline decoration-border underline-offset-4">
+                        {link.label}
+                      </span>
+                      <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    </a>
+                    <ConvexDeploymentActionsMenu actions={actions} deploymentName={link.label} />
+                  </div>
+                );
+              }
+
+              return (
+                <a
+                  key={`${link.provider}:${link.href}`}
+                  className="flex min-h-10 min-w-0 items-center gap-2.5 py-1.5 text-sm text-foreground no-underline hover:no-underline"
+                  href={link.href}
+                  rel="noreferrer noopener"
+                  target="_blank"
+                  title={link.title}
+                >
+                  <span className="flex h-4 w-5 shrink-0 items-center justify-center">
+                    <DestinationIcon href={link.href} provider={link.provider} />
+                  </span>
+                  <span className="min-w-0 truncate font-medium underline decoration-border underline-offset-4">
+                    {link.label}
+                  </span>
+                  <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+                </a>
+              );
+            })}
           </div>
         </div>
       ))}
@@ -484,44 +593,11 @@ function DefaultBranchSection({ workspace }: { workspace: VaultWorkspaceSelected
   });
   const schemaGraphEnabled =
     workspace.access.state === "ready" && workspace.access.schemaGraphEnabled;
-  const samebaseLinks = [
-    {
-      href: buildVaultFileRoute({
-        owner: workspace.vault.ghRepoOwner,
-        repoName: workspace.vault.ghRepoName,
-        branch: defaultBranch,
-      }),
-      label: "Files",
-    },
-    ...workspace.vault.convexProjects.flatMap((project) => {
-      const rootDirectory = getConvexCodeRootDirectory(project.codeLocation);
-      const rootLabel = rootDirectory === "/" ? "" : `: ${rootDirectory}`;
-      return [
-        {
-          href: buildVaultDatabaseRoute({
-            owner: workspace.vault.ghRepoOwner,
-            repoName: workspace.vault.ghRepoName,
-            branch: defaultBranch,
-            convexProjectId: project.convexProjectId,
-          }),
-          label: `Data${rootLabel}`,
-        },
-        ...(schemaGraphEnabled
-          ? [
-              {
-                href: buildVaultSchemaRoute({
-                  owner: workspace.vault.ghRepoOwner,
-                  repoName: workspace.vault.ghRepoName,
-                  branch: defaultBranch,
-                  convexProjectId: project.convexProjectId,
-                }),
-                label: `Schema${rootLabel}`,
-              },
-            ]
-          : []),
-      ];
-    }),
-  ];
+  const filesHref = buildVaultFileRoute({
+    owner: workspace.vault.ghRepoOwner,
+    repoName: workspace.vault.ghRepoName,
+    branch: defaultBranch,
+  });
   const productionLoading =
     workspace.cloudflareObservations.workers.state === "loading" ||
     workspace.cloudflareObservations.builds.state === "loading" ||
@@ -577,17 +653,14 @@ function DefaultBranchSection({ workspace }: { workspace: VaultWorkspaceSelected
         </div>
       </div>
       <div className="mt-2 ml-7 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs">
-        {samebaseLinks.map((link) => (
-          <Link
-            key={link.href}
-            className="inline-flex min-h-8 items-center gap-1 font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
-            title={`Open ${link.label} in Samebase`}
-            to={link.href}
-          >
-            <SamebaseLogoMark />
-            {link.label}
-          </Link>
-        ))}
+        <Link
+          className="inline-flex min-h-8 items-center gap-1 font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+          title="Open Files in Samebase"
+          to={filesHref}
+        >
+          <SamebaseLogoMark />
+          Files
+        </Link>
       </div>
       <div className="mt-3">
         {productionLoading && workspace.productionRoots.length === 0 ? (
@@ -596,7 +669,13 @@ function DefaultBranchSection({ workspace }: { workspace: VaultWorkspaceSelected
             <div className="h-3 w-32 max-w-full bg-muted motion-safe:animate-pulse" />
           </div>
         ) : (
-          <ProductionRoots roots={workspace.productionRoots} />
+          <ProductionRoots
+            branch={defaultBranch}
+            owner={workspace.vault.ghRepoOwner}
+            repoName={workspace.vault.ghRepoName}
+            roots={workspace.productionRoots}
+            schemaGraphEnabled={schemaGraphEnabled}
+          />
         )}
       </div>
     </section>
@@ -714,15 +793,16 @@ function PullRequestWorker({ worker }: { worker: PullRequestWorkerResource }) {
               <ConvexProviderLogo />
               {worker.convexPreview.deploymentName}
             </a>
-            <a
-              className="inline-flex min-h-7 items-center gap-1 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
-              href={`${worker.convexPreview.dashboardUrl}/data`}
-              rel="noreferrer noopener"
-              target="_blank"
-            >
-              Data
-              <ExternalLink className="h-3 w-3" />
-            </a>
+            <ConvexDeploymentActionsMenu
+              actions={[
+                {
+                  destination: "external",
+                  href: `${worker.convexPreview.dashboardUrl}/data`,
+                  label: "Data",
+                },
+              ]}
+              deploymentName={worker.convexPreview.deploymentName}
+            />
           </>
         ) : null}
       </div>
@@ -932,14 +1012,10 @@ function PullRequestRow({
 }
 
 function PullRequestsSection({
-  onFiltersChange,
   pullRequests,
-  pullRequestFilters,
   vault,
 }: {
-  onFiltersChange: (filters: VaultPullRequestFilters) => void;
   pullRequests: VaultPullRequestsState;
-  pullRequestFilters: VaultPullRequestFilters;
   vault: UserVaultResult;
 }) {
   if (pullRequests.state === "not_requested") {
@@ -948,29 +1024,12 @@ function PullRequestsSection({
 
   return (
     <section aria-labelledby="vault-pull-requests-heading">
-      <div className="mb-3 flex items-center justify-between gap-4">
-        <h2
-          id="vault-pull-requests-heading"
-          className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
-        >
-          Open pull requests
-        </h2>
-        {pullRequests.state === "current" || pullRequests.state === "stale" ? (
-          <span className="flex items-center gap-2 text-xs tabular-nums text-muted-foreground">
-            {pullRequests.refreshing ? <span>Updating</span> : null}
-            <span>{pullRequests.pullRequests.length}</span>
-            <VaultPullRequestFiltersControl
-              onChange={onFiltersChange}
-              options={buildVaultPullRequestFilterOptions({
-                pullRequests: pullRequests.allPullRequests,
-                hiddenLabels: pullRequestFilters.hiddenLabels,
-                includeNoLabel: pullRequestFilters.includeNoLabel,
-              })}
-              value={pullRequestFilters}
-            />
-          </span>
-        ) : null}
-      </div>
+      <h2
+        id="vault-pull-requests-heading"
+        className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
+      >
+        Open pull requests
+      </h2>
       <div className="border-y border-border">
         {pullRequests.state === "loading" ? (
           <div className="px-1 py-4">
@@ -990,7 +1049,7 @@ function PullRequestsSection({
                 Some pull request data may be out of date.
               </div>
             ) : null}
-            {pullRequests.pullRequests.map((pullRequest) => (
+            {pullRequests.allPullRequests.map((pullRequest) => (
               <PullRequestRow
                 key={pullRequest.id}
                 pullRequest={pullRequest}
@@ -998,14 +1057,8 @@ function PullRequestsSection({
                 vault={vault}
               />
             ))}
-            {pullRequests.pullRequests.length === 0 ? (
-              <div className="py-4 text-sm text-muted-foreground">
-                {pullRequests.hasMore
-                  ? "No matching pull requests loaded."
-                  : pullRequests.allPullRequests.length > 0
-                    ? "No matching pull requests."
-                    : "No open pull requests."}
-              </div>
+            {pullRequests.allPullRequests.length === 0 ? (
+              <div className="py-4 text-sm text-muted-foreground">No open pull requests.</div>
             ) : null}
             {pullRequests.isLoadingMore ? (
               <div className="py-3 text-xs text-muted-foreground">Loading more</div>
@@ -1584,7 +1637,6 @@ export function VaultOverviewPage({
   developerToolsVisible,
   isRemovingVault,
   onOpenDeleteDialog,
-  onPullRequestFiltersChange,
   onRetryInfrastructureProvisioning,
   onRetryVaultDeletion,
   page,
@@ -1615,12 +1667,7 @@ export function VaultOverviewPage({
             vault={workspace.vault}
           />
           <DefaultBranchSection workspace={workspace} />
-          <PullRequestsSection
-            onFiltersChange={onPullRequestFiltersChange}
-            pullRequestFilters={workspace.pullRequestFilters}
-            pullRequests={workspace.pullRequests}
-            vault={workspace.vault}
-          />
+          <PullRequestsSection pullRequests={workspace.pullRequests} vault={workspace.vault} />
           {developerToolsVisible ? (
             <VaultWorkspaceDataInspector
               resourceRailState={resourceRailState}

@@ -357,6 +357,7 @@ describe("VaultDefaultBranch", () => {
                   title: "Open production app for apps/web",
                 },
                 {
+                  convexProjectId: fakeConvexProjectId(),
                   href: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
                   label: "calm-swan-123",
                   provider: "convex",
@@ -500,6 +501,7 @@ describe("buildVaultProductionRoots", () => {
             title: "Open production app for apps/web",
           },
           {
+            convexProjectId,
             href: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
             label: "calm-swan-123",
             provider: "convex",

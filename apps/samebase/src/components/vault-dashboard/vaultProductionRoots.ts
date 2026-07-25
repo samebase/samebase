@@ -1,4 +1,5 @@
 import type { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { getConvexCodeRootDirectory } from "../../../shared/convexCodeLocation";
 import type {
   VaultCloudflareProviderObservationState,
@@ -10,14 +11,22 @@ type VaultDashboardVault = NonNullable<
   (typeof api.vault.dashboard.getUserVaults)["_returnType"]
 >[number];
 
-export type VaultProductionLinkProvider = "cloudflare" | "convex";
+export type VaultProductionLink =
+  | {
+      provider: "cloudflare";
+      href: string;
+      label: string;
+      title: string;
+    }
+  | {
+      provider: "convex";
+      convexProjectId: Id<"vaultConvexProjects">;
+      href: string;
+      label: string;
+      title: string;
+    };
 
-type VaultProductionLink = {
-  href: string;
-  label: string;
-  provider: VaultProductionLinkProvider;
-  title: string;
-};
+export type VaultProductionLinkProvider = VaultProductionLink["provider"];
 
 export type VaultProductionRoot = {
   rootDirectory: string;
@@ -60,7 +69,22 @@ function groupVaultProductionLinks(
             left.sortKey.localeCompare(right.sortKey) ||
             left.href.localeCompare(right.href),
         )
-        .map(({ href, label, provider, title }) => ({ href, label, provider, title })),
+        .map((link) =>
+          link.provider === "convex"
+            ? {
+                provider: link.provider,
+                convexProjectId: link.convexProjectId,
+                href: link.href,
+                label: link.label,
+                title: link.title,
+              }
+            : {
+                provider: link.provider,
+                href: link.href,
+                label: link.label,
+                title: link.title,
+              },
+        ),
     }));
 }
 
@@ -161,10 +185,11 @@ export function buildVaultProductionRoots({
           const deployment = provider.productionDeployment;
           return [
             {
+              provider: "convex" as const,
+              convexProjectId: project.convexProjectId,
               rootDirectory: getConvexCodeRootDirectory(project.codeLocation),
               href: buildConvexDeploymentDashboardUrl(provider, deployment.deploymentName),
               label: deployment.deploymentName,
-              provider: "convex" as const,
               sortKey: deployment.deploymentName,
               title: `Open production Convex deployment ${deployment.deploymentName}`,
             },

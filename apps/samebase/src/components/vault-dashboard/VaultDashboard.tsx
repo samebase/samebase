@@ -3603,9 +3603,6 @@ export function VaultDashboard({
         resourceRailState={selectedResourceRailState}
         workspace={selectedWorkspace}
         onOpenDeleteDialog={openSelectedVaultDeleteDialog}
-        onPullRequestFiltersChange={(filters) => {
-          handleVaultPullRequestFiltersChange(selectedWorkspace.vault._id, filters);
-        }}
         onRetryInfrastructureProvisioning={() => {
           void handleRetryInfrastructureProvisioning(selectedWorkspace.vault._id);
         }}

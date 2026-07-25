@@ -75,22 +75,22 @@ test("uses the overview vault rows on the canonical root route", async ({ page }
   await expect(
     vaultNavigation.getByRole("link", { name: "noter/guestbook", exact: true }),
   ).toHaveAttribute("href", "/vault/noter/guestbook");
-
-  const linkBounds = await samebaseLink.boundingBox();
-  const rowBounds = await samebaseLink.locator("..").boundingBox();
-  expect(linkBounds).not.toBeNull();
-  expect(rowBounds).not.toBeNull();
-  if (linkBounds && rowBounds) {
-    expect(linkBounds.width).toBeLessThan(rowBounds.width);
-    await page.mouse.click(rowBounds.x + rowBounds.width - 4, rowBounds.y + rowBounds.height / 2);
-    await expect(page).toHaveURL(/mode=vault-overview-v2-root/);
-  }
   await expect(fixture).toHaveScreenshot("vault-overview-v2-root.png", {
     animations: "disabled",
     caret: "hide",
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
+
+  const linkBounds = await samebaseLink.boundingBox();
+  const rowBounds = await samebaseLink.locator("..").boundingBox();
+  expect(linkBounds).not.toBeNull();
+  expect(rowBounds).not.toBeNull();
+  if (linkBounds && rowBounds) {
+    expect(Math.abs(linkBounds.width - rowBounds.width)).toBeLessThanOrEqual(1);
+    await page.mouse.click(rowBounds.x + rowBounds.width - 4, rowBounds.y + rowBounds.height / 2);
+    await expect(page).toHaveURL(/\/vault\/samebase\/samebase$/);
+  }
 });
 
 test("shows the shared overview model on desktop", async ({ page }) => {
@@ -112,6 +112,14 @@ test("shows the shared overview model on desktop", async ({ page }) => {
   await expect(
     fixture.getByRole("link", { name: "Open pull request #1260 on GitHub" }),
   ).toHaveAttribute("href", "https://github.com/samebase/samebase/pull/1260");
+  await expect(fixture.getByRole("button", { name: "Filters" })).toHaveCount(0);
+  const deploymentActions = fixture.getByRole("button", {
+    name: "Open calm-swan-123 deployment actions",
+  });
+  await deploymentActions.click();
+  await expect(page.getByRole("menuitem", { name: "Data" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Schema" })).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(fixture.getByText("apps/domain-router", { exact: true })).toBeVisible();
   await expect(fixture.getByText("apps/samebase", { exact: true }).first()).toBeVisible();
   await expect(fixture).toHaveScreenshot("vault-overview-v2-desktop.png", {

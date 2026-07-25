@@ -665,9 +665,6 @@ function VaultOverviewV2Fixture({
     | "vault-overview-v2-root"
     | "vault-overview-v2-settings";
 }) {
-  const [pullRequestFilters, setPullRequestFilters] = useState(() =>
-    getDefaultVaultPullRequestFilters(),
-  );
   const [nextPullRequestPageLoaded, setNextPullRequestPageLoaded] = useState(false);
   const page = mode === "vault-overview-v2-settings" ? "settings" : "overview";
 
@@ -725,7 +722,7 @@ function VaultOverviewV2Fixture({
       ? AUTO_PAGINATION_PULL_REQUESTS.slice(0, nextPullRequestPageLoaded ? 8 : 6)
       : LIST_SPACING_PULL_REQUESTS;
   const currentPullRequests = fixturePullRequests(
-    filterVaultPullRequests(sourcePullRequests, pullRequestFilters),
+    sourcePullRequests,
     FIXTURE_DEFAULT_BRANCH_CHECKS,
   );
   const pullRequests: VaultPullRequestsState =
@@ -755,7 +752,7 @@ function VaultOverviewV2Fixture({
       convexObservations,
       vault: LIST_SPACING_VAULT,
     }),
-    pullRequestFilters,
+    pullRequestFilters: getDefaultVaultPullRequestFilters(),
     pullRequests,
     vault: LIST_SPACING_VAULT,
   } satisfies VaultWorkspaceSelected;
@@ -807,7 +804,6 @@ function VaultOverviewV2Fixture({
               resourceRailState={resourceRailState}
               workspace={workspace}
               onOpenDeleteDialog={() => {}}
-              onPullRequestFiltersChange={setPullRequestFilters}
               onRetryInfrastructureProvisioning={() => {}}
               onRetryVaultDeletion={() => {}}
             />
