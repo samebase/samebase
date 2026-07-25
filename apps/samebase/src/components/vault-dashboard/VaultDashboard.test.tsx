@@ -481,6 +481,7 @@ describe("vault environment roots", () => {
         owner: "ada",
         productionRoots: [],
         repoName: "demo",
+        filesReadEnabled: true,
         schemaGraphEnabled: true,
       }),
     ).toEqual([
@@ -536,6 +537,7 @@ describe("vault environment roots", () => {
           },
         ],
         repoName: "demo",
+        filesReadEnabled: true,
         schemaGraphEnabled: true,
       }),
     ).toEqual([

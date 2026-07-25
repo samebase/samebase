@@ -98,7 +98,7 @@ export function useVaultWorkspaceModel(
           access: viewerAccess
             ? {
                 state: "ready",
-                schemaGraphEnabled: viewerAccess.accessKeys.includes("access_schema_graph"),
+                accessKeys: viewerAccess.accessKeys,
               }
             : { state: "loading" },
           cloudflareObservations: providerObservations.cloudflare,

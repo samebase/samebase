@@ -520,7 +520,13 @@ function LoadingLines({ rows = 3 }: { rows?: number }) {
   );
 }
 
-function DefaultBranchSection({ workspace }: { workspace: VaultWorkspaceSelected }) {
+function DefaultBranchSection({
+  filesReadEnabled,
+  workspace,
+}: {
+  filesReadEnabled: boolean;
+  workspace: VaultWorkspaceSelected;
+}) {
   const pullRequests = workspace.pullRequests;
   const defaultBranch = workspace.vault.defaultBranch?.trim();
 
@@ -568,7 +574,8 @@ function DefaultBranchSection({ workspace }: { workspace: VaultWorkspaceSelected
     repositoryFullName: workspace.vault.repositoryFullName,
   });
   const schemaGraphEnabled =
-    workspace.access.state === "ready" && workspace.access.schemaGraphEnabled;
+    workspace.access.state === "ready" &&
+    workspace.access.accessKeys.includes("access_schema_graph");
   const filesHref = buildVaultFileRoute({
     owner: workspace.vault.ghRepoOwner,
     repoName: workspace.vault.ghRepoName,
@@ -585,6 +592,7 @@ function DefaultBranchSection({ workspace }: { workspace: VaultWorkspaceSelected
     owner: workspace.vault.ghRepoOwner,
     productionRoots: workspace.productionRoots,
     repoName: workspace.vault.ghRepoName,
+    filesReadEnabled,
     schemaGraphEnabled,
   });
 
@@ -637,16 +645,18 @@ function DefaultBranchSection({ workspace }: { workspace: VaultWorkspaceSelected
           />
         </div>
       </div>
-      <div className="mt-2 ml-7 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs">
-        <Link
-          className="inline-flex min-h-8 items-center gap-1 font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
-          title="Open Files in Samebase"
-          to={filesHref}
-        >
-          <SamebaseLogoMark />
-          Files
-        </Link>
-      </div>
+      {filesReadEnabled ? (
+        <div className="mt-2 ml-7 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs">
+          <Link
+            className="inline-flex min-h-8 items-center gap-1 font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+            title="Open Files in Samebase"
+            to={filesHref}
+          >
+            <SamebaseLogoMark />
+            Files
+          </Link>
+        </div>
+      ) : null}
       <div className="mt-3">
         {productionLoading && environmentRoots.length === 0 ? (
           <div className="ml-7 grid gap-2 py-2" aria-label="Loading production destinations">
@@ -810,23 +820,26 @@ function SamebaseChangesLink({ href }: { href: string }) {
 }
 
 function PullRequestRow({
+  filesReadEnabled,
   pullRequest,
   resource,
   vault,
 }: {
+  filesReadEnabled: boolean;
   pullRequest: VaultPullRequest;
   resource: PullRequestResourceState | undefined;
   vault: UserVaultResult;
 }) {
   const [expanded, setExpanded] = useState(false);
   const sameRepository = !pullRequest.isCrossRepository && pullRequest.headRepository !== null;
-  const samebaseUrl = sameRepository
-    ? buildVaultFileRoute({
-        owner: vault.ghRepoOwner,
-        repoName: vault.ghRepoName,
-        branch: pullRequest.headRefName,
-      })
-    : null;
+  const samebaseUrl =
+    filesReadEnabled && sameRepository
+      ? buildVaultFileRoute({
+          owner: vault.ghRepoOwner,
+          repoName: vault.ghRepoName,
+          branch: pullRequest.headRefName,
+        })
+      : null;
   const headLabel =
     pullRequest.isCrossRepository && pullRequest.headRepository
       ? `${pullRequest.headRepository.nameWithOwner}:${pullRequest.headRefName}`
@@ -946,9 +959,11 @@ function PullRequestRow({
 }
 
 function PullRequestsSection({
+  filesReadEnabled,
   pullRequests,
   vault,
 }: {
+  filesReadEnabled: boolean;
   pullRequests: VaultPullRequestsState;
   vault: UserVaultResult;
 }) {
@@ -985,6 +1000,7 @@ function PullRequestsSection({
             ) : null}
             {pullRequests.allPullRequests.map((pullRequest) => (
               <PullRequestRow
+                filesReadEnabled={filesReadEnabled}
                 key={pullRequest.id}
                 pullRequest={pullRequest}
                 resource={pullRequests.resourcesByPullRequestId.get(pullRequest.id)}
@@ -1598,6 +1614,8 @@ export function VaultOverviewPage({
   resourceRailState,
   workspace,
 }: VaultOverviewPageProps) {
+  const filesReadEnabled =
+    workspace.access.state === "ready" && workspace.access.accessKeys.includes("access_files_read");
   const provisioningLabel =
     workspace.vault.sourceSetup.status === "running"
       ? formatVaultSourceSetupStep(workspace.vault.sourceSetup.step)
@@ -1644,8 +1662,12 @@ export function VaultOverviewPage({
                 onRetryVaultDeletion={onRetryVaultDeletion}
                 vault={workspace.vault}
               />
-              <DefaultBranchSection workspace={workspace} />
-              <PullRequestsSection pullRequests={workspace.pullRequests} vault={workspace.vault} />
+              <DefaultBranchSection filesReadEnabled={filesReadEnabled} workspace={workspace} />
+              <PullRequestsSection
+                filesReadEnabled={filesReadEnabled}
+                pullRequests={workspace.pullRequests}
+                vault={workspace.vault}
+              />
               {developerToolsVisible ? (
                 <VaultWorkspaceDataInspector
                   resourceRailState={resourceRailState}

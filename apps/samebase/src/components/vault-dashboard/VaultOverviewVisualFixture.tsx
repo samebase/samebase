@@ -27,6 +27,7 @@ import type {
   VaultProviderObservationState,
 } from "@/components/vault-dashboard/useVaultProviderObservations";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { ROLE_ACCESS_GRANTS } from "../../../shared/accessModel";
 
 export type VaultOverviewVisualMode =
   | "vault-overview-v2"
@@ -766,7 +767,7 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
   }
 
   const workspace = {
-    access: { state: "ready", schemaGraphEnabled: true },
+    access: { state: "ready", accessKeys: ROLE_ACCESS_GRANTS.role_member },
     cloudflareConnection: {
       state: "ready",
       connection: {
@@ -935,7 +936,7 @@ function VaultOverviewV2Fixture({ mode }: { mode: VaultOverviewVisualMode }) {
         }
       : currentPullRequests;
   const workspace = {
-    access: { state: "ready", schemaGraphEnabled: true },
+    access: { state: "ready", accessKeys: ROLE_ACCESS_GRANTS.role_member },
     cloudflareConnection: {
       state: "ready",
       connection: {

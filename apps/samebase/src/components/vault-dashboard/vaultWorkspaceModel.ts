@@ -1,5 +1,6 @@
 import type { api } from "../../../convex/_generated/api";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
+import type { AccessKey } from "../../../shared/accessModel";
 import type { VaultPullRequestsState } from "@/hooks/useVaultPullRequests";
 import type { VaultSidebarSummariesState } from "@/hooks/useVaultSidebarSummaries";
 import type { VaultPullRequestFilters } from "./vaultDashboardPullRequestFilters";
@@ -12,7 +13,7 @@ import type {
 
 export type VaultWorkspaceAccessState =
   | { state: "loading" }
-  | { state: "ready"; schemaGraphEnabled: boolean };
+  | { state: "ready"; accessKeys: readonly AccessKey[] };
 
 export type VaultWorkspaceCloudflareConnectionState =
   | { state: "loading" }

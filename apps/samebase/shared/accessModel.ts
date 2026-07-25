@@ -46,8 +46,6 @@ export const ROLE_ACCESS_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
     "access_repo_connect",
     ACCESS_APP_CREATE,
     "access_app_refresh",
-    "access_files_read",
-    "access_files_write",
     "access_mcp",
     ACCESS_BROWSER_LOGIN_HANDOFF,
   ],
