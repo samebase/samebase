@@ -53,7 +53,6 @@ import {
   CircleDot,
   CircleX,
   ExternalLink,
-  GitCommitHorizontal,
   LayoutList,
   Loader2,
   MoreHorizontal,
@@ -603,39 +602,36 @@ function DefaultBranchSection({
       className="pb-5"
     >
       <div className="grid gap-3 @4xl:grid-cols-[minmax(0,1fr)_auto] @4xl:items-start">
-        <div className="flex min-w-0 items-start gap-3">
-          <GitCommitHorizontal className="mt-1.5 h-4 w-4 shrink-0 text-muted-foreground" />
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <a
-                className="inline-flex min-h-8 items-center text-xs font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
-                href={branchUrl}
-                rel="noreferrer noopener"
-                target="_blank"
-              >
-                {defaultBranch}
-              </a>
-              <span className="text-xs text-muted-foreground">·</span>
-              <a
-                className="inline-flex min-h-8 items-center font-mono text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
-                href={observation.headCommitUrl}
-                rel="noreferrer noopener"
-                target="_blank"
-              >
-                {observation.headCommitOid.slice(0, 7)}
-              </a>
-              <span className="text-xs text-muted-foreground">{relativeCommitTime}</span>
-            </div>
-            <div className="line-clamp-3 text-sm leading-6 text-foreground [overflow-wrap:anywhere]">
-              {observation.headCommitTitle}
-            </div>
-            {pullRequests.state === "stale" || pullRequests.refreshing ? (
-              <div className="mt-1 flex flex-wrap gap-x-2 text-xs leading-5 text-muted-foreground">
-                {pullRequests.state === "stale" ? <span>May be out of date</span> : null}
-                {pullRequests.refreshing ? <span>Updating</span> : null}
-              </div>
-            ) : null}
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <a
+              className="inline-flex min-h-8 items-center text-xs font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+              href={branchUrl}
+              rel="noreferrer noopener"
+              target="_blank"
+            >
+              {defaultBranch}
+            </a>
+            <span className="text-xs text-muted-foreground">·</span>
+            <a
+              className="inline-flex min-h-8 items-center font-mono text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
+              href={observation.headCommitUrl}
+              rel="noreferrer noopener"
+              target="_blank"
+            >
+              {observation.headCommitOid.slice(0, 7)}
+            </a>
+            <span className="text-xs text-muted-foreground">{relativeCommitTime}</span>
           </div>
+          <div className="line-clamp-3 text-base font-medium leading-6 text-foreground [overflow-wrap:anywhere]">
+            {observation.headCommitTitle}
+          </div>
+          {pullRequests.state === "stale" || pullRequests.refreshing ? (
+            <div className="mt-1 flex flex-wrap gap-x-2 text-xs leading-5 text-muted-foreground">
+              {pullRequests.state === "stale" ? <span>May be out of date</span> : null}
+              {pullRequests.refreshing ? <span>Updating</span> : null}
+            </div>
+          ) : null}
         </div>
         <div className="justify-self-start @4xl:justify-self-end">
           <VaultChecksPopover
@@ -648,7 +644,7 @@ function DefaultBranchSection({
         </div>
       </div>
       {filesReadEnabled ? (
-        <div className="mt-2 ml-7 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs">
+        <div className="mt-2 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs">
           <Link
             className="inline-flex min-h-8 items-center gap-1 font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
             title="Open Files in Samebase"
@@ -661,7 +657,7 @@ function DefaultBranchSection({
       ) : null}
       <div className="mt-3">
         {productionLoading && environmentRoots.length === 0 ? (
-          <div className="ml-7 grid gap-2 py-2" aria-label="Loading production destinations">
+          <div className="grid gap-2 py-2" aria-label="Loading production destinations">
             <div className="h-3 w-44 max-w-full bg-muted motion-safe:animate-pulse" />
             <div className="h-3 w-32 max-w-full bg-muted motion-safe:animate-pulse" />
           </div>
