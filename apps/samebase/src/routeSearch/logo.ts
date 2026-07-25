@@ -2,6 +2,21 @@ import { includes } from "@samebase/dependent";
 import { keys } from "@samebase/dependent/object";
 import { type LogoRotationAxisMode } from "@samebase/logo-model/rotation";
 import {
+  SIERPINSKI_CARPET_HOVER_DEFAULT_DEPTH,
+  SIERPINSKI_CARPET_HOVER_DEFAULT_FALLOFF,
+  SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC,
+  SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
+  SIERPINSKI_CARPET_HOVER_FALLOFFS,
+  SIERPINSKI_CARPET_HOVER_MAX_DEPTH,
+  SIERPINSKI_CARPET_HOVER_MAX_REVEAL_RADIUS,
+  SIERPINSKI_CARPET_HOVER_MECHANICS,
+  SIERPINSKI_CARPET_HOVER_MIN_REVEAL_RADIUS,
+  normalizeSierpinskiCarpetHoverRevealRadius,
+  type SierpinskiCarpetHoverDepth,
+  type SierpinskiCarpetHoverFalloff,
+  type SierpinskiCarpetHoverMechanic,
+} from "@samebase/logo-model/sierpinski-carpet-hover";
+import {
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
   LOGO_ISOMETRIC_CUBE_SIDE_PIXELS,
   isLogoIsometricStyleId,
@@ -477,9 +492,51 @@ const RouteSearchSchema_logoIso = defineRouteSearchParams({
   }),
 });
 
+/**
+The pointer-reveal params are owned by the /logo/hover/carpet route alone;
+every other logo route accepts only the shared schema keys. The shared depth
+key doubles as the carpet reveal depth with the carpet's own default and cap.
+*/
+const RouteSearchSchema_logoCarpetHover = defineRouteSearchParams({
+  ...RouteSearchSchema_logo.shape,
+  falloff: routeSearchValueParam(routeSearchStringValue(SIERPINSKI_CARPET_HOVER_FALLOFFS), {
+    access: "access_public",
+    sampleValue: "per-depth",
+    ...logoRouteSearchSuggestion,
+    valueSuggestions: SIERPINSKI_CARPET_HOVER_FALLOFFS,
+    valueType: "options",
+  }),
+  mechanic: routeSearchValueParam(routeSearchStringValue(SIERPINSKI_CARPET_HOVER_MECHANICS), {
+    access: "access_public",
+    sampleValue: "slide",
+    ...logoRouteSearchSuggestion,
+    valueSuggestions: SIERPINSKI_CARPET_HOVER_MECHANICS,
+    valueType: "options",
+  }),
+  radius: routeSearchValueParam(
+    routeSearchNormalizedFiniteNumber(normalizeSierpinskiCarpetHoverRevealRadius),
+    {
+      numericDefaultValue: SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
+      numericRange: {
+        maxValue: SIERPINSKI_CARPET_HOVER_MAX_REVEAL_RADIUS,
+        minValue: SIERPINSKI_CARPET_HOVER_MIN_REVEAL_RADIUS,
+        rangeType: "closed",
+      },
+      numericStepValue: 0.01,
+      access: "access_public",
+      sampleValue: "0.5",
+      ...logoRouteSearchSuggestion,
+      valueSuggestions: ["0.2", "0.35", "0.5", "0.8", "1"],
+      valueType: "numeric",
+    },
+  ),
+});
+
 type LogoRouteSearchFields = InferRouteSearch<typeof RouteSearchSchema_logo>;
 
 type LogoIsoRouteSearchFields = InferRouteSearch<typeof RouteSearchSchema_logoIso>;
+
+type LogoCarpetHoverRouteSearchFields = InferRouteSearch<typeof RouteSearchSchema_logoCarpetHover>;
 
 function readLogoRouteSearchFields(search: LogoRouteSearchFields) {
   const themeModeSearch = readRootThemeModeSearch(search);
@@ -524,9 +581,20 @@ function readLogoIsoRouteSearchFields(search: LogoIsoRouteSearchFields) {
   };
 }
 
+function readLogoCarpetHoverRouteSearchFields(search: LogoCarpetHoverRouteSearchFields) {
+  return {
+    ...readLogoRouteSearchFields(search),
+    ...(typeof search.falloff === "string" ? { falloff: search.falloff } : {}),
+    ...(typeof search.mechanic === "string" ? { mechanic: search.mechanic } : {}),
+    ...(typeof search.radius === "number" ? { radius: search.radius } : {}),
+  };
+}
+
 export type LogoRouteSearch = ReturnType<typeof readLogoRouteSearchFields>;
 
 export type LogoIsoRouteSearch = ReturnType<typeof readLogoIsoRouteSearchFields>;
+
+export type LogoCarpetHoverRouteSearch = ReturnType<typeof readLogoCarpetHoverRouteSearchFields>;
 
 export type LogoRouteSearchBuildState = {
   autoRotateEnabled: boolean;
@@ -603,20 +671,30 @@ export const LOGO_ISO_ROUTE_SEARCH_PARAM_ACCESS = readRouteSearchParamAccess(
   LOGO_ISO_ROUTE_SEARCH_PARAM_METADATA,
 );
 
+const LOGO_CARPET_HOVER_ROUTE_SEARCH_PARAM_METADATA = readRouteSearchParamMetadata(
+  RouteSearchSchema_logoCarpetHover,
+) satisfies RouteSearchParamMetadataByKey<LogoCarpetHoverRouteSearch>;
+
+export const LOGO_CARPET_HOVER_ROUTE_SEARCH_KEYS = keys(
+  LOGO_CARPET_HOVER_ROUTE_SEARCH_PARAM_METADATA,
+);
+
+export const LOGO_CARPET_HOVER_ROUTE_SEARCH_PARAM_ACCESS = readRouteSearchParamAccess(
+  LOGO_CARPET_HOVER_ROUTE_SEARCH_PARAM_METADATA,
+);
+
 const LOGO_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
   LOGO_ROUTE_SEARCH_PARAM_METADATA,
 );
 
 function readLogoDepthValueSuggestions(depthMax: number): RouteSearchParamValueSuggestions {
-  if (depthMax <= 3) {
-    return ["1", "2", "3"];
+  const cappedDepthMax = Math.min(depthMax, MAX_LOGO_FRACTAL_DEPTH);
+  const deeperValues: string[] = [];
+  for (let depth = 2; depth <= cappedDepthMax; depth += 1) {
+    deeperValues.push(`${depth}`);
   }
 
-  if (depthMax <= 5) {
-    return ["1", "2", "3", "4", "5"];
-  }
-
-  return ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
+  return ["1", ...deeperValues];
 }
 
 function readLogoRouteSearchParamSuggestionsWithDepthMax(
@@ -661,6 +739,12 @@ export function readLogoRouteSearchParamSuggestionsForRenderer(
   );
 }
 
+export const LOGO_CARPET_HOVER_ROUTE_SEARCH_PARAM_SUGGESTIONS =
+  readLogoRouteSearchParamSuggestionsWithDepthMax(
+    LOGO_CARPET_HOVER_ROUTE_SEARCH_PARAM_METADATA,
+    SIERPINSKI_CARPET_HOVER_MAX_DEPTH,
+  );
+
 export function validateLogoRouteSearch(search: Record<string, unknown>): LogoRouteSearch {
   const presenceNormalizedSearch = normalizeRouteSearchPresenceFlags(
     search,
@@ -694,6 +778,33 @@ export function validateLogoIsoRouteSearch(search: Record<string, unknown>): Log
   return {
     ...parsedSearch,
     depth,
+  };
+}
+
+/**
+The /logo/hover/carpet route validator: parses the carpet schema and bakes in
+the carpet model's depth-six enumeration cap, mirroring the iso validator.
+*/
+export function validateLogoCarpetHoverRouteSearch(
+  search: Record<string, unknown>,
+): LogoCarpetHoverRouteSearch {
+  const presenceNormalizedSearch = normalizeRouteSearchPresenceFlags(
+    search,
+    LOGO_ROUTE_PRESENCE_SEARCH_KEYS,
+  );
+  const parsedSearch = readLogoCarpetHoverRouteSearchFields(
+    RouteSearchSchema_logoCarpetHover.parse(presenceNormalizedSearch),
+  );
+  if (
+    typeof parsedSearch.depth !== "number" ||
+    parsedSearch.depth <= SIERPINSKI_CARPET_HOVER_MAX_DEPTH
+  ) {
+    return parsedSearch;
+  }
+
+  return {
+    ...parsedSearch,
+    depth: SIERPINSKI_CARPET_HOVER_MAX_DEPTH,
   };
 }
 
@@ -889,14 +1000,50 @@ function buildLogoLeftFaceStyleSearch(leftFaceStyle: LogoLeftFaceStyle): LogoLef
   };
 }
 
+export function buildLogoCarpetHoverRouteSearch(
+  args: LogoRouteSearchBuildState & {
+    carpetFalloff: SierpinskiCarpetHoverFalloff;
+    carpetMechanic: SierpinskiCarpetHoverMechanic;
+    carpetRevealDepth: SierpinskiCarpetHoverDepth;
+    carpetRevealRadius: number;
+    themeModeSearch?: RootThemeModeSearch;
+  },
+): LogoCarpetHoverRouteSearch {
+  const revealRadius = normalizeSierpinskiCarpetHoverRevealRadius(args.carpetRevealRadius);
+
+  return {
+    ...buildLogoRouteSearch(args),
+    // Default-valued carpet controls use own undefined tombstones like the
+    // shared build. The shared depth key carries the carpet reveal depth, so
+    // its tombstone compares against the carpet default instead of the shared
+    // fractal-depth default.
+    depth:
+      args.carpetRevealDepth !== SIERPINSKI_CARPET_HOVER_DEFAULT_DEPTH
+        ? args.carpetRevealDepth
+        : undefined,
+    falloff:
+      args.carpetFalloff !== SIERPINSKI_CARPET_HOVER_DEFAULT_FALLOFF
+        ? args.carpetFalloff
+        : undefined,
+    mechanic:
+      args.carpetMechanic !== SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC
+        ? args.carpetMechanic
+        : undefined,
+    radius:
+      revealRadius !== SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS
+        ? Number(revealRadius.toFixed(2))
+        : undefined,
+  };
+}
+
 /**
  * Logo control updates rebuild route state; keep the public dev flag only while
  * the operator has that root shell mode enabled.
  */
-export function preserveLogoRouteDevModeSearch(
-  nextSearch: LogoIsoRouteSearch,
-  currentSearch: LogoIsoRouteSearch,
-): LogoIsoRouteSearch {
+export function preserveLogoRouteDevModeSearch<Search extends LogoRouteSearch>(
+  nextSearch: Search,
+  currentSearch: Search,
+): Search {
   if (!currentSearch.dev) {
     return nextSearch;
   }

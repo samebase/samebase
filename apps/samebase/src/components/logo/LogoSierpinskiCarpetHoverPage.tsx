@@ -3,13 +3,25 @@ import { Button } from "@/components/ui/button";
 import { getTailwindColorHex } from "@/components/logo/logoTailwindColors";
 import { readLogoRouteRenderState } from "@/components/logo/logoRouteRenderState";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
-import { type LogoRouteSearch } from "@/routeSearch/logo";
 import {
+  buildLogoCarpetHoverRouteSearch,
+  preserveLogoRouteDevModeSearch,
+  type LogoCarpetHoverRouteSearch,
+} from "@/routeSearch/logo";
+import {
+  SIERPINSKI_CARPET_HOVER_DEFAULT_DEPTH,
+  SIERPINSKI_CARPET_HOVER_DEFAULT_FALLOFF,
+  SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC,
   SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
   SIERPINSKI_CARPET_HOVER_DEPTHS,
   SIERPINSKI_CARPET_HOVER_HOLES,
+  SIERPINSKI_CARPET_HOVER_MAX_DEPTH,
+  SIERPINSKI_CARPET_HOVER_MAX_REVEAL_RADIUS,
+  SIERPINSKI_CARPET_HOVER_MIN_REVEAL_RADIUS,
+  normalizeSierpinskiCarpetHoverRevealRadius,
   readSierpinskiCarpetHoleOpenness,
   readSierpinskiCarpetHoleRevealedRect,
+  readSierpinskiCarpetHoverDepth,
   type SierpinskiCarpetHoverConfig,
   type SierpinskiCarpetHoverDepth,
   type SierpinskiCarpetHoverFalloff,
@@ -17,7 +29,15 @@ import {
   type SierpinskiCarpetHoverPointer,
 } from "@samebase/logo-model/sierpinski-carpet-hover";
 import { Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from "react";
 
 const CARPET_FRAME_PADDING = 1.12;
 const RENDER_PIXEL_RATIO_MAX = 2;
@@ -230,7 +250,13 @@ function SierpinskiCarpetHoverScene({
   );
 }
 
-export function LogoSierpinskiCarpetHoverPage({ routeSearch }: { routeSearch: LogoRouteSearch }) {
+export function LogoSierpinskiCarpetHoverPage({
+  replaceRouteSearch,
+  routeSearch,
+}: {
+  replaceRouteSearch: (nextSearch: LogoCarpetHoverRouteSearch) => void;
+  routeSearch: LogoCarpetHoverRouteSearch;
+}) {
   const routeState = useMemo(
     () =>
       readLogoRouteRenderState({
@@ -241,26 +267,85 @@ export function LogoSierpinskiCarpetHoverPage({ routeSearch }: { routeSearch: Lo
   );
   const { backgroundColor, faceColors } = useResolvedAppThemeColorState(routeState.themeColors);
   const carpetColor = getTailwindColorHex(faceColors.right);
-  const [mechanic, setMechanic] = useState<SierpinskiCarpetHoverMechanic>("grow");
-  const [falloff, setFalloff] = useState<SierpinskiCarpetHoverFalloff>("shared");
-  const [revealRadius, setRevealRadius] = useState(SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS);
-  const [maxDepth, setMaxDepth] = useState<SierpinskiCarpetHoverDepth>(5);
+  const searchMechanic = routeSearch.mechanic ?? SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC;
+  const searchFalloff = routeSearch.falloff ?? SIERPINSKI_CARPET_HOVER_DEFAULT_FALLOFF;
+  const searchRevealRadius = normalizeSierpinskiCarpetHoverRevealRadius(
+    routeSearch.radius ?? SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
+  );
+  const searchMaxDepth = readSierpinskiCarpetHoverDepth(
+    routeSearch.depth ?? SIERPINSKI_CARPET_HOVER_DEFAULT_DEPTH,
+  );
+  const [mechanic, setMechanic] = useState(searchMechanic);
+  const [falloff, setFalloff] = useState(searchFalloff);
+  const [revealRadius, setRevealRadius] = useState(searchRevealRadius);
+  const [maxDepth, setMaxDepth] = useState(searchMaxDepth);
+
+  // External URL edits (route URL editor, back/forward) override any
+  // in-flight local drafts before paint.
+  useLayoutEffect(() => {
+    setMechanic(searchMechanic);
+    setFalloff(searchFalloff);
+    setRevealRadius(searchRevealRadius);
+    setMaxDepth(searchMaxDepth);
+  }, [searchFalloff, searchMaxDepth, searchMechanic, searchRevealRadius]);
+
   const config = useMemo(
     () => ({ falloff, maxDepth, mechanic, revealRadius }),
     [falloff, maxDepth, mechanic, revealRadius],
   );
 
+  const commitSettings = useCallback(
+    (next: {
+      falloff: SierpinskiCarpetHoverFalloff;
+      maxDepth: SierpinskiCarpetHoverDepth;
+      mechanic: SierpinskiCarpetHoverMechanic;
+      revealRadius: number;
+    }) => {
+      replaceRouteSearch(
+        preserveLogoRouteDevModeSearch(
+          buildLogoCarpetHoverRouteSearch({
+            ...routeState,
+            carpetFalloff: next.falloff,
+            carpetMechanic: next.mechanic,
+            carpetRevealDepth: next.maxDepth,
+            carpetRevealRadius: next.revealRadius,
+            themeModeSearch: routeSearch,
+          }),
+          routeSearch,
+        ),
+      );
+    },
+    [replaceRouteSearch, routeSearch, routeState],
+  );
+  const updateMechanic = useCallback(
+    (nextMechanic: SierpinskiCarpetHoverMechanic) => {
+      setMechanic(nextMechanic);
+      commitSettings({ falloff, maxDepth, mechanic: nextMechanic, revealRadius });
+    },
+    [commitSettings, falloff, maxDepth, revealRadius],
+  );
+  const updateFalloff = useCallback(
+    (nextFalloff: SierpinskiCarpetHoverFalloff) => {
+      setFalloff(nextFalloff);
+      commitSettings({ falloff: nextFalloff, maxDepth, mechanic, revealRadius });
+    },
+    [commitSettings, maxDepth, mechanic, revealRadius],
+  );
   const updateRevealRadius = useCallback((event: ChangeEvent<HTMLInputElement>) => {
-    setRevealRadius(Number(event.target.value) / REVEAL_RADIUS_SLIDER_STEPS);
+    setRevealRadius(
+      normalizeSierpinskiCarpetHoverRevealRadius(
+        Number(event.target.value) / REVEAL_RADIUS_SLIDER_STEPS,
+      ),
+    );
   }, []);
   const updateMaxDepth = useCallback((event: ChangeEvent<HTMLInputElement>) => {
-    const nextDepth = SIERPINSKI_CARPET_HOVER_DEPTHS.find(
-      (depth) => depth === Number(event.target.value),
-    );
-    if (nextDepth !== undefined) {
-      setMaxDepth(nextDepth);
-    }
+    setMaxDepth(readSierpinskiCarpetHoverDepth(Number(event.target.value)));
   }, []);
+  // Sliders render live through local state and publish to the URL when the
+  // pointer or keyboard interaction ends, keeping history replaces sparse.
+  const commitDraftSettings = useCallback(() => {
+    commitSettings({ falloff, maxDepth, mechanic, revealRadius });
+  }, [commitSettings, falloff, maxDepth, mechanic, revealRadius]);
 
   const controlsContent = useMemo(
     () => (
@@ -287,7 +372,7 @@ export function LogoSierpinskiCarpetHoverPage({ routeSearch }: { routeSearch: Lo
               aria-pressed={mechanic === "grow"}
               className="rounded-none"
               onClick={() => {
-                setMechanic("grow");
+                updateMechanic("grow");
               }}
               size="sm"
               variant={mechanic === "grow" ? "default" : "outline"}
@@ -298,7 +383,7 @@ export function LogoSierpinskiCarpetHoverPage({ routeSearch }: { routeSearch: Lo
               aria-pressed={mechanic === "slide"}
               className="rounded-none"
               onClick={() => {
-                setMechanic("slide");
+                updateMechanic("slide");
               }}
               size="sm"
               variant={mechanic === "slide" ? "default" : "outline"}
@@ -315,7 +400,7 @@ export function LogoSierpinskiCarpetHoverPage({ routeSearch }: { routeSearch: Lo
               aria-pressed={falloff === "per-depth"}
               className="rounded-none"
               onClick={() => {
-                setFalloff("per-depth");
+                updateFalloff("per-depth");
               }}
               size="sm"
               variant={falloff === "per-depth" ? "default" : "outline"}
@@ -326,7 +411,7 @@ export function LogoSierpinskiCarpetHoverPage({ routeSearch }: { routeSearch: Lo
               aria-pressed={falloff === "shared"}
               className="rounded-none"
               onClick={() => {
-                setFalloff("shared");
+                updateFalloff("shared");
               }}
               size="sm"
               variant={falloff === "shared" ? "default" : "outline"}
@@ -350,9 +435,12 @@ export function LogoSierpinskiCarpetHoverPage({ routeSearch }: { routeSearch: Lo
             id="carpet-hover-reveal-radius"
             aria-label="Reveal radius"
             className="h-2 w-full cursor-pointer accent-foreground"
-            max={REVEAL_RADIUS_SLIDER_STEPS}
-            min="5"
+            max={Math.round(SIERPINSKI_CARPET_HOVER_MAX_REVEAL_RADIUS * REVEAL_RADIUS_SLIDER_STEPS)}
+            min={Math.round(SIERPINSKI_CARPET_HOVER_MIN_REVEAL_RADIUS * REVEAL_RADIUS_SLIDER_STEPS)}
+            onBlur={commitDraftSettings}
             onChange={updateRevealRadius}
+            onKeyUp={commitDraftSettings}
+            onPointerUp={commitDraftSettings}
             step="1"
             type="range"
             value={Math.round(revealRadius * REVEAL_RADIUS_SLIDER_STEPS)}
@@ -373,9 +461,12 @@ export function LogoSierpinskiCarpetHoverPage({ routeSearch }: { routeSearch: Lo
             id="carpet-hover-max-depth"
             aria-label="Reveal depth"
             className="h-2 w-full cursor-pointer accent-foreground"
-            max={SIERPINSKI_CARPET_HOVER_DEPTHS.length}
+            max={SIERPINSKI_CARPET_HOVER_MAX_DEPTH}
             min="1"
+            onBlur={commitDraftSettings}
             onChange={updateMaxDepth}
+            onKeyUp={commitDraftSettings}
+            onPointerUp={commitDraftSettings}
             step="1"
             type="range"
             value={maxDepth}
@@ -392,7 +483,17 @@ export function LogoSierpinskiCarpetHoverPage({ routeSearch }: { routeSearch: Lo
         </div>
       </div>
     ),
-    [falloff, maxDepth, mechanic, revealRadius, updateMaxDepth, updateRevealRadius],
+    [
+      commitDraftSettings,
+      falloff,
+      maxDepth,
+      mechanic,
+      revealRadius,
+      updateFalloff,
+      updateMaxDepth,
+      updateMechanic,
+      updateRevealRadius,
+    ],
   );
   const leftPane = useMemo(() => ({ content: controlsContent }), [controlsContent]);
 
@@ -403,6 +504,7 @@ export function LogoSierpinskiCarpetHoverPage({ routeSearch }: { routeSearch: Lo
         data-falloff={falloff}
         data-max-depth={maxDepth}
         data-mechanic={mechanic}
+        data-reveal-radius={revealRadius.toFixed(2)}
         data-testid="logo-carpet-hover-page"
         style={{ backgroundColor }}
       >
