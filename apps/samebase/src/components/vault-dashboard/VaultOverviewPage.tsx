@@ -476,17 +476,15 @@ function VaultEnvironmentTree({ roots }: { roots: readonly VaultEnvironmentRoot[
         <div key={root.rootDirectory} className="relative">
           {hideRootDirectory ? null : (
             <>
+              {index === roots.length - 1 ? null : (
+                <span
+                  aria-hidden="true"
+                  className="absolute -left-5 inset-y-0 border-l border-border"
+                />
+              )}
               <span
                 aria-hidden="true"
-                className={
-                  index === roots.length - 1
-                    ? "absolute -left-5 top-0 h-[1.35rem] border-l border-border"
-                    : "absolute -left-5 inset-y-0 border-l border-border"
-                }
-              />
-              <span
-                aria-hidden="true"
-                className="absolute -left-5 top-[1.35rem] w-4 border-t border-border"
+                className="absolute -left-5 top-0 h-[1.35rem] w-4 rounded-bl-[0.375rem] border-b border-l border-border"
               />
             </>
           )}
