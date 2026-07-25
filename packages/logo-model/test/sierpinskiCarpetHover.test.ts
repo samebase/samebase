@@ -284,9 +284,9 @@ describe("Sierpinski carpet hover", () => {
       12,
     );
 
-    // Crossing the vertical through the hole center flips the horizontal
-    // anchor while that dimension sits at full width, so the wipe does not
-    // jump as the pointer orbits from one side to the other.
+    // Crossing the vertical through the hole center keeps the rect continuous
+    // because the horizontal anchor shift saturates only beyond the hole's
+    // own bounds, so the wipe does not jump as the pointer orbits.
     const justLeftOfVertical = readSierpinskiCarpetHoleRevealedRect(hole, 0.5, "slide", {
       x: 0.5 - 1e-6,
       y: 0.2,
@@ -298,6 +298,29 @@ describe("Sierpinski carpet hover", () => {
     expect(justLeftOfVertical?.x).toBeCloseTo(justRightOfVertical?.x ?? Number.NaN, 5);
     expect(justLeftOfVertical?.width).toBeCloseTo(justRightOfVertical?.width ?? Number.NaN, 5);
     expect(justLeftOfVertical?.height).toBeCloseTo(justRightOfVertical?.height ?? Number.NaN, 5);
+
+    // A diagonal crossing straight through the hole center is continuous too:
+    // at the exact center the opening is centered, and points just either
+    // side produce nearly identical rects even at partial openness.
+    const atCenter = readSierpinskiCarpetHoleRevealedRect(hole, 0.25, "slide", {
+      x: 0.5,
+      y: 0.5,
+    });
+    expect(atCenter?.x).toBeCloseTo(hole.centerX - (atCenter?.width ?? 0) / 2, 12);
+    expect(atCenter?.y).toBeCloseTo(hole.centerY - (atCenter?.height ?? 0) / 2, 12);
+
+    const justBeforeCenter = readSierpinskiCarpetHoleRevealedRect(hole, 0.25, "slide", {
+      x: 0.5 - 1e-6,
+      y: 0.5 - 1e-6,
+    });
+    const justAfterCenter = readSierpinskiCarpetHoleRevealedRect(hole, 0.25, "slide", {
+      x: 0.5 + 1e-6,
+      y: 0.5 + 1e-6,
+    });
+    expect(justBeforeCenter?.x).toBeCloseTo(justAfterCenter?.x ?? Number.NaN, 4);
+    expect(justBeforeCenter?.y).toBeCloseTo(justAfterCenter?.y ?? Number.NaN, 4);
+    expect(justBeforeCenter?.width).toBeCloseTo(justAfterCenter?.width ?? Number.NaN, 4);
+    expect(justBeforeCenter?.height).toBeCloseTo(justAfterCenter?.height ?? Number.NaN, 4);
 
     // Without a pointer the wipe stays deterministic and anchored left.
     const fallback = readSierpinskiCarpetHoleRevealedRect(hole, 0.5, "slide", null);

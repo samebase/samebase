@@ -177,25 +177,30 @@ export function readSierpinskiCarpetHoleOpenness(
 }
 
 type SierpinskiCarpetSlide = {
-  signX: -1 | 1;
-  signY: -1 | 1;
+  anchorShiftX: number;
+  anchorShiftY: number;
   weightX: number;
 };
 
+function clampUnit(value: number): number {
+  return Math.min(Math.max(value, 0), 1);
+}
+
 /**
-The wipe splits across both axes by the pointer-to-center offset ratio, so
-the opening is anchored at the pointer-facing corner and morphs continuously
-as the mouse orbits a hole; a pure single-axis wipe only occurs when the
-pointer sits straight beside one edge, where the sign flip of the other axis
-lands while that dimension is at full size and stays invisible. Without a
-pointer the wipe falls back to a left-edge strip.
+The wipe splits across both axes by the pointer-to-center offset ratio and
+anchors toward the pointer-facing side through a continuous shift: 0 places
+the opening at the near edge, 1 at the far edge, 0.5 centered. The shift
+saturates once the pointer is a half hole-side away, so holes beyond their
+own bounds keep hard edge anchoring, while a pointer crossing directly
+through a hole slides the anchor smoothly instead of flipping corners.
+Without a pointer the wipe falls back to a left-edge strip.
 */
 function readSlideAwayFromPointer(
   hole: SierpinskiCarpetHoverHole,
   pointer: SierpinskiCarpetHoverPointer | null,
 ): SierpinskiCarpetSlide {
   if (pointer === null) {
-    return { signX: 1, signY: 1, weightX: 1 };
+    return { anchorShiftX: 0, anchorShiftY: 0, weightX: 1 };
   }
 
   const deltaX = hole.centerX - pointer.x;
@@ -203,8 +208,8 @@ function readSlideAwayFromPointer(
   const totalDelta = Math.abs(deltaX) + Math.abs(deltaY);
 
   return {
-    signX: deltaX >= 0 ? 1 : -1,
-    signY: deltaY >= 0 ? 1 : -1,
+    anchorShiftX: clampUnit(0.5 - deltaX / hole.size),
+    anchorShiftY: clampUnit(0.5 - deltaY / hole.size),
     weightX: totalDelta > 0 ? Math.abs(deltaX) / totalDelta : 0.5,
   };
 }
@@ -248,8 +253,8 @@ export function readSierpinskiCarpetHoleRevealedRect(
       return {
         height,
         width,
-        x: slide.signX === 1 ? left : left + hole.size - width,
-        y: slide.signY === 1 ? top : top + hole.size - height,
+        x: left + (hole.size - width) * slide.anchorShiftX,
+        y: top + (hole.size - height) * slide.anchorShiftY,
       };
     }
     default:
