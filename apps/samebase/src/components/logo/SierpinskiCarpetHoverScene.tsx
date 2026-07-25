@@ -15,6 +15,10 @@ const RENDER_PIXEL_RATIO_MAX = 2;
 const OPENNESS_SMOOTHING_TAU_MS = 58;
 const OPENNESS_SETTLE_EPSILON = 0.001;
 const FRAME_ELAPSED_MAX_MS = 100;
+// The first frame after idle or suspension steps one nominal 60Hz frame;
+// carrying the real gap through the clamp above would snap most of the
+// animation on restart.
+const FRAME_ELAPSED_RESTART_MS = 1000 / 60;
 
 /**
 Holes are sorted by depth, so every reveal cap owns a stable prefix of the
@@ -98,13 +102,18 @@ export function SierpinskiCarpetHoverScene({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const carpetColorRef = useRef(carpetColor);
   const configRef = useRef(config);
+  const touchRevealRef = useRef(touchReveal);
   const clientPointerRef = useRef<ClientPoint | null>(null);
   // Slide anchors outlive the hover so healing wipes keep their direction
   // after the pointer leaves the page.
   const lastClientPointerRef = useRef<ClientPoint | null>(null);
-  const opennessRef = useRef(new Float64Array(SIERPINSKI_CARPET_HOVER_HOLES.length));
+  // The openness buffer is ~300KB; the lazy initializer allocates it once
+  // instead of building and discarding one on every render.
+  const [opennessBuffer] = useState(() => new Float64Array(SIERPINSKI_CARPET_HOVER_HOLES.length));
   const frameRef = useRef(0);
-  const lastFrameTimeRef = useRef(0);
+  // Null whenever the draw loop is idle, so restarts step from a nominal
+  // frame instead of the stale gap since the last run.
+  const lastFrameTimeRef = useRef<number | null>(null);
   const prefersReducedMotionRef = useRef(false);
   const visibleRef = useRef(true);
   const drawRef = useRef<(timestampMs?: number) => void>(() => {});
@@ -136,7 +145,7 @@ export function SierpinskiCarpetHoverScene({
     // of animating in on mount.
     for (const [index, hole] of SIERPINSKI_CARPET_HOVER_HOLES.entries()) {
       if (hole.depth === 1) {
-        opennessRef.current[index] = 1;
+        opennessBuffer[index] = 1;
       }
     }
 
@@ -170,8 +179,12 @@ export function SierpinskiCarpetHoverScene({
       }
 
       const now = timestampMs ?? performance.now();
-      const elapsedMs = Math.min(Math.max(now - lastFrameTimeRef.current, 0), FRAME_ELAPSED_MAX_MS);
+      const previousFrameTime = lastFrameTimeRef.current;
       lastFrameTimeRef.current = now;
+      const elapsedMs =
+        previousFrameTime === null
+          ? FRAME_ELAPSED_RESTART_MS
+          : Math.min(Math.max(now - previousFrameTime, 0), FRAME_ELAPSED_MAX_MS);
       const smoothing = prefersReducedMotionRef.current
         ? 1
         : 1 - Math.exp(-elapsedMs / OPENNESS_SMOOTHING_TAU_MS);
@@ -186,7 +199,7 @@ export function SierpinskiCarpetHoverScene({
       // under a stationary pointer moves the reveal with the carpet.
       const pointer = toUnitPointer(clientPointerRef.current);
       const directionPointer = pointer ?? toUnitPointer(lastClientPointerRef.current);
-      const openness = opennessRef.current;
+      const openness = opennessBuffer;
       const activeHoleCount = readActiveHoleCount(configRef.current);
       let settled = true;
       for (let index = 0; index < activeHoleCount; index += 1) {
@@ -224,6 +237,8 @@ export function SierpinskiCarpetHoverScene({
       }
       if (!settled) {
         scheduleFrame();
+      } else {
+        lastFrameTimeRef.current = null;
       }
     };
 
@@ -231,15 +246,20 @@ export function SierpinskiCarpetHoverScene({
       const pixelRatio = Math.min(window.devicePixelRatio, RENDER_PIXEL_RATIO_MAX);
       canvas.width = Math.max(Math.round(container.clientWidth * pixelRatio), 1);
       canvas.height = Math.max(Math.round(container.clientHeight * pixelRatio), 1);
-      draw();
+      // The backing store tracks layout even offscreen; painting waits for
+      // the intersection observer's re-entry frame.
+      if (visibleRef.current) {
+        draw();
+      }
     };
 
     // The reveal tracks the pointer across the whole page, not only the
     // canvas, so nearby holes keep reacting while the mouse is over the
     // chrome. Healing starts when the pointer leaves the page or a touch or
-    // pen lifts; a released mouse keeps hovering.
+    // pen lifts; a released mouse keeps hovering. Surfaces with touchReveal
+    // off ignore touch pointers entirely, so taps neither reveal nor heal.
     const onWindowPointerMove = (event: PointerEvent) => {
-      if (!event.isPrimary) {
+      if (!event.isPrimary || (event.pointerType === "touch" && !touchRevealRef.current)) {
         return;
       }
 
@@ -249,6 +269,9 @@ export function SierpinskiCarpetHoverScene({
     };
     const onWindowPointerEnd = (event: PointerEvent) => {
       if (!event.isPrimary || event.pointerType === "mouse") {
+        return;
+      }
+      if (event.pointerType === "touch" && !touchRevealRef.current) {
         return;
       }
 
@@ -287,6 +310,8 @@ export function SierpinskiCarpetHoverScene({
 
       visibleRef.current = entry.isIntersecting;
       if (entry.isIntersecting) {
+        // A suspension can freeze the clock mid-animation; restart nominal.
+        lastFrameTimeRef.current = null;
         scheduleFrame();
       }
     });
@@ -310,16 +335,21 @@ export function SierpinskiCarpetHoverScene({
         frameRef.current = 0;
       }
     };
-  }, [scheduleFrame]);
+  }, [opennessBuffer, scheduleFrame]);
 
   useEffect(() => {
     configRef.current = config;
     carpetColorRef.current = carpetColor;
+    touchRevealRef.current = touchReveal;
     // Holes beyond a lowered reveal cap leave the draw prefix, so their
     // openness closes immediately instead of freezing mid-heal.
-    opennessRef.current.fill(0, readActiveHoleCount(config));
-    drawRef.current();
-  }, [carpetColor, config]);
+    opennessBuffer.fill(0, readActiveHoleCount(config));
+    // Offscreen instances defer the repaint to the intersection observer's
+    // re-entry frame.
+    if (visibleRef.current) {
+      drawRef.current();
+    }
+  }, [carpetColor, config, opennessBuffer, touchReveal]);
 
   return (
     <div
