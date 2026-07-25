@@ -471,67 +471,19 @@ function VaultEnvironmentTree({ roots }: { roots: readonly VaultEnvironmentRoot[
 
   return (
     <div className={hideRootDirectory ? undefined : "ml-2.5 pl-5"}>
-      {roots.map((root, index) => (
-        <div key={root.rootDirectory} className="relative">
-          {hideRootDirectory || roots.length === 1 ? null : index === 0 ? (
-            <span
-              aria-hidden="true"
-              className="absolute -left-5 top-[1.375rem] bottom-0 w-5 rounded-tl-[0.375rem] border-t border-l border-border"
-            />
-          ) : index === roots.length - 1 ? (
-            <span
-              aria-hidden="true"
-              className="absolute -left-5 top-0 h-[1.375rem] w-5 rounded-bl-[0.375rem] border-b border-l border-border"
-            />
-          ) : (
-            <>
-              <span
-                aria-hidden="true"
-                className="absolute -left-5 inset-y-0 border-l border-border"
-              />
-              <span
-                aria-hidden="true"
-                className="absolute -left-5 top-[1.375rem] w-5 border-t border-border"
-              />
-            </>
-          )}
+      {roots.map((root) => (
+        <div key={root.rootDirectory}>
           {hideRootDirectory ? null : (
-            <div className="relative pt-3 pl-3">
-              <svg
-                aria-hidden="true"
-                className="absolute -left-1 top-[1.125rem] h-2 w-2"
-                focusable="false"
-                viewBox="0 0 8 8"
-              >
-                <circle
-                  className="fill-muted-foreground stroke-background"
-                  cx="4"
-                  cy="4"
-                  r="3"
-                  strokeWidth="2"
-                />
-              </svg>
+            <div className="pt-3">
               <RootDirectoryLabel rootDirectory={root.rootDirectory} />
             </div>
           )}
-          <div className={hideRootDirectory ? undefined : "relative pb-0.5"}>
-            {hideRootDirectory ? null : (
-              <span
-                aria-hidden="true"
-                className="absolute left-0 -top-1.5 bottom-5 border-l border-border"
-              />
-            )}
+          <div className={hideRootDirectory ? undefined : "pb-0.5"}>
             {root.resources.map((resource) => (
               <div
                 key={`${resource.kind}:${resource.id}`}
-                className={hideRootDirectory ? undefined : "relative pl-4"}
+                className={hideRootDirectory ? undefined : "pl-4"}
               >
-                {hideRootDirectory ? null : (
-                  <span
-                    aria-hidden="true"
-                    className="absolute left-0 top-0 h-5 w-3 rounded-bl-[0.375rem] border-b border-l border-border"
-                  />
-                )}
                 <VaultEnvironmentResourceRow resource={resource} />
               </div>
             ))}
