@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import type { CloudflareWorkerBuild } from "../cloudflareResources";
+import { matchLatestCloudflareWorkerBuildForBranch } from "./cloudflareBuildMatching";
 import {
   cloudflareBuildLogsUrl,
   matchCloudflareWorkerBuild,
@@ -241,6 +242,33 @@ describe("matchCloudflareWorkerBuild", () => {
         previewTriggerUuid: "preview-trigger",
       }),
     ).toEqual({ state: "provider_disagreement" });
+  });
+});
+
+describe("matchLatestCloudflareWorkerBuildForBranch", () => {
+  it("selects the newest production-trigger build for the default branch", () => {
+    expect(
+      matchLatestCloudflareWorkerBuildForBranch({
+        builds: [
+          cloudflareBuild({
+            branch: "main",
+            buildUuid: "production-build",
+            commitHash: "main123",
+            metadataDeployCommand: "pnpm run deploy",
+            triggerDeployCommand: "pnpm run deploy",
+            triggerUuid: "production-trigger",
+          }),
+        ],
+        branch: "main",
+        worker: { workerTag: "stable-worker-tag", rootDirectory: "/" },
+        ghRepoId: "42",
+        triggerUuid: "production-trigger",
+      }),
+    ).toMatchObject({
+      state: "available",
+      buildUuid: "production-build",
+      buildState: "success",
+    });
   });
 });
 

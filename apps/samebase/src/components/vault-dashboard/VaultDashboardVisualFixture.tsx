@@ -298,6 +298,7 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
           builds: { state: "not_available" },
         },
         builds: { state: "not_connected" },
+        productionBuild: { state: "unavailable" },
       },
       {
         state: "available",
@@ -309,6 +310,7 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
           builds: { state: "not_available" },
         },
         builds: { state: "not_connected" },
+        productionBuild: { state: "unavailable" },
       },
     ],
   },
@@ -1005,6 +1007,7 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
                   workerId: LIST_SPACING_DOMAIN_WORKER_ID,
                   repository: { state: "not_connected" },
                   builds: { state: "not_connected" },
+                  productionBuild: { state: "unavailable" },
                 },
                 {
                   state: "available",
@@ -1024,6 +1027,7 @@ function VaultDashboardCloudflareBuildTriggerMissingFixture() {
                     productionTriggerUuid: "production-trigger",
                     previewTriggerUuid: "preview-trigger",
                   },
+                  productionBuild: { state: "absent" },
                 },
               ],
             },

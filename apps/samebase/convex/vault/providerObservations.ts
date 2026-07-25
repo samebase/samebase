@@ -8,6 +8,7 @@ import { action } from "../functions";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import {
   readCloudflareWorkerBuildsDiscoveryForIdentity,
+  readCloudflareWorkerBuildsPage,
   readCloudflareWorkerConvexBuildAccess,
   readCloudflareWorkerIdentity,
   readCloudflareWorkersDevSubdomain,
@@ -19,11 +20,30 @@ import { fetchGitHubConvexCodeLocationDiscovery, fetchGitHubRepoIdentity } from 
 import { vCloudflareWorkerRepositoryDiscovery } from "./contracts/cloudflareAttachments";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import { buildConvexSiteUrl, readConvexProductionDeployment } from "./convexProjectResources";
+import { matchLatestCloudflareWorkerBuildForBranch } from "./cloudflareBuildMatching";
 import type { VaultProviderObservationContext } from "./providerObservationQueries";
 
 const { array, id, literal, number, object, string, union } = v;
 
 const vObservationFailureReason = union(literal("connection_required"), literal("request_failed"));
+const vCloudflareBuildState = union(
+  literal("queued"),
+  literal("running"),
+  literal("success"),
+  literal("failure"),
+  literal("cancelled"),
+  literal("skipped"),
+  literal("unknown"),
+);
+const vCloudflareProductionBuildObservation = union(
+  object({
+    state: literal("available"),
+    uuid: string(),
+    buildState: vCloudflareBuildState,
+  }),
+  object({ state: literal("absent") }),
+  object({ state: literal("unavailable") }),
+);
 const vObservedConvexProject = union(
   object({
     state: literal("attached"),
@@ -87,6 +107,7 @@ const vCloudflareWorkerBuildsObservation = union(
     workerId: id("vaultCloudflareWorkers"),
     repository: vCloudflareWorkerRepositoryDiscovery,
     builds: vCloudflareBuildsObservation,
+    productionBuild: vCloudflareProductionBuildObservation,
   }),
   object({
     state: literal("failed"),
@@ -425,12 +446,48 @@ export const observeCloudflareWorkerBuilds = action({
             defaultBranch,
             expectedRepoId: input.context.ghRepoId,
           });
+          let productionBuild: ReturnType<typeof matchLatestCloudflareWorkerBuildForBranch> = {
+            state: "provider_disagreement",
+          };
+          if (discovery.repository.state === "ready" && discovery.builds.state === "connected") {
+            try {
+              productionBuild = matchLatestCloudflareWorkerBuildForBranch({
+                builds: await readCloudflareWorkerBuildsPage({
+                  token: input.token,
+                  transport: input.transport,
+                  accountId: worker.accountId,
+                  workerTag: worker.workerTag,
+                  page: 1,
+                  perPage: 100,
+                }),
+                branch: defaultBranch,
+                worker: {
+                  workerTag: worker.workerTag,
+                  rootDirectory: discovery.repository.rootDirectory,
+                },
+                ghRepoId: input.context.ghRepoId,
+                triggerUuid: discovery.builds.productionTriggerUuid,
+              });
+            } catch {
+              productionBuild = { state: "provider_disagreement" };
+            }
+          }
           return {
             state: "available" as const,
             observedAt: Date.now(),
             workerId: worker.workerId,
             repository: discovery.repository,
             builds: discovery.builds,
+            productionBuild:
+              productionBuild.state === "available"
+                ? {
+                    state: "available" as const,
+                    uuid: productionBuild.buildUuid,
+                    buildState: productionBuild.buildState,
+                  }
+                : productionBuild.state === "absent"
+                  ? { state: "absent" as const }
+                  : { state: "unavailable" as const },
           };
         } catch {
           return {

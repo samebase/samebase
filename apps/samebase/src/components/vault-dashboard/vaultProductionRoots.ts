@@ -3,6 +3,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { getConvexCodeRootDirectory } from "../../../shared/convexCodeLocation";
 import type {
   VaultCloudflareProviderObservationState,
+  VaultCloudflareWorkerBuildsObservation,
   VaultConvexProjectObservation,
   VaultProviderObservationState,
 } from "./useVaultProviderObservations";
@@ -14,6 +15,12 @@ type VaultDashboardVault = NonNullable<
 export type VaultProductionLink =
   | {
       provider: "cloudflare";
+      workerId: Id<"vaultCloudflareWorkers">;
+      workerName: string;
+      build:
+        | { state: "available"; buildState: CloudflareBuildState; logsUrl: string }
+        | { state: "absent" }
+        | { state: "unavailable" };
       href: string;
       label: string;
       title: string;
@@ -37,6 +44,11 @@ type VaultProductionLinkInput = VaultProductionLink & {
   rootDirectory: string;
   sortKey: string;
 };
+
+type CloudflareBuildState = Extract<
+  Extract<VaultCloudflareWorkerBuildsObservation, { state: "available" }>["productionBuild"],
+  { state: "available" }
+>["buildState"];
 
 function groupVaultProductionLinks(
   links: readonly VaultProductionLinkInput[],
@@ -80,6 +92,9 @@ function groupVaultProductionLinks(
               }
             : {
                 provider: link.provider,
+                workerId: link.workerId,
+                workerName: link.workerName,
+                build: link.build,
                 href: link.href,
                 label: link.label,
                 title: link.title,
@@ -101,6 +116,14 @@ function buildConvexDeploymentDashboardUrl(
   deploymentName: string,
 ): string {
   return `https://dashboard.convex.dev/t/${encodeURIComponent(project.teamSlug)}/${encodeURIComponent(project.projectSlug)}/${encodeURIComponent(deploymentName)}`;
+}
+
+function buildCloudflareBuildLogsUrl(args: {
+  accountId: string;
+  workerName: string;
+  buildUuid: string;
+}): string {
+  return `https://dash.cloudflare.com/${encodeURIComponent(args.accountId)}/workers/services/view/${encodeURIComponent(args.workerName)}/production/builds/${encodeURIComponent(args.buildUuid)}`;
 }
 
 /**
@@ -142,8 +165,23 @@ export function buildVaultProductionRoots({
             rootDirectory === "/"
               ? "Open production app"
               : `Open production app for ${rootDirectory}`;
+          const build =
+            buildsObservation.productionBuild.state === "available"
+              ? {
+                  state: "available" as const,
+                  buildState: buildsObservation.productionBuild.buildState,
+                  logsUrl: buildCloudflareBuildLogsUrl({
+                    accountId: worker.accountId,
+                    workerName: worker.workerName,
+                    buildUuid: buildsObservation.productionBuild.uuid,
+                  }),
+                }
+              : buildsObservation.productionBuild;
           const customDomainLinks = workerObservation.customDomains.map((hostname) => ({
             rootDirectory,
+            workerId: worker.workerId,
+            workerName: worker.workerName,
+            build,
             href: `https://${hostname}`,
             label: hostname,
             provider: "cloudflare" as const,
@@ -155,6 +193,9 @@ export function buildVaultProductionRoots({
               ? [
                   {
                     rootDirectory,
+                    workerId: worker.workerId,
+                    workerName: worker.workerName,
+                    build,
                     href: workerObservation.workersDev.url,
                     label: buildProductionUrlLabel(workerObservation.workersDev.url),
                     provider: "cloudflare" as const,

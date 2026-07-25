@@ -24,6 +24,7 @@ import {
   type VaultEnvironmentAction,
   type VaultEnvironmentResource,
   type VaultEnvironmentRoot,
+  type VaultEnvironmentWorker,
 } from "@/components/vault-dashboard/vaultEnvironmentRoots";
 import type {
   PullRequestResourceState,
@@ -59,7 +60,6 @@ import {
   Settings,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import type { PullRequestWorkerResource } from "../../../convex/vault/pullRequestResources";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
 import type { VaultWorkspaceSelected } from "./vaultWorkspaceModel";
 
@@ -77,10 +77,10 @@ type VaultOverviewPageProps = {
 };
 
 const numberFormatter = new Intl.NumberFormat("en-US");
-type PullRequestBuildState = Extract<
-  PullRequestWorkerResource,
+type EnvironmentBuildState = Extract<
+  VaultEnvironmentWorker["build"],
   { state: "available" }
->["cloudflareBuild"]["state"];
+>["buildState"];
 
 function repositoryRoute(vault: UserVaultResult, page: VaultOverviewPageKind): string {
   const args = { owner: vault.ghRepoOwner, repoName: vault.ghRepoName };
@@ -378,22 +378,17 @@ function RootDirectoryLabel({ rootDirectory }: { rootDirectory: string }) {
   );
 }
 
-function ConvexDeploymentActionsMenu({
+function EnvironmentActionsMenu({
   actions,
-  deploymentName,
+  label,
 }: {
   actions: readonly VaultEnvironmentAction[];
-  deploymentName: string;
+  label: string;
 }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild nativeButton>
-        <Button
-          aria-label={`Open ${deploymentName} deployment actions`}
-          size="icon-sm"
-          type="button"
-          variant="ghost"
-        >
+        <Button aria-label={`Open ${label} actions`} size="icon-sm" type="button" variant="ghost">
           <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>
@@ -446,7 +441,7 @@ function DestinationResource({
         <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
       </a>
       {resource.actions.length > 0 ? (
-        <ConvexDeploymentActionsMenu actions={resource.actions} deploymentName={resource.label} />
+        <EnvironmentActionsMenu actions={resource.actions} label={resource.label} />
       ) : null}
     </div>
   );
@@ -471,8 +466,8 @@ function VaultEnvironmentResourceRow({ resource }: { resource: VaultEnvironmentR
           />
         </div>
       );
-    case "pull_request_worker":
-      return <PullRequestWorker worker={resource.worker} />;
+    case "cloudflare_worker":
+      return <CloudflareWorkerResource worker={resource.worker} />;
     default:
       resource satisfies never;
       return null;
@@ -662,7 +657,7 @@ function DefaultBranchSection({ workspace }: { workspace: VaultWorkspaceSelected
   );
 }
 
-function BuildState({ state }: { state: PullRequestBuildState }) {
+function BuildState({ state }: { state: EnvironmentBuildState }) {
   switch (state) {
     case "queued":
       return (
@@ -704,8 +699,8 @@ function BuildState({ state }: { state: PullRequestBuildState }) {
   }
 }
 
-function PullRequestWorker({ worker }: { worker: PullRequestWorkerResource }) {
-  if (worker.state === "absent") {
+function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }) {
+  if (worker.build.state === "absent" && worker.destination.state === "absent") {
     return (
       <div className="flex min-w-0 items-center gap-2.5 py-2.5 text-sm text-muted-foreground">
         <span className="flex h-4 w-5 shrink-0 items-center justify-center">
@@ -716,7 +711,7 @@ function PullRequestWorker({ worker }: { worker: PullRequestWorkerResource }) {
       </div>
     );
   }
-  if (worker.state === "unavailable") {
+  if (worker.build.state === "unavailable" && worker.destination.state === "absent") {
     return (
       <div className="flex min-w-0 items-center gap-2.5 py-2.5 text-sm text-muted-foreground">
         <span className="flex h-4 w-5 shrink-0 items-center justify-center">
@@ -740,27 +735,39 @@ function PullRequestWorker({ worker }: { worker: PullRequestWorkerResource }) {
         </span>
       </div>
       <div className="ml-[1.875rem] flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-        <BuildState state={worker.cloudflareBuild.state} />
-        <a
-          className="inline-flex min-h-7 items-center gap-1 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
-          href={worker.cloudflareBuild.logsUrl}
-          rel="noreferrer noopener"
-          target="_blank"
-        >
-          Build logs
-          <ExternalLink className="h-3 w-3" />
-        </a>
-        {worker.cloudflareBranchPreview.state === "available" ? (
+        {worker.build.state === "available" ? (
+          <>
+            <BuildState state={worker.build.buildState} />
+            <a
+              className="inline-flex min-h-7 items-center gap-1 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
+              href={worker.build.logsUrl}
+              rel="noreferrer noopener"
+              target="_blank"
+            >
+              Build logs
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </>
+        ) : (
+          <span className="text-muted-foreground">
+            {worker.build.state === "absent" ? "No build" : "Build unavailable"}
+          </span>
+        )}
+        {worker.destination.state === "available" ? (
           <a
             className="inline-flex min-h-7 items-center gap-1 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
-            href={worker.cloudflareBranchPreview.url}
+            href={worker.destination.href}
             rel="noreferrer noopener"
             target="_blank"
-            title={new URL(worker.cloudflareBranchPreview.url).hostname}
+            title={worker.destination.title}
           >
-            <DestinationIcon href={worker.cloudflareBranchPreview.url} provider="cloudflare" />
-            Branch preview
+            <DestinationIcon href={worker.destination.href} provider="cloudflare" />
+            {worker.destination.label}
+            <ExternalLink className="h-3 w-3" />
           </a>
+        ) : null}
+        {worker.actions.length > 0 ? (
+          <EnvironmentActionsMenu actions={worker.actions} label={worker.workerName} />
         ) : null}
       </div>
     </div>

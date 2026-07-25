@@ -8,7 +8,6 @@ import { internal } from "../_generated/api";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import {
-  normalizeCloudflareBuildRoot,
   readCloudflareWorkerBuildsDiscoveryForIdentity,
   readCloudflareWorkerBuildsPage,
   readCloudflareWorkerConvexBuildAccess,
@@ -19,6 +18,10 @@ import {
 import { action } from "../functions";
 import { createGitHubRequestDeadlineSignal, fetchGitHubRepoIdentity } from "../githubRepoApi";
 import { readConvexPreviewDeployments, readConvexProjectResource } from "./convexProjectResources";
+import {
+  matchCloudflareWorkerBuildForCommit,
+  type CloudflareBuildMatch,
+} from "./cloudflareBuildMatching";
 import type { VaultProviderObservationContext } from "./providerObservationQueries";
 
 const { array, id, literal, object, string, union } = v;
@@ -256,18 +259,7 @@ export function recoverGitHubPullRequestResourceHeadsFromError(error: unknown): 
 
 type StableWorker = VaultProviderObservationContext["cloudflareWorkers"][number];
 type StableConvexProject = VaultProviderObservationContext["convexProjects"][number];
-type CloudflareBuildState = Infer<typeof vCloudflareBuildState>;
 type AvailableWorkerResource = Extract<PullRequestWorkerResource, { state: "available" }>;
-type BuildMatch =
-  | {
-      state: "available";
-      buildUuid: string;
-      buildState: CloudflareBuildState;
-      createdAt: number;
-      finishedAt: number | null;
-    }
-  | { state: "absent" }
-  | { state: "provider_disagreement" };
 type ConvexPreviewRead =
   | {
       state: "available";
@@ -321,48 +313,6 @@ function observedWorkerResourceIdentity(worker: StableWorker, rootDirectory: str
   };
 }
 
-function providerTimestamp(value: string | null | undefined): number | null {
-  if (!value) {
-    return null;
-  }
-  const timestamp = Date.parse(value);
-  return Number.isNaN(timestamp) ? null : timestamp;
-}
-
-function classifyCloudflareBuildState(build: CloudflareWorkerBuild): CloudflareBuildState {
-  if (build.status !== "stopped") {
-    switch (build.status) {
-      case "queued":
-        return "queued";
-      case "initializing":
-      case "running":
-        return "running";
-      case undefined:
-        return "unknown";
-      default:
-        build.status satisfies never;
-        return "unknown";
-    }
-  }
-
-  switch (build.build_outcome) {
-    case "success":
-      return "success";
-    case "fail":
-    case "terminated":
-      return "failure";
-    case "cancelled":
-      return "cancelled";
-    case "skipped":
-      return "skipped";
-    case undefined:
-      return "unknown";
-    default:
-      build.build_outcome satisfies never;
-      return "unknown";
-  }
-}
-
 export function matchCloudflareWorkerBuild(args: {
   builds: readonly CloudflareWorkerBuild[];
   head: PullRequestResourceHead;
@@ -372,70 +322,22 @@ export function matchCloudflareWorkerBuild(args: {
   };
   ghRepoId: string;
   previewTriggerUuid: string;
-}): BuildMatch {
-  const candidates = args.builds
-    .filter((build) => {
-      const metadata = build.build_trigger_metadata;
-      return (
-        metadata?.branch === args.head.headRefName && metadata.commit_hash === args.head.headRefOid
-      );
-    })
-    .map((build) => ({
-      build,
-      createdAt: providerTimestamp(build.created_on),
-    }))
-    .sort(
-      (left, right) =>
-        (right.createdAt ?? -1) - (left.createdAt ?? -1) ||
-        (left.build.build_uuid ?? "").localeCompare(right.build.build_uuid ?? ""),
-    );
-  const candidate = candidates.at(0);
-  if (candidate === undefined) {
-    return { state: "absent" };
-  }
-
-  const build = candidate.build;
-  const trigger = build.trigger;
-  const metadata = build.build_trigger_metadata;
-  const createdAt = candidate.createdAt;
-  const finishedAt = providerTimestamp(build.stopped_on);
-  const buildUuid = build.build_uuid?.trim();
-  const rootDirectory = normalizeCloudflareBuildRoot(args.worker.rootDirectory);
-  const triggerRootDirectory = normalizeCloudflareBuildRoot(trigger?.root_directory);
-  const metadataRootDirectory = normalizeCloudflareBuildRoot(metadata?.root_directory);
-  const triggerDeployCommand = trigger?.deploy_command?.trim();
-  const metadataDeployCommand = metadata?.deploy_command?.trim();
-  if (
-    !trigger ||
-    !metadata ||
-    !buildUuid ||
-    createdAt === null ||
-    rootDirectory === null ||
-    trigger.external_script_id !== args.worker.workerTag ||
-    trigger.trigger_uuid !== args.previewTriggerUuid ||
-    trigger.repo_connection?.repo_id !== args.ghRepoId ||
-    triggerRootDirectory !== rootDirectory ||
-    metadataRootDirectory !== rootDirectory ||
-    !triggerDeployCommand ||
-    triggerDeployCommand !== metadataDeployCommand
-  ) {
-    return { state: "provider_disagreement" };
-  }
-
-  return {
-    state: "available",
-    buildUuid,
-    buildState: classifyCloudflareBuildState(build),
-    createdAt,
-    finishedAt,
-  };
+}): CloudflareBuildMatch {
+  return matchCloudflareWorkerBuildForCommit({
+    builds: args.builds,
+    branch: args.head.headRefName,
+    commitHash: args.head.headRefOid,
+    worker: args.worker,
+    ghRepoId: args.ghRepoId,
+    triggerUuid: args.previewTriggerUuid,
+  });
 }
 
 export function resolveConvexPreviewDeployment(args: {
   deployments: readonly ConvexCloudDeployment[];
   head: PullRequestResourceHead;
   build: Pick<
-    Extract<BuildMatch, { state: "available" }>,
+    Extract<CloudflareBuildMatch, { state: "available" }>,
     "buildState" | "createdAt" | "finishedAt"
   >;
 }):
@@ -474,7 +376,7 @@ export function resolveConvexPreviewDeployment(args: {
 export function resolveCloudflareBranchPreviewUrl(args: {
   checks: PullRequestResourceHead["cloudflareChecks"];
   workerName: string;
-  build: Pick<Extract<BuildMatch, { state: "available" }>, "buildUuid" | "buildState">;
+  build: Pick<Extract<CloudflareBuildMatch, { state: "available" }>, "buildUuid" | "buildState">;
 }):
   | { state: "available"; url: string }
   | { state: "absent" }

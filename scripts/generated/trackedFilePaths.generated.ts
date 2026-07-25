@@ -997,6 +997,7 @@ export const trackedFilePaths = [
   "apps/samebase/src/components/vault-dashboard/vaultDashboardPullRequestFilters.test.ts",
   "apps/samebase/src/components/vault-dashboard/vaultDashboardPullRequestFilters.ts",
   "apps/samebase/src/components/vault-dashboard/vaultDashboardScrollport.ts",
+  "apps/samebase/src/components/vault-dashboard/vaultEnvironmentRoots.ts",
   "apps/samebase/src/components/vault-dashboard/vaultProductionRoots.ts",
   "apps/samebase/src/components/vault-dashboard/vaultProviderSetup.ts",
   "apps/samebase/src/components/vault-dashboard/vaultResourceRailState.ts",

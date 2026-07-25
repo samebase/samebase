@@ -172,6 +172,7 @@ function makeAvailableResourceRailCloudflareBuildsObservation(
     },
     builds: { state: "not_connected" },
     ...overrides,
+    productionBuild: overrides.productionBuild ?? { state: "unavailable" },
   };
 }
 
@@ -344,6 +345,9 @@ describe("VaultDefaultBranch", () => {
               rootDirectory: "apps/api",
               links: [
                 {
+                  workerId: fakeCloudflareWorkerId(),
+                  workerName: "api",
+                  build: { state: "absent" },
                   href: "https://api.ada.workers.dev",
                   label: "api.ada.workers.dev",
                   provider: "cloudflare",
@@ -355,6 +359,9 @@ describe("VaultDefaultBranch", () => {
               rootDirectory: "apps/web",
               links: [
                 {
+                  workerId: fakeCloudflareWorkerId(),
+                  workerName: "web",
+                  build: { state: "absent" },
                   href: "https://web.ada.workers.dev",
                   label: "web.ada.workers.dev",
                   provider: "cloudflare",
@@ -443,6 +450,11 @@ describe("buildVaultProductionRoots", () => {
         builds: [
           makeAvailableResourceRailCloudflareBuildsObservation({
             workerId,
+            productionBuild: {
+              state: "available",
+              uuid: "build-1",
+              buildState: "success",
+            },
             repository: {
               state: "ready",
               rootDirectory: "apps/web",
@@ -487,18 +499,42 @@ describe("buildVaultProductionRoots", () => {
         rootDirectory: "apps/web",
         links: [
           {
+            workerId,
+            workerName: "demo-worker",
+            build: {
+              state: "available",
+              buildState: "success",
+              logsUrl:
+                "https://dash.cloudflare.com/account-1/workers/services/view/demo-worker/production/builds/build-1",
+            },
             href: "https://app.example.com",
             label: "app.example.com",
             provider: "cloudflare",
             title: "Open production app for apps/web",
           },
           {
+            workerId,
+            workerName: "demo-worker",
+            build: {
+              state: "available",
+              buildState: "success",
+              logsUrl:
+                "https://dash.cloudflare.com/account-1/workers/services/view/demo-worker/production/builds/build-1",
+            },
             href: "https://www.example.com",
             label: "www.example.com",
             provider: "cloudflare",
             title: "Open production app for apps/web",
           },
           {
+            workerId,
+            workerName: "demo-worker",
+            build: {
+              state: "available",
+              buildState: "success",
+              logsUrl:
+                "https://dash.cloudflare.com/account-1/workers/services/view/demo-worker/production/builds/build-1",
+            },
             href: "https://demo-worker.ada.workers.dev",
             label: "demo-worker.ada.workers.dev",
             provider: "cloudflare",
@@ -549,6 +585,9 @@ describe("buildVaultProductionRoots", () => {
         rootDirectory: "/",
         links: [
           {
+            workerId,
+            workerName: "demo-worker",
+            build: { state: "unavailable" },
             href: "https://app.example.com",
             label: "app.example.com",
             provider: "cloudflare",
@@ -628,6 +667,78 @@ describe("vault environment roots", () => {
     ]);
   });
 
+  it("uses one production Worker row with its build, primary domain, and alternate destinations", () => {
+    const workerId = fakeCloudflareWorkerId();
+    const build = {
+      state: "available" as const,
+      buildState: "success" as const,
+      logsUrl: "https://dash.cloudflare.com/build-1",
+    };
+
+    expect(
+      buildProductionEnvironmentRoots({
+        branch: "main",
+        convexObservationState: "loaded",
+        convexProjects: [],
+        owner: "ada",
+        productionRoots: [
+          {
+            rootDirectory: "apps/web",
+            links: [
+              {
+                provider: "cloudflare",
+                workerId,
+                workerName: "demo-web",
+                build,
+                href: "https://demo.example.com",
+                label: "demo.example.com",
+                title: "Open production app for apps/web",
+              },
+              {
+                provider: "cloudflare",
+                workerId,
+                workerName: "demo-web",
+                build,
+                href: "https://demo-web.ada.workers.dev",
+                label: "demo-web.ada.workers.dev",
+                title: "Open production app for apps/web",
+              },
+            ],
+          },
+        ],
+        repoName: "demo",
+        schemaGraphEnabled: true,
+      }),
+    ).toEqual([
+      {
+        rootDirectory: "apps/web",
+        resources: [
+          {
+            kind: "cloudflare_worker",
+            id: workerId,
+            worker: {
+              workerName: "demo-web",
+              build,
+              destination: {
+                state: "available",
+                href: "https://demo.example.com",
+                label: "demo.example.com",
+                title: "Open production app for apps/web",
+              },
+              actions: [
+                {
+                  destination: "external",
+                  href: "https://demo-web.ada.workers.dev",
+                  label: "demo-web.ada.workers.dev",
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
   it("uses sibling Cloudflare and Convex rows for a pull request root", () => {
     const workerId = fakeCloudflareWorkerId();
     const worker = {
@@ -661,9 +772,23 @@ describe("vault environment roots", () => {
         rootDirectory: "apps/web",
         resources: [
           {
-            kind: "pull_request_worker",
+            kind: "cloudflare_worker",
             id: workerId,
-            worker,
+            worker: {
+              workerName: "demo-web",
+              build: {
+                state: "available",
+                buildState: "success",
+                logsUrl: "https://dash.cloudflare.com/build-1",
+              },
+              destination: {
+                state: "available",
+                href: "https://branch.demo.workers.dev",
+                label: "Branch preview",
+                title: "branch.demo.workers.dev",
+              },
+              actions: [],
+            },
           },
           {
             kind: "destination",

@@ -14,6 +14,23 @@ export type VaultEnvironmentAction =
   | { destination: "external"; href: string; label: string }
   | { destination: "samebase"; href: string; label: string };
 
+export type VaultEnvironmentWorker = {
+  workerName: string;
+  build:
+    | { state: "available"; buildState: VaultEnvironmentBuildState; logsUrl: string }
+    | { state: "absent" }
+    | { state: "unavailable" };
+  destination:
+    | { state: "available"; href: string; label: string; title: string }
+    | { state: "absent" };
+  actions: readonly VaultEnvironmentAction[];
+};
+
+type VaultEnvironmentBuildState = Extract<
+  PullRequestWorkerResource,
+  { state: "available" }
+>["cloudflareBuild"]["state"];
+
 export type VaultEnvironmentResource =
   | {
       kind: "destination";
@@ -29,9 +46,9 @@ export type VaultEnvironmentResource =
       id: Id<"vaultConvexProjects">;
     }
   | {
-      kind: "pull_request_worker";
+      kind: "cloudflare_worker";
       id: Id<"vaultCloudflareWorkers">;
-      worker: PullRequestWorkerResource;
+      worker: VaultEnvironmentWorker;
     };
 
 export type VaultEnvironmentRoot = {
@@ -102,49 +119,92 @@ export function buildProductionEnvironmentRoots({
   repoName: string;
   schemaGraphEnabled: boolean;
 }): VaultEnvironmentRoot[] {
-  const destinations = productionRoots.flatMap((root) =>
-    root.links.map((link) => ({
-      rootDirectory: root.rootDirectory,
-      sortKey: `${link.provider === "cloudflare" ? "0" : "1"}:${link.label}:${link.href}`,
-      resource: {
-        kind: "destination" as const,
-        id: `${link.provider}:${link.href}`,
-        actions:
-          link.provider === "convex"
-            ? [
-                {
-                  destination: "samebase" as const,
-                  href: buildVaultDatabaseRoute({
-                    owner,
-                    repoName,
-                    branch,
-                    convexProjectId: link.convexProjectId,
-                  }),
-                  label: "Data",
-                },
-                ...(schemaGraphEnabled
-                  ? [
-                      {
-                        destination: "samebase" as const,
-                        href: buildVaultSchemaRoute({
-                          owner,
-                          repoName,
-                          branch,
-                          convexProjectId: link.convexProjectId,
-                        }),
-                        label: "Schema",
-                      },
-                    ]
-                  : []),
-              ]
-            : [],
-        href: link.href,
-        label: link.label,
-        provider: link.provider,
-        title: link.title,
-      },
-    })),
-  );
+  const destinations = productionRoots.flatMap((root) => {
+    const cloudflareWorkerIds = new Set(
+      root.links.flatMap((link) => (link.provider === "cloudflare" ? [link.workerId] : [])),
+    );
+    const cloudflareWorkers = [...cloudflareWorkerIds].flatMap((workerId) => {
+      const links = root.links.flatMap((link) =>
+        link.provider === "cloudflare" && link.workerId === workerId ? [link] : [],
+      );
+      const primary = links.at(0);
+      if (!primary) {
+        return [];
+      }
+
+      return [
+        {
+          rootDirectory: root.rootDirectory,
+          sortKey: `0:${primary.workerName}:${primary.workerId}`,
+          resource: {
+            kind: "cloudflare_worker" as const,
+            id: primary.workerId,
+            worker: {
+              workerName: primary.workerName,
+              build: primary.build,
+              destination: {
+                state: "available" as const,
+                href: primary.href,
+                label: primary.label,
+                title: primary.title,
+              },
+              actions: links.slice(1).map((link) => ({
+                destination: "external" as const,
+                href: link.href,
+                label: link.label,
+              })),
+            },
+          },
+        },
+      ];
+    });
+    const convexDeployments = root.links.flatMap((link) =>
+      link.provider === "convex"
+        ? [
+            {
+              rootDirectory: root.rootDirectory,
+              sortKey: `1:${link.label}:${link.href}`,
+              resource: {
+                kind: "destination" as const,
+                id: `${link.provider}:${link.href}`,
+                actions: [
+                  {
+                    destination: "samebase" as const,
+                    href: buildVaultDatabaseRoute({
+                      owner,
+                      repoName,
+                      branch,
+                      convexProjectId: link.convexProjectId,
+                    }),
+                    label: "Data",
+                  },
+                  ...(schemaGraphEnabled
+                    ? [
+                        {
+                          destination: "samebase" as const,
+                          href: buildVaultSchemaRoute({
+                            owner,
+                            repoName,
+                            branch,
+                            convexProjectId: link.convexProjectId,
+                          }),
+                          label: "Schema",
+                        },
+                      ]
+                    : []),
+                ],
+                href: link.href,
+                label: link.label,
+                provider: link.provider,
+                title: link.title,
+              },
+            },
+          ]
+        : [],
+    );
+
+    return [...cloudflareWorkers, ...convexDeployments];
+  });
   const convexLoading =
     convexObservationState === "loading"
       ? convexProjects.map((project) => ({
@@ -169,9 +229,37 @@ export function buildPullRequestEnvironmentRoots(
       rootDirectory,
       sortKey: `0:${worker.workerName}:${worker.workerId}`,
       resource: {
-        kind: "pull_request_worker" as const,
+        kind: "cloudflare_worker" as const,
         id: worker.workerId,
-        worker,
+        worker:
+          worker.state === "available"
+            ? {
+                workerName: worker.workerName,
+                build: {
+                  state: "available" as const,
+                  buildState: worker.cloudflareBuild.state,
+                  logsUrl: worker.cloudflareBuild.logsUrl,
+                },
+                destination:
+                  worker.cloudflareBranchPreview.state === "available"
+                    ? {
+                        state: "available" as const,
+                        href: worker.cloudflareBranchPreview.url,
+                        label: "Branch preview",
+                        title: new URL(worker.cloudflareBranchPreview.url).hostname,
+                      }
+                    : { state: "absent" as const },
+                actions: [],
+              }
+            : {
+                workerName: worker.workerName,
+                build:
+                  worker.state === "absent"
+                    ? { state: "absent" as const }
+                    : { state: "unavailable" as const },
+                destination: { state: "absent" as const },
+                actions: [],
+              },
       },
     };
 
