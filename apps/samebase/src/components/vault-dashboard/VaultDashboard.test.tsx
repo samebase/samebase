@@ -18,6 +18,10 @@ import { validateRootRouteSearch } from "@/routeSearch/root";
 import { VaultDashboardCloudflareAccountDialog } from "./VaultDashboardCloudflareAccountDialog";
 import { VaultDashboardRepositoryCard } from "./VaultDashboardChrome";
 import { VaultDefaultBranch } from "./VaultDefaultBranch";
+import {
+  buildProductionEnvironmentRoots,
+  buildPullRequestEnvironmentRoots,
+} from "./vaultEnvironmentRoots";
 import { buildVaultDashboardResourceRailState } from "./vaultResourceRailState";
 import { buildVaultProductionRoots } from "./vaultProductionRoots";
 import type {
@@ -589,6 +593,96 @@ describe("buildVaultProductionRoots", () => {
         },
       }),
     ).toEqual([]);
+  });
+});
+
+describe("vault environment roots", () => {
+  it("keeps a Convex row under its known root while deployment details load", () => {
+    const convexProjectId = fakeConvexProjectId();
+
+    expect(
+      buildProductionEnvironmentRoots({
+        branch: "main",
+        convexObservationState: "loading",
+        convexProjects: [
+          {
+            convexProjectId,
+            codeLocation: { kind: "config", convexConfigPath: "packages/backend/convex.json" },
+          },
+        ],
+        owner: "ada",
+        productionRoots: [],
+        repoName: "demo",
+        schemaGraphEnabled: true,
+      }),
+    ).toEqual([
+      {
+        rootDirectory: "packages/backend",
+        resources: [
+          {
+            kind: "convex_loading",
+            id: convexProjectId,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("uses sibling Cloudflare and Convex rows for a pull request root", () => {
+    const workerId = fakeCloudflareWorkerId();
+    const worker = {
+      state: "available" as const,
+      workerId,
+      rootDirectory: "apps/web",
+      workerName: "demo-web",
+      cloudflareBuild: {
+        uuid: "build-1",
+        state: "success" as const,
+        logsUrl: "https://dash.cloudflare.com/build-1",
+      },
+      cloudflareBranchPreview: {
+        state: "available" as const,
+        url: "https://branch.demo.workers.dev",
+      },
+      convexPreview: {
+        state: "available" as const,
+        deploymentName: "calm-swan-123",
+        dashboardUrl: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
+      },
+    };
+
+    expect(
+      buildPullRequestEnvironmentRoots({
+        pullRequestId: "pull-request-1",
+        workers: [worker],
+      }),
+    ).toEqual([
+      {
+        rootDirectory: "apps/web",
+        resources: [
+          {
+            kind: "pull_request_worker",
+            id: workerId,
+            worker,
+          },
+          {
+            kind: "destination",
+            id: `convex:${workerId}`,
+            actions: [
+              {
+                destination: "external",
+                href: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123/data",
+                label: "Data",
+              },
+            ],
+            href: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
+            label: "calm-swan-123",
+            provider: "convex",
+            title: "Open preview Convex deployment calm-swan-123",
+          },
+        ],
+      },
+    ]);
   });
 });
 

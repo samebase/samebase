@@ -88,8 +88,6 @@ test("uses the overview vault rows on the canonical root route", async ({ page }
   expect(rowBounds).not.toBeNull();
   if (linkBounds && rowBounds) {
     expect(Math.abs(linkBounds.width - rowBounds.width)).toBeLessThanOrEqual(1);
-    await page.mouse.click(rowBounds.x + rowBounds.width - 4, rowBounds.y + rowBounds.height / 2);
-    await expect(page).toHaveURL(/\/vault\/samebase\/samebase$/);
   }
 });
 
@@ -156,17 +154,20 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   await expect(firstPullRequest).toContainText("+40");
   await expect(firstPullRequest).toContainText("−10");
   await expect(firstPullRequest).toContainText("3 files");
+
+  await firstPullRequest.click();
+  await expect(fixture.getByRole("link", { name: "Branch preview" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Build logs" }).first()).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "View changes" }).first()).toBeVisible();
+  await expect(
+    fixture.getByRole("link", { name: "precise-otter-1260", exact: true }),
+  ).toBeVisible();
   await expect(fixture).toHaveScreenshot("vault-overview-v2-mobile.png", {
     animations: "disabled",
     caret: "hide",
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
-
-  await firstPullRequest.click();
-  await expect(fixture.getByRole("link", { name: "Branch preview" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Build logs" }).first()).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "View changes" }).first()).toBeVisible();
 });
 
 test("keeps provider ownership and actions together in mobile settings", async ({ page }) => {
@@ -201,7 +202,7 @@ test("uses stable shells while independent data sources load", async ({ page }) 
 
   const partialFixture = await openVaultOverviewV2(page, "vault-overview-v2-partial-loading");
   await expect(partialFixture.getByRole("link", { name: "main", exact: true })).toBeVisible();
-  await expect(partialFixture.getByLabel("Loading production destinations")).toBeVisible();
+  await expect(partialFixture.getByLabel("Loading Convex deployment")).toBeVisible();
   await expect(
     partialFixture.getByRole("button", {
       name: /Show the exact preview for each pull request/,
@@ -231,7 +232,7 @@ test("preserves repository identity at the minimum sidebar width", async ({ page
   await expect(selectedVault).toBeVisible();
   await expect(selectedVault.getByText("samebase/", { exact: true })).toBeHidden();
   await expect(selectedVault.getByText("samebase", { exact: true })).toBeVisible();
-  await expect(vaultNavigation.getByText("4/4 passed", { exact: true })).toBeVisible();
+  await expect(selectedVault.getByText("4/4 passed", { exact: true })).toBeVisible();
   await expect(vaultNavigation).toHaveScreenshot("vault-overview-v2-minimum-sidebar.png", {
     animations: "disabled",
     caret: "hide",

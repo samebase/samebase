@@ -18,7 +18,13 @@ import type {
   VaultResourceRailRowState,
   VaultResourceRailState,
 } from "@/components/vault-dashboard/VaultResourceRail";
-import type { VaultProductionRoot } from "@/components/vault-dashboard/vaultProductionRoots";
+import {
+  buildProductionEnvironmentRoots,
+  buildPullRequestEnvironmentRoots,
+  type VaultEnvironmentAction,
+  type VaultEnvironmentResource,
+  type VaultEnvironmentRoot,
+} from "@/components/vault-dashboard/vaultEnvironmentRoots";
 import type {
   PullRequestResourceState,
   VaultPullRequest,
@@ -32,9 +38,7 @@ import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import {
   buildVaultDashboardRoute,
-  buildVaultDatabaseRoute,
   buildVaultFileRoute,
-  buildVaultSchemaRoute,
   buildVaultSettingsRoute,
 } from "@/lib/vaultRoutes";
 import type { RepositoryCheckSummary } from "@/lib/repositoryChecks";
@@ -374,15 +378,11 @@ function RootDirectoryLabel({ rootDirectory }: { rootDirectory: string }) {
   );
 }
 
-type ConvexDeploymentAction =
-  | { destination: "external"; href: string; label: string }
-  | { destination: "samebase"; href: string; label: string };
-
 function ConvexDeploymentActionsMenu({
   actions,
   deploymentName,
 }: {
-  actions: readonly ConvexDeploymentAction[];
+  actions: readonly VaultEnvironmentAction[];
   deploymentName: string;
 }) {
   return (
@@ -423,19 +423,63 @@ function ConvexDeploymentActionsMenu({
   );
 }
 
-function ProductionRoots({
-  branch,
-  owner,
-  repoName,
-  roots,
-  schemaGraphEnabled,
+function DestinationResource({
+  resource,
 }: {
-  branch: string;
-  owner: string;
-  repoName: string;
-  roots: readonly VaultProductionRoot[];
-  schemaGraphEnabled: boolean;
+  resource: Extract<VaultEnvironmentResource, { kind: "destination" }>;
 }) {
+  return (
+    <div className="flex min-h-10 min-w-0 items-center gap-1 py-1.5 text-sm">
+      <a
+        className="inline-flex min-w-0 items-center gap-2.5 text-foreground no-underline hover:no-underline"
+        href={resource.href}
+        rel="noreferrer noopener"
+        target="_blank"
+        title={resource.title}
+      >
+        <span className="flex h-4 w-5 shrink-0 items-center justify-center">
+          <DestinationIcon href={resource.href} provider={resource.provider} />
+        </span>
+        <span className="min-w-0 truncate font-medium underline decoration-border underline-offset-4">
+          {resource.label}
+        </span>
+        <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+      </a>
+      {resource.actions.length > 0 ? (
+        <ConvexDeploymentActionsMenu actions={resource.actions} deploymentName={resource.label} />
+      ) : null}
+    </div>
+  );
+}
+
+function VaultEnvironmentResourceRow({ resource }: { resource: VaultEnvironmentResource }) {
+  switch (resource.kind) {
+    case "destination":
+      return <DestinationResource resource={resource} />;
+    case "convex_loading":
+      return (
+        <div
+          aria-label="Loading Convex deployment"
+          className="flex min-h-10 min-w-0 items-center gap-2.5 py-1.5"
+        >
+          <span className="flex h-4 w-5 shrink-0 items-center justify-center">
+            <ConvexProviderLogo />
+          </span>
+          <span
+            aria-hidden="true"
+            className="h-3 w-32 max-w-[60%] bg-muted motion-safe:animate-pulse"
+          />
+        </div>
+      );
+    case "pull_request_worker":
+      return <PullRequestWorker worker={resource.worker} />;
+    default:
+      resource satisfies never;
+      return null;
+  }
+}
+
+function VaultEnvironmentTree({ roots }: { roots: readonly VaultEnvironmentRoot[] }) {
   if (roots.length === 0) {
     return null;
   }
@@ -451,79 +495,12 @@ function ProductionRoots({
             </div>
           )}
           <div className={hideRootDirectory ? "py-0.5" : "pb-0.5"}>
-            {root.links.map((link) => {
-              if (link.provider === "convex") {
-                const actions: ConvexDeploymentAction[] = [
-                  {
-                    destination: "samebase",
-                    href: buildVaultDatabaseRoute({
-                      owner,
-                      repoName,
-                      branch,
-                      convexProjectId: link.convexProjectId,
-                    }),
-                    label: "Data",
-                  },
-                  ...(schemaGraphEnabled
-                    ? [
-                        {
-                          destination: "samebase" as const,
-                          href: buildVaultSchemaRoute({
-                            owner,
-                            repoName,
-                            branch,
-                            convexProjectId: link.convexProjectId,
-                          }),
-                          label: "Schema",
-                        },
-                      ]
-                    : []),
-                ];
-
-                return (
-                  <div
-                    key={`${link.provider}:${link.href}`}
-                    className="flex min-h-10 min-w-0 items-center gap-1 py-1.5 text-sm"
-                  >
-                    <a
-                      className="inline-flex min-w-0 items-center gap-2.5 text-foreground no-underline hover:no-underline"
-                      href={link.href}
-                      rel="noreferrer noopener"
-                      target="_blank"
-                      title={link.title}
-                    >
-                      <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-                        <DestinationIcon href={link.href} provider={link.provider} />
-                      </span>
-                      <span className="min-w-0 truncate font-medium underline decoration-border underline-offset-4">
-                        {link.label}
-                      </span>
-                      <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
-                    </a>
-                    <ConvexDeploymentActionsMenu actions={actions} deploymentName={link.label} />
-                  </div>
-                );
-              }
-
-              return (
-                <a
-                  key={`${link.provider}:${link.href}`}
-                  className="flex min-h-10 min-w-0 items-center gap-2.5 py-1.5 text-sm text-foreground no-underline hover:no-underline"
-                  href={link.href}
-                  rel="noreferrer noopener"
-                  target="_blank"
-                  title={link.title}
-                >
-                  <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-                    <DestinationIcon href={link.href} provider={link.provider} />
-                  </span>
-                  <span className="min-w-0 truncate font-medium underline decoration-border underline-offset-4">
-                    {link.label}
-                  </span>
-                  <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
-                </a>
-              );
-            })}
+            {root.resources.map((resource) => (
+              <VaultEnvironmentResourceRow
+                key={`${resource.kind}:${resource.id}`}
+                resource={resource}
+              />
+            ))}
           </div>
         </div>
       ))}
@@ -602,6 +579,15 @@ function DefaultBranchSection({ workspace }: { workspace: VaultWorkspaceSelected
     workspace.cloudflareObservations.workers.state === "loading" ||
     workspace.cloudflareObservations.builds.state === "loading" ||
     workspace.convexObservations.state === "loading";
+  const environmentRoots = buildProductionEnvironmentRoots({
+    branch: defaultBranch,
+    convexObservationState: workspace.convexObservations.state,
+    convexProjects: workspace.vault.convexProjects,
+    owner: workspace.vault.ghRepoOwner,
+    productionRoots: workspace.productionRoots,
+    repoName: workspace.vault.ghRepoName,
+    schemaGraphEnabled,
+  });
 
   return (
     <section
@@ -663,19 +649,13 @@ function DefaultBranchSection({ workspace }: { workspace: VaultWorkspaceSelected
         </Link>
       </div>
       <div className="mt-3">
-        {productionLoading && workspace.productionRoots.length === 0 ? (
+        {productionLoading && environmentRoots.length === 0 ? (
           <div className="ml-7 grid gap-2 py-2" aria-label="Loading production destinations">
             <div className="h-3 w-44 max-w-full bg-muted motion-safe:animate-pulse" />
             <div className="h-3 w-32 max-w-full bg-muted motion-safe:animate-pulse" />
           </div>
         ) : (
-          <ProductionRoots
-            branch={defaultBranch}
-            owner={workspace.vault.ghRepoOwner}
-            repoName={workspace.vault.ghRepoName}
-            roots={workspace.productionRoots}
-            schemaGraphEnabled={schemaGraphEnabled}
-          />
+          <VaultEnvironmentTree roots={environmentRoots} />
         )}
       </div>
     </section>
@@ -782,29 +762,6 @@ function PullRequestWorker({ worker }: { worker: PullRequestWorkerResource }) {
             Branch preview
           </a>
         ) : null}
-        {worker.convexPreview.state === "available" ? (
-          <>
-            <a
-              className="inline-flex min-h-7 items-center gap-1 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
-              href={worker.convexPreview.dashboardUrl}
-              rel="noreferrer noopener"
-              target="_blank"
-            >
-              <ConvexProviderLogo />
-              {worker.convexPreview.deploymentName}
-            </a>
-            <ConvexDeploymentActionsMenu
-              actions={[
-                {
-                  destination: "external",
-                  href: `${worker.convexPreview.dashboardUrl}/data`,
-                  label: "Data",
-                },
-              ]}
-              deploymentName={worker.convexPreview.deploymentName}
-            />
-          </>
-        ) : null}
       </div>
     </div>
   );
@@ -829,39 +786,9 @@ function PullRequestResources({ resource }: { resource: PullRequestResourceState
     return null;
   }
 
-  const workersByRoot = new Map<string, PullRequestWorkerResource[]>();
-  for (const worker of resource.resources.workers) {
-    const rootDirectory = worker.state === "unavailable" ? "Needs attention" : worker.rootDirectory;
-    workersByRoot.set(rootDirectory, [...(workersByRoot.get(rootDirectory) ?? []), worker]);
-  }
-  const roots = [...workersByRoot.entries()].sort(([left], [right]) => {
-    if (left === right) return 0;
-    if (left === "/") return -1;
-    if (right === "/") return 1;
-    return left.localeCompare(right);
-  });
-  const hideRoot = roots.length === 1 && roots[0]?.[0] === "/";
+  const roots = buildPullRequestEnvironmentRoots(resource.resources);
 
-  return (
-    <div className="ml-2.5 border-l border-border pl-5">
-      {roots.map(([rootDirectory, workers]) => (
-        <div key={rootDirectory} className="relative border-b border-border/50 last:border-b-0">
-          <span
-            aria-hidden="true"
-            className="absolute -left-5 top-[1.35rem] w-4 border-t border-border"
-          />
-          {hideRoot ? null : (
-            <div className="pt-3">
-              <RootDirectoryLabel rootDirectory={rootDirectory} />
-            </div>
-          )}
-          {workers.map((worker) => (
-            <PullRequestWorker key={worker.workerId} worker={worker} />
-          ))}
-        </div>
-      ))}
-    </div>
-  );
+  return <VaultEnvironmentTree roots={roots} />;
 }
 
 function SamebaseChangesLink({ href }: { href: string }) {
