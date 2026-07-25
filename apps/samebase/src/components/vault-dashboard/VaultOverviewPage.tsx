@@ -41,7 +41,7 @@ import {
   buildVaultFileRoute,
   buildVaultSettingsRoute,
 } from "@/lib/vaultRoutes";
-import type { RepositoryCheckSummary } from "@/lib/repositoryChecks";
+import { formatRepositoryCheckSummary, type RepositoryCheckSummary } from "@/lib/repositoryChecks";
 import { Link, useRouter } from "@tanstack/react-router";
 import {
   AlertTriangle,
@@ -173,25 +173,6 @@ function checkStateDotClassName(state: RepositoryCheckSummary["state"]): string 
   return "h-2 w-2 rounded-full bg-muted-foreground/60";
 }
 
-function compactChecksLabel(checks: RepositoryCheckSummary): string {
-  switch (checks.state) {
-    case "success":
-      return `${checks.successCount}/${checks.totalCount} passed`;
-    case "failure":
-      return `${checks.failureCount} failed`;
-    case "running":
-      return `${checks.runningCount} pending`;
-    case "neutral":
-      return `${checks.neutralCount} neutral`;
-    case "unknown":
-      return `${checks.totalCount} unknown`;
-    case "none":
-      return "No checks";
-  }
-  checks.state satisfies never;
-  return "Checks unavailable";
-}
-
 function vaultSidebarStatus(args: {
   sidebarSummaries: VaultSidebarSummariesState;
   summary: VaultSidebarSummary | undefined;
@@ -233,14 +214,14 @@ function vaultSidebarStatus(args: {
     return {
       kind: "dot",
       dotClassName: checkStateDotClassName(checks.state),
-      label: compactChecksLabel(checks),
+      label: formatRepositoryCheckSummary(checks),
     };
   }
   if (args.summary) {
     return {
       kind: "dot",
       dotClassName: checkStateDotClassName(args.summary.checks.state),
-      label: compactChecksLabel(args.summary.checks),
+      label: formatRepositoryCheckSummary(args.summary.checks),
     };
   }
   if (args.sidebarSummaries.state === "failed" || args.sidebarSummaries.state === "loaded") {
@@ -817,7 +798,7 @@ function SamebaseChangesLink({ href }: { href: string }) {
 
   return (
     <a
-      className="inline-flex min-h-8 items-center gap-1 font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+      className="inline-flex min-h-10 items-center gap-1 font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground @4xl:min-h-8"
       href={href}
       title="View this branch's changes in Samebase"
       onClick={(event) => {
@@ -868,6 +849,9 @@ function PullRequestRow({
   const updatedLabel = Number.isFinite(updatedAt)
     ? formatRelativeTimeAgo(updatedAt)
     : pullRequest.updatedAt;
+  const detailsId = `pull-request-${pullRequest.number}-details`;
+  const hasExpandedMetadata =
+    pullRequest.isDraft || pullRequest.labels.length > 0 || samebaseUrl !== null;
 
   return (
     <article
@@ -875,28 +859,40 @@ function PullRequestRow({
       data-pull-request-number={pullRequest.number}
     >
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start">
-        <button
-          aria-expanded={expanded}
-          className="grid min-w-0 gap-3 py-4 pr-1 text-left @4xl:grid-cols-[minmax(0,1fr)_auto] @4xl:items-start"
-          type="button"
-          onClick={() => setExpanded((current) => !current)}
-        >
-          <span className="min-w-0">
+        <div className="grid min-w-0 @4xl:grid-cols-[minmax(0,1fr)_auto] @4xl:items-start">
+          <button
+            aria-controls={detailsId}
+            aria-expanded={expanded}
+            className="min-w-0 pt-4 pr-1 pb-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 @4xl:py-4"
+            type="button"
+            onClick={() => setExpanded((current) => !current)}
+          >
             <span className="line-clamp-3 text-sm font-medium leading-5 text-foreground [overflow-wrap:anywhere]">
               {pullRequest.title}
             </span>
             <span className="mt-1 block font-mono text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
               {headLabel}
             </span>
-            <span className="block text-xs leading-5 text-muted-foreground">{updatedLabel}</span>
-          </span>
-          <span className="flex min-w-0 items-start justify-between gap-3 @4xl:justify-end">
-            <span className="min-w-0">
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                <span className={checkStateDotClassName(pullRequest.checks.state)} />
-                {compactChecksLabel(pullRequest.checks)}
+            <span className="flex flex-wrap items-center gap-x-2 text-xs leading-5 text-muted-foreground">
+              <span>{updatedLabel}</span>
+              <span>
+                into{" "}
+                <span className="font-mono text-foreground [overflow-wrap:anywhere]">
+                  {pullRequest.baseRefName}
+                </span>
               </span>
-              <span className="mt-1 flex flex-wrap gap-x-2 font-mono text-xs leading-5 tabular-nums @4xl:justify-end">
+            </span>
+          </button>
+          <div className="flex min-w-0 items-center justify-between gap-3 pb-4 @4xl:py-4 @4xl:pl-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+              <VaultChecksPopover
+                checks={pullRequest.checks}
+                detailsUrl={`${pullRequest.url}/checks`}
+                heading={`Pull request #${pullRequest.number} checks`}
+                statusCheckRollup={pullRequest.statusCheckRollup}
+                triggerTitle={`Show pull request #${pullRequest.number} checks`}
+              />
+              <span className="flex flex-wrap gap-x-2 font-mono text-xs leading-5 tabular-nums">
                 <span className="text-emerald-600">
                   +{numberFormatter.format(pullRequest.additions)}
                 </span>
@@ -908,16 +904,31 @@ function PullRequestRow({
                   {pullRequest.changedFiles === 1 ? "file" : "files"}
                 </span>
               </span>
-            </span>
-            <ChevronDown
-              className={
+            </div>
+            <Button
+              aria-controls={detailsId}
+              aria-expanded={expanded}
+              aria-label={
                 expanded
-                  ? "h-4 w-4 rotate-180 text-muted-foreground"
-                  : "h-4 w-4 text-muted-foreground"
+                  ? `Hide pull request #${pullRequest.number} details`
+                  : `Show pull request #${pullRequest.number} details`
               }
-            />
-          </span>
-        </button>
+              className="size-10 @4xl:size-8"
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+              onClick={() => setExpanded((current) => !current)}
+            >
+              <ChevronDown
+                className={
+                  expanded
+                    ? "h-4 w-4 rotate-180 text-muted-foreground"
+                    : "h-4 w-4 text-muted-foreground"
+                }
+              />
+            </Button>
+          </div>
+        </div>
         <a
           aria-label={`Open pull request #${pullRequest.number} on GitHub`}
           className="mt-2 inline-flex min-h-8 items-center gap-1.5 px-2 text-xs font-medium text-muted-foreground no-underline hover:bg-muted hover:text-foreground hover:no-underline"
@@ -932,26 +943,18 @@ function PullRequestRow({
         </a>
       </div>
       {expanded ? (
-        <div className="pb-4">
-          <div className="mb-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            <VaultChecksPopover
-              checks={pullRequest.checks}
-              detailsUrl={`${pullRequest.url}/checks`}
-              heading={`Pull request #${pullRequest.number} checks`}
-              statusCheckRollup={pullRequest.statusCheckRollup}
-              triggerTitle={`Show pull request #${pullRequest.number} checks`}
-            />
-            <span>
-              into <span className="font-mono text-foreground">{pullRequest.baseRefName}</span>
-            </span>
-            {pullRequest.isDraft ? <span className="bg-muted px-1.5 py-0.5">Draft</span> : null}
-            {pullRequest.labels.map((label) => (
-              <span key={label.name} className="bg-muted px-1.5 py-0.5 text-foreground">
-                {label.name}
-              </span>
-            ))}
-            {samebaseUrl ? <SamebaseChangesLink href={samebaseUrl} /> : null}
-          </div>
+        <div id={detailsId} className="pb-4">
+          {hasExpandedMetadata ? (
+            <div className="mb-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              {pullRequest.isDraft ? <span className="bg-muted px-1.5 py-0.5">Draft</span> : null}
+              {pullRequest.labels.map((label) => (
+                <span key={label.name} className="bg-muted px-1.5 py-0.5 text-foreground">
+                  {label.name}
+                </span>
+              ))}
+              {samebaseUrl ? <SamebaseChangesLink href={samebaseUrl} /> : null}
+            </div>
+          ) : null}
           <PullRequestResources resource={resource} />
         </div>
       ) : null}
