@@ -387,7 +387,13 @@ function EnvironmentActionsMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild nativeButton>
-        <Button aria-label={`Open ${label} actions`} size="icon-sm" type="button" variant="ghost">
+        <Button
+          aria-label={`Open ${label} actions`}
+          className="size-10 @4xl:size-8"
+          size="icon-sm"
+          type="button"
+          variant="ghost"
+        >
           <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>
@@ -428,7 +434,7 @@ function DestinationResource({
   return (
     <div className="flex min-h-10 min-w-0 items-center gap-1 py-1.5 text-sm">
       <a
-        className="inline-flex min-w-0 items-center gap-2.5 text-foreground no-underline hover:no-underline"
+        className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-foreground no-underline hover:no-underline"
         href={resource.href}
         rel="noreferrer noopener"
         target="_blank"
@@ -741,7 +747,7 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
           <>
             <BuildState state={worker.build.buildState} />
             <a
-              className="inline-flex min-h-7 items-center gap-1 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
+              className="inline-flex min-h-10 items-center gap-1 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-7"
               href={worker.build.logsUrl}
               rel="noreferrer noopener"
               target="_blank"
@@ -760,7 +766,7 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
         <div className="ml-[1.875rem] flex min-w-0 items-start gap-1 text-xs">
           {worker.destination.state === "available" ? (
             <a
-              className="inline-flex min-h-7 min-w-0 items-start gap-1 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
+              className="inline-flex min-h-10 min-w-0 items-start gap-1 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-7"
               href={worker.destination.href}
               rel="noreferrer noopener"
               target="_blank"
