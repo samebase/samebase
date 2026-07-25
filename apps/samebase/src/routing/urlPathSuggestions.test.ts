@@ -31,6 +31,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/vault");
     expect(suggestions).toContain("/indexDB");
+    expect(suggestions).toContain("/logo/hover/carpet");
     expect(suggestions).toContain("/logo/transition/menger");
     expect(suggestions).toContain("/logo/transition/transforms");
     expect(suggestions).toContain("/visual-fixture");

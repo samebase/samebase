@@ -44,6 +44,7 @@ const routeAccessMetadataByPath = {
   },
   "/localStorage": { access: "access_admin" },
   "/logo": { access: "access_public" },
+  "/logo/hover/carpet": { access: "access_admin" },
   "/logo/iso": { access: "access_admin" },
   "/logo/raster": { access: "access_admin" },
   "/logo/raster-seams": {
