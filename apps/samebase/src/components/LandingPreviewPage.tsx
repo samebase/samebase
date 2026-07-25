@@ -2,6 +2,14 @@ import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import {
+  SierpinskiCarpetHoverScene,
+  type SierpinskiCarpetHoverSceneConfig,
+} from "@/components/logo/SierpinskiCarpetHoverScene";
+import { getTailwindColorHex } from "@/components/logo/logoTailwindColors";
+import { readLogoRouteRenderState } from "@/components/logo/logoRouteRenderState";
+import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
+import { SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS } from "@samebase/logo-model/sierpinski-carpet-hover";
+import {
   isAppPresentationAuthenticated,
   useAppAuthPresentation,
 } from "@/lib/appAuthPresentationState";
@@ -35,7 +43,7 @@ import docsReceiptsMarkdown from "@/content/docs-receipts.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
 import { publicMediaManifest } from "../../shared/publicMediaManifest";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 type LandingPreviewDocumentKey = "overview" | "doItYourself" | "theStack" | "receipts" | "pricing";
 
@@ -562,6 +570,47 @@ function LandingClosingBandLogo() {
   );
 }
 
+/**
+Fixed hero reveal tuning: shared falloff at the lab default radius, capped at
+depth four so the finest revealed holes stay crisp squares at hero sizes.
+The lab route at /logo/hover/carpet owns the adjustable knobs.
+*/
+const LANDING_HERO_CARPET_CONFIG: SierpinskiCarpetHoverSceneConfig = {
+  falloff: "shared",
+  maxDepth: 4,
+  mechanic: "grow",
+  revealRadius: SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
+};
+
+/**
+Desktop-only hero mark: the carpet opens deeper recursion around the pointer
+page-wide, colored by the same root-retained logo params that follow the
+visitor into the app. Below @3xl the canonical mobile order keeps the video
+first and hover has no touch analog, so the scene stays display-none and its
+draw loop skips the hidden canvas.
+*/
+function LandingHeroCarpet() {
+  const rootRouteSearch = useRootRouteSearch();
+  const routeState = useMemo(
+    () =>
+      readLogoRouteRenderState({
+        renderMode: "raster",
+        routeSearch: rootRouteSearch,
+      }),
+    [rootRouteSearch],
+  );
+  const { faceColors } = useResolvedAppThemeColorState(routeState.themeColors);
+
+  return (
+    <div className="hidden min-h-0 @3xl:block" data-testid="landing-preview-hero-carpet">
+      <SierpinskiCarpetHoverScene
+        carpetColor={getTailwindColorHex(faceColors.right)}
+        config={LANDING_HERO_CARPET_CONFIG}
+      />
+    </div>
+  );
+}
+
 function LandingPreviewOverview() {
   return (
     <article
@@ -581,23 +630,32 @@ function LandingPreviewOverview() {
         </p>
 
         <section className="mt-10">
-          <h1 className="max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
-            <span className="block">Not another AI app builder.</span>
-            <span className="block">
-              <span className="text-muted-foreground">The tool your AI uses</span> to ship real
-              apps.
-            </span>
-          </h1>
-          <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
-            One action creates the repo, provisions the database + backend, and deploys the app on
-            accounts you own. Every connected app stays visible in one inventory.
-          </p>
-          <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4">
-            <LandingCreateAppButton />
-            <p className="text-sm text-muted-foreground">
-              Free today; an idle app costs $0/month.
-              <LandingFootnoteMark fragment="landing-note-zero" label="footnote: zero" marker="‡" />
-            </p>
+          <div className="@3xl:grid @3xl:grid-cols-[minmax(0,1fr)_minmax(0,0.72fr)] @3xl:gap-10">
+            <div>
+              <h1 className="max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
+                <span className="block">Not another AI app builder.</span>
+                <span className="block">
+                  <span className="text-muted-foreground">The tool your AI uses</span> to ship real
+                  apps.
+                </span>
+              </h1>
+              <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
+                One action creates the repo, provisions the database + backend, and deploys the app
+                on accounts you own. Every connected app stays visible in one inventory.
+              </p>
+              <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4">
+                <LandingCreateAppButton />
+                <p className="text-sm text-muted-foreground">
+                  Free today; an idle app costs $0/month.
+                  <LandingFootnoteMark
+                    fragment="landing-note-zero"
+                    label="footnote: zero"
+                    marker="‡"
+                  />
+                </p>
+              </div>
+            </div>
+            <LandingHeroCarpet />
           </div>
           <div className="mt-12" style={{ containerType: "inline-size" }}>
             <div
