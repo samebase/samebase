@@ -67,6 +67,7 @@ describe("users Convex contract", () => {
         "access_app_refresh",
         "access_mcp",
         "access_browser_login_handoff",
+        "access_schema_graph",
       ],
     });
     await expect(asUser.query(api.users.currentViewerRole)).resolves.toEqual({
