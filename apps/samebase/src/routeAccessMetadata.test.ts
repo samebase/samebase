@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "./routeAccessMetadata";
 
 describe("route access metadata", () => {
-  it("keeps developer logo routes reachable without prerendering them", () => {
+  it("keeps developer logo routes restricted to approved members", () => {
     const developerLogoRoutes = [
       "/logo/iso",
       "/logo/raster",
@@ -16,10 +16,10 @@ describe("route access metadata", () => {
 
     for (const route of developerLogoRoutes) {
       expect(ROUTE_ACCESS_METADATA_BY_PATH[route]).toMatchObject({
-        access: "access_public",
+        access: "access_dashboard",
         pathSuggestion: "dev",
-        prerender: false,
       });
+      expect(ROUTE_ACCESS_METADATA_BY_PATH[route]).not.toHaveProperty("prerender");
     }
   });
 

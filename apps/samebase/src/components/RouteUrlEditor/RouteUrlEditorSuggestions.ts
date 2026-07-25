@@ -616,6 +616,8 @@ function readPathRows(args: {
       draftHref: args.routeAddress,
       origin,
     }),
+    parseRouteAddress(args.routeAddress).search?.tokens.some((token) => token.key === "dev") ??
+      false,
   )
     .filter(canShowPathSuggestionRow)
     .map((suggestionRouteAddress): Suggestion => {

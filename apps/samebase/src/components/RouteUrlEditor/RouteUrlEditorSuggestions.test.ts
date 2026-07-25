@@ -133,15 +133,19 @@ describe("readSuggestions", () => {
     expect(values).not.toContain("?top=");
   });
 
-  it("marks experimental logo paths as developer suggestions", () => {
-    const rows = readRows({
+  it("shows marked developer logo paths only while ?dev is present", () => {
+    const standardRows = readRows({
       routeAddress: "/",
-      viewer: memberViewer,
     });
-    const developerPaths = rows
+    const developerRows = readRows({
+      routeAddress: "/?dev",
+    });
+    const developerPaths = developerRows
       .filter((row) => row.kind === "path" && row.dev)
       .map((row) => row.value);
 
+    expect(standardRows.some((row) => row.kind === "path" && row.dev)).toBe(false);
+    expect(standardRows.map((row) => row.value)).not.toContain("/logo/iso");
     expect(developerPaths).toEqual([
       "/logo/iso",
       "/logo/raster",
@@ -152,15 +156,15 @@ describe("readSuggestions", () => {
       "/logo/transition/menger",
       "/logo/transition/transforms",
     ]);
-    expect(rows).toContainEqual(
+    expect(developerRows).toContainEqual(
       expect.objectContaining({
         kind: "path",
         value: "/logo",
       }),
     );
-    expect(rows.find((row) => row.kind === "path" && row.value === "/logo")).not.toHaveProperty(
-      "dev",
-    );
+    expect(
+      developerRows.find((row) => row.kind === "path" && row.value === "/logo"),
+    ).not.toHaveProperty("dev");
   });
 
   it("preserves query text when building path suggestion rows", () => {

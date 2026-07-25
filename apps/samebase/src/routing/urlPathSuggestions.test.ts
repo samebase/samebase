@@ -26,13 +26,18 @@ const deployedEnvironment = "preview";
 
 describe("readRouteUrlPathSuggestions", () => {
   it("exposes sorted user-facing TanStack route paths", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath, staffViewer, localEnvironment);
+    const suggestions = readRouteUrlPathSuggestions(
+      routesByPath,
+      staffViewer,
+      localEnvironment,
+      false,
+    );
 
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/vault");
     expect(suggestions).toContain("/indexDB");
-    expect(suggestions).toContain("/logo/transition/menger");
-    expect(suggestions).toContain("/logo/transition/transforms");
+    expect(suggestions).not.toContain("/logo/transition/menger");
+    expect(suggestions).not.toContain("/logo/transition/transforms");
     expect(suggestions).toContain("/visual-fixture");
     expect(suggestions).toContain("/vault/$");
     expect(suggestions).not.toContain("/_public");
@@ -60,11 +65,45 @@ describe("readRouteUrlPathSuggestions", () => {
     );
   });
 
-  it("filters restricted paths while exposing developer logo routes to anonymous viewers", () => {
+  it("exposes developer paths only to authorized viewers when requested", () => {
+    const standardSuggestions = readRouteUrlPathSuggestions(
+      routesByPath,
+      staffViewer,
+      localEnvironment,
+      false,
+    );
+    const developerSuggestions = readRouteUrlPathSuggestions(
+      routesByPath,
+      staffViewer,
+      localEnvironment,
+      true,
+    );
+    const anonymousDeveloperSuggestions = readRouteUrlPathSuggestions(
+      routesByPath,
+      anonymousViewer,
+      localEnvironment,
+      true,
+    );
+    const memberDeveloperSuggestions = readRouteUrlPathSuggestions(
+      routesByPath,
+      memberViewer,
+      localEnvironment,
+      true,
+    );
+
+    expect(standardSuggestions).not.toContain("/logo/iso");
+    expect(developerSuggestions).toContain("/logo/iso");
+    expect(developerSuggestions).toContain("/logo/transition/transforms");
+    expect(anonymousDeveloperSuggestions).not.toContain("/logo/iso");
+    expect(memberDeveloperSuggestions).toContain("/logo/iso");
+  });
+
+  it("filters restricted paths for anonymous viewers", () => {
     const suggestions = readRouteUrlPathSuggestions(
       routesByPath,
       anonymousViewer,
       localEnvironment,
+      true,
     );
 
     expect(suggestions).toContain("/");
@@ -75,14 +114,14 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/docs/do-it-yourself");
     expect(suggestions).not.toContain("/landing-preview");
     expect(suggestions).not.toContain("/localStorage");
-    expect(suggestions).toContain("/logo/iso");
-    expect(suggestions).toContain("/logo/raster");
-    expect(suggestions).toContain("/logo/raster-seams");
-    expect(suggestions).toContain("/logo/single-cube");
-    expect(suggestions).toContain("/logo/svg");
-    expect(suggestions).toContain("/logo/transition");
-    expect(suggestions).toContain("/logo/transition/menger");
-    expect(suggestions).toContain("/logo/transition/transforms");
+    expect(suggestions).not.toContain("/logo/iso");
+    expect(suggestions).not.toContain("/logo/raster");
+    expect(suggestions).not.toContain("/logo/raster-seams");
+    expect(suggestions).not.toContain("/logo/single-cube");
+    expect(suggestions).not.toContain("/logo/svg");
+    expect(suggestions).not.toContain("/logo/transition");
+    expect(suggestions).not.toContain("/logo/transition/menger");
+    expect(suggestions).not.toContain("/logo/transition/transforms");
     expect(suggestions).not.toContain("/new-app");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(suggestions).not.toContain("/pitch");
@@ -90,7 +129,12 @@ describe("readRouteUrlPathSuggestions", () => {
   });
 
   it("exposes member route paths from access grants", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath, memberViewer, localEnvironment);
+    const suggestions = readRouteUrlPathSuggestions(
+      routesByPath,
+      memberViewer,
+      localEnvironment,
+      true,
+    );
 
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/connect-repo");
@@ -108,7 +152,12 @@ describe("readRouteUrlPathSuggestions", () => {
   });
 
   it("hides local-only route paths from the prod UI environment", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath, staffViewer, prodUiEnvironment);
+    const suggestions = readRouteUrlPathSuggestions(
+      routesByPath,
+      staffViewer,
+      prodUiEnvironment,
+      false,
+    );
 
     expect(suggestions).toContain("/logo");
     expect(suggestions).not.toContain("/test");
@@ -116,7 +165,12 @@ describe("readRouteUrlPathSuggestions", () => {
   });
 
   it("hides local-only route paths outside local route environments", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath, staffViewer, deployedEnvironment);
+    const suggestions = readRouteUrlPathSuggestions(
+      routesByPath,
+      staffViewer,
+      deployedEnvironment,
+      false,
+    );
 
     expect(suggestions).not.toContain("/test");
     expect(suggestions).not.toContain("/visual-fixture");
@@ -128,7 +182,7 @@ describe("filterRouteUrlPathSuggestions", () => {
     expect(
       filterRouteUrlPathSuggestions({
         currentHref: "/",
-        draftHref: "/logo/t",
+        draftHref: "/logo/t?dev",
         origin: ORIGIN,
         routesByPath,
         viewer: staffViewer,
@@ -140,7 +194,7 @@ describe("filterRouteUrlPathSuggestions", () => {
     expect(
       filterRouteUrlPathSuggestions({
         currentHref: "/",
-        draftHref: `${ORIGIN}/logo/r`,
+        draftHref: `${ORIGIN}/logo/r?dev`,
         origin: ORIGIN,
         routesByPath,
         viewer: staffViewer,
@@ -151,8 +205,8 @@ describe("filterRouteUrlPathSuggestions", () => {
   it("filters query and hash drafts against the current route path", () => {
     expect(
       filterRouteUrlPathSuggestions({
-        currentHref: "/logo/iso?dark#controls",
-        draftHref: "?prod-ui",
+        currentHref: "/logo/iso?dark&dev#controls",
+        draftHref: "?prod-ui&dev",
         origin: ORIGIN,
         routesByPath,
         viewer: staffViewer,
@@ -161,8 +215,8 @@ describe("filterRouteUrlPathSuggestions", () => {
 
     expect(
       filterRouteUrlPathSuggestions({
-        currentHref: "/logo/transition/menger",
-        draftHref: "#thread",
+        currentHref: "/logo/transition/menger?dev",
+        draftHref: "?dev#thread",
         origin: ORIGIN,
         routesByPath,
         viewer: staffViewer,
@@ -203,7 +257,7 @@ describe("filterRouteUrlPathSuggestions", () => {
         routesByPath,
         viewer: staffViewer,
       }),
-    ).toEqual(readRouteUrlPathSuggestions(routesByPath, staffViewer, localEnvironment));
+    ).toEqual(readRouteUrlPathSuggestions(routesByPath, staffViewer, localEnvironment, false));
 
     expect(
       filterRouteUrlPathSuggestions({
@@ -294,7 +348,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         routesByPath,
         viewer: anonymousViewer,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("accepts concrete dynamic and catch-all route paths", () => {

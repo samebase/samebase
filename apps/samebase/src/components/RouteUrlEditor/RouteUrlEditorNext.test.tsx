@@ -165,11 +165,21 @@ describe("RouteUrlEditorNext", () => {
     );
   });
 
-  it("uses a blue pill and subtle blue row tint for developer logo routes", () => {
-    const display = renderEditor();
+  it("uses a blue pill and subtle blue row tint for developer logo routes in dev mode", () => {
+    useQueryMock.mockReturnValue({
+      accessKeys: ["access_public", "access_dashboard"],
+    });
+    const display = renderEditor(["/?dev"]);
 
     act(() => {
       display.focus();
+    });
+
+    const input = readRequiredInput();
+    const pathCursorPosition = input.value.lastIndexOf("/") + 1;
+    act(() => {
+      input.setSelectionRange(pathCursorPosition, pathCursorPosition);
+      input.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     const values = [

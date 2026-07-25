@@ -25,10 +25,17 @@ export function readRouteUrlPathSuggestions(
   routesByPath: AppRouter["routesByPath"],
   viewer: RouteAccessViewer,
   routeEnvironment: RouteEnvironment,
+  includeDeveloperSuggestions: boolean,
 ) {
   return entries(routesByPath)
     .filter(([path, route]) =>
-      isRouteUrlPathSuggestion(path, route.options.staticData, viewer, routeEnvironment),
+      isRouteUrlPathSuggestion(
+        path,
+        route.options.staticData,
+        viewer,
+        routeEnvironment,
+        includeDeveloperSuggestions,
+      ),
     )
     .map(([path]) => path)
     .sort(compareRouteUrlPathSuggestion);
@@ -45,6 +52,11 @@ export function filterRouteUrlPathSuggestions({
     routesByPath,
     viewer,
     readRouteUrlPathSuggestionEnvironment({
+      currentHref,
+      draftHref,
+      origin,
+    }),
+    routeUrlPathSuggestionsIncludeDeveloperRoutes({
       currentHref,
       draftHref,
       origin,
@@ -123,11 +135,30 @@ function isRouteUrlPathSuggestion(
   staticData: RouteStaticData,
   viewer: RouteAccessViewer,
   routeEnvironment: RouteEnvironment,
+  includeDeveloperSuggestions: boolean,
 ): boolean {
   return (
-    (staticData.pathSuggestion === undefined || staticData.pathSuggestion === "dev") &&
+    (staticData.pathSuggestion === undefined ||
+      (staticData.pathSuggestion === "dev" && includeDeveloperSuggestions)) &&
     isRouteUrlNavigablePath(path, staticData, viewer, routeEnvironment)
   );
+}
+
+function routeUrlPathSuggestionsIncludeDeveloperRoutes({
+  currentHref,
+  draftHref,
+  origin,
+}: Omit<RouteUrlPathSuggestionsInput, "routesByPath" | "viewer">): boolean {
+  try {
+    const appOrigin = new URL(origin);
+    const currentUrl = new URL(currentHref, appOrigin);
+    const trimmedDraftHref = draftHref.trim();
+    const draftUrl = trimmedDraftHref ? new URL(trimmedDraftHref, currentUrl) : currentUrl;
+
+    return draftUrl.origin === appOrigin.origin && draftUrl.searchParams.has("dev");
+  } catch {
+    return false;
+  }
 }
 
 function compareRouteUrlPathSuggestion(left: string, right: string): number {

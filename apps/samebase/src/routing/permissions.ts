@@ -105,11 +105,11 @@ export type RouteStaticData = {
   access: RouteAccess;
   appWorkspaceRouteChrome?: AppWorkspaceRouteChromeStaticData;
   /**
-  "dev" keeps the path available but marks it as developer-oriented in the URL
-  editor. "hidden" keeps the path out of the suggestion dropdown while direct
-  entry still commits it. "redirect" additionally blocks editor commits: the
-  route only forwards elsewhere, so committing it mid-edit would tear the editor
-  out from under the draft.
+  "dev" marks the path as developer-oriented and keeps it out of the URL editor
+  until the edited route contains `?dev`. "hidden" keeps the path out of the
+  suggestion dropdown while direct entry still commits it. "redirect"
+  additionally blocks editor commits: the route only forwards elsewhere, so
+  committing it mid-edit would tear the editor out from under the draft.
   */
   pathSuggestion?: "dev" | "hidden" | "redirect";
   prerender?: false;

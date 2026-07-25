@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openRouteAddressQuerySlot } from "../src/routing/addressParts";
+import { signInIfNeeded } from "./liveHelpers";
 
 async function openRouteUrlEditor(page: Page, route = "/privacy"): Promise<Locator> {
   await page.goto(route, {
@@ -448,7 +449,22 @@ test.describe("route URL editor touch scroll picker", () => {
   });
 
   test("touch path suggestions distinguish developer logo routes", async ({ page }) => {
-    const { input, prefix } = await focusRouteAddressInputDirectly(page, "/");
+    await page.goto("/", {
+      waitUntil: "domcontentloaded",
+    });
+    await signInIfNeeded(page);
+
+    await focusRouteAddressInputDirectly(page, "/");
+    await expect(page.getByRole("option", { exact: true, name: "/logo/iso" })).toHaveCount(0);
+
+    const { input, prefix } = await focusRouteAddressInputDirectly(page, "/?dev");
+    await setInputSelection(input, {
+      end: prefix.length,
+      start: prefix.length,
+    });
+    await input.evaluate((element) => {
+      element.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
     const developerSuggestion = page.getByRole("option", {
       exact: true,
       name: "/logo/iso",
@@ -467,9 +483,9 @@ test.describe("route URL editor touch scroll picker", () => {
 
     await scrollTouchPickerToSuggestion(page, "/logo/iso");
 
-    await expect(input).toHaveValue(`${prefix}logo/iso?`);
+    await expect(input).toHaveValue(`${prefix}logo/iso?dev&`);
     await expectTouchSlateAlignedToSuggestion(page, "/logo/iso");
-    await expect(page).toHaveURL(/\/logo\/iso$/);
+    await expect(page).toHaveURL(/\/logo\/iso\?dev$/);
   });
 
   test("touch scroll keeps query-key suggestions anchored until tap", async ({ page }) => {

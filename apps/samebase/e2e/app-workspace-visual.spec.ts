@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { signInIfNeeded } from "./liveHelpers";
 
 const selectAllShortcut = process.platform === "darwin" ? "Meta+A" : "Control+A";
 const localConvexSyncConsoleErrorPattern =
@@ -80,6 +81,7 @@ test("route URL editor distinguishes developer logo routes", async ({ page }) =>
   await page.goto("/", {
     waitUntil: "domcontentloaded",
   });
+  await signInIfNeeded(page, "/?dev");
   await page.waitForLoadState("networkidle");
 
   const origin = new URL(page.url()).origin;
@@ -87,6 +89,16 @@ test("route URL editor distinguishes developer logo routes", async ({ page }) =>
   await routeUrlDisplay.focus();
 
   const routeUrlInput = page.getByTestId("route-url-editor-input");
+  await routeUrlInput.evaluate((element) => {
+    if (!(element instanceof HTMLInputElement)) {
+      throw new Error("Expected route URL editor input.");
+    }
+
+    const pathCursorPosition = element.value.lastIndexOf("/") + 1;
+    element.setSelectionRange(pathCursorPosition, pathCursorPosition);
+    element.dispatchEvent(new Event("select", { bubbles: true }));
+    element.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
   const suggestionsPopover = page.getByTestId("route-url-editor-suggestions-popover");
   const developerSuggestion = suggestionsPopover.getByRole("option", {
     exact: true,
@@ -97,7 +109,7 @@ test("route URL editor distinguishes developer logo routes", async ({ page }) =>
     name: "/logo",
   });
 
-  await expect(routeUrlInput).toHaveValue(`${origin}/`);
+  await expect(routeUrlInput).toHaveValue(`${origin}/?dev&`);
   await expect(developerSuggestion.getByText("dev", { exact: true })).toHaveAttribute(
     "aria-hidden",
     "true",
