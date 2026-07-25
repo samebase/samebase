@@ -15,6 +15,9 @@ minimumReleaseAgeExclude:
   # TODO(2026-07-22): Remove the fast-uri@3.1.4 and @hono/node-server@2.0.10
   # exceptions after the normal 7-day cooling period has passed.
   - "@hono/node-server@2.0.10"
+  # TODO(2026-07-30): Remove this release-age exception after the normal
+  # 7-day cooling period has passed.
+  - brace-expansion@5.0.8
   - fast-uri@3.1.4
   - protobufjs@7.6.3
   - qs@6.15.2
@@ -39,9 +42,9 @@ overrides:
   "@protobufjs/utf8": 1.1.1
   "ajv@6": 6.15.0
   "ajv@8": 8.18.0
-  "brace-expansion@1": 1.1.16
-  "brace-expansion@2": 2.1.2
-  "brace-expansion@5": 5.0.7
+  "brace-expansion@1": 5.0.8
+  "brace-expansion@2": 5.0.8
+  "brace-expansion@5": 5.0.8
   body-parser: 2.3.0
   dompurify: 3.4.12
   esbuild: 0.28.1
