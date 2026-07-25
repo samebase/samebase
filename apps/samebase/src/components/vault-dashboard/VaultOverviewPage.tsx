@@ -354,7 +354,7 @@ function DestinationIcon({ href, provider }: { href: string; provider: "cloudfla
 
 function RootDirectoryLabel({ rootDirectory }: { rootDirectory: string }) {
   return (
-    <span className="block font-mono text-sm font-semibold text-foreground [overflow-wrap:anywhere]">
+    <span className="block text-sm font-semibold text-foreground [overflow-wrap:anywhere]">
       {rootDirectory}
     </span>
   );
@@ -587,7 +587,7 @@ function DefaultBranchSection({ workspace }: { workspace: VaultWorkspaceSelected
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <a
-                className="inline-flex min-h-8 items-center font-mono text-xs font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+                className="inline-flex min-h-8 items-center text-xs font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
                 href={branchUrl}
                 rel="noreferrer noopener"
                 target="_blank"
@@ -869,16 +869,13 @@ function PullRequestRow({
             <span className="line-clamp-3 text-sm font-medium leading-5 text-foreground [overflow-wrap:anywhere]">
               {pullRequest.title}
             </span>
-            <span className="mt-1 block font-mono text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+            <span className="mt-1 block text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
               {headLabel}
             </span>
             <span className="flex flex-wrap items-center gap-x-2 text-xs leading-5 text-muted-foreground">
               <span>{updatedLabel}</span>
               <span>
-                into{" "}
-                <span className="font-mono text-foreground [overflow-wrap:anywhere]">
-                  {pullRequest.baseRefName}
-                </span>
+                into <span className="text-foreground">{pullRequest.baseRefName}</span>
               </span>
             </span>
           </button>
@@ -891,7 +888,7 @@ function PullRequestRow({
                 statusCheckRollup={pullRequest.statusCheckRollup}
                 triggerTitle={`Show pull request #${pullRequest.number} checks`}
               />
-              <span className="flex flex-wrap gap-x-2 font-mono text-xs leading-5 tabular-nums">
+              <span className="flex flex-wrap gap-x-2 text-xs leading-5 tabular-nums">
                 <span className="text-emerald-600">
                   +{numberFormatter.format(pullRequest.additions)}
                 </span>
