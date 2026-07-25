@@ -916,6 +916,7 @@ export const trackedFilePaths = [
   "apps/samebase/src/components/logo/NLogoScene.tsx",
   "apps/samebase/src/components/logo/PublicLandingLogo.test.tsx",
   "apps/samebase/src/components/logo/PublicLandingLogo.tsx",
+  "apps/samebase/src/components/logo/SierpinskiCarpetHoverScene.tsx",
   "apps/samebase/src/components/logo/logoDepthLimits.ts",
   "apps/samebase/src/components/logo/logoDistanceScale.ts",
   "apps/samebase/src/components/logo/logoIsoCubePixelSprite.test.ts",
