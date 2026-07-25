@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { signInIfNeeded } from "./liveHelpers";
+import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 
 test.setTimeout(120_000);
 
@@ -84,6 +85,41 @@ test("carpet holes reveal around the pointer for both mechanics", async ({ page 
   await page.mouse.move(sceneBox.x + sceneBox.width / 2, sceneBox.y - 10);
   await expect(scene).toHaveAttribute("data-carpet-settled", "true");
   await waitForPaint(page);
+});
+
+test("landing hero carpet fallback matches the settled canvas", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/landing-preview", { waitUntil: "domcontentloaded" });
+
+  const scene = page
+    .getByTestId("landing-preview-hero-carpet")
+    .getByTestId("logo-carpet-hover-scene");
+  await expect(scene).toHaveAttribute("data-carpet-ready", "true");
+  const canvasScreenshot = await takeStableScreenshot(scene);
+
+  // Force the pre-canvas presentation: the fallback SVG opaque and the canvas
+  // hidden, exactly what paints between the first React commit and the first
+  // canvas frame. The layers must be pixel-aligned so the handoff never jumps.
+  await scene.evaluate((element) => {
+    const fallback = element.querySelector('[data-testid="logo-carpet-hover-fallback"]');
+    const canvas = element.querySelector("canvas");
+    if (!(fallback instanceof SVGElement) || !(canvas instanceof HTMLCanvasElement)) {
+      throw new Error("Expected the carpet fallback and canvas layers.");
+    }
+
+    fallback.style.opacity = "1";
+    canvas.style.visibility = "hidden";
+  });
+  const fallbackScreenshot = await takeStableScreenshot(scene);
+
+  await expectScreenshotsToMatch({
+    actual: canvasScreenshot,
+    artifactPrefix: "logo-carpet-hover-fallback-seam",
+    expected: fallbackScreenshot,
+    maxDiffPixelRatio: 0.015,
+    testInfo,
+  });
 });
 
 test.describe("carpet hover on a high-density phone", () => {

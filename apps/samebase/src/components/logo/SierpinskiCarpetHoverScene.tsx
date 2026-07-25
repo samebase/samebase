@@ -6,12 +6,30 @@ import {
   type SierpinskiCarpetHoverMechanic,
   type SierpinskiCarpetHoverPointer,
 } from "@samebase/logo-model/sierpinski-carpet-hover";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const CARPET_FRAME_PADDING = 1.12;
 const RENDER_PIXEL_RATIO_MAX = 2;
 const OPENNESS_LERP_PER_FRAME = 0.25;
 const OPENNESS_SETTLE_EPSILON = 0.001;
+
+/**
+The static fallback draws the resting depth-one carpet with the exact
+letterboxed square readCarpetFrame produces: a unit viewBox with "meet"
+scaling maps to the centered min(width, height) box, and these fractions
+place the same padded square and center ninth inside it. The canvas draw
+must stay pixel-aligned with this path so the crossfade never jumps.
+*/
+const FALLBACK_SIDE = 1 / CARPET_FRAME_PADDING;
+const FALLBACK_ORIGIN = (1 - FALLBACK_SIDE) / 2;
+const FALLBACK_HOLE_SIDE = FALLBACK_SIDE / 3;
+const FALLBACK_HOLE_ORIGIN = (1 - FALLBACK_HOLE_SIDE) / 2;
+const STATIC_FALLBACK_PATH = [
+  `M${FALLBACK_ORIGIN.toFixed(6)} ${FALLBACK_ORIGIN.toFixed(6)}`,
+  `h${FALLBACK_SIDE.toFixed(6)}v${FALLBACK_SIDE.toFixed(6)}h-${FALLBACK_SIDE.toFixed(6)}Z`,
+  `M${FALLBACK_HOLE_ORIGIN.toFixed(6)} ${FALLBACK_HOLE_ORIGIN.toFixed(6)}`,
+  `h${FALLBACK_HOLE_SIDE.toFixed(6)}v${FALLBACK_HOLE_SIDE.toFixed(6)}h-${FALLBACK_HOLE_SIDE.toFixed(6)}Z`,
+].join("");
 
 export type SierpinskiCarpetHoverSceneConfig = SierpinskiCarpetHoverConfig & {
   mechanic: SierpinskiCarpetHoverMechanic;
@@ -58,6 +76,10 @@ export function SierpinskiCarpetHoverScene({
   const frameRef = useRef(0);
   const prefersReducedMotionRef = useRef(false);
   const drawRef = useRef<() => void>(() => {});
+  const sceneReadyRef = useRef(false);
+  // The server-rendered SVG fallback stays visible until the canvas has
+  // painted a real-size frame, so first paint always shows the resting mark.
+  const [isSceneReady, setIsSceneReady] = useState(false);
 
   const scheduleFrame = useCallback(() => {
     if (frameRef.current !== 0) {
@@ -138,6 +160,10 @@ export function SierpinskiCarpetHoverScene({
       }
 
       container.dataset.carpetSettled = settled ? "true" : "false";
+      if (!sceneReadyRef.current) {
+        sceneReadyRef.current = true;
+        setIsSceneReady(true);
+      }
       if (!settled) {
         scheduleFrame();
       }
@@ -229,11 +255,23 @@ export function SierpinskiCarpetHoverScene({
     <div
       ref={containerRef}
       aria-label="Sierpinski carpet hover reveal"
-      className="h-full min-h-0 w-full cursor-crosshair touch-none select-none"
+      className="relative h-full min-h-0 w-full cursor-crosshair touch-none select-none"
+      data-carpet-ready={isSceneReady ? "true" : "false"}
       data-testid="logo-carpet-hover-scene"
       role="img"
     >
       <canvas ref={canvasRef} aria-hidden="true" className="block h-full w-full" />
+      {/* The renderer handoff crossfades to preserve visual continuity, not
+      to add decorative motion; both layers draw the same resting geometry. */}
+      <svg
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-0 z-10 h-full w-full transition-opacity duration-300 ease-out ${isSceneReady ? "opacity-0" : "opacity-100"}`}
+        data-testid="logo-carpet-hover-fallback"
+        preserveAspectRatio="xMidYMid meet"
+        viewBox="0 0 1 1"
+      >
+        <path d={STATIC_FALLBACK_PATH} fill={carpetColor} fillRule="evenodd" />
+      </svg>
     </div>
   );
 }
