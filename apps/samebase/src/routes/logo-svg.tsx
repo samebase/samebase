@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { LogoStaticSvgPage } from "@/components/logo/LogoStaticSvgPage";
 import {
   LOGO_ROUTE_SEARCH_KEYS,
@@ -14,11 +13,7 @@ const pathname = "/logo/svg";
 function LogoSvgRouteComponent() {
   const routeSearch = Route.useSearch();
 
-  return (
-    <AuthenticatedAppRoutePage>
-      <LogoStaticSvgPage routeSearch={routeSearch} />
-    </AuthenticatedAppRoutePage>
-  );
+  return <LogoStaticSvgPage routeSearch={routeSearch} />;
 }
 
 export const Route = createFileRoute("/logo/svg")({

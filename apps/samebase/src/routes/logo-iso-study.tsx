@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { LogoSingleCubeStudyPage } from "@/components/logo/LogoSingleCubeStudyPage";
 import {
   LOGO_ROUTE_SEARCH_KEYS,
@@ -14,11 +13,7 @@ const pathname = "/logo/single-cube";
 function LogoIsoStudyRouteComponent() {
   const routeSearch = Route.useSearch();
 
-  return (
-    <AuthenticatedAppRoutePage>
-      <LogoSingleCubeStudyPage routeSearch={routeSearch} />
-    </AuthenticatedAppRoutePage>
-  );
+  return <LogoSingleCubeStudyPage routeSearch={routeSearch} />;
 }
 
 export const Route = createFileRoute("/logo/single-cube")({

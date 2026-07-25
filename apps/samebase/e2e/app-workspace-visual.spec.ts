@@ -122,6 +122,20 @@ test("route URL editor distinguishes developer logo routes", async ({ page }) =>
   });
 });
 
+test("developer logo routes remain public on direct loads", async ({ page }) => {
+  await page.goto("/logo/single-cube?dev", {
+    waitUntil: "domcontentloaded",
+  });
+
+  await expect(
+    page.getByRole("heading", {
+      exact: true,
+      name: "Single Cube Rotation Lab",
+    }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/logo\/single-cube\?dev$/);
+});
+
 test("app workspace route URL editor stays compact for long URLs", async ({ page }) => {
   const longPath =
     "/terms?dev#route-editor-keeps-a-long-address-readable-without-expanding-the-workspace-chrome-on-narrow-viewports";

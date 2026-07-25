@@ -1,4 +1,3 @@
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { LogoMengerDepthTransitionPage } from "@/components/logo/LogoMengerDepthTransitionPage";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import {
@@ -16,18 +15,16 @@ function LogoMengerTransitionRouteComponent() {
   const navigate = Route.useNavigate();
 
   return (
-    <AuthenticatedAppRoutePage>
-      <LogoMengerDepthTransitionPage
-        replaceRouteSearch={(nextSearch) => {
-          void navigate({
-            replace: true,
-            resetScroll: false,
-            search: nextSearch,
-          });
-        }}
-        routeSearch={routeSearch}
-      />
-    </AuthenticatedAppRoutePage>
+    <LogoMengerDepthTransitionPage
+      replaceRouteSearch={(nextSearch) => {
+        void navigate({
+          replace: true,
+          resetScroll: false,
+          search: nextSearch,
+        });
+      }}
+      routeSearch={routeSearch}
+    />
   );
 }
 

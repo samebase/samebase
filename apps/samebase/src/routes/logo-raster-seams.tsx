@@ -1,5 +1,4 @@
 import { LogoRasterSeamLabPage } from "@/components/logo/LogoRasterSeamLabPage";
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import {
   LOGO_ROUTE_SEARCH_KEYS,
   LOGO_ROUTE_SEARCH_PARAM_ACCESS,
@@ -14,11 +13,7 @@ const pathname = "/logo/raster-seams";
 function LogoRasterSeamsRouteComponent() {
   const routeSearch = Route.useSearch();
 
-  return (
-    <AuthenticatedAppRoutePage>
-      <LogoRasterSeamLabPage routeSearch={routeSearch} />
-    </AuthenticatedAppRoutePage>
-  );
+  return <LogoRasterSeamLabPage routeSearch={routeSearch} />;
 }
 
 export const Route = createFileRoute("/logo/raster-seams")({

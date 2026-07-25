@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import {
   LOGO_ROUTE_SEARCH_KEYS,
   LOGO_ROUTE_SEARCH_PARAM_ACCESS,
@@ -11,11 +10,7 @@ import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 const pathname = "/logo/transition/transforms";
 
 function LogoTransitionTransformsLabRouteComponent() {
-  return (
-    <AuthenticatedAppRoutePage>
-      <LogoTransitionTransformsLabPage />
-    </AuthenticatedAppRoutePage>
-  );
+  return <LogoTransitionTransformsLabPage />;
 }
 
 export const Route = createFileRoute("/logo/transition/transforms")({
