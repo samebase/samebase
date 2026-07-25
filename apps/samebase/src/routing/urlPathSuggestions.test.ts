@@ -34,6 +34,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/vault");
     expect(suggestions).toContain("/indexDB");
+    expect(suggestions).not.toContain("/logo/hover/carpet");
     expect(suggestions).not.toContain("/logo/transition/menger");
     expect(suggestions).not.toContain("/logo/transition/transforms");
     expect(suggestions).toContain("/visual-fixture");
@@ -90,6 +91,7 @@ describe("readRouteUrlPathSuggestions", () => {
     );
 
     expect(standardSuggestions).not.toContain("/logo/iso");
+    expect(developerSuggestions).toContain("/logo/hover/carpet");
     expect(developerSuggestions).toContain("/logo/iso");
     expect(developerSuggestions).toContain("/logo/transition/transforms");
     expect(anonymousDeveloperSuggestions).toContain("/logo/iso");
@@ -112,6 +114,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/docs/do-it-yourself");
     expect(suggestions).not.toContain("/landing-preview");
     expect(suggestions).not.toContain("/localStorage");
+    expect(suggestions).toContain("/logo/hover/carpet");
     expect(suggestions).toContain("/logo/iso");
     expect(suggestions).toContain("/logo/raster");
     expect(suggestions).toContain("/logo/raster-seams");

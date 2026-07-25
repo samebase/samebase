@@ -183,6 +183,14 @@ vi.mock("@/components/logo/LogoMengerDepthTransitionPage", () => ({
   ),
 }));
 
+vi.mock("@/components/logo/LogoSierpinskiCarpetHoverPage", () => ({
+  LogoSierpinskiCarpetHoverPage: ({ routeSearch }: { routeSearch: { primary?: string } }) => (
+    <div data-primary={routeSearch.primary} data-testid="logo-carpet-hover-page">
+      Carpet hover page
+    </div>
+  ),
+}));
+
 vi.mock("@/components/AppRootClient", async () => {
   const { Outlet } = await import("@tanstack/react-router");
   const { AppWorkspaceShell } = await import("@/components/AppWorkspaceShell");
@@ -740,6 +748,14 @@ describe("appRouter", () => {
     expect(page?.getAttribute("data-elevation")).toBe("0");
     expect(page?.getAttribute("data-primary")).toBe("emerald-500");
     expect(page?.getAttribute("data-rotation")).toBe("0");
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("passes shared logo search state to the carpet hover research route", async () => {
+    await renderRoute("/logo/hover/carpet?primary=emerald-500");
+
+    const page = rootElement?.querySelector('[data-testid="logo-carpet-hover-page"]');
+    expect(page?.getAttribute("data-primary")).toBe("emerald-500");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 

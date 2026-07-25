@@ -45,6 +45,7 @@ import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobil
 import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
 import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-transition-transforms-lab";
 import { Route as logoMengerTransitionResearchRouteImport } from "./routes/logo-menger-transition-research";
+import { Route as logoCarpetHoverResearchRouteImport } from "./routes/logo-carpet-hover-research";
 import { Route as vaultSchemaProjectRouteImport } from "./routes/vault-schema-project";
 import { Route as vaultDatabaseProjectRouteImport } from "./routes/vault-database-project";
 
@@ -230,6 +231,11 @@ const logoMengerTransitionResearchRoute =
     path: "/logo/transition/menger",
     getParentRoute: () => rootRouteImport,
   } as any);
+const logoCarpetHoverResearchRoute = logoCarpetHoverResearchRouteImport.update({
+  id: "/logo/hover/carpet",
+  path: "/logo/hover/carpet",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const vaultSchemaProjectRoute = vaultSchemaProjectRouteImport.update({
   id: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId",
   path: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId",
@@ -273,6 +279,7 @@ export interface FileRoutesByFullPath {
   "/logo/transition": typeof logoTransitionLabRoute;
   "/pitch/print": typeof pitchPrintRoute;
   "/vault/$": typeof vaultFileRoute;
+  "/logo/hover/carpet": typeof logoCarpetHoverResearchRoute;
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
@@ -313,6 +320,7 @@ export interface FileRoutesByTo {
   "/logo/transition": typeof logoTransitionLabRoute;
   "/pitch/print": typeof pitchPrintRoute;
   "/vault/$": typeof vaultFileRoute;
+  "/logo/hover/carpet": typeof logoCarpetHoverResearchRoute;
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
@@ -354,6 +362,7 @@ export interface FileRoutesById {
   "/logo/transition": typeof logoTransitionLabRoute;
   "/pitch/print": typeof pitchPrintRoute;
   "/vault/$": typeof vaultFileRoute;
+  "/logo/hover/carpet": typeof logoCarpetHoverResearchRoute;
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
@@ -396,6 +405,7 @@ export interface FileRouteTypes {
     | "/logo/transition"
     | "/pitch/print"
     | "/vault/$"
+    | "/logo/hover/carpet"
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
@@ -436,6 +446,7 @@ export interface FileRouteTypes {
     | "/logo/transition"
     | "/pitch/print"
     | "/vault/$"
+    | "/logo/hover/carpet"
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
@@ -476,6 +487,7 @@ export interface FileRouteTypes {
     | "/logo/transition"
     | "/pitch/print"
     | "/vault/$"
+    | "/logo/hover/carpet"
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
@@ -517,6 +529,7 @@ export interface RootRouteChildren {
   logoTransitionLabRoute: typeof logoTransitionLabRoute;
   pitchPrintRoute: typeof pitchPrintRoute;
   vaultFileRoute: typeof vaultFileRoute;
+  logoCarpetHoverResearchRoute: typeof logoCarpetHoverResearchRoute;
   logoMengerTransitionResearchRoute: typeof logoMengerTransitionResearchRoute;
   logoTransitionTransformsLabRoute: typeof logoTransitionTransformsLabRoute;
   mcpConsentRoute: typeof mcpConsentRoute;
@@ -780,6 +793,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof logoMengerTransitionResearchRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/logo/hover/carpet": {
+      id: "/logo/hover/carpet";
+      path: "/logo/hover/carpet";
+      fullPath: "/logo/hover/carpet";
+      preLoaderRoute: typeof logoCarpetHoverResearchRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": {
       id: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
       path: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
@@ -829,6 +849,7 @@ const rootRouteChildren: RootRouteChildren = {
   logoTransitionLabRoute: logoTransitionLabRoute,
   pitchPrintRoute: pitchPrintRoute,
   vaultFileRoute: vaultFileRoute,
+  logoCarpetHoverResearchRoute: logoCarpetHoverResearchRoute,
   logoMengerTransitionResearchRoute: logoMengerTransitionResearchRoute,
   logoTransitionTransformsLabRoute: logoTransitionTransformsLabRoute,
   mcpConsentRoute: mcpConsentRoute,
