@@ -393,6 +393,8 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/app-workspace-visual.spec.ts",
   "apps/samebase/e2e/app-workspace-visual.spec.ts-snapshots/app-workspace-landing-dev.png",
   "apps/samebase/e2e/app-workspace-visual.spec.ts-snapshots/app-workspace-landing.png",
+  "apps/samebase/e2e/app-workspace-visual.spec.ts-snapshots/route-url-editor-dev-logo-routes.png",
+  "apps/samebase/e2e/app-workspace-visual.spec.ts-snapshots/route-url-editor-suggestion-groups.png",
   "apps/samebase/e2e/button-visual.spec.ts",
   "apps/samebase/e2e/button-visual.spec.ts-snapshots/button-overrides.png",
   "apps/samebase/e2e/button-visual.spec.ts-snapshots/button-sizes.png",

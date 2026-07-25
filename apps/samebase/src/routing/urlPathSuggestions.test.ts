@@ -60,7 +60,7 @@ describe("readRouteUrlPathSuggestions", () => {
     );
   });
 
-  it("filters staff-only route paths for anonymous viewers", () => {
+  it("filters restricted paths while exposing developer logo routes to anonymous viewers", () => {
     const suggestions = readRouteUrlPathSuggestions(
       routesByPath,
       anonymousViewer,
@@ -75,9 +75,14 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/docs/do-it-yourself");
     expect(suggestions).not.toContain("/landing-preview");
     expect(suggestions).not.toContain("/localStorage");
-    expect(suggestions).not.toContain("/logo/iso");
-    expect(suggestions).not.toContain("/logo/raster");
-    expect(suggestions).not.toContain("/logo/svg");
+    expect(suggestions).toContain("/logo/iso");
+    expect(suggestions).toContain("/logo/raster");
+    expect(suggestions).toContain("/logo/raster-seams");
+    expect(suggestions).toContain("/logo/single-cube");
+    expect(suggestions).toContain("/logo/svg");
+    expect(suggestions).toContain("/logo/transition");
+    expect(suggestions).toContain("/logo/transition/menger");
+    expect(suggestions).toContain("/logo/transition/transforms");
     expect(suggestions).not.toContain("/new-app");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(suggestions).not.toContain("/pitch");
@@ -92,6 +97,9 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/vault");
     expect(suggestions).toContain("/new-app");
     expect(suggestions).toContain("/providers");
+    expect(suggestions).toContain("/logo/iso");
+    expect(suggestions).toContain("/logo/raster");
+    expect(suggestions).toContain("/logo/svg");
     expect(suggestions).toContain("/vault/$");
     expect(suggestions).not.toContain("/indexDB");
     expect(suggestions).not.toContain("/localStorage");
@@ -286,7 +294,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         routesByPath,
         viewer: anonymousViewer,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("accepts concrete dynamic and catch-all route paths", () => {

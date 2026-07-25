@@ -133,6 +133,36 @@ describe("readSuggestions", () => {
     expect(values).not.toContain("?top=");
   });
 
+  it("marks experimental logo paths as developer suggestions", () => {
+    const rows = readRows({
+      routeAddress: "/",
+      viewer: memberViewer,
+    });
+    const developerPaths = rows
+      .filter((row) => row.kind === "path" && row.dev)
+      .map((row) => row.value);
+
+    expect(developerPaths).toEqual([
+      "/logo/iso",
+      "/logo/raster",
+      "/logo/raster-seams",
+      "/logo/single-cube",
+      "/logo/svg",
+      "/logo/transition",
+      "/logo/transition/menger",
+      "/logo/transition/transforms",
+    ]);
+    expect(rows).toContainEqual(
+      expect.objectContaining({
+        kind: "path",
+        value: "/logo",
+      }),
+    );
+    expect(rows.find((row) => row.kind === "path" && row.value === "/logo")).not.toHaveProperty(
+      "dev",
+    );
+  });
+
   it("preserves query text when building path suggestion rows", () => {
     const rows = readRows({
       routeAddress: "/terms?top=red-",

@@ -4,6 +4,7 @@ import {
   ROUTE_SEARCH_PARAM_SUGGESTION_GROUPS,
   type RouteSearchParamSuggestionGroup,
 } from "@/routing/permissions";
+import { Badge } from "@/components/ui/badge";
 import { useRouteEditorVm } from "./useRouteEditorVm";
 import type { Suggestion } from "./RouteUrlEditorSuggestions";
 import { readRouteEditorNavigationApi, useNavigationControls } from "./useNavigationControls";
@@ -38,8 +39,15 @@ const routeUrlEditorNextSuggestionButtonClassName =
 
 const routeUrlEditorNextTouchSuggestionButtonClassName = `${routeUrlEditorNextSuggestionButtonClassName} pr-24`;
 
+const routeUrlEditorNextDevSuggestionButtonClassName = `${routeUrlEditorNextSuggestionButtonClassName} bg-sky-500/5 dark:bg-sky-400/5`;
+
+const routeUrlEditorNextTouchDevSuggestionButtonClassName = `${routeUrlEditorNextTouchSuggestionButtonClassName} bg-sky-500/5 dark:bg-sky-400/5`;
+
 const routeUrlEditorNextSuggestionSampleClassName =
   "text-muted-foreground group-data-[active=true]:text-accent-foreground/60";
+
+const routeUrlEditorNextDevBadgeClassName =
+  "h-4 border-sky-500/40 bg-sky-500/10 px-1.5 py-0 text-[10px] text-sky-700 dark:border-sky-400/40 dark:bg-sky-400/10 dark:text-sky-300";
 
 const routeUrlEditorNextSuggestionGroupLabelClassName =
   "mt-2 flex h-7 items-center px-2 text-sm font-bold";
@@ -113,9 +121,13 @@ export function RouteUrlEditorNext() {
       return (
         <button
           className={
-            touchScrollPicker.active
-              ? routeUrlEditorNextTouchSuggestionButtonClassName
-              : routeUrlEditorNextSuggestionButtonClassName
+            suggestion.dev
+              ? touchScrollPicker.active
+                ? routeUrlEditorNextTouchDevSuggestionButtonClassName
+                : routeUrlEditorNextDevSuggestionButtonClassName
+              : touchScrollPicker.active
+                ? routeUrlEditorNextTouchSuggestionButtonClassName
+                : routeUrlEditorNextSuggestionButtonClassName
           }
           data-route-url-editor-suggestion-index={suggestionIndex}
           data-testid="route-url-editor-suggestion"
@@ -128,9 +140,21 @@ export function RouteUrlEditorNext() {
           role="option"
           type="button"
         >
-          <span className="min-w-0 flex-1 truncate text-left">
+          <span
+            className="min-w-0 flex-1 truncate text-left"
+            data-testid="route-url-editor-suggestion-value"
+          >
             {renderRouteUrlEditorNextSuggestionValue(suggestion)}
           </span>
+          {suggestion.dev ? (
+            <Badge
+              aria-hidden="true"
+              className={routeUrlEditorNextDevBadgeClassName}
+              variant="outline"
+            >
+              dev
+            </Badge>
+          ) : null}
         </button>
       );
     });

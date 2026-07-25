@@ -220,7 +220,9 @@ async function pressArrowDownToSuggestion(
   const suggestions = page.getByTestId("route-url-editor-suggestion");
   await expect(page.getByRole("option", { exact: true, name: suggestionValue })).toBeVisible();
 
-  const suggestionValues = (await suggestions.allTextContents()).map((value) => value.trim());
+  const suggestionValues = (
+    await page.getByTestId("route-url-editor-suggestion-value").allTextContents()
+  ).map((value) => value.trim());
   const suggestionIndex = suggestionValues.indexOf(suggestionValue);
 
   expect(suggestionIndex).toBeGreaterThanOrEqual(0);
@@ -249,7 +251,9 @@ async function scrollTouchPickerToSuggestion(
   const suggestions = page.getByTestId("route-url-editor-suggestion");
   await expect(page.getByRole("option", { exact: true, name: suggestionValue })).toBeVisible();
 
-  const suggestionValues = (await suggestions.allTextContents()).map((value) => value.trim());
+  const suggestionValues = (
+    await page.getByTestId("route-url-editor-suggestion-value").allTextContents()
+  ).map((value) => value.trim());
   const suggestionIndex = suggestionValues.indexOf(suggestionValue);
 
   expect(suggestionIndex).toBeGreaterThanOrEqual(0);
@@ -288,9 +292,12 @@ async function readTouchSlateSuggestionAlignment(page: Page, suggestionValue: st
       }
     }
 
-    const suggestionIndex = suggestions.findIndex(
-      (element) => element.textContent?.trim() === value,
-    );
+    const suggestionIndex = suggestions.findIndex((element) => {
+      const suggestionValue = element.querySelector(
+        '[data-testid="route-url-editor-suggestion-value"]',
+      );
+      return suggestionValue?.textContent?.trim() === value;
+    });
     const suggestion = suggestions[suggestionIndex];
     if (!suggestion) {
       throw new Error(`Expected route URL editor suggestion: ${value}`);
@@ -438,6 +445,31 @@ test.describe("route URL editor touch scroll picker", () => {
     await expect(page).toHaveURL(/\/logo$/);
     await expectInputSelection(input, `${prefix}logo?`.length);
     await expect(page.getByRole("option", { exact: true, name: "?top=sky-500" })).toBeVisible();
+  });
+
+  test("touch path suggestions distinguish developer logo routes", async ({ page }) => {
+    const { input, prefix } = await focusRouteAddressInputDirectly(page, "/");
+    const developerSuggestion = page.getByRole("option", {
+      exact: true,
+      name: "/logo/iso",
+    });
+    const developerBadge = developerSuggestion.getByText("dev", { exact: true });
+    const standardSuggestion = page.getByRole("option", {
+      exact: true,
+      name: "/logo",
+    });
+
+    await expect(developerSuggestion).toBeVisible();
+    await expect(developerSuggestion).toHaveClass(/bg-sky-500\/5/);
+    await expect(developerBadge).toBeVisible();
+    await expect(developerBadge).toHaveAttribute("aria-hidden", "true");
+    await expect(standardSuggestion.getByText("dev", { exact: true })).toHaveCount(0);
+
+    await scrollTouchPickerToSuggestion(page, "/logo/iso");
+
+    await expect(input).toHaveValue(`${prefix}logo/iso?`);
+    await expectTouchSlateAlignedToSuggestion(page, "/logo/iso");
+    await expect(page).toHaveURL(/\/logo\/iso$/);
   });
 
   test("touch scroll keeps query-key suggestions anchored until tap", async ({ page }) => {

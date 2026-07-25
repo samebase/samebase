@@ -125,7 +125,7 @@ function isRouteUrlPathSuggestion(
   routeEnvironment: RouteEnvironment,
 ): boolean {
   return (
-    staticData.pathSuggestion === undefined &&
+    (staticData.pathSuggestion === undefined || staticData.pathSuggestion === "dev") &&
     isRouteUrlNavigablePath(path, staticData, viewer, routeEnvironment)
   );
 }
