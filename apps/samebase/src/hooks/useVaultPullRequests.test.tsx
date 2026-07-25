@@ -44,6 +44,11 @@ function fakeConvexProjectId(): Id<"vaultConvexProjects"> {
   return "project:test";
 }
 
+function fakeVaultProvisioningRunId(): Id<"workflow_vaultProvisioning_runs"> {
+  // @ts-expect-error Convex ids are strings at runtime; this test only needs stable identity.
+  return "provisioning-run:test";
+}
+
 function page(args: {
   number: number;
   endCursor: string | null;
@@ -139,6 +144,7 @@ let currentConvexProjects: Array<{
   projectId: string;
   codeLocation: { kind: "config"; convexConfigPath: string };
 }> = [];
+let currentSourceSetupRunning = false;
 
 function Harness() {
   latestState = useVaultPullRequests({
@@ -146,9 +152,16 @@ function Harness() {
       _id: fakeVaultId(),
       cloudflareWorkers: currentCloudflareWorkers,
       convexProjects: currentConvexProjects,
+      sourceSetup: currentSourceSetupRunning
+        ? {
+            status: "running",
+            runId: fakeVaultProvisioningRunId(),
+            step: "sync_tree",
+            updatedAt: 1,
+          }
+        : { status: "ready" },
     },
     filters: currentFilters,
-    now: Date.now(),
   });
   return null;
 }
@@ -206,6 +219,7 @@ beforeEach(() => {
   };
   currentCloudflareWorkers = [];
   currentConvexProjects = [];
+  currentSourceSetupRunning = false;
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   rootElement = document.createElement("div");
   document.body.append(rootElement);
@@ -539,16 +553,11 @@ describe("useVaultPullRequests", () => {
     ]);
   });
 
-  it("does not renew first-page freshness when a later page loads", async () => {
-    let now = 1_000;
-    vi.spyOn(Date, "now").mockImplementation(() => now);
-    const listHandler = vi.fn(async (value: unknown) => {
-      if (!value || typeof value !== "object" || !("after" in value)) {
-        throw new Error("Provider cursor is required.");
-      }
-      return value.after === null
-        ? page({ number: 1260, endCursor: "cursor:2" })
-        : page({ number: 1259, endCursor: null });
+  it("refreshes immediately when source setup becomes ready", async () => {
+    let requestCount = 0;
+    const listHandler = vi.fn(async () => {
+      requestCount += 1;
+      return page({ number: requestCount === 1 ? 1260 : 1261, endCursor: null });
     });
     actionState.handlersByFunctionName.set(
       getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
@@ -556,24 +565,22 @@ describe("useVaultPullRequests", () => {
     );
     installResourceHandler();
 
+    currentSourceSetupRunning = true;
     await renderHarness();
     await waitFor(
       (state) =>
         (state.state === "current" || state.state === "stale") &&
-        state.allPullRequests.length === 1,
+        state.allPullRequests[0]?.number === 1260,
     );
 
-    now = 60_000;
-    act(() => settledState().loadMore());
+    currentSourceSetupRunning = false;
+    await renderHarness();
     await waitFor(
       (state) =>
         (state.state === "current" || state.state === "stale") &&
-        state.allPullRequests.length === 2,
+        state.allPullRequests[0]?.number === 1261,
     );
 
-    now = 61_001;
-    await renderHarness();
-
-    expect(settledState().state).toBe("stale");
+    expect(listHandler).toHaveBeenCalledTimes(2);
   });
 });

@@ -5,6 +5,7 @@ import type {
   RepositoryPullRequestPage,
   RepositoryStatusCheckRollup,
 } from "../../convex/repositoryPullRequests";
+import type { UserVaultResult } from "../../convex/vault/contracts/getUserVaults";
 import type { PullRequestResources } from "../../convex/vault/pullRequestResources";
 import {
   filterVaultPullRequests,
@@ -21,13 +22,7 @@ const PULL_REQUEST_GC_MS = 5 * 60_000;
 const PULL_REQUEST_PAGE_SIZE = 6;
 const INITIAL_PULL_REQUEST_CURSOR: string | null = null;
 
-type ObservedPullRequestPage = {
-  observedAt: number;
-  page: RepositoryPullRequestPage;
-};
-
-type VaultPullRequestTarget = {
-  _id: Id<"vaults">;
+type VaultPullRequestTarget = Pick<UserVaultResult, "_id" | "sourceSetup"> & {
   cloudflareWorkers: readonly {
     workerId: Id<"vaultCloudflareWorkers">;
     accountId: string;
@@ -171,11 +166,11 @@ function uniquePullRequestIdPages(pages: readonly RepositoryPullRequestPage[]): 
 export function useVaultPullRequests(args: {
   vault: VaultPullRequestTarget | null;
   filters: VaultPullRequestFilters;
-  now: number;
 }): VaultPullRequestsState {
   const listOpenPullRequests = useAction(api.repositoryPullRequests.listOpenPullRequests);
   const getPullRequestResources = useAction(api.vault.pullRequestResources.getPullRequestResources);
   const vaultId = args.vault?._id;
+  const sourceSetupStatus = args.vault?.sourceSetup.status;
   const workerAttachments = [...(args.vault?.cloudflareWorkers ?? [])]
     .map((worker) => ({
       workerId: worker.workerId,
@@ -193,7 +188,7 @@ export function useVaultPullRequests(args: {
     }))
     .sort((left, right) => left.convexProjectId.localeCompare(right.convexProjectId));
   const pullRequestQuery = useInfiniteQuery({
-    queryKey: ["vault-pull-requests", vaultId],
+    queryKey: ["vault-pull-requests", vaultId, sourceSetupStatus],
     queryFn: async ({ pageParam }) => {
       if (!vaultId) {
         throw new Error("Vault is required to load pull requests.");
@@ -206,25 +201,27 @@ export function useVaultPullRequests(args: {
       if (page.repository === null) {
         throw new Error("GitHub repository unavailable.");
       }
-      return { observedAt: Date.now(), page };
+      return page;
     },
     initialPageParam: INITIAL_PULL_REQUEST_CURSOR,
-    getNextPageParam: (lastPage: ObservedPullRequestPage) => nextCursor(lastPage.page) ?? undefined,
+    getNextPageParam: (lastPage) => nextCursor(lastPage) ?? undefined,
     enabled: Boolean(vaultId),
     staleTime: PULL_REQUEST_STALE_MS,
     gcTime: PULL_REQUEST_GC_MS,
     retry: false,
-    refetchInterval: (query) =>
-      query.state.data?.pages.some((observedPage) => pageNeedsPolling(observedPage.page)) === true
-        ? PULL_REQUEST_STALE_MS
-        : false,
+    refetchInterval: (query) => {
+      const pages = query.state.data?.pages;
+      if (!pages) {
+        return false;
+      }
+      // Refreshing every retained infinite-query page would make provider traffic
+      // grow with scroll depth. Keep the visible first page current, while running
+      // checks on any loaded page still justify refreshing the full query.
+      return pages.length === 1 || pages.some(pageNeedsPolling) ? PULL_REQUEST_STALE_MS : false;
+    },
     refetchIntervalInBackground: false,
   });
-  const observedPages = pullRequestQuery.data?.pages;
-  const pages = useMemo(
-    () => observedPages?.map((observedPage) => observedPage.page) ?? [],
-    [observedPages],
-  );
+  const pages = useMemo(() => pullRequestQuery.data?.pages ?? [], [pullRequestQuery.data?.pages]);
   const allPullRequests = useMemo(() => uniquePullRequests(pages).map(presentPullRequest), [pages]);
   const defaultBranch = defaultBranchFromPage(pages.at(0));
   const pullRequests = useMemo(
@@ -233,7 +230,7 @@ export function useVaultPullRequests(args: {
   );
   const pullRequestIdPages = useMemo(() => uniquePullRequestIdPages(pages), [pages]);
   const resourceQueries = useQueries({
-    queries: pullRequestIdPages.map((pagePullRequestIds) => ({
+    queries: pullRequestIdPages.map((pagePullRequestIds, pageIndex) => ({
       queryKey: [
         "vault-provider-observations",
         vaultId,
@@ -253,7 +250,7 @@ export function useVaultPullRequests(args: {
       gcTime: PULL_REQUEST_GC_MS,
       retry: false,
       refetchInterval: (query: { state: { data: PullRequestResources[] | undefined } }) =>
-        resourcesNeedPolling(query.state.data) ? PULL_REQUEST_STALE_MS : false,
+        pageIndex === 0 || resourcesNeedPolling(query.state.data) ? PULL_REQUEST_STALE_MS : false,
       refetchIntervalInBackground: false,
     })),
   });
@@ -272,17 +269,13 @@ export function useVaultPullRequests(args: {
           continue;
         }
         resources.set(pullRequestId, {
-          state:
-            resourceQuery.isRefetchError ||
-            args.now > resourceQuery.dataUpdatedAt + PULL_REQUEST_STALE_MS
-              ? "stale"
-              : "current",
+          state: resourceQuery.isRefetchError ? "stale" : "current",
           resources: pullRequestResources,
         });
       }
     });
     return resources;
-  }, [args.now, pullRequestIdPages, resourceQueries]);
+  }, [pullRequestIdPages, resourceQueries]);
 
   const resourceStates = [...resourcesByPullRequestId.values()].map((resource) => resource.state);
   const resourceState = resourceStates.includes("failed")
@@ -319,14 +312,9 @@ export function useVaultPullRequests(args: {
   }
   const hasMore = nextCursor(lastPage) !== null;
   const canLoadMore = hasMore && !isFetchingNextPage && !isFetchNextPageError;
-  const firstPageObservedAt = observedPages?.at(0)?.observedAt;
-  if (firstPageObservedAt === undefined) {
-    throw new Error("Pull request query returned an unobserved provider page.");
-  }
   return {
     state:
-      (pullRequestQuery.isRefetchError && !pullRequestQuery.isFetchNextPageError) ||
-      args.now > firstPageObservedAt + PULL_REQUEST_STALE_MS
+      pullRequestQuery.isRefetchError && !pullRequestQuery.isFetchNextPageError
         ? "stale"
         : "current",
     defaultBranch,

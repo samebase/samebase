@@ -1,6 +1,5 @@
 import { api } from "../../../convex/_generated/api";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
-import { useNow } from "@/hooks/useNow";
 import { useVaultPullRequests } from "@/hooks/useVaultPullRequests";
 import { useVaultSidebarSummaries } from "@/hooks/useVaultSidebarSummaries";
 import { useCacheQuery } from "@/lib/convexQueryCache";
@@ -53,14 +52,12 @@ export function useVaultWorkspaceModel(
       ? normalizeVaultPullRequestFilters(savedFilters)
       : getDefaultVaultPullRequestFilters();
   }, [savedPullRequestFilters, selectedVault?._id]);
-  const now = useNow({ intervalMs: 15_000 });
   const pullRequests = useVaultPullRequests({
     vault:
       selectedVault?.hasConnectedGitHubRepository && selectedVault.deletion.state === "not_deleting"
         ? selectedVault
         : null,
     filters: selectedPullRequestFilters,
-    now,
   });
   const viewerAccess = useConvexQuery(api.users.currentViewerAccess);
   const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus);
