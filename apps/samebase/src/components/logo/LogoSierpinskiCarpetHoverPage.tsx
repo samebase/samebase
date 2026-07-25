@@ -65,6 +65,9 @@ function SierpinskiCarpetHoverScene({
   const carpetColorRef = useRef(carpetColor);
   const configRef = useRef(config);
   const pointerRef = useRef<SierpinskiCarpetHoverPointer | null>(null);
+  // Slide direction outlives the hover so healing wipes keep their anchor
+  // edge after the pointer leaves the carpet.
+  const lastPointerRef = useRef<SierpinskiCarpetHoverPointer | null>(null);
   const opennessRef = useRef(new Float64Array(SIERPINSKI_CARPET_HOVER_HOLES.length));
   const frameRef = useRef(0);
   const prefersReducedMotionRef = useRef(false);
@@ -110,6 +113,7 @@ function SierpinskiCarpetHoverScene({
 
       event.currentTarget.setPointerCapture(event.pointerId);
       pointerRef.current = readUnitPointer(event);
+      lastPointerRef.current = pointerRef.current ?? lastPointerRef.current;
       scheduleFrame();
     },
     [readUnitPointer, scheduleFrame],
@@ -121,6 +125,7 @@ function SierpinskiCarpetHoverScene({
       }
 
       pointerRef.current = readUnitPointer(event);
+      lastPointerRef.current = pointerRef.current ?? lastPointerRef.current;
       scheduleFrame();
     },
     [readUnitPointer, scheduleFrame],
@@ -193,6 +198,7 @@ function SierpinskiCarpetHoverScene({
           hole,
           next,
           configRef.current.mechanic,
+          pointerRef.current ?? lastPointerRef.current,
         );
         if (revealedRect) {
           context.clearRect(
@@ -278,7 +284,7 @@ export function LogoSierpinskiCarpetHoverPage({ routeSearch }: { routeSearch: Lo
   const [mechanic, setMechanic] = useState<SierpinskiCarpetHoverMechanic>("grow");
   const [falloff, setFalloff] = useState<SierpinskiCarpetHoverFalloff>("per-depth");
   const [revealRadius, setRevealRadius] = useState(SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS);
-  const [maxDepth, setMaxDepth] = useState<SierpinskiCarpetHoverDepth>(4);
+  const [maxDepth, setMaxDepth] = useState<SierpinskiCarpetHoverDepth>(6);
   const config = useMemo(
     () => ({ falloff, maxDepth, mechanic, revealRadius }),
     [falloff, maxDepth, mechanic, revealRadius],

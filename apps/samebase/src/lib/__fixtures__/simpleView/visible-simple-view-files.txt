@@ -1,6 +1,9 @@
 AGENTS.md
 apps/domain-router/wrangler.jsonc
 apps/posthog-proxy/wrangler.jsonc
+apps/remotion-studio/notes/logo-motion-directions.md
+apps/remotion-studio/notes/tic-tac-toe-edit.md
+apps/remotion-studio/README.md
 apps/samebase/AGENTS.md
 apps/samebase/CLAUDE.md
 apps/samebase/e2e/account-deletion-visual.spec.ts-snapshots/account-deletion-attention-desktop.png
@@ -12,6 +15,7 @@ apps/samebase/e2e/app-right-sidebar-visual.spec.ts-snapshots/app-right-sidebar-s
 apps/samebase/e2e/app-right-sidebar-visual.spec.ts-snapshots/app-right-sidebar-signed-in-account-section.png
 apps/samebase/e2e/app-workspace-visual.spec.ts-snapshots/app-workspace-landing-dev.png
 apps/samebase/e2e/app-workspace-visual.spec.ts-snapshots/app-workspace-landing.png
+apps/samebase/e2e/app-workspace-visual.spec.ts-snapshots/route-url-editor-suggestion-groups.png
 apps/samebase/e2e/button-visual.spec.ts-snapshots/button-overrides.png
 apps/samebase/e2e/button-visual.spec.ts-snapshots/button-sizes.png
 apps/samebase/e2e/button-visual.spec.ts-snapshots/button-states.png
@@ -59,6 +63,10 @@ apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-prev
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-stack-mobile.png
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-stack-narrow-pane.png
 apps/samebase/e2e/local-storage-route-visual.spec.ts-snapshots/local-storage-workspace.png
+apps/samebase/e2e/logo-carpet-hover-visual.spec.ts-snapshots/logo-carpet-hover-grow.png
+apps/samebase/e2e/logo-carpet-hover-visual.spec.ts-snapshots/logo-carpet-hover-phone.png
+apps/samebase/e2e/logo-carpet-hover-visual.spec.ts-snapshots/logo-carpet-hover-resting.png
+apps/samebase/e2e/logo-carpet-hover-visual.spec.ts-snapshots/logo-carpet-hover-slide.png
 apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-color-controls.png
 apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-color-picker-popover.png
 apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-dark-wide-main-pane.png
@@ -403,6 +411,7 @@ research/2026-07-14-agent-landing-eval-pr-preview-smoke.md
 research/2026-07-14-agent-native-positioning-and-competitor-eval.md
 research/2026-07-14-pane-responsiveness-audit.md
 research/2026-07-16-sites-plugin-lessons-for-samebase.md
+research/2026-07-24-codespaces-value-and-retirement-audit.md
 research/2026-07-24-connected-machines-value-and-retirement-audit.md
 research/agent-context-draft-bundle/noter-manifest.md
 research/agent-context-draft-overlays/noter-app-template.md

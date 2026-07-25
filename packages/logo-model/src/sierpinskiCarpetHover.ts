@@ -1,4 +1,4 @@
-export const SIERPINSKI_CARPET_HOVER_DEPTHS = [1, 2, 3, 4] as const;
+export const SIERPINSKI_CARPET_HOVER_DEPTHS = [1, 2, 3, 4, 5, 6] as const;
 export const SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS = 0.35;
 export const SIERPINSKI_CARPET_HOVER_PER_DEPTH_RADIUS_RATIO = 0.55;
 export const SIERPINSKI_CARPET_HOVER_FULL_OPEN_RADIUS_FRACTION = 0.25;
@@ -14,11 +14,6 @@ export type SierpinskiCarpetHoverPointer = {
   y: number;
 };
 
-export type SierpinskiCarpetHoverSlide = {
-  axis: "x" | "y";
-  sign: -1 | 1;
-};
-
 /**
 Unit carpet coordinates: the full carpet spans [0, 1] on both axes with the
 origin at the top-left corner. A depth-d hole is the open center ninth of a
@@ -29,7 +24,6 @@ export type SierpinskiCarpetHoverHole = {
   centerY: number;
   depth: SierpinskiCarpetHoverDepth;
   size: number;
-  slide: SierpinskiCarpetHoverSlide;
 };
 
 export type SierpinskiCarpetHoverConfig = {
@@ -45,28 +39,6 @@ export type SierpinskiCarpetHoverRect = {
   y: number;
 };
 
-const SLIDE_DIRECTIONS: readonly SierpinskiCarpetHoverSlide[] = [
-  { axis: "x", sign: -1 },
-  { axis: "x", sign: 1 },
-  { axis: "y", sign: -1 },
-  { axis: "y", sign: 1 },
-];
-
-function readSlideDirection(
-  centerX: number,
-  centerY: number,
-  depth: SierpinskiCarpetHoverDepth,
-): SierpinskiCarpetHoverSlide {
-  const value = Math.sin(centerX * 12.9898 + centerY * 78.233 + depth * 37.719) * 43_758.5453;
-  const noise = value - Math.floor(value);
-  const direction = SLIDE_DIRECTIONS[Math.floor(noise * SLIDE_DIRECTIONS.length)];
-  if (!direction) {
-    throw new Error("Every carpet hole must resolve a slide direction.");
-  }
-
-  return direction;
-}
-
 function collectHoles(
   depthIndex: number,
   originX: number,
@@ -80,14 +52,11 @@ function collectHoles(
   }
 
   const childSize = size / 3;
-  const centerX = originX + size / 2;
-  const centerY = originY + size / 2;
   holes.push({
-    centerX,
-    centerY,
+    centerX: originX + size / 2,
+    centerY: originY + size / 2,
     depth,
     size: childSize,
-    slide: readSlideDirection(centerX, centerY, depth),
   });
 
   for (let row = 0; row < 3; row += 1) {
@@ -175,16 +144,45 @@ export function readSierpinskiCarpetHoleOpenness(
   return normalized * normalized * (3 - 2 * normalized);
 }
 
+type SierpinskiCarpetSlide = {
+  axis: "x" | "y";
+  sign: -1 | 1;
+};
+
+/**
+The cover retreats away from the pointer along the dominant axis of the
+pointer-to-center offset, so the opening wipes in from the hole edge facing
+the mouse. Without a pointer the direction falls back to +x, which is only
+reachable for fully open holes where the anchor edge is invisible.
+*/
+function readSlideAwayFromPointer(
+  hole: SierpinskiCarpetHoverHole,
+  pointer: SierpinskiCarpetHoverPointer | null,
+): SierpinskiCarpetSlide {
+  if (pointer === null) {
+    return { axis: "x", sign: 1 };
+  }
+
+  const deltaX = hole.centerX - pointer.x;
+  const deltaY = hole.centerY - pointer.y;
+  if (Math.abs(deltaY) > Math.abs(deltaX)) {
+    return { axis: "y", sign: deltaY >= 0 ? 1 : -1 };
+  }
+
+  return { axis: "x", sign: deltaX >= 0 ? 1 : -1 };
+}
+
 /**
 The visible open area of a hole at the given openness, in unit carpet
-coordinates. Grow keeps the opening centered; slide anchors it to the edge the
-cover retreats from, so the hole wipes open toward hole.slide. Returns null
-while the hole is fully covered.
+coordinates. Grow keeps the opening centered; slide anchors it to the hole
+edge facing the pointer, so the wipe follows the mouse around the hole.
+Returns null while the hole is fully covered.
 */
 export function readSierpinskiCarpetHoleRevealedRect(
   hole: SierpinskiCarpetHoverHole,
   openness: number,
   mechanic: SierpinskiCarpetHoverMechanic,
+  pointer: SierpinskiCarpetHoverPointer | null,
 ): SierpinskiCarpetHoverRect | null {
   const clampedOpenness = Number.isFinite(openness) ? Math.min(Math.max(openness, 0), 1) : 0;
   if (clampedOpenness === 0) {
@@ -203,14 +201,15 @@ export function readSierpinskiCarpetHoleRevealedRect(
       };
     }
     case "slide": {
+      const slide = readSlideAwayFromPointer(hole, pointer);
       const span = hole.size * clampedOpenness;
       const left = hole.centerX - hole.size / 2;
       const top = hole.centerY - hole.size / 2;
-      if (hole.slide.axis === "x") {
+      if (slide.axis === "x") {
         return {
           height: hole.size,
           width: span,
-          x: hole.slide.sign === 1 ? left : left + hole.size - span,
+          x: slide.sign === 1 ? left : left + hole.size - span,
           y: top,
         };
       }
@@ -219,7 +218,7 @@ export function readSierpinskiCarpetHoleRevealedRect(
         height: span,
         width: hole.size,
         x: left,
-        y: hole.slide.sign === 1 ? top : top + hole.size - span,
+        y: slide.sign === 1 ? top : top + hole.size - span,
       };
     }
     default:
