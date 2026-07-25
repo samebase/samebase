@@ -175,6 +175,7 @@ test("Settings link returns the mobile workspace to the main pane", async ({
     reducedMotion: "reduce",
   });
   const page = await context.newPage();
+  const email = `settings-mobile-${testInfo.workerIndex}-${Date.now()}@example.test`;
   await page.addInitScript(
     ({ state, storageKey, version }) => {
       window.localStorage.setItem(storageKey, JSON.stringify({ state, version }));
@@ -188,7 +189,7 @@ test("Settings link returns the mobile workspace to the main pane", async ({
 
   try {
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await signInIfNeeded(page, "/");
+    await createPendingAccount(page, email);
     await page.waitForLoadState("networkidle");
     await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
       "data-mobile-pane",
@@ -207,7 +208,7 @@ test("Settings link returns the mobile workspace to the main pane", async ({
     await expect(settingsPage.getByRole("button", { name: "Sign out" })).toBeVisible();
     await expect(settingsPage).toHaveScreenshot("settings-page-mobile.png", {
       ...screenshotOptions,
-      mask: [settingsPage.getByText(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL, { exact: true })],
+      mask: [settingsPage.getByText(email, { exact: true })],
       maskColor: "#d1d5db",
     });
 
