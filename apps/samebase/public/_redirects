@@ -33,6 +33,38 @@
 /logo/ /logo/index.html 200
 /logo/index.html /logo/index.html 200
 
+/logo/iso /logo/iso/index.html 200
+/logo/iso/ /logo/iso/index.html 200
+/logo/iso/index.html /logo/iso/index.html 200
+
+/logo/raster /logo/raster/index.html 200
+/logo/raster/ /logo/raster/index.html 200
+/logo/raster/index.html /logo/raster/index.html 200
+
+/logo/raster-seams /logo/raster-seams/index.html 200
+/logo/raster-seams/ /logo/raster-seams/index.html 200
+/logo/raster-seams/index.html /logo/raster-seams/index.html 200
+
+/logo/single-cube /logo/single-cube/index.html 200
+/logo/single-cube/ /logo/single-cube/index.html 200
+/logo/single-cube/index.html /logo/single-cube/index.html 200
+
+/logo/svg /logo/svg/index.html 200
+/logo/svg/ /logo/svg/index.html 200
+/logo/svg/index.html /logo/svg/index.html 200
+
+/logo/transition /logo/transition/index.html 200
+/logo/transition/ /logo/transition/index.html 200
+/logo/transition/index.html /logo/transition/index.html 200
+
+/logo/transition/menger /logo/transition/menger/index.html 200
+/logo/transition/menger/ /logo/transition/menger/index.html 200
+/logo/transition/menger/index.html /logo/transition/menger/index.html 200
+
+/logo/transition/transforms /logo/transition/transforms/index.html 200
+/logo/transition/transforms/ /logo/transition/transforms/index.html 200
+/logo/transition/transforms/index.html /logo/transition/transforms/index.html 200
+
 /oauth/mcp/consent /oauth/mcp/consent/index.html 200
 /oauth/mcp/consent/ /oauth/mcp/consent/index.html 200
 /oauth/mcp/consent/index.html /oauth/mcp/consent/index.html 200

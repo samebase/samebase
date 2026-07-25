@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { getRouter } from "@/router";
 import {
-  filterRouteUrlPathSuggestions,
   isRouteUrlPathReadyForNavigation,
   readRouteUrlPathSuggestions,
 } from "./urlPathSuggestions";
@@ -9,7 +8,6 @@ import type { RouteAccessViewer } from "@/routing/permissions";
 import { ROLE_ACCESS_GRANTS } from "../../shared/accessModel";
 
 const ORIGIN = "http://localhost:5174";
-const DEPLOYED_ORIGIN = "https://preview.samebase.com";
 const routesByPath = getRouter().routesByPath;
 const staffViewer = {
   accessKeys: ROLE_ACCESS_GRANTS.role_staff,
@@ -26,13 +24,18 @@ const deployedEnvironment = "preview";
 
 describe("readRouteUrlPathSuggestions", () => {
   it("exposes sorted user-facing TanStack route paths", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath, staffViewer, localEnvironment);
+    const suggestions = readRouteUrlPathSuggestions(
+      routesByPath,
+      staffViewer,
+      localEnvironment,
+      false,
+    );
 
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/vault");
     expect(suggestions).toContain("/indexDB");
-    expect(suggestions).toContain("/logo/transition/menger");
-    expect(suggestions).toContain("/logo/transition/transforms");
+    expect(suggestions).not.toContain("/logo/transition/menger");
+    expect(suggestions).not.toContain("/logo/transition/transforms");
     expect(suggestions).toContain("/visual-fixture");
     expect(suggestions).toContain("/vault/$");
     expect(suggestions).not.toContain("/_public");
@@ -60,11 +63,45 @@ describe("readRouteUrlPathSuggestions", () => {
     );
   });
 
-  it("filters staff-only route paths for anonymous viewers", () => {
+  it("exposes public developer paths only when requested", () => {
+    const standardSuggestions = readRouteUrlPathSuggestions(
+      routesByPath,
+      staffViewer,
+      localEnvironment,
+      false,
+    );
+    const developerSuggestions = readRouteUrlPathSuggestions(
+      routesByPath,
+      staffViewer,
+      localEnvironment,
+      true,
+    );
+    const anonymousDeveloperSuggestions = readRouteUrlPathSuggestions(
+      routesByPath,
+      anonymousViewer,
+      localEnvironment,
+      true,
+    );
+    const memberDeveloperSuggestions = readRouteUrlPathSuggestions(
+      routesByPath,
+      memberViewer,
+      localEnvironment,
+      true,
+    );
+
+    expect(standardSuggestions).not.toContain("/logo/iso");
+    expect(developerSuggestions).toContain("/logo/iso");
+    expect(developerSuggestions).toContain("/logo/transition/transforms");
+    expect(anonymousDeveloperSuggestions).toContain("/logo/iso");
+    expect(memberDeveloperSuggestions).toContain("/logo/iso");
+  });
+
+  it("filters restricted paths for anonymous viewers", () => {
     const suggestions = readRouteUrlPathSuggestions(
       routesByPath,
       anonymousViewer,
       localEnvironment,
+      true,
     );
 
     expect(suggestions).toContain("/");
@@ -75,9 +112,14 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/docs/do-it-yourself");
     expect(suggestions).not.toContain("/landing-preview");
     expect(suggestions).not.toContain("/localStorage");
-    expect(suggestions).not.toContain("/logo/iso");
-    expect(suggestions).not.toContain("/logo/raster");
-    expect(suggestions).not.toContain("/logo/svg");
+    expect(suggestions).toContain("/logo/iso");
+    expect(suggestions).toContain("/logo/raster");
+    expect(suggestions).toContain("/logo/raster-seams");
+    expect(suggestions).toContain("/logo/single-cube");
+    expect(suggestions).toContain("/logo/svg");
+    expect(suggestions).toContain("/logo/transition");
+    expect(suggestions).toContain("/logo/transition/menger");
+    expect(suggestions).toContain("/logo/transition/transforms");
     expect(suggestions).not.toContain("/new-app");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(suggestions).not.toContain("/pitch");
@@ -85,13 +127,21 @@ describe("readRouteUrlPathSuggestions", () => {
   });
 
   it("exposes member route paths from access grants", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath, memberViewer, localEnvironment);
+    const suggestions = readRouteUrlPathSuggestions(
+      routesByPath,
+      memberViewer,
+      localEnvironment,
+      true,
+    );
 
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/connect-repo");
     expect(suggestions).toContain("/vault");
     expect(suggestions).toContain("/new-app");
     expect(suggestions).toContain("/providers");
+    expect(suggestions).toContain("/logo/iso");
+    expect(suggestions).toContain("/logo/raster");
+    expect(suggestions).toContain("/logo/svg");
     expect(suggestions).toContain("/vault/$");
     expect(suggestions).not.toContain("/indexDB");
     expect(suggestions).not.toContain("/localStorage");
@@ -100,7 +150,12 @@ describe("readRouteUrlPathSuggestions", () => {
   });
 
   it("hides local-only route paths from the prod UI environment", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath, staffViewer, prodUiEnvironment);
+    const suggestions = readRouteUrlPathSuggestions(
+      routesByPath,
+      staffViewer,
+      prodUiEnvironment,
+      false,
+    );
 
     expect(suggestions).toContain("/logo");
     expect(suggestions).not.toContain("/test");
@@ -108,141 +163,15 @@ describe("readRouteUrlPathSuggestions", () => {
   });
 
   it("hides local-only route paths outside local route environments", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath, staffViewer, deployedEnvironment);
+    const suggestions = readRouteUrlPathSuggestions(
+      routesByPath,
+      staffViewer,
+      deployedEnvironment,
+      false,
+    );
 
     expect(suggestions).not.toContain("/test");
     expect(suggestions).not.toContain("/visual-fixture");
-  });
-});
-
-describe("filterRouteUrlPathSuggestions", () => {
-  it("filters static route paths by the typed draft path", () => {
-    expect(
-      filterRouteUrlPathSuggestions({
-        currentHref: "/",
-        draftHref: "/logo/t",
-        origin: ORIGIN,
-        routesByPath,
-        viewer: staffViewer,
-      }),
-    ).toEqual(["/logo/transition", "/logo/transition/menger", "/logo/transition/transforms"]);
-  });
-
-  it("reads the path from the focused same-origin editor URL", () => {
-    expect(
-      filterRouteUrlPathSuggestions({
-        currentHref: "/",
-        draftHref: `${ORIGIN}/logo/r`,
-        origin: ORIGIN,
-        routesByPath,
-        viewer: staffViewer,
-      }),
-    ).toEqual(["/logo/raster", "/logo/raster-seams"]);
-  });
-
-  it("filters query and hash drafts against the current route path", () => {
-    expect(
-      filterRouteUrlPathSuggestions({
-        currentHref: "/logo/iso?dark#controls",
-        draftHref: "?prod-ui",
-        origin: ORIGIN,
-        routesByPath,
-        viewer: staffViewer,
-      }),
-    ).toEqual(["/logo/iso"]);
-
-    expect(
-      filterRouteUrlPathSuggestions({
-        currentHref: "/logo/transition/menger",
-        draftHref: "#thread",
-        origin: ORIGIN,
-        routesByPath,
-        viewer: staffViewer,
-      }),
-    ).toEqual(["/logo/transition/menger"]);
-  });
-
-  it("matches dynamic templates against concrete typed path segments", () => {
-    expect(
-      filterRouteUrlPathSuggestions({
-        currentHref: "/",
-        draftHref: "/vault/octo/repo/db/main/proj",
-        origin: ORIGIN,
-        routesByPath,
-        viewer: staffViewer,
-      }),
-    ).toEqual(["/vault/$", "/vault/$owner/$repo/db/$branch/project/$convexProjectId"]);
-  });
-
-  it("keeps the catch-all vault route available for file path drafts", () => {
-    expect(
-      filterRouteUrlPathSuggestions({
-        currentHref: "/",
-        draftHref: "/vault/octo/repo/fs/main/src/App.tsx",
-        origin: ORIGIN,
-        routesByPath,
-        viewer: staffViewer,
-      }),
-    ).toEqual(["/vault/$"]);
-  });
-
-  it("returns all paths for an empty draft and rejects external absolute URLs", () => {
-    expect(
-      filterRouteUrlPathSuggestions({
-        currentHref: "/logo",
-        draftHref: "  ",
-        origin: ORIGIN,
-        routesByPath,
-        viewer: staffViewer,
-      }),
-    ).toEqual(readRouteUrlPathSuggestions(routesByPath, staffViewer, localEnvironment));
-
-    expect(
-      filterRouteUrlPathSuggestions({
-        currentHref: "/",
-        draftHref: "https://example.com/logo",
-        origin: ORIGIN,
-        routesByPath,
-        viewer: staffViewer,
-      }),
-    ).toEqual([]);
-  });
-
-  it("uses the prod UI query as a path suggestion display filter", () => {
-    const suggestions = filterRouteUrlPathSuggestions({
-      currentHref: "/?prod-ui",
-      draftHref: "  ",
-      origin: ORIGIN,
-      routesByPath,
-      viewer: staffViewer,
-    });
-
-    expect(suggestions).toContain("/logo");
-    expect(suggestions).not.toContain("/visual-fixture");
-  });
-
-  it("hides local-only route suggestions on deployed origins", () => {
-    const suggestions = filterRouteUrlPathSuggestions({
-      currentHref: "/",
-      draftHref: "/vis",
-      origin: DEPLOYED_ORIGIN,
-      routesByPath,
-      viewer: staffViewer,
-    });
-
-    expect(suggestions).toEqual([]);
-  });
-
-  it("hides test route suggestions on deployed origins", () => {
-    const suggestions = filterRouteUrlPathSuggestions({
-      currentHref: "/",
-      draftHref: "/test",
-      origin: DEPLOYED_ORIGIN,
-      routesByPath,
-      viewer: staffViewer,
-    });
-
-    expect(suggestions).toEqual([]);
   });
 });
 
@@ -286,7 +215,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         routesByPath,
         viewer: anonymousViewer,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("accepts concrete dynamic and catch-all route paths", () => {

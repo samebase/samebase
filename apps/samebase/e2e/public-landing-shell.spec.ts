@@ -10,7 +10,6 @@ import {
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
 } from "../src/lib/appBuild";
-import { LANDING_DEV_MODE_QUERY_PARAM } from "../src/lib/landingDevMode";
 import { PRODUCTION_PUBLIC_HOSTNAME } from "../src/lib/prodUiMode";
 import {
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
@@ -40,14 +39,6 @@ const NAVIGATION_BUDGET_MS = {
 } as const;
 const COPY_SHORTCUT_KEY = process.platform === "darwin" ? "Meta+C" : "Control+C";
 const LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS = ["/terms", "/privacy", "/landing"] as const;
-const landingDevModeLinkLabel = formatRouteSearchPresenceFlagLinkLabel(
-  LANDING_DEV_MODE_QUERY_PARAM,
-  true,
-);
-const landingDevModeDisableLinkLabel = formatRouteSearchPresenceFlagLinkLabel(
-  LANDING_DEV_MODE_QUERY_PARAM,
-  false,
-);
 const rootThemeLightModeLinkLabel = formatRouteSearchPresenceFlagLinkLabel("light", true);
 const searchResetLinkLabel = formatRouteSearchPresenceFlagLinkLabel(SEARCH_RESET_QUERY_PARAM, true);
 const strictScreenshotOptions = {
@@ -102,18 +93,6 @@ async function readNavigationTiming(page: Parameters<typeof test>[0]["page"]) {
   });
 }
 
-type LandingToggleFrame = {
-  href: string;
-  top: number | null;
-};
-
-type LandingToggleLayout = {
-  authRowTop: number;
-  contentTop: number;
-  contentHeight: number;
-  authRowHeight: number;
-};
-
 type LandingReloadFrame = {
   content: {
     top: number;
@@ -166,64 +145,6 @@ declare global {
     __landingFontStableFrames?: LandingFontStableFrame[];
     __landingReloadFrames?: LandingReloadFrame[];
   }
-}
-
-async function captureLandingToggleFrames(
-  page: Parameters<typeof test>[0]["page"],
-  linkName: string,
-): Promise<LandingToggleFrame[]> {
-  const framesPromise = page.evaluate(() => {
-    return new Promise<LandingToggleFrame[]>((resolve) => {
-      const samples: LandingToggleFrame[] = [];
-      let frame = 0;
-
-      const capture = () => {
-        const root = document.querySelector('[data-testid="public-landing-content"]');
-        const rect = root instanceof HTMLElement ? root.getBoundingClientRect() : null;
-        samples.push({
-          href: window.location.href,
-          top: rect ? Number(rect.top.toFixed(3)) : null,
-        });
-        frame += 1;
-        if (frame >= 45) {
-          resolve(samples);
-          return;
-        }
-        requestAnimationFrame(capture);
-      };
-
-      requestAnimationFrame(capture);
-    });
-  });
-
-  await page.getByRole("link", { name: linkName, exact: true }).click();
-  return await framesPromise;
-}
-
-async function readLandingToggleLayout(
-  page: Parameters<typeof test>[0]["page"],
-): Promise<LandingToggleLayout> {
-  return await page.evaluate((accountSectionTestId) => {
-    const content = document.querySelector('[data-testid="public-landing-content"]');
-    const accountSection = document.querySelector(`[data-testid="${accountSectionTestId}"]`);
-
-    if (!(content instanceof HTMLElement)) {
-      throw new Error("Expected landing content element");
-    }
-    if (!(accountSection instanceof HTMLElement)) {
-      throw new Error("Expected landing account section element");
-    }
-
-    const contentRect = content.getBoundingClientRect();
-    const accountSectionRect = accountSection.getBoundingClientRect();
-
-    return {
-      authRowTop: Number(accountSectionRect.top.toFixed(3)),
-      contentTop: Number(contentRect.top.toFixed(3)),
-      contentHeight: Number(contentRect.height.toFixed(3)),
-      authRowHeight: Number(accountSectionRect.height.toFixed(3)),
-    };
-  }, PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
 }
 
 async function readLandingRightSidebarCopyMetrics(page: Page): Promise<{
@@ -609,48 +530,6 @@ function expectStableLandingFontFrames(frames: LandingFontStableFrame[]) {
   }
 }
 
-/**
- * The target route should stop shifting once at least 10 target-path frames
- * have been captured.
- */
-function expectStableLandingToggleFrames(
-  frames: LandingToggleFrame[],
-  expectedPathWithSearch: "/?dev" | "/",
-) {
-  const sawExpectedPath = frames.some((frame) => {
-    const url = new URL(frame.href);
-    return `${url.pathname}${url.search}` === expectedPathWithSearch;
-  });
-  expect(sawExpectedPath).toBe(true);
-  expect(frames.some((frame) => frame.top === null)).toBe(false);
-
-  const expectedPathTopValues = frames.flatMap((frame) => {
-    const url = new URL(frame.href);
-    return `${url.pathname}${url.search}` === expectedPathWithSearch && frame.top !== null
-      ? [frame.top]
-      : [];
-  });
-  expect(expectedPathTopValues.length).toBeGreaterThanOrEqual(10);
-  expect(
-    Math.max(...expectedPathTopValues) - Math.min(...expectedPathTopValues),
-  ).toBeLessThanOrEqual(1);
-}
-
-async function expectLandingToggleFocusTarget(page: Parameters<typeof test>[0]["page"]) {
-  await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const activeElement = document.activeElement;
-        return activeElement === document.body
-          ? "body"
-          : activeElement instanceof HTMLElement && activeElement.id === "public-landing-dev-toggle"
-            ? "public-landing-dev-toggle"
-            : (activeElement?.tagName.toLowerCase() ?? null);
-      }),
-    )
-    .toMatch(/^(body|public-landing-dev-toggle)$/);
-}
-
 async function insertLandingHeadingMarker(
   page: Parameters<typeof test>[0]["page"],
   marker: string,
@@ -886,22 +765,6 @@ async function readLinkPresentation(link: Locator) {
   });
 }
 
-async function expectLandingLogoAutoRotates(scene: Locator) {
-  await expectLandingLogoSceneReady(scene);
-  const initialRotationDegrees = await scene.getAttribute("data-rotation-degrees");
-  expect(initialRotationDegrees).not.toBeNull();
-  if (initialRotationDegrees === null) {
-    return;
-  }
-
-  await expect
-    .poll(async () => {
-      const currentRotationDegrees = await scene.getAttribute("data-rotation-degrees");
-      return currentRotationDegrees ?? initialRotationDegrees;
-    })
-    .not.toBe(initialRotationDegrees);
-}
-
 async function readLandingLogoSceneView(scene: Locator) {
   const elevationDegrees = await scene.getAttribute("data-elevation-degrees");
   const rotationDegrees = await scene.getAttribute("data-rotation-degrees");
@@ -1061,7 +924,7 @@ test("public landing renders the closed Google signup return state", async ({ pa
   );
 });
 
-test("landing dev toggle keeps the account rows aligned", async ({ page }) => {
+test("public landing right sidebar omits developer mode links", async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem("samebase_auth_provider", "google");
   });
@@ -1069,45 +932,17 @@ test("landing dev toggle keeps the account rows aligned", async ({ page }) => {
 
   await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
   await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
+  await expect(page.getByRole("link", { exact: true, name: "?dev" })).toHaveCount(0);
+  await expect(page.getByRole("link", { exact: true, name: "?dev-" })).toHaveCount(0);
   await expect(page).toHaveScreenshot("public-landing-right-sidebar-account-links.png", {
     ...strictScreenshotOptions,
     clip: await readLandingRightSidebarAuthClip(page),
   });
 
-  const beforeToggleLayout = await readLandingToggleLayout(page);
-
-  await page.getByRole("link", { name: landingDevModeLinkLabel, exact: true }).click();
-  await expect(page).toHaveURL(/\/\?dev$/);
-  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
+  await page.goto("/?dev", { waitUntil: "networkidle" });
   await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
-
-  const afterToggleLayout = await readLandingToggleLayout(page);
-
-  expect(
-    Math.abs(afterToggleLayout.authRowTop - beforeToggleLayout.authRowTop),
-  ).toBeLessThanOrEqual(1);
-  expect(
-    Math.abs(afterToggleLayout.authRowHeight - beforeToggleLayout.authRowHeight),
-  ).toBeLessThanOrEqual(1);
-  expect(
-    Math.abs(afterToggleLayout.contentHeight - beforeToggleLayout.contentHeight),
-  ).toBeLessThanOrEqual(1);
-
-  await page
-    .getByRole("link", {
-      name: landingDevModeDisableLinkLabel,
-      exact: true,
-    })
-    .click();
-  await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
-  await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
-
-  const afterDisableLayout = await readLandingToggleLayout(page);
-
-  expect(
-    Math.abs(afterDisableLayout.authRowTop - afterToggleLayout.authRowTop),
-  ).toBeLessThanOrEqual(1);
+  await expect(page.getByRole("link", { exact: true, name: "?dev" })).toHaveCount(0);
+  await expect(page.getByRole("link", { exact: true, name: "?dev-" })).toHaveCount(0);
 });
 
 test("public landing omits section divider lines", async ({ page }) => {
@@ -1308,7 +1143,7 @@ test("landing footer links keep browser link styling", async ({ page }, testInfo
   });
 });
 
-test.describe("mobile landing dev toggle", () => {
+test.describe("mobile landing shell", () => {
   test.use(mobileLandingDevice);
 
   test("landing fits below the mobile address chrome without vertical scrolling", async ({
@@ -1411,19 +1246,6 @@ test.describe("mobile landing dev toggle", () => {
     }
     expect(scrollTop.shellScrollTop).toBe(0);
   });
-
-  test("landing dev toggle keeps the landing card stable frame by frame", async ({ page }) => {
-    await page.goto("/", { waitUntil: "networkidle" });
-
-    const forwardFrames = await captureLandingToggleFrames(page, landingDevModeLinkLabel);
-    expectStableLandingToggleFrames(forwardFrames, "/?dev");
-    await expectLandingToggleFocusTarget(page);
-    await expectLandingLogoAutoRotates(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID));
-
-    const backFrames = await captureLandingToggleFrames(page, landingDevModeDisableLinkLabel);
-    expectStableLandingToggleFrames(backFrames, "/");
-    await expectLandingToggleFocusTarget(page);
-  });
 });
 
 test.describe("iPhone SE landing sidebar", () => {
@@ -1514,65 +1336,6 @@ test.describe("Android-sized standalone display-mode landing right sidebar", () 
     await page.reload({ waitUntil: "networkidle" });
     await expectBuildVersionFitsVisibleViewport(page);
   });
-});
-
-test("landing dev toggle cancels duplicate synthetic clicks", async ({ page }) => {
-  await page.goto("/", { waitUntil: "networkidle" });
-
-  await page.evaluate(() => {
-    const toggleLink = document.getElementById("public-landing-dev-toggle");
-    if (!(toggleLink instanceof HTMLAnchorElement)) {
-      return;
-    }
-
-    toggleLink.dispatchEvent(
-      new MouseEvent("click", {
-        bubbles: true,
-        button: 0,
-      }),
-    );
-    toggleLink.dispatchEvent(
-      new MouseEvent("click", {
-        bubbles: true,
-        button: 0,
-      }),
-    );
-  });
-
-  await expect(page).toHaveURL(/\/$/);
-  await expect(
-    page.getByRole("link", { name: landingDevModeLinkLabel, exact: true }),
-  ).toBeVisible();
-});
-
-test("account section stays visible through the dev toggle", async ({ page }) => {
-  await page.goto("/", { waitUntil: "networkidle" });
-
-  await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
-  await page.getByRole("link", { name: landingDevModeLinkLabel, exact: true }).click();
-  await expect(page).toHaveURL(/\/\?dev$/);
-  await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
-});
-
-test("public landing keeps the card height stable while toggling dev mode", async ({ page }) => {
-  await page.goto("/", { waitUntil: "networkidle" });
-
-  const landingContent = page.getByTestId("public-landing-content");
-  await expect(landingContent).toBeVisible();
-  await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
-
-  const plainLandingHeight = await landingContent.evaluate((element) =>
-    Math.round(element.getBoundingClientRect().height),
-  );
-
-  await page.getByRole("link", { name: landingDevModeLinkLabel, exact: true }).click();
-  await expect(page).toHaveURL(/\/\?dev$/);
-
-  const devLandingHeight = await landingContent.evaluate((element) =>
-    Math.round(element.getBoundingClientRect().height),
-  );
-
-  expect(Math.abs(devLandingHeight - plainLandingHeight)).toBeLessThanOrEqual(8);
 });
 
 test("prod-ui landing logo enhancement stays visually aligned", async ({ page }, testInfo) => {
@@ -2298,52 +2061,21 @@ test.describe("production public host landing", () => {
   });
 });
 
-test("landing dev toggle preserves unrelated query params", async ({ page }) => {
-  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
-
-  const shellToggleLink = page.getByRole("link", {
-    name: landingDevModeLinkLabel,
-  });
-  await expect(shellToggleLink).toHaveAttribute("href", "/?prod-ui&dev");
-
-  await shellToggleLink.focus();
-  await shellToggleLink.press("Enter");
-  await expect(page).toHaveURL(/\/\?(?:prod-ui&dev|dev&prod-ui)$/);
-
-  const appToggleLink = page.getByRole("link", {
-    name: landingDevModeDisableLinkLabel,
-    exact: true,
-  });
-  await expect(appToggleLink).toHaveAttribute("href", "/?prod-ui");
-});
-
 test("prod-ui mode omits the prod-ui shortcut", async ({ page }) => {
   await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
 
   await expect(page.locator("#public-landing-prod-ui-toggle")).toHaveCount(0);
-  await expect(
-    page.getByRole("link", {
-      name: landingDevModeLinkLabel,
-      exact: true,
-    }),
-  ).toBeVisible();
+  await expect(page.getByRole("link", { exact: true, name: "?dev" })).toHaveCount(0);
 });
 
 test("prod-ui shortcut is not rendered before entry", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   await expect(page.locator("#public-landing-prod-ui-toggle")).toHaveCount(0);
-  await expect(
-    page.getByRole("link", {
-      name: landingDevModeLinkLabel,
-      exact: true,
-    }),
-  ).toBeVisible();
+  await expect(page.getByRole("link", { exact: true, name: "?dev" })).toHaveCount(0);
 });
 
-test("landing dev edits stay visible after toggling back to the plain landing view", async ({
-  page,
-}) => {
+test("landing dev edits stay visible after clearing the dev query", async ({ page }) => {
   const headingMarker = "codex-marker";
 
   await page.goto("/?dev", { waitUntil: "domcontentloaded" });
@@ -2355,12 +2087,8 @@ test("landing dev edits stay visible after toggling back to the plain landing vi
 
   await insertLandingHeadingMarker(page, headingMarker);
 
-  const appToggleLink = page.getByRole("link", {
-    name: landingDevModeDisableLinkLabel,
-    exact: true,
-  });
-  await expect(appToggleLink).toBeVisible();
-  await appToggleLink.press("Enter");
+  const resetLink = page.getByRole("link", { exact: true, name: searchResetLinkLabel });
+  await resetLink.press("Enter");
 
   await expect(page).toHaveURL(/\/$/);
   await expect(

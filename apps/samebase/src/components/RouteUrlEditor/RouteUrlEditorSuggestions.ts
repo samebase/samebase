@@ -45,6 +45,7 @@ as `?depth=2` can select `/logo?depth=2` while placing the cursor after `depth=`
 visible.
  */
 type SuggestionFields = {
+  dev?: true;
   nextSelectionRouteIndex: number;
   previewRouteAddress: string;
   previewSelectionRouteIndex: number;
@@ -615,16 +616,20 @@ function readPathRows(args: {
       draftHref: args.routeAddress,
       origin,
     }),
+    parseRouteAddress(args.routeAddress).search?.tokens.some((token) => token.key === "dev") ??
+      false,
   )
     .filter(canShowPathSuggestionRow)
-    .map((suggestionRouteAddress) => {
+    .map((suggestionRouteAddress): Suggestion => {
       const routeWithQuerySlot = replaceRouteAddressPathAndOpenQuerySlot(
         args.routeAddress,
         suggestionRouteAddress,
       );
+      const routeStaticData = args.routesByPath[suggestionRouteAddress].options.staticData;
 
       return {
         kind: "path",
+        ...(routeStaticData.pathSuggestion === "dev" ? { dev: true as const } : {}),
         nextSelectionRouteIndex:
           routeWithQuerySlot.selectionRouteIndex ?? routeWithQuerySlot.routeAddress.length,
         previewRouteAddress: routeWithQuerySlot.routeAddress,

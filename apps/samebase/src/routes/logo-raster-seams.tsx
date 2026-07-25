@@ -1,5 +1,4 @@
 import { LogoRasterSeamLabPage } from "@/components/logo/LogoRasterSeamLabPage";
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import {
   LOGO_ROUTE_SEARCH_KEYS,
   LOGO_ROUTE_SEARCH_PARAM_ACCESS,
@@ -8,20 +7,18 @@ import {
 } from "@/routeSearch/logo";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { createFileRoute } from "@tanstack/react-router";
+import { buildLogoLabPageHead } from "@/lib/pageMetadata";
 
 const pathname = "/logo/raster-seams";
 
 function LogoRasterSeamsRouteComponent() {
   const routeSearch = Route.useSearch();
 
-  return (
-    <AuthenticatedAppRoutePage>
-      <LogoRasterSeamLabPage routeSearch={routeSearch} />
-    </AuthenticatedAppRoutePage>
-  );
+  return <LogoRasterSeamLabPage routeSearch={routeSearch} />;
 }
 
 export const Route = createFileRoute("/logo/raster-seams")({
+  head: () => buildLogoLabPageHead(pathname, "Logo Raster Seam Lab"),
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     acceptedSearchKeys: LOGO_ROUTE_SEARCH_KEYS,

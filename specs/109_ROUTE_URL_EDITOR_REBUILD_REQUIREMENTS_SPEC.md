@@ -274,8 +274,9 @@ These stories should stay covered with real route-level interactions, not mocked
   stays open and blur/Escape shows `/logo`.
 - `/?auth=`: auth-flow params are manual. The key can be suggested, but values such as `google` must
   not be previewed from the dropdown.
-- `?devtools` is typeable but hidden from suggestions. React Query Devtools mounts debug UI and
-  should not be activated by hover/keyboard preview.
+- `?dev` and `?devtools` are typeable but hidden from suggestions. Manually entering `?dev` reveals
+  developer route suggestions. React Query Devtools mounts debug UI and should not be activated by
+  hover/keyboard preview.
 - `/logo?rot=`: empty numeric values stay local. Completing the value, such as `rot=10`, applies the
   route.
 - `/logo?zoom=0.01` then Backspace: the browser may canonicalize `zoom=0.0` to `zoom=0`, but text

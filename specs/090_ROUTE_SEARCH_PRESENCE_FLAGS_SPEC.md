@@ -31,9 +31,9 @@ URL key being present means the flag is on. The value attached to that key is no
    in the URL, it serializes as `?reset` and route validation ignores the rest of the visible search
    state.
 6. Shortcut labels for disabling an active presence flag keep the active label as their prefix and
-   append a trailing dash. For example, `?dev`, `?light`, and `?dark` become `?dev-`, `?light-`, and
-   `?dark-` when clicking would remove the active flag. Labels must not use prefix-dash forms
-   because hover previews should not move the pointer target.
+   append a trailing dash. For example, `?light` and `?dark` become `?light-` and `?dark-` when
+   clicking would remove the active flag. Labels must not use prefix-dash forms because hover
+   previews should not move the pointer target.
 
 ## Known Presence Flags
 

@@ -165,6 +165,44 @@ describe("RouteUrlEditorNext", () => {
     );
   });
 
+  it("uses a blue pill and subtle blue row tint for developer logo routes in dev mode", () => {
+    const display = renderEditor(["/?dev"]);
+
+    act(() => {
+      display.focus();
+    });
+
+    const input = readRequiredInput();
+    const pathCursorPosition = input.value.lastIndexOf("/") + 1;
+    act(() => {
+      input.setSelectionRange(pathCursorPosition, pathCursorPosition);
+      input.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const values = [
+      ...(rootElement?.querySelectorAll<HTMLElement>(
+        '[data-testid="route-url-editor-suggestion-value"]',
+      ) ?? []),
+    ];
+    const developerValue = values.find((element) => element.textContent.trim() === "/logo/iso");
+    const developerRow = developerValue?.closest<HTMLElement>(
+      '[data-testid="route-url-editor-suggestion"]',
+    );
+    const developerBadge = developerRow?.querySelector<HTMLElement>('[data-slot="badge"]');
+    const standardValue = values.find((element) => element.textContent.trim() === "/logo");
+    const standardRow = standardValue?.closest<HTMLElement>(
+      '[data-testid="route-url-editor-suggestion"]',
+    );
+
+    expect(developerValue?.textContent.trim()).toBe("/logo/iso");
+    expect(developerRow?.classList.contains("bg-sky-500/5")).toBe(true);
+    expect(developerBadge?.textContent.trim()).toBe("dev");
+    expect(developerBadge?.getAttribute("aria-hidden")).toBe("true");
+    expect(developerBadge?.classList.contains("bg-sky-500/10")).toBe(true);
+    expect(standardRow?.classList.contains("bg-sky-500/5")).toBe(false);
+    expect(standardRow?.querySelector('[data-slot="badge"]')).toBeNull();
+  });
+
   it("suggests page-owned hashes from the current document", async () => {
     const pageHashElement = document.createElement("section");
     pageHashElement.dataset.landingHeadingId = "pricing";

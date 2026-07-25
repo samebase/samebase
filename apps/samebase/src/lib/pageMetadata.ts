@@ -293,6 +293,54 @@ function resolveCanonicalUrl(canonicalPath: string): string {
   return new URL(canonicalPath, resolveSiteOrigin()).toString();
 }
 
+export function buildLogoLabPageHead(canonicalPath: `/logo/${string}`, title: string) {
+  const pageTitle = `${title} | Samebase`;
+  const description = "Developer preview for exploring Samebase logo rendering.";
+  const canonicalUrl = resolveCanonicalUrl(canonicalPath);
+
+  return {
+    links: [
+      {
+        rel: "canonical",
+        href: canonicalUrl,
+      },
+    ],
+    meta: [
+      {
+        title: pageTitle,
+      },
+      {
+        name: "description",
+        content: description,
+      },
+      {
+        name: "robots",
+        content: "noindex,nofollow",
+      },
+      {
+        property: "og:title",
+        content: pageTitle,
+      },
+      {
+        property: "og:description",
+        content: description,
+      },
+      {
+        property: "og:url",
+        content: canonicalUrl,
+      },
+      {
+        name: "twitter:title",
+        content: pageTitle,
+      },
+      {
+        name: "twitter:description",
+        content: description,
+      },
+    ],
+  };
+}
+
 function upsertMetaTag({
   key,
   value,

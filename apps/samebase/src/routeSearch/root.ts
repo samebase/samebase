@@ -127,7 +127,7 @@ const rootLogoRouteSearchParamMetadata = mapEntries(
     key,
     {
       ...metadata,
-      suggestion: "global",
+      suggestion: metadata.suggestion === "hidden" ? "hidden" : "global",
     },
   ],
 ) satisfies RouteSearchParamMetadataByKey<LogoRouteSearch>;

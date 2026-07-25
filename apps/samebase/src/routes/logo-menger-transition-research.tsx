@@ -1,4 +1,3 @@
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { LogoMengerDepthTransitionPage } from "@/components/logo/LogoMengerDepthTransitionPage";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import {
@@ -8,6 +7,7 @@ import {
   validateLogoRouteSearchForRenderer,
 } from "@/routeSearch/logo";
 import { createFileRoute } from "@tanstack/react-router";
+import { buildLogoLabPageHead } from "@/lib/pageMetadata";
 
 const pathname = "/logo/transition/menger";
 
@@ -16,22 +16,21 @@ function LogoMengerTransitionRouteComponent() {
   const navigate = Route.useNavigate();
 
   return (
-    <AuthenticatedAppRoutePage>
-      <LogoMengerDepthTransitionPage
-        replaceRouteSearch={(nextSearch) => {
-          void navigate({
-            replace: true,
-            resetScroll: false,
-            search: nextSearch,
-          });
-        }}
-        routeSearch={routeSearch}
-      />
-    </AuthenticatedAppRoutePage>
+    <LogoMengerDepthTransitionPage
+      replaceRouteSearch={(nextSearch) => {
+        void navigate({
+          replace: true,
+          resetScroll: false,
+          search: nextSearch,
+        });
+      }}
+      routeSearch={routeSearch}
+    />
   );
 }
 
 export const Route = createFileRoute("/logo/transition/menger")({
+  head: () => buildLogoLabPageHead(pathname, "Menger Depth Transition Lab"),
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     acceptedSearchKeys: LOGO_ROUTE_SEARCH_KEYS,

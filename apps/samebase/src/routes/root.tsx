@@ -102,7 +102,10 @@ export const Route = createRootRouteWithContext<AppQueryClients>()({
     }
   },
   component: RootComponent,
-  head: buildRootHead,
+  head: ({ matches }) =>
+    buildRootHead({
+      includeHomeCanonical: matches.at(-1)?.pathname === "/",
+    }),
   notFoundComponent: lazyRouteComponent(
     () => import("@/components/NotFoundRoutePage"),
     "NotFoundRoutePage",

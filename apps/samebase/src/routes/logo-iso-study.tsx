@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { LogoSingleCubeStudyPage } from "@/components/logo/LogoSingleCubeStudyPage";
 import {
   LOGO_ROUTE_SEARCH_KEYS,
@@ -8,20 +7,18 @@ import {
   validateLogoRouteSearch,
 } from "@/routeSearch/logo";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+import { buildLogoLabPageHead } from "@/lib/pageMetadata";
 
 const pathname = "/logo/single-cube";
 
 function LogoIsoStudyRouteComponent() {
   const routeSearch = Route.useSearch();
 
-  return (
-    <AuthenticatedAppRoutePage>
-      <LogoSingleCubeStudyPage routeSearch={routeSearch} />
-    </AuthenticatedAppRoutePage>
-  );
+  return <LogoSingleCubeStudyPage routeSearch={routeSearch} />;
 }
 
 export const Route = createFileRoute("/logo/single-cube")({
+  head: () => buildLogoLabPageHead(pathname, "Single Cube Rotation Lab"),
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     acceptedSearchKeys: LOGO_ROUTE_SEARCH_KEYS,
