@@ -1060,6 +1060,37 @@ export interface paths {
     patch: operations["destination.update"];
     trace?: never;
   };
+  "/accounts/{account_id}/workers/observability/metricsexport": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    /**
+     * List Metrics Exports
+     * @description List resources configured for Workers Observability metrics export.
+     */
+    get: operations["metricsExport.list"];
+    put?: never;
+    /**
+     * Upsert Metrics Exports
+     * @description Create or replace resources configured for Workers Observability metrics export.
+     */
+    post: operations["metricsExport.upsert"];
+    /**
+     * Delete Metrics Export
+     * @description Delete one resource configured for Workers Observability metrics export.
+     */
+    delete: operations["metricsExport.delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/accounts/{account_id}/workers/observability/queries": {
     parameters: {
       query?: never;
@@ -4983,26 +5014,43 @@ export interface components {
     };
     /** @description Complete results of a query run. The populated fields depend on the requested view type (events, calculations, invocations, traces, or agents). */
     "workers-observability_query_results": {
-      /** @description Durable Object agent summaries. Present when the query view is 'agents'. Each entry represents an agent with its event counts and status. */
+      /** @description Agent run summaries. Present when the query view is 'agents'. Each entry represents one trace containing at least one agent invocation. */
       agents?: {
-        /** @description Class name of the Durable Object agent. */
-        agentClass: string;
-        /** @description Breakdown of event counts by event type. */
-        eventTypeCounts: {
-          [key: string]: number;
-        };
-        /** @description Timestamp of the earliest event from this agent in the queried window (Unix epoch ms). */
-        firstEventMs: number;
-        /** @description Whether the agent emitted any error events in the queried window. */
-        hasErrors: boolean;
-        /** @description Timestamp of the most recent event from this agent (Unix epoch ms). */
-        lastEventMs: number;
-        /** @description Durable Object namespace the agent belongs to. */
-        namespace: string;
-        /** @description Worker service name that hosts this agent. */
-        service: string;
-        /** @description Total number of events emitted by this agent in the queried window. */
-        totalEvents: number;
+        /** @description ID from the earliest agent invocation that provides one. */
+        agentId?: string;
+        /** @description Name from the earliest agent invocation that provides one. */
+        agentName?: string;
+        /** @description Conversation ID from the earliest invocation that provides one. */
+        conversationId?: string;
+        /** @description Distinct errors reported by spans in the run. */
+        errors: string[];
+        /** @description Pagination cursor derived from the first agent invocation in the run. */
+        id: string;
+        /** @description Input tokens summed across chat spans in the run's trace; informational, not billing data. */
+        inputTokens?: number;
+        /** @description Distinct models reported by chat spans across the run's trace. */
+        models: string[];
+        /** @description Output tokens summed across chat spans in the run's trace; informational, not billing data. */
+        outputTokens?: number;
+        /** @description Distinct GenAI providers reported by chat spans in the run. */
+        providers: string[];
+        /** @description Worker services represented in the run's trace. */
+        services: string[];
+        /** @description Number of spans in the run's trace. */
+        spans: number;
+        /**
+         * @description Observed run status.
+         * @enum {string}
+         */
+        status: "completed" | "error";
+        /** @description Total trace duration in milliseconds. */
+        traceDurationMs: number;
+        /** @description End of the run's trace as a Unix epoch in milliseconds. */
+        traceEndMs: number;
+        /** @description Trace identifier for this agent run. */
+        traceId: string;
+        /** @description Start of the run's trace as a Unix epoch in milliseconds. */
+        traceStartMs: number;
       }[];
       /** @description Aggregated calculation results. Present when the query view is 'calculations'. Contains computed metrics (count, avg, p99, etc.) with optional group-by breakdowns and time-series data. */
       calculations?: {
@@ -5064,6 +5112,7 @@ export interface components {
           time: string;
         }[];
       }[];
+      distribution?: components["schemas"]["workers-observability_distribution_result"];
       /** @description Individual event results. Present when the query view is 'events'. Contains the matching log lines and their metadata. */
       events?: {
         /** @description Total number of events matching the query (may exceed the number returned due to limits). */
@@ -5132,6 +5181,22 @@ export interface components {
         traceStartMs: number;
       }[];
     };
+    /** @description Bucketed 2D histogram of a numeric field over time. Present when chartType is 'distribution'. */
+    "workers-observability_distribution_result": {
+      /** @description Time-bucket labels (ISO-8601 strings), one per matrix column. */
+      bins: string[];
+      /** @description Raw bucket edges in the value's native unit, length buckets.length + 1. Used for the colour scale and percentile mapping. */
+      bucketBoundaries: number[];
+      /**
+       * @description Bucketing scheme used to derive the boundaries. 'log' produces geometric edges; 'linear' produces fixed-width edges.
+       * @enum {string}
+       */
+      bucketMode: "log" | "linear";
+      /** @description Value-range labels, one per matrix row (e.g. '50–100ms'). */
+      buckets: string[];
+      /** @description Sampling-corrected counts. matrix[bucketIdx][binIdx] is the estimated number of events in value-bucket 'bucketIdx' during time-bin 'binIdx'. */
+      matrix: number[][];
+    };
     /** @description A single telemetry event representing a log line, span, or metric data point emitted by a Worker. */
     "workers-observability_telemetry_event": {
       /** @description Cloudflare Containers event information that enriches your logs for identifying and debugging issues. */
@@ -5173,6 +5238,8 @@ export interface components {
         parentSpanId?: string;
         /** @description Infrastructure provider identifier. */
         provider?: string;
+        /** @description Cloudflare Ray ID from the `cf-ray` header of the request that triggered the invocation. */
+        rayId?: string;
         /** @description Cloudflare data center / region that handled the request. */
         region?: string;
         /** @description Cloudflare request ID that ties all logs from a single invocation together. */
@@ -6932,6 +6999,8 @@ export type WorkersObservabilityFilterLeaf =
   components["schemas"]["workers-observability_filter_leaf"];
 export type WorkersObservabilityQueryResults =
   components["schemas"]["workers-observability_query_results"];
+export type WorkersObservabilityDistributionResult =
+  components["schemas"]["workers-observability_distribution_result"];
 export type WorkersObservabilityTelemetryEvent =
   components["schemas"]["workers-observability_telemetry_event"];
 export type WorkersObservabilityQueryRun = components["schemas"]["workers-observability_query_run"];
@@ -9536,6 +9605,26 @@ export interface operations {
           };
         };
       };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
       /** @description Internal error */
       500: {
         headers: {
@@ -9726,6 +9815,362 @@ export interface operations {
               name: string;
               scripts: string[];
               slug: string;
+            };
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Bad Request";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Not found";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "metricsExport.list": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              createdAt: string;
+              destinations: string[];
+              meta?: string;
+              resourceId: string;
+              resourceType: string;
+              updatedAt: string;
+            }[];
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "metricsExport.upsert": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "application/json":
+          | {
+              destinations: string[];
+              meta?: string;
+              resourceId: string;
+              resourceType: string;
+            }
+          | {
+              requester: {
+                requesterId: string;
+                requesterType: string;
+              };
+              resources: {
+                destinations: string[];
+                meta?: string;
+                resourceId: string;
+                resourceType: string;
+              }[];
+            }
+          | {
+              resources: {
+                destinations: string[];
+                meta?: string;
+                resourceId: string;
+                resourceType: string;
+              }[];
+            };
+      };
+    };
+    responses: {
+      /** @description Resource created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Resource created";
+            }[];
+            result: {
+              createdAt: string;
+              destinations: string[];
+              meta?: string;
+              resourceId: string;
+              resourceType: string;
+              updatedAt: string;
+            }[];
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Bad Request";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Conflict";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "metricsExport.delete": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "application/json": {
+          meta?: string;
+          resourceId: string;
+          resourceType: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              deleted: boolean;
             };
             /** @enum {boolean} */
             success: true;
@@ -10512,6 +10957,11 @@ export interface operations {
         "application/json": {
           /** @description When true, includes time-series data in the response. */
           chart?: boolean;
+          /**
+           * @description Controls the SQL shape and response payload for the 'calculations' view. Omitted or 'timeseries_and_aggregate': current behaviour - both the time-series and aggregate queries. 'timeseries': time-series only. 'aggregate': aggregate only. 'distribution': a bucketed 2D histogram (time × value buckets) returned in 'distribution' instead of 'calculations'. 'distribution' is not compatible with 'compare' - combining them returns a 400.
+           * @enum {string}
+           */
+          chartType?: "timeseries_and_aggregate" | "timeseries" | "aggregate" | "distribution";
           /** @description When true, includes a comparison dataset from the previous time period of equal length. */
           compare?: boolean;
           /**
@@ -10531,7 +10981,7 @@ export interface operations {
            * @default 50
            */
           limit?: number;
-          /** @description Cursor for pagination in event, trace, and invocation views. Pass the $metadata.id of the last returned item to fetch the next page. */
+          /** @description Cursor for pagination in event, trace, invocation, and agent views. Pass the $metadata.id of the last event, the trace cursor, or AgentRun.id to fetch the next page. */
           offset?: string;
           /** @description Numeric offset for paginating grouped/pattern results (top-N lists). Use together with limit. Not used by cursor-based pagination. */
           offsetBy?: number;
@@ -10677,7 +11127,7 @@ export interface operations {
             to: number;
           };
           /**
-           * @description Controls the shape of the response. 'events': individual log lines matching the query. 'calculations': aggregated metrics (count, avg, p99, etc.) with optional group-by breakdowns and time-series. 'invocations': events grouped by request ID. 'traces': distributed trace summaries. 'agents': Durable Object agent summaries.
+           * @description Controls the shape of the response. 'events': individual log lines matching the query. 'calculations': aggregated metrics (count, avg, p99, etc.) with optional group-by breakdowns and time-series. 'invocations': events grouped by request ID. 'traces': distributed trace summaries. 'agents': agent-specific trace summaries.
            * @default calculations
            * @enum {string}
            */
@@ -10740,6 +11190,26 @@ export interface operations {
               detail?: string;
               /** @enum {string} */
               message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Too many requests */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Too many requests";
             }[];
             messages: {
               message: string;
@@ -11000,6 +11470,46 @@ export interface operations {
           };
         };
       };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Too many requests */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Too many requests";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
       /** @description Internal error */
       500: {
         headers: {
@@ -11106,6 +11616,26 @@ export interface operations {
               detail?: string;
               /** @enum {string} */
               message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
             }[];
             messages: {
               message: string;
@@ -11234,6 +11764,11 @@ export interface operations {
         "application/json": {
           /** @description When true, includes time-series data in the response. */
           chart?: boolean;
+          /**
+           * @description Controls the SQL shape and response payload for the 'calculations' view. Omitted or 'timeseries_and_aggregate': current behaviour - both the time-series and aggregate queries. 'timeseries': time-series only. 'aggregate': aggregate only. 'distribution': a bucketed 2D histogram (time × value buckets) returned in 'distribution' instead of 'calculations'. 'distribution' is not compatible with 'compare' - combining them returns a 400.
+           * @enum {string}
+           */
+          chartType?: "timeseries_and_aggregate" | "timeseries" | "aggregate" | "distribution";
           /** @description When true, includes a comparison dataset from the previous time period of equal length. */
           compare?: boolean;
           /**
@@ -11253,7 +11788,7 @@ export interface operations {
            * @default 50
            */
           limit?: number;
-          /** @description Cursor for pagination in event, trace, and invocation views. Pass the $metadata.id of the last returned item to fetch the next page. */
+          /** @description Cursor for pagination in event, trace, invocation, and agent views. Pass the $metadata.id of the last event, the trace cursor, or AgentRun.id to fetch the next page. */
           offset?: string;
           /** @description Numeric offset for paginating grouped/pattern results (top-N lists). Use together with limit. Not used by cursor-based pagination. */
           offsetBy?: number;
@@ -11399,7 +11934,7 @@ export interface operations {
             to: number;
           };
           /**
-           * @description Controls the shape of the response. 'events': individual log lines matching the query. 'calculations': aggregated metrics (count, avg, p99, etc.) with optional group-by breakdowns and time-series. 'invocations': events grouped by request ID. 'traces': distributed trace summaries. 'agents': Durable Object agent summaries.
+           * @description Controls the shape of the response. 'events': individual log lines matching the query. 'calculations': aggregated metrics (count, avg, p99, etc.) with optional group-by breakdowns and time-series. 'invocations': events grouped by request ID. 'traces': distributed trace summaries. 'agents': agent-specific trace summaries.
            * @default calculations
            * @enum {string}
            */
@@ -11459,6 +11994,46 @@ export interface operations {
               detail?: string;
               /** @enum {string} */
               message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Too many requests */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Too many requests";
             }[];
             messages: {
               message: string;
@@ -11616,6 +12191,46 @@ export interface operations {
           };
         };
       };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Too many requests */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Too many requests";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
       /** @description Internal error */
       500: {
         headers: {
@@ -11718,6 +12333,26 @@ export interface operations {
               detail?: string;
               /** @enum {string} */
               message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Too many requests */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Too many requests";
             }[];
             messages: {
               message: string;

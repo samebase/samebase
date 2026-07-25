@@ -48,6 +48,9 @@ export const cloudflareApiResponseValidators: {
     "/accounts/{account_id}/workers/observability/destinations/{slug}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["destinations.delete"]>
     >;
+    "/accounts/{account_id}/workers/observability/metricsexport": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["metricsExport.delete"]>
+    >;
     "/accounts/{account_id}/workers/observability/queries/{queryId}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["queries.delete"]>
     >;
@@ -163,6 +166,9 @@ export const cloudflareApiResponseValidators: {
     >;
     "/accounts/{account_id}/workers/observability/destinations": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["destination.list"]>
+    >;
+    "/accounts/{account_id}/workers/observability/metricsexport": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["metricsExport.list"]>
     >;
     "/accounts/{account_id}/workers/observability/queries": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["queries.list"]>
@@ -321,6 +327,9 @@ export const cloudflareApiResponseValidators: {
     >;
     "/accounts/{account_id}/workers/observability/destinations": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["destination.create"]>
+    >;
+    "/accounts/{account_id}/workers/observability/metricsexport": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["metricsExport.upsert"]>
     >;
     "/accounts/{account_id}/workers/observability/queries": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["queries.post"]>
