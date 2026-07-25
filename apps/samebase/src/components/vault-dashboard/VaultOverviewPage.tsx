@@ -413,7 +413,7 @@ function DestinationResource({
   resource: Extract<VaultEnvironmentResource, { kind: "destination" }>;
 }) {
   return (
-    <div className="flex min-h-10 min-w-0 items-center gap-1 py-1.5 text-sm">
+    <div className="flex min-h-10 min-w-0 items-center gap-1 py-1.5">
       <a
         className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-foreground no-underline hover:no-underline"
         href={resource.href}
@@ -424,7 +424,7 @@ function DestinationResource({
         <span className="flex h-4 w-5 shrink-0 items-center justify-center">
           <DestinationIcon href={resource.href} provider={resource.provider} />
         </span>
-        <span className="min-w-0 truncate font-medium underline decoration-border underline-offset-4">
+        <span className="min-w-0 truncate text-sm font-medium leading-5 underline decoration-border underline-offset-4">
           {resource.label}
         </span>
         <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -472,33 +472,48 @@ function VaultEnvironmentTree({ roots }: { roots: readonly VaultEnvironmentRoot[
   return (
     <div className={hideRootDirectory ? undefined : "ml-2.5 pl-5"}>
       {roots.map((root, index) => (
-        <div key={root.rootDirectory} className="relative">
+        <div key={root.rootDirectory}>
           {hideRootDirectory ? null : (
-            <>
-              {index === roots.length - 1 ? null : (
-                <span
-                  aria-hidden="true"
-                  className="absolute -left-5 inset-y-0 border-l border-border"
-                />
-              )}
+            <div className="relative pt-3">
+              <span
+                aria-hidden="true"
+                className="absolute -left-5 inset-y-0 border-l border-border"
+              />
               <span
                 aria-hidden="true"
                 className="absolute -left-5 top-0 h-[1.35rem] w-4 rounded-bl-[0.375rem] border-b border-l border-border"
               />
-            </>
-          )}
-          {hideRootDirectory ? null : (
-            <div className="pt-3">
               <RootDirectoryLabel rootDirectory={root.rootDirectory} />
             </div>
           )}
           <div className={hideRootDirectory ? undefined : "pb-0.5"}>
-            {root.resources.map((resource) => (
-              <VaultEnvironmentResourceRow
-                key={`${resource.kind}:${resource.id}`}
-                resource={resource}
-              />
-            ))}
+            {root.resources.map((resource, resourceIndex) => {
+              const isLastResource =
+                index === roots.length - 1 && resourceIndex === root.resources.length - 1;
+
+              return (
+                <div
+                  key={`${resource.kind}:${resource.id}`}
+                  className={hideRootDirectory ? undefined : "relative"}
+                >
+                  {hideRootDirectory ? null : (
+                    <>
+                      {isLastResource ? null : (
+                        <span
+                          aria-hidden="true"
+                          className="absolute -left-5 inset-y-0 border-l border-border"
+                        />
+                      )}
+                      <span
+                        aria-hidden="true"
+                        className="absolute -left-5 top-0 h-5 w-4 rounded-bl-[0.375rem] border-b border-l border-border"
+                      />
+                    </>
+                  )}
+                  <VaultEnvironmentResourceRow resource={resource} />
+                </div>
+              );
+            })}
           </div>
         </div>
       ))}
@@ -716,24 +731,33 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
         <span className="flex h-4 w-5 shrink-0 items-center justify-center">
           <CloudflareProviderLogo />
         </span>
-        <span className="min-w-0 truncate text-sm font-medium text-foreground">
-          {worker.workerName}
-        </span>
         {worker.build.state === "available" ? (
           <a
-            className="inline-flex min-h-10 shrink-0 items-center gap-1 text-sm underline decoration-border underline-offset-4 hover:decoration-foreground @4xl:min-h-8"
+            className="inline-flex min-h-10 min-w-0 items-center gap-1 text-foreground no-underline hover:no-underline @4xl:min-h-8"
             href={worker.build.logsUrl}
             rel="noreferrer noopener"
             target="_blank"
+            title={`Open build logs for ${worker.workerName}`}
           >
-            <BuildState state={worker.build.buildState} />
-            <ExternalLink className="h-3 w-3 text-muted-foreground" />
+            <span className="min-w-0 truncate text-sm font-medium leading-5 underline decoration-border underline-offset-4">
+              {worker.workerName}
+            </span>
+            <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
           </a>
         ) : (
+          <span className="min-w-0 truncate text-sm font-medium leading-5 text-foreground">
+            {worker.workerName}
+          </span>
+        )}
+        {worker.build.state === "available" && worker.build.buildState !== "success" ? (
+          <span className="shrink-0 text-sm">
+            <BuildState state={worker.build.buildState} />
+          </span>
+        ) : worker.build.state !== "available" ? (
           <span className="shrink-0 text-sm text-muted-foreground">
             {worker.build.state === "absent" ? "No build" : "Unavailable"}
           </span>
-        )}
+        ) : null}
       </div>
       {worker.destination.state === "available" || worker.actions.length > 0 ? (
         <div className="ml-[1.875rem] flex min-w-0 items-start gap-1 text-sm">
