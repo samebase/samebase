@@ -392,23 +392,26 @@ function EnvironmentActionsMenu({
           <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-36 rounded-none shadow-none">
+      <DropdownMenuContent
+        align="start"
+        className="w-max min-w-40 max-w-[calc(100vw-2rem)] rounded-none shadow-none"
+      >
         {actions.map((action) => (
           <DropdownMenuItem key={`${action.destination}:${action.href}`} asChild>
             {action.destination === "samebase" ? (
-              <Link className="no-underline" to={action.href}>
+              <Link className="min-w-0 no-underline" to={action.href}>
                 <SamebaseLogoMark />
-                {action.label}
+                <span className="min-w-0 break-all">{action.label}</span>
               </Link>
             ) : (
               <a
-                className="no-underline"
+                className="min-w-0 no-underline"
                 href={action.href}
                 rel="noreferrer noopener"
                 target="_blank"
               >
-                {action.label}
-                <ExternalLink />
+                <span className="min-w-0 break-all">{action.label}</span>
+                <ExternalLink className="shrink-0" />
               </a>
             )}
           </DropdownMenuItem>
@@ -725,7 +728,7 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
   }
 
   return (
-    <div className="grid min-w-0 gap-1 py-2.5">
+    <div className="grid min-w-0 gap-1.5 py-2.5">
       <div className="flex min-w-0 items-center gap-2.5">
         <span className="flex h-4 w-5 shrink-0 items-center justify-center">
           <CloudflareProviderLogo />
@@ -753,23 +756,29 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
             {worker.build.state === "absent" ? "No build" : "Build unavailable"}
           </span>
         )}
-        {worker.destination.state === "available" ? (
-          <a
-            className="inline-flex min-h-7 items-center gap-1 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
-            href={worker.destination.href}
-            rel="noreferrer noopener"
-            target="_blank"
-            title={worker.destination.title}
-          >
-            <DestinationIcon href={worker.destination.href} provider="cloudflare" />
-            {worker.destination.label}
-            <ExternalLink className="h-3 w-3" />
-          </a>
-        ) : null}
-        {worker.actions.length > 0 ? (
-          <EnvironmentActionsMenu actions={worker.actions} label={worker.workerName} />
-        ) : null}
       </div>
+      {worker.destination.state === "available" || worker.actions.length > 0 ? (
+        <div className="ml-[1.875rem] flex min-w-0 items-start gap-1 text-xs">
+          {worker.destination.state === "available" ? (
+            <a
+              className="inline-flex min-h-7 min-w-0 items-start gap-1 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
+              href={worker.destination.href}
+              rel="noreferrer noopener"
+              target="_blank"
+              title={worker.destination.title}
+            >
+              <span className="mt-1.5 shrink-0">
+                <DestinationIcon href={worker.destination.href} provider="cloudflare" />
+              </span>
+              <span className="min-w-0 break-all py-1">{worker.destination.label}</span>
+              <ExternalLink className="mt-1.5 h-3 w-3 shrink-0" />
+            </a>
+          ) : null}
+          {worker.actions.length > 0 ? (
+            <EnvironmentActionsMenu actions={worker.actions} label={worker.workerName} />
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
