@@ -857,11 +857,8 @@ function PullRequestRow({
             <span className="mt-1 block text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
               {headLabel}
             </span>
-            <span className="flex flex-wrap items-center gap-x-2 text-xs leading-5 text-muted-foreground">
-              <span>{updatedLabel}</span>
-              <span>
-                into <span className="text-foreground">{pullRequest.baseRefName}</span>
-              </span>
+            <span className="block text-xs leading-5 text-muted-foreground">
+              {updatedLabel} into {pullRequest.baseRefName}
             </span>
           </button>
           <div className="flex min-w-0 items-center justify-between gap-3 pb-4 @4xl:py-4 @4xl:pl-3">
