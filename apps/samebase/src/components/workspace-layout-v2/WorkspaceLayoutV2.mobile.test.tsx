@@ -13,7 +13,11 @@ import {
   getMobilePaneScrollProgress,
   type WorkspaceLayoutV2MobileMinResizeBehavior,
 } from "./WorkspaceLayoutV2Geometry";
-import { WorkspacePaneRuntimeProvider } from "./WorkspacePaneRuntime";
+import {
+  WorkspacePaneRuntimeProvider,
+  useWorkspacePaneState,
+  type WorkspacePaneState,
+} from "./WorkspacePaneRuntime";
 import { WorkspaceLayoutV2MemorySidebarProvider } from "./WorkspaceLayoutV2MemorySidebarProvider";
 import { useWorkspaceLayoutV2MemorySidebarController } from "./useWorkspaceLayoutV2MemorySidebarController";
 
@@ -30,6 +34,7 @@ const originalGetBoundingClientRectDescriptor = Object.getOwnPropertyDescriptor(
 );
 let latestSetRenderedMobilePane: ((nextPane: WorkspaceSidebarState["mobilePane"]) => void) | null =
   null;
+let latestRenderedPaneState: WorkspacePaneState | null = null;
 let testViewportWidthPx = VIEWPORT_WIDTH_PX;
 let testViewportHeightPx = VIEWPORT_HEIGHT_PX;
 
@@ -74,6 +79,7 @@ type RenderMobileLayoutArgs = {
   mainHeader?: React.ReactNode | typeof OMIT_HEADER;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
   mobilePane?: WorkspaceSidebarState["mobilePane"];
+  mobileSurface?: WorkspaceSidebarState["mobileSurface"];
   rightMobileWidthPx?: number;
   rightToggleVisibility?: "all" | "desktop" | "hidden";
 };
@@ -81,17 +87,18 @@ type RenderMobileLayoutArgs = {
 function createMobileSidebarState({
   leftMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   mobilePane = "main",
+  mobileSurface = { kind: "unmerged" },
   rightMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
 }: Pick<
   RenderMobileLayoutArgs,
-  "leftMobileWidthPx" | "mobilePane" | "rightMobileWidthPx"
+  "leftMobileWidthPx" | "mobilePane" | "mobileSurface" | "rightMobileWidthPx"
 >): WorkspaceSidebarState {
   return {
     leftDesktopOpen: true,
     leftDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
     leftMobileWidthPx,
     mobilePane,
-    mobileSurface: { kind: "unmerged" },
+    mobileSurface,
     rightDesktopOpen: false,
     rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
     rightMobileWidthPx,
@@ -105,7 +112,10 @@ function renderMobileLayoutContent({
   mainHeader = OMIT_HEADER,
   mobileMinResizeBehavior,
   rightToggleVisibility,
-}: Omit<RenderMobileLayoutArgs, "leftMobileWidthPx" | "mobilePane" | "rightMobileWidthPx">) {
+}: Omit<
+  RenderMobileLayoutArgs,
+  "leftMobileWidthPx" | "mobilePane" | "mobileSurface" | "rightMobileWidthPx"
+>) {
   const mainProps =
     mainHeader === OMIT_HEADER
       ? {
@@ -146,21 +156,29 @@ function renderMobileLayoutContent({
 function renderMobileLayout({
   leftMobileWidthPx,
   mobilePane,
+  mobileSurface,
   rightMobileWidthPx,
   ...contentProps
 }: RenderMobileLayoutArgs) {
   const initialState = createMobileSidebarState({
     leftMobileWidthPx,
     mobilePane,
+    mobileSurface,
     rightMobileWidthPx,
   });
-  const initialStateKey = `${initialState.leftMobileWidthPx}|${initialState.mobilePane}|${initialState.rightMobileWidthPx}`;
+  const initialStateKey = `${initialState.leftMobileWidthPx}|${initialState.mobilePane}|${JSON.stringify(initialState.mobileSurface)}|${initialState.rightMobileWidthPx}`;
 
   return (
     <WorkspaceLayoutV2MemorySidebarProvider key={initialStateKey} initialState={initialState}>
+      <WorkspacePaneStateProbe />
       {renderMobileLayoutContent(contentProps)}
     </WorkspaceLayoutV2MemorySidebarProvider>
   );
+}
+
+function WorkspacePaneStateProbe() {
+  latestRenderedPaneState = useWorkspacePaneState();
+  return null;
 }
 
 function ControlledMobileLayout() {
@@ -317,6 +335,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
   afterEach(() => {
     testViewportWidthPx = VIEWPORT_WIDTH_PX;
     testViewportHeightPx = VIEWPORT_HEIGHT_PX;
+    latestRenderedPaneState = null;
     latestSetRenderedMobilePane = null;
     if (root !== null) {
       const mountedRoot = root;
@@ -576,7 +595,13 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       mountedRoot.render(
         renderMobileLayout({
           includeLeftPane: false,
+          leftMobileWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX,
           mobilePane: "left",
+          mobileSurface: {
+            kind: "merged",
+            mainWidthPx: VIEWPORT_WIDTH_PX - MOBILE_SIDEBAR_MIN_WIDTH_PX,
+            side: "left",
+          },
         }),
       );
     });
@@ -597,6 +622,43 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         getRequiredElement(rootElement, "[data-workspace-layout-v2-mobile-main-pane]"),
       ),
     ).toEqual(["main-right"]);
+    expect(latestRenderedPaneState?.mobilePane).toBe("left");
+    expect(latestRenderedPaneState?.mobileSurface).toEqual({
+      kind: "merged",
+      mainWidthPx: VIEWPORT_WIDTH_PX - MOBILE_SIDEBAR_MIN_WIDTH_PX,
+      side: "left",
+    });
+  });
+
+  it("fits a persisted merged surface to the current mobile viewport", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(
+        renderMobileLayout({
+          leftMobileWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX,
+          mobilePane: "left",
+          mobileSurface: {
+            kind: "merged",
+            mainWidthPx: 302,
+            side: "left",
+          },
+        }),
+      );
+    });
+
+    expectWorkspaceMobileMergedSide(rootElement, "left");
+    expect(
+      getRequiredElement(rootElement, "[data-workspace-layout-v2-mobile-main-pane]").style.width,
+    ).toBe(`${VIEWPORT_WIDTH_PX - MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
+    expect(latestRenderedPaneState?.mobileSurface).toEqual({
+      kind: "merged",
+      mainWidthPx: 302,
+      side: "left",
+    });
   });
 
   it("keeps both separators on the main pane while the right sidebar is active", () => {
@@ -872,6 +934,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         vi.advanceTimersByTime(121);
       });
 
+      expect(latestRenderedPaneState?.mobileSurface).toEqual({ kind: "unmerged" });
       expect(getMainPane().style.width).toBe("390px");
       expect(
         getRequiredElement(rootElement, '[data-testid="workspace-layout-v2-pane-left"]').style

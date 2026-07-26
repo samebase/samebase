@@ -153,7 +153,6 @@ export function WorkspaceLayoutV2({
     isMobile,
     leftWidthPx: mobileLeftWidthPx,
     mobileMinResizeBehavior,
-    mobilePane,
     rightWidthPx: mobileRightWidthPx,
     viewportWidthPx: viewportSize.widthPx,
   });

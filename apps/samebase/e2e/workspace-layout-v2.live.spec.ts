@@ -1,7 +1,9 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { signInIfNeeded } from "./liveHelpers";
 
 const WORKSPACE_LAYOUT_V2_STATUS_BAR_FIXTURE_URL =
   "/visual-fixture?mode=workspace-layout-v2-status-bar";
+const MOBILE_SIDEBAR_MIN_WIDTH_PX = 96;
 
 async function openWorkspaceLayoutV2Fixture(
   page: Page,
@@ -83,6 +85,43 @@ async function getMobileSeparatorEdges(layout: Locator) {
     .evaluateAll((nodes) =>
       nodes.map((node) => node.getAttribute("data-workspace-layout-v2-mobile-separator") ?? ""),
     );
+}
+
+async function touchDragHandleByPx(page: Page, handle: Locator, deltaX: number) {
+  const handleBounds = await getRoundedBoundingBox(handle);
+  const startX = handleBounds.x + handleBounds.width / 2;
+  const startY = handleBounds.y + handleBounds.height / 2;
+  const session = await page.context().newCDPSession(page);
+  const touchPoint = {
+    force: 1,
+    id: 1,
+    radiusX: 4,
+    radiusY: 4,
+    x: startX,
+    y: startY,
+  };
+
+  await session.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [touchPoint],
+  });
+  for (const progress of [0.25, 0.5, 0.75, 1]) {
+    await page.waitForTimeout(120);
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [
+        {
+          ...touchPoint,
+          x: startX + deltaX * progress,
+        },
+      ],
+    });
+  }
+  await page.waitForTimeout(220);
+  await session.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
 }
 
 test("desktop v2 fixture keeps sidebar triggers inside the main header", async ({ page }) => {
@@ -262,4 +301,85 @@ test("mobile v2 fixture vertical main-editor scrolling reveals later Monaco cont
   await scrollMainEditorToApproximateOffset(page, 720);
 
   expect(await getMainEditorVisibleText(page)).not.toBe(initialVisibleText);
+});
+
+test("signed-in logo keeps the merged left surface across mobile viewports and routes", async ({
+  context,
+  page,
+}) => {
+  const viewport = page.viewportSize();
+  test.skip(viewport === null || viewport.width >= 768, "mobile-only repro");
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await signInIfNeeded(page, "/logo?dev");
+  await page.waitForLoadState("networkidle");
+  const narrowerPage = await context.newPage();
+  await narrowerPage.setViewportSize({
+    height: viewport.height,
+    width: viewport.width - 8,
+  });
+  await narrowerPage.goto("/logo?dev", { waitUntil: "domcontentloaded" });
+  await signInIfNeeded(narrowerPage, "/logo?dev");
+  await narrowerPage.waitForLoadState("networkidle");
+  await scrollWorkspaceCarouselToPane(narrowerPage, "left");
+  await scrollWorkspaceCarouselToPane(page, "left");
+
+  const layout = page.locator("[data-workspace-layout-v2]");
+  const mainPane = page.getByTestId("workspace-layout-v2-pane-main");
+  const viewportWidthPx = await mainPane.evaluate((element) => element.clientWidth);
+  const leftResizeHandle = page.getByTestId("workspace-layout-v2-left-resize");
+  const leftPane = page.getByTestId("workspace-layout-v2-pane-left");
+  const initialLeftPaneWidthPx = (await getRoundedBoundingBox(leftPane)).width;
+
+  await touchDragHandleByPx(page, leftResizeHandle, 192 - initialLeftPaneWidthPx);
+  await expect(layout).not.toHaveAttribute("data-workspace-layout-v2-mobile-merged-side");
+  await page.waitForTimeout(750);
+  await expect(layout).not.toHaveAttribute("data-workspace-layout-v2-mobile-merged-side");
+
+  const leftPaneWidthPx = (await getRoundedBoundingBox(leftPane)).width;
+  await touchDragHandleByPx(page, leftResizeHandle, -leftPaneWidthPx);
+
+  await expect(layout).toHaveAttribute("data-workspace-layout-v2-mobile-merged-side", "left");
+  await expect
+    .poll(async () =>
+      Math.round(
+        (await mainPane.locator("[data-workspace-layout-v2-mobile-main-pane]").boundingBox())
+          ?.width ?? 0,
+      ),
+    )
+    .toBe(viewportWidthPx - MOBILE_SIDEBAR_MIN_WIDTH_PX);
+  await expect(narrowerPage.locator("[data-workspace-layout-v2]")).toHaveAttribute(
+    "data-workspace-layout-v2-mobile-merged-side",
+    "left",
+  );
+  await expect
+    .poll(async () =>
+      Math.round(
+        (
+          await narrowerPage
+            .getByTestId("workspace-layout-v2-pane-main")
+            .locator("[data-workspace-layout-v2-mobile-main-pane]")
+            .boundingBox()
+        )?.width ?? 0,
+      ),
+    )
+    .toBe(viewport.width - 8 - MOBILE_SIDEBAR_MIN_WIDTH_PX);
+
+  await narrowerPage.goto("/settings", { waitUntil: "domcontentloaded" });
+  await narrowerPage.waitForLoadState("networkidle");
+  await expect(narrowerPage.locator("[data-workspace-layout-v2]")).toHaveAttribute(
+    "data-mobile-pane",
+    "main",
+  );
+  await page.waitForTimeout(750);
+
+  await expect(layout).toHaveAttribute("data-workspace-layout-v2-mobile-merged-side", "left");
+  await expect
+    .poll(async () =>
+      Math.round(
+        (await mainPane.locator("[data-workspace-layout-v2-mobile-main-pane]").boundingBox())
+          ?.width ?? 0,
+      ),
+    )
+    .toBe(viewportWidthPx - MOBILE_SIDEBAR_MIN_WIDTH_PX);
 });

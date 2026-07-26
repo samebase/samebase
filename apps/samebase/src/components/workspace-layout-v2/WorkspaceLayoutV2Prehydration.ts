@@ -1,7 +1,6 @@
 import { MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import type { WorkspaceSidebarState } from "../../../convex/userPreferenceModel";
 import {
-  MOBILE_PANE_SETTLED_TOLERANCE_PX,
   WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
@@ -29,7 +28,6 @@ type WorkspaceLayoutV2PrehydrationInlineArgs = WorkspaceLayoutV2PrehydrationArgs
   desktopSidebarMinWidthPx: number;
   mobileMainReachableWidthPx: number;
   mobileMainMinWidthPx: number;
-  mobilePaneSettledTolerancePx: number;
   mobileSidebarMinWidthPx: number;
 };
 
@@ -45,7 +43,6 @@ function getWorkspaceLayoutV2PrehydrationInlineArgs(
     desktopSidebarMinWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
     mobileMainReachableWidthPx: MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX,
     mobileMainMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,
-    mobilePaneSettledTolerancePx: MOBILE_PANE_SETTLED_TOLERANCE_PX,
     mobileSidebarMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
   };
 }
@@ -269,11 +266,10 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     if (!hasMergedPane) return null;
 
     const mergedSideWidthPx = mergedSurfaceSide === "left" ? leftWidthPx : rightWidthPx;
-    const mergedMainWidthPx = state.mobileSurface.mainWidthPx;
-    const isMergedFit =
-      mergedMainWidthPx >= args.mobileMainMinWidthPx &&
-      mergedSideWidthPx + mergedMainWidthPx <= viewportWidthPx + args.mobilePaneSettledTolerancePx;
-    if (!isMergedFit) return null;
+    // The saved width can come from another device. Fit the first paint to this
+    // viewport before React takes ownership of the same local geometry.
+    const mergedMainWidthPx = viewportWidthPx - mergedSideWidthPx;
+    if (mergedMainWidthPx < args.mobileMainMinWidthPx) return null;
 
     return {
       mainWidthPx: mergedMainWidthPx,
