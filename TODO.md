@@ -44,9 +44,6 @@
 
 - [ ] something
 
-- [ ] idea, when people successfuly go the logo in form 1, it starts getting bigger and transform
-      into a markdown chat input that says welcome and it says that they do something, idk
-
 - [ ] research slogan idea: the same way there are preview frontend (cloudflare) deploys, preview
       backend (convex) deploys, now you have dev (noter.md) deploys
 
@@ -80,8 +77,6 @@
 
 - [ ] load everything without editor and three. js to increase time to see
 - [ ] https://x.com/matteocollina/status/2033590124919787819
-- [ ] Make the chat always open at the bottom on mobile. Make it part of the UI, the same way chats
-      are like Claude Code on mobile.
 - [ ] maybe jupyterlab is not necessaryle necessary, or even a good idea, since developers usually
       don't use it; and vibecoders don't even use it; only academia?
 - [ ] replace precommit hook with something that can run in convex, or be automated
@@ -111,11 +106,6 @@
 - [ ] for netlify, just don't deploy if it's a md change (optimization? )
 - [ ] use AST to validate user input; where user input is a JS function; cloudflare already does
       this with mcp calls
-- [ ] using UI, for example, let's say every time I write something in to-do, I would like there to
-      be an agent that reacts to this and does some action. This could be a new. I think the graph
-      could be used for this. It could use GitHub Actions or stuff like that. GitHub Actions are
-      already graph-based, so we could just allow editing it to search with what product already did
-      this or tried this
 
 ## Companies to Research
 
@@ -141,10 +131,7 @@
       active development can then map to small usage-based costs (for example ~$5 once someone is
       actually building)
 - [ ] in landing, we need to ask users what tech they know, for github, convex, etc
-- [ ] but there's always a chat to just ask to understand, and also mention that the page and agent
-      are built in noter
 - [ ] it can use github files as its database, before using convex
-- [ ] replace enter with cmd-enter for chat input - will make mobile and PC easier
 
 ## Medium Priority
 
@@ -171,8 +158,6 @@
 - [ ] add dashboard-level settings panel (currently logout only exists inside vault)
 - [ ] settings: add option to remove account
 - [ ] decide if Turborepo is necessary or if PNPM workspaces alone are enough
-- [ ] chat-first UI: start with chatbot; allow chat messages to render Tailwind/React UI so users
-      can promote pieces into the page (ex: sign-in inside chat)
 - [ ] starter template hygiene: add CI coverage for `apps/samebase-starter-template` (we missed a
       `node_modules`/ignore drift once because it wasn't being checked)
 - [ ] add help center app, show how easy it is to have one, where everything is markdown
@@ -198,7 +183,6 @@
 - [ ] use vscode terminal embedded in web; it's pretty powerful and may be a better terminal
       baseline for mobile web
 - [ ] left to easily press enter
-- [ ] coding on vscode on mobile web is very good, we can try simplifying it for focus only on chat,
 - [ ] https://vt.tiktok.com/ZSmrDkbnF/ https://x1.new
 - [ ]
 - [ ] https://theia-ide.org/
@@ -208,7 +192,6 @@
 - [ ] https://www.convex.dev/startups
 - [ ] research https://vly.ai/, and all others startups shown on https://www.convex.dev/startups
 - [ ] https://www.convex.dev/startups has live video of the browser the ai are using
-- [ ] transform the chat from fab to sider from left or right
 - [ ] check out https://www.kernel.sh/?utm_source=theo - kernel might be useful
 - [ ] flex: it's possible to remove github vault of noter completely and then attach it again and
       this whole time everything works, since we maintain netlify and convex for you. Currently set
@@ -219,7 +202,6 @@
 - [ ] add settings page for each vault and also for the whole app that allows auto commits
 - [ ] when path doesn't have owner or repo name or can't find it, redirect to vaults
 - [ ] add command "auto-push" "stop auto push" or similar to allow automatic pushing
-- [ ] you don't need to open noter in noter.md, you have it as a fab in your prod, just for you
 - [ ] don't use builder.io anymore
 - [ ] add share functionality to noter.md app - when copying text, allow sharing to Telegram, etc.
       Create new PWA app for this
@@ -241,11 +223,6 @@
       character counts plus section slugs, and let AI request full text only for selected sections
 - [ ] add link to changed files in commit. Also the name of the commit is displayed twice, both in
       text and in bubble of button
-- [ ] add questions at bottom of your messages, make them small, "yes", maybe, no. But the input is
-      always open. That's the thing the input is never waiting. You can even instruct it to stop
-      research
-- [ ] the fab is notm click able when sidebar opens. It should have knowledge that it's in the
-      sidebar
 - [ ] it's fine to reuse the Sha of the same vault so history should be easy, so we can implement
       branching easily in noter
 - [ ] you don't share code, you share methods how you work with code. Like teach it about
@@ -259,9 +236,6 @@
 - [ ] https://www.youtube.com/watch?v=pey9u_ANXZM
 - [ ] easy win: rename simple/all to important/code
 - [ ] try out blacksmith instead of github actions
-- [ ] the ui is the following, the right side there's a fab that's opened with a chat window, on the
-      left side it's a codex like chat, with all that standard stuff, and using this standard chat
-      you can configure the fab that'll be on your site; commit this atomically
 - [ ] vscode has this hidden eye on the .md file
 
 ## AI Agent Tools - Web Browsing & Search Capabilities
@@ -380,10 +354,6 @@ information for better coding help.
       agent work on different branches. This makes agent contributions visible in all git tooling
       (GitLens, GitHub UI, git log, etc.) without requiring Noter-specific infrastructure. Example:
       `Author: user@example.com, Co-authored-by: research-agent@noter.md`
-- [ ] **Conversation Storage Strategy**: Consider where to store all chat conversations for
-      potential desktop app usage. Conversations tied to specific branches/commits could be stored
-      as git notes or in structured commit messages, making the context portable across different
-      development environments.
 - [ ] check if I discussed this idea: noter could approach darklang because the logs are
       automatically in convex
 - [ ] add idea regarding the jokes about older people don't know how to convert to pdf. But now with
@@ -393,8 +363,6 @@ information for better coding help.
       `noter "add todo or whatever paragraph"`
 - [ ] explore frontmatter-based settings in markdown (e.g. `noter.md`) as an alternative to JSON:
       LLM-readable, human-readable, and schema-validated into TypeScript objects
-- [ ] treat chat as a terminal UX: user sends commands, system executes/actions, then returns clear
-      output (like a shell loop)
 - [ ] pot discuta cu Predeus ca Robolex sa fie dezvoltat pe noter.md; asta e o metoda buna si pentru
       juniori, pentru ca au acces la aceleasi posibilitati ca seniorii; faptul ca noter.md e facut
       in noter inseamna ca produsul e bun
@@ -430,9 +398,6 @@ information for better coding help.
 - [ ] **BUG: If a GitHub repository is renamed, the vault UI still shows the old name. It also
       appears in search with the old name, which is confusing. Need to detect repo renames and
       update vault metadata accordingly.**
-- [ ] **CHAT: Don't use "Auto" label for model selection - it implies it's the worst option.
-      Instead, show each message with the model that created it attached. Each message should have
-      `model` field showing "Claude 3.5", "GPT-4o", "Recommended", etc.**
 - [ ]
 - [ ] add settings page for each vault an also for the whole app that allows auto commits
 - [ ] **VERY IMPORTANT**: Try Convex components for defining things internally but also at AI agent
@@ -446,9 +411,6 @@ information for better coding help.
       changes to the actual files
 - [ ] folders can be used as objects or arrays because of ordered preservation (note: this is
       undefined behavior in JS)
-- [ ] have 1 agent with which I talk, but I also see the agent they are building, on the side.
-      Basically instead of chat and code generated to the right. You get chat and markdown generated
-      to the right, with
 - [ ] **MDX Function Calling Enhancement**: Implement MDX-like syntax with function calls instead of
       tags for text rendering:
   - Support `@code(language="json", filePath="config/app.json")...@end` syntax
@@ -486,7 +448,6 @@ information for better coding help.
       https://www.youtube.com/watch?v=YVq28OTPCKw
 - [ ] fix implicit `any` types across frontend components (13 errors, CI-blocking):
   - AddRepository.tsx: `repo`, `vault` params in callbacks (4)
-  - ChatFab.tsx: `msg` param (1)
   - CodeEditor.tsx: `u` param in update callback (1)
   - FileView.tsx: `t`, `item`, `staged` params (5)
   - MonacoEditor.tsx: `u` param in update callback (1)

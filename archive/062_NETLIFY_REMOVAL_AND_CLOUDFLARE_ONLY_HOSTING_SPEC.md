@@ -1,5 +1,8 @@
 # 062 Netlify Removal and Cloudflare-Only Hosting Spec
 
+> Archived 2026-07-26: Netlify retirement is complete. Current Cloudflare contracts supersede this
+> migration document.
+
 ## Document Control
 
 - Status: Proposed
@@ -7,14 +10,14 @@
 - Last updated: 2026-03-19
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-  - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
+  - `archive/004_AI_PROD_ACCESS_POLICY_SPEC.md`
   - `rfcs/006_DNS_DOMAIN_STRATEGY_SPEC.md`
   - `rfcs/016_FRONTEND_HOSTING_PROVIDER_SELECTION_SPEC.md`
   - `rfcs/017_NETLIFY_OAUTH_AND_TEAM_SELECTION_SPEC.md`
   - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `rfcs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
   - `rfcs/032_CLOUDFLARE_HOSTING_PILOT_SPEC.md`
-  - `rfcs/038_RAILWAY_REMOVAL_AND_DATA_CLEANUP_SPEC.md`
+  - `archive/038_RAILWAY_REMOVAL_AND_DATA_CLEANUP_SPEC.md`
   - `rfcs/044_CLOUDFLARE_MCP_AUTO_TOKEN_REFRESH_SPEC.md`
 
 ## Summary
@@ -383,7 +386,7 @@ Chosen approach:
 1. Delete `rfcs/017_NETLIFY_OAUTH_AND_TEAM_SELECTION_SPEC.md`.
 2. Rewrite these active specs to Cloudflare-only reality:
    - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-   - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
+   - `archive/004_AI_PROD_ACCESS_POLICY_SPEC.md`
    - `rfcs/006_DNS_DOMAIN_STRATEGY_SPEC.md`
    - `rfcs/016_FRONTEND_HOSTING_PROVIDER_SELECTION_SPEC.md`
    - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`

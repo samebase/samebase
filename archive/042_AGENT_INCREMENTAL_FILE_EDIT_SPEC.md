@@ -1,14 +1,17 @@
 # Agent Incremental File Edit Specification
 
+> Retired 2026-07-26: this proposal targeted the removed in-app chat agent. Samebase retained its
+> MCP and UI action runtime, but this document no longer defines current behavior.
+
 ## Document Control
 
 - Status: Proposed
 - Owner: Noter chat/agent + editor collaboration
 - Last updated: 2026-03-06
 - Related specs:
-  - `rfcs/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md`
+  - `archive/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md`
   - `rfcs/037_EDITOR_COMMIT_DIFF_RELIABILITY_SPEC.md`
-  - `rfcs/020_CONVEX_AGENT_ADOPTION_SPEC.md`
+  - `archive/020_CONVEX_AGENT_ADOPTION_SPEC.md`
 
 ## Summary
 

@@ -2,6 +2,8 @@
 
 Date: 2026-03-19
 
+> Historical note: the in-app chat surface reviewed here was retired on 2026-07-26.
+
 ## Goal
 
 Capture the SEO research relevant to Noter's current product shape and deployment so a future PR can

@@ -1,5 +1,8 @@
 # Chat Agent Feature Specification
 
+> Retired 2026-07-26: Samebase removed its in-app chat and agent graph before release. This document
+> is historical and must not guide implementation.
+
 ## Status
 
 Implemented for MVP with persisted threads, commit proposals, and approval-first production read
@@ -61,5 +64,5 @@ and stored in Convex.
 
 ## Related Docs
 
-- `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
+- `archive/004_AI_PROD_ACCESS_POLICY_SPEC.md`
 - `AGENTS.md`

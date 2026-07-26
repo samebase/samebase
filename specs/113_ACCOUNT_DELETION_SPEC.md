@@ -40,7 +40,6 @@ data.
 The deletion page is a direct projection of persisted backend progress. It shows these groups:
 
 - Vaults and staged changes, including the number of deleted vaults and current cleanup phase.
-- Chats and agent data.
 - Preferences.
 - App access and tokens.
 - Access requests and history.

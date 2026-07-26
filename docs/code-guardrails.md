@@ -150,9 +150,8 @@ declaring one.
 
 ## UI behavior
 
-- On mobile-first chat or prompt surfaces, Enter must not send by default. Require an explicit send
-  action and treat accidental Enter-to-send on mobile as a product bug. (ChatInput is currently a
-  hidden experiment; this applies to any future shipped chat surface.)
+- On mobile-first prompt surfaces, Enter must not send by default. Require an explicit send action
+  and treat accidental Enter-to-send on mobile as a product bug.
 - For pane rails that should feel nearly flush, prefer `px-1` over `px-0` so the content keeps a
   small nonzero inset without reading as padded — ideally encoded once in the shared workspace
   layout shell rather than per page.

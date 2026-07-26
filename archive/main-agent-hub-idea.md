@@ -1,5 +1,8 @@
 # Idea: Main Agent Hub for Codex Worktrees
 
+> Retired 2026-07-26: Samebase does not ship an in-app chat hub. Agents use MCP and browser handoff
+> instead.
+
 ## Problem
 
 When multiple agents are running in separate worktrees, I keep context switching between chats and

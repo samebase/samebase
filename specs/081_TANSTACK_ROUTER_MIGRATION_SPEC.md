@@ -207,12 +207,11 @@ problems, attempted fixes, and outcomes.
 
 - Problem: pricing and add-repository still shared the same authenticated runtime shell as
   `App.tsx`, so moving them naively would have dropped the approval gate, popup-close handling,
-  metadata, unauthenticated sign-in fallback, and the global chat FAB. Tried: extracted a shared
-  authenticated route page shell plus shared app-auth runtime effects, then promoted `/pricing` and
-  `/add` into explicit TanStack routes and removed those branches from the `App.tsx` pathname
-  resolver. Result: pricing and add-repository are now route-owned without forcing the heavier vault
-  routes into the same patch, and `App.tsx` only keeps the remaining unresolved authenticated
-  branches.
+  metadata, and unauthenticated sign-in fallback. Tried: extracted a shared authenticated route page
+  shell plus shared app-auth runtime effects, then promoted `/pricing` and `/add` into explicit
+  TanStack routes and removed those branches from the `App.tsx` pathname resolver. Result: pricing
+  and add-repository are now route-owned without forcing the heavier vault routes into the same
+  patch, and `App.tsx` only keeps the remaining unresolved authenticated branches.
 
 - Problem: the first typed-search slice on the public/dev routes hit a mismatch between TanStack
   Router's default search serialization and the app's existing query semantics. Tried: wired

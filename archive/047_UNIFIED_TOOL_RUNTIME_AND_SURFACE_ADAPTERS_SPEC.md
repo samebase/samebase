@@ -1,13 +1,16 @@
 # 047 Unified Tool Runtime And Surface Adapters Spec
 
+> Archived 2026-07-26: this proposal assumed an in-app chat adapter. Samebase retained its MCP and
+> UI action runtime, but this document no longer defines current behavior.
+
 ## Document Control
 
 - Status: Proposed
 - Owner: Noter platform
 - Last updated: 2026-03-09
 - Related specs:
-  - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
-  - `rfcs/020_CONVEX_AGENT_ADOPTION_SPEC.md`
+  - `archive/004_AI_PROD_ACCESS_POLICY_SPEC.md`
+  - `archive/020_CONVEX_AGENT_ADOPTION_SPEC.md`
   - `rfcs/043_REMOTE_MCP_OAUTH_PROVIDER_CONVEX_ARCHITECTURE_SPEC.md`
 
 ## Summary

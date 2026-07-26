@@ -1,5 +1,7 @@
 # 046 Vault Multi-Branch Rollout Plan
 
+> Archived 2026-07-26: `specs/116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md` supersedes this rollout.
+
 ## Document Control
 
 - Status: Superseded

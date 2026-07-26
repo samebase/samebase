@@ -1,5 +1,8 @@
 # Agent Graph View MVP Specification (ReactFlow)
 
+> Retired 2026-07-26: Samebase removed its in-app agent graph before release. This document is
+> historical and must not guide implementation.
+
 ## Document Control
 
 - Status: Implemented for MVP
@@ -7,7 +10,7 @@
 - Date: 2026-02-22
 - Related specs:
   - `archive/021_AGENT_BUILDER_TEMPLATE_SPEC.md`
-  - `specs/071_FILE_VIEW_GRAPH_TOGGLE_IN_DEVELOPER_TOOLS_SPEC.md`
+  - `archive/071_FILE_VIEW_GRAPH_TOGGLE_IN_DEVELOPER_TOOLS_SPEC.md`
 - Related files:
   - `apps/samebase/src/components/FileView.tsx`
   - `apps/samebase/src/components/FileViewDeveloperTools.tsx`

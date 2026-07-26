@@ -62,7 +62,6 @@ optional peer resolution.
 - import `convexTest` from `convex-test`
 - pass `apps/samebase/convex/schema.ts`
 - pass a filtered `import.meta.glob` module map for Convex source files
-- register `@convex-dev/agent` with component name `agent`
 - register `@convex-dev/workflow` with component name `workflow`
 
 Each test should call the helper at the start of the test so state is isolated. Use `t.run` to seed
@@ -76,7 +75,6 @@ isolation case that proves user B cannot read or mutate user A's rows through pu
 
 - users: viewer, approval, provider connection status, disconnect mutations
 - vaults: ownership, listing, branch filter state, branch/tree visibility
-- chat: thread lifecycle, prod-read approval/rejection/audit state
 - file staging: ownership denial, create/update/delete rows, branch summaries
 - MCP/OAuth HTTP: metadata, registration, authorize, token, MCP request status
 - billing/webhooks: method/status validation and signed-event state changes

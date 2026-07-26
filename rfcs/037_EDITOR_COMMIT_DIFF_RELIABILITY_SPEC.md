@@ -25,18 +25,16 @@ sync/commit reliability gaps can make users feel like commit "removed stuff" une
 ## Current State (Observed)
 
 - File-level staged categories are shown in UI (`modified/new/deleted/renamed`).
-- Manual commit and chat approval both commit all staged changes.
+- Manual commit commits all staged changes.
 - No pre-commit patch preview exists.
 - Collaborative push failures can leave client sync in a bad state.
-- Chat commit proposal can be marked committed before commit action success.
 
 ## Goals
 
 1. Make editor -> staging synchronization robust and observable.
 2. Make commit success/failure explicit and not silently swallowed.
-3. Keep chat commit metadata aligned with real commit outcome.
-4. Introduce a true commit preview model and UI.
-5. Provide markdown-first diff UX similar to GitHub defaults.
+3. Introduce a true commit preview model and UI.
+4. Provide markdown-first diff UX similar to GitHub defaults.
 
 ## Non-Goals (Iteration 1)
 
@@ -52,7 +50,6 @@ sync/commit reliability gaps can make users feel like commit "removed stuff" une
   release locks and retry.
 - Surface sync failure state in editor UI (non-blocking but visible).
 - Remove silent failure swallowing from staged commit action path.
-- Ensure chat commit proposal is marked committed only after successful commit.
 - Remove obvious hardcoded-branch commit assumptions in staging/commit path.
 - Add guardrails against accidental destructive operations:
   - path collision checks on rename,
@@ -62,7 +59,6 @@ Acceptance:
 
 - A transient push failure does not permanently stop syncing.
 - Commit errors are visible to caller and do not silently look successful.
-- Chat card does not show "Committed" if commit failed.
 
 ### Phase 1: Commit Preview Data Contract
 
@@ -90,16 +86,13 @@ Acceptance:
 
 - User can inspect every staged file diff before confirming commit.
 
-### Phase 3: Single Approval Surface
+### Phase 3: Commit Confirmation
 
-- Reuse the same preview pipeline for:
-  - file-view manual commit,
-  - chat commit approval.
 - Require explicit confirmation when destructive changes exist.
 
 Acceptance:
 
-- Both commit entry points rely on one shared preview source.
+- Manual commit relies on the preview source.
 
 ### Phase 4: Verification & Hardening
 
@@ -107,7 +100,6 @@ Acceptance:
   - sync retries,
   - stale version recovery,
   - rename/delete/new-file edge cases,
-  - chat commit status correctness.
 - Add targeted manual test scenarios around network instability.
 
 Acceptance:
@@ -127,8 +119,6 @@ Acceptance:
 - `apps/noter/convex/collaborative.ts`
 - `apps/noter/convex/fileStagingActions.ts`
 - `apps/noter/convex/fileStaging.ts`
-- `apps/noter/convex/chat/index.ts`
-- `apps/noter/src/components/ChatFab.tsx`
 
 ## References
 

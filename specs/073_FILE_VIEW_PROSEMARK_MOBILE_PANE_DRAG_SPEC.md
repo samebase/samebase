@@ -13,7 +13,7 @@
   - `apps/samebase/src/components/ProsemarkReadOnly.tsx`
   - `apps/samebase/src/components/sidebar.tsx`
   - `specs/072_MOBILE_SIDEBAR_INTERACTIVE_DRAG_SPEC.md`
-  - `rfcs/073_INDEPENDENT_RIGHT_SIDEBAR_SPEC.md`
+  - `archive/073_INDEPENDENT_RIGHT_SIDEBAR_SPEC.md`
 
 ## Summary
 
@@ -66,7 +66,7 @@ behavior rather than treating this as a read-only preview-only problem.
 1. Monaco main-view drag support.
 2. Plain code-editor main-view drag support.
 3. Desktop changes.
-4. Landing page, sign-in, chat bubble, or other non-FileView ProseMark usages.
+4. Landing page, sign-in, or other non-FileView ProseMark usages.
 5. Replacing the shell's current mobile settle model.
 
 ## Current State

@@ -48,7 +48,7 @@ Cost is one input among several; the receipts page currently over-indexes on it.
   should not face a new "AWS or Google?" decision, because the account they already connected
   carries most of what they'll need. Fewest-providers was an explicit optimization from the start
   (`rfcs/016_FRONTEND_HOSTING_PROVIDER_SELECTION_SPEC.md` is the earliest trace; outcome superseded
-  by `rfcs/062_NETLIFY_REMOVAL_AND_CLOUDFLARE_ONLY_HOSTING_SPEC.md` and
+  by `archive/062_NETLIFY_REMOVAL_AND_CLOUDFLARE_ONLY_HOSTING_SPEC.md` and
   `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`).
 - The big open adjacent question at selection time: hosting was the hard one because it bundles
   protection and domain management, not just serving.

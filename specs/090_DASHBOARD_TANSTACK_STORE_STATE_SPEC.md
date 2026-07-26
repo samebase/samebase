@@ -39,10 +39,9 @@ Migrate these state buckets now:
 4. Per-vault developer tools open state.
 5. Infrastructure retry pending vault id.
 6. Sign-out pending state.
-7. Global chat busy and autofocus handoff state.
-8. Pull request filter control search text and open state.
-9. Visual fixture counters.
-10. Last-updated status text-selection frozen timestamp.
+7. Pull request filter control search text and open state.
+8. Visual fixture counters.
+9. Last-updated status text-selection frozen timestamp.
 
 Keep provider-owned query state out of the UI store:
 

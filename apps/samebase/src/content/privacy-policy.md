@@ -1,8 +1,8 @@
 # Privacy Policy
 
-Last updated: July 12, 2026
+Last updated: July 26, 2026
 
-Reviewed and updated by Codex (GPT-5) on July 12, 2026, based on the current Samebase source code.
+Reviewed and updated by Codex (GPT-5) on July 26, 2026, based on the current Samebase source code.
 
 This Privacy Policy describes how Samebase handles information in the current app code. It is
 intentionally narrow: it covers the data flows, integrations, browser storage, and retention
@@ -24,11 +24,8 @@ product yet.
 - Workspace content. Samebase stores staged file content, initial file content, file paths,
   deduplicated blobs, collaborative editing updates, and other state needed to sync and restore your
   work.
-- AI, approval, and MCP OAuth records. If you use the AI features, Samebase stores AI thread
-  records, user prompts, assistant replies, streamed message state and deltas, model/provider
-  metadata, per-thread context and draft messages, message metadata for proposals and results,
-  production-read approval requests and audit records, and MCP OAuth client, authorization-request,
-  authorization-code, grant, access-token, refresh-token, and audit records.
+- MCP OAuth records. Samebase stores MCP OAuth client, authorization-request, authorization-code,
+  grant, access-token, refresh-token, and audit records.
 - Billing state. For paid plans, Samebase stores billing provider, plan, status, renewal period end,
   and a Polar external customer ID. The current app code does not store raw payment card numbers.
 - Product analytics and diagnostics. The current app code initializes PostHog in the browser. That
@@ -39,8 +36,8 @@ product yet.
 
 ## Browser Storage and Cookies
 
-- Local storage. The current app code uses localStorage for auth helper state and popup sign-in
-  token handoff, for non-vault chat open/thread state, and for some file-view UI state.
+- Local storage. The current app code uses localStorage for auth helper state, popup sign-in token
+  handoff, and some file-view UI state.
 - Convex-backed UI state. The current app code stores some authenticated workspace-shell UI
   preferences, including shared sidebar state, in Convex so they can persist across reloads.
 - IndexedDB. The app caches some Convex query results in browser IndexedDB under the
@@ -58,14 +55,12 @@ product yet.
   reading repositories, staging edits, proposing commits, creating repositories, and provisioning
   infrastructure.
 - To sync collaborative editing state and preserve your workspace, branch, and UI context.
-- To generate AI responses, tool activity, and approval proposals using the configured model
-  provider and the repository or file context for the active thread.
 - To create and manage hosted resources, previews, and related operational infrastructure when you
   enable those features.
 - To create checkout or customer-portal sessions with Polar and keep subscription status in sync.
 - To understand product usage, monitor stability, and capture client-side errors through PostHog.
-- To maintain security, audit, and troubleshooting records for sensitive operations such as
-  production-read approvals and MCP OAuth access.
+- To maintain security, audit, and troubleshooting records for sensitive operations such as MCP
+  OAuth access.
 
 ## What the Current App Code Does Not Include
 
@@ -76,9 +71,6 @@ browser storage and provider integrations described on this page.
 ## When Samebase Shares Information
 
 - With Google when you use Google sign-in.
-- With Anthropic when you use the in-app AI chat, because the current chat runtime sends prompts,
-  system context, and selected repository or file context to Anthropic's Claude model to generate
-  responses.
 - With GitHub when you connect repositories, read repository data, create commits or repositories,
   or manage deploy keys or webhooks.
 - With Convex and Cloudflare when you connect those providers or ask Samebase to provision or

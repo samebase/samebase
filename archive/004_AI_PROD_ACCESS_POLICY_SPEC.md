@@ -1,5 +1,8 @@
 # AI Production Access Policy Specification
 
+> Retired 2026-07-26: Samebase removed the in-app chat production-read flow before release. This
+> document is historical and must not guide implementation.
+
 ## Document Control
 
 - Status: Implemented for MVP owner mode (with follow-ups)

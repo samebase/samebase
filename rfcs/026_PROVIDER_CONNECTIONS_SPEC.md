@@ -143,7 +143,7 @@ No fallback to app-login provider tokens.
 1. `SignInForm` removes GitHub app sign-in.
 2. GitHub connection uses dedicated provider OAuth flow (dashboard + add repo).
 3. Connection UIs show method labels (`OAuth`, `API key`).
-4. Chat/vault surfaces gate behavior using `viewer.hasGithubConnection`.
+4. Vault surfaces gate behavior using `viewer.hasGithubConnection`.
 
 ## Environment Contract
 

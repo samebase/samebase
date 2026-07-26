@@ -295,7 +295,7 @@ type CommitAttemptResult =
     };
 ```
 
-The manual commit UI and chat approval UI should both consume this.
+The manual commit UI should consume this.
 
 ### C. Clarify SHA semantics
 
@@ -455,8 +455,6 @@ Acceptance:
    only render them in UI?
 3. For non-markdown files, should phase 1 use the same merge editor or a simpler source-only
    resolution surface?
-4. Do we want a branch-level "Resolve conflicts" command in chat, or should chat simply deep-link
-   into conflict review mode at first?
 
 ## Recommended Source of Truth Files
 

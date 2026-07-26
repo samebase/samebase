@@ -8,7 +8,7 @@
   cards.
 - See current source-of-truth specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-  - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
+  - `archive/004_AI_PROD_ACCESS_POLICY_SPEC.md`
 
 ## Summary
 
@@ -24,7 +24,7 @@ users arrive.
 ## Spec Files to Add/Update
 
 1. Add `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`.
-2. Add `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`.
+2. Add `archive/004_AI_PROD_ACCESS_POLICY_SPEC.md`.
 3. Add a short cross-link section to `specs/001_CODESPACE_CONNECTION_SPEC.md` pointing to the new
    infra specs.
 

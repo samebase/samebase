@@ -49,7 +49,7 @@ responsive layout, and PDF export readiness. Deck copy and final storytelling co
 - Adapts to viewport size responsively instead of splitting interactive browsing into separate
   desktop and mobile routes.
 - Does not depend on Convex queries, auth state, or app workspace data.
-- Does not render app-only chrome such as the dashboard shell or `ChatFab`.
+- Does not render app-only chrome such as the dashboard shell.
 
 ### `/pitch/print`
 

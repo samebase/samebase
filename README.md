@@ -3,20 +3,17 @@
 Samebase is a collaborative, GitHub-connected code editor built as a PNPM workspace with React +
 TanStack Start/Vite on the frontend and Convex on the backend.
 
-## Current Product Capabilities (2026-02-13)
+## Current Product Capabilities (2026-07-26)
 
 - Real-time collaborative editing with CodeMirror + Convex synchronization
 - GitHub repository connection (`connectRepository`) for existing repos
-- New agent/repo creation (`createRepository`) for samebase-managed vaults, seeded as a runnable
+- New app/repo creation (`createRepository`) for samebase-managed vaults, seeded as a runnable
   starter in a single commit
 - Automatic infrastructure provisioning for new samebase-managed vaults:
   - Convex project/deployment
   - Cloudflare Workers project + environment wiring
   - Infrastructure status surfaced in Vault Dashboard
 - Manual infra retry for failed/partial provisioning
-- Persistent in-app chat with approval cards for:
-  - Commit proposals
-  - Production infrastructure/data read requests
 
 ## Important Behavior
 

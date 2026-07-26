@@ -1,14 +1,17 @@
 # 031 Git-Backed Chat History Spec
 
+> Retired 2026-07-26: Samebase removed its in-app chat before release. This document is historical
+> and must not guide implementation.
+
 ## Document Control
 
 - Status: Proposed
 - Owner: Noter platform
 - Last updated: 2026-03-02
 - Related specs:
-  - `specs/022_AGENT_GRAPH_VIEW_SPEC.md`
-  - `rfcs/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md`
-  - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
+  - `archive/022_AGENT_GRAPH_VIEW_SPEC.md`
+  - `archive/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md`
+  - `archive/004_AI_PROD_ACCESS_POLICY_SPEC.md`
 - Related files (current):
   - `apps/noter/convex/chat/index.ts`
   - `apps/noter/convex/chat/actions.ts`
@@ -235,7 +238,7 @@ Policy:
 1. Normal “delete message” becomes a new commit that removes the message from the current view but
    does not erase history.
 2. A separate “redaction” operation (history rewrite) exists for legal erasure requests and must be
-   approval-first (align with patterns in `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`).
+   approval-first (align with patterns in `archive/004_AI_PROD_ACCESS_POLICY_SPEC.md`).
 
 ### Redaction Workflow (Defined, Implementation Can Be Deferred)
 
