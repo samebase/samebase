@@ -1644,17 +1644,17 @@ export function VaultOverviewPage({
                 vault={workspace.vault}
               />
               <DefaultBranchSection filesReadEnabled={filesReadEnabled} workspace={workspace} />
-              <PullRequestsSection
-                filesReadEnabled={filesReadEnabled}
-                pullRequests={workspace.pullRequests}
-                vault={workspace.vault}
-              />
               {developerToolsVisible ? (
                 <VaultWorkspaceDataInspector
                   resourceRailState={resourceRailState}
                   workspace={workspace}
                 />
               ) : null}
+              <PullRequestsSection
+                filesReadEnabled={filesReadEnabled}
+                pullRequests={workspace.pullRequests}
+                vault={workspace.vault}
+              />
             </>
           )}
         </main>

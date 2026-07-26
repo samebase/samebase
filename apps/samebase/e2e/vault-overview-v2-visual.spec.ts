@@ -321,6 +321,10 @@ test("exposes each raw source separately in developer mode", async ({ page }) =>
   const fixture = await openVaultOverviewV2(page, "vault-overview-v2-dev");
 
   await expect(fixture.getByRole("heading", { name: "Data inspector" })).toBeVisible();
+  const sectionHeadings = await fixture.getByRole("heading", { level: 2 }).allTextContents();
+  expect(sectionHeadings.indexOf("Data inspector")).toBeLessThan(
+    sectionHeadings.indexOf("Open pull requests"),
+  );
   const vaultContract = fixture.getByText("Vault contract", { exact: true });
   await vaultContract.click();
   await expect(vaultContract.locator("..").locator("pre")).toContainText(
