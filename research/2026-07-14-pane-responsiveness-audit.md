@@ -93,9 +93,9 @@ The convert list below shipped in one sweep with three decisions worth keeping:
 - `components/ui/*`: shadcn-generated, read-only by repo rule.
 - Visual fixtures (`*VisualFixture.tsx`, `/visual-fixture` harness): pinned baselines, dev-only.
 
-## workspace-layout-v3
+## Removed workspace-layout-v3 experiment
 
-Dormant experiment: one commit (`08b878e8`, verbatim copy plus rename, #1151), referenced only by
-dev fixtures, no live route. It predates the container hoist, so `WorkspaceLayoutV3PaneFrame.tsx`
-does not declare `@container`. If v3 is revived, the identical hoist plus pane-content conversion is
-a revival prerequisite.
+The dormant `workspace-layout-v3` copy introduced by `08b878e8` (#1151) was removed after confirming
+that it was referenced only by dev fixtures and had no live route. A future layout experiment should
+start from the current production layout and an accepted product plan instead of reviving the stale
+copy.
