@@ -3,7 +3,6 @@ import { APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME } from "@/components/appSidebarN
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDownIcon, PersonIcon } from "@/lib/radixIcons";
-import { Loader2 } from "lucide-react";
 import { clsx } from "clsx";
 import type { AccountPresentation } from "../../../shared/accountPresentation";
 import { Link } from "@tanstack/react-router";
@@ -22,23 +21,6 @@ const ACCOUNT_SECTION_TRIGGER_CLASS_NAME =
   "h-auto w-full items-start justify-between gap-2 whitespace-normal px-0 text-left text-sm font-medium hover:bg-transparent [&[data-state=open]>svg]:rotate-180";
 const ACCOUNT_SECTION_TRIGGER_LABEL_CLASS_NAME =
   "min-w-0 flex-1 line-clamp-2 text-left [overflow-wrap:anywhere]";
-export type VaultDashboardProviderActionViewModel = {
-  disabled?: boolean;
-  isPending?: boolean;
-  key: string;
-  label: string;
-  onClick?: () => void;
-  pendingLabel?: string;
-};
-
-export type VaultDashboardProviderRowViewModel = {
-  actions: readonly VaultDashboardProviderActionViewModel[];
-  icon: ReactNode;
-  key: string;
-  label: string;
-  status: string;
-};
-
 export type VaultDashboardAccountSectionProps = {
   accountPresentation: AccountPresentation;
   dataTestId?: string;
@@ -315,68 +297,6 @@ export function VaultDashboardStaticAccountStatusSection({
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-export function VaultDashboardProviderRows({
-  footer,
-  providerRows,
-}: {
-  footer?: ReactNode;
-  providerRows: readonly VaultDashboardProviderRowViewModel[];
-}) {
-  return (
-    <div data-testid="provider-connections-panel" className="space-y-3">
-      {providerRows.map((providerRow) => (
-        <div key={providerRow.key} className="flex flex-wrap items-start gap-3">
-          <div
-            data-provider-key={providerRow.key}
-            data-testid="provider-connection-row"
-            className={SIDEBAR_ROW_CONTENT_CLASS}
-          >
-            <div data-testid="provider-connection-icon" className={SIDEBAR_ROW_ICON_CLASS}>
-              {providerRow.icon}
-            </div>
-            <div data-testid="provider-connection-text" className={SIDEBAR_ROW_TEXT_CLASS}>
-              <div className="text-sm font-medium">{providerRow.label}</div>
-              <div
-                className={clsx(
-                  SIDEBAR_METADATA_TEXT_CLASS,
-                  "text-xs leading-5 text-muted-foreground",
-                )}
-                title={providerRow.status}
-              >
-                {providerRow.status}
-              </div>
-            </div>
-          </div>
-          {providerRow.actions.length > 0 ? (
-            <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
-              {providerRow.actions.map((action) => (
-                <Button
-                  key={action.key}
-                  variant="outline"
-                  size="sm"
-                  onClick={action.onClick}
-                  className="h-auto max-w-full whitespace-normal py-2 text-left"
-                  disabled={action.disabled}
-                >
-                  {action.isPending ? (
-                    <>
-                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                      {action.pendingLabel ?? action.label}
-                    </>
-                  ) : (
-                    action.label
-                  )}
-                </Button>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      ))}
-      {footer}
     </div>
   );
 }

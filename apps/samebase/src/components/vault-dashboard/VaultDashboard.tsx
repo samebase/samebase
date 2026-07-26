@@ -25,7 +25,6 @@ export function VaultDashboard({
   const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
   const { commands: workspaceCommands, model: workspaceModel } = useVaultWorkspaceModel(
     selectedRepositoryFullName,
-    true,
   );
   if (workspaceModel.state === "loading") {
     if (!selectedRepositoryFullName) {
@@ -66,28 +65,35 @@ export function VaultDashboard({
       />
     ),
   };
-  const dashboardBody = isVaultRootRoute ? (
-    <VaultOverviewVaultPickerPane
-      sidebarSummaries={workspaceModel.sidebarSummaries}
-      vaults={workspaceModel.vaults}
-    />
-  ) : workspaceModel.selection.state === "missing" ? (
-    <div className="p-4 text-sm text-muted-foreground">
-      Vault not found: {workspaceModel.selection.repositoryFullName}
-    </div>
-  ) : selectedWorkspace ? (
-    <VaultSelectedWorkspace
-      key={selectedWorkspace.vault._id}
-      developerToolsVisible={developerToolsVisible}
-      invalidateProviderObservations={workspaceCommands.invalidateProviderObservations}
-      page={page}
-      workspace={selectedWorkspace}
-    />
-  ) : (
-    <div className="p-4 text-sm text-muted-foreground">
-      Select a vault from the left sidebar or add one from the right sidebar.
-    </div>
-  );
+  const dashboardBody = (() => {
+    switch (workspaceModel.selection.state) {
+      case "root":
+        return (
+          <VaultOverviewVaultPickerPane
+            sidebarSummaries={workspaceModel.sidebarSummaries}
+            vaults={workspaceModel.vaults}
+          />
+        );
+      case "missing":
+        return (
+          <div className="p-4 text-sm text-muted-foreground">
+            Vault not found: {workspaceModel.selection.repositoryFullName}
+          </div>
+        );
+      case "selected":
+        return (
+          <VaultSelectedWorkspace
+            key={workspaceModel.selection.workspace.vault._id}
+            developerToolsVisible={developerToolsVisible}
+            invalidateProviderObservations={workspaceCommands.invalidateProviderObservations}
+            page={page}
+            workspace={workspaceModel.selection.workspace}
+          />
+        );
+    }
+    workspaceModel.selection satisfies never;
+    return null;
+  })();
 
   return (
     <AppWorkspaceRouteChrome left={isVaultRootRoute ? null : leftPane}>

@@ -51,16 +51,7 @@ type SchemaZoneNodeData = {
 type SchemaZoneNode = Node<SchemaZoneNodeData, "schemaZone">;
 type SchemaGraphNode = SchemaTableNode | SchemaZoneNode;
 type SchemaGraphEdge = Edge;
-type VaultConvexSchemaGraphVariant = "dashboard" | "route";
 
-type VaultConvexSchemaGraphContentProps = {
-  state: ConvexSchemaGraphState;
-  refreshError: string | null;
-  refreshPending: boolean;
-  variant?: VaultConvexSchemaGraphVariant;
-  onRefresh?: () => void;
-  onSaveLayout?: (nodeId: string, x: number, y: number) => void;
-};
 export type VaultConvexSchemaGraphRouteContext = {
   branch: string;
   convexCodePath: string;
@@ -542,18 +533,6 @@ function buildSchemaEdges(
   }));
 }
 
-function getSchemaGraphContainerClassName(variant: VaultConvexSchemaGraphVariant): string {
-  return variant === "route"
-    ? "flex h-full min-h-0 flex-1 flex-col"
-    : "space-y-2 border-t border-border/50 pt-3";
-}
-
-function getSchemaGraphViewportClassName(variant: VaultConvexSchemaGraphVariant): string {
-  return variant === "route"
-    ? "h-full min-h-0 flex-1 overflow-hidden bg-background"
-    : "h-[34rem] min-h-0 overflow-hidden border border-border/50";
-}
-
 function VaultConvexSchemaGraphCanvasStatus({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-full min-h-0 flex-1 items-center justify-center bg-background px-3 text-center text-sm text-muted-foreground">
@@ -650,11 +629,9 @@ function SchemaTableNode({ data }: NodeProps<SchemaTableNode>) {
 
 function VaultConvexSchemaGraphCanvas({
   state,
-  variant = "dashboard",
   onSaveLayout,
 }: {
   state: ConvexSchemaGraphState;
-  variant?: VaultConvexSchemaGraphVariant;
   onSaveLayout?: (nodeId: string, x: number, y: number) => void;
 }) {
   const snapshot = state.snapshot;
@@ -685,7 +662,7 @@ function VaultConvexSchemaGraphCanvas({
     () => (snapshot ? buildSchemaStructureLayoutKey(snapshot) : "empty"),
     [snapshot],
   );
-  const fitViewOptions = useMemo(() => ({ padding: variant === "route" ? 0.08 : 0.18 }), [variant]);
+  const fitViewOptions = useMemo(() => ({ padding: 0.08 }), []);
   const [nodes, setNodes, onNodesChange] =
     useNodesState<SchemaGraphNode>(fallbackNodesFromSnapshot);
   const [readyLayoutKey, setReadyLayoutKey] = useState<string | null>(null);
@@ -704,10 +681,7 @@ function VaultConvexSchemaGraphCanvas({
     }
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        if (
-          variant === "route" &&
-          (snapshot?.graph.tables.length ?? 0) > SCHEMA_ROUTE_READABLE_TABLE_LIMIT
-        ) {
+        if ((snapshot?.graph.tables.length ?? 0) > SCHEMA_ROUTE_READABLE_TABLE_LIMIT) {
           void reactFlowInstanceRef.current?.setViewport({
             x: 24,
             y: 24,
@@ -719,7 +693,7 @@ function VaultConvexSchemaGraphCanvas({
         void reactFlowInstanceRef.current?.fitView(fitViewOptions);
       });
     });
-  }, [fitViewOptions, snapshot?.graph.tables.length, variant]);
+  }, [fitViewOptions, snapshot?.graph.tables.length]);
 
   // React Flow owns transient drag state; only schema changes should rebuild and refit the canvas.
   useEffect(() => {
@@ -759,21 +733,14 @@ function VaultConvexSchemaGraphCanvas({
   ]);
 
   if (!snapshot) {
-    if (variant === "route") {
-      return (
-        <VaultConvexSchemaGraphCanvasStatus>No schema snapshot.</VaultConvexSchemaGraphCanvasStatus>
-      );
-    }
     return (
-      <div className="border border-dashed border-border/70 px-3 py-6 text-center text-sm text-muted-foreground">
-        Refresh to inspect the live Convex deployment.
-      </div>
+      <VaultConvexSchemaGraphCanvasStatus>No schema snapshot.</VaultConvexSchemaGraphCanvasStatus>
     );
   }
 
   return (
     <div
-      className={getSchemaGraphViewportClassName(variant)}
+      className="h-full min-h-0 flex-1 overflow-hidden bg-background"
       data-schema-graph-layout={layoutReady ? "ready" : "pending"}
     >
       <ReactFlow
@@ -815,63 +782,6 @@ function VaultConvexSchemaGraphCanvas({
         <Controls />
       </ReactFlow>
     </div>
-  );
-}
-
-export function VaultConvexSchemaGraphContent({
-  state,
-  refreshError,
-  refreshPending,
-  variant = "dashboard",
-  onRefresh,
-  onSaveLayout,
-}: VaultConvexSchemaGraphContentProps) {
-  const snapshot = state.snapshot;
-
-  return (
-    <section className={getSchemaGraphContainerClassName(variant)}>
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-2 text-sm font-medium">
-            <Database className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 truncate">Convex schema</span>
-          </div>
-          <div className="mt-0.5 min-w-0 truncate text-xs text-muted-foreground">
-            {snapshot
-              ? `${snapshot.graph.tables.length} tables · ${snapshot.graph.relationships.length} relationships · ${formatSnapshotTimestamp(snapshot.fetchedAt)}`
-              : `${state.project.projectId} has no snapshot`}
-          </div>
-        </div>
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={refreshPending || !onRefresh}
-            onClick={onRefresh}
-          >
-            {refreshPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
-            {refreshPending ? "Refreshing" : "Refresh"}
-          </Button>
-        </div>
-      </div>
-
-      {refreshError ? <div className="text-xs text-destructive">{refreshError}</div> : null}
-
-      <VaultConvexSchemaGraphCanvas state={state} variant={variant} onSaveLayout={onSaveLayout} />
-
-      {snapshot && snapshot.graph.warnings.length > 0 ? (
-        <div className="space-y-1 text-xs text-muted-foreground">
-          {snapshot.graph.warnings.slice(0, 3).map((warning) => (
-            <div key={warning}>{warning}</div>
-          ))}
-        </div>
-      ) : null}
-    </section>
   );
 }
 
@@ -1098,7 +1008,7 @@ export function VaultConvexSchemaGraphRouteWorkspaceContent({
             Schema unavailable.
           </VaultConvexSchemaGraphCanvasStatus>
         ) : (
-          <VaultConvexSchemaGraphCanvas state={state} variant="route" onSaveLayout={onSaveLayout} />
+          <VaultConvexSchemaGraphCanvas state={state} onSaveLayout={onSaveLayout} />
         )}
       </div>
     </AppWorkspaceRouteChrome>

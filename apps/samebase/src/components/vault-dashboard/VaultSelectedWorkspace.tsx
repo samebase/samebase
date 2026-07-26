@@ -42,14 +42,6 @@ type ProviderActionInFlight =
       convexProjectId: Id<"vaultConvexProjects">;
     };
 
-type ConvexCodeLocationRepairTarget = {
-  convexProjectId: Id<"vaultConvexProjects">;
-};
-
-type CloudflareBuildsRepairTarget = {
-  workerId: Id<"vaultCloudflareWorkers">;
-};
-
 function applyVaultDashboardProviderAddSearch({
   currentSearch,
   provider,
@@ -96,15 +88,19 @@ export function VaultSelectedWorkspace({
   );
   const [providerActionInFlight, setProviderActionInFlight] =
     useState<ProviderActionInFlight | null>(null);
-  const [convexCodeLocationRepairTarget, setConvexCodeLocationRepairTarget] =
-    useState<ConvexCodeLocationRepairTarget | null>(null);
-  const [cloudflareBuildsRepairTarget, setCloudflareBuildsRepairTarget] =
-    useState<CloudflareBuildsRepairTarget | null>(null);
   const [isRetryingVaultAction, setIsRetryingVaultAction] = useState(false);
   const vault = workspace.vault;
   const deleteModeActive = rootRouteSearch.delete === true;
   const addConvexModeActive = rootRouteSearch["add-convex"] === true;
   const addCloudflareWorkerModeActive = rootRouteSearch["add-cloudflare"] === true;
+  const convexRepairProjectId =
+    vaultDashboardDialogHistoryEntry?.dialog === "add-convex"
+      ? (vaultDashboardDialogHistoryEntry.repairProjectId ?? null)
+      : null;
+  const cloudflareRepairWorkerId =
+    vaultDashboardDialogHistoryEntry?.dialog === "add-cloudflare"
+      ? (vaultDashboardDialogHistoryEntry.repairWorkerId ?? null)
+      : null;
   const canDelete =
     vault.deletion.state === "not_deleting" && vault.deletion.deleteAction.state === "available";
   const canManageProviderAttachments =
@@ -127,7 +123,7 @@ export function VaultSelectedWorkspace({
   );
 
   const closeVaultDashboardDialog = (dialog: VaultDashboardQueryDialog) => {
-    if (vaultDashboardDialogHistoryEntry === dialog && router.history.canGoBack()) {
+    if (vaultDashboardDialogHistoryEntry?.dialog === dialog && router.history.canGoBack()) {
       router.history.back();
       return;
     }
@@ -151,18 +147,37 @@ export function VaultSelectedWorkspace({
     replaceVaultDashboardDialogRoute,
   ]);
 
-  const openProviderDialog = (provider: "cloudflare" | "convex") => {
+  const openProviderDialog = (
+    dialog:
+      | {
+          provider: "cloudflare";
+          repairWorkerId?: Id<"vaultCloudflareWorkers">;
+        }
+      | {
+          provider: "convex";
+          repairProjectId?: Id<"vaultConvexProjects">;
+        },
+  ) => {
     void navigate({
       resetScroll: false,
       to: ".",
       search: (currentSearch) =>
         applyVaultDashboardProviderAddSearch({
           currentSearch,
-          provider,
+          provider: dialog.provider,
         }),
       state: (currentState) => ({
         ...currentState,
-        vaultDashboardDialog: provider === "convex" ? "add-convex" : "add-cloudflare",
+        vaultDashboardDialog:
+          dialog.provider === "convex"
+            ? {
+                dialog: "add-convex",
+                repairProjectId: dialog.repairProjectId,
+              }
+            : {
+                dialog: "add-cloudflare",
+                repairWorkerId: dialog.repairWorkerId,
+              },
       }),
     });
   };
@@ -266,8 +281,7 @@ export function VaultSelectedWorkspace({
     rootDirectory: string | undefined,
   ) => {
     if (!rootDirectory) {
-      setCloudflareBuildsRepairTarget({ workerId });
-      openProviderDialog("cloudflare");
+      openProviderDialog({ provider: "cloudflare", repairWorkerId: workerId });
       return;
     }
     void runProviderAction({
@@ -306,9 +320,11 @@ export function VaultSelectedWorkspace({
 
   const settingsState = buildVaultRepositorySettingsState({
     addCloudflareWorkerOnClick: canManageProviderAttachments
-      ? () => openProviderDialog("cloudflare")
+      ? () => openProviderDialog({ provider: "cloudflare" })
       : undefined,
-    addConvexOnClick: canManageProviderAttachments ? () => openProviderDialog("convex") : undefined,
+    addConvexOnClick: canManageProviderAttachments
+      ? () => openProviderDialog({ provider: "convex" })
+      : undefined,
     connectedCloudflareAccount:
       workspace.cloudflareConnection.state === "ready" &&
       workspace.cloudflareConnection.connection.connected === true &&
@@ -322,10 +338,11 @@ export function VaultSelectedWorkspace({
       ? handleConfigureWorkersBuildsForGitHub
       : undefined,
     changeConvexProjectConfigPathOnClick: canManageProviderAttachments
-      ? (convexProjectId) => {
-          setConvexCodeLocationRepairTarget({ convexProjectId });
-          openProviderDialog("convex");
-        }
+      ? (convexProjectId) =>
+          openProviderDialog({
+            provider: "convex",
+            repairProjectId: convexProjectId,
+          })
       : undefined,
     cloudflareObservations: workspace.cloudflareObservations,
     convexObservations: workspace.convexObservations,
@@ -381,7 +398,7 @@ export function VaultSelectedWorkspace({
             search: (currentSearch) => ({ ...currentSearch, delete: true }),
             state: (currentState) => ({
               ...currentState,
-              vaultDashboardDialog: "delete",
+              vaultDashboardDialog: { dialog: "delete" },
             }),
           });
         }}
@@ -421,33 +438,29 @@ export function VaultSelectedWorkspace({
       ) : null}
       {addConvexModeActive && canManageProviderAttachments ? (
         <VaultConvexDialog
-          key={`${vault._id}:${convexCodeLocationRepairTarget?.convexProjectId ?? "add"}`}
+          key={`${vault._id}:${convexRepairProjectId ?? "add"}`}
           onClose={() => {
-            setConvexCodeLocationRepairTarget(null);
             closeVaultDashboardDialog("add-convex");
           }}
           onSaved={() => {
-            setConvexCodeLocationRepairTarget(null);
             void invalidateProviderObservations();
             closeVaultDashboardDialog("add-convex");
           }}
-          repairProjectId={convexCodeLocationRepairTarget?.convexProjectId ?? null}
+          repairProjectId={convexRepairProjectId}
           vault={vault}
         />
       ) : null}
       {addCloudflareWorkerModeActive && canManageProviderAttachments ? (
         <VaultCloudflareDialog
-          key={`${vault._id}:${cloudflareBuildsRepairTarget?.workerId ?? "add"}`}
+          key={`${vault._id}:${cloudflareRepairWorkerId ?? "add"}`}
           connectedAccountId={connectedAccountId}
           onClose={() => {
-            setCloudflareBuildsRepairTarget(null);
             closeVaultDashboardDialog("add-cloudflare");
           }}
           onSaved={() => {
-            setCloudflareBuildsRepairTarget(null);
             void invalidateProviderObservations();
           }}
-          repairWorkerId={cloudflareBuildsRepairTarget?.workerId ?? null}
+          repairWorkerId={cloudflareRepairWorkerId}
           vault={vault}
         />
       ) : null}

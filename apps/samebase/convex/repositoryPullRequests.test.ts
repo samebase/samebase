@@ -294,7 +294,6 @@ describe("normalizeGitHubVaultSidebarSummaries", () => {
                 },
               },
             },
-            pullRequests: { totalCount: 7 },
           },
         },
         [repository],
@@ -303,7 +302,6 @@ describe("normalizeGitHubVaultSidebarSummaries", () => {
       {
         vaultId: repository.vaultId,
         repository: {
-          openPullRequestCount: 7,
           statusCheckRollup: {
             state: "SUCCESS",
             contexts: {
@@ -326,7 +324,6 @@ describe("normalizeGitHubVaultSidebarSummaries", () => {
           repository0: {
             databaseId: 456,
             defaultBranch: null,
-            pullRequests: { totalCount: 0 },
           },
         },
         [repository],

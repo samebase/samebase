@@ -17,9 +17,7 @@ export type VaultProviderObservationState<TObservation> =
   | { state: "loading" }
   | {
       state: "loaded";
-      freshness: "current" | "stale";
       observations: readonly TObservation[];
-      refreshing: boolean;
       reload: () => void;
     }
   | { state: "failed"; reload: () => void };
@@ -43,6 +41,26 @@ type VaultProviderObservationTarget = {
 
 const PROVIDER_OBSERVATION_STALE_TIME_MS = 60 * 1000;
 const PROVIDER_OBSERVATION_GC_TIME_MS = 5 * 60 * 1000;
+
+function providerObservationState<TObservation>({
+  data,
+  isError,
+  reload,
+  requested,
+}: {
+  data: readonly TObservation[] | undefined;
+  isError: boolean;
+  reload: () => void;
+  requested: boolean;
+}): VaultProviderObservationState<TObservation> {
+  if (!requested) {
+    return { state: "loaded", observations: [], reload };
+  }
+  if (data) {
+    return { state: "loaded", observations: data, reload };
+  }
+  return isError ? { state: "failed", reload } : { state: "loading" };
+}
 
 export function useVaultProviderObservations(vault: VaultProviderObservationTarget | null): {
   cloudflare: VaultCloudflareProviderObservationState;
@@ -169,104 +187,51 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
       queryKey: ["vault-provider-observations", vaultId],
     });
   };
+  const workers = providerObservationState({
+    data: cloudflareWorkersQuery.data,
+    isError: cloudflareWorkersQuery.isError,
+    reload: reloadCloudflareWorkers,
+    requested: cloudflareWorkerIds.length > 0,
+  });
+  const builds = providerObservationState({
+    data: cloudflareBuildsQuery.data,
+    isError: cloudflareBuildsQuery.isError,
+    reload: reloadCloudflareBuilds,
+    requested: cloudflareWorkerIds.length > 0,
+  });
+  const convexBuildAccess =
+    cloudflareWorkerIds.length === 0
+      ? {
+          state: "loaded" as const,
+          observations: [],
+          reload: reloadCloudflareConvexBuildAccess,
+        }
+      : !cloudflareBuildsQuery.data
+        ? cloudflareBuildsQuery.isError
+          ? { state: "failed" as const, reload: reloadCloudflareBuilds }
+          : { state: "loading" as const }
+        : cloudflareBuildAccessTargets.length === 0
+          ? { state: "loaded" as const, observations: [], reload: reloadCloudflareBuilds }
+          : providerObservationState({
+              data: cloudflareConvexBuildAccessQuery.data,
+              isError: cloudflareConvexBuildAccessQuery.isError,
+              reload: reloadCloudflareConvexBuildAccess,
+              requested: true,
+            });
+  const convex = providerObservationState({
+    data: convexQuery.data,
+    isError: convexQuery.isError,
+    reload: reloadConvex,
+    requested: convexProjectTargets.length > 0,
+  });
 
   return {
     cloudflare: {
-      workers:
-        cloudflareWorkerIds.length === 0
-          ? {
-              state: "loaded",
-              freshness: "current",
-              observations: [],
-              refreshing: false,
-              reload: reloadCloudflareWorkers,
-            }
-          : cloudflareWorkersQuery.data
-            ? {
-                state: "loaded",
-                freshness: cloudflareWorkersQuery.isRefetchError ? "stale" : "current",
-                observations: cloudflareWorkersQuery.data,
-                refreshing: cloudflareWorkersQuery.isFetching,
-                reload: reloadCloudflareWorkers,
-              }
-            : cloudflareWorkersQuery.isError
-              ? { state: "failed", reload: reloadCloudflareWorkers }
-              : { state: "loading" },
-      builds:
-        cloudflareWorkerIds.length === 0
-          ? {
-              state: "loaded",
-              freshness: "current",
-              observations: [],
-              refreshing: false,
-              reload: reloadCloudflareBuilds,
-            }
-          : cloudflareBuildsQuery.data
-            ? {
-                state: "loaded",
-                freshness: cloudflareBuildsQuery.isRefetchError ? "stale" : "current",
-                observations: cloudflareBuildsQuery.data,
-                refreshing: cloudflareBuildsQuery.isFetching,
-                reload: reloadCloudflareBuilds,
-              }
-            : cloudflareBuildsQuery.isError
-              ? { state: "failed", reload: reloadCloudflareBuilds }
-              : { state: "loading" },
-      convexBuildAccess:
-        cloudflareWorkerIds.length === 0
-          ? {
-              state: "loaded",
-              freshness: "current",
-              observations: [],
-              refreshing: false,
-              reload: reloadCloudflareConvexBuildAccess,
-            }
-          : !cloudflareBuildsQuery.data
-            ? cloudflareBuildsQuery.isError
-              ? { state: "failed", reload: reloadCloudflareBuilds }
-              : { state: "loading" }
-            : cloudflareBuildAccessTargets.length === 0
-              ? {
-                  state: "loaded",
-                  freshness: cloudflareBuildsQuery.isRefetchError ? "stale" : "current",
-                  observations: [],
-                  refreshing: cloudflareBuildsQuery.isFetching,
-                  reload: reloadCloudflareBuilds,
-                }
-              : cloudflareConvexBuildAccessQuery.data
-                ? {
-                    state: "loaded",
-                    freshness: cloudflareConvexBuildAccessQuery.isRefetchError
-                      ? "stale"
-                      : "current",
-                    observations: cloudflareConvexBuildAccessQuery.data,
-                    refreshing: cloudflareConvexBuildAccessQuery.isFetching,
-                    reload: reloadCloudflareConvexBuildAccess,
-                  }
-                : cloudflareConvexBuildAccessQuery.isError
-                  ? { state: "failed", reload: reloadCloudflareConvexBuildAccess }
-                  : { state: "loading" },
+      workers,
+      builds,
+      convexBuildAccess,
     },
-    convex:
-      convexProjectTargets.length === 0
-        ? {
-            state: "loaded",
-            freshness: "current",
-            observations: [],
-            refreshing: false,
-            reload: reloadConvex,
-          }
-        : convexQuery.data
-          ? {
-              state: "loaded",
-              freshness: convexQuery.isRefetchError ? "stale" : "current",
-              observations: convexQuery.data,
-              refreshing: convexQuery.isFetching,
-              reload: reloadConvex,
-            }
-          : convexQuery.isError
-            ? { state: "failed", reload: reloadConvex }
-            : { state: "loading" },
+    convex,
     invalidate,
   };
 }

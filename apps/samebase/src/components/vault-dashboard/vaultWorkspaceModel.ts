@@ -38,10 +38,7 @@ export type VaultWorkspaceSelection =
   | { state: "selected"; workspace: VaultWorkspaceSelected };
 
 export type VaultWorkspaceModel =
-  | {
-      state: "loading";
-      selectedRepositoryFullName: string | undefined;
-    }
+  | { state: "loading" }
   | {
       state: "ready";
       sidebarSummaries: VaultSidebarSummariesState;

@@ -8,7 +8,7 @@ import {
 import { routeTree } from "./routeTree.gen";
 import { createAppQueryClients } from "@/lib/appQueryClient";
 import { parseTanStackSearch, stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
-import type { VaultDashboardQueryDialog } from "@/routeSearch/root";
+import type { Id } from "../convex/_generated/dataModel";
 
 const workspaceMainScrollSelector = '[data-scroll-restoration-id="workspace-layout-v2-main"]';
 
@@ -96,6 +96,15 @@ declare module "@tanstack/react-router" {
   interface HistoryState {
     // Marks query-dialog entries so Cancel can safely return to the entry beneath them.
     settingsDeleteAccountDialog?: true;
-    vaultDashboardDialog?: VaultDashboardQueryDialog;
+    vaultDashboardDialog?:
+      | {
+          dialog: "add-cloudflare";
+          repairWorkerId?: Id<"vaultCloudflareWorkers">;
+        }
+      | {
+          dialog: "add-convex";
+          repairProjectId?: Id<"vaultConvexProjects">;
+        }
+      | { dialog: "delete" };
   }
 }

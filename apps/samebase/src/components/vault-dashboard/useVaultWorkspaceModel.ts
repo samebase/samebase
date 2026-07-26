@@ -20,17 +20,14 @@ function selectVault(
   return vaults.find((vault) => vault.repositoryFullName === repositoryFullName) ?? null;
 }
 
-export function useVaultWorkspaceModel(
-  selectedRepositoryFullName: string | undefined,
-  loadSidebarSummaries: boolean,
-): {
+export function useVaultWorkspaceModel(selectedRepositoryFullName: string | undefined): {
   model: VaultWorkspaceModel;
   commands: {
     invalidateProviderObservations: () => Promise<void>;
   };
 } {
   const vaults = useCacheQuery(api.vault.dashboard.getUserVaults);
-  const sidebarSummaries = useVaultSidebarSummaries(loadSidebarSummaries);
+  const sidebarSummaries = useVaultSidebarSummaries();
   const selectedVault = useMemo(
     () => selectVault(vaults, selectedRepositoryFullName),
     [selectedRepositoryFullName, vaults],
@@ -47,10 +44,7 @@ export function useVaultWorkspaceModel(
 
   const model = useMemo<VaultWorkspaceModel>(() => {
     if (!vaults) {
-      return {
-        state: "loading",
-        selectedRepositoryFullName,
-      };
+      return { state: "loading" };
     }
     if (!selectedRepositoryFullName) {
       return {

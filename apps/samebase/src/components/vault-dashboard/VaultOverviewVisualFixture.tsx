@@ -126,8 +126,6 @@ const LIST_SPACING_VAULT = {
 const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
   workers: {
     state: "loaded",
-    freshness: "current",
-    refreshing: false,
     reload: () => {},
     observations: [
       {
@@ -154,8 +152,6 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
   },
   builds: {
     state: "loaded",
-    freshness: "current",
-    refreshing: false,
     reload: () => {},
     observations: [
       {
@@ -186,8 +182,6 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
   },
   convexBuildAccess: {
     state: "loaded",
-    freshness: "current",
-    refreshing: false,
     reload: () => {},
     observations: [],
   },
@@ -195,8 +189,6 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
 
 const LIST_SPACING_CONVEX_OBSERVATIONS = {
   state: "loaded",
-  freshness: "current",
-  refreshing: false,
   reload: () => {},
   observations: [
     {
@@ -321,9 +313,8 @@ const FIXTURE_DEFAULT_BRANCH_CHECKS = {
 
 const FIXTURE_SIDEBAR_SUMMARIES = {
   state: "loaded",
-  summaries: SIDEBAR_LIST_VAULTS.map((vault, index) => ({
+  summaries: SIDEBAR_LIST_VAULTS.map((vault) => ({
     vaultId: vault._id,
-    openPullRequestCount: index + 1,
     checks: FIXTURE_DEFAULT_BRANCH_CHECKS.checks,
   })),
 } satisfies VaultSidebarSummariesState;
@@ -447,8 +438,6 @@ const PROVISIONING_VAULT = {
 const PROVISIONING_CLOUDFLARE_OBSERVATIONS = {
   workers: {
     state: "loaded",
-    freshness: "current",
-    refreshing: false,
     reload: () => {},
     observations: [
       {
@@ -465,8 +454,6 @@ const PROVISIONING_CLOUDFLARE_OBSERVATIONS = {
   },
   builds: {
     state: "loaded",
-    freshness: "current",
-    refreshing: false,
     reload: () => {},
     observations: [
       {
@@ -497,8 +484,6 @@ const PROVISIONING_CLOUDFLARE_OBSERVATIONS = {
   },
   convexBuildAccess: {
     state: "loaded",
-    freshness: "current",
-    refreshing: false,
     reload: () => {},
     observations: [
       {
@@ -523,8 +508,6 @@ const PROVISIONING_CLOUDFLARE_OBSERVATIONS = {
 
 const PROVISIONING_CONVEX_OBSERVATIONS = {
   state: "loaded",
-  freshness: "current",
-  refreshing: false,
   reload: () => {},
   observations: [
     {
@@ -563,32 +546,24 @@ const PROVISIONING_DEFAULT_BRANCH = {
 const PROVISIONING_EMPTY_CLOUDFLARE_OBSERVATIONS = {
   workers: {
     state: "loaded",
-    freshness: "current",
     observations: [],
-    refreshing: false,
     reload: () => {},
   },
   builds: {
     state: "loaded",
-    freshness: "current",
     observations: [],
-    refreshing: false,
     reload: () => {},
   },
   convexBuildAccess: {
     state: "loaded",
-    freshness: "current",
     observations: [],
-    refreshing: false,
     reload: () => {},
   },
 } satisfies VaultCloudflareProviderObservationState;
 
 const PROVISIONING_EMPTY_CONVEX_OBSERVATIONS = {
   state: "loaded",
-  freshness: "current",
   observations: [],
-  refreshing: false,
   reload: () => {},
 } satisfies VaultProviderObservationState<VaultConvexProjectObservation>;
 
@@ -845,7 +820,6 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
     summaries: [
       {
         vaultId: vault._id,
-        openPullRequestCount: 0,
         checks: PROVISIONING_DEFAULT_BRANCH.checks,
       },
     ],

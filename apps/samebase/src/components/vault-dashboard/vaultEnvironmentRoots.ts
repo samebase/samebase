@@ -50,7 +50,7 @@ export type VaultEnvironmentResource =
       actions: readonly VaultEnvironmentAction[];
       href: string;
       label: string;
-      provider: "cloudflare" | "convex";
+      provider: "convex";
       title: string;
     }
   | {

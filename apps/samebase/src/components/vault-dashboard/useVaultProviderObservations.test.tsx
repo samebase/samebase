@@ -46,22 +46,18 @@ describe("useVaultProviderObservations", () => {
       expect(latest?.cloudflare.workers).toMatchObject({
         state: "loaded",
         observations: [],
-        refreshing: false,
       });
       expect(latest?.cloudflare.builds).toMatchObject({
         state: "loaded",
         observations: [],
-        refreshing: false,
       });
       expect(latest?.cloudflare.convexBuildAccess).toMatchObject({
         state: "loaded",
         observations: [],
-        refreshing: false,
       });
       expect(latest?.convex).toMatchObject({
         state: "loaded",
         observations: [],
-        refreshing: false,
       });
     } finally {
       await act(async () => {

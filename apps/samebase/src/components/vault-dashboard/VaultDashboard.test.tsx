@@ -21,10 +21,6 @@ import type {
   VaultCloudflareWorkerConvexBuildAccessObservation,
   VaultCloudflareWorkerObservation,
 } from "./useVaultProviderObservations";
-import {
-  resolveVaultProviderSetupStatus,
-  resolveVaultProviderSetupStepProvider,
-} from "./vaultProviderSetup";
 import { formatVaultSourceSetupStep } from "./vaultSourceSetup";
 
 vi.mock("convex/react", async (importOriginal) => {
@@ -180,22 +176,16 @@ function makeLoadedCloudflareObservations({
   return {
     workers: {
       state: "loaded",
-      freshness: "current",
-      refreshing: false,
       reload: () => {},
       observations: workers,
     },
     builds: {
       state: "loaded",
-      freshness: "current",
-      refreshing: false,
       reload: () => {},
       observations: builds,
     },
     convexBuildAccess: {
       state: "loaded",
-      freshness: "current",
-      refreshing: false,
       reload: () => {},
       observations: convexBuildAccess,
     },
@@ -286,8 +276,6 @@ describe("buildProductionEnvironmentRoots", () => {
       }),
       convexObservations: {
         state: "loaded",
-        freshness: "current",
-        refreshing: false,
         reload: () => {},
         observations: [
           {
@@ -399,8 +387,6 @@ describe("buildProductionEnvironmentRoots", () => {
       }),
       convexObservations: {
         state: "loaded",
-        freshness: "current",
-        refreshing: false,
         reload: () => {},
         observations: [],
       },
@@ -452,8 +438,6 @@ describe("buildProductionEnvironmentRoots", () => {
         }),
         convexObservations: {
           state: "loaded",
-          freshness: "current",
-          refreshing: false,
           reload: () => {},
           observations: [
             {
@@ -535,8 +519,6 @@ describe("vault environment roots", () => {
         }),
         convexObservations: {
           state: "loaded",
-          freshness: "current",
-          refreshing: false,
           reload: () => {},
           observations: [
             {
@@ -679,7 +661,6 @@ describe("VaultOverviewVaultPickerPane", () => {
             summaries: [
               {
                 vaultId: vault._id,
-                openPullRequestCount: 3,
                 checks: {
                   state: "success",
                   totalCount: 1,
@@ -803,40 +784,6 @@ describe("formatVaultSourceSetupStep", () => {
     expect(formatVaultSourceSetupStep("fetch_github_repo")).toBe("Reading GitHub repository");
     expect(formatVaultSourceSetupStep("seed_starter")).toBe("Adding starter files");
     expect(formatVaultSourceSetupStep("sync_tree")).toBe("Syncing repository files");
-  });
-});
-
-describe("resolveVaultProviderSetupStatus", () => {
-  it("keeps provider setup states as progress, not manual actions", () => {
-    expect(
-      resolveVaultProviderSetupStatus({
-        status: "running",
-        provider: "convex",
-        runId: fakeRunId(),
-        step: "attach_convex",
-        updatedAt: 0,
-      }),
-    ).toEqual({
-      status: "running",
-      label: "Convex: provisioning",
-    });
-    expect(resolveVaultProviderSetupStatus({ status: "ready" })).toBeNull();
-  });
-
-  it("uses the current workflow step to label the active provider", () => {
-    const providerSetup = {
-      status: "running",
-      provider: "cloudflare",
-      runId: fakeRunId(),
-      step: "rotate_convex_deploy_keys_for_workers_builds",
-      updatedAt: 0,
-    } satisfies RepositorySettingsBuilderVault["providerSetup"];
-
-    expect(resolveVaultProviderSetupStepProvider(providerSetup)).toBe("cloudflare");
-    expect(resolveVaultProviderSetupStatus(providerSetup)).toEqual({
-      status: "running",
-      label: "Cloudflare: provisioning",
-    });
   });
 });
 
@@ -1511,8 +1458,6 @@ describe("buildVaultRepositorySettingsState", () => {
       connectedCloudflareAccount: undefined,
       convexObservations: {
         state: "loaded",
-        freshness: "current",
-        refreshing: false,
         reload: () => {},
         observations: [
           {
@@ -1601,8 +1546,6 @@ describe("buildVaultRepositorySettingsState", () => {
     });
     const convexObservations = {
       state: "loaded" as const,
-      freshness: "current" as const,
-      refreshing: false,
       reload: () => {},
       observations: [
         {

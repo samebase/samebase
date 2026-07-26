@@ -1,6 +1,5 @@
 import { COMPACT_IDENTITY_SVG_URL } from "@/components/compactIdentitySvgAsset";
 import { GitHubLogoIcon } from "@/lib/radixIcons";
-import { GitPullRequestCreateArrow, GitPullRequestDraft } from "lucide-react";
 
 export function GitHubProviderLogo() {
   return <GitHubLogoIcon className="h-4 w-4" />;
@@ -18,12 +17,6 @@ export function SamebaseLogoMark() {
       />
     </span>
   );
-}
-
-export function PullRequestStateLogo({ isDraft }: { isDraft: boolean }) {
-  const Icon = isDraft ? GitPullRequestDraft : GitPullRequestCreateArrow;
-
-  return <Icon aria-hidden="true" className="h-4 w-4" strokeWidth={2} />;
 }
 
 export function ConvexProviderLogo() {
