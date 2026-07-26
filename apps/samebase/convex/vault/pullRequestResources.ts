@@ -21,6 +21,7 @@ import { readConvexPreviewDeployments, readConvexProjectResource } from "./conve
 import {
   matchCloudflareWorkerBuildForCommit,
   type CloudflareBuildMatch,
+  vCloudflareBuildState,
 } from "./cloudflareBuildMatching";
 import type { VaultProviderObservationContext } from "./providerObservationQueries";
 
@@ -31,15 +32,6 @@ const CLOUDFLARE_BUILD_MAX_PAGES = 2;
 const CLOUDFLARE_GITHUB_APP_DATABASE_ID = 85455;
 const GITHUB_PULL_REQUEST_RESOURCE_LIMIT = 100;
 
-const vCloudflareBuildState = union(
-  literal("queued"),
-  literal("running"),
-  literal("success"),
-  literal("failure"),
-  literal("cancelled"),
-  literal("skipped"),
-  literal("unknown"),
-);
 const vConvexPreview = union(
   object({
     state: literal("available"),
@@ -313,26 +305,6 @@ function observedWorkerResourceIdentity(worker: StableWorker, rootDirectory: str
   };
 }
 
-export function matchCloudflareWorkerBuild(args: {
-  builds: readonly CloudflareWorkerBuild[];
-  head: PullRequestResourceHead;
-  worker: {
-    workerTag: string;
-    rootDirectory: string;
-  };
-  ghRepoId: string;
-  previewTriggerUuid: string;
-}): CloudflareBuildMatch {
-  return matchCloudflareWorkerBuildForCommit({
-    builds: args.builds,
-    branch: args.head.headRefName,
-    commitHash: args.head.headRefOid,
-    worker: args.worker,
-    ghRepoId: args.ghRepoId,
-    triggerUuid: args.previewTriggerUuid,
-  });
-}
-
 export function resolveConvexPreviewDeployment(args: {
   deployments: readonly ConvexCloudDeployment[];
   head: PullRequestResourceHead;
@@ -599,15 +571,16 @@ async function readWorkerResourcesForHeads(args: {
   };
   return await Promise.all(
     args.heads.map(async (head): Promise<PullRequestWorkerResource> => {
-      const match = matchCloudflareWorkerBuild({
+      const match = matchCloudflareWorkerBuildForCommit({
         builds,
-        head,
+        branch: head.headRefName,
+        commitHash: head.headRefOid,
         worker: {
           workerTag: args.worker.workerTag,
           rootDirectory: repository.rootDirectory,
         },
         ghRepoId: args.context.ghRepoId,
-        previewTriggerUuid: connectedBuilds.previewTriggerUuid,
+        triggerUuid: connectedBuilds.previewTriggerUuid,
       });
       if (match.state === "absent") {
         return exhausted

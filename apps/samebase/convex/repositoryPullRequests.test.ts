@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import {
   normalizeGitHubPullRequestPage,
   normalizeGitHubVaultSidebarSummaries,
+  vaultSidebarSummaryBatches,
 } from "./repositoryPullRequests";
 
 function fakeVaultId(): Id<"vaults"> {
@@ -311,7 +312,6 @@ describe("normalizeGitHubVaultSidebarSummaries", () => {
               statusContextCount: 1,
               checkRunCountsByState: [{ state: "SUCCESS", count: 1 }],
               statusContextCountsByState: [{ state: "SUCCESS", count: 1 }],
-              nodes: [],
             },
           },
         },
@@ -332,5 +332,22 @@ describe("normalizeGitHubVaultSidebarSummaries", () => {
         [repository],
       ),
     ).toEqual([{ vaultId: repository.vaultId, repository: null }]);
+  });
+});
+
+describe("vaultSidebarSummaryBatches", () => {
+  it("bounds each GitHub query while preserving every repository in order", () => {
+    const repositories = Array.from({ length: 41 }, (_, index) => ({
+      vaultId: fakeVaultId(),
+      ghRepoId: String(1_000 + index),
+      owner: `owner-${index}`,
+      name: `repository-${index}`,
+      defaultBranch: index % 2 === 0 ? "main" : "trunk",
+    }));
+
+    const batches = vaultSidebarSummaryBatches(repositories);
+
+    expect(batches.map((batch) => batch.length)).toEqual([20, 20, 1]);
+    expect(batches.flat()).toEqual(repositories);
   });
 });

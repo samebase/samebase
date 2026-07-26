@@ -49,6 +49,7 @@ const GITHUB_CHECK_CONCLUSIONS = [
   "STALE",
 ] as const;
 const UNKNOWN_GITHUB_STATE = "UNKNOWN" as const;
+const VAULT_SIDEBAR_SUMMARY_BATCH_SIZE = 20;
 const checkRunState = union(
   ...[...GITHUB_CHECK_RUN_STATES, UNKNOWN_GITHUB_STATE].map((state) => literal(state)),
 );
@@ -84,13 +85,22 @@ const checkCountFields = {
   statusContextCount: number(),
   checkRunCountsByState: array(object({ state: checkRunState, count: number() })),
   statusContextCountsByState: array(object({ state: statusState, count: number() })),
-  nodes: array(checkContext),
 };
-const vStatusCheckRollup = union(
+const vStatusCheckCounts = union(
   vNull(),
   object({
     state: statusState,
     contexts: object(checkCountFields),
+  }),
+);
+const vStatusCheckRollup = union(
+  vNull(),
+  object({
+    state: statusState,
+    contexts: object({
+      ...checkCountFields,
+      nodes: array(checkContext),
+    }),
   }),
 );
 const vPullRequest = object({
@@ -156,12 +166,13 @@ const vVaultSidebarSummary = object({
     vNull(),
     object({
       openPullRequestCount: number(),
-      statusCheckRollup: vStatusCheckRollup,
+      statusCheckRollup: vStatusCheckCounts,
     }),
   ),
 });
 export type RepositoryPullRequestPage = Infer<typeof vRepositoryPullRequestPage>;
 export type RepositoryPullRequest = Infer<typeof vPullRequest>;
+export type RepositoryStatusCheckCounts = Infer<typeof vStatusCheckCounts>;
 export type RepositoryStatusCheckRollup = Infer<typeof vStatusCheckRollup>;
 export type VaultSidebarSummary = Infer<typeof vVaultSidebarSummary>;
 const vBranchPullRequest = object({
@@ -223,7 +234,7 @@ const providerStatusCheckCountsSchema = z.object({
     }),
   ),
 });
-const compactStatusCheckRollupSchema = z
+const statusCheckCountsSchema = z
   .object({
     state: providerStatusStateSchema,
     contexts: providerStatusCheckCountsSchema,
@@ -408,7 +419,7 @@ const providerSidebarRepositorySchema = z
         name: z.string().min(1),
         target: z.object({
           __typename: z.literal("Commit"),
-          statusCheckRollup: compactStatusCheckRollupSchema,
+          statusCheckRollup: statusCheckCountsSchema,
         }),
       })
       .nullable(),
@@ -426,7 +437,7 @@ type SidebarRepositoryTarget = {
   name: string;
   defaultBranch: string;
 };
-type ProviderCompactStatusCheckRollup = z.infer<typeof compactStatusCheckRollupSchema>;
+type ProviderStatusCheckCounts = z.infer<typeof statusCheckCountsSchema>;
 type ProviderStatusCheckRollup = z.infer<typeof statusCheckRollupSchema>;
 
 function buildVaultSidebarSummariesQuery(repositories: readonly SidebarRepositoryTarget[]): string {
@@ -489,9 +500,19 @@ function vaultSidebarSummariesVariables(
   return variables;
 }
 
+export function vaultSidebarSummaryBatches(
+  repositories: readonly SidebarRepositoryTarget[],
+): SidebarRepositoryTarget[][] {
+  const batches: SidebarRepositoryTarget[][] = [];
+  for (let start = 0; start < repositories.length; start += VAULT_SIDEBAR_SUMMARY_BATCH_SIZE) {
+    batches.push(repositories.slice(start, start + VAULT_SIDEBAR_SUMMARY_BATCH_SIZE));
+  }
+  return batches;
+}
+
 function normalizeStatusCheckCounts(
-  rollup: NonNullable<ProviderCompactStatusCheckRollup>,
-): NonNullable<RepositoryStatusCheckRollup> {
+  rollup: NonNullable<ProviderStatusCheckCounts>,
+): NonNullable<RepositoryStatusCheckCounts> {
   const checkRunCount = rollup.contexts.checkRunCountsByState.reduce(
     (total, count) => total + count.count,
     0,
@@ -515,7 +536,6 @@ function normalizeStatusCheckCounts(
       statusContextCount: rollup.contexts.statusContextCount,
       checkRunCountsByState: rollup.contexts.checkRunCountsByState,
       statusContextCountsByState: rollup.contexts.statusContextCountsByState,
-      nodes: [],
     },
   };
 }
@@ -660,31 +680,38 @@ export const listVaultSidebarSummaries = action({
   args: {},
   returns: array(vVaultSidebarSummary),
   handler: async (ctx): Promise<VaultSidebarSummary[]> => {
-    const [repositories, githubConnection] = await Promise.all([
-      ctx.runQuery(internal.vault.records.listConnectedRepositoriesForUser, {
+    const repositories = await ctx.runQuery(
+      internal.vault.records.listConnectedRepositoriesForUser,
+      {
         userId: ctx.viewer.userId,
-      }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId: ctx.viewer.userId,
-        kind: "github",
-      }),
-    ]);
-    if (githubConnection?.kind !== "github") {
-      throw new Error("GitHub connection unavailable.");
-    }
+      },
+    );
     if (repositories.length === 0) {
       return [];
     }
+    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      userId: ctx.viewer.userId,
+      kind: "github",
+    });
+    if (githubConnection?.kind !== "github") {
+      throw new Error("GitHub connection unavailable.");
+    }
 
     const octokit = new Octokit({ auth: githubConnection.auth.credential });
-    const signal = createGitHubRequestDeadlineSignal();
-    return normalizeGitHubVaultSidebarSummaries(
-      await octokit.graphql(buildVaultSidebarSummariesQuery(repositories), {
-        ...vaultSidebarSummariesVariables(repositories),
-        request: { signal },
-      }),
-      repositories,
-    );
+    const summaries: VaultSidebarSummary[] = [];
+    for (const batch of vaultSidebarSummaryBatches(repositories)) {
+      const signal = createGitHubRequestDeadlineSignal();
+      summaries.push(
+        ...normalizeGitHubVaultSidebarSummaries(
+          await octokit.graphql(buildVaultSidebarSummariesQuery(batch), {
+            ...vaultSidebarSummariesVariables(batch),
+            request: { signal },
+          }),
+          batch,
+        ),
+      );
+    }
+    return summaries;
   },
 });
 

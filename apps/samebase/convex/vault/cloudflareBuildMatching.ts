@@ -1,13 +1,19 @@
+import { type Infer, v } from "convex/values";
+
 import { normalizeCloudflareBuildRoot, type CloudflareWorkerBuild } from "../cloudflareResources";
 
-export type CloudflareBuildState =
-  | "queued"
-  | "running"
-  | "success"
-  | "failure"
-  | "cancelled"
-  | "skipped"
-  | "unknown";
+const { literal, union } = v;
+
+export const vCloudflareBuildState = union(
+  literal("queued"),
+  literal("running"),
+  literal("success"),
+  literal("failure"),
+  literal("cancelled"),
+  literal("skipped"),
+  literal("unknown"),
+);
+export type CloudflareBuildState = Infer<typeof vCloudflareBuildState>;
 
 export type CloudflareBuildMatch =
   | {

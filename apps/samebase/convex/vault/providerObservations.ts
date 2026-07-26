@@ -20,21 +20,15 @@ import { fetchGitHubConvexCodeLocationDiscovery, fetchGitHubRepoIdentity } from 
 import { vCloudflareWorkerRepositoryDiscovery } from "./contracts/cloudflareAttachments";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import { buildConvexSiteUrl, readConvexProductionDeployment } from "./convexProjectResources";
-import { matchLatestCloudflareWorkerBuildForBranch } from "./cloudflareBuildMatching";
+import {
+  matchLatestCloudflareWorkerBuildForBranch,
+  vCloudflareBuildState,
+} from "./cloudflareBuildMatching";
 import type { VaultProviderObservationContext } from "./providerObservationQueries";
 
 const { array, id, literal, number, object, string, union } = v;
 
 const vObservationFailureReason = union(literal("connection_required"), literal("request_failed"));
-const vCloudflareBuildState = union(
-  literal("queued"),
-  literal("running"),
-  literal("success"),
-  literal("failure"),
-  literal("cancelled"),
-  literal("skipped"),
-  literal("unknown"),
-);
 const vCloudflareProductionBuildObservation = union(
   object({
     state: literal("available"),

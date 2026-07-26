@@ -1,11 +1,11 @@
-import type { RepositoryStatusCheckRollup } from "../../convex/repositoryPullRequests";
+import type { RepositoryStatusCheckCounts } from "../../convex/repositoryPullRequests";
 
 type CheckState = "success" | "failure" | "running" | "neutral" | "unknown";
-type StatusCheckRollup = NonNullable<RepositoryStatusCheckRollup>;
+type StatusCheckCounts = NonNullable<RepositoryStatusCheckCounts>;
 type CheckRunProviderState =
-  StatusCheckRollup["contexts"]["checkRunCountsByState"][number]["state"];
+  StatusCheckCounts["contexts"]["checkRunCountsByState"][number]["state"];
 type StatusContextProviderState =
-  StatusCheckRollup["contexts"]["statusContextCountsByState"][number]["state"];
+  StatusCheckCounts["contexts"]["statusContextCountsByState"][number]["state"];
 
 export type RepositoryCheckSummary = {
   state: "none" | CheckState;
@@ -84,7 +84,7 @@ function statusContextState(state: StatusContextProviderState): CheckState {
 }
 
 export function summarizeRepositoryChecks(
-  rollup: RepositoryStatusCheckRollup,
+  rollup: RepositoryStatusCheckCounts,
 ): RepositoryCheckSummary {
   if (rollup === null || rollup.contexts.totalCount === 0) {
     return {
