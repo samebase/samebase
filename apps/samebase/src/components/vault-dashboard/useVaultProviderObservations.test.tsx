@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { Id } from "../../../convex/_generated/dataModel";
+import { vaultExternalDataQueryKey } from "@/lib/vaultExternalDataQueryKey";
 import { useVaultProviderObservations } from "./useVaultProviderObservations";
 
 vi.mock("convex/react", () => ({
@@ -68,13 +69,21 @@ describe("useVaultProviderObservations", () => {
     }
   });
 
-  it("invalidates only the selected vault's provider observations", async () => {
+  it("invalidates only the selected vault's external data", async () => {
     const vaultId = fakeVaultId("vault-a");
     const otherVaultId = fakeVaultId("vault-b");
     const queryClient = new QueryClient();
-    const selectedVaultQueryKey = ["vault-provider-observations", vaultId, "test"];
-    const otherVaultQueryKey = ["vault-provider-observations", otherVaultId, "test"];
-    queryClient.setQueryData(selectedVaultQueryKey, []);
+    const selectedVaultProviderQueryKey = [
+      ...vaultExternalDataQueryKey(vaultId),
+      "cloudflare-workers",
+    ];
+    const selectedVaultPullRequestResourceQueryKey = [
+      ...vaultExternalDataQueryKey(vaultId),
+      "pull-request-resources",
+    ];
+    const otherVaultQueryKey = [...vaultExternalDataQueryKey(otherVaultId), "cloudflare-workers"];
+    queryClient.setQueryData(selectedVaultProviderQueryKey, []);
+    queryClient.setQueryData(selectedVaultPullRequestResourceQueryKey, []);
     queryClient.setQueryData(otherVaultQueryKey, []);
     const rootElement = document.createElement("div");
     document.body.append(rootElement);
@@ -86,7 +95,7 @@ describe("useVaultProviderObservations", () => {
         _id: vaultId,
         cloudflareWorkers: [],
         convexProjects: [],
-      }).invalidate;
+      }).invalidateExternalData;
       return null;
     }
 
@@ -106,7 +115,10 @@ describe("useVaultProviderObservations", () => {
         await invalidate?.();
       });
 
-      expect(queryClient.getQueryState(selectedVaultQueryKey)?.isInvalidated).toBe(true);
+      expect(queryClient.getQueryState(selectedVaultProviderQueryKey)?.isInvalidated).toBe(true);
+      expect(
+        queryClient.getQueryState(selectedVaultPullRequestResourceQueryKey)?.isInvalidated,
+      ).toBe(true);
       expect(queryClient.getQueryState(otherVaultQueryKey)?.isInvalidated).toBe(false);
     } finally {
       await act(async () => {

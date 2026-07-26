@@ -23,7 +23,7 @@ function selectVault(
 export function useVaultWorkspaceModel(selectedRepositoryFullName: string | undefined): {
   model: VaultWorkspaceModel;
   commands: {
-    invalidateProviderObservations: () => Promise<void>;
+    invalidateExternalData: () => Promise<void>;
   };
 } {
   const vaults = useCacheQuery(api.vault.dashboard.getUserVaults);
@@ -117,7 +117,7 @@ export function useVaultWorkspaceModel(selectedRepositoryFullName: string | unde
   return {
     model,
     commands: {
-      invalidateProviderObservations: providerObservations.invalidate,
+      invalidateExternalData: providerObservations.invalidateExternalData,
     },
   };
 }

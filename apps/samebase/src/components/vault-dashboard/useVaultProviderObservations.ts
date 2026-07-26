@@ -3,6 +3,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import type { ConvexCodeLocation } from "../../../shared/convexCodeLocation";
+import { vaultExternalDataQueryKey } from "@/lib/vaultExternalDataQueryKey";
 
 export type VaultCloudflareWorkerObservation =
   (typeof api.vault.providerObservations.observeCloudflareWorkers)["_returnType"][number];
@@ -65,7 +66,7 @@ function providerObservationState<TObservation>({
 export function useVaultProviderObservations(vault: VaultProviderObservationTarget | null): {
   cloudflare: VaultCloudflareProviderObservationState;
   convex: VaultProviderObservationState<VaultConvexProjectObservation>;
-  invalidate: () => Promise<void>;
+  invalidateExternalData: () => Promise<void>;
 } {
   const queryClient = useQueryClient();
   const observeCloudflareWorkers = useAction(
@@ -92,7 +93,7 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
     .sort((left, right) => left.convexProjectId.localeCompare(right.convexProjectId));
 
   const cloudflareWorkersQuery = useQuery({
-    queryKey: ["vault-provider-observations", vaultId, "cloudflare-workers", cloudflareWorkerIds],
+    queryKey: [...vaultExternalDataQueryKey(vaultId), "cloudflare-workers", cloudflareWorkerIds],
     queryFn: async () => {
       if (!vaultId) {
         throw new Error("Vault is required to observe Cloudflare Workers.");
@@ -105,8 +106,7 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
   });
   const cloudflareBuildsQuery = useQuery({
     queryKey: [
-      "vault-provider-observations",
-      vaultId,
+      ...vaultExternalDataQueryKey(vaultId),
       "cloudflare-worker-builds",
       cloudflareWorkerIds,
     ],
@@ -135,8 +135,7 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
     .sort((left, right) => left.workerId.localeCompare(right.workerId));
   const cloudflareConvexBuildAccessQuery = useQuery({
     queryKey: [
-      "vault-provider-observations",
-      vaultId,
+      ...vaultExternalDataQueryKey(vaultId),
       "cloudflare-worker-convex-build-access",
       cloudflareBuildAccessTargets,
       convexProjectTargets,
@@ -158,7 +157,7 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
     gcTime: PROVIDER_OBSERVATION_GC_TIME_MS,
   });
   const convexQuery = useQuery({
-    queryKey: ["vault-provider-observations", vaultId, "convex", convexProjectTargets],
+    queryKey: [...vaultExternalDataQueryKey(vaultId), "convex", convexProjectTargets],
     queryFn: async () => {
       if (!vaultId) {
         throw new Error("Vault is required to observe Convex projects.");
@@ -182,9 +181,9 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
   const reloadConvex = () => {
     void convexQuery.refetch();
   };
-  const invalidate = async () => {
+  const invalidateExternalData = async () => {
     await queryClient.invalidateQueries({
-      queryKey: ["vault-provider-observations", vaultId],
+      queryKey: vaultExternalDataQueryKey(vaultId),
     });
   };
   const workers = providerObservationState({
@@ -232,6 +231,6 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
       convexBuildAccess,
     },
     convex,
-    invalidate,
+    invalidateExternalData,
   };
 }

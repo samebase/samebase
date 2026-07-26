@@ -40,12 +40,12 @@ export function VaultSelectedWorkspace({
   developerToolsVisible,
   page,
   workspace,
-  invalidateProviderObservations,
+  invalidateExternalData,
 }: {
   developerToolsVisible: boolean;
   page: VaultOverviewPageKind;
   workspace: VaultWorkspace;
-  invalidateProviderObservations: () => Promise<void>;
+  invalidateExternalData: () => Promise<void>;
 }) {
   const navigate = useNavigate();
   const router = useRouter();
@@ -184,12 +184,10 @@ export function VaultSelectedWorkspace({
   const runProviderAction = async ({
     action,
     errorTitle,
-    invalidate,
     run,
   }: {
     action: VaultRepositorySettingsPendingAction;
     errorTitle: string;
-    invalidate: boolean;
     run: () => Promise<unknown>;
   }) => {
     if (providerActionInFlight) {
@@ -206,9 +204,7 @@ export function VaultSelectedWorkspace({
       });
     } finally {
       setProviderActionInFlight(null);
-      if (invalidate) {
-        void invalidateProviderObservations();
-      }
+      void invalidateExternalData();
     }
   };
 
@@ -216,7 +212,6 @@ export function VaultSelectedWorkspace({
     void runProviderAction({
       action: { kind: "reconcile_convex_project_team", convexProjectId },
       errorTitle: "Could not update the Convex team",
-      invalidate: true,
       run: () => reconcileConvexProjectTeam({ vaultId: vault._id, convexProjectId }),
     });
   };
@@ -225,7 +220,6 @@ export function VaultSelectedWorkspace({
     void runProviderAction({
       action: { kind: "detach_cloudflare_worker", workerId },
       errorTitle: "Could not remove Cloudflare attachment",
-      invalidate: false,
       run: () => detachCloudflareWorker({ vaultId: vault._id, workerId }),
     });
   };
@@ -234,7 +228,6 @@ export function VaultSelectedWorkspace({
     void runProviderAction({
       action: { kind: "detach_convex_project", convexProjectId },
       errorTitle: "Could not remove Convex attachment",
-      invalidate: false,
       run: () => detachConvexProject({ vaultId: vault._id, convexProjectId }),
     });
   };
@@ -250,7 +243,6 @@ export function VaultSelectedWorkspace({
     void runProviderAction({
       action: { kind: "configure_workers_builds_for_github", workerId },
       errorTitle: "Could not configure Workers Builds for GitHub",
-      invalidate: true,
       run: () =>
         configureWorkersBuildsForGitHub({
           workerId,
@@ -271,7 +263,6 @@ export function VaultSelectedWorkspace({
         convexProjectId,
       },
       errorTitle: "Could not rotate Convex deploy keys for Workers Builds",
-      invalidate: true,
       run: () =>
         rotateConvexDeployKeysForWorkersBuilds({
           convexProjectId,
@@ -391,7 +382,7 @@ export function VaultSelectedWorkspace({
             closeVaultDashboardDialog("add-convex");
           }}
           onSaved={() => {
-            void invalidateProviderObservations();
+            void invalidateExternalData();
             closeVaultDashboardDialog("add-convex");
           }}
           repairProjectId={convexRepairProjectId}
@@ -406,7 +397,7 @@ export function VaultSelectedWorkspace({
             closeVaultDashboardDialog("add-cloudflare");
           }}
           onSaved={() => {
-            void invalidateProviderObservations();
+            void invalidateExternalData();
           }}
           repairWorkerId={cloudflareRepairWorkerId}
           vault={vault}

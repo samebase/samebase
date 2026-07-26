@@ -85,7 +85,7 @@ export function VaultDashboard({
           <VaultSelectedWorkspace
             key={workspaceModel.selection.workspace.vault._id}
             developerToolsVisible={developerToolsVisible}
-            invalidateProviderObservations={workspaceCommands.invalidateProviderObservations}
+            invalidateExternalData={workspaceCommands.invalidateExternalData}
             page={page}
             workspace={workspaceModel.selection.workspace}
           />

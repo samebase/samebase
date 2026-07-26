@@ -8,6 +8,7 @@ import type {
 import type { UserVaultResult } from "../../convex/vault/contracts/getUserVaults";
 import type { PullRequestResources } from "../../convex/vault/pullRequestResources";
 import { summarizeRepositoryChecks, type RepositoryCheckSummary } from "@/lib/repositoryChecks";
+import { vaultExternalDataQueryKey } from "@/lib/vaultExternalDataQueryKey";
 import { useInfiniteQuery, useQueries } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { useCallback, useMemo } from "react";
@@ -230,8 +231,7 @@ export function useVaultPullRequests(args: {
   const resourceQueries = useQueries({
     queries: pullRequestIdPages.map((pagePullRequestIds, pageIndex) => ({
       queryKey: [
-        "vault-provider-observations",
-        vaultId,
+        ...vaultExternalDataQueryKey(vaultId),
         "pull-request-resources",
         workerAttachments,
         projectAttachments,
