@@ -138,7 +138,6 @@
   /* TODO: maybe add it back later, for now it's too jarring */
   a:any-link {
     /* color: revert; */
-    cursor: pointer;
     text-decoration: revert;
   }
 
@@ -173,6 +172,11 @@
   label:has([role="checkbox"][data-disabled]) {
     cursor: not-allowed;
   }
+}
+
+/* Interactive primitives can add cursor utilities after the base layer. Links remain links. */
+a:any-link {
+  cursor: pointer;
 }
 
 @layer utilities {
