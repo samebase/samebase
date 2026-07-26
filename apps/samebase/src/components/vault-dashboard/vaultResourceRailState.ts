@@ -744,7 +744,6 @@ export function buildVaultDashboardResourceRailState({
   changeConvexProjectConfigPathOnClick,
   cloudflareObservations,
   convexObservations,
-  githubRepositoryUrl,
   isConfiguringWorkersBuildsForGitHub,
   isDetachingCloudflareWorker,
   isDetachingConvexProject,
@@ -767,7 +766,6 @@ export function buildVaultDashboardResourceRailState({
   changeConvexProjectConfigPathOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   cloudflareObservations: VaultCloudflareProviderObservationState;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
-  githubRepositoryUrl: string;
   isConfiguringWorkersBuildsForGitHub?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
   isDetachingCloudflareWorker?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
   isDetachingConvexProject?: (convexProjectId: Id<"vaultConvexProjects">) => boolean;
@@ -785,33 +783,6 @@ export function buildVaultDashboardResourceRailState({
     convexProjectId: Id<"vaultConvexProjects">,
   ) => void;
 }): VaultResourceRailState {
-  let githubRow: VaultResourceRailRowState<"github">;
-  if (vault.hasConnectedGitHubRepository) {
-    githubRow = {
-      provider: "github",
-      rowId: "github",
-      status: "available",
-      value: vault.repositoryFullName,
-      href: githubRepositoryUrl,
-    };
-  } else if (vault.sourceSetup.status === "failed") {
-    githubRow = {
-      provider: "github",
-      rowId: "github",
-      status: "failed",
-      value: vault.repositoryFullName,
-      description: "Repository setup failed.",
-    };
-  } else {
-    githubRow = {
-      provider: "github",
-      rowId: "github",
-      status: "loading",
-      value: vault.repositoryFullName,
-      description: "Loading from GitHub...",
-    };
-  }
-
   const rowsByRoot = new Map<string, VaultResourceRailRowState<"cloudflare" | "convex">[]>();
   const convexProjectActionLabels = new Map(
     vault.convexProjects.map((project) => [
@@ -886,7 +857,6 @@ export function buildVaultDashboardResourceRailState({
 
   return {
     attentionRows,
-    githubRow,
     roots: [...rowsByRoot.entries()]
       .sort(([leftRoot], [rightRoot]) => compareRootDirectories(leftRoot, rightRoot))
       .map(([rootDirectory, rows]) => ({ rootDirectory, rows })),

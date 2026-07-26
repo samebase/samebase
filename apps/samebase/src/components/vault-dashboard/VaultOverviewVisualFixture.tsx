@@ -11,11 +11,9 @@ import {
 import { buildProductionEnvironmentRoots } from "@/components/vault-dashboard/vaultEnvironmentRoots";
 import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
 import type { VaultWorkspaceSelected } from "@/components/vault-dashboard/vaultWorkspaceModel";
-import {
-  VaultOverviewVaultPickerPane,
-  type VaultDashboardVault,
-} from "@/components/vault-dashboard/VaultDashboard";
+import { VaultOverviewVaultPickerPane } from "@/components/vault-dashboard/VaultOverviewVaultPickerPane";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
+import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
 import type {
   VaultDefaultBranchObservation,
   VaultPullRequest,
@@ -123,7 +121,7 @@ const LIST_SPACING_VAULT = {
       projectId: "samebase",
     },
   ],
-} satisfies VaultDashboardVault;
+} satisfies UserVaultResult;
 
 const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
   workers: {
@@ -247,7 +245,7 @@ const SIDEBAR_LIST_VAULTS = [
     ghRepoName: "guestbook",
     repositoryFullName: "noter/guestbook",
   },
-] satisfies VaultDashboardVault[];
+] satisfies UserVaultResult[];
 
 const FIXTURE_NO_CHECKS = {
   state: "none",
@@ -444,7 +442,7 @@ const PROVISIONING_VAULT = {
       projectId: "2653471",
     },
   ],
-} satisfies VaultDashboardVault;
+} satisfies UserVaultResult;
 
 const PROVISIONING_CLOUDFLARE_OBSERVATIONS = {
   workers: {
@@ -687,7 +685,7 @@ function buildFixtureWorkspace({
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
   githubRepositoryUrl: string;
   pullRequests: VaultPullRequestsState;
-  vault: VaultDashboardVault;
+  vault: UserVaultResult;
 }) {
   const workspace = {
     access: { state: "ready", accessKeys: ROLE_ACCESS_GRANTS.role_member },
@@ -727,7 +725,6 @@ function buildFixtureWorkspace({
       configureWorkersBuildsForGitHubOnClick: () => {},
       detachCloudflareWorkerOnClick: () => {},
       detachConvexProjectOnClick: () => {},
-      githubRepositoryUrl,
       reconcileConvexProjectTeamOnClick: () => {},
       rotateConvexDeployKeysForWorkersBuildsOnClick: () => {},
       vault,
@@ -737,7 +734,7 @@ function buildFixtureWorkspace({
 }
 
 function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisioningVisualMode }) {
-  let vault: VaultDashboardVault;
+  let vault: UserVaultResult;
   let pullRequests: VaultPullRequestsState;
   let cloudflareObservations: VaultCloudflareProviderObservationState;
   let convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
@@ -873,7 +870,7 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
           content: (
             <VaultOverviewPage
               developerToolsVisible={false}
-              isRemovingVault={false}
+              isRetryingVaultAction={false}
               page="overview"
               resourceRailState={resourceRailState}
               workspace={workspace}
@@ -1004,7 +1001,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
         content: (
           <VaultOverviewPage
             developerToolsVisible={mode === "vault-overview-v2-dev"}
-            isRemovingVault={false}
+            isRetryingVaultAction={false}
             page={page}
             resourceRailState={resourceRailState}
             workspace={workspace}

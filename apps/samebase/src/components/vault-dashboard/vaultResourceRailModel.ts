@@ -14,7 +14,7 @@ export type VaultResourceRailActionList = readonly [
   ...VaultResourceRailAction[],
 ];
 
-export type VaultResourceRailProvider = "cloudflare" | "convex" | "github";
+export type VaultResourceRailProvider = "cloudflare" | "convex";
 
 type VaultResourceRailLoadingRow<TProvider extends VaultResourceRailProvider> = {
   description?: string;
@@ -80,7 +80,6 @@ export type VaultResourceRailRootState = {
 
 export type VaultResourceRailState = {
   attentionRows: readonly VaultResourceRailRowState<"cloudflare" | "convex">[];
-  githubRow: VaultResourceRailRowState<"github">;
   roots: readonly VaultResourceRailRootState[];
   vaultActionRows: readonly VaultResourceRailRowState<"cloudflare" | "convex">[];
 };

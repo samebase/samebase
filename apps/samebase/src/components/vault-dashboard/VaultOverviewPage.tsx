@@ -20,7 +20,7 @@ export type VaultOverviewPageKind = "overview" | "settings";
 
 type VaultOverviewPageProps = {
   developerToolsVisible: boolean;
-  isRemovingVault: boolean;
+  isRetryingVaultAction: boolean;
   onOpenDeleteDialog: () => void;
   onRetryInfrastructureProvisioning: () => void;
   onRetryVaultDeletion: () => void;
@@ -101,10 +101,12 @@ function RepositoryHeader({
 
 function FailureNotice({
   description,
+  isRetrying,
   onRetry,
   title,
 }: {
   description: string;
+  isRetrying?: boolean;
   onRetry?: () => void;
   title: string;
 }) {
@@ -123,8 +125,9 @@ function FailureNotice({
       {onRetry ? (
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">{content}</div>
-          <Button size="sm" type="button" variant="outline" onClick={onRetry}>
-            Retry
+          <Button disabled={isRetrying} size="sm" type="button" variant="outline" onClick={onRetry}>
+            {isRetrying ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {isRetrying ? "Retrying..." : "Retry"}
           </Button>
         </div>
       ) : (
@@ -135,10 +138,12 @@ function FailureNotice({
 }
 
 function VaultStateNotice({
+  isRetryingVaultAction,
   onRetryInfrastructureProvisioning,
   onRetryVaultDeletion,
   vault,
 }: {
+  isRetryingVaultAction: boolean;
   onRetryInfrastructureProvisioning: () => void;
   onRetryVaultDeletion: () => void;
   vault: UserVaultResult;
@@ -147,6 +152,7 @@ function VaultStateNotice({
     return (
       <FailureNotice
         description={vault.deletion.message || vault.deletion.lastError}
+        isRetrying={isRetryingVaultAction}
         onRetry={onRetryVaultDeletion}
         title="Vault removal failed"
       />
@@ -168,6 +174,7 @@ function VaultStateNotice({
     return (
       <FailureNotice
         description={vault.providerSetup.message}
+        isRetrying={isRetryingVaultAction}
         onRetry={onRetryInfrastructureProvisioning}
         title="Provider setup failed"
       />
@@ -178,7 +185,7 @@ function VaultStateNotice({
 
 export function VaultOverviewPage({
   developerToolsVisible,
-  isRemovingVault,
+  isRetryingVaultAction,
   onOpenDeleteDialog,
   onRetryInfrastructureProvisioning,
   onRetryVaultDeletion,
@@ -206,7 +213,6 @@ export function VaultOverviewPage({
       {page === "settings" ? (
         <RepositorySettings
           developerToolsVisible={developerToolsVisible}
-          isRemovingVault={isRemovingVault}
           onOpenDeleteDialog={onOpenDeleteDialog}
           resourceRailState={resourceRailState}
           workspace={workspace}
@@ -230,6 +236,7 @@ export function VaultOverviewPage({
           ) : (
             <>
               <VaultStateNotice
+                isRetryingVaultAction={isRetryingVaultAction}
                 onRetryInfrastructureProvisioning={onRetryInfrastructureProvisioning}
                 onRetryVaultDeletion={onRetryVaultDeletion}
                 vault={workspace.vault}

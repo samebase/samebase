@@ -133,9 +133,6 @@ function ResourceActions({ row }: { row: VaultResourceRailRowState }) {
 }
 
 function resourceOwner(row: VaultResourceRailRowState, workspace: VaultWorkspaceSelected): string {
-  if (row.provider === "github") {
-    return workspace.vault.ghRepoOwner;
-  }
   if (row.provider === "convex") {
     if (row.status !== "action_required" && row.scope) {
       return row.scope;
@@ -293,13 +290,11 @@ function AddResourceButton({
 
 export function RepositorySettings({
   developerToolsVisible,
-  isRemovingVault,
   onOpenDeleteDialog,
   resourceRailState,
   workspace,
 }: {
   developerToolsVisible: boolean;
-  isRemovingVault: boolean;
   onOpenDeleteDialog: () => void;
   resourceRailState: VaultResourceRailState;
   workspace: VaultWorkspaceSelected;
@@ -420,13 +415,13 @@ export function RepositorySettings({
           </p>
           <Button
             className="justify-self-start @3xl:justify-self-end"
-            disabled={deleteAction.state === "disabled" || isRemovingVault}
+            disabled={deleteAction.state === "disabled"}
             size="sm"
             type="button"
             variant="destructive"
             onClick={onOpenDeleteDialog}
           >
-            {isRemovingVault ? "Removing..." : "Remove vault"}
+            Remove vault
           </Button>
         </div>
       </section>

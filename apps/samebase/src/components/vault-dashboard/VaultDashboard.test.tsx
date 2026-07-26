@@ -5,12 +5,10 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { GitHubRepositoryNameSlashPreview } from "@/components/NewAppPage";
-import {
-  VaultDashboardCloudflareDialog,
-  VaultDashboardConvexDialog,
-  VaultDashboardDeleteDialog,
-  VaultOverviewVaultPickerPane,
-} from "./VaultDashboard";
+import { VaultOverviewVaultPickerPane } from "./VaultOverviewVaultPickerPane";
+import { VaultCloudflareDialogContent } from "./VaultCloudflareDialog";
+import { VaultConvexDialogContent } from "./VaultConvexDialog";
+import { VaultDeleteDialogContent } from "./VaultDeleteDialog";
 import { VaultDashboardCloudflareAccountDialog } from "./VaultDashboardCloudflareAccountDialog";
 import {
   buildProductionEnvironmentRoots,
@@ -76,9 +74,7 @@ function fakeDeletionRunId(): Id<"workflow_vaultDeletion_runs"> {
   return "mx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
-type CloudflareDialogWorker = Parameters<
-  typeof VaultDashboardCloudflareDialog
->[0]["workers"][number];
+type CloudflareDialogWorker = Parameters<typeof VaultCloudflareDialogContent>[0]["workers"][number];
 
 function makeCloudflareDialogWorker(
   overrides: Partial<CloudflareDialogWorker>,
@@ -200,14 +196,6 @@ function makeLoadedCloudflareObservations({
       reload: () => {},
       observations: convexBuildAccess,
     },
-  };
-}
-
-function makeLoadingCloudflareObservations(): VaultCloudflareProviderObservationState {
-  return {
-    workers: { state: "loading" },
-    builds: { state: "loading" },
-    convexBuildAccess: { state: "loading" },
   };
 }
 
@@ -849,29 +837,28 @@ describe("resolveVaultProviderSetupStatus", () => {
   });
 });
 
-describe("VaultDashboardDeleteDialog", () => {
+describe("VaultDeleteDialogContent", () => {
   const baseProps = {
     commitError: null,
     deleteError: null,
     didAttemptCommit: false,
-    isCommitting: false,
-    isDeleting: false,
     onCommitBeforeRemove: () => {},
     onDeleteOptionChange: () => {},
     onOpenChange: () => {},
     onRemoveVault: () => {},
-    open: true,
+    progress: "idle",
     removeConvexProvision: false,
     removeGithubRepo: false,
     removeCloudflareProvision: false,
     stagedChangesCount: 0,
-  } satisfies Omit<Parameters<typeof VaultDashboardDeleteDialog>[0], "vaultToDelete">;
+  } satisfies Omit<Parameters<typeof VaultDeleteDialogContent>[0], "target">;
 
   it("allows Cloudflare cleanup for provisioned Workers on connected repository vaults", () => {
     const markup = renderToStaticMarkup(
-      <VaultDashboardDeleteDialog
+      <VaultDeleteDialogContent
         {...baseProps}
-        vaultToDelete={{
+        target={{
+          id: fakeVaultId(),
           repositoryFullName: "ada/existing-repo",
           isSamebaseManaged: false,
           canRemoveGithubRepo: false,
@@ -889,9 +876,10 @@ describe("VaultDashboardDeleteDialog", () => {
 
   it("shows Convex cleanup when a failed create left a removable project", () => {
     const markup = renderToStaticMarkup(
-      <VaultDashboardDeleteDialog
+      <VaultDeleteDialogContent
         {...baseProps}
-        vaultToDelete={{
+        target={{
+          id: fakeVaultId(),
           repositoryFullName: "ada/existing-repo",
           isSamebaseManaged: false,
           canRemoveGithubRepo: false,
@@ -930,8 +918,8 @@ describe("VaultDashboardCloudflareAccountDialog", () => {
   });
 });
 
-describe("VaultDashboardConvexDialog", () => {
-  type ConvexDialogProps = Parameters<typeof VaultDashboardConvexDialog>[0];
+describe("VaultConvexDialogContent", () => {
+  type ConvexDialogProps = Parameters<typeof VaultConvexDialogContent>[0];
 
   const vault = {
     id: fakeVaultId(),
@@ -995,7 +983,7 @@ describe("VaultDashboardConvexDialog", () => {
 
   it("supports selecting multiple existing projects with an explicit config for each", () => {
     const markup = renderToStaticMarkup(
-      <VaultDashboardConvexDialog
+      <VaultConvexDialogContent
         codeLocations={codeLocations}
         createCodeLocationKey="config:convex.json"
         createProjectName=""
@@ -1011,7 +999,6 @@ describe("VaultDashboardConvexDialog", () => {
         onProjectCodeLocationKeyChange={() => {}}
         onProjectToggle={() => {}}
         onSubmit={() => {}}
-        open
         repairProject={null}
         selectedProjectCodeLocationKeys={{
           "project-1": "config:apps/web/convex.json",
@@ -1033,7 +1020,7 @@ describe("VaultDashboardConvexDialog", () => {
 
   it("keeps the discovered selection retryable after a submit error", () => {
     const markup = renderToStaticMarkup(
-      <VaultDashboardConvexDialog
+      <VaultConvexDialogContent
         codeLocations={codeLocations}
         createCodeLocationKey="config:convex.json"
         createProjectName=""
@@ -1049,7 +1036,6 @@ describe("VaultDashboardConvexDialog", () => {
         onProjectCodeLocationKeyChange={() => {}}
         onProjectToggle={() => {}}
         onSubmit={() => {}}
-        open
         repairProject={null}
         selectedProjectCodeLocationKeys={{ "project-1": "config:apps/web/convex.json" }}
         sourceCompleteness="complete"
@@ -1072,7 +1058,7 @@ describe("VaultDashboardConvexDialog", () => {
       sourceCompleteness,
     }: Pick<ConvexDialogProps, "codeLocations" | "error" | "isLoading" | "sourceCompleteness">) =>
       renderToStaticMarkup(
-        <VaultDashboardConvexDialog
+        <VaultConvexDialogContent
           codeLocations={codeLocations}
           createCodeLocationKey=""
           createProjectName=""
@@ -1088,7 +1074,6 @@ describe("VaultDashboardConvexDialog", () => {
           onProjectCodeLocationKeyChange={() => {}}
           onProjectToggle={() => {}}
           onSubmit={() => {}}
-          open
           repairProject={null}
           selectedProjectCodeLocationKeys={{}}
           sourceCompleteness={sourceCompleteness}
@@ -1145,7 +1130,7 @@ describe("VaultDashboardConvexDialog", () => {
 
   it("uses the same closed selector to repair a moved code location", () => {
     const markup = renderToStaticMarkup(
-      <VaultDashboardConvexDialog
+      <VaultConvexDialogContent
         codeLocations={codeLocations}
         createCodeLocationKey="config:apps/web/convex.json"
         createProjectName=""
@@ -1161,7 +1146,6 @@ describe("VaultDashboardConvexDialog", () => {
         onProjectCodeLocationKeyChange={() => {}}
         onProjectToggle={() => {}}
         onSubmit={() => {}}
-        open
         repairProject={{
           codeLocation: { kind: "config", convexConfigPath: "convex.json" },
           projectId: "project-1",
@@ -1181,7 +1165,7 @@ describe("VaultDashboardConvexDialog", () => {
 
   it("does not claim that no configs exist after a partial source scan", () => {
     const markup = renderToStaticMarkup(
-      <VaultDashboardConvexDialog
+      <VaultConvexDialogContent
         codeLocations={[]}
         createCodeLocationKey=""
         createProjectName=""
@@ -1197,7 +1181,6 @@ describe("VaultDashboardConvexDialog", () => {
         onProjectCodeLocationKeyChange={() => {}}
         onProjectToggle={() => {}}
         onSubmit={() => {}}
-        open
         repairProject={null}
         selectedProjectCodeLocationKeys={{}}
         sourceCompleteness="partial"
@@ -1210,7 +1193,7 @@ describe("VaultDashboardConvexDialog", () => {
   });
 });
 
-describe("VaultDashboardCloudflareDialog", () => {
+describe("VaultCloudflareDialogContent", () => {
   const vault = {
     id: fakeVaultId(),
     repositoryFullName: "ada/demo",
@@ -1219,7 +1202,7 @@ describe("VaultDashboardCloudflareDialog", () => {
 
   it("replaces disabled controls with a timed loading state while searching", () => {
     const markup = renderToStaticMarkup(
-      <VaultDashboardCloudflareDialog
+      <VaultCloudflareDialogContent
         accounts={[]}
         createRootDirectory="/"
         createWorkerName=""
@@ -1239,7 +1222,6 @@ describe("VaultDashboardCloudflareDialog", () => {
         onOpenChange={() => {}}
         onSubmit={() => {}}
         onWorkerToggle={() => {}}
-        open
         repairWorker={null}
         selectedAccountId=""
         selectedWorkerTags={[]}
@@ -1259,7 +1241,7 @@ describe("VaultDashboardCloudflareDialog", () => {
 
   it("separates connected selections and keeps them pending after another Worker is added", () => {
     const markup = renderToStaticMarkup(
-      <VaultDashboardCloudflareDialog
+      <VaultCloudflareDialogContent
         accounts={[{ accountId: "account-1", accountName: "Ada" }]}
         createRootDirectory="/"
         createWorkerName=""
@@ -1279,7 +1261,6 @@ describe("VaultDashboardCloudflareDialog", () => {
         onOpenChange={() => {}}
         onSubmit={() => {}}
         onWorkerToggle={() => {}}
-        open
         repairWorker={null}
         selectedAccountId="account-1"
         selectedWorkerTags={["root-tag", "web-tag"]}
@@ -1333,7 +1314,7 @@ describe("VaultDashboardCloudflareDialog", () => {
 
   it("asks for one repository root before connecting and adding an unconnected Worker", () => {
     const markup = renderToStaticMarkup(
-      <VaultDashboardCloudflareDialog
+      <VaultCloudflareDialogContent
         accounts={[{ accountId: "account-1", accountName: "Ada" }]}
         createRootDirectory="apps/portal"
         createWorkerName=""
@@ -1353,7 +1334,6 @@ describe("VaultDashboardCloudflareDialog", () => {
         onOpenChange={() => {}}
         onSubmit={() => {}}
         onWorkerToggle={() => {}}
-        open
         repairWorker={null}
         selectedAccountId="account-1"
         selectedWorkerTags={[]}
@@ -1381,7 +1361,7 @@ describe("VaultDashboardCloudflareDialog", () => {
 
   it("shows the repository root only when creating a Worker", () => {
     const markup = renderToStaticMarkup(
-      <VaultDashboardCloudflareDialog
+      <VaultCloudflareDialogContent
         accounts={[{ accountId: "account-1", accountName: "Ada" }]}
         createRootDirectory="apps/web"
         createWorkerName="web-worker"
@@ -1401,7 +1381,6 @@ describe("VaultDashboardCloudflareDialog", () => {
         onOpenChange={() => {}}
         onSubmit={() => {}}
         onWorkerToggle={() => {}}
-        open
         repairWorker={null}
         selectedAccountId="account-1"
         selectedWorkerTags={[]}
@@ -1419,7 +1398,7 @@ describe("VaultDashboardCloudflareDialog", () => {
 
   it("uses the same dialog to repair Builds when no live root exists", () => {
     const markup = renderToStaticMarkup(
-      <VaultDashboardCloudflareDialog
+      <VaultCloudflareDialogContent
         accounts={[]}
         createRootDirectory="apps/web"
         createWorkerName=""
@@ -1439,7 +1418,6 @@ describe("VaultDashboardCloudflareDialog", () => {
         onOpenChange={() => {}}
         onSubmit={() => {}}
         onWorkerToggle={() => {}}
-        open
         repairWorker={{ workerName: "web-worker" }}
         selectedAccountId=""
         selectedWorkerTags={[]}
@@ -1461,7 +1439,7 @@ describe("VaultDashboardCloudflareDialog", () => {
 
   it("does not claim that no Workers exist after a partial inventory", () => {
     const markup = renderToStaticMarkup(
-      <VaultDashboardCloudflareDialog
+      <VaultCloudflareDialogContent
         accounts={[{ accountId: "account-1", accountName: "Ada" }]}
         createRootDirectory="/"
         createWorkerName=""
@@ -1481,7 +1459,6 @@ describe("VaultDashboardCloudflareDialog", () => {
         onOpenChange={() => {}}
         onSubmit={() => {}}
         onWorkerToggle={() => {}}
-        open
         repairWorker={null}
         selectedAccountId="account-1"
         selectedWorkerTags={[]}
@@ -1497,29 +1474,6 @@ describe("VaultDashboardCloudflareDialog", () => {
 });
 
 describe("buildVaultDashboardResourceRailState", () => {
-  it("keeps the GitHub connection available when source setup fails", () => {
-    const state = buildVaultDashboardResourceRailState({
-      vault: makeResourceRailBuilderVault({
-        sourceSetup: {
-          status: "failed",
-          runId: fakeRunId(),
-          step: "sync_tree",
-          message: "Initial tree sync failed.",
-          updatedAt: 30,
-        },
-      }),
-      githubRepositoryUrl: "https://github.com/ada/demo",
-      cloudflareObservations: makeLoadingCloudflareObservations(),
-      convexObservations: { state: "loading" },
-    });
-
-    expect(state.githubRow).toMatchObject({
-      provider: "github",
-      status: "available",
-      href: "https://github.com/ada/demo",
-    });
-  });
-
   it("groups resources by observed roots and keeps unresolved Workers in attention", () => {
     const readyWorkerId = fakeCloudflareWorkerId("worker-ready");
     const unresolvedWorkerId = fakeCloudflareWorkerId("worker-unresolved");
@@ -1577,7 +1531,6 @@ describe("buildVaultDashboardResourceRailState", () => {
           },
         ],
       },
-      githubRepositoryUrl: "https://github.com/ada/demo",
       changeConvexProjectConfigPathOnClick: () => {},
       reconcileConvexProjectTeamOnClick: () => {},
       detachCloudflareWorkerOnClick: () => {},
@@ -1714,7 +1667,6 @@ describe("buildVaultDashboardResourceRailState", () => {
           ],
         }),
         convexObservations,
-        githubRepositoryUrl: "https://github.com/ada/demo",
         rotateConvexDeployKeysForWorkersBuildsOnClick: rotate,
         vault: vaultWithBuildAccess,
       });
