@@ -11,6 +11,7 @@ import {
 import type {
   PullRequestResourceState,
   VaultPullRequest,
+  VaultPullRequestLoadMoreState,
   VaultPullRequestsState,
 } from "@/hooks/useVaultPullRequests";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
@@ -208,7 +209,7 @@ export function PullRequestsSection({
           </div>
         ) : (
           <>
-            {pullRequests.state === "stale" || pullRequests.resourceState === "stale" ? (
+            {pullRequests.state === "stale" || pullRequests.resourcesStale ? (
               <div className="border-b border-border px-1 py-2 text-xs text-muted-foreground">
                 Some pull request data may be out of date.
               </div>
@@ -225,20 +226,29 @@ export function PullRequestsSection({
             {pullRequests.allPullRequests.length === 0 ? (
               <div className="py-4 text-sm text-muted-foreground">No open pull requests.</div>
             ) : null}
-            {pullRequests.isLoadingMore ? (
-              <div className="py-3 text-xs text-muted-foreground">Loading more</div>
-            ) : pullRequests.loadMoreFailed ? (
-              <div className="py-3 text-xs text-muted-foreground">
-                Could not load more pull requests.
-              </div>
-            ) : pullRequests.canLoadMore ? (
-              <VaultPullRequestLoadMoreSentinel loadMore={pullRequests.loadMore} />
-            ) : null}
+            <VaultPullRequestLoadMore state={pullRequests.loadMore} />
           </>
         )}
       </div>
     </section>
   );
+}
+
+function VaultPullRequestLoadMore({ state }: { state: VaultPullRequestLoadMoreState }) {
+  switch (state.state) {
+    case "available":
+      return <VaultPullRequestLoadMoreSentinel loadMore={state.load} />;
+    case "loading":
+      return <div className="py-3 text-xs text-muted-foreground">Loading more</div>;
+    case "failed":
+      return (
+        <div className="py-3 text-xs text-muted-foreground">Could not load more pull requests.</div>
+      );
+    case "exhausted":
+      return null;
+  }
+  state satisfies never;
+  return null;
 }
 
 function VaultPullRequestLoadMoreSentinel({ loadMore }: { loadMore: () => void }) {

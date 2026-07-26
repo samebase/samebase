@@ -19,21 +19,25 @@ import { isConvexManagementNotFoundError } from "../convexManagementApi/errors";
 import { fetchGitHubConvexCodeLocationDiscovery, fetchGitHubRepoIdentity } from "../githubRepoApi";
 import { vCloudflareWorkerRepositoryDiscovery } from "./contracts/cloudflareAttachments";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";
-import { buildConvexSiteUrl, readConvexProductionDeployment } from "./convexProjectResources";
+import { readConvexProductionDeployment } from "./convexProjectResources";
 import {
   matchLatestCloudflareWorkerBuildForBranch,
   vCloudflareBuildState,
 } from "./cloudflareBuildMatching";
+import {
+  buildCloudflareBuildLogsUrl,
+  buildConvexDeploymentDashboardUrl,
+} from "./providerDashboardUrls";
 import type { VaultProviderObservationContext } from "./providerObservationQueries";
 
-const { array, id, literal, number, object, string, union } = v;
+const { array, id, literal, object, string, union } = v;
 
 const vObservationFailureReason = union(literal("connection_required"), literal("request_failed"));
 const vCloudflareProductionBuildObservation = union(
   object({
     state: literal("available"),
-    uuid: string(),
     buildState: vCloudflareBuildState,
+    logsUrl: string(),
   }),
   object({ state: literal("absent") }),
   object({ state: literal("unavailable") }),
@@ -67,6 +71,7 @@ const vCloudflareBuildsObservation = union(
     state: literal("connected"),
     productionTriggerUuid: string(),
     previewTriggerUuid: string(),
+    productionBuild: vCloudflareProductionBuildObservation,
   }),
 );
 const vWorkersDevObservation = union(
@@ -77,19 +82,16 @@ const vWorkersDevObservation = union(
 const vCloudflareWorkerObservation = union(
   object({
     state: literal("available"),
-    observedAt: number(),
     workerId: id("vaultCloudflareWorkers"),
     customDomains: array(string()),
     workersDev: vWorkersDevObservation,
   }),
   object({
     state: literal("missing"),
-    observedAt: number(),
     workerId: id("vaultCloudflareWorkers"),
   }),
   object({
     state: literal("failed"),
-    observedAt: number(),
     workerId: id("vaultCloudflareWorkers"),
     reason: vObservationFailureReason,
   }),
@@ -97,15 +99,12 @@ const vCloudflareWorkerObservation = union(
 const vCloudflareWorkerBuildsObservation = union(
   object({
     state: literal("available"),
-    observedAt: number(),
     workerId: id("vaultCloudflareWorkers"),
     repository: vCloudflareWorkerRepositoryDiscovery,
     builds: vCloudflareBuildsObservation,
-    productionBuild: vCloudflareProductionBuildObservation,
   }),
   object({
     state: literal("failed"),
-    observedAt: number(),
     workerId: id("vaultCloudflareWorkers"),
     reason: vObservationFailureReason,
   }),
@@ -113,13 +112,11 @@ const vCloudflareWorkerBuildsObservation = union(
 const vCloudflareWorkerConvexBuildAccessObservation = union(
   object({
     state: literal("available"),
-    observedAt: number(),
     workerId: id("vaultCloudflareWorkers"),
     convexBuildAccess: vCloudflareConvexBuildAccess,
   }),
   object({
     state: literal("failed"),
-    observedAt: number(),
     workerId: id("vaultCloudflareWorkers"),
     reason: vObservationFailureReason,
   }),
@@ -133,8 +130,7 @@ const vConvexProductionDeploymentObservation = union(
   object({
     state: literal("available"),
     deploymentName: string(),
-    cloudUrl: string(),
-    siteUrl: string(),
+    dashboardUrl: string(),
   }),
   object({ state: literal("missing") }),
 );
@@ -142,20 +138,16 @@ const vConvexCodeLocationObservation = union(
   object({
     state: literal("valid"),
     kind: literal("config"),
-    blobSha: string(),
   }),
   object({
     state: literal("valid"),
     kind: literal("directory"),
-    convexDirectoryTreeSha: string(),
-    packageJsonBlobSha: string(),
   }),
   object({ state: literal("missing") }),
   object({ state: literal("unavailable_partial") }),
   object({ state: literal("unavailable"), reason: vObservationFailureReason }),
 );
 const vConvexProviderProjectDetails = {
-  projectName: string(),
   projectSlug: string(),
   teamSlug: string(),
   productionDeployment: vConvexProductionDeploymentObservation,
@@ -163,26 +155,19 @@ const vConvexProviderProjectDetails = {
 const vConvexProjectProviderObservation = union(
   object({
     state: literal("current"),
-    teamId: string(),
     ...vConvexProviderProjectDetails,
   }),
   object({
     state: literal("moved"),
-    previousTeamId: string(),
-    currentTeamId: string(),
     ...vConvexProviderProjectDetails,
   }),
-  object({
-    state: literal("missing_ambiguous"),
-    teamId: string(),
-  }),
+  object({ state: literal("missing_ambiguous") }),
   object({
     state: literal("unavailable"),
     reason: vObservationFailureReason,
   }),
 );
 const vConvexProjectObservation = object({
-  observedAt: number(),
   convexProjectId: id("vaultConvexProjects"),
   projectId: string(),
   codeLocation: vConvexCodeLocation,
@@ -300,10 +285,8 @@ export const observeCloudflareWorkers = action({
       userId: ctx.viewer.userId,
     });
     if (input.state === "failed") {
-      const observedAt = Date.now();
       return input.context.cloudflareWorkers.map((worker) => ({
         state: "failed" as const,
-        observedAt,
         workerId: worker.workerId,
         reason: input.reason,
       }));
@@ -344,11 +327,9 @@ export const observeCloudflareWorkers = action({
             }),
             readAccountSubdomain(worker.accountId),
           ]);
-          const observedAt = Date.now();
           if (!identity || identity.workerTag !== worker.workerTag) {
             return {
               state: "missing" as const,
-              observedAt,
               workerId: worker.workerId,
             };
           }
@@ -363,7 +344,6 @@ export const observeCloudflareWorkers = action({
               : accountSubdomain;
           return {
             state: "available" as const,
-            observedAt,
             workerId: worker.workerId,
             customDomains: identity.customDomains,
             workersDev,
@@ -371,7 +351,6 @@ export const observeCloudflareWorkers = action({
         } catch {
           return {
             state: "failed" as const,
-            observedAt: Date.now(),
             workerId: worker.workerId,
             reason: "request_failed" as const,
           };
@@ -391,10 +370,8 @@ export const observeCloudflareWorkerBuilds = action({
       userId: ctx.viewer.userId,
     });
     if (input.state === "failed") {
-      const observedAt = Date.now();
       return input.context.cloudflareWorkers.map((worker) => ({
         state: "failed" as const,
-        observedAt,
         workerId: worker.workerId,
         reason: input.reason,
       }));
@@ -402,10 +379,8 @@ export const observeCloudflareWorkerBuilds = action({
 
     const githubAccessToken = await readGitHubAccessToken(ctx, ctx.viewer.userId);
     if (!githubAccessToken) {
-      const observedAt = Date.now();
       return input.context.cloudflareWorkers.map((worker) => ({
         state: "failed" as const,
-        observedAt,
         workerId: worker.workerId,
         reason: "connection_required" as const,
       }));
@@ -420,10 +395,8 @@ export const observeCloudflareWorkerBuilds = action({
       });
       defaultBranch = repository.defaultBranch;
     } catch {
-      const observedAt = Date.now();
       return input.context.cloudflareWorkers.map((worker) => ({
         state: "failed" as const,
-        observedAt,
         workerId: worker.workerId,
         reason: "request_failed" as const,
       }));
@@ -468,25 +441,32 @@ export const observeCloudflareWorkerBuilds = action({
           }
           return {
             state: "available" as const,
-            observedAt: Date.now(),
             workerId: worker.workerId,
             repository: discovery.repository,
-            builds: discovery.builds,
-            productionBuild:
-              productionBuild.state === "available"
+            builds:
+              discovery.builds.state === "connected"
                 ? {
-                    state: "available" as const,
-                    uuid: productionBuild.buildUuid,
-                    buildState: productionBuild.buildState,
+                    ...discovery.builds,
+                    productionBuild:
+                      productionBuild.state === "available"
+                        ? {
+                            state: "available" as const,
+                            buildState: productionBuild.buildState,
+                            logsUrl: buildCloudflareBuildLogsUrl({
+                              accountId: worker.accountId,
+                              workerName: worker.workerName,
+                              buildUuid: productionBuild.buildUuid,
+                            }),
+                          }
+                        : productionBuild.state === "absent"
+                          ? { state: "absent" as const }
+                          : { state: "unavailable" as const },
                   }
-                : productionBuild.state === "absent"
-                  ? { state: "absent" as const }
-                  : { state: "unavailable" as const },
+                : discovery.builds,
           };
         } catch {
           return {
             state: "failed" as const,
-            observedAt: Date.now(),
             workerId: worker.workerId,
             reason: "request_failed" as const,
           };
@@ -519,10 +499,8 @@ export const observeCloudflareWorkerConvexBuildAccess = action({
       throw new Error("Cloudflare Builds targets must belong to this vault.");
     }
     if (input.state === "failed") {
-      const observedAt = Date.now();
       return targets.map((target) => ({
         state: "failed" as const,
-        observedAt,
         workerId: target.workerId,
         reason: input.reason,
       }));
@@ -544,7 +522,6 @@ export const observeCloudflareWorkerConvexBuildAccess = action({
           });
           return {
             state: "available" as const,
-            observedAt: Date.now(),
             workerId: target.workerId,
             convexBuildAccess: resolveObservedConvexBuildAccess(
               observation,
@@ -554,7 +531,6 @@ export const observeCloudflareWorkerConvexBuildAccess = action({
         } catch {
           return {
             state: "failed" as const,
-            observedAt: Date.now(),
             workerId: target.workerId,
             reason: "request_failed" as const,
           };
@@ -632,14 +608,9 @@ export const observeConvexProjects = action({
             }
           });
           if (location?.kind === "config") {
-            source = { state: "valid", kind: "config", blobSha: location.blobSha };
+            source = { state: "valid", kind: "config" };
           } else if (location?.kind === "directory") {
-            source = {
-              state: "valid",
-              kind: "directory",
-              convexDirectoryTreeSha: location.convexDirectoryTreeSha,
-              packageJsonBlobSha: location.packageJsonBlobSha,
-            };
+            source = { state: "valid", kind: "directory" };
           } else {
             source =
               sourceResolution.discovery.completeness === "partial"
@@ -652,7 +623,6 @@ export const observeConvexProjects = action({
         if (!token || !teamId) {
           provider = { state: "unavailable", reason: "connection_required" };
           return {
-            observedAt: Date.now(),
             convexProjectId: project.convexProjectId,
             projectId: project.projectId,
             codeLocation: project.codeLocation,
@@ -673,15 +643,17 @@ export const observeConvexProjects = action({
             projectId: project.projectId,
           });
           const providerDetails = {
-            projectName: details.name,
             projectSlug: details.slug,
             teamSlug: details.teamSlug,
             productionDeployment: deployment
               ? {
                   state: "available" as const,
                   deploymentName: deployment.name,
-                  cloudUrl: deployment.deploymentUrl,
-                  siteUrl: buildConvexSiteUrl(deployment),
+                  dashboardUrl: buildConvexDeploymentDashboardUrl({
+                    teamSlug: details.teamSlug,
+                    projectSlug: details.slug,
+                    deploymentName: deployment.name,
+                  }),
                 }
               : { state: "missing" as const },
           };
@@ -689,17 +661,13 @@ export const observeConvexProjects = action({
             details.teamId === project.teamId
               ? {
                   state: "current",
-                  teamId: details.teamId,
                   ...providerDetails,
                 }
               : {
                   state: "moved",
-                  previousTeamId: project.teamId,
-                  currentTeamId: details.teamId,
                   ...providerDetails,
                 };
           return {
-            observedAt: Date.now(),
             convexProjectId: project.convexProjectId,
             projectId: project.projectId,
             codeLocation: project.codeLocation,
@@ -708,10 +676,9 @@ export const observeConvexProjects = action({
           };
         } catch (error) {
           provider = isConvexManagementNotFoundError(error)
-            ? { state: "missing_ambiguous", teamId: project.teamId }
+            ? { state: "missing_ambiguous" }
             : { state: "unavailable", reason: "request_failed" };
           return {
-            observedAt: Date.now(),
             convexProjectId: project.convexProjectId,
             projectId: project.projectId,
             codeLocation: project.codeLocation,

@@ -23,6 +23,10 @@ import {
   type CloudflareBuildMatch,
   vCloudflareBuildState,
 } from "./cloudflareBuildMatching";
+import {
+  buildCloudflareBuildLogsUrl,
+  buildConvexDeploymentDashboardUrl,
+} from "./providerDashboardUrls";
 import type { VaultProviderObservationContext } from "./providerObservationQueries";
 
 const { array, id, literal, object, string, union } = v;
@@ -467,22 +471,6 @@ async function readConvexPreview(args: {
   }
 }
 
-function convexDashboardUrl(args: {
-  teamSlug: string;
-  projectSlug: string;
-  deploymentName: string;
-}): string {
-  return `https://dashboard.convex.dev/t/${encodeURIComponent(args.teamSlug)}/${encodeURIComponent(args.projectSlug)}/${encodeURIComponent(args.deploymentName)}`;
-}
-
-export function cloudflareBuildLogsUrl(args: {
-  accountId: string;
-  workerName: string;
-  buildUuid: string;
-}): string {
-  return `https://dash.cloudflare.com/${encodeURIComponent(args.accountId)}/workers/services/view/${encodeURIComponent(args.workerName)}/production/builds/${encodeURIComponent(args.buildUuid)}`;
-}
-
 async function readWorkerResourcesForHeads(args: {
   context: VaultProviderObservationContext;
   worker: StableWorker;
@@ -656,7 +644,7 @@ async function readWorkerResourcesForHeads(args: {
               convexPreview = {
                 state: "available",
                 deploymentName: resolved.deployment.name,
-                dashboardUrl: convexDashboardUrl({
+                dashboardUrl: buildConvexDeploymentDashboardUrl({
                   teamSlug: observedPreviews.teamSlug,
                   projectSlug: observedPreviews.projectSlug,
                   deploymentName: resolved.deployment.name,
@@ -673,7 +661,7 @@ async function readWorkerResourcesForHeads(args: {
         cloudflareBuild: {
           uuid: match.buildUuid,
           state: match.buildState,
-          logsUrl: cloudflareBuildLogsUrl({
+          logsUrl: buildCloudflareBuildLogsUrl({
             accountId: args.worker.accountId,
             workerName: args.worker.workerName,
             buildUuid: match.buildUuid,

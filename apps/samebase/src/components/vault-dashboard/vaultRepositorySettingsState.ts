@@ -21,6 +21,29 @@ type VaultDashboardConvexProject = VaultDashboardVault["convexProjects"][number]
 
 type VaultRepositorySettingsActionKind = "configure" | "connect" | "remove" | "retry";
 
+export type VaultRepositorySettingsPendingAction =
+  | {
+      kind: "configure_workers_builds_for_github";
+      workerId: Id<"vaultCloudflareWorkers">;
+    }
+  | {
+      kind: "rotate_convex_deploy_keys_for_workers_builds";
+      workerId: Id<"vaultCloudflareWorkers">;
+      convexProjectId: Id<"vaultConvexProjects">;
+    }
+  | {
+      kind: "detach_cloudflare_worker";
+      workerId: Id<"vaultCloudflareWorkers">;
+    }
+  | {
+      kind: "detach_convex_project";
+      convexProjectId: Id<"vaultConvexProjects">;
+    }
+  | {
+      kind: "reconcile_convex_project_team";
+      convexProjectId: Id<"vaultConvexProjects">;
+    };
+
 export type VaultRepositorySettingsAction = {
   ariaLabel?: string;
   disabled?: boolean;
@@ -190,17 +213,14 @@ function buildConvexBuildAccessActions({
   actionIntent,
   convexProjectActionLabels,
   convexProjects,
-  isRotatingConvexDeployKeysForWorkersBuilds,
+  pendingAction,
   rotateConvexDeployKeysForWorkersBuildsOnClick,
   workerId,
 }: {
   actionIntent: "repair" | "use";
   convexProjectActionLabels: ReadonlyMap<Id<"vaultConvexProjects">, string>;
   convexProjects: readonly VaultDashboardConvexProject[];
-  isRotatingConvexDeployKeysForWorkersBuilds?: (
-    workerId: Id<"vaultCloudflareWorkers">,
-    convexProjectId: Id<"vaultConvexProjects">,
-  ) => boolean;
+  pendingAction: VaultRepositorySettingsPendingAction | null;
   rotateConvexDeployKeysForWorkersBuildsOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
@@ -217,7 +237,9 @@ function buildConvexBuildAccessActions({
   }
   const actions = sortedProjects.map((project) => {
     const isRotating =
-      isRotatingConvexDeployKeysForWorkersBuilds?.(workerId, project.convexProjectId) ?? false;
+      pendingAction?.kind === "rotate_convex_deploy_keys_for_workers_builds" &&
+      pendingAction.workerId === workerId &&
+      pendingAction.convexProjectId === project.convexProjectId;
     const projectLabel =
       convexProjectActionLabels.get(project.convexProjectId) ?? project.projectId;
     const label =
@@ -248,18 +270,15 @@ function buildConvexBuildAccessActions({
 function formatCloudflareConvexBuildAccessState({
   convexProjectActionLabels,
   convexProjects,
-  isRotatingConvexDeployKeysForWorkersBuilds,
   observation,
+  pendingAction,
   rotateConvexDeployKeysForWorkersBuildsOnClick,
   workerId,
 }: {
   convexProjectActionLabels: ReadonlyMap<Id<"vaultConvexProjects">, string>;
   convexProjects: readonly VaultDashboardConvexProject[];
-  isRotatingConvexDeployKeysForWorkersBuilds?: (
-    workerId: Id<"vaultCloudflareWorkers">,
-    convexProjectId: Id<"vaultConvexProjects">,
-  ) => boolean;
   observation: Extract<VaultCloudflareWorkerConvexBuildAccessObservation, { state: "available" }>;
+  pendingAction: VaultRepositorySettingsPendingAction | null;
   rotateConvexDeployKeysForWorkersBuildsOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
@@ -289,7 +308,7 @@ function formatCloudflareConvexBuildAccessState({
       convexProjects: convexProjects.filter(
         (project) => project.convexProjectId === convexProjectId,
       ),
-      isRotatingConvexDeployKeysForWorkersBuilds,
+      pendingAction,
       rotateConvexDeployKeysForWorkersBuildsOnClick,
       workerId,
     });
@@ -298,7 +317,7 @@ function formatCloudflareConvexBuildAccessState({
       actionIntent: "use",
       convexProjectActionLabels,
       convexProjects,
-      isRotatingConvexDeployKeysForWorkersBuilds,
+      pendingAction,
       rotateConvexDeployKeysForWorkersBuildsOnClick,
       workerId,
     });
@@ -341,11 +360,9 @@ function buildCloudflareRow({
   convexProjectActionLabels,
   convexProjects,
   configureWorkersBuildsForGitHubOnClick,
-  isConfiguringWorkersBuildsForGitHub,
-  isDetachingCloudflareWorker,
-  isRotatingConvexDeployKeysForWorkersBuilds,
   observationState,
   detachCloudflareWorkerOnClick,
+  pendingAction,
   rotateConvexDeployKeysForWorkersBuildsOnClick,
   worker,
 }: {
@@ -361,14 +378,9 @@ function buildCloudflareRow({
     workerId: Id<"vaultCloudflareWorkers">,
     rootDirectory: string | undefined,
   ) => void;
-  isConfiguringWorkersBuildsForGitHub?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
-  isDetachingCloudflareWorker?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
-  isRotatingConvexDeployKeysForWorkersBuilds?: (
-    workerId: Id<"vaultCloudflareWorkers">,
-    convexProjectId: Id<"vaultConvexProjects">,
-  ) => boolean;
   observationState: VaultCloudflareProviderObservationState;
   detachCloudflareWorkerOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
+  pendingAction: VaultRepositorySettingsPendingAction | null;
   rotateConvexDeployKeysForWorkersBuildsOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
@@ -422,7 +434,9 @@ function buildCloudflareRow({
           ? [
               buildDetachAttachmentAction({
                 ariaLabel: `Remove Cloudflare Worker ${worker.workerName} from vault`,
-                isDetaching: isDetachingCloudflareWorker?.(worker.workerId) ?? false,
+                isDetaching:
+                  pendingAction?.kind === "detach_cloudflare_worker" &&
+                  pendingAction.workerId === worker.workerId,
                 onClick: () => detachCloudflareWorkerOnClick(worker.workerId),
               }),
             ]
@@ -472,7 +486,9 @@ function buildCloudflareRow({
 
       const repositoryState = formatCloudflareRepositoryState(buildsObservation);
       if (repositoryState.canConnect) {
-        const isConfiguring = isConfiguringWorkersBuildsForGitHub?.(worker.workerId) ?? false;
+        const isConfiguring =
+          pendingAction?.kind === "configure_workers_builds_for_github" &&
+          pendingAction.workerId === worker.workerId;
         return {
           ...availableBase,
           actions: [
@@ -542,8 +558,8 @@ function buildCloudflareRow({
       const convexBuildAccessState = formatCloudflareConvexBuildAccessState({
         convexProjectActionLabels,
         convexProjects,
-        isRotatingConvexDeployKeysForWorkersBuilds,
         observation: buildAccessObservation,
+        pendingAction,
         rotateConvexDeployKeysForWorkersBuildsOnClick,
         workerId: worker.workerId,
       });
@@ -585,17 +601,15 @@ function buildActionList(
 function buildConvexRow({
   changeConvexProjectConfigPathOnClick,
   detachConvexProjectOnClick,
-  isDetachingConvexProject,
-  isReconcilingConvexProjectTeam,
   observationState,
+  pendingAction,
   project,
   reconcileConvexProjectTeamOnClick,
 }: {
   changeConvexProjectConfigPathOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   detachConvexProjectOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
-  isDetachingConvexProject?: (convexProjectId: Id<"vaultConvexProjects">) => boolean;
-  isReconcilingConvexProjectTeam?: (convexProjectId: Id<"vaultConvexProjects">) => boolean;
   observationState: VaultProviderObservationState<VaultConvexProjectObservation>;
+  pendingAction: VaultRepositorySettingsPendingAction | null;
   project: VaultDashboardConvexProject;
   reconcileConvexProjectTeamOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
 }): VaultRepositorySettingsResource {
@@ -660,7 +674,9 @@ function buildConvexRow({
   const detachAction = detachConvexProjectOnClick
     ? buildDetachAttachmentAction({
         ariaLabel: `Remove Convex project ${project.projectId} from vault`,
-        isDetaching: isDetachingConvexProject?.(project.convexProjectId) ?? false,
+        isDetaching:
+          pendingAction?.kind === "detach_convex_project" &&
+          pendingAction.convexProjectId === project.convexProjectId,
         onClick: () => detachConvexProjectOnClick(project.convexProjectId),
       })
     : undefined;
@@ -682,7 +698,9 @@ function buildConvexRow({
         owner: observation.provider.teamSlug,
       };
     case "moved": {
-      const isReconciling = isReconcilingConvexProjectTeam?.(project.convexProjectId) ?? false;
+      const isReconciling =
+        pendingAction?.kind === "reconcile_convex_project_team" &&
+        pendingAction.convexProjectId === project.convexProjectId;
       const reconcileAction = reconcileConvexProjectTeamOnClick
         ? {
             kind: "configure" as const,
@@ -747,13 +765,9 @@ export function buildVaultRepositorySettingsState({
   changeConvexProjectConfigPathOnClick,
   cloudflareObservations,
   convexObservations,
-  isConfiguringWorkersBuildsForGitHub,
-  isDetachingCloudflareWorker,
-  isDetachingConvexProject,
-  isReconcilingConvexProjectTeam,
-  isRotatingConvexDeployKeysForWorkersBuilds,
   detachCloudflareWorkerOnClick,
   detachConvexProjectOnClick,
+  pendingAction,
   reconcileConvexProjectTeamOnClick,
   vault,
   rotateConvexDeployKeysForWorkersBuildsOnClick,
@@ -773,16 +787,9 @@ export function buildVaultRepositorySettingsState({
   changeConvexProjectConfigPathOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   cloudflareObservations: VaultCloudflareProviderObservationState;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
-  isConfiguringWorkersBuildsForGitHub?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
-  isDetachingCloudflareWorker?: (workerId: Id<"vaultCloudflareWorkers">) => boolean;
-  isDetachingConvexProject?: (convexProjectId: Id<"vaultConvexProjects">) => boolean;
-  isReconcilingConvexProjectTeam?: (convexProjectId: Id<"vaultConvexProjects">) => boolean;
-  isRotatingConvexDeployKeysForWorkersBuilds?: (
-    workerId: Id<"vaultCloudflareWorkers">,
-    convexProjectId: Id<"vaultConvexProjects">,
-  ) => boolean;
   detachCloudflareWorkerOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   detachConvexProjectOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
+  pendingAction: VaultRepositorySettingsPendingAction | null;
   reconcileConvexProjectTeamOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   vault: VaultDashboardVault;
   rotateConvexDeployKeysForWorkersBuildsOnClick?: (
@@ -816,9 +823,8 @@ export function buildVaultRepositorySettingsState({
       buildConvexRow({
         changeConvexProjectConfigPathOnClick,
         detachConvexProjectOnClick,
-        isDetachingConvexProject,
-        isReconcilingConvexProjectTeam,
         observationState: convexObservations,
+        pendingAction,
         project,
         reconcileConvexProjectTeamOnClick,
       }),
@@ -836,11 +842,9 @@ export function buildVaultRepositorySettingsState({
       convexProjectActionLabels,
       convexProjects: vault.convexProjects,
       configureWorkersBuildsForGitHubOnClick,
-      isConfiguringWorkersBuildsForGitHub,
-      isDetachingCloudflareWorker,
-      isRotatingConvexDeployKeysForWorkersBuilds,
       observationState: cloudflareObservations,
       detachCloudflareWorkerOnClick,
+      pendingAction,
       rotateConvexDeployKeysForWorkersBuildsOnClick,
       worker,
     });

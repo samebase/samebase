@@ -28,7 +28,6 @@ function providerPage() {
           committedDate: "2026-07-21T09:30:00Z",
           url: "https://github.com/samebase/samebase/commit/main123",
           statusCheckRollup: {
-            state: "SUCCESS",
             contexts: {
               totalCount: 1,
               checkRunCount: 1,
@@ -82,7 +81,6 @@ function providerPage() {
                   commit: {
                     oid: "abc123",
                     statusCheckRollup: {
-                      state: "SUCCESS",
                       contexts: {
                         totalCount: 2,
                         checkRunCount: 1,
@@ -133,7 +131,6 @@ describe("normalizeGitHubPullRequestPage", () => {
           headCommitCommittedAt: "2026-07-21T09:30:00Z",
           headCommitUrl: "https://github.com/samebase/samebase/commit/main123",
           statusCheckRollup: expect.objectContaining({
-            state: "SUCCESS",
             contexts: expect.objectContaining({
               nodes: [expect.objectContaining({ name: "main checks (24.x)" })],
             }),
@@ -149,7 +146,9 @@ describe("normalizeGitHubPullRequestPage", () => {
               headRefName: "feature/provider-truth",
               headRefOid: "abc123",
               labels: { nodes: [{ name: "product", color: "1a7f37" }] },
-              statusCheckRollup: expect.objectContaining({ state: "SUCCESS" }),
+              statusCheckRollup: expect.objectContaining({
+                contexts: expect.any(Object),
+              }),
             }),
           ],
         },
@@ -160,7 +159,6 @@ describe("normalizeGitHubPullRequestPage", () => {
   it("normalizes future GitHub check enums without rejecting the page", () => {
     const value = providerPage();
     const rollup = value.repository.pullRequests.nodes[0].commits.nodes[0].commit.statusCheckRollup;
-    rollup.state = "FUTURE_ROLLUP_STATE";
     rollup.contexts.totalCount = 2;
     rollup.contexts.statusContextCount = 1;
     rollup.contexts.checkRunCountsByState = [{ state: "FUTURE_CHECK_RUN_STATE", count: 1 }];
@@ -171,7 +169,6 @@ describe("normalizeGitHubPullRequestPage", () => {
     expect(
       normalizeGitHubPullRequestPage(value).repository?.pullRequests.nodes[0].statusCheckRollup,
     ).toEqual({
-      state: "UNKNOWN",
       contexts: {
         totalCount: 2,
         checkRunCount: 1,
@@ -272,7 +269,7 @@ describe("normalizeGitHubVaultSidebarSummaries", () => {
     defaultBranch: "main",
   };
 
-  it("keeps only main check counts and the open pull request total", () => {
+  it("keeps only main check counts", () => {
     expect(
       normalizeGitHubVaultSidebarSummaries(
         {
@@ -283,7 +280,6 @@ describe("normalizeGitHubVaultSidebarSummaries", () => {
               target: {
                 __typename: "Commit",
                 statusCheckRollup: {
-                  state: "SUCCESS",
                   contexts: {
                     totalCount: 2,
                     checkRunCount: 1,
@@ -303,7 +299,6 @@ describe("normalizeGitHubVaultSidebarSummaries", () => {
         vaultId: repository.vaultId,
         repository: {
           statusCheckRollup: {
-            state: "SUCCESS",
             contexts: {
               totalCount: 2,
               checkRunCount: 1,

@@ -138,7 +138,6 @@ function makeAvailableRepositorySettingsCloudflareObservation(
 ): AvailableRepositorySettingsCloudflareObservation {
   return {
     state: "available",
-    observedAt: 1,
     customDomains: [],
     workersDev: { state: "enabled", url: "https://demo-worker.ada.workers.dev" },
     ...overrides,
@@ -152,7 +151,6 @@ function makeAvailableRepositorySettingsCloudflareBuildsObservation(
 ): AvailableRepositorySettingsCloudflareBuildsObservation {
   return {
     state: "available",
-    observedAt: 1,
     repository: {
       state: "ready",
       rootDirectory: "/",
@@ -160,7 +158,6 @@ function makeAvailableRepositorySettingsCloudflareBuildsObservation(
     },
     builds: { state: "not_connected" },
     ...overrides,
-    productionBuild: overrides.productionBuild ?? { state: "unavailable" },
   };
 }
 
@@ -260,15 +257,25 @@ describe("buildProductionEnvironmentRoots", () => {
         builds: [
           makeAvailableRepositorySettingsCloudflareBuildsObservation({
             workerId,
-            productionBuild: {
-              state: "available",
-              uuid: "build-1",
-              buildState: "success",
-            },
             repository: {
               state: "ready",
               rootDirectory: "apps/web",
-              builds: { state: "not_available" },
+              builds: {
+                state: "available",
+                productionTriggerUuid: "production-trigger",
+                previewTriggerUuid: "preview-trigger",
+              },
+            },
+            builds: {
+              state: "connected",
+              productionTriggerUuid: "production-trigger",
+              previewTriggerUuid: "preview-trigger",
+              productionBuild: {
+                state: "available",
+                buildState: "success",
+                logsUrl:
+                  "https://dash.cloudflare.com/account-1/workers/services/view/demo-worker/production/builds/build-1",
+              },
             },
           }),
         ],
@@ -279,22 +286,18 @@ describe("buildProductionEnvironmentRoots", () => {
         reload: () => {},
         observations: [
           {
-            observedAt: 1,
             convexProjectId,
             projectId: "demo-project-id",
             codeLocation: { kind: "config", convexConfigPath: "apps/web/convex.json" },
-            source: { kind: "config", state: "valid", blobSha: "blob-1" },
+            source: { kind: "config", state: "valid" },
             provider: {
               state: "current",
-              teamId: "team-1",
-              projectName: "Demo",
               projectSlug: "demo",
               teamSlug: "ada",
               productionDeployment: {
                 state: "available",
                 deploymentName: "calm-swan-123",
-                cloudUrl: "https://calm-swan-123.convex.cloud",
-                siteUrl: "https://calm-swan-123.convex.site",
+                dashboardUrl: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
               },
             },
           },
@@ -404,7 +407,7 @@ describe("buildProductionEnvironmentRoots", () => {
             id: workerId,
             worker: {
               workerName: "demo-worker",
-              build: { state: "unavailable" },
+              build: { state: "absent" },
               destination: {
                 state: "available",
                 href: "https://app.example.com",
@@ -432,7 +435,7 @@ describe("buildProductionEnvironmentRoots", () => {
         branch: "main",
         vault,
         cloudflareObservations: makeLoadedCloudflareObservations({
-          workers: [{ state: "missing", observedAt: 1, workerId }],
+          workers: [{ state: "missing", workerId }],
           builds: [],
           convexBuildAccess: [],
         }),
@@ -441,12 +444,11 @@ describe("buildProductionEnvironmentRoots", () => {
           reload: () => {},
           observations: [
             {
-              observedAt: 1,
               convexProjectId,
               projectId: "demo-project-id",
               codeLocation: { kind: "config", convexConfigPath: "convex.json" },
-              source: { kind: "config", state: "valid", blobSha: "blob-1" },
-              provider: { state: "missing_ambiguous", teamId: "team-1" },
+              source: { kind: "config", state: "valid" },
+              provider: { state: "missing_ambiguous" },
             },
           ],
         },
@@ -522,22 +524,18 @@ describe("vault environment roots", () => {
           reload: () => {},
           observations: [
             {
-              observedAt: 1,
               convexProjectId,
               projectId: "demo-project-id",
               codeLocation: { kind: "config", convexConfigPath: "packages/backend/convex.json" },
-              source: { kind: "config", state: "valid", blobSha: "blob-1" },
+              source: { kind: "config", state: "valid" },
               provider: {
                 state: "current",
-                teamId: "team-1",
-                projectName: "Demo",
                 projectSlug: "demo",
                 teamSlug: "ada",
                 productionDeployment: {
                   state: "available",
                   deploymentName: "calm-swan-123",
-                  cloudUrl: "https://calm-swan-123.convex.cloud",
-                  siteUrl: "https://calm-swan-123.convex.site",
+                  dashboardUrl,
                 },
               },
             },
@@ -1448,7 +1446,6 @@ describe("buildVaultRepositorySettingsState", () => {
           }),
           {
             state: "failed",
-            observedAt: 1,
             workerId: unresolvedWorkerId,
             reason: "request_failed",
           },
@@ -1456,21 +1453,18 @@ describe("buildVaultRepositorySettingsState", () => {
         convexBuildAccess: [],
       }),
       connectedCloudflareAccount: undefined,
+      pendingAction: null,
       convexObservations: {
         state: "loaded",
         reload: () => {},
         observations: [
           {
-            observedAt: 1,
             convexProjectId,
             projectId: "api-project",
             codeLocation: { kind: "config", convexConfigPath: "packages/api/convex.json" },
             source: { state: "missing" },
             provider: {
               state: "moved",
-              previousTeamId: "team-old",
-              currentTeamId: "team-new",
-              projectName: "API",
               projectSlug: "api",
               teamSlug: "ada",
               productionDeployment: { state: "missing" },
@@ -1549,30 +1543,24 @@ describe("buildVaultRepositorySettingsState", () => {
       reload: () => {},
       observations: [
         {
-          observedAt: 1,
           convexProjectId: alphaProjectId,
           projectId: "alpha-project-id",
           codeLocation: { kind: "config" as const, convexConfigPath: "convex.json" },
-          source: { kind: "config" as const, state: "valid" as const, blobSha: "alpha-blob" },
+          source: { kind: "config" as const, state: "valid" as const },
           provider: {
             state: "current" as const,
-            teamId: "team-alpha",
-            projectName: "Alpha",
             projectSlug: "alpha",
             teamSlug: "ada",
             productionDeployment: { state: "missing" as const },
           },
         },
         {
-          observedAt: 1,
           convexProjectId: betaProjectId,
           projectId: "beta-project-id",
           codeLocation: { kind: "config" as const, convexConfigPath: "convex.json" },
-          source: { kind: "config" as const, state: "valid" as const, blobSha: "beta-blob" },
+          source: { kind: "config" as const, state: "valid" as const },
           provider: {
             state: "current" as const,
-            teamId: "team-beta",
-            projectName: "Beta",
             projectSlug: "beta",
             teamSlug: "ada",
             productionDeployment: { state: "missing" as const },
@@ -1602,18 +1590,19 @@ describe("buildVaultRepositorySettingsState", () => {
                 state: "connected",
                 productionTriggerUuid: "production-trigger",
                 previewTriggerUuid: "preview-trigger",
+                productionBuild: { state: "unavailable" },
               },
             }),
           ],
           convexBuildAccess: [
             {
               state: "available",
-              observedAt: 1,
               workerId,
               convexBuildAccess,
             },
           ],
         }),
+        pendingAction: null,
         connectedCloudflareAccount: undefined,
         convexObservations,
         rotateConvexDeployKeysForWorkersBuildsOnClick: rotate,

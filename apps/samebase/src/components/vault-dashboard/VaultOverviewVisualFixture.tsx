@@ -130,7 +130,6 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
     observations: [
       {
         state: "available",
-        observedAt: FIXTURE_NOW,
         workerId: LIST_SPACING_DOMAIN_WORKER_ID,
         customDomains: [],
         workersDev: {
@@ -140,7 +139,6 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
       },
       {
         state: "available",
-        observedAt: FIXTURE_NOW,
         workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
         customDomains: ["samebase.com"],
         workersDev: {
@@ -156,7 +154,6 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
     observations: [
       {
         state: "available",
-        observedAt: FIXTURE_NOW,
         workerId: LIST_SPACING_DOMAIN_WORKER_ID,
         repository: {
           state: "ready",
@@ -164,11 +161,9 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
           builds: { state: "not_available" },
         },
         builds: { state: "not_connected" },
-        productionBuild: { state: "unavailable" },
       },
       {
         state: "available",
-        observedAt: FIXTURE_NOW,
         workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
         repository: {
           state: "ready",
@@ -176,7 +171,6 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
           builds: { state: "not_available" },
         },
         builds: { state: "not_connected" },
-        productionBuild: { state: "unavailable" },
       },
     ],
   },
@@ -192,22 +186,18 @@ const LIST_SPACING_CONVEX_OBSERVATIONS = {
   reload: () => {},
   observations: [
     {
-      observedAt: FIXTURE_NOW,
       convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
       projectId: "samebase",
       codeLocation: { kind: "config", convexConfigPath: "apps/samebase/convex.json" },
-      source: { kind: "config", state: "valid", blobSha: "fixture-samebase-convex-config" },
+      source: { kind: "config", state: "valid" },
       provider: {
         state: "current",
-        teamId: "samebase-team-id",
-        projectName: "Samebase",
         projectSlug: "samebase",
         teamSlug: "samebase",
         productionDeployment: {
           state: "available",
           deploymentName: "calm-swan-123",
-          cloudUrl: "https://calm-swan-123.convex.cloud",
-          siteUrl: "https://calm-swan-123.convex.site",
+          dashboardUrl: "https://dashboard.convex.dev/t/samebase/samebase/calm-swan-123",
         },
       },
     },
@@ -252,7 +242,6 @@ const FIXTURE_NO_CHECKS = {
 type FixturePullRequest = VaultPullRequest;
 
 const FIXTURE_SUCCESSFUL_STATUS_CHECK_ROLLUP = {
-  state: "SUCCESS",
   contexts: {
     totalCount: 4,
     checkRunCount: 3,
@@ -442,7 +431,6 @@ const PROVISIONING_CLOUDFLARE_OBSERVATIONS = {
     observations: [
       {
         state: "available",
-        observedAt: FIXTURE_NOW,
         workerId: PROVISIONING_WORKER_ID,
         customDomains: [],
         workersDev: {
@@ -458,7 +446,6 @@ const PROVISIONING_CLOUDFLARE_OBSERVATIONS = {
     observations: [
       {
         state: "available",
-        observedAt: FIXTURE_NOW,
         workerId: PROVISIONING_WORKER_ID,
         repository: {
           state: "ready",
@@ -473,11 +460,12 @@ const PROVISIONING_CLOUDFLARE_OBSERVATIONS = {
           state: "connected",
           productionTriggerUuid: "fixture-production-trigger",
           previewTriggerUuid: "fixture-preview-trigger",
-        },
-        productionBuild: {
-          state: "available",
-          uuid: "fixture-production-build",
-          buildState: "success",
+          productionBuild: {
+            state: "available",
+            buildState: "success",
+            logsUrl:
+              "https://dash.cloudflare.com/fixture-account/workers/services/view/tmp-f149-vault-loading-states/production/builds/fixture-production-build",
+          },
         },
       },
     ],
@@ -488,7 +476,6 @@ const PROVISIONING_CLOUDFLARE_OBSERVATIONS = {
     observations: [
       {
         state: "available",
-        observedAt: FIXTURE_NOW,
         workerId: PROVISIONING_WORKER_ID,
         convexBuildAccess: {
           state: "configured",
@@ -511,22 +498,19 @@ const PROVISIONING_CONVEX_OBSERVATIONS = {
   reload: () => {},
   observations: [
     {
-      observedAt: FIXTURE_NOW,
       convexProjectId: PROVISIONING_CONVEX_PROJECT_ID,
       projectId: "2653471",
       codeLocation: { kind: "config", convexConfigPath: "convex.json" },
-      source: { kind: "config", state: "valid", blobSha: "fixture-convex-config" },
+      source: { kind: "config", state: "valid" },
       provider: {
         state: "current",
-        teamId: "38516",
-        projectName: "tmp-f149-vault-loading-states",
         projectSlug: "tmp-f149-vault-loading-states",
         teamSlug: "nicu",
         productionDeployment: {
           state: "available",
           deploymentName: "dazzling-pheasant-894",
-          cloudUrl: "https://dazzling-pheasant-894.convex.cloud",
-          siteUrl: "https://dazzling-pheasant-894.convex.site",
+          dashboardUrl:
+            "https://dashboard.convex.dev/t/nicu/tmp-f149-vault-loading-states/dazzling-pheasant-894",
         },
       },
     },
@@ -576,7 +560,7 @@ function fixturePullRequests(
     defaultBranch,
     refreshing: false,
     allPullRequests: [...pullRequests],
-    resourceState: "current",
+    resourcesStale: false,
     resourcesByPullRequestId: new Map(
       pullRequests.map((pullRequest) => [
         pullRequest.id,
@@ -632,11 +616,7 @@ function fixturePullRequests(
         },
       ]),
     ),
-    hasMore: false,
-    isLoadingMore: false,
-    canLoadMore: false,
-    loadMoreFailed: false,
-    loadMore: () => {},
+    loadMore: { state: "exhausted" },
   };
 }
 
@@ -704,6 +684,7 @@ function buildFixtureWorkspace({
       configureWorkersBuildsForGitHubOnClick: () => {},
       detachCloudflareWorkerOnClick: () => {},
       detachConvexProjectOnClick: () => {},
+      pendingAction: null,
       reconcileConvexProjectTeamOnClick: () => {},
       rotateConvexDeployKeysForWorkersBuildsOnClick: () => {},
       vault,
@@ -941,9 +922,12 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
     mode === "vault-overview-v2-auto-pagination"
       ? {
           ...currentPullRequests,
-          hasMore: !nextPullRequestPageLoaded,
-          canLoadMore: !nextPullRequestPageLoaded,
-          loadMore: () => setNextPullRequestPageLoaded(true),
+          loadMore: nextPullRequestPageLoaded
+            ? { state: "exhausted" }
+            : {
+                state: "available",
+                load: () => setNextPullRequestPageLoaded(true),
+              },
         }
       : currentPullRequests;
   const { settingsState, workspace } = buildFixtureWorkspace({

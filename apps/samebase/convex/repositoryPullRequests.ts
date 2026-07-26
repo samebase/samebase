@@ -89,14 +89,12 @@ const checkCountFields = {
 const vStatusCheckCounts = union(
   vNull(),
   object({
-    state: statusState,
     contexts: object(checkCountFields),
   }),
 );
 const vStatusCheckRollup = union(
   vNull(),
   object({
-    state: statusState,
     contexts: object({
       ...checkCountFields,
       nodes: array(checkContext),
@@ -235,13 +233,11 @@ const providerStatusCheckCountsSchema = z.object({
 });
 const statusCheckCountsSchema = z
   .object({
-    state: providerStatusStateSchema,
     contexts: providerStatusCheckCountsSchema,
   })
   .nullable();
 const statusCheckRollupSchema = z
   .object({
-    state: providerStatusStateSchema,
     contexts: providerStatusCheckCountsSchema.extend({
       nodes: z.array(providerCheckContextSchema),
     }),
@@ -383,7 +379,6 @@ const REPOSITORY_PULL_REQUEST_PAGE_QUERY = `
   }
 
   fragment StatusCheckRollupFields on StatusCheckRollup {
-    state
     contexts(first: 100) {
       totalCount
       checkRunCount
@@ -455,7 +450,6 @@ function buildVaultSidebarSummariesQuery(repositories: readonly SidebarRepositor
               __typename
               ... on Commit {
                 statusCheckRollup {
-                  state
                   contexts(first: 1) {
                     totalCount
                     checkRunCount
@@ -522,7 +516,6 @@ function normalizeStatusCheckCounts(
     throw new Error("GitHub returned inconsistent check counts.");
   }
   return {
-    state: rollup.state,
     contexts: {
       totalCount: rollup.contexts.totalCount,
       checkRunCount: rollup.contexts.checkRunCount,
@@ -541,7 +534,6 @@ function normalizeStatusCheckRollup(
   }
   const counts = normalizeStatusCheckCounts(rollup);
   return {
-    state: counts.state,
     contexts: {
       totalCount: counts.contexts.totalCount,
       checkRunCount: counts.contexts.checkRunCount,

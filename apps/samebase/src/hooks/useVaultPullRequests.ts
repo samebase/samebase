@@ -53,18 +53,20 @@ export type PullRequestResourceState =
   | { state: "current"; resources: PullRequestResources }
   | { state: "stale"; resources: PullRequestResources };
 
+export type VaultPullRequestLoadMoreState =
+  | { state: "available"; load: () => void }
+  | { state: "loading" }
+  | { state: "failed" }
+  | { state: "exhausted" };
+
 type SettledPullRequests = {
   state: "current" | "stale";
   defaultBranch: VaultDefaultBranchObservation | null;
   allPullRequests: VaultPullRequest[];
   refreshing: boolean;
-  resourceState: "current" | "loading" | "stale" | "failed";
+  resourcesStale: boolean;
   resourcesByPullRequestId: ReadonlyMap<string, PullRequestResourceState>;
-  hasMore: boolean;
-  isLoadingMore: boolean;
-  canLoadMore: boolean;
-  loadMoreFailed: boolean;
-  loadMore: () => void;
+  loadMore: VaultPullRequestLoadMoreState;
 };
 
 export type VaultPullRequestsState =
@@ -131,31 +133,28 @@ function defaultBranchFromPage(
   };
 }
 
-function uniquePullRequests(pages: readonly RepositoryPullRequestPage[]): RepositoryPullRequest[] {
+function uniquePullRequestsByPage(pages: readonly RepositoryPullRequestPage[]): {
+  pullRequests: RepositoryPullRequest[];
+  pullRequestIdPages: string[][];
+} {
   const seen = new Set<string>();
-  return pages.flatMap((page) =>
-    pullRequestsFromPage(page).filter((pullRequest) => {
+  const pullRequests: RepositoryPullRequest[] = [];
+  const pullRequestIdPages: string[][] = [];
+  for (const page of pages) {
+    const pagePullRequestIds: string[] = [];
+    for (const pullRequest of pullRequestsFromPage(page)) {
       if (seen.has(pullRequest.id)) {
-        return false;
+        continue;
       }
       seen.add(pullRequest.id);
-      return true;
-    }),
-  );
-}
-
-function uniquePullRequestIdPages(pages: readonly RepositoryPullRequestPage[]): string[][] {
-  const seen = new Set<string>();
-  return pages.flatMap((page) => {
-    const pullRequestIds = pullRequestsFromPage(page).flatMap((pullRequest) => {
-      if (seen.has(pullRequest.id)) {
-        return [];
-      }
-      seen.add(pullRequest.id);
-      return [pullRequest.id];
-    });
-    return pullRequestIds.length > 0 ? [pullRequestIds] : [];
-  });
+      pullRequests.push(pullRequest);
+      pagePullRequestIds.push(pullRequest.id);
+    }
+    if (pagePullRequestIds.length > 0) {
+      pullRequestIdPages.push(pagePullRequestIds);
+    }
+  }
+  return { pullRequests, pullRequestIdPages };
 }
 
 export function useVaultPullRequests(args: {
@@ -216,9 +215,13 @@ export function useVaultPullRequests(args: {
     refetchIntervalInBackground: false,
   });
   const pages = useMemo(() => pullRequestQuery.data?.pages ?? [], [pullRequestQuery.data?.pages]);
-  const allPullRequests = useMemo(() => uniquePullRequests(pages).map(presentPullRequest), [pages]);
+  const uniquePages = useMemo(() => uniquePullRequestsByPage(pages), [pages]);
+  const allPullRequests = useMemo(
+    () => uniquePages.pullRequests.map(presentPullRequest),
+    [uniquePages.pullRequests],
+  );
   const defaultBranch = defaultBranchFromPage(pages.at(0));
-  const pullRequestIdPages = useMemo(() => uniquePullRequestIdPages(pages), [pages]);
+  const pullRequestIdPages = uniquePages.pullRequestIdPages;
   const resourceQueries = useQueries({
     queries: pullRequestIdPages.map((pagePullRequestIds, pageIndex) => ({
       queryKey: [
@@ -267,25 +270,14 @@ export function useVaultPullRequests(args: {
     return resources;
   }, [pullRequestIdPages, resourceQueries]);
 
-  const resourceStates = [...resourcesByPullRequestId.values()].map((resource) => resource.state);
-  const resourceState = resourceStates.includes("failed")
-    ? "failed"
-    : resourceStates.includes("stale")
-      ? "stale"
-      : resourceStates.includes("loading")
-        ? "loading"
-        : "current";
   const fetchNextPage = pullRequestQuery.fetchNextPage;
   const refetchPullRequests = pullRequestQuery.refetch;
   const hasNextPage = pullRequestQuery.hasNextPage;
   const isFetchNextPageError = pullRequestQuery.isFetchNextPageError;
   const isFetchingNextPage = pullRequestQuery.isFetchingNextPage;
   const loadMore = useCallback(() => {
-    if (!hasNextPage || isFetchingNextPage || isFetchNextPageError) {
-      return;
-    }
     void fetchNextPage();
-  }, [fetchNextPage, hasNextPage, isFetchNextPageError, isFetchingNextPage]);
+  }, [fetchNextPage]);
   const reload = useCallback(() => {
     void refetchPullRequests();
   }, [refetchPullRequests]);
@@ -296,12 +288,13 @@ export function useVaultPullRequests(args: {
     return pullRequestQuery.isError ? { state: "problem", reload } : { state: "loading" };
   }
 
-  const lastPage = pages.at(-1);
-  if (!lastPage) {
-    throw new Error("Pull request query returned no provider pages.");
-  }
-  const hasMore = nextCursor(lastPage) !== null;
-  const canLoadMore = hasMore && !isFetchingNextPage && !isFetchNextPageError;
+  const loadMoreState: VaultPullRequestLoadMoreState = isFetchingNextPage
+    ? { state: "loading" }
+    : isFetchNextPageError
+      ? { state: "failed" }
+      : hasNextPage
+        ? { state: "available", load: loadMore }
+        : { state: "exhausted" };
   return {
     state:
       pullRequestQuery.isRefetchError && !pullRequestQuery.isFetchNextPageError
@@ -310,12 +303,10 @@ export function useVaultPullRequests(args: {
     defaultBranch,
     allPullRequests,
     refreshing: pullRequestQuery.isFetching || resourceQueries.some((query) => query.isFetching),
-    resourceState,
+    resourcesStale: [...resourcesByPullRequestId.values()].some(
+      (resource) => resource.state === "stale",
+    ),
     resourcesByPullRequestId,
-    hasMore,
-    isLoadingMore: isFetchingNextPage,
-    canLoadMore,
-    loadMoreFailed: isFetchNextPageError,
-    loadMore,
+    loadMore: loadMoreState,
   };
 }

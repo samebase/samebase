@@ -2,7 +2,6 @@ import { describe, expect, it } from "vite-plus/test";
 
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import {
-  cloudflareBuildLogsUrl,
   normalizeGitHubPullRequestResourceHeadReads,
   recoverGitHubPullRequestResourceHeadsFromError,
   resolveCloudflareBranchPreviewUrl,
@@ -10,6 +9,7 @@ import {
   validatePullRequestResourceIds,
   type PullRequestResourceHead,
 } from "./pullRequestResources";
+import { buildCloudflareBuildLogsUrl } from "./providerDashboardUrls";
 
 const head: PullRequestResourceHead = {
   id: "PR_17",
@@ -78,10 +78,10 @@ function pullRequestNodeGraphqlError(args: { data: unknown; type?: string }) {
   });
 }
 
-describe("cloudflareBuildLogsUrl", () => {
+describe("buildCloudflareBuildLogsUrl", () => {
   it("links the verified account, Worker, and build identities to the exact Cloudflare logs", () => {
     expect(
-      cloudflareBuildLogsUrl({
+      buildCloudflareBuildLogsUrl({
         accountId: "account/id",
         workerName: "samebase worker",
         buildUuid: "build/id",

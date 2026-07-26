@@ -24,7 +24,6 @@ describe("summarizeRepositoryChecks", () => {
 
   it("derives presentation state from GitHub's native grouped counts", () => {
     const rollup = {
-      state: "PENDING",
       contexts: {
         totalCount: 5,
         checkRunCount: 4,
@@ -52,7 +51,6 @@ describe("summarizeRepositoryChecks", () => {
 
   it("surfaces provider states that were normalized to unknown", () => {
     const rollup = {
-      state: "UNKNOWN",
       contexts: {
         totalCount: 2,
         checkRunCount: 1,

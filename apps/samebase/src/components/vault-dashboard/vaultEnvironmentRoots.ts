@@ -39,7 +39,10 @@ type VaultEnvironmentBuildState = Extract<
 >["cloudflareBuild"]["state"];
 
 type VaultProductionBuildState = Extract<
-  Extract<VaultCloudflareWorkerBuildsObservation, { state: "available" }>["productionBuild"],
+  Extract<
+    Extract<VaultCloudflareWorkerBuildsObservation, { state: "available" }>["builds"],
+    { state: "connected" }
+  >["productionBuild"],
   { state: "available" }
 >["buildState"];
 
@@ -119,21 +122,6 @@ function buildProductionUrlLabel(url: string): string {
   }
 }
 
-function buildConvexDeploymentDashboardUrl(
-  project: { projectSlug: string; teamSlug: string },
-  deploymentName: string,
-): string {
-  return `https://dashboard.convex.dev/t/${encodeURIComponent(project.teamSlug)}/${encodeURIComponent(project.projectSlug)}/${encodeURIComponent(deploymentName)}`;
-}
-
-function buildCloudflareBuildLogsUrl(args: {
-  accountId: string;
-  workerName: string;
-  buildUuid: string;
-}): string {
-  return `https://dash.cloudflare.com/${encodeURIComponent(args.accountId)}/workers/services/view/${encodeURIComponent(args.workerName)}/production/builds/${encodeURIComponent(args.buildUuid)}`;
-}
-
 export function buildProductionEnvironmentRoots({
   branch,
   cloudflareObservations,
@@ -199,21 +187,21 @@ export function buildProductionEnvironmentRoots({
             return [];
           }
 
+          const productionBuild =
+            buildsObservation.builds.state === "connected"
+              ? buildsObservation.builds.productionBuild
+              : ({ state: "absent" } as const);
           const build:
             | { state: "available"; buildState: VaultProductionBuildState; logsUrl: string }
             | { state: "absent" }
             | { state: "unavailable" } =
-            buildsObservation.productionBuild.state === "available"
+            productionBuild.state === "available"
               ? {
                   state: "available",
-                  buildState: buildsObservation.productionBuild.buildState,
-                  logsUrl: buildCloudflareBuildLogsUrl({
-                    accountId: worker.accountId,
-                    workerName: worker.workerName,
-                    buildUuid: buildsObservation.productionBuild.uuid,
-                  }),
+                  buildState: productionBuild.buildState,
+                  logsUrl: productionBuild.logsUrl,
                 }
-              : buildsObservation.productionBuild;
+              : productionBuild;
 
           return [
             {
@@ -258,7 +246,7 @@ export function buildProductionEnvironmentRoots({
           }
 
           const deployment = provider.productionDeployment;
-          const href = buildConvexDeploymentDashboardUrl(provider, deployment.deploymentName);
+          const href = deployment.dashboardUrl;
           return [
             {
               rootDirectory: getConvexCodeRootDirectory(project.codeLocation),

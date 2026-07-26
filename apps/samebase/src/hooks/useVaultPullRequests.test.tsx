@@ -68,7 +68,6 @@ function page(args: {
         headCommitUrl:
           "https://github.com/samebase/samebase/commit/81145b7d2a32186823452c7515b2d5ba2d79b350",
         statusCheckRollup: {
-          state: "SUCCESS",
           contexts: {
             totalCount: 1,
             checkRunCount: 1,
@@ -165,6 +164,14 @@ function settledState() {
     throw new Error(`Pull requests are not settled: ${latestState?.state ?? "missing"}.`);
   }
   return latestState;
+}
+
+function loadMore() {
+  const state = settledState().loadMore;
+  if (state.state !== "available") {
+    throw new Error(`More pull requests cannot be loaded: ${state.state}.`);
+  }
+  state.load();
 }
 
 async function waitFor(predicate: (state: VaultPullRequestsState) => boolean): Promise<void> {
@@ -273,9 +280,9 @@ describe("useVaultPullRequests", () => {
       headCommitTitle: "Keep the workspace model explicit",
       checks: { state: "success", totalCount: 1, successCount: 1 },
     });
-    expect(settledState().hasMore).toBe(true);
+    expect(settledState().loadMore.state).toBe("available");
 
-    act(() => settledState().loadMore());
+    act(() => loadMore());
     await waitFor(
       (state) =>
         (state.state === "current" || state.state === "stale") &&
@@ -312,13 +319,11 @@ describe("useVaultPullRequests", () => {
         state.allPullRequests.length === 1,
     );
 
-    act(() => settledState().loadMore());
+    act(() => loadMore());
     await waitFor(
-      (state) => (state.state === "current" || state.state === "stale") && state.loadMoreFailed,
+      (state) =>
+        (state.state === "current" || state.state === "stale") && state.loadMore.state === "failed",
     );
-    expect(settledState().canLoadMore).toBe(false);
-
-    act(() => settledState().loadMore());
     expect(listHandler).toHaveBeenCalledTimes(2);
   });
 
@@ -339,15 +344,14 @@ describe("useVaultPullRequests", () => {
 
     await renderHarness();
     await waitFor(
-      (state) =>
-        (state.state === "current" || state.state === "stale") && state.resourceState === "current",
+      (state) => (state.state === "current" || state.state === "stale") && !state.resourcesStale,
     );
-    act(() => settledState().loadMore());
+    act(() => loadMore());
     await waitFor(
       (state) =>
         (state.state === "current" || state.state === "stale") &&
         state.allPullRequests.length === 2 &&
-        state.resourceState === "current",
+        !state.resourcesStale,
     );
 
     expect(resourceHandler.mock.calls.map((call) => call[0])).toEqual([
@@ -376,7 +380,7 @@ describe("useVaultPullRequests", () => {
       (state) =>
         (state.state === "current" || state.state === "stale") &&
         resourceHandler.mock.calls.length === 4 &&
-        state.resourceState === "current",
+        !state.resourcesStale,
     );
 
     expect(resourceHandler.mock.calls.slice(2).map((call) => call[0])).toEqual([
@@ -417,7 +421,7 @@ describe("useVaultPullRequests", () => {
         state.allPullRequests.length === 1,
     );
 
-    act(() => settledState().loadMore());
+    act(() => loadMore());
     await waitFor(
       (state) =>
         (state.state === "current" || state.state === "stale") &&
@@ -476,7 +480,7 @@ describe("useVaultPullRequests", () => {
         (state.state === "current" || state.state === "stale") &&
         state.allPullRequests.length === 1,
     );
-    act(() => settledState().loadMore());
+    act(() => loadMore());
     await waitFor(
       (state) =>
         (state.state === "current" || state.state === "stale") &&

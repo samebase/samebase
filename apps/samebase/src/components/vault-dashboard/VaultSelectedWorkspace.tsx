@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useAction } from "convex/react";
 import { useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 
@@ -16,31 +16,11 @@ import { VaultCloudflareDialog } from "./VaultCloudflareDialog";
 import { VaultConvexDialog } from "./VaultConvexDialog";
 import { VaultDeleteDialog } from "./VaultDeleteDialog";
 import { VaultOverviewPage, type VaultOverviewPageKind } from "./VaultOverviewPage";
-import { buildVaultRepositorySettingsState } from "./vaultRepositorySettingsState";
+import {
+  buildVaultRepositorySettingsState,
+  type VaultRepositorySettingsPendingAction,
+} from "./vaultRepositorySettingsState";
 import type { VaultWorkspaceSelected as VaultWorkspace } from "./vaultWorkspaceModel";
-
-type ProviderActionInFlight =
-  | {
-      kind: "configure_workers_builds_for_github";
-      workerId: Id<"vaultCloudflareWorkers">;
-    }
-  | {
-      kind: "rotate_convex_deploy_keys_for_workers_builds";
-      workerId: Id<"vaultCloudflareWorkers">;
-      convexProjectId: Id<"vaultConvexProjects">;
-    }
-  | {
-      kind: "detach_cloudflare_worker";
-      workerId: Id<"vaultCloudflareWorkers">;
-    }
-  | {
-      kind: "detach_convex_project";
-      convexProjectId: Id<"vaultConvexProjects">;
-    }
-  | {
-      kind: "reconcile_convex_project_team";
-      convexProjectId: Id<"vaultConvexProjects">;
-    };
 
 function applyVaultDashboardProviderAddSearch({
   currentSearch,
@@ -87,7 +67,7 @@ export function VaultSelectedWorkspace({
     api.vault.cloudflare.rotateConvexDeployKeysForWorkersBuilds,
   );
   const [providerActionInFlight, setProviderActionInFlight] =
-    useState<ProviderActionInFlight | null>(null);
+    useState<VaultRepositorySettingsPendingAction | null>(null);
   const [isRetryingVaultAction, setIsRetryingVaultAction] = useState(false);
   const vault = workspace.vault;
   const deleteModeActive = rootRouteSearch.delete === true;
@@ -129,23 +109,6 @@ export function VaultSelectedWorkspace({
     }
     replaceVaultDashboardDialogRoute(dialog);
   };
-
-  useEffect(() => {
-    if (deleteModeActive && !canDelete) {
-      replaceVaultDashboardDialogRoute("delete");
-    } else if (addConvexModeActive && !canManageProviderAttachments) {
-      replaceVaultDashboardDialogRoute("add-convex");
-    } else if (addCloudflareWorkerModeActive && !canManageProviderAttachments) {
-      replaceVaultDashboardDialogRoute("add-cloudflare");
-    }
-  }, [
-    addCloudflareWorkerModeActive,
-    addConvexModeActive,
-    canDelete,
-    canManageProviderAttachments,
-    deleteModeActive,
-    replaceVaultDashboardDialogRoute,
-  ]);
 
   const openProviderDialog = (
     dialog:
@@ -224,7 +187,7 @@ export function VaultSelectedWorkspace({
     invalidate,
     run,
   }: {
-    action: ProviderActionInFlight;
+    action: VaultRepositorySettingsPendingAction;
     errorTitle: string;
     invalidate: boolean;
     run: () => Promise<unknown>;
@@ -346,22 +309,7 @@ export function VaultSelectedWorkspace({
       : undefined,
     cloudflareObservations: workspace.cloudflareObservations,
     convexObservations: workspace.convexObservations,
-    isConfiguringWorkersBuildsForGitHub: (workerId) =>
-      providerActionInFlight?.kind === "configure_workers_builds_for_github" &&
-      providerActionInFlight.workerId === workerId,
-    isDetachingCloudflareWorker: (workerId) =>
-      providerActionInFlight?.kind === "detach_cloudflare_worker" &&
-      providerActionInFlight.workerId === workerId,
-    isDetachingConvexProject: (convexProjectId) =>
-      providerActionInFlight?.kind === "detach_convex_project" &&
-      providerActionInFlight.convexProjectId === convexProjectId,
-    isReconcilingConvexProjectTeam: (convexProjectId) =>
-      providerActionInFlight?.kind === "reconcile_convex_project_team" &&
-      providerActionInFlight.convexProjectId === convexProjectId,
-    isRotatingConvexDeployKeysForWorkersBuilds: (workerId, convexProjectId) =>
-      providerActionInFlight?.kind === "rotate_convex_deploy_keys_for_workers_builds" &&
-      providerActionInFlight.workerId === workerId &&
-      providerActionInFlight.convexProjectId === convexProjectId,
+    pendingAction: providerActionInFlight,
     vault,
     detachCloudflareWorkerOnClick: canManageProviderAttachments
       ? handleDetachCloudflareWorker
