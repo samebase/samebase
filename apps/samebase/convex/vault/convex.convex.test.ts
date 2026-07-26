@@ -612,8 +612,8 @@ describe("vault Convex project attachments", () => {
       convexProjectId,
       projectId: "1001",
       codeLocation: { kind: "config", convexConfigPath: "convex.json" },
-      source: { state: "valid", blobSha: "root-sha" },
-      provider: { state: "missing_ambiguous", teamId: "1000" },
+      source: { state: "valid", kind: "config" },
+      provider: { state: "missing_ambiguous" },
     });
     await expect(t.run(async (ctx) => await ctx.db.get(convexProjectId))).resolves.toMatchObject({
       teamId: "1000",

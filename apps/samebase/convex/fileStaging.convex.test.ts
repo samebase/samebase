@@ -9,12 +9,12 @@ async function seedVaultWithStagedFile() {
   const ids = await t.run(async (ctx) => {
     const ownerId = await ctx.db.insert("users", {
       name: "Owner",
-      email: "owner@example.com",
+      email: "nicu@samebase.com",
       isApproved: true,
     });
     const otherUserId = await ctx.db.insert("users", {
       name: "Other",
-      email: "other@example.com",
+      email: "nicuchiciuc@gmail.com",
       isApproved: true,
     });
     const vaultId = await ctx.db.insert("vaults", {
@@ -60,7 +60,7 @@ describe("fileStaging.listStagedFiles access control", () => {
     ).rejects.toThrowError("Access denied");
   });
 
-  it("returns an empty list to authenticated non-owners", async () => {
+  it("returns an empty list to staff non-owners", async () => {
     const { ids, t } = await seedVaultWithStagedFile();
 
     const asOther = asIdentity(t, ids.otherUserId);
@@ -92,7 +92,7 @@ describe("fileStaging.listStagedFiles access control", () => {
 });
 
 describe("fileStaging.getByNewPath access control", () => {
-  it("returns null to authenticated non-owners", async () => {
+  it("returns null to staff non-owners", async () => {
     const { ids, t } = await seedVaultWithStagedFile();
 
     const asOther = asIdentity(t, ids.otherUserId);

@@ -6,8 +6,6 @@ import { makeConvexTest } from "./test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
-type SeedViewerRole = "member" | "staff";
-
 function asIdentity(t: ConvexTest, userId: Id<"users">) {
   return t.withIdentity({
     subject: `${userId}|test-session`,
@@ -15,26 +13,18 @@ function asIdentity(t: ConvexTest, userId: Id<"users">) {
   });
 }
 
-function seedEmail(args: { role: SeedViewerRole; user: "owner" | "other" }): string {
-  if (args.role === "staff") {
-    return args.user === "owner" ? "nicu@samebase.com" : "nicuchiciuc@gmail.com";
-  }
-
-  return args.user === "owner" ? "owner.member@example.test" : "other.member@example.test";
-}
-
-async function seedOwnedResources(role: SeedViewerRole = "member") {
+async function seedOwnedResources() {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const now = Date.now();
     const ownerId = await ctx.db.insert("users", {
       name: "Owner",
-      email: seedEmail({ role, user: "owner" }),
+      email: "nicu@samebase.com",
       isApproved: true,
     });
     const otherUserId = await ctx.db.insert("users", {
       name: "Other",
-      email: seedEmail({ role, user: "other" }),
+      email: "nicuchiciuc@gmail.com",
       isApproved: true,
     });
     const vaultId = await ctx.db.insert("vaults", {
@@ -144,7 +134,7 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
 }
 
 describe("public Convex route ownership checks", () => {
-  it("hides owner-scoped vault read gateways from another member", async () => {
+  it("hides owner-scoped vault read gateways from another staff user", async () => {
     const { ids, t } = await seedOwnedResources();
     const asOther = asIdentity(t, ids.otherUserId);
     const asOwner = asIdentity(t, ids.ownerId);
@@ -182,7 +172,7 @@ describe("public Convex route ownership checks", () => {
     ]);
   });
 
-  it("hides owner-scoped folder and collaborative reads from another member", async () => {
+  it("hides owner-scoped folder and collaborative reads from another staff user", async () => {
     const { ids, t } = await seedOwnedResources();
     const asOther = asIdentity(t, ids.otherUserId);
     const asOwner = asIdentity(t, ids.ownerId);
@@ -225,7 +215,7 @@ describe("public Convex route ownership checks", () => {
     });
   });
 
-  it("blocks another member from changing owner-scoped folder rows", async () => {
+  it("blocks another staff user from changing owner-scoped folder rows", async () => {
     const { ids, t } = await seedOwnedResources();
     const asOther = asIdentity(t, ids.otherUserId);
 
@@ -253,7 +243,7 @@ describe("public Convex route ownership checks", () => {
     });
   });
 
-  it("blocks another member from mutating owner-scoped staging rows", async () => {
+  it("blocks another staff user from mutating owner-scoped staging rows", async () => {
     const { ids, t } = await seedOwnedResources();
     const asOther = asIdentity(t, ids.otherUserId);
 
@@ -369,7 +359,7 @@ describe("public Convex route ownership checks", () => {
     ]);
   });
 
-  it("blocks another member from pulling or pushing collaborative updates", async () => {
+  it("blocks another staff user from pulling or pushing collaborative updates", async () => {
     const { ids, t } = await seedOwnedResources();
     const asOther = asIdentity(t, ids.otherUserId);
 

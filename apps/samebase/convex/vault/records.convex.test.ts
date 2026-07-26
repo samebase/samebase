@@ -91,7 +91,7 @@ describe("vault records Convex contract", () => {
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
         name: "Ada",
-        email: "ada@example.com",
+        email: "nicu@samebase.com",
         isApproved: true,
       });
     });
@@ -218,12 +218,12 @@ describe("vault records Convex contract", () => {
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         name: "Ada",
-        email: "ada@example.com",
+        email: "nicu@samebase.com",
         isApproved: true,
       });
       const otherUserId = await ctx.db.insert("users", {
         name: "Grace",
-        email: "grace@example.com",
+        email: "nicuchiciuc@gmail.com",
         isApproved: true,
       });
       const vaultId = await ctx.db.insert("vaults", {

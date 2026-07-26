@@ -1162,6 +1162,7 @@ export const trackedFilePaths = [
   "apps/samebase/src/lib/utils.ts",
   "apps/samebase/src/lib/vaultConvexProjectAttachment.test.ts",
   "apps/samebase/src/lib/vaultConvexProjectAttachment.ts",
+  "apps/samebase/src/lib/vaultExternalDataQueryKey.ts",
   "apps/samebase/src/lib/vaultRoutes.test.ts",
   "apps/samebase/src/lib/vaultRoutes.ts",
   "apps/samebase/src/lib/webManifest.test.ts",
