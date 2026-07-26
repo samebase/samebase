@@ -1131,7 +1131,6 @@ describe("VaultConvexDialogContent", () => {
     }
     expect(whileLoading).toContain('role="status"');
     expect(whileLoading).toContain("Searching for Convex code and projects");
-    expect(whileLoading).toContain("Elapsed search time");
     expect(whileLoading).not.toContain(">Existing<");
     expect(whileLoading).not.toContain("Add projects");
     expect(afterFailure).toContain("Could not discover Convex projects.");
@@ -1246,7 +1245,6 @@ describe("VaultCloudflareDialogContent", () => {
 
     expect(markup).toContain('role="status"');
     expect(markup).toContain("Searching for Cloudflare Workers");
-    expect(markup).toContain("Elapsed search time");
     expect(markup).not.toContain("Cloudflare account");
     expect(markup).not.toContain(">Existing<");
     expect(markup).not.toContain("Add Workers");

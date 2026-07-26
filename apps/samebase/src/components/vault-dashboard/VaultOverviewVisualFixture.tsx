@@ -30,13 +30,24 @@ import type {
 } from "@/components/vault-dashboard/useVaultProviderObservations";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { ROLE_ACCESS_GRANTS } from "../../../shared/accessModel";
+import {
+  VaultOverviewDialogsVisualFixture,
+  type VaultOverviewDialogsVisualMode,
+} from "./VaultOverviewDialogsVisualFixture";
+import {
+  VaultConvexSchemaGraphVisualFixture,
+  type VaultConvexSchemaGraphVisualMode,
+} from "./VaultConvexSchemaGraphVisualFixture";
 
 export type VaultOverviewVisualMode =
+  | VaultOverviewDialogsVisualMode
+  | VaultConvexSchemaGraphVisualMode
   | "vault-overview-v2"
   | "vault-overview-v2-auto-pagination"
   | "vault-overview-v2-dev"
   | "vault-overview-v2-loading"
   | "vault-overview-v2-partial-loading"
+  | "vault-overview-v2-provider-failed"
   | "vault-overview-v2-provisioning-source"
   | "vault-overview-v2-provisioning-github"
   | "vault-overview-v2-provisioning-early-empty"
@@ -46,7 +57,8 @@ export type VaultOverviewVisualMode =
   | "vault-overview-v2-provisioning-worker"
   | "vault-overview-v2-provisioning-ready"
   | "vault-overview-v2-root"
-  | "vault-overview-v2-settings";
+  | "vault-overview-v2-settings"
+  | "vault-overview-v2-settings-loading";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
 const LOADING_CLOUDFLARE_OBSERVATIONS = {
@@ -185,6 +197,12 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
     reload: () => {},
     observations: [],
   },
+} satisfies VaultCloudflareProviderObservationState;
+
+const FAILED_CLOUDFLARE_OBSERVATIONS = {
+  workers: { state: "failed", reload: () => {} },
+  builds: LIST_SPACING_CLOUDFLARE_OBSERVATIONS.builds,
+  convexBuildAccess: LIST_SPACING_CLOUDFLARE_OBSERVATIONS.convexBuildAccess,
 } satisfies VaultCloudflareProviderObservationState;
 
 const LIST_SPACING_CONVEX_OBSERVATIONS = {
@@ -864,9 +882,22 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
 
 export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisualMode }) {
   const [nextPullRequestPageLoaded, setNextPullRequestPageLoaded] = useState(false);
-  const page = mode === "vault-overview-v2-settings" ? "settings" : "overview";
+  const page =
+    mode === "vault-overview-v2-settings" || mode === "vault-overview-v2-settings-loading"
+      ? "settings"
+      : "overview";
 
   switch (mode) {
+    case "vault-overview-v2-cloudflare-builds-repair":
+    case "vault-overview-v2-cloudflare-dialog":
+    case "vault-overview-v2-cloudflare-dialog-loading":
+    case "vault-overview-v2-convex-dialog":
+    case "vault-overview-v2-convex-dialog-error":
+    case "vault-overview-v2-convex-dialog-loading":
+    case "vault-overview-v2-delete-dialog":
+      return <VaultOverviewDialogsVisualFixture mode={mode} />;
+    case "vault-overview-v2-convex-schema":
+      return <VaultConvexSchemaGraphVisualFixture mode={mode} />;
     case "vault-overview-v2-provisioning-source":
     case "vault-overview-v2-provisioning-github":
     case "vault-overview-v2-provisioning-early-empty":
@@ -897,19 +928,17 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
     );
   }
 
-  if (mode === "vault-overview-v2-loading") {
+  if (mode === "vault-overview-v2-loading" || mode === "vault-overview-v2-settings-loading") {
     return (
       <TestRouterProvider initialEntries={["/vault/samebase/samebase"]}>
         <WorkspaceLayoutV2FixtureFrame
-          dataTestId="vault-overview-v2-loading"
+          dataTestId={mode}
           left={{
             header: <VaultOverviewVaultListHeader />,
             content: <VaultOverviewSidebarLoading />,
           }}
           main={{
-            content: (
-              <VaultOverviewLoadingPage owner="samebase" page="overview" repoName="samebase" />
-            ),
+            content: <VaultOverviewLoadingPage owner="samebase" page={page} repoName="samebase" />,
           }}
           shortcutPaneSide="left"
         />
@@ -918,9 +947,12 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
   }
 
   const partialLoading = mode === "vault-overview-v2-partial-loading";
-  const cloudflareObservations = partialLoading
-    ? LOADING_CLOUDFLARE_OBSERVATIONS
-    : LIST_SPACING_CLOUDFLARE_OBSERVATIONS;
+  const cloudflareObservations =
+    mode === "vault-overview-v2-provider-failed"
+      ? FAILED_CLOUDFLARE_OBSERVATIONS
+      : partialLoading
+        ? LOADING_CLOUDFLARE_OBSERVATIONS
+        : LIST_SPACING_CLOUDFLARE_OBSERVATIONS;
   const convexObservations: VaultProviderObservationState<VaultConvexProjectObservation> =
     partialLoading ? { state: "loading" } : LIST_SPACING_CONVEX_OBSERVATIONS;
   const sourcePullRequests =

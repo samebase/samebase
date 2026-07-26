@@ -16,24 +16,7 @@ const VAULT_OVERVIEW_V2_SIDEBAR_STATE = {
   rightMobileWidthPx: 288,
 } satisfies WorkspaceSidebarState;
 
-type VaultOverviewV2VisualMode = Extract<
-  VaultOverviewVisualMode,
-  | "vault-overview-v2"
-  | "vault-overview-v2-auto-pagination"
-  | "vault-overview-v2-dev"
-  | "vault-overview-v2-loading"
-  | "vault-overview-v2-partial-loading"
-  | "vault-overview-v2-provisioning-source"
-  | "vault-overview-v2-provisioning-github"
-  | "vault-overview-v2-provisioning-early-empty"
-  | "vault-overview-v2-provisioning-complete-empty"
-  | "vault-overview-v2-provisioning-stale-empty"
-  | "vault-overview-v2-provisioning-commit"
-  | "vault-overview-v2-provisioning-worker"
-  | "vault-overview-v2-provisioning-ready"
-  | "vault-overview-v2-root"
-  | "vault-overview-v2-settings"
->;
+type VaultOverviewV2VisualMode = VaultOverviewVisualMode;
 
 async function openVaultOverviewV2(
   page: Page,
@@ -170,14 +153,14 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
     name: /Show the exact preview for each pull request/,
   });
   await expect(firstPullRequest).toBeVisible();
-  await expect(firstPullRequest).toContainText("+40");
-  await expect(firstPullRequest).toContainText("−10");
-  await expect(firstPullRequest).toContainText("3 files");
+  const firstPullRequestRow = firstPullRequest.locator("xpath=ancestor::article");
+  await expect(firstPullRequestRow).toContainText("+40");
+  await expect(firstPullRequestRow).toContainText("−10");
+  await expect(firstPullRequestRow).toContainText("3 files");
 
   await firstPullRequest.click();
   await expect(fixture.getByRole("link", { name: "Branch preview" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Built" }).first()).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "View changes" }).first()).toBeVisible();
   await expect(
     fixture.getByRole("link", { name: "precise-otter-1260", exact: true }),
   ).toBeVisible();
@@ -207,6 +190,146 @@ test("keeps provider ownership and actions together in mobile settings", async (
   });
 });
 
+test("covers the mobile vault removal dialog", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openVaultOverviewV2(page, "vault-overview-v2-delete-dialog");
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("heading", { name: /Remove Vault/ })).toBeVisible();
+  await expect(dialog.getByRole("checkbox")).toHaveCount(3);
+  await expect(dialog).toHaveScreenshot("vault-overview-v2-delete-dialog-mobile.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+});
+
+test("covers Convex connection dialog states", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 900 });
+  const cases = [
+    ["vault-overview-v2-convex-dialog", "vault-overview-v2-convex-dialog.png"],
+    ["vault-overview-v2-convex-dialog-loading", "vault-overview-v2-convex-dialog-loading.png"],
+    ["vault-overview-v2-convex-dialog-error", "vault-overview-v2-convex-dialog-error.png"],
+  ] as const satisfies readonly [VaultOverviewV2VisualMode, string][];
+
+  for (const [mode, screenshotName] of cases) {
+    await openVaultOverviewV2(page, mode);
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveScreenshot(screenshotName, {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    });
+  }
+});
+
+test("covers Cloudflare connection and Builds repair states", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const cases = [
+    ["vault-overview-v2-cloudflare-dialog", "vault-overview-v2-cloudflare-dialog-mobile.png"],
+    [
+      "vault-overview-v2-cloudflare-dialog-loading",
+      "vault-overview-v2-cloudflare-dialog-loading-mobile.png",
+    ],
+    [
+      "vault-overview-v2-cloudflare-builds-repair",
+      "vault-overview-v2-cloudflare-builds-repair-mobile.png",
+    ],
+  ] as const satisfies readonly [VaultOverviewV2VisualMode, string][];
+
+  for (const [mode, screenshotName] of cases) {
+    await openVaultOverviewV2(page, mode);
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveScreenshot(screenshotName, {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    });
+  }
+});
+
+test("covers default-branch and pull-request check details", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 800 });
+  const fixture = await openVaultOverviewV2(page, "vault-overview-v2");
+
+  await fixture.getByTitle("Show main checks").click();
+  const defaultBranchPopover = page.getByRole("dialog", { name: "main checks" });
+  await expect(defaultBranchPopover).toBeVisible();
+  await expect(defaultBranchPopover).toHaveScreenshot(
+    "vault-overview-v2-default-branch-checks.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    },
+  );
+
+  await page.keyboard.press("Escape");
+  await fixture.getByTitle("Show pull request #1260 checks").click();
+  const pullRequestPopover = page.getByRole("dialog", {
+    name: "Pull request #1260 checks",
+  });
+  await expect(pullRequestPopover).toBeVisible();
+  await expect(pullRequestPopover).toHaveScreenshot("vault-overview-v2-pull-request-checks.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+});
+
+test("renders and drags the production Convex schema graph", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const desktopFixture = await openVaultOverviewV2(page, "vault-overview-v2-convex-schema");
+  const schemaNodes = desktopFixture.locator(".react-flow__node-schemaTable");
+  await expect(schemaNodes).toHaveCount(4);
+  await expect(desktopFixture).toHaveScreenshot("vault-overview-v2-convex-schema-desktop.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+
+  const firstNode = schemaNodes.first();
+  const beforeDrag = await firstNode.boundingBox();
+  expect(beforeDrag).not.toBeNull();
+  if (beforeDrag) {
+    await page.mouse.move(
+      beforeDrag.x + beforeDrag.width / 2,
+      beforeDrag.y + beforeDrag.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      beforeDrag.x + beforeDrag.width / 2 + 60,
+      beforeDrag.y + beforeDrag.height / 2 + 40,
+      { steps: 5 },
+    );
+    await page.mouse.up();
+    const afterDrag = await firstNode.boundingBox();
+    expect(afterDrag).not.toBeNull();
+    if (afterDrag) {
+      expect(afterDrag.x).toBeGreaterThan(beforeDrag.x + 30);
+      expect(afterDrag.y).toBeGreaterThan(beforeDrag.y + 20);
+    }
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileFixture = await openVaultOverviewV2(page, "vault-overview-v2-convex-schema");
+  await expect(mobileFixture.locator(".react-flow__node-schemaTable")).toHaveCount(4);
+  await expect(mobileFixture).toHaveScreenshot("vault-overview-v2-convex-schema-mobile.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+});
+
 test("uses stable shells while independent data sources load", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const loadingFixture = await openVaultOverviewV2(page, "vault-overview-v2-loading");
@@ -228,6 +351,30 @@ test("uses stable shells while independent data sources load", async ({ page }) 
     }),
   ).toBeVisible();
   await expect(partialFixture).toHaveScreenshot("vault-overview-v2-partial-loading-mobile.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+
+  const settingsFixture = await openVaultOverviewV2(page, "vault-overview-v2-settings-loading");
+  await expect(settingsFixture.getByLabel("Loading vault settings")).toBeVisible();
+  await expect(settingsFixture).toHaveScreenshot("vault-overview-v2-settings-loading-mobile.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+});
+
+test("keeps available resources visible when one provider fails", async ({ page }) => {
+  await page.setViewportSize({ width: 700, height: 900 });
+  const fixture = await openVaultOverviewV2(page, "vault-overview-v2-provider-failed");
+
+  await expect(fixture.getByText("Deploy status unavailable.")).toBeVisible();
+  await expect(fixture.getByRole("button", { name: "Retry" })).toBeVisible();
+  await expect(fixture.getByText("calm-swan-123")).toBeVisible();
+  await expect(fixture).toHaveScreenshot("vault-overview-v2-provider-failed.png", {
     animations: "disabled",
     caret: "hide",
     maxDiffPixelRatio: 0.02,

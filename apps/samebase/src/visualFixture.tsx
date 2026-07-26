@@ -154,9 +154,18 @@ const LOGO_VISUAL_MODES = ["logo-three-reference", "logo-snap-angles"] as const 
 const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-overview-v2",
   "vault-overview-v2-auto-pagination",
+  "vault-overview-v2-cloudflare-builds-repair",
+  "vault-overview-v2-cloudflare-dialog",
+  "vault-overview-v2-cloudflare-dialog-loading",
+  "vault-overview-v2-convex-dialog",
+  "vault-overview-v2-convex-dialog-error",
+  "vault-overview-v2-convex-dialog-loading",
+  "vault-overview-v2-convex-schema",
   "vault-overview-v2-dev",
+  "vault-overview-v2-delete-dialog",
   "vault-overview-v2-loading",
   "vault-overview-v2-partial-loading",
+  "vault-overview-v2-provider-failed",
   "vault-overview-v2-provisioning-source",
   "vault-overview-v2-provisioning-github",
   "vault-overview-v2-provisioning-early-empty",
@@ -167,6 +176,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-overview-v2-provisioning-ready",
   "vault-overview-v2-root",
   "vault-overview-v2-settings",
+  "vault-overview-v2-settings-loading",
 ] as const satisfies readonly VaultOverviewVisualMode[];
 
 const VAULT_SYNC_STATUS_VISUAL_MODES = [
@@ -326,23 +336,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <LogoSnapAnglesVisualFixture />;
   }
 
-  if (
-    mode === "vault-overview-v2" ||
-    mode === "vault-overview-v2-auto-pagination" ||
-    mode === "vault-overview-v2-dev" ||
-    mode === "vault-overview-v2-loading" ||
-    mode === "vault-overview-v2-partial-loading" ||
-    mode === "vault-overview-v2-provisioning-source" ||
-    mode === "vault-overview-v2-provisioning-github" ||
-    mode === "vault-overview-v2-provisioning-early-empty" ||
-    mode === "vault-overview-v2-provisioning-complete-empty" ||
-    mode === "vault-overview-v2-provisioning-stale-empty" ||
-    mode === "vault-overview-v2-provisioning-commit" ||
-    mode === "vault-overview-v2-provisioning-worker" ||
-    mode === "vault-overview-v2-provisioning-ready" ||
-    mode === "vault-overview-v2-root" ||
-    mode === "vault-overview-v2-settings"
-  ) {
+  if (includes(VAULT_DASHBOARD_VISUAL_MODES, mode)) {
     return <VaultOverviewVisualFixture mode={mode} />;
   }
 
