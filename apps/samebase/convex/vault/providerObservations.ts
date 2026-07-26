@@ -7,8 +7,8 @@ import type { ActionCtx } from "../_generated/server";
 import { action } from "../functions";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import {
+  readRecentCloudflareWorkerBuilds,
   readCloudflareWorkerBuildsDiscoveryForIdentity,
-  readCloudflareWorkerBuildsPage,
   readCloudflareWorkerConvexBuildAccess,
   readCloudflareWorkerIdentity,
   readCloudflareWorkersDevSubdomain,
@@ -418,15 +418,14 @@ export const observeCloudflareWorkerBuilds = action({
           };
           if (discovery.repository.state === "ready" && discovery.builds.state === "connected") {
             try {
-              productionBuild = matchLatestCloudflareWorkerBuildForBranch({
-                builds: await readCloudflareWorkerBuildsPage({
-                  token: input.token,
-                  transport: input.transport,
-                  accountId: worker.accountId,
-                  workerTag: worker.workerTag,
-                  page: 1,
-                  perPage: 100,
-                }),
+              const buildRead = await readRecentCloudflareWorkerBuilds({
+                token: input.token,
+                transport: input.transport,
+                accountId: worker.accountId,
+                workerTag: worker.workerTag,
+              });
+              const buildMatch = matchLatestCloudflareWorkerBuildForBranch({
+                builds: buildRead.builds,
                 branch: defaultBranch,
                 worker: {
                   workerTag: worker.workerTag,
@@ -435,6 +434,10 @@ export const observeCloudflareWorkerBuilds = action({
                 ghRepoId: input.context.ghRepoId,
                 triggerUuid: discovery.builds.productionTriggerUuid,
               });
+              productionBuild =
+                buildMatch.state === "absent" && !buildRead.exhausted
+                  ? { state: "provider_disagreement" }
+                  : buildMatch;
             } catch {
               productionBuild = { state: "provider_disagreement" };
             }

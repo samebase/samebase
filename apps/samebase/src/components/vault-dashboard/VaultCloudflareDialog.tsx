@@ -224,7 +224,11 @@ export function VaultCloudflareDialogContent({
             </div>
           ) : (
             <>
-              <Select value={selectedAccountId} onValueChange={onAccountChange}>
+              <Select
+                disabled={isSubmitting}
+                value={selectedAccountId}
+                onValueChange={onAccountChange}
+              >
                 <SelectTrigger aria-label="Cloudflare account" className="w-full">
                   <SelectValue placeholder="Cloudflare account">
                     {selectedAccount?.accountName}

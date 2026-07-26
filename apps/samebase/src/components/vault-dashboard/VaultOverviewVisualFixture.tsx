@@ -11,7 +11,10 @@ import {
 import { buildProductionEnvironmentRoots } from "@/components/vault-dashboard/vaultEnvironmentRoots";
 import { buildVaultRepositorySettingsState } from "@/components/vault-dashboard/vaultRepositorySettingsState";
 import type { VaultWorkspaceSelected } from "@/components/vault-dashboard/vaultWorkspaceModel";
-import { VaultOverviewVaultPickerPane } from "@/components/vault-dashboard/VaultOverviewVaultPickerPane";
+import {
+  VaultOverviewVaultListHeader,
+  VaultOverviewVaultPickerPane,
+} from "@/components/vault-dashboard/VaultOverviewVaultPickerPane";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
 import type {
@@ -126,6 +129,7 @@ const LIST_SPACING_VAULT = {
 const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
   workers: {
     state: "loaded",
+    refreshFailed: false,
     reload: () => {},
     observations: [
       {
@@ -150,6 +154,7 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
   },
   builds: {
     state: "loaded",
+    refreshFailed: false,
     reload: () => {},
     observations: [
       {
@@ -176,6 +181,7 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
   },
   convexBuildAccess: {
     state: "loaded",
+    refreshFailed: false,
     reload: () => {},
     observations: [],
   },
@@ -183,6 +189,7 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
 
 const LIST_SPACING_CONVEX_OBSERVATIONS = {
   state: "loaded",
+  refreshFailed: false,
   reload: () => {},
   observations: [
     {
@@ -427,6 +434,7 @@ const PROVISIONING_VAULT = {
 const PROVISIONING_CLOUDFLARE_OBSERVATIONS = {
   workers: {
     state: "loaded",
+    refreshFailed: false,
     reload: () => {},
     observations: [
       {
@@ -442,6 +450,7 @@ const PROVISIONING_CLOUDFLARE_OBSERVATIONS = {
   },
   builds: {
     state: "loaded",
+    refreshFailed: false,
     reload: () => {},
     observations: [
       {
@@ -472,6 +481,7 @@ const PROVISIONING_CLOUDFLARE_OBSERVATIONS = {
   },
   convexBuildAccess: {
     state: "loaded",
+    refreshFailed: false,
     reload: () => {},
     observations: [
       {
@@ -495,6 +505,7 @@ const PROVISIONING_CLOUDFLARE_OBSERVATIONS = {
 
 const PROVISIONING_CONVEX_OBSERVATIONS = {
   state: "loaded",
+  refreshFailed: false,
   reload: () => {},
   observations: [
     {
@@ -531,16 +542,19 @@ const PROVISIONING_EMPTY_CLOUDFLARE_OBSERVATIONS = {
   workers: {
     state: "loaded",
     observations: [],
+    refreshFailed: false,
     reload: () => {},
   },
   builds: {
     state: "loaded",
     observations: [],
+    refreshFailed: false,
     reload: () => {},
   },
   convexBuildAccess: {
     state: "loaded",
     observations: [],
+    refreshFailed: false,
     reload: () => {},
   },
 } satisfies VaultCloudflareProviderObservationState;
@@ -548,6 +562,7 @@ const PROVISIONING_EMPTY_CLOUDFLARE_OBSERVATIONS = {
 const PROVISIONING_EMPTY_CONVEX_OBSERVATIONS = {
   state: "loaded",
   observations: [],
+  refreshFailed: false,
   reload: () => {},
 } satisfies VaultProviderObservationState<VaultConvexProjectObservation>;
 
@@ -816,11 +831,7 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
       <WorkspaceLayoutV2FixtureFrame
         dataTestId={mode}
         left={{
-          header: (
-            <div className="flex h-full items-center px-2 text-sm font-medium text-foreground">
-              Vaults
-            </div>
-          ),
+          header: <VaultOverviewVaultListHeader />,
           content: (
             <VaultOverviewSidebar
               page="overview"
@@ -892,11 +903,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
         <WorkspaceLayoutV2FixtureFrame
           dataTestId="vault-overview-v2-loading"
           left={{
-            header: (
-              <div className="flex h-full items-center px-2 text-sm font-medium text-foreground">
-                Vaults
-              </div>
-            ),
+            header: <VaultOverviewVaultListHeader />,
             content: <VaultOverviewSidebarLoading />,
           }}
           main={{
@@ -950,11 +957,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
     <WorkspaceLayoutV2FixtureFrame
       dataTestId={mode}
       left={{
-        header: (
-          <div className="flex h-full items-center px-2 text-sm font-medium text-foreground">
-            Vaults
-          </div>
-        ),
+        header: <VaultOverviewVaultListHeader />,
         content: (
           <VaultOverviewSidebar
             page={page}

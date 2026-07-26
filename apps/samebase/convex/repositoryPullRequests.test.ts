@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import {
   normalizeGitHubPullRequestPage,
   normalizeGitHubVaultSidebarSummaries,
+  recoverGitHubVaultSidebarSummariesFromError,
   vaultSidebarSummaryBatches,
 } from "./repositoryPullRequests";
 
@@ -324,6 +325,81 @@ describe("normalizeGitHubVaultSidebarSummaries", () => {
         [repository],
       ),
     ).toEqual([{ vaultId: repository.vaultId, repository: null }]);
+  });
+});
+
+describe("recoverGitHubVaultSidebarSummariesFromError", () => {
+  const repositories = [
+    {
+      vaultId: fakeVaultId(),
+      ghRepoId: "123",
+      owner: "samebase",
+      name: "samebase",
+      defaultBranch: "main",
+    },
+    {
+      vaultId: fakeVaultId(),
+      ghRepoId: "456",
+      owner: "samebase",
+      name: "deleted-repository",
+      defaultBranch: "main",
+    },
+  ];
+
+  it("keeps partial sidebar data when one requested repository is missing", () => {
+    const data = {
+      repository0: {
+        databaseId: 123,
+        defaultBranch: null,
+      },
+      repository1: null,
+    };
+
+    expect(
+      recoverGitHubVaultSidebarSummariesFromError(
+        {
+          name: "GraphqlResponseError",
+          errors: [
+            {
+              type: "NOT_FOUND",
+              path: ["repository1"],
+            },
+          ],
+          data,
+        },
+        repositories,
+      ),
+    ).toBe(data);
+  });
+
+  it("rethrows provider errors that are not missing requested repositories", () => {
+    const error = {
+      name: "GraphqlResponseError",
+      errors: [
+        {
+          type: "FORBIDDEN",
+          path: ["repository0"],
+        },
+      ],
+      data: {},
+    };
+
+    expect(() => recoverGitHubVaultSidebarSummariesFromError(error, repositories)).toThrow(error);
+  });
+
+  it("rethrows a missing-repository error for an alias outside the request", () => {
+    const error = {
+      name: "GraphqlResponseError",
+      errors: [
+        {
+          type: "NOT_FOUND",
+          path: ["repository2"],
+        },
+      ],
+      data: {},
+    };
+
+    expect(() => recoverGitHubVaultSidebarSummariesFromError(error, repositories)).toThrow(error);
   });
 });
 

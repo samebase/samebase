@@ -40,10 +40,9 @@ export function useVaultSidebarSummaries(): VaultSidebarSummariesState {
     staleTime: SIDEBAR_SUMMARIES_STALE_MS,
     gcTime: SIDEBAR_SUMMARIES_GC_MS,
     retry: false,
-    refetchInterval: (query) =>
-      query.state.data?.some((summary) => summary.checks.state === "running")
-        ? SIDEBAR_SUMMARIES_STALE_MS
-        : false,
+    // A completed commit can be replaced by a new commit with running checks,
+    // so the sidebar must refresh even when its current summary is settled.
+    refetchInterval: SIDEBAR_SUMMARIES_STALE_MS,
     refetchIntervalInBackground: false,
   });
 

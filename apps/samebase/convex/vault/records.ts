@@ -11,6 +11,7 @@ import {
   buildVaultCloudflareBuildConfigForRootDirectory,
   parseRepositoryFullName,
   vGitHubRepositoryVisibility,
+  vVaultConnectedRepositoryTarget,
 } from "./model";
 import { VAULT_ROOT_DIRECTORY } from "../../shared/vaultRootDirectory";
 import { isConnectedVault, isLiveConnectedVault, isSamebaseManagedVault } from "./state";
@@ -57,15 +58,7 @@ export const listConnectedRepositoriesForUser = internalQuery({
   args: {
     userId: id("users"),
   },
-  returns: array(
-    object({
-      vaultId: id("vaults"),
-      ghRepoId: string(),
-      owner: string(),
-      name: string(),
-      defaultBranch: string(),
-    }),
-  ),
+  returns: array(vVaultConnectedRepositoryTarget),
   handler: async (ctx, args) => {
     const repositories = [];
     for await (const vault of ctx.db

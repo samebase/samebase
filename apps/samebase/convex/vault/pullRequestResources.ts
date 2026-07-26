@@ -9,10 +9,9 @@ import { internal } from "../_generated/api";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import {
+  readRecentCloudflareWorkerBuilds,
   readCloudflareWorkerBuildsDiscoveryForIdentity,
-  readCloudflareWorkerBuildsPage,
   readCloudflareWorkerIdentity,
-  type CloudflareWorkerBuild,
 } from "../cloudflareResources";
 import { action } from "../functions";
 import { createGitHubRequestDeadlineSignal, fetchGitHubRepoIdentity } from "../githubRepoApi";
@@ -30,8 +29,6 @@ import type { VaultProviderObservationContext } from "./providerObservationQueri
 
 const { array, id, literal, object, string, union } = v;
 
-const CLOUDFLARE_BUILD_PAGE_SIZE = 100;
-const CLOUDFLARE_BUILD_MAX_PAGES = 2;
 const CLOUDFLARE_GITHUB_APP_DATABASE_ID = 85455;
 const GITHUB_PULL_REQUEST_RESOURCE_LIMIT = 100;
 
@@ -551,23 +548,12 @@ async function readWorkerResourcesForHeads(args: {
     });
   }
 
-  const builds: CloudflareWorkerBuild[] = [];
-  let exhausted = false;
-  for (let page = 1; page <= CLOUDFLARE_BUILD_MAX_PAGES; page += 1) {
-    const pageBuilds = await readCloudflareWorkerBuildsPage({
-      token: args.cloudflareToken,
-      transport: args.cloudflareTransport,
-      accountId: args.worker.accountId,
-      workerTag: args.worker.workerTag,
-      page,
-      perPage: CLOUDFLARE_BUILD_PAGE_SIZE,
-    });
-    builds.push(...pageBuilds);
-    if (pageBuilds.length < CLOUDFLARE_BUILD_PAGE_SIZE) {
-      exhausted = true;
-      break;
-    }
-  }
+  const { builds, exhausted } = await readRecentCloudflareWorkerBuilds({
+    token: args.cloudflareToken,
+    transport: args.cloudflareTransport,
+    accountId: args.worker.accountId,
+    workerTag: args.worker.workerTag,
+  });
 
   const identityFields = observedWorkerResourceIdentity(args.worker, repository.rootDirectory);
   return await Promise.all(

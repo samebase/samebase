@@ -5,9 +5,9 @@ import { Infer, v } from "convex/values";
 import { z } from "zod";
 
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
 import { action } from "./functions";
 import { createGitHubRequestDeadlineSignal } from "./githubRepoApi";
+import type { VaultConnectedRepositoryTarget } from "./vault/model";
 import { isLiveConnectedVault } from "./vault/state";
 
 const { array, boolean, id, literal, null: vNull, number, object, string, union } = v;
@@ -420,18 +420,26 @@ const providerSidebarRepositorySchema = z
   })
   .nullable();
 const providerSidebarResponseSchema = z.record(z.string(), providerSidebarRepositorySchema);
+const providerMissingSidebarRepositoryErrorsSchema = z
+  .array(
+    z.object({
+      type: z.literal("NOT_FOUND"),
+      path: z.tuple([z.string().regex(/^repository\d+$/)]).rest(z.union([z.string(), z.number()])),
+    }),
+  )
+  .nonempty();
+const providerMissingSidebarRepositoriesErrorSchema = z.object({
+  name: z.literal("GraphqlResponseError"),
+  errors: providerMissingSidebarRepositoryErrorsSchema,
+  data: z.unknown(),
+});
 
-type SidebarRepositoryTarget = {
-  vaultId: Id<"vaults">;
-  ghRepoId: string;
-  owner: string;
-  name: string;
-  defaultBranch: string;
-};
 type ProviderStatusCheckCounts = z.infer<typeof statusCheckCountsSchema>;
 type ProviderStatusCheckRollup = z.infer<typeof statusCheckRollupSchema>;
 
-function buildVaultSidebarSummariesQuery(repositories: readonly SidebarRepositoryTarget[]): string {
+function buildVaultSidebarSummariesQuery(
+  repositories: readonly VaultConnectedRepositoryTarget[],
+): string {
   const variableDefinitions = repositories
     .flatMap((_, index) => [
       `$owner${index}: String!`,
@@ -476,7 +484,7 @@ function buildVaultSidebarSummariesQuery(repositories: readonly SidebarRepositor
 }
 
 function vaultSidebarSummariesVariables(
-  repositories: readonly SidebarRepositoryTarget[],
+  repositories: readonly VaultConnectedRepositoryTarget[],
 ): Record<string, string> {
   const variables: Record<string, string> = {};
   repositories.forEach((repository, index) => {
@@ -488,9 +496,9 @@ function vaultSidebarSummariesVariables(
 }
 
 export function vaultSidebarSummaryBatches(
-  repositories: readonly SidebarRepositoryTarget[],
-): SidebarRepositoryTarget[][] {
-  const batches: SidebarRepositoryTarget[][] = [];
+  repositories: readonly VaultConnectedRepositoryTarget[],
+): VaultConnectedRepositoryTarget[][] {
+  const batches: VaultConnectedRepositoryTarget[][] = [];
   for (let start = 0; start < repositories.length; start += VAULT_SIDEBAR_SUMMARY_BATCH_SIZE) {
     batches.push(repositories.slice(start, start + VAULT_SIDEBAR_SUMMARY_BATCH_SIZE));
   }
@@ -632,15 +640,17 @@ export function normalizeGitHubPullRequestPage(value: unknown): RepositoryPullRe
 
 export function normalizeGitHubVaultSidebarSummaries(
   value: unknown,
-  repositories: readonly SidebarRepositoryTarget[],
+  repositories: readonly VaultConnectedRepositoryTarget[],
 ): VaultSidebarSummary[] {
   const parsed = providerSidebarResponseSchema.parse(value);
   return repositories.map((repository, index) => {
     const providerRepository = parsed[`repository${index}`];
+    const defaultBranch = providerRepository?.defaultBranch;
     if (
       !providerRepository ||
+      !defaultBranch ||
       String(providerRepository.databaseId) !== repository.ghRepoId ||
-      providerRepository.defaultBranch?.name !== repository.defaultBranch
+      defaultBranch.name !== repository.defaultBranch
     ) {
       return {
         vaultId: repository.vaultId,
@@ -651,12 +661,29 @@ export function normalizeGitHubVaultSidebarSummaries(
       vaultId: repository.vaultId,
       repository: {
         statusCheckRollup:
-          providerRepository.defaultBranch.target.statusCheckRollup === null
+          defaultBranch.target.statusCheckRollup === null
             ? null
-            : normalizeStatusCheckCounts(providerRepository.defaultBranch.target.statusCheckRollup),
+            : normalizeStatusCheckCounts(defaultBranch.target.statusCheckRollup),
       },
     };
   });
+}
+
+export function recoverGitHubVaultSidebarSummariesFromError(
+  error: unknown,
+  repositories: readonly VaultConnectedRepositoryTarget[],
+): unknown {
+  const parsed = providerMissingSidebarRepositoriesErrorSchema.safeParse(error);
+  if (!parsed.success) {
+    throw error;
+  }
+
+  const expectedAliases = new Set(repositories.map((_, index) => `repository${index}`));
+  if (!parsed.data.errors.every((providerError) => expectedAliases.has(providerError.path[0]))) {
+    throw error;
+  }
+
+  return parsed.data.data;
 }
 
 export const listVaultSidebarSummaries = action({
@@ -685,15 +712,18 @@ export const listVaultSidebarSummaries = action({
     const summaries: VaultSidebarSummary[] = [];
     for (const batch of vaultSidebarSummaryBatches(repositories)) {
       const signal = createGitHubRequestDeadlineSignal();
-      summaries.push(
-        ...normalizeGitHubVaultSidebarSummaries(
-          await octokit.graphql(buildVaultSidebarSummariesQuery(batch), {
-            ...vaultSidebarSummariesVariables(batch),
-            request: { signal },
-          }),
-          batch,
-        ),
-      );
+      let providerResponse: unknown;
+      try {
+        providerResponse = await octokit.graphql(buildVaultSidebarSummariesQuery(batch), {
+          ...vaultSidebarSummariesVariables(batch),
+          request: { signal },
+        });
+      } catch (error) {
+        // GitHub throws for partial GraphQL responses. A missing aliased
+        // repository is still usable data for every other vault in the batch.
+        providerResponse = recoverGitHubVaultSidebarSummariesFromError(error, batch);
+      }
+      summaries.push(...normalizeGitHubVaultSidebarSummaries(providerResponse, batch));
     }
     return summaries;
   },

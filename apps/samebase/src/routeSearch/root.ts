@@ -207,6 +207,7 @@ a caller clears the key with `undefined` or `null` in a route search patch.
 */
 export const RETAINED_ROOT_SEARCH_KEYS = [
   "devtools",
+  FORCE_PROD_UI_QUERY_PARAM,
   MOBILE_SIDEBAR_DEBUG_QUERY_PARAM,
   ...LOGO_ROUTE_SEARCH_KEYS,
 ] as const satisfies readonly (keyof RootRouteSearch)[];

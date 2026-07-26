@@ -87,16 +87,6 @@ function nextCursor(page: RepositoryPullRequestPage | undefined): string | null 
   return pageInfo?.hasNextPage ? pageInfo.endCursor : null;
 }
 
-function pageNeedsPolling(page: RepositoryPullRequestPage | undefined): boolean {
-  return (
-    summarizeRepositoryChecks(page?.repository?.defaultBranch?.statusCheckRollup ?? null).state ===
-      "running" ||
-    pullRequestsFromPage(page).some(
-      (pullRequest) => summarizeRepositoryChecks(pullRequest.statusCheckRollup).state === "running",
-    )
-  );
-}
-
 function resourcesNeedPolling(resources: PullRequestResources[] | undefined): boolean {
   return (
     resources?.some((pullRequest) =>
@@ -206,16 +196,11 @@ export function useVaultPullRequests(args: {
     staleTime: PULL_REQUEST_STALE_MS,
     gcTime: PULL_REQUEST_GC_MS,
     retry: false,
-    refetchInterval: (query) => {
-      const pages = query.state.data?.pages;
-      if (!pages) {
-        return false;
-      }
-      // Refreshing every retained infinite-query page would make provider traffic
-      // grow with scroll depth. Keep the visible first page current, while running
-      // checks on any loaded page still justify refreshing the full query.
-      return pages.length === 1 || pages.some(pageNeedsPolling) ? PULL_REQUEST_STALE_MS : false;
-    },
+    // TanStack keeps the retained pages and refetches them through their current
+    // cursors, so refreshing does not collapse the list or move the scroll
+    // position. Polling every minute also lets a settled repository discover a
+    // newly opened pull request without requiring navigation.
+    refetchInterval: PULL_REQUEST_STALE_MS,
     refetchIntervalInBackground: false,
   });
 

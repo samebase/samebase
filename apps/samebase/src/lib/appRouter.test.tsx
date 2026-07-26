@@ -646,6 +646,22 @@ describe("appRouter", () => {
     expect(searchParams.has("prod-ui")).toBe(true);
   });
 
+  it("retains prod-ui mode across vault navigation", async () => {
+    const router = await renderRoute("/vault?prod-ui");
+
+    await act(async () => {
+      await router.navigate({
+        search: {},
+        to: "/vault/$owner/$repo/settings",
+        params: { owner: "samebase", repo: "samebase" },
+      });
+      await settleRouterRender();
+    });
+
+    expect(router.state.location.pathname).toBe("/vault/samebase/samebase/settings");
+    expect(new URLSearchParams(router.state.location.searchStr).has("prod-ui")).toBe(true);
+  });
+
   it("keeps the global swipe debug flag on public routes", async () => {
     const router = await renderRoute("/privacy?swipe-debug");
 

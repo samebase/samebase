@@ -290,6 +290,12 @@ export function RepositorySettings({
           </div>
         </div>
         <div className="border-t border-border">
+          {settingsState.pendingResources.map((resource) => (
+            <SettingsResourceRow
+              key={`${resource.provider}:${resource.resourceId}`}
+              resource={resource}
+            />
+          ))}
           {settingsState.roots.length > 0 ? (
             settingsState.roots.map((root) => (
               <SettingsRoot

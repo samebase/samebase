@@ -59,6 +59,7 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
   const search = settingsRouteApi.useSearch();
   const requestAccountDeletion = useMutation(api.accountDeletion.index.request);
   const deletionStakes = useQuery(api.accountDeletion.index.stakes, {});
+  const viewerAccess = useQuery(api.users.currentViewerAccess, {});
   const [isRequestingDeletion, setIsRequestingDeletion] = useState(false);
   const [deletionError, setDeletionError] = useState<string | null>(null);
   const [confirmationInput, setConfirmationInput] = useState("");
@@ -68,6 +69,7 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
     deletionStakes === undefined
       ? null
       : serializeAccountDeletionConfirmationStakes(deletionStakes);
+  const canReviewChanges = viewerAccess?.accessKeys.includes("access_files_read") === true;
 
   const handleDeleteAccount = async () => {
     if (isRequestingDeletion || confirmationStakesSnapshot === null) {
@@ -172,7 +174,7 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
                                 {branch.branch} · {branch.uncommittedFileChangeCount}{" "}
                                 {branch.uncommittedFileChangeCount === 1 ? "file" : "files"}
                               </span>
-                              {reviewHref === null ? null : (
+                              {reviewHref === null || !canReviewChanges ? null : (
                                 <a
                                   href={reviewHref}
                                   onClick={(event) => {
@@ -202,11 +204,11 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
                     </div>
                   ))}
                 </div>
-              ) : (
+              ) : canReviewChanges ? (
                 <Link to="/vault" className="underline underline-offset-4 hover:text-blue-600">
                   Review changes
                 </Link>
-              )}
+              ) : null}
             </div>
           )}
           {deletionStakes?.hasActiveSubscription ? (

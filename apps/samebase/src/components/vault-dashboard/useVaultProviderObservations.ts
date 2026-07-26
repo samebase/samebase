@@ -19,6 +19,7 @@ export type VaultProviderObservationState<TObservation> =
   | {
       state: "loaded";
       observations: readonly TObservation[];
+      refreshFailed: boolean;
       reload: () => void;
     }
   | { state: "failed"; reload: () => void };
@@ -46,19 +47,21 @@ const PROVIDER_OBSERVATION_GC_TIME_MS = 5 * 60 * 1000;
 function providerObservationState<TObservation>({
   data,
   isError,
+  isRefetchError,
   reload,
   requested,
 }: {
   data: readonly TObservation[] | undefined;
   isError: boolean;
+  isRefetchError: boolean;
   reload: () => void;
   requested: boolean;
 }): VaultProviderObservationState<TObservation> {
   if (!requested) {
-    return { state: "loaded", observations: [], reload };
+    return { state: "loaded", observations: [], refreshFailed: false, reload };
   }
   if (data) {
-    return { state: "loaded", observations: data, reload };
+    return { state: "loaded", observations: data, refreshFailed: isRefetchError, reload };
   }
   return isError ? { state: "failed", reload } : { state: "loading" };
 }
@@ -189,12 +192,14 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
   const workers = providerObservationState({
     data: cloudflareWorkersQuery.data,
     isError: cloudflareWorkersQuery.isError,
+    isRefetchError: cloudflareWorkersQuery.isRefetchError,
     reload: reloadCloudflareWorkers,
     requested: cloudflareWorkerIds.length > 0,
   });
   const builds = providerObservationState({
     data: cloudflareBuildsQuery.data,
     isError: cloudflareBuildsQuery.isError,
+    isRefetchError: cloudflareBuildsQuery.isRefetchError,
     reload: reloadCloudflareBuilds,
     requested: cloudflareWorkerIds.length > 0,
   });
@@ -203,6 +208,7 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
       ? {
           state: "loaded" as const,
           observations: [],
+          refreshFailed: false,
           reload: reloadCloudflareConvexBuildAccess,
         }
       : !cloudflareBuildsQuery.data
@@ -210,16 +216,23 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
           ? { state: "failed" as const, reload: reloadCloudflareBuilds }
           : { state: "loading" as const }
         : cloudflareBuildAccessTargets.length === 0
-          ? { state: "loaded" as const, observations: [], reload: reloadCloudflareBuilds }
+          ? {
+              state: "loaded" as const,
+              observations: [],
+              refreshFailed: false,
+              reload: reloadCloudflareBuilds,
+            }
           : providerObservationState({
               data: cloudflareConvexBuildAccessQuery.data,
               isError: cloudflareConvexBuildAccessQuery.isError,
+              isRefetchError: cloudflareConvexBuildAccessQuery.isRefetchError,
               reload: reloadCloudflareConvexBuildAccess,
               requested: true,
             });
   const convex = providerObservationState({
     data: convexQuery.data,
     isError: convexQuery.isError,
+    isRefetchError: convexQuery.isRefetchError,
     reload: reloadConvex,
     requested: convexProjectTargets.length > 0,
   });

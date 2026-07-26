@@ -35,7 +35,7 @@ function vaultListLink(page: Page, repoName: string): Locator {
   return page
     .getByRole("navigation", { name: "Vaults" })
     .getByRole("link", {
-      name: new RegExp(`^[^/]+/${escapeRegExp(repoName)},`),
+      name: new RegExp(`^[^/]+/${escapeRegExp(repoName)}$`),
     })
     .first();
 }
@@ -260,13 +260,13 @@ async function waitForVaultCreationResult(
   const link = vaultListLink(page, repoName);
   await expect(link).toBeVisible({ timeout: 120_000 });
   await expect
-    .poll(async () => (await link.getAttribute("aria-label"))?.includes(", Setting up,") ?? true, {
+    .poll(async () => (await link.getAttribute("data-vault-status")) === "Setting up", {
       timeout: 120_000,
     })
     .toBe(false);
 
-  const label = await link.getAttribute("aria-label");
-  return label?.includes(", Needs attention,") ? "setup-failed" : "ready";
+  const status = await link.getAttribute("data-vault-status");
+  return status === "Needs attention" ? "setup-failed" : "ready";
 }
 
 test.describe("vault create app live flow", () => {

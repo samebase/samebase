@@ -286,6 +286,17 @@ export function DefaultBranchSection({
     workspace.cloudflareObservations.workers.state === "loading" ||
     workspace.cloudflareObservations.builds.state === "loading" ||
     workspace.convexObservations.state === "loading";
+  const productionObservationStates = [
+    workspace.cloudflareObservations.workers,
+    workspace.cloudflareObservations.builds,
+    workspace.convexObservations,
+  ];
+  const productionStatusUnavailable = productionObservationStates.some(
+    (state) => state.state === "failed",
+  );
+  const productionStatusStale = productionObservationStates.some(
+    (state) => state.state === "loaded" && state.refreshFailed,
+  );
   const environmentRoots = workspace.environmentRoots;
 
   return (
@@ -356,6 +367,29 @@ export function DefaultBranchSection({
       ) : (
         <VaultEnvironmentTree roots={environmentRoots} />
       )}
+      {productionStatusUnavailable || productionStatusStale ? (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+          <span>
+            {productionStatusUnavailable
+              ? "Deploy status unavailable."
+              : "Deploy status may be out of date."}
+          </span>
+          <Button
+            size="sm"
+            type="button"
+            variant="outline"
+            onClick={() => {
+              for (const state of productionObservationStates) {
+                if (state.state === "failed" || (state.state === "loaded" && state.refreshFailed)) {
+                  state.reload();
+                }
+              }
+            }}
+          >
+            Retry
+          </Button>
+        </div>
+      ) : null}
     </section>
   );
 }

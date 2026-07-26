@@ -280,18 +280,33 @@ export function VaultOverviewLoadingPage({
       />
       <main
         aria-busy="true"
-        aria-label="Loading vault overview"
+        aria-label={page === "settings" ? "Loading vault settings" : "Loading vault overview"}
         className="mx-auto grid w-full max-w-[1100px] gap-8 px-4 py-6 @3xl:px-6 @5xl:px-8 @5xl:py-8"
       >
-        <section className="border-b border-border pb-5">
-          <VaultOverviewLoadingLines rows={2} />
-        </section>
-        <section>
-          <div className="mb-3 h-3 w-32 bg-muted motion-safe:animate-pulse" />
-          <div className="border-t border-border py-4">
-            <VaultOverviewLoadingLines />
-          </div>
-        </section>
+        {page === "settings" ? (
+          <>
+            <section>
+              <div className="mb-4 h-3 w-24 bg-muted motion-safe:animate-pulse" />
+              <VaultOverviewLoadingLines rows={1} />
+            </section>
+            <section>
+              <div className="mb-4 h-3 w-28 bg-muted motion-safe:animate-pulse" />
+              <VaultOverviewLoadingLines rows={3} />
+            </section>
+          </>
+        ) : (
+          <>
+            <section className="pb-5">
+              <VaultOverviewLoadingLines rows={2} />
+            </section>
+            <section>
+              <div className="mb-3 h-3 w-32 bg-muted motion-safe:animate-pulse" />
+              <div className="border-t border-border py-4">
+                <VaultOverviewLoadingLines />
+              </div>
+            </section>
+          </>
+        )}
       </main>
     </div>
   );

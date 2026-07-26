@@ -74,6 +74,7 @@ const EMPTY_ACCOUNT_DELETION_STAKES = {
 const queryState = vi.hoisted<{
   settings: { displayName?: string; hasActiveSubscription: boolean; signInEmail: string };
   stakes: AccountDeletionStakes | undefined;
+  viewerAccess: { accessKeys: string[]; role: "role_member" | "role_staff" };
 }>(() => ({
   settings: {
     displayName: "Current name",
@@ -85,6 +86,10 @@ const queryState = vi.hoisted<{
     uncommittedFileChangeCount: 0,
     hasActiveSubscription: false,
     affectedVaults: { state: "complete", vaults: [] },
+  },
+  viewerAccess: {
+    accessKeys: ["access_public", "access_dashboard", "access_files_read"],
+    role: "role_staff",
   },
 }));
 
@@ -146,6 +151,9 @@ vi.mock("convex/react", async (importOriginal) => {
     useQuery: (reference: Parameters<typeof getFunctionName>[0], args?: unknown) => {
       if (getFunctionName(reference) === "accountDeletion/index:stakes") {
         return args === "skip" ? undefined : queryState.stakes;
+      }
+      if (getFunctionName(reference) === "users:currentViewerAccess") {
+        return queryState.viewerAccess;
       }
       return queryState.settings;
     },
@@ -821,6 +829,38 @@ describe("UserSettingsPage", () => {
           .find((link) => link.textContent === "Review changes")
           ?.getAttribute("href"),
       ).toBe("/vault");
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("keeps file-change stakes visible without offering members an inaccessible review link", async () => {
+    queryState.viewerAccess = {
+      accessKeys: ["access_public", "access_dashboard", "access_schema_graph"],
+      role: "role_member",
+    };
+    queryState.stakes = {
+      vaultCount: 1,
+      uncommittedFileChangeCount: 2,
+      hasActiveSubscription: false,
+      affectedVaults: {
+        state: "complete",
+        vaults: [
+          {
+            vaultId: "vault-1",
+            repositoryFullName: "samebase/notes",
+            uncommittedFileChangeCount: 2,
+            branches: [{ branch: "feature/review", uncommittedFileChangeCount: 2 }],
+          },
+        ],
+      },
+    };
+    const mounted = await mountSettingsPage();
+    try {
+      await openDeleteDialog(mounted);
+
+      expect(document.body.textContent).toContain("feature/review · 2 files");
+      expect(document.body.textContent).not.toContain("Review changes");
     } finally {
       await unmount(mounted.root, mounted.rootElement);
     }

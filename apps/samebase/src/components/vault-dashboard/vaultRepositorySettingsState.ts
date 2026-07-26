@@ -78,6 +78,7 @@ export type VaultRepositorySettingsState = {
     onClick?: () => void;
   };
   attentionResources: readonly VaultRepositorySettingsResource[];
+  pendingResources: readonly VaultRepositorySettingsResource[];
   roots: readonly {
     resources: readonly VaultRepositorySettingsResource[];
     rootDirectory: string;
@@ -832,6 +833,7 @@ export function buildVaultRepositorySettingsState({
   }
 
   const attentionResources: VaultRepositorySettingsResource[] = [];
+  const pendingResources: VaultRepositorySettingsResource[] = [];
   for (const worker of [...vault.cloudflareWorkers].sort(
     (left, right) =>
       left.workerName.localeCompare(right.workerName) ||
@@ -854,7 +856,9 @@ export function buildVaultRepositorySettingsState({
             (candidate) => candidate.workerId === worker.workerId,
           )
         : undefined;
-    if (
+    if (cloudflareObservations.builds.state === "loading") {
+      pendingResources.push(resource);
+    } else if (
       buildsObservation?.state === "available" &&
       buildsObservation.repository.state === "ready"
     ) {
@@ -874,6 +878,7 @@ export function buildVaultRepositorySettingsState({
       onClick: addConvexOnClick,
     },
     attentionResources,
+    pendingResources,
     roots: [...resourcesByRoot.entries()]
       .sort(([leftRoot], [rightRoot]) => compareRootDirectories(leftRoot, rightRoot))
       .map(([rootDirectory, resources]) => ({ rootDirectory, resources })),

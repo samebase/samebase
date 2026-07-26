@@ -173,16 +173,19 @@ function makeLoadedCloudflareObservations({
   return {
     workers: {
       state: "loaded",
+      refreshFailed: false,
       reload: () => {},
       observations: workers,
     },
     builds: {
       state: "loaded",
+      refreshFailed: false,
       reload: () => {},
       observations: builds,
     },
     convexBuildAccess: {
       state: "loaded",
+      refreshFailed: false,
       reload: () => {},
       observations: convexBuildAccess,
     },
@@ -283,6 +286,7 @@ describe("buildProductionEnvironmentRoots", () => {
       }),
       convexObservations: {
         state: "loaded",
+        refreshFailed: false,
         reload: () => {},
         observations: [
           {
@@ -390,6 +394,7 @@ describe("buildProductionEnvironmentRoots", () => {
       }),
       convexObservations: {
         state: "loaded",
+        refreshFailed: false,
         reload: () => {},
         observations: [],
       },
@@ -444,6 +449,7 @@ describe("buildProductionEnvironmentRoots", () => {
       }),
       convexObservations: {
         state: "loaded",
+        refreshFailed: false,
         reload: () => {},
         observations: [],
       },
@@ -490,6 +496,7 @@ describe("buildProductionEnvironmentRoots", () => {
         }),
         convexObservations: {
           state: "loaded",
+          refreshFailed: false,
           reload: () => {},
           observations: [
             {
@@ -570,6 +577,7 @@ describe("vault environment roots", () => {
         }),
         convexObservations: {
           state: "loaded",
+          refreshFailed: false,
           reload: () => {},
           observations: [
             {
@@ -1479,6 +1487,37 @@ describe("VaultCloudflareDialogContent", () => {
 });
 
 describe("buildVaultRepositorySettingsState", () => {
+  it("keeps unresolved loading resources out of the attention section", () => {
+    const workerId = fakeCloudflareWorkerId("worker-loading");
+    const state = buildVaultRepositorySettingsState({
+      cloudflareObservations: {
+        workers: { state: "loading" },
+        builds: { state: "loading" },
+        convexBuildAccess: { state: "loading" },
+      },
+      connectedCloudflareAccount: undefined,
+      pendingAction: null,
+      convexObservations: { state: "loading" },
+      vault: makeRepositorySettingsBuilderVault({
+        cloudflareWorkers: [
+          makeRepositorySettingsCloudflareWorker({
+            workerId,
+            workerName: "loading-worker",
+          }),
+        ],
+      }),
+    });
+
+    expect(state.attentionResources).toEqual([]);
+    expect(state.pendingResources).toMatchObject([
+      {
+        name: "loading-worker",
+        provider: "cloudflare",
+        state: "loading",
+      },
+    ]);
+  });
+
   it("groups resources by observed roots and keeps unresolved Workers in attention", () => {
     const readyWorkerId = fakeCloudflareWorkerId("worker-ready");
     const unresolvedWorkerId = fakeCloudflareWorkerId("worker-unresolved");
@@ -1513,6 +1552,7 @@ describe("buildVaultRepositorySettingsState", () => {
       pendingAction: null,
       convexObservations: {
         state: "loaded",
+        refreshFailed: false,
         reload: () => {},
         observations: [
           {
@@ -1597,6 +1637,7 @@ describe("buildVaultRepositorySettingsState", () => {
     });
     const convexObservations = {
       state: "loaded" as const,
+      refreshFailed: false,
       reload: () => {},
       observations: [
         {

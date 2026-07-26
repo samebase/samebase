@@ -134,6 +134,7 @@ export function VaultOverviewSidebar({
             key={vault._id}
             aria-current={selected ? "page" : undefined}
             aria-label={vault.repositoryFullName}
+            data-vault-status={status.label}
             className={
               selected
                 ? "block min-w-0 bg-muted px-3 py-2.5 text-left no-underline hover:no-underline @max-[200px]:px-2 @max-[120px]:px-1"
