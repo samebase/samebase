@@ -40,6 +40,22 @@ function invokeResourceAction(action: VaultRepositorySettingsAction) {
   }
 }
 
+function resourceAccessibleName(resource: VaultRepositorySettingsResource): string {
+  return resource.provider === "cloudflare"
+    ? `Cloudflare Worker ${resource.owner}/${resource.name}`
+    : `Convex project ${resource.owner}/${resource.name}`;
+}
+
+function resourceActionAccessibleName(
+  action: VaultRepositorySettingsAction,
+  resource: VaultRepositorySettingsResource,
+): string {
+  const resourceName = resourceAccessibleName(resource);
+  return action.kind === "remove"
+    ? `Remove ${resourceName} from vault`
+    : `${action.ariaLabel ?? action.label} for ${resourceName}`;
+}
+
 function ResourceActions({ resource }: { resource: VaultRepositorySettingsResource }) {
   const actions = resource.actions;
   if (!actions) {
@@ -52,7 +68,7 @@ function ResourceActions({ resource }: { resource: VaultRepositorySettingsResour
     <div className="flex flex-wrap items-center gap-1">
       {directActions.map((action) => (
         <Button
-          aria-label={action.ariaLabel}
+          aria-label={resourceActionAccessibleName(action, resource)}
           key={`${action.kind}:${action.label}`}
           disabled={action.disabled || !action.onClick}
           size="sm"
@@ -67,11 +83,7 @@ function ResourceActions({ resource }: { resource: VaultRepositorySettingsResour
         <DropdownMenu>
           <DropdownMenuTrigger asChild nativeButton>
             <Button
-              aria-label={
-                resource.provider === "cloudflare"
-                  ? `Actions for Cloudflare Worker ${resource.name}`
-                  : `Actions for Convex project ${resource.name}`
-              }
+              aria-label={`Actions for ${resourceAccessibleName(resource)}`}
               size="icon-sm"
               type="button"
               variant="ghost"
@@ -82,7 +94,7 @@ function ResourceActions({ resource }: { resource: VaultRepositorySettingsResour
           <DropdownMenuContent align="end" className="w-44 rounded-none shadow-none">
             {removeActions.map((action) => (
               <DropdownMenuItem
-                aria-label={action.ariaLabel}
+                aria-label={resourceActionAccessibleName(action, resource)}
                 key={`${action.kind}:${action.label}`}
                 disabled={action.disabled || !action.onClick}
                 variant="destructive"

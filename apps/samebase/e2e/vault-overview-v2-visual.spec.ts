@@ -188,9 +188,13 @@ test("keeps provider ownership and actions together in mobile settings", async (
   await expect(
     fixture.getByRole("button", { name: "Configure Workers Builds for GitHub" }).first(),
   ).toBeVisible();
-  await fixture.getByRole("button", { name: "Actions for Convex project samebase" }).click();
+  await fixture
+    .getByRole("button", { name: "Actions for Convex project Samebase/samebase" })
+    .click();
   await expect(
-    page.getByRole("menuitem", { name: "Remove Convex project samebase from vault" }),
+    page.getByRole("menuitem", {
+      name: "Remove Convex project Samebase/samebase from vault",
+    }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(fixture).toHaveScreenshot("vault-overview-v2-settings-mobile.png", {
