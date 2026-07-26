@@ -1,7 +1,7 @@
 # Convex Backend Overview
 
-This directory contains Samebase's backend: schema, auth, repository workflows, collaboration logic,
-chat orchestration, and infrastructure provisioning.
+This directory contains Samebase's backend: schema, auth, repository workflows, collaboration, MCP,
+billing, and infrastructure provisioning.
 
 ## Start Here
 
@@ -9,42 +9,8 @@ chat orchestration, and infrastructure provisioning.
 2. `vault/dashboard.ts` - vault dashboard queries and infrastructure summary
 3. `vault/actions.ts` - repository connect/create/delete + infra retry actions
 4. `infraProvisioning.ts` - async Convex/Cloudflare provisioning flow
-5. `chat/index.ts` + `chat/actions.ts` - AI Fab chat lifecycle + approvals
-
-## AI Fab / Agent Flow
-
-```mermaid
-flowchart LR
-  UI["EditorChatPanel.tsx"] --> CT["chat.createThread"]
-  CT --> AT["Agent threads"]
-
-  UI --> SM["chat.sendMessage"]
-  SM --> SAV["agent.saveMessage"]
-  SM --> GR["chat.actions.generateResponse"]
-  GR --> ST["agent.streamText"]
-
-  UI --> LM["chat.listThreadMessages"]
-  LM --> LIST["listMessages"]
-  LM --> SYNC["syncStreams"]
-  LM --> META["chatMessagePayloads"]
-  LM --> CTX["chatThreadContexts"]
-```
-
-## Agent Data Model
-
-- `chatThreadContexts` - per-thread vault/repo/file context.
-- `chatMessagePayloads` - commit/prod-read/tool activity payloads keyed by agent message ID.
-- `aiProductionReadRequests` + `audit_aiProductionRead_events` - approval-first production read
-  workflow.
-
-## Chat Module Map
-
-- `chat/index.ts` - `api.chat.index.*` queries/mutations (threads, messages, approvals).
-- `chat/actions.ts` - `internal.chat.actions.*` actions (agent run + prod-read execution).
-- `chat/metadata.ts` - metadata schemas + parse/build helpers.
-- `chat/prodAccess.ts` - prod-read access helpers (admin + vault checks).
-- `chat/threads.ts` - thread access helpers.
-- `agent/` - LLM graph, tools, and system prompt builders.
+5. `mcp/` - remote MCP protocol, OAuth, grants, and tokens
+6. `toolRuntime/` - shared action catalog, validation, authorization, and execution
 
 ## Vault Module Map
 
@@ -73,13 +39,6 @@ flowchart LR
 - State tracking: `workflow_vaultProvisioning_plans`, `workflow_vaultProvisioning_writeLocks`,
   `vaultConvexProjects`, and `vaultCloudflareWorkers`
 - Retry path: `api.vault.actions.retryInfrastructureProvisioning`
-
-### Chat Approval Flows
-
-- Commit proposals in chat
-- Production read proposals (Convex/Cloudflare/logs/data)
-- Explicit approve/reject with audit trails (`aiProductionReadRequests`,
-  `audit_aiProductionRead_events`)
 
 ## Useful Local Commands
 

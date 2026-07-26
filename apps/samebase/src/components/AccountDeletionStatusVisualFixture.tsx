@@ -14,11 +14,6 @@ export function AccountDeletionStatusVisualFixture({
       status={{
         currentStep: "delete_samebase_data",
         dataDeletion: {
-          chatsAndAgentData: {
-            state: "completed",
-            startedAt: Date.UTC(2026, 6, 12, 11, 55),
-            completedAt: Date.UTC(2026, 6, 12, 11, 56),
-          },
           vaultsAndStagedChanges: {
             state: "in_progress",
             startedAt: Date.UTC(2026, 6, 12, 11, 56),

@@ -30,7 +30,6 @@ const ACCOUNT_DELETION_STEPS = entries(ACCOUNT_DELETION_STEP_LABELS).map(([step,
 }));
 
 const ACCOUNT_DELETION_DATA_GROUP_LABELS = {
-  chatsAndAgentData: "Chats and agent data",
   vaultsAndStagedChanges: "Vaults and staged changes",
   preferences: "Preferences",
   appAccessAndTokens: "App access and tokens",
@@ -46,7 +45,6 @@ const ACCOUNT_DELETION_VAULT_PHASE_LABELS = {
   vault_data: "vault data",
   source_data: "source data",
   app_data: "app data",
-  access_state: "vault access",
   provisioning_history: "provisioning history",
 } satisfies Record<
   Extract<

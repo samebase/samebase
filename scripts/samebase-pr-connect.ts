@@ -554,7 +554,7 @@ function buildRunKey(pullRequest: PullRequestSummary): string {
 
 function validateOriginMarker(pullRequest: PullRequestSummary): MarkerValidationResult {
   // Treat the PR body marker as the cross-system contract. We do not infer this
-  // from Samebase chat state or branch naming.
+  // from local app state or branch naming.
   const extractedMarker = extractOriginMarkerJson(pullRequest.body);
   if (!extractedMarker.ok) {
     return {
@@ -950,7 +950,7 @@ function buildCodexPrompt(params: {
     "",
     "Important context:",
     "- Read AGENTS.md and the current source-of-truth docs before making decisions.",
-    "- Samebase Convex chat state and Codex thread state are separate systems today. Do not assume hidden shared chat history outside this prompt and the PR body.",
+    "- Do not assume hidden context outside this prompt and the PR body.",
     "- The PR body marker below is the durable machine-readable contract for this run.",
     `- If you need to push branch updates, prefer \`git push origin HEAD:${params.pullRequest.headRefName}\`.`,
     "",

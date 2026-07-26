@@ -9,7 +9,7 @@ import {
   type CloudflareApiTransport,
 } from "./cloudflareApi/client";
 import type { components, Readable, Writable } from "./cloudflareApi/types.generated";
-import { clamp, toErrorMessage } from "./jsonUtils";
+import { toErrorMessage } from "./jsonUtils";
 import type { ProviderApiCallRecorder } from "./providerApiLog";
 
 export {
@@ -2222,64 +2222,6 @@ export async function rotateConvexDeployKeysForCloudflareWorkerBuilds(
   }
 }
 
-export type CloudflareStatusReadResult = {
-  summary: string;
-  endpoint: string;
-  raw: string;
-  rowCount: number;
-};
-
-export type CloudflareLogsReadResult = {
-  summary: string;
-  endpoint: string;
-  raw: string;
-  logLineCount: number;
-};
-
-type ReadCloudflareWorkerStatusArgs = {
-  cloudflareToken: string;
-  transport: CloudflareApiTransport;
-  accountId: string;
-  workerName: string;
-  workerTag?: string;
-};
-
-export async function readCloudflareWorkerStatus(
-  args: ReadCloudflareWorkerStatusArgs,
-): Promise<CloudflareStatusReadResult> {
-  const workerEndpoint = `/accounts/${encodeURIComponent(args.accountId)}/workers/workers/${encodeURIComponent(args.workerName)}`;
-  const worker = await requestCloudflareApi({
-    token: args.cloudflareToken,
-    transport: args.transport,
-    method: "GET",
-    path: "/accounts/{account_id}/workers/workers/{worker_id}",
-    params: {
-      path: {
-        account_id: args.accountId,
-        worker_id: args.workerName,
-      },
-    },
-  });
-  const workerRecord = requireCloudflareResult(
-    worker,
-    `Cloudflare Worker ${args.workerName} response did not include a Worker.`,
-  );
-  const workerTag = args.workerTag ?? readCloudflareWorkerTag(workerRecord, args.workerName);
-  const triggers = await listBuildTriggers({
-    token: args.cloudflareToken,
-    accountId: args.accountId,
-    workerTag,
-    transport: args.transport,
-  });
-
-  return {
-    summary: `Cloudflare Worker status for ${args.workerName}`,
-    endpoint: `${workerEndpoint} + Workers Builds triggers`,
-    raw: JSON.stringify({ worker: workerRecord, triggers }, null, 2),
-    rowCount: 1,
-  };
-}
-
 export async function readCloudflareWorkerBuildsPage(args: {
   token: string;
   transport: CloudflareApiTransport;
@@ -2340,84 +2282,6 @@ export async function readCloudflareWorkerVersionsPage(args: {
     versions,
     `Cloudflare did not return versions for Worker ${args.workerName}.`,
   );
-}
-
-type ReadCloudflareLogsArgs = {
-  cloudflareToken: string;
-  transport: CloudflareApiTransport;
-  accountId: string;
-  workerName: string;
-  workerTag: string;
-  maxEntries: number;
-};
-
-export async function readCloudflareBuildLogs(
-  args: ReadCloudflareLogsArgs,
-): Promise<CloudflareLogsReadResult> {
-  const maxEntries = clamp(args.maxEntries, 1, 50);
-  const buildsEndpoint = `/accounts/${encodeURIComponent(args.accountId)}/builds/workers/${encodeURIComponent(args.workerTag)}/builds`;
-  const buildsPayload = await requestCloudflareApi({
-    token: args.cloudflareToken,
-    transport: args.transport,
-    method: "GET",
-    path: "/accounts/{account_id}/builds/workers/{external_script_id}/builds",
-    params: {
-      path: {
-        account_id: args.accountId,
-        external_script_id: args.workerTag,
-      },
-      query: {
-        page: 1,
-        per_page: maxEntries,
-      },
-    },
-  });
-  const builds = requireCloudflareResult(
-    buildsPayload,
-    `Cloudflare Workers Builds build list for account ${args.accountId} Worker ${args.workerTag} response did not include builds.`,
-  );
-  const selectedBuilds = builds.slice(0, maxEntries);
-
-  const logsByBuild = await Promise.all(
-    selectedBuilds.map(async (build) => {
-      const buildUuid = build.build_uuid;
-      if (!buildUuid) {
-        return {
-          build,
-          logs: { error: "Build UUID missing from Cloudflare response" },
-        };
-      }
-
-      const logsEndpoint = `/accounts/${encodeURIComponent(args.accountId)}/builds/builds/${encodeURIComponent(buildUuid)}/logs`;
-      const logsPayload = await requestCloudflareApi({
-        token: args.cloudflareToken,
-        transport: args.transport,
-        method: "GET",
-        path: "/accounts/{account_id}/builds/builds/{build_uuid}/logs",
-        params: {
-          path: {
-            account_id: args.accountId,
-            build_uuid: buildUuid,
-          },
-        },
-      });
-
-      return {
-        endpoint: logsEndpoint,
-        buildUuid,
-        build,
-        logs: logsPayload,
-      };
-    }),
-  );
-
-  return {
-    summary: `Cloudflare build logs for Worker ${args.workerName}`,
-    endpoint: `${buildsEndpoint} + build logs`,
-    raw:
-      logsByBuild.length > 0 ? JSON.stringify(logsByBuild, null, 2) : "No build entries returned.",
-    logLineCount: logsByBuild.length,
-  };
 }
 
 type DeleteCloudflareResourcesArgs = {

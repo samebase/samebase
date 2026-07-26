@@ -3683,7 +3683,6 @@ export const commitAllStaged = internalAction({
     userId: v.id("users"),
     vaultId: v.id("vaults"),
     branch: v.optional(v.string()),
-    commitProposalMessageId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -3699,170 +3698,140 @@ export const commitAllStaged = internalAction({
     const repoName = connectedVault.name;
     const fullRepo = `${repoOwner}/${repoName}`;
 
-    const updateCommitProposalStatus = async (committed: boolean, error?: string) => {
-      if (!args.commitProposalMessageId) {
-        return;
-      }
+    // Get the staging record
+    const changedFiles: StagedFileForCommit[] = await ctx.runQuery(
+      internal.fileStaging.listAllStagedFiles,
+      {
+        vaultId: args.vaultId,
+        branch: args.branch,
+      },
+    );
 
-      await ctx.runMutation(internal.chat.index.updateCommitProposalMessageCommittedInternal, {
-        messageId: args.commitProposalMessageId,
-        committed,
-        committing: false,
-        error,
-      });
-    };
+    if (!changedFiles.length) {
+      return null;
+    }
 
-    try {
-      // Get the staging record
-      const changedFiles: StagedFileForCommit[] = await ctx.runQuery(
-        internal.fileStaging.listAllStagedFiles,
-        {
-          vaultId: args.vaultId,
-          branch: args.branch,
-        },
+    const stagedBranches: string[] = Array.from(
+      new Set(changedFiles.map((file: StagedFileForCommit) => file.branch).filter(notEmpty)),
+    );
+    if (stagedBranches.length > 1) {
+      throw new Error(
+        `Cannot commit staged files across multiple branches: ${stagedBranches.join(", ")}`,
       );
+    }
 
-      if (!changedFiles.length) {
-        await updateCommitProposalStatus(true);
-        return null;
-      }
+    const githubAccessToken = await getGithubAccessToken(ctx, args.userId);
 
-      const stagedBranches: string[] = Array.from(
-        new Set(changedFiles.map((file: StagedFileForCommit) => file.branch).filter(notEmpty)),
-      );
-      if (stagedBranches.length > 1) {
-        throw new Error(
-          `Cannot commit staged files across multiple branches: ${stagedBranches.join(", ")}`,
-        );
-      }
+    const octokit: Octokit = new Octokit({
+      auth: githubAccessToken,
+    });
+    const commitBranch: string =
+      args.branch ??
+      stagedBranches.at(0) ??
+      (await getRepositoryDefaultBranch({
+        octokit,
+        owner: repoOwner,
+        repo: repoName,
+      }));
+    const resolvedChangedFiles = await rebaseStagedFilesOnLatestHead({
+      octokit,
+      owner: repoOwner,
+      repo: repoName,
+      branch: commitBranch,
+      stagedFiles: changedFiles,
+    });
 
-      const githubAccessToken = await getGithubAccessToken(ctx, args.userId);
+    // Create a commit with all staged files
+    await createCommitWithMultipleFiles({
+      octokit,
+      owner: repoOwner,
+      repo: repoName,
+      stagedFiles: resolvedChangedFiles,
+      branch: commitBranch,
+      loadStorageBlob: async (storageId) => await ctx.storage.get(storageId),
+      skipRebase: true,
+    });
 
-      const octokit: Octokit = new Octokit({
-        auth: githubAccessToken,
-      });
-      const commitBranch: string =
-        args.branch ??
-        stagedBranches.at(0) ??
-        (await getRepositoryDefaultBranch({
-          octokit,
+    // 1. Refresh branch/default tree caches and re-read the updated vault.
+    //    This is best-effort: upstream commit already succeeded.
+    const updatedVault = await runPostCommitTreeRefresh({
+      refreshBranchTree: async () => {
+        await ctx.runAction(internal.github.updateRepositoryTree, {
+          userId: args.userId,
           owner: repoOwner,
           repo: repoName,
-        }));
-      const resolvedChangedFiles = await rebaseStagedFilesOnLatestHead({
-        octokit,
-        owner: repoOwner,
-        repo: repoName,
-        branch: commitBranch,
-        stagedFiles: changedFiles,
-      });
+          branch: commitBranch,
+        });
+      },
+      loadUpdatedVault: async () =>
+        await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+          repositoryFullName: fullRepo,
+          userId: args.userId,
+          branch: commitBranch,
+        }),
+      onWarning: (error) => {
+        console.error("Post-commit tree refresh failed; continuing with cleanup:", error);
+      },
+    });
 
-      // Create a commit with all staged files
-      await createCommitWithMultipleFiles({
-        octokit,
-        owner: repoOwner,
-        repo: repoName,
-        stagedFiles: resolvedChangedFiles,
-        branch: commitBranch,
-        loadStorageBlob: async (storageId) => await ctx.storage.get(storageId),
-        skipRebase: true,
-      });
-
-      // 1. Refresh branch/default tree caches and re-read the updated vault.
-      //    This is best-effort: upstream commit already succeeded.
-      const updatedVault = await runPostCommitTreeRefresh({
-        refreshBranchTree: async () => {
-          await ctx.runAction(internal.github.updateRepositoryTree, {
-            userId: args.userId,
-            owner: repoOwner,
-            repo: repoName,
-            branch: commitBranch,
-          });
-        },
-        loadUpdatedVault: async () =>
-          await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
-            repositoryFullName: fullRepo,
-            userId: args.userId,
-            branch: commitBranch,
-          }),
-        onWarning: (error) => {
-          console.error("Post-commit tree refresh failed; continuing with cleanup:", error);
-        },
-      });
-
-      // 3. Save committed file contents into the blob cache under their new SHAs
-      //    so that when the client re-fetches after staging is cleared, it gets
-      //    the correct content immediately without hitting GitHub API
-      if (updatedVault) {
-        try {
-          for (const file of resolvedChangedFiles.filter(hasStagedFileChanges)) {
-            if (file.fileDeleted) continue;
-
-            const newSha = updatedVault.treeData?.tree.find(
-              (t: { path?: string }) => t.path === file.filePath,
-            )?.sha;
-
-            if (!newSha) {
-              continue;
-            }
-
-            if (isBinaryStagedFile(file)) {
-              if (!file.storageId) {
-                continue;
-              }
-
-              await ctx.runMutation(internal.gitOperations.saveFileBlob, {
-                vaultId: args.vaultId,
-                sha: newSha,
-                size: file.size ?? 0,
-                text: undefined,
-                storageId: file.storageId,
-                ext: file.filePath.split(".").pop()?.toLowerCase() ?? "",
-                mime: file.mime ?? guessMime(file.filePath),
-                debugFilePath: file.filePath,
-              });
-              continue;
-            }
-
-            if (typeof file.content === "string") {
-              await ctx.runMutation(internal.gitOperations.saveFileBlob, {
-                vaultId: args.vaultId,
-                sha: newSha,
-                size: Buffer.byteLength(file.content, "utf-8"),
-                text: file.content,
-                storageId: undefined,
-                ext: file.filePath.split(".").pop()?.toLowerCase() ?? "",
-                mime: "text/plain; charset=utf-8",
-                debugFilePath: file.filePath,
-              });
-            }
-          }
-        } catch (error) {
-          console.error("Failed to warm blob cache after commit; continuing cleanup:", error);
-        }
-      }
-
-      // 4. NOW clear staging. Client will refetch with correct tree + blobs.
-      await ctx.runMutation(api.fileStaging.clearAllStaging, {
-        vaultId: args.vaultId,
-        branch: commitBranch,
-        skipTreeUpdate: true,
-      });
-
-      await updateCommitProposalStatus(true);
-    } catch (error) {
-      const commitError =
-        error instanceof Error && error.message.length > 0 ? error.message : "Commit failed";
-
+    // 3. Save committed file contents into the blob cache under their new SHAs
+    //    so that when the client re-fetches after staging is cleared, it gets
+    //    the correct content immediately without hitting GitHub API
+    if (updatedVault) {
       try {
-        await updateCommitProposalStatus(false, commitError);
-      } catch (statusError) {
-        console.error("Failed updating commit proposal status:", statusError);
-      }
+        for (const file of resolvedChangedFiles.filter(hasStagedFileChanges)) {
+          if (file.fileDeleted) continue;
 
-      console.error(`Failed to commit staged files in vault ${args.vaultId}:`, error);
-      throw error;
+          const newSha = updatedVault.treeData?.tree.find(
+            (t: { path?: string }) => t.path === file.filePath,
+          )?.sha;
+
+          if (!newSha) {
+            continue;
+          }
+
+          if (isBinaryStagedFile(file)) {
+            if (!file.storageId) {
+              continue;
+            }
+
+            await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+              vaultId: args.vaultId,
+              sha: newSha,
+              size: file.size ?? 0,
+              text: undefined,
+              storageId: file.storageId,
+              ext: file.filePath.split(".").pop()?.toLowerCase() ?? "",
+              mime: file.mime ?? guessMime(file.filePath),
+              debugFilePath: file.filePath,
+            });
+            continue;
+          }
+
+          if (typeof file.content === "string") {
+            await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+              vaultId: args.vaultId,
+              sha: newSha,
+              size: Buffer.byteLength(file.content, "utf-8"),
+              text: file.content,
+              storageId: undefined,
+              ext: file.filePath.split(".").pop()?.toLowerCase() ?? "",
+              mime: "text/plain; charset=utf-8",
+              debugFilePath: file.filePath,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Failed to warm blob cache after commit; continuing cleanup:", error);
+      }
     }
+
+    // 4. NOW clear staging. Client will refetch with correct tree + blobs.
+    await ctx.runMutation(api.fileStaging.clearAllStaging, {
+      vaultId: args.vaultId,
+      branch: commitBranch,
+      skipTreeUpdate: true,
+    });
 
     return null;
   },

@@ -367,12 +367,6 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "cleanup_runtime_state"
                       },
                       {
-                        "const": "cleanup_access_state"
-                      },
-                      {
-                        "const": "detach_agent_context"
-                      },
-                      {
                         "const": "cleanup_provisioning_history"
                       },
                       {
@@ -437,12 +431,6 @@ JSON Schema for the tool's `structuredContent`:
                       },
                       {
                         "const": "cleanup_runtime_state"
-                      },
-                      {
-                        "const": "cleanup_access_state"
-                      },
-                      {
-                        "const": "detach_agent_context"
                       },
                       {
                         "const": "cleanup_provisioning_history"

@@ -38,10 +38,6 @@ export function readNumber(record: JsonRecord, key: string): number | undefined 
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
-export function clamp(num: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, num));
-}
-
 const SAFE_ERROR_MESSAGE_KEYS = ["message", "error", "detail", "statusText", "title"] as const;
 
 /**

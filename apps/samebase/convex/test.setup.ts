@@ -1,6 +1,5 @@
 /// <reference types="vite/client" />
 
-import agentTest from "@convex-dev/agent/test";
 import workflowTest from "@convex-dev/workflow/test";
 import { convexTest } from "convex-test";
 
@@ -21,7 +20,6 @@ const modules = import.meta.glob([
  */
 export function makeConvexTest() {
   const t = convexTest(schema, modules);
-  agentTest.register(t);
   workflowTest.register(t);
   return t;
 }

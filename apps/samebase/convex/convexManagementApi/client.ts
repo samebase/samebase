@@ -90,14 +90,6 @@ type ConvexManagementPostResponse<Path extends ConvexManagementPostPath> = [
 ] extends [never]
   ? void
   : ConvexManagementPostJsonResponse<Path>;
-type ConvexManagementGetEndpointArgs<Path extends ConvexManagementGetPath> = {
-  method: "GET";
-  path: Path;
-} & Pick<FetchOptions<NonNullable<paths[Path]["get"]>>, "params">;
-type ConvexManagementPostEndpointArgs<Path extends ConvexManagementPostPath> = {
-  method: "POST";
-  path: Path;
-} & Pick<FetchOptions<NonNullable<paths[Path]["post"]>>, "params">;
 type ConvexManagementOpenApiResult<T> = {
   data?: T;
   error?: unknown;
@@ -150,21 +142,7 @@ export async function listConvexManagementProjects(args: {
   }
 }
 
-export function formatConvexManagementApiEndpoint<const Path extends ConvexManagementGetPath>(
-  args: ConvexManagementGetEndpointArgs<Path>,
-): string;
-export function formatConvexManagementApiEndpoint<const Path extends ConvexManagementPostPath>(
-  args: ConvexManagementPostEndpointArgs<Path>,
-): string;
-export function formatConvexManagementApiEndpoint(args: {
-  method: "GET" | "POST";
-  path: string;
-  params?: ConvexManagementRequestParams;
-}): string {
-  return formatConvexManagementApiEndpointUnchecked(args);
-}
-
-function formatConvexManagementApiEndpointUnchecked(args: {
+function formatConvexManagementApiEndpoint(args: {
   path: string;
   params?: ConvexManagementRequestParams;
 }): string {
@@ -226,7 +204,7 @@ export async function requestConvexManagementApi(
       values,
     });
   }
-  const endpoint = formatConvexManagementApiEndpointUnchecked({
+  const endpoint = formatConvexManagementApiEndpoint({
     path,
     params,
   });

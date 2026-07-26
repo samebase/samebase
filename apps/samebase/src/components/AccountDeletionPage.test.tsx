@@ -17,11 +17,6 @@ const queryState = vi.hoisted<{
 }>(() => ({ status: null }));
 
 const dataDeletionInProgress = {
-  chatsAndAgentData: {
-    state: "completed",
-    startedAt: Date.UTC(2026, 6, 12, 12, 0),
-    completedAt: Date.UTC(2026, 6, 12, 12, 1),
-  },
   vaultsAndStagedChanges: {
     state: "in_progress",
     startedAt: Date.UTC(2026, 6, 12, 12, 1),
@@ -35,11 +30,6 @@ const dataDeletionInProgress = {
 } as const satisfies Exclude<AccountDeletionStatus["dataDeletion"], { state: string }>;
 
 const dataDeletionCompleted = {
-  chatsAndAgentData: {
-    state: "completed",
-    startedAt: Date.UTC(2026, 6, 12, 12, 0),
-    completedAt: Date.UTC(2026, 6, 12, 12, 1),
-  },
   vaultsAndStagedChanges: {
     state: "completed",
     startedAt: Date.UTC(2026, 6, 12, 12, 1),
@@ -145,12 +135,7 @@ describe("AccountDeletionPage", () => {
     const mounted = await renderPage();
     try {
       const groups = mounted.rootElement.querySelectorAll("[data-account-deletion-data-group]");
-      expect(groups).toHaveLength(5);
-      expect(
-        mounted.rootElement
-          .querySelector('[data-account-deletion-data-group="chatsAndAgentData"]')
-          ?.getAttribute("data-group-state"),
-      ).toBe("completed");
+      expect(groups).toHaveLength(4);
       const vaults = mounted.rootElement.querySelector(
         '[data-account-deletion-data-group="vaultsAndStagedChanges"]',
       );
@@ -180,7 +165,7 @@ describe("AccountDeletionPage", () => {
     const mounted = await renderPage();
     try {
       const groups = mounted.rootElement.querySelectorAll("[data-account-deletion-data-group]");
-      expect(groups).toHaveLength(5);
+      expect(groups).toHaveLength(4);
       const vaults = mounted.rootElement.querySelector(
         '[data-account-deletion-data-group="vaultsAndStagedChanges"]',
       );

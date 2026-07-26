@@ -53,7 +53,6 @@ const ACCOUNT_DELETION_STEP_RANK = {
 } satisfies Record<AccountDeletionStep, number>;
 
 const DATA_DELETION_GROUP_ACTION_NAMES = {
-  chatsAndAgentData: "delete_chat_and_agent_data",
   preferences: "delete_preferences",
   appAccessAndTokens: "delete_app_access_and_tokens",
   accessRequestsAndHistory: "delete_access_requests_and_history",
@@ -313,11 +312,7 @@ export const deleteAccountWorkflow = workflow.define({
         throw new Error(SAFE_WORKFLOW_ERROR);
       }
 
-      const waitMs =
-        result.blocker === "active_agent_action"
-          ? Math.max(1, Math.min(result.retryAfterMs, 5_000))
-          : 1_000;
-      await step.sleep(waitMs, { name: `wait_for_active_work_${check}` });
+      await step.sleep(1_000, { name: `wait_for_active_work_${check}` });
     }
 
     if (
@@ -419,35 +414,7 @@ export const deleteAccountWorkflow = workflow.define({
       },
       { name: "start_samebase_data_cleanup" },
     );
-    await step.runMutation(internal.accountDeletion.cleanup.cleanupAgentComponentData, ownedArgs, {
-      name: "delete_agent_component_data",
-    });
-
-    for (let check = 0; check < MAX_QUIESCE_CHECKS; check += 1) {
-      const hasData = await step.runQuery(
-        internal.accountDeletion.cleanup.hasAgentComponentData,
-        ownedArgs,
-        { name: `inspect_agent_component_data_${check}` },
-      );
-
-      if (!hasData) {
-        break;
-      }
-
-      if (check === MAX_QUIESCE_CHECKS - 1) {
-        throw new Error(SAFE_WORKFLOW_ERROR);
-      }
-
-      await step.sleep(5_000, { name: `wait_for_agent_component_data_${check}` });
-    }
-
     if (args.dataDeletionProgress) {
-      await step.runAction(
-        internal.accountDeletion.cleanupActions.cleanupDataDeletionGroup,
-        { ...ownedArgs, group: "chatsAndAgentData" },
-        { name: DATA_DELETION_GROUP_ACTION_NAMES.chatsAndAgentData, retry: true },
-      );
-
       await step.runMutation(internal.accountDeletion.cleanup.startVaultDataDeletion, ownedArgs, {
         name: "start_vault_data_cleanup",
       });
@@ -457,10 +424,6 @@ export const deleteAccountWorkflow = workflow.define({
       });
 
       for (const [group, name] of entries(DATA_DELETION_GROUP_ACTION_NAMES)) {
-        if (group === "chatsAndAgentData") {
-          continue;
-        }
-
         await step.runAction(
           internal.accountDeletion.cleanupActions.cleanupDataDeletionGroup,
           { ...ownedArgs, group },

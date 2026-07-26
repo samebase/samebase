@@ -1411,7 +1411,7 @@ describe("vault dashboard Convex contract", () => {
     ).resolves.toBeNull();
   });
 
-  it("cleans the vault-wide local registry and preserves prod access audit", async () => {
+  it("cleans the vault-wide local registry and stored files", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
@@ -1546,53 +1546,6 @@ describe("vault dashboard Convex contract", () => {
         state: "succeeded",
         updatedAt: 9,
       });
-      await ctx.db.insert("ui_agentGraphNode_layouts", {
-        userId: collaboratorId,
-        vaultId,
-        nodeId: "README.md",
-        width: 120,
-        height: 80,
-        updatedAt: 11,
-      });
-      await ctx.db.insert("chatThreadContexts", {
-        threadId: "thread-1",
-        userId: collaboratorId,
-        vaultId,
-        repositoryFullName: "ada/delete-me",
-        branch: "main",
-        filePath: "README.md",
-        createdAt: 12,
-      });
-      await ctx.db.insert("chatMessagePayloads", {
-        messageId: "message-1",
-        threadId: "thread-1",
-        type: "tool_activity",
-        payloadJson: "{}",
-        createdAt: 12,
-      });
-      const requestId = await ctx.db.insert("aiProductionReadRequests", {
-        threadId: "thread-1",
-        requesterUserId: userId,
-        vaultId,
-        scope: "vault",
-        provider: "convex",
-        resourceKind: "logs",
-        toolName: "readLogs",
-        paramsJson: "{}",
-        status: "approved",
-        redactionLevel: "default",
-        approvedBy: collaboratorId,
-        approvedAt: 13,
-      });
-      const auditId = await ctx.db.insert("audit_aiProductionRead_events", {
-        requestId,
-        actorUserId: collaboratorId,
-        action: "approved",
-        toolName: "readLogs",
-        endpoint: "convex:logs",
-        argumentHash: "hash",
-        createdAt: 14,
-      });
       await ctx.db.insert("workflow_vaultProvisioning_events", {
         userId,
         vaultId,
@@ -1605,8 +1558,6 @@ describe("vault dashboard Convex contract", () => {
       });
 
       return {
-        auditId,
-        requestId,
         stagedStorageId,
         storageId,
         userId,
@@ -1628,14 +1579,6 @@ describe("vault dashboard Convex contract", () => {
     }
 
     expect(result).toEqual({ state: "deleted" });
-    await expect(
-      t.mutation(internal.chat.index.saveMessageMetadataInternal, {
-        messageId: "late-message",
-        threadId: "thread-1",
-        type: "tool_activity",
-        payloadJson: "{}",
-      }),
-    ).rejects.toThrow("Agent thread context not found.");
     expect(tables).toEqual(
       expect.arrayContaining([
         "ui_vaultPullRequests_filters",
@@ -1647,22 +1590,15 @@ describe("vault dashboard Convex contract", () => {
         "observations_vaultRepository_branchTrees",
         "vaultConvexProjects",
         "workflow_vaultProvisioning_writeLocks",
-        "ui_agentGraphNode_layouts",
-        "aiProductionReadRequests",
-        "chatThreadContexts",
         "workflow_vaultProvisioning_events",
         "workflow_vaultProvisioning_runs",
       ]),
     );
 
     const snapshot = await t.run(async (ctx) => {
-      const request = await ctx.db.get(ids.requestId);
-      const audit = await ctx.db.get(ids.auditId);
       const storage = await ctx.db.system.get("_storage", ids.storageId);
       const stagedStorage = await ctx.db.system.get("_storage", ids.stagedStorageId);
       return {
-        audit,
-        request,
         stagedStorage,
         storage,
         vault: await ctx.db.get(ids.vaultId),
@@ -1678,14 +1614,6 @@ describe("vault dashboard Convex contract", () => {
           .query("observations_vaultRepository_branchTrees")
           .withIndex("by_vault_and_branch", (q) => q.eq("vaultId", ids.vaultId))
           .collect(),
-        prodRequestsForVault: await ctx.db
-          .query("aiProductionReadRequests")
-          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-          .collect(),
-        threadMetadata: await ctx.db
-          .query("chatMessagePayloads")
-          .withIndex("by_threadId", (q) => q.eq("threadId", "thread-1"))
-          .collect(),
       };
     });
 
@@ -1693,20 +1621,7 @@ describe("vault dashboard Convex contract", () => {
     expect(snapshot.pullRequestFilters).toHaveLength(0);
     expect(snapshot.resourceLinksState).toHaveLength(0);
     expect(snapshot.branchTrees).toHaveLength(0);
-    expect(snapshot.prodRequestsForVault).toHaveLength(0);
-    expect(snapshot.threadMetadata).toHaveLength(0);
     expect(snapshot.storage).toBeNull();
     expect(snapshot.stagedStorage).toBeNull();
-    expect(snapshot.request).toMatchObject({
-      _id: ids.requestId,
-      status: "expired",
-      scope: "vault",
-      error: "Vault was deleted before production access was used.",
-    });
-    expect(snapshot.request?.vaultId).toBeUndefined();
-    expect(snapshot.audit).toMatchObject({
-      _id: ids.auditId,
-      requestId: ids.requestId,
-    });
   });
 });
