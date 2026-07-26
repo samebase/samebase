@@ -503,8 +503,13 @@ test("landing document navigation resets new articles and restores history posit
 
 test("landing preview CTA reopens the desktop sign-in sidebar", async ({ page }) => {
   await page.setViewportSize({ height: 900, width: 1440 });
+  await showLandingHeroPoster(page);
   await page.goto(LANDING_PREVIEW_ROUTE, {
     waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+  await page.evaluate(async () => {
+    await document.fonts.ready;
   });
 
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();

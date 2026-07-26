@@ -15,6 +15,7 @@
     "./menger-depth-transition": "./src/mengerDepthTransition.ts",
     "./rotation": "./src/rotation.ts",
     "./shuffle": "./src/shuffle.ts",
+    "./sierpinski-carpet-hover": "./src/sierpinskiCarpetHover.ts",
     "./surface": "./src/surface.ts",
     "./voxel": "./src/voxel.ts"
   },

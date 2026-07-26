@@ -29,6 +29,15 @@ import {
   createDefaultVoxelState,
 } from "@samebase/logo-model/voxel";
 import {
+  SIERPINSKI_CARPET_HOVER_DEFAULT_DEPTH,
+  SIERPINSKI_CARPET_HOVER_DEFAULT_FALLOFF,
+  SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC,
+  SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
+  SIERPINSKI_CARPET_HOVER_MAX_DEPTH,
+  SIERPINSKI_CARPET_HOVER_MAX_REVEAL_RADIUS,
+} from "@samebase/logo-model/sierpinski-carpet-hover";
+import {
+  buildLogoCarpetHoverRouteSearch,
   buildLogoIsoRouteSearch,
   buildLogoRouteSearch,
   DEFAULT_LOGO_OPACITY,
@@ -36,6 +45,7 @@ import {
   PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS,
   hasPublicLandingLogoStaticFallbackUnsafeSearch,
   preserveLogoRouteDevModeSearch,
+  validateLogoCarpetHoverRouteSearch,
   validateLogoIsoRouteSearch,
   validateLogoRouteSearch,
   validateLogoRouteSearchForRenderer,
@@ -247,6 +257,87 @@ describe("logoRouteSearch", () => {
     expect(search.isoSide).toBeUndefined();
     expect("isoStyle" in search).toBe(true);
     expect(search.isoStyle).toBeUndefined();
+  });
+
+  it("keeps carpet hover params on the carpet route schema only", () => {
+    expect(
+      validateLogoCarpetHoverRouteSearch({
+        falloff: "per-depth",
+        mechanic: "slide",
+        radius: "0.5",
+      }),
+    ).toEqual({ falloff: "per-depth", mechanic: "slide", radius: 0.5 });
+
+    expect(
+      validateLogoRouteSearch({ falloff: "per-depth", mechanic: "slide", radius: "0.5" }),
+    ).toEqual({});
+    expect(validateLogoCarpetHoverRouteSearch({ falloff: "steep", mechanic: "spin" })).toEqual({});
+  });
+
+  it("clamps carpet reveal depth and radius at the model bounds", () => {
+    expect(validateLogoCarpetHoverRouteSearch({ depth: "9" })).toEqual({
+      depth: SIERPINSKI_CARPET_HOVER_MAX_DEPTH,
+    });
+    expect(validateLogoCarpetHoverRouteSearch({ depth: "4" })).toEqual({ depth: 4 });
+    expect(validateLogoCarpetHoverRouteSearch({ radius: "9" })).toEqual({
+      radius: SIERPINSKI_CARPET_HOVER_MAX_REVEAL_RADIUS,
+    });
+    // Finer-than-slider precision survives the validate and build round trip.
+    expect(validateLogoCarpetHoverRouteSearch({ radius: "0.055" })).toEqual({ radius: 0.055 });
+  });
+
+  it("clears default carpet state with tombstones when building carpet route search", () => {
+    const carpetDefaults = {
+      autoRotateEnabled: false,
+      autoShuffleEnabled: false,
+      faceColorAnimationEnabled: false,
+      leftFaceStripeAnimationEnabled: false,
+      logoOpacity: DEFAULT_LOGO_OPACITY,
+      shuffleParallelMoves: DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
+      distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
+      zoom: LOGO_PREVIEW_ZOOM.defaultValue,
+      elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+      fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
+      gridSize: DEFAULT_LOGO_GRID_SIZE,
+      isoCubeSidePixels: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
+      isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+      leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
+      rotationAxisMode: "cube-y",
+      rotationDegrees: DEFAULT_ROTATION_DEGREES,
+      themeColors: DEFAULT_LOGO_THEME_COLORS,
+      viewSnapEnabled: true,
+      voxelState: DEFAULT_VOXEL_STATE,
+    } as const;
+    const search = buildLogoCarpetHoverRouteSearch({
+      ...carpetDefaults,
+      carpetFalloff: SIERPINSKI_CARPET_HOVER_DEFAULT_FALLOFF,
+      carpetMechanic: SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC,
+      carpetRevealDepth: SIERPINSKI_CARPET_HOVER_DEFAULT_DEPTH,
+      carpetRevealRadius: SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
+    });
+
+    expect(search).toEqual({});
+    expect("mechanic" in search).toBe(true);
+    expect(search.mechanic).toBeUndefined();
+    expect("falloff" in search).toBe(true);
+    expect(search.falloff).toBeUndefined();
+    expect("radius" in search).toBe(true);
+    expect(search.radius).toBeUndefined();
+    expect("depth" in search).toBe(true);
+    expect(search.depth).toBeUndefined();
+
+    const nonDefaultSearch = buildLogoCarpetHoverRouteSearch({
+      ...carpetDefaults,
+      carpetFalloff: "per-depth",
+      carpetMechanic: "grow",
+      carpetRevealDepth: 3,
+      carpetRevealRadius: 0.5,
+    });
+
+    expect(nonDefaultSearch.falloff).toBe("per-depth");
+    expect(nonDefaultSearch.mechanic).toBe("grow");
+    expect(nonDefaultSearch.depth).toBe(3);
+    expect(nonDefaultSearch.radius).toBe(0.5);
   });
 
   it("preserves canonical theme mode flags when building route search", () => {

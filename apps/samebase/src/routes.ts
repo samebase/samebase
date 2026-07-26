@@ -26,6 +26,7 @@ export const routes = rootRoute("root.tsx", [
   route(INDEXED_DB_ROUTE, "indexDB.tsx"),
   route(LOCAL_STORAGE_ROUTE, "localStorage.tsx"),
   route("/logo", "logo.tsx"),
+  route("/logo/hover/carpet", "logo-carpet-hover-research.tsx"),
   route("/logo/iso", "logo-iso.tsx"),
   route("/logo/raster", "logo-raster.tsx"),
   route("/logo/raster-seams", "logo-raster-seams.tsx"),

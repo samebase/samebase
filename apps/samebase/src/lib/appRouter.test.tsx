@@ -183,6 +183,31 @@ vi.mock("@/components/logo/LogoMengerDepthTransitionPage", () => ({
   ),
 }));
 
+vi.mock("@/components/logo/LogoSierpinskiCarpetHoverPage", () => ({
+  LogoSierpinskiCarpetHoverPage: ({
+    routeSearch,
+  }: {
+    routeSearch: {
+      depth?: number;
+      falloff?: string;
+      mechanic?: string;
+      primary?: string;
+      radius?: number;
+    };
+  }) => (
+    <div
+      data-depth={routeSearch.depth}
+      data-falloff={routeSearch.falloff}
+      data-mechanic={routeSearch.mechanic}
+      data-primary={routeSearch.primary}
+      data-radius={routeSearch.radius}
+      data-testid="logo-carpet-hover-page"
+    >
+      Carpet hover page
+    </div>
+  ),
+}));
+
 vi.mock("@/components/AppRootClient", async () => {
   const { Outlet } = await import("@tanstack/react-router");
   const { AppWorkspaceShell } = await import("@/components/AppWorkspaceShell");
@@ -740,6 +765,20 @@ describe("appRouter", () => {
     expect(page?.getAttribute("data-elevation")).toBe("0");
     expect(page?.getAttribute("data-primary")).toBe("emerald-500");
     expect(page?.getAttribute("data-rotation")).toBe("0");
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("passes shared logo search state to the carpet hover research route", async () => {
+    await renderRoute(
+      "/logo/hover/carpet?primary=emerald-500&mechanic=slide&falloff=per-depth&radius=0.5&depth=9",
+    );
+
+    const page = rootElement?.querySelector('[data-testid="logo-carpet-hover-page"]');
+    expect(page?.getAttribute("data-primary")).toBe("emerald-500");
+    expect(page?.getAttribute("data-mechanic")).toBe("slide");
+    expect(page?.getAttribute("data-falloff")).toBe("per-depth");
+    expect(page?.getAttribute("data-radius")).toBe("0.5");
+    expect(page?.getAttribute("data-depth")).toBe("6");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
