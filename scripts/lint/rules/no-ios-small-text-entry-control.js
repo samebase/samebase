@@ -1,8 +1,5 @@
 const textEntryControlNames = new Set(["input", "select", "textarea", "Input", "Textarea"]);
 const textEntryClassAttributeNames = new Set(["className", "inputClassName", "textareaClassName"]);
-const textEntryWrapperClassAttributeNames = new Map([
-  ["ChatInput", new Set(["textareaClassName"])],
-]);
 const nonTextInputTypes = new Set([
   "button",
   "checkbox",
@@ -69,14 +66,8 @@ function readInputType(node) {
 }
 
 function isTextEntryControl(node, elementName) {
-  if (
-    !textEntryControlNames.has(elementName) &&
-    !textEntryWrapperClassAttributeNames.has(elementName)
-  ) {
+  if (!textEntryControlNames.has(elementName)) {
     return hasActiveContentEditable(node);
-  }
-  if (textEntryWrapperClassAttributeNames.has(elementName)) {
-    return true;
   }
   if (elementName !== "input" && elementName !== "Input") {
     return true;
@@ -84,10 +75,6 @@ function isTextEntryControl(node, elementName) {
 
   const inputType = readInputType(node);
   return inputType === null || !nonTextInputTypes.has(inputType);
-}
-
-function getTextEntryClassAttributeNames(elementName) {
-  return textEntryWrapperClassAttributeNames.get(elementName) ?? textEntryClassAttributeNames;
 }
 
 function hasActiveContentEditable(node) {
@@ -310,11 +297,9 @@ export const noIosSmallTextEntryControl = {
         if (!elementName || !isTextEntryControl(node, elementName)) {
           return;
         }
-        const classAttributeNames = getTextEntryClassAttributeNames(elementName);
-
         for (const attribute of node.attributes) {
           const attributeName = getAttributeName(attribute);
-          if (!attributeName || !classAttributeNames.has(attributeName)) {
+          if (!attributeName || !textEntryClassAttributeNames.has(attributeName)) {
             continue;
           }
 

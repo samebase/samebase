@@ -48,7 +48,6 @@ test("fileview desktop shell with left tree", async ({ page }) => {
 
   const fixture = page.getByTestId("fileview-layout-visual-fixture");
   const pathTitle = page.getByTestId("fileview-layout-header").getByText("/", { exact: true });
-  await expect(page.getByRole("button", { name: "Open bottom panel" })).toHaveCount(0);
   await expect(pathTitle).toBeVisible();
 
   await expect(fixture).toHaveScreenshot("fileview-layout-shell-left-tree.png", {

@@ -115,18 +115,6 @@ export function isStorageBackedFileError(error: unknown): boolean {
   return error instanceof Error && error.message.toLowerCase().includes("in storage");
 }
 
-export function readGraphViewMode(storageKey: string): "editor" | "graph" | null {
-  try {
-    const storedMode = localStorage.getItem(storageKey);
-    if (storedMode === "editor" || storedMode === "graph") {
-      return storedMode;
-    }
-  } catch (error) {
-    console.warn("Failed to read graph view preference", error);
-  }
-  return null;
-}
-
 export function getPatchLineClassName(line: string): string {
   if (line.startsWith("+") && !line.startsWith("+++")) {
     return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";

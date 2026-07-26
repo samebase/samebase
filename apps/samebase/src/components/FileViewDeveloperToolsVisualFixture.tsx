@@ -3,27 +3,19 @@ import { Button } from "@/components/ui/button";
 import {
   FileViewDeveloperTools,
   type FileViewEditorOverride,
-  type FileViewMode,
 } from "@/components/FileViewDeveloperTools";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 
 export type FileViewDeveloperToolsVisualMode =
   | "file-view-developer-tools-collapsed"
-  | "file-view-developer-tools-codemirror"
-  | "file-view-developer-tools-graph";
-
-function getFixtureViewMode(mode: FileViewDeveloperToolsVisualMode): FileViewMode {
-  return mode === "file-view-developer-tools-graph" ? "graph" : "editor";
-}
+  | "file-view-developer-tools-codemirror";
 
 function getFixtureDeveloperToolsOpen(mode: FileViewDeveloperToolsVisualMode): boolean {
   return mode !== "file-view-developer-tools-collapsed";
 }
 
-function getFixtureEditorOverride(
-  mode: FileViewDeveloperToolsVisualMode,
-): FileViewEditorOverride | undefined {
-  return mode === "file-view-developer-tools-codemirror" ? "codemirror" : undefined;
+function getFixtureEditorOverride(mode: FileViewDeveloperToolsVisualMode): FileViewEditorOverride {
+  return mode === "file-view-developer-tools-codemirror" ? "codemirror" : "default";
 }
 
 export function FileViewDeveloperToolsVisualFixture({
@@ -31,10 +23,8 @@ export function FileViewDeveloperToolsVisualFixture({
 }: {
   mode: FileViewDeveloperToolsVisualMode;
 }) {
-  const viewMode = getFixtureViewMode(mode);
   const developerToolsOpen = getFixtureDeveloperToolsOpen(mode);
   const editorOverride = getFixtureEditorOverride(mode);
-  const showEditorActions = viewMode === "editor";
   const sidebarContent = (
     <div className="flex min-h-0 flex-1 flex-col bg-muted/10">
       <div className="border-b p-3 text-xs text-muted-foreground">samebase/samebase</div>
@@ -65,7 +55,7 @@ export function FileViewDeveloperToolsVisualFixture({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0">
                   <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">
-                    feat/graph-toggle
+                    feat/editor-engine
                   </div>
                   <h2 className="text-base font-medium pointer-fine:text-sm">
                     src/components/FileView.tsx
@@ -77,13 +67,9 @@ export function FileViewDeveloperToolsVisualFixture({
                     <div className="rounded-ui bg-muted px-2 py-1 text-[11px] text-muted-foreground">
                       Up to date
                     </div>
-                    {showEditorActions ? (
-                      <>
-                        <Button size="sm" variant="outline" className="h-6 px-2 text-xs">
-                          Review Changes
-                        </Button>
-                      </>
-                    ) : null}
+                    <Button size="sm" variant="outline" className="h-6 px-2 text-xs">
+                      Review Changes
+                    </Button>
                     <Button size="sm" variant="outline" className="h-6 px-2 text-xs">
                       Create Draft PR
                     </Button>
@@ -98,8 +84,6 @@ export function FileViewDeveloperToolsVisualFixture({
                   <FileViewDeveloperTools
                     open={developerToolsOpen}
                     onOpenChange={() => {}}
-                    viewMode={viewMode}
-                    onViewModeChange={() => {}}
                     editorOverride={editorOverride}
                     onEditorOverrideChange={() => {}}
                   />
@@ -107,45 +91,21 @@ export function FileViewDeveloperToolsVisualFixture({
               </div>
 
               <div className="relative flex-1 min-h-0 corner-notch-1 border bg-background">
-                {viewMode === "editor" ? (
-                  <div className="flex h-full min-h-[420px] flex-col">
-                    <div className="border-b px-4 py-3 text-sm font-medium">Editor surface</div>
-                    <div className="grid flex-1 gap-2 p-4 font-mono text-xs text-muted-foreground">
-                      <div className="rounded-ui bg-muted/60 px-3 py-2">
-                        export function FileViewInner() {"{"}
-                      </div>
-                      <div className="rounded-ui bg-muted/40 px-3 py-2">
-                        {"  "}const graphMode = false;
-                      </div>
-                      <div className="rounded-ui bg-muted/40 px-3 py-2">
-                        {"  "}return {"<RepositoryEditor />"};
-                      </div>
-                      <div className="rounded-ui bg-muted/60 px-3 py-2">{"}"}</div>
+                <div className="flex h-full min-h-[420px] flex-col">
+                  <div className="border-b px-4 py-3 text-sm font-medium">Editor surface</div>
+                  <div className="grid flex-1 gap-2 p-4 font-mono text-xs text-muted-foreground">
+                    <div className="rounded-ui bg-muted/60 px-3 py-2">
+                      export function FileViewInner() {"{"}
                     </div>
+                    <div className="rounded-ui bg-muted/40 px-3 py-2">
+                      {"  "}const editorEngine = "auto";
+                    </div>
+                    <div className="rounded-ui bg-muted/40 px-3 py-2">
+                      {"  "}return {"<RepositoryEditor />"};
+                    </div>
+                    <div className="rounded-ui bg-muted/60 px-3 py-2">{"}"}</div>
                   </div>
-                ) : (
-                  <div className="relative min-h-[420px] overflow-hidden bg-[linear-gradient(180deg,rgba(148,163,184,0.12),rgba(148,163,184,0.02))]">
-                    <div className="absolute inset-x-10 top-24 h-px bg-border" />
-                    <div className="absolute left-12 top-12 w-56 rounded-ui border bg-background p-4 shadow-sm">
-                      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                        Agent file
-                      </div>
-                      <div className="mt-2 text-sm font-medium">AGENTS.md</div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        Root instructions and operator workflow
-                      </div>
-                    </div>
-                    <div className="absolute right-12 top-36 w-56 rounded-ui border bg-background p-4 shadow-sm">
-                      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                        Tool config
-                      </div>
-                      <div className="mt-2 text-sm font-medium">tools.json</div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        Runtime wiring for agent tools
-                      </div>
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
             </div>
           </div>

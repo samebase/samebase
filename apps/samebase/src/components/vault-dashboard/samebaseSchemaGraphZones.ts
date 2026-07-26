@@ -6,7 +6,6 @@ export type SamebaseSchemaGraphZoneId =
   | "repository"
   | "files"
   | "infrastructure"
-  | "agent"
   | "mcp"
   | "other";
 
@@ -18,7 +17,7 @@ export type SamebaseSchemaGraphZone = {
   order: number;
 };
 
-export const SAMEBASE_SCHEMA_GRAPH_ZONE_LAYOUT_VERSION = "samebase-zones-v4";
+export const SAMEBASE_SCHEMA_GRAPH_ZONE_LAYOUT_VERSION = "samebase-zones-v5";
 
 export const SAMEBASE_SCHEMA_GRAPH_ZONES = [
   {
@@ -71,25 +70,18 @@ export const SAMEBASE_SCHEMA_GRAPH_ZONES = [
     order: 0,
   },
   {
-    id: "agent",
-    label: "Agent and AI",
-    description: "Agent graph layout, chat metadata, and production access approvals.",
-    column: 2,
-    order: 1,
-  },
-  {
     id: "mcp",
     label: "MCP OAuth",
     description: "MCP clients, grants, token rotation, and audit events.",
     column: 2,
-    order: 2,
+    order: 1,
   },
   {
     id: "other",
     label: "Other",
     description: "Tables that do not match a Samebase product zone yet.",
     column: 2,
-    order: 3,
+    order: 2,
   },
 ] satisfies SamebaseSchemaGraphZone[];
 
@@ -124,12 +116,6 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
   observations_vaultFiles_blobs: "files",
   vaultStagedFileUpdates: "files",
 
-  ui_agentGraphNode_layouts: "agent",
-  chatThreadContexts: "agent",
-  chatMessagePayloads: "agent",
-  aiProductionReadRequests: "agent",
-  audit_aiProductionRead_events: "agent",
-
   mcpOauthClients: "mcp",
   mcpAuthorizationRequests: "mcp",
   mcpAuthorizationCodes: "mcp",
@@ -163,9 +149,5 @@ export function readSamebaseSchemaGraphZoneId(tableName: string): SamebaseSchema
   if (tableName.startsWith("github") || tableName.startsWith("repository")) {
     return "repository";
   }
-  if (tableName.startsWith("agent") || tableName.startsWith("ai")) {
-    return "agent";
-  }
-
   return "other";
 }

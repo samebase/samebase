@@ -24,7 +24,7 @@ export type WorkspaceLayoutV3MobileMinResizeBehavior =
   | "min_resize_to_slide"
   | "min_resize_to_merge";
 export type WorkspaceLayoutV3MobileMergedSide = "left" | "right";
-export type WorkspaceLayoutV3ActiveResizeSide = "left" | "right" | "top" | null;
+export type WorkspaceLayoutV3ActiveResizeSide = "left" | "right" | null;
 export type WorkspaceLayoutV3MobileSurface = WorkspaceMobileSurface;
 export type WorkspaceLayoutV3MobileGrip =
   | { kind: "idle" }

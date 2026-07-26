@@ -207,7 +207,6 @@ const FILE_VIEW_CODE_PARITY_VISUAL_MODES = [
 const FILE_VIEW_DEVELOPER_TOOLS_VISUAL_MODES = [
   "file-view-developer-tools-collapsed",
   "file-view-developer-tools-codemirror",
-  "file-view-developer-tools-graph",
 ] as const satisfies readonly FileViewDeveloperToolsVisualMode[];
 
 const FILE_VIEW_PROSEMARK_HEIGHT_VISUAL_MODES = [
@@ -407,8 +406,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (
     mode === "file-view-developer-tools-collapsed" ||
-    mode === "file-view-developer-tools-codemirror" ||
-    mode === "file-view-developer-tools-graph"
+    mode === "file-view-developer-tools-codemirror"
   ) {
     return <FileViewDeveloperToolsVisualFixture mode={mode} />;
   }

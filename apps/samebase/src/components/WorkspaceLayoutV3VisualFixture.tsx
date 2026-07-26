@@ -1,6 +1,5 @@
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
-import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { WorkspaceLayoutV3FullPage } from "@/components/workspace-layout-v3/WorkspaceLayoutV3FullPage";
 import { WorkspaceLayoutV3MemorySidebarProvider } from "@/components/workspace-layout-v3/WorkspaceLayoutV3MemorySidebarProvider";
 import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
@@ -52,14 +51,6 @@ export function WorkspaceLayoutV3VisualFixture() {
               showMobileLineNumbers={false}
               syncError={null}
               vaultKey={FIXTURE_VAULT_KEY}
-            />
-          ),
-        }}
-        panel={{
-          content: (
-            <ProsemarkReadOnly
-              filePath="workspace-layout-v3-panel.md"
-              value={mobileSidebarSpecRaw}
             />
           ),
         }}

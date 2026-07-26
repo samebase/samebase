@@ -37,7 +37,7 @@ type ProsemarkReadOnlyProps = {
   value: string;
   className?: string;
   editable?: boolean;
-  filePath?: string;
+  filePath: string;
   highlightedLineNumbers?: number[];
   lineHighlightTone?: "add" | "remove";
   mobilePaneDragEnabled?: boolean;

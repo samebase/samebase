@@ -1,11 +1,8 @@
-import { type ReactNode } from "react";
 import { ChevronDownIcon } from "@/lib/radixIcons";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
-export type FileViewMode = "editor" | "graph";
 export type FileViewEditorOverride = "default" | "codemirror";
 
 function isFileViewEditorOverride(value: string | undefined) {
@@ -15,27 +12,16 @@ function isFileViewEditorOverride(value: string | undefined) {
 type FileViewDeveloperToolsProps = {
   open: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  viewMode: FileViewMode;
-  onViewModeChange: (viewMode: FileViewMode) => void;
-  editorOverride?: FileViewEditorOverride;
-  onEditorOverrideChange?: (editorOverride: FileViewEditorOverride) => void;
-  children?: ReactNode;
+  editorOverride: FileViewEditorOverride;
+  onEditorOverrideChange: (editorOverride: FileViewEditorOverride) => void;
   contentTestId?: string;
 };
 
-/**
- * FileView keeps graph mode behind the developer tools section by default, but
- * still needs a stable way back to editor mode when that advanced surface is
- * active.
- */
 export function FileViewDeveloperTools({
   open,
   onOpenChange,
-  viewMode,
-  onViewModeChange,
   editorOverride,
   onEditorOverrideChange,
-  children,
   contentTestId,
 }: FileViewDeveloperToolsProps) {
   return (
@@ -55,48 +41,28 @@ export function FileViewDeveloperTools({
         data-testid={contentTestId}
         className="space-y-1.5 data-[state=closed]:hidden"
       >
-        <Tabs
-          value={viewMode}
-          onValueChange={(nextViewMode) => {
-            if (nextViewMode === "editor" || nextViewMode === "graph") {
-              onViewModeChange(nextViewMode);
-            }
-          }}
-        >
-          <TabsList className="h-7">
-            <TabsTrigger value="editor" className="px-2 text-xs">
-              Editor
-            </TabsTrigger>
-            <TabsTrigger value="graph" className="px-2 text-xs">
-              Graph
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-        {editorOverride !== undefined && onEditorOverrideChange ? (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-ui border bg-muted/20 px-2 py-1.5">
-            <div className="text-[11px] font-medium text-muted-foreground">Editor engine</div>
-            <ToggleGroup
-              type="single"
-              value={editorOverride}
-              variant="outline"
-              size="sm"
-              className="justify-start"
-              onValueChange={(nextEditorOverride) => {
-                if (isFileViewEditorOverride(nextEditorOverride)) {
-                  onEditorOverrideChange(nextEditorOverride);
-                }
-              }}
-            >
-              <ToggleGroupItem value="default" className="h-6 px-2 text-[11px]">
-                Auto
-              </ToggleGroupItem>
-              <ToggleGroupItem value="codemirror" className="h-6 px-2 text-[11px]">
-                CodeMirror
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-        ) : null}
-        {children}
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-ui border bg-muted/20 px-2 py-1.5">
+          <div className="text-[11px] font-medium text-muted-foreground">Editor engine</div>
+          <ToggleGroup
+            type="single"
+            value={editorOverride}
+            variant="outline"
+            size="sm"
+            className="justify-start"
+            onValueChange={(nextEditorOverride) => {
+              if (isFileViewEditorOverride(nextEditorOverride)) {
+                onEditorOverrideChange(nextEditorOverride);
+              }
+            }}
+          >
+            <ToggleGroupItem value="default" className="h-6 px-2 text-[11px]">
+              Auto
+            </ToggleGroupItem>
+            <ToggleGroupItem value="codemirror" className="h-6 px-2 text-[11px]">
+              CodeMirror
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
       </CollapsibleContent>
     </Collapsible>
   );

@@ -110,7 +110,7 @@ const CONFLICT_UPSTREAM = `# TODO
 - [ ] review Observable
 - [ ] bootstrap examples
 - [ ] Tuple
-- [ ] agent graph polish
+- [ ] schema graph polish
 `;
 
 const CONFLICT_BASE_TO_OURS_PATCH = `Index: TODO.md
@@ -136,7 +136,7 @@ const CONFLICT_BASE_TO_UPSTREAM_PATCH = `Index: TODO.md
  - [ ] review Observable
  - [ ] bootstrap examples
  - [ ] Tuple
-+- [ ] agent graph polish
++- [ ] schema graph polish
 `;
 
 type FixtureFile = {
@@ -489,6 +489,7 @@ export function CommitReviewVisualFixture({ mode }: { mode: CommitReviewVisualMo
                       <ProsemarkMergeEditor
                         value={CONFLICT_OURS}
                         baseValue={CONFLICT_UPSTREAM}
+                        filePath="src/components/FileView.tsx"
                         options={INLINE_FIXTURE_OPTIONS}
                         editable
                         className="text-sm leading-6"
@@ -555,6 +556,7 @@ export function CommitReviewVisualFixture({ mode }: { mode: CommitReviewVisualMo
                       <ProsemarkMergeEditor
                         value={activeFile.richNewContent ?? ""}
                         baseValue={activeFile.richOldContent ?? ""}
+                        filePath={activeFile.path}
                         options={INLINE_FIXTURE_OPTIONS}
                         editable
                         className="text-sm leading-6"
