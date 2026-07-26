@@ -320,9 +320,9 @@ export function buildPullRequestEnvironmentRoots({
   resources: PullRequestResources;
   schemaGraphEnabled: boolean;
 }): VaultEnvironmentRoot[] {
-  const inputs = resources.workers.flatMap((worker) => {
+  const workers = resources.workers.map((worker) => {
     const rootDirectory = worker.state === "unavailable" ? "Needs attention" : worker.rootDirectory;
-    const workerInput = {
+    return {
       rootDirectory,
       sortKey: `0:${worker.workerName}:${worker.workerId}`,
       resource: {
@@ -359,24 +359,22 @@ export function buildPullRequestEnvironmentRoots({
               },
       },
     };
-
-    if (worker.state !== "available" || worker.convexPreview.state !== "available") {
-      return [workerInput];
+  });
+  const convexDeployments = resources.convexProjects.flatMap((project) => {
+    if (project.state !== "available") {
+      return [];
     }
-
-    const preview = worker.convexPreview;
     return [
-      workerInput,
       {
-        rootDirectory,
-        sortKey: `1:${preview.deploymentName}:${worker.workerId}`,
+        rootDirectory: project.rootDirectory,
+        sortKey: `1:${project.deploymentName}:${project.convexProjectId}`,
         resource: {
           kind: "destination" as const,
-          id: `convex:${worker.workerId}`,
+          id: `convex:${project.convexProjectId}`,
           actions: [
             {
               destination: "external" as const,
-              href: `${preview.dashboardUrl}/data`,
+              href: `${project.dashboardUrl}/data`,
               label: "Data",
             },
             ...(schemaGraphEnabled
@@ -387,21 +385,21 @@ export function buildPullRequestEnvironmentRoots({
                       owner,
                       repoName,
                       branch,
-                      convexProjectId: preview.convexProjectId,
+                      convexProjectId: project.convexProjectId,
                     }),
                     label: "Schema",
                   },
                 ]
               : []),
           ],
-          href: preview.dashboardUrl,
-          label: preview.deploymentName,
+          href: project.dashboardUrl,
+          label: project.deploymentName,
           provider: "convex" as const,
-          title: `Open preview Convex deployment ${preview.deploymentName}`,
+          title: `Open preview Convex deployment ${project.deploymentName}`,
         },
       },
     ];
   });
 
-  return groupVaultEnvironmentResources(inputs);
+  return groupVaultEnvironmentResources([...workers, ...convexDeployments]);
 }

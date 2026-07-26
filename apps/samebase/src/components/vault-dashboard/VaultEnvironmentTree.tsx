@@ -482,7 +482,7 @@ export function PullRequestResources({
       </div>
     ) : null;
   }
-  if (resource.resources.workers.length === 0) {
+  if (resource.resources.workers.length === 0 && resource.resources.convexProjects.length === 0) {
     return null;
   }
 

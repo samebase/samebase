@@ -586,13 +586,6 @@ function fixturePullRequests(
                         state: "available" as const,
                         url: "https://codex-restore-convex-dashboard-links-samebase-worker.samebase.workers.dev",
                       },
-                      convexPreview: {
-                        state: "available" as const,
-                        convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
-                        deploymentName: "precise-otter-1260",
-                        dashboardUrl:
-                          "https://dashboard.convex.dev/t/samebase/samebase/precise-otter-1260",
-                      },
                     },
                   ]
                 : pullRequest.number === 1259
@@ -609,10 +602,22 @@ function fixturePullRequests(
                             "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/domain-router/production/builds/running-build-1259",
                         },
                         cloudflareBranchPreview: { state: "absent" as const },
-                        convexPreview: { state: "unavailable" as const },
                       },
                     ]
                   : [],
+            convexProjects:
+              pullRequest.number === 1260
+                ? [
+                    {
+                      state: "available" as const,
+                      convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
+                      rootDirectory: "apps/samebase",
+                      deploymentName: "precise-otter-1260",
+                      dashboardUrl:
+                        "https://dashboard.convex.dev/t/samebase/samebase/precise-otter-1260",
+                    },
+                  ]
+                : [],
           },
         },
       ]),

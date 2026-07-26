@@ -619,8 +619,9 @@ describe("vault environment roots", () => {
     ]);
   });
 
-  it("uses sibling Cloudflare and Convex rows for a pull request root", () => {
+  it("shows a Convex preview independently from a failed Cloudflare build", () => {
     const workerId = fakeCloudflareWorkerId();
+    const convexProjectId = fakeConvexProjectId();
     const worker = {
       state: "available" as const,
       workerId,
@@ -628,21 +629,11 @@ describe("vault environment roots", () => {
       workerName: "demo-web",
       cloudflareBuild: {
         uuid: "build-1",
-        state: "success" as const,
+        state: "failure" as const,
         logsUrl: "https://dash.cloudflare.com/build-1",
       },
-      cloudflareBranchPreview: {
-        state: "available" as const,
-        url: "https://branch.demo.workers.dev",
-      },
-      convexPreview: {
-        state: "available" as const,
-        convexProjectId: fakeConvexProjectId(),
-        deploymentName: "calm-swan-123",
-        dashboardUrl: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
-      },
+      cloudflareBranchPreview: { state: "absent" as const },
     };
-    const convexProjectId = worker.convexPreview.convexProjectId;
 
     expect(
       buildPullRequestEnvironmentRoots({
@@ -652,6 +643,15 @@ describe("vault environment roots", () => {
         resources: {
           pullRequestId: "pull-request-1",
           workers: [worker],
+          convexProjects: [
+            {
+              state: "available",
+              convexProjectId,
+              rootDirectory: "apps/web",
+              deploymentName: "calm-swan-123",
+              dashboardUrl: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
+            },
+          ],
         },
         schemaGraphEnabled: true,
       }),
@@ -666,21 +666,16 @@ describe("vault environment roots", () => {
               workerName: "demo-web",
               build: {
                 state: "available",
-                buildState: "success",
+                buildState: "failure",
                 logsUrl: "https://dash.cloudflare.com/build-1",
               },
-              destination: {
-                state: "available",
-                href: "https://branch.demo.workers.dev",
-                label: "Branch preview",
-                title: "branch.demo.workers.dev",
-              },
+              destination: { state: "absent" },
               actions: [],
             },
           },
           {
             kind: "destination",
-            id: `convex:${workerId}`,
+            id: `convex:${convexProjectId}`,
             actions: [
               {
                 destination: "external",

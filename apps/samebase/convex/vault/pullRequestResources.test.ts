@@ -310,18 +310,15 @@ describe("validatePullRequestResourceIds", () => {
 });
 
 describe("resolveConvexPreviewDeployment", () => {
-  const successfulBuild = {
-    buildState: "success" as const,
-    createdAt: Date.parse("2026-07-20T10:00:00.000Z"),
-    finishedAt: Date.parse("2026-07-20T10:01:00.000Z"),
-  };
-
-  it("requires the branch identifier, reference, and deploy time to match one build", () => {
+  it("matches the branch identifier and reference without Cloudflare build metadata", () => {
     expect(
       resolveConvexPreviewDeployment({
-        deployments: [previewDeployment()],
+        deployments: [
+          previewDeployment({
+            lastDeployTime: Date.parse("2026-07-19T10:00:00.000Z"),
+          }),
+        ],
         head,
-        build: successfulBuild,
       }),
     ).toMatchObject({
       state: "available",
@@ -334,21 +331,19 @@ describe("resolveConvexPreviewDeployment", () => {
       resolveConvexPreviewDeployment({
         deployments: [previewDeployment()],
         head: { ...head, isCrossRepository: true, headRepositoryId: "R_fork" },
-        build: successfulBuild,
       }),
     ).toEqual({ state: "unavailable", reason: "fork_head" });
   });
 
-  it("reports absence when the deployment was not updated inside the build window", () => {
+  it("reports absence when the deployment reference does not match the branch", () => {
     expect(
       resolveConvexPreviewDeployment({
         deployments: [
           previewDeployment({
-            lastDeployTime: Date.parse("2026-07-20T09:59:59.000Z"),
+            reference: "preview/another-branch",
           }),
         ],
         head,
-        build: successfulBuild,
       }),
     ).toEqual({ state: "absent" });
   });
@@ -358,7 +353,6 @@ describe("resolveConvexPreviewDeployment", () => {
       resolveConvexPreviewDeployment({
         deployments: [previewDeployment({ id: "91" }), previewDeployment({ id: "92" })],
         head,
-        build: successfulBuild,
       }),
     ).toEqual({ state: "unavailable", reason: "deployment_ambiguous" });
   });
