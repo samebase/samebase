@@ -36,15 +36,13 @@ export const vWorkspaceMobileSurface = union(
 export type WorkspaceMobileSurface = Infer<typeof vWorkspaceMobileSurface>;
 
 export const userPreferenceTables = {
-  /** Per-user choices for dashboard panels, billing display, and chat visibility. */
+  /** Per-user choices for dashboard panels and billing display. */
   ui_user_settings: defineTable({
     userId: id("users"),
     accountPanelOpen: optional(boolean()),
     providersPanelOpen: boolean(),
     // TODO: remove this
     pricingBillingCycle: optional(union(literal("monthly"), literal("annual"))),
-    editorChatOpen: optional(boolean()),
-    globalChatOpen: optional(boolean()),
   }).index("by_user", ["userId"]),
 
   /** Shell-owned geometry and pane selection for one workspace. */

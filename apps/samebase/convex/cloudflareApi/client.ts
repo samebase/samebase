@@ -118,26 +118,6 @@ type CloudflareApiPostResponse<Path extends CloudflareApiPostPath> = CloudflareA
 type CloudflareApiPutResponse<Path extends CloudflareApiPutPath> = CloudflareApiResponseResult<
   CloudflareApiPutJsonResponse<Path>
 >;
-type CloudflareApiDeleteEndpointArgs<Path extends CloudflareApiDeletePath> = {
-  method: "DELETE";
-  path: Path;
-} & Pick<FetchOptions<NonNullable<paths[Path]["delete"]>>, "params">;
-type CloudflareApiGetEndpointArgs<Path extends CloudflareApiGetPath> = {
-  method: "GET";
-  path: Path;
-} & Pick<FetchOptions<NonNullable<paths[Path]["get"]>>, "params">;
-type CloudflareApiPatchEndpointArgs<Path extends CloudflareApiPatchPath> = {
-  method: "PATCH";
-  path: Path;
-} & Pick<FetchOptions<NonNullable<paths[Path]["patch"]>>, "params">;
-type CloudflareApiPostEndpointArgs<Path extends CloudflareApiPostPath> = {
-  method: "POST";
-  path: Path;
-} & Pick<FetchOptions<NonNullable<paths[Path]["post"]>>, "params">;
-type CloudflareApiPutEndpointArgs<Path extends CloudflareApiPutPath> = {
-  method: "PUT";
-  path: Path;
-} & Pick<FetchOptions<NonNullable<paths[Path]["put"]>>, "params">;
 type CloudflareApiDeleteRequestArgs<Path extends CloudflareApiDeletePath> =
   CloudflareApiRequestBase & {
     method: "DELETE";
@@ -216,30 +196,7 @@ export function resolveCloudflareApiTransport(
   }
 }
 
-export function formatCloudflareApiEndpoint<const Path extends CloudflareApiDeletePath>(
-  args: CloudflareApiDeleteEndpointArgs<Path>,
-): string;
-export function formatCloudflareApiEndpoint<const Path extends CloudflareApiGetPath>(
-  args: CloudflareApiGetEndpointArgs<Path>,
-): string;
-export function formatCloudflareApiEndpoint<const Path extends CloudflareApiPatchPath>(
-  args: CloudflareApiPatchEndpointArgs<Path>,
-): string;
-export function formatCloudflareApiEndpoint<const Path extends CloudflareApiPostPath>(
-  args: CloudflareApiPostEndpointArgs<Path>,
-): string;
-export function formatCloudflareApiEndpoint<const Path extends CloudflareApiPutPath>(
-  args: CloudflareApiPutEndpointArgs<Path>,
-): string;
-export function formatCloudflareApiEndpoint(args: {
-  method: CloudflareApiRequestMethod;
-  path: string;
-  params?: CloudflareApiRequestParams;
-}): string {
-  return formatCloudflareApiEndpointUnchecked(args);
-}
-
-function formatCloudflareApiEndpointUnchecked(args: {
+function formatCloudflareApiEndpoint(args: {
   path: string;
   params?: CloudflareApiRequestParams;
 }): string {
@@ -319,7 +276,7 @@ export async function requestCloudflareApi(
       values,
     });
   }
-  const endpoint = formatCloudflareApiEndpointUnchecked({
+  const endpoint = formatCloudflareApiEndpoint({
     path: args.path,
     params,
   });

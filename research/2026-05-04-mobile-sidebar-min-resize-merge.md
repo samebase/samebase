@@ -13,7 +13,7 @@
   - `apps/noter/e2e/public-landing-shell.spec.ts`
   - `specs/072_MOBILE_SIDEBAR_INTERACTIVE_DRAG_SPEC.md`
   - `specs/087_WORKSPACE_LAYOUT_V2_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`
-  - `rfcs/081_SIDEBAR_RESIZE_RESEARCH.md`
+  - `archive/081_SIDEBAR_RESIZE_RESEARCH.md`
 
 ## Question
 

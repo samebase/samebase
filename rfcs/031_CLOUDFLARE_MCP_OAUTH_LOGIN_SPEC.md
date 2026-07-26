@@ -9,7 +9,6 @@
 - Related specs:
   - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `rfcs/006_DNS_DOMAIN_STRATEGY_SPEC.md`
-  - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
   - `specs/029_PROVIDERS_PANEL_SETTINGS_SPEC.md`
 
 ## Summary
@@ -248,8 +247,6 @@ Add Cloudflare to the existing providers panel (see spec 029):
      (DNS-only vs Pages-only vs both).
 2. Do not expose credentials to the model:
    - Provider tokens must remain server-side.
-   - Any AI-driven Cloudflare reads must go through the prod-access approval policy spec (if/when
-     added).
 3. Store credentials in `providerConnections` only.
 4. Disconnect must fully remove stored credentials.
 

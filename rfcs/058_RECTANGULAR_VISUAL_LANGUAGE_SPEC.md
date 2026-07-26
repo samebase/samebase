@@ -76,7 +76,7 @@ This rule applies to all app-owned chrome, including:
 
 - Buttons, inputs, textareas, selects, tabs, toggles, badges, and checkboxes.
 - Cards, panels, trays, drawers, dialogs, popovers, dropdowns, sheets, and toasts.
-- Chat surfaces, repository/vault cards, banners, sidebars, terminals, and preview shells.
+- Repository/vault cards, banners, sidebars, terminals, and preview shells.
 - Status indicators and affordances that previously used pills or circles.
 
 This rule does not require reshaping content that is not app chrome, including:
@@ -126,7 +126,7 @@ For Noter, the rectangular rule is enforced as follows:
 - Status dots become square indicators.
 - Avatar-like affordances become square or unmasked unless the content itself ships with a fixed
   shape outside app control.
-- Chat bubbles, badges, and chips become rectangular labels rather than pills.
+- Badges and chips become rectangular labels rather than pills.
 - Floating panels and dialogs remain hard-edged on both desktop and mobile.
 
 ### 7. Corner Notch Variants
@@ -167,7 +167,7 @@ For Noter, the rectangular rule is enforced as follows:
 ### Phase 3. Validation
 
 - Perform visual QA on desktop and mobile-relevant layouts.
-- Verify overlays, sheets, dialogs, and chat surfaces remain visually coherent with hard edges.
+- Verify overlays, sheets, and dialogs remain visually coherent with hard edges.
 - Verify each supported corner-notch variant renders as intended and does not clip focus rings.
 - Verify third-party and media content still display correctly when app framing is rectangular.
 

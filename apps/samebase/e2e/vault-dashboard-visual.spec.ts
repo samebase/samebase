@@ -267,13 +267,12 @@ test("vault dashboard fixture (Convex schema graph)", async ({ page }) => {
     .getByText("workflow_vaultProvisioning_writeLocks", { exact: true });
   await expect(longTableName).toBeVisible();
   await expect(longTableName).not.toHaveCSS("text-overflow", "ellipsis");
-  await expect(fixture.locator(".react-flow__edge")).toHaveCount(9);
+  await expect(fixture.locator(".react-flow__edge")).toHaveCount(8);
   await expect(fixture.locator('[data-schema-graph-zone="identity"]')).toBeVisible();
   await expect(fixture.locator('[data-schema-graph-zone="vault"]')).toBeVisible();
   await expect(fixture.locator('[data-schema-graph-zone="repository"]')).toBeVisible();
   await expect(fixture.locator('[data-schema-graph-zone="infrastructure"]')).toBeVisible();
   await expect(fixture.locator('[data-schema-graph-zone="files"]')).toBeVisible();
-  await expect(fixture.locator('[data-schema-graph-zone="agent"]')).toBeVisible();
   await expect(fixture.locator('[data-schema-graph-zone="mcp"]')).toBeVisible();
   const [identityZoneBox, vaultZoneBox, infrastructureZoneBox] = await Promise.all([
     readRequiredBounds(fixture.locator('[data-schema-graph-zone="identity"]'), "identity zone"),
@@ -341,7 +340,7 @@ test("vault dashboard fixture (Convex schema route mobile)", async ({ page }) =>
     routeMain.getByTestId("rf__node-users").getByText("users", { exact: true }),
   ).toBeVisible();
   await expect(routeMain.locator('[data-schema-graph-zone="vault"]')).toBeVisible();
-  await expect(routeMain.locator(".react-flow__edge")).toHaveCount(9);
+  await expect(routeMain.locator(".react-flow__edge")).toHaveCount(8);
   await expect(routeMain).toHaveScreenshot("vault-convex-schema-route-mobile.png", {
     animations: "disabled",
     caret: "hide",
@@ -1070,9 +1069,7 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
   await page.setViewportSize({ width: 960, height: 520 });
   await openVaultDashboardVisualFixture(page, "vault-dashboard-sticky-header");
 
-  const scrollport = page
-    .getByTestId("workspace-layout-v2-main-viewport")
-    .locator('[data-scroll-restoration-id="workspace-layout-v2-main"]');
+  const scrollport = page.locator('[data-scroll-restoration-id="workspace-layout-v2-main"]');
   const header = page.getByTestId("vault-dashboard-repository-header");
 
   await expect(page.getByRole("button", { name: /Show .* branches/ })).toHaveCount(0);

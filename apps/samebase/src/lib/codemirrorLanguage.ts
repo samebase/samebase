@@ -25,20 +25,12 @@ function getFileExtension(filePath: string): string | null {
   return fileName.slice(lastDotIndex + 1).toLowerCase();
 }
 
-function isMarkdownFilePath(filePath?: string): boolean {
-  if (!filePath) {
-    return false;
-  }
-
+function isMarkdownFilePath(filePath: string): boolean {
   const extension = getFileExtension(filePath);
   return extension !== null && MARKDOWN_FILE_EXTENSIONS.has(extension);
 }
 
-function getMatchingLanguage(filePath?: string) {
-  if (!filePath) {
-    return null;
-  }
-
+function getMatchingLanguage(filePath: string) {
   const fileName = getFileName(filePath);
   const matchingLanguageCandidates = [
     fileName,
@@ -67,10 +59,8 @@ export function createProsemarkMarkdownExtension(): Extension {
   });
 }
 
-export function getCodeMirrorFileLanguageKind(filePath?: string): CodeMirrorFileLanguageKind {
-  // Historical callers without a file path are prose-first surfaces like chat
-  // messages and landing copy, so keep them on the markdown parser.
-  if (!filePath || isMarkdownFilePath(filePath)) {
+export function getCodeMirrorFileLanguageKind(filePath: string): CodeMirrorFileLanguageKind {
+  if (isMarkdownFilePath(filePath)) {
     return "markdown";
   }
 
@@ -84,7 +74,7 @@ export function getCodeMirrorFileLanguageKind(filePath?: string): CodeMirrorFile
   return getFileExtension(filePath) === null ? "markdown" : "plain";
 }
 
-export function getInitialCodeMirrorLanguageExtension(filePath?: string): Extension {
+export function getInitialCodeMirrorLanguageExtension(filePath: string): Extension {
   return getCodeMirrorFileLanguageKind(filePath) === "markdown"
     ? createProsemarkMarkdownExtension()
     : [];
@@ -92,7 +82,7 @@ export function getInitialCodeMirrorLanguageExtension(filePath?: string): Extens
 
 const languageExtensionCache = new Map<string, Promise<Extension>>();
 
-export async function loadCodeMirrorLanguageExtension(filePath?: string): Promise<Extension> {
+export async function loadCodeMirrorLanguageExtension(filePath: string): Promise<Extension> {
   const languageKind = getCodeMirrorFileLanguageKind(filePath);
 
   if (languageKind === "markdown") {

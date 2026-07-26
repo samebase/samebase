@@ -1,13 +1,16 @@
 # 023 Agent Graph Chat Integration Spec
 
+> Retired 2026-07-26: Samebase removed its in-app chat and agent graph before release. This document
+> is historical and must not guide implementation.
+
 ## Document Control
 
 - Status: Draft
 - Owner: Noter frontend + Convex
 - Date: 2026-02-22
 - Related specs:
-  - `rfcs/020_CONVEX_AGENT_ADOPTION_SPEC.md`
-  - `specs/022_AGENT_GRAPH_VIEW_SPEC.md`
+  - `archive/020_CONVEX_AGENT_ADOPTION_SPEC.md`
+  - `archive/022_AGENT_GRAPH_VIEW_SPEC.md`
 - Related files:
   - `apps/noter/src/components/AgentGraphView.tsx`
   - `apps/noter/src/components/FileView.tsx`

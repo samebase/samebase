@@ -1,5 +1,8 @@
 # 080 Shared Workspace Layout Refactor Plan
 
+> Archived 2026-07-26: current workspace layout contracts supersede this plan, and its bottom chat
+> dock no longer exists.
+
 ## Document Control
 
 - Status: Proposed

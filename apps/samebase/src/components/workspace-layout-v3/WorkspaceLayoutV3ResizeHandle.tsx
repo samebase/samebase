@@ -13,7 +13,7 @@ const KEYBOARD_RESIZE_TIMEOUT_MS = 120;
 
 function getKeyboardResizeDeltaPx(
   event: KeyboardEvent<HTMLDivElement>,
-  resizeFrom: "left" | "right" | "top",
+  resizeFrom: "left" | "right",
 ) {
   const stepPx = event.shiftKey ? 96 : 24;
 
@@ -22,16 +22,6 @@ function getKeyboardResizeDeltaPx(
       return stepPx;
     }
     if (event.key === "ArrowLeft") {
-      return -stepPx;
-    }
-    return 0;
-  }
-
-  if (resizeFrom === "top") {
-    if (event.key === "ArrowUp") {
-      return stepPx;
-    }
-    if (event.key === "ArrowDown") {
       return -stepPx;
     }
     return 0;
@@ -46,42 +36,19 @@ function getKeyboardResizeDeltaPx(
   return 0;
 }
 
-function getPointerResizeCursor(resizeFrom: "left" | "right" | "top") {
-  return resizeFrom === "top" ? "row-resize" : "col-resize";
-}
-
 function getPointerDeltaPx(args: {
   event: PointerEvent<HTMLDivElement>;
-  resizeFrom: "left" | "right" | "top";
+  resizeFrom: "left" | "right";
   startClientPx: number;
 }) {
-  if (args.resizeFrom === "top") {
-    return args.startClientPx - args.event.clientY;
-  }
-
   return (args.event.clientX - args.startClientPx) * (args.resizeFrom === "left" ? 1 : -1);
 }
 
-function getResizeHandleLabel(resizeFrom: "left" | "right" | "top", ariaLabel?: string) {
-  if (ariaLabel !== undefined) {
-    return ariaLabel;
-  }
-
-  if (resizeFrom === "top") {
-    return "Resize bottom panel";
-  }
-
-  return `Resize ${resizeFrom} sidebar`;
-}
-
-function getResizeHandleValueText(currentSizePx: number, resizeFrom: "left" | "right" | "top") {
-  return resizeFrom === "top"
-    ? `${Math.round(currentSizePx)} pixels high`
-    : `${Math.round(currentSizePx)} pixels wide`;
+function getResizeHandleValueText(currentSizePx: number) {
+  return `${Math.round(currentSizePx)} pixels wide`;
 }
 
 type WorkspaceLayoutV3ResizeHandleProps = {
-  ariaLabel?: string;
   currentSizePx: number;
   dataTestId: string;
   maxSizePx: number;
@@ -94,7 +61,7 @@ type WorkspaceLayoutV3ResizeHandleProps = {
   onSizeChange: (sizePx: number) => void;
   pointerTarget?: "edge" | "grip";
   positionPx: number;
-  resizeFrom: "left" | "right" | "top";
+  resizeFrom: "left" | "right";
 };
 
 /**
@@ -103,7 +70,6 @@ type WorkspaceLayoutV3ResizeHandleProps = {
  * hit area or mobile uses a visible grip.
  */
 export function WorkspaceLayoutV3ResizeHandle({
-  ariaLabel,
   currentSizePx,
   dataTestId,
   maxSizePx,
@@ -137,13 +103,13 @@ export function WorkspaceLayoutV3ResizeHandle({
       return;
     }
 
-    document.body.style.setProperty("cursor", getPointerResizeCursor(resizeFrom));
+    document.body.style.setProperty("cursor", "col-resize");
     document.body.style.setProperty("user-select", "none");
     return () => {
       document.body.style.removeProperty("cursor");
       document.body.style.removeProperty("user-select");
     };
-  }, [isResizing, resizeFrom]);
+  }, [isResizing]);
 
   /**
    * Clears the deferred keyboard-resize end callback on unmount so a removed
@@ -180,14 +146,14 @@ export function WorkspaceLayoutV3ResizeHandle({
       event.preventDefault();
       event.stopPropagation();
       dragStateRef.current = {
-        startClientPx: resizeFrom === "top" ? event.clientY : event.clientX,
+        startClientPx: event.clientX,
         startSizePx: currentSizePx,
       };
       setIsResizing(true);
       onResizeStart?.();
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [currentSizePx, onResizeStart, resizeFrom],
+    [currentSizePx, onResizeStart],
   );
 
   const handlePointerMove = useCallback(
@@ -247,30 +213,20 @@ export function WorkspaceLayoutV3ResizeHandle({
     [commitSizeChange, currentSizePx, onResizeEnd, onResizeStart, resizeFrom],
   );
 
-  const isHorizontalHandle = resizeFrom === "top";
-  const handlePositionStyle = isHorizontalHandle
-    ? { top: `${positionPx}px` }
-    : { left: `${positionPx}px` };
-  const handleCursorClassName = isHorizontalHandle ? "cursor-row-resize" : "cursor-col-resize";
-  const gripTrackClassName = isHorizontalHandle
-    ? "inset-x-0 h-8 -translate-y-1/2"
-    : "inset-y-0 w-8 -translate-x-1/2";
-  const gripSizeClassName = isHorizontalHandle ? "h-8 w-16" : "h-16 w-8";
+  const handlePositionStyle = { left: `${positionPx}px` };
+  const gripTrackClassName = "inset-y-0 w-8 -translate-x-1/2";
+  const gripSizeClassName = "h-16 w-8";
   // Keep the touch target centered on the edge; only the visible dot column
   // moves onto the adjacent pane side.
-  const gripDotsClassName = isHorizontalHandle
-    ? "rotate-90"
-    : resizeFrom === "left"
-      ? "translate-x-0.5"
-      : "-translate-x-0.5";
+  const gripDotsClassName = resizeFrom === "left" ? "translate-x-0.5" : "-translate-x-0.5";
 
   const interactiveProps = {
-    "aria-label": getResizeHandleLabel(resizeFrom, ariaLabel),
-    "aria-orientation": isHorizontalHandle ? ("horizontal" as const) : ("vertical" as const),
+    "aria-label": `Resize ${resizeFrom} sidebar`,
+    "aria-orientation": "vertical" as const,
     "aria-valuemax": maxSizePx,
     "aria-valuemin": minSizePx,
     "aria-valuenow": Math.round(currentSizePx),
-    "aria-valuetext": getResizeHandleValueText(currentSizePx, resizeFrom),
+    "aria-valuetext": getResizeHandleValueText(currentSizePx),
     "data-testid": dataTestId,
     "data-workspace-layout-v3-resize-handle": resizeFrom,
     onBlur,
@@ -298,7 +254,7 @@ export function WorkspaceLayoutV3ResizeHandle({
           {...interactiveProps}
           className={cn(
             "pointer-events-auto relative flex touch-none items-center justify-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-            handleCursorClassName,
+            "cursor-col-resize",
             gripSizeClassName,
           )}
         >
@@ -334,8 +290,7 @@ export function WorkspaceLayoutV3ResizeHandle({
       {...interactiveProps}
       className={cn(
         "absolute z-30 flex touch-none items-center justify-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-        handleCursorClassName,
-        isHorizontalHandle ? "inset-x-0 h-4 -translate-y-1/2" : "inset-y-0 w-4 -translate-x-1/2",
+        "inset-y-0 w-4 -translate-x-1/2 cursor-col-resize",
       )}
       style={handlePositionStyle}
     />

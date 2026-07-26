@@ -97,14 +97,6 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       folderPath: "notes",
       isExpanded: true,
     });
-    const layoutId = await ctx.db.insert("ui_agentGraphNode_layouts", {
-      userId: ownerId,
-      vaultId,
-      nodeId: "agent-1",
-      width: 320,
-      height: 180,
-      updatedAt: 20,
-    });
     await ctx.db.insert("vaultStagedFileUpdates", {
       vaultId,
       branch: "main",
@@ -142,7 +134,6 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       deletionEventId,
       deletionRunId,
       folderExpansionId,
-      layoutId,
       otherUserId,
       ownerId,
       stagingId,
@@ -191,14 +182,11 @@ describe("public Convex route ownership checks", () => {
     ]);
   });
 
-  it("hides owner-scoped graph, folder, and collaborative reads from another member", async () => {
+  it("hides owner-scoped folder and collaborative reads from another member", async () => {
     const { ids, t } = await seedOwnedResources();
     const asOther = asIdentity(t, ids.otherUserId);
     const asOwner = asIdentity(t, ids.ownerId);
 
-    await expect(
-      asOther.query(api.agentGraphLayout.getNodeLayouts, { vaultId: ids.vaultId }),
-    ).resolves.toEqual([]);
     await expect(
       asOther.query(api.folderExpansion.getFolderExpansionStates, { vaultId: ids.vaultId }),
     ).resolves.toEqual([]);
@@ -222,9 +210,6 @@ describe("public Convex route ownership checks", () => {
     ).resolves.toEqual([]);
 
     await expect(
-      asOwner.query(api.agentGraphLayout.getNodeLayouts, { vaultId: ids.vaultId }),
-    ).resolves.toEqual([{ nodeId: "agent-1", width: 320, height: 180 }]);
-    await expect(
       asOwner.query(api.folderExpansion.getFolderExpansionStates, { vaultId: ids.vaultId }),
     ).resolves.toEqual([{ folderPath: "notes", isExpanded: true }]);
     await expect(
@@ -240,18 +225,10 @@ describe("public Convex route ownership checks", () => {
     });
   });
 
-  it("blocks another member from changing owner-scoped graph and folder rows", async () => {
+  it("blocks another member from changing owner-scoped folder rows", async () => {
     const { ids, t } = await seedOwnedResources();
     const asOther = asIdentity(t, ids.otherUserId);
 
-    await expect(
-      asOther.mutation(api.agentGraphLayout.setNodeLayout, {
-        vaultId: ids.vaultId,
-        nodeId: "agent-1",
-        width: 640,
-        height: 360,
-      }),
-    ).rejects.toThrow("Vault not found");
     await expect(
       asOther.mutation(api.folderExpansion.setFolderExpansionState, {
         vaultId: ids.vaultId,
@@ -267,29 +244,12 @@ describe("public Convex route ownership checks", () => {
 
     await expect(
       t.run(async (ctx) => {
-        return {
-          folderExpansion: await ctx.db.get(ids.folderExpansionId),
-          layouts: await ctx.db
-            .query("ui_agentGraphNode_layouts")
-            .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-            .collect(),
-        };
+        return ctx.db.get(ids.folderExpansionId);
       }),
     ).resolves.toMatchObject({
-      folderExpansion: {
-        userId: ids.ownerId,
-        folderPath: "notes",
-        isExpanded: true,
-      },
-      layouts: [
-        {
-          _id: ids.layoutId,
-          userId: ids.ownerId,
-          nodeId: "agent-1",
-          width: 320,
-          height: 180,
-        },
-      ],
+      userId: ids.ownerId,
+      folderPath: "notes",
+      isExpanded: true,
     });
   });
 
@@ -372,15 +332,6 @@ describe("public Convex route ownership checks", () => {
         initialFilePath: "notes/plan.md",
         branch: "main",
         newPath: "notes/other.md",
-        userId: ids.otherUserId,
-      }),
-    ).rejects.toThrow("Unauthorized");
-    await expect(
-      t.mutation(internal.fileStaging.internalMarkFileForDeletion, {
-        vaultId: ids.vaultId,
-        filePath: "notes/plan.md",
-        parentCommitSha: "abc123",
-        branch: "main",
         userId: ids.otherUserId,
       }),
     ).rejects.toThrow("Unauthorized");

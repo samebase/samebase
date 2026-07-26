@@ -1266,34 +1266,6 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             ],
           },
           {
-            name: "chatThreadContexts",
-            source: "mixed",
-            documentCount: 54,
-            indexes: [{ name: "by_user", fields: ["userId"] }],
-            fields: [
-              {
-                path: "userId",
-                kind: "Id<users>",
-                optional: false,
-                source: "declared",
-                targetTable: "users",
-              },
-              {
-                path: "vaultId",
-                kind: "Id<vaults>",
-                optional: true,
-                source: "declared",
-                targetTable: "vaults",
-              },
-              {
-                path: "threadId",
-                kind: "string",
-                optional: false,
-                source: "declared",
-              },
-            ],
-          },
-          {
             name: "mcpGrants",
             source: "declared",
             documentCount: 12,
@@ -1368,13 +1340,6 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             id: "declared:vaultStagedFiles:lastEditUserId:users",
             fromTable: "vaultStagedFiles",
             fromField: "lastEditUserId",
-            toTable: "users",
-            source: "declared",
-          },
-          {
-            id: "declared:chatThreadContexts:userId:users",
-            fromTable: "chatThreadContexts",
-            fromField: "userId",
             toTable: "users",
             source: "declared",
           },

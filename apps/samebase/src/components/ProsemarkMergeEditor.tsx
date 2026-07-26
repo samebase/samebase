@@ -36,7 +36,7 @@ type ProsemarkMergeEditorProps = {
   baseValue: string;
   className?: string;
   editable?: boolean;
-  filePath?: string;
+  filePath: string;
   mobilePaneDragEnabled?: boolean;
   options: ProsemarkMergeEditorOptions;
   onChange?: (value: string) => void;

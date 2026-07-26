@@ -89,9 +89,9 @@ This is operationally useful but unclear during app creation because multiple pr
 succeed or fail under the same visible state.
 
 The current vault-first direction in `096` keeps this history but changes the target model: Convex
-projects and Cloudflare Workers are independent vault-scoped attachments, current provider facts
-are read live, workflow state owns provisioning progress, and no top-level `vaults.infra*`
-aggregate fields remain.
+projects and Cloudflare Workers are independent vault-scoped attachments, current provider facts are
+read live, workflow state owns provisioning progress, and no top-level `vaults.infra*` aggregate
+fields remain.
 
 Phase 1 shipped durable `workflow_vaultProvisioning_events` and a dashboard log textarea. Phase 2
 adds app-owned run identity and stores the Workflow id so the app can safely expose Workflow status,

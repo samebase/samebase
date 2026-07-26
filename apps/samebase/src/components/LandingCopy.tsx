@@ -158,6 +158,7 @@ function EditableLandingCopyAfterHydration({
     <Suspense fallback={staticCopy}>
       <EditableLandingCopy
         value={markdown}
+        filePath="README.md"
         // The static renderer uses native blocks; keep the editable ProseMark baseline aligned.
         className={cn(className, "pt-px")}
         editable={true}

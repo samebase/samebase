@@ -1,5 +1,8 @@
 # 073 Independent Right Sidebar Spec
 
+> Archived 2026-07-26: current workspace layout contracts supersede this proposal, and its chat-dock
+> assumptions no longer exist.
+
 ## Document Control
 
 - Status: Proposed

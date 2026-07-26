@@ -1,11 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { Client, ClientPathsWithMethod } from "openapi-fetch";
 
-import {
-  formatConvexManagementApiEndpoint,
-  listConvexManagementProjects,
-  requestConvexManagementApi,
-} from "./client";
+import { listConvexManagementProjects, requestConvexManagementApi } from "./client";
 import type {
   CustomRoleResponse,
   operations,
@@ -90,19 +86,6 @@ function assertConvexManagementRequestTypes(): void {
     type: "teamToken",
   };
   expectType<string>()(tokenDetailsResponse.id, true);
-
-  expectType<string>()(
-    formatConvexManagementApiEndpoint({
-      method: "GET",
-      path: "/teams/{team_id}/projects",
-      params: {
-        path: {
-          team_id: LARGE_CONVEX_ID,
-        },
-      },
-    }),
-    true,
-  );
 
   void listProjectsGetPath;
 

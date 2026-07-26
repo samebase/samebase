@@ -144,7 +144,6 @@ describe("account deletion foundation", () => {
       state: "running",
       currentStep: "request_accepted",
       dataDeletion: {
-        chatsAndAgentData: { state: "not_started" },
         vaultsAndStagedChanges: { state: "not_started" },
         preferences: { state: "not_started" },
         appAccessAndTokens: { state: "not_started" },
@@ -309,7 +308,6 @@ describe("account deletion foundation", () => {
         email: "ada@example.com",
         outcomes: notStartedOutcomes,
         dataDeletion: {
-          chatsAndAgentData: { state: "not_started" },
           vaultsAndStagedChanges: { state: "not_started" },
         },
       },

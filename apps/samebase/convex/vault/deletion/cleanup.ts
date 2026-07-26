@@ -16,7 +16,6 @@ const deleteOnlyByVaultCleanupTables = union(
   literal("vaultCloudflareWorkers"),
   literal("workflow_vaultProvisioning_plans"),
   literal("workflow_vaultProvisioning_writeLocks"),
-  literal("ui_agentGraphNode_layouts"),
 );
 type DeleteOnlyByVaultCleanupTable = Infer<typeof deleteOnlyByVaultCleanupTables>;
 
@@ -25,10 +24,8 @@ const vaultLocalCleanupTable = union(
   literal("vaultStagedFiles"),
   literal("observations_vaultFiles_blobs"),
   literal("observations_vaultRepository_branchTrees"),
-  literal("aiProductionReadRequests"),
   literal("workflow_vaultProvisioning_events"),
   literal("workflow_vaultProvisioning_runs"),
-  literal("chatThreadContexts"),
 );
 type VaultLocalCleanupTable = Infer<typeof vaultLocalCleanupTable>;
 
@@ -144,27 +141,6 @@ async function deleteVaultBranchTreesBatch(
   return rows.length;
 }
 
-async function patchAiProdAccessRequestsBatch(
-  ctx: VaultLocalCleanupCtx,
-  args: VaultLocalCleanupArgs,
-): Promise<number> {
-  const rows = await ctx.db
-    .query("aiProductionReadRequests")
-    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
-  for (const row of rows) {
-    await ctx.db.patch(row._id, {
-      vaultId: undefined,
-      status: row.status === "proposed" || row.status === "approved" ? "expired" : row.status,
-      error:
-        row.status === "proposed" || row.status === "approved"
-          ? "Vault was deleted before production access was used."
-          : row.error,
-    });
-  }
-  return rows.length;
-}
-
 async function deleteAppProvisioningEventsBatch(
   ctx: VaultLocalCleanupCtx,
   args: VaultLocalCleanupArgs,
@@ -191,42 +167,6 @@ async function deleteAppProvisioningRunsBatch(
     await ctx.db.delete(row._id);
   }
   return rows.length;
-}
-
-async function deleteAgentThreadContextsBatch(
-  ctx: VaultLocalCleanupCtx,
-  args: VaultLocalCleanupArgs,
-): Promise<number> {
-  const contexts = await ctx.db
-    .query("chatThreadContexts")
-    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
-  let rowsChanged = 0;
-
-  for (const context of contexts) {
-    const metadata = await ctx.db
-      .query("chatMessagePayloads")
-      .withIndex("by_threadId", (q) => q.eq("threadId", context.threadId))
-      .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE - rowsChanged);
-
-    for (const row of metadata) {
-      await ctx.db.delete(row._id);
-      rowsChanged += 1;
-    }
-
-    if (metadata.length > 0) {
-      return rowsChanged;
-    }
-
-    await ctx.db.delete(context._id);
-    rowsChanged += 1;
-
-    if (rowsChanged === VAULT_LOCAL_CLEANUP_BATCH_SIZE) {
-      return rowsChanged;
-    }
-  }
-
-  return rowsChanged;
 }
 
 const vaultLocalCleanupRegistry = [
@@ -283,18 +223,6 @@ const vaultLocalCleanupRegistry = [
     cleanup: deleteByVaultBatch("workflow_vaultProvisioning_writeLocks"),
   },
   {
-    table: "ui_agentGraphNode_layouts",
-    cleanup: deleteByVaultBatch("ui_agentGraphNode_layouts"),
-  },
-  {
-    table: "aiProductionReadRequests",
-    cleanup: patchAiProdAccessRequestsBatch,
-  },
-  {
-    table: "chatThreadContexts",
-    cleanup: deleteAgentThreadContextsBatch,
-  },
-  {
     table: "workflow_vaultProvisioning_events",
     cleanup: deleteAppProvisioningEventsBatch,
   },
@@ -326,10 +254,7 @@ const vaultLocalCleanupRegistryByStep = {
     "vaultCloudflareWorkers",
     "workflow_vaultProvisioning_plans",
     "workflow_vaultProvisioning_writeLocks",
-    "ui_agentGraphNode_layouts",
   ],
-  cleanup_access_state: ["aiProductionReadRequests"],
-  detach_agent_context: ["chatThreadContexts"],
   cleanup_provisioning_history: [
     "workflow_vaultProvisioning_events",
     "workflow_vaultProvisioning_runs",

@@ -1,13 +1,16 @@
 # 071 File View Graph Toggle In Developer Tools Spec
 
+> Retired 2026-07-26: Samebase removed its in-app agent graph before release. This document is
+> historical and must not guide implementation.
+
 ## Document Control
 
 - Status: Implemented
 - Owner: File view + agent graph
 - Last updated: 2026-03-26
 - Related specs:
-  - `specs/022_AGENT_GRAPH_VIEW_SPEC.md`
-  - `rfcs/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md`
+  - `archive/022_AGENT_GRAPH_VIEW_SPEC.md`
+  - `archive/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md`
 - Source of truth files:
   - `apps/samebase/src/components/FileView.tsx`
   - `apps/samebase/src/components/FileViewDeveloperTools.tsx`
@@ -57,9 +60,9 @@ Current implementation in `apps/samebase/src/components/FileView.tsx`:
 
 Current source docs assume the graph toggle is part of the default editor header:
 
-1. `specs/022_AGENT_GRAPH_VIEW_SPEC.md` says the toggle lives in the editor header area.
-2. `rfcs/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md` formalizes only the persistence contract, not the
-   toggle placement.
+1. `archive/022_AGENT_GRAPH_VIEW_SPEC.md` says the toggle lives in the editor header area.
+2. `archive/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md` formalizes only the persistence contract, not
+   the toggle placement.
 
 ## Goals
 

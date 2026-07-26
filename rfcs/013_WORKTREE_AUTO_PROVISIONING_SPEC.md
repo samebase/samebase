@@ -26,7 +26,7 @@ Codex runs stay isolated per worktree.
 
 1. `pnpm dev` in any worktree just works (no manual Convex config or port edits).
 2. Multiple worktrees can run in parallel without port conflicts.
-3. Each worktree uses an isolated Convex backend instance so data and chat state don’t collide.
+3. Each worktree uses an isolated Convex backend instance so local data does not collide.
 4. Configuration is stored in `noter.md` frontmatter (human + LLM readable).
 5. Default path is local-only to keep iteration fast.
 

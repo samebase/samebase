@@ -1,7 +1,7 @@
 import { Infer, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
-import type { ActionCtx } from "../_generated/server";
+import { internalQuery, type ActionCtx } from "../_generated/server";
 import { action } from "../functions";
 import type { AuthenticatedAppViewer } from "../functions";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
@@ -12,7 +12,7 @@ import {
 } from "./convexDeployKeys";
 import { readConvexProductionDeployment } from "./convexProjectResources";
 
-const { literal, null: nullValue, object, string, union } = v;
+const { id, literal, null: nullValue, object, string, union } = v;
 
 const EMBEDDED_DASHBOARD_DEPLOY_KEY_TTL_MS = 60 * 60 * 1000;
 const EMBEDDED_DASHBOARD_ALLOWED_ACTIONS = [
@@ -47,10 +47,6 @@ type VaultDatabaseLookup = {
   _id: Id<"vaults">;
   defaultBranch: string | undefined;
 } | null;
-type VaultDatabaseReadContext = {
-  convexDeployments: Doc<"vaultConvexProjects">[];
-  convexConnection: Extract<Doc<"providerConnections">, { kind: "convex" }> | null;
-};
 type VaultDatabaseActionCtx = Pick<ActionCtx, "runQuery"> & {
   viewer: AuthenticatedAppViewer;
 };
@@ -62,6 +58,32 @@ type ReadyVaultDatabaseDeploymentContext = {
 type VaultDatabaseDeploymentContext =
   | ReadyVaultDatabaseDeploymentContext
   | Exclude<EmbeddedDashboardCredentialsResult, { kind: "ready" }>;
+
+export const readEmbeddedDashboardProject = internalQuery({
+  args: {
+    vaultId: id("vaults"),
+    userId: id("users"),
+    convexProjectId: id("vaultConvexProjects"),
+  },
+  returns: union(
+    object({
+      teamId: string(),
+      projectId: string(),
+    }),
+    nullValue(),
+  ),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.convexProjectId);
+    if (!project || project.vaultId !== args.vaultId || project.userId !== args.userId) {
+      return null;
+    }
+
+    return {
+      teamId: project.teamId,
+      projectId: project.projectId,
+    };
+  },
+});
 
 function buildEmbeddedDashboardDeployKeyName(args: {
   deploymentName: string;
@@ -117,29 +139,30 @@ async function readVaultDatabaseDeploymentContext(
     };
   }
 
-  const vaultContext: VaultDatabaseReadContext = await ctx.runQuery(
-    internal.infraReadQueries.getVaultReadContext,
-    {
+  const [project, connection] = await Promise.all([
+    ctx.runQuery(internal.vault.database.readEmbeddedDashboardProject, {
       vaultId: vault._id,
-    },
-  );
-  const project = vaultContext.convexDeployments.find(
-    (candidate) => candidate._id === args.convexProjectId,
-  );
+      userId: ctx.viewer.userId,
+      convexProjectId: args.convexProjectId,
+    }),
+    ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      userId: ctx.viewer.userId,
+      kind: "convex",
+    }),
+  ]);
 
   if (!project) {
     return { kind: "missing_deployment" };
   }
 
-  const convexConnection = vaultContext.convexConnection;
-  if (!convexConnection) {
+  if (!connection || connection.kind !== "convex") {
     return { kind: "missing_connection" };
   }
-  if (convexConnection.teamId !== project.teamId) {
+  if (connection.teamId !== project.teamId) {
     return { kind: "missing_connection" };
   }
   const deployment = await readConvexProductionDeployment({
-    token: convexConnection.auth.credential,
+    token: connection.auth.credential,
     projectId: project.projectId,
   });
   if (!deployment) {
@@ -149,7 +172,7 @@ async function readVaultDatabaseDeploymentContext(
   return {
     kind: "ready",
     deployment,
-    convexConnection,
+    convexConnection: connection,
   };
 }
 

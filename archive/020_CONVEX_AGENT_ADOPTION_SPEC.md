@@ -1,12 +1,15 @@
 # 020 Convex Agent Adoption Spec (AI Fab + Streaming)
 
+> Retired 2026-07-26: Samebase removed its in-app chat and Convex Agent component before release.
+> This document is historical and must not guide implementation.
+
 ## Document Control
 
 - Status: Proposed
 - Owner: Noter AI experience
 - Last updated: 2026-02-21
 - Related specs:
-  - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
+  - `archive/004_AI_PROD_ACCESS_POLICY_SPEC.md`
 
 ## Summary
 

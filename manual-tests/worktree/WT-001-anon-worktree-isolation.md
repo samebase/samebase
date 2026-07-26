@@ -36,12 +36,11 @@ grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/sameba
 
 4. Confirm each worktree captured allowlisted env vars in `.env.anon-seed.local` and applied seed
    API keys to provider connections (auth method is `api_key`). Cloudflare should appear when
-   `DEV_SEED_CLOUDFLARE_API_KEY` is set on the cloud dev deployment. The AI key should appear when
-   `ANTHROPIC_API_KEY` is set on the cloud dev deployment:
+   `DEV_SEED_CLOUDFLARE_API_KEY` is set on the cloud dev deployment:
 
 ```bash
-grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/samebase-wt-a/apps/samebase/.env.anon-seed.local | cut -d= -f1
-grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/samebase-wt-b/apps/samebase/.env.anon-seed.local | cut -d= -f1
+grep -E '^DEV_SEED_[^=]+=' /tmp/samebase-wt-a/apps/samebase/.env.anon-seed.local | cut -d= -f1
+grep -E '^DEV_SEED_[^=]+=' /tmp/samebase-wt-b/apps/samebase/.env.anon-seed.local | cut -d= -f1
 
 (cd /tmp/samebase-wt-a/apps/samebase && \
   CONVEX_AGENT_MODE=anonymous node convex-dev.js --tail-logs=disable --typecheck=disable --codegen=disable & \
@@ -68,7 +67,7 @@ grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/samebase-wt-b/apps/samebase/
 2. `VITE_CONVEX_URL` values differ between `/tmp/samebase-wt-a` and `/tmp/samebase-wt-b`.
 3. Each worktree can run seed/auth setup without cross-worktree admin/auth conflicts.
 4. Each `.env.anon-seed.local` includes `DEV_SEED_*` entries from the dev seed env (API keys
-   present), plus `ANTHROPIC_API_KEY` when it is set on the cloud dev deployment.
+   present).
 5. Each worktree's `providerConnections` includes the seeded providers (GitHub/Convex/Netlify, plus
    Cloudflare if `DEV_SEED_CLOUDFLARE_API_KEY` is set) with `auth.method: "api_key"`.
 6. On first clean run, both step 2 outputs report `"created": true` (if shared DB, second worktree

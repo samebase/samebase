@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { FilePlusIcon, GitHubLogoIcon, PlusIcon } from "@/lib/radixIcons";
 import { FileTree } from "@/components/FileTree";
-import { FileViewDeveloperTools } from "@/components/FileViewDeveloperTools";
 import { FileViewPushActions } from "@/components/FileViewPushActions";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
@@ -149,7 +148,6 @@ function getFirstVisibleFixtureFile(
 export function FileViewProsemarkHeightVisualFixture(_props: {
   mode: FileViewProsemarkHeightVisualMode;
 }) {
-  const [developerToolsOpen, setDeveloperToolsOpen] = useState(false);
   const [folderExpansionStates, setFolderExpansionStates] = useState<FolderExpansionState[]>([
     {
       folderPath: "docs",
@@ -382,14 +380,6 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
                     Reset to GitHub
                   </Button>
                 </div>
-                <FileViewDeveloperTools
-                  open={developerToolsOpen}
-                  onOpenChange={setDeveloperToolsOpen}
-                  viewMode="editor"
-                  onViewModeChange={() => {}}
-                >
-                  {null}
-                </FileViewDeveloperTools>
               </div>
             </div>
             <div className="relative flex flex-1 min-h-0">

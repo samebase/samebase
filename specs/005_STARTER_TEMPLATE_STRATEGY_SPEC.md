@@ -6,7 +6,6 @@
 - Owner: Samebase backend/frontend
 - Date: 2026-02-13
 - Related specs:
-  - `specs/022_AGENT_GRAPH_VIEW_SPEC.md`
 - Related files:
   - `apps/samebase/convex/vault/actions.ts`
   - `apps/samebase/convex/starterSeed.ts` (or replacement)

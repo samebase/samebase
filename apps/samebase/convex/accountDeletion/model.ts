@@ -120,7 +120,6 @@ export const vAccountDeletionVaultCleanupPhase = union(
   literal("vault_data"),
   literal("source_data"),
   literal("app_data"),
-  literal("access_state"),
   literal("provisioning_history"),
 );
 export type AccountDeletionVaultCleanupPhase = Infer<typeof vAccountDeletionVaultCleanupPhase>;
@@ -146,7 +145,6 @@ const vAccountDeletionVaultsCompleted = object({
 });
 
 export const vAccountDeletionDataProgress = object({
-  chatsAndAgentData: vAccountDeletionDataGroupProgress,
   vaultsAndStagedChanges: union(
     vAccountDeletionVaultsNotStarted,
     vAccountDeletionVaultsInProgress,
@@ -159,7 +157,6 @@ export const vAccountDeletionDataProgress = object({
 export type AccountDeletionDataProgress = Infer<typeof vAccountDeletionDataProgress>;
 
 export const INITIAL_ACCOUNT_DELETION_DATA_PROGRESS = {
-  chatsAndAgentData: { state: "not_started" },
   vaultsAndStagedChanges: { state: "not_started" },
   preferences: { state: "not_started" },
   appAccessAndTokens: { state: "not_started" },

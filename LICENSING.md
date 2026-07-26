@@ -5,10 +5,10 @@ change the license of any third-party dependency.
 
 Current dependency review:
 
-- Reviewed on 2026-05-04 using `pnpm licenses list --prod`.
-- Raw report stored at `docs/compliance/licenses-prod-2026-05-04.txt`.
+- Reviewed on 2026-07-26 using `pnpm licenses list --prod`.
+- Raw report stored at `docs/compliance/licenses-prod-2026-07-26.txt`.
 - Lockfile snapshot: `pnpm-lock.yaml` SHA-256
-  `6e69a6ab1f1fab4b6bc07572dd339e27ebdabe1b43030752dc6907221e923f86`.
+  `9e0999dc364996cd180ef716b26ba57b06a4ccab991abe26a1f8c7e4006f8360`.
 
 - `pnpm licenses list --prod` did not surface GPL, AGPL, or LGPL dependencies.
 - The production dependency graph is dominated by permissive licenses, especially MIT and
@@ -16,7 +16,10 @@ Current dependency review:
 - `@prosemark/core` is MIT licensed.
 - `convex` is Apache-2.0 licensed.
 - `dompurify` is offered under `MPL-2.0 OR Apache-2.0`; use the Apache-2.0 option.
-- `@zone-eu/mailsplit` is offered under `MIT OR EUPL-1.1+`; use the MIT option.
+- `mediabunny`, its encoder packages, and `lightningcss` are MPL-2.0 licensed. Preserve their
+  applicable license notices and review the MPL terms before redistributing modified covered files.
+- Several Remotion packages report either the Remotion License or no license metadata in the raw
+  report. Verify their current Remotion licensing terms before redistribution or version upgrades.
 - `@polar-sh/sdk` omits a `license` field in the published package metadata, but its published
   README currently advertises MIT. Re-verify that package on version upgrades.
 

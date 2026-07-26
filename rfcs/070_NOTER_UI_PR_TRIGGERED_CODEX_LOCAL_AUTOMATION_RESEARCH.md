@@ -7,7 +7,7 @@
 
 > [!NOTE] This note records the implementation available during the original research. The
 > Codespaces bridge and `.codespace-agent` it cites were retired on 2026-07-24 and are not current
-> architecture.
+> architecture. The in-app chat tables it cites were retired on 2026-07-26.
 
 ## Question
 

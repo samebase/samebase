@@ -1,5 +1,8 @@
 # 081 Workspace Pane Resize Research And MVP
 
+> Archived 2026-07-26: current workspace layout contracts supersede this research, and its bottom
+> panel assumptions no longer exist.
+
 ## Document Control
 
 - Status: Implemented in [#404](https://github.com/noter-md/noter/pull/404)
@@ -10,8 +13,8 @@
   - `apps/noter/src/components/sidebar.tsx`
   - `apps/noter/src/components/workspace-layout/RepositoryWorkspaceFrame.tsx`
   - `apps/noter/src/components/EditorChatDock.tsx`
-  - `rfcs/073_INDEPENDENT_RIGHT_SIDEBAR_SPEC.md`
-  - `rfcs/080_SHARED_WORKSPACE_LAYOUT_REFACTOR_PLAN.md`
+  - `archive/073_INDEPENDENT_RIGHT_SIDEBAR_SPEC.md`
+  - `archive/080_SHARED_WORKSPACE_LAYOUT_REFACTOR_PLAN.md`
   - `specs/072_MOBILE_SIDEBAR_INTERACTIVE_DRAG_SPEC.md`
 
 ## Summary

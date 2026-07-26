@@ -5,11 +5,6 @@ import { api } from "../../../convex/_generated/api";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { CodeEditorWrapper } from "@/components/CodeEditor";
-import {
-  AgentGraphView,
-  type AgentGraphEdge,
-  type AgentGraphNode,
-} from "@/components/AgentGraphView";
 import { Button } from "@/components/ui/button";
 import { FileViewPushActions } from "@/components/FileViewPushActions";
 import {
@@ -25,7 +20,6 @@ import {
 } from "@/components/FileViewDeveloperTools";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { CommandPalette } from "@/components/CommandPalette";
-import { EditorChatPanel } from "@/components/EditorChatPanel";
 import {
   FileViewSidebarContent,
   FileViewSidebarFooter,
@@ -64,7 +58,6 @@ import { RepositoryMediaViewer } from "@/components/RepositoryMediaViewer";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { MediaUploadDialog } from "@/components/MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
-import { CHAT_ENABLED } from "../../../shared/featureFlags";
 import { TREE_REFRESH_STALE_LOCK_MS } from "../../../shared/treeRefresh";
 import { buildVaultFileRoute, parseVaultPathContext } from "@/lib/vaultRoutes";
 import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
@@ -97,7 +90,6 @@ import {
   isFileTreeNodeType,
   isStorageBackedFileError,
   parseUpstreamConflictPaths,
-  readGraphViewMode,
   type RebaseConflictPreview,
   type SidebarMode,
   type StagedFileRecord,
@@ -716,8 +708,6 @@ function FileViewInner({
   const router = useRouter();
   const location = useLocation();
   const routeSearch = useFileViewRouteSearch();
-  const dashboardSettings = useLiveQuery(api.dashboardSettings.getDashboardSettings, {});
-  const setEditorChatOpen = useMutation(api.dashboardSettings.setEditorChatOpen);
   const buildCurrentFileViewHref = useCallback(
     (fileViewSearch: FileViewRouteSearchPatch) =>
       buildFileViewSearchHref({
@@ -984,11 +974,6 @@ function FileViewInner({
     () => getSimpleViewPreferenceStorageKey(vault._id),
     [vault._id],
   );
-  const graphViewStorageKey = useMemo(() => `samebase:graph-view:${vault._id}`, [vault._id]);
-  const [viewMode, setViewMode] = useState<"editor" | "graph">(() => {
-    return readGraphViewMode(graphViewStorageKey) ?? "editor";
-  });
-  const [viewModeHydrated, setViewModeHydrated] = useState(false);
 
   /**
    * When the user switches vaults or branches, clear the cached `.samebase.md`
@@ -1001,33 +986,6 @@ function FileViewInner({
     setDidResolveRepositorySimpleViewConfigLoad(false);
     setSidebarModeHydrated(false);
   }, [vault._id, branch]);
-
-  /** Read the saved graph/editor mode for this vault from localStorage. */
-  useEffect(() => {
-    setViewModeHydrated(false);
-    const storedMode = readGraphViewMode(graphViewStorageKey);
-    setViewMode(storedMode ?? "editor");
-    setViewModeHydrated(true);
-  }, [graphViewStorageKey]);
-
-  /** Write the current graph/editor mode back to localStorage after hydration finishes. */
-  useEffect(() => {
-    if (!viewModeHydrated) {
-      return;
-    }
-    try {
-      localStorage.setItem(graphViewStorageKey, viewMode);
-    } catch (error) {
-      console.warn("Failed to persist graph view preference", error);
-    }
-  }, [graphViewStorageKey, viewMode, viewModeHydrated]);
-
-  /** If commit review is active, force the main view back to `editor` because graph view cannot review diffs. */
-  useEffect(() => {
-    if (commitReviewMode === "review" && viewMode !== "editor") {
-      setViewMode("editor");
-    }
-  }, [commitReviewMode, setViewMode, viewMode]);
 
   /**
    * Load `.samebase.md` from the repository only when staging has not already
@@ -1348,14 +1306,6 @@ function FileViewInner({
       }
     },
     [buildVaultFileUrl, navigateByHref, owner, repoName],
-  );
-
-  const handleOpenFileFromGraph = useCallback(
-    (path: string) => {
-      setViewMode("editor");
-      handleFileSelect(path);
-    },
-    [handleFileSelect],
   );
 
   const handleFileRename = useCallback(
@@ -2011,45 +1961,6 @@ function FileViewInner({
   }, [branchComparePreview]);
   const effectiveSidebarMode: EffectiveSidebarMode = isCompareRequested ? "compare" : sidebarMode;
 
-  const { agentGraphNodes, agentGraphEdges } = useMemo(() => {
-    const nodes: AgentGraphNode[] = [];
-    const edges: AgentGraphEdge[] = [];
-    const hasAgents = finalTreeData.some(
-      (item) => item.type === "blob" && item.path === "AGENTS.md",
-    );
-    const hasTools = finalTreeData.some(
-      (item) => item.type === "blob" && item.path === "tools.json",
-    );
-
-    if (hasAgents) {
-      nodes.push({
-        id: "agents",
-        type: "agentNode",
-        position: { x: 0, y: 0 },
-        data: { label: "AGENTS.md", path: "AGENTS.md", kind: "agent" },
-      });
-    }
-
-    if (hasTools) {
-      nodes.push({
-        id: "tools",
-        type: "agentNode",
-        position: { x: 280, y: 0 },
-        data: { label: "tools.json", path: "tools.json", kind: "tool" },
-      });
-    }
-
-    if (hasAgents && hasTools) {
-      edges.push({
-        id: "agents-tools",
-        source: "agents",
-        target: "tools",
-      });
-    }
-
-    return { agentGraphNodes: nodes, agentGraphEdges: edges };
-  }, [finalTreeData]);
-
   const forceSidebarSelectionVisible = commitReviewMode === "review";
   const alwaysVisibleSimpleViewPaths = useMemo(() => {
     return finalTreeData
@@ -2458,17 +2369,8 @@ function FileViewInner({
   const headerTitle = selectedFile
     ? selectedFile.split("/").slice(0, -1).join("/") || "/"
     : undefined;
-  const dashboardEditorChatOpen = dashboardSettings?.editorChatOpen;
-  const [editorChatOpen, setEditorChatOpenState] = useState<boolean | null>(null);
-  const [isEditorChatBusy, setIsEditorChatBusy] = useState(false);
-  const [shouldAutoFocusChatInput, setShouldAutoFocusChatInput] = useState(false);
-  const editorChatPendingRef = useRef<boolean | null>(null);
-  const developerToolsVisible = viewMode === "graph" || developerToolsOpen;
   const showEditorOverrideControl =
-    viewMode === "editor" &&
-    commitReviewMode === "editor" &&
-    !selectedFileIsRenderableMedia &&
-    Boolean(stagedFile);
+    commitReviewMode === "editor" && !selectedFileIsRenderableMedia && Boolean(stagedFile);
   const showCompareBackToEditor = shouldShowCompareBackToEditor({
     commitReviewMode,
     isCompareRequested,
@@ -2491,37 +2393,6 @@ function FileViewInner({
       />
     ),
     [headerTitle],
-  );
-  useEffect(() => {
-    if (dashboardEditorChatOpen === undefined) {
-      return;
-    }
-
-    const serverValue = dashboardEditorChatOpen;
-    if (editorChatPendingRef.current !== null) {
-      if (editorChatPendingRef.current === serverValue) {
-        editorChatPendingRef.current = null;
-      } else {
-        return;
-      }
-    }
-    setEditorChatOpenState(serverValue);
-  }, [dashboardEditorChatOpen]);
-
-  const resolvedEditorChatOpen = editorChatOpen ?? dashboardEditorChatOpen ?? false;
-  const handleEditorChatOpenChange = useCallback(
-    (isOpen: boolean) => {
-      setShouldAutoFocusChatInput(isOpen);
-      setEditorChatOpenState(isOpen);
-      editorChatPendingRef.current = isOpen;
-      void setEditorChatOpen({ isOpen, scope: "vault" }).catch((error: unknown) => {
-        console.error("Failed to persist FileView chat state:", error);
-        editorChatPendingRef.current = null;
-        setShouldAutoFocusChatInput(false);
-        setEditorChatOpenState(dashboardEditorChatOpen ?? false);
-      });
-    },
-    [dashboardEditorChatOpen, setEditorChatOpen],
   );
 
   const fileViewMainContent = (
@@ -2574,27 +2445,25 @@ function FileViewInner({
               </span>
             ) : null}
 
-            {viewMode === "editor" && (
-              <Button
-                size="sm"
-                variant={
-                  commitReviewMode === "review" || showCompareBackToEditor ? "secondary" : "outline"
-                }
-                onClick={handleToggleReviewMode}
-                disabled={
-                  !showCompareBackToEditor &&
-                  commitReviewMode === "editor" &&
-                  (!hasChangesToCommit || commitPreviewStatus === "loading")
-                }
-                className="h-6 px-2 text-xs"
-              >
-                {commitReviewMode === "review" || showCompareBackToEditor
-                  ? "Back to Editor"
-                  : commitPreviewStatus === "loading"
-                    ? "Loading..."
-                    : "Review Changes"}
-              </Button>
-            )}
+            <Button
+              size="sm"
+              variant={
+                commitReviewMode === "review" || showCompareBackToEditor ? "secondary" : "outline"
+              }
+              onClick={handleToggleReviewMode}
+              disabled={
+                !showCompareBackToEditor &&
+                commitReviewMode === "editor" &&
+                (!hasChangesToCommit || commitPreviewStatus === "loading")
+              }
+              className="h-6 px-2 text-xs"
+            >
+              {commitReviewMode === "review" || showCompareBackToEditor
+                ? "Back to Editor"
+                : commitPreviewStatus === "loading"
+                  ? "Loading..."
+                  : "Review Changes"}
+            </Button>
 
             <FileViewPushActions
               canCreateDraftPullRequest={canCreateDraftPullRequest}
@@ -2617,19 +2486,14 @@ function FileViewInner({
               {isResettingToGitHub ? "Resetting..." : "Reset to GitHub"}
             </Button>
           </div>
-          <FileViewDeveloperTools
-            open={developerToolsVisible}
-            onOpenChange={(isOpen) => {
-              if (viewMode === "graph" && !isOpen) {
-                return;
-              }
-              setDeveloperToolsOpen(isOpen);
-            }}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            editorOverride={showEditorOverrideControl ? editorOverride : undefined}
-            onEditorOverrideChange={showEditorOverrideControl ? setEditorOverride : undefined}
-          />
+          {showEditorOverrideControl ? (
+            <FileViewDeveloperTools
+              open={developerToolsOpen}
+              onOpenChange={setDeveloperToolsOpen}
+              editorOverride={editorOverride}
+              onEditorOverrideChange={setEditorOverride}
+            />
+          ) : null}
         </div>
       </div>
       {commitError ? (
@@ -2648,322 +2512,309 @@ function FileViewInner({
       ) : null}
 
       <div className="relative flex flex-1 min-h-0">
-        {viewMode === "editor" ? (
-          commitReviewMode === "review" ? (
-            <div className="flex h-full min-h-0 flex-col overflow-hidden">
-              {commitPreviewError ? (
-                <div className="mx-3 mt-3 corner-notch-1 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                  {commitPreviewError}
-                </div>
-              ) : null}
-              {rebaseConflictPreviewError ? (
-                <div className="mx-3 mt-3 corner-notch-1 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                  {rebaseConflictPreviewError}
-                </div>
-              ) : null}
+        {commitReviewMode === "review" ? (
+          <div className="flex h-full min-h-0 flex-col overflow-hidden">
+            {commitPreviewError ? (
+              <div className="mx-3 mt-3 corner-notch-1 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {commitPreviewError}
+              </div>
+            ) : null}
+            {rebaseConflictPreviewError ? (
+              <div className="mx-3 mt-3 corner-notch-1 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {rebaseConflictPreviewError}
+              </div>
+            ) : null}
 
-              {branchCompareLoadingState ? (
-                branchCompareLoadingState
-              ) : commitPreview || rebaseConflictPreview || branchComparePreview ? (
+            {branchCompareLoadingState ? (
+              branchCompareLoadingState
+            ) : commitPreview || rebaseConflictPreview || branchComparePreview ? (
+              <div className="flex min-h-0 flex-1 flex-col">
                 <div className="flex min-h-0 flex-1 flex-col">
-                  <div className="flex min-h-0 flex-1 flex-col">
-                    {selectedFile ? (
-                      <div className="flex min-h-0 flex-1 flex-col">
-                        <div className="flex-1 overflow-auto">
-                          {selectedRebaseConflictFile ? (
-                            <div className="min-h-full">
-                              <div className="border-b border-amber-200 bg-amber-50 px-3 py-3">
-                                <div className="text-sm font-medium text-amber-950">
-                                  Commit blocked by upstream changes in{" "}
-                                  {selectedRebaseConflictFile.path}
-                                </div>
-                                <div className="mt-1 text-xs text-amber-900/80">
-                                  {rebaseConflictPreview && rebaseConflictPreview.files.length > 1
-                                    ? `${rebaseConflictPreview.files.length} files need review. Rebase staging onto the latest GitHub state to materialize conflict markers or auto-merge clean files.`
-                                    : "Review the conflict patches below, then rebase staging onto the latest GitHub state before editing a manual resolution."}
-                                </div>
-                                <div className="mt-2 flex flex-wrap items-center gap-2">
-                                  <Button
-                                    size="sm"
-                                    onClick={handleRebaseOntoLatestGitHub}
-                                    disabled={pullFromGitHubStatus === "loading"}
-                                    className="h-7 px-2 text-xs"
-                                  >
-                                    {pullFromGitHubStatus === "loading"
-                                      ? "Rebasing..."
-                                      : "Rebase onto latest GitHub"}
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={handleCopyRebaseConflictBundle}
-                                    disabled={
-                                      rebaseConflictPreviewStatus === "loading" ||
-                                      rebaseConflictBundleStatus === "loading" ||
-                                      !rebaseConflictPreview ||
-                                      rebaseConflictPreview.files.length === 0
-                                    }
-                                    className="h-7 px-2 text-xs"
-                                  >
-                                    {rebaseConflictBundleStatus === "loading"
-                                      ? "Copying..."
-                                      : "Copy conflict bundle"}
-                                  </Button>
-                                </div>
-                                <div className="mt-2 text-[11px] text-amber-950/70">
-                                  {selectedRebaseConflictFile.baseBlobSha ? (
-                                    <>
-                                      Base blob: {selectedRebaseConflictFile.baseBlobSha}
-                                      {"  "}
-                                    </>
-                                  ) : null}
-                                  Upstream blob: {selectedRebaseConflictFile.upstreamBlobSha}
-                                </div>
-                                {rebaseConflictBundleFeedback ? (
-                                  <div className="mt-2 text-xs text-amber-950">
-                                    {rebaseConflictBundleFeedback}
-                                  </div>
-                                ) : null}
+                  {selectedFile ? (
+                    <div className="flex min-h-0 flex-1 flex-col">
+                      <div className="flex-1 overflow-auto">
+                        {selectedRebaseConflictFile ? (
+                          <div className="min-h-full">
+                            <div className="border-b border-amber-200 bg-amber-50 px-3 py-3">
+                              <div className="text-sm font-medium text-amber-950">
+                                Commit blocked by upstream changes in{" "}
+                                {selectedRebaseConflictFile.path}
                               </div>
-                              {selectedRebaseConflictFile.isBinary ? (
-                                <div className="min-h-0">
-                                  <div className="border-b px-3 py-3 text-sm text-amber-950">
-                                    Binary image conflicts cannot be merged inline. Rebase first,
-                                    then upload again if you still want to replace the upstream
-                                    file.
-                                  </div>
-                                  <RepositoryMediaViewer
-                                    repositoryFullName={repositoryFullName}
-                                    filePath={
-                                      selectedRebaseConflictFile.upstreamPath ??
-                                      selectedRebaseConflictFile.path
-                                    }
-                                    branch={branch}
-                                    skipStaging={true}
-                                  />
-                                </div>
-                              ) : (
-                                <div className="grid min-h-0 @3xl:grid-cols-2 @3xl:divide-x">
-                                  <div className="min-h-0">
-                                    <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
-                                      Base -&gt; Yours
-                                    </div>
-                                    {selectedRebaseConflictFile.baseToStagedPatchTruncated ? (
-                                      <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                        Patch output is truncated for this file.
-                                      </div>
-                                    ) : null}
-                                    {selectedRebaseConflictFile.baseToStagedPatch ? (
-                                      <FileViewPatchText
-                                        patch={selectedRebaseConflictFile.baseToStagedPatch}
-                                      />
-                                    ) : null}
-                                  </div>
-                                  <div className="min-h-0 border-t @3xl:border-t-0">
-                                    <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
-                                      Base -&gt; Upstream
-                                    </div>
-                                    {selectedRebaseConflictFile.baseToUpstreamPatchTruncated ? (
-                                      <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                        Patch output is truncated for this file.
-                                      </div>
-                                    ) : null}
-                                    {selectedRebaseConflictFile.baseToUpstreamPatch ? (
-                                      <FileViewPatchText
-                                        patch={selectedRebaseConflictFile.baseToUpstreamPatch}
-                                      />
-                                    ) : null}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          ) : rebaseConflictPreview ? (
-                            <div className="p-3 text-sm text-muted-foreground">
-                              Loading conflicting file...
-                            </div>
-                          ) : selectedPreviewCanRenderInline ? (
-                            <div className="min-h-full">
-                              <div className="border-b px-3 py-2">
-                                <FileViewInlinePreviewControls
-                                  controlsIdPrefix="inline-option"
-                                  patchAvailable={Boolean(selectedPreviewFile?.patch)}
-                                  showPatch={showInlinePreviewPatch}
-                                  allowInlineDiffs={inlinePreviewOptions.allowInlineDiffs}
-                                  showSideBySide={showInlinePreviewSideBySide}
-                                  syntaxHighlightDeletions={
-                                    inlinePreviewOptions.syntaxHighlightDeletions
+                              <div className="mt-1 text-xs text-amber-900/80">
+                                {rebaseConflictPreview && rebaseConflictPreview.files.length > 1
+                                  ? `${rebaseConflictPreview.files.length} files need review. Rebase staging onto the latest GitHub state to materialize conflict markers or auto-merge clean files.`
+                                  : "Review the conflict patches below, then rebase staging onto the latest GitHub state before editing a manual resolution."}
+                              </div>
+                              <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={handleRebaseOntoLatestGitHub}
+                                  disabled={pullFromGitHubStatus === "loading"}
+                                  className="h-7 px-2 text-xs"
+                                >
+                                  {pullFromGitHubStatus === "loading"
+                                    ? "Rebasing..."
+                                    : "Rebase onto latest GitHub"}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={handleCopyRebaseConflictBundle}
+                                  disabled={
+                                    rebaseConflictPreviewStatus === "loading" ||
+                                    rebaseConflictBundleStatus === "loading" ||
+                                    !rebaseConflictPreview ||
+                                    rebaseConflictPreview.files.length === 0
                                   }
-                                  onShowPatchChange={(nextValue) => {
-                                    setShowInlinePreviewPatch(nextValue);
-                                    if (nextValue) {
-                                      setShowInlinePreviewSideBySide(false);
-                                    }
-                                  }}
-                                  onAllowInlineDiffsChange={(nextValue) => {
-                                    setInlinePreviewOptions((current) => ({
-                                      ...current,
-                                      allowInlineDiffs: nextValue,
-                                    }));
-                                  }}
-                                  onSideBySideChange={(nextValue) => {
-                                    setShowInlinePreviewSideBySide(nextValue);
-                                    if (nextValue) {
-                                      setShowInlinePreviewPatch(false);
-                                    }
-                                  }}
-                                  onSyntaxHighlightDeletionsChange={(nextValue) => {
-                                    setInlinePreviewOptions((current) => ({
-                                      ...current,
-                                      syntaxHighlightDeletions: nextValue,
-                                    }));
-                                  }}
-                                />
+                                  className="h-7 px-2 text-xs"
+                                >
+                                  {rebaseConflictBundleStatus === "loading"
+                                    ? "Copying..."
+                                    : "Copy conflict bundle"}
+                                </Button>
                               </div>
-                              {inlinePreviewSaveError ? (
-                                <div className="border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                                  {inlinePreviewSaveError}
+                              <div className="mt-2 text-[11px] text-amber-950/70">
+                                {selectedRebaseConflictFile.baseBlobSha ? (
+                                  <>
+                                    Base blob: {selectedRebaseConflictFile.baseBlobSha}
+                                    {"  "}
+                                  </>
+                                ) : null}
+                                Upstream blob: {selectedRebaseConflictFile.upstreamBlobSha}
+                              </div>
+                              {rebaseConflictBundleFeedback ? (
+                                <div className="mt-2 text-xs text-amber-950">
+                                  {rebaseConflictBundleFeedback}
                                 </div>
                               ) : null}
-                              {showInlinePreviewPatch && selectedPreviewFile?.patch ? (
-                                <FileViewPatchPreview file={selectedPreviewFile} />
-                              ) : showInlinePreviewSideBySide ? (
-                                <FileViewSplitPreview
-                                  beforeValue={selectedPreviewBaseContent}
-                                  afterValue={inlinePreviewEditorContent}
-                                  beforeFilePath={selectedPreviewBaseFilePath}
-                                  afterFilePath={selectedFile}
-                                  oldHighlightedLineNumbers={
-                                    inlinePreviewSplitDiffHighlights.oldLines
-                                  }
-                                  newHighlightedLineNumbers={
-                                    inlinePreviewSplitDiffHighlights.newLines
-                                  }
-                                />
-                              ) : (
-                                <ProsemarkMergeEditor
-                                  key={`${selectedFile}:${activePreviewStagingId ?? "inline"}`}
-                                  value={inlinePreviewEditorContent}
-                                  baseValue={selectedPreviewBaseContent}
-                                  filePath={selectedFile}
-                                  options={inlinePreviewOptions}
-                                  editable={inlinePreviewEditable}
-                                  mobilePaneDragEnabled
-                                  onChange={handleInlinePreviewChange}
-                                  className="text-sm leading-6"
-                                />
-                              )}
                             </div>
-                          ) : selectedPreviewFile?.patch ? (
-                            <FileViewPatchPreview file={selectedPreviewFile} />
-                          ) : selectedFileIsRenderableMedia ? (
-                            <RepositoryMediaViewer
-                              repositoryFullName={repositoryFullName}
-                              filePath={selectedFile}
-                              branch={branch}
-                            />
-                          ) : null}
-                        </div>
+                            {selectedRebaseConflictFile.isBinary ? (
+                              <div className="min-h-0">
+                                <div className="border-b px-3 py-3 text-sm text-amber-950">
+                                  Binary image conflicts cannot be merged inline. Rebase first, then
+                                  upload again if you still want to replace the upstream file.
+                                </div>
+                                <RepositoryMediaViewer
+                                  repositoryFullName={repositoryFullName}
+                                  filePath={
+                                    selectedRebaseConflictFile.upstreamPath ??
+                                    selectedRebaseConflictFile.path
+                                  }
+                                  branch={branch}
+                                  skipStaging={true}
+                                />
+                              </div>
+                            ) : (
+                              <div className="grid min-h-0 @3xl:grid-cols-2 @3xl:divide-x">
+                                <div className="min-h-0">
+                                  <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
+                                    Base -&gt; Yours
+                                  </div>
+                                  {selectedRebaseConflictFile.baseToStagedPatchTruncated ? (
+                                    <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                      Patch output is truncated for this file.
+                                    </div>
+                                  ) : null}
+                                  {selectedRebaseConflictFile.baseToStagedPatch ? (
+                                    <FileViewPatchText
+                                      patch={selectedRebaseConflictFile.baseToStagedPatch}
+                                    />
+                                  ) : null}
+                                </div>
+                                <div className="min-h-0 border-t @3xl:border-t-0">
+                                  <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
+                                    Base -&gt; Upstream
+                                  </div>
+                                  {selectedRebaseConflictFile.baseToUpstreamPatchTruncated ? (
+                                    <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                      Patch output is truncated for this file.
+                                    </div>
+                                  ) : null}
+                                  {selectedRebaseConflictFile.baseToUpstreamPatch ? (
+                                    <FileViewPatchText
+                                      patch={selectedRebaseConflictFile.baseToUpstreamPatch}
+                                    />
+                                  ) : null}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : rebaseConflictPreview ? (
+                          <div className="p-3 text-sm text-muted-foreground">
+                            Loading conflicting file...
+                          </div>
+                        ) : selectedPreviewCanRenderInline ? (
+                          <div className="min-h-full">
+                            <div className="border-b px-3 py-2">
+                              <FileViewInlinePreviewControls
+                                controlsIdPrefix="inline-option"
+                                patchAvailable={Boolean(selectedPreviewFile?.patch)}
+                                showPatch={showInlinePreviewPatch}
+                                allowInlineDiffs={inlinePreviewOptions.allowInlineDiffs}
+                                showSideBySide={showInlinePreviewSideBySide}
+                                syntaxHighlightDeletions={
+                                  inlinePreviewOptions.syntaxHighlightDeletions
+                                }
+                                onShowPatchChange={(nextValue) => {
+                                  setShowInlinePreviewPatch(nextValue);
+                                  if (nextValue) {
+                                    setShowInlinePreviewSideBySide(false);
+                                  }
+                                }}
+                                onAllowInlineDiffsChange={(nextValue) => {
+                                  setInlinePreviewOptions((current) => ({
+                                    ...current,
+                                    allowInlineDiffs: nextValue,
+                                  }));
+                                }}
+                                onSideBySideChange={(nextValue) => {
+                                  setShowInlinePreviewSideBySide(nextValue);
+                                  if (nextValue) {
+                                    setShowInlinePreviewPatch(false);
+                                  }
+                                }}
+                                onSyntaxHighlightDeletionsChange={(nextValue) => {
+                                  setInlinePreviewOptions((current) => ({
+                                    ...current,
+                                    syntaxHighlightDeletions: nextValue,
+                                  }));
+                                }}
+                              />
+                            </div>
+                            {inlinePreviewSaveError ? (
+                              <div className="border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                                {inlinePreviewSaveError}
+                              </div>
+                            ) : null}
+                            {showInlinePreviewPatch && selectedPreviewFile?.patch ? (
+                              <FileViewPatchPreview file={selectedPreviewFile} />
+                            ) : showInlinePreviewSideBySide ? (
+                              <FileViewSplitPreview
+                                beforeValue={selectedPreviewBaseContent}
+                                afterValue={inlinePreviewEditorContent}
+                                beforeFilePath={selectedPreviewBaseFilePath}
+                                afterFilePath={selectedFile}
+                                oldHighlightedLineNumbers={
+                                  inlinePreviewSplitDiffHighlights.oldLines
+                                }
+                                newHighlightedLineNumbers={
+                                  inlinePreviewSplitDiffHighlights.newLines
+                                }
+                              />
+                            ) : (
+                              <ProsemarkMergeEditor
+                                key={`${selectedFile}:${activePreviewStagingId ?? "inline"}`}
+                                value={inlinePreviewEditorContent}
+                                baseValue={selectedPreviewBaseContent}
+                                filePath={selectedFile}
+                                options={inlinePreviewOptions}
+                                editable={inlinePreviewEditable}
+                                mobilePaneDragEnabled
+                                onChange={handleInlinePreviewChange}
+                                className="text-sm leading-6"
+                              />
+                            )}
+                          </div>
+                        ) : selectedPreviewFile?.patch ? (
+                          <FileViewPatchPreview file={selectedPreviewFile} />
+                        ) : selectedFileIsRenderableMedia ? (
+                          <RepositoryMediaViewer
+                            repositoryFullName={repositoryFullName}
+                            filePath={selectedFile}
+                            branch={branch}
+                          />
+                        ) : null}
                       </div>
-                    ) : null}
-                  </div>
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
-          ) : branchCompareLoadingState ? (
-            branchCompareLoadingState
-          ) : selectedFileIsRenderableMedia ? (
-            <RepositoryMediaViewer
-              repositoryFullName={repositoryFullName}
-              filePath={selectedFile}
-              branch={branch}
-            />
-          ) : stagedFile ? (
-            <CodeEditorWrapper
-              key={`${branch}/${selectedFile}-${stagedFile.parentCommitSha ?? "new"}`}
-              repositoryFullName={repositoryFullName}
-              branch={branch}
-              filePath={selectedFile}
-              vaultId={vault._id}
-              stagedFile={stagedFile}
-              tree={vault.treeData.tree}
-              treeSHA={vault.treeSHA}
-              showMobileLineNumbers={showMobileEditorLineNumbers}
-              editorOverride={editorOverride}
-            />
-          ) : isCompareRequested && selectedComparedFileCanRenderInline ? (
-            <div className="min-h-full">
-              <div className="border-b px-3 py-2">
-                <FileViewInlinePreviewControls
-                  controlsIdPrefix="compare-inline-option"
-                  patchAvailable={Boolean(selectedComparedFile?.patch)}
-                  showPatch={showInlinePreviewPatch}
-                  allowInlineDiffs={inlinePreviewOptions.allowInlineDiffs}
-                  showSideBySide={showInlinePreviewSideBySide}
-                  syntaxHighlightDeletions={inlinePreviewOptions.syntaxHighlightDeletions}
-                  onShowPatchChange={(nextValue) => {
-                    setShowInlinePreviewPatch(nextValue);
-                    if (nextValue) {
-                      setShowInlinePreviewSideBySide(false);
-                    }
-                  }}
-                  onAllowInlineDiffsChange={(nextValue) => {
-                    setInlinePreviewOptions((current) => ({
-                      ...current,
-                      allowInlineDiffs: nextValue,
-                    }));
-                  }}
-                  onSideBySideChange={(nextValue) => {
-                    setShowInlinePreviewSideBySide(nextValue);
-                    if (nextValue) {
-                      setShowInlinePreviewPatch(false);
-                    }
-                  }}
-                  onSyntaxHighlightDeletionsChange={(nextValue) => {
-                    setInlinePreviewOptions((current) => ({
-                      ...current,
-                      syntaxHighlightDeletions: nextValue,
-                    }));
-                  }}
-                />
               </div>
-              {showInlinePreviewPatch && selectedComparedFile?.patch ? (
-                <FileViewPatchPreview file={selectedComparedFile} />
-              ) : showInlinePreviewSideBySide ? (
-                <FileViewSplitPreview
-                  beforeValue={selectedPreviewBaseContent}
-                  afterValue={inlinePreviewEditorContent}
-                  beforeFilePath={selectedPreviewBaseFilePath}
-                  afterFilePath={selectedFile}
-                  oldHighlightedLineNumbers={inlinePreviewSplitDiffHighlights.oldLines}
-                  newHighlightedLineNumbers={inlinePreviewSplitDiffHighlights.newLines}
-                />
-              ) : (
-                <ProsemarkMergeEditor
-                  key={`${selectedFile}:compare`}
-                  value={selectedComparedFile?.richNewContent ?? ""}
-                  baseValue={selectedComparedFile?.richOldContent ?? ""}
-                  filePath={selectedFile}
-                  options={inlinePreviewOptions}
-                  editable={false}
-                  mobilePaneDragEnabled
-                  className="text-sm leading-6"
-                />
-              )}
-            </div>
-          ) : isCompareRequested && selectedComparedFile?.patch ? (
-            <FileViewPatchPreview file={selectedComparedFile} />
-          ) : null
-        ) : (
-          <AgentGraphView
-            nodes={agentGraphNodes}
-            edges={agentGraphEdges}
-            onOpenFile={handleOpenFileFromGraph}
-            vaultId={vault._id}
+            ) : null}
+          </div>
+        ) : branchCompareLoadingState ? (
+          branchCompareLoadingState
+        ) : selectedFileIsRenderableMedia ? (
+          <RepositoryMediaViewer
+            repositoryFullName={repositoryFullName}
+            filePath={selectedFile}
+            branch={branch}
+          />
+        ) : stagedFile ? (
+          <CodeEditorWrapper
+            key={`${branch}/${selectedFile}-${stagedFile.parentCommitSha ?? "new"}`}
             repositoryFullName={repositoryFullName}
             branch={branch}
-            filePath={selectedFile || undefined}
+            filePath={selectedFile}
+            vaultId={vault._id}
+            stagedFile={stagedFile}
+            tree={vault.treeData.tree}
+            treeSHA={vault.treeSHA}
+            showMobileLineNumbers={showMobileEditorLineNumbers}
+            editorOverride={editorOverride}
           />
-        )}
+        ) : isCompareRequested && selectedComparedFileCanRenderInline ? (
+          <div className="min-h-full">
+            <div className="border-b px-3 py-2">
+              <FileViewInlinePreviewControls
+                controlsIdPrefix="compare-inline-option"
+                patchAvailable={Boolean(selectedComparedFile?.patch)}
+                showPatch={showInlinePreviewPatch}
+                allowInlineDiffs={inlinePreviewOptions.allowInlineDiffs}
+                showSideBySide={showInlinePreviewSideBySide}
+                syntaxHighlightDeletions={inlinePreviewOptions.syntaxHighlightDeletions}
+                onShowPatchChange={(nextValue) => {
+                  setShowInlinePreviewPatch(nextValue);
+                  if (nextValue) {
+                    setShowInlinePreviewSideBySide(false);
+                  }
+                }}
+                onAllowInlineDiffsChange={(nextValue) => {
+                  setInlinePreviewOptions((current) => ({
+                    ...current,
+                    allowInlineDiffs: nextValue,
+                  }));
+                }}
+                onSideBySideChange={(nextValue) => {
+                  setShowInlinePreviewSideBySide(nextValue);
+                  if (nextValue) {
+                    setShowInlinePreviewPatch(false);
+                  }
+                }}
+                onSyntaxHighlightDeletionsChange={(nextValue) => {
+                  setInlinePreviewOptions((current) => ({
+                    ...current,
+                    syntaxHighlightDeletions: nextValue,
+                  }));
+                }}
+              />
+            </div>
+            {showInlinePreviewPatch && selectedComparedFile?.patch ? (
+              <FileViewPatchPreview file={selectedComparedFile} />
+            ) : showInlinePreviewSideBySide ? (
+              <FileViewSplitPreview
+                beforeValue={selectedPreviewBaseContent}
+                afterValue={inlinePreviewEditorContent}
+                beforeFilePath={selectedPreviewBaseFilePath}
+                afterFilePath={selectedFile}
+                oldHighlightedLineNumbers={inlinePreviewSplitDiffHighlights.oldLines}
+                newHighlightedLineNumbers={inlinePreviewSplitDiffHighlights.newLines}
+              />
+            ) : (
+              <ProsemarkMergeEditor
+                key={`${selectedFile}:compare`}
+                value={selectedComparedFile?.richNewContent ?? ""}
+                baseValue={selectedComparedFile?.richOldContent ?? ""}
+                filePath={selectedFile}
+                options={inlinePreviewOptions}
+                editable={false}
+                mobilePaneDragEnabled
+                className="text-sm leading-6"
+              />
+            )}
+          </div>
+        ) : isCompareRequested && selectedComparedFile?.patch ? (
+          <FileViewPatchPreview file={selectedComparedFile} />
+        ) : null}
       </div>
     </div>
   );
@@ -2980,26 +2831,6 @@ function FileViewInner({
       headerAccessory={fileViewMainHeader}
       left={fileViewLeftPane}
       shortcutPaneSide="left"
-      panel={
-        CHAT_ENABLED
-          ? {
-              content: (
-                <EditorChatPanel
-                  vaultId={vault._id}
-                  repositoryFullName={repositoryFullName}
-                  branch={branch}
-                  filePath={selectedFile || undefined}
-                  autoFocusInput={shouldAutoFocusChatInput}
-                  onBusyStateChange={setIsEditorChatBusy}
-                  shellMode="embedded"
-                />
-              ),
-              closeDisabled: isEditorChatBusy,
-              onOpenChange: handleEditorChatOpenChange,
-              open: resolvedEditorChatOpen,
-            }
-          : undefined
-      }
     >
       {fileViewMainContent}
 

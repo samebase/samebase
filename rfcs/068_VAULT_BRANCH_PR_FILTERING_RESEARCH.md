@@ -247,7 +247,7 @@ Noter already has a busy dashboard card:
 - sync state
 - branch list
 - infra status
-- codespace/chat/developer tools
+- developer tools
 
 An always-on search field would make every card look interactive even when the user only needs one
 vault. A hidden-by-default filter respects the dashboard's scan-first behavior.

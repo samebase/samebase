@@ -8,7 +8,6 @@
 - Last updated: 2026-06-19
 - Related specs:
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
-  - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
   - `rfcs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
   - `rfcs/043_REMOTE_MCP_OAUTH_PROVIDER_CONVEX_ARCHITECTURE_SPEC.md`
   - `rfcs/062_MCP_DUAL_ORIGIN_CONSENT_LOGIN_REDIRECT_SPEC.md`
@@ -475,7 +474,7 @@ app-owned `query`/`mutation`/`action`; lint rule; migrate every exported public 
 action onto an explicit access key. Authenticated-but-unapproved callers resolve to
 `role_waitlisted` and lose access to everything beyond public reads and signed-in shell preferences
 because that restriction is the point. Sub-split by area for review: auth/public → dashboard →
-provider connections → repo connect/app create/app refresh → files read/write → admin/chat → mixed.
+provider connections → repo connect/app create/app refresh → files read/write → admin → mixed.
 Anything unclear starts as `access_admin`. Convex tests gain role fixtures (`t.withIdentity` +
 seeded approved/unapproved users); state-axis enumeration test for `ROLE_ACCESS_GRANTS` (e.g. "every
 key a member holds, staff holds").

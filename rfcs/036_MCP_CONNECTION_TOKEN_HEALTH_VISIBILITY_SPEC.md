@@ -14,7 +14,7 @@
 ## Summary
 
 Expose MCP token health in the Providers UI so users can see whether their MCP connection is still
-usable before provisioning or production-read actions fail.
+usable before provisioning or provider actions fail.
 
 Initial target is Cloudflare (`auth.method = "mcp_oauth"`), with schema/API shapes designed so
 future MCP providers can reuse the same contract.

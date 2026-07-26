@@ -8,10 +8,6 @@ import {
   type WorkspacePaneState,
 } from "./WorkspacePaneRuntime";
 import {
-  type WorkspaceLayoutV2BottomPanelProps,
-  WorkspaceLayoutV2MainViewportWithPanel,
-} from "./WorkspaceLayoutV2BottomPanel";
-import {
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
   getDesktopSidebarMaxWidthPx,
   getDesktopSidebarWidthPx,
@@ -36,7 +32,6 @@ type WorkspaceLayoutV2Props = {
   main: ReactElement;
   mobilePaneConstraint?: "main";
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
-  panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: ReactElement;
 
   dataTestId?: string;
@@ -79,7 +74,6 @@ export function WorkspaceLayoutV2({
   main,
   mobilePaneConstraint,
   mobileMinResizeBehavior = "min_resize_to_merge",
-  panel,
   right,
   dataTestId,
 }: WorkspaceLayoutV2Props) {
@@ -267,22 +261,6 @@ export function WorkspaceLayoutV2({
     );
   }
 
-  const mainViewportContent = (
-    <WorkspaceLayoutV2MainViewportWithPanel
-      activeResizeSide={activeResizeSide}
-      isMobile={isMobile}
-      mainContent={main}
-      onPanelResizeEnd={() => {
-        setActiveResizeSide(null);
-      }}
-      onPanelResizeStart={() => {
-        setActiveResizeSide("top");
-      }}
-      panel={panel}
-      viewportHeightPx={viewportSize.heightPx}
-    />
-  );
-
   return (
     <div
       data-testid={dataTestId}
@@ -317,7 +295,7 @@ export function WorkspaceLayoutV2({
           leftContent={left}
           leftWidthPx={mobileLeftWidthPx}
           lockCarouselScroll={isMobile && mobileGripResize.lockCarouselScroll}
-          mainContent={mainViewportContent}
+          mainContent={main}
           paneWidthPx={mobileMainWidthPx}
           rightContent={right}
           rightWidthPx={mobileRightWidthPx}

@@ -299,8 +299,8 @@ type SourceSetupSummary =
 Provider setup stays `not_applicable` for existing repositories even after GitHub connects, because
 imported repositories do not provision infrastructure.
 
-Tree-dependent links, branch rows, source workspace entrypoints, staging, editor, chat, and
-infrastructure controls remain hidden until the default-branch tree exists.
+Tree-dependent links, branch rows, source workspace entrypoints, staging, editor, and infrastructure
+controls remain hidden until the default-branch tree exists.
 
 ## Entry Points
 

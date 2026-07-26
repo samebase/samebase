@@ -177,14 +177,6 @@ const saveBinaryUploadToStagingArgsValidator = {
   userId: userIdValidator,
 };
 
-const internalDeletionArgsValidator = {
-  vaultId: vaultIdValidator,
-  filePath: filePathValidator,
-  parentCommitSha: nullableStringValidator,
-  branch: branchValidator,
-  userId: userIdValidator,
-};
-
 const renameArgsValidator = {
   vaultId: vaultIdValidator,
   initialFilePath: filePathValidator,
@@ -1321,60 +1313,6 @@ export const saveToStaging = internalMutation({
     }
 
     return staging;
-  },
-});
-
-// Internal version of markFileForDeletion, callable from agent actions
-// without auth context.
-export const internalMarkFileForDeletion = internalMutation({
-  args: internalDeletionArgsValidator,
-  returns: nullResultValidator,
-  handler: async (ctx, args) => {
-    await assertConnectedVaultForStagingWrite(ctx, {
-      vaultId: args.vaultId,
-      userId: args.userId,
-    });
-
-    const existingStaging = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_branch_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
-      )
-      .first();
-
-    const currentTimestamp = Date.now();
-
-    if (existingStaging) {
-      await ctx.db.patch(existingStaging._id, {
-        fileDeleted: true,
-        lastEditTime: currentTimestamp,
-        lastEditUserId: args.userId,
-        branch: args.branch,
-      });
-    } else {
-      const snapshotSeed = await readDeletionSnapshotSeed(ctx, args.parentCommitSha);
-
-      await ctx.db.insert("vaultStagedFiles", {
-        ownerId: args.userId,
-        vaultId: args.vaultId,
-        filePath: args.filePath,
-        initialFilePath: args.filePath,
-        fileDeleted: true,
-        kind: snapshotSeed.kind,
-        content: snapshotSeed.initialContent,
-        initialContent: snapshotSeed.initialContent,
-        mime: snapshotSeed.mime,
-        size: snapshotSeed.size,
-        stagedBlobSha: snapshotSeed.stagedBlobSha,
-        parentCommitSha: args.parentCommitSha,
-        lastEditTime: currentTimestamp,
-        lastEditUserId: args.userId,
-        branch: args.branch,
-        version: 0,
-      });
-    }
-
-    return null;
   },
 });
 

@@ -7,7 +7,6 @@
 - Date: 2026-02-13
 - Related specs:
 - `/Users/nicu/dev/my/noter/specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-- `/Users/nicu/dev/my/noter/specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
 
 ## Summary
 

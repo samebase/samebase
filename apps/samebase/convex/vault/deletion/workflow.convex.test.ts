@@ -478,8 +478,6 @@ describe("vault deletion workflow", () => {
       "cleanup_editor_state",
       "cleanup_source_caches",
       "cleanup_runtime_state",
-      "cleanup_access_state",
-      "detach_agent_context",
       "cleanup_provisioning_history",
     ] as const) {
       await t.mutation(internal.vault.deletion.runs.appendRunEvent, {

@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 
-import { components } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import { cleanupAccountLocalDataBatchForUser } from "./cleanup";
@@ -195,24 +194,6 @@ export async function assertIdentityDeletionReady(
 
   if (accountLocalData.state !== "done") {
     throw new Error("Samebase account data remains during finalization.");
-  }
-
-  const agentThreads = await ctx.runQuery(components.agent.threads.listThreadsByUserId, {
-    userId: run.identity.userId,
-    paginationOpts: { cursor: null, numItems: 1 },
-  });
-
-  if (agentThreads.page.length > 0) {
-    throw new Error("Agent account data remains during finalization.");
-  }
-
-  const activeAgentAction = await ctx.db
-    .query("agentActionLeases")
-    .withIndex("by_user_and_expires_at", (query) => query.eq("userId", run.identity.userId))
-    .first();
-
-  if (activeAgentAction !== null) {
-    throw new Error("Agent action remains active during finalization.");
   }
 
   const initiatingSession = await ctx.db.get(run.initiatingSessionId);

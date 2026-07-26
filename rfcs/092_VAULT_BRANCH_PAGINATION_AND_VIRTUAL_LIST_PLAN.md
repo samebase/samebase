@@ -93,9 +93,8 @@ provisioning/deletion status, and navigate to a selected vault. It should not lo
 selected vault. If a selected vault is not found in the root vault list, the route keeps the current
 "Vault not found" behavior.
 
-The selected vault view may still need a small branch summary, such as the default branch name or a
-primary branch name for chat links. That summary belongs on the lightweight vault result, not in a
-full branch row array.
+The selected vault view may still need a small branch summary, such as the default branch name. That
+summary belongs on the lightweight vault result, not in a full branch row array.
 
 ### Branch Pagination
 
@@ -195,8 +194,7 @@ Changes:
   query.
 - Kept the branch row component and existing local filtering behavior.
 - Removed branch expansion UI and frontend filter persistence in the same slice.
-- Did not add a lightweight selected-vault branch summary; current chat links derive from the
-  selected vault's branch query rows.
+- Did not add a lightweight selected-vault branch summary.
 
 Validation:
 

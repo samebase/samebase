@@ -1,12 +1,14 @@
 # 065 Netlify Removal Rollout Plan
 
+> Archived 2026-07-26: Netlify retirement is complete. This rollout is historical.
+
 ## Document Control
 
 - Status: In progress
 - Owner: Noter backend/frontend + Convex infra/tool runtime
 - Last updated: 2026-03-20
 - Depends on:
-  - `rfcs/062_NETLIFY_REMOVAL_AND_CLOUDFLARE_ONLY_HOSTING_SPEC.md`
+  - `archive/062_NETLIFY_REMOVAL_AND_CLOUDFLARE_ONLY_HOSTING_SPEC.md`
 
 ## Delivery Status Snapshot (2026-03-20)
 

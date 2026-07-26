@@ -1,5 +1,8 @@
 # 038 Railway Removal and Data Cleanup Spec
 
+> Archived 2026-07-26: Railway retirement is complete. This document records historical migration
+> work and must not guide current implementation.
+
 ## Document Control
 
 - Status: Proposed
@@ -7,7 +10,7 @@
 - Last updated: 2026-03-05
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-  - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
+  - `archive/004_AI_PROD_ACCESS_POLICY_SPEC.md`
   - `rfcs/016_FRONTEND_HOSTING_PROVIDER_SELECTION_SPEC.md`
   - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `rfcs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`

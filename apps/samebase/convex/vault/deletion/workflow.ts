@@ -23,8 +23,6 @@ const cleanupSteps = [
   "cleanup_editor_state",
   "cleanup_source_caches",
   "cleanup_runtime_state",
-  "cleanup_access_state",
-  "detach_agent_context",
   "cleanup_provisioning_history",
 ] as const;
 
@@ -32,8 +30,6 @@ const cleanupStepMessage = {
   cleanup_editor_state: "Cleaning staged edits and blobs.",
   cleanup_source_caches: "Cleaning branch and source caches.",
   cleanup_runtime_state: "Cleaning vault runtime state.",
-  cleanup_access_state: "Detaching production access history.",
-  detach_agent_context: "Detaching vault chat context.",
   cleanup_provisioning_history: "Cleaning setup history.",
 } satisfies Record<VaultDeletionCleanupStep, string>;
 

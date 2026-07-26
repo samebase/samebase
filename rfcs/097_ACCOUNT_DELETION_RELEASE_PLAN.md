@@ -111,7 +111,7 @@ The user can see:
 - whether the run needs attention
 - that staff attention is required when the run cannot continue
 
-The user cannot navigate to vaults, settings, providers, billing, chat, MCP, or other authenticated
+The user cannot navigate to vaults, settings, providers, billing, MCP, or other authenticated
 product surfaces. All other Samebase browser sessions and MCP grants stop working. The initiating
 browser session remains valid only for deletion status until the terminal step. Retry is staff-only
 in version one so the user cannot trigger destructive workflow steps.
@@ -133,7 +133,7 @@ On success:
 
 1. Any active Samebase subscription is canceled.
 2. Samebase sessions, MCP grants, and stored provider credentials are revoked or removed.
-3. Samebase-owned profile, vault, file, storage, collaboration, chat, preference, and workflow data
+3. Samebase-owned profile, vault, file, storage, collaboration, preference, and workflow data
    belonging to the user is deleted according to the data-handling matrix below.
 4. A completion email is attempted after required cleanup succeeds and before the final identity is
    removed. Email delivery failure is visible to staff but does not retain the user's account
@@ -187,16 +187,15 @@ already deployed applications.
 Version one uses this complete product-level matrix. The implementation cleanup registry expands
 these classes into the concrete current schema tables and storage objects.
 
-| Data class                                                                                 | Final action                                                                                                                 |
-| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| User profile, auth accounts, sessions, verification data                                   | Delete                                                                                                                       |
-| Provider connections, MCP grants and tokens                                                | Revoke where supported, then delete local rows and secrets                                                                   |
-| Vaults, files, staged content, collaboration state, preferences, chat threads and messages | Delete Samebase rows, component data, and storage objects                                                                    |
-| Samebase subscription                                                                      | Immediately revoke before success, then delete the local customer link                                                       |
-| Production-access requests and user-linked security audit rows                             | Delete                                                                                                                       |
-| Other provisioning, refresh, and deletion runs belonging to the user                       | Quiesce, then delete                                                                                                         |
-| Current account deletion run and events                                                    | Replace with a scrubbed operation receipt                                                                                    |
-| Provider backups and infrastructure logs                                                   | Keep beyond normal product use until automatic provider retention expires; never restore erased account data into active use |
+| Data class                                                           | Final action                                                                                                                 |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| User profile, auth accounts, sessions, verification data             | Delete                                                                                                                       |
+| Provider connections, MCP grants and tokens                          | Revoke where supported, then delete local rows and secrets                                                                   |
+| Vaults, files, staged content, collaboration state, and preferences  | Delete Samebase rows and storage objects                                                                                     |
+| Samebase subscription                                                | Immediately revoke before success, then delete the local customer link                                                       |
+| Other provisioning, refresh, and deletion runs belonging to the user | Quiesce, then delete                                                                                                         |
+| Current account deletion run and events                              | Replace with a scrubbed operation receipt                                                                                    |
+| Provider backups and infrastructure logs                             | Keep beyond normal product use until automatic provider retention expires; never restore erased account data into active use |
 
 No active application row is retained merely by setting `deletedAt`. The deleting user row is
 temporary workflow state and is deleted at the terminal step.
@@ -241,14 +240,13 @@ registries have separate coverage tests because some account-owned rows are clea
 vault or parent context. Adding an unclassified table fails validation so future schema additions
 cannot silently escape account deletion.
 
-The user progress timeline expands account-data deletion into chats and agent data, vaults and
-staged changes, preferences, app access and tokens, and access requests and history. These states
-are persisted by the cleanup mutations that perform the work. Vault cleanup also records the number
-of vault rows deleted and the current per-vault cleanup phase. It does not show a percentage or
-total-vault denominator because vaults have different amounts of staged and associated data. New
-vault, vault-deletion, staging, OAuth-state, app-provisioning, and repository refresh writes reject
-users whose account deletion has started so completed progress cannot be recreated by an in-flight
-action.
+The user progress timeline expands account-data deletion into vaults and staged changes,
+preferences, app access and tokens, and access requests and history. These states are persisted by
+the cleanup mutations that perform the work. Vault cleanup also records the number of vault rows
+deleted and the current per-vault cleanup phase. It does not show a percentage or total-vault
+denominator because vaults have different amounts of staged and associated data. New vault,
+vault-deletion, staging, OAuth-state, app-provisioning, and repository refresh writes reject users
+whose account deletion has started so completed progress cannot be recreated by an in-flight action.
 
 Staff accounts cannot request self-deletion in version one. A non-staff account performs the release
 acceptance flow so at least one staff operator retains access to inspect and retry a failed run.

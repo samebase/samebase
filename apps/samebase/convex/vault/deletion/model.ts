@@ -32,8 +32,6 @@ export const vVaultDeletionStep = union(
   literal("cleanup_editor_state"),
   literal("cleanup_source_caches"),
   literal("cleanup_runtime_state"),
-  literal("cleanup_access_state"),
-  literal("detach_agent_context"),
   literal("cleanup_provisioning_history"),
   literal("delete_vault"),
   literal("finish"),
@@ -44,8 +42,6 @@ export const vVaultDeletionCleanupStep = union(
   literal("cleanup_editor_state"),
   literal("cleanup_source_caches"),
   literal("cleanup_runtime_state"),
-  literal("cleanup_access_state"),
-  literal("detach_agent_context"),
   literal("cleanup_provisioning_history"),
 );
 export type VaultDeletionCleanupStep = Infer<typeof vVaultDeletionCleanupStep>;

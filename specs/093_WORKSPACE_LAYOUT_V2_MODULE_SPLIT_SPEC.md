@@ -11,7 +11,6 @@
   - `apps/samebase/src/components/workspace-layout-v2/useWorkspaceLayoutV2MobileResize.ts`
   - `apps/samebase/src/components/workspace-layout-v2/useWorkspaceLayoutV2MobileCarousel.ts`
   - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2Viewports.tsx`
-  - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2BottomPanel.tsx`
   - `specs/092_WORKSPACE_PANE_MIN_RESIZE_MERGE_SPEC.md`
 
 ## Summary
@@ -116,8 +115,6 @@ The store should not own:
 - persisted sidebar state from `SidebarProvider`
 - pointer bookkeeping inside `WorkspaceLayoutV2ResizeHandle`
 - browser DOM refs
-- bottom panel controlled/uncontrolled open state, unless the bottom panel later becomes part of the
-  pane model
 
 Pane presence should be a direct prop-presence contract. `WorkspaceLayoutV2` should render a side
 pane only when the caller provides that side pane element. Callers should omit absent side panes. If
