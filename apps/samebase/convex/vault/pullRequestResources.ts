@@ -39,6 +39,7 @@ const GITHUB_PULL_REQUEST_RESOURCE_LIMIT = 100;
 const vConvexPreview = union(
   object({
     state: literal("available"),
+    convexProjectId: id("vaultConvexProjects"),
     deploymentName: string(),
     dashboardUrl: string(),
   }),
@@ -643,6 +644,7 @@ async function readWorkerResourcesForHeads(args: {
             } else {
               convexPreview = {
                 state: "available",
+                convexProjectId: attachedProject.convexProjectId,
                 deploymentName: resolved.deployment.name,
                 dashboardUrl: buildConvexDeploymentDashboardUrl({
                   teamSlug: observedPreviews.teamSlug,

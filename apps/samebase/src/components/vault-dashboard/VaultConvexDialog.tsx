@@ -327,13 +327,19 @@ export function VaultConvexDialogContent({
           {!isLoading ? (
             <Button onClick={onSubmit} disabled={submitDisabled}>
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {repairProject
-                ? "Change code location"
-                : mode === "existing"
-                  ? selectedProjectCount === 0
-                    ? "Add projects"
-                    : `Add ${selectedProjectCount} project${selectedProjectCount === 1 ? "" : "s"}`
-                  : "Create project"}
+              {isSubmitting
+                ? repairProject
+                  ? "Changing..."
+                  : mode === "existing"
+                    ? "Adding..."
+                    : "Creating..."
+                : repairProject
+                  ? "Change code location"
+                  : mode === "existing"
+                    ? selectedProjectCount === 0
+                      ? "Add projects"
+                      : `Add ${selectedProjectCount} project${selectedProjectCount === 1 ? "" : "s"}`
+                    : "Create project"}
             </Button>
           ) : null}
         </DialogFooter>
@@ -489,7 +495,10 @@ export function VaultConvexDialog({
           }
           return {
             ...current,
-            [projectId]: codeLocations[0] ? getConvexCodeLocationOptionKey(codeLocations[0]) : "",
+            [projectId]:
+              codeLocations.length === 1 && codeLocations[0]
+                ? getConvexCodeLocationOptionKey(codeLocations[0])
+                : "",
           };
         });
       }}

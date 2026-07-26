@@ -588,6 +588,7 @@ function fixturePullRequests(
                       },
                       convexPreview: {
                         state: "available" as const,
+                        convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
                         deploymentName: "precise-otter-1260",
                         dashboardUrl:
                           "https://dashboard.convex.dev/t/samebase/samebase/precise-otter-1260",

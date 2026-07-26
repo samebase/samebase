@@ -456,9 +456,17 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
 }
 
 export function PullRequestResources({
+  branch,
+  owner,
+  repoName,
   resource,
+  schemaGraphEnabled,
 }: {
+  branch: string;
+  owner: string;
+  repoName: string;
   resource: PullRequestResourceState | undefined;
+  schemaGraphEnabled: boolean;
 }) {
   if (resource?.state === "loading") {
     return (
@@ -478,7 +486,13 @@ export function PullRequestResources({
     return null;
   }
 
-  const roots = buildPullRequestEnvironmentRoots(resource.resources);
+  const roots = buildPullRequestEnvironmentRoots({
+    branch,
+    owner,
+    repoName,
+    resources: resource.resources,
+    schemaGraphEnabled,
+  });
 
   return <VaultEnvironmentTree roots={roots} />;
 }

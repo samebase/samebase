@@ -123,6 +123,7 @@ import type * as vault_deletion_runs from "../vault/deletion/runs.js";
 import type * as vault_deletion_state from "../vault/deletion/state.js";
 import type * as vault_deletion_workflow from "../vault/deletion/workflow.js";
 import type * as vault_model from "../vault/model.js";
+import type * as vault_providerDashboardUrls from "../vault/providerDashboardUrls.js";
 import type * as vault_providerObservationQueries from "../vault/providerObservationQueries.js";
 import type * as vault_providerObservations from "../vault/providerObservations.js";
 import type * as vault_pullRequestResources from "../vault/pullRequestResources.js";
@@ -254,6 +255,7 @@ declare const fullApi: ApiFromModules<{
   "vault/deletion/state": typeof vault_deletion_state;
   "vault/deletion/workflow": typeof vault_deletion_workflow;
   "vault/model": typeof vault_model;
+  "vault/providerDashboardUrls": typeof vault_providerDashboardUrls;
   "vault/providerObservationQueries": typeof vault_providerObservationQueries;
   "vault/providerObservations": typeof vault_providerObservations;
   "vault/pullRequestResources": typeof vault_pullRequestResources;

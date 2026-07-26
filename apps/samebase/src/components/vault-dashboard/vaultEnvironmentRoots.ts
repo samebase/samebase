@@ -183,9 +183,6 @@ export function buildProductionEnvironmentRoots({
               left.sortKey.localeCompare(right.sortKey) || left.href.localeCompare(right.href),
           );
           const primary = destinations.at(0);
-          if (!primary) {
-            return [];
-          }
 
           const productionBuild =
             buildsObservation.builds.state === "connected"
@@ -213,12 +210,14 @@ export function buildProductionEnvironmentRoots({
                 worker: {
                   workerName: worker.workerName,
                   build,
-                  destination: {
-                    state: "available",
-                    href: primary.href,
-                    label: primary.label,
-                    title,
-                  },
+                  destination: primary
+                    ? {
+                        state: "available",
+                        href: primary.href,
+                        label: primary.label,
+                        title,
+                      }
+                    : { state: "absent" },
                   actions: destinations.slice(1).map((destination) => ({
                     destination: "external",
                     href: destination.href,
@@ -308,9 +307,19 @@ export function buildProductionEnvironmentRoots({
   ]);
 }
 
-export function buildPullRequestEnvironmentRoots(
-  resources: PullRequestResources,
-): VaultEnvironmentRoot[] {
+export function buildPullRequestEnvironmentRoots({
+  branch,
+  owner,
+  repoName,
+  resources,
+  schemaGraphEnabled,
+}: {
+  branch: string;
+  owner: string;
+  repoName: string;
+  resources: PullRequestResources;
+  schemaGraphEnabled: boolean;
+}): VaultEnvironmentRoot[] {
   const inputs = resources.workers.flatMap((worker) => {
     const rootDirectory = worker.state === "unavailable" ? "Needs attention" : worker.rootDirectory;
     const workerInput = {
@@ -370,6 +379,20 @@ export function buildPullRequestEnvironmentRoots(
               href: `${preview.dashboardUrl}/data`,
               label: "Data",
             },
+            ...(schemaGraphEnabled
+              ? [
+                  {
+                    destination: "samebase" as const,
+                    href: buildVaultSchemaRoute({
+                      owner,
+                      repoName,
+                      branch,
+                      convexProjectId: preview.convexProjectId,
+                    }),
+                    label: "Schema",
+                  },
+                ]
+              : []),
           ],
           href: preview.dashboardUrl,
           label: preview.deploymentName,

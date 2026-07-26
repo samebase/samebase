@@ -106,28 +106,6 @@ export function VaultConvexSchemaGraphView({
     projectId: project?.projectId ?? routeConvexProjectId,
     repositoryFullName,
   } satisfies VaultConvexSchemaGraphRouteContext;
-  const vault = useVaultQuery(api.vault.records.getVaultByRepository, {
-    repositoryFullName,
-    branch,
-  });
-
-  if (vault === undefined) {
-    return (
-      <VaultConvexSchemaGraphRouteStatusShell
-        context={context}
-        status={
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading schema
-          </>
-        }
-      />
-    );
-  }
-
-  if (vault === null) {
-    return <VaultConvexSchemaGraphRouteStatusShell context={context} status="Vault not found." />;
-  }
 
   if (dashboardVaults === undefined) {
     return (
@@ -155,7 +133,7 @@ export function VaultConvexSchemaGraphView({
   return (
     <VaultConvexSchemaGraphRouteWorkspace
       context={context}
-      vaultId={vault._id}
+      vaultId={dashboardVault._id}
       convexProjectId={project.convexProjectId}
     />
   );

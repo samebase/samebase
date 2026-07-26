@@ -422,6 +422,55 @@ describe("buildProductionEnvironmentRoots", () => {
     ]);
   });
 
+  it("keeps attached Workers visible before they have a production destination", () => {
+    const workerId = fakeCloudflareWorkerId();
+    const vault = makeRepositorySettingsBuilderVault({
+      cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({ workerId })],
+    });
+
+    const roots = buildProductionEnvironmentRoots({
+      branch: "main",
+      vault,
+      cloudflareObservations: makeLoadedCloudflareObservations({
+        workers: [
+          makeAvailableRepositorySettingsCloudflareObservation({
+            workerId,
+            customDomains: [],
+            workersDev: { state: "disabled" },
+          }),
+        ],
+        builds: [makeAvailableRepositorySettingsCloudflareBuildsObservation({ workerId })],
+        convexBuildAccess: [],
+      }),
+      convexObservations: {
+        state: "loaded",
+        reload: () => {},
+        observations: [],
+      },
+      owner: "ada",
+      repoName: "demo",
+      schemaGraphEnabled: true,
+    });
+
+    expect(roots).toEqual([
+      {
+        rootDirectory: "/",
+        resources: [
+          {
+            kind: "cloudflare_worker",
+            id: workerId,
+            worker: {
+              workerName: "demo-worker",
+              build: { state: "absent" },
+              destination: { state: "absent" },
+              actions: [],
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
   it("does not manufacture links from attachments when live resources are missing", () => {
     const workerId = fakeCloudflareWorkerId();
     const convexProjectId = fakeConvexProjectId();
@@ -588,15 +637,23 @@ describe("vault environment roots", () => {
       },
       convexPreview: {
         state: "available" as const,
+        convexProjectId: fakeConvexProjectId(),
         deploymentName: "calm-swan-123",
         dashboardUrl: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
       },
     };
+    const convexProjectId = worker.convexPreview.convexProjectId;
 
     expect(
       buildPullRequestEnvironmentRoots({
-        pullRequestId: "pull-request-1",
-        workers: [worker],
+        branch: "feature",
+        owner: "ada",
+        repoName: "demo",
+        resources: {
+          pullRequestId: "pull-request-1",
+          workers: [worker],
+        },
+        schemaGraphEnabled: true,
       }),
     ).toEqual([
       {
@@ -629,6 +686,11 @@ describe("vault environment roots", () => {
                 destination: "external",
                 href: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123/data",
                 label: "Data",
+              },
+              {
+                destination: "samebase",
+                href: `/vault/ada/demo/schema/feature/project/${convexProjectId}`,
+                label: "Schema",
               },
             ],
             href: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
