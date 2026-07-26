@@ -814,7 +814,7 @@ describe("AppWorkspaceShell", () => {
     expect(layoutRoot.hasAttribute("data-workspace-layout-v2-mobile-merged-side")).toBe(false);
   });
 
-  it("prehydrates a valid merged mobile pane before hydration", () => {
+  it("fits a persisted merged mobile pane to the current viewport before hydration", () => {
     window.localStorage.setItem(
       APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
       JSON.stringify({
@@ -824,7 +824,7 @@ describe("AppWorkspaceShell", () => {
           mobilePane: "right",
           mobileSurface: {
             kind: "merged",
-            mainWidthPx: 294,
+            mainWidthPx: 302,
             side: "right",
           },
           rightMobileWidthPx: 96,

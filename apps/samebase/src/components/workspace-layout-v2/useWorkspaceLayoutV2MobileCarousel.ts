@@ -103,6 +103,11 @@ export function useWorkspaceLayoutV2MobileCarouselController({
     if (mergedSurfaceSide !== null && !isScrollSettled) {
       return;
     }
+    // `mobilePane` already accounts for panes unavailable on this route. Do not
+    // write that local fallback over the account's shared pane preference.
+    if (mobilePane === nextPane) {
+      return;
+    }
     setMobilePane((currentPane) => {
       if (currentPane === nextPane) {
         return currentPane;

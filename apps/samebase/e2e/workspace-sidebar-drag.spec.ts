@@ -416,6 +416,12 @@ test("logo mobile merge resize keeps main width while opening the right sidebar"
   );
 
   await expect(getFileViewLayoutShell(page)).toHaveAttribute("data-mobile-pane", "left");
+  await expectMobileMergedSide(page, "left");
+  await expect.poll(async () => getMobileMainPaneWidthPx(page)).toBe(viewportWidthPx - minWidthPx);
+
+  await page.waitForTimeout(750);
+
+  await expectMobileMergedSide(page, "left");
   await expect.poll(async () => getMobileMainPaneWidthPx(page)).toBe(viewportWidthPx - minWidthPx);
 
   await scrollFileViewCarouselToPane(page, "right");

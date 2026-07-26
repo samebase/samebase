@@ -10,7 +10,6 @@ import {
   getMobileMinResizeMergeWidthsPx,
   getMobilePaneScrollLeftPx,
   shouldCommitMobileMergedSurface,
-  type MobilePane,
   type WorkspaceLayoutV2MobileGrip,
   type WorkspaceLayoutV2MobileMergedSide,
   type WorkspaceLayoutV2MobileMinResizeBehavior,
@@ -36,7 +35,6 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
   isMobile,
   leftWidthPx,
   mobileMinResizeBehavior,
-  mobilePane,
   rightWidthPx,
   viewportWidthPx,
 }: {
@@ -47,7 +45,6 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
   isMobile: boolean;
   leftWidthPx: number;
   mobileMinResizeBehavior: WorkspaceLayoutV2MobileMinResizeBehavior;
-  mobilePane: MobilePane;
   rightWidthPx: number;
   viewportWidthPx: number;
 }) {
@@ -55,19 +52,45 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
   const { mobileSurface } = useWorkspacePaneState();
   const { setMobileGrip } = useWorkspaceLayoutV2Actions();
   const { setMobileSurface, settleMobileMergedSurface } = useWorkspacePaneActions();
+  const mobileDefaultPaneWidthPx = Math.max(1, viewportWidthPx);
+  // Account state is shared across routes and devices, but a stored merged
+  // main width was measured in one viewport. Resolve it locally so a different
+  // route or viewport never repairs shared state by clearing another client's merge.
+  const durableMobileMergedSide = mobileSurface.kind === "merged" ? mobileSurface.side : null;
+  const durableMobileMergedSideWidthPx =
+    durableMobileMergedSide === "left"
+      ? leftWidthPx
+      : durableMobileMergedSide === "right"
+        ? rightWidthPx
+        : 0;
+  const hasDurableMobileMergedPane =
+    (durableMobileMergedSide === "left" && hasLeftPane) ||
+    (durableMobileMergedSide === "right" && hasRightPane);
+  const durableMobileMergedMainWidthPx =
+    mobileMinResizeBehavior === "min_resize_to_merge" && hasDurableMobileMergedPane
+      ? getMergedMobileMainWidthPx({
+          mainMaxWidthPx: mobileDefaultPaneWidthPx,
+          mainMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,
+          sideMinWidthPx: durableMobileMergedSideWidthPx,
+          viewportWidthPx,
+        })
+      : null;
+  const resolvedDurableMobileSurface =
+    mobileSurface.kind === "merged" && durableMobileMergedMainWidthPx !== null
+      ? {
+          ...mobileSurface,
+          mainWidthPx: durableMobileMergedMainWidthPx,
+        }
+      : WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE;
   const mobileGripRef = useRef<WorkspaceLayoutV2MobileGrip>(mobileGrip);
   const activeMobileSurface =
-    mobileGrip.kind === "dragging" ? mobileGrip.previewSurface : mobileSurface;
+    mobileGrip.kind === "dragging" ? mobileGrip.previewSurface : resolvedDurableMobileSurface;
   const mobileSurfaceRef = useRef<WorkspaceLayoutV2MobileSurface>(activeMobileSurface);
   mobileGripRef.current = mobileGrip;
   mobileSurfaceRef.current = activeMobileSurface;
-  const mobileDefaultPaneWidthPx = Math.max(1, viewportWidthPx);
   const mobileMergedSide = activeMobileSurface.kind === "merged" ? activeMobileSurface.side : null;
   const mobileMergedMainWidthPx =
     activeMobileSurface.kind === "merged" ? activeMobileSurface.mainWidthPx : null;
-  const durableMobileMergedSide = mobileSurface.kind === "merged" ? mobileSurface.side : null;
-  const durableMobileMergedMainWidthPx =
-    mobileSurface.kind === "merged" ? mobileSurface.mainWidthPx : null;
   const mobileGripSlideOffsetPx = mobileGrip.kind === "dragging" ? mobileGrip.slideOffsetPx : 0;
   const mobileMergedSideWidthPx =
     mobileMergedSide === "left" ? leftWidthPx : mobileMergedSide === "right" ? rightWidthPx : 0;
@@ -78,18 +101,6 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
     mobileMergedMainWidthPx !== null &&
     mobileMergedMainWidthPx >= WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX &&
     mobileMergedSideWidthPx + mobileMergedMainWidthPx <=
-      viewportWidthPx + MOBILE_PANE_SETTLED_TOLERANCE_PX;
-  const durableMobileMergedSideWidthPx =
-    durableMobileMergedSide === "left"
-      ? leftWidthPx
-      : durableMobileMergedSide === "right"
-        ? rightWidthPx
-        : 0;
-  const isDurableMobileMergedFit =
-    durableMobileMergedMainWidthPx !== null &&
-    durableMobileMergedSide !== null &&
-    durableMobileMergedMainWidthPx >= WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX &&
-    durableMobileMergedSideWidthPx + durableMobileMergedMainWidthPx <=
       viewportWidthPx + MOBILE_PANE_SETTLED_TOLERANCE_PX;
   const hasOppositePaneForMergedSide =
     (mobileMergedSide === "left" && hasRightPane) || (mobileMergedSide === "right" && hasLeftPane);
@@ -143,9 +154,6 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
     });
   }
 
-  const clearMobileMergedSurfaceEffect = useEffectEvent(() => {
-    setMobileSurface(WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE);
-  });
   const resetMobileGripResizeEffect = useEffectEvent(() => {
     activeGripResizeSideRef.current = null;
     setMobileGripState(WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP);
@@ -162,56 +170,6 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
 
     resetMobileGripResizeEffect();
   }, [isMobile]);
-
-  /**
-   * Clears impossible durable merge state for the current mobile route and
-   * viewport. Width alone never creates a merge, but an existing merge must
-   * still fit the panes currently on screen.
-   */
-  useEffect(() => {
-    if (!isMobile || viewportWidthPx <= 0 || mobileSurface.kind !== "merged") {
-      return;
-    }
-
-    const hasMergedPane =
-      (durableMobileMergedSide === "left" && hasLeftPane) ||
-      (durableMobileMergedSide === "right" && hasRightPane);
-    if (
-      mobileMinResizeBehavior === "min_resize_to_merge" &&
-      hasMergedPane &&
-      isDurableMobileMergedFit
-    ) {
-      return;
-    }
-
-    clearMobileMergedSurfaceEffect();
-  }, [
-    hasLeftPane,
-    hasRightPane,
-    isDurableMobileMergedFit,
-    isMobile,
-    mobileMinResizeBehavior,
-    durableMobileMergedSide,
-    mobileSurface.kind,
-    viewportWidthPx,
-  ]);
-
-  /**
-   * Treats an explicit main-pane selection as leaving the merged surface model.
-   * Native scroll cannot derive `"main"` while a merged surface is active, so
-   * this is reserved for programmatic recentering and toggle actions.
-   */
-  useEffect(() => {
-    if (mobilePane !== "main") {
-      return;
-    }
-
-    if (mobileSurface.kind === "unmerged") {
-      return;
-    }
-
-    clearMobileMergedSurfaceEffect();
-  }, [mobilePane, mobileSurface.kind]);
 
   function getGripPositionPx(resizeHandle: WorkspaceLayoutV2ResizeHandleConfig) {
     if (activeGripResizeSideRef.current !== resizeHandle.side) {
@@ -266,7 +224,6 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
 
     if (
       mobileMinResizeBehavior === "min_resize_to_merge" &&
-      mergedMainWidthPx !== null &&
       currentMobileGrip.kind === "dragging" &&
       currentMobileGrip.mergeTargetSide === resizeHandle.side
     ) {
@@ -277,7 +234,11 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
         viewportWidthPx,
       });
 
-      if (settledMainWidthPx !== null && currentMobileGrip.shouldSettleMergedOnEnd) {
+      if (
+        mergedMainWidthPx !== null &&
+        settledMainWidthPx !== null &&
+        currentMobileGrip.shouldSettleMergedOnEnd
+      ) {
         settleMobileMergedSurface({
           mainWidthPx: settledMainWidthPx,
           side: resizeHandle.side,
