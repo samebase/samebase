@@ -11,7 +11,6 @@
   - `apps/samebase/src/components/workspace-layout-v2/useWorkspaceLayoutV2MobileResize.ts`
   - `apps/samebase/src/components/workspace-layout-v2/useWorkspaceLayoutV2MobileCarousel.ts`
   - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2Viewports.tsx`
-  - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2BottomPanel.tsx`
   - `specs/092_WORKSPACE_PANE_MIN_RESIZE_MERGE_SPEC.md`
 
 ## Summary

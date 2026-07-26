@@ -44,20 +44,11 @@ function getPointerDeltaPx(args: {
   return (args.event.clientX - args.startClientPx) * (args.resizeFrom === "left" ? 1 : -1);
 }
 
-function getResizeHandleLabel(resizeFrom: "left" | "right", ariaLabel?: string) {
-  if (ariaLabel !== undefined) {
-    return ariaLabel;
-  }
-
-  return `Resize ${resizeFrom} sidebar`;
-}
-
 function getResizeHandleValueText(currentSizePx: number) {
   return `${Math.round(currentSizePx)} pixels wide`;
 }
 
 type WorkspaceLayoutV2ResizeHandleProps = {
-  ariaLabel?: string;
   currentSizePx: number;
   dataTestId: string;
   maxSizePx: number;
@@ -79,7 +70,6 @@ type WorkspaceLayoutV2ResizeHandleProps = {
  * hit area or mobile uses a visible grip.
  */
 export function WorkspaceLayoutV2ResizeHandle({
-  ariaLabel,
   currentSizePx,
   dataTestId,
   maxSizePx,
@@ -228,7 +218,7 @@ export function WorkspaceLayoutV2ResizeHandle({
   const gripSizeClassName = "h-16 w-8";
 
   const interactiveProps = {
-    "aria-label": getResizeHandleLabel(resizeFrom, ariaLabel),
+    "aria-label": `Resize ${resizeFrom} sidebar`,
     "aria-orientation": "vertical" as const,
     "aria-valuemax": maxSizePx,
     "aria-valuemin": minSizePx,

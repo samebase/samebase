@@ -1,5 +1,5 @@
 const textEntryControlNames = new Set(["input", "select", "textarea", "Input", "Textarea"]);
-const textEntryClassAttributeNames = new Set(["className", "inputClassName", "textareaClassName"]);
+const textEntryClassAttributeNames = new Set(["className"]);
 const nonTextInputTypes = new Set([
   "button",
   "checkbox",

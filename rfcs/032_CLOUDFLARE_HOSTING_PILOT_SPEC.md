@@ -127,7 +127,7 @@ Implement Cloudflare as another backend behind the existing hosting boundary use
 
 1. Provision (create Pages project + connect to repo)
 2. Resolve production URL
-3. Read status/logs/inventory for approval-first prod-read tools (read-only)
+3. Read status, logs, and inventory through connected provider workflows (read-only)
 4. Teardown (delete project/resources)
 
 Open question (resolve during implementation): whether Pages provisioning should use “GitHub source
@@ -160,8 +160,7 @@ Work:
 
 - Add a minimal Cloudflare MCP client wrapper that can perform read calls.
 - Implement “list accounts” and “list pages projects/apps” reads.
-- Add approval-first prod-read tools for Cloudflare inventory reads, consistent with other provider
-  read tooling patterns.
+- Expose Cloudflare inventory reads through the current vault and provider workflows.
 
 Exit criteria:
 

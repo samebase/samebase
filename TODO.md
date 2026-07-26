@@ -420,11 +420,6 @@ information for better coding help.
   - Benefits: No React compilation needed, backward compatible, extensible, type-safe
   - Alternative to full MDX that works with plain text rendering
 
-## UI/UX Improvements
-
-- [ ] commit proposal UI: make the commit description clickable to go to GitHub commit URL, ensure
-      button inside doesn't change sizes
-
 ## Development Environment
 
 - [ ] the dev container should default to fish. Even the ai should prefer that

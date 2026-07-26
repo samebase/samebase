@@ -35,7 +35,7 @@ The current Convex surface contains:
 - more than 120 public `query`, `mutation`, and `action` functions
 - internal functions that own cross-function state transitions
 - 18 app HTTP routes in `apps/samebase/convex/http.ts`
-- installed Convex components for agent and workflow behavior
+- installed Convex components for workflow behavior
 
 Helper tests should remain, but new backend behavior that depends on Convex auth, schema validation,
 function registration, component registration, database writes, scheduling, or HTTP routing should

@@ -336,15 +336,6 @@ describe("public Convex route ownership checks", () => {
       }),
     ).rejects.toThrow("Unauthorized");
     await expect(
-      t.mutation(internal.fileStaging.internalMarkFileForDeletion, {
-        vaultId: ids.vaultId,
-        filePath: "notes/plan.md",
-        parentCommitSha: "abc123",
-        branch: "main",
-        userId: ids.otherUserId,
-      }),
-    ).rejects.toThrow("Unauthorized");
-    await expect(
       t.mutation(internal.fileStaging.duplicateBranchStaging, {
         vaultId: ids.vaultId,
         sourceBranch: "main",

@@ -16,6 +16,10 @@ Current dependency review:
 - `@prosemark/core` is MIT licensed.
 - `convex` is Apache-2.0 licensed.
 - `dompurify` is offered under `MPL-2.0 OR Apache-2.0`; use the Apache-2.0 option.
+- `mediabunny`, its encoder packages, and `lightningcss` are MPL-2.0 licensed. Preserve their
+  applicable license notices and review the MPL terms before redistributing modified covered files.
+- Several Remotion packages report either the Remotion License or no license metadata in the raw
+  report. Verify their current Remotion licensing terms before redistribution or version upgrades.
 - `@polar-sh/sdk` omits a `license` field in the published package metadata, but its published
   README currently advertises MIT. Re-verify that package on version upgrades.
 
