@@ -54,6 +54,7 @@ export type VaultEnvironmentResource =
       href: string;
       label: string;
       provider: "convex";
+      provenance: "production" | "pull_request_branch";
       title: string;
     }
   | {
@@ -282,6 +283,7 @@ export function buildProductionEnvironmentRoots({
                 href,
                 label: deployment.deploymentName,
                 provider: "convex",
+                provenance: "production",
                 title: `Open production Convex deployment ${deployment.deploymentName}`,
               },
             },
@@ -308,17 +310,9 @@ export function buildProductionEnvironmentRoots({
 }
 
 export function buildPullRequestEnvironmentRoots({
-  branch,
-  owner,
-  repoName,
   resources,
-  schemaGraphEnabled,
 }: {
-  branch: string;
-  owner: string;
-  repoName: string;
   resources: PullRequestResources;
-  schemaGraphEnabled: boolean;
 }): VaultEnvironmentRoot[] {
   const workers = resources.workers.map((worker) => {
     const rootDirectory = worker.state === "unavailable" ? "Needs attention" : worker.rootDirectory;
@@ -361,7 +355,7 @@ export function buildPullRequestEnvironmentRoots({
     };
   });
   const convexDeployments = resources.convexProjects.flatMap((project) => {
-    if (project.state !== "available") {
+    if (project.state !== "branch") {
       return [];
     }
     return [
@@ -377,25 +371,12 @@ export function buildPullRequestEnvironmentRoots({
               href: `${project.dashboardUrl}/data`,
               label: "Data",
             },
-            ...(schemaGraphEnabled
-              ? [
-                  {
-                    destination: "samebase" as const,
-                    href: buildVaultSchemaRoute({
-                      owner,
-                      repoName,
-                      branch,
-                      convexProjectId: project.convexProjectId,
-                    }),
-                    label: "Schema",
-                  },
-                ]
-              : []),
           ],
           href: project.dashboardUrl,
           label: project.deploymentName,
           provider: "convex" as const,
-          title: `Open preview Convex deployment ${project.deploymentName}`,
+          provenance: "pull_request_branch" as const,
+          title: `Open branch Convex deployment ${project.deploymentName}`,
         },
       },
     ];

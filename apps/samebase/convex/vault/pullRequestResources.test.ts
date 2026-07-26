@@ -310,7 +310,7 @@ describe("validatePullRequestResourceIds", () => {
 });
 
 describe("resolveConvexPreviewDeployment", () => {
-  it("matches the branch identifier and reference without Cloudflare build metadata", () => {
+  it("returns the unique branch deployment independently of Cloudflare build timing", () => {
     expect(
       resolveConvexPreviewDeployment({
         deployments: [
@@ -321,7 +321,7 @@ describe("resolveConvexPreviewDeployment", () => {
         head,
       }),
     ).toMatchObject({
-      state: "available",
+      state: "branch",
       deployment: { name: "live-truth-91" },
     });
   });

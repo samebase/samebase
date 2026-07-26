@@ -102,6 +102,7 @@ test("shows the shared overview model on desktop", async ({ page }) => {
     fixture.getByRole("link", { name: "Open pull request #1260 on GitHub" }),
   ).toHaveAttribute("href", "https://github.com/samebase/samebase/pull/1260");
   await expect(fixture.getByRole("button", { name: "Filters" })).toHaveCount(0);
+  await expect(fixture.locator('[data-pull-request-number="1258"]')).toBeVisible();
   const deploymentActions = fixture.getByRole("button", {
     name: "Open calm-swan-123 actions",
   });
@@ -164,6 +165,11 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   await expect(
     fixture.getByRole("link", { name: "precise-otter-1260", exact: true }),
   ).toBeVisible();
+  await expect(fixture.getByText("May be from an earlier commit", { exact: true })).toBeVisible();
+  await fixture.getByRole("button", { name: "Open precise-otter-1260 actions" }).click();
+  await expect(page.getByRole("menuitem", { name: "Data" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Schema" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
   await expect(fixture).toHaveScreenshot("vault-overview-v2-mobile.png", {
     animations: "disabled",
     caret: "hide",
@@ -182,6 +188,11 @@ test("keeps provider ownership and actions together in mobile settings", async (
   await expect(
     fixture.getByRole("button", { name: "Configure Workers Builds for GitHub" }).first(),
   ).toBeVisible();
+  await fixture.getByRole("button", { name: "Actions for Convex project samebase" }).click();
+  await expect(
+    page.getByRole("menuitem", { name: "Remove Convex project samebase from vault" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(fixture).toHaveScreenshot("vault-overview-v2-settings-mobile.png", {
     animations: "disabled",
     caret: "hide",

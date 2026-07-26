@@ -195,9 +195,6 @@ export function VaultOverviewPage({
 }: VaultOverviewPageProps) {
   const filesReadEnabled =
     workspace.access.state === "ready" && workspace.access.accessKeys.includes("access_files_read");
-  const schemaGraphEnabled =
-    workspace.access.state === "ready" &&
-    workspace.access.accessKeys.includes("access_schema_graph");
   const provisioningLabel =
     workspace.vault.sourceSetup.status === "running"
       ? formatVaultSourceSetupStep(workspace.vault.sourceSetup.step)
@@ -249,7 +246,6 @@ export function VaultOverviewPage({
               <PullRequestsSection
                 filesReadEnabled={filesReadEnabled}
                 pullRequests={workspace.pullRequests}
-                schemaGraphEnabled={schemaGraphEnabled}
                 vault={workspace.vault}
               />
             </>

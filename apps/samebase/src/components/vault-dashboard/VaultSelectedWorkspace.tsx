@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAction } from "convex/react";
 import { useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 
@@ -101,6 +101,27 @@ export function VaultSelectedWorkspace({
     },
     [navigate],
   );
+
+  useEffect(() => {
+    if (deleteModeActive && !canDelete) {
+      replaceVaultDashboardDialogRoute("delete");
+      return;
+    }
+    if (addConvexModeActive && !canManageProviderAttachments) {
+      replaceVaultDashboardDialogRoute("add-convex");
+      return;
+    }
+    if (addCloudflareWorkerModeActive && !canManageProviderAttachments) {
+      replaceVaultDashboardDialogRoute("add-cloudflare");
+    }
+  }, [
+    addCloudflareWorkerModeActive,
+    addConvexModeActive,
+    canDelete,
+    canManageProviderAttachments,
+    deleteModeActive,
+    replaceVaultDashboardDialogRoute,
+  ]);
 
   const closeVaultDashboardDialog = (dialog: VaultDashboardQueryDialog) => {
     if (vaultDashboardDialogHistoryEntry?.dialog === dialog && router.history.canGoBack()) {

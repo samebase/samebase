@@ -52,6 +52,7 @@ function ResourceActions({ resource }: { resource: VaultRepositorySettingsResour
     <div className="flex flex-wrap items-center gap-1">
       {directActions.map((action) => (
         <Button
+          aria-label={action.ariaLabel}
           key={`${action.kind}:${action.label}`}
           disabled={action.disabled || !action.onClick}
           size="sm"
@@ -65,13 +66,23 @@ function ResourceActions({ resource }: { resource: VaultRepositorySettingsResour
       {removeActions.length > 0 ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild nativeButton>
-            <Button aria-label="Resource actions" size="icon-sm" type="button" variant="ghost">
+            <Button
+              aria-label={
+                resource.provider === "cloudflare"
+                  ? `Actions for Cloudflare Worker ${resource.name}`
+                  : `Actions for Convex project ${resource.name}`
+              }
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+            >
               <MoreHorizontal />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44 rounded-none shadow-none">
             {removeActions.map((action) => (
               <DropdownMenuItem
+                aria-label={action.ariaLabel}
                 key={`${action.kind}:${action.label}`}
                 disabled={action.disabled || !action.onClick}
                 variant="destructive"

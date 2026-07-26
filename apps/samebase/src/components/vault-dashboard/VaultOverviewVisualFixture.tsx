@@ -642,7 +642,7 @@ function fixturePullRequests(
               pullRequest.number === 1260
                 ? [
                     {
-                      state: "available" as const,
+                      state: "branch" as const,
                       convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
                       rootDirectory: "apps/samebase",
                       deploymentName: "precise-otter-1260",

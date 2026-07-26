@@ -52,6 +52,7 @@ function fakeVaultProvisioningRunId(): Id<"workflow_vaultProvisioning_runs"> {
 function page(args: {
   number: number;
   endCursor: string | null;
+  isDraft?: boolean;
   labels?: Array<{ name: string; color: string }>;
 }): RepositoryPullRequestPage {
   const headRefOid = args.number.toString(16).padStart(40, "0");
@@ -99,7 +100,7 @@ function page(args: {
             number: args.number,
             title: `Pull request ${args.number}`,
             url: `https://github.com/samebase/samebase/pull/${args.number}`,
-            isDraft: false,
+            isDraft: args.isDraft ?? false,
             isCrossRepository: false,
             additions: 1,
             deletions: 0,
@@ -251,6 +252,7 @@ describe("useVaultPullRequests", () => {
         ? page({
             number: 1260,
             endCursor: "cursor:2",
+            isDraft: true,
             labels: [{ name: "hidden", color: "0969da" }],
           })
         : page({ number: 1259, endCursor: null });
@@ -275,6 +277,7 @@ describe("useVaultPullRequests", () => {
       after: null,
     });
     expect(settledState().allPullRequests.map((pullRequest) => pullRequest.number)).toEqual([1260]);
+    expect(settledState().allPullRequests[0]?.isDraft).toBe(true);
     expect(settledState().defaultBranch).toMatchObject({
       headCommitOid: "81145b7d2a32186823452c7515b2d5ba2d79b350",
       headCommitTitle: "Keep the workspace model explicit",

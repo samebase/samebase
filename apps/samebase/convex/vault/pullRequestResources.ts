@@ -34,7 +34,7 @@ const GITHUB_PULL_REQUEST_RESOURCE_LIMIT = 100;
 
 const vPullRequestConvexResource = union(
   object({
-    state: literal("available"),
+    state: literal("branch"),
     convexProjectId: id("vaultConvexProjects"),
     rootDirectory: string(),
     deploymentName: string(),
@@ -327,7 +327,7 @@ export function resolveConvexPreviewDeployment(args: {
   deployments: readonly ConvexCloudDeployment[];
   head: PullRequestResourceHead;
 }):
-  | { state: "available"; deployment: ConvexCloudDeployment }
+  | { state: "branch"; deployment: ConvexCloudDeployment }
   | { state: "absent" }
   | {
       state: "unavailable";
@@ -337,18 +337,19 @@ export function resolveConvexPreviewDeployment(args: {
     return { state: "unavailable", reason: "fork_head" };
   }
 
-  const matches = args.deployments.filter(
+  const branchMatches = args.deployments.filter(
     (deployment) =>
       deployment.previewIdentifier === args.head.headRefName &&
       deployment.reference === `preview/${args.head.headRefName}`,
   );
-  if (matches.length === 0) {
+  if (branchMatches.length === 0) {
     return { state: "absent" };
   }
-  if (matches.length > 1) {
+
+  if (branchMatches.length > 1) {
     return { state: "unavailable", reason: "deployment_ambiguous" };
   }
-  return { state: "available", deployment: matches[0] };
+  return { state: "branch", deployment: branchMatches[0] };
 }
 
 export function resolveCloudflareBranchPreviewUrl(args: {
@@ -498,7 +499,7 @@ async function readConvexProjectResourcesForHeads(args: {
       return { state: "unavailable", ...identity };
     }
     return {
-      state: "available",
+      state: resolved.state,
       ...identity,
       deploymentName: resolved.deployment.name,
       dashboardUrl: buildConvexDeploymentDashboardUrl({

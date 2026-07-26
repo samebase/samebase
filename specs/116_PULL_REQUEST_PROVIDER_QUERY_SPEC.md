@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase dashboard and provider boundaries
-- Last updated: 2026-07-22
+- Last updated: 2026-07-26
 - Related work:
   - [PR #1243: Simplify vault provider resource truth](https://github.com/samebase/samebase/pull/1243)
   - [PR #1234: Replace dashboard branch mirrors with live pull requests](https://github.com/samebase/samebase/pull/1234)
@@ -20,13 +20,15 @@ request, check, Worker, or deployment database.
 Samebase persists only state it owns:
 
 - vault and repository identity, including the durable default branch;
-- saved pull request filter preferences;
 - stable Worker and Convex project attachments;
 - durable workflow plans, runs, events, and locks for operations Samebase performs.
 
 GitHub owns pull request fields and checks. Cloudflare owns Workers and builds. Convex owns
 production and preview deployments. Samebase reads those facts when a screen needs them and does not
 mirror them into Convex tables.
+
+The dormant `ui_vaultPullRequests_filters` row and its APIs remain available for a possible future
+filter design. The current vault overview does not read or apply those saved preferences.
 
 ## GitHub Page Boundary
 
@@ -43,7 +45,8 @@ The browser owns pagination and presentation:
 - the first page loads the six most recently updated open pull requests;
 - later six-item pages load automatically when the scroll sentinel enters view;
 - one TanStack infinite query owns all loaded pages and refreshes them together;
-- label and draft filters run over the pages already loaded;
+- every loaded open pull request is shown, including drafts;
+- no saved label or draft filter is applied;
 - check counts are converted to display state in the browser;
 - TanStack Query caches responses for 60 seconds and discards unused entries after 5 minutes;
 - loading a later page does not renew the first page's observation time;
@@ -51,10 +54,6 @@ The browser owns pagination and presentation:
 
 Stale pull requests and deploy resources do not expose separate retry controls. Reloading the
 document recreates their provider requests.
-
-Filtering can produce no matches while GitHub still has another page. The scroll sentinel remains
-active so another provider page loads automatically. The UI must not claim the repository has no
-matching pull requests until the provider pages are exhausted.
 
 The default-branch surface is not part of this pull request resource query. It is a separate,
 always-visible dashboard feature sourced from `vault.defaultBranch`; its production resource group
@@ -75,8 +74,7 @@ The request joins live GitHub, Cloudflare, and Convex responses against the dire
 project attachments. It does not persist a pull request resource model. The browser caches one
 resource request for each loaded GitHub page under the common vault-provider observation namespace,
 keyed by the exact attachment coordinates and pull request node ids. Loading another page does not
-re-read resource data for earlier pages. Resource requests are independent of browser filters, so
-changing presentation preferences does not repeat provider scans.
+re-read resource data for earlier pages.
 
 The stable GitHub repository id proves repository identity. A repository coordinate rename does not
 invalidate that identity. If one requested pull request closes, merges, or disappears between the
@@ -100,23 +98,17 @@ commits build on the branch. The version-specific `Preview URL` is not the row's
 Samebase never downloads general pull request comments or guesses Cloudflare's alias normalization
 from the branch name. Missing, incomplete, malformed, or contradictory check output fails closed.
 
-A Convex preview belongs to that build only when:
+A Convex branch deployment belongs to a row only when the pull request head is in the vault
+repository, the project is directly attached to the vault, the current Convex credential can read
+that exact project, and exactly one provider deployment matches the branch identifier and reference.
+This discovery is independent of Worker build state. The direct attachment proves that the project
+belongs to the vault, while the branch match selects a useful recovery destination. It does not
+prove that the deployment came from the current head or is current. The UI labels this state as
+potentially belonging to an earlier commit.
 
-1. the pull request head is in the vault repository;
-2. the Worker build succeeded;
-3. both Worker triggers expose one consistent `SAMEBASE_CONVEX_PROJECT` marker whose stable
-   `projectId` resolves to a direct Convex attachment;
-4. the current Convex credential can read that exact project under its current team, even when the
-   attachment's stored team coordinate has drifted;
-5. one provider deployment matches the branch identifier and reference;
-6. the deployment time falls inside the Worker build interval.
-
-Failure to prove a relationship yields absent or unavailable presentation state. Names alone never
-create resource ownership.
-
-An available Convex preview exposes both its deployment dashboard and a direct link to that exact
-deployment's Data page. Both links use the same provider URL returned by the verified resource
-result. Samebase does not create a second preview resolver or embedded preview credential flow.
+The branch deployment exposes the provider dashboard and its Data page. Pull request resources do
+not expose Samebase Schema because the current Schema refresh flow reads the production deployment.
+Production Convex resources retain their access-gated Schema link.
 
 ## Exact Branch Trees
 
@@ -169,14 +161,16 @@ Tests must prove:
 
 - one action call maps to one GitHub page request and forwards the provider cursor;
 - the first provider page requests six pull requests;
-- filters are absent from the server request and run over loaded browser pages;
-- another provider page loads automatically after a filtered-empty loaded page;
+- filter state is absent from the server request;
+- drafts and labeled pull requests from loaded provider pages remain visible;
 - a background failure retains stale browser data without calling it current;
 - refreshing a multi-page query retains all previous pages if any provider request fails;
 - same-repository and fork heads stay distinct;
 - resource enrichment derives head identity from a server-side GitHub read, never browser fields;
 - a pull request that leaves the open set during resource enrichment does not fail sibling rows;
-- resource links require exact cross-provider identity;
+- exact Worker resource state requires exact cross-provider identity;
+- one attached-project Convex branch deployment remains reachable independently of Worker state and
+  is visibly branch-scoped;
 - an exact Cloudflare build exposes its provider logs link;
 - an exact Cloudflare build check exposes its stable branch preview instead of its version preview;
 - an exact branch tree uses the immutable tree SHA returned for that branch commit;

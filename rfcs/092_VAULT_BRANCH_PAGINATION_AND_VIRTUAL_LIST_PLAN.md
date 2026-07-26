@@ -7,7 +7,7 @@
 - Last updated: 2026-07-04
 - Related specs:
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
-  - `specs/067_VAULT_PULL_REQUEST_FILTERS_SPEC.md`
+  - `archive/067_VAULT_PULL_REQUEST_FILTERS_SPEC.md`
   - `specs/100_CONVEX_VAULT_MODULE_LAYOUT_SPEC.md`
   - `specs/110_VAULT_ROUTE_SURFACE_SPEC.md`
 - Related RFCs:
