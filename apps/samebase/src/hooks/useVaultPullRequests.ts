@@ -162,8 +162,10 @@ export function useVaultPullRequests(args: {
 }): VaultPullRequestsState {
   const listOpenPullRequests = useAction(api.repositoryPullRequests.listOpenPullRequests);
   const getPullRequestResources = useAction(api.vault.pullRequestResources.getPullRequestResources);
+
   const vaultId = args.vault?._id;
   const sourceSetupStatus = args.vault?.sourceSetup.status;
+
   const workerAttachments = [...(args.vault?.cloudflareWorkers ?? [])]
     .map((worker) => ({
       workerId: worker.workerId,
@@ -180,6 +182,7 @@ export function useVaultPullRequests(args: {
       codeLocation: project.codeLocation,
     }))
     .sort((left, right) => left.convexProjectId.localeCompare(right.convexProjectId));
+
   const pullRequestQuery = useInfiniteQuery({
     queryKey: ["vault-pull-requests", vaultId, sourceSetupStatus],
     queryFn: async ({ pageParam }) => {
@@ -214,6 +217,7 @@ export function useVaultPullRequests(args: {
     },
     refetchIntervalInBackground: false,
   });
+
   const pages = useMemo(() => pullRequestQuery.data?.pages ?? [], [pullRequestQuery.data?.pages]);
   const uniquePages = useMemo(() => uniquePullRequestsByPage(pages), [pages]);
   const allPullRequests = useMemo(
@@ -222,6 +226,7 @@ export function useVaultPullRequests(args: {
   );
   const defaultBranch = defaultBranchFromPage(pages.at(0));
   const pullRequestIdPages = uniquePages.pullRequestIdPages;
+
   const resourceQueries = useQueries({
     queries: pullRequestIdPages.map((pagePullRequestIds, pageIndex) => ({
       queryKey: [
@@ -270,17 +275,14 @@ export function useVaultPullRequests(args: {
     return resources;
   }, [pullRequestIdPages, resourceQueries]);
 
-  const fetchNextPage = pullRequestQuery.fetchNextPage;
-  const refetchPullRequests = pullRequestQuery.refetch;
-  const hasNextPage = pullRequestQuery.hasNextPage;
-  const isFetchNextPageError = pullRequestQuery.isFetchNextPageError;
-  const isFetchingNextPage = pullRequestQuery.isFetchingNextPage;
+  const { fetchNextPage, refetch } = pullRequestQuery;
   const loadMore = useCallback(() => {
     void fetchNextPage();
   }, [fetchNextPage]);
   const reload = useCallback(() => {
-    void refetchPullRequests();
-  }, [refetchPullRequests]);
+    void refetch();
+  }, [refetch]);
+
   if (!vaultId) {
     return { state: "not_requested" };
   }
@@ -288,13 +290,14 @@ export function useVaultPullRequests(args: {
     return pullRequestQuery.isError ? { state: "problem", reload } : { state: "loading" };
   }
 
-  const loadMoreState: VaultPullRequestLoadMoreState = isFetchingNextPage
+  const loadMoreState: VaultPullRequestLoadMoreState = pullRequestQuery.isFetchingNextPage
     ? { state: "loading" }
-    : isFetchNextPageError
+    : pullRequestQuery.isFetchNextPageError
       ? { state: "failed" }
-      : hasNextPage
+      : pullRequestQuery.hasNextPage
         ? { state: "available", load: loadMore }
         : { state: "exhausted" };
+
   return {
     state:
       pullRequestQuery.isRefetchError && !pullRequestQuery.isFetchNextPageError
