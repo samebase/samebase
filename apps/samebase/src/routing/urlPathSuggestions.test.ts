@@ -39,7 +39,6 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/logo/transition/transforms");
     expect(suggestions).toContain("/visual-fixture");
     expect(suggestions).toContain("/vault/$");
-    expect(suggestions).not.toContain("/vault2");
     expect(suggestions).not.toContain("/_public");
     expect(suggestions).not.toContain("/_public/vault");
     expect(suggestions).not.toContain("/docs/do-it-yourself");
@@ -148,7 +147,6 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/logo/svg");
     expect(suggestions).toContain("/vault/$owner/$repo");
     expect(suggestions).not.toContain("/vault/$");
-    expect(suggestions).not.toContain("/vault2");
     expect(suggestions).not.toContain("/indexDB");
     expect(suggestions).not.toContain("/localStorage");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
@@ -258,7 +256,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
     expect(
       isRouteUrlPathReadyForNavigation({
         currentHref: "/",
-        draftHref: "/vault2/octo/repo",
+        draftHref: "/unknown/octo/repo",
         origin: ORIGIN,
         routesByPath,
         viewer: staffViewer,
