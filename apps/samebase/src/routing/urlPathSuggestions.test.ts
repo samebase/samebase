@@ -145,7 +145,8 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/logo/iso");
     expect(suggestions).toContain("/logo/raster");
     expect(suggestions).toContain("/logo/svg");
-    expect(suggestions).toContain("/vault/$");
+    expect(suggestions).toContain("/vault/$owner/$repo");
+    expect(suggestions).not.toContain("/vault/$");
     expect(suggestions).not.toContain("/indexDB");
     expect(suggestions).not.toContain("/localStorage");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
@@ -251,6 +252,16 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         viewer: staffViewer,
       }),
     ).toBe(true);
+
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/unknown/octo/repo",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: staffViewer,
+      }),
+    ).toBe(false);
   });
 
   it("accepts every visible route path for instant app-shell previews", () => {

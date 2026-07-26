@@ -5,7 +5,7 @@
 - Status: Proposed
 - Owner: Noter platform
 - Date: 2026-06-12
-- Last updated: 2026-06-19
+- Last updated: 2026-07-26
 - Related specs:
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
   - `rfcs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
@@ -38,13 +38,15 @@ model; they are a convenient way to assemble default access bundles until Noter 
 custom roles, per-user overrides, or delegated resource-specific grants. Code outside role
 resolution, role management, audit, or admin/debug surfaces should prefer `access_*` checks.
 
-Member MVP: `role_member` holds `access_public`, `access_user_preferences`, `access_dashboard`,
-`access_provider_connections`, `access_repo_connect`, `access_app_create`, `access_app_refresh`,
-`access_files_read`, and `access_files_write`. Members can sign in, persist signed-in app-shell
-preferences, connect provider accounts, connect/import their own repositories, create Noter-managed
-apps after provider-readiness checks pass, monitor/resync app state, and use owned file surfaces
-behind per-vault ownership checks. MCP and admin surfaces stay staff-only until deliberately opened.
-Enabling more later is a grant edit plus route/function reclassification, not a redesign.
+Member MVP: `role_member` holds `access_public`, `access_account_deletion`,
+`access_user_preferences`, `access_dashboard`, `access_provider_connections`, `access_repo_connect`,
+`access_app_create`, `access_app_refresh`, `access_mcp`, `access_browser_login_handoff`, and
+`access_schema_graph`. Members can sign in, persist signed-in app-shell preferences, connect
+provider accounts, connect/import their own repositories, create Samebase-managed apps after
+provider-readiness checks pass, monitor/resync app state, inspect embedded deployment data, and
+inspect schema graphs behind per-vault ownership checks. File viewing, file editing, and admin
+surfaces stay staff-only until deliberately opened. Enabling more later is a grant edit plus
+route/function reclassification, not a redesign.
 
 This RFC also closes the approval enforcement gap that existed before the backend wrapper rollout:
 `users.isApproved` was enforced only by the client-side `ApprovalGate`, so backend enforcement
@@ -57,8 +59,9 @@ became structural via access-key function wrappers.
    resulting checks ask whether a viewer has the required `access_*` key.
 2. Server-side enforcement that fails closed and cannot be forgotten per function: public Convex
    queries, mutations, and actions must be wrapped with an explicit access key.
-3. Member MVP includes account/repo/app-creation/app-status capabilities, with the path to files and
-   MCP being grant edits plus targeted reclassification, not a redesign.
+3. Member MVP includes account/repo/app-creation/app-status, embedded data, schema-graph, MCP, and
+   account-deletion capabilities. File viewing and editing remain grant edits plus targeted
+   reclassification, not a redesign.
 4. Keep billing (plan/add-ons) outside this access model: access keys gate who may call; current
    member app creation is not gated by billing state. Existing billing specs are plumbing notes, not
    enforceable product decisions. Future quotas, credits, or plan enforcement need their own

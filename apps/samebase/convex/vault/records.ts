@@ -11,13 +11,14 @@ import {
   buildVaultCloudflareBuildConfigForRootDirectory,
   parseRepositoryFullName,
   vGitHubRepositoryVisibility,
+  vVaultConnectedRepositoryTarget,
 } from "./model";
 import { VAULT_ROOT_DIRECTORY } from "../../shared/vaultRootDirectory";
 import { isConnectedVault, isLiveConnectedVault, isSamebaseManagedVault } from "./state";
 import { isVaultDeletingOrDeleteFailed } from "./deletion/state";
 
 const nullValidator = v.null();
-const { boolean, id, object, optional, string } = v;
+const { array, boolean, id, object, optional, string } = v;
 
 type ProvisioningVault = Extract<Doc<"vaults">, { state: "provisioning" }>;
 
@@ -50,6 +51,37 @@ export const getByIdForUser = internalQuery({
       return null;
     }
     return vault;
+  },
+});
+
+export const listConnectedRepositoriesForUser = internalQuery({
+  args: {
+    userId: id("users"),
+  },
+  returns: array(vVaultConnectedRepositoryTarget),
+  handler: async (ctx, args) => {
+    const repositories = [];
+    for await (const vault of ctx.db
+      .query("vaults")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))) {
+      if (!isLiveConnectedVault(vault)) {
+        continue;
+      }
+      repositories.push({
+        vaultId: vault._id,
+        ghRepoId: vault.ghRepoId,
+        owner: vault.owner,
+        name: vault.name,
+        defaultBranch: vault.defaultBranch,
+      });
+    }
+
+    return repositories.sort(
+      (left, right) =>
+        left.owner.localeCompare(right.owner) ||
+        left.name.localeCompare(right.name) ||
+        left.vaultId.localeCompare(right.vaultId),
+    );
   },
 });
 

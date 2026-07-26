@@ -5,12 +5,10 @@ import type {
   RepositoryPullRequestPage,
   RepositoryStatusCheckRollup,
 } from "../../convex/repositoryPullRequests";
+import type { UserVaultResult } from "../../convex/vault/contracts/getUserVaults";
 import type { PullRequestResources } from "../../convex/vault/pullRequestResources";
-import {
-  filterVaultPullRequests,
-  type VaultPullRequestFilters,
-} from "@/components/vault-dashboard/vaultDashboardPullRequestFilters";
 import { summarizeRepositoryChecks, type RepositoryCheckSummary } from "@/lib/repositoryChecks";
+import { vaultExternalDataQueryKey } from "@/lib/vaultExternalDataQueryKey";
 import { useInfiniteQuery, useQueries } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { useCallback, useMemo } from "react";
@@ -21,13 +19,7 @@ const PULL_REQUEST_GC_MS = 5 * 60_000;
 const PULL_REQUEST_PAGE_SIZE = 6;
 const INITIAL_PULL_REQUEST_CURSOR: string | null = null;
 
-type ObservedPullRequestPage = {
-  observedAt: number;
-  page: RepositoryPullRequestPage;
-};
-
-type VaultPullRequestTarget = {
-  _id: Id<"vaults">;
+type VaultPullRequestTarget = Pick<UserVaultResult, "_id" | "sourceSetup"> & {
   cloudflareWorkers: readonly {
     workerId: Id<"vaultCloudflareWorkers">;
     accountId: string;
@@ -47,8 +39,11 @@ export type VaultPullRequest = Omit<RepositoryPullRequest, "labels"> & {
   checks: RepositoryCheckSummary;
 };
 
-export type VaultDefaultBranchChecks = {
+export type VaultDefaultBranchObservation = {
   headCommitOid: string;
+  headCommitTitle: string;
+  headCommitCommittedAt: string;
+  headCommitUrl: string;
   statusCheckRollup: RepositoryStatusCheckRollup;
   checks: RepositoryCheckSummary;
 };
@@ -59,25 +54,26 @@ export type PullRequestResourceState =
   | { state: "current"; resources: PullRequestResources }
   | { state: "stale"; resources: PullRequestResources };
 
+export type VaultPullRequestLoadMoreState =
+  | { state: "available"; load: () => void }
+  | { state: "loading" }
+  | { state: "failed" }
+  | { state: "exhausted" };
+
 type SettledPullRequests = {
   state: "current" | "stale";
-  defaultBranchChecks: VaultDefaultBranchChecks | null;
-  pullRequests: VaultPullRequest[];
+  defaultBranch: VaultDefaultBranchObservation | null;
   allPullRequests: VaultPullRequest[];
   refreshing: boolean;
-  resourceState: "current" | "loading" | "stale" | "failed";
+  resourcesStale: boolean;
   resourcesByPullRequestId: ReadonlyMap<string, PullRequestResourceState>;
-  hasMore: boolean;
-  isLoadingMore: boolean;
-  canLoadMore: boolean;
-  loadMoreFailed: boolean;
-  loadMore: () => void;
+  loadMore: VaultPullRequestLoadMoreState;
 };
 
 export type VaultPullRequestsState =
   | { state: "not_requested" }
   | { state: "loading" }
-  | { state: "problem" }
+  | { state: "problem"; reload: () => void }
   | SettledPullRequests;
 
 function pullRequestsFromPage(
@@ -89,16 +85,6 @@ function pullRequestsFromPage(
 function nextCursor(page: RepositoryPullRequestPage | undefined): string | null {
   const pageInfo = page?.repository?.pullRequests.pageInfo;
   return pageInfo?.hasNextPage ? pageInfo.endCursor : null;
-}
-
-function pageNeedsPolling(page: RepositoryPullRequestPage | undefined): boolean {
-  return (
-    summarizeRepositoryChecks(page?.repository?.defaultBranch?.statusCheckRollup ?? null).state ===
-      "running" ||
-    pullRequestsFromPage(page).some(
-      (pullRequest) => summarizeRepositoryChecks(pullRequest.statusCheckRollup).state === "running",
-    )
-  );
 }
 
 function resourcesNeedPolling(resources: PullRequestResources[] | undefined): boolean {
@@ -121,55 +107,56 @@ function presentPullRequest(pullRequest: RepositoryPullRequest): VaultPullReques
   };
 }
 
-function defaultBranchChecksFromPage(
+function defaultBranchFromPage(
   page: RepositoryPullRequestPage | undefined,
-): VaultDefaultBranchChecks | null {
+): VaultDefaultBranchObservation | null {
   const defaultBranch = page?.repository?.defaultBranch;
   if (!defaultBranch) {
     return null;
   }
   return {
     headCommitOid: defaultBranch.headCommitOid,
+    headCommitTitle: defaultBranch.headCommitTitle,
+    headCommitCommittedAt: defaultBranch.headCommitCommittedAt,
+    headCommitUrl: defaultBranch.headCommitUrl,
     statusCheckRollup: defaultBranch.statusCheckRollup,
     checks: summarizeRepositoryChecks(defaultBranch.statusCheckRollup),
   };
 }
 
-function uniquePullRequests(pages: readonly RepositoryPullRequestPage[]): RepositoryPullRequest[] {
+function uniquePullRequestsByPage(pages: readonly RepositoryPullRequestPage[]): {
+  pullRequests: RepositoryPullRequest[];
+  pullRequestIdPages: string[][];
+} {
   const seen = new Set<string>();
-  return pages.flatMap((page) =>
-    pullRequestsFromPage(page).filter((pullRequest) => {
+  const pullRequests: RepositoryPullRequest[] = [];
+  const pullRequestIdPages: string[][] = [];
+  for (const page of pages) {
+    const pagePullRequestIds: string[] = [];
+    for (const pullRequest of pullRequestsFromPage(page)) {
       if (seen.has(pullRequest.id)) {
-        return false;
+        continue;
       }
       seen.add(pullRequest.id);
-      return true;
-    }),
-  );
-}
-
-function uniquePullRequestIdPages(pages: readonly RepositoryPullRequestPage[]): string[][] {
-  const seen = new Set<string>();
-  return pages.flatMap((page) => {
-    const pullRequestIds = pullRequestsFromPage(page).flatMap((pullRequest) => {
-      if (seen.has(pullRequest.id)) {
-        return [];
-      }
-      seen.add(pullRequest.id);
-      return [pullRequest.id];
-    });
-    return pullRequestIds.length > 0 ? [pullRequestIds] : [];
-  });
+      pullRequests.push(pullRequest);
+      pagePullRequestIds.push(pullRequest.id);
+    }
+    if (pagePullRequestIds.length > 0) {
+      pullRequestIdPages.push(pagePullRequestIds);
+    }
+  }
+  return { pullRequests, pullRequestIdPages };
 }
 
 export function useVaultPullRequests(args: {
   vault: VaultPullRequestTarget | null;
-  filters: VaultPullRequestFilters;
-  now: number;
 }): VaultPullRequestsState {
   const listOpenPullRequests = useAction(api.repositoryPullRequests.listOpenPullRequests);
   const getPullRequestResources = useAction(api.vault.pullRequestResources.getPullRequestResources);
+
   const vaultId = args.vault?._id;
+  const sourceSetupStatus = args.vault?.sourceSetup.status;
+
   const workerAttachments = [...(args.vault?.cloudflareWorkers ?? [])]
     .map((worker) => ({
       workerId: worker.workerId,
@@ -186,8 +173,9 @@ export function useVaultPullRequests(args: {
       codeLocation: project.codeLocation,
     }))
     .sort((left, right) => left.convexProjectId.localeCompare(right.convexProjectId));
+
   const pullRequestQuery = useInfiniteQuery({
-    queryKey: ["vault-pull-requests", vaultId],
+    queryKey: ["vault-pull-requests", vaultId, sourceSetupStatus],
     queryFn: async ({ pageParam }) => {
       if (!vaultId) {
         throw new Error("Vault is required to load pull requests.");
@@ -200,37 +188,35 @@ export function useVaultPullRequests(args: {
       if (page.repository === null) {
         throw new Error("GitHub repository unavailable.");
       }
-      return { observedAt: Date.now(), page };
+      return page;
     },
     initialPageParam: INITIAL_PULL_REQUEST_CURSOR,
-    getNextPageParam: (lastPage: ObservedPullRequestPage) => nextCursor(lastPage.page) ?? undefined,
+    getNextPageParam: (lastPage) => nextCursor(lastPage) ?? undefined,
     enabled: Boolean(vaultId),
     staleTime: PULL_REQUEST_STALE_MS,
     gcTime: PULL_REQUEST_GC_MS,
     retry: false,
-    refetchInterval: (query) =>
-      query.state.data?.pages.some((observedPage) => pageNeedsPolling(observedPage.page)) === true
-        ? PULL_REQUEST_STALE_MS
-        : false,
+    // TanStack keeps the retained pages and refetches them through their current
+    // cursors, so refreshing does not collapse the list or move the scroll
+    // position. Polling every minute also lets a settled repository discover a
+    // newly opened pull request without requiring navigation.
+    refetchInterval: PULL_REQUEST_STALE_MS,
     refetchIntervalInBackground: false,
   });
-  const observedPages = pullRequestQuery.data?.pages;
-  const pages = useMemo(
-    () => observedPages?.map((observedPage) => observedPage.page) ?? [],
-    [observedPages],
+
+  const pages = useMemo(() => pullRequestQuery.data?.pages ?? [], [pullRequestQuery.data?.pages]);
+  const uniquePages = useMemo(() => uniquePullRequestsByPage(pages), [pages]);
+  const allPullRequests = useMemo(
+    () => uniquePages.pullRequests.map(presentPullRequest),
+    [uniquePages.pullRequests],
   );
-  const allPullRequests = useMemo(() => uniquePullRequests(pages).map(presentPullRequest), [pages]);
-  const defaultBranchChecks = defaultBranchChecksFromPage(pages.at(0));
-  const pullRequests = useMemo(
-    () => filterVaultPullRequests(allPullRequests, args.filters),
-    [allPullRequests, args.filters],
-  );
-  const pullRequestIdPages = useMemo(() => uniquePullRequestIdPages(pages), [pages]);
+  const defaultBranch = defaultBranchFromPage(pages.at(0));
+  const pullRequestIdPages = uniquePages.pullRequestIdPages;
+
   const resourceQueries = useQueries({
-    queries: pullRequestIdPages.map((pagePullRequestIds) => ({
+    queries: pullRequestIdPages.map((pagePullRequestIds, pageIndex) => ({
       queryKey: [
-        "vault-provider-observations",
-        vaultId,
+        ...vaultExternalDataQueryKey(vaultId),
         "pull-request-resources",
         workerAttachments,
         projectAttachments,
@@ -247,7 +233,7 @@ export function useVaultPullRequests(args: {
       gcTime: PULL_REQUEST_GC_MS,
       retry: false,
       refetchInterval: (query: { state: { data: PullRequestResources[] | undefined } }) =>
-        resourcesNeedPolling(query.state.data) ? PULL_REQUEST_STALE_MS : false,
+        pageIndex === 0 || resourcesNeedPolling(query.state.data) ? PULL_REQUEST_STALE_MS : false,
       refetchIntervalInBackground: false,
     })),
   });
@@ -266,69 +252,49 @@ export function useVaultPullRequests(args: {
           continue;
         }
         resources.set(pullRequestId, {
-          state:
-            resourceQuery.isRefetchError ||
-            args.now > resourceQuery.dataUpdatedAt + PULL_REQUEST_STALE_MS
-              ? "stale"
-              : "current",
+          state: resourceQuery.isRefetchError ? "stale" : "current",
           resources: pullRequestResources,
         });
       }
     });
     return resources;
-  }, [args.now, pullRequestIdPages, resourceQueries]);
+  }, [pullRequestIdPages, resourceQueries]);
 
-  const resourceStates = [...resourcesByPullRequestId.values()].map((resource) => resource.state);
-  const resourceState = resourceStates.includes("failed")
-    ? "failed"
-    : resourceStates.includes("stale")
-      ? "stale"
-      : resourceStates.includes("loading")
-        ? "loading"
-        : "current";
-  const fetchNextPage = pullRequestQuery.fetchNextPage;
-  const hasNextPage = pullRequestQuery.hasNextPage;
-  const isFetchNextPageError = pullRequestQuery.isFetchNextPageError;
-  const isFetchingNextPage = pullRequestQuery.isFetchingNextPage;
+  const { fetchNextPage, refetch } = pullRequestQuery;
   const loadMore = useCallback(() => {
-    if (!hasNextPage || isFetchingNextPage || isFetchNextPageError) {
-      return;
-    }
     void fetchNextPage();
-  }, [fetchNextPage, hasNextPage, isFetchNextPageError, isFetchingNextPage]);
+  }, [fetchNextPage]);
+  const reload = useCallback(() => {
+    void refetch();
+  }, [refetch]);
+
   if (!vaultId) {
     return { state: "not_requested" };
   }
   if (!pullRequestQuery.data) {
-    return pullRequestQuery.isError ? { state: "problem" } : { state: "loading" };
+    return pullRequestQuery.isError ? { state: "problem", reload } : { state: "loading" };
   }
 
-  const lastPage = pages.at(-1);
-  if (!lastPage) {
-    throw new Error("Pull request query returned no provider pages.");
-  }
-  const hasMore = nextCursor(lastPage) !== null;
-  const canLoadMore = hasMore && !isFetchingNextPage && !isFetchNextPageError;
-  const firstPageObservedAt = observedPages?.at(0)?.observedAt;
-  if (firstPageObservedAt === undefined) {
-    throw new Error("Pull request query returned an unobserved provider page.");
-  }
+  const loadMoreState: VaultPullRequestLoadMoreState = pullRequestQuery.isFetchingNextPage
+    ? { state: "loading" }
+    : pullRequestQuery.isFetchNextPageError
+      ? { state: "failed" }
+      : pullRequestQuery.hasNextPage
+        ? { state: "available", load: loadMore }
+        : { state: "exhausted" };
+
   return {
     state:
-      (pullRequestQuery.isRefetchError && !pullRequestQuery.isFetchNextPageError) ||
-      args.now > firstPageObservedAt + PULL_REQUEST_STALE_MS
+      pullRequestQuery.isRefetchError && !pullRequestQuery.isFetchNextPageError
         ? "stale"
         : "current",
-    defaultBranchChecks,
-    pullRequests,
+    defaultBranch,
     allPullRequests,
     refreshing: pullRequestQuery.isFetching || resourceQueries.some((query) => query.isFetching),
-    resourceState,
+    resourcesStale: [...resourcesByPullRequestId.values()].some(
+      (resource) => resource.state === "stale",
+    ),
     resourcesByPullRequestId,
-    hasMore,
-    isLoadingMore: isFetchingNextPage,
-    canLoadMore,
-    loadMoreFailed: isFetchNextPageError,
-    loadMore,
+    loadMore: loadMoreState,
   };
 }

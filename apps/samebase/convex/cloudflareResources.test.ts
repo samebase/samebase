@@ -19,6 +19,7 @@ import {
   isWorkersBuildsInvalidTokenMessage,
   listCloudflareWorkerInventory,
   readCloudflareWorkerBuildsDiscoveryForIdentity,
+  readRecentCloudflareWorkerBuilds,
   readCloudflareWorkerConvexBuildAccess,
   readCloudflareWorkerIdentity,
   readCloudflareWorkerRepositoryDiscoveryForIdentity,
@@ -466,6 +467,41 @@ describe("cloudflare resources", () => {
       workerTag: "worker-tag",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads a second Workers Builds page before declaring the history exhausted", async () => {
+    const requestedPages: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = new URL(input instanceof Request ? input.url : String(input));
+        const page = url.searchParams.get("page") ?? "";
+        requestedPages.push(page);
+        const result = Array.from({ length: page === "1" ? 100 : 1 }, (_, index) => ({
+          build_uuid: `build-${page}-${index}`,
+        }));
+        return new Response(
+          JSON.stringify({
+            success: true,
+            errors: [],
+            messages: [],
+            result,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }),
+    );
+
+    const read = await readRecentCloudflareWorkerBuilds({
+      token: "oauth-token",
+      transport: "direct",
+      accountId: "account-id",
+      workerTag: "worker-tag",
+    });
+
+    expect(requestedPages).toEqual(["1", "2"]);
+    expect(read.builds).toHaveLength(101);
+    expect(read.exhausted).toBe(true);
   });
 
   it("reads exact preview URLs from Worker versions with Cloudflare's nullable envelope", async () => {

@@ -1,34 +1,12 @@
 import { linkStyle } from "@/components/styles";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
-import type { RepositoryCheckSummary } from "@/lib/repositoryChecks";
+import { formatRepositoryCheckSummary, type RepositoryCheckSummary } from "@/lib/repositoryChecks";
 import { clsx } from "clsx";
 import { CircleAlert, CircleCheck, CircleDashed, CircleDot, CircleX, Loader2 } from "lucide-react";
 import type { RepositoryStatusCheckRollup } from "../../../convex/repositoryPullRequests";
 
 type RepositoryCheck = NonNullable<RepositoryStatusCheckRollup>["contexts"]["nodes"][number];
 type RepositoryCheckState = Exclude<RepositoryCheckSummary["state"], "none">;
-
-function checksLabel(checks: RepositoryCheckSummary): string {
-  switch (checks.state) {
-    case "none":
-      return "No checks";
-    case "success":
-      return checks.neutralCount > 0
-        ? `${checks.successCount} passed · ${checks.neutralCount} neutral`
-        : `${checks.successCount} passed`;
-    case "failure":
-      return `${checks.failureCount} failed`;
-    case "running":
-      return `${checks.runningCount} pending`;
-    case "neutral":
-      return `${checks.neutralCount} neutral`;
-    case "unknown":
-      return `${checks.totalCount} unknown`;
-    default:
-      checks.state satisfies never;
-      return "Checks unavailable";
-  }
-}
 
 function ChecksIcon({ state }: { state: RepositoryCheckSummary["state"] }) {
   switch (state) {
@@ -116,7 +94,7 @@ function checkStateClassName(state: RepositoryCheckSummary["state"]): string {
     case "failure":
       return "text-destructive";
     case "running":
-      return "text-blue-600";
+      return "text-amber-700";
     case "none":
     case "neutral":
     case "unknown":
@@ -165,14 +143,14 @@ export function VaultChecksPopover({
         <button
           type="button"
           className={clsx(
-            "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-sm px-1.5 font-mono text-sm tabular-nums underline decoration-muted-foreground/40 underline-offset-4 transition-colors",
+            "inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-sm px-1.5 text-xs font-medium tabular-nums underline decoration-muted-foreground/40 underline-offset-4 transition-colors @4xl:min-h-8",
             checkStateClassName(checks.state),
             linkStyle,
           )}
           title={triggerTitle}
         >
           <ChecksIcon state={checks.state} />
-          {checksLabel(checks)}
+          {formatRepositoryCheckSummary(checks)}
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[22rem] max-w-[calc(100vw-1rem)] gap-0 p-0">

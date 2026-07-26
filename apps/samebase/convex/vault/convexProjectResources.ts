@@ -111,7 +111,3 @@ export async function readConvexPreviewDeployments(args: {
       left.name.localeCompare(right.name),
   );
 }
-
-export function buildConvexSiteUrl(deployment: ConvexCloudDeployment): string {
-  return `https://${deployment.name}.convex.site`;
-}

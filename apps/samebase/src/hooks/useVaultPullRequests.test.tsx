@@ -44,6 +44,11 @@ function fakeConvexProjectId(): Id<"vaultConvexProjects"> {
   return "project:test";
 }
 
+function fakeVaultProvisioningRunId(): Id<"workflow_vaultProvisioning_runs"> {
+  // @ts-expect-error Convex ids are strings at runtime; this test only needs stable identity.
+  return "provisioning-run:test";
+}
+
 function page(args: {
   number: number;
   endCursor: string | null;
@@ -58,8 +63,11 @@ function page(args: {
       defaultBranch: {
         name: "main",
         headCommitOid: "81145b7d2a32186823452c7515b2d5ba2d79b350",
+        headCommitTitle: "Keep the workspace model explicit",
+        headCommitCommittedAt: "2026-07-20T11:45:00Z",
+        headCommitUrl:
+          "https://github.com/samebase/samebase/commit/81145b7d2a32186823452c7515b2d5ba2d79b350",
         statusCheckRollup: {
-          state: "SUCCESS",
           contexts: {
             totalCount: 1,
             checkRunCount: 1,
@@ -118,11 +126,6 @@ let rootElement: HTMLDivElement | null = null;
 let root: Root | null = null;
 let queryClient: QueryClient;
 let latestState: VaultPullRequestsState | null = null;
-let currentFilters = {
-  hiddenLabels: ["hidden"],
-  includeDrafts: false,
-  includeNoLabel: true,
-};
 let currentCloudflareWorkers: Array<{
   workerId: Id<"vaultCloudflareWorkers">;
   accountId: string;
@@ -135,6 +138,7 @@ let currentConvexProjects: Array<{
   projectId: string;
   codeLocation: { kind: "config"; convexConfigPath: string };
 }> = [];
+let currentSourceSetupRunning = false;
 
 function Harness() {
   latestState = useVaultPullRequests({
@@ -142,9 +146,15 @@ function Harness() {
       _id: fakeVaultId(),
       cloudflareWorkers: currentCloudflareWorkers,
       convexProjects: currentConvexProjects,
+      sourceSetup: currentSourceSetupRunning
+        ? {
+            status: "running",
+            runId: fakeVaultProvisioningRunId(),
+            step: "sync_tree",
+            updatedAt: 1,
+          }
+        : { status: "ready" },
     },
-    filters: currentFilters,
-    now: Date.now(),
   });
   return null;
 }
@@ -154,6 +164,14 @@ function settledState() {
     throw new Error(`Pull requests are not settled: ${latestState?.state ?? "missing"}.`);
   }
   return latestState;
+}
+
+function loadMore() {
+  const state = settledState().loadMore;
+  if (state.state !== "available") {
+    throw new Error(`More pull requests cannot be loaded: ${state.state}.`);
+  }
+  state.load();
 }
 
 async function waitFor(predicate: (state: VaultPullRequestsState) => boolean): Promise<void> {
@@ -195,13 +213,9 @@ function installResourceHandler() {
 beforeEach(() => {
   actionState.handlersByFunctionName.clear();
   latestState = null;
-  currentFilters = {
-    hiddenLabels: ["hidden"],
-    includeDrafts: false,
-    includeNoLabel: true,
-  };
   currentCloudflareWorkers = [];
   currentConvexProjects = [];
+  currentSourceSetupRunning = false;
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   rootElement = document.createElement("div");
   document.body.append(rootElement);
@@ -228,7 +242,7 @@ async function renderHarness(): Promise<void> {
 }
 
 describe("useVaultPullRequests", () => {
-  it("loads one provider page at a time and filters only in the browser", async () => {
+  it("loads one provider page at a time", async () => {
     const listHandler = vi.fn(async (value: unknown) => {
       if (!value || typeof value !== "object" || !("after" in value)) {
         throw new Error("Provider cursor is required.");
@@ -260,14 +274,15 @@ describe("useVaultPullRequests", () => {
       first: 6,
       after: null,
     });
-    expect(settledState().pullRequests).toEqual([]);
-    expect(settledState().defaultBranchChecks).toMatchObject({
+    expect(settledState().allPullRequests.map((pullRequest) => pullRequest.number)).toEqual([1260]);
+    expect(settledState().defaultBranch).toMatchObject({
       headCommitOid: "81145b7d2a32186823452c7515b2d5ba2d79b350",
+      headCommitTitle: "Keep the workspace model explicit",
       checks: { state: "success", totalCount: 1, successCount: 1 },
     });
-    expect(settledState().hasMore).toBe(true);
+    expect(settledState().loadMore.state).toBe("available");
 
-    act(() => settledState().loadMore());
+    act(() => loadMore());
     await waitFor(
       (state) =>
         (state.state === "current" || state.state === "stale") &&
@@ -276,7 +291,9 @@ describe("useVaultPullRequests", () => {
 
     expect(listHandler).toHaveBeenCalledTimes(2);
     expect(listHandler.mock.calls[1]?.[0]).toMatchObject({ after: "cursor:2" });
-    expect(settledState().pullRequests.map((pullRequest) => pullRequest.number)).toEqual([1259]);
+    expect(settledState().allPullRequests.map((pullRequest) => pullRequest.number)).toEqual([
+      1260, 1259,
+    ]);
   });
 
   it("stops automatic pagination after a later provider page fails", async () => {
@@ -302,55 +319,12 @@ describe("useVaultPullRequests", () => {
         state.allPullRequests.length === 1,
     );
 
-    act(() => settledState().loadMore());
+    act(() => loadMore());
     await waitFor(
-      (state) => (state.state === "current" || state.state === "stale") && state.loadMoreFailed,
+      (state) =>
+        (state.state === "current" || state.state === "stale") && state.loadMore.state === "failed",
     );
-    expect(settledState().canLoadMore).toBe(false);
-
-    act(() => settledState().loadMore());
     expect(listHandler).toHaveBeenCalledTimes(2);
-  });
-
-  it("reapplies browser filters without requesting another provider page", async () => {
-    const listHandler = vi.fn(async () =>
-      page({
-        number: 1260,
-        endCursor: null,
-        labels: [{ name: "hidden", color: "0969da" }],
-      }),
-    );
-    actionState.handlersByFunctionName.set(
-      getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
-      listHandler,
-    );
-    const resourceHandler = installResourceHandler();
-
-    await renderHarness();
-    await waitFor(
-      (state) =>
-        (state.state === "current" || state.state === "stale") &&
-        state.allPullRequests.length === 1 &&
-        state.resourceState === "current",
-    );
-    expect(settledState().pullRequests).toEqual([]);
-    expect(resourceHandler).toHaveBeenCalledWith({
-      vaultId: fakeVaultId(),
-      pullRequestIds: ["pull-request:1260"],
-    });
-
-    currentFilters = {
-      ...currentFilters,
-      hiddenLabels: [],
-    };
-    await renderHarness();
-    await waitFor(
-      (state) =>
-        (state.state === "current" || state.state === "stale") && state.pullRequests.length === 1,
-    );
-
-    expect(listHandler).toHaveBeenCalledTimes(1);
-    expect(resourceHandler).toHaveBeenCalledTimes(1);
   });
 
   it("caches resource enrichment by provider page and exact attachment coordinates", async () => {
@@ -370,15 +344,14 @@ describe("useVaultPullRequests", () => {
 
     await renderHarness();
     await waitFor(
-      (state) =>
-        (state.state === "current" || state.state === "stale") && state.resourceState === "current",
+      (state) => (state.state === "current" || state.state === "stale") && !state.resourcesStale,
     );
-    act(() => settledState().loadMore());
+    act(() => loadMore());
     await waitFor(
       (state) =>
         (state.state === "current" || state.state === "stale") &&
         state.allPullRequests.length === 2 &&
-        state.resourceState === "current",
+        !state.resourcesStale,
     );
 
     expect(resourceHandler.mock.calls.map((call) => call[0])).toEqual([
@@ -407,7 +380,7 @@ describe("useVaultPullRequests", () => {
       (state) =>
         (state.state === "current" || state.state === "stale") &&
         resourceHandler.mock.calls.length === 4 &&
-        state.resourceState === "current",
+        !state.resourcesStale,
     );
 
     expect(resourceHandler.mock.calls.slice(2).map((call) => call[0])).toEqual([
@@ -448,7 +421,7 @@ describe("useVaultPullRequests", () => {
         state.allPullRequests.length === 1,
     );
 
-    act(() => settledState().loadMore());
+    act(() => loadMore());
     await waitFor(
       (state) =>
         (state.state === "current" || state.state === "stale") &&
@@ -507,7 +480,7 @@ describe("useVaultPullRequests", () => {
         (state.state === "current" || state.state === "stale") &&
         state.allPullRequests.length === 1,
     );
-    act(() => settledState().loadMore());
+    act(() => loadMore());
     await waitFor(
       (state) =>
         (state.state === "current" || state.state === "stale") &&
@@ -534,16 +507,11 @@ describe("useVaultPullRequests", () => {
     ]);
   });
 
-  it("does not renew first-page freshness when a later page loads", async () => {
-    let now = 1_000;
-    vi.spyOn(Date, "now").mockImplementation(() => now);
-    const listHandler = vi.fn(async (value: unknown) => {
-      if (!value || typeof value !== "object" || !("after" in value)) {
-        throw new Error("Provider cursor is required.");
-      }
-      return value.after === null
-        ? page({ number: 1260, endCursor: "cursor:2" })
-        : page({ number: 1259, endCursor: null });
+  it("refreshes immediately when source setup becomes ready", async () => {
+    let requestCount = 0;
+    const listHandler = vi.fn(async () => {
+      requestCount += 1;
+      return page({ number: requestCount === 1 ? 1260 : 1261, endCursor: null });
     });
     actionState.handlersByFunctionName.set(
       getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
@@ -551,24 +519,22 @@ describe("useVaultPullRequests", () => {
     );
     installResourceHandler();
 
+    currentSourceSetupRunning = true;
     await renderHarness();
     await waitFor(
       (state) =>
         (state.state === "current" || state.state === "stale") &&
-        state.allPullRequests.length === 1,
+        state.allPullRequests[0]?.number === 1260,
     );
 
-    now = 60_000;
-    act(() => settledState().loadMore());
+    currentSourceSetupRunning = false;
+    await renderHarness();
     await waitFor(
       (state) =>
         (state.state === "current" || state.state === "stale") &&
-        state.allPullRequests.length === 2,
+        state.allPullRequests[0]?.number === 1261,
     );
 
-    now = 61_001;
-    await renderHarness();
-
-    expect(settledState().state).toBe("stale");
+    expect(listHandler).toHaveBeenCalledTimes(2);
   });
 });

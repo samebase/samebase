@@ -27,24 +27,8 @@ function getRepositoryName(repositoryFullName: string): string {
   return parseRepositoryFullName(repositoryFullName).name;
 }
 
-function removeVaultControl(page: Page, repoName: string): Locator {
-  return page.getByRole("link", {
-    name: new RegExp(`^Remove vault .*/${escapeRegExp(repoName)}$`),
-  });
-}
-
-function vaultCard(page: Page, repoName: string): Locator {
-  return page
-    .locator("[data-vault-dashboard-repository-card]")
-    .filter({ hasText: new RegExp(`\\b${escapeRegExp(repoName)}\\b`) })
-    .first();
-}
-
-function setupFailedVaultCard(page: Page, repoName: string): Locator {
-  return page
-    .locator("[data-vault-dashboard-repository-card]")
-    .filter({ hasText: new RegExp(`\\b${escapeRegExp(repoName)}\\b[\\s\\S]*\\(setup failed\\)`) })
-    .first();
+function removeVaultControl(page: Page): Locator {
+  return page.getByRole("button", { exact: true, name: "Remove vault" });
 }
 
 function vaultListLink(page: Page, repoName: string): Locator {
@@ -61,6 +45,14 @@ async function selectTemporaryVault(page: Page, repoName: string): Promise<void>
   await expect(link).toBeVisible({ timeout: 120_000 });
   await link.click();
   await expect(page).toHaveURL(new RegExp(`/vault/[^/]+/${escapeRegExp(repoName)}(?:[?#]|$)`));
+}
+
+async function openVaultSettings(page: Page): Promise<void> {
+  await page
+    .getByRole("navigation", { name: "Repository" })
+    .getByRole("link", { exact: true, name: "Settings" })
+    .click();
+  await expect(page).toHaveURL(/\/vault\/[^/]+\/[^/]+\/settings(?:[?#]|$)/);
 }
 
 async function connectExistingTemporaryRepository(
@@ -80,8 +72,9 @@ async function connectExistingTemporaryRepository(
   });
 }
 
-async function createCloudflareWorkerFromDashboard(page: Page, workerName: string): Promise<void> {
-  await page.getByRole("link", { name: "Add Cloudflare" }).click();
+async function createCloudflareWorkerFromSettings(page: Page, workerName: string): Promise<void> {
+  await openVaultSettings(page);
+  await page.getByRole("button", { name: "Add Cloudflare Worker" }).click();
 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible({ timeout: 30_000 });
@@ -118,8 +111,8 @@ async function configureWorkersBuildsForGitHub(page: Page): Promise<void> {
   ).toHaveCount(0, { timeout: 180_000 });
 }
 
-async function createConvexProjectFromDashboard(page: Page, projectName: string): Promise<void> {
-  await page.getByRole("link", { name: "Add Convex" }).click();
+async function createConvexProjectFromSettings(page: Page, projectName: string): Promise<void> {
+  await page.getByRole("button", { name: "Add Convex project" }).click();
 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible({ timeout: 30_000 });
@@ -200,12 +193,9 @@ type VaultCleanupTargets = {
   githubRepository: boolean;
 };
 
-async function removeTemporaryVault(
-  page: Page,
-  repoName: string,
-  targets: VaultCleanupTargets,
-): Promise<void> {
-  const removeControl = removeVaultControl(page, repoName);
+async function removeTemporaryVault(page: Page, targets: VaultCleanupTargets): Promise<void> {
+  await openVaultSettings(page);
+  const removeControl = removeVaultControl(page);
   await expect(removeControl).toBeVisible({ timeout: 120_000 });
 
   await removeControl.click();
@@ -260,28 +250,23 @@ async function removeVaultIfPresent(
   }
 
   await selectTemporaryVault(page, repoName);
-  await removeTemporaryVault(page, repoName, targets);
+  await removeTemporaryVault(page, targets);
 }
 
-async function waitForVaultCreationResult(args: {
-  createdVaultCard: Locator;
-  failedVaultCard: Locator;
-}): Promise<"ready" | "setup-failed"> {
-  const readyPromise = args.createdVaultCard
-    .waitFor({ state: "visible", timeout: 120_000 })
-    .then(() => "ready" as const);
-  const failedPromise = args.failedVaultCard
-    .waitFor({ state: "visible", timeout: 120_000 })
-    .then(() => "setup-failed" as const);
+async function waitForVaultCreationResult(
+  page: Page,
+  repoName: string,
+): Promise<"ready" | "setup-failed"> {
+  const link = vaultListLink(page, repoName);
+  await expect(link).toBeVisible({ timeout: 120_000 });
+  await expect
+    .poll(async () => (await link.getAttribute("data-vault-status")) === "Setting up", {
+      timeout: 120_000,
+    })
+    .toBe(false);
 
-  try {
-    return await Promise.race([readyPromise, failedPromise]);
-  } finally {
-    // The other wait keeps running after Promise.race settles; observe it so
-    // page cleanup cannot surface its later timeout as an unhandled rejection.
-    void readyPromise.catch(() => undefined);
-    void failedPromise.catch(() => undefined);
-  }
+  const status = await link.getAttribute("data-vault-status");
+  return status === "Needs attention" ? "setup-failed" : "ready";
 }
 
 test.describe("vault create app live flow", () => {
@@ -319,25 +304,17 @@ test.describe("vault create app live flow", () => {
       createdRepository = true;
       await selectTemporaryVault(page, repositoryName);
 
-      const createdVaultCard = vaultCard(page, repositoryName);
-      const failedVaultCard = setupFailedVaultCard(page, repositoryName);
-      const creationResult = await waitForVaultCreationResult({
-        createdVaultCard,
-        failedVaultCard,
-      });
+      const creationResult = await waitForVaultCreationResult(page, repositoryName);
       test.skip(
         creationResult === "setup-failed",
         "App creation is unavailable because provisioning failed in this environment.",
       );
 
-      const repositoryLink = createdVaultCard.locator(
-        `a[href^="https://github.com/"][href$="/${repositoryName}"]`,
-      );
+      const repositoryLink = page.getByRole("link", {
+        name: new RegExp(`^Open [^/]+/${escapeRegExp(repositoryName)} on GitHub$`),
+      });
 
       await expect(repositoryLink).toBeVisible({ timeout: 120_000 });
-      await expect(createdVaultCard.getByRole("button", { name: "Developer tools" })).toBeVisible({
-        timeout: 120_000,
-      });
 
       await testInfo.attach("created-repository-link", {
         body: (await repositoryLink.first().getAttribute("href")) ?? "",
@@ -350,7 +327,7 @@ test.describe("vault create app live flow", () => {
         await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });
         await signInIfNeeded(page, "/vault?dev");
         await selectTemporaryVault(page, repositoryName);
-        await removeTemporaryVault(page, repositoryName, {
+        await removeTemporaryVault(page, {
           cloudflareWorker: true,
           convexProject: true,
           githubRepository: true,
@@ -400,16 +377,16 @@ test.describe("vault create app live flow", () => {
       vaultConnected = true;
       await selectTemporaryVault(page, repositoryName);
 
-      await createCloudflareWorkerFromDashboard(page, resourceName);
+      await createCloudflareWorkerFromSettings(page, resourceName);
       await configureWorkersBuildsForGitHub(page);
-      await createConvexProjectFromDashboard(page, resourceName);
+      await createConvexProjectFromSettings(page, resourceName);
       await setCloudflareConvexDeployKeys(page);
     } finally {
       if (vaultConnected) {
         await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });
         await signInIfNeeded(page, "/vault?dev");
         await selectTemporaryVault(page, repositoryName);
-        await removeTemporaryVault(page, repositoryName, cleanupTargets);
+        await removeTemporaryVault(page, cleanupTargets);
       }
     }
   });

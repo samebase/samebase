@@ -110,8 +110,9 @@ const routeAccessMetadataByPath = {
   "/vault/": { access: "access_dashboard", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/vault/$": { access: "access_files_read" },
   "/vault/$owner/$repo": { access: "access_dashboard" },
+  "/vault/$owner/$repo/settings": { access: "access_dashboard" },
   "/vault/$owner/$repo/db/$branch/project/$convexProjectId": {
-    access: "access_files_read",
+    access: "access_dashboard",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
   "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": {

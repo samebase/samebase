@@ -12,21 +12,21 @@ export type VaultDashboardSourceSetupStep = Extract<
 export function formatVaultSourceSetupStep(step: VaultDashboardSourceSetupStep): string {
   switch (step) {
     case "run_created":
-      return "run created";
+      return "Starting setup";
     case "initialize_vault":
-      return "initialize vault";
+      return "Preparing vault";
     case "validate_connections":
-      return "validate connections";
+      return "Checking provider connections";
     case "create_github_repo":
-      return "create GitHub repo";
+      return "Creating GitHub repository";
     case "fetch_github_repo":
-      return "fetch GitHub repo";
+      return "Reading GitHub repository";
     case "connect_github":
-      return "connect GitHub";
+      return "Connecting GitHub repository";
     case "seed_starter":
-      return "seed starter";
+      return "Adding starter files";
     case "sync_tree":
-      return "sync tree";
+      return "Syncing repository files";
   }
   step satisfies never;
   return step;

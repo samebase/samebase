@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { normalizeGitHubPullRequestPage } from "./repositoryPullRequests";
+import type { Id } from "./_generated/dataModel";
+import {
+  normalizeGitHubPullRequestPage,
+  normalizeGitHubVaultSidebarSummaries,
+  recoverGitHubVaultSidebarSummariesFromError,
+  vaultSidebarSummaryBatches,
+} from "./repositoryPullRequests";
+
+function fakeVaultId(): Id<"vaults"> {
+  // @ts-expect-error Convex ids are strings at runtime; this provider boundary
+  // test only needs a stable vault identity.
+  return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+}
 
 function providerPage() {
   return {
@@ -13,8 +25,10 @@ function providerPage() {
         target: {
           __typename: "Commit",
           oid: "main123",
+          messageHeadline: "Keep the workspace model explicit",
+          committedDate: "2026-07-21T09:30:00Z",
+          url: "https://github.com/samebase/samebase/commit/main123",
           statusCheckRollup: {
-            state: "SUCCESS",
             contexts: {
               totalCount: 1,
               checkRunCount: 1,
@@ -68,7 +82,6 @@ function providerPage() {
                   commit: {
                     oid: "abc123",
                     statusCheckRollup: {
-                      state: "SUCCESS",
                       contexts: {
                         totalCount: 2,
                         checkRunCount: 1,
@@ -115,8 +128,10 @@ describe("normalizeGitHubPullRequestPage", () => {
         defaultBranch: {
           name: "main",
           headCommitOid: "main123",
+          headCommitTitle: "Keep the workspace model explicit",
+          headCommitCommittedAt: "2026-07-21T09:30:00Z",
+          headCommitUrl: "https://github.com/samebase/samebase/commit/main123",
           statusCheckRollup: expect.objectContaining({
-            state: "SUCCESS",
             contexts: expect.objectContaining({
               nodes: [expect.objectContaining({ name: "main checks (24.x)" })],
             }),
@@ -132,7 +147,9 @@ describe("normalizeGitHubPullRequestPage", () => {
               headRefName: "feature/provider-truth",
               headRefOid: "abc123",
               labels: { nodes: [{ name: "product", color: "1a7f37" }] },
-              statusCheckRollup: expect.objectContaining({ state: "SUCCESS" }),
+              statusCheckRollup: expect.objectContaining({
+                contexts: expect.any(Object),
+              }),
             }),
           ],
         },
@@ -143,7 +160,6 @@ describe("normalizeGitHubPullRequestPage", () => {
   it("normalizes future GitHub check enums without rejecting the page", () => {
     const value = providerPage();
     const rollup = value.repository.pullRequests.nodes[0].commits.nodes[0].commit.statusCheckRollup;
-    rollup.state = "FUTURE_ROLLUP_STATE";
     rollup.contexts.totalCount = 2;
     rollup.contexts.statusContextCount = 1;
     rollup.contexts.checkRunCountsByState = [{ state: "FUTURE_CHECK_RUN_STATE", count: 1 }];
@@ -154,7 +170,6 @@ describe("normalizeGitHubPullRequestPage", () => {
     expect(
       normalizeGitHubPullRequestPage(value).repository?.pullRequests.nodes[0].statusCheckRollup,
     ).toEqual({
-      state: "UNKNOWN",
       contexts: {
         totalCount: 2,
         checkRunCount: 1,
@@ -243,5 +258,164 @@ describe("normalizeGitHubPullRequestPage", () => {
     expect(() => normalizeGitHubPullRequestPage(value)).toThrow(
       "GitHub returned incomplete pull request labels.",
     );
+  });
+});
+
+describe("normalizeGitHubVaultSidebarSummaries", () => {
+  const repository = {
+    vaultId: fakeVaultId(),
+    ghRepoId: "123",
+    owner: "samebase",
+    name: "samebase",
+    defaultBranch: "main",
+  };
+
+  it("keeps only main check counts", () => {
+    expect(
+      normalizeGitHubVaultSidebarSummaries(
+        {
+          repository0: {
+            databaseId: 123,
+            defaultBranch: {
+              name: "main",
+              target: {
+                __typename: "Commit",
+                statusCheckRollup: {
+                  contexts: {
+                    totalCount: 2,
+                    checkRunCount: 1,
+                    statusContextCount: 1,
+                    checkRunCountsByState: [{ state: "SUCCESS", count: 1 }],
+                    statusContextCountsByState: [{ state: "SUCCESS", count: 1 }],
+                  },
+                },
+              },
+            },
+          },
+        },
+        [repository],
+      ),
+    ).toEqual([
+      {
+        vaultId: repository.vaultId,
+        repository: {
+          statusCheckRollup: {
+            contexts: {
+              totalCount: 2,
+              checkRunCount: 1,
+              statusContextCount: 1,
+              checkRunCountsByState: [{ state: "SUCCESS", count: 1 }],
+              statusContextCountsByState: [{ state: "SUCCESS", count: 1 }],
+            },
+          },
+        },
+      },
+    ]);
+  });
+
+  it("marks a repository unavailable when GitHub returns another identity", () => {
+    expect(
+      normalizeGitHubVaultSidebarSummaries(
+        {
+          repository0: {
+            databaseId: 456,
+            defaultBranch: null,
+          },
+        },
+        [repository],
+      ),
+    ).toEqual([{ vaultId: repository.vaultId, repository: null }]);
+  });
+});
+
+describe("recoverGitHubVaultSidebarSummariesFromError", () => {
+  const repositories = [
+    {
+      vaultId: fakeVaultId(),
+      ghRepoId: "123",
+      owner: "samebase",
+      name: "samebase",
+      defaultBranch: "main",
+    },
+    {
+      vaultId: fakeVaultId(),
+      ghRepoId: "456",
+      owner: "samebase",
+      name: "deleted-repository",
+      defaultBranch: "main",
+    },
+  ];
+
+  it("keeps partial sidebar data when one requested repository is missing", () => {
+    const data = {
+      repository0: {
+        databaseId: 123,
+        defaultBranch: null,
+      },
+      repository1: null,
+    };
+
+    expect(
+      recoverGitHubVaultSidebarSummariesFromError(
+        {
+          name: "GraphqlResponseError",
+          errors: [
+            {
+              type: "NOT_FOUND",
+              path: ["repository1"],
+            },
+          ],
+          data,
+        },
+        repositories,
+      ),
+    ).toBe(data);
+  });
+
+  it("rethrows provider errors that are not missing requested repositories", () => {
+    const error = {
+      name: "GraphqlResponseError",
+      errors: [
+        {
+          type: "FORBIDDEN",
+          path: ["repository0"],
+        },
+      ],
+      data: {},
+    };
+
+    expect(() => recoverGitHubVaultSidebarSummariesFromError(error, repositories)).toThrow(error);
+  });
+
+  it("rethrows a missing-repository error for an alias outside the request", () => {
+    const error = {
+      name: "GraphqlResponseError",
+      errors: [
+        {
+          type: "NOT_FOUND",
+          path: ["repository2"],
+        },
+      ],
+      data: {},
+    };
+
+    expect(() => recoverGitHubVaultSidebarSummariesFromError(error, repositories)).toThrow(error);
+  });
+});
+
+describe("vaultSidebarSummaryBatches", () => {
+  it("bounds each GitHub query while preserving every repository in order", () => {
+    const repositories = Array.from({ length: 41 }, (_, index) => ({
+      vaultId: fakeVaultId(),
+      ghRepoId: String(1_000 + index),
+      owner: `owner-${index}`,
+      name: `repository-${index}`,
+      defaultBranch: index % 2 === 0 ? "main" : "trunk",
+    }));
+
+    const batches = vaultSidebarSummaryBatches(repositories);
+
+    expect(batches.map((batch) => batch.length)).toEqual([20, 20, 1]);
+    expect(batches.flat()).toEqual(repositories);
   });
 });

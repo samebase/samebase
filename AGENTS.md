@@ -112,9 +112,9 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 - For app-owned UI, prefer an empty well-behaved container over a clever or richly pre-structured
   abstraction. If the standard needs to evolve, change the standard instead of front-loading
   speculative slots and props.
-- Preserve the established visual language. Do not add shadows, rounded corners, custom easing,
-  decorative borders, or similar visual embellishments unless the user explicitly asks for them or
-  the surrounding component already uses them.
+- Preserve established visual language. Do not add shadows, rounded corners, custom easing, or
+  decorative borders unless requested or already established.
+- Prefer spacing at section endings; empty states and section endings do not get bottom borders.
 - Use Tailwind motion and timing defaults unless the product requires otherwise.
 - Assume Cloudflare is the default front door and observability layer for `samebase.com`, and keep
   application logic in Convex by default unless there is a clear reason not to.

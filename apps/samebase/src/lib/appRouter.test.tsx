@@ -17,8 +17,16 @@ vi.mock("@/components/RootIndexRoutePage", () => ({
 }));
 
 vi.mock("@/components/DashboardRoutePage", () => ({
-  DashboardRoutePage: ({ selectedRepositoryFullName }: { selectedRepositoryFullName?: string }) => (
-    <div data-testid="dashboard-route">{selectedRepositoryFullName ?? "Dashboard route"}</div>
+  DashboardRoutePage: ({
+    page = "overview",
+    selectedRepositoryFullName,
+  }: {
+    page?: "overview" | "settings";
+    selectedRepositoryFullName?: string;
+  }) => (
+    <div data-testid="dashboard-route" data-page={page}>
+      {selectedRepositoryFullName ?? "Dashboard route"}
+    </div>
   ),
 }));
 
@@ -395,9 +403,13 @@ describe("appRouter", () => {
   it("renders /vault through the explicit dashboard route", async () => {
     await renderRoute("/vault");
 
-    expect(rootElement?.querySelector('[data-testid="dashboard-route"]')?.textContent).toBe(
-      "Dashboard route",
-    );
+    await act(async () => {
+      await settleRouterRender();
+    });
+
+    const dashboardRoute = rootElement?.querySelector('[data-testid="dashboard-route"]');
+    expect(dashboardRoute?.textContent).toBe("Dashboard route");
+    expect(dashboardRoute?.getAttribute("data-page")).toBe("overview");
     expect(rootElement?.querySelector('[data-testid="root-index-route"]')).toBeNull();
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
@@ -632,6 +644,22 @@ describe("appRouter", () => {
     expect(router.state.location.pathname).toBe("/vault");
     expect(searchParams.has("stale")).toBe(false);
     expect(searchParams.has("prod-ui")).toBe(true);
+  });
+
+  it("retains prod-ui mode across vault navigation", async () => {
+    const router = await renderRoute("/vault?prod-ui");
+
+    await act(async () => {
+      await router.navigate({
+        search: {},
+        to: "/vault/$owner/$repo/settings",
+        params: { owner: "samebase", repo: "samebase" },
+      });
+      await settleRouterRender();
+    });
+
+    expect(router.state.location.pathname).toBe("/vault/samebase/samebase/settings");
+    expect(new URLSearchParams(router.state.location.searchStr).has("prod-ui")).toBe(true);
   });
 
   it("keeps the global swipe debug flag on public routes", async () => {
@@ -884,10 +912,23 @@ describe("appRouter", () => {
       await settleRouterRender();
     });
 
-    expect(rootElement?.querySelector('[data-testid="dashboard-route"]')?.textContent).toBe(
-      "samebase/samebase",
-    );
+    const dashboardRoute = rootElement?.querySelector('[data-testid="dashboard-route"]');
+    expect(dashboardRoute?.textContent).toBe("samebase/samebase");
+    expect(dashboardRoute?.getAttribute("data-page")).toBe("overview");
     expect(rootElement?.querySelector('[data-testid="file-view-page"]')).toBeNull();
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("renders canonical vault settings through the dashboard route", async () => {
+    await renderRoute("/vault/samebase/samebase/settings");
+
+    await act(async () => {
+      await settleRouterRender();
+    });
+
+    const dashboardRoute = rootElement?.querySelector('[data-testid="dashboard-route"]');
+    expect(dashboardRoute?.textContent).toBe("samebase/samebase");
+    expect(dashboardRoute?.getAttribute("data-page")).toBe("settings");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 

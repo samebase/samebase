@@ -30,6 +30,15 @@ export type GithubTreeData = Infer<typeof vGithubTreeData>;
  */
 export const vGitHubRepositoryVisibility = union(literal("private"), literal("public"));
 
+export const vVaultConnectedRepositoryTarget = object({
+  vaultId: id("vaults"),
+  ghRepoId: string(),
+  owner: string(),
+  name: string(),
+  defaultBranch: string(),
+});
+export type VaultConnectedRepositoryTarget = Infer<typeof vVaultConnectedRepositoryTarget>;
+
 export const vTreeRefreshFailureKind = union(literal("failed"), literal("rate_limited"));
 export type TreeRefreshFailureKind = Infer<typeof vTreeRefreshFailureKind>;
 

@@ -323,12 +323,14 @@ declaring one.
   `WorkspaceLayoutV2PaneFrame` content scroller declares the anonymous CSS container, so pane
   content uses container variants such as `@2xl:`, `@3xl:`, and `cqw` units against its pane width
   instead of viewport `sm:`/`md:` variants and `vw` units. A pane beside an open sidebar must adapt
-  to its own width, not the window's. Viewport-relative styling remains only for true viewport
-  concerns such as `svh` scroll-end space. Components that declare their own container for an
-  internal layout use a named container (`@container/card-header`) so anonymous pane variants keep
-  resolving to the pane. JS that must agree with a pane variant (for example gating a WebGL scene
-  behind a `hidden @3xl:block` rail) measures the pane-filling element with a `ResizeObserver`, not
-  a viewport media query.
+  to its own width, not the window's. At the configured minimum width, keep the pane navigable by
+  preserving primary identity, status, and actions before secondary metadata, and bound wrapping
+  with multi-line clamps. Viewport-relative styling remains only for true viewport concerns such as
+  `svh` scroll-end space. Components that declare their own container for an internal layout use a
+  named container (`@container/card-header`) so anonymous pane variants keep resolving to the pane.
+  JS that must agree with a pane variant (for example gating a WebGL scene behind a
+  `hidden @3xl:block` rail) measures the pane-filling element with a `ResizeObserver`, not a
+  viewport media query.
 - Default app-internal navigation to SPA navigation through TanStack Router `Link` or `navigate`.
   Plain anchors are for external URLs, downloads, or deliberate document reloads only; if an
   internal action keeps an `href` for copy/open-in-new-tab behavior, ordinary left-clicks must still

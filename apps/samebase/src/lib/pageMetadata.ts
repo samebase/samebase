@@ -156,7 +156,7 @@ export const AGENT_BROWSER_HANDOFF_PAGE_METADATA: PageMetadata = {
 };
 
 export function resolveAppPageTitle(pathname: string): string {
-  if (pathname === DASHBOARD_ROUTE) {
+  if (pathname === DASHBOARD_ROUTE || pathname === `${DASHBOARD_ROUTE}/`) {
     return "Vaults | Samebase";
   }
 

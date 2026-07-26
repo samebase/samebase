@@ -1,11 +1,11 @@
-import type { RepositoryStatusCheckRollup } from "../../convex/repositoryPullRequests";
+import type { RepositoryStatusCheckCounts } from "../../convex/repositoryPullRequests";
 
 type CheckState = "success" | "failure" | "running" | "neutral" | "unknown";
-type StatusCheckRollup = NonNullable<RepositoryStatusCheckRollup>;
+type StatusCheckCounts = NonNullable<RepositoryStatusCheckCounts>;
 type CheckRunProviderState =
-  StatusCheckRollup["contexts"]["checkRunCountsByState"][number]["state"];
+  StatusCheckCounts["contexts"]["checkRunCountsByState"][number]["state"];
 type StatusContextProviderState =
-  StatusCheckRollup["contexts"]["statusContextCountsByState"][number]["state"];
+  StatusCheckCounts["contexts"]["statusContextCountsByState"][number]["state"];
 
 export type RepositoryCheckSummary = {
   state: "none" | CheckState;
@@ -16,6 +16,26 @@ export type RepositoryCheckSummary = {
   neutralCount: number;
   unknownCount: number;
 };
+
+export function formatRepositoryCheckSummary(checks: RepositoryCheckSummary): string {
+  switch (checks.state) {
+    case "none":
+      return "No checks";
+    case "success":
+      return `${checks.successCount}/${checks.totalCount} passed`;
+    case "failure":
+      return `${checks.failureCount}/${checks.totalCount} failed`;
+    case "running":
+      return `${checks.runningCount}/${checks.totalCount} pending`;
+    case "neutral":
+      return `${checks.neutralCount}/${checks.totalCount} neutral`;
+    case "unknown":
+      return `${checks.unknownCount}/${checks.totalCount} unknown`;
+    default:
+      checks.state satisfies never;
+      return "Checks unavailable";
+  }
+}
 
 function checkRunState(state: CheckRunProviderState): CheckState {
   switch (state) {
@@ -64,7 +84,7 @@ function statusContextState(state: StatusContextProviderState): CheckState {
 }
 
 export function summarizeRepositoryChecks(
-  rollup: RepositoryStatusCheckRollup,
+  rollup: RepositoryStatusCheckCounts,
 ): RepositoryCheckSummary {
   if (rollup === null || rollup.contexts.totalCount === 0) {
     return {

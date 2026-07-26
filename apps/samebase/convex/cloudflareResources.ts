@@ -2253,6 +2253,30 @@ export async function readCloudflareWorkerBuildsPage(args: {
   );
 }
 
+const RECENT_CLOUDFLARE_WORKER_BUILD_PAGE_SIZE = 100;
+const RECENT_CLOUDFLARE_WORKER_BUILD_MAX_PAGES = 2;
+
+export async function readRecentCloudflareWorkerBuilds(args: {
+  token: string;
+  transport: CloudflareApiTransport;
+  accountId: string;
+  workerTag: string;
+}): Promise<{ builds: CloudflareWorkerBuild[]; exhausted: boolean }> {
+  const builds: CloudflareWorkerBuild[] = [];
+  for (let page = 1; page <= RECENT_CLOUDFLARE_WORKER_BUILD_MAX_PAGES; page += 1) {
+    const pageBuilds = await readCloudflareWorkerBuildsPage({
+      ...args,
+      page,
+      perPage: RECENT_CLOUDFLARE_WORKER_BUILD_PAGE_SIZE,
+    });
+    builds.push(...pageBuilds);
+    if (pageBuilds.length < RECENT_CLOUDFLARE_WORKER_BUILD_PAGE_SIZE) {
+      return { builds, exhausted: true };
+    }
+  }
+  return { builds, exhausted: false };
+}
+
 export async function readCloudflareWorkerVersionsPage(args: {
   token: string;
   transport: CloudflareApiTransport;

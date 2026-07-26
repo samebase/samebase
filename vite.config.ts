@@ -181,6 +181,10 @@ export default defineConfig({
         test: {
           name: "unit",
           environment: "node",
+          // Node 25 exposes a process-global localStorage stub unless Web
+          // Storage is disabled. That stub shadows jsdom's complete Storage
+          // implementation and makes every browser-storage test fail.
+          execArgv: ["--no-experimental-webstorage"],
           include: [
             "scripts/**/*.test.ts",
             "apps/**/*.test.ts",

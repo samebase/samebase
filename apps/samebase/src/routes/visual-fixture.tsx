@@ -13,7 +13,6 @@ import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { VisualFixturePage } from "@/visualFixture";
 
 const pathname = "/visual-fixture";
-
 const RouteSearchSchema_visualFixture = defineRouteSearchParams({
   elevation: routeSearchValueParam(routeSearchFiniteNumber, {
     access: "access_public",

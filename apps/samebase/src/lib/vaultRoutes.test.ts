@@ -5,6 +5,7 @@ import {
   buildVaultDatabaseRoute,
   buildVaultFileRoute,
   buildVaultSchemaRoute,
+  buildVaultSettingsRoute,
   parseVaultPathContext,
 } from "./vaultRoutes";
 
@@ -16,6 +17,17 @@ describe("buildVaultDashboardRoute", () => {
         repoName: "web",
       }),
     ).toBe("/vault/octo/web");
+  });
+});
+
+describe("buildVaultSettingsRoute", () => {
+  it("builds the repository settings route", () => {
+    const repository = {
+      owner: "octo",
+      repoName: "web",
+    };
+
+    expect(buildVaultSettingsRoute(repository)).toBe("/vault/octo/web/settings");
   });
 });
 

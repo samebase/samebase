@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import type { RepositoryStatusCheckRollup } from "../../convex/repositoryPullRequests";
-import { summarizeRepositoryChecks } from "./repositoryChecks";
+import {
+  formatRepositoryCheckSummary,
+  type RepositoryCheckSummary,
+  summarizeRepositoryChecks,
+} from "./repositoryChecks";
 
 type StatusCheckRollup = NonNullable<RepositoryStatusCheckRollup>;
 
@@ -20,7 +24,6 @@ describe("summarizeRepositoryChecks", () => {
 
   it("derives presentation state from GitHub's native grouped counts", () => {
     const rollup = {
-      state: "PENDING",
       contexts: {
         totalCount: 5,
         checkRunCount: 4,
@@ -48,7 +51,6 @@ describe("summarizeRepositoryChecks", () => {
 
   it("surfaces provider states that were normalized to unknown", () => {
     const rollup = {
-      state: "UNKNOWN",
       contexts: {
         totalCount: 2,
         checkRunCount: 1,
@@ -68,5 +70,27 @@ describe("summarizeRepositoryChecks", () => {
       neutralCount: 0,
       unknownCount: 2,
     });
+  });
+});
+
+describe("formatRepositoryCheckSummary", () => {
+  const summary = {
+    failureCount: 0,
+    neutralCount: 0,
+    runningCount: 0,
+    successCount: 0,
+    totalCount: 0,
+    unknownCount: 0,
+  };
+
+  it.each([
+    [{ ...summary, state: "none" }, "No checks"],
+    [{ ...summary, state: "success", successCount: 4, totalCount: 4 }, "4/4 passed"],
+    [{ ...summary, state: "failure", failureCount: 2, totalCount: 6 }, "2/6 failed"],
+    [{ ...summary, state: "running", runningCount: 3, totalCount: 8 }, "3/8 pending"],
+    [{ ...summary, state: "neutral", neutralCount: 2, totalCount: 2 }, "2/2 neutral"],
+    [{ ...summary, state: "unknown", totalCount: 5, unknownCount: 1 }, "1/5 unknown"],
+  ] satisfies readonly [RepositoryCheckSummary, string][])("formats %j as %s", (checks, label) => {
+    expect(formatRepositoryCheckSummary(checks)).toBe(label);
   });
 });
