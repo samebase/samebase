@@ -9,7 +9,7 @@ import {
   VaultOverviewSidebarLoading,
 } from "@/components/vault-dashboard/VaultOverviewSidebar";
 import { buildProductionEnvironmentRoots } from "@/components/vault-dashboard/vaultEnvironmentRoots";
-import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
+import { buildVaultRepositorySettingsState } from "@/components/vault-dashboard/vaultRepositorySettingsState";
 import type { VaultWorkspaceSelected } from "@/components/vault-dashboard/vaultWorkspaceModel";
 import { VaultOverviewVaultPickerPane } from "@/components/vault-dashboard/VaultOverviewVaultPickerPane";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
@@ -716,11 +716,15 @@ function buildFixtureWorkspace({
   } satisfies VaultWorkspaceSelected;
 
   return {
-    resourceRailState: buildVaultDashboardResourceRailState({
+    settingsState: buildVaultRepositorySettingsState({
       addCloudflareWorkerOnClick: () => {},
       addConvexOnClick: () => {},
       changeConvexProjectConfigPathOnClick: () => {},
       cloudflareObservations,
+      connectedCloudflareAccount: {
+        accountId: cloudflareAccountId,
+        accountName: cloudflareAccountName,
+      },
       convexObservations,
       configureWorkersBuildsForGitHubOnClick: () => {},
       detachCloudflareWorkerOnClick: () => {},
@@ -827,7 +831,7 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
       break;
   }
 
-  const { resourceRailState, workspace } = buildFixtureWorkspace({
+  const { settingsState, workspace } = buildFixtureWorkspace({
     cloudflareAccountId: "fixture-cloudflare-account",
     cloudflareAccountName: "Fixture Account",
     cloudflareObservations,
@@ -872,7 +876,7 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
               developerToolsVisible={false}
               isRetryingVaultAction={false}
               page="overview"
-              resourceRailState={resourceRailState}
+              settingsState={settingsState}
               workspace={workspace}
               onOpenDeleteDialog={() => {}}
               onRetryInfrastructureProvisioning={() => {}}
@@ -968,7 +972,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
           loadMore: () => setNextPullRequestPageLoaded(true),
         }
       : currentPullRequests;
-  const { resourceRailState, workspace } = buildFixtureWorkspace({
+  const { settingsState, workspace } = buildFixtureWorkspace({
     cloudflareAccountId: "fe57d01d7ab41f60d00ba1aade20eb33",
     cloudflareAccountName: "Samebase",
     cloudflareObservations,
@@ -1003,7 +1007,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
             developerToolsVisible={mode === "vault-overview-v2-dev"}
             isRetryingVaultAction={false}
             page={page}
-            resourceRailState={resourceRailState}
+            settingsState={settingsState}
             workspace={workspace}
             onOpenDeleteDialog={() => {}}
             onRetryInfrastructureProvisioning={() => {}}

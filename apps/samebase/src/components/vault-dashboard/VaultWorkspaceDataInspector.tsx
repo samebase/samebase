@@ -1,4 +1,3 @@
-import type { VaultResourceRailState } from "@/components/vault-dashboard/vaultResourceRailModel";
 import type { VaultPullRequestsState } from "@/hooks/useVaultPullRequests";
 import type { VaultWorkspaceSelected } from "./vaultWorkspaceModel";
 
@@ -26,13 +25,7 @@ function DataObject({ label, value }: { label: string; value: unknown }) {
   );
 }
 
-export function VaultWorkspaceDataInspector({
-  resourceRailState,
-  workspace,
-}: {
-  resourceRailState: VaultResourceRailState;
-  workspace: VaultWorkspaceSelected;
-}) {
+export function VaultWorkspaceDataInspector({ workspace }: { workspace: VaultWorkspaceSelected }) {
   return (
     <section aria-labelledby="vault-data-inspector-heading">
       <h2
@@ -51,7 +44,7 @@ export function VaultWorkspaceDataInspector({
         <DataObject label="Convex observations" value={workspace.convexObservations} />
         <DataObject
           label="Derived presentation"
-          value={{ environmentRoots: workspace.environmentRoots, resourceRailState }}
+          value={{ environmentRoots: workspace.environmentRoots }}
         />
       </div>
     </section>

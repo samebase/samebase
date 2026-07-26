@@ -12,59 +12,14 @@ import {
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { RootDirectoryLabel } from "@/components/vault-dashboard/VaultEnvironmentTree";
 import type {
-  VaultResourceRailAction,
-  VaultResourceRailRowState,
-  VaultResourceRailState,
-} from "@/components/vault-dashboard/vaultResourceRailModel";
+  VaultRepositorySettingsAction,
+  VaultRepositorySettingsResource,
+  VaultRepositorySettingsState,
+} from "@/components/vault-dashboard/vaultRepositorySettingsState";
 import { VaultWorkspaceDataInspector } from "@/components/vault-dashboard/VaultWorkspaceDataInspector";
 import { MoreHorizontal } from "lucide-react";
 import type { ReactNode } from "react";
 import type { VaultWorkspaceSelected } from "./vaultWorkspaceModel";
-
-function rowValue(row: VaultResourceRailRowState): string | undefined {
-  switch (row.status) {
-    case "action_required":
-      return undefined;
-    case "available":
-    case "failed":
-    case "loading":
-    case "missing":
-      return row.value;
-  }
-  row satisfies never;
-  return undefined;
-}
-
-function rowDescription(row: VaultResourceRailRowState): string | undefined {
-  switch (row.status) {
-    case "action_required":
-      return undefined;
-    case "available":
-      return row.loadingDescription ?? row.description;
-    case "failed":
-    case "loading":
-    case "missing":
-      return row.description;
-  }
-  row satisfies never;
-  return undefined;
-}
-
-function rowActions(
-  row: VaultResourceRailRowState,
-): readonly VaultResourceRailAction[] | undefined {
-  switch (row.status) {
-    case "action_required":
-    case "available":
-    case "failed":
-    case "missing":
-      return row.actions;
-    case "loading":
-      return undefined;
-  }
-  row satisfies never;
-  return undefined;
-}
 
 function providerIcon(provider: "cloudflare" | "convex" | "github"): ReactNode {
   switch (provider) {
@@ -79,14 +34,14 @@ function providerIcon(provider: "cloudflare" | "convex" | "github"): ReactNode {
   return null;
 }
 
-function invokeResourceAction(action: VaultResourceRailAction) {
+function invokeResourceAction(action: VaultRepositorySettingsAction) {
   if (!action.disabled) {
     action.onClick?.();
   }
 }
 
-function ResourceActions({ row }: { row: VaultResourceRailRowState }) {
-  const actions = rowActions(row);
+function ResourceActions({ resource }: { resource: VaultRepositorySettingsResource }) {
+  const actions = resource.actions;
   if (!actions) {
     return null;
   }
@@ -98,7 +53,7 @@ function ResourceActions({ row }: { row: VaultResourceRailRowState }) {
       {directActions.map((action) => (
         <Button
           key={`${action.kind}:${action.label}`}
-          disabled={action.disabled || (!action.href && !action.onClick)}
+          disabled={action.disabled || !action.onClick}
           size="sm"
           type="button"
           variant="outline"
@@ -118,7 +73,7 @@ function ResourceActions({ row }: { row: VaultResourceRailRowState }) {
             {removeActions.map((action) => (
               <DropdownMenuItem
                 key={`${action.kind}:${action.label}`}
-                disabled={action.disabled || (!action.href && !action.onClick)}
+                disabled={action.disabled || !action.onClick}
                 variant="destructive"
                 onClick={() => invokeResourceAction(action)}
               >
@@ -132,52 +87,13 @@ function ResourceActions({ row }: { row: VaultResourceRailRowState }) {
   );
 }
 
-function resourceOwner(row: VaultResourceRailRowState, workspace: VaultWorkspaceSelected): string {
-  if (row.provider === "convex") {
-    if (row.status !== "action_required" && row.scope) {
-      return row.scope;
-    }
-    const project = workspace.vault.convexProjects.find(
-      (candidate) => row.rowId === `convex:${candidate.convexProjectId}`,
-    );
-    return project?.teamId ?? "Convex";
-  }
-  const worker = workspace.vault.cloudflareWorkers.find(
-    (candidate) => row.rowId === `cloudflare:${candidate.workerId}`,
-  );
-  if (!worker) {
-    return "Cloudflare";
-  }
-  const connection =
-    workspace.cloudflareConnection.state === "ready"
-      ? workspace.cloudflareConnection.connection
-      : undefined;
-  return connection?.connected === true &&
-    connection.accountId === worker.accountId &&
-    connection.accountName
-    ? connection.accountName
-    : worker.accountId;
-}
-
-function SettingsResourceRow({
-  row,
-  workspace,
-}: {
-  row: VaultResourceRailRowState<"cloudflare" | "convex">;
-  workspace: VaultWorkspaceSelected;
-}) {
-  const value = rowValue(row);
-  const description = rowDescription(row);
-  const isAttention = row.status === "failed" || row.status === "missing";
-  const actions = rowActions(row);
+function SettingsResourceRow({ resource }: { resource: VaultRepositorySettingsResource }) {
+  const isAttention = resource.state === "failed" || resource.state === "missing";
+  const actions = resource.actions;
   const onlyRemoveActions =
     actions !== undefined &&
     actions.length > 0 &&
     actions.every((action) => action.kind === "remove");
-
-  if (row.status === "action_required") {
-    return null;
-  }
 
   return (
     <div className="relative grid min-w-0 gap-3 py-2.5 @3xl:grid-cols-[minmax(0,1fr)_auto] @3xl:items-center">
@@ -189,31 +105,31 @@ function SettingsResourceRow({
         }
       >
         <span
-          aria-label={row.provider === "cloudflare" ? "Cloudflare" : "Convex"}
+          aria-label={resource.provider === "cloudflare" ? "Cloudflare" : "Convex"}
           className="mt-0.5 flex h-4 w-5 shrink-0 items-center justify-center"
           role="img"
         >
-          {providerIcon(row.provider)}
+          {providerIcon(resource.provider)}
         </span>
         <div className="min-w-0">
           <div className="line-clamp-2 text-xs leading-4 text-muted-foreground">
-            {resourceOwner(row, workspace)}/
+            {resource.owner}/
           </div>
-          {row.status === "loading" ? (
+          {resource.state === "loading" ? (
             <div className="mt-1 h-4 w-32 max-w-full bg-muted motion-safe:animate-pulse" />
-          ) : row.status === "available" && row.href && value ? (
+          ) : resource.state === "available" && resource.href ? (
             <a
               className="line-clamp-2 text-sm font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
-              href={row.href}
+              href={resource.href}
               rel="noreferrer noopener"
               target="_blank"
             >
-              {value}
+              {resource.name}
             </a>
           ) : (
-            <div className="line-clamp-2 text-sm font-medium text-foreground">{value}</div>
+            <div className="line-clamp-2 text-sm font-medium text-foreground">{resource.name}</div>
           )}
-          {description ? (
+          {resource.description ? (
             <div
               className={
                 isAttention
@@ -221,7 +137,7 @@ function SettingsResourceRow({
                   : "mt-1 text-xs leading-5 text-muted-foreground"
               }
             >
-              {description}
+              {resource.description}
             </div>
           ) : null}
         </div>
@@ -233,20 +149,18 @@ function SettingsResourceRow({
             : "justify-self-start @3xl:justify-self-end"
         }
       >
-        <ResourceActions row={row} />
+        <ResourceActions resource={resource} />
       </div>
     </div>
   );
 }
 
 function SettingsRoot({
+  resources,
   rootDirectory,
-  rows,
-  workspace,
 }: {
+  resources: readonly VaultRepositorySettingsResource[];
   rootDirectory: string;
-  rows: readonly VaultResourceRailRowState<"cloudflare" | "convex">[];
-  workspace: VaultWorkspaceSelected;
 }) {
   return (
     <div className="grid min-w-0 border-b border-border/60 last:border-b-0 @4xl:grid-cols-[minmax(10rem,0.32fr)_minmax(0,1fr)]">
@@ -254,8 +168,11 @@ function SettingsRoot({
         <RootDirectoryLabel rootDirectory={rootDirectory} />
       </div>
       <div className="min-w-0 pb-2 pl-5 @4xl:border-l @4xl:pb-0 @4xl:pl-5">
-        {rows.map((row) => (
-          <SettingsResourceRow key={row.rowId} row={row} workspace={workspace} />
+        {resources.map((resource) => (
+          <SettingsResourceRow
+            key={`${resource.provider}:${resource.resourceId}`}
+            resource={resource}
+          />
         ))}
       </div>
     </div>
@@ -263,23 +180,22 @@ function SettingsRoot({
 }
 
 function AddResourceButton({
+  action,
   label,
   logo,
-  row,
 }: {
+  action: VaultRepositorySettingsState["addCloudflareWorker"];
   label: string;
   logo: ReactNode;
-  row: VaultResourceRailRowState;
 }) {
-  const action = rowActions(row)?.at(0);
   return (
     <Button
-      disabled={!action || action.disabled || (!action.href && !action.onClick)}
+      disabled={action.disabled || !action.onClick}
       size="sm"
       type="button"
       variant="outline"
       onClick={() => {
-        if (action) invokeResourceAction(action);
+        action.onClick?.();
       }}
     >
       {logo}
@@ -291,18 +207,14 @@ function AddResourceButton({
 export function RepositorySettings({
   developerToolsVisible,
   onOpenDeleteDialog,
-  resourceRailState,
+  settingsState,
   workspace,
 }: {
   developerToolsVisible: boolean;
   onOpenDeleteDialog: () => void;
-  resourceRailState: VaultResourceRailState;
+  settingsState: VaultRepositorySettingsState;
   workspace: VaultWorkspaceSelected;
 }) {
-  const convexAddRow = resourceRailState.vaultActionRows.find((row) => row.provider === "convex");
-  const cloudflareAddRow = resourceRailState.vaultActionRows.find(
-    (row) => row.provider === "cloudflare",
-  );
   const deleteAction =
     workspace.vault.deletion.state === "not_deleting"
       ? workspace.vault.deletion.deleteAction
@@ -339,7 +251,7 @@ export function RepositorySettings({
         </div>
       </section>
 
-      {resourceRailState.attentionRows.length > 0 ? (
+      {settingsState.attentionResources.length > 0 ? (
         <section aria-labelledby="vault-settings-attention-heading">
           <h2
             id="vault-settings-attention-heading"
@@ -349,9 +261,8 @@ export function RepositorySettings({
           </h2>
           <div className="border-t border-border">
             <SettingsRoot
+              resources={settingsState.attentionResources}
               rootDirectory="Needs attention"
-              rows={resourceRailState.attentionRows}
-              workspace={workspace}
             />
           </div>
         </section>
@@ -366,30 +277,25 @@ export function RepositorySettings({
             Connections
           </h2>
           <div className="flex flex-wrap gap-2">
-            {cloudflareAddRow ? (
-              <AddResourceButton
-                label="Add Cloudflare Worker"
-                logo={<CloudflareProviderLogo />}
-                row={cloudflareAddRow}
-              />
-            ) : null}
-            {convexAddRow ? (
-              <AddResourceButton
-                label="Add Convex project"
-                logo={<ConvexProviderLogo />}
-                row={convexAddRow}
-              />
-            ) : null}
+            <AddResourceButton
+              action={settingsState.addCloudflareWorker}
+              label="Add Cloudflare Worker"
+              logo={<CloudflareProviderLogo />}
+            />
+            <AddResourceButton
+              action={settingsState.addConvexProject}
+              label="Add Convex project"
+              logo={<ConvexProviderLogo />}
+            />
           </div>
         </div>
         <div className="border-t border-border">
-          {resourceRailState.roots.length > 0 ? (
-            resourceRailState.roots.map((root) => (
+          {settingsState.roots.length > 0 ? (
+            settingsState.roots.map((root) => (
               <SettingsRoot
                 key={root.rootDirectory}
+                resources={root.resources}
                 rootDirectory={root.rootDirectory}
-                rows={root.rows}
-                workspace={workspace}
               />
             ))
           ) : (
@@ -425,9 +331,7 @@ export function RepositorySettings({
           </Button>
         </div>
       </section>
-      {developerToolsVisible ? (
-        <VaultWorkspaceDataInspector resourceRailState={resourceRailState} workspace={workspace} />
-      ) : null}
+      {developerToolsVisible ? <VaultWorkspaceDataInspector workspace={workspace} /> : null}
     </main>
   );
 }

@@ -12,12 +12,11 @@ import {
   type VaultDashboardQueryDialog,
 } from "@/routeSearch/root";
 import { applySearchPatch } from "@/routing/searchFlags";
-import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { VaultCloudflareDialog } from "./VaultCloudflareDialog";
 import { VaultConvexDialog } from "./VaultConvexDialog";
 import { VaultDeleteDialog } from "./VaultDeleteDialog";
 import { VaultOverviewPage, type VaultOverviewPageKind } from "./VaultOverviewPage";
-import { buildVaultDashboardResourceRailState } from "./vaultResourceRailState";
+import { buildVaultRepositorySettingsState } from "./vaultRepositorySettingsState";
 import type { VaultWorkspaceSelected as VaultWorkspace } from "./vaultWorkspaceModel";
 
 type ProviderActionInFlight =
@@ -65,24 +64,6 @@ function applyVaultDashboardProviderAddSearch({
   });
 }
 
-function buildVaultDashboardProviderAddHref({
-  dashboardRoutePathname,
-  provider,
-  rootRouteSearch,
-}: {
-  dashboardRoutePathname: string;
-  provider: "cloudflare" | "convex";
-  rootRouteSearch: RootRouteSearch;
-}): string {
-  return buildPathWithTanStackSearch({
-    pathname: dashboardRoutePathname,
-    search: applyVaultDashboardProviderAddSearch({
-      currentSearch: rootRouteSearch,
-      provider,
-    }),
-  });
-}
-
 export function VaultSelectedWorkspace({
   developerToolsVisible,
   page,
@@ -98,9 +79,6 @@ export function VaultSelectedWorkspace({
   const router = useRouter();
   const vaultDashboardDialogHistoryEntry = useLocation({
     select: (location) => location.state.vaultDashboardDialog,
-  });
-  const dashboardRoutePathname = useLocation({
-    select: (location) => location.pathname,
   });
   const rootRouteSearch = useRootRouteSearch();
   const retryDeleteVault = useAction(api.vault.actions.retryDeleteVault);
@@ -326,27 +304,20 @@ export function VaultSelectedWorkspace({
     });
   };
 
-  const resourceRailState = buildVaultDashboardResourceRailState({
-    buildAddCloudflareWorkerHref: canManageProviderAttachments
-      ? () =>
-          buildVaultDashboardProviderAddHref({
-            dashboardRoutePathname,
-            provider: "cloudflare",
-            rootRouteSearch,
-          })
-      : undefined,
+  const settingsState = buildVaultRepositorySettingsState({
     addCloudflareWorkerOnClick: canManageProviderAttachments
       ? () => openProviderDialog("cloudflare")
       : undefined,
-    buildAddConvexHref: canManageProviderAttachments
-      ? () =>
-          buildVaultDashboardProviderAddHref({
-            dashboardRoutePathname,
-            provider: "convex",
-            rootRouteSearch,
-          })
-      : undefined,
     addConvexOnClick: canManageProviderAttachments ? () => openProviderDialog("convex") : undefined,
+    connectedCloudflareAccount:
+      workspace.cloudflareConnection.state === "ready" &&
+      workspace.cloudflareConnection.connection.connected === true &&
+      workspace.cloudflareConnection.connection.accountId
+        ? {
+            accountId: workspace.cloudflareConnection.connection.accountId,
+            accountName: workspace.cloudflareConnection.connection.accountName,
+          }
+        : undefined,
     configureWorkersBuildsForGitHubOnClick: canManageProviderAttachments
       ? handleConfigureWorkersBuildsForGitHub
       : undefined,
@@ -401,7 +372,7 @@ export function VaultSelectedWorkspace({
         developerToolsVisible={developerToolsVisible}
         isRetryingVaultAction={isRetryingVaultAction}
         page={page}
-        resourceRailState={resourceRailState}
+        settingsState={settingsState}
         workspace={workspace}
         onOpenDeleteDialog={() => {
           void navigate({

@@ -5,12 +5,6 @@ import {
   getConvexCodeRootDirectory,
 } from "../../../shared/convexCodeLocation";
 import type {
-  VaultResourceRailAction,
-  VaultResourceRailActionList,
-  VaultResourceRailRowState,
-  VaultResourceRailState,
-} from "./vaultResourceRailModel";
-import type {
   VaultCloudflareProviderObservationState,
   VaultCloudflareWorkerObservation,
   VaultCloudflareWorkerBuildsObservation,
@@ -24,6 +18,48 @@ type VaultDashboardVault = NonNullable<
 >[number];
 type VaultDashboardCloudflareWorker = VaultDashboardVault["cloudflareWorkers"][number];
 type VaultDashboardConvexProject = VaultDashboardVault["convexProjects"][number];
+
+type VaultRepositorySettingsActionKind = "configure" | "connect" | "remove" | "retry";
+
+export type VaultRepositorySettingsAction = {
+  ariaLabel?: string;
+  disabled?: boolean;
+  kind: VaultRepositorySettingsActionKind;
+  label: string;
+  onClick?: () => void;
+};
+
+type VaultRepositorySettingsActionList = readonly [
+  VaultRepositorySettingsAction,
+  ...VaultRepositorySettingsAction[],
+];
+
+export type VaultRepositorySettingsResource = {
+  actions?: VaultRepositorySettingsActionList;
+  description?: string;
+  href?: string;
+  name: string;
+  owner: string;
+  provider: "cloudflare" | "convex";
+  resourceId: string;
+  state: "available" | "failed" | "loading" | "missing";
+};
+
+export type VaultRepositorySettingsState = {
+  addCloudflareWorker: {
+    disabled: boolean;
+    onClick?: () => void;
+  };
+  addConvexProject: {
+    disabled: boolean;
+    onClick?: () => void;
+  };
+  attentionResources: readonly VaultRepositorySettingsResource[];
+  roots: readonly {
+    resources: readonly VaultRepositorySettingsResource[];
+    rootDirectory: string;
+  }[];
+};
 
 function compareRootDirectories(left: string, right: string): number {
   if (left === right) {
@@ -46,35 +82,7 @@ function buildConvexProjectSettingsUrl(project: { projectSlug: string; teamSlug:
   return `https://dashboard.convex.dev/t/${encodeURIComponent(project.teamSlug)}/${encodeURIComponent(project.projectSlug)}/settings`;
 }
 
-function resolveCloudflareWorkersSubdomain(
-  observation: Extract<VaultCloudflareWorkerObservation, { state: "available" }>,
-  workerName: string,
-): string | undefined {
-  if (observation.workersDev.state !== "enabled") {
-    return undefined;
-  }
-
-  let hostname: string;
-  try {
-    hostname = new URL(observation.workersDev.url).hostname;
-  } catch {
-    return undefined;
-  }
-
-  const suffix = ".workers.dev";
-  const workerPrefix = `${workerName}.`;
-  if (!hostname.endsWith(suffix)) {
-    return undefined;
-  }
-  const prefix = hostname.slice(0, -suffix.length);
-  if (!prefix.startsWith(workerPrefix)) {
-    return undefined;
-  }
-  const subdomain = prefix.slice(workerPrefix.length).trim();
-  return subdomain || undefined;
-}
-
-function buildReloadAction(reload: () => void): VaultResourceRailAction {
+function buildReloadAction(reload: () => void): VaultRepositorySettingsAction {
   return {
     kind: "retry",
     label: "Reload",
@@ -82,29 +90,11 @@ function buildReloadAction(reload: () => void): VaultResourceRailAction {
   };
 }
 
-function buildAddAction({
-  href,
-  label,
-  onClick,
-}: {
-  href: string | undefined;
-  label: string;
-  onClick: (() => void) | undefined;
-}): VaultResourceRailAction {
-  return {
-    kind: "add",
-    label,
-    disabled: !href && !onClick,
-    href,
-    onClick,
-  };
-}
-
 function buildDetachAttachmentAction(args: {
   ariaLabel: string;
   isDetaching: boolean;
   onClick: () => void;
-}): VaultResourceRailAction {
+}): VaultRepositorySettingsAction {
   return {
     kind: "remove",
     label: args.isDetaching ? "Removing..." : "Remove from vault",
@@ -216,7 +206,7 @@ function buildConvexBuildAccessActions({
     convexProjectId: Id<"vaultConvexProjects">,
   ) => void;
   workerId: Id<"vaultCloudflareWorkers">;
-}): VaultResourceRailActionList | undefined {
+}): VaultRepositorySettingsActionList | undefined {
   const sortedProjects = [...convexProjects].sort(
     (left, right) =>
       left.projectId.localeCompare(right.projectId) ||
@@ -275,7 +265,7 @@ function formatCloudflareConvexBuildAccessState({
     convexProjectId: Id<"vaultConvexProjects">,
   ) => void;
   workerId: Id<"vaultCloudflareWorkers">;
-}): { actions?: VaultResourceRailActionList; description?: string } {
+}): { actions?: VaultRepositorySettingsActionList; description?: string } {
   const access = observation.convexBuildAccess;
   if (
     access.state === "configured" &&
@@ -287,7 +277,7 @@ function formatCloudflareConvexBuildAccessState({
     };
   }
 
-  let actions: VaultResourceRailActionList | undefined;
+  let actions: VaultRepositorySettingsActionList | undefined;
   if (
     (access.state === "configured" || access.state === "incomplete") &&
     access.convexProject.state === "attached"
@@ -347,6 +337,7 @@ function formatCloudflareConvexBuildAccessState({
 }
 
 function buildCloudflareRow({
+  connectedCloudflareAccount,
   convexProjectActionLabels,
   convexProjects,
   configureWorkersBuildsForGitHubOnClick,
@@ -358,6 +349,12 @@ function buildCloudflareRow({
   rotateConvexDeployKeysForWorkersBuildsOnClick,
   worker,
 }: {
+  connectedCloudflareAccount:
+    | {
+        accountId: string;
+        accountName: string | undefined;
+      }
+    | undefined;
   convexProjectActionLabels: ReadonlyMap<Id<"vaultConvexProjects">, string>;
   convexProjects: readonly VaultDashboardConvexProject[];
   configureWorkersBuildsForGitHubOnClick?: (
@@ -377,23 +374,28 @@ function buildCloudflareRow({
     convexProjectId: Id<"vaultConvexProjects">,
   ) => void;
   worker: VaultDashboardCloudflareWorker;
-}): VaultResourceRailRowState<"cloudflare"> {
+}): VaultRepositorySettingsResource {
   const base = {
+    name: worker.workerName,
+    owner:
+      connectedCloudflareAccount?.accountId === worker.accountId &&
+      connectedCloudflareAccount.accountName
+        ? connectedCloudflareAccount.accountName
+        : worker.accountId,
     provider: "cloudflare" as const,
-    rowId: `cloudflare:${worker.workerId}`,
-    value: worker.workerName,
+    resourceId: worker.workerId,
   };
   if (observationState.workers.state === "loading") {
     return {
       ...base,
-      status: "loading",
+      state: "loading",
       description: "Loading from Cloudflare...",
     };
   }
   if (observationState.workers.state === "failed") {
     return {
       ...base,
-      status: "failed",
+      state: "failed",
       description: "Could not load from Cloudflare.",
       actions: [buildReloadAction(observationState.workers.reload)],
     };
@@ -405,7 +407,7 @@ function buildCloudflareRow({
   if (!observation) {
     return {
       ...base,
-      status: "failed",
+      state: "failed",
       description: "Could not load this Worker.",
       actions: [buildReloadAction(observationState.workers.reload)],
     };
@@ -414,7 +416,7 @@ function buildCloudflareRow({
     case "missing":
       return {
         ...base,
-        status: "missing",
+        state: "missing",
         description: "Missing from Cloudflare.",
         actions: detachCloudflareWorkerOnClick
           ? [
@@ -429,7 +431,7 @@ function buildCloudflareRow({
     case "failed":
       return {
         ...base,
-        status: "failed",
+        state: "failed",
         description:
           observation.reason === "connection_required"
             ? "Connect Cloudflare to load this Worker."
@@ -439,16 +441,14 @@ function buildCloudflareRow({
     case "available": {
       const availableBase = {
         ...base,
-        status: "available" as const,
+        state: "available" as const,
         href: buildCloudflareDashboardUrl(worker),
-        scope: resolveCloudflareWorkersSubdomain(observation, worker.workerName),
       };
       const previewDescription = formatCloudflarePreviewState(observation);
       if (observationState.builds.state === "loading") {
         return {
           ...availableBase,
-          description: previewDescription,
-          loadingDescription: "Loading Workers Builds...",
+          description: joinDescriptions(previewDescription, "Loading Workers Builds..."),
         };
       }
       if (observationState.builds.state === "failed") {
@@ -505,8 +505,11 @@ function buildCloudflareRow({
       if (observationState.convexBuildAccess.state === "loading") {
         return {
           ...availableBase,
-          description: joinDescriptions(previewDescription, repositoryState.description),
-          loadingDescription: "Loading Convex deploy keys...",
+          description: joinDescriptions(
+            previewDescription,
+            repositoryState.description,
+            "Loading Convex deploy keys...",
+          ),
         };
       }
       if (observationState.convexBuildAccess.state === "failed") {
@@ -558,15 +561,15 @@ function buildCloudflareRow({
   observation satisfies never;
   return {
     ...base,
-    status: "failed",
+    state: "failed",
     description: "Could not load this Worker.",
   };
 }
 
 function buildActionList(
-  actions: readonly (VaultResourceRailAction | undefined)[],
-): VaultResourceRailActionList | undefined {
-  const presentActions: VaultResourceRailAction[] = [];
+  actions: readonly (VaultRepositorySettingsAction | undefined)[],
+): VaultRepositorySettingsActionList | undefined {
+  const presentActions: VaultRepositorySettingsAction[] = [];
   for (const action of actions) {
     if (action) {
       presentActions.push(action);
@@ -595,23 +598,24 @@ function buildConvexRow({
   observationState: VaultProviderObservationState<VaultConvexProjectObservation>;
   project: VaultDashboardConvexProject;
   reconcileConvexProjectTeamOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
-}): VaultResourceRailRowState<"convex"> {
+}): VaultRepositorySettingsResource {
   const base = {
+    name: project.projectId,
+    owner: project.teamId,
     provider: "convex" as const,
-    rowId: `convex:${project.convexProjectId}`,
-    value: project.projectId,
+    resourceId: project.convexProjectId,
   };
   if (observationState.state === "loading") {
     return {
       ...base,
-      status: "loading",
+      state: "loading",
       description: "Loading from Convex...",
     };
   }
   if (observationState.state === "failed") {
     return {
       ...base,
-      status: "failed",
+      state: "failed",
       description: "Could not load from Convex.",
       actions: [buildReloadAction(observationState.reload)],
     };
@@ -623,7 +627,7 @@ function buildConvexRow({
   if (!observation) {
     return {
       ...base,
-      status: "failed",
+      state: "failed",
       description: "Could not load this Convex project.",
       actions: [buildReloadAction(observationState.reload)],
     };
@@ -665,7 +669,7 @@ function buildConvexRow({
     case "current":
       return {
         ...base,
-        status: "available",
+        state: "available",
         actions: buildActionList([changeConfigAction, detachAction]),
         description: joinDescriptions(
           sourceDescription,
@@ -674,8 +678,8 @@ function buildConvexRow({
             : undefined,
         ),
         href: buildConvexProjectSettingsUrl(observation.provider),
-        scope: observation.provider.teamSlug,
-        value: observation.provider.projectSlug,
+        name: observation.provider.projectSlug,
+        owner: observation.provider.teamSlug,
       };
     case "moved": {
       const isReconciling = isReconcilingConvexProjectTeam?.(project.convexProjectId) ?? false;
@@ -689,21 +693,21 @@ function buildConvexRow({
         : undefined;
       return {
         ...base,
-        status: "available",
+        state: "available",
         actions: buildActionList([changeConfigAction, reconcileAction, detachAction]),
         description: joinDescriptions(
           sourceDescription,
           "This project moved to another Convex team.",
         ),
         href: buildConvexProjectSettingsUrl(observation.provider),
-        scope: observation.provider.teamSlug,
-        value: observation.provider.projectSlug,
+        name: observation.provider.projectSlug,
+        owner: observation.provider.teamSlug,
       };
     }
     case "missing_ambiguous":
       return {
         ...base,
-        status: "missing",
+        state: "missing",
         actions: buildActionList([changeConfigAction, detachAction]),
         description: joinDescriptions(
           sourceDescription,
@@ -713,7 +717,7 @@ function buildConvexRow({
     case "unavailable":
       return {
         ...base,
-        status: "failed",
+        state: "failed",
         actions: buildActionList([
           buildReloadAction(observationState.reload),
           changeConfigAction,
@@ -730,16 +734,15 @@ function buildConvexRow({
   observation.provider satisfies never;
   return {
     ...base,
-    status: "failed",
+    state: "failed",
     description: "Could not load this Convex project.",
   };
 }
 
-export function buildVaultDashboardResourceRailState({
-  buildAddCloudflareWorkerHref,
+export function buildVaultRepositorySettingsState({
   addCloudflareWorkerOnClick,
-  buildAddConvexHref,
   addConvexOnClick,
+  connectedCloudflareAccount,
   configureWorkersBuildsForGitHubOnClick,
   changeConvexProjectConfigPathOnClick,
   cloudflareObservations,
@@ -755,10 +758,14 @@ export function buildVaultDashboardResourceRailState({
   vault,
   rotateConvexDeployKeysForWorkersBuildsOnClick,
 }: {
-  buildAddCloudflareWorkerHref?: () => string;
   addCloudflareWorkerOnClick?: () => void;
-  buildAddConvexHref?: () => string;
   addConvexOnClick?: () => void;
+  connectedCloudflareAccount:
+    | {
+        accountId: string;
+        accountName: string | undefined;
+      }
+    | undefined;
   configureWorkersBuildsForGitHubOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
     rootDirectory: string | undefined,
@@ -782,24 +789,21 @@ export function buildVaultDashboardResourceRailState({
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
   ) => void;
-}): VaultResourceRailState {
-  const rowsByRoot = new Map<string, VaultResourceRailRowState<"cloudflare" | "convex">[]>();
+}): VaultRepositorySettingsState {
+  const resourcesByRoot = new Map<string, VaultRepositorySettingsResource[]>();
   const convexProjectActionLabels = new Map(
     vault.convexProjects.map((project) => [
       project.convexProjectId,
       resolveConvexProjectActionLabel(project, convexObservations),
     ]),
   );
-  const addRowToRoot = (
-    rootDirectory: string,
-    row: VaultResourceRailRowState<"cloudflare" | "convex">,
-  ) => {
-    const rows = rowsByRoot.get(rootDirectory);
-    if (rows) {
-      rows.push(row);
+  const addResourceToRoot = (rootDirectory: string, resource: VaultRepositorySettingsResource) => {
+    const resources = resourcesByRoot.get(rootDirectory);
+    if (resources) {
+      resources.push(resource);
       return;
     }
-    rowsByRoot.set(rootDirectory, [row]);
+    resourcesByRoot.set(rootDirectory, [resource]);
   };
 
   for (const project of [...vault.convexProjects].sort(
@@ -807,7 +811,7 @@ export function buildVaultDashboardResourceRailState({
       left.projectId.localeCompare(right.projectId) ||
       left.convexProjectId.localeCompare(right.convexProjectId),
   )) {
-    addRowToRoot(
+    addResourceToRoot(
       getConvexCodeRootDirectory(project.codeLocation),
       buildConvexRow({
         changeConvexProjectConfigPathOnClick,
@@ -821,13 +825,14 @@ export function buildVaultDashboardResourceRailState({
     );
   }
 
-  const attentionRows: VaultResourceRailRowState<"cloudflare" | "convex">[] = [];
+  const attentionResources: VaultRepositorySettingsResource[] = [];
   for (const worker of [...vault.cloudflareWorkers].sort(
     (left, right) =>
       left.workerName.localeCompare(right.workerName) ||
       left.workerId.localeCompare(right.workerId),
   )) {
-    const row = buildCloudflareRow({
+    const resource = buildCloudflareRow({
+      connectedCloudflareAccount,
       convexProjectActionLabels,
       convexProjects: vault.convexProjects,
       configureWorkersBuildsForGitHubOnClick,
@@ -849,42 +854,24 @@ export function buildVaultDashboardResourceRailState({
       buildsObservation?.state === "available" &&
       buildsObservation.repository.state === "ready"
     ) {
-      addRowToRoot(buildsObservation.repository.rootDirectory, row);
+      addResourceToRoot(buildsObservation.repository.rootDirectory, resource);
     } else {
-      attentionRows.push(row);
+      attentionResources.push(resource);
     }
   }
 
   return {
-    attentionRows,
-    roots: [...rowsByRoot.entries()]
+    addCloudflareWorker: {
+      disabled: !addCloudflareWorkerOnClick,
+      onClick: addCloudflareWorkerOnClick,
+    },
+    addConvexProject: {
+      disabled: !addConvexOnClick,
+      onClick: addConvexOnClick,
+    },
+    attentionResources,
+    roots: [...resourcesByRoot.entries()]
       .sort(([leftRoot], [rightRoot]) => compareRootDirectories(leftRoot, rightRoot))
-      .map(([rootDirectory, rows]) => ({ rootDirectory, rows })),
-    vaultActionRows: [
-      {
-        provider: "convex",
-        rowId: "convex:add",
-        status: "action_required",
-        actions: [
-          buildAddAction({
-            href: buildAddConvexHref?.(),
-            label: "Add",
-            onClick: addConvexOnClick,
-          }),
-        ],
-      },
-      {
-        provider: "cloudflare",
-        rowId: "cloudflare:add",
-        status: "action_required",
-        actions: [
-          buildAddAction({
-            href: buildAddCloudflareWorkerHref?.(),
-            label: "Add",
-            onClick: addCloudflareWorkerOnClick,
-          }),
-        ],
-      },
-    ],
+      .map(([rootDirectory, resources]) => ({ rootDirectory, resources })),
   };
 }

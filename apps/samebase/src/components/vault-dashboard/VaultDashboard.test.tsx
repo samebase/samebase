@@ -14,7 +14,7 @@ import {
   buildProductionEnvironmentRoots,
   buildPullRequestEnvironmentRoots,
 } from "./vaultEnvironmentRoots";
-import { buildVaultDashboardResourceRailState } from "./vaultResourceRailState";
+import { buildVaultRepositorySettingsState } from "./vaultRepositorySettingsState";
 import type {
   VaultCloudflareProviderObservationState,
   VaultCloudflareWorkerBuildsObservation,
@@ -88,24 +88,27 @@ function makeCloudflareDialogWorker(
   };
 }
 
-type ResourceRailBuilderVault = Parameters<typeof buildVaultDashboardResourceRailState>[0]["vault"];
-type ResourceRailCloudflareWorker = ResourceRailBuilderVault["cloudflareWorkers"][number];
-type ResourceRailConvexProject = ResourceRailBuilderVault["convexProjects"][number];
-type AvailableResourceRailCloudflareObservation = Extract<
+type RepositorySettingsBuilderVault = Parameters<
+  typeof buildVaultRepositorySettingsState
+>[0]["vault"];
+type RepositorySettingsCloudflareWorker =
+  RepositorySettingsBuilderVault["cloudflareWorkers"][number];
+type RepositorySettingsConvexProject = RepositorySettingsBuilderVault["convexProjects"][number];
+type AvailableRepositorySettingsCloudflareObservation = Extract<
   VaultCloudflareWorkerObservation,
   { state: "available" }
 >;
-type AvailableResourceRailCloudflareBuildsObservation = Extract<
+type AvailableRepositorySettingsCloudflareBuildsObservation = Extract<
   VaultCloudflareWorkerBuildsObservation,
   { state: "available" }
 >;
-type AvailableResourceRailCloudflareConvexBuildAccessObservation = Extract<
+type AvailableRepositorySettingsCloudflareConvexBuildAccessObservation = Extract<
   VaultCloudflareWorkerConvexBuildAccessObservation,
   { state: "available" }
 >;
 
-function getResourceRailRootRow(
-  state: ReturnType<typeof buildVaultDashboardResourceRailState>,
+function getRepositorySettingsResource(
+  state: ReturnType<typeof buildVaultRepositorySettingsState>,
   rootDirectory: string,
   provider: "cloudflare" | "convex",
 ) {
@@ -113,16 +116,16 @@ function getResourceRailRootRow(
   if (!root) {
     throw new Error(`Expected ${rootDirectory} root group.`);
   }
-  const row = root.rows.find((candidate) => candidate.provider === provider);
-  if (!row) {
-    throw new Error(`Expected ${provider} row in ${rootDirectory} root group.`);
+  const resource = root.resources.find((candidate) => candidate.provider === provider);
+  if (!resource) {
+    throw new Error(`Expected ${provider} resource in ${rootDirectory} root group.`);
   }
-  return row;
+  return resource;
 }
 
-function makeResourceRailCloudflareWorker(
-  overrides: Partial<ResourceRailCloudflareWorker>,
-): ResourceRailCloudflareWorker {
+function makeRepositorySettingsCloudflareWorker(
+  overrides: Partial<RepositorySettingsCloudflareWorker>,
+): RepositorySettingsCloudflareWorker {
   return {
     workerId: fakeCloudflareWorkerId(),
     accountId: "account-1",
@@ -132,11 +135,11 @@ function makeResourceRailCloudflareWorker(
   };
 }
 
-function makeAvailableResourceRailCloudflareObservation(
-  overrides: Partial<AvailableResourceRailCloudflareObservation> & {
+function makeAvailableRepositorySettingsCloudflareObservation(
+  overrides: Partial<AvailableRepositorySettingsCloudflareObservation> & {
     workerId: Id<"vaultCloudflareWorkers">;
   },
-): AvailableResourceRailCloudflareObservation {
+): AvailableRepositorySettingsCloudflareObservation {
   return {
     state: "available",
     observedAt: 1,
@@ -146,11 +149,11 @@ function makeAvailableResourceRailCloudflareObservation(
   };
 }
 
-function makeAvailableResourceRailCloudflareBuildsObservation(
-  overrides: Partial<AvailableResourceRailCloudflareBuildsObservation> & {
+function makeAvailableRepositorySettingsCloudflareBuildsObservation(
+  overrides: Partial<AvailableRepositorySettingsCloudflareBuildsObservation> & {
     workerId: Id<"vaultCloudflareWorkers">;
   },
-): AvailableResourceRailCloudflareBuildsObservation {
+): AvailableRepositorySettingsCloudflareBuildsObservation {
   return {
     state: "available",
     observedAt: 1,
@@ -199,9 +202,9 @@ function makeLoadedCloudflareObservations({
   };
 }
 
-function makeResourceRailConvexProject(
-  overrides: Partial<ResourceRailConvexProject>,
-): ResourceRailConvexProject {
+function makeRepositorySettingsConvexProject(
+  overrides: Partial<RepositorySettingsConvexProject>,
+): RepositorySettingsConvexProject {
   return {
     convexProjectId: fakeConvexProjectId(),
     codeLocation: { kind: "config", convexConfigPath: "convex.json" },
@@ -211,10 +214,10 @@ function makeResourceRailConvexProject(
   };
 }
 
-function makeResourceRailBuilderVault(
-  overrides: Partial<ResourceRailBuilderVault>,
-): ResourceRailBuilderVault {
-  const vault: ResourceRailBuilderVault = {
+function makeRepositorySettingsBuilderVault(
+  overrides: Partial<RepositorySettingsBuilderVault>,
+): RepositorySettingsBuilderVault {
+  const vault: RepositorySettingsBuilderVault = {
     _id: fakeVaultId(),
     _creationTime: 0,
     ghRepoOwner: "ada",
@@ -244,10 +247,10 @@ describe("buildProductionEnvironmentRoots", () => {
   it("joins direct attachments to matching live Worker and Convex observations", () => {
     const workerId = fakeCloudflareWorkerId();
     const convexProjectId = fakeConvexProjectId();
-    const vault = makeResourceRailBuilderVault({
-      cloudflareWorkers: [makeResourceRailCloudflareWorker({ workerId })],
+    const vault = makeRepositorySettingsBuilderVault({
+      cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({ workerId })],
       convexProjects: [
-        makeResourceRailConvexProject({
+        makeRepositorySettingsConvexProject({
           convexProjectId,
           codeLocation: { kind: "config", convexConfigPath: "apps/web/convex.json" },
         }),
@@ -259,13 +262,13 @@ describe("buildProductionEnvironmentRoots", () => {
       vault,
       cloudflareObservations: makeLoadedCloudflareObservations({
         workers: [
-          makeAvailableResourceRailCloudflareObservation({
+          makeAvailableRepositorySettingsCloudflareObservation({
             workerId,
             customDomains: ["www.example.com", "app.example.com"],
           }),
         ],
         builds: [
-          makeAvailableResourceRailCloudflareBuildsObservation({
+          makeAvailableRepositorySettingsCloudflareBuildsObservation({
             workerId,
             productionBuild: {
               state: "available",
@@ -376,8 +379,8 @@ describe("buildProductionEnvironmentRoots", () => {
 
   it("keeps custom domains visible when workers.dev is disabled", () => {
     const workerId = fakeCloudflareWorkerId();
-    const vault = makeResourceRailBuilderVault({
-      cloudflareWorkers: [makeResourceRailCloudflareWorker({ workerId })],
+    const vault = makeRepositorySettingsBuilderVault({
+      cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({ workerId })],
     });
 
     const roots = buildProductionEnvironmentRoots({
@@ -385,13 +388,13 @@ describe("buildProductionEnvironmentRoots", () => {
       vault,
       cloudflareObservations: makeLoadedCloudflareObservations({
         workers: [
-          makeAvailableResourceRailCloudflareObservation({
+          makeAvailableRepositorySettingsCloudflareObservation({
             workerId,
             customDomains: ["app.example.com"],
             workersDev: { state: "disabled" },
           }),
         ],
-        builds: [makeAvailableResourceRailCloudflareBuildsObservation({ workerId })],
+        builds: [makeAvailableRepositorySettingsCloudflareBuildsObservation({ workerId })],
         convexBuildAccess: [],
       }),
       convexObservations: {
@@ -433,9 +436,9 @@ describe("buildProductionEnvironmentRoots", () => {
   it("does not manufacture links from attachments when live resources are missing", () => {
     const workerId = fakeCloudflareWorkerId();
     const convexProjectId = fakeConvexProjectId();
-    const vault = makeResourceRailBuilderVault({
-      cloudflareWorkers: [makeResourceRailCloudflareWorker({ workerId })],
-      convexProjects: [makeResourceRailConvexProject({ convexProjectId })],
+    const vault = makeRepositorySettingsBuilderVault({
+      cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({ workerId })],
+      convexProjects: [makeRepositorySettingsConvexProject({ convexProjectId })],
     });
 
     expect(
@@ -474,9 +477,9 @@ describe("buildProductionEnvironmentRoots", () => {
 describe("vault environment roots", () => {
   it("keeps a Convex row under its known root while deployment details load", () => {
     const convexProjectId = fakeConvexProjectId();
-    const vault = makeResourceRailBuilderVault({
+    const vault = makeRepositorySettingsBuilderVault({
       convexProjects: [
-        makeResourceRailConvexProject({
+        makeRepositorySettingsConvexProject({
           convexProjectId,
           codeLocation: { kind: "config", convexConfigPath: "packages/backend/convex.json" },
         }),
@@ -513,9 +516,9 @@ describe("vault environment roots", () => {
   it("keeps production Data available independently from Schema access", () => {
     const convexProjectId = fakeConvexProjectId();
     const dashboardUrl = "https://dashboard.convex.dev/t/ada/demo/calm-swan-123";
-    const vault = makeResourceRailBuilderVault({
+    const vault = makeRepositorySettingsBuilderVault({
       convexProjects: [
-        makeResourceRailConvexProject({
+        makeRepositorySettingsConvexProject({
           convexProjectId,
           codeLocation: { kind: "config", convexConfigPath: "packages/backend/convex.json" },
         }),
@@ -661,9 +664,9 @@ describe("vault environment roots", () => {
 
 describe("VaultOverviewVaultPickerPane", () => {
   it("renders the new root vault picker in the main pane", () => {
-    const vault = makeResourceRailBuilderVault({
-      cloudflareWorkers: [makeResourceRailCloudflareWorker({})],
-      convexProjects: [makeResourceRailConvexProject({})],
+    const vault = makeRepositorySettingsBuilderVault({
+      cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({})],
+      convexProjects: [makeRepositorySettingsConvexProject({})],
       ghRepoName: "demo",
       ghRepoOwner: "ada",
       repositoryFullName: "ada/demo",
@@ -714,7 +717,7 @@ describe("VaultOverviewVaultPickerPane", () => {
         <VaultOverviewVaultPickerPane
           sidebarSummaries={{ state: "loading" }}
           vaults={[
-            makeResourceRailBuilderVault({
+            makeRepositorySettingsBuilderVault({
               sourceSetup: {
                 status: "running",
                 runId: fakeRunId(),
@@ -731,7 +734,7 @@ describe("VaultOverviewVaultPickerPane", () => {
         <VaultOverviewVaultPickerPane
           sidebarSummaries={{ state: "loading" }}
           vaults={[
-            makeResourceRailBuilderVault({
+            makeRepositorySettingsBuilderVault({
               deletion: {
                 state: "deleting",
                 runId: fakeDeletionRunId(),
@@ -827,7 +830,7 @@ describe("resolveVaultProviderSetupStatus", () => {
       runId: fakeRunId(),
       step: "rotate_convex_deploy_keys_for_workers_builds",
       updatedAt: 0,
-    } satisfies ResourceRailBuilderVault["providerSetup"];
+    } satisfies RepositorySettingsBuilderVault["providerSetup"];
 
     expect(resolveVaultProviderSetupStepProvider(providerSetup)).toBe("cloudflare");
     expect(resolveVaultProviderSetupStatus(providerSetup)).toEqual({
@@ -1473,24 +1476,22 @@ describe("VaultCloudflareDialogContent", () => {
   });
 });
 
-describe("buildVaultDashboardResourceRailState", () => {
+describe("buildVaultRepositorySettingsState", () => {
   it("groups resources by observed roots and keeps unresolved Workers in attention", () => {
     const readyWorkerId = fakeCloudflareWorkerId("worker-ready");
     const unresolvedWorkerId = fakeCloudflareWorkerId("worker-unresolved");
     const convexProjectId = fakeConvexProjectId();
-    const state = buildVaultDashboardResourceRailState({
-      buildAddCloudflareWorkerHref: () => "/vault/ada/demo?add-cloudflare",
-      buildAddConvexHref: () => "/vault/ada/demo?add-convex",
+    const state = buildVaultRepositorySettingsState({
       cloudflareObservations: makeLoadedCloudflareObservations({
         workers: [
-          makeAvailableResourceRailCloudflareObservation({ workerId: readyWorkerId }),
-          makeAvailableResourceRailCloudflareObservation({
+          makeAvailableRepositorySettingsCloudflareObservation({ workerId: readyWorkerId }),
+          makeAvailableRepositorySettingsCloudflareObservation({
             workerId: unresolvedWorkerId,
             workersDev: { state: "disabled" },
           }),
         ],
         builds: [
-          makeAvailableResourceRailCloudflareBuildsObservation({
+          makeAvailableRepositorySettingsCloudflareBuildsObservation({
             workerId: readyWorkerId,
             repository: {
               state: "ready",
@@ -1507,6 +1508,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         ],
         convexBuildAccess: [],
       }),
+      connectedCloudflareAccount: undefined,
       convexObservations: {
         state: "loaded",
         freshness: "current",
@@ -1535,19 +1537,19 @@ describe("buildVaultDashboardResourceRailState", () => {
       reconcileConvexProjectTeamOnClick: () => {},
       detachCloudflareWorkerOnClick: () => {},
       detachConvexProjectOnClick: () => {},
-      vault: makeResourceRailBuilderVault({
+      vault: makeRepositorySettingsBuilderVault({
         cloudflareWorkers: [
-          makeResourceRailCloudflareWorker({
+          makeRepositorySettingsCloudflareWorker({
             workerId: readyWorkerId,
             workerName: "web-worker",
           }),
-          makeResourceRailCloudflareWorker({
+          makeRepositorySettingsCloudflareWorker({
             workerId: unresolvedWorkerId,
             workerName: "unresolved-worker",
           }),
         ],
         convexProjects: [
-          makeResourceRailConvexProject({
+          makeRepositorySettingsConvexProject({
             convexProjectId,
             codeLocation: { kind: "config", convexConfigPath: "packages/api/convex.json" },
             projectId: "api-project",
@@ -1557,21 +1559,24 @@ describe("buildVaultDashboardResourceRailState", () => {
     });
 
     expect(state.roots.map((root) => root.rootDirectory)).toEqual(["apps/web", "packages/api"]);
-    expect(state.attentionRows).toHaveLength(1);
-    expect(state.attentionRows[0]).toMatchObject({
+    expect(state.attentionResources).toHaveLength(1);
+    expect(state.attentionResources[0]).toMatchObject({
       provider: "cloudflare",
-      value: "unresolved-worker",
+      name: "unresolved-worker",
     });
-    const convexRow = getResourceRailRootRow(state, "packages/api", "convex");
-    expect(convexRow).toMatchObject({
-      scope: "ada",
-      status: "available",
-      value: "api",
+    const convexResource = getRepositorySettingsResource(state, "packages/api", "convex");
+    expect(convexResource).toMatchObject({
+      owner: "ada",
+      state: "available",
+      name: "api",
     });
-    expect(
-      convexRow.status === "available" ? convexRow.actions?.map((action) => action.label) : [],
-    ).toEqual(["Change code location", "Use current team", "Remove from vault"]);
-    expect(state.vaultActionRows.map((row) => row.rowId)).toEqual(["convex:add", "cloudflare:add"]);
+    expect(convexResource.actions?.map((action) => action.label) ?? []).toEqual([
+      "Change code location",
+      "Use current team",
+      "Remove from vault",
+    ]);
+    expect(state.addCloudflareWorker.disabled).toBe(true);
+    expect(state.addConvexProject.disabled).toBe(true);
   });
 
   it("names exact Convex targets and limits key repair to the observed attachment", () => {
@@ -1579,15 +1584,15 @@ describe("buildVaultDashboardResourceRailState", () => {
     const alphaProjectId = fakeConvexProjectId("convex-alpha");
     const betaProjectId = fakeConvexProjectId("convex-beta");
     const rotate = vi.fn();
-    const vaultWithBuildAccess = makeResourceRailBuilderVault({
-      cloudflareWorkers: [makeResourceRailCloudflareWorker({ workerId })],
+    const vaultWithBuildAccess = makeRepositorySettingsBuilderVault({
+      cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({ workerId })],
       convexProjects: [
-        makeResourceRailConvexProject({
+        makeRepositorySettingsConvexProject({
           convexProjectId: alphaProjectId,
           projectId: "alpha-project-id",
           teamId: "team-alpha",
         }),
-        makeResourceRailConvexProject({
+        makeRepositorySettingsConvexProject({
           convexProjectId: betaProjectId,
           projectId: "beta-project-id",
           teamId: "team-beta",
@@ -1633,13 +1638,13 @@ describe("buildVaultDashboardResourceRailState", () => {
       ],
     };
     const readCloudflareRow = (
-      convexBuildAccess: AvailableResourceRailCloudflareConvexBuildAccessObservation["convexBuildAccess"],
+      convexBuildAccess: AvailableRepositorySettingsCloudflareConvexBuildAccessObservation["convexBuildAccess"],
     ) => {
-      const state = buildVaultDashboardResourceRailState({
+      const state = buildVaultRepositorySettingsState({
         cloudflareObservations: makeLoadedCloudflareObservations({
-          workers: [makeAvailableResourceRailCloudflareObservation({ workerId })],
+          workers: [makeAvailableRepositorySettingsCloudflareObservation({ workerId })],
           builds: [
-            makeAvailableResourceRailCloudflareBuildsObservation({
+            makeAvailableRepositorySettingsCloudflareBuildsObservation({
               workerId,
               repository: {
                 state: "ready",
@@ -1666,15 +1671,16 @@ describe("buildVaultDashboardResourceRailState", () => {
             },
           ],
         }),
+        connectedCloudflareAccount: undefined,
         convexObservations,
         rotateConvexDeployKeysForWorkersBuildsOnClick: rotate,
         vault: vaultWithBuildAccess,
       });
-      const row = getResourceRailRootRow(state, "/", "cloudflare");
-      if (row.status !== "available") {
+      const resource = getRepositorySettingsResource(state, "/", "cloudflare");
+      if (resource.state !== "available") {
         throw new Error("Expected an available Cloudflare row.");
       }
-      return row;
+      return resource;
     };
 
     const unconfiguredRow = readCloudflareRow({ state: "not_configured" });

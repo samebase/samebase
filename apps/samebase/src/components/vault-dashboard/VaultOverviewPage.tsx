@@ -7,7 +7,7 @@ import {
 import { PullRequestsSection } from "@/components/vault-dashboard/VaultPullRequestsSection";
 import { RepositorySettings } from "@/components/vault-dashboard/VaultRepositorySettings";
 import { VaultWorkspaceDataInspector } from "@/components/vault-dashboard/VaultWorkspaceDataInspector";
-import type { VaultResourceRailState } from "@/components/vault-dashboard/vaultResourceRailModel";
+import type { VaultRepositorySettingsState } from "@/components/vault-dashboard/vaultRepositorySettingsState";
 import { buildVaultDashboardRoute, buildVaultSettingsRoute } from "@/lib/vaultRoutes";
 import { formatVaultProviderSetupStep } from "./vaultProviderSetup";
 import { formatVaultSourceSetupStep } from "./vaultSourceSetup";
@@ -25,7 +25,7 @@ type VaultOverviewPageProps = {
   onRetryInfrastructureProvisioning: () => void;
   onRetryVaultDeletion: () => void;
   page: VaultOverviewPageKind;
-  resourceRailState: VaultResourceRailState;
+  settingsState: VaultRepositorySettingsState;
   workspace: VaultWorkspaceSelected;
 };
 
@@ -190,7 +190,7 @@ export function VaultOverviewPage({
   onRetryInfrastructureProvisioning,
   onRetryVaultDeletion,
   page,
-  resourceRailState,
+  settingsState,
   workspace,
 }: VaultOverviewPageProps) {
   const filesReadEnabled =
@@ -214,7 +214,7 @@ export function VaultOverviewPage({
         <RepositorySettings
           developerToolsVisible={developerToolsVisible}
           onOpenDeleteDialog={onOpenDeleteDialog}
-          resourceRailState={resourceRailState}
+          settingsState={settingsState}
           workspace={workspace}
         />
       ) : (
@@ -242,12 +242,7 @@ export function VaultOverviewPage({
                 vault={workspace.vault}
               />
               <DefaultBranchSection filesReadEnabled={filesReadEnabled} workspace={workspace} />
-              {developerToolsVisible ? (
-                <VaultWorkspaceDataInspector
-                  resourceRailState={resourceRailState}
-                  workspace={workspace}
-                />
-              ) : null}
+              {developerToolsVisible ? <VaultWorkspaceDataInspector workspace={workspace} /> : null}
               <PullRequestsSection
                 filesReadEnabled={filesReadEnabled}
                 pullRequests={workspace.pullRequests}
