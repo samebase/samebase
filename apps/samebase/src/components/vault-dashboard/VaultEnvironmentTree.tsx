@@ -1,0 +1,484 @@
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  CloudflareProviderLogo,
+  ConvexProviderLogo,
+  SamebaseLogoMark,
+} from "@/components/vault-dashboard/VaultDashboardLogos";
+import { VaultChecksPopover } from "@/components/vault-dashboard/VaultChecksPopover";
+import {
+  buildPullRequestEnvironmentRoots,
+  type VaultEnvironmentAction,
+  type VaultEnvironmentResource,
+  type VaultEnvironmentRoot,
+  type VaultEnvironmentWorker,
+} from "@/components/vault-dashboard/vaultEnvironmentRoots";
+import type { PullRequestResourceState } from "@/hooks/useVaultPullRequests";
+import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
+import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
+import { buildVaultFileRoute } from "@/lib/vaultRoutes";
+import { Link } from "@tanstack/react-router";
+import {
+  CircleCheck,
+  CircleDashed,
+  CircleDot,
+  CircleX,
+  ExternalLink,
+  MoreHorizontal,
+} from "lucide-react";
+import { useState } from "react";
+import type { VaultWorkspaceSelected } from "./vaultWorkspaceModel";
+
+type EnvironmentBuildState = Extract<
+  VaultEnvironmentWorker["build"],
+  { state: "available" }
+>["buildState"];
+
+function DestinationIcon({ href, provider }: { href: string; provider: "cloudflare" | "convex" }) {
+  const [faviconFailed, setFaviconFailed] = useState(false);
+  let origin: URL;
+  try {
+    origin = new URL(href);
+  } catch {
+    return provider === "convex" ? <ConvexProviderLogo /> : <CloudflareProviderLogo />;
+  }
+
+  if (provider === "convex" || origin.hostname.endsWith(".workers.dev") || faviconFailed) {
+    return provider === "convex" ? <ConvexProviderLogo /> : <CloudflareProviderLogo />;
+  }
+
+  const faviconUrl = `${origin.origin}/favicon.ico`;
+
+  return (
+    <img
+      alt=""
+      aria-hidden="true"
+      className="h-4 w-4"
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      src={faviconUrl}
+      onError={() => setFaviconFailed(true)}
+    />
+  );
+}
+
+export function RootDirectoryLabel({ rootDirectory }: { rootDirectory: string }) {
+  return (
+    <span className="block text-base font-semibold leading-5 text-foreground [overflow-wrap:anywhere]">
+      {rootDirectory}
+    </span>
+  );
+}
+
+function EnvironmentActionsMenu({
+  actions,
+  label,
+}: {
+  actions: readonly VaultEnvironmentAction[];
+  label: string;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild nativeButton>
+        <Button
+          aria-label={`Open ${label} actions`}
+          className="size-10 @4xl:size-8"
+          size="icon-sm"
+          type="button"
+          variant="ghost"
+        >
+          <MoreHorizontal />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className="w-max min-w-40 max-w-[calc(100vw-2rem)] rounded-none shadow-none"
+      >
+        {actions.map((action) => (
+          <DropdownMenuItem key={`${action.destination}:${action.href}`} asChild>
+            {action.destination === "samebase" ? (
+              <Link className="min-w-0 no-underline" to={action.href}>
+                <SamebaseLogoMark />
+                <span className="min-w-0 break-all">{action.label}</span>
+              </Link>
+            ) : (
+              <a
+                className="min-w-0 no-underline"
+                href={action.href}
+                rel="noreferrer noopener"
+                target="_blank"
+              >
+                <span className="min-w-0 break-all">{action.label}</span>
+                <ExternalLink className="shrink-0" />
+              </a>
+            )}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function DestinationResource({
+  resource,
+}: {
+  resource: Extract<VaultEnvironmentResource, { kind: "destination" }>;
+}) {
+  return (
+    <div className="flex min-h-10 min-w-0 items-center gap-1 py-1.5">
+      <a
+        className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-foreground no-underline hover:no-underline"
+        href={resource.href}
+        rel="noreferrer noopener"
+        target="_blank"
+        title={resource.title}
+      >
+        <span className="flex h-4 w-5 shrink-0 items-center justify-center">
+          <DestinationIcon href={resource.href} provider={resource.provider} />
+        </span>
+        <span className="min-w-0 truncate text-sm font-medium leading-5 underline decoration-border underline-offset-4">
+          {resource.label}
+        </span>
+        <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+      </a>
+      {resource.actions.length > 0 ? (
+        <EnvironmentActionsMenu actions={resource.actions} label={resource.label} />
+      ) : null}
+    </div>
+  );
+}
+
+function VaultEnvironmentResourceRow({ resource }: { resource: VaultEnvironmentResource }) {
+  switch (resource.kind) {
+    case "destination":
+      return <DestinationResource resource={resource} />;
+    case "convex_loading":
+      return (
+        <div
+          aria-label="Loading Convex deployment"
+          className="flex min-h-10 min-w-0 items-center gap-2.5 py-1.5"
+        >
+          <span className="flex h-4 w-5 shrink-0 items-center justify-center">
+            <ConvexProviderLogo />
+          </span>
+          <span
+            aria-hidden="true"
+            className="h-3 w-32 max-w-[60%] bg-muted motion-safe:animate-pulse"
+          />
+        </div>
+      );
+    case "cloudflare_worker":
+      return <CloudflareWorkerResource worker={resource.worker} />;
+    default:
+      resource satisfies never;
+      return null;
+  }
+}
+
+export function VaultEnvironmentTree({ roots }: { roots: readonly VaultEnvironmentRoot[] }) {
+  if (roots.length === 0) {
+    return null;
+  }
+  const hideRootDirectory = roots.length === 1 && roots[0]?.rootDirectory === "/";
+
+  return (
+    <div className={hideRootDirectory ? undefined : "ml-2.5 pl-5"}>
+      {roots.map((root) => (
+        <div key={root.rootDirectory}>
+          {hideRootDirectory ? null : (
+            <div className="pt-3">
+              <RootDirectoryLabel rootDirectory={root.rootDirectory} />
+            </div>
+          )}
+          <div className={hideRootDirectory ? undefined : "pb-0.5"}>
+            {root.resources.map((resource) => (
+              <div
+                key={`${resource.kind}:${resource.id}`}
+                className={hideRootDirectory ? undefined : "pl-4"}
+              >
+                <VaultEnvironmentResourceRow resource={resource} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function VaultOverviewLoadingLines({ rows = 3 }: { rows?: number }) {
+  return (
+    <div className="grid gap-4" aria-hidden="true">
+      {Array.from({ length: rows }, (_, index) => (
+        <div key={index} className="grid gap-2">
+          <div className="h-4 w-2/3 bg-muted motion-safe:animate-pulse" />
+          <div className="h-3 w-1/3 bg-muted motion-safe:animate-pulse" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function DefaultBranchSection({
+  filesReadEnabled,
+  workspace,
+}: {
+  filesReadEnabled: boolean;
+  workspace: VaultWorkspaceSelected;
+}) {
+  const pullRequests = workspace.pullRequests;
+  const defaultBranch = workspace.vault.defaultBranch?.trim();
+
+  if (pullRequests.state === "loading") {
+    return (
+      <section aria-label="Loading default branch" className="pb-5">
+        <VaultOverviewLoadingLines rows={2} />
+      </section>
+    );
+  }
+  if (pullRequests.state === "problem") {
+    return (
+      <section className="pb-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+          <span>Could not load the default branch from GitHub.</span>
+          <Button size="sm" type="button" variant="outline" onClick={pullRequests.reload}>
+            Retry
+          </Button>
+        </div>
+      </section>
+    );
+  }
+  if (pullRequests.state === "not_requested") {
+    return (
+      <section className="pb-5 text-sm text-muted-foreground">
+        The GitHub repository is not ready yet.
+      </section>
+    );
+  }
+  const observation = pullRequests.defaultBranch;
+  if (!observation || !defaultBranch) {
+    return (
+      <section className="pb-5 text-sm text-muted-foreground">
+        No default branch commit is available.
+      </section>
+    );
+  }
+
+  const commitTime = Date.parse(observation.headCommitCommittedAt);
+  const relativeCommitTime = Number.isFinite(commitTime)
+    ? formatRelativeTimeAgo(commitTime)
+    : observation.headCommitCommittedAt;
+  const branchUrl = buildGitHubBranchTreeUrl({
+    branchName: defaultBranch,
+    repositoryFullName: workspace.vault.repositoryFullName,
+  });
+  const filesHref = buildVaultFileRoute({
+    owner: workspace.vault.ghRepoOwner,
+    repoName: workspace.vault.ghRepoName,
+    branch: defaultBranch,
+  });
+  const productionLoading =
+    workspace.cloudflareObservations.workers.state === "loading" ||
+    workspace.cloudflareObservations.builds.state === "loading" ||
+    workspace.convexObservations.state === "loading";
+  const environmentRoots = workspace.environmentRoots;
+
+  return (
+    <section
+      aria-label={`Default branch ${defaultBranch}`}
+      aria-busy={pullRequests.refreshing}
+      className="pb-5"
+    >
+      <div className="grid gap-3 @4xl:grid-cols-[minmax(0,1fr)_auto] @4xl:items-start">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <a
+              className="inline-flex min-h-8 items-center text-xs font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+              href={branchUrl}
+              rel="noreferrer noopener"
+              target="_blank"
+            >
+              {defaultBranch}
+            </a>
+            <span className="text-xs text-muted-foreground">·</span>
+            <a
+              className="inline-flex min-h-8 items-center font-mono text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
+              href={observation.headCommitUrl}
+              rel="noreferrer noopener"
+              target="_blank"
+            >
+              {observation.headCommitOid.slice(0, 7)}
+            </a>
+            <span className="text-xs text-muted-foreground">{relativeCommitTime}</span>
+          </div>
+          <div className="line-clamp-3 text-base font-medium leading-6 text-foreground [overflow-wrap:anywhere]">
+            {observation.headCommitTitle}
+          </div>
+          {pullRequests.state === "stale" || pullRequests.refreshing ? (
+            <div className="mt-1 flex flex-wrap gap-x-2 text-xs leading-5 text-muted-foreground">
+              {pullRequests.state === "stale" ? <span>May be out of date</span> : null}
+              {pullRequests.refreshing ? <span>Updating</span> : null}
+            </div>
+          ) : null}
+        </div>
+        <div className="justify-self-start @4xl:justify-self-end">
+          <VaultChecksPopover
+            checks={observation.checks}
+            detailsUrl={`${observation.headCommitUrl}/checks`}
+            heading={`${defaultBranch} checks`}
+            statusCheckRollup={observation.statusCheckRollup}
+            triggerTitle={`Show ${defaultBranch} checks`}
+          />
+        </div>
+      </div>
+      {filesReadEnabled ? (
+        <div className="mt-2 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs">
+          <Link
+            className="inline-flex min-h-8 items-center gap-1 font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+            title="Open Files in Samebase"
+            to={filesHref}
+          >
+            <SamebaseLogoMark />
+            Files
+          </Link>
+        </div>
+      ) : null}
+      {productionLoading && environmentRoots.length === 0 ? (
+        <div className="grid gap-2 py-2" aria-label="Loading production destinations">
+          <div className="h-3 w-44 max-w-full bg-muted motion-safe:animate-pulse" />
+          <div className="h-3 w-32 max-w-full bg-muted motion-safe:animate-pulse" />
+        </div>
+      ) : (
+        <VaultEnvironmentTree roots={environmentRoots} />
+      )}
+    </section>
+  );
+}
+
+function BuildState({ state }: { state: EnvironmentBuildState }) {
+  switch (state) {
+    case "queued":
+      return (
+        <span className="inline-flex items-center gap-1 text-muted-foreground">
+          <CircleDashed className="h-3.5 w-3.5" />
+          Queued
+        </span>
+      );
+    case "running":
+      return (
+        <span className="inline-flex items-center gap-1 text-amber-700">
+          <CircleDot className="h-3.5 w-3.5" />
+          Building
+        </span>
+      );
+    case "success":
+      return (
+        <span className="inline-flex items-center gap-1 text-emerald-600">
+          <CircleCheck className="h-3.5 w-3.5" />
+          Built
+        </span>
+      );
+    case "failure":
+      return (
+        <span className="inline-flex items-center gap-1 text-destructive">
+          <CircleX className="h-3.5 w-3.5" />
+          Failed
+        </span>
+      );
+    case "cancelled":
+      return <span className="text-muted-foreground">Cancelled</span>;
+    case "skipped":
+      return <span className="text-muted-foreground">Skipped</span>;
+    case "unknown":
+      return <span className="text-muted-foreground">Unknown</span>;
+    default:
+      state satisfies never;
+      return null;
+  }
+}
+
+function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }) {
+  return (
+    <div className="grid min-w-0 gap-1.5 py-2.5">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className="flex h-4 w-5 shrink-0 items-center justify-center">
+          <CloudflareProviderLogo />
+        </span>
+        <span className="min-w-0 truncate text-sm font-medium leading-5 text-foreground">
+          {worker.workerName}
+        </span>
+        {worker.build.state === "available" ? (
+          <a
+            className="inline-flex min-h-10 shrink-0 items-center gap-1 text-sm underline decoration-border underline-offset-4 @4xl:min-h-8"
+            href={worker.build.logsUrl}
+            rel="noreferrer noopener"
+            target="_blank"
+            title={`Open build logs for ${worker.workerName}`}
+          >
+            <BuildState state={worker.build.buildState} />
+            <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+          </a>
+        ) : (
+          <span className="shrink-0 text-sm text-muted-foreground">
+            {worker.build.state === "absent" ? "No build" : "Unavailable"}
+          </span>
+        )}
+      </div>
+      {worker.destination.state === "available" || worker.actions.length > 0 ? (
+        <div className="ml-[1.875rem] flex min-w-0 items-center gap-1 text-sm">
+          {worker.destination.state === "available" ? (
+            <a
+              className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
+              href={worker.destination.href}
+              rel="noreferrer noopener"
+              target="_blank"
+              title={worker.destination.title}
+            >
+              <span className="flex h-4 w-5 shrink-0 items-center justify-center">
+                <DestinationIcon href={worker.destination.href} provider="cloudflare" />
+              </span>
+              <span className="min-w-0 break-all leading-5">{worker.destination.label}</span>
+              <ExternalLink className="h-3 w-3 shrink-0" />
+            </a>
+          ) : null}
+          {worker.actions.length > 0 ? (
+            <EnvironmentActionsMenu actions={worker.actions} label={worker.workerName} />
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function PullRequestResources({
+  resource,
+}: {
+  resource: PullRequestResourceState | undefined;
+}) {
+  if (resource?.state === "loading") {
+    return (
+      <div className="ml-2.5 border-l border-border py-2 pl-5">
+        <div className="h-3 w-32 bg-muted motion-safe:animate-pulse" aria-hidden="true" />
+      </div>
+    );
+  }
+  if (!resource || resource.state === "failed") {
+    return resource?.state === "failed" ? (
+      <div className="ml-2.5 border-l border-border py-2 pl-5 text-xs text-muted-foreground">
+        Deploy status unavailable
+      </div>
+    ) : null;
+  }
+  if (resource.resources.workers.length === 0) {
+    return null;
+  }
+
+  const roots = buildPullRequestEnvironmentRoots(resource.resources);
+
+  return <VaultEnvironmentTree roots={roots} />;
+}

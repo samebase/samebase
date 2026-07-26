@@ -3,18 +3,19 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 import {
   VaultOverviewLoadingPage,
   VaultOverviewPage,
+} from "@/components/vault-dashboard/VaultOverviewPage";
+import {
   VaultOverviewSidebar,
   VaultOverviewSidebarLoading,
-} from "@/components/vault-dashboard/VaultOverviewPage";
+} from "@/components/vault-dashboard/VaultOverviewSidebar";
+import { buildProductionEnvironmentRoots } from "@/components/vault-dashboard/vaultEnvironmentRoots";
 import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
-import { buildVaultProductionRoots } from "@/components/vault-dashboard/vaultProductionRoots";
 import type { VaultWorkspaceSelected } from "@/components/vault-dashboard/vaultWorkspaceModel";
 import {
   VaultOverviewVaultPickerPane,
   type VaultDashboardVault,
 } from "@/components/vault-dashboard/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
-import { getDefaultVaultPullRequestFilters } from "@/components/vault-dashboard/vaultDashboardPullRequestFilters";
 import type {
   VaultDefaultBranchObservation,
   VaultPullRequest,
@@ -601,7 +602,6 @@ function fixturePullRequests(
     state: "current",
     defaultBranch,
     refreshing: false,
-    pullRequests: [...pullRequests],
     allPullRequests: [...pullRequests],
     resourceState: "current",
     resourcesByPullRequestId: new Map(
@@ -671,6 +671,70 @@ const AUTO_PAGINATION_PULL_REQUESTS = [
   ...LIST_SPACING_PULL_REQUESTS.slice(0, 2),
   ...Array.from({ length: 6 }, (_, index) => fixturePullRequest({ index: index + 3 })),
 ];
+
+function buildFixtureWorkspace({
+  cloudflareAccountId,
+  cloudflareAccountName,
+  cloudflareObservations,
+  convexObservations,
+  githubRepositoryUrl,
+  pullRequests,
+  vault,
+}: {
+  cloudflareAccountId: string;
+  cloudflareAccountName: string;
+  cloudflareObservations: VaultCloudflareProviderObservationState;
+  convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
+  githubRepositoryUrl: string;
+  pullRequests: VaultPullRequestsState;
+  vault: VaultDashboardVault;
+}) {
+  const workspace = {
+    access: { state: "ready", accessKeys: ROLE_ACCESS_GRANTS.role_member },
+    cloudflareConnection: {
+      state: "ready",
+      connection: {
+        connected: true,
+        accountId: cloudflareAccountId,
+        accountName: cloudflareAccountName,
+      },
+    },
+    cloudflareObservations,
+    convexObservations,
+    environmentRoots: vault.defaultBranch
+      ? buildProductionEnvironmentRoots({
+          branch: vault.defaultBranch,
+          cloudflareObservations,
+          convexObservations,
+          owner: vault.ghRepoOwner,
+          repoName: vault.ghRepoName,
+          schemaGraphEnabled: ROLE_ACCESS_GRANTS.role_member.includes("access_schema_graph"),
+          vault,
+        })
+      : [],
+    githubRepositoryUrl,
+    pullRequests,
+    vault,
+  } satisfies VaultWorkspaceSelected;
+
+  return {
+    resourceRailState: buildVaultDashboardResourceRailState({
+      addCloudflareWorkerOnClick: () => {},
+      addConvexOnClick: () => {},
+      changeConvexProjectConfigPathOnClick: () => {},
+      cloudflareObservations,
+      convexObservations,
+      configureWorkersBuildsForGitHubOnClick: () => {},
+      detachCloudflareWorkerOnClick: () => {},
+      detachConvexProjectOnClick: () => {},
+      githubRepositoryUrl,
+      reconcileConvexProjectTeamOnClick: () => {},
+      rotateConvexDeployKeysForWorkersBuildsOnClick: () => {},
+      vault,
+    }),
+    workspace,
+  };
+}
 
 function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisioningVisualMode }) {
   let vault: VaultDashboardVault;
@@ -766,28 +830,15 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
       break;
   }
 
-  const workspace = {
-    access: { state: "ready", accessKeys: ROLE_ACCESS_GRANTS.role_member },
-    cloudflareConnection: {
-      state: "ready",
-      connection: {
-        connected: true,
-        accountId: "fixture-cloudflare-account",
-        accountName: "Fixture Account",
-      },
-    },
+  const { resourceRailState, workspace } = buildFixtureWorkspace({
+    cloudflareAccountId: "fixture-cloudflare-account",
+    cloudflareAccountName: "Fixture Account",
     cloudflareObservations,
     convexObservations,
     githubRepositoryUrl: "https://github.com/nicu-chiciuc/tmp-f149-vault-loading-states",
-    productionRoots: buildVaultProductionRoots({
-      cloudflareObservations,
-      convexObservations,
-      vault,
-    }),
-    pullRequestFilters: getDefaultVaultPullRequestFilters(),
     pullRequests,
     vault,
-  } satisfies VaultWorkspaceSelected;
+  });
   const sidebarSummaries = {
     state: "loaded",
     summaries: [
@@ -798,21 +849,6 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
       },
     ],
   } satisfies VaultSidebarSummariesState;
-  const resourceRailState = buildVaultDashboardResourceRailState({
-    addCloudflareWorkerOnClick: () => {},
-    addConvexOnClick: () => {},
-    changeConvexProjectConfigPathOnClick: () => {},
-    cloudflareObservations,
-    convexObservations,
-    configureWorkersBuildsForGitHubOnClick: () => {},
-    detachCloudflareWorkerOnClick: () => {},
-    detachConvexProjectOnClick: () => {},
-    githubRepositoryUrl: workspace.githubRepositoryUrl,
-    reconcileConvexProjectTeamOnClick: () => {},
-    rotateConvexDeployKeysForWorkersBuildsOnClick: () => {},
-    vault,
-  });
-
   return (
     <TestRouterProvider initialEntries={["/vault/nicu-chiciuc/tmp-f149-vault-loading-states"]}>
       <WorkspaceLayoutV2FixtureFrame
@@ -853,7 +889,7 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
   );
 }
 
-function VaultOverviewV2Fixture({ mode }: { mode: VaultOverviewVisualMode }) {
+export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisualMode }) {
   const [nextPullRequestPageLoaded, setNextPullRequestPageLoaded] = useState(false);
   const page = mode === "vault-overview-v2-settings" ? "settings" : "overview";
 
@@ -935,40 +971,13 @@ function VaultOverviewV2Fixture({ mode }: { mode: VaultOverviewVisualMode }) {
           loadMore: () => setNextPullRequestPageLoaded(true),
         }
       : currentPullRequests;
-  const workspace = {
-    access: { state: "ready", accessKeys: ROLE_ACCESS_GRANTS.role_member },
-    cloudflareConnection: {
-      state: "ready",
-      connection: {
-        connected: true,
-        accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
-        accountName: "Samebase",
-      },
-    },
+  const { resourceRailState, workspace } = buildFixtureWorkspace({
+    cloudflareAccountId: "fe57d01d7ab41f60d00ba1aade20eb33",
+    cloudflareAccountName: "Samebase",
     cloudflareObservations,
     convexObservations,
     githubRepositoryUrl: "https://github.com/samebase/samebase",
-    productionRoots: buildVaultProductionRoots({
-      cloudflareObservations,
-      convexObservations,
-      vault: LIST_SPACING_VAULT,
-    }),
-    pullRequestFilters: getDefaultVaultPullRequestFilters(),
     pullRequests,
-    vault: LIST_SPACING_VAULT,
-  } satisfies VaultWorkspaceSelected;
-  const resourceRailState = buildVaultDashboardResourceRailState({
-    addCloudflareWorkerOnClick: () => {},
-    addConvexOnClick: () => {},
-    changeConvexProjectConfigPathOnClick: () => {},
-    cloudflareObservations,
-    convexObservations,
-    configureWorkersBuildsForGitHubOnClick: () => {},
-    detachCloudflareWorkerOnClick: () => {},
-    detachConvexProjectOnClick: () => {},
-    githubRepositoryUrl: workspace.githubRepositoryUrl,
-    reconcileConvexProjectTeamOnClick: () => {},
-    rotateConvexDeployKeysForWorkersBuildsOnClick: () => {},
     vault: LIST_SPACING_VAULT,
   });
 
@@ -1008,8 +1017,4 @@ function VaultOverviewV2Fixture({ mode }: { mode: VaultOverviewVisualMode }) {
       shortcutPaneSide="left"
     />
   );
-}
-
-export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisualMode }) {
-  return <VaultOverviewV2Fixture mode={mode} />;
 }

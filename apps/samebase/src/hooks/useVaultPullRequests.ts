@@ -7,10 +7,6 @@ import type {
 } from "../../convex/repositoryPullRequests";
 import type { UserVaultResult } from "../../convex/vault/contracts/getUserVaults";
 import type { PullRequestResources } from "../../convex/vault/pullRequestResources";
-import {
-  filterVaultPullRequests,
-  type VaultPullRequestFilters,
-} from "@/components/vault-dashboard/vaultDashboardPullRequestFilters";
 import { summarizeRepositoryChecks, type RepositoryCheckSummary } from "@/lib/repositoryChecks";
 import { useInfiniteQuery, useQueries } from "@tanstack/react-query";
 import { useAction } from "convex/react";
@@ -60,7 +56,6 @@ export type PullRequestResourceState =
 type SettledPullRequests = {
   state: "current" | "stale";
   defaultBranch: VaultDefaultBranchObservation | null;
-  pullRequests: VaultPullRequest[];
   allPullRequests: VaultPullRequest[];
   refreshing: boolean;
   resourceState: "current" | "loading" | "stale" | "failed";
@@ -165,7 +160,6 @@ function uniquePullRequestIdPages(pages: readonly RepositoryPullRequestPage[]): 
 
 export function useVaultPullRequests(args: {
   vault: VaultPullRequestTarget | null;
-  filters: VaultPullRequestFilters;
 }): VaultPullRequestsState {
   const listOpenPullRequests = useAction(api.repositoryPullRequests.listOpenPullRequests);
   const getPullRequestResources = useAction(api.vault.pullRequestResources.getPullRequestResources);
@@ -224,10 +218,6 @@ export function useVaultPullRequests(args: {
   const pages = useMemo(() => pullRequestQuery.data?.pages ?? [], [pullRequestQuery.data?.pages]);
   const allPullRequests = useMemo(() => uniquePullRequests(pages).map(presentPullRequest), [pages]);
   const defaultBranch = defaultBranchFromPage(pages.at(0));
-  const pullRequests = useMemo(
-    () => filterVaultPullRequests(allPullRequests, args.filters),
-    [allPullRequests, args.filters],
-  );
   const pullRequestIdPages = useMemo(() => uniquePullRequestIdPages(pages), [pages]);
   const resourceQueries = useQueries({
     queries: pullRequestIdPages.map((pagePullRequestIds, pageIndex) => ({
@@ -318,7 +308,6 @@ export function useVaultPullRequests(args: {
         ? "stale"
         : "current",
     defaultBranch,
-    pullRequests,
     allPullRequests,
     refreshing: pullRequestQuery.isFetching || resourceQueries.some((query) => query.isFetching),
     resourceState,

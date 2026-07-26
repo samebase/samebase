@@ -3,8 +3,7 @@ import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVau
 import type { AccessKey } from "../../../shared/accessModel";
 import type { VaultPullRequestsState } from "@/hooks/useVaultPullRequests";
 import type { VaultSidebarSummariesState } from "@/hooks/useVaultSidebarSummaries";
-import type { VaultPullRequestFilters } from "./vaultDashboardPullRequestFilters";
-import type { VaultProductionRoot } from "./vaultProductionRoots";
+import type { VaultEnvironmentRoot } from "./vaultEnvironmentRoots";
 import type {
   VaultCloudflareProviderObservationState,
   VaultConvexProjectObservation,
@@ -27,9 +26,8 @@ export type VaultWorkspaceSelected = {
   cloudflareObservations: VaultCloudflareProviderObservationState;
   cloudflareConnection: VaultWorkspaceCloudflareConnectionState;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
+  environmentRoots: readonly VaultEnvironmentRoot[];
   githubRepositoryUrl: string;
-  productionRoots: readonly VaultProductionRoot[];
-  pullRequestFilters: VaultPullRequestFilters;
   pullRequests: VaultPullRequestsState;
   vault: UserVaultResult;
 };

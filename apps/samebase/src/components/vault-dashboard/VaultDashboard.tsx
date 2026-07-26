@@ -9,10 +9,12 @@ import { Label } from "@/components/ui/label";
 import {
   VaultOverviewLoadingPage,
   VaultOverviewPage,
-  VaultOverviewSidebar,
-  VaultOverviewSidebarLoading,
   type VaultOverviewPageKind,
 } from "@/components/vault-dashboard/VaultOverviewPage";
+import {
+  VaultOverviewSidebar,
+  VaultOverviewSidebarLoading,
+} from "@/components/vault-dashboard/VaultOverviewSidebar";
 import { VaultRepositoryRootInput } from "@/components/vault-dashboard/VaultRepositoryRootInput";
 import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
 import { ClockIcon } from "@/lib/radixIcons";
@@ -2470,6 +2472,7 @@ export function VaultDashboard({
   }
 
   const allVaults = workspaceModel.vaults;
+  const workspaceSelection = workspaceModel.selection;
 
   const handleDeleteDialogOpenChange = (isOpen: boolean) => {
     if (isOpen || isDeleting || isCommitting) {
@@ -2603,8 +2606,7 @@ export function VaultDashboard({
       })
     : null;
 
-  const selectedVaultMissing = Boolean(selectedRepositoryFullName) && selectedVault === null;
-  const isVaultRootRoute = selectedRepositoryFullName === undefined;
+  const isVaultRootRoute = workspaceSelection.state === "root";
   const leftPane = {
     header: <VaultDashboardVaultListHeader />,
     content: (
@@ -2622,9 +2624,9 @@ export function VaultDashboard({
       sidebarSummaries={workspaceModel.sidebarSummaries}
       vaults={allVaults}
     />
-  ) : selectedVaultMissing && selectedRepositoryFullName ? (
+  ) : workspaceSelection.state === "missing" ? (
     <VaultDashboardPaneMessage>
-      Vault not found: {selectedRepositoryFullName}
+      Vault not found: {workspaceSelection.repositoryFullName}
     </VaultDashboardPaneMessage>
   ) : selectedWorkspace && selectedResourceRailState ? (
     <VaultOverviewPage

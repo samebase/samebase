@@ -5,11 +5,7 @@ import { useVaultSidebarSummaries } from "@/hooks/useVaultSidebarSummaries";
 import { useCacheQuery } from "@/lib/convexQueryCache";
 import { useQuery as useConvexQuery } from "convex/react";
 import { useMemo } from "react";
-import {
-  getDefaultVaultPullRequestFilters,
-  normalizeVaultPullRequestFilters,
-} from "./vaultDashboardPullRequestFilters";
-import { buildVaultProductionRoots } from "./vaultProductionRoots";
+import { buildProductionEnvironmentRoots } from "./vaultEnvironmentRoots";
 import type { VaultWorkspaceModel } from "./vaultWorkspaceModel";
 import { useVaultProviderObservations } from "./useVaultProviderObservations";
 
@@ -40,24 +36,11 @@ export function useVaultWorkspaceModel(
     [selectedRepositoryFullName, vaults],
   );
   const providerObservations = useVaultProviderObservations(selectedVault);
-  const savedPullRequestFilters = useConvexQuery(
-    api.vault.dashboard.getUserVaultPullRequestFilters,
-  );
-  const selectedPullRequestFilters = useMemo(() => {
-    const savedFilters = savedPullRequestFilters?.find(
-      (filters) => filters.vaultId === selectedVault?._id,
-    );
-
-    return savedFilters
-      ? normalizeVaultPullRequestFilters(savedFilters)
-      : getDefaultVaultPullRequestFilters();
-  }, [savedPullRequestFilters, selectedVault?._id]);
   const pullRequests = useVaultPullRequests({
     vault:
       selectedVault?.hasConnectedGitHubRepository && selectedVault.deletion.state === "not_deleting"
         ? selectedVault
         : null,
-    filters: selectedPullRequestFilters,
   });
   const viewerAccess = useConvexQuery(api.users.currentViewerAccess);
   const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus);
@@ -106,13 +89,19 @@ export function useVaultWorkspaceModel(
             ? { state: "ready", connection: cloudflareConnection }
             : { state: "loading" },
           convexObservations: providerObservations.convex,
+          environmentRoots: selectedVault.defaultBranch
+            ? buildProductionEnvironmentRoots({
+                branch: selectedVault.defaultBranch,
+                cloudflareObservations: providerObservations.cloudflare,
+                convexObservations: providerObservations.convex,
+                owner: selectedVault.ghRepoOwner,
+                repoName: selectedVault.ghRepoName,
+                schemaGraphEnabled:
+                  viewerAccess?.accessKeys.includes("access_schema_graph") === true,
+                vault: selectedVault,
+              })
+            : [],
           githubRepositoryUrl: `https://github.com/${selectedVault.ghRepoOwner}/${selectedVault.ghRepoName}`,
-          productionRoots: buildVaultProductionRoots({
-            cloudflareObservations: providerObservations.cloudflare,
-            convexObservations: providerObservations.convex,
-            vault: selectedVault,
-          }),
-          pullRequestFilters: selectedPullRequestFilters,
           pullRequests,
           vault: selectedVault,
         },
@@ -124,7 +113,6 @@ export function useVaultWorkspaceModel(
     providerObservations.convex,
     cloudflareConnection,
     pullRequests,
-    selectedPullRequestFilters,
     selectedRepositoryFullName,
     selectedVault,
     sidebarSummaries,

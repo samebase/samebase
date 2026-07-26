@@ -17,7 +17,6 @@ import {
   buildPullRequestEnvironmentRoots,
 } from "./vaultEnvironmentRoots";
 import { buildVaultDashboardResourceRailState } from "./vaultResourceRailState";
-import { buildVaultProductionRoots } from "./vaultProductionRoots";
 import type {
   VaultCloudflareProviderObservationState,
   VaultCloudflareWorkerBuildsObservation,
@@ -253,7 +252,7 @@ function makeResourceRailBuilderVault(
   return { ...vault, ...overrides };
 }
 
-describe("buildVaultProductionRoots", () => {
+describe("buildProductionEnvironmentRoots", () => {
   it("joins direct attachments to matching live Worker and Convex observations", () => {
     const workerId = fakeCloudflareWorkerId();
     const convexProjectId = fakeConvexProjectId();
@@ -267,7 +266,8 @@ describe("buildVaultProductionRoots", () => {
       ],
     });
 
-    const roots = buildVaultProductionRoots({
+    const roots = buildProductionEnvironmentRoots({
+      branch: "main",
       vault,
       cloudflareObservations: makeLoadedCloudflareObservations({
         workers: [
@@ -321,56 +321,61 @@ describe("buildVaultProductionRoots", () => {
           },
         ],
       },
+      owner: "ada",
+      repoName: "demo",
+      schemaGraphEnabled: true,
     });
 
     expect(roots).toEqual([
       {
         rootDirectory: "apps/web",
-        links: [
+        resources: [
           {
-            workerId,
-            workerName: "demo-worker",
-            build: {
-              state: "available",
-              buildState: "success",
-              logsUrl:
-                "https://dash.cloudflare.com/account-1/workers/services/view/demo-worker/production/builds/build-1",
+            kind: "cloudflare_worker",
+            id: workerId,
+            worker: {
+              workerName: "demo-worker",
+              build: {
+                state: "available",
+                buildState: "success",
+                logsUrl:
+                  "https://dash.cloudflare.com/account-1/workers/services/view/demo-worker/production/builds/build-1",
+              },
+              destination: {
+                state: "available",
+                href: "https://app.example.com",
+                label: "app.example.com",
+                title: "Open production app for apps/web",
+              },
+              actions: [
+                {
+                  destination: "external",
+                  href: "https://www.example.com",
+                  label: "www.example.com",
+                },
+                {
+                  destination: "external",
+                  href: "https://demo-worker.ada.workers.dev",
+                  label: "demo-worker.ada.workers.dev",
+                },
+              ],
             },
-            href: "https://app.example.com",
-            label: "app.example.com",
-            provider: "cloudflare",
-            title: "Open production app for apps/web",
           },
           {
-            workerId,
-            workerName: "demo-worker",
-            build: {
-              state: "available",
-              buildState: "success",
-              logsUrl:
-                "https://dash.cloudflare.com/account-1/workers/services/view/demo-worker/production/builds/build-1",
-            },
-            href: "https://www.example.com",
-            label: "www.example.com",
-            provider: "cloudflare",
-            title: "Open production app for apps/web",
-          },
-          {
-            workerId,
-            workerName: "demo-worker",
-            build: {
-              state: "available",
-              buildState: "success",
-              logsUrl:
-                "https://dash.cloudflare.com/account-1/workers/services/view/demo-worker/production/builds/build-1",
-            },
-            href: "https://demo-worker.ada.workers.dev",
-            label: "demo-worker.ada.workers.dev",
-            provider: "cloudflare",
-            title: "Open production app for apps/web",
-          },
-          {
-            convexProjectId,
+            kind: "destination",
+            id: "convex:https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
+            actions: [
+              {
+                destination: "samebase",
+                href: `/vault/ada/demo/db/main/project/${convexProjectId}`,
+                label: "Data",
+              },
+              {
+                destination: "samebase",
+                href: `/vault/ada/demo/schema/main/project/${convexProjectId}`,
+                label: "Schema",
+              },
+            ],
             href: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
             label: "calm-swan-123",
             provider: "convex",
@@ -387,7 +392,8 @@ describe("buildVaultProductionRoots", () => {
       cloudflareWorkers: [makeResourceRailCloudflareWorker({ workerId })],
     });
 
-    const roots = buildVaultProductionRoots({
+    const roots = buildProductionEnvironmentRoots({
+      branch: "main",
       vault,
       cloudflareObservations: makeLoadedCloudflareObservations({
         workers: [
@@ -407,20 +413,29 @@ describe("buildVaultProductionRoots", () => {
         reload: () => {},
         observations: [],
       },
+      owner: "ada",
+      repoName: "demo",
+      schemaGraphEnabled: true,
     });
 
     expect(roots).toEqual([
       {
         rootDirectory: "/",
-        links: [
+        resources: [
           {
-            workerId,
-            workerName: "demo-worker",
-            build: { state: "unavailable" },
-            href: "https://app.example.com",
-            label: "app.example.com",
-            provider: "cloudflare",
-            title: "Open production app",
+            kind: "cloudflare_worker",
+            id: workerId,
+            worker: {
+              workerName: "demo-worker",
+              build: { state: "unavailable" },
+              destination: {
+                state: "available",
+                href: "https://app.example.com",
+                label: "app.example.com",
+                title: "Open production app",
+              },
+              actions: [],
+            },
           },
         ],
       },
@@ -436,7 +451,8 @@ describe("buildVaultProductionRoots", () => {
     });
 
     expect(
-      buildVaultProductionRoots({
+      buildProductionEnvironmentRoots({
+        branch: "main",
         vault,
         cloudflareObservations: makeLoadedCloudflareObservations({
           workers: [{ state: "missing", observedAt: 1, workerId }],
@@ -459,6 +475,9 @@ describe("buildVaultProductionRoots", () => {
             },
           ],
         },
+        owner: "ada",
+        repoName: "demo",
+        schemaGraphEnabled: true,
       }),
     ).toEqual([]);
   });
@@ -467,21 +486,28 @@ describe("buildVaultProductionRoots", () => {
 describe("vault environment roots", () => {
   it("keeps a Convex row under its known root while deployment details load", () => {
     const convexProjectId = fakeConvexProjectId();
+    const vault = makeResourceRailBuilderVault({
+      convexProjects: [
+        makeResourceRailConvexProject({
+          convexProjectId,
+          codeLocation: { kind: "config", convexConfigPath: "packages/backend/convex.json" },
+        }),
+      ],
+    });
 
     expect(
       buildProductionEnvironmentRoots({
         branch: "main",
-        convexObservationState: "loading",
-        convexProjects: [
-          {
-            convexProjectId,
-            codeLocation: { kind: "config", convexConfigPath: "packages/backend/convex.json" },
-          },
-        ],
+        cloudflareObservations: makeLoadedCloudflareObservations({
+          workers: [],
+          builds: [],
+          convexBuildAccess: [],
+        }),
+        convexObservations: { state: "loading" },
         owner: "ada",
-        productionRoots: [],
         repoName: "demo",
         schemaGraphEnabled: true,
+        vault,
       }),
     ).toEqual([
       {
@@ -499,29 +525,55 @@ describe("vault environment roots", () => {
   it("keeps production Data available independently from Schema access", () => {
     const convexProjectId = fakeConvexProjectId();
     const dashboardUrl = "https://dashboard.convex.dev/t/ada/demo/calm-swan-123";
+    const vault = makeResourceRailBuilderVault({
+      convexProjects: [
+        makeResourceRailConvexProject({
+          convexProjectId,
+          codeLocation: { kind: "config", convexConfigPath: "packages/backend/convex.json" },
+        }),
+      ],
+    });
 
     expect(
       buildProductionEnvironmentRoots({
         branch: "main",
-        convexObservationState: "loaded",
-        convexProjects: [],
-        owner: "ada",
-        productionRoots: [
-          {
-            rootDirectory: "packages/backend",
-            links: [
-              {
-                provider: "convex",
-                convexProjectId,
-                href: dashboardUrl,
-                label: "calm-swan-123",
-                title: "Open production Convex deployment calm-swan-123",
+        cloudflareObservations: makeLoadedCloudflareObservations({
+          workers: [],
+          builds: [],
+          convexBuildAccess: [],
+        }),
+        convexObservations: {
+          state: "loaded",
+          freshness: "current",
+          refreshing: false,
+          reload: () => {},
+          observations: [
+            {
+              observedAt: 1,
+              convexProjectId,
+              projectId: "demo-project-id",
+              codeLocation: { kind: "config", convexConfigPath: "packages/backend/convex.json" },
+              source: { kind: "config", state: "valid", blobSha: "blob-1" },
+              provider: {
+                state: "current",
+                teamId: "team-1",
+                projectName: "Demo",
+                projectSlug: "demo",
+                teamSlug: "ada",
+                productionDeployment: {
+                  state: "available",
+                  deploymentName: "calm-swan-123",
+                  cloudUrl: "https://calm-swan-123.convex.cloud",
+                  siteUrl: "https://calm-swan-123.convex.site",
+                },
               },
-            ],
-          },
-        ],
+            },
+          ],
+        },
+        owner: "ada",
         repoName: "demo",
         schemaGraphEnabled: false,
+        vault,
       }),
     ).toEqual([
       {
@@ -541,78 +593,6 @@ describe("vault environment roots", () => {
             label: "calm-swan-123",
             provider: "convex",
             title: "Open production Convex deployment calm-swan-123",
-          },
-        ],
-      },
-    ]);
-  });
-
-  it("uses one production Worker row with its build, primary domain, and alternate destinations", () => {
-    const workerId = fakeCloudflareWorkerId();
-    const build = {
-      state: "available" as const,
-      buildState: "success" as const,
-      logsUrl: "https://dash.cloudflare.com/build-1",
-    };
-
-    expect(
-      buildProductionEnvironmentRoots({
-        branch: "main",
-        convexObservationState: "loaded",
-        convexProjects: [],
-        owner: "ada",
-        productionRoots: [
-          {
-            rootDirectory: "apps/web",
-            links: [
-              {
-                provider: "cloudflare",
-                workerId,
-                workerName: "demo-web",
-                build,
-                href: "https://demo.example.com",
-                label: "demo.example.com",
-                title: "Open production app for apps/web",
-              },
-              {
-                provider: "cloudflare",
-                workerId,
-                workerName: "demo-web",
-                build,
-                href: "https://demo-web.ada.workers.dev",
-                label: "demo-web.ada.workers.dev",
-                title: "Open production app for apps/web",
-              },
-            ],
-          },
-        ],
-        repoName: "demo",
-        schemaGraphEnabled: true,
-      }),
-    ).toEqual([
-      {
-        rootDirectory: "apps/web",
-        resources: [
-          {
-            kind: "cloudflare_worker",
-            id: workerId,
-            worker: {
-              workerName: "demo-web",
-              build,
-              destination: {
-                state: "available",
-                href: "https://demo.example.com",
-                label: "demo.example.com",
-                title: "Open production app for apps/web",
-              },
-              actions: [
-                {
-                  destination: "external",
-                  href: "https://demo-web.ada.workers.dev",
-                  label: "demo-web.ada.workers.dev",
-                },
-              ],
-            },
           },
         ],
       },

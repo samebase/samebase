@@ -127,11 +127,6 @@ let rootElement: HTMLDivElement | null = null;
 let root: Root | null = null;
 let queryClient: QueryClient;
 let latestState: VaultPullRequestsState | null = null;
-let currentFilters = {
-  hiddenLabels: ["hidden"],
-  includeDrafts: false,
-  includeNoLabel: true,
-};
 let currentCloudflareWorkers: Array<{
   workerId: Id<"vaultCloudflareWorkers">;
   accountId: string;
@@ -161,7 +156,6 @@ function Harness() {
           }
         : { status: "ready" },
     },
-    filters: currentFilters,
   });
   return null;
 }
@@ -212,11 +206,6 @@ function installResourceHandler() {
 beforeEach(() => {
   actionState.handlersByFunctionName.clear();
   latestState = null;
-  currentFilters = {
-    hiddenLabels: ["hidden"],
-    includeDrafts: false,
-    includeNoLabel: true,
-  };
   currentCloudflareWorkers = [];
   currentConvexProjects = [];
   currentSourceSetupRunning = false;
@@ -246,7 +235,7 @@ async function renderHarness(): Promise<void> {
 }
 
 describe("useVaultPullRequests", () => {
-  it("loads one provider page at a time and filters only in the browser", async () => {
+  it("loads one provider page at a time", async () => {
     const listHandler = vi.fn(async (value: unknown) => {
       if (!value || typeof value !== "object" || !("after" in value)) {
         throw new Error("Provider cursor is required.");
@@ -278,7 +267,7 @@ describe("useVaultPullRequests", () => {
       first: 6,
       after: null,
     });
-    expect(settledState().pullRequests).toEqual([]);
+    expect(settledState().allPullRequests.map((pullRequest) => pullRequest.number)).toEqual([1260]);
     expect(settledState().defaultBranch).toMatchObject({
       headCommitOid: "81145b7d2a32186823452c7515b2d5ba2d79b350",
       headCommitTitle: "Keep the workspace model explicit",
@@ -295,7 +284,9 @@ describe("useVaultPullRequests", () => {
 
     expect(listHandler).toHaveBeenCalledTimes(2);
     expect(listHandler.mock.calls[1]?.[0]).toMatchObject({ after: "cursor:2" });
-    expect(settledState().pullRequests.map((pullRequest) => pullRequest.number)).toEqual([1259]);
+    expect(settledState().allPullRequests.map((pullRequest) => pullRequest.number)).toEqual([
+      1260, 1259,
+    ]);
   });
 
   it("stops automatic pagination after a later provider page fails", async () => {
@@ -329,47 +320,6 @@ describe("useVaultPullRequests", () => {
 
     act(() => settledState().loadMore());
     expect(listHandler).toHaveBeenCalledTimes(2);
-  });
-
-  it("reapplies browser filters without requesting another provider page", async () => {
-    const listHandler = vi.fn(async () =>
-      page({
-        number: 1260,
-        endCursor: null,
-        labels: [{ name: "hidden", color: "0969da" }],
-      }),
-    );
-    actionState.handlersByFunctionName.set(
-      getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
-      listHandler,
-    );
-    const resourceHandler = installResourceHandler();
-
-    await renderHarness();
-    await waitFor(
-      (state) =>
-        (state.state === "current" || state.state === "stale") &&
-        state.allPullRequests.length === 1 &&
-        state.resourceState === "current",
-    );
-    expect(settledState().pullRequests).toEqual([]);
-    expect(resourceHandler).toHaveBeenCalledWith({
-      vaultId: fakeVaultId(),
-      pullRequestIds: ["pull-request:1260"],
-    });
-
-    currentFilters = {
-      ...currentFilters,
-      hiddenLabels: [],
-    };
-    await renderHarness();
-    await waitFor(
-      (state) =>
-        (state.state === "current" || state.state === "stale") && state.pullRequests.length === 1,
-    );
-
-    expect(listHandler).toHaveBeenCalledTimes(1);
-    expect(resourceHandler).toHaveBeenCalledTimes(1);
   });
 
   it("caches resource enrichment by provider page and exact attachment coordinates", async () => {

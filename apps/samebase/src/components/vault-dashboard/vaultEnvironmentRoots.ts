@@ -1,14 +1,21 @@
+import type { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type {
   PullRequestResources,
   PullRequestWorkerResource,
 } from "../../../convex/vault/pullRequestResources";
-import {
-  getConvexCodeRootDirectory,
-  type ConvexCodeLocation,
-} from "../../../shared/convexCodeLocation";
+import { getConvexCodeRootDirectory } from "../../../shared/convexCodeLocation";
 import { buildVaultDatabaseRoute, buildVaultSchemaRoute } from "@/lib/vaultRoutes";
-import type { VaultProductionRoot } from "./vaultProductionRoots";
+import type {
+  VaultCloudflareProviderObservationState,
+  VaultCloudflareWorkerBuildsObservation,
+  VaultConvexProjectObservation,
+  VaultProviderObservationState,
+} from "./useVaultProviderObservations";
+
+type VaultDashboardVault = NonNullable<
+  (typeof api.vault.dashboard.getUserVaults)["_returnType"]
+>[number];
 
 export type VaultEnvironmentAction =
   | { destination: "external"; href: string; label: string }
@@ -30,6 +37,11 @@ type VaultEnvironmentBuildState = Extract<
   PullRequestWorkerResource,
   { state: "available" }
 >["cloudflareBuild"]["state"];
+
+type VaultProductionBuildState = Extract<
+  Extract<VaultCloudflareWorkerBuildsObservation, { state: "available" }>["productionBuild"],
+  { state: "available" }
+>["buildState"];
 
 export type VaultEnvironmentResource =
   | {
@@ -99,82 +111,169 @@ function groupVaultEnvironmentResources(
     }));
 }
 
+function buildProductionUrlLabel(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url.replace(/^https?:\/\//, "");
+  }
+}
+
+function buildConvexDeploymentDashboardUrl(
+  project: { projectSlug: string; teamSlug: string },
+  deploymentName: string,
+): string {
+  return `https://dashboard.convex.dev/t/${encodeURIComponent(project.teamSlug)}/${encodeURIComponent(project.projectSlug)}/${encodeURIComponent(deploymentName)}`;
+}
+
+function buildCloudflareBuildLogsUrl(args: {
+  accountId: string;
+  workerName: string;
+  buildUuid: string;
+}): string {
+  return `https://dash.cloudflare.com/${encodeURIComponent(args.accountId)}/workers/services/view/${encodeURIComponent(args.workerName)}/production/builds/${encodeURIComponent(args.buildUuid)}`;
+}
+
 export function buildProductionEnvironmentRoots({
   branch,
-  convexObservationState,
-  convexProjects,
+  cloudflareObservations,
+  convexObservations,
   owner,
-  productionRoots,
   repoName,
   schemaGraphEnabled,
+  vault,
 }: {
   branch: string;
-  convexObservationState: "failed" | "loaded" | "loading";
-  convexProjects: readonly {
-    codeLocation: ConvexCodeLocation;
-    convexProjectId: Id<"vaultConvexProjects">;
-  }[];
+  cloudflareObservations: VaultCloudflareProviderObservationState;
+  convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
   owner: string;
-  productionRoots: readonly VaultProductionRoot[];
   repoName: string;
   schemaGraphEnabled: boolean;
+  vault: VaultDashboardVault;
 }): VaultEnvironmentRoot[] {
-  const destinations = productionRoots.flatMap((root) => {
-    const cloudflareWorkerIds = new Set(
-      root.links.flatMap((link) => (link.provider === "cloudflare" ? [link.workerId] : [])),
-    );
-    const cloudflareWorkers = [...cloudflareWorkerIds].flatMap((workerId) => {
-      const links = root.links.flatMap((link) =>
-        link.provider === "cloudflare" && link.workerId === workerId ? [link] : [],
-      );
-      const primary = links.at(0);
-      if (!primary) {
-        return [];
-      }
+  const workerObservations = cloudflareObservations.workers;
+  const buildsObservations = cloudflareObservations.builds;
+  const cloudflareWorkers: VaultEnvironmentResourceInput[] =
+    workerObservations.state === "loaded" && buildsObservations.state === "loaded"
+      ? vault.cloudflareWorkers.flatMap((worker) => {
+          const workerObservation = workerObservations.observations.find(
+            (candidate) => candidate.workerId === worker.workerId,
+          );
+          const buildsObservation = buildsObservations.observations.find(
+            (candidate) => candidate.workerId === worker.workerId,
+          );
+          if (
+            workerObservation?.state !== "available" ||
+            buildsObservation?.state !== "available" ||
+            buildsObservation.repository.state !== "ready"
+          ) {
+            return [];
+          }
 
-      return [
-        {
-          rootDirectory: root.rootDirectory,
-          sortKey: `0:${primary.workerName}:${primary.workerId}`,
-          resource: {
-            kind: "cloudflare_worker" as const,
-            id: primary.workerId,
-            worker: {
-              workerName: primary.workerName,
-              build: primary.build,
-              destination: {
-                state: "available" as const,
-                href: primary.href,
-                label: primary.label,
-                title: primary.title,
-              },
-              actions: links.slice(1).map((link) => ({
-                destination: "external" as const,
-                href: link.href,
-                label: link.label,
-              })),
-            },
-          },
-        },
-      ];
-    });
-    const convexDeployments = root.links.flatMap((link) =>
-      link.provider === "convex"
-        ? [
+          const rootDirectory = buildsObservation.repository.rootDirectory;
+          const title =
+            rootDirectory === "/"
+              ? "Open production app"
+              : `Open production app for ${rootDirectory}`;
+          const destinations = [
+            ...workerObservation.customDomains.map((hostname) => ({
+              href: `https://${hostname}`,
+              label: hostname,
+              sortKey: `0:${hostname}`,
+            })),
+            ...(workerObservation.workersDev.state === "enabled"
+              ? [
+                  {
+                    href: workerObservation.workersDev.url,
+                    label: buildProductionUrlLabel(workerObservation.workersDev.url),
+                    sortKey: `1:${worker.workerName}`,
+                  },
+                ]
+              : []),
+          ].sort(
+            (left, right) =>
+              left.sortKey.localeCompare(right.sortKey) || left.href.localeCompare(right.href),
+          );
+          const primary = destinations.at(0);
+          if (!primary) {
+            return [];
+          }
+
+          const build:
+            | { state: "available"; buildState: VaultProductionBuildState; logsUrl: string }
+            | { state: "absent" }
+            | { state: "unavailable" } =
+            buildsObservation.productionBuild.state === "available"
+              ? {
+                  state: "available",
+                  buildState: buildsObservation.productionBuild.buildState,
+                  logsUrl: buildCloudflareBuildLogsUrl({
+                    accountId: worker.accountId,
+                    workerName: worker.workerName,
+                    buildUuid: buildsObservation.productionBuild.uuid,
+                  }),
+                }
+              : buildsObservation.productionBuild;
+
+          return [
             {
-              rootDirectory: root.rootDirectory,
-              sortKey: `1:${link.label}:${link.href}`,
+              rootDirectory,
+              sortKey: `0:${worker.workerName}:${worker.workerId}`,
               resource: {
-                kind: "destination" as const,
-                id: `${link.provider}:${link.href}`,
+                kind: "cloudflare_worker",
+                id: worker.workerId,
+                worker: {
+                  workerName: worker.workerName,
+                  build,
+                  destination: {
+                    state: "available",
+                    href: primary.href,
+                    label: primary.label,
+                    title,
+                  },
+                  actions: destinations.slice(1).map((destination) => ({
+                    destination: "external",
+                    href: destination.href,
+                    label: destination.label,
+                  })),
+                },
+              },
+            },
+          ];
+        })
+      : [];
+  const convexDeployments: VaultEnvironmentResourceInput[] =
+    convexObservations.state === "loaded"
+      ? vault.convexProjects.flatMap((project) => {
+          const observation = convexObservations.observations.find(
+            (candidate) => candidate.convexProjectId === project.convexProjectId,
+          );
+          const provider = observation?.provider;
+          if (
+            !provider ||
+            (provider.state !== "current" && provider.state !== "moved") ||
+            provider.productionDeployment.state !== "available"
+          ) {
+            return [];
+          }
+
+          const deployment = provider.productionDeployment;
+          const href = buildConvexDeploymentDashboardUrl(provider, deployment.deploymentName);
+          return [
+            {
+              rootDirectory: getConvexCodeRootDirectory(project.codeLocation),
+              sortKey: `1:${deployment.deploymentName}:${href}`,
+              resource: {
+                kind: "destination",
+                id: `convex:${href}`,
                 actions: [
                   {
-                    destination: "samebase" as const,
+                    destination: "samebase",
                     href: buildVaultDatabaseRoute({
                       owner,
                       repoName,
                       branch,
-                      convexProjectId: link.convexProjectId,
+                      convexProjectId: project.convexProjectId,
                     }),
                     label: "Data",
                   },
@@ -186,28 +285,25 @@ export function buildProductionEnvironmentRoots({
                             owner,
                             repoName,
                             branch,
-                            convexProjectId: link.convexProjectId,
+                            convexProjectId: project.convexProjectId,
                           }),
                           label: "Schema",
                         },
                       ]
                     : []),
                 ],
-                href: link.href,
-                label: link.label,
-                provider: link.provider,
-                title: link.title,
+                href,
+                label: deployment.deploymentName,
+                provider: "convex",
+                title: `Open production Convex deployment ${deployment.deploymentName}`,
               },
             },
-          ]
-        : [],
-    );
-
-    return [...cloudflareWorkers, ...convexDeployments];
-  });
+          ];
+        })
+      : [];
   const convexLoading =
-    convexObservationState === "loading"
-      ? convexProjects.map((project) => ({
+    convexObservations.state === "loading"
+      ? vault.convexProjects.map((project) => ({
           rootDirectory: getConvexCodeRootDirectory(project.codeLocation),
           sortKey: `1:${project.convexProjectId}`,
           resource: {
@@ -217,7 +313,11 @@ export function buildProductionEnvironmentRoots({
         }))
       : [];
 
-  return groupVaultEnvironmentResources([...destinations, ...convexLoading]);
+  return groupVaultEnvironmentResources([
+    ...cloudflareWorkers,
+    ...convexDeployments,
+    ...convexLoading,
+  ]);
 }
 
 export function buildPullRequestEnvironmentRoots(
