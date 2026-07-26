@@ -3,7 +3,7 @@ import type { VaultSidebarSummariesState } from "@/hooks/useVaultSidebarSummarie
 import { VaultOverviewSidebar, VaultOverviewSidebarLoading } from "./VaultOverviewSidebar";
 
 export function VaultOverviewVaultListHeader() {
-  return <div className="text-sm font-medium">Vaults</div>;
+  return <div className="px-3 text-sm font-medium">Vaults</div>;
 }
 
 export function VaultOverviewVaultPickerPane({
