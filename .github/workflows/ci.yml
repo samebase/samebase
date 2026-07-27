@@ -226,3 +226,49 @@ jobs:
             echo "windows-smoke: ${{ needs.windows-smoke.result }}"
             echo "Heavy jobs are intentionally skipped on pull requests."
           fi
+
+  publish_repository_exports:
+    name: publish repository exports
+    needs: ci
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    concurrency:
+      group: publish-repository-exports
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.x
+
+      - name: Read repository export targets
+        id: repository-exports
+        run: node ./scripts/publish-repository-exports.ts --write-target-repositories-output
+
+      - name: Create repository publisher token
+        id: publisher-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.REPOSITORY_EXPORTS_APP_CLIENT_ID }}
+          private-key: ${{ secrets.REPOSITORY_EXPORTS_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ steps.repository-exports.outputs.repositories }}
+          permission-contents: write
+          permission-workflows: write
+
+      - name: Publish repository exports
+        env:
+          REPOSITORY_EXPORTS_SOURCE_TOKEN: ${{ github.token }}
+          REPOSITORY_EXPORTS_TARGET_TOKEN: ${{ steps.publisher-token.outputs.token }}
+          SOURCE_COMMIT: ${{ github.sha }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          TARGET_REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: node ./scripts/publish-repository-exports.ts

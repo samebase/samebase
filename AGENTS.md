@@ -425,6 +425,7 @@ UI code:
   `research/2026-05-23-agent-context-agents-migration-map.md`. The package does not replace live
   routing yet; keep always-loaded rules until a migration proves each replacement is reachable.
 - For git/PR/shipping details, use `docs/agent-workflows.md`.
+- For monorepo directories published as external repositories, use `docs/repository-exports.md`.
 - For safe Convex production reads, use `docs/convex-production-reads.md`.
 - For live browser validation and route-first UI repros, use
   `skills/samebase-playwright-live/SKILL.md`.

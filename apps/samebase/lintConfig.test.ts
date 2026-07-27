@@ -204,7 +204,6 @@ describe("lint config", () => {
     );
     expect(oxlintConfig.options).toMatchObject({ typeAware: true });
     expect(oxlintConfig.ignorePatterns).not.toContain("**/vite.config.ts");
-    expect(oxlintConfig.ignorePatterns).toContain("packages/agent-plugins/**");
     expect(appWideOverride?.rules?.["@typescript-eslint/no-explicit-any"]).toBeUndefined();
     expect(oxlintConfig.jsPlugins).toEqual(
       expect.arrayContaining([
@@ -284,11 +283,7 @@ describe("lint config", () => {
     const fmtConfig = readRootFmtConfig();
 
     expect(readStringArray(fmtConfig.ignorePatterns, "vite.config.ts.fmt.ignorePatterns")).toEqual(
-      expect.arrayContaining([
-        "apps/samebase/AGENTS.md",
-        "apps/samebase/CLAUDE.md",
-        "packages/agent-plugins/**",
-      ]),
+      expect.arrayContaining(["apps/samebase/AGENTS.md", "apps/samebase/CLAUDE.md"]),
     );
   });
 });
