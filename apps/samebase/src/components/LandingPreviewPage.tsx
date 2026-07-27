@@ -569,12 +569,11 @@ function LandingClosingBandLogo() {
 }
 
 /**
-Fixed hero reveal tuning: shared falloff at the lab default radius, capped at
-depth four so the finest revealed holes stay crisp squares at hero sizes.
-The lab route at /logo/hover/carpet owns the adjustable knobs.
+Fixed hero reveal tuning at the lab default radius, capped at depth four so
+the finest revealed holes stay crisp squares at hero sizes. The lab route at
+/logo/hover/carpet owns the adjustable knobs.
 */
 const LANDING_HERO_CARPET_CONFIG: SierpinskiCarpetHoverSceneConfig = {
-  falloff: "shared",
   maxDepth: 4,
   mechanic: "slide",
   revealRadius: SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,

@@ -3,17 +3,14 @@ import { keys } from "@samebase/dependent/object";
 import { type LogoRotationAxisMode } from "@samebase/logo-model/rotation";
 import {
   SIERPINSKI_CARPET_HOVER_DEFAULT_DEPTH,
-  SIERPINSKI_CARPET_HOVER_DEFAULT_FALLOFF,
   SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC,
   SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
-  SIERPINSKI_CARPET_HOVER_FALLOFFS,
   SIERPINSKI_CARPET_HOVER_MAX_DEPTH,
   SIERPINSKI_CARPET_HOVER_MAX_REVEAL_RADIUS,
   SIERPINSKI_CARPET_HOVER_MECHANICS,
   SIERPINSKI_CARPET_HOVER_MIN_REVEAL_RADIUS,
   normalizeSierpinskiCarpetHoverRevealRadius,
   type SierpinskiCarpetHoverDepth,
-  type SierpinskiCarpetHoverFalloff,
   type SierpinskiCarpetHoverMechanic,
 } from "@samebase/logo-model/sierpinski-carpet-hover";
 import {
@@ -499,13 +496,6 @@ key doubles as the carpet reveal depth with the carpet's own default and cap.
 */
 const RouteSearchSchema_logoCarpetHover = defineRouteSearchParams({
   ...RouteSearchSchema_logo.shape,
-  falloff: routeSearchValueParam(routeSearchStringValue(SIERPINSKI_CARPET_HOVER_FALLOFFS), {
-    access: "access_public",
-    sampleValue: "per-depth",
-    ...logoRouteSearchSuggestion,
-    valueSuggestions: SIERPINSKI_CARPET_HOVER_FALLOFFS,
-    valueType: "options",
-  }),
   mechanic: routeSearchValueParam(routeSearchStringValue(SIERPINSKI_CARPET_HOVER_MECHANICS), {
     access: "access_public",
     sampleValue: "slide",
@@ -584,7 +574,6 @@ function readLogoIsoRouteSearchFields(search: LogoIsoRouteSearchFields) {
 function readLogoCarpetHoverRouteSearchFields(search: LogoCarpetHoverRouteSearchFields) {
   return {
     ...readLogoRouteSearchFields(search),
-    ...(typeof search.falloff === "string" ? { falloff: search.falloff } : {}),
     ...(typeof search.mechanic === "string" ? { mechanic: search.mechanic } : {}),
     ...(typeof search.radius === "number" ? { radius: search.radius } : {}),
   };
@@ -1002,7 +991,6 @@ function buildLogoLeftFaceStyleSearch(leftFaceStyle: LogoLeftFaceStyle): LogoLef
 
 export function buildLogoCarpetHoverRouteSearch(
   args: LogoRouteSearchBuildState & {
-    carpetFalloff: SierpinskiCarpetHoverFalloff;
     carpetMechanic: SierpinskiCarpetHoverMechanic;
     carpetRevealDepth: SierpinskiCarpetHoverDepth;
     carpetRevealRadius: number;
@@ -1020,10 +1008,6 @@ export function buildLogoCarpetHoverRouteSearch(
     depth:
       args.carpetRevealDepth !== SIERPINSKI_CARPET_HOVER_DEFAULT_DEPTH
         ? args.carpetRevealDepth
-        : undefined,
-    falloff:
-      args.carpetFalloff !== SIERPINSKI_CARPET_HOVER_DEFAULT_FALLOFF
-        ? args.carpetFalloff
         : undefined,
     mechanic:
       args.carpetMechanic !== SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC

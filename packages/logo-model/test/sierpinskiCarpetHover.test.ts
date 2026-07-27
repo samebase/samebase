@@ -6,7 +6,6 @@ import {
   SIERPINSKI_CARPET_HOVER_MAX_DEPTH,
   SIERPINSKI_CARPET_HOVER_MAX_REVEAL_RADIUS,
   SIERPINSKI_CARPET_HOVER_MIN_REVEAL_RADIUS,
-  SIERPINSKI_CARPET_HOVER_PER_DEPTH_RADIUS_RATIO,
   createSierpinskiCarpetHoverHoles,
   normalizeSierpinskiCarpetHoverRevealRadius,
   readSierpinskiCarpetHoleOpenness,
@@ -17,8 +16,7 @@ import {
 } from "../src/sierpinskiCarpetHover.ts";
 import { describe, expect, it } from "vite-plus/test";
 
-const SHARED_CONFIG: SierpinskiCarpetHoverConfig = {
-  falloff: "shared",
+const CONFIG: SierpinskiCarpetHoverConfig = {
   maxDepth: 6,
   revealRadius: SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
 };
@@ -130,45 +128,41 @@ describe("Sierpinski carpet hover", () => {
   });
 
   it("keeps the depth-one hole open and hidden depths closed without a pointer", () => {
-    expect(readSierpinskiCarpetHoleOpenness(makeHole(1), null, SHARED_CONFIG)).toBe(1);
-    expect(readSierpinskiCarpetHoleOpenness(makeHole(2), null, SHARED_CONFIG)).toBe(0);
+    expect(readSierpinskiCarpetHoleOpenness(makeHole(1), null, CONFIG)).toBe(1);
+    expect(readSierpinskiCarpetHoleOpenness(makeHole(2), null, CONFIG)).toBe(0);
   });
 
   it("opens fully under the pointer and closes beyond the reveal radius", () => {
     const hole = makeHole(2);
-    const radius = SHARED_CONFIG.revealRadius;
+    const radius = CONFIG.revealRadius;
 
-    expect(readSierpinskiCarpetHoleOpenness(hole, { x: 0.5, y: 0.5 }, SHARED_CONFIG)).toBe(1);
+    expect(readSierpinskiCarpetHoleOpenness(hole, { x: 0.5, y: 0.5 }, CONFIG)).toBe(1);
     expect(
       readSierpinskiCarpetHoleOpenness(
         hole,
         { x: 0.5 + radius * SIERPINSKI_CARPET_HOVER_FULL_OPEN_RADIUS_FRACTION, y: 0.5 },
-        SHARED_CONFIG,
+        CONFIG,
       ),
     ).toBeCloseTo(1, 12);
-    expect(readSierpinskiCarpetHoleOpenness(hole, { x: 0.5 + radius, y: 0.5 }, SHARED_CONFIG)).toBe(
-      0,
-    );
-    expect(
-      readSierpinskiCarpetHoleOpenness(hole, { x: 0.5 + radius * 2, y: 0.5 }, SHARED_CONFIG),
-    ).toBe(0);
+    expect(readSierpinskiCarpetHoleOpenness(hole, { x: 0.5 + radius, y: 0.5 }, CONFIG)).toBe(0);
+    expect(readSierpinskiCarpetHoleOpenness(hole, { x: 0.5 + radius * 2, y: 0.5 }, CONFIG)).toBe(0);
 
     const nearOpenness = readSierpinskiCarpetHoleOpenness(
       hole,
       { x: 0.5 + radius * 0.4, y: 0.5 },
-      SHARED_CONFIG,
+      CONFIG,
     );
     const farOpenness = readSierpinskiCarpetHoleOpenness(
       hole,
       { x: 0.5 + radius * 0.8, y: 0.5 },
-      SHARED_CONFIG,
+      CONFIG,
     );
     expect(nearOpenness).toBeGreaterThan(farOpenness);
     expect(farOpenness).toBeGreaterThan(0);
   });
 
   it("caps reveal at the configured depth", () => {
-    const cappedConfig: SierpinskiCarpetHoverConfig = { ...SHARED_CONFIG, maxDepth: 2 };
+    const cappedConfig: SierpinskiCarpetHoverConfig = { ...CONFIG, maxDepth: 2 };
     const pointer = { x: 0.5, y: 0.5 };
 
     expect(readSierpinskiCarpetHoleOpenness(makeHole(2), pointer, cappedConfig)).toBe(1);
@@ -176,41 +170,28 @@ describe("Sierpinski carpet hover", () => {
     expect(readSierpinskiCarpetHoleOpenness(makeHole(6), pointer, cappedConfig)).toBe(0);
   });
 
-  it("requires a closer pointer for deeper holes with per-depth falloff", () => {
-    const perDepthConfig: SierpinskiCarpetHoverConfig = { ...SHARED_CONFIG, falloff: "per-depth" };
-    const radius = perDepthConfig.revealRadius;
+  it("uses the same reveal radius for every depth", () => {
+    const radius = CONFIG.revealRadius;
     const pointer = { x: 0.5 + radius * 0.4, y: 0.5 };
 
-    const depthTwoOpenness = readSierpinskiCarpetHoleOpenness(makeHole(2), pointer, perDepthConfig);
-    const depthThreeOpenness = readSierpinskiCarpetHoleOpenness(
-      makeHole(3),
-      pointer,
-      perDepthConfig,
-    );
-    expect(depthTwoOpenness).toBeGreaterThan(depthThreeOpenness);
-    expect(depthThreeOpenness).toBeGreaterThan(0);
+    const depthTwoOpenness = readSierpinskiCarpetHoleOpenness(makeHole(2), pointer, CONFIG);
+    const depthThreeOpenness = readSierpinskiCarpetHoleOpenness(makeHole(3), pointer, CONFIG);
+    const depthFourOpenness = readSierpinskiCarpetHoleOpenness(makeHole(4), pointer, CONFIG);
 
-    // The same distance closes depth four entirely: its radius shrinks by the
-    // ratio squared, which falls below the pointer distance of 0.4 * radius.
-    expect(SIERPINSKI_CARPET_HOVER_PER_DEPTH_RADIUS_RATIO ** 2).toBeLessThan(0.4);
-    expect(readSierpinskiCarpetHoleOpenness(makeHole(4), pointer, perDepthConfig)).toBe(0);
-
-    expect(readSierpinskiCarpetHoleOpenness(makeHole(3), pointer, SHARED_CONFIG)).toBe(
-      readSierpinskiCarpetHoleOpenness(makeHole(2), pointer, SHARED_CONFIG),
-    );
+    expect(depthTwoOpenness).toBeGreaterThan(0);
+    expect(depthThreeOpenness).toBe(depthTwoOpenness);
+    expect(depthFourOpenness).toBe(depthTwoOpenness);
   });
 
   it("treats non-finite reveal input as closed", () => {
     const hole = makeHole(2);
 
-    expect(readSierpinskiCarpetHoleOpenness(hole, { x: Number.NaN, y: 0.5 }, SHARED_CONFIG)).toBe(
-      0,
-    );
+    expect(readSierpinskiCarpetHoleOpenness(hole, { x: Number.NaN, y: 0.5 }, CONFIG)).toBe(0);
     expect(
       readSierpinskiCarpetHoleOpenness(
         hole,
         { x: 0.5, y: 0.5 },
-        { ...SHARED_CONFIG, revealRadius: Number.NaN },
+        { ...CONFIG, revealRadius: Number.NaN },
       ),
     ).toBe(0);
   });

@@ -27,7 +27,6 @@ import {
 } from "@samebase/logo-model/voxel";
 import {
   SIERPINSKI_CARPET_HOVER_DEFAULT_DEPTH,
-  SIERPINSKI_CARPET_HOVER_DEFAULT_FALLOFF,
   SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC,
   SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
   SIERPINSKI_CARPET_HOVER_MAX_DEPTH,
@@ -259,16 +258,13 @@ describe("logoRouteSearch", () => {
   it("keeps carpet hover params on the carpet route schema only", () => {
     expect(
       validateLogoCarpetHoverRouteSearch({
-        falloff: "per-depth",
         mechanic: "slide",
         radius: "0.5",
       }),
-    ).toEqual({ falloff: "per-depth", mechanic: "slide", radius: 0.5 });
+    ).toEqual({ mechanic: "slide", radius: 0.5 });
 
-    expect(
-      validateLogoRouteSearch({ falloff: "per-depth", mechanic: "slide", radius: "0.5" }),
-    ).toEqual({});
-    expect(validateLogoCarpetHoverRouteSearch({ falloff: "steep", mechanic: "spin" })).toEqual({});
+    expect(validateLogoRouteSearch({ mechanic: "slide", radius: "0.5" })).toEqual({});
+    expect(validateLogoCarpetHoverRouteSearch({ mechanic: "spin" })).toEqual({});
   });
 
   it("clamps carpet reveal depth and radius at the model bounds", () => {
@@ -307,7 +303,6 @@ describe("logoRouteSearch", () => {
     } as const;
     const search = buildLogoCarpetHoverRouteSearch({
       ...carpetDefaults,
-      carpetFalloff: SIERPINSKI_CARPET_HOVER_DEFAULT_FALLOFF,
       carpetMechanic: SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC,
       carpetRevealDepth: SIERPINSKI_CARPET_HOVER_DEFAULT_DEPTH,
       carpetRevealRadius: SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
@@ -316,8 +311,6 @@ describe("logoRouteSearch", () => {
     expect(search).toEqual({});
     expect("mechanic" in search).toBe(true);
     expect(search.mechanic).toBeUndefined();
-    expect("falloff" in search).toBe(true);
-    expect(search.falloff).toBeUndefined();
     expect("radius" in search).toBe(true);
     expect(search.radius).toBeUndefined();
     expect("depth" in search).toBe(true);
@@ -325,13 +318,11 @@ describe("logoRouteSearch", () => {
 
     const nonDefaultSearch = buildLogoCarpetHoverRouteSearch({
       ...carpetDefaults,
-      carpetFalloff: "per-depth",
       carpetMechanic: "grow",
       carpetRevealDepth: 3,
       carpetRevealRadius: 0.5,
     });
 
-    expect(nonDefaultSearch.falloff).toBe("per-depth");
     expect(nonDefaultSearch.mechanic).toBe("grow");
     expect(nonDefaultSearch.depth).toBe(3);
     expect(nonDefaultSearch.radius).toBe(0.5);
