@@ -21,9 +21,12 @@ Unit sponge coordinates: the full cube spans [0, 1] on every axis.
 outsideDistance is how far the pointer ray passes outside the cube surface in
 the same unit scale; probes on the surface use 0. It joins the channel
 distance term so influence fades continuously while the pointer skims past
-the silhouette instead of collapsing to the resting state at the edge.
+the silhouette instead of collapsing to the resting state at the edge. The
+direction is the local camera ray toward the sponge and keeps the cleared
+interior path aligned with tilted views.
 */
 export type MengerHoverProbe = {
+  direction: readonly [number, number, number];
   outsideDistance: number;
   x: number;
   y: number;
@@ -214,72 +217,79 @@ function toStageMoveStates(
   });
 }
 
-function readProjectedMoveCoordinates(
-  axis: MengerHoleAxis,
-  coordinate: readonly [number, number, number],
-): readonly [number, number] {
-  switch (axis) {
-    case 0:
-      return [coordinate[1], coordinate[2]];
-    case 1:
-      return [coordinate[0], coordinate[2]];
-    case 2:
-      return [coordinate[0], coordinate[1]];
-    default:
-      return axis satisfies never;
-  }
-}
+function rayIntersectsMove(
+  origin: readonly [number, number, number],
+  direction: readonly [number, number, number],
+  moveCoordinate: readonly [number, number, number],
+  gridSize: number,
+): boolean {
+  let entry = 0;
+  let exit = Number.POSITIVE_INFINITY;
 
-function createDepthThreeBlockerMoveIndexes(model: MengerDepthTransitionModel): number[][] {
-  const depthThree = model.depthThree;
-  const faceGridSize = depthThree.gridSize / 3;
-  const channelCount = 3 * faceGridSize * faceGridSize;
-  const depthThreeChannels = new Set(depthThree.moves.map((move) => move.faceColumnChannel));
-
-  return Array.from({ length: channelCount }, (_, channel) => {
-    if (!depthThreeChannels.has(channel)) {
-      return [];
-    }
-
-    const { axis, coordinateA, coordinateB } = readChannelFaceCoordinates(channel, faceGridSize);
-    const blockerMoveIndexes: number[] = [];
-    for (const [moveIndex, move] of model.depthTwo.moves.entries()) {
-      const [moveCoordinateA, moveCoordinateB] = readProjectedMoveCoordinates(axis, move.from);
-      if (moveCoordinateA === coordinateA && moveCoordinateB === coordinateB) {
-        blockerMoveIndexes.push(moveIndex);
+  for (const axis of [0, 1, 2] as const) {
+    const axisOrigin = origin[axis];
+    const axisDirection = direction[axis];
+    const cellMinimum = moveCoordinate[axis] / gridSize;
+    const cellMaximum = (moveCoordinate[axis] + 1) / gridSize;
+    if (Math.abs(axisDirection) < Number.EPSILON) {
+      if (axisOrigin < cellMinimum || axisOrigin > cellMaximum) {
+        return false;
       }
+      continue;
     }
 
-    return blockerMoveIndexes;
-  });
-}
-
-const MENGER_HOVER_BLOCKER_MOVE_INDEXES_BY_MODEL = new WeakMap<
-  MengerDepthTransitionModel,
-  number[][]
->();
-
-function readDepthThreeBlockerMoveIndexes(model: MengerDepthTransitionModel): number[][] {
-  const existing = MENGER_HOVER_BLOCKER_MOVE_INDEXES_BY_MODEL.get(model);
-  if (existing) {
-    return existing;
+    const first = (cellMinimum - axisOrigin) / axisDirection;
+    const second = (cellMaximum - axisOrigin) / axisDirection;
+    entry = Math.max(entry, Math.min(first, second));
+    exit = Math.min(exit, Math.max(first, second));
+    if (exit < entry) {
+      return false;
+    }
   }
 
-  const created = createDepthThreeBlockerMoveIndexes(model);
-  MENGER_HOVER_BLOCKER_MOVE_INDEXES_BY_MODEL.set(model, created);
-  return created;
+  return exit >= entry;
+}
+
+function readDepthThreeBlockerMoveIndexes(
+  model: MengerDepthTransitionModel,
+  channel: number,
+  direction: readonly [number, number, number],
+): number[] {
+  const faceGridSize = model.depthThree.gridSize / 3;
+  const { axis, coordinateA, coordinateB } = readChannelFaceCoordinates(channel, faceGridSize);
+  const axisDirection = direction[axis];
+  if (Math.abs(axisDirection) < Number.EPSILON) {
+    return [];
+  }
+
+  const tangentAxes = axis === 0 ? ([1, 2] as const) : axis === 1 ? ([0, 2] as const) : [0, 1];
+  const origin: [number, number, number] = [0, 0, 0];
+  origin[axis] = axisDirection < 0 ? 1 : 0;
+  origin[tangentAxes[0]] = (coordinateA + 0.5) / faceGridSize;
+  origin[tangentAxes[1]] = (coordinateB + 0.5) / faceGridSize;
+
+  const blockerMoveIndexes: number[] = [];
+  for (const [moveIndex, move] of model.depthTwo.moves.entries()) {
+    if (
+      move.holeAxis !== axis &&
+      rayIntersectsMove(origin, direction, move.from, model.depthTwo.gridSize)
+    ) {
+      blockerMoveIndexes.push(moveIndex);
+    }
+  }
+
+  return blockerMoveIndexes;
 }
 
 /**
-Every opening in one face-on channel shares its openness, split, and signs,
-so the rectangles at both tunnel ends and every interior segment stay
-aligned and the through view is the same rectangle. A depth-three view ray
-that crosses depth-two pairs from another hole axis raises those pairs'
-openness floor instead of steering their covers: a crossed pair opens its
-own normal carpet rectangle, which keeps every opening rectangular, and the
-per-move floor never opens the rest of that pair's channel. The floor ramps
-with the ray's openness, so it engages and releases continuously and
-vanishes exactly at rest.
+Every opening in one channel shares its openness, split, and signs, so the
+rectangles at both tunnel ends and every interior segment stay aligned. The
+camera direction traces the real view ray from each depth-three opening
+through the sponge. Depth-two pairs that cross that ray open their own normal
+carpet rectangle. This keeps the cleared interior path aligned when the cube
+tilts and does not open the rest of a blocker's channel. The floor ramps with
+the depth-three opening, so it engages and releases continuously and vanishes
+exactly at rest.
 */
 export function readMengerHoverState(
   model: MengerDepthTransitionModel,
@@ -301,15 +311,18 @@ export function readMengerHoverState(
   );
   const depthTwo = toStageMoveStates(model.depthTwo, depthTwoChannels);
   const depthThree = toStageMoveStates(model.depthThree, depthThreeChannels);
-  const blockerMoveIndexesByChannel = readDepthThreeBlockerMoveIndexes(model);
   const depthThreeFaceGridSize = model.depthThree.gridSize / 3;
+  const depthThreeMoveChannels = new Set(
+    model.depthThree.moves.map((move) => move.faceColumnChannel),
+  );
+  const direction = probe?.direction ?? directionProbe?.direction;
 
   depthThreeChannels.forEach((channelState, channel) => {
-    if (channelState.openness <= 0) {
+    if (channelState.openness <= 0 || !direction || !depthThreeMoveChannels.has(channel)) {
       return;
     }
 
-    const blockerMoveIndexes = blockerMoveIndexesByChannel[channel] ?? [];
+    const blockerMoveIndexes = readDepthThreeBlockerMoveIndexes(model, channel, direction);
     if (blockerMoveIndexes.length === 0) {
       return;
     }

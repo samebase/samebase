@@ -11,6 +11,14 @@ import { describe, expect, it } from "vite-plus/test";
 const CHANNEL = 2 * 9 + 0 * 3 + 1;
 const CENTER_A = 0.5 / 3;
 const CENTER_B = 1.5 / 3;
+const FACE_ON_DIRECTION = [0, 0, -1] as const;
+
+function toProbe(
+  point: { x: number; y: number; z: number },
+  direction: readonly [number, number, number] = FACE_ON_DIRECTION,
+) {
+  return { direction, outsideDistance: 0, ...point };
+}
 
 function readChannelMoveState(
   probe: { x: number; y: number; z: number } | null,
@@ -21,8 +29,8 @@ function readChannelMoveState(
   );
   const state = readMengerHoverState(
     MENGER_DEPTH_TRANSITION_MODEL,
-    probe === null ? null : { outsideDistance: 0, ...probe },
-    direction === null ? null : { outsideDistance: 0, ...direction },
+    probe === null ? null : toProbe(probe),
+    direction === null ? null : toProbe(direction),
     MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
   ).depthTwo[moveIndex];
   if (!state) {
@@ -105,15 +113,24 @@ describe("Menger hover", () => {
     // the x-hole cover pairs of parents (0, 0, pz). Those specific movers
     // open their own carpet rectangles so the depth-three view stays clear.
     const model = MENGER_DEPTH_TRANSITION_MODEL;
-    const probe = { outsideDistance: 0, x: 0.5 / 9, y: 1.5 / 9, z: 1 };
-    const state = readMengerHoverState(model, probe, probe, MENGER_HOVER_DEFAULT_REVEAL_RADIUS);
+    const probe = toProbe({ x: 0.5 / 9, y: 1.5 / 9, z: 1 });
     const rayChannel = 2 * 81 + 0 * 9 + 1;
-    const modelWithoutRay = {
+    const modelWithRay = {
       ...model,
       depthThree: {
         ...model.depthThree,
-        moves: model.depthThree.moves.filter((move) => move.faceColumnChannel !== rayChannel),
+        moves: model.depthThree.moves.filter((move) => move.faceColumnChannel === rayChannel),
       },
+    };
+    const state = readMengerHoverState(
+      modelWithRay,
+      probe,
+      probe,
+      MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
+    );
+    const modelWithoutRay = {
+      ...modelWithRay,
+      depthThree: { ...modelWithRay.depthThree, moves: [] },
     };
     const stateWithoutRay = readMengerHoverState(
       modelWithoutRay,
@@ -121,7 +138,7 @@ describe("Menger hover", () => {
       probe,
       MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
     );
-    const rayMoveIndex = model.depthThree.moves.findIndex(
+    const rayMoveIndex = modelWithRay.depthThree.moves.findIndex(
       (move) => move.faceColumnChannel === rayChannel,
     );
     const blockerMoveIndexes = model.depthTwo.moves.flatMap((move, moveIndex) =>
@@ -153,6 +170,54 @@ describe("Menger hover", () => {
     );
   });
 
+  it("follows the camera direction through tilted depth-three openings", () => {
+    const model = MENGER_DEPTH_TRANSITION_MODEL;
+    const rayChannel = 2 * 81 + 0 * 9 + 1;
+    const modelWithRay = {
+      ...model,
+      depthThree: {
+        ...model.depthThree,
+        moves: model.depthThree.moves.filter((move) => move.faceColumnChannel === rayChannel),
+      },
+    };
+    const modelWithoutRay = {
+      ...modelWithRay,
+      depthThree: { ...modelWithRay.depthThree, moves: [] },
+    };
+    const readRaisedCoordinates = (direction: readonly [number, number, number]) => {
+      const probe = toProbe({ x: 0.5 / 9, y: 1.5 / 9, z: 1 }, direction);
+      const state = readMengerHoverState(
+        modelWithRay,
+        probe,
+        probe,
+        MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
+      );
+      const stateWithoutRay = readMengerHoverState(
+        modelWithoutRay,
+        probe,
+        probe,
+        MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
+      );
+
+      return model.depthTwo.moves.flatMap((move, moveIndex) =>
+        (state.depthTwo[moveIndex]?.openness ?? 0) >
+        (stateWithoutRay.depthTwo[moveIndex]?.openness ?? 0)
+          ? [move.from]
+          : [],
+      );
+    };
+
+    expect(readRaisedCoordinates(FACE_ON_DIRECTION)).toEqual([
+      [0, 1, 1],
+      [0, 1, 4],
+      [0, 1, 7],
+    ]);
+    expect(readRaisedCoordinates([0.15, -0.08, -0.985])).toEqual([
+      [0, 1, 7],
+      [1, 0, 1],
+    ]);
+  });
+
   it("fades openness with the pointer's outside distance", () => {
     const onSurface = readChannelMoveState({ x: CENTER_A, y: CENTER_B, z: 1 });
     expect(onSurface.openness).toBe(1);
@@ -160,8 +225,14 @@ describe("Menger hover", () => {
     const moveIndex = MENGER_DEPTH_TRANSITION_MODEL.depthTwo.moves.findIndex(
       (move) => move.faceColumnChannel === CHANNEL,
     );
-    const nearMissProbe = { outsideDistance: 0.3, x: CENTER_A, y: CENTER_B, z: 1 };
-    const farMissProbe = { outsideDistance: 0.6, x: CENTER_A, y: CENTER_B, z: 1 };
+    const nearMissProbe = {
+      ...toProbe({ x: CENTER_A, y: CENTER_B, z: 1 }),
+      outsideDistance: 0.3,
+    };
+    const farMissProbe = {
+      ...toProbe({ x: CENTER_A, y: CENTER_B, z: 1 }),
+      outsideDistance: 0.6,
+    };
     const nearMissState = readMengerHoverState(
       MENGER_DEPTH_TRANSITION_MODEL,
       nearMissProbe,

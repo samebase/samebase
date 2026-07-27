@@ -402,13 +402,13 @@ function MengerDepthTransitionScene({
         -((clientPointer.y - bounds.top) / bounds.height) * 2 + 1,
       );
       raycaster.setFromCamera(pointerNdc, camera);
+      hoverLocalMatrix.copy(logoGroup.matrixWorld).invert();
+      hoverLocalRay.copy(raycaster.ray).applyMatrix4(hoverLocalMatrix);
       const intersection = raycaster.intersectObject(hoverProxy, false).at(0);
       let outsideDistance = 0;
       if (intersection) {
-        hoverClampedPoint.copy(logoGroup.worldToLocal(intersection.point.clone()));
+        hoverClampedPoint.copy(intersection.point).applyMatrix4(hoverLocalMatrix);
       } else {
-        hoverLocalMatrix.copy(logoGroup.matrixWorld).invert();
-        hoverLocalRay.copy(raycaster.ray).applyMatrix4(hoverLocalMatrix);
         hoverLocalRay.closestPointToPoint(hoverSpongeCenter, hoverRayPoint);
         const halfWorldSize = MENGER_DEPTH_TRANSITION_WORLD_SIZE / 2;
         hoverClampedPoint.set(
@@ -421,6 +421,11 @@ function MengerDepthTransitionScene({
       }
 
       const probe: MengerHoverProbe = {
+        direction: [
+          hoverLocalRay.direction.x,
+          hoverLocalRay.direction.y,
+          hoverLocalRay.direction.z,
+        ],
         outsideDistance,
         x: hoverClampedPoint.x / MENGER_DEPTH_TRANSITION_WORLD_SIZE + 0.5,
         y: hoverClampedPoint.y / MENGER_DEPTH_TRANSITION_WORLD_SIZE + 0.5,
