@@ -112,12 +112,7 @@ export function synchronizeExportManifest(
 }
 
 function runPnpm(repoRoot: string, args: readonly string[]): void {
-  const pnpmCliPath = process.env.npm_execpath;
-  if (!pnpmCliPath) {
-    throw new Error("Run repository export package synchronization through a root pnpm script.");
-  }
-
-  const result = spawnSync(process.execPath, [pnpmCliPath, ...args], {
+  const result = spawnSync("pnpm", args, {
     cwd: repoRoot,
     env: process.env,
     stdio: "inherit",
