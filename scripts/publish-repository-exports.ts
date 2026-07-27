@@ -70,7 +70,7 @@ function assertObjectId(objectId: string, label: string): void {
   }
 }
 
-function assertRepositoryExport(definition: RepositoryExport): void {
+export function assertRepositoryExport(definition: RepositoryExport): void {
   if (!/^[A-Za-z0-9._-]+$/.test(definition.targetRepository)) {
     throw new Error(`Invalid target repository name: ${definition.targetRepository}`);
   }
@@ -280,6 +280,9 @@ function requiredEnvironmentValue(name: string): string {
 
 function writeTargetRepositoriesOutput(): void {
   const outputPath = requiredEnvironmentValue("GITHUB_OUTPUT");
+  for (const definition of repositoryExports) {
+    assertRepositoryExport(definition);
+  }
   const targetRepositories = repositoryExports
     .map((definition) => definition.targetRepository)
     .join(",");

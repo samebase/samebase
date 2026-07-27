@@ -4,10 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node ./scripts/check.ts"
+    "check": "vp check && node ./scripts/check.ts"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.32",
+    "vite-plus": "0.1.24"
   },
   "engines": {
-    "node": ">=24"
+    "node": ">=24.0.0",
+    "pnpm": ">=11.1.1"
   },
-  "packageManager": "pnpm@11.0.8"
+  "packageManager": "pnpm@11.9.0"
 }

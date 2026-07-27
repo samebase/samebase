@@ -29,6 +29,7 @@ function git(cwd: string, args: readonly string[]): string {
 }
 
 function configureCommitter(repoRoot: string): void {
+  git(repoRoot, ["config", "commit.gpgsign", "false"]);
   git(repoRoot, ["config", "user.name", "Repository Export Test"]);
   git(repoRoot, ["config", "user.email", "repository-export-test@example.com"]);
 }

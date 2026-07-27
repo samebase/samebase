@@ -3,6 +3,45 @@
 Repository exports publish selected monorepo directories as complete external Git repositories. The
 monorepo directory is the source of truth. The external repository is generated output.
 
+## Exportable package contract
+
+Each configured source directory must work in two contexts:
+
+- as a package in this pnpm workspace
+- as the root of its exported repository
+
+The source directory owns its complete standalone setup. This includes its `package.json`,
+`pnpm-lock.yaml`, `pnpm-workspace.yaml`, TypeScript and Vite Plus configuration, domain checks, and
+external CI workflow. The package-local workspace file makes the source directory the tool root, so
+Vite Plus does not select the outer monorepo configuration. These files must not read configuration
+from a parent monorepo path. The package's `check` script is the one check command in both contexts.
+
+The root `package.json` is the source of truth for:
+
+- the pnpm version in `packageManager`
+- versions of installed dependencies that are also declared by an exportable package
+
+Peer dependency ranges and dependencies that exist only in an exportable package remain
+package-owned. An exportable package cannot depend on a root `workspace:`, `file:`, or `link:`
+version because that version cannot install after export.
+
+Each exportable package has a nested lockfile because the monorepo lockfile does not become the root
+lockfile of the exported repository. The nested lockfile is generated output. Do not edit it by
+hand.
+
+Run `pnpm sync:repository-exports` after an intentional package manifest change when you want an
+immediate update. Normal `pnpm check` also runs the synchronization automatically. It:
+
+1. copies shared versions from the root manifest
+2. regenerates each nested lockfile outside workspace resolution
+3. performs a standalone frozen install without lifecycle scripts
+4. runs the package's own `check`
+5. fails when it had to update a manifest or lockfile, so the generated files cannot be omitted from
+   a commit
+
+This means a normal root dependency upgrade and the required root check update the exportable
+package and its lockfile. CI verifies the same result before the publisher can run.
+
 ## Automatic workflow
 
 The publisher runs only for a push to `main`, after the aggregate CI job succeeds.
@@ -54,6 +93,9 @@ Add one entry to `repositoryExports` in `scripts/publish-repository-exports.ts`.
 - the monorepo source directory
 - the external repository name under the Samebase organization
 - the target branch
+
+Make the source directory satisfy the exportable package contract above. Then run
+`pnpm sync:repository-exports` and `pnpm check:repository-exports`.
 
 Install the publisher GitHub App on the new target repository. The workflow derives its target
 repository list from the same configuration, so the workflow file does not need a second list.

@@ -22,6 +22,16 @@ function checkRelativePath(baseRoot: string, relativePath: string, label: string
   check(existsSync(resolve(baseRoot, relativePath)), `${label} does not resolve: ${relativePath}`);
 }
 
+const codexMarketplacePlugin = codexMarketplace.plugins[0];
+if (codexMarketplacePlugin === undefined) {
+  throw new Error("The Codex marketplace must contain a plugin.");
+}
+
+const claudeMarketplacePlugin = claudeMarketplace.plugins[0];
+if (claudeMarketplacePlugin === undefined) {
+  throw new Error("The Claude marketplace must contain a plugin.");
+}
+
 check(
   packageMetadata.version === codexManifest.version,
   "The package version must match the Codex manifest.",
@@ -31,26 +41,26 @@ check(
   "The package version must match the Claude manifest.",
 );
 check(
-  packageMetadata.version === claudeMarketplace.plugins[0]?.version,
+  packageMetadata.version === claudeMarketplacePlugin.version,
   "The package version must match the Claude marketplace.",
 );
 check(codexManifest.version === claudeManifest.version, "Codex and Claude versions must match.");
 check(
-  claudeMarketplace.plugins[0]?.version === claudeManifest.version,
+  claudeMarketplacePlugin.version === claudeManifest.version,
   "The Claude marketplace version must match the plugin manifests.",
 );
 check(mcp.mcpServers.samebase.url === "https://api.samebase.com/mcp", "Unexpected MCP endpoint.");
 
-const codexMarketplaceSource = codexMarketplace.plugins[0].source;
+const codexMarketplaceSource = codexMarketplacePlugin.source;
 check(codexMarketplaceSource.source === "local", "The Codex marketplace source must be local.");
 checkRelativePath(root, codexMarketplaceSource.path, "Codex marketplace source");
-checkRelativePath(root, claudeMarketplace.plugins[0].source, "Claude marketplace source");
+checkRelativePath(root, claudeMarketplacePlugin.source, "Claude marketplace source");
 check(
   resolve(root, codexMarketplaceSource.path) === pluginRoot,
   "The Codex marketplace must install the shared plugin directory.",
 );
 check(
-  resolve(root, claudeMarketplace.plugins[0].source) === pluginRoot,
+  resolve(root, claudeMarketplacePlugin.source) === pluginRoot,
   "The Claude marketplace must install the shared plugin directory.",
 );
 checkRelativePath(pluginRoot, codexManifest.skills, "Codex skills path");
