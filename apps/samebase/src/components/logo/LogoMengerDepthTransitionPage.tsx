@@ -66,6 +66,25 @@ type ClientPoint = {
   y: number;
 };
 
+/**
+Per-stage smoothing state: openness plus the two ray-dodge forces ease with
+the same time constant so every displacement the renderer derives from them
+stays continuous across frames.
+*/
+type HoverStageBuffers = {
+  forcedA: Float64Array;
+  forcedB: Float64Array;
+  openness: Float64Array;
+};
+
+function createHoverStageBuffers(moveCount: number): HoverStageBuffers {
+  return {
+    forcedA: new Float64Array(moveCount),
+    forcedB: new Float64Array(moveCount),
+    openness: new Float64Array(moveCount),
+  };
+}
+
 function toWorldCoordinate(
   coordinate: VoxelCoordinate,
   gridSize: number,
@@ -216,15 +235,21 @@ function MengerDepthTransitionScene({
       MENGER_DEPTH_TRANSITION_MODEL.depthThree.moves.length,
     );
     // Hover covers holes with an axis pair: the transition movers act as
-    // cover A and this twin mesh as cover B, coincident at rest.
+    // cover A and these twin meshes as cover B, coincident at rest.
     const depthTwoHoverPairMesh = new THREE.InstancedMesh(
       geometry,
       materials,
       MENGER_DEPTH_TRANSITION_MODEL.depthTwo.moves.length,
     );
+    const depthThreeHoverPairMesh = new THREE.InstancedMesh(
+      geometry,
+      materials,
+      MENGER_DEPTH_TRANSITION_MODEL.depthThree.moves.length,
+    );
     depthTwoMovingMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     depthTwoHoverPairMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     depthThreeMovingMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    depthThreeHoverPairMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     const logoGroup = new THREE.Group();
     logoGroup.add(
       hoverProxy,
@@ -234,6 +259,7 @@ function MengerDepthTransitionScene({
       depthTwoHoverPairMesh,
       depthThreeSettledMesh,
       depthThreeMovingMesh,
+      depthThreeHoverPairMesh,
     );
     scene.add(logoGroup);
 
@@ -261,6 +287,7 @@ function MengerDepthTransitionScene({
     depthTwoMovingMesh.frustumCulled = false;
     depthTwoHoverPairMesh.frustumCulled = false;
     depthThreeMovingMesh.frustumCulled = false;
+    depthThreeHoverPairMesh.frustumCulled = false;
     let hoverAnimationFrame = 0;
     let hoverLastFrameTime: number | null = null;
     // The heal after the pointer leaves keeps the last slide directions, so
@@ -268,7 +295,8 @@ function MengerDepthTransitionScene({
     // when the live probe goes null.
     let hoverDirectionProbe: MengerHoverProbe | null = null;
     let hoverModel = modelRef.current;
-    let depthTwoHoverOpenness = new Float64Array(hoverModel.depthTwo.moves.length);
+    let depthTwoHoverBuffers = createHoverStageBuffers(hoverModel.depthTwo.moves.length);
+    let depthThreeHoverBuffers = createHoverStageBuffers(hoverModel.depthThree.moves.length);
 
     const fitRadius = (MENGER_DEPTH_TRANSITION_WORLD_SIZE / 2) * Math.sqrt(3);
     const cameraDepthBounds = resolveLogoSceneCameraDepthBounds(fitRadius);
@@ -313,7 +341,10 @@ function MengerDepthTransitionScene({
     openness ** weightA cells along the first tangent axis, cover B slides
     openness ** (1 - weightA) along the second, each toward its sign. The
     intersection they still cover leaves the carpet's corner-anchored
-    rectangle open, so the revealed area equals the openness.
+    rectangle open, so the revealed area equals the openness. Ray dodges
+    apply to both covers of a crossed pair: forcedA joins every A-axis
+    component and forcedB every B-axis component, so the whole pair leaves
+    the crossed column instead of one cover sliding uselessly along the ray.
     */
     const renderHoverMoves = (
       stage: MengerDepthTransitionStage,
@@ -330,21 +361,16 @@ function MengerDepthTransitionScene({
         // y for z-holes and z otherwise, matching the hover model's deltas.
         const tangentAxisA = move.holeAxis === 0 ? 1 : 0;
         const tangentAxisB = move.holeAxis === 2 ? 1 : 2;
-        const offsetA = moveState.signA * slideA * voxelSize;
-        const offsetB = moveState.signB * slideB * voxelSize;
         const [startX, startY, startZ] = toWorldCoordinate(move.from, stage.gridSize);
+        const offset: [number, number, number] = [0, 0, 0];
         matrix.makeScale(voxelSize, voxelSize, voxelSize);
-        matrix.setPosition(
-          startX + (tangentAxisA === 0 ? offsetA : 0),
-          startY + (tangentAxisA === 1 ? offsetA : 0),
-          startZ,
-        );
+        offset[tangentAxisA] = moveState.signA * Math.max(slideA, moveState.forcedA) * voxelSize;
+        offset[tangentAxisB] = moveState.signB * moveState.forcedB * voxelSize;
+        matrix.setPosition(startX + offset[0], startY + offset[1], startZ + offset[2]);
         coverAMesh.setMatrixAt(index, matrix);
-        matrix.setPosition(
-          startX,
-          startY + (tangentAxisB === 1 ? offsetB : 0),
-          startZ + (tangentAxisB === 2 ? offsetB : 0),
-        );
+        offset[tangentAxisA] = moveState.signA * moveState.forcedA * voxelSize;
+        offset[tangentAxisB] = moveState.signB * Math.max(slideB, moveState.forcedB) * voxelSize;
+        matrix.setPosition(startX + offset[0], startY + offset[1], startZ + offset[2]);
         coverBMesh.setMatrixAt(index, matrix);
       });
 
@@ -410,21 +436,26 @@ function MengerDepthTransitionScene({
 
     const settleHoverMoveStates = (
       moveStates: MengerHoverMoveState[],
-      currentOpenness: Float64Array,
+      buffers: HoverStageBuffers,
       smoothing: number,
     ): boolean => {
       let settled = true;
-      for (const [moveIndex, moveState] of moveStates.entries()) {
-        const current = currentOpenness[moveIndex] ?? 0;
-        let next = current + (moveState.openness - current) * smoothing;
-        if (Math.abs(next - moveState.openness) < HOVER_OPENNESS_SETTLE_EPSILON) {
-          next = moveState.openness;
+      const settleScalar = (target: number, buffer: Float64Array, moveIndex: number): number => {
+        const current = buffer[moveIndex] ?? 0;
+        let next = current + (target - current) * smoothing;
+        if (Math.abs(next - target) < HOVER_OPENNESS_SETTLE_EPSILON) {
+          next = target;
         } else {
           settled = false;
         }
 
-        currentOpenness[moveIndex] = next;
-        moveState.openness = next;
+        buffer[moveIndex] = next;
+        return next;
+      };
+      for (const [moveIndex, moveState] of moveStates.entries()) {
+        moveState.openness = settleScalar(moveState.openness, buffers.openness, moveIndex);
+        moveState.forcedA = settleScalar(moveState.forcedA, buffers.forcedA, moveIndex);
+        moveState.forcedB = settleScalar(moveState.forcedB, buffers.forcedB, moveIndex);
       }
 
       return settled;
@@ -456,18 +487,20 @@ function MengerDepthTransitionScene({
       logoGroup.updateMatrixWorld(true);
 
       if (modeRef.current === "hover") {
-        // Depth-two only for now: the depth-two settled cubes plus their
-        // covers at rest read exactly as the depth-one sponge, and hiding the
-        // depth-three meshes keeps the reveal surfaces clean.
+        // Depth-three settled cubes plus both cover generations at rest read
+        // exactly as the depth-one sponge; the depth-two settled mesh stays
+        // hidden because its cubes are refined by the depth-three geometry.
         depthOneMesh.visible = false;
-        depthTwoSettledMesh.visible = true;
+        depthTwoSettledMesh.visible = false;
         depthTwoMovingMesh.visible = true;
         depthTwoHoverPairMesh.visible = true;
-        depthThreeSettledMesh.visible = false;
-        depthThreeMovingMesh.visible = false;
+        depthThreeSettledMesh.visible = true;
+        depthThreeMovingMesh.visible = true;
+        depthThreeHoverPairMesh.visible = true;
         if (hoverModel !== currentModel) {
           hoverModel = currentModel;
-          depthTwoHoverOpenness = new Float64Array(currentModel.depthTwo.moves.length);
+          depthTwoHoverBuffers = createHoverStageBuffers(currentModel.depthTwo.moves.length);
+          depthThreeHoverBuffers = createHoverStageBuffers(currentModel.depthThree.moves.length);
           hoverLastFrameTime = null;
         }
 
@@ -491,13 +524,29 @@ function MengerDepthTransitionScene({
         const smoothing = reducedMotionQuery.matches
           ? 1
           : 1 - Math.exp(-elapsedMs / HOVER_OPENNESS_SMOOTHING_TAU_MS);
-        const hoverSettled = settleHoverMoveStates(hoverState, depthTwoHoverOpenness, smoothing);
+        const depthTwoSettled = settleHoverMoveStates(
+          hoverState.depthTwo,
+          depthTwoHoverBuffers,
+          smoothing,
+        );
+        const depthThreeSettled = settleHoverMoveStates(
+          hoverState.depthThree,
+          depthThreeHoverBuffers,
+          smoothing,
+        );
         renderHoverMoves(
           currentModel.depthTwo,
           depthTwoMovingMesh,
           depthTwoHoverPairMesh,
-          hoverState,
+          hoverState.depthTwo,
         );
+        renderHoverMoves(
+          currentModel.depthThree,
+          depthThreeMovingMesh,
+          depthThreeHoverPairMesh,
+          hoverState.depthThree,
+        );
+        const hoverSettled = depthTwoSettled && depthThreeSettled;
         container.dataset.hoverSettled = hoverSettled ? "true" : "false";
         if (!hoverSettled) {
           scheduleHoverFrame();
@@ -516,6 +565,7 @@ function MengerDepthTransitionScene({
         depthTwoHoverPairMesh.visible = false;
         depthThreeSettledMesh.visible = stage?.depth === 3;
         depthThreeMovingMesh.visible = stage?.depth === 3;
+        depthThreeHoverPairMesh.visible = false;
         renderStageMoves(currentModel.depthTwo, depthTwoMovingMesh, elapsedMs);
         renderStageMoves(currentModel.depthThree, depthThreeMovingMesh, elapsedMs);
       }
@@ -873,7 +923,7 @@ export function LogoMengerDepthTransitionPage({
 
         <div className="grid gap-1 border-t pt-3 font-mono text-xs text-muted-foreground">
           <div>Depth 1 at rest</div>
-          <div>Pointer reveals depth 2</div>
+          <div>Pointer reveals depths 2 and 3</div>
           <div>2 covers per hole, one axis each</div>
         </div>
       </div>
