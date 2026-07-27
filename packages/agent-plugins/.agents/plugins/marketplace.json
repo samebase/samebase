@@ -1,0 +1,20 @@
+{
+  "name": "samebase",
+  "interface": {
+    "displayName": "Samebase"
+  },
+  "plugins": [
+    {
+      "name": "samebase",
+      "source": {
+        "source": "local",
+        "path": "./plugins/samebase"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

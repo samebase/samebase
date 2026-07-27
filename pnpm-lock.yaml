@@ -480,6 +480,8 @@ importers:
 
   packages/agent-context: {}
 
+  packages/agent-plugins: {}
+
   packages/dependent: {}
 
   packages/logo-model:
