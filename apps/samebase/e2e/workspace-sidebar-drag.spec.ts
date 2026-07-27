@@ -550,7 +550,7 @@ test("logo mobile keeps left merge while resizing the right sidebar @logo-resear
     .toBeGreaterThan(minWidthPx + 40);
 });
 
-test("logo mobile hands main to right when left releases and right is minimum @logo-research", async ({
+test("logo mobile hands main to right when left releases and right is minimum", async ({
   page,
 }) => {
   await gotoLogoPage(page);
