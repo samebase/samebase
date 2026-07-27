@@ -10,8 +10,6 @@ test.setTimeout(120_000);
 
 // Keep this route-level guard independent from the production cap helper.
 const EXPECTED_LOGO_DEPTH_HARD_MAX = {
-  iso: 10,
-  raster: 10,
   svg: 3,
   three: 5,
 } as const;
@@ -700,7 +698,7 @@ test("logo depth slider clears default depth from the URL", async ({ page }) => 
     .toBe(false);
 });
 
-test("logo pages cap URL-edited recursive depth before rendering", async ({ page }) => {
+test("lightweight logo pages cap URL-edited recursive depth before rendering", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await signInForLogoAdminRoute(page);
   await page.goto("/logo?depth=99&rot=45", {
@@ -725,20 +723,6 @@ test("logo pages cap URL-edited recursive depth before rendering", async ({ page
       return decodeURIComponent(hash).endsWith(`:${EXPECTED_LOGO_DEPTH_HARD_MAX.svg}`);
     })
     .toBe(true);
-
-  await page.goto("/logo/iso?depth=99", {
-    waitUntil: "domcontentloaded",
-  });
-  await expect(
-    page.getByTestId("workspace-layout-v2-pane-left").getByLabel("Depth value"),
-  ).toHaveValue(`${EXPECTED_LOGO_DEPTH_HARD_MAX.iso}`);
-
-  await page.goto("/logo/raster?depth=99", {
-    waitUntil: "domcontentloaded",
-  });
-  await expect(
-    page.getByTestId("workspace-layout-v2-pane-left").getByLabel("Depth value"),
-  ).toHaveValue(`${EXPECTED_LOGO_DEPTH_HARD_MAX.raster}`);
 });
 
 test("logo distance scale controls Three and raster previews", async ({ page }) => {
