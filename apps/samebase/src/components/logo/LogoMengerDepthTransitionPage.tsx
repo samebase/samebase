@@ -371,7 +371,15 @@ function MengerDepthTransitionScene({
           matrix.makeScale(0, 0, 0);
           coverAMesh.setMatrixAt(index, matrix);
           coverBMesh.setMatrixAt(index, matrix);
-          const clearanceBoxes = readMengerHoverClearanceBoxes(moveState.clearances);
+          const clearanceBoxes = readMengerHoverClearanceBoxes([
+            ...moveState.clearances,
+            {
+              axis: move.holeAxis,
+              extentA: ownA,
+              extentB: ownB,
+              placement: "cell",
+            },
+          ]);
           for (const box of clearanceBoxes) {
             if (clearanceBoxIndex >= clearanceMesh.instanceMatrix.count) {
               throw new Error("Menger clearance boxes must fit the allocated instance buffer.");

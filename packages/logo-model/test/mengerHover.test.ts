@@ -147,7 +147,7 @@ describe("Menger hover", () => {
     expect(blockerMoveIndexes.length).toBeGreaterThan(0);
     for (const blockerMoveIndex of blockerMoveIndexes) {
       expect(state.depthTwo[blockerMoveIndex]?.clearances).toEqual([
-        { axis: 2, extentA: 1, extentB: 1 },
+        { axis: 2, extentA: 1, extentB: 1, placement: "middle-third" },
       ]);
     }
     expect(
@@ -244,15 +244,22 @@ describe("Menger hover", () => {
             (box.maximum[2] - box.minimum[2]),
         0,
       );
-    const oneTunnel = readMengerHoverClearanceBoxes([{ axis: 0, extentA: 1, extentB: 1 }]);
+    const oneTunnel = readMengerHoverClearanceBoxes([
+      { axis: 0, extentA: 1, extentB: 1, placement: "middle-third" },
+    ]);
     const twoTunnels = readMengerHoverClearanceBoxes([
-      { axis: 0, extentA: 1, extentB: 1 },
-      { axis: 2, extentA: 1, extentB: 1 },
+      { axis: 0, extentA: 1, extentB: 1, placement: "middle-third" },
+      { axis: 2, extentA: 1, extentB: 1, placement: "middle-third" },
+    ]);
+    const nativeAndNestedTunnels = readMengerHoverClearanceBoxes([
+      { axis: 1, extentA: 0.5, extentB: 0.5, placement: "cell" },
+      { axis: 0, extentA: 1, extentB: 1, placement: "middle-third" },
     ]);
 
     expect(readVolume(oneTunnel)).toBeCloseTo(8 / 9, 10);
     expect(readVolume(twoTunnels)).toBeCloseTo(22 / 27, 10);
-    expect(twoTunnels.length).toBeLessThanOrEqual(45);
+    expect(readVolume(nativeAndNestedTunnels)).toBeCloseTo(2 / 3, 10);
+    expect(nativeAndNestedTunnels.length).toBeLessThanOrEqual(80);
   });
 
   it("fades openness with the pointer's outside distance", () => {

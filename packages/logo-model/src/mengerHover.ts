@@ -7,7 +7,7 @@ import {
 export const MENGER_HOVER_MIN_REVEAL_RADIUS = 0.05;
 export const MENGER_HOVER_MAX_REVEAL_RADIUS = 1;
 export const MENGER_HOVER_DEFAULT_REVEAL_RADIUS = 0.55;
-export const MENGER_HOVER_MAX_CLEARANCE_BOXES_PER_MOVE = 45;
+export const MENGER_HOVER_MAX_CLEARANCE_BOXES_PER_MOVE = 80;
 const MENGER_HOVER_FULL_OPEN_RADIUS_FRACTION = 0.25;
 
 /**
@@ -52,6 +52,7 @@ export type MengerHoverClearance = {
   axis: MengerHoleAxis;
   extentA: number;
   extentB: number;
+  placement: "cell" | "middle-third";
 };
 
 export type MengerHoverClearanceBox = {
@@ -316,6 +317,7 @@ export function applyMengerHoverDepthThreeClearance(
         axis: rayAxis,
         extentA: channelState.signA * channelState.openness ** channelState.weightA,
         extentB: channelState.signB * channelState.openness ** (1 - channelState.weightA),
+        placement: "middle-third",
       });
     }
   });
@@ -354,9 +356,16 @@ export function readMengerHoverState(
   return state;
 }
 
-function readClearanceInterval(extent: number): readonly [number, number] | null {
+function readClearanceInterval(
+  extent: number,
+  placement: MengerHoverClearance["placement"],
+): readonly [number, number] | null {
   if (extent === 0) {
     return null;
+  }
+
+  if (placement === "cell") {
+    return extent > 0 ? [0, Math.abs(extent)] : [1 - Math.abs(extent), 1];
   }
 
   return extent > 0 ? [1 / 3, (1 + Math.abs(extent)) / 3] : [(2 - Math.abs(extent)) / 3, 2 / 3];
@@ -371,8 +380,8 @@ export function readMengerHoverClearanceBoxes(
   clearances: MengerHoverClearance[],
 ): MengerHoverClearanceBox[] {
   const tunnels = clearances.flatMap((clearance) => {
-    const intervalA = readClearanceInterval(clearance.extentA);
-    const intervalB = readClearanceInterval(clearance.extentB);
+    const intervalA = readClearanceInterval(clearance.extentA, clearance.placement);
+    const intervalB = readClearanceInterval(clearance.extentB, clearance.placement);
     if (!intervalA || !intervalB) {
       return [];
     }
