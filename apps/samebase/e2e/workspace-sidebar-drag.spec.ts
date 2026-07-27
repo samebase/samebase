@@ -396,7 +396,7 @@ test("fileview mobile merge resize keeps the sidebar beside a complete main pane
   await expect(page.getByTestId("workspace-layout-v2-right-resize")).toHaveCount(0);
 });
 
-test("logo mobile merge resize keeps main width while opening the right sidebar", async ({
+test("logo mobile merge resize keeps main width while opening the right sidebar @logo-research", async ({
   page,
 }) => {
   await gotoLogoPage(page);
@@ -476,7 +476,9 @@ test("logo mobile right merge survives reload from localStorage", async ({ page 
   await expect.poll(async () => getMobileMainPaneWidthPx(page)).toBe(viewportWidthPx - minWidthPx);
 });
 
-test("logo mobile merge resize settles after a back-and-forth grip drag", async ({ page }) => {
+test("logo mobile merge resize settles after a back-and-forth grip drag @logo-research", async ({
+  page,
+}) => {
   await gotoLogoPage(page);
 
   await scrollFileViewCarouselToPane(page, "left");
@@ -503,7 +505,9 @@ test("logo mobile merge resize settles after a back-and-forth grip drag", async 
   await expect.poll(async () => getMobileMainPaneWidthPx(page)).toBe(viewportWidthPx - minWidthPx);
 });
 
-test("logo mobile keeps left merge while resizing the right sidebar", async ({ page }) => {
+test("logo mobile keeps left merge while resizing the right sidebar @logo-research", async ({
+  page,
+}) => {
   await gotoLogoPage(page);
 
   await scrollFileViewCarouselToPane(page, "left");

@@ -870,7 +870,10 @@ test("public landing renders the routed landing UI directly", async ({ page }) =
 
   await expect(page.getByTestId("public-landing-content")).toBeVisible();
   await expect(page.getByTestId(PUBLIC_LANDING_SCROLL_SHELL_TEST_ID)).toBeVisible();
-  await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
+  const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
+  await expectLandingLogoReady(landingLogo);
+  await expectLandingLogoSceneReady(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID));
+  await expect(landingLogo).toHaveClass(/opacity-0/);
   const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
   await expect(accountSection).toBeVisible();
   await expect(accountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
@@ -1338,7 +1341,9 @@ test.describe("Android-sized standalone display-mode landing right sidebar", () 
   });
 });
 
-test("prod-ui landing logo enhancement stays visually aligned", async ({ page }, testInfo) => {
+test("prod-ui landing logo enhancement stays visually aligned @logo-research", async ({
+  page,
+}, testInfo) => {
   await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
 
   const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
@@ -1369,7 +1374,9 @@ test("prod-ui landing logo enhancement stays visually aligned", async ({ page },
   });
 });
 
-test("public landing logo tilts toward the pointer outside its grab surface", async ({ page }) => {
+test("public landing logo tilts toward the pointer outside its grab surface @logo-research", async ({
+  page,
+}) => {
   await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
 
   const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
@@ -1398,7 +1405,7 @@ test("public landing logo tilts toward the pointer outside its grab surface", as
   );
 });
 
-test.describe("public landing mobile logo tilt", () => {
+test.describe("public landing mobile logo tilt @logo-research", () => {
   test.use(mobileLandingDevice);
 
   test("keeps swipe tilt after the sidebar was narrowed to merge width", async ({ page }) => {
@@ -1719,7 +1726,9 @@ test.describe("public landing mobile logo tilt", () => {
   });
 });
 
-test("public landing recursive logo depth keeps the orthographic square size", async ({ page }) => {
+test("public landing recursive logo depth keeps the orthographic square size @logo-research", async ({
+  page,
+}) => {
   const baseMetrics = await readLandingLogoScenePaintMetrics(page, "/?elev=0&rot=0&depth=1");
   const recursiveMetrics = await readLandingLogoScenePaintMetrics(page, "/?elev=0&rot=0&depth=2");
 
@@ -1736,7 +1745,7 @@ test("public landing recursive logo depth keeps the orthographic square size", a
   expect(recursiveMetrics.paintedPixelCount).toBeLessThan(baseMetrics.paintedPixelCount);
 });
 
-test("prod-ui landing logo becomes draggable after the SVG fallback is removed", async ({
+test("prod-ui landing logo becomes draggable after the SVG fallback is removed @logo-research", async ({
   page,
 }) => {
   await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
@@ -1744,7 +1753,7 @@ test("prod-ui landing logo becomes draggable after the SVG fallback is removed",
   await expectLandingLogoCanBeDragged(page);
 });
 
-test("public landing logo becomes draggable after the SVG fallback is removed", async ({
+test("public landing logo becomes draggable after the SVG fallback is removed @logo-research", async ({
   page,
 }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
@@ -1752,7 +1761,9 @@ test("public landing logo becomes draggable after the SVG fallback is removed", 
   await expectLandingLogoCanBeDragged(page);
 });
 
-test("public landing horizontal drag keeps its elevation after drop", async ({ page }) => {
+test("public landing horizontal drag keeps its elevation after drop @logo-research", async ({
+  page,
+}) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
@@ -1787,7 +1798,9 @@ test("public landing horizontal drag keeps its elevation after drop", async ({ p
   expect(new URL(page.url()).search).toBe("?rot=5.6");
 });
 
-test("public landing logo composes pointer tilt with the dragged view", async ({ page }) => {
+test("public landing logo composes pointer tilt with the dragged view @logo-research", async ({
+  page,
+}) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
@@ -1924,7 +1937,7 @@ test("prod-ui landing logo keeps the default fallback when WebGL is unavailable"
   await expectLandingLogoWebGLUnavailableFallback(page, "/?prod-ui");
 });
 
-test("prod-ui landing logo reveals the query fallback when WebGL is unavailable", async ({
+test("prod-ui landing logo reveals the query fallback when WebGL is unavailable @logo-research", async ({
   page,
 }) => {
   await expectLandingLogoWebGLUnavailableFallback(page, "/?prod-ui&rot=180");
@@ -2037,7 +2050,9 @@ test.describe("production public host landing", () => {
     await expect(page.getByTestId("route-url-editor-input")).toHaveValue(`${rootPrefix}privacy?`);
   });
 
-  test("keeps the logo draggable after the SVG fallback is removed", async ({ page }) => {
+  test("keeps the logo draggable after the SVG fallback is removed @logo-research", async ({
+    page,
+  }) => {
     await page.goto(buildProductionPublicLandingUrl(""), {
       waitUntil: "domcontentloaded",
     });

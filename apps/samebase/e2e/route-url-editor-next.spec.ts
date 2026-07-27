@@ -447,7 +447,9 @@ test.describe("route URL editor touch scroll picker", () => {
     await expect(page.getByRole("option", { exact: true, name: "?top=sky-500" })).toBeVisible();
   });
 
-  test("touch path suggestions distinguish developer logo routes", async ({ page }) => {
+  test("touch path suggestions distinguish developer logo routes @logo-research", async ({
+    page,
+  }) => {
     await focusRouteAddressInputDirectly(page, "/");
     await expect(page.getByRole("option", { exact: true, name: "/logo/iso" })).toHaveCount(0);
 
@@ -620,7 +622,7 @@ test.describe("route URL editor touch scroll picker", () => {
     await expect(input).toBeFocused();
   });
 
-  test("touch scroll keeps suggestions open when previewing later logo params", async ({
+  test("touch scroll keeps suggestions open when previewing later logo params @logo-research", async ({
     page,
   }) => {
     const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo?depth=2");

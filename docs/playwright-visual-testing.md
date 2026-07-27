@@ -116,6 +116,16 @@ needs a browser. Prefer this order:
    coverage.
 4. Full `pnpm test:visual:linux` before calling a Playwright fix complete.
 
+Logo labs and logo-specific visual research use the `@logo-research` tag. The default product suite
+excludes these tests. A logo route does not make a test logo research. Required product contracts
+that use a logo route stay in the product suite. The product suite checks successful WebGL startup,
+the unavailable-WebGL fallback, and required workspace state persistence. Run the opt-in research
+suite only when logo rendering changes:
+
+```bash
+pnpm test:logo-research
+```
+
 Fixture ownership must match the product surface being changed. A dashboard, sidebar, or shell
 fixture may only cover that dashboard, sidebar, or shell behavior. It is not valid screenshot
 coverage for an independent route that happens to reuse one component. For page-owned UI, use the

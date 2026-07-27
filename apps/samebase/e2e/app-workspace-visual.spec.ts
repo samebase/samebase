@@ -71,7 +71,7 @@ test("app workspace address chrome exposes the route URL editor", async ({ page 
   await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}/terms?dev`);
 });
 
-test("route URL editor distinguishes developer logo routes", async ({ page }) => {
+test("route URL editor distinguishes developer logo routes @logo-research", async ({ page }) => {
   await page.addInitScript(() => {
     Math.random = () => 0.57;
   });
@@ -122,7 +122,7 @@ test("route URL editor distinguishes developer logo routes", async ({ page }) =>
   });
 });
 
-test("developer logo routes remain public on direct loads", async ({ page }) => {
+test("developer logo routes remain public on direct loads @logo-research", async ({ page }) => {
   await page.goto("/logo/single-cube?dev", {
     waitUntil: "domcontentloaded",
   });
