@@ -284,7 +284,11 @@ describe("lint config", () => {
     const fmtConfig = readRootFmtConfig();
 
     expect(readStringArray(fmtConfig.ignorePatterns, "vite.config.ts.fmt.ignorePatterns")).toEqual(
-      expect.arrayContaining(["apps/samebase/AGENTS.md", "apps/samebase/CLAUDE.md"]),
+      expect.arrayContaining([
+        "apps/samebase/AGENTS.md",
+        "apps/samebase/CLAUDE.md",
+        "packages/agent-plugins/**",
+      ]),
     );
   });
 });

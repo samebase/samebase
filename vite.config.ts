@@ -24,6 +24,7 @@ export default defineConfig({
       "apps/samebase/AGENTS.md",
       "apps/samebase/CLAUDE.md",
       "apps/samebase/src/routeTree.gen.ts",
+      "packages/agent-plugins/**",
     ],
     printWidth: 100,
     proseWrap: "always",
