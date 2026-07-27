@@ -204,6 +204,7 @@ describe("lint config", () => {
     );
     expect(oxlintConfig.options).toMatchObject({ typeAware: true });
     expect(oxlintConfig.ignorePatterns).not.toContain("**/vite.config.ts");
+    expect(oxlintConfig.ignorePatterns).toContain("packages/agent-plugins/**");
     expect(appWideOverride?.rules?.["@typescript-eslint/no-explicit-any"]).toBeUndefined();
     expect(oxlintConfig.jsPlugins).toEqual(
       expect.arrayContaining([

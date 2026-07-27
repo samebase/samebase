@@ -37,7 +37,12 @@ export default defineConfig({
       builtin: true,
       browser: true,
     },
-    ignorePatterns: ["**/dist", "**/convex/_generated", "**/src/components/ui"],
+    ignorePatterns: [
+      "**/dist",
+      "**/convex/_generated",
+      "**/src/components/ui",
+      "packages/agent-plugins/**",
+    ],
     jsPlugins: [
       {
         name: "@convex-dev",
