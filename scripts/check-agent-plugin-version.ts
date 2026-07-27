@@ -11,9 +11,9 @@ const packageRoot = path.dirname(packageManifestPath);
 const releaseVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 
 type ReleaseVersion = {
-  major: number;
-  minor: number;
-  patch: number;
+  major: bigint;
+  minor: bigint;
+  patch: bigint;
 };
 
 function readPackageVersion(contents: string, label: string): string {
@@ -36,9 +36,9 @@ function parseReleaseVersion(version: string, label: string): ReleaseVersion {
   }
 
   return {
-    major: Number(match[1]),
-    minor: Number(match[2]),
-    patch: Number(match[3]),
+    major: BigInt(match[1]),
+    minor: BigInt(match[2]),
+    patch: BigInt(match[3]),
   };
 }
 
@@ -66,6 +66,22 @@ function packageChanged(repoRoot: string, baseCommit: string): boolean {
   }
 
   throw new Error(result.stderr.trim() || `Unable to compare agent plugins with ${baseCommit}.`);
+}
+
+export function findLatestPackageChangeBase(repoRoot: string): string {
+  const latestPackageChange = execFileSync(
+    "git",
+    ["log", "--first-parent", "-1", "--format=%H", "HEAD", "--", packageRoot],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+    },
+  ).trim();
+  if (!latestPackageChange) {
+    throw new Error("Unable to find an agent plugin change in Git history.");
+  }
+
+  return `${latestPackageChange}^`;
 }
 
 export function checkAgentPluginVersion(repoRoot: string, baseCommit: string): string {
@@ -99,7 +115,10 @@ export function checkAgentPluginVersion(repoRoot: string, baseCommit: string): s
 
 if (isMainModule(import.meta.url)) {
   await runMain(() => {
-    const baseCommit = process.argv[2] ?? "";
-    console.log(checkAgentPluginVersion(resolveRepoRoot(), baseCommit));
+    const argument = process.argv[2] ?? "";
+    const repoRoot = resolveRepoRoot();
+    const baseCommit =
+      argument === "--latest-package-change" ? findLatestPackageChangeBase(repoRoot) : argument;
+    console.log(checkAgentPluginVersion(repoRoot, baseCommit));
   });
 }
