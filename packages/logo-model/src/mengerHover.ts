@@ -24,18 +24,23 @@ export type MengerHoverProbe = {
 };
 
 /**
-offset is the mover's full slide in its own child-cell units: always 0 on the
-mover's hole axis and Chebyshev norm 1 across its two tangent axes. The ring
-of eight retained siblings around a face-center hole is solid, so every
-Chebyshev-1 tangent offset parks the fully open mover inside solid geometry.
-The rendered position is from + openness * offset, which keeps the reveal
-continuous in both pointer position and openness; the discrete axis-pick
-this replaces teleported partially open movers whenever the pointer crossed
-a channel diagonal or axis line.
+Each hole opening is covered by TWO coincident cubes, one per tangent axis,
+mirroring the carpet's slide rect: cover A retreats by openness ** weightA
+cells along the first tangent axis, cover B by openness ** (1 - weightA)
+along the second, each toward its sign. The region both covers still hide is
+the hole minus a rectangle of exactly the carpet's revealed shape, anchored
+at the pointer-facing corner, with revealed area equal to the openness. A
+sign only flips while that axis's weight is 0, which parks its cover fully
+inside the solid sibling ring, so the flip is never visible.
+
+Tangent axis order matches readChannelTangentDeltas: hole axis 0 pairs
+(y, z), hole axis 1 pairs (x, z), hole axis 2 pairs (x, y).
 */
 export type MengerHoverMoveState = {
-  offset: [number, number, number];
   openness: number;
+  signA: 1 | -1;
+  signB: 1 | -1;
+  weightA: number;
 };
 
 export function normalizeMengerHoverRevealRadius(value: number): number {
@@ -92,37 +97,32 @@ function readChannelTangentDeltas(
   }
 }
 
-function toChannelOffset(
-  axis: MengerHoleAxis,
-  offsetA: number,
-  offsetB: number,
-): [number, number, number] {
-  switch (axis) {
-    case 0:
-      return [0, offsetA, offsetB];
-    case 1:
-      return [offsetA, 0, offsetB];
-    case 2:
-      return [offsetA, offsetB, 0];
-    default:
-      return axis satisfies never;
-  }
+function clampUnit(value: number): number {
+  return Math.min(Math.max(value, 0), 1);
 }
 
-/**
-The slide points away from the pointer like the carpet wipe, scaled so the
-larger tangent component is exactly 1: the offset rotates continuously around
-the sibling ring as the pointer orbits the channel instead of snapping
-between four discrete slide lines. The pointer can only cross the degenerate
-center while the channel is fully open, so the fallback never shows.
-*/
-function readChannelSlideOffset(deltas: ChannelTangentDeltas): readonly [number, number] {
-  const magnitude = Math.max(Math.abs(deltas.deltaA), Math.abs(deltas.deltaB));
-  if (magnitude <= 0) {
-    return [1, 0];
-  }
+type ChannelSlide = {
+  signA: 1 | -1;
+  signB: 1 | -1;
+  weightA: number;
+};
 
-  return [deltas.deltaA / magnitude, deltas.deltaB / magnitude];
+/**
+The carpet's readSlideAwayFromPointer, restated for the cover pair: the
+openness split follows the pointer-to-center offset ratio, and within half a
+hole side of the hole the split relaxes toward an even 0.5 so a cardinal
+pass does not flip the rect between wide and tall across a knife edge.
+*/
+function readChannelSlide(deltas: ChannelTangentDeltas, holeSize: number): ChannelSlide {
+  const totalDelta = Math.abs(deltas.deltaA) + Math.abs(deltas.deltaB);
+  const directionalBlend = clampUnit(totalDelta / (holeSize / 2));
+  const directionalWeightA = totalDelta > 0 ? Math.abs(deltas.deltaA) / totalDelta : 0.5;
+
+  return {
+    signA: deltas.deltaA >= 0 ? 1 : -1,
+    signB: deltas.deltaB >= 0 ? 1 : -1,
+    weightA: 0.5 + (directionalWeightA - 0.5) * directionalBlend,
+  };
 }
 
 function readChannelState(
@@ -137,17 +137,19 @@ function readChannelState(
   const centerA = (coordinateA + 0.5) / faceGridSize;
   const centerB = (coordinateB + 0.5) / faceGridSize;
 
-  // The heal after the pointer leaves keeps the last slide direction, exactly
-  // like the carpet's direction pointer; a zero offset here would teleport
-  // every easing mover back to its hole in one frame.
+  // The heal after the pointer leaves keeps the last slide split and signs,
+  // exactly like the carpet's direction pointer, so easing covers retract
+  // along the path they came instead of teleporting.
   const slidePoint = probe ?? directionProbe;
   const slide =
     slidePoint === null
-      ? ([1, 0] as const)
-      : readChannelSlideOffset(readChannelTangentDeltas(axis, centerA, centerB, slidePoint));
-  const offset = toChannelOffset(axis, slide[0], slide[1]);
+      ? { signA: 1 as const, signB: 1 as const, weightA: 0.5 }
+      : readChannelSlide(
+          readChannelTangentDeltas(axis, centerA, centerB, slidePoint),
+          1 / faceGridSize / 3,
+        );
   if (probe === null) {
-    return { offset, openness: 0 };
+    return { ...slide, openness: 0 };
   }
 
   let axisDelta: number;
@@ -171,15 +173,16 @@ function readChannelState(
   const normalized =
     closeness > 0 ? Math.min(closeness / (1 - MENGER_HOVER_FULL_OPEN_RADIUS_FRACTION), 1) : 0;
 
-  return { offset, openness: normalized * normalized * (3 - 2 * normalized) };
+  return { ...slide, openness: normalized * normalized * (3 - 2 * normalized) };
 }
 
 /**
 Depth-two only for now: the study first has to make the coarse reveal feel
-like the carpet before deeper recursion returns. Every cube pair in one
-face-on channel shares its openness and slide offset, and a depth-two view
-ray only ever crosses its own channel's covers, so no cross-axis blocker
-handling exists at this depth.
+like the carpet before deeper recursion returns. Every opening in one
+face-on channel shares its openness, split, and signs, so the rectangles at
+both tunnel ends and every interior segment stay aligned and the through
+view is the same rectangle. A depth-two view ray only ever crosses its own
+channel's covers, so no cross-axis blocker handling exists at this depth.
 */
 export function readMengerHoverState(
   model: MengerDepthTransitionModel,
@@ -201,8 +204,7 @@ export function readMengerHoverState(
     }
 
     // The renderer smooths openness per mover in place, so every mover needs
-    // its own state object; the offset stays shared because nothing mutates
-    // it at this depth.
-    return { offset: channelState.offset, openness: channelState.openness };
+    // its own state object.
+    return { ...channelState };
   });
 }

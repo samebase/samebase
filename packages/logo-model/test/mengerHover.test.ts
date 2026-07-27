@@ -6,6 +6,32 @@ import {
 } from "../src/mengerHover.ts";
 import { describe, expect, it } from "vite-plus/test";
 
+// The z-axis channel at parent face coords (0, 1): hole center (x, y) =
+// (0.5 / 3, 1.5 / 3) on the z = 1 face.
+const CHANNEL = 2 * 9 + 0 * 3 + 1;
+const CENTER_A = 0.5 / 3;
+const CENTER_B = 1.5 / 3;
+
+function readChannelMoveState(
+  probe: { x: number; y: number; z: number } | null,
+  direction = probe,
+) {
+  const moveIndex = MENGER_DEPTH_TRANSITION_MODEL.depthTwo.moves.findIndex(
+    (move) => move.faceColumnChannel === CHANNEL,
+  );
+  const state = readMengerHoverState(
+    MENGER_DEPTH_TRANSITION_MODEL,
+    probe === null ? null : { outsideDistance: 0, ...probe },
+    direction === null ? null : { outsideDistance: 0, ...direction },
+    MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
+  )[moveIndex];
+  if (!state) {
+    throw new Error("The probed channel must resolve to a depth-two mover.");
+  }
+
+  return state;
+}
+
 describe("Menger hover", () => {
   it("normalizes the pointer reveal radius", () => {
     expect(normalizeMengerHoverRevealRadius(Number.NaN)).toBe(MENGER_HOVER_DEFAULT_REVEAL_RADIUS);
@@ -26,103 +52,86 @@ describe("Menger hover", () => {
     expect(state.every((move) => move.openness === 0)).toBe(true);
   });
 
-  it("keeps offsets tangent, Chebyshev-1, and inside each source parent", () => {
-    const probe = { outsideDistance: 0, x: 0.15, y: 0.2, z: 1 };
-    const state = readMengerHoverState(
-      MENGER_DEPTH_TRANSITION_MODEL,
-      probe,
-      probe,
-      MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
-    );
+  it("splits the cover pair like the carpet slide", () => {
+    // Diagonal approach: even split, both covers retreating away from the
+    // pointer toward positive A and B.
+    const diagonal = readChannelMoveState({ x: CENTER_A - 0.2, y: CENTER_B - 0.2, z: 1 });
+    expect(diagonal.weightA).toBeCloseTo(0.5, 5);
+    expect(diagonal.signA).toBe(1);
+    expect(diagonal.signB).toBe(1);
 
-    for (const [moveIndex, move] of MENGER_DEPTH_TRANSITION_MODEL.depthTwo.moves.entries()) {
-      const moveState = state[moveIndex];
-      if (!moveState) {
-        throw new Error("Every Menger mover must have one hover move state.");
-      }
+    // Cardinal approach from the left: cover A carries the whole slide and
+    // cover B is fully retreated, which opens a full-height rectangle that
+    // grows toward the pointer.
+    const cardinal = readChannelMoveState({ x: CENTER_A - 0.28, y: CENTER_B, z: 1 });
+    expect(cardinal.weightA).toBeCloseTo(1, 5);
 
-      expect(moveState.offset[move.holeAxis]).toBe(0);
-      expect(Math.max(...moveState.offset.map(Math.abs))).toBe(1);
-      for (let axis = 0; axis < 3; axis += 1) {
-        const shifted = (move.from[axis] ?? 0) + (moveState.offset[axis] ?? 0);
-        expect(Math.floor(shifted / 3)).toBe(Math.floor((move.from[axis] ?? 0) / 3));
-      }
-    }
+    // Within half a hole side the split relaxes toward 0.5 instead of
+    // flipping between wide and tall across a knife edge.
+    const near = readChannelMoveState({ x: CENTER_A - 0.02, y: CENTER_B, z: 1 });
+    expect(near.weightA).toBeGreaterThan(0.55);
+    expect(near.weightA).toBeLessThan(0.85);
   });
 
-  it("keeps offsets continuous across a channel diagonal at partial openness", () => {
-    const channel = 2 * 9 + 0 * 3 + 1;
-    const moveIndex = MENGER_DEPTH_TRANSITION_MODEL.depthTwo.moves.findIndex(
-      (move) => move.faceColumnChannel === channel,
-    );
-    const centerA = 0.5 / 3;
-    const centerB = 1.5 / 3;
-    const leftProbe = { outsideDistance: 0, x: centerA - 0.201, y: centerB - 0.199, z: 1 };
-    const rightProbe = { outsideDistance: 0, x: centerA - 0.199, y: centerB - 0.201, z: 1 };
-    const leftState = readMengerHoverState(
-      MENGER_DEPTH_TRANSITION_MODEL,
-      leftProbe,
-      leftProbe,
-      MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
-    )[moveIndex];
-    const rightState = readMengerHoverState(
-      MENGER_DEPTH_TRANSITION_MODEL,
-      rightProbe,
-      rightProbe,
-      MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
-    )[moveIndex];
-    if (!leftState || !rightState) {
-      throw new Error("The probed channel must resolve to a depth-two mover.");
-    }
+  it("keeps the split continuous across a channel diagonal at partial openness", () => {
+    const leftState = readChannelMoveState({ x: CENTER_A - 0.201, y: CENTER_B - 0.199, z: 1 });
+    const rightState = readChannelMoveState({ x: CENTER_A - 0.199, y: CENTER_B - 0.201, z: 1 });
 
     expect(leftState.openness).toBeGreaterThan(0.2);
     expect(leftState.openness).toBeLessThan(1);
     expect(Math.abs(leftState.openness - rightState.openness)).toBeLessThan(0.01);
-    for (let axis = 0; axis < 3; axis += 1) {
-      expect(Math.abs((leftState.offset[axis] ?? 0) - (rightState.offset[axis] ?? 0))).toBeLessThan(
-        0.05,
-      );
-    }
+    expect(Math.abs(leftState.weightA - rightState.weightA)).toBeLessThan(0.05);
+    expect(leftState.signA).toBe(rightState.signA);
+    expect(leftState.signB).toBe(rightState.signB);
+  });
+
+  it("only flips a sign while that axis's cover is fully retreated", () => {
+    const leftState = readChannelMoveState({ x: CENTER_A - 0.001, y: CENTER_B - 0.3, z: 1 });
+    const rightState = readChannelMoveState({ x: CENTER_A + 0.001, y: CENTER_B - 0.3, z: 1 });
+
+    expect(leftState.signA).toBe(1);
+    expect(rightState.signA).toBe(-1);
+    // weightA ~ 0 means cover A sits at openness ** 0 = full retreat on both
+    // sides of the flip, parked inside the solid ring and invisible.
+    expect(leftState.weightA).toBeLessThan(0.01);
+    expect(rightState.weightA).toBeLessThan(0.01);
   });
 
   it("fades openness with the pointer's outside distance", () => {
-    const channel = 2 * 9 + 0 * 3 + 1;
-    const rayMoveIndex = MENGER_DEPTH_TRANSITION_MODEL.depthTwo.moves.findIndex(
-      (move) => move.faceColumnChannel === channel,
-    );
-    const onSurface = { outsideDistance: 0, x: 0.5 / 3, y: 1.5 / 3, z: 1 };
-    const nearMiss = { outsideDistance: 0.3, x: 0.5 / 3, y: 1.5 / 3, z: 1 };
-    const farMiss = { outsideDistance: 0.6, x: 0.5 / 3, y: 1.5 / 3, z: 1 };
-    const radius = MENGER_HOVER_DEFAULT_REVEAL_RADIUS;
-    const model = MENGER_DEPTH_TRANSITION_MODEL;
-    const onSurfaceState = readMengerHoverState(model, onSurface, onSurface, radius);
-    const nearMissState = readMengerHoverState(model, nearMiss, nearMiss, radius);
-    const farMissState = readMengerHoverState(model, farMiss, farMiss, radius);
+    const onSurface = readChannelMoveState({ x: CENTER_A, y: CENTER_B, z: 1 });
+    expect(onSurface.openness).toBe(1);
 
-    expect(rayMoveIndex).toBeGreaterThanOrEqual(0);
-    expect(onSurfaceState[rayMoveIndex]?.openness).toBe(1);
-    const nearMissOpenness = nearMissState[rayMoveIndex]?.openness ?? 0;
-    expect(nearMissOpenness).toBeGreaterThan(0);
-    expect(nearMissOpenness).toBeLessThan(1);
+    const moveIndex = MENGER_DEPTH_TRANSITION_MODEL.depthTwo.moves.findIndex(
+      (move) => move.faceColumnChannel === CHANNEL,
+    );
+    const nearMissProbe = { outsideDistance: 0.3, x: CENTER_A, y: CENTER_B, z: 1 };
+    const farMissProbe = { outsideDistance: 0.6, x: CENTER_A, y: CENTER_B, z: 1 };
+    const nearMissState = readMengerHoverState(
+      MENGER_DEPTH_TRANSITION_MODEL,
+      nearMissProbe,
+      nearMissProbe,
+      MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
+    )[moveIndex];
+    const farMissState = readMengerHoverState(
+      MENGER_DEPTH_TRANSITION_MODEL,
+      farMissProbe,
+      farMissProbe,
+      MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
+    );
+
+    expect(nearMissState?.openness).toBeGreaterThan(0);
+    expect(nearMissState?.openness).toBeLessThan(1);
     expect(farMissState.every((move) => move.openness === 0)).toBe(true);
   });
 
-  it("heals along the last slide directions after the pointer leaves", () => {
-    const probe = { outsideDistance: 0, x: 0.15, y: 0.2, z: 1 };
-    const liveState = readMengerHoverState(
-      MENGER_DEPTH_TRANSITION_MODEL,
-      probe,
-      probe,
-      MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
-    );
-    const healedState = readMengerHoverState(
-      MENGER_DEPTH_TRANSITION_MODEL,
-      null,
-      probe,
-      MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
-    );
+  it("heals along the last slide split after the pointer leaves", () => {
+    const probe = { x: CENTER_A - 0.15, y: CENTER_B - 0.1, z: 1 };
+    const liveState = readChannelMoveState(probe);
+    const healedState = readChannelMoveState(null, probe);
 
-    expect(healedState.every((move) => move.openness === 0)).toBe(true);
-    expect(healedState.map((move) => move.offset)).toEqual(liveState.map((move) => move.offset));
+    expect(healedState.openness).toBe(0);
+    expect(healedState.weightA).toBe(liveState.weightA);
+    expect(healedState.signA).toBe(liveState.signA);
+    expect(healedState.signB).toBe(liveState.signB);
   });
 });
