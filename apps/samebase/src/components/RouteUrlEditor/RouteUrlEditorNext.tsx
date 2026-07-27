@@ -227,9 +227,15 @@ export function RouteUrlEditorNext() {
       field. */}
       <input
         {...(inputFocused ? vm.inputProps : vm.displayInputProps)}
+        autoComplete="off"
         className={
           inputFocused ? routeUrlEditorNextInputClassName : routeUrlEditorNextBlurredInputClassName
         }
+        data-1p-ignore="true"
+        data-bwignore="true"
+        data-form-type="other"
+        data-lpignore="true"
+        data-op-ignore="true"
         data-posthog-unmask="route-url-editor"
         data-testid={inputFocused ? "route-url-editor-input" : "route-url-editor-display"}
         inputMode="url"
