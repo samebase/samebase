@@ -5,7 +5,6 @@ import {
   MENGER_DEPTH_TRANSITION_MAX_STAGGER_GROUP_COUNT,
   MENGER_DEPTH_TRANSITION_MODEL,
   createMengerDepthTransitionModel,
-  easeMengerDepthTransitionProgress,
   readMengerDepthTransitionMoveProgress,
   readMengerDepthTransitionStage,
   type MengerDepthTransitionModel,
@@ -260,7 +259,6 @@ function MengerDepthTransitionScene({
     let hoverDirectionProbe: MengerHoverProbe | null = null;
     let hoverModel = modelRef.current;
     let depthTwoHoverOpenness = new Float64Array(hoverModel.depthTwo.moves.length);
-    let depthThreeHoverOpenness = new Float64Array(hoverModel.depthThree.moves.length);
 
     const fitRadius = (MENGER_DEPTH_TRANSITION_WORLD_SIZE / 2) * Math.sqrt(3);
     const cameraDepthBounds = resolveLogoSceneCameraDepthBounds(fitRadius);
@@ -370,14 +368,16 @@ function MengerDepthTransitionScene({
           return;
         }
 
-        const moveProgress = easeMengerDepthTransitionProgress(moveState.openness);
+        // Openness is already smoothstepped by the model and smoothed over
+        // frames here; the transition's cubic ease on top starved partially
+        // open holes and thinned the reveal ring around the pointer.
         const [startX, startY, startZ] = toWorldCoordinate(move.from, stage.gridSize);
         const [offsetX, offsetY, offsetZ] = moveState.offset;
         matrix.makeScale(voxelSize, voxelSize, voxelSize);
         matrix.setPosition(
-          startX + offsetX * moveProgress * voxelSize,
-          startY + offsetY * moveProgress * voxelSize,
-          startZ + offsetZ * moveProgress * voxelSize,
+          startX + offsetX * moveState.openness * voxelSize,
+          startY + offsetY * moveState.openness * voxelSize,
+          startZ + offsetZ * moveState.openness * voxelSize,
         );
         movingMesh.setMatrixAt(index, matrix);
       });
@@ -433,15 +433,17 @@ function MengerDepthTransitionScene({
       logoGroup.updateMatrixWorld(true);
 
       if (modeRef.current === "hover") {
+        // Depth-two only for now: the depth-two settled cubes plus their
+        // covers at rest read exactly as the depth-one sponge, and hiding the
+        // depth-three meshes keeps the reveal surfaces clean.
         depthOneMesh.visible = false;
-        depthTwoSettledMesh.visible = false;
+        depthTwoSettledMesh.visible = true;
         depthTwoMovingMesh.visible = true;
-        depthThreeSettledMesh.visible = true;
-        depthThreeMovingMesh.visible = true;
+        depthThreeSettledMesh.visible = false;
+        depthThreeMovingMesh.visible = false;
         if (hoverModel !== currentModel) {
           hoverModel = currentModel;
           depthTwoHoverOpenness = new Float64Array(currentModel.depthTwo.moves.length);
-          depthThreeHoverOpenness = new Float64Array(currentModel.depthThree.moves.length);
           hoverLastFrameTime = null;
         }
 
@@ -465,19 +467,8 @@ function MengerDepthTransitionScene({
         const smoothing = reducedMotionQuery.matches
           ? 1
           : 1 - Math.exp(-elapsedMs / HOVER_OPENNESS_SMOOTHING_TAU_MS);
-        const depthTwoSettled = settleHoverMoveStates(
-          hoverState.depthTwo,
-          depthTwoHoverOpenness,
-          smoothing,
-        );
-        const depthThreeSettled = settleHoverMoveStates(
-          hoverState.depthThree,
-          depthThreeHoverOpenness,
-          smoothing,
-        );
-        renderHoverMoves(currentModel.depthTwo, depthTwoMovingMesh, hoverState.depthTwo);
-        renderHoverMoves(currentModel.depthThree, depthThreeMovingMesh, hoverState.depthThree);
-        const hoverSettled = depthTwoSettled && depthThreeSettled;
+        const hoverSettled = settleHoverMoveStates(hoverState, depthTwoHoverOpenness, smoothing);
+        renderHoverMoves(currentModel.depthTwo, depthTwoMovingMesh, hoverState);
         container.dataset.hoverSettled = hoverSettled ? "true" : "false";
         if (!hoverSettled) {
           scheduleHoverFrame();
@@ -852,10 +843,8 @@ export function LogoMengerDepthTransitionPage({
 
         <div className="grid gap-1 border-t pt-3 font-mono text-xs text-muted-foreground">
           <div>Depth 1 at rest</div>
-          <div>Pointer reveals depths 2 and 3</div>
-          <div>3 through-hole axes per parent cube</div>
-          <div>2 face cubes move together per local hole</div>
-          <div>Closed cube proxy selects the pointer face</div>
+          <div>Pointer reveals depth 2</div>
+          <div>2 face cubes move together per hole</div>
         </div>
       </div>
     ),

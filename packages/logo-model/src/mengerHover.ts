@@ -28,19 +28,14 @@ offset is the mover's full slide in its own child-cell units: always 0 on the
 mover's hole axis and Chebyshev norm 1 across its two tangent axes. The ring
 of eight retained siblings around a face-center hole is solid, so every
 Chebyshev-1 tangent offset parks the fully open mover inside solid geometry.
-The rendered position is from + ease(openness) * offset, which keeps the
-reveal continuous in both pointer position and openness; the discrete
-axis-pick this replaces teleported partially open movers whenever the pointer
-crossed a channel diagonal or axis line.
+The rendered position is from + openness * offset, which keeps the reveal
+continuous in both pointer position and openness; the discrete axis-pick
+this replaces teleported partially open movers whenever the pointer crossed
+a channel diagonal or axis line.
 */
 export type MengerHoverMoveState = {
   offset: [number, number, number];
   openness: number;
-};
-
-export type MengerHoverState = {
-  depthThree: MengerHoverMoveState[];
-  depthTwo: MengerHoverMoveState[];
 };
 
 export function normalizeMengerHoverRevealRadius(value: number): number {
@@ -179,161 +174,35 @@ function readChannelState(
   return { offset, openness: normalized * normalized * (3 - 2 * normalized) };
 }
 
-function readProjectedMoveCoordinates(
-  axis: MengerHoleAxis,
-  coordinate: readonly [number, number, number],
-): readonly [number, number] {
-  switch (axis) {
-    case 0:
-      return [coordinate[1], coordinate[2]];
-    case 1:
-      return [coordinate[0], coordinate[2]];
-    case 2:
-      return [coordinate[0], coordinate[1]];
-    default:
-      return axis satisfies never;
-  }
-}
-
-function createDepthThreeBlockerMoveIndexes(model: MengerDepthTransitionModel): number[][] {
-  const depthThree = model.depthThree;
-  const faceGridSize = depthThree.gridSize / 3;
-  const channelCount = 3 * faceGridSize * faceGridSize;
-  const depthThreeChannels = new Set(depthThree.moves.map((move) => move.faceColumnChannel));
-
-  return Array.from({ length: channelCount }, (_, channel) => {
-    if (!depthThreeChannels.has(channel)) {
-      return [];
-    }
-
-    const { axis, coordinateA, coordinateB } = readChannelFaceCoordinates(channel, faceGridSize);
-    const blockerMoveIndexes: number[] = [];
-    for (const [moveIndex, move] of model.depthTwo.moves.entries()) {
-      const [moveCoordinateA, moveCoordinateB] = readProjectedMoveCoordinates(axis, move.from);
-      if (moveCoordinateA === coordinateA && moveCoordinateB === coordinateB) {
-        blockerMoveIndexes.push(moveIndex);
-      }
-    }
-
-    return blockerMoveIndexes;
-  });
-}
-
-const MENGER_HOVER_BLOCKER_MOVE_INDEXES_BY_MODEL = new WeakMap<
-  MengerDepthTransitionModel,
-  number[][]
->();
-
-function readPerpendicularAxis(left: MengerHoleAxis, right: MengerHoleAxis): MengerHoleAxis {
-  switch (left + right) {
-    case 1:
-      return 2;
-    case 2:
-      return 1;
-    case 3:
-      return 0;
-    default:
-      throw new Error("Perpendicular axes exist only for two distinct cube axes.");
-  }
-}
-
-function readDepthThreeBlockerMoveIndexes(model: MengerDepthTransitionModel): number[][] {
-  const existing = MENGER_HOVER_BLOCKER_MOVE_INDEXES_BY_MODEL.get(model);
-  if (existing) {
-    return existing;
-  }
-
-  const created = createDepthThreeBlockerMoveIndexes(model);
-  MENGER_HOVER_BLOCKER_MOVE_INDEXES_BY_MODEL.set(model, created);
-  return created;
-}
-
-function readStageChannelStates(
-  stage: MengerDepthTransitionStage,
-  probe: MengerHoverProbe | null,
-  directionProbe: MengerHoverProbe | null,
-  revealRadius: number,
-): MengerHoverMoveState[] {
-  const faceGridSize = stage.gridSize / 3;
-  const channelCount = 3 * faceGridSize * faceGridSize;
-  return Array.from({ length: channelCount }, (_, channel) =>
-    readChannelState(channel, stage, probe, directionProbe, revealRadius),
-  );
-}
-
 /**
-All cube pairs in one face-on channel share its openness and slide offset. A
-depth-two cube also moves when it blocks an open depth-three view ray; the
-override applies to that cube alone, not its whole channel, so it never opens
-an unrelated coarse hole. A cross-axis blocker (a side-hole cover crossing a
-front-face ray) must dodge along the one axis perpendicular to both its own
-hole axis and the ray axis: its natural tangent plane contains the ray axis,
-and any slide along the ray keeps the column covered forever, which made the
-deep view snap between fully blocked and fully open.
+Depth-two only for now: the study first has to make the coarse reveal feel
+like the carpet before deeper recursion returns. Every cube pair in one
+face-on channel shares its openness and slide offset, and a depth-two view
+ray only ever crosses its own channel's covers, so no cross-axis blocker
+handling exists at this depth.
 */
 export function readMengerHoverState(
   model: MengerDepthTransitionModel,
   probe: MengerHoverProbe | null,
   directionProbe: MengerHoverProbe | null,
   revealRadius: number,
-): MengerHoverState {
-  const depthTwoChannels = readStageChannelStates(
-    model.depthTwo,
-    probe,
-    directionProbe,
-    revealRadius,
+): MengerHoverMoveState[] {
+  const stage = model.depthTwo;
+  const faceGridSize = stage.gridSize / 3;
+  const channelCount = 3 * faceGridSize * faceGridSize;
+  const channelStates = Array.from({ length: channelCount }, (_, channel) =>
+    readChannelState(channel, stage, probe, directionProbe, revealRadius),
   );
-  const depthThreeChannels = readStageChannelStates(
-    model.depthThree,
-    probe,
-    directionProbe,
-    revealRadius,
-  );
-  const depthTwo = model.depthTwo.moves.map((move): MengerHoverMoveState => {
-    const channelState = depthTwoChannels[move.faceColumnChannel];
+
+  return stage.moves.map((move) => {
+    const channelState = channelStates[move.faceColumnChannel];
     if (!channelState) {
       throw new Error("Every depth-two Menger mover must resolve to one hover channel.");
     }
 
-    return {
-      offset: [channelState.offset[0], channelState.offset[1], channelState.offset[2]],
-      openness: channelState.openness,
-    };
-  });
-  const depthThree = model.depthThree.moves.map((move) => {
-    const channelState = depthThreeChannels[move.faceColumnChannel];
-    if (!channelState) {
-      throw new Error("Every depth-three Menger mover must resolve to one hover channel.");
-    }
-
+    // The renderer smooths openness per mover in place, so every mover needs
+    // its own state object; the offset stays shared because nothing mutates
+    // it at this depth.
     return { offset: channelState.offset, openness: channelState.openness };
   });
-  const blockerMoveIndexesByChannel = readDepthThreeBlockerMoveIndexes(model);
-  const depthThreeFaceGridSize = model.depthThree.gridSize / 3;
-
-  depthThreeChannels.forEach((state, channel) => {
-    const blockerMoveIndexes = blockerMoveIndexesByChannel[channel] ?? [];
-    if (blockerMoveIndexes.length === 0) {
-      return;
-    }
-
-    const rayAxis = readChannelAxis(channel, depthThreeFaceGridSize);
-    for (const blockerMoveIndex of blockerMoveIndexes) {
-      const blockerState = depthTwo[blockerMoveIndex];
-      const blockerMove = model.depthTwo.moves[blockerMoveIndex];
-      if (!blockerState || !blockerMove || state.openness <= blockerState.openness) {
-        continue;
-      }
-
-      blockerState.openness = state.openness;
-      if (blockerMove.holeAxis !== rayAxis) {
-        const perpendicularAxis = readPerpendicularAxis(blockerMove.holeAxis, rayAxis);
-        const perpendicularSign = blockerState.offset[perpendicularAxis] < 0 ? -1 : 1;
-        blockerState.offset[perpendicularAxis] = perpendicularSign;
-        blockerState.offset[rayAxis] = 0;
-      }
-    }
-  });
-
-  return { depthThree, depthTwo };
 }
