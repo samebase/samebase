@@ -567,6 +567,7 @@ export const trackedFilePaths = [
   "apps/samebase/package.json",
   "apps/samebase/playwright.config.ts",
   "apps/samebase/playwright.live.config.ts",
+  "apps/samebase/playwright.logo-research.config.ts",
   "apps/samebase/public/_headers",
   "apps/samebase/public/_redirects",
   "apps/samebase/public/apple-touch-icon.png",

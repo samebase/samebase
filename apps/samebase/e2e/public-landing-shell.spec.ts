@@ -870,7 +870,10 @@ test("public landing renders the routed landing UI directly", async ({ page }) =
 
   await expect(page.getByTestId("public-landing-content")).toBeVisible();
   await expect(page.getByTestId(PUBLIC_LANDING_SCROLL_SHELL_TEST_ID)).toBeVisible();
-  await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
+  const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
+  await expectLandingLogoReady(landingLogo);
+  await expectLandingLogoSceneReady(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID));
+  await expect(landingLogo).toHaveClass(/opacity-0/);
   const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
   await expect(accountSection).toBeVisible();
   await expect(accountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
@@ -1928,7 +1931,7 @@ async function expectLandingLogoWebGLUnavailableFallback(page: Page, path: strin
   expect(pageErrors).toEqual([]);
 }
 
-test("prod-ui landing logo keeps the default fallback when WebGL is unavailable @logo-research", async ({
+test("prod-ui landing logo keeps the default fallback when WebGL is unavailable", async ({
   page,
 }) => {
   await expectLandingLogoWebGLUnavailableFallback(page, "/?prod-ui");
