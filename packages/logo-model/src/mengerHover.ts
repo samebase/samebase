@@ -8,13 +8,6 @@ export const MENGER_HOVER_MIN_REVEAL_RADIUS = 0.05;
 export const MENGER_HOVER_MAX_REVEAL_RADIUS = 1;
 export const MENGER_HOVER_DEFAULT_REVEAL_RADIUS = 0.55;
 const MENGER_HOVER_FULL_OPEN_RADIUS_FRACTION = 0.25;
-/**
-A crossed pair's corner-anchored rect only uncovers the ray column near full
-openness, so the floor ramps three times faster than the ray's openness:
-blockers are fully open while a ray is still about a third open, and an open
-depth-three rect shows through-white immediately, like the carpet.
-*/
-const MENGER_HOVER_RAY_FLOOR_BOOST = 3;
 
 /**
 Unit sponge coordinates: the full cube spans [0, 1] on every axis.
@@ -45,8 +38,14 @@ retreat, so the flip is never visible.
 
 Tangent axis order matches readChannelTangentDeltas: hole axis 0 pairs
 (y, z), hole axis 1 pairs (x, z), hole axis 2 pairs (x, y).
+
+clearanceA and clearanceB are signed depth-three extents that a crossed
+depth-two pair must also expose. Zero means that no depth-three view ray
+crosses that tangent.
 */
 export type MengerHoverMoveState = {
+  clearanceA: number;
+  clearanceB: number;
   openness: number;
   signA: 1 | -1;
   signB: 1 | -1;
@@ -125,7 +124,7 @@ pass does not flip the rect between wide and tall across a knife edge.
 function readChannelSlide(
   deltas: ChannelTangentDeltas,
   holeSize: number,
-): Omit<MengerHoverMoveState, "openness"> {
+): Pick<MengerHoverMoveState, "signA" | "signB" | "weightA"> {
   const totalDelta = Math.abs(deltas.deltaA) + Math.abs(deltas.deltaB);
   const directionalBlend = clampUnit(totalDelta / (holeSize / 2));
   const directionalWeightA = totalDelta > 0 ? Math.abs(deltas.deltaA) / totalDelta : 0.5;
@@ -161,7 +160,7 @@ function readChannelState(
           1 / faceGridSize / 3,
         );
   if (probe === null) {
-    return { ...slide, openness: 0 };
+    return { ...slide, clearanceA: 0, clearanceB: 0, openness: 0 };
   }
 
   let axisDelta: number;
@@ -185,7 +184,12 @@ function readChannelState(
   const normalized =
     closeness > 0 ? Math.min(closeness / (1 - MENGER_HOVER_FULL_OPEN_RADIUS_FRACTION), 1) : 0;
 
-  return { ...slide, openness: normalized * normalized * (3 - 2 * normalized) };
+  return {
+    ...slide,
+    clearanceA: 0,
+    clearanceB: 0,
+    openness: normalized * normalized * (3 - 2 * normalized),
+  };
 }
 
 function readStageChannelStates(
@@ -250,6 +254,19 @@ function rayIntersectsMove(
   return exit >= entry;
 }
 
+function readTangentAxes(axis: MengerHoleAxis): readonly [MengerHoleAxis, MengerHoleAxis] {
+  switch (axis) {
+    case 0:
+      return [1, 2];
+    case 1:
+      return [0, 2];
+    case 2:
+      return [0, 1];
+    default:
+      return axis satisfies never;
+  }
+}
+
 function readDepthThreeBlockerMoveIndexes(
   model: MengerDepthTransitionModel,
   channel: number,
@@ -262,7 +279,7 @@ function readDepthThreeBlockerMoveIndexes(
     return [];
   }
 
-  const tangentAxes = axis === 0 ? ([1, 2] as const) : axis === 1 ? ([0, 2] as const) : [0, 1];
+  const tangentAxes = readTangentAxes(axis);
   const origin: [number, number, number] = [0, 0, 0];
   origin[axis] = axisDirection < 0 ? 1 : 0;
   origin[tangentAxes[0]] = (coordinateA + 0.5) / faceGridSize;
@@ -282,14 +299,84 @@ function readDepthThreeBlockerMoveIndexes(
 }
 
 /**
+Recomputes the depth-two clearance strips from the current depth-three move
+states. The caller can first smooth depth-three openness and then call this
+function, so each interior strip grows at the same rate as its visible
+depth-three opening.
+*/
+export function applyMengerHoverDepthThreeClearance(
+  model: MengerDepthTransitionModel,
+  state: MengerHoverState,
+  direction: readonly [number, number, number] | undefined,
+): void {
+  for (const moveState of state.depthTwo) {
+    moveState.clearanceA = 0;
+    moveState.clearanceB = 0;
+  }
+  if (!direction) {
+    return;
+  }
+
+  const depthThreeFaceGridSize = model.depthThree.gridSize / 3;
+  const visitedChannels = new Set<number>();
+
+  model.depthThree.moves.forEach((move, moveIndex) => {
+    const channel = move.faceColumnChannel;
+    if (visitedChannels.has(channel)) {
+      return;
+    }
+    visitedChannels.add(channel);
+
+    const channelState = state.depthThree[moveIndex];
+    if (!channelState || channelState.openness <= 0) {
+      return;
+    }
+
+    const blockerMoveIndexes = readDepthThreeBlockerMoveIndexes(model, channel, direction);
+    if (blockerMoveIndexes.length === 0) {
+      return;
+    }
+
+    const rayAxis = readChannelAxis(channel, depthThreeFaceGridSize);
+    const [rayTangentA, rayTangentB] = readTangentAxes(rayAxis);
+    for (const blockerMoveIndex of blockerMoveIndexes) {
+      const blockerState = state.depthTwo[blockerMoveIndex];
+      const blockerMove = model.depthTwo.moves[blockerMoveIndex];
+      if (!blockerState || !blockerMove || blockerMove.holeAxis === rayAxis) {
+        continue;
+      }
+
+      const clearAxis = 3 - rayAxis - blockerMove.holeAxis;
+      let signedExtent: number;
+      if (clearAxis === rayTangentA) {
+        signedExtent = channelState.signA * channelState.openness ** channelState.weightA;
+      } else if (clearAxis === rayTangentB) {
+        signedExtent = channelState.signB * channelState.openness ** (1 - channelState.weightA);
+      } else {
+        throw new Error("Every depth-three ray must have one clearance tangent.");
+      }
+      const [blockerTangentA, blockerTangentB] = readTangentAxes(blockerMove.holeAxis);
+      if (clearAxis === blockerTangentA) {
+        if (Math.abs(signedExtent) > Math.abs(blockerState.clearanceA)) {
+          blockerState.clearanceA = signedExtent;
+        }
+      } else if (clearAxis === blockerTangentB) {
+        if (Math.abs(signedExtent) > Math.abs(blockerState.clearanceB)) {
+          blockerState.clearanceB = signedExtent;
+        }
+      } else {
+        throw new Error("Every crossed Menger pair must have one clearance tangent.");
+      }
+    }
+  });
+}
+
+/**
 Every opening in one channel shares its openness, split, and signs, so the
 rectangles at both tunnel ends and every interior segment stay aligned. The
 camera direction traces the real view ray from each depth-three opening
-through the sponge. Depth-two pairs that cross that ray open their own normal
-carpet rectangle. This keeps the cleared interior path aligned when the cube
-tilts and does not open the rest of a blocker's channel. The floor ramps with
-the depth-three opening, so it engages and releases continuously and vanishes
-exactly at rest.
+through the sponge. A crossed depth-two pair gets a clearance strip on the
+axis that is perpendicular to both holes.
 */
 export function readMengerHoverState(
   model: MengerDepthTransitionModel,
@@ -309,36 +396,24 @@ export function readMengerHoverState(
     directionProbe,
     revealRadius,
   );
-  const depthTwo = toStageMoveStates(model.depthTwo, depthTwoChannels);
-  const depthThree = toStageMoveStates(model.depthThree, depthThreeChannels);
-  const depthThreeFaceGridSize = model.depthThree.gridSize / 3;
-  const depthThreeMoveChannels = new Set(
-    model.depthThree.moves.map((move) => move.faceColumnChannel),
-  );
-  const direction = probe?.direction ?? directionProbe?.direction;
+  const state = {
+    depthTwo: toStageMoveStates(model.depthTwo, depthTwoChannels),
+    depthThree: toStageMoveStates(model.depthThree, depthThreeChannels),
+  };
+  applyMengerHoverDepthThreeClearance(model, state, probe?.direction ?? directionProbe?.direction);
 
-  depthThreeChannels.forEach((channelState, channel) => {
-    if (channelState.openness <= 0 || !direction || !depthThreeMoveChannels.has(channel)) {
-      return;
-    }
+  return state;
+}
 
-    const blockerMoveIndexes = readDepthThreeBlockerMoveIndexes(model, channel, direction);
-    if (blockerMoveIndexes.length === 0) {
-      return;
-    }
+/**
+A crossed depth-two cell contains the depth-three opening in its middle
+third. The cover first clears the near outer third, then follows the visible
+opening through the middle third.
+*/
+export function readMengerHoverBlockerSlide(clearance: number): number {
+  if (clearance === 0) {
+    return 0;
+  }
 
-    const rayAxis = readChannelAxis(channel, depthThreeFaceGridSize);
-    const floor = Math.min(1, channelState.openness * MENGER_HOVER_RAY_FLOOR_BOOST);
-    for (const blockerMoveIndex of blockerMoveIndexes) {
-      const blockerState = depthTwo[blockerMoveIndex];
-      const blockerMove = model.depthTwo.moves[blockerMoveIndex];
-      if (!blockerState || !blockerMove || blockerMove.holeAxis === rayAxis) {
-        continue;
-      }
-
-      blockerState.openness = Math.max(blockerState.openness, floor);
-    }
-  });
-
-  return { depthThree, depthTwo };
+  return Math.sign(clearance) * ((1 + Math.abs(clearance)) / 3);
 }

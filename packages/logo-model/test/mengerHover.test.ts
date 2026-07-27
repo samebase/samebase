@@ -2,6 +2,7 @@ import { MENGER_DEPTH_TRANSITION_MODEL } from "../src/mengerDepthTransition.ts";
 import {
   MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
   normalizeMengerHoverRevealRadius,
+  readMengerHoverBlockerSlide,
   readMengerHoverState,
 } from "../src/mengerHover.ts";
 import { describe, expect, it } from "vite-plus/test";
@@ -60,6 +61,7 @@ describe("Menger hover", () => {
     expect(state.depthThree.length).toBe(MENGER_DEPTH_TRANSITION_MODEL.depthThree.moves.length);
     for (const stage of [state.depthTwo, state.depthThree]) {
       expect(stage.every((move) => move.openness === 0)).toBe(true);
+      expect(stage.every((move) => move.clearanceA === 0 && move.clearanceB === 0)).toBe(true);
     }
   });
 
@@ -108,10 +110,10 @@ describe("Menger hover", () => {
     expect(rightState.weightA).toBeLessThan(0.01);
   });
 
-  it("opens only crossed depth-two blockers with the depth-three ray", () => {
+  it("clears only crossed depth-two blockers along the depth-three ray", () => {
     // The depth-three z-ray at grid-9 face coords (0, 1): its column crosses
-    // the x-hole cover pairs of parents (0, 0, pz). Those specific movers
-    // open their own carpet rectangles so the depth-three view stays clear.
+    // the x-hole cover pairs of parents (0, 0, pz). Those specific pairs
+    // clear y, the axis perpendicular to both holes.
     const model = MENGER_DEPTH_TRANSITION_MODEL;
     const probe = toProbe({ x: 0.5 / 9, y: 1.5 / 9, z: 1 });
     const rayChannel = 2 * 81 + 0 * 9 + 1;
@@ -148,13 +150,14 @@ describe("Menger hover", () => {
     expect(state.depthThree[rayMoveIndex]?.openness).toBe(1);
     expect(blockerMoveIndexes.length).toBeGreaterThan(0);
     for (const blockerMoveIndex of blockerMoveIndexes) {
-      expect(state.depthTwo[blockerMoveIndex]?.openness).toBe(1);
+      expect(state.depthTwo[blockerMoveIndex]?.clearanceA).toBe(1);
+      expect(state.depthTwo[blockerMoveIndex]?.clearanceB).toBe(0);
     }
     expect(
       blockerMoveIndexes.some(
         (moveIndex) =>
-          (state.depthTwo[moveIndex]?.openness ?? 0) >
-          (stateWithoutRay.depthTwo[moveIndex]?.openness ?? 0),
+          (state.depthTwo[moveIndex]?.clearanceA ?? 0) >
+          (stateWithoutRay.depthTwo[moveIndex]?.clearanceA ?? 0),
       ),
     ).toBe(true);
 
@@ -165,9 +168,46 @@ describe("Menger hover", () => {
         !blockerMoveIndexes.includes(moveIndex),
     );
     expect(untouchedMoveIndex).toBeGreaterThanOrEqual(0);
-    expect(state.depthTwo[untouchedMoveIndex]?.openness).toBe(
-      stateWithoutRay.depthTwo[untouchedMoveIndex]?.openness,
-    );
+    expect(state.depthTwo[untouchedMoveIndex]?.clearanceA).toBe(0);
+    expect(state.depthTwo[untouchedMoveIndex]?.clearanceB).toBe(0);
+  });
+
+  it("keeps four corner paths direct and clears four cardinal paths", () => {
+    const model = MENGER_DEPTH_TRANSITION_MODEL;
+    const probe = toProbe({ x: 1, y: 7.5 / 9, z: 7.5 / 9 }, [-1, 0, 0]);
+    const localChannels = [
+      { coordinateA: 6, coordinateB: 6, crossedBlockerCount: 0 },
+      { coordinateA: 6, coordinateB: 7, crossedBlockerCount: 3 },
+      { coordinateA: 6, coordinateB: 8, crossedBlockerCount: 0 },
+      { coordinateA: 7, coordinateB: 6, crossedBlockerCount: 3 },
+      { coordinateA: 7, coordinateB: 8, crossedBlockerCount: 3 },
+      { coordinateA: 8, coordinateB: 6, crossedBlockerCount: 0 },
+      { coordinateA: 8, coordinateB: 7, crossedBlockerCount: 3 },
+      { coordinateA: 8, coordinateB: 8, crossedBlockerCount: 0 },
+    ];
+
+    for (const { coordinateA, coordinateB, crossedBlockerCount } of localChannels) {
+      const channel = coordinateA * 9 + coordinateB;
+      const channelModel = {
+        ...model,
+        depthThree: {
+          ...model.depthThree,
+          moves: model.depthThree.moves.filter((move) => move.faceColumnChannel === channel),
+        },
+      };
+      const state = readMengerHoverState(
+        channelModel,
+        probe,
+        probe,
+        MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
+      );
+      const clearedBlockerCount = state.depthTwo.filter(
+        (move) => move.clearanceA !== 0 || move.clearanceB !== 0,
+      ).length;
+
+      expect(state.depthThree.every((move) => move.openness > 0)).toBe(true);
+      expect(clearedBlockerCount).toBe(crossedBlockerCount);
+    }
   });
 
   it("follows the camera direction through tilted depth-three openings", () => {
@@ -200,8 +240,10 @@ describe("Menger hover", () => {
       );
 
       return model.depthTwo.moves.flatMap((move, moveIndex) =>
-        (state.depthTwo[moveIndex]?.openness ?? 0) >
-        (stateWithoutRay.depthTwo[moveIndex]?.openness ?? 0)
+        Math.abs(state.depthTwo[moveIndex]?.clearanceA ?? 0) +
+          Math.abs(state.depthTwo[moveIndex]?.clearanceB ?? 0) >
+        Math.abs(stateWithoutRay.depthTwo[moveIndex]?.clearanceA ?? 0) +
+          Math.abs(stateWithoutRay.depthTwo[moveIndex]?.clearanceB ?? 0)
           ? [move.from]
           : [],
       );
@@ -216,6 +258,13 @@ describe("Menger hover", () => {
       [0, 1, 7],
       [1, 0, 1],
     ]);
+  });
+
+  it("maps a depth-three extent through the middle third of its blocker", () => {
+    expect(readMengerHoverBlockerSlide(0)).toBe(0);
+    expect(readMengerHoverBlockerSlide(0.5)).toBe(0.5);
+    expect(readMengerHoverBlockerSlide(1)).toBeCloseTo(2 / 3, 10);
+    expect(readMengerHoverBlockerSlide(-1)).toBeCloseTo(-2 / 3, 10);
   });
 
   it("fades openness with the pointer's outside distance", () => {

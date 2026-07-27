@@ -14,7 +14,9 @@ import {
   MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
   MENGER_HOVER_MAX_REVEAL_RADIUS,
   MENGER_HOVER_MIN_REVEAL_RADIUS,
+  applyMengerHoverDepthThreeClearance,
   normalizeMengerHoverRevealRadius,
+  readMengerHoverBlockerSlide,
   readMengerHoverState,
   type MengerHoverMoveState,
   type MengerHoverProbe,
@@ -352,6 +354,8 @@ function MengerDepthTransitionScene({
         const [startX, startY, startZ] = toWorldCoordinate(move.from, stage.gridSize);
         const ownA = moveState.signA * slideA;
         const ownB = moveState.signB * slideB;
+        const clearanceA = readMengerHoverBlockerSlide(moveState.clearanceA);
+        const clearanceB = readMengerHoverBlockerSlide(moveState.clearanceB);
         // A cover never enters its neighbor cell: the leading edge clamps at
         // the cell boundary, so the cover compresses into the seam (span
         // [d, 1] of its home cell, scale 1 - |d|, center shifted d / 2). A
@@ -367,9 +371,9 @@ function MengerDepthTransitionScene({
           matrix.makeScale(scales[0] * voxelSize, scales[1] * voxelSize, scales[2] * voxelSize);
           matrix.setPosition(startX + offsets[0], startY + offsets[1], startZ + offsets[2]);
         };
-        writeCoverMatrix(ownA, 0);
+        writeCoverMatrix(clearanceA === 0 ? ownA : clearanceA, clearanceB);
         coverAMesh.setMatrixAt(index, matrix);
-        writeCoverMatrix(0, ownB);
+        writeCoverMatrix(clearanceA, clearanceB === 0 ? ownB : clearanceB);
         coverBMesh.setMatrixAt(index, matrix);
       });
 
@@ -535,6 +539,11 @@ function MengerDepthTransitionScene({
           hoverState.depthThree,
           depthThreeHoverBuffers,
           smoothing,
+        );
+        applyMengerHoverDepthThreeClearance(
+          currentModel,
+          hoverState,
+          hoverProbe?.direction ?? hoverDirectionProbe?.direction,
         );
         renderHoverMoves(
           currentModel.depthTwo,
