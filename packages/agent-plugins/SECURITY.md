@@ -7,5 +7,8 @@ Use
 to report a vulnerability. Include the affected workflow, the expected result, the actual result,
 and the minimum steps needed to reproduce it.
 
+The repository owner must enable private vulnerability reporting before the repository becomes
+public.
+
 Use [GitHub Issues](https://github.com/samebase/agent-plugins/issues) for non-sensitive bugs and
 support requests.

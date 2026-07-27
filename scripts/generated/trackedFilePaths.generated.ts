@@ -1647,6 +1647,7 @@ export const trackedFilePaths = [
   "samebase.md",
   "scripts/bootstrap-worktree.test.ts",
   "scripts/bootstrap-worktree.ts",
+  "scripts/check-agent-plugin-logo.ts",
   "scripts/check-agent-plugin-version.test.ts",
   "scripts/check-agent-plugin-version.ts",
   "scripts/check-agents-doc-budget.ts",

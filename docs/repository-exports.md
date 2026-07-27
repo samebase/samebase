@@ -100,4 +100,6 @@ The target branch must exist before the first publish. Protect it from manual wr
 publisher App to update it.
 
 Before a private target becomes public, audit all branches, tags, commits, pull requests, comments,
-and author metadata. Repository exports preserve existing target history.
+and author metadata. Repository exports preserve existing target history. Enable GitHub private
+vulnerability reporting and verify the exported security-reporting link before announcing the public
+repository.
