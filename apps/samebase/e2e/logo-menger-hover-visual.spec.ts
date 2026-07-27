@@ -3,7 +3,7 @@ import { signInIfNeeded } from "./liveHelpers";
 
 test.setTimeout(120_000);
 
-test("Menger hover maps the pointer to one closed proxy face", async ({ page }) => {
+test("Menger hover settles the pointer-driven 3D reveal", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await signInIfNeeded(page, "/logo/hover/menger");
@@ -22,9 +22,10 @@ test("Menger hover maps the pointer to one closed proxy face", async ({ page }) 
   }
 
   await page.mouse.move(sceneBox.x + sceneBox.width * 0.42, sceneBox.y + sceneBox.height * 0.55);
-  await expect(scene).toHaveAttribute("data-hover-face", "+Z");
-  await expect(scene).toHaveAttribute("data-hover-coordinate-a", /.+/);
-  await expect(scene).toHaveAttribute("data-hover-coordinate-b", /.+/);
+  await expect(scene).toHaveAttribute("data-hover-coordinate-x", /.+/);
+  await expect(scene).toHaveAttribute("data-hover-coordinate-y", /.+/);
+  await expect(scene).toHaveAttribute("data-hover-coordinate-z", /.+/);
+  await expect(scene).toHaveAttribute("data-hover-settled", "true");
 
   await expect(scene).toHaveScreenshot("logo-menger-hover-left-face.png", {
     animations: "disabled",
