@@ -77,6 +77,7 @@ export function VaultDashboard({
       return;
     }
     void navigate({
+      hash: true,
       replace: true,
       resetScroll: false,
       search: (currentSearch) =>

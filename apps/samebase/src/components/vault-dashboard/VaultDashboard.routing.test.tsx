@@ -133,11 +133,12 @@ describe("VaultDashboard dialog route cleanup", () => {
   it("clears an unavailable dialog from the vault root route", async () => {
     setSettledWorkspace({ state: "root" });
 
-    await renderDashboard("/vault?delete&dev");
+    await renderDashboard("/vault?delete&dev#vaults");
 
     expect(readLocationHref()).toContain("/vault?");
     expect(readLocationHref()).not.toContain("delete");
     expect(readLocationHref()).toContain("dev");
+    expect(readLocationHref()).toContain("#vaults");
   });
 
   it("clears an unavailable dialog from a missing vault route", async () => {

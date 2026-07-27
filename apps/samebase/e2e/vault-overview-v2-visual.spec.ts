@@ -186,14 +186,18 @@ test("keeps provider ownership and actions together in mobile settings", async (
   await expect(fixture.getByRole("button", { name: "Add Convex project" })).toBeVisible();
   await expect(fixture.getByText("Samebase/", { exact: true })).toHaveCount(2);
   await expect(
-    fixture.getByRole("button", { name: "Configure Workers Builds for GitHub" }).first(),
+    fixture.getByRole("button", {
+      name: "Configure Workers Builds for GitHub for Cloudflare Worker Samebase/domain-router",
+      exact: true,
+    }),
   ).toBeVisible();
   await fixture
     .getByRole("button", { name: "Actions for Convex project Samebase/samebase" })
     .click();
   await expect(
     page.getByRole("menuitem", {
-      name: "Remove Convex project Samebase/samebase from vault",
+      name: "Remove from vault for Convex project Samebase/samebase",
+      exact: true,
     }),
   ).toBeVisible();
   await page.keyboard.press("Escape");

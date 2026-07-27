@@ -45,7 +45,6 @@ export type VaultRepositorySettingsPendingAction =
     };
 
 export type VaultRepositorySettingsAction = {
-  ariaLabel?: string;
   disabled?: boolean;
   kind: VaultRepositorySettingsActionKind;
   label: string;
@@ -252,10 +251,6 @@ function buildConvexBuildAccessActions({
     return {
       kind: "configure" as const,
       label,
-      ariaLabel:
-        actionIntent === "repair"
-          ? `Repair Convex deploy keys for ${projectLabel} in Workers Builds (${project.teamId}/${project.projectId})`
-          : `Use Convex project ${projectLabel} for Workers Builds (${project.teamId}/${project.projectId})`,
       disabled: isRotating || !rotateConvexDeployKeysForWorkersBuildsOnClick,
       onClick: rotateConvexDeployKeysForWorkersBuildsOnClick
         ? () => rotateConvexDeployKeysForWorkersBuildsOnClick(workerId, project.convexProjectId)

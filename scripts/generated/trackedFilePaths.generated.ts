@@ -945,6 +945,7 @@ export const trackedFilePaths = [
   "apps/samebase/src/components/vault-dashboard/VaultConvexDialog.tsx",
   "apps/samebase/src/components/vault-dashboard/VaultConvexSchemaGraph.tsx",
   "apps/samebase/src/components/vault-dashboard/VaultConvexSchemaGraphVisualFixture.tsx",
+  "apps/samebase/src/components/vault-dashboard/VaultDashboard.routing.test.tsx",
   "apps/samebase/src/components/vault-dashboard/VaultDashboard.test.tsx",
   "apps/samebase/src/components/vault-dashboard/VaultDashboard.tsx",
   "apps/samebase/src/components/vault-dashboard/VaultDashboardChrome.tsx",

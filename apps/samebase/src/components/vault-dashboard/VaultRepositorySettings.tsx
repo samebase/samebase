@@ -50,10 +50,7 @@ function resourceActionAccessibleName(
   action: VaultRepositorySettingsAction,
   resource: VaultRepositorySettingsResource,
 ): string {
-  const resourceName = resourceAccessibleName(resource);
-  return action.kind === "remove"
-    ? `Remove ${resourceName} from vault`
-    : `${action.ariaLabel ?? action.label} for ${resourceName}`;
+  return `${action.label} for ${resourceAccessibleName(resource)}`;
 }
 
 function ResourceActions({ resource }: { resource: VaultRepositorySettingsResource }) {
