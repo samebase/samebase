@@ -42,13 +42,11 @@ function PullRequestRow({
   filesReadEnabled,
   pullRequest,
   resource,
-  schemaGraphEnabled,
   vault,
 }: {
   filesReadEnabled: boolean;
   pullRequest: VaultPullRequest;
   resource: PullRequestResourceState | undefined;
-  schemaGraphEnabled: boolean;
   vault: UserVaultResult;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -169,13 +167,7 @@ function PullRequestRow({
               {samebaseUrl ? <SamebaseChangesLink href={samebaseUrl} /> : null}
             </div>
           ) : null}
-          <PullRequestResources
-            branch={pullRequest.headRefName}
-            owner={vault.ghRepoOwner}
-            repoName={vault.ghRepoName}
-            resource={resource}
-            schemaGraphEnabled={schemaGraphEnabled}
-          />
+          <PullRequestResources resource={resource} />
         </div>
       ) : null}
     </article>
@@ -185,12 +177,10 @@ function PullRequestRow({
 export function PullRequestsSection({
   filesReadEnabled,
   pullRequests,
-  schemaGraphEnabled,
   vault,
 }: {
   filesReadEnabled: boolean;
   pullRequests: VaultPullRequestsState;
-  schemaGraphEnabled: boolean;
   vault: UserVaultResult;
 }) {
   if (pullRequests.state === "not_requested") {
@@ -230,7 +220,6 @@ export function PullRequestsSection({
                 key={pullRequest.id}
                 pullRequest={pullRequest}
                 resource={pullRequests.resourcesByPullRequestId.get(pullRequest.id)}
-                schemaGraphEnabled={schemaGraphEnabled}
                 vault={vault}
               />
             ))}

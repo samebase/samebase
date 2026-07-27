@@ -122,6 +122,8 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
     enabled: Boolean(vaultId && cloudflareWorkerIds.length > 0),
     staleTime: PROVIDER_OBSERVATION_STALE_TIME_MS,
     gcTime: PROVIDER_OBSERVATION_GC_TIME_MS,
+    refetchInterval: PROVIDER_OBSERVATION_STALE_TIME_MS,
+    refetchIntervalInBackground: false,
   });
   const cloudflareBuildAccessTargets = (cloudflareBuildsQuery.data ?? [])
     .flatMap((observation) =>

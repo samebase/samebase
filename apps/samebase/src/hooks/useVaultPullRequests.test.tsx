@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import type { RepositoryPullRequestPage } from "../../convex/repositoryPullRequests";
+import { vaultExternalDataQueryKey } from "@/lib/vaultExternalDataQueryKey";
 import { useVaultPullRequests, type VaultPullRequestsState } from "./useVaultPullRequests";
 
 const actionState = vi.hoisted(() => ({
@@ -52,9 +53,11 @@ function fakeVaultProvisioningRunId(): Id<"workflow_vaultProvisioning_runs"> {
 function page(args: {
   number: number;
   endCursor: string | null;
+  headRefOid?: string;
+  isDraft?: boolean;
   labels?: Array<{ name: string; color: string }>;
 }): RepositoryPullRequestPage {
-  const headRefOid = args.number.toString(16).padStart(40, "0");
+  const headRefOid = args.headRefOid ?? args.number.toString(16).padStart(40, "0");
   return {
     repository: {
       id: "repository:samebase",
@@ -99,7 +102,7 @@ function page(args: {
             number: args.number,
             title: `Pull request ${args.number}`,
             url: `https://github.com/samebase/samebase/pull/${args.number}`,
-            isDraft: false,
+            isDraft: args.isDraft ?? false,
             isCrossRepository: false,
             additions: 1,
             deletions: 0,
@@ -251,6 +254,7 @@ describe("useVaultPullRequests", () => {
         ? page({
             number: 1260,
             endCursor: "cursor:2",
+            isDraft: true,
             labels: [{ name: "hidden", color: "0969da" }],
           })
         : page({ number: 1259, endCursor: null });
@@ -275,6 +279,7 @@ describe("useVaultPullRequests", () => {
       after: null,
     });
     expect(settledState().allPullRequests.map((pullRequest) => pullRequest.number)).toEqual([1260]);
+    expect(settledState().allPullRequests[0]?.isDraft).toBe(true);
     expect(settledState().defaultBranch).toMatchObject({
       headCommitOid: "81145b7d2a32186823452c7515b2d5ba2d79b350",
       headCommitTitle: "Keep the workspace model explicit",
@@ -388,6 +393,74 @@ describe("useVaultPullRequests", () => {
       { vaultId: fakeVaultId(), pullRequestIds: ["pull-request:1259"] },
     ]);
     expect(listHandler).toHaveBeenCalledTimes(2);
+  });
+
+  it("loads fresh resources when a later-page pull request head changes", async () => {
+    const initialHeadRefOid = "1".repeat(40);
+    const refreshedHeadRefOid = "2".repeat(40);
+    let generation = 0;
+    const listHandler = vi.fn(async (value: unknown) => {
+      if (!value || typeof value !== "object" || !("after" in value)) {
+        throw new Error("Provider cursor is required.");
+      }
+      if (value.after === null) {
+        generation += 1;
+        return page({ number: 1260, endCursor: "cursor:2" });
+      }
+      return page({
+        number: 1259,
+        endCursor: null,
+        headRefOid: generation === 1 ? initialHeadRefOid : refreshedHeadRefOid,
+      });
+    });
+    actionState.handlersByFunctionName.set(
+      getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
+      listHandler,
+    );
+    const resourceHandler = installResourceHandler();
+
+    await renderHarness();
+    await waitFor(
+      (state) =>
+        (state.state === "current" || state.state === "stale") &&
+        state.allPullRequests.length === 1,
+    );
+    act(() => loadMore());
+    await waitFor(
+      (state) =>
+        (state.state === "current" || state.state === "stale") &&
+        state.allPullRequests.length === 2 &&
+        resourceHandler.mock.calls.length === 2,
+    );
+
+    await act(async () => {
+      await queryClient.refetchQueries({
+        queryKey: ["vault-pull-requests", fakeVaultId()],
+      });
+    });
+    await waitFor(
+      (state) =>
+        (state.state === "current" || state.state === "stale") &&
+        !state.refreshing &&
+        resourceHandler.mock.calls.length === 3,
+    );
+
+    expect(resourceHandler.mock.calls[2]?.[0]).toEqual({
+      vaultId: fakeVaultId(),
+      pullRequestIds: ["pull-request:1259"],
+    });
+    expect(
+      queryClient.getQueryCache().find({
+        exact: true,
+        queryKey: [
+          ...vaultExternalDataQueryKey(fakeVaultId()),
+          "pull-request-resources",
+          [],
+          [],
+          [["pull-request:1259", refreshedHeadRefOid]],
+        ],
+      }),
+    ).toBeDefined();
   });
 
   it("retains every loaded provider page as stale when a reload fails", async () => {

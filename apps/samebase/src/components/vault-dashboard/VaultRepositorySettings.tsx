@@ -40,6 +40,19 @@ function invokeResourceAction(action: VaultRepositorySettingsAction) {
   }
 }
 
+function resourceAccessibleName(resource: VaultRepositorySettingsResource): string {
+  return resource.provider === "cloudflare"
+    ? `Cloudflare Worker ${resource.owner}/${resource.name}`
+    : `Convex project ${resource.owner}/${resource.name}`;
+}
+
+function resourceActionAccessibleName(
+  action: VaultRepositorySettingsAction,
+  resource: VaultRepositorySettingsResource,
+): string {
+  return `${action.label} for ${resourceAccessibleName(resource)}`;
+}
+
 function ResourceActions({ resource }: { resource: VaultRepositorySettingsResource }) {
   const actions = resource.actions;
   if (!actions) {
@@ -52,6 +65,7 @@ function ResourceActions({ resource }: { resource: VaultRepositorySettingsResour
     <div className="flex flex-wrap items-center gap-1">
       {directActions.map((action) => (
         <Button
+          aria-label={resourceActionAccessibleName(action, resource)}
           key={`${action.kind}:${action.label}`}
           disabled={action.disabled || !action.onClick}
           size="sm"
@@ -65,13 +79,19 @@ function ResourceActions({ resource }: { resource: VaultRepositorySettingsResour
       {removeActions.length > 0 ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild nativeButton>
-            <Button aria-label="Resource actions" size="icon-sm" type="button" variant="ghost">
+            <Button
+              aria-label={`Actions for ${resourceAccessibleName(resource)}`}
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+            >
               <MoreHorizontal />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44 rounded-none shadow-none">
             {removeActions.map((action) => (
               <DropdownMenuItem
+                aria-label={resourceActionAccessibleName(action, resource)}
                 key={`${action.kind}:${action.label}`}
                 disabled={action.disabled || !action.onClick}
                 variant="destructive"

@@ -34,6 +34,8 @@ type VaultPullRequestTarget = Pick<UserVaultResult, "_id" | "sourceSetup"> & {
   }[];
 };
 
+type PullRequestResourceIdentity = readonly [pullRequestId: string, headRefOid: string];
+
 export type VaultPullRequest = Omit<RepositoryPullRequest, "labels"> & {
   labels: RepositoryPullRequest["labels"]["nodes"];
   checks: RepositoryCheckSummary;
@@ -126,26 +128,26 @@ function defaultBranchFromPage(
 
 function uniquePullRequestsByPage(pages: readonly RepositoryPullRequestPage[]): {
   pullRequests: RepositoryPullRequest[];
-  pullRequestIdPages: string[][];
+  pullRequestResourceIdentityPages: PullRequestResourceIdentity[][];
 } {
   const seen = new Set<string>();
   const pullRequests: RepositoryPullRequest[] = [];
-  const pullRequestIdPages: string[][] = [];
+  const pullRequestResourceIdentityPages: PullRequestResourceIdentity[][] = [];
   for (const page of pages) {
-    const pagePullRequestIds: string[] = [];
+    const pagePullRequestResourceIdentities: PullRequestResourceIdentity[] = [];
     for (const pullRequest of pullRequestsFromPage(page)) {
       if (seen.has(pullRequest.id)) {
         continue;
       }
       seen.add(pullRequest.id);
       pullRequests.push(pullRequest);
-      pagePullRequestIds.push(pullRequest.id);
+      pagePullRequestResourceIdentities.push([pullRequest.id, pullRequest.headRefOid]);
     }
-    if (pagePullRequestIds.length > 0) {
-      pullRequestIdPages.push(pagePullRequestIds);
+    if (pagePullRequestResourceIdentities.length > 0) {
+      pullRequestResourceIdentityPages.push(pagePullRequestResourceIdentities);
     }
   }
-  return { pullRequests, pullRequestIdPages };
+  return { pullRequests, pullRequestResourceIdentityPages };
 }
 
 export function useVaultPullRequests(args: {
@@ -211,41 +213,48 @@ export function useVaultPullRequests(args: {
     [uniquePages.pullRequests],
   );
   const defaultBranch = defaultBranchFromPage(pages.at(0));
-  const pullRequestIdPages = uniquePages.pullRequestIdPages;
+  const pullRequestResourceIdentityPages = uniquePages.pullRequestResourceIdentityPages;
 
   const resourceQueries = useQueries({
-    queries: pullRequestIdPages.map((pagePullRequestIds, pageIndex) => ({
-      queryKey: [
-        ...vaultExternalDataQueryKey(vaultId),
-        "pull-request-resources",
-        workerAttachments,
-        projectAttachments,
-        pagePullRequestIds,
-      ],
-      queryFn: async () => {
-        if (!vaultId) {
-          throw new Error("Vault is required to load pull request resources.");
-        }
-        return await getPullRequestResources({ vaultId, pullRequestIds: pagePullRequestIds });
-      },
-      enabled: Boolean(vaultId),
-      staleTime: PULL_REQUEST_STALE_MS,
-      gcTime: PULL_REQUEST_GC_MS,
-      retry: false,
-      refetchInterval: (query: { state: { data: PullRequestResources[] | undefined } }) =>
-        pageIndex === 0 || resourcesNeedPolling(query.state.data) ? PULL_REQUEST_STALE_MS : false,
-      refetchIntervalInBackground: false,
-    })),
+    queries: pullRequestResourceIdentityPages.map(
+      (pagePullRequestResourceIdentities, pageIndex) => ({
+        queryKey: [
+          ...vaultExternalDataQueryKey(vaultId),
+          "pull-request-resources",
+          workerAttachments,
+          projectAttachments,
+          pagePullRequestResourceIdentities,
+        ],
+        queryFn: async () => {
+          if (!vaultId) {
+            throw new Error("Vault is required to load pull request resources.");
+          }
+          return await getPullRequestResources({
+            vaultId,
+            pullRequestIds: pagePullRequestResourceIdentities.map(
+              ([pullRequestId]) => pullRequestId,
+            ),
+          });
+        },
+        enabled: Boolean(vaultId),
+        staleTime: PULL_REQUEST_STALE_MS,
+        gcTime: PULL_REQUEST_GC_MS,
+        retry: false,
+        refetchInterval: (query: { state: { data: PullRequestResources[] | undefined } }) =>
+          pageIndex === 0 || resourcesNeedPolling(query.state.data) ? PULL_REQUEST_STALE_MS : false,
+        refetchIntervalInBackground: false,
+      }),
+    ),
   });
 
   const resourcesByPullRequestId = useMemo(() => {
     const resources = new Map<string, PullRequestResourceState>();
-    pullRequestIdPages.forEach((pagePullRequestIds, pageIndex) => {
+    pullRequestResourceIdentityPages.forEach((pagePullRequestResourceIdentities, pageIndex) => {
       const resourceQuery = resourceQueries[pageIndex];
       const byPullRequestId = new Map(
         (resourceQuery.data ?? []).map((pullRequest) => [pullRequest.pullRequestId, pullRequest]),
       );
-      for (const pullRequestId of pagePullRequestIds) {
+      for (const [pullRequestId] of pagePullRequestResourceIdentities) {
         const pullRequestResources = byPullRequestId.get(pullRequestId);
         if (!pullRequestResources) {
           resources.set(pullRequestId, { state: resourceQuery.isError ? "failed" : "loading" });
@@ -258,7 +267,7 @@ export function useVaultPullRequests(args: {
       }
     });
     return resources;
-  }, [pullRequestIdPages, resourceQueries]);
+  }, [pullRequestResourceIdentityPages, resourceQueries]);
 
   const { fetchNextPage, refetch } = pullRequestQuery;
   const loadMore = useCallback(() => {

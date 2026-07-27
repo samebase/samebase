@@ -365,6 +365,7 @@ describe("buildProductionEnvironmentRoots", () => {
             href: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
             label: "calm-swan-123",
             provider: "convex",
+            provenance: "production",
             title: "Open production Convex deployment calm-swan-123",
           },
         ],
@@ -620,6 +621,7 @@ describe("vault environment roots", () => {
             href: dashboardUrl,
             label: "calm-swan-123",
             provider: "convex",
+            provenance: "production",
             title: "Open production Convex deployment calm-swan-123",
           },
         ],
@@ -645,15 +647,12 @@ describe("vault environment roots", () => {
 
     expect(
       buildPullRequestEnvironmentRoots({
-        branch: "feature",
-        owner: "ada",
-        repoName: "demo",
         resources: {
           pullRequestId: "pull-request-1",
           workers: [worker],
           convexProjects: [
             {
-              state: "available",
+              state: "branch",
               convexProjectId,
               rootDirectory: "apps/web",
               deploymentName: "calm-swan-123",
@@ -661,7 +660,6 @@ describe("vault environment roots", () => {
             },
           ],
         },
-        schemaGraphEnabled: true,
       }),
     ).toEqual([
       {
@@ -690,16 +688,12 @@ describe("vault environment roots", () => {
                 href: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123/data",
                 label: "Data",
               },
-              {
-                destination: "samebase",
-                href: `/vault/ada/demo/schema/feature/project/${convexProjectId}`,
-                label: "Schema",
-              },
             ],
             href: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
             label: "calm-swan-123",
             provider: "convex",
-            title: "Open preview Convex deployment calm-swan-123",
+            provenance: "pull_request_branch",
+            title: "Open branch Convex deployment calm-swan-123",
           },
         ],
       },

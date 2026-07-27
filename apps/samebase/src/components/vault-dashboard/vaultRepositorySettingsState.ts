@@ -45,7 +45,6 @@ export type VaultRepositorySettingsPendingAction =
     };
 
 export type VaultRepositorySettingsAction = {
-  ariaLabel?: string;
   disabled?: boolean;
   kind: VaultRepositorySettingsActionKind;
   label: string;
@@ -115,14 +114,12 @@ function buildReloadAction(reload: () => void): VaultRepositorySettingsAction {
 }
 
 function buildDetachAttachmentAction(args: {
-  ariaLabel: string;
   isDetaching: boolean;
   onClick: () => void;
 }): VaultRepositorySettingsAction {
   return {
     kind: "remove",
     label: args.isDetaching ? "Removing..." : "Remove from vault",
-    ariaLabel: args.ariaLabel,
     disabled: args.isDetaching,
     onClick: args.onClick,
   };
@@ -254,10 +251,6 @@ function buildConvexBuildAccessActions({
     return {
       kind: "configure" as const,
       label,
-      ariaLabel:
-        actionIntent === "repair"
-          ? `Repair Convex deploy keys for ${projectLabel} in Workers Builds (${project.teamId}/${project.projectId})`
-          : `Use Convex project ${projectLabel} for Workers Builds (${project.teamId}/${project.projectId})`,
       disabled: isRotating || !rotateConvexDeployKeysForWorkersBuildsOnClick,
       onClick: rotateConvexDeployKeysForWorkersBuildsOnClick
         ? () => rotateConvexDeployKeysForWorkersBuildsOnClick(workerId, project.convexProjectId)
@@ -434,7 +427,6 @@ function buildCloudflareRow({
         actions: detachCloudflareWorkerOnClick
           ? [
               buildDetachAttachmentAction({
-                ariaLabel: `Remove Cloudflare Worker ${worker.workerName} from vault`,
                 isDetaching:
                   pendingAction?.kind === "detach_cloudflare_worker" &&
                   pendingAction.workerId === worker.workerId,
@@ -674,7 +666,6 @@ function buildConvexRow({
       : undefined;
   const detachAction = detachConvexProjectOnClick
     ? buildDetachAttachmentAction({
-        ariaLabel: `Remove Convex project ${project.projectId} from vault`,
         isDetaching:
           pendingAction?.kind === "detach_convex_project" &&
           pendingAction.convexProjectId === project.convexProjectId,

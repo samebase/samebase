@@ -6,8 +6,11 @@
 - Owner: Samebase dashboard/frontend
 - Last updated: 2026-07-04
 - Related specs:
-  - `specs/067_VAULT_PULL_REQUEST_FILTERS_SPEC.md`
+  - `archive/067_VAULT_PULL_REQUEST_FILTERS_SPEC.md`
   - `archive/079_DASHBOARD_UPDATED_STATUS_MANUAL_REFRESH_SPEC.md`
+
+The pull request filter control described below is historical. The current vault overview does not
+mount it or apply saved filter preferences.
 
 ## Summary
 

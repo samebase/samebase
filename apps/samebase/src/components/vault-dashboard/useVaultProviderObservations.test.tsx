@@ -3,7 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { Id } from "../../../convex/_generated/dataModel";
 import { vaultExternalDataQueryKey } from "@/lib/vaultExternalDataQueryKey";
@@ -57,6 +57,10 @@ describe("useVaultProviderObservations", () => {
       action.mockReset();
       action.mockResolvedValue([]);
     }
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("settles empty provider collections without leaving disabled queries loading", async () => {
@@ -278,6 +282,58 @@ describe("useVaultProviderObservations", () => {
       await act(async () => {
         root.unmount();
       });
+      queryClient.clear();
+      rootElement.remove();
+    }
+  });
+
+  it("polls Cloudflare build status while the selected vault remains mounted", async () => {
+    vi.useFakeTimers();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    let mounted = true;
+
+    function Probe() {
+      useVaultProviderObservations({
+        _id: fakeVaultId("vault-build-polling"),
+        cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-build-polling") }],
+        convexProjects: [],
+      });
+      return null;
+    }
+
+    try {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <Probe />
+          </QueryClientProvider>,
+        );
+        await Promise.resolve();
+      });
+      expect(providerActions.observeCloudflareWorkerBuilds).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60 * 1000);
+      });
+      expect(providerActions.observeCloudflareWorkerBuilds).toHaveBeenCalledTimes(2);
+
+      await act(async () => {
+        root.unmount();
+      });
+      mounted = false;
+      await vi.advanceTimersByTimeAsync(2 * 60 * 1000);
+      expect(providerActions.observeCloudflareWorkerBuilds).toHaveBeenCalledTimes(2);
+    } finally {
+      if (mounted) {
+        await act(async () => {
+          root.unmount();
+        });
+      }
       queryClient.clear();
       rootElement.remove();
     }

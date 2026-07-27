@@ -130,24 +130,31 @@ function DestinationResource({
   resource: Extract<VaultEnvironmentResource, { kind: "destination" }>;
 }) {
   return (
-    <div className="flex min-h-10 min-w-0 items-center gap-1 py-1.5">
-      <a
-        className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-foreground no-underline hover:no-underline"
-        href={resource.href}
-        rel="noreferrer noopener"
-        target="_blank"
-        title={resource.title}
-      >
-        <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-          <DestinationIcon href={resource.href} provider={resource.provider} />
+    <div className="grid min-h-10 min-w-0 py-1.5">
+      <div className="flex min-w-0 items-center gap-1">
+        <a
+          className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-foreground no-underline hover:no-underline"
+          href={resource.href}
+          rel="noreferrer noopener"
+          target="_blank"
+          title={resource.title}
+        >
+          <span className="flex h-4 w-5 shrink-0 items-center justify-center">
+            <DestinationIcon href={resource.href} provider={resource.provider} />
+          </span>
+          <span className="min-w-0 truncate text-sm font-medium leading-5 underline decoration-border underline-offset-4">
+            {resource.label}
+          </span>
+          <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+        </a>
+        {resource.actions.length > 0 ? (
+          <EnvironmentActionsMenu actions={resource.actions} label={resource.label} />
+        ) : null}
+      </div>
+      {resource.provenance === "pull_request_branch" ? (
+        <span className="ml-[1.875rem] text-xs leading-5 text-muted-foreground">
+          May be from an earlier commit
         </span>
-        <span className="min-w-0 truncate text-sm font-medium leading-5 underline decoration-border underline-offset-4">
-          {resource.label}
-        </span>
-        <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
-      </a>
-      {resource.actions.length > 0 ? (
-        <EnvironmentActionsMenu actions={resource.actions} label={resource.label} />
       ) : null}
     </div>
   );
@@ -490,17 +497,9 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
 }
 
 export function PullRequestResources({
-  branch,
-  owner,
-  repoName,
   resource,
-  schemaGraphEnabled,
 }: {
-  branch: string;
-  owner: string;
-  repoName: string;
   resource: PullRequestResourceState | undefined;
-  schemaGraphEnabled: boolean;
 }) {
   if (resource?.state === "loading") {
     return (
@@ -520,13 +519,7 @@ export function PullRequestResources({
     return null;
   }
 
-  const roots = buildPullRequestEnvironmentRoots({
-    branch,
-    owner,
-    repoName,
-    resources: resource.resources,
-    schemaGraphEnabled,
-  });
+  const roots = buildPullRequestEnvironmentRoots({ resources: resource.resources });
 
   return <VaultEnvironmentTree roots={roots} />;
 }
