@@ -40,7 +40,7 @@ describe("Menger hover", () => {
     expect(normalizeMengerHoverRevealRadius(0.4)).toBe(0.4);
   });
 
-  it("keeps every mover closed and unforced without a pointer", () => {
+  it("keeps every mover closed without a pointer", () => {
     const state = readMengerHoverState(
       MENGER_DEPTH_TRANSITION_MODEL,
       null,
@@ -52,7 +52,6 @@ describe("Menger hover", () => {
     expect(state.depthThree.length).toBe(MENGER_DEPTH_TRANSITION_MODEL.depthThree.moves.length);
     for (const stage of [state.depthTwo, state.depthThree]) {
       expect(stage.every((move) => move.openness === 0)).toBe(true);
-      expect(stage.every((move) => move.forcedA === 0 && move.forcedB === 0)).toBe(true);
     }
   });
 
@@ -101,15 +100,27 @@ describe("Menger hover", () => {
     expect(rightState.weightA).toBeLessThan(0.01);
   });
 
-  it("forces crossed depth-two pairs to dodge perpendicular to an open ray", () => {
+  it("opens only crossed depth-two blockers with the depth-three ray", () => {
     // The depth-three z-ray at grid-9 face coords (0, 1): its column crosses
-    // the x-hole cover pairs of parents (0, 0, pz), whose tangent plane
-    // contains the ray axis. The dodge must use the y axis, which is those
-    // covers' tangent axis A.
+    // the x-hole cover pairs of parents (0, 0, pz). Those specific movers
+    // open their own carpet rectangles so the depth-three view stays clear.
     const model = MENGER_DEPTH_TRANSITION_MODEL;
     const probe = { outsideDistance: 0, x: 0.5 / 9, y: 1.5 / 9, z: 1 };
     const state = readMengerHoverState(model, probe, probe, MENGER_HOVER_DEFAULT_REVEAL_RADIUS);
     const rayChannel = 2 * 81 + 0 * 9 + 1;
+    const modelWithoutRay = {
+      ...model,
+      depthThree: {
+        ...model.depthThree,
+        moves: model.depthThree.moves.filter((move) => move.faceColumnChannel !== rayChannel),
+      },
+    };
+    const stateWithoutRay = readMengerHoverState(
+      modelWithoutRay,
+      probe,
+      probe,
+      MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
+    );
     const rayMoveIndex = model.depthThree.moves.findIndex(
       (move) => move.faceColumnChannel === rayChannel,
     );
@@ -118,26 +129,28 @@ describe("Menger hover", () => {
     );
 
     expect(state.depthThree[rayMoveIndex]?.openness).toBe(1);
-    expect(state.depthThree[rayMoveIndex]?.forcedA).toBe(0);
-    expect(state.depthThree[rayMoveIndex]?.forcedB).toBe(0);
     expect(blockerMoveIndexes.length).toBeGreaterThan(0);
     for (const blockerMoveIndex of blockerMoveIndexes) {
-      expect(state.depthTwo[blockerMoveIndex]?.forcedA).toBe(1);
+      expect(state.depthTwo[blockerMoveIndex]?.openness).toBe(1);
     }
+    expect(
+      blockerMoveIndexes.some(
+        (moveIndex) =>
+          (state.depthTwo[moveIndex]?.openness ?? 0) >
+          (stateWithoutRay.depthTwo[moveIndex]?.openness ?? 0),
+      ),
+    ).toBe(true);
 
-    // The force is a signed slide: from the other side of the ray the same
-    // covers dodge the other way, so smoothing sweeps them through the
-    // column on a side switch instead of teleporting.
-    const aboveProbe = { outsideDistance: 0, x: 0.5 / 9, y: 1.5 / 9 + 0.05, z: 1 };
-    const aboveState = readMengerHoverState(
-      model,
-      aboveProbe,
-      aboveProbe,
-      MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
+    const firstBlockerMove = model.depthTwo.moves[blockerMoveIndexes[0] ?? -1];
+    const untouchedMoveIndex = model.depthTwo.moves.findIndex(
+      (move, moveIndex) =>
+        move.faceColumnChannel === firstBlockerMove?.faceColumnChannel &&
+        !blockerMoveIndexes.includes(moveIndex),
     );
-    for (const blockerMoveIndex of blockerMoveIndexes) {
-      expect(aboveState.depthTwo[blockerMoveIndex]?.forcedA).toBeLessThan(0);
-    }
+    expect(untouchedMoveIndex).toBeGreaterThanOrEqual(0);
+    expect(state.depthTwo[untouchedMoveIndex]?.openness).toBe(
+      stateWithoutRay.depthTwo[untouchedMoveIndex]?.openness,
+    );
   });
 
   it("fades openness with the pointer's outside distance", () => {
@@ -174,8 +187,6 @@ describe("Menger hover", () => {
     const healedState = readChannelMoveState(null, probe);
 
     expect(healedState.openness).toBe(0);
-    expect(healedState.forcedA).toBe(0);
-    expect(healedState.forcedB).toBe(0);
     expect(healedState.weightA).toBe(liveState.weightA);
     expect(healedState.signA).toBe(liveState.signA);
     expect(healedState.signB).toBe(liveState.signB);

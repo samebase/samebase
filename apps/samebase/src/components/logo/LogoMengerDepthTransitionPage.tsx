@@ -66,21 +66,12 @@ type ClientPoint = {
   y: number;
 };
 
-/**
-Per-stage smoothing state: openness plus the two ray-dodge forces ease with
-the same time constant so every displacement the renderer derives from them
-stays continuous across frames.
-*/
 type HoverStageBuffers = {
-  forcedA: Float64Array;
-  forcedB: Float64Array;
   openness: Float64Array;
 };
 
 function createHoverStageBuffers(moveCount: number): HoverStageBuffers {
   return {
-    forcedA: new Float64Array(moveCount),
-    forcedB: new Float64Array(moveCount),
     openness: new Float64Array(moveCount),
   };
 }
@@ -341,10 +332,7 @@ function MengerDepthTransitionScene({
     openness ** weightA cells along the first tangent axis, cover B slides
     openness ** (1 - weightA) along the second, each toward its sign. The
     intersection they still cover leaves the carpet's corner-anchored
-    rectangle open, so the revealed area equals the openness. Ray dodges
-    apply to both covers of a crossed pair: forcedA joins every A-axis
-    component and forcedB every B-axis component, so the whole pair leaves
-    the crossed column instead of one cover sliding uselessly along the ray.
+    rectangle open, so the revealed area equals the openness.
     */
     const renderHoverMoves = (
       stage: MengerDepthTransitionStage,
@@ -362,13 +350,8 @@ function MengerDepthTransitionScene({
         const tangentAxisA = move.holeAxis === 0 ? 1 : 0;
         const tangentAxisB = move.holeAxis === 2 ? 1 : 2;
         const [startX, startY, startZ] = toWorldCoordinate(move.from, stage.gridSize);
-        // The larger magnitude wins on a cover's native axis: the own slide
-        // keeps its instant hidden sign flips, while the signed smoothed
-        // force sweeps a dodged cover through the column on a side switch.
         const ownA = moveState.signA * slideA;
         const ownB = moveState.signB * slideB;
-        const componentA = Math.abs(ownA) >= Math.abs(moveState.forcedA) ? ownA : moveState.forcedA;
-        const componentB = Math.abs(ownB) >= Math.abs(moveState.forcedB) ? ownB : moveState.forcedB;
         // A cover never enters its neighbor cell: the leading edge clamps at
         // the cell boundary, so the cover compresses into the seam (span
         // [d, 1] of its home cell, scale 1 - |d|, center shifted d / 2). A
@@ -384,9 +367,9 @@ function MengerDepthTransitionScene({
           matrix.makeScale(scales[0] * voxelSize, scales[1] * voxelSize, scales[2] * voxelSize);
           matrix.setPosition(startX + offsets[0], startY + offsets[1], startZ + offsets[2]);
         };
-        writeCoverMatrix(componentA, moveState.forcedB);
+        writeCoverMatrix(ownA, 0);
         coverAMesh.setMatrixAt(index, matrix);
-        writeCoverMatrix(moveState.forcedA, componentB);
+        writeCoverMatrix(0, ownB);
         coverBMesh.setMatrixAt(index, matrix);
       });
 
@@ -470,8 +453,6 @@ function MengerDepthTransitionScene({
       };
       for (const [moveIndex, moveState] of moveStates.entries()) {
         moveState.openness = settleScalar(moveState.openness, buffers.openness, moveIndex);
-        moveState.forcedA = settleScalar(moveState.forcedA, buffers.forcedA, moveIndex);
-        moveState.forcedB = settleScalar(moveState.forcedB, buffers.forcedB, moveIndex);
       }
 
       return settled;
