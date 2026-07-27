@@ -18,7 +18,10 @@ checks its plugin contract with Node.js in both the monorepo and the external re
 
 ## Automatic workflow
 
-The publisher runs only for a push to `main`, after the aggregate CI job succeeds.
+The publisher runs only for a push to `main`, after the standard checks and unit tests succeed.
+Supply-chain validation runs before those checks. Playwright and Windows smoke tests continue in
+parallel, but they do not block repository exports because exported packages do not depend on app
+browser behavior.
 
 For each configured export, it:
 
