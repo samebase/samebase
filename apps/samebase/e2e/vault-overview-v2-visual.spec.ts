@@ -192,11 +192,14 @@ test("keeps provider ownership and actions together in mobile settings", async (
     }),
   ).toBeVisible();
   await fixture
-    .getByRole("button", { name: "Actions for Convex project Samebase/samebase" })
+    .getByRole("button", {
+      name: "Actions for Convex project samebase/samebase",
+      exact: true,
+    })
     .click();
   await expect(
     page.getByRole("menuitem", {
-      name: "Remove from vault for Convex project Samebase/samebase",
+      name: "Remove from vault for Convex project samebase/samebase",
       exact: true,
     }),
   ).toBeVisible();
