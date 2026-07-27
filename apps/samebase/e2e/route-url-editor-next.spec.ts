@@ -447,44 +447,42 @@ test.describe("route URL editor touch scroll picker", () => {
     await expect(page.getByRole("option", { exact: true, name: "?top=sky-500" })).toBeVisible();
   });
 
-  test(
-    "touch path suggestions distinguish developer logo routes",
-    { tag: "@logo-research" },
-    async ({ page }) => {
-      await focusRouteAddressInputDirectly(page, "/");
-      await expect(page.getByRole("option", { exact: true, name: "/logo/iso" })).toHaveCount(0);
+  test("touch path suggestions distinguish developer logo routes @logo-research", async ({
+    page,
+  }) => {
+    await focusRouteAddressInputDirectly(page, "/");
+    await expect(page.getByRole("option", { exact: true, name: "/logo/iso" })).toHaveCount(0);
 
-      const { input, prefix } = await focusRouteAddressInputDirectly(page, "/?dev");
-      await setInputSelection(input, {
-        end: prefix.length,
-        start: prefix.length,
-      });
-      await input.evaluate((element) => {
-        element.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      });
-      const developerSuggestion = page.getByRole("option", {
-        exact: true,
-        name: "/logo/iso",
-      });
-      const developerBadge = developerSuggestion.getByText("dev", { exact: true });
-      const standardSuggestion = page.getByRole("option", {
-        exact: true,
-        name: "/logo",
-      });
+    const { input, prefix } = await focusRouteAddressInputDirectly(page, "/?dev");
+    await setInputSelection(input, {
+      end: prefix.length,
+      start: prefix.length,
+    });
+    await input.evaluate((element) => {
+      element.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    const developerSuggestion = page.getByRole("option", {
+      exact: true,
+      name: "/logo/iso",
+    });
+    const developerBadge = developerSuggestion.getByText("dev", { exact: true });
+    const standardSuggestion = page.getByRole("option", {
+      exact: true,
+      name: "/logo",
+    });
 
-      await expect(developerSuggestion).toBeVisible();
-      await expect(developerSuggestion).toHaveClass(/bg-sky-500\/5/);
-      await expect(developerBadge).toBeVisible();
-      await expect(developerBadge).toHaveAttribute("aria-hidden", "true");
-      await expect(standardSuggestion.getByText("dev", { exact: true })).toHaveCount(0);
+    await expect(developerSuggestion).toBeVisible();
+    await expect(developerSuggestion).toHaveClass(/bg-sky-500\/5/);
+    await expect(developerBadge).toBeVisible();
+    await expect(developerBadge).toHaveAttribute("aria-hidden", "true");
+    await expect(standardSuggestion.getByText("dev", { exact: true })).toHaveCount(0);
 
-      await scrollTouchPickerToSuggestion(page, "/logo/iso");
+    await scrollTouchPickerToSuggestion(page, "/logo/iso");
 
-      await expect(input).toHaveValue(`${prefix}logo/iso?dev&`);
-      await expectTouchSlateAlignedToSuggestion(page, "/logo/iso");
-      await expect(page).toHaveURL(/\/logo\/iso\?dev$/);
-    },
-  );
+    await expect(input).toHaveValue(`${prefix}logo/iso?dev&`);
+    await expectTouchSlateAlignedToSuggestion(page, "/logo/iso");
+    await expect(page).toHaveURL(/\/logo\/iso\?dev$/);
+  });
 
   test("touch scroll keeps query-key suggestions anchored until tap", async ({ page }) => {
     const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo");
@@ -624,27 +622,25 @@ test.describe("route URL editor touch scroll picker", () => {
     await expect(input).toBeFocused();
   });
 
-  test(
-    "touch scroll keeps suggestions open when previewing later logo params",
-    { tag: "@logo-research" },
-    async ({ page }) => {
-      const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo?depth=2");
+  test("touch scroll keeps suggestions open when previewing later logo params @logo-research", async ({
+    page,
+  }) => {
+    const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo?depth=2");
 
-      await expect(input).toHaveValue(`${prefix}logo?depth=2&`);
-      await expect(
-        page.getByRole("option", { exact: true, name: "&background=stone-50" }),
-      ).toBeVisible();
+    await expect(input).toHaveValue(`${prefix}logo?depth=2&`);
+    await expect(
+      page.getByRole("option", { exact: true, name: "&background=stone-50" }),
+    ).toBeVisible();
 
-      await scrollTouchPickerToSuggestion(page, "&background=stone-50");
+    await scrollTouchPickerToSuggestion(page, "&background=stone-50");
 
-      await expect(input).toHaveValue(`${prefix}logo?depth=2&background=stone-50`);
-      await expect(page.getByTestId("route-url-editor-scroll-slate")).toBeVisible();
-      await expect(
-        page.getByRole("option", { exact: true, name: "&background=stone-50" }),
-      ).toBeVisible();
-      await expect(input).toBeFocused();
-    },
-  );
+    await expect(input).toHaveValue(`${prefix}logo?depth=2&background=stone-50`);
+    await expect(page.getByTestId("route-url-editor-scroll-slate")).toBeVisible();
+    await expect(
+      page.getByRole("option", { exact: true, name: "&background=stone-50" }),
+    ).toBeVisible();
+    await expect(input).toBeFocused();
+  });
 
   test("mobile editor can move selection from an appended query slot back into the path", async ({
     page,

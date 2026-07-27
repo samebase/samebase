@@ -1338,75 +1338,71 @@ test.describe("Android-sized standalone display-mode landing right sidebar", () 
   });
 });
 
-test(
-  "prod-ui landing logo enhancement stays visually aligned",
-  { tag: "@logo-research" },
-  async ({ page }, testInfo) => {
-    await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+test("prod-ui landing logo enhancement stays visually aligned @logo-research", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
 
-    const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
-    const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
-    await expectLandingLogoReady(landingLogo);
-    await expect
-      .poll(async () =>
-        landingLogo.evaluate((element) => {
-          const style = window.getComputedStyle(element);
-          return `${style.transitionProperty} ${style.transitionDuration}`;
-        }),
-      )
-      .toBe("opacity 0.3s");
+  const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
+  const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
+  await expectLandingLogoReady(landingLogo);
+  await expect
+    .poll(async () =>
+      landingLogo.evaluate((element) => {
+        const style = window.getComputedStyle(element);
+        return `${style.transitionProperty} ${style.transitionDuration}`;
+      }),
+    )
+    .toBe("opacity 0.3s");
 
-    const initialLogoScreenshot = await takeStableScreenshot(landingLogoStage);
+  const initialLogoScreenshot = await takeStableScreenshot(landingLogoStage);
 
-    await expectLandingLogoSceneReady(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID));
-    await landingLogoStage.hover();
+  await expectLandingLogoSceneReady(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID));
+  await landingLogoStage.hover();
 
-    const enhancedLogoScreenshot = await takeStableScreenshot(landingLogoStage);
+  const enhancedLogoScreenshot = await takeStableScreenshot(landingLogoStage);
 
-    await expectScreenshotsToMatch({
-      actual: enhancedLogoScreenshot,
-      artifactPrefix: "public-landing-logo-enhancement",
-      expected: initialLogoScreenshot,
-      maxDiffPixelRatio: 0.015,
-      testInfo,
-    });
-  },
-);
+  await expectScreenshotsToMatch({
+    actual: enhancedLogoScreenshot,
+    artifactPrefix: "public-landing-logo-enhancement",
+    expected: initialLogoScreenshot,
+    maxDiffPixelRatio: 0.015,
+    testInfo,
+  });
+});
 
-test(
-  "public landing logo tilts toward the pointer outside its grab surface",
-  { tag: "@logo-research" },
-  async ({ page }) => {
-    await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+test("public landing logo tilts toward the pointer outside its grab surface @logo-research", async ({
+  page,
+}) => {
+  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
 
-    const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
-    const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
-    await expectLandingLogoSceneReady(landingLogoScene);
-    await expect(landingLogoScene).toHaveAttribute("data-elevation-degrees", "0.000");
-    await expect(landingLogoScene).toHaveAttribute("data-rotation-degrees", "0.000");
+  const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
+  const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
+  await expectLandingLogoSceneReady(landingLogoScene);
+  await expect(landingLogoScene).toHaveAttribute("data-elevation-degrees", "0.000");
+  await expect(landingLogoScene).toHaveAttribute("data-rotation-degrees", "0.000");
 
-    const stageBounds = await landingLogoStage.boundingBox();
-    expect(stageBounds).not.toBeNull();
-    if (stageBounds === null) {
-      return;
-    }
-    const viewport = page.viewportSize();
-    expect(viewport).not.toBeNull();
-    if (viewport === null) {
-      return;
-    }
+  const stageBounds = await landingLogoStage.boundingBox();
+  expect(stageBounds).not.toBeNull();
+  if (stageBounds === null) {
+    return;
+  }
+  const viewport = page.viewportSize();
+  expect(viewport).not.toBeNull();
+  if (viewport === null) {
+    return;
+  }
 
-    await page.mouse.move(viewport.width - 1, stageBounds.y + stageBounds.height / 2);
-    await page.waitForTimeout(1_000);
+  await page.mouse.move(viewport.width - 1, stageBounds.y + stageBounds.height / 2);
+  await page.waitForTimeout(1_000);
 
-    await expect(landingLogoStage).toHaveScreenshot(
-      "public-landing-logo-pointer-right.png",
-      strictScreenshotOptions,
-    );
-  },
-);
+  await expect(landingLogoStage).toHaveScreenshot(
+    "public-landing-logo-pointer-right.png",
+    strictScreenshotOptions,
+  );
+});
 
-test.describe("public landing mobile logo tilt", { tag: "@logo-research" }, () => {
+test.describe("public landing mobile logo tilt @logo-research", () => {
   test.use(mobileLandingDevice);
 
   test("keeps swipe tilt after the sidebar was narrowed to merge width", async ({ page }) => {
@@ -1727,121 +1723,109 @@ test.describe("public landing mobile logo tilt", { tag: "@logo-research" }, () =
   });
 });
 
-test(
-  "public landing recursive logo depth keeps the orthographic square size",
-  { tag: "@logo-research" },
-  async ({ page }) => {
-    const baseMetrics = await readLandingLogoScenePaintMetrics(page, "/?elev=0&rot=0&depth=1");
-    const recursiveMetrics = await readLandingLogoScenePaintMetrics(page, "/?elev=0&rot=0&depth=2");
+test("public landing recursive logo depth keeps the orthographic square size @logo-research", async ({
+  page,
+}) => {
+  const baseMetrics = await readLandingLogoScenePaintMetrics(page, "/?elev=0&rot=0&depth=1");
+  const recursiveMetrics = await readLandingLogoScenePaintMetrics(page, "/?elev=0&rot=0&depth=2");
 
-    expect(baseMetrics.bounds).not.toBeNull();
-    expect(recursiveMetrics.bounds).not.toBeNull();
-    if (baseMetrics.bounds === null || recursiveMetrics.bounds === null) {
-      return;
-    }
+  expect(baseMetrics.bounds).not.toBeNull();
+  expect(recursiveMetrics.bounds).not.toBeNull();
+  if (baseMetrics.bounds === null || recursiveMetrics.bounds === null) {
+    return;
+  }
 
-    expect(Math.abs(recursiveMetrics.bounds.width - baseMetrics.bounds.width)).toBeLessThanOrEqual(
-      1,
-    );
-    expect(
-      Math.abs(recursiveMetrics.bounds.height - baseMetrics.bounds.height),
-    ).toBeLessThanOrEqual(1);
-    expect(recursiveMetrics.paintedPixelCount).toBeLessThan(baseMetrics.paintedPixelCount);
-  },
-);
+  expect(Math.abs(recursiveMetrics.bounds.width - baseMetrics.bounds.width)).toBeLessThanOrEqual(1);
+  expect(Math.abs(recursiveMetrics.bounds.height - baseMetrics.bounds.height)).toBeLessThanOrEqual(
+    1,
+  );
+  expect(recursiveMetrics.paintedPixelCount).toBeLessThan(baseMetrics.paintedPixelCount);
+});
 
-test(
-  "prod-ui landing logo becomes draggable after the SVG fallback is removed",
-  { tag: "@logo-research" },
-  async ({ page }) => {
-    await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+test("prod-ui landing logo becomes draggable after the SVG fallback is removed @logo-research", async ({
+  page,
+}) => {
+  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
 
-    await expectLandingLogoCanBeDragged(page);
-  },
-);
+  await expectLandingLogoCanBeDragged(page);
+});
 
-test(
-  "public landing logo becomes draggable after the SVG fallback is removed",
-  { tag: "@logo-research" },
-  async ({ page }) => {
-    await page.goto("/", { waitUntil: "domcontentloaded" });
+test("public landing logo becomes draggable after the SVG fallback is removed @logo-research", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
 
-    await expectLandingLogoCanBeDragged(page);
-  },
-);
+  await expectLandingLogoCanBeDragged(page);
+});
 
-test(
-  "public landing horizontal drag keeps its elevation after drop",
-  { tag: "@logo-research" },
-  async ({ page }) => {
-    await page.goto("/", { waitUntil: "domcontentloaded" });
+test("public landing horizontal drag keeps its elevation after drop @logo-research", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
 
-    const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
-    await expectLandingLogoSceneReady(landingLogoScene);
-    await expect
-      .poll(() => readLandingLogoSceneView(landingLogoScene))
-      .toEqual({
-        elevationDegrees: "0.000",
-        rotationDegrees: "0.000",
-      });
-
-    const canvasBounds = await landingLogoScene.locator("canvas").boundingBox();
-    expect(canvasBounds).not.toBeNull();
-    if (canvasBounds === null) {
-      return;
-    }
-
-    const centerX = canvasBounds.x + canvasBounds.width / 2;
-    const centerY = canvasBounds.y + canvasBounds.height / 2;
-    await page.mouse.move(centerX, centerY);
-    await page.mouse.down();
-    await page.mouse.move(centerX + 16, centerY);
-
-    const heldView = {
+  const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
+  await expectLandingLogoSceneReady(landingLogoScene);
+  await expect
+    .poll(() => readLandingLogoSceneView(landingLogoScene))
+    .toEqual({
       elevationDegrees: "0.000",
-      rotationDegrees: "5.600",
-    };
-    await expect.poll(() => readLandingLogoSceneView(landingLogoScene)).toEqual(heldView);
+      rotationDegrees: "0.000",
+    });
 
-    await page.mouse.up();
-    await expect.poll(() => readLandingLogoSceneView(landingLogoScene)).toEqual(heldView);
-    expect(new URL(page.url()).search).toBe("?rot=5.6");
-  },
-);
+  const canvasBounds = await landingLogoScene.locator("canvas").boundingBox();
+  expect(canvasBounds).not.toBeNull();
+  if (canvasBounds === null) {
+    return;
+  }
 
-test(
-  "public landing logo composes pointer tilt with the dragged view",
-  { tag: "@logo-research" },
-  async ({ page }) => {
-    await page.goto("/", { waitUntil: "domcontentloaded" });
+  const centerX = canvasBounds.x + canvasBounds.width / 2;
+  const centerY = canvasBounds.y + canvasBounds.height / 2;
+  await page.mouse.move(centerX, centerY);
+  await page.mouse.down();
+  await page.mouse.move(centerX + 16, centerY);
 
-    const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
-    await expectLandingLogoSceneReady(landingLogoScene);
+  const heldView = {
+    elevationDegrees: "0.000",
+    rotationDegrees: "5.600",
+  };
+  await expect.poll(() => readLandingLogoSceneView(landingLogoScene)).toEqual(heldView);
 
-    const canvasBounds = await landingLogoScene.locator("canvas").boundingBox();
-    expect(canvasBounds).not.toBeNull();
-    if (canvasBounds === null) {
-      return;
-    }
+  await page.mouse.up();
+  await expect.poll(() => readLandingLogoSceneView(landingLogoScene)).toEqual(heldView);
+  expect(new URL(page.url()).search).toBe("?rot=5.6");
+});
 
-    const centerX = canvasBounds.x + canvasBounds.width / 2;
-    const centerY = canvasBounds.y + canvasBounds.height / 2;
-    const startingView = await readLandingLogoSceneView(landingLogoScene);
-    await page.mouse.move(centerX, centerY);
-    await page.waitForTimeout(250);
-    await page.mouse.down();
-    await page.mouse.move(centerX + 320, centerY, { steps: 12 });
-    await page.mouse.up();
-    await page.waitForTimeout(250);
+test("public landing logo composes pointer tilt with the dragged view @logo-research", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
 
-    const droppedView = await readLandingLogoSceneView(landingLogoScene);
-    expect(droppedView).not.toEqual(startingView);
+  const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
+  await expectLandingLogoSceneReady(landingLogoScene);
 
-    await page.mouse.move(centerX - 320, centerY);
-    await page.waitForTimeout(1_000);
-    await expect.poll(() => readLandingLogoSceneView(landingLogoScene)).toEqual(droppedView);
-  },
-);
+  const canvasBounds = await landingLogoScene.locator("canvas").boundingBox();
+  expect(canvasBounds).not.toBeNull();
+  if (canvasBounds === null) {
+    return;
+  }
+
+  const centerX = canvasBounds.x + canvasBounds.width / 2;
+  const centerY = canvasBounds.y + canvasBounds.height / 2;
+  const startingView = await readLandingLogoSceneView(landingLogoScene);
+  await page.mouse.move(centerX, centerY);
+  await page.waitForTimeout(250);
+  await page.mouse.down();
+  await page.mouse.move(centerX + 320, centerY, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+
+  const droppedView = await readLandingLogoSceneView(landingLogoScene);
+  expect(droppedView).not.toEqual(startingView);
+
+  await page.mouse.move(centerX - 320, centerY);
+  await page.waitForTimeout(1_000);
+  await expect.poll(() => readLandingLogoSceneView(landingLogoScene)).toEqual(droppedView);
+});
 
 test("prod-ui landing keeps /logo out of the right sidebar", async ({ page }) => {
   await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
@@ -1944,21 +1928,17 @@ async function expectLandingLogoWebGLUnavailableFallback(page: Page, path: strin
   expect(pageErrors).toEqual([]);
 }
 
-test(
-  "prod-ui landing logo keeps the default fallback when WebGL is unavailable",
-  { tag: "@logo-research" },
-  async ({ page }) => {
-    await expectLandingLogoWebGLUnavailableFallback(page, "/?prod-ui");
-  },
-);
+test("prod-ui landing logo keeps the default fallback when WebGL is unavailable @logo-research", async ({
+  page,
+}) => {
+  await expectLandingLogoWebGLUnavailableFallback(page, "/?prod-ui");
+});
 
-test(
-  "prod-ui landing logo reveals the query fallback when WebGL is unavailable",
-  { tag: "@logo-research" },
-  async ({ page }) => {
-    await expectLandingLogoWebGLUnavailableFallback(page, "/?prod-ui&rot=180");
-  },
-);
+test("prod-ui landing logo reveals the query fallback when WebGL is unavailable @logo-research", async ({
+  page,
+}) => {
+  await expectLandingLogoWebGLUnavailableFallback(page, "/?prod-ui&rot=180");
+});
 
 test("public landing still renders when localStorage access is denied", async ({ page }) => {
   const pageErrors: Error[] = [];
@@ -2067,17 +2047,15 @@ test.describe("production public host landing", () => {
     await expect(page.getByTestId("route-url-editor-input")).toHaveValue(`${rootPrefix}privacy?`);
   });
 
-  test(
-    "keeps the logo draggable after the SVG fallback is removed",
-    { tag: "@logo-research" },
-    async ({ page }) => {
-      await page.goto(buildProductionPublicLandingUrl(""), {
-        waitUntil: "domcontentloaded",
-      });
+  test("keeps the logo draggable after the SVG fallback is removed @logo-research", async ({
+    page,
+  }) => {
+    await page.goto(buildProductionPublicLandingUrl(""), {
+      waitUntil: "domcontentloaded",
+    });
 
-      await expectLandingLogoCanBeDragged(page);
-    },
-  );
+    await expectLandingLogoCanBeDragged(page);
+  });
 
   test("keeps ?dev landing copy editable", async ({ page }) => {
     const headingMarker = "prod-host-marker";

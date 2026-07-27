@@ -71,78 +71,70 @@ test("app workspace address chrome exposes the route URL editor", async ({ page 
   await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}/terms?dev`);
 });
 
-test(
-  "route URL editor distinguishes developer logo routes",
-  { tag: "@logo-research" },
-  async ({ page }) => {
-    await page.addInitScript(() => {
-      Math.random = () => 0.57;
-    });
-    await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto("/?dev", {
-      waitUntil: "domcontentloaded",
-    });
-    await page.waitForLoadState("networkidle");
+test("route URL editor distinguishes developer logo routes @logo-research", async ({ page }) => {
+  await page.addInitScript(() => {
+    Math.random = () => 0.57;
+  });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/?dev", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
 
-    const origin = new URL(page.url()).origin;
-    const routeUrlDisplay = page.getByTestId("route-url-editor-display");
-    await routeUrlDisplay.focus();
+  const origin = new URL(page.url()).origin;
+  const routeUrlDisplay = page.getByTestId("route-url-editor-display");
+  await routeUrlDisplay.focus();
 
-    const routeUrlInput = page.getByTestId("route-url-editor-input");
-    await routeUrlInput.evaluate((element) => {
-      if (!(element instanceof HTMLInputElement)) {
-        throw new Error("Expected route URL editor input.");
-      }
+  const routeUrlInput = page.getByTestId("route-url-editor-input");
+  await routeUrlInput.evaluate((element) => {
+    if (!(element instanceof HTMLInputElement)) {
+      throw new Error("Expected route URL editor input.");
+    }
 
-      const pathCursorPosition = element.value.lastIndexOf("/") + 1;
-      element.setSelectionRange(pathCursorPosition, pathCursorPosition);
-      element.dispatchEvent(new Event("select", { bubbles: true }));
-      element.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    const suggestionsPopover = page.getByTestId("route-url-editor-suggestions-popover");
-    const developerSuggestion = suggestionsPopover.getByRole("option", {
+    const pathCursorPosition = element.value.lastIndexOf("/") + 1;
+    element.setSelectionRange(pathCursorPosition, pathCursorPosition);
+    element.dispatchEvent(new Event("select", { bubbles: true }));
+    element.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+  const suggestionsPopover = page.getByTestId("route-url-editor-suggestions-popover");
+  const developerSuggestion = suggestionsPopover.getByRole("option", {
+    exact: true,
+    name: "/logo/iso",
+  });
+  const standardSuggestion = suggestionsPopover.getByRole("option", {
+    exact: true,
+    name: "/logo",
+  });
+
+  await expect(routeUrlInput).toHaveValue(`${origin}/?dev&`);
+  await expect(developerSuggestion.getByText("dev", { exact: true })).toHaveAttribute(
+    "aria-hidden",
+    "true",
+  );
+  await expect(developerSuggestion).toHaveClass(/bg-sky-500\/5/);
+  await expect(standardSuggestion.getByText("dev", { exact: true })).toHaveCount(0);
+  await expect(suggestionsPopover).toHaveScreenshot("route-url-editor-dev-logo-routes.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.01,
+  });
+});
+
+test("developer logo routes remain public on direct loads @logo-research", async ({ page }) => {
+  await page.goto("/logo/single-cube?dev", {
+    waitUntil: "domcontentloaded",
+  });
+
+  await expect(
+    page.getByRole("heading", {
       exact: true,
-      name: "/logo/iso",
-    });
-    const standardSuggestion = suggestionsPopover.getByRole("option", {
-      exact: true,
-      name: "/logo",
-    });
-
-    await expect(routeUrlInput).toHaveValue(`${origin}/?dev&`);
-    await expect(developerSuggestion.getByText("dev", { exact: true })).toHaveAttribute(
-      "aria-hidden",
-      "true",
-    );
-    await expect(developerSuggestion).toHaveClass(/bg-sky-500\/5/);
-    await expect(standardSuggestion.getByText("dev", { exact: true })).toHaveCount(0);
-    await expect(suggestionsPopover).toHaveScreenshot("route-url-editor-dev-logo-routes.png", {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.01,
-    });
-  },
-);
-
-test(
-  "developer logo routes remain public on direct loads",
-  { tag: "@logo-research" },
-  async ({ page }) => {
-    await page.goto("/logo/single-cube?dev", {
-      waitUntil: "domcontentloaded",
-    });
-
-    await expect(
-      page.getByRole("heading", {
-        exact: true,
-        name: "Single Cube Rotation Lab",
-      }),
-    ).toBeVisible();
-    await expect(page).toHaveURL(/\/logo\/single-cube\?dev$/);
-  },
-);
+      name: "Single Cube Rotation Lab",
+    }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/logo\/single-cube\?dev$/);
+});
 
 test("app workspace route URL editor stays compact for long URLs", async ({ page }) => {
   const longPath =
