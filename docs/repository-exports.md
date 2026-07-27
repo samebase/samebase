@@ -48,6 +48,15 @@ The subject identifies the current `main` snapshot that publishes the files. If 
 commit replaces an older successful run, the older run stops. The newer snapshot then publishes with
 its own subject, even when that commit did not change the source directory.
 
+## Agent plugin versions
+
+Every change under `packages/agent-plugins` must increase its numeric `major.minor.patch` version.
+Pull request CI compares the package with the pull request base commit. Main CI repeats the check
+against the commit before the push before it can publish the package.
+
+Update the version manually. `packages/agent-plugins/scripts/check.ts` requires the package, Codex
+manifest, Claude manifest, and Claude marketplace versions to match.
+
 ## GitHub App
 
 Use a dedicated GitHub App installed only on the target repositories.

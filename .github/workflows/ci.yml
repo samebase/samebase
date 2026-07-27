@@ -52,6 +52,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -70,6 +72,14 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Validate agent plugin version for pull request
+        if: github.event_name == 'pull_request'
+        run: node ./scripts/check-agent-plugin-version.ts ${{ github.event.pull_request.base.sha }}
+
+      - name: Validate agent plugin version for main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: node ./scripts/check-agent-plugin-version.ts ${{ github.event.before }}
 
       # Bootstrap an anonymous local Convex deployment so CONVEX_DEPLOYMENT
       # exists and generated files are materialized for CI-only lint/build.
