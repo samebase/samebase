@@ -19,10 +19,11 @@ For each configured export, it:
 The tree operation preserves file bytes, executable modes, symbolic links, and deletions. Empty
 directories are not Git objects and are not exported.
 
-The external commit subject uses the monorepo build version:
+The external commit reuses the complete monorepo commit subject. A final source pull request
+reference is qualified with the source repository, so it links to the correct pull request:
 
 ```text
-v1753: Publish agent plugins
+v1753: Publish repository exports after CI (samebase/samebase#1293)
 ```
 
 Its body records the source repository, source commit, and source directory.
@@ -53,7 +54,6 @@ Add one entry to `repositoryExports` in `scripts/publish-repository-exports.ts`.
 - the monorepo source directory
 - the external repository name under the Samebase organization
 - the target branch
-- the public commit title after the version prefix
 
 Install the publisher GitHub App on the new target repository. The workflow derives its target
 repository list from the same configuration, so the workflow file does not need a second list.

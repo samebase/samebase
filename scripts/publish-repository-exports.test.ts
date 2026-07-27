@@ -110,10 +110,11 @@ describe("repository exports", () => {
       expect(git(fixture.targetRepo, ["rev-parse", `${publishedHead}^{tree}`])).toBe(sourceTree);
       expect(git(fixture.targetRepo, ["rev-parse", `${publishedHead}^`])).toBe(fixture.targetHead);
       expect(git(fixture.targetRepo, ["show", "-s", "--format=%s", publishedHead])).toBe(
-        "v42: Publish agent plugins",
+        "v42: Update internal package (samebase/samebase#123)",
       );
 
       const body = git(fixture.targetRepo, ["show", "-s", "--format=%b", publishedHead]);
+      expect(body).toContain("Samebase-Source-Repository: samebase/samebase");
       expect(body).toContain(`Samebase-Source-Commit: ${fixture.sourceCommit}`);
       expect(body).toContain(`Samebase-Source-Path: ${repositoryExports[0].sourceRoot}`);
       expect(
@@ -169,12 +170,21 @@ describe("repository exports", () => {
     }
   });
 
-  it("requires a source build version for the public commit subject", () => {
+  it("reuses the source subject and qualifies its source pull request", () => {
     expect(
-      formatPublishedCommitSubject("v1753: Internal title (#1293)", "Publish agent plugins"),
-    ).toBe("v1753: Publish agent plugins");
-    expect(() => formatPublishedCommitSubject("Internal title", "Publish agent plugins")).toThrow(
+      formatPublishedCommitSubject(
+        "v1753: Publish repository exports after CI (#1293)",
+        "samebase/samebase",
+      ),
+    ).toBe("v1753: Publish repository exports after CI (samebase/samebase#1293)");
+    expect(formatPublishedCommitSubject("v1754: Update agent plugins", "samebase/samebase")).toBe(
+      "v1754: Update agent plugins",
+    );
+    expect(() => formatPublishedCommitSubject("Internal title", "samebase/samebase")).toThrow(
       "Source commit subject has no build version",
+    );
+    expect(() => formatPublishedCommitSubject("v1753: Internal title", "samebase")).toThrow(
+      "Invalid source repository",
     );
   });
 

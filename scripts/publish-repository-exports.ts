@@ -6,7 +6,6 @@ import process from "node:process";
 import { isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
 
 export type RepositoryExport = {
-  commitTitle: string;
   sourceRoot: string;
   targetBranch: string;
   targetRepository: string;
@@ -14,7 +13,6 @@ export type RepositoryExport = {
 
 export const repositoryExports = [
   {
-    commitTitle: "Publish agent plugins",
     sourceRoot: "packages/agent-plugins",
     targetBranch: "main",
     targetRepository: "agent-plugins",
@@ -86,9 +84,6 @@ function assertRepositoryExport(definition: RepositoryExport): void {
   ) {
     throw new Error(`Invalid source root: ${definition.sourceRoot}`);
   }
-  if (!definition.commitTitle) {
-    throw new Error("The repository export commit title must not be empty.");
-  }
 }
 
 function assertGitBranch(
@@ -117,12 +112,17 @@ function githubAuthenticationEnvironment(
   };
 }
 
-export function formatPublishedCommitSubject(sourceSubject: string, commitTitle: string): string {
-  const version = /^v\d+:/.exec(sourceSubject)?.[0];
-  if (!version) {
+export function formatPublishedCommitSubject(
+  sourceSubject: string,
+  sourceRepository: string,
+): string {
+  if (!/^v\d+:/.test(sourceSubject)) {
     throw new Error(`Source commit subject has no build version: ${sourceSubject}`);
   }
-  return `${version} ${commitTitle}`;
+  if (!/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/.test(sourceRepository)) {
+    throw new Error(`Invalid source repository: ${sourceRepository}`);
+  }
+  return sourceSubject.replace(/ \(#(\d+)\)$/, ` (${sourceRepository}#$1)`);
 }
 
 export function readCurrentSourceBranchHead({
@@ -193,7 +193,7 @@ export function publishRepositoryExport(
     ["show", "-s", "--format=%s", sourceCommit],
     gitEnvironment,
   );
-  const publishedSubject = formatPublishedCommitSubject(sourceSubject, definition.commitTitle);
+  const publishedSubject = formatPublishedCommitSubject(sourceSubject, sourceRepository);
 
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     const target = readTargetState(options);
