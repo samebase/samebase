@@ -7,6 +7,7 @@ import {
 export const MENGER_HOVER_MIN_REVEAL_RADIUS = 0.05;
 export const MENGER_HOVER_MAX_REVEAL_RADIUS = 1;
 export const MENGER_HOVER_DEFAULT_REVEAL_RADIUS = 0.55;
+export const MENGER_HOVER_MAX_CLEARANCE_BOXES_PER_MOVE = 45;
 const MENGER_HOVER_FULL_OPEN_RADIUS_FRACTION = 0.25;
 
 /**
@@ -14,12 +15,9 @@ Unit sponge coordinates: the full cube spans [0, 1] on every axis.
 outsideDistance is how far the pointer ray passes outside the cube surface in
 the same unit scale; probes on the surface use 0. It joins the channel
 distance term so influence fades continuously while the pointer skims past
-the silhouette instead of collapsing to the resting state at the edge. The
-direction is the local camera ray toward the sponge and keeps the cleared
-interior path aligned with tilted views.
+the silhouette instead of collapsing to the resting state at the edge.
 */
 export type MengerHoverProbe = {
-  direction: readonly [number, number, number];
   outsideDistance: number;
   x: number;
   y: number;
@@ -39,17 +37,26 @@ retreat, so the flip is never visible.
 Tangent axis order matches readChannelTangentDeltas: hole axis 0 pairs
 (y, z), hole axis 1 pairs (x, z), hole axis 2 pairs (x, y).
 
-clearanceA and clearanceB are signed depth-three extents that a crossed
-depth-two pair must also expose. Zero means that no depth-three view ray
-crosses that tangent.
+clearances are the signed depth-three rectangles that cross this depth-two
+cell. Each rectangle stays on one cube axis.
 */
 export type MengerHoverMoveState = {
-  clearanceA: number;
-  clearanceB: number;
+  clearances: MengerHoverClearance[];
   openness: number;
   signA: 1 | -1;
   signB: 1 | -1;
   weightA: number;
+};
+
+export type MengerHoverClearance = {
+  axis: MengerHoleAxis;
+  extentA: number;
+  extentB: number;
+};
+
+export type MengerHoverClearanceBox = {
+  maximum: readonly [number, number, number];
+  minimum: readonly [number, number, number];
 };
 
 export type MengerHoverState = {
@@ -160,7 +167,7 @@ function readChannelState(
           1 / faceGridSize / 3,
         );
   if (probe === null) {
-    return { ...slide, clearanceA: 0, clearanceB: 0, openness: 0 };
+    return { ...slide, clearances: [], openness: 0 };
   }
 
   let axisDelta: number;
@@ -186,8 +193,7 @@ function readChannelState(
 
   return {
     ...slide,
-    clearanceA: 0,
-    clearanceB: 0,
+    clearances: [],
     openness: normalized * normalized * (3 - 2 * normalized),
   };
 }
@@ -221,39 +227,6 @@ function toStageMoveStates(
   });
 }
 
-function rayIntersectsMove(
-  origin: readonly [number, number, number],
-  direction: readonly [number, number, number],
-  moveCoordinate: readonly [number, number, number],
-  gridSize: number,
-): boolean {
-  let entry = 0;
-  let exit = Number.POSITIVE_INFINITY;
-
-  for (const axis of [0, 1, 2] as const) {
-    const axisOrigin = origin[axis];
-    const axisDirection = direction[axis];
-    const cellMinimum = moveCoordinate[axis] / gridSize;
-    const cellMaximum = (moveCoordinate[axis] + 1) / gridSize;
-    if (Math.abs(axisDirection) < Number.EPSILON) {
-      if (axisOrigin < cellMinimum || axisOrigin > cellMaximum) {
-        return false;
-      }
-      continue;
-    }
-
-    const first = (cellMinimum - axisOrigin) / axisDirection;
-    const second = (cellMaximum - axisOrigin) / axisDirection;
-    entry = Math.max(entry, Math.min(first, second));
-    exit = Math.min(exit, Math.max(first, second));
-    if (exit < entry) {
-      return false;
-    }
-  }
-
-  return exit >= entry;
-}
-
 function readTangentAxes(axis: MengerHoleAxis): readonly [MengerHoleAxis, MengerHoleAxis] {
   switch (axis) {
     case 0:
@@ -270,26 +243,25 @@ function readTangentAxes(axis: MengerHoleAxis): readonly [MengerHoleAxis, Menger
 function readDepthThreeBlockerMoveIndexes(
   model: MengerDepthTransitionModel,
   channel: number,
-  direction: readonly [number, number, number],
 ): number[] {
   const faceGridSize = model.depthThree.gridSize / 3;
   const { axis, coordinateA, coordinateB } = readChannelFaceCoordinates(channel, faceGridSize);
-  const axisDirection = direction[axis];
-  if (Math.abs(axisDirection) < Number.EPSILON) {
-    return [];
-  }
-
   const tangentAxes = readTangentAxes(axis);
-  const origin: [number, number, number] = [0, 0, 0];
-  origin[axis] = axisDirection < 0 ? 1 : 0;
-  origin[tangentAxes[0]] = (coordinateA + 0.5) / faceGridSize;
-  origin[tangentAxes[1]] = (coordinateB + 0.5) / faceGridSize;
+  const coordinateAlongA = (coordinateA + 0.5) / faceGridSize;
+  const coordinateAlongB = (coordinateB + 0.5) / faceGridSize;
 
   const blockerMoveIndexes: number[] = [];
   for (const [moveIndex, move] of model.depthTwo.moves.entries()) {
+    const minimumA = move.from[tangentAxes[0]] / model.depthTwo.gridSize;
+    const maximumA = (move.from[tangentAxes[0]] + 1) / model.depthTwo.gridSize;
+    const minimumB = move.from[tangentAxes[1]] / model.depthTwo.gridSize;
+    const maximumB = (move.from[tangentAxes[1]] + 1) / model.depthTwo.gridSize;
     if (
       move.holeAxis !== axis &&
-      rayIntersectsMove(origin, direction, move.from, model.depthTwo.gridSize)
+      coordinateAlongA >= minimumA &&
+      coordinateAlongA <= maximumA &&
+      coordinateAlongB >= minimumB &&
+      coordinateAlongB <= maximumB
     ) {
       blockerMoveIndexes.push(moveIndex);
     }
@@ -307,14 +279,9 @@ depth-three opening.
 export function applyMengerHoverDepthThreeClearance(
   model: MengerDepthTransitionModel,
   state: MengerHoverState,
-  direction: readonly [number, number, number] | undefined,
 ): void {
   for (const moveState of state.depthTwo) {
-    moveState.clearanceA = 0;
-    moveState.clearanceB = 0;
-  }
-  if (!direction) {
-    return;
+    moveState.clearances = [];
   }
 
   const depthThreeFaceGridSize = model.depthThree.gridSize / 3;
@@ -332,13 +299,12 @@ export function applyMengerHoverDepthThreeClearance(
       return;
     }
 
-    const blockerMoveIndexes = readDepthThreeBlockerMoveIndexes(model, channel, direction);
+    const blockerMoveIndexes = readDepthThreeBlockerMoveIndexes(model, channel);
     if (blockerMoveIndexes.length === 0) {
       return;
     }
 
     const rayAxis = readChannelAxis(channel, depthThreeFaceGridSize);
-    const [rayTangentA, rayTangentB] = readTangentAxes(rayAxis);
     for (const blockerMoveIndex of blockerMoveIndexes) {
       const blockerState = state.depthTwo[blockerMoveIndex];
       const blockerMove = model.depthTwo.moves[blockerMoveIndex];
@@ -346,27 +312,11 @@ export function applyMengerHoverDepthThreeClearance(
         continue;
       }
 
-      const clearAxis = 3 - rayAxis - blockerMove.holeAxis;
-      let signedExtent: number;
-      if (clearAxis === rayTangentA) {
-        signedExtent = channelState.signA * channelState.openness ** channelState.weightA;
-      } else if (clearAxis === rayTangentB) {
-        signedExtent = channelState.signB * channelState.openness ** (1 - channelState.weightA);
-      } else {
-        throw new Error("Every depth-three ray must have one clearance tangent.");
-      }
-      const [blockerTangentA, blockerTangentB] = readTangentAxes(blockerMove.holeAxis);
-      if (clearAxis === blockerTangentA) {
-        if (Math.abs(signedExtent) > Math.abs(blockerState.clearanceA)) {
-          blockerState.clearanceA = signedExtent;
-        }
-      } else if (clearAxis === blockerTangentB) {
-        if (Math.abs(signedExtent) > Math.abs(blockerState.clearanceB)) {
-          blockerState.clearanceB = signedExtent;
-        }
-      } else {
-        throw new Error("Every crossed Menger pair must have one clearance tangent.");
-      }
+      blockerState.clearances.push({
+        axis: rayAxis,
+        extentA: channelState.signA * channelState.openness ** channelState.weightA,
+        extentB: channelState.signB * channelState.openness ** (1 - channelState.weightA),
+      });
     }
   });
 }
@@ -374,9 +324,8 @@ export function applyMengerHoverDepthThreeClearance(
 /**
 Every opening in one channel shares its openness, split, and signs, so the
 rectangles at both tunnel ends and every interior segment stay aligned. The
-camera direction traces the real view ray from each depth-three opening
-through the sponge. A crossed depth-two pair gets a clearance strip on the
-axis that is perpendicular to both holes.
+depth-three opening stays on one cube axis through the full sponge. A crossed
+depth-two pair gets the same rectangular clearance.
 */
 export function readMengerHoverState(
   model: MengerDepthTransitionModel,
@@ -400,20 +349,100 @@ export function readMengerHoverState(
     depthTwo: toStageMoveStates(model.depthTwo, depthTwoChannels),
     depthThree: toStageMoveStates(model.depthThree, depthThreeChannels),
   };
-  applyMengerHoverDepthThreeClearance(model, state, probe?.direction ?? directionProbe?.direction);
+  applyMengerHoverDepthThreeClearance(model, state);
 
   return state;
 }
 
-/**
-A crossed depth-two cell contains the depth-three opening in its middle
-third. The cover first clears the near outer third, then follows the visible
-opening through the middle third.
-*/
-export function readMengerHoverBlockerSlide(clearance: number): number {
-  if (clearance === 0) {
-    return 0;
+function readClearanceInterval(extent: number): readonly [number, number] | null {
+  if (extent === 0) {
+    return null;
   }
 
-  return Math.sign(clearance) * ((1 + Math.abs(clearance)) / 3);
+  return extent > 0 ? [1 / 3, (1 + Math.abs(extent)) / 3] : [(2 - Math.abs(extent)) / 3, 2 / 3];
+}
+
+/**
+Splits one depth-two cell into solid axis-aligned boxes after subtracting all
+active depth-three tunnel rectangles. The interval boundaries move with the
+same signed extents as the visible face openings.
+*/
+export function readMengerHoverClearanceBoxes(
+  clearances: MengerHoverClearance[],
+): MengerHoverClearanceBox[] {
+  const tunnels = clearances.flatMap((clearance) => {
+    const intervalA = readClearanceInterval(clearance.extentA);
+    const intervalB = readClearanceInterval(clearance.extentB);
+    if (!intervalA || !intervalB) {
+      return [];
+    }
+
+    const [tangentA, tangentB] = readTangentAxes(clearance.axis);
+    return [{ intervalA, intervalB, tangentA, tangentB }];
+  });
+  if (tunnels.length === 0) {
+    return [
+      {
+        maximum: [1, 1, 1],
+        minimum: [0, 0, 0],
+      },
+    ];
+  }
+
+  const boundaries: [number[], number[], number[]] = [
+    [0, 1],
+    [0, 1],
+    [0, 1],
+  ];
+  for (const tunnel of tunnels) {
+    boundaries[tunnel.tangentA].push(...tunnel.intervalA);
+    boundaries[tunnel.tangentB].push(...tunnel.intervalB);
+  }
+  for (const axisBoundaries of boundaries) {
+    axisBoundaries.sort((left, right) => left - right);
+    for (let index = axisBoundaries.length - 1; index > 0; index -= 1) {
+      if (axisBoundaries[index] === axisBoundaries[index - 1]) {
+        axisBoundaries.splice(index, 1);
+      }
+    }
+  }
+
+  const boxes: MengerHoverClearanceBox[] = [];
+  for (let x = 0; x < boundaries[0].length - 1; x += 1) {
+    for (let y = 0; y < boundaries[1].length - 1; y += 1) {
+      for (let z = 0; z < boundaries[2].length - 1; z += 1) {
+        const minimum: [number, number, number] = [
+          boundaries[0][x] ?? 0,
+          boundaries[1][y] ?? 0,
+          boundaries[2][z] ?? 0,
+        ];
+        const maximum: [number, number, number] = [
+          boundaries[0][x + 1] ?? 1,
+          boundaries[1][y + 1] ?? 1,
+          boundaries[2][z + 1] ?? 1,
+        ];
+        const center: [number, number, number] = [
+          (minimum[0] + maximum[0]) / 2,
+          (minimum[1] + maximum[1]) / 2,
+          (minimum[2] + maximum[2]) / 2,
+        ];
+        const insideTunnel = tunnels.some(
+          (tunnel) =>
+            center[tunnel.tangentA] >= tunnel.intervalA[0] &&
+            center[tunnel.tangentA] <= tunnel.intervalA[1] &&
+            center[tunnel.tangentB] >= tunnel.intervalB[0] &&
+            center[tunnel.tangentB] <= tunnel.intervalB[1],
+        );
+        if (!insideTunnel) {
+          boxes.push({ maximum, minimum });
+        }
+      }
+    }
+  }
+
+  if (boxes.length > MENGER_HOVER_MAX_CLEARANCE_BOXES_PER_MOVE) {
+    throw new Error("One Menger blocker must fit its bounded clearance box partition.");
+  }
+
+  return boxes;
 }

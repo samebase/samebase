@@ -12,11 +12,12 @@ import {
 } from "@samebase/logo-model/menger-depth-transition";
 import {
   MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
+  MENGER_HOVER_MAX_CLEARANCE_BOXES_PER_MOVE,
   MENGER_HOVER_MAX_REVEAL_RADIUS,
   MENGER_HOVER_MIN_REVEAL_RADIUS,
   applyMengerHoverDepthThreeClearance,
   normalizeMengerHoverRevealRadius,
-  readMengerHoverBlockerSlide,
+  readMengerHoverClearanceBoxes,
   readMengerHoverState,
   type MengerHoverMoveState,
   type MengerHoverProbe,
@@ -234,6 +235,13 @@ function MengerDepthTransitionScene({
       materials,
       MENGER_DEPTH_TRANSITION_MODEL.depthTwo.moves.length,
     );
+    const depthTwoClearanceMesh = new THREE.InstancedMesh(
+      geometry,
+      materials,
+      MENGER_DEPTH_TRANSITION_MODEL.depthTwo.moves.length *
+        MENGER_HOVER_MAX_CLEARANCE_BOXES_PER_MOVE,
+    );
+    depthTwoClearanceMesh.count = 0;
     const depthThreeHoverPairMesh = new THREE.InstancedMesh(
       geometry,
       materials,
@@ -241,6 +249,7 @@ function MengerDepthTransitionScene({
     );
     depthTwoMovingMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     depthTwoHoverPairMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    depthTwoClearanceMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     depthThreeMovingMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     depthThreeHoverPairMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     const logoGroup = new THREE.Group();
@@ -250,6 +259,7 @@ function MengerDepthTransitionScene({
       depthTwoSettledMesh,
       depthTwoMovingMesh,
       depthTwoHoverPairMesh,
+      depthTwoClearanceMesh,
       depthThreeSettledMesh,
       depthThreeMovingMesh,
       depthThreeHoverPairMesh,
@@ -279,6 +289,7 @@ function MengerDepthTransitionScene({
     depthThreeSettledMesh.computeBoundingSphere();
     depthTwoMovingMesh.frustumCulled = false;
     depthTwoHoverPairMesh.frustumCulled = false;
+    depthTwoClearanceMesh.frustumCulled = false;
     depthThreeMovingMesh.frustumCulled = false;
     depthThreeHoverPairMesh.frustumCulled = false;
     let hoverAnimationFrame = 0;
@@ -341,8 +352,10 @@ function MengerDepthTransitionScene({
       coverAMesh: THREE.InstancedMesh,
       coverBMesh: THREE.InstancedMesh,
       moveStates: MengerHoverMoveState[],
+      clearanceMesh: THREE.InstancedMesh | null,
     ) => {
       const voxelSize = MENGER_DEPTH_TRANSITION_WORLD_SIZE / stage.gridSize;
+      let clearanceBoxIndex = 0;
       stage.moves.forEach((move, index) => {
         const moveState = moveStates[index];
         const slideA = moveState.openness <= 0 ? 0 : moveState.openness ** moveState.weightA;
@@ -354,8 +367,31 @@ function MengerDepthTransitionScene({
         const [startX, startY, startZ] = toWorldCoordinate(move.from, stage.gridSize);
         const ownA = moveState.signA * slideA;
         const ownB = moveState.signB * slideB;
-        const clearanceA = readMengerHoverBlockerSlide(moveState.clearanceA);
-        const clearanceB = readMengerHoverBlockerSlide(moveState.clearanceB);
+        if (clearanceMesh && moveState.clearances.length > 0) {
+          matrix.makeScale(0, 0, 0);
+          coverAMesh.setMatrixAt(index, matrix);
+          coverBMesh.setMatrixAt(index, matrix);
+          const clearanceBoxes = readMengerHoverClearanceBoxes(moveState.clearances);
+          for (const box of clearanceBoxes) {
+            if (clearanceBoxIndex >= clearanceMesh.instanceMatrix.count) {
+              throw new Error("Menger clearance boxes must fit the allocated instance buffer.");
+            }
+
+            const scaleX = (box.maximum[0] - box.minimum[0]) * voxelSize;
+            const scaleY = (box.maximum[1] - box.minimum[1]) * voxelSize;
+            const scaleZ = (box.maximum[2] - box.minimum[2]) * voxelSize;
+            matrix.makeScale(scaleX, scaleY, scaleZ);
+            matrix.setPosition(
+              startX + ((box.minimum[0] + box.maximum[0]) / 2 - 0.5) * voxelSize,
+              startY + ((box.minimum[1] + box.maximum[1]) / 2 - 0.5) * voxelSize,
+              startZ + ((box.minimum[2] + box.maximum[2]) / 2 - 0.5) * voxelSize,
+            );
+            clearanceMesh.setMatrixAt(clearanceBoxIndex, matrix);
+            clearanceBoxIndex += 1;
+          }
+          return;
+        }
+
         // A cover never enters its neighbor cell: the leading edge clamps at
         // the cell boundary, so the cover compresses into the seam (span
         // [d, 1] of its home cell, scale 1 - |d|, center shifted d / 2). A
@@ -371,14 +407,18 @@ function MengerDepthTransitionScene({
           matrix.makeScale(scales[0] * voxelSize, scales[1] * voxelSize, scales[2] * voxelSize);
           matrix.setPosition(startX + offsets[0], startY + offsets[1], startZ + offsets[2]);
         };
-        writeCoverMatrix(clearanceA === 0 ? ownA : clearanceA, clearanceB);
+        writeCoverMatrix(ownA, 0);
         coverAMesh.setMatrixAt(index, matrix);
-        writeCoverMatrix(clearanceA, clearanceB === 0 ? ownB : clearanceB);
+        writeCoverMatrix(0, ownB);
         coverBMesh.setMatrixAt(index, matrix);
       });
 
       coverAMesh.instanceMatrix.needsUpdate = true;
       coverBMesh.instanceMatrix.needsUpdate = true;
+      if (clearanceMesh) {
+        clearanceMesh.count = clearanceBoxIndex;
+        clearanceMesh.instanceMatrix.needsUpdate = true;
+      }
     };
 
     /**
@@ -425,11 +465,6 @@ function MengerDepthTransitionScene({
       }
 
       const probe: MengerHoverProbe = {
-        direction: [
-          hoverLocalRay.direction.x,
-          hoverLocalRay.direction.y,
-          hoverLocalRay.direction.z,
-        ],
         outsideDistance,
         x: hoverClampedPoint.x / MENGER_DEPTH_TRANSITION_WORLD_SIZE + 0.5,
         y: hoverClampedPoint.y / MENGER_DEPTH_TRANSITION_WORLD_SIZE + 0.5,
@@ -500,6 +535,7 @@ function MengerDepthTransitionScene({
         depthTwoSettledMesh.visible = false;
         depthTwoMovingMesh.visible = true;
         depthTwoHoverPairMesh.visible = true;
+        depthTwoClearanceMesh.visible = true;
         depthThreeSettledMesh.visible = true;
         depthThreeMovingMesh.visible = true;
         depthThreeHoverPairMesh.visible = true;
@@ -540,22 +576,20 @@ function MengerDepthTransitionScene({
           depthThreeHoverBuffers,
           smoothing,
         );
-        applyMengerHoverDepthThreeClearance(
-          currentModel,
-          hoverState,
-          hoverProbe?.direction ?? hoverDirectionProbe?.direction,
-        );
+        applyMengerHoverDepthThreeClearance(currentModel, hoverState);
         renderHoverMoves(
           currentModel.depthTwo,
           depthTwoMovingMesh,
           depthTwoHoverPairMesh,
           hoverState.depthTwo,
+          depthTwoClearanceMesh,
         );
         renderHoverMoves(
           currentModel.depthThree,
           depthThreeMovingMesh,
           depthThreeHoverPairMesh,
           hoverState.depthThree,
+          null,
         );
         const hoverSettled = depthTwoSettled && depthThreeSettled;
         container.dataset.hoverSettled = hoverSettled ? "true" : "false";
@@ -574,6 +608,7 @@ function MengerDepthTransitionScene({
         depthTwoSettledMesh.visible = stage?.depth === 2;
         depthTwoMovingMesh.visible = stage?.depth === 2;
         depthTwoHoverPairMesh.visible = false;
+        depthTwoClearanceMesh.visible = false;
         depthThreeSettledMesh.visible = stage?.depth === 3;
         depthThreeMovingMesh.visible = stage?.depth === 3;
         depthThreeHoverPairMesh.visible = false;
