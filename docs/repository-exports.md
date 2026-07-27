@@ -56,7 +56,8 @@ against the package state before the latest package-changing commit. A failed pa
 failed across later unrelated commits, so the publisher cannot release it.
 
 Update the version manually. `packages/agent-plugins/scripts/check.ts` requires the package, Codex
-manifest, Claude manifest, and Claude marketplace versions to match.
+manifest, and Claude manifest versions to match. The Claude marketplace reads the version from the
+Claude plugin manifest, which prevents two version fields from drifting.
 
 Rebase a package-changing pull request onto current `main` before merging it. This catches another
 package pull request that already used the same next version. Main CI remains the final fail-closed

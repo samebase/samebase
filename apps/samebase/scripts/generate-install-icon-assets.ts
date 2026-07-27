@@ -5,10 +5,17 @@ import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
 import { includes } from "@samebase/dependent/main";
 
+import { trackedFilePath } from "../../../scripts/lib/trackedFilePath.ts";
+
 const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const publicDir = path.join(appDir, "public");
+const repoRoot = path.resolve(appDir, "../..");
+const agentPluginIconPath = path.join(
+  repoRoot,
+  trackedFilePath("packages/agent-plugins/plugins/samebase/assets/icon.png"),
+);
 
-type IconJob = { canvasSize: number; filename: string };
+type IconJob = { canvasSize: number; outputPath: string };
 const logoFaceTreatmentValues = ["duotone", "striped"] as const;
 type LogoFaceTreatment = (typeof logoFaceTreatmentValues)[number];
 type LogoIdentitySvgAsset = {
@@ -34,20 +41,21 @@ type SocialAsset = {
 type UnknownFunction = (...args: unknown[]) => unknown;
 
 const faviconIconJobs: IconJob[] = [
-  { canvasSize: 16, filename: "favicon.png" },
-  { canvasSize: 32, filename: "favicon-32.png" },
+  { canvasSize: 16, outputPath: path.join(publicDir, "favicon.png") },
+  { canvasSize: 32, outputPath: path.join(publicDir, "favicon-32.png") },
 ];
 
 const compactIdentityIconJobs: IconJob[] = [
-  { canvasSize: 180, filename: "apple-touch-icon.png" },
-  { canvasSize: 192, filename: "icon-192.png" },
-  { canvasSize: 256, filename: "chatgpt-app-icon.png" },
-  { canvasSize: 512, filename: "icon-512.png" },
+  { canvasSize: 180, outputPath: path.join(publicDir, "apple-touch-icon.png") },
+  { canvasSize: 192, outputPath: path.join(publicDir, "icon-192.png") },
+  { canvasSize: 256, outputPath: path.join(publicDir, "chatgpt-app-icon.png") },
+  { canvasSize: 256, outputPath: agentPluginIconPath },
+  { canvasSize: 512, outputPath: path.join(publicDir, "icon-512.png") },
 ];
 
 const maskableCompactIdentityIconJobs: IconJob[] = [
-  { canvasSize: 192, filename: "icon-maskable-192.png" },
-  { canvasSize: 512, filename: "icon-maskable-512.png" },
+  { canvasSize: 192, outputPath: path.join(publicDir, "icon-maskable-192.png") },
+  { canvasSize: 512, outputPath: path.join(publicDir, "icon-maskable-512.png") },
 ];
 
 const socialAssets: SocialAsset[] = [
@@ -140,7 +148,9 @@ async function loadLogoAssetModules(): Promise<LogoAssetModules> {
     logLevel: "error",
     root: appDir,
     server: {
+      hmr: false,
       middlewareMode: true,
+      ws: false,
     },
   });
 
@@ -241,12 +251,10 @@ function copyTextAsset(sourceAssetPath: string, targetAssetPath: string): void {
 function generateIconPng({
   canvasSize,
   inputAssetPath,
-  outputAssetPath,
+  outputPath,
 }: IconJob & {
   inputAssetPath: string;
-  outputAssetPath: string;
 }) {
-  const outputPath = toPublicPath(outputAssetPath);
   mkdirSync(path.dirname(outputPath), { recursive: true });
 
   execFileSync(
@@ -267,12 +275,10 @@ function generateIconPng({
 function generateIconPngFromMarkup({
   canvasSize,
   markup,
-  outputAssetPath,
+  outputPath,
 }: IconJob & {
   markup: string;
-  outputAssetPath: string;
 }) {
-  const outputPath = toPublicPath(outputAssetPath);
   mkdirSync(path.dirname(outputPath), { recursive: true });
 
   execFileSync(
@@ -312,21 +318,18 @@ function syncCompactIdentityAssets(modules: LogoAssetModules) {
     generateIconPngFromMarkup({
       ...job,
       markup: faviconMarkup,
-      outputAssetPath: `/${job.filename}`,
     });
   }
   for (const job of compactIdentityIconJobs) {
     generateIconPng({
       ...job,
       inputAssetPath: sourceAssetPath,
-      outputAssetPath: `/${job.filename}`,
     });
   }
   for (const job of maskableCompactIdentityIconJobs) {
     generateIconPng({
       ...job,
       inputAssetPath: maskableSourceAssetPath,
-      outputAssetPath: `/${job.filename}`,
     });
   }
 }
