@@ -79,12 +79,19 @@ async function scrollMainEditorToApproximateOffset(page: Page, scrollTop: number
     }, scrollTop);
 }
 
-async function getMobileSeparatorEdges(layout: Locator) {
-  return layout
-    .locator("[data-workspace-layout-v2-mobile-separator]")
-    .evaluateAll((nodes) =>
-      nodes.map((node) => node.getAttribute("data-workspace-layout-v2-mobile-separator") ?? ""),
-    );
+async function getHorizontalSeparatorWidths(locator: Locator) {
+  return locator.evaluate((element) => {
+    const readSeparatorWidth = (pseudoElement: "::before" | "::after") => {
+      const styles = window.getComputedStyle(element, pseudoElement);
+
+      return styles.content === "none" ? "0px" : styles.width;
+    };
+
+    return {
+      left: readSeparatorWidth("::before"),
+      right: readSeparatorWidth("::after"),
+    };
+  });
 }
 
 async function touchDragHandleByPx(page: Page, handle: Locator, deltaX: number) {
@@ -250,7 +257,7 @@ test("mobile v2 fixture renders sidebar grip targets on the active sidebar", asy
   await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(0);
 });
 
-test("mobile v2 fixture keeps both separators on the main pane across pane changes", async ({
+test("mobile v2 fixture keeps the visible pane borderless while adjacent panes own separators", async ({
   page,
 }) => {
   const viewport = page.viewportSize();
@@ -258,33 +265,59 @@ test("mobile v2 fixture keeps both separators on the main pane across pane chang
 
   await openWorkspaceLayoutV2Fixture(page);
 
-  const layout = page.locator("[data-workspace-layout-v2]");
-  const mainPane = layout.locator("[data-workspace-layout-v2-mobile-main-pane]");
-  await expect(page.locator("[data-workspace-layout-v2-mobile-separator-pane]")).toHaveCount(0);
-  await expect(mainPane.locator("[data-workspace-layout-v2-mobile-separator]")).toHaveCount(2);
-  await expect(
-    layout.locator(
-      '[data-workspace-layout-v2-mobile-pane="left"] [data-workspace-layout-v2-mobile-separator], [data-workspace-layout-v2-mobile-pane="right"] [data-workspace-layout-v2-mobile-separator]',
-    ),
-  ).toHaveCount(0);
+  const leftPane = page.getByTestId("workspace-layout-v2-pane-left");
+  const mainPane = page
+    .locator('[data-testid="workspace-layout-v2-pane-main"] .snap-center > div')
+    .first();
+  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
 
   await scrollWorkspaceCarouselToPane(page, "left");
-  await expect(layout).toHaveAttribute("data-mobile-pane", "left");
   await expect
-    .poll(async () => getMobileSeparatorEdges(mainPane))
-    .toEqual(["left-main", "main-right"]);
+    .poll(async () => getHorizontalSeparatorWidths(leftPane))
+    .toEqual({
+      left: "0px",
+      right: "0px",
+    });
+  await expect
+    .poll(async () => getHorizontalSeparatorWidths(mainPane))
+    .toEqual({
+      left: "1px",
+      right: "1px",
+    });
 
   await scrollWorkspaceCarouselToPane(page, "main");
-  await expect(layout).toHaveAttribute("data-mobile-pane", "main");
   await expect
-    .poll(async () => getMobileSeparatorEdges(mainPane))
-    .toEqual(["left-main", "main-right"]);
+    .poll(async () => getHorizontalSeparatorWidths(leftPane))
+    .toEqual({
+      left: "1px",
+      right: "1px",
+    });
+  await expect
+    .poll(async () => getHorizontalSeparatorWidths(mainPane))
+    .toEqual({
+      left: "0px",
+      right: "0px",
+    });
+  await expect
+    .poll(async () => getHorizontalSeparatorWidths(rightPane))
+    .toEqual({
+      left: "1px",
+      right: "1px",
+    });
 
   await scrollWorkspaceCarouselToPane(page, "right");
-  await expect(layout).toHaveAttribute("data-mobile-pane", "right");
   await expect
-    .poll(async () => getMobileSeparatorEdges(mainPane))
-    .toEqual(["left-main", "main-right"]);
+    .poll(async () => getHorizontalSeparatorWidths(mainPane))
+    .toEqual({
+      left: "1px",
+      right: "1px",
+    });
+  await expect
+    .poll(async () => getHorizontalSeparatorWidths(rightPane))
+    .toEqual({
+      left: "0px",
+      right: "0px",
+    });
 });
 
 test("mobile v2 fixture vertical main-editor scrolling reveals later Monaco content", async ({
