@@ -115,6 +115,29 @@ describe("RouteUrlEditorNext", () => {
     expect(display.value).toBe("/logo");
   });
 
+  it("opts out of browser and password-manager autofill", () => {
+    const display = renderEditor(["/logo"]);
+
+    expect(display.autocomplete).toBe("off");
+    expect(display.dataset["1pIgnore"]).toBe("true");
+    expect(display.dataset.bwignore).toBe("true");
+    expect(display.dataset.formType).toBe("other");
+    expect(display.dataset.lpignore).toBe("true");
+    expect(display.dataset.opIgnore).toBe("true");
+
+    act(() => {
+      display.focus();
+    });
+
+    const input = readRequiredInput();
+    expect(input.autocomplete).toBe("off");
+    expect(input.dataset["1pIgnore"]).toBe("true");
+    expect(input.dataset.bwignore).toBe("true");
+    expect(input.dataset.formType).toBe("other");
+    expect(input.dataset.lpignore).toBe("true");
+    expect(input.dataset.opIgnore).toBe("true");
+  });
+
   it("renders scoped query suggestion groups without changing option indexes", () => {
     const display = renderEditor(["/logo"]);
 
