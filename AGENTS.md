@@ -1,5 +1,7 @@
 # AGENTS.md
 
+Only report to me in ASD-STE100 Simplified Technical English.
+
 Always-loaded agent rules. Keep it small: Codex truncates combined project docs at 32 KiB and
 silently drops the tail (`pnpm check:agents-budget` enforces the budget; history in
 `research/2026-06-11-agents-md-truncation-audit.md`).
