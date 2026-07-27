@@ -28,7 +28,7 @@ const webServerCommand = useDevServer
 
 export default defineConfig({
   testDir: "./e2e",
-  testIgnore: ["**/*.live.spec.ts"],
+  testIgnore: ["**/*.live.spec.ts", "**/logo-*.spec.ts"],
   outputDir: "./e2e/test-results",
   // The local Linux wrapper runs multiple Chromium workers in Docker; browser
   // context setup can briefly consume most of the default 30s test budget.
@@ -36,6 +36,7 @@ export default defineConfig({
   // CI shards should balance individual tests instead of entire files so the
   // large visual-fixture files do not bunch up on a single shard.
   fullyParallel: process.env.CI === "true",
+  grepInvert: /@logo-research/,
   retries: 0,
   workers: 1,
   reporter: [

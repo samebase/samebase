@@ -17,6 +17,7 @@ const DEFAULT_PLAYWRIGHT_LINUX_WORKERS = "4";
 const FULL_GIT_COMMIT_PATTERN = /^[0-9a-f]{40}$/i;
 const ciBootstrapConvexScriptPath = `./${trackedFilePath("scripts/ci-bootstrap-convex.ts")}`;
 const samebasePlaywrightConfigPath = samebaseAppFilePath("playwright.config.ts");
+const shellPlaywrightConfigArgs = "${playwright_config_args[@]}";
 
 const CONTAINER_SCRIPT = String.raw`set -euo pipefail
 
@@ -51,10 +52,18 @@ pnpm install --frozen-lockfile
 node ${ciBootstrapConvexScriptPath} --keep-running
 PLAYWRIGHT=1 pnpm --filter samebase build:ci
 
+playwright_config_args=(-c ${samebasePlaywrightConfigPath})
+for arg in "$@"; do
+  if [ "$arg" = "-c" ] || [ "$arg" = "--config" ] || [[ "$arg" = --config=* ]]; then
+    playwright_config_args=()
+    break
+  fi
+done
+
 set +e
 PLAYWRIGHT_SKIP_BUILD=1 \
   PLAYWRIGHT_VITE_PORT="$PLAYWRIGHT_VITE_PORT" \
-  pnpm --filter samebase exec playwright test -c ${samebasePlaywrightConfigPath} "$@"
+  pnpm --filter samebase exec playwright test "${shellPlaywrightConfigArgs}" "$@"
 status=$?
 set -e
 
