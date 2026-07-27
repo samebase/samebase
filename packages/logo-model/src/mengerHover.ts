@@ -52,7 +52,8 @@ export type MengerHoverClearance = {
   axis: MengerHoleAxis;
   extentA: number;
   extentB: number;
-  placement: "cell" | "middle-third";
+  intervalA: readonly [number, number];
+  intervalB: readonly [number, number];
 };
 
 export type MengerHoverClearanceBox = {
@@ -61,8 +62,7 @@ export type MengerHoverClearanceBox = {
 };
 
 export type MengerHoverState = {
-  depthThree: MengerHoverMoveState[];
-  depthTwo: MengerHoverMoveState[];
+  stages: MengerHoverMoveState[][];
 };
 
 export function normalizeMengerHoverRevealRadius(value: number): number {
@@ -241,22 +241,33 @@ function readTangentAxes(axis: MengerHoleAxis): readonly [MengerHoleAxis, Menger
   }
 }
 
-function readDepthThreeBlockerMoveIndexes(
-  model: MengerDepthTransitionModel,
+type MengerHoverBlocker = {
+  intervalA: readonly [number, number];
+  intervalB: readonly [number, number];
+  moveIndex: number;
+};
+
+function readBlockers(
+  blockerStage: MengerDepthTransitionStage,
+  rayStage: MengerDepthTransitionStage,
   channel: number,
-): number[] {
-  const faceGridSize = model.depthThree.gridSize / 3;
+): MengerHoverBlocker[] {
+  const faceGridSize = rayStage.gridSize / 3;
   const { axis, coordinateA, coordinateB } = readChannelFaceCoordinates(channel, faceGridSize);
   const tangentAxes = readTangentAxes(axis);
   const coordinateAlongA = (coordinateA + 0.5) / faceGridSize;
   const coordinateAlongB = (coordinateB + 0.5) / faceGridSize;
+  const rayMinimumA = (coordinateA + 1 / 3) / faceGridSize;
+  const rayMaximumA = (coordinateA + 2 / 3) / faceGridSize;
+  const rayMinimumB = (coordinateB + 1 / 3) / faceGridSize;
+  const rayMaximumB = (coordinateB + 2 / 3) / faceGridSize;
 
-  const blockerMoveIndexes: number[] = [];
-  for (const [moveIndex, move] of model.depthTwo.moves.entries()) {
-    const minimumA = move.from[tangentAxes[0]] / model.depthTwo.gridSize;
-    const maximumA = (move.from[tangentAxes[0]] + 1) / model.depthTwo.gridSize;
-    const minimumB = move.from[tangentAxes[1]] / model.depthTwo.gridSize;
-    const maximumB = (move.from[tangentAxes[1]] + 1) / model.depthTwo.gridSize;
+  const blockers: MengerHoverBlocker[] = [];
+  for (const [moveIndex, move] of blockerStage.moves.entries()) {
+    const minimumA = move.from[tangentAxes[0]] / blockerStage.gridSize;
+    const maximumA = (move.from[tangentAxes[0]] + 1) / blockerStage.gridSize;
+    const minimumB = move.from[tangentAxes[1]] / blockerStage.gridSize;
+    const maximumB = (move.from[tangentAxes[1]] + 1) / blockerStage.gridSize;
     if (
       move.holeAxis !== axis &&
       coordinateAlongA >= minimumA &&
@@ -264,63 +275,85 @@ function readDepthThreeBlockerMoveIndexes(
       coordinateAlongB >= minimumB &&
       coordinateAlongB <= maximumB
     ) {
-      blockerMoveIndexes.push(moveIndex);
+      blockers.push({
+        intervalA: [
+          clampUnit((rayMinimumA - minimumA) * blockerStage.gridSize),
+          clampUnit((rayMaximumA - minimumA) * blockerStage.gridSize),
+        ],
+        intervalB: [
+          clampUnit((rayMinimumB - minimumB) * blockerStage.gridSize),
+          clampUnit((rayMaximumB - minimumB) * blockerStage.gridSize),
+        ],
+        moveIndex,
+      });
     }
   }
 
-  return blockerMoveIndexes;
+  return blockers;
 }
 
 /**
-Recomputes the depth-two clearance strips from the current depth-three move
-states. The caller can first smooth depth-three openness and then call this
-function, so each interior strip grows at the same rate as its visible
-depth-three opening.
+Recomputes every lower-stage clearance from the current deeper move states.
+The caller can first smooth openness and then call this function, so each
+interior strip grows at the same rate as its visible opening.
 */
-export function applyMengerHoverDepthThreeClearance(
+export function applyMengerHoverClearances(
   model: MengerDepthTransitionModel,
   state: MengerHoverState,
 ): void {
-  for (const moveState of state.depthTwo) {
-    moveState.clearances = [];
+  for (const stageState of state.stages) {
+    for (const moveState of stageState) {
+      moveState.clearances = [];
+    }
   }
 
-  const depthThreeFaceGridSize = model.depthThree.gridSize / 3;
-  const visitedChannels = new Set<number>();
-
-  model.depthThree.moves.forEach((move, moveIndex) => {
-    const channel = move.faceColumnChannel;
-    if (visitedChannels.has(channel)) {
-      return;
-    }
-    visitedChannels.add(channel);
-
-    const channelState = state.depthThree[moveIndex];
-    if (!channelState || channelState.openness <= 0) {
-      return;
+  for (let rayStageIndex = 1; rayStageIndex < model.stages.length; rayStageIndex += 1) {
+    const rayStage = model.stages[rayStageIndex];
+    const rayStageState = state.stages[rayStageIndex];
+    if (!rayStage || !rayStageState) {
+      throw new Error("Every Menger hover stage must resolve to its move state.");
     }
 
-    const blockerMoveIndexes = readDepthThreeBlockerMoveIndexes(model, channel);
-    if (blockerMoveIndexes.length === 0) {
-      return;
-    }
+    const rayFaceGridSize = rayStage.gridSize / 3;
+    const visitedChannels = new Set<number>();
+    rayStage.moves.forEach((move, moveIndex) => {
+      const channel = move.faceColumnChannel;
+      if (visitedChannels.has(channel)) {
+        return;
+      }
+      visitedChannels.add(channel);
 
-    const rayAxis = readChannelAxis(channel, depthThreeFaceGridSize);
-    for (const blockerMoveIndex of blockerMoveIndexes) {
-      const blockerState = state.depthTwo[blockerMoveIndex];
-      const blockerMove = model.depthTwo.moves[blockerMoveIndex];
-      if (!blockerState || !blockerMove || blockerMove.holeAxis === rayAxis) {
-        continue;
+      const channelState = rayStageState[moveIndex];
+      if (!channelState || channelState.openness <= 0) {
+        return;
       }
 
-      blockerState.clearances.push({
-        axis: rayAxis,
-        extentA: channelState.signA * channelState.openness ** channelState.weightA,
-        extentB: channelState.signB * channelState.openness ** (1 - channelState.weightA),
-        placement: "middle-third",
-      });
-    }
-  });
+      const rayAxis = readChannelAxis(channel, rayFaceGridSize);
+      for (let blockerStageIndex = 0; blockerStageIndex < rayStageIndex; blockerStageIndex += 1) {
+        const blockerStage = model.stages[blockerStageIndex];
+        const blockerStageState = state.stages[blockerStageIndex];
+        if (!blockerStage || !blockerStageState) {
+          throw new Error("Every lower Menger stage must resolve to its move state.");
+        }
+
+        for (const blocker of readBlockers(blockerStage, rayStage, channel)) {
+          const blockerState = blockerStageState[blocker.moveIndex];
+          const blockerMove = blockerStage.moves[blocker.moveIndex];
+          if (!blockerState || !blockerMove || blockerMove.holeAxis === rayAxis) {
+            continue;
+          }
+
+          blockerState.clearances.push({
+            axis: rayAxis,
+            extentA: channelState.signA * channelState.openness ** channelState.weightA,
+            extentB: channelState.signB * channelState.openness ** (1 - channelState.weightA),
+            intervalA: blocker.intervalA,
+            intervalB: blocker.intervalB,
+          });
+        }
+      }
+    });
+  }
 }
 
 /**
@@ -335,40 +368,29 @@ export function readMengerHoverState(
   directionProbe: MengerHoverProbe | null,
   revealRadius: number,
 ): MengerHoverState {
-  const depthTwoChannels = readStageChannelStates(
-    model.depthTwo,
-    probe,
-    directionProbe,
-    revealRadius,
-  );
-  const depthThreeChannels = readStageChannelStates(
-    model.depthThree,
-    probe,
-    directionProbe,
-    revealRadius,
-  );
   const state = {
-    depthTwo: toStageMoveStates(model.depthTwo, depthTwoChannels),
-    depthThree: toStageMoveStates(model.depthThree, depthThreeChannels),
+    stages: model.stages.map((stage) =>
+      toStageMoveStates(stage, readStageChannelStates(stage, probe, directionProbe, revealRadius)),
+    ),
   };
-  applyMengerHoverDepthThreeClearance(model, state);
+  applyMengerHoverClearances(model, state);
 
   return state;
 }
 
 function readClearanceInterval(
   extent: number,
-  placement: MengerHoverClearance["placement"],
+  interval: readonly [number, number],
 ): readonly [number, number] | null {
   if (extent === 0) {
     return null;
   }
 
-  if (placement === "cell") {
-    return extent > 0 ? [0, Math.abs(extent)] : [1 - Math.abs(extent), 1];
-  }
-
-  return extent > 0 ? [1 / 3, (1 + Math.abs(extent)) / 3] : [(2 - Math.abs(extent)) / 3, 2 / 3];
+  const [minimum, maximum] = interval;
+  const width = maximum - minimum;
+  return extent > 0
+    ? [minimum, minimum + width * Math.abs(extent)]
+    : [maximum - width * Math.abs(extent), maximum];
 }
 
 /**
@@ -380,8 +402,8 @@ export function readMengerHoverClearanceBoxes(
   clearances: MengerHoverClearance[],
 ): MengerHoverClearanceBox[] {
   const tunnels = clearances.flatMap((clearance) => {
-    const intervalA = readClearanceInterval(clearance.extentA, clearance.placement);
-    const intervalB = readClearanceInterval(clearance.extentB, clearance.placement);
+    const intervalA = readClearanceInterval(clearance.extentA, clearance.intervalA);
+    const intervalB = readClearanceInterval(clearance.extentB, clearance.intervalB);
     if (!intervalA || !intervalB) {
       return [];
     }

@@ -56,15 +56,16 @@ function expectStageShape(
 describe("Menger depth transition", () => {
   it("turns each packed subdivision into the exact next Menger depth", () => {
     expect(MENGER_DEPTH_TRANSITION_MODEL.depthOneVoxels).toHaveLength(20);
-    expectStageShape(MENGER_DEPTH_TRANSITION_MODEL.depthTwo, 20, 400, 120);
-    expectStageShape(MENGER_DEPTH_TRANSITION_MODEL.depthThree, 400, 8_000, 2_400);
+    const [depthTwo, depthThree] = MENGER_DEPTH_TRANSITION_MODEL.stages;
+    expectStageShape(depthTwo, 20, 400, 120);
+    if (!depthThree) {
+      throw new Error("The default Menger transition must include depth three.");
+    }
+    expectStageShape(depthThree, 400, 8_000, 2_400);
   });
 
   it("keeps every absorbed cube inside its original parent cube", () => {
-    for (const stage of [
-      MENGER_DEPTH_TRANSITION_MODEL.depthTwo,
-      MENGER_DEPTH_TRANSITION_MODEL.depthThree,
-    ]) {
+    for (const stage of MENGER_DEPTH_TRANSITION_MODEL.stages) {
       expect(
         stage.moves.every(
           (move) =>
@@ -77,10 +78,7 @@ describe("Menger depth transition", () => {
   });
 
   it("moves through face neighbours and finishes in retained cubes", () => {
-    for (const stage of [
-      MENGER_DEPTH_TRANSITION_MODEL.depthTwo,
-      MENGER_DEPTH_TRANSITION_MODEL.depthThree,
-    ]) {
+    for (const stage of MENGER_DEPTH_TRANSITION_MODEL.stages) {
       const directionKeys = new Set<string>();
       for (const move of stage.moves) {
         directionKeys.add(readDirectionKey(move.from, move.to));
@@ -100,10 +98,7 @@ describe("Menger depth transition", () => {
   });
 
   it("keeps every face-on channel on one hole axis and one movement direction", () => {
-    for (const stage of [
-      MENGER_DEPTH_TRANSITION_MODEL.depthTwo,
-      MENGER_DEPTH_TRANSITION_MODEL.depthThree,
-    ]) {
+    for (const stage of MENGER_DEPTH_TRANSITION_MODEL.stages) {
       const channels = new Map<number, typeof stage.moves>();
       for (const move of stage.moves) {
         const channelMoves = channels.get(move.faceColumnChannel) ?? [];
@@ -120,17 +115,21 @@ describe("Menger depth transition", () => {
   });
 
   it("holds the complete depth-two sponge before splitting it into depth three", () => {
-    expect(
-      MENGER_DEPTH_TRANSITION_MODEL.depthThree.splitTimeMs -
-        MENGER_DEPTH_TRANSITION_MODEL.depthTwo.endTimeMs,
-    ).toBe(MENGER_DEPTH_TRANSITION_DEPTH_HOLD_MS + MENGER_DEPTH_TRANSITION_SPLIT_HOLD_MS);
-    expect(MENGER_DEPTH_TRANSITION_MODEL.totalDurationMs).toBe(
-      MENGER_DEPTH_TRANSITION_MODEL.depthThree.endTimeMs,
+    const [depthTwo, depthThree] = MENGER_DEPTH_TRANSITION_MODEL.stages;
+    if (!depthThree) {
+      throw new Error("The default Menger transition must include depth three.");
+    }
+    expect(depthThree.splitTimeMs - depthTwo.endTimeMs).toBe(
+      MENGER_DEPTH_TRANSITION_DEPTH_HOLD_MS + MENGER_DEPTH_TRANSITION_SPLIT_HOLD_MS,
     );
+    expect(MENGER_DEPTH_TRANSITION_MODEL.totalDurationMs).toBe(depthThree.endTimeMs);
   });
 
   it("selects stages at the exact split boundaries", () => {
-    const { depthThree, depthTwo } = MENGER_DEPTH_TRANSITION_MODEL;
+    const [depthTwo, depthThree] = MENGER_DEPTH_TRANSITION_MODEL.stages;
+    if (!depthThree) {
+      throw new Error("The default Menger transition must include depth three.");
+    }
 
     expect(
       readMengerDepthTransitionStage(MENGER_DEPTH_TRANSITION_MODEL, depthTwo.splitTimeMs),
@@ -147,7 +146,7 @@ describe("Menger depth transition", () => {
   });
 
   it("returns eased move progress until the move settles", () => {
-    const move = MENGER_DEPTH_TRANSITION_MODEL.depthTwo.moves[0];
+    const move = MENGER_DEPTH_TRANSITION_MODEL.stages[0].moves[0];
     if (!move) {
       throw new Error("The depth-two transition must contain a move.");
     }
@@ -168,9 +167,24 @@ describe("Menger depth transition", () => {
   });
 
   it("uses the default stagger count for non-finite input", () => {
-    const model = createMengerDepthTransitionModel(Number.NaN);
-    const startTimes = new Set(model.depthTwo.moves.map((move) => move.startTimeMs));
+    const model = createMengerDepthTransitionModel({ staggerGroupCount: Number.NaN });
+    const startTimes = new Set(model.stages[0].moves.map((move) => move.startTimeMs));
 
     expect(startTimes.size).toBe(MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT);
+  });
+
+  it("builds ordered stages through an explicit maximum depth", () => {
+    const model = createMengerDepthTransitionModel({
+      maximumDepth: 4,
+      staggerGroupCount: 1,
+    });
+
+    expect(model.stages.map((stage) => stage.depth)).toEqual([2, 3, 4]);
+    const depthFour = model.stages[2];
+    if (!depthFour) {
+      throw new Error("The explicit depth-four model must include depth four.");
+    }
+    expectStageShape(depthFour, 8_000, 160_000, 48_000);
+    expect(model.totalDurationMs).toBe(depthFour.endTimeMs);
   });
 });

@@ -30,7 +30,7 @@ export type MengerDepthTransitionMove = {
 export type MengerHoleAxis = 0 | 1 | 2;
 
 export type MengerDepthTransitionStage = {
-  depth: 2 | 3;
+  depth: number;
   endTimeMs: number;
   gridSize: number;
   moves: MengerDepthTransitionMove[];
@@ -41,8 +41,7 @@ export type MengerDepthTransitionStage = {
 
 export type MengerDepthTransitionModel = {
   depthOneVoxels: VoxelCoordinate[];
-  depthThree: MengerDepthTransitionStage;
-  depthTwo: MengerDepthTransitionStage;
+  stages: [MengerDepthTransitionStage, ...MengerDepthTransitionStage[]];
   totalDurationMs: number;
 };
 
@@ -59,11 +58,11 @@ export function readMengerDepthTransitionStage(
   model: MengerDepthTransitionModel,
   elapsedMs: number,
 ): MengerDepthTransitionStage | null {
-  if (elapsedMs > model.depthThree.splitTimeMs) {
-    return model.depthThree;
-  }
-  if (elapsedMs > model.depthTwo.splitTimeMs) {
-    return model.depthTwo;
+  for (let stageIndex = model.stages.length - 1; stageIndex >= 0; stageIndex -= 1) {
+    const stage = model.stages[stageIndex];
+    if (stage && elapsedMs > stage.splitTimeMs) {
+      return stage;
+    }
   }
 
   return null;
@@ -311,9 +310,17 @@ function createMengerDepthTransitionStage(
   };
 }
 
-export function createMengerDepthTransitionModel(
-  requestedStaggerGroupCount: number,
-): MengerDepthTransitionModel {
+export function createMengerDepthTransitionModel({
+  maximumDepth = 3,
+  staggerGroupCount: requestedStaggerGroupCount,
+}: {
+  maximumDepth?: number;
+  staggerGroupCount: number;
+}): MengerDepthTransitionModel {
+  if (!Number.isInteger(maximumDepth) || maximumDepth < 2) {
+    throw new Error("Menger transition depth must be an integer of at least 2.");
+  }
+
   const finiteStaggerGroupCount = Number.isFinite(requestedStaggerGroupCount)
     ? requestedStaggerGroupCount
     : MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT;
@@ -323,19 +330,26 @@ export function createMengerDepthTransitionModel(
   );
   const depthOneVoxels = readMengerCoordinates();
   const depthTwo = createMengerDepthTransitionStage(depthOneVoxels, 2, 0, staggerGroupCount);
-  const depthThree = createMengerDepthTransitionStage(
-    depthTwo.settledVoxels,
-    3,
-    depthTwo.endTimeMs + MENGER_DEPTH_TRANSITION_DEPTH_HOLD_MS,
-    staggerGroupCount,
-  );
+  const stages: [MengerDepthTransitionStage, ...MengerDepthTransitionStage[]] = [depthTwo];
+  let previousStage = depthTwo;
+  for (let depth = 3; depth <= maximumDepth; depth += 1) {
+    const stage = createMengerDepthTransitionStage(
+      previousStage.settledVoxels,
+      depth,
+      previousStage.endTimeMs + MENGER_DEPTH_TRANSITION_DEPTH_HOLD_MS,
+      staggerGroupCount,
+    );
+    stages.push(stage);
+    previousStage = stage;
+  }
 
   return {
     depthOneVoxels,
-    depthThree,
-    depthTwo,
-    totalDurationMs: depthThree.endTimeMs,
+    stages,
+    totalDurationMs: previousStage.endTimeMs,
   };
 }
 
-export const MENGER_DEPTH_TRANSITION_MODEL = createMengerDepthTransitionModel(1);
+export const MENGER_DEPTH_TRANSITION_MODEL = createMengerDepthTransitionModel({
+  staggerGroupCount: 1,
+});

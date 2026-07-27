@@ -63,9 +63,9 @@ type PlannedShuffleMove = {
 type LogoSceneKind = "canonical" | "menger-transition" | "shuffling";
 
 const canonicalFilledVoxels = createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
-const mengerDepthTransitionModel = createMengerDepthTransitionModel(
-  MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT,
-);
+const mengerDepthTransitionModel = createMengerDepthTransitionModel({
+  staggerGroupCount: MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT,
+});
 
 function mix(from: number, to: number, progress: number): number {
   return from + (to - from) * progress;
@@ -109,13 +109,11 @@ const mengerDepthOneSurface = buildSurfaceMeshes(
   createFilledVoxelSet(mengerDepthTransitionModel.depthOneVoxels),
   STATIC_LOGO_GRID_SIZE,
 );
-const mengerDepthTwoSurface = buildSurfaceMeshes(
-  createFilledVoxelSet(mengerDepthTransitionModel.depthTwo.settledVoxels),
-  mengerDepthTransitionModel.depthTwo.gridSize,
-);
-const mengerDepthThreeSurface = buildSurfaceMeshes(
-  createFilledVoxelSet(mengerDepthTransitionModel.depthThree.settledVoxels),
-  mengerDepthTransitionModel.depthThree.gridSize,
+const mengerDepthSurfaces = new Map(
+  mengerDepthTransitionModel.stages.map((stage) => [
+    stage.depth,
+    buildSurfaceMeshes(createFilledVoxelSet(stage.settledVoxels), stage.gridSize),
+  ]),
 );
 
 function planShuffleMoves(): PlannedShuffleMove[] {
@@ -295,7 +293,10 @@ function MengerDepthTransition({ elapsedMs }: { elapsedMs: number }) {
     return <Surface meshes={mengerDepthOneSurface} />;
   }
 
-  const surface = stage.depth === 2 ? mengerDepthTwoSurface : mengerDepthThreeSurface;
+  const surface = mengerDepthSurfaces.get(stage.depth);
+  if (!surface) {
+    throw new Error("Every Menger transition stage must have a surface.");
+  }
   return (
     <group scale={STATIC_LOGO_GRID_SIZE / stage.gridSize}>
       <Surface meshes={surface} />
