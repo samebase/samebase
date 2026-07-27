@@ -3,10 +3,7 @@ import {
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
   LOGO_ISOMETRIC_CUBE_SIDE_PIXELS,
 } from "@/components/logo/logoIsometricRenderer";
-import {
-  getLogoRendererFractalDepthHardMax,
-  MAX_LOGO_FRACTAL_DEPTH,
-} from "@/components/logo/logoDepthLimits";
+import { MAX_LOGO_FRACTAL_DEPTH } from "@/components/logo/logoDepthLimits";
 import { DEFAULT_LOGO_THEME_COLORS } from "@/components/logo/logoTailwindColors";
 import { LOGO_DISTANCE_SCALE } from "@/components/logo/logoDistanceScale";
 import { LOGO_PREVIEW_ZOOM } from "@/components/logo/logoPreviewZoom";
@@ -553,18 +550,18 @@ describe("logoRouteSearch", () => {
     ).toEqual({ depth: MAX_LOGO_FRACTAL_DEPTH });
   });
 
-  it("caps logo depth at renderer recovery limits", () => {
+  it("caps logo depth at renderer recovery limits without rendering", () => {
     expect(validateLogoRouteSearchForRenderer("svg")({ depth: "99" })).toEqual({
-      depth: getLogoRendererFractalDepthHardMax("svg"),
+      depth: 3,
     });
     expect(validateLogoRouteSearchForRenderer("three")({ depth: "99" })).toEqual({
-      depth: getLogoRendererFractalDepthHardMax("three"),
+      depth: 5,
     });
     expect(validateLogoRouteSearchForRenderer("raster")({ depth: "99" })).toEqual({
-      depth: getLogoRendererFractalDepthHardMax("raster"),
+      depth: 10,
     });
     expect(validateLogoRouteSearchForRenderer("iso")({ depth: "99" })).toEqual({
-      depth: getLogoRendererFractalDepthHardMax("iso"),
+      depth: 10,
     });
   });
 
