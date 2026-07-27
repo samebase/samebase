@@ -369,15 +369,24 @@ function MengerDepthTransitionScene({
         const ownB = moveState.signB * slideB;
         const componentA = Math.abs(ownA) >= Math.abs(moveState.forcedA) ? ownA : moveState.forcedA;
         const componentB = Math.abs(ownB) >= Math.abs(moveState.forcedB) ? ownB : moveState.forcedB;
-        const offset: [number, number, number] = [0, 0, 0];
-        matrix.makeScale(voxelSize, voxelSize, voxelSize);
-        offset[tangentAxisA] = componentA * voxelSize;
-        offset[tangentAxisB] = moveState.forcedB * voxelSize;
-        matrix.setPosition(startX + offset[0], startY + offset[1], startZ + offset[2]);
+        // A cover never enters its neighbor cell: the leading edge clamps at
+        // the cell boundary, so the cover compresses into the seam (span
+        // [d, 1] of its home cell, scale 1 - |d|, center shifted d / 2). A
+        // translated full cube used to blanket the neighbor's own depth-3
+        // hole whenever it parked, which silently closed nearby holes.
+        const writeCoverMatrix = (slideTangentA: number, slideTangentB: number) => {
+          const scales: [number, number, number] = [1, 1, 1];
+          const offsets: [number, number, number] = [0, 0, 0];
+          scales[tangentAxisA] = Math.max(0, 1 - Math.abs(slideTangentA));
+          scales[tangentAxisB] = Math.max(0, 1 - Math.abs(slideTangentB));
+          offsets[tangentAxisA] = (slideTangentA / 2) * voxelSize;
+          offsets[tangentAxisB] = (slideTangentB / 2) * voxelSize;
+          matrix.makeScale(scales[0] * voxelSize, scales[1] * voxelSize, scales[2] * voxelSize);
+          matrix.setPosition(startX + offsets[0], startY + offsets[1], startZ + offsets[2]);
+        };
+        writeCoverMatrix(componentA, moveState.forcedB);
         coverAMesh.setMatrixAt(index, matrix);
-        offset[tangentAxisA] = moveState.forcedA * voxelSize;
-        offset[tangentAxisB] = componentB * voxelSize;
-        matrix.setPosition(startX + offset[0], startY + offset[1], startZ + offset[2]);
+        writeCoverMatrix(moveState.forcedA, componentB);
         coverBMesh.setMatrixAt(index, matrix);
       });
 

@@ -8,6 +8,14 @@ export const MENGER_HOVER_MIN_REVEAL_RADIUS = 0.05;
 export const MENGER_HOVER_MAX_REVEAL_RADIUS = 1;
 export const MENGER_HOVER_DEFAULT_REVEAL_RADIUS = 0.55;
 const MENGER_HOVER_FULL_OPEN_RADIUS_FRACTION = 0.25;
+/**
+A crossed pair only clears its ray column after dodging 2/3 of a cell, so an
+unboosted dodge left every partially open depth-three rect showing the dark
+blocker face behind it, which reads as closed against the dark surface. The
+boost pushes blockers fully out while a ray is still about a third open, so
+an open rect shows through-white immediately, like the carpet.
+*/
+const MENGER_HOVER_RAY_DODGE_BOOST = 3;
 
 /**
 Unit sponge coordinates: the full cube spans [0, 1] on every axis.
@@ -346,14 +354,13 @@ export function readMengerHoverState(
         continue;
       }
 
+      const dodge = Math.min(1, channelState.openness * MENGER_HOVER_RAY_DODGE_BOOST);
       const dodgeAxis = readPerpendicularAxis(blockerMove.holeAxis, rayAxis);
       const blockerTangentAxisA = blockerMove.holeAxis === 0 ? 1 : 0;
       if (dodgeAxis === blockerTangentAxisA) {
-        blockerState.forcedA =
-          blockerState.signA * Math.max(Math.abs(blockerState.forcedA), channelState.openness);
+        blockerState.forcedA = blockerState.signA * Math.max(Math.abs(blockerState.forcedA), dodge);
       } else {
-        blockerState.forcedB =
-          blockerState.signB * Math.max(Math.abs(blockerState.forcedB), channelState.openness);
+        blockerState.forcedB = blockerState.signB * Math.max(Math.abs(blockerState.forcedB), dodge);
       }
     }
   });
