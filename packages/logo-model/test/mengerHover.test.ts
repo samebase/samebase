@@ -124,6 +124,20 @@ describe("Menger hover", () => {
     for (const blockerMoveIndex of blockerMoveIndexes) {
       expect(state.depthTwo[blockerMoveIndex]?.forcedA).toBe(1);
     }
+
+    // The force is a signed slide: from the other side of the ray the same
+    // covers dodge the other way, so smoothing sweeps them through the
+    // column on a side switch instead of teleporting.
+    const aboveProbe = { outsideDistance: 0, x: 0.5 / 9, y: 1.5 / 9 + 0.05, z: 1 };
+    const aboveState = readMengerHoverState(
+      model,
+      aboveProbe,
+      aboveProbe,
+      MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
+    );
+    for (const blockerMoveIndex of blockerMoveIndexes) {
+      expect(aboveState.depthTwo[blockerMoveIndex]?.forcedA).toBeLessThan(0);
+    }
   });
 
   it("fades openness with the pointer's outside distance", () => {

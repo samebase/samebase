@@ -362,14 +362,21 @@ function MengerDepthTransitionScene({
         const tangentAxisA = move.holeAxis === 0 ? 1 : 0;
         const tangentAxisB = move.holeAxis === 2 ? 1 : 2;
         const [startX, startY, startZ] = toWorldCoordinate(move.from, stage.gridSize);
+        // The larger magnitude wins on a cover's native axis: the own slide
+        // keeps its instant hidden sign flips, while the signed smoothed
+        // force sweeps a dodged cover through the column on a side switch.
+        const ownA = moveState.signA * slideA;
+        const ownB = moveState.signB * slideB;
+        const componentA = Math.abs(ownA) >= Math.abs(moveState.forcedA) ? ownA : moveState.forcedA;
+        const componentB = Math.abs(ownB) >= Math.abs(moveState.forcedB) ? ownB : moveState.forcedB;
         const offset: [number, number, number] = [0, 0, 0];
         matrix.makeScale(voxelSize, voxelSize, voxelSize);
-        offset[tangentAxisA] = moveState.signA * Math.max(slideA, moveState.forcedA) * voxelSize;
-        offset[tangentAxisB] = moveState.signB * moveState.forcedB * voxelSize;
+        offset[tangentAxisA] = componentA * voxelSize;
+        offset[tangentAxisB] = moveState.forcedB * voxelSize;
         matrix.setPosition(startX + offset[0], startY + offset[1], startZ + offset[2]);
         coverAMesh.setMatrixAt(index, matrix);
-        offset[tangentAxisA] = moveState.signA * moveState.forcedA * voxelSize;
-        offset[tangentAxisB] = moveState.signB * Math.max(slideB, moveState.forcedB) * voxelSize;
+        offset[tangentAxisA] = moveState.forcedA * voxelSize;
+        offset[tangentAxisB] = componentB * voxelSize;
         matrix.setPosition(startX + offset[0], startY + offset[1], startZ + offset[2]);
         coverBMesh.setMatrixAt(index, matrix);
       });

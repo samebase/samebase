@@ -36,10 +36,14 @@ inside the solid sibling ring, so the flip is never visible.
 forcedA and forcedB are ray dodges: when an open depth-three view ray
 crosses a depth-two pair from another hole axis, motion along the ray can
 never clear the column, so both covers gain a displacement on the axis
-perpendicular to hole and ray, ramping with the ray's openness. The renderer
-applies forcedA to both covers' A-axis components (max with the own slide on
-cover A) and forcedB likewise, so a forced pair leaves the crossed column
-entirely. Depth-three movers are never crossed and keep both at 0.
+perpendicular to hole and ray, ramping with the ray's openness. They are
+SIGNED slides in cell units: nothing hides a dodged cover at a side switch,
+so the renderer smooths the signed value and the cover sweeps back through
+the column instead of teleporting between sides. The renderer applies
+forcedA to both covers' A-axis components (the larger magnitude of own
+slide and force wins on the cover's native axis) and forcedB likewise, so a
+forced pair leaves the crossed column entirely. Depth-three movers are
+never crossed and keep both at 0.
 
 Tangent axis order matches readChannelTangentDeltas: hole axis 0 pairs
 (y, z), hole axis 1 pairs (x, z), hole axis 2 pairs (x, y).
@@ -345,9 +349,11 @@ export function readMengerHoverState(
       const dodgeAxis = readPerpendicularAxis(blockerMove.holeAxis, rayAxis);
       const blockerTangentAxisA = blockerMove.holeAxis === 0 ? 1 : 0;
       if (dodgeAxis === blockerTangentAxisA) {
-        blockerState.forcedA = Math.max(blockerState.forcedA, channelState.openness);
+        blockerState.forcedA =
+          blockerState.signA * Math.max(Math.abs(blockerState.forcedA), channelState.openness);
       } else {
-        blockerState.forcedB = Math.max(blockerState.forcedB, channelState.openness);
+        blockerState.forcedB =
+          blockerState.signB * Math.max(Math.abs(blockerState.forcedB), channelState.openness);
       }
     }
   });
