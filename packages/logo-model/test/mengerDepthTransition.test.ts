@@ -99,6 +99,26 @@ describe("Menger depth transition", () => {
     }
   });
 
+  it("keeps every face-on channel on one hole axis and one movement direction", () => {
+    for (const stage of [
+      MENGER_DEPTH_TRANSITION_MODEL.depthTwo,
+      MENGER_DEPTH_TRANSITION_MODEL.depthThree,
+    ]) {
+      const channels = new Map<number, typeof stage.moves>();
+      for (const move of stage.moves) {
+        const channelMoves = channels.get(move.faceColumnChannel) ?? [];
+        channelMoves.push(move);
+        channels.set(move.faceColumnChannel, channelMoves);
+      }
+
+      for (const moves of channels.values()) {
+        expect(moves.length % 2).toBe(0);
+        expect(new Set(moves.map((move) => move.holeAxis)).size).toBe(1);
+        expect(new Set(moves.map((move) => readDirectionKey(move.from, move.to))).size).toBe(1);
+      }
+    }
+  });
+
   it("holds the complete depth-two sponge before splitting it into depth three", () => {
     expect(
       MENGER_DEPTH_TRANSITION_MODEL.depthThree.splitTimeMs -

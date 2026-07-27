@@ -128,18 +128,25 @@ test.describe("Menger sponge on a high-density phone", () => {
     const canvas = scene.locator("canvas");
     const workspaceLayout = page.locator("[data-workspace-layout-v2]");
 
-    await page.getByTestId("workspace-layout-v2-pane-main").evaluate((carousel) => {
-      const mainPane = carousel.querySelector("[data-workspace-layout-v2-mobile-main-pane]");
-      if (!(mainPane instanceof HTMLElement)) {
-        throw new Error("Expected the mobile main pane.");
-      }
+    // The carousel scroll can race pane detection while the page is still
+    // settling under parallel-suite load, so retry the scroll until the
+    // layout reports the main pane.
+    await expect(async () => {
+      await page.getByTestId("workspace-layout-v2-pane-main").evaluate((carousel) => {
+        const mainPane = carousel.querySelector("[data-workspace-layout-v2-mobile-main-pane]");
+        if (!(mainPane instanceof HTMLElement)) {
+          throw new Error("Expected the mobile main pane.");
+        }
 
-      carousel.style.scrollSnapType = "none";
-      carousel.scrollLeft =
-        mainPane.offsetLeft - Number.parseFloat(window.getComputedStyle(carousel).paddingLeft);
-      carousel.dispatchEvent(new Event("scroll", { bubbles: true }));
-    });
-    await expect(workspaceLayout).toHaveAttribute("data-mobile-pane", "main");
+        carousel.style.scrollSnapType = "none";
+        carousel.scrollLeft =
+          mainPane.offsetLeft - Number.parseFloat(window.getComputedStyle(carousel).paddingLeft);
+        carousel.dispatchEvent(new Event("scroll", { bubbles: true }));
+      });
+      await expect(workspaceLayout).toHaveAttribute("data-mobile-pane", "main", {
+        timeout: 1_000,
+      });
+    }).toPass({ timeout: 20_000 });
     await expect(canvas).toBeVisible();
     const layoutMetrics = await transitionPage.evaluate((element) => {
       const sceneElement = element.querySelector(

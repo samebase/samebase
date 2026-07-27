@@ -20,10 +20,14 @@ const FACE_NEIGHBOR_OFFSETS: readonly VoxelCoordinate[] = [
 ];
 
 export type MengerDepthTransitionMove = {
+  faceColumnChannel: number;
   from: VoxelCoordinate;
+  holeAxis: MengerHoleAxis;
   startTimeMs: number;
   to: VoxelCoordinate;
 };
+
+export type MengerHoleAxis = 0 | 1 | 2;
 
 export type MengerDepthTransitionStage = {
   depth: 2 | 3;
@@ -152,10 +156,9 @@ function createStaggerGroups(
 
 function readFaceColumnChannel(
   parent: VoxelCoordinate,
-  child: VoxelCoordinate,
+  holeAxis: MengerHoleAxis,
   faceGridSize: number,
 ): number {
-  const holeAxis = child.findIndex((axis) => axis !== 1);
   // Ignore depth along the hole axis so an entire face-on ray shares one
   // movement pattern and one start time.
   let faceCoordinateA: number;
@@ -174,10 +177,22 @@ function readFaceColumnChannel(
       faceCoordinateB = parent[1];
       break;
     default:
-      throw new Error("Every absorbed Menger child must identify a hole axis.");
+      return holeAxis satisfies never;
   }
 
   return holeAxis * faceGridSize * faceGridSize + faceCoordinateA * faceGridSize + faceCoordinateB;
+}
+
+function readHoleAxis(child: VoxelCoordinate): MengerHoleAxis {
+  const holeAxis = child.findIndex((axis) => axis !== 1);
+  switch (holeAxis) {
+    case 0:
+    case 1:
+    case 2:
+      return holeAxis;
+    default:
+      throw new Error("Every absorbed Menger child must identify a hole axis.");
+  }
 }
 
 function readFaceNeighbors(child: VoxelCoordinate): VoxelCoordinate[] {
@@ -243,7 +258,12 @@ function createMengerDepthTransitionStage(
             continue;
           }
 
-          const faceColumnChannel = readFaceColumnChannel(parent, child, stageStagger.faceGridSize);
+          const holeAxis = readHoleAxis(child);
+          const faceColumnChannel = readFaceColumnChannel(
+            parent,
+            holeAxis,
+            stageStagger.faceGridSize,
+          );
           const destinationChild = readDestinationChild(
             child,
             faceColumnChannel,
@@ -255,7 +275,9 @@ function createMengerDepthTransitionStage(
             throw new Error("Every Menger transition move must resolve to a stagger group.");
           }
           moves.push({
+            faceColumnChannel,
             from: coordinate,
+            holeAxis,
             startTimeMs:
               splitTimeMs +
               (staggerGroup * MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS) /

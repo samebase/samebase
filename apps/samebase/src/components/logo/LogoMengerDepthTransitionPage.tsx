@@ -5,11 +5,20 @@ import {
   MENGER_DEPTH_TRANSITION_MAX_STAGGER_GROUP_COUNT,
   MENGER_DEPTH_TRANSITION_MODEL,
   createMengerDepthTransitionModel,
+  easeMengerDepthTransitionProgress,
   readMengerDepthTransitionMoveProgress,
   readMengerDepthTransitionStage,
   type MengerDepthTransitionModel,
   type MengerDepthTransitionStage,
 } from "@samebase/logo-model/menger-depth-transition";
+import {
+  MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
+  MENGER_HOVER_MAX_REVEAL_RADIUS,
+  MENGER_HOVER_MIN_REVEAL_RADIUS,
+  normalizeMengerHoverRevealRadius,
+  readMengerHoverMoveState,
+  type MengerHoverProbe,
+} from "@samebase/logo-model/menger-hover";
 import { readLogoRouteRenderState } from "@/components/logo/logoRouteRenderState";
 import {
   getWorldCameraVector,
@@ -46,6 +55,12 @@ const RENDER_PIXEL_RATIO_MAX = 2;
 const TRANSITION_PROGRESS_STEPS = 1_000;
 
 type TransitionPhase = "depth-1" | "depth-2" | "depth-3" | "transition";
+type MengerResearchMode = "hover" | "transition";
+
+type ClientPoint = {
+  x: number;
+  y: number;
+};
 
 function toWorldCoordinate(
   coordinate: VoxelCoordinate,
@@ -75,6 +90,8 @@ function writeVoxelMatrix(
 function MengerDepthTransitionScene({
   elevationDegrees,
   faceColors,
+  hoverRevealRadius,
+  mode,
   model,
   onInteractionEnd,
   onViewChange,
@@ -84,6 +101,8 @@ function MengerDepthTransitionScene({
 }: {
   elevationDegrees: number;
   faceColors: FaceColors;
+  hoverRevealRadius: number;
+  mode: MengerResearchMode;
   model: MengerDepthTransitionModel;
   onInteractionEnd: (finalView: LogoViewState) => void;
   onViewChange: (nextView: LogoViewState) => void;
@@ -92,6 +111,9 @@ function MengerDepthTransitionScene({
   viewSnapEnabled: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const clientPointerRef = useRef<ClientPoint | null>(null);
+  const hoverRevealRadiusRef = useRef(hoverRevealRadius);
+  const modeRef = useRef(mode);
   const modelRef = useRef(model);
   const progressRef = useRef(progress);
   const renderProgressRef = useRef<(nextProgress: number) => void>(() => {});
@@ -131,6 +153,16 @@ function MengerDepthTransitionScene({
     container.replaceChildren(renderer.domElement);
 
     const geometry = new THREE.BoxGeometry(1, 1, 1);
+    const hoverProxyGeometry = new THREE.BoxGeometry(
+      MENGER_DEPTH_TRANSITION_WORLD_SIZE,
+      MENGER_DEPTH_TRANSITION_WORLD_SIZE,
+      MENGER_DEPTH_TRANSITION_WORLD_SIZE,
+    );
+    const hoverProxyMaterial = new THREE.MeshBasicMaterial();
+    const hoverProxy = new THREE.Mesh(hoverProxyGeometry, hoverProxyMaterial);
+    hoverProxy.visible = false;
+    const raycaster = new THREE.Raycaster();
+    const pointerNdc = new THREE.Vector2();
     const rightMaterial = new THREE.MeshBasicMaterial({
       color: rightFaceColor,
     });
@@ -177,6 +209,7 @@ function MengerDepthTransitionScene({
     depthThreeMovingMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     const logoGroup = new THREE.Group();
     logoGroup.add(
+      hoverProxy,
       depthOneMesh,
       depthTwoSettledMesh,
       depthTwoMovingMesh,
@@ -241,18 +274,124 @@ function MengerDepthTransitionScene({
       movingMesh.instanceMatrix.needsUpdate = true;
     };
 
+    const clearHoverProbe = () => {
+      delete container.dataset.hoverCoordinateA;
+      delete container.dataset.hoverCoordinateB;
+      delete container.dataset.hoverFace;
+    };
+
+    const readHoverProbe = (): MengerHoverProbe | null => {
+      const clientPointer = clientPointerRef.current;
+      if (clientPointer === null) {
+        clearHoverProbe();
+        return null;
+      }
+
+      const bounds = renderer.domElement.getBoundingClientRect();
+      if (
+        clientPointer.x < bounds.left ||
+        clientPointer.x > bounds.right ||
+        clientPointer.y < bounds.top ||
+        clientPointer.y > bounds.bottom
+      ) {
+        clearHoverProbe();
+        return null;
+      }
+
+      pointerNdc.set(
+        ((clientPointer.x - bounds.left) / bounds.width) * 2 - 1,
+        -((clientPointer.y - bounds.top) / bounds.height) * 2 + 1,
+      );
+      raycaster.setFromCamera(pointerNdc, camera);
+      const intersections = raycaster.intersectObject(hoverProxy, false);
+      if (intersections.length === 0) {
+        clearHoverProbe();
+        return null;
+      }
+
+      const intersection = intersections[0];
+      const face = intersection.face;
+      if (!face) {
+        clearHoverProbe();
+        return null;
+      }
+
+      const faceNormal = face.normal;
+      const localPoint = logoGroup.worldToLocal(intersection.point.clone());
+      const absoluteX = Math.abs(faceNormal.x);
+      const absoluteY = Math.abs(faceNormal.y);
+      const absoluteZ = Math.abs(faceNormal.z);
+      let probe: MengerHoverProbe;
+      let faceLabel: string;
+      if (absoluteX >= absoluteY && absoluteX >= absoluteZ) {
+        const faceSign = faceNormal.x >= 0 ? 1 : -1;
+        probe = {
+          coordinateA: localPoint.y / MENGER_DEPTH_TRANSITION_WORLD_SIZE + 0.5,
+          coordinateB: localPoint.z / MENGER_DEPTH_TRANSITION_WORLD_SIZE + 0.5,
+          holeAxis: 0,
+        };
+        faceLabel = faceSign > 0 ? "+X" : "-X";
+      } else if (absoluteY >= absoluteZ) {
+        const faceSign = faceNormal.y >= 0 ? 1 : -1;
+        probe = {
+          coordinateA: localPoint.x / MENGER_DEPTH_TRANSITION_WORLD_SIZE + 0.5,
+          coordinateB: localPoint.z / MENGER_DEPTH_TRANSITION_WORLD_SIZE + 0.5,
+          holeAxis: 1,
+        };
+        faceLabel = faceSign > 0 ? "+Y" : "-Y";
+      } else {
+        const faceSign = faceNormal.z >= 0 ? 1 : -1;
+        probe = {
+          coordinateA: localPoint.x / MENGER_DEPTH_TRANSITION_WORLD_SIZE + 0.5,
+          coordinateB: localPoint.y / MENGER_DEPTH_TRANSITION_WORLD_SIZE + 0.5,
+          holeAxis: 2,
+        };
+        faceLabel = faceSign > 0 ? "+Z" : "-Z";
+      }
+
+      container.dataset.hoverCoordinateA = probe.coordinateA.toFixed(3);
+      container.dataset.hoverCoordinateB = probe.coordinateB.toFixed(3);
+      container.dataset.hoverFace = faceLabel;
+
+      return probe;
+    };
+
+    const renderHoverMoves = (
+      stage: MengerDepthTransitionStage,
+      movingMesh: THREE.InstancedMesh,
+      probe: MengerHoverProbe | null,
+    ) => {
+      const voxelSize = MENGER_DEPTH_TRANSITION_WORLD_SIZE / stage.gridSize;
+      stage.moves.forEach((move, index) => {
+        const hoverState = readMengerHoverMoveState(
+          move,
+          stage,
+          probe,
+          hoverRevealRadiusRef.current,
+        );
+        if (hoverState.openness >= 1) {
+          matrix.makeScale(0, 0, 0);
+          movingMesh.setMatrixAt(index, matrix);
+          return;
+        }
+
+        const moveProgress = easeMengerDepthTransitionProgress(hoverState.openness);
+        const [startX, startY, startZ] = toWorldCoordinate(move.from, stage.gridSize);
+        const [endX, endY, endZ] = toWorldCoordinate(hoverState.to, stage.gridSize);
+        matrix.makeScale(voxelSize, voxelSize, voxelSize);
+        matrix.setPosition(
+          startX + (endX - startX) * moveProgress,
+          startY + (endY - startY) * moveProgress,
+          startZ + (endZ - startZ) * moveProgress,
+        );
+        movingMesh.setMatrixAt(index, matrix);
+      });
+
+      movingMesh.instanceMatrix.needsUpdate = true;
+    };
+
     const renderProgress = (nextProgress: number) => {
       const currentModel = modelRef.current;
-      const elapsedMs = THREE.MathUtils.clamp(nextProgress, 0, 1) * currentModel.totalDurationMs;
-      const stage = readMengerDepthTransitionStage(currentModel, elapsedMs);
-      depthOneMesh.visible = stage === null;
-      depthTwoSettledMesh.visible = stage?.depth === 2;
-      depthTwoMovingMesh.visible = stage?.depth === 2;
-      depthThreeSettledMesh.visible = stage?.depth === 3;
-      depthThreeMovingMesh.visible = stage?.depth === 3;
-
-      renderStageMoves(currentModel.depthTwo, depthTwoMovingMesh, elapsedMs);
-      renderStageMoves(currentModel.depthThree, depthThreeMovingMesh, elapsedMs);
       const view = viewRef.current;
       const [cameraX, cameraY, cameraZ] = getWorldCameraVector(view.elevationDegrees);
       const [upX, upY, upZ] = getWorldScreenVerticalAxis(view.elevationDegrees);
@@ -262,6 +401,29 @@ function MengerDepthTransitionScene({
       logoGroup.rotation.y = THREE.MathUtils.degToRad(
         toRenderedRotationDegrees(view.rotationDegrees),
       );
+      camera.updateMatrixWorld();
+      logoGroup.updateMatrixWorld(true);
+
+      if (modeRef.current === "hover") {
+        depthOneMesh.visible = false;
+        depthTwoSettledMesh.visible = true;
+        depthTwoMovingMesh.visible = true;
+        depthThreeSettledMesh.visible = false;
+        depthThreeMovingMesh.visible = false;
+        renderHoverMoves(currentModel.depthTwo, depthTwoMovingMesh, readHoverProbe());
+      } else {
+        clearHoverProbe();
+        const elapsedMs = THREE.MathUtils.clamp(nextProgress, 0, 1) * currentModel.totalDurationMs;
+        const stage = readMengerDepthTransitionStage(currentModel, elapsedMs);
+        depthOneMesh.visible = stage === null;
+        depthTwoSettledMesh.visible = stage?.depth === 2;
+        depthTwoMovingMesh.visible = stage?.depth === 2;
+        depthThreeSettledMesh.visible = stage?.depth === 3;
+        depthThreeMovingMesh.visible = stage?.depth === 3;
+        renderStageMoves(currentModel.depthTwo, depthTwoMovingMesh, elapsedMs);
+        renderStageMoves(currentModel.depthThree, depthThreeMovingMesh, elapsedMs);
+      }
+
       renderer.render(scene, camera);
     };
 
@@ -285,6 +447,37 @@ function MengerDepthTransitionScene({
       renderProgress(progressRef.current);
     };
 
+    const onWindowPointerMove = (event: PointerEvent) => {
+      if (
+        modeRef.current !== "hover" ||
+        !event.isPrimary ||
+        event.pointerType === "touch" ||
+        event.buttons !== 0
+      ) {
+        return;
+      }
+
+      clientPointerRef.current = { x: event.clientX, y: event.clientY };
+      renderProgress(progressRef.current);
+    };
+    const onWindowPointerUp = (event: PointerEvent) => {
+      if (modeRef.current !== "hover" || !event.isPrimary || event.pointerType === "touch") {
+        return;
+      }
+
+      clientPointerRef.current = { x: event.clientX, y: event.clientY };
+      renderProgress(progressRef.current);
+    };
+    const onPagePointerLeave = () => {
+      clientPointerRef.current = null;
+      if (modeRef.current === "hover") {
+        renderProgress(progressRef.current);
+      }
+    };
+    window.addEventListener("pointermove", onWindowPointerMove);
+    window.addEventListener("pointerup", onWindowPointerUp);
+    document.documentElement.addEventListener("pointerleave", onPagePointerLeave);
+
     renderProgressRef.current = renderProgress;
     const resizeObserver = new ResizeObserver(resizeScene);
     resizeObserver.observe(container);
@@ -292,8 +485,13 @@ function MengerDepthTransitionScene({
 
     return () => {
       resizeObserver.disconnect();
+      window.removeEventListener("pointermove", onWindowPointerMove);
+      window.removeEventListener("pointerup", onWindowPointerUp);
+      document.documentElement.removeEventListener("pointerleave", onPagePointerLeave);
       renderProgressRef.current = () => {};
       geometry.dispose();
+      hoverProxyGeometry.dispose();
+      hoverProxyMaterial.dispose();
       rightMaterial.dispose();
       topMaterial.dispose();
       leftMaterial.dispose();
@@ -314,6 +512,15 @@ function MengerDepthTransitionScene({
   }, [model]);
 
   useEffect(() => {
+    hoverRevealRadiusRef.current = hoverRevealRadius;
+    modeRef.current = mode;
+    if (mode !== "hover") {
+      clientPointerRef.current = null;
+    }
+    renderProgressRef.current(progressRef.current);
+  }, [hoverRevealRadius, mode]);
+
+  useEffect(() => {
     viewRef.current = { elevationDegrees, rotationDegrees };
     renderProgressRef.current(progressRef.current);
   }, [elevationDegrees, rotationDegrees]);
@@ -321,11 +528,16 @@ function MengerDepthTransitionScene({
   return (
     <div
       ref={containerRef}
-      aria-label="Menger sponge depth transition"
+      aria-label={
+        mode === "hover" ? "Menger sponge hover reveal" : "Menger sponge depth transition"
+      }
       className="h-full min-h-0 w-full cursor-grab touch-none select-none active:cursor-grabbing"
+      data-menger-research-mode={mode}
       data-logo-elevation-degrees={elevationDegrees}
       data-logo-rotation-degrees={rotationDegrees}
-      data-testid="logo-menger-depth-transition-scene"
+      data-testid={
+        mode === "hover" ? "logo-menger-hover-scene" : "logo-menger-depth-transition-scene"
+      }
       onContextMenu={handleContextMenu}
       onPointerCancel={handlePointerCancel}
       onPointerDown={handlePointerDown}
@@ -337,9 +549,11 @@ function MengerDepthTransitionScene({
 }
 
 export function LogoMengerDepthTransitionPage({
+  mode = "transition",
   replaceRouteSearch,
   routeSearch,
 }: {
+  mode?: MengerResearchMode;
   replaceRouteSearch: (nextSearch: LogoRouteSearch) => void;
   routeSearch: LogoRouteSearch;
 }) {
@@ -358,6 +572,7 @@ export function LogoMengerDepthTransitionPage({
   const [staggerGroupCount, setStaggerGroupCount] = useState(
     MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT,
   );
+  const [hoverRevealRadius, setHoverRevealRadius] = useState(MENGER_HOVER_DEFAULT_REVEAL_RADIUS);
   const [view, setView] = useState<LogoViewState>({
     elevationDegrees: routeState.elevationDegrees,
     rotationDegrees: routeState.rotationDegrees,
@@ -385,6 +600,12 @@ export function LogoMengerDepthTransitionPage({
   }, [routeState.elevationDegrees, routeState.rotationDegrees]);
 
   useEffect(() => {
+    if (mode === "hover") {
+      setIsPlaying(false);
+      setProgress(0);
+      return;
+    }
+
     const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     const applyReducedMotionPreference = (prefersReducedMotion: boolean) => {
@@ -410,10 +631,10 @@ export function LogoMengerDepthTransitionPage({
     return () => {
       reducedMotionQuery.removeEventListener("change", onReducedMotionChange);
     };
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
-    if (!isPlaying) {
+    if (mode === "hover" || !isPlaying) {
       return;
     }
 
@@ -438,7 +659,7 @@ export function LogoMengerDepthTransitionPage({
     return () => {
       window.cancelAnimationFrame(animationFrameId);
     };
-  }, [isPlaying, model.totalDurationMs, playbackVersion]);
+  }, [isPlaying, mode, model.totalDurationMs, playbackVersion]);
 
   useEffect(() => {
     if (progressInputRef.current) {
@@ -491,6 +712,9 @@ export function LogoMengerDepthTransitionPage({
     setPlaybackVersion((currentVersion) => currentVersion + 1);
     setIsPlaying(!prefersReducedMotionRef.current);
   }, []);
+  const updateHoverRevealRadius = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setHoverRevealRadius(normalizeMengerHoverRevealRadius(Number(event.target.value)));
+  }, []);
   const commitView = useCallback(
     (finalView: LogoViewState) => {
       replaceRouteSearch(
@@ -507,7 +731,58 @@ export function LogoMengerDepthTransitionPage({
     },
     [replaceRouteSearch, routeSearch, routeState],
   );
-  const controlsContent = useMemo(
+  const hoverControlsContent = useMemo(
+    () => (
+      <div className="grid content-start gap-4 p-3" data-testid="logo-menger-hover-controls">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild className="rounded-none" size="sm" variant="outline">
+            <Link to="/logo">3D</Link>
+          </Button>
+          <Button asChild className="rounded-none" size="sm" variant="outline">
+            <Link to="/logo/transition/menger">Menger transition</Link>
+          </Button>
+          <div
+            aria-current="page"
+            className="inline-flex h-8 items-center border border-foreground bg-foreground px-3 text-sm font-medium text-background"
+          >
+            Menger hover
+          </div>
+        </div>
+
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between text-xs">
+            <label htmlFor="menger-hover-reveal-radius">Reveal radius</label>
+            <output
+              className="font-mono text-xs text-muted-foreground"
+              htmlFor="menger-hover-reveal-radius"
+            >
+              {hoverRevealRadius.toFixed(2)}
+            </output>
+          </div>
+          <input
+            id="menger-hover-reveal-radius"
+            aria-label="Reveal radius"
+            className="h-2 w-full cursor-pointer accent-foreground"
+            max={MENGER_HOVER_MAX_REVEAL_RADIUS}
+            min={MENGER_HOVER_MIN_REVEAL_RADIUS}
+            onChange={updateHoverRevealRadius}
+            step="0.01"
+            type="range"
+            value={hoverRevealRadius}
+          />
+        </div>
+
+        <div className="grid gap-1 border-t pt-3 font-mono text-xs text-muted-foreground">
+          <div>Depth 2 probe</div>
+          <div>3 through-hole axes per parent cube</div>
+          <div>2 face cubes move together per local hole</div>
+          <div>Closed cube proxy selects the pointer face</div>
+        </div>
+      </div>
+    ),
+    [hoverRevealRadius, updateHoverRevealRadius],
+  );
+  const transitionControlsContent = useMemo(
     () => (
       <div
         className="grid content-start gap-4 p-3"
@@ -584,19 +859,25 @@ export function LogoMengerDepthTransitionPage({
     ),
     [phaseLabel, replayTransition, staggerGroupCount, updateProgress, updateStaggerGroupCount],
   );
+  const controlsContent = mode === "hover" ? hoverControlsContent : transitionControlsContent;
   const leftPane = useMemo(() => ({ content: controlsContent }), [controlsContent]);
 
   return (
     <AppWorkspaceRouteChrome left={leftPane}>
       <div
         className="h-full min-h-0 w-full"
+        data-menger-research-mode={mode}
         data-phase={phase}
-        data-testid="logo-menger-depth-transition-page"
+        data-testid={
+          mode === "hover" ? "logo-menger-hover-page" : "logo-menger-depth-transition-page"
+        }
         style={{ backgroundColor }}
       >
         <MengerDepthTransitionScene
           elevationDegrees={view.elevationDegrees}
           faceColors={faceColors}
+          hoverRevealRadius={hoverRevealRadius}
+          mode={mode}
           model={model}
           onInteractionEnd={commitView}
           onViewChange={setView}
