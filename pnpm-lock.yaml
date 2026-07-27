@@ -54,9 +54,6 @@ importers:
       '@samebase/dependent':
         specifier: workspace:*
         version: link:packages/dependent
-      '@samebase/sure':
-        specifier: workspace:*
-        version: link:packages/sure
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260413.1
         version: 7.0.0-dev.20260413.1
@@ -483,14 +480,7 @@ importers:
 
   packages/agent-context: {}
 
-  packages/agent-plugins:
-    devDependencies:
-      '@types/node':
-        specifier: 20.19.32
-        version: 20.19.32
-      vite-plus:
-        specifier: 0.1.24
-        version: 0.1.24(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@20.19.32)(esbuild@0.28.1)(jiti@2.7.0)(jsdom@29.0.1(@noble/hashes@1.8.0))(terser@5.49.0)(typescript@5.9.2)(vite@8.0.16(@types/node@20.19.32)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(yaml@2.8.3))(yaml@2.8.3)
+  packages/agent-plugins: {}
 
   packages/dependent: {}
 

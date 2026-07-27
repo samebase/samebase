@@ -70,7 +70,7 @@ function assertObjectId(objectId: string, label: string): void {
   }
 }
 
-export function assertRepositoryExport(definition: RepositoryExport): void {
+function assertRepositoryExport(definition: RepositoryExport): void {
   if (!/^[A-Za-z0-9._-]+$/.test(definition.targetRepository)) {
     throw new Error(`Invalid target repository name: ${definition.targetRepository}`);
   }
@@ -195,79 +195,49 @@ export function publishRepositoryExport(
   );
   const publishedSubject = formatPublishedCommitSubject(sourceSubject, sourceRepository);
 
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
-    const target = readTargetState(options);
-    if (target.tree === sourceTree) {
-      return {
-        status: "unchanged",
-      };
-    }
-
-    const commitEnvironment = {
-      ...gitEnvironment,
-      GIT_AUTHOR_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com",
-      GIT_AUTHOR_NAME: "github-actions[bot]",
-      GIT_COMMITTER_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com",
-      GIT_COMMITTER_NAME: "github-actions[bot]",
+  const target = readTargetState(options);
+  if (target.tree === sourceTree) {
+    return {
+      status: "unchanged",
     };
-    const publishedCommit = gitOutput(
-      repoRoot,
-      [
-        "commit-tree",
-        sourceTree,
-        "-p",
-        target.commit,
-        "-m",
-        publishedSubject,
-        "-m",
-        `Samebase-Source-Repository: ${sourceRepository}\nSamebase-Source-Commit: ${sourceCommit}\nSamebase-Source-Path: ${definition.sourceRoot}`,
-      ],
-      commitEnvironment,
-    );
-
-    const publishedTree = gitOutput(
-      repoRoot,
-      ["rev-parse", `${publishedCommit}^{tree}`],
-      gitEnvironment,
-    );
-    const publishedParent = gitOutput(
-      repoRoot,
-      ["rev-parse", `${publishedCommit}^`],
-      gitEnvironment,
-    );
-    if (publishedTree !== sourceTree || publishedParent !== target.commit) {
-      throw new Error(
-        "The prepared repository export commit does not match its source and parent.",
-      );
-    }
-
-    try {
-      gitOutput(
-        repoRoot,
-        [
-          "push",
-          `--force-with-lease=refs/heads/${definition.targetBranch}:${target.commit}`,
-          targetRemoteUrl,
-          `${publishedCommit}:refs/heads/${definition.targetBranch}`,
-        ],
-        gitEnvironment,
-      );
-      return {
-        status: "published",
-        publishedCommit,
-      };
-    } catch (error) {
-      const refreshedTarget = readTargetState(options);
-      if (refreshedTarget.commit === target.commit || attempt === 3) {
-        throw error;
-      }
-      console.warn(
-        `Target ${definition.targetRepository} changed during publish. Retrying from ${refreshedTarget.commit}.`,
-      );
-    }
   }
 
-  throw new Error(`Unable to publish repository export: ${definition.targetRepository}`);
+  const commitEnvironment = {
+    ...gitEnvironment,
+    GIT_AUTHOR_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com",
+    GIT_AUTHOR_NAME: "github-actions[bot]",
+    GIT_COMMITTER_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com",
+    GIT_COMMITTER_NAME: "github-actions[bot]",
+  };
+  const publishedCommit = gitOutput(
+    repoRoot,
+    [
+      "commit-tree",
+      sourceTree,
+      "-p",
+      target.commit,
+      "-m",
+      publishedSubject,
+      "-m",
+      `Samebase-Source-Repository: ${sourceRepository}\nSamebase-Source-Commit: ${sourceCommit}\nSamebase-Source-Path: ${definition.sourceRoot}`,
+    ],
+    commitEnvironment,
+  );
+
+  gitOutput(
+    repoRoot,
+    [
+      "push",
+      `--force-with-lease=refs/heads/${definition.targetBranch}:${target.commit}`,
+      targetRemoteUrl,
+      `${publishedCommit}:refs/heads/${definition.targetBranch}`,
+    ],
+    gitEnvironment,
+  );
+  return {
+    status: "published",
+    publishedCommit,
+  };
 }
 
 function requiredEnvironmentValue(name: string): string {

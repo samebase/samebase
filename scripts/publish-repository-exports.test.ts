@@ -85,7 +85,7 @@ function createRepositoryExportFixture(): {
 }
 
 describe("repository exports", () => {
-  it("publishes the exact package tree as a direct external child and then becomes a no-op", () => {
+  it("publishes the exact source tree as a direct external child and then becomes a no-op", () => {
     const fixture = createRepositoryExportFixture();
     const gitEnvironment = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
 

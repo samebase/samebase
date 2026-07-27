@@ -14,6 +14,7 @@
   "include": [
     "scripts/**/*.ts",
     "runtime/**/*.ts",
+    "packages/agent-plugins/scripts/**/*.ts",
     ".devcontainer/postcreate.ts",
     "apps/samebase/scripts/**/*.ts",
     "apps/samebase/postcss.config.ts",

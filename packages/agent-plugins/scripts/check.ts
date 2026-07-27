@@ -23,14 +23,7 @@ function checkRelativePath(baseRoot: string, relativePath: string, label: string
 }
 
 const codexMarketplacePlugin = codexMarketplace.plugins[0];
-if (codexMarketplacePlugin === undefined) {
-  throw new Error("The Codex marketplace must contain a plugin.");
-}
-
 const claudeMarketplacePlugin = claudeMarketplace.plugins[0];
-if (claudeMarketplacePlugin === undefined) {
-  throw new Error("The Claude marketplace must contain a plugin.");
-}
 
 check(
   packageMetadata.version === codexManifest.version,
