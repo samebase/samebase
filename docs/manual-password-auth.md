@@ -32,7 +32,8 @@ The function:
 - stores only the password hash
 - does not send an account email
 
-A password rotation ends all active sessions for the linked user.
+A password rotation prevents the linked user's existing sessions from refreshing. An access token
+that was already issued can remain valid for up to one hour.
 
 Share the password through an approved secret channel. Do not put it in the repository or logs.
 Password operations fail while `AUTH_LOG_LEVEL=DEBUG` because Convex Auth debug output can contain

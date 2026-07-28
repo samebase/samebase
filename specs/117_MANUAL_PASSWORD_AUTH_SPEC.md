@@ -33,13 +33,15 @@ action:
 - rejects duplicate verified users and conflicting account links
 - marks a new user's email as verified
 - approves the linked user
-- ends the user's active sessions after a password rotation
+- deletes the user's stored sessions and refresh tokens after a password rotation
 
 Manual account creation does not send a new-user notification. Password operations fail while
 `AUTH_LOG_LEVEL=DEBUG` because Convex Auth debug output can contain credential fragments.
 
 Disabling manual password authentication blocks new password sign-ins. It does not end sessions that
 already exist.
+
+An access token that was issued before a password rotation can remain valid for up to one hour.
 
 ## Non-Goals
 
