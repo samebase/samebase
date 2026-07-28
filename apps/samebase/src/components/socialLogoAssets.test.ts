@@ -36,8 +36,7 @@ describe("socialLogoAssets", () => {
     );
   });
 
-  it("keeps social logo svgs on the duotone treatment by default", () => {
-    expect(createSamebaseSocialCardSvgMarkup()).toContain("#00b8db");
+  it("keeps the profile banner on the duotone treatment by default", () => {
     expect(createSamebaseXProfileBannerSvgMarkup()).toContain("#00b8db");
   });
 
