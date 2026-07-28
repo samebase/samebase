@@ -424,6 +424,24 @@ test("Menger hover keeps depth-two, depth-three, and depth-four openings distinc
   );
 });
 
+test("Menger hover keeps depth-two oblique tunnel surfaces exact", async ({ page }) => {
+  const scene = await openMengerHoverCase(page, {
+    elevationDegrees: "30",
+    maximumDepth: "2",
+    rotationDegrees: "225",
+  });
+  await movePointerRelativeToScene(page, scene, {
+    expectedProbe: [/^0\.00[0-1]$/, "1.000", "0.056"],
+    x: 0.52,
+    y: 0.45,
+  });
+
+  await expect(scene).toHaveScreenshot(
+    "logo-menger-hover-depth-two-oblique-cover.png",
+    SCREENSHOT_OPTIONS,
+  );
+});
+
 test("Menger hover clears depth-four blocker links at texture row boundaries", async ({ page }) => {
   const scene = await openMengerHoverCase(page, {
     elevationDegrees: "0",
