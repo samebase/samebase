@@ -49,11 +49,11 @@ async function openMengerHoverCase(
     `/logo/hover/menger?elev=${elevationDegrees}&rot=${rotationDegrees}&top=red-400`,
   );
 
-  const hoverPage = page.getByTestId("logo-menger-hover-page");
-  const controls = page.getByTestId("logo-menger-hover-controls");
-  const scene = page.getByTestId("logo-menger-hover-scene");
+  const hoverPage = page.locator('[data-testid="logo-menger-hover-page"]');
+  const controls = page.locator('[data-testid="logo-menger-hover-controls"]');
+  const scene = page.locator('[data-testid="logo-menger-hover-scene"]');
 
-  await expect(controls).toBeVisible();
+  await expect(controls).toBeVisible({ timeout: 30_000 });
   await expect(scene.locator("canvas")).toBeVisible();
   await expect(hoverPage).toHaveAttribute("data-menger-research-mode", "hover");
   await expect(scene).toHaveAttribute("data-menger-maximum-depth", "4");
@@ -199,28 +199,87 @@ test("Menger hover rests at depth one in the face-on view", async ({ page }) => 
   await expect(scene).toHaveScreenshot("logo-menger-hover-face-on-resting.png", SCREENSHOT_OPTIONS);
 });
 
-test("Menger hover projects an outside-canvas pointer onto the sponge surface", async ({
-  page,
-}) => {
-  const scene = await openMengerHoverCase(page, {
-    elevationDegrees: "0",
-    rotationDegrees: "180",
-  });
-  const canvasBox = await scene.locator("canvas").boundingBox();
-  if (!canvasBox) {
-    throw new Error("The Menger hover canvas must have a bounding box.");
-  }
-  const outsideX = canvasBox.x - 40;
-  expect(outsideX).toBeGreaterThanOrEqual(0);
+test("Menger hover extends every visible face plane beyond the canvas", async ({ page }) => {
+  const cases = [
+    {
+      elevationDegrees: "0",
+      expectedAxis: "0",
+      expectedCoordinate: "x",
+      expectedCoordinateValue: 0,
+      expectedSign: "-1",
+      expectedUnboundedCoordinate: "z",
+      expectedUnboundedDirection: "negative",
+      rotationDegrees: "180",
+      visibleFaceCount: "1",
+    },
+    {
+      elevationDegrees: "0",
+      expectedAxis: "2",
+      expectedCoordinate: "z",
+      expectedCoordinateValue: 0,
+      expectedSign: "-1",
+      expectedUnboundedCoordinate: "x",
+      expectedUnboundedDirection: "positive",
+      rotationDegrees: "225",
+      visibleFaceCount: "2",
+    },
+    {
+      elevationDegrees: "23",
+      expectedAxis: "2",
+      expectedCoordinate: "z",
+      expectedCoordinateValue: 1,
+      expectedSign: "1",
+      expectedUnboundedCoordinate: "x",
+      expectedUnboundedDirection: "negative",
+      rotationDegrees: "29.3",
+      visibleFaceCount: "3",
+    },
+  ] as const;
 
-  await page.mouse.move(outsideX, canvasBox.y + canvasBox.height * 0.35);
-  await expect(scene).toHaveAttribute("data-hover-coordinate-x", /.+/);
-  await expect
-    .poll(() => readNumberAttribute(scene, "data-hover-maximum-openness"))
-    .toBeGreaterThan(0);
-  await expect(scene).toHaveAttribute("data-hover-settled", "true");
-  await waitForPaint(page);
-  await expect(scene).toHaveScreenshot("logo-menger-hover-outside-canvas.png", SCREENSHOT_OPTIONS);
+  for (const hoverCase of cases) {
+    await test.step(`${hoverCase.visibleFaceCount} visible face planes`, async () => {
+      const scene = await openMengerHoverCase(page, hoverCase);
+      const canvasBox = await scene.locator("canvas").boundingBox();
+      if (!canvasBox) {
+        throw new Error("The Menger hover canvas must have a bounding box.");
+      }
+      const outsideX = canvasBox.x - 24;
+      expect(outsideX).toBeGreaterThanOrEqual(0);
+
+      await page.mouse.move(outsideX, canvasBox.y + canvasBox.height * 0.5);
+      await expect(scene).toHaveAttribute(
+        `data-hover-coordinate-${hoverCase.expectedCoordinate}`,
+        hoverCase.expectedCoordinateValue.toFixed(3),
+      );
+      const unboundedCoordinate = await readNumberAttribute(
+        scene,
+        `data-hover-coordinate-${hoverCase.expectedUnboundedCoordinate}`,
+      );
+      if (hoverCase.expectedUnboundedDirection === "negative") {
+        expect(unboundedCoordinate).toBeLessThan(0);
+      } else {
+        expect(unboundedCoordinate).toBeGreaterThan(1);
+      }
+      await expect(scene).toHaveAttribute("data-hover-face-axis", hoverCase.expectedAxis);
+      await expect(scene).toHaveAttribute("data-hover-face-sign", hoverCase.expectedSign);
+      await expect(scene).toHaveAttribute(
+        "data-hover-visible-face-count",
+        hoverCase.visibleFaceCount,
+      );
+      await expect(scene).toHaveAttribute("data-hover-settled", "true");
+
+      if (hoverCase.visibleFaceCount === "1") {
+        const outsideY = canvasBox.y - 1;
+        expect(outsideY).toBeGreaterThanOrEqual(0);
+        await page.mouse.move(canvasBox.x + canvasBox.width * 0.5, outsideY);
+        await expect(scene).toHaveAttribute("data-hover-coordinate-y", /^1\.[0-9]+$/);
+        await expect
+          .poll(() => readNumberAttribute(scene, "data-hover-maximum-openness"))
+          .toBeGreaterThan(0);
+        await expect(scene).toHaveAttribute("data-hover-settled", "true");
+      }
+    });
+  }
 });
 
 test("Menger hover keeps deterministic depth-four work inside the research budgets", async ({

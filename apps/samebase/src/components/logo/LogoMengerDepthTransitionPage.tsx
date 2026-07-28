@@ -16,6 +16,7 @@ import {
   createMengerHoverState,
   createMengerHoverTopology,
   normalizeMengerHoverRevealRadius,
+  projectMengerHoverLineToVisibleFacePlanes,
   writeMengerHoverState,
   type MengerHoverChannelState,
   type MengerHoverProbe,
@@ -190,21 +191,10 @@ function MengerDepthTransitionScene({
     container.replaceChildren(renderer.domElement);
 
     const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const hoverProxyGeometry = new THREE.BoxGeometry(
-      MENGER_DEPTH_TRANSITION_WORLD_SIZE,
-      MENGER_DEPTH_TRANSITION_WORLD_SIZE,
-      MENGER_DEPTH_TRANSITION_WORLD_SIZE,
-    );
-    const hoverProxyMaterial = new THREE.MeshBasicMaterial();
-    const hoverProxy = new THREE.Mesh(hoverProxyGeometry, hoverProxyMaterial);
-    hoverProxy.visible = false;
     const raycaster = new THREE.Raycaster();
     const pointerNdc = new THREE.Vector2();
     const hoverLocalMatrix = new THREE.Matrix4();
     const hoverLocalRay = new THREE.Ray();
-    const hoverSpongeCenter = new THREE.Vector3();
-    const hoverRayPoint = new THREE.Vector3();
-    const hoverClampedPoint = new THREE.Vector3();
     const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     const rightMaterial = new THREE.MeshBasicMaterial({
       color: rightFaceColor,
@@ -294,7 +284,7 @@ function MengerDepthTransitionScene({
     });
     const finalStageMeshes = stageMeshes.at(-1);
     const logoGroup = new THREE.Group();
-    logoGroup.add(hoverProxy, depthOneMesh);
+    logoGroup.add(depthOneMesh);
     if (hoverSettledSurface) {
       logoGroup.add(hoverSettledSurface.mesh);
     }
@@ -372,13 +362,15 @@ function MengerDepthTransitionScene({
       delete container.dataset.hoverCoordinateX;
       delete container.dataset.hoverCoordinateY;
       delete container.dataset.hoverCoordinateZ;
+      delete container.dataset.hoverFaceAxis;
+      delete container.dataset.hoverFaceSign;
+      delete container.dataset.hoverVisibleFaceCount;
     };
 
     /**
-    The probe is the pointer ray mapped onto the sponge surface. When the ray
-    misses the cube, its point in the cube-center plane clamps to the nearest
-    surface position. This box-shaped trackball keeps the same surface
-    direction active while the pointer moves anywhere else on the page.
+    The visible cube face planes extend without tangent limits. Their front
+    envelope meets on the same projected edges and corner as the finite cube,
+    so the pointer mapping stays continuous inside and outside the canvas.
     */
     const readHoverProbe = (): MengerHoverProbe | null => {
       const clientPointer = clientPointerRef.current;
@@ -400,27 +392,27 @@ function MengerDepthTransitionScene({
       raycaster.setFromCamera(pointerNdc, camera);
       hoverLocalMatrix.copy(logoGroup.matrixWorld).invert();
       hoverLocalRay.copy(raycaster.ray).applyMatrix4(hoverLocalMatrix);
-      const intersection = raycaster.intersectObject(hoverProxy, false).at(0);
-      if (intersection) {
-        hoverClampedPoint.copy(intersection.point).applyMatrix4(hoverLocalMatrix);
-      } else {
-        hoverLocalRay.closestPointToPoint(hoverSpongeCenter, hoverRayPoint);
-        const halfWorldSize = MENGER_DEPTH_TRANSITION_WORLD_SIZE / 2;
-        hoverClampedPoint.set(
-          THREE.MathUtils.clamp(hoverRayPoint.x, -halfWorldSize, halfWorldSize),
-          THREE.MathUtils.clamp(hoverRayPoint.y, -halfWorldSize, halfWorldSize),
-          THREE.MathUtils.clamp(hoverRayPoint.z, -halfWorldSize, halfWorldSize),
-        );
+      const projection = projectMengerHoverLineToVisibleFacePlanes(
+        hoverLocalRay.origin,
+        hoverLocalRay.direction,
+        MENGER_DEPTH_TRANSITION_WORLD_SIZE,
+      );
+      if (projection === null) {
+        clearHoverProbe();
+        return null;
       }
 
       const probe: MengerHoverProbe = {
-        x: hoverClampedPoint.x / MENGER_DEPTH_TRANSITION_WORLD_SIZE + 0.5,
-        y: hoverClampedPoint.y / MENGER_DEPTH_TRANSITION_WORLD_SIZE + 0.5,
-        z: hoverClampedPoint.z / MENGER_DEPTH_TRANSITION_WORLD_SIZE + 0.5,
+        x: projection.point.x / MENGER_DEPTH_TRANSITION_WORLD_SIZE + 0.5,
+        y: projection.point.y / MENGER_DEPTH_TRANSITION_WORLD_SIZE + 0.5,
+        z: projection.point.z / MENGER_DEPTH_TRANSITION_WORLD_SIZE + 0.5,
       };
       container.dataset.hoverCoordinateX = probe.x.toFixed(3);
       container.dataset.hoverCoordinateY = probe.y.toFixed(3);
       container.dataset.hoverCoordinateZ = probe.z.toFixed(3);
+      container.dataset.hoverFaceAxis = String(projection.axis);
+      container.dataset.hoverFaceSign = String(projection.sign);
+      container.dataset.hoverVisibleFaceCount = String(projection.visibleFaceCount);
 
       return probe;
     };
@@ -635,8 +627,6 @@ function MengerDepthTransitionScene({
         window.cancelAnimationFrame(hoverAnimationFrame);
       }
       geometry.dispose();
-      hoverProxyGeometry.dispose();
-      hoverProxyMaterial.dispose();
       rightMaterial.dispose();
       topMaterial.dispose();
       leftMaterial.dispose();

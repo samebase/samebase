@@ -9,6 +9,7 @@ import {
   createMengerHoverState,
   createMengerHoverTopology,
   normalizeMengerHoverRevealRadius,
+  projectMengerHoverLineToVisibleFacePlanes,
   readMengerHoverState,
   writeMengerHoverState,
 } from "../src/mengerHover.ts";
@@ -67,6 +68,112 @@ function readMoveLinks(
 }
 
 describe("Menger hover", () => {
+  it("extends one visible face across the full pointer plane", () => {
+    const projection = projectMengerHoverLineToVisibleFacePlanes(
+      { x: 10, y: 8, z: -7 },
+      { x: -1, y: 0, z: 0 },
+      2,
+    );
+
+    expect(projection).toEqual({
+      axis: 0,
+      point: { x: 1, y: 8, z: -7 },
+      sign: 1,
+      visibleFaceCount: 1,
+    });
+  });
+
+  it("joins two visible face planes on their extended edge", () => {
+    const edge = projectMengerHoverLineToVisibleFacePlanes(
+      { x: 3.5, y: 3.5, z: 5 },
+      { x: -1, y: -1, z: 0 },
+      2,
+    );
+    const xFace = projectMengerHoverLineToVisibleFacePlanes(
+      { x: 4, y: 3, z: 5 },
+      { x: -1, y: -1, z: 0 },
+      2,
+    );
+    const yFace = projectMengerHoverLineToVisibleFacePlanes(
+      { x: 3, y: 4, z: 5 },
+      { x: -1, y: -1, z: 0 },
+      2,
+    );
+
+    expect(edge).toEqual({
+      axis: 0,
+      point: { x: 1, y: 1, z: 5 },
+      sign: 1,
+      visibleFaceCount: 2,
+    });
+    expect(xFace).toMatchObject({ axis: 0, point: { x: 1, y: 0, z: 5 } });
+    expect(yFace).toMatchObject({ axis: 1, point: { x: 0, y: 1, z: 5 } });
+  });
+
+  it("joins three visible face planes at their extended corner", () => {
+    const corner = projectMengerHoverLineToVisibleFacePlanes(
+      { x: 3, y: 3, z: 3 },
+      { x: -1, y: -1, z: -1 },
+      2,
+    );
+    const sectors = [
+      projectMengerHoverLineToVisibleFacePlanes({ x: 4, y: 3, z: 3 }, { x: -1, y: -1, z: -1 }, 2),
+      projectMengerHoverLineToVisibleFacePlanes({ x: 3, y: 4, z: 3 }, { x: -1, y: -1, z: -1 }, 2),
+      projectMengerHoverLineToVisibleFacePlanes({ x: 3, y: 3, z: 4 }, { x: -1, y: -1, z: -1 }, 2),
+    ];
+
+    expect(corner).toEqual({
+      axis: 0,
+      point: { x: 1, y: 1, z: 1 },
+      sign: 1,
+      visibleFaceCount: 3,
+    });
+    expect(sectors).toEqual([
+      {
+        axis: 0,
+        point: { x: 1, y: 0, z: 0 },
+        sign: 1,
+        visibleFaceCount: 3,
+      },
+      {
+        axis: 1,
+        point: { x: 0, y: 1, z: 0 },
+        sign: 1,
+        visibleFaceCount: 3,
+      },
+      {
+        axis: 2,
+        point: { x: 0, y: 0, z: 1 },
+        sign: 1,
+        visibleFaceCount: 3,
+      },
+    ]);
+  });
+
+  it("keeps the face-on projection stable when a second face becomes nearly visible", () => {
+    const faceOn = projectMengerHoverLineToVisibleFacePlanes(
+      { x: 10, y: 0, z: 0 },
+      { x: -1, y: 0, z: 0 },
+      2,
+    );
+    const slightlyTilted = projectMengerHoverLineToVisibleFacePlanes(
+      { x: 10, y: 0, z: 0 },
+      { x: -1, y: -1e-7, z: 0 },
+      2,
+    );
+
+    expect(faceOn).toEqual({
+      axis: 0,
+      point: { x: 1, y: 0, z: 0 },
+      sign: 1,
+      visibleFaceCount: 1,
+    });
+    expect(slightlyTilted?.axis).toBe(0);
+    expect(slightlyTilted?.visibleFaceCount).toBe(2);
+    expect(slightlyTilted?.point.x).toBe(1);
+    expect(slightlyTilted?.point.y).toBeCloseTo(-9e-7, 12);
+  });
+
   it("normalizes the pointer reveal radius", () => {
     expect(normalizeMengerHoverRevealRadius(Number.NaN)).toBe(MENGER_HOVER_DEFAULT_REVEAL_RADIUS);
     expect(normalizeMengerHoverRevealRadius(0)).toBe(0.05);

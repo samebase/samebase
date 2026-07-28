@@ -8,6 +8,7 @@ export const MENGER_HOVER_MIN_REVEAL_RADIUS = 0.05;
 export const MENGER_HOVER_MAX_REVEAL_RADIUS = 1;
 export const MENGER_HOVER_DEFAULT_REVEAL_RADIUS = 0.55;
 const MENGER_HOVER_FULL_OPEN_RADIUS_FRACTION = 0.25;
+const MENGER_HOVER_VISIBLE_FACE_EPSILON = 1e-8;
 const MENGER_HOLE_AXES: readonly MengerHoleAxis[] = [0, 1, 2];
 
 /** Unit sponge coordinates: the full cube spans [0, 1] on every axis. */
@@ -65,6 +66,82 @@ type ChannelTangentDeltas = {
   deltaA: number;
   deltaB: number;
 };
+
+type MengerHoverWorldPoint = {
+  x: number;
+  y: number;
+  z: number;
+};
+
+type MengerHoverFaceProjection = {
+  axis: MengerHoleAxis;
+  point: MengerHoverWorldPoint;
+  sign: 1 | -1;
+  visibleFaceCount: number;
+};
+
+function readPointAxis(point: MengerHoverWorldPoint, axis: MengerHoleAxis): number {
+  switch (axis) {
+    case 0:
+      return point.x;
+    case 1:
+      return point.y;
+    case 2:
+      return point.z;
+    default:
+      return axis satisfies never;
+  }
+}
+
+/**
+Maps an orthographic pointer line to the boundary of the visible cube
+half-spaces. The last face plane entered is the finite cube surface when the
+pointer covers the cube. Removing that face's tangent limits extends one face
+over the full page, joins two faces on one edge, and joins three faces at their
+corner.
+*/
+export function projectMengerHoverLineToVisibleFacePlanes(
+  origin: MengerHoverWorldPoint,
+  direction: MengerHoverWorldPoint,
+  worldSize: number,
+): MengerHoverFaceProjection | null {
+  const halfWorldSize = worldSize / 2;
+  let selectedAxis: MengerHoleAxis | null = null;
+  let selectedDistance = Number.NEGATIVE_INFINITY;
+  let selectedSign: 1 | -1 = 1;
+  let visibleFaceCount = 0;
+
+  for (const axis of MENGER_HOLE_AXES) {
+    const directionValue = readPointAxis(direction, axis);
+    if (Math.abs(directionValue) <= MENGER_HOVER_VISIBLE_FACE_EPSILON) {
+      continue;
+    }
+
+    visibleFaceCount += 1;
+    const sign = directionValue > 0 ? -1 : 1;
+    const distance = (sign * halfWorldSize - readPointAxis(origin, axis)) / directionValue;
+    if (distance > selectedDistance) {
+      selectedAxis = axis;
+      selectedDistance = distance;
+      selectedSign = sign;
+    }
+  }
+
+  if (selectedAxis === null) {
+    return null;
+  }
+
+  return {
+    axis: selectedAxis,
+    point: {
+      x: origin.x + direction.x * selectedDistance,
+      y: origin.y + direction.y * selectedDistance,
+      z: origin.z + direction.z * selectedDistance,
+    },
+    sign: selectedSign,
+    visibleFaceCount,
+  };
+}
 
 export function normalizeMengerHoverRevealRadius(value: number): number {
   if (!Number.isFinite(value)) {
