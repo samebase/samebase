@@ -1,5 +1,4 @@
 import {
-  MENGER_DEPTH_TRANSITION_MODEL,
   createMengerDepthTransitionModel,
   type MengerDepthTransitionModel,
   type MengerDepthTransitionStage,
@@ -11,10 +10,14 @@ import {
   normalizeMengerHoverRevealRadius,
   projectMengerHoverLineToVisibleFacePlanes,
   readMengerHoverState,
+  settleMengerHoverChannelState,
   writeMengerHoverState,
 } from "../src/mengerHover.ts";
 import { describe, expect, it } from "vite-plus/test";
 
+const MENGER_DEPTH_TRANSITION_MODEL = createMengerDepthTransitionModel({
+  staggerGroupCount: 1,
+});
 const DEPTH_TWO_STAGE = MENGER_DEPTH_TRANSITION_MODEL.stages[0];
 const defaultDepthThreeStage = MENGER_DEPTH_TRANSITION_MODEL.stages[1];
 if (!defaultDepthThreeStage) {
@@ -28,13 +31,13 @@ const CHANNEL = 2 * 9 + 1;
 const CENTER_A = 0.5 / 3;
 const CENTER_B = 1.5 / 3;
 
-function readChannelState(probe: { x: number; y: number; z: number } | null, lastProbe = probe) {
-  const state = readMengerHoverState(
-    MENGER_DEPTH_TRANSITION_MODEL,
-    probe,
-    lastProbe,
-    MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
-  ).stages[0]?.[CHANNEL];
+function readChannelState(
+  probe: { x: number; y: number; z: number } | null,
+  lastProbe = probe,
+  revealRadius = MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
+) {
+  const state = readMengerHoverState(MENGER_DEPTH_TRANSITION_MODEL, probe, lastProbe, revealRadius)
+    .stages[0]?.[CHANNEL];
   if (!state) {
     throw new Error("The probed channel must resolve to depth-two state.");
   }
@@ -229,8 +232,7 @@ describe("Menger hover", () => {
     expect(cardinal.weightA).toBeCloseTo(1, 5);
 
     const near = readChannelState({ x: CENTER_A - 0.02, y: CENTER_B, z: 1 });
-    expect(near.weightA).toBeGreaterThan(0.55);
-    expect(near.weightA).toBeLessThan(0.85);
+    expect(near.weightA).toBe(1);
   });
 
   it("keeps the split continuous across a channel diagonal at partial openness", () => {
@@ -253,6 +255,152 @@ describe("Menger hover", () => {
     expect(rightState.signA).toBe(-1);
     expect(leftState.weightA).toBeLessThan(0.01);
     expect(rightState.weightA).toBeLessThan(0.01);
+  });
+
+  it("fully retreats each cover axis before its direction changes", () => {
+    const leftState = readChannelState(
+      { x: CENTER_A - 1e-6, y: CENTER_B + 0.04, z: 1 },
+      undefined,
+      0.05,
+    );
+    const rightState = readChannelState(
+      { x: CENTER_A + 1e-6, y: CENTER_B + 0.04, z: 1 },
+      undefined,
+      0.05,
+    );
+    const topState = readChannelState(
+      { x: CENTER_A + 0.04, y: CENTER_B - 1e-6, z: 1 },
+      undefined,
+      0.05,
+    );
+    const bottomState = readChannelState(
+      { x: CENTER_A + 0.04, y: CENTER_B + 1e-6, z: 1 },
+      undefined,
+      0.05,
+    );
+
+    expect(leftState.openness).toBeGreaterThan(0);
+    expect(leftState.openness).toBeLessThan(1);
+    expect(rightState.openness).toBeCloseTo(leftState.openness, 12);
+    expect(leftState.weightA).toBeLessThan(0.001);
+    expect(rightState.weightA).toBeLessThan(0.001);
+    expect(1 - leftState.openness ** leftState.weightA).toBeLessThan(0.002);
+    expect(1 - rightState.openness ** rightState.weightA).toBeLessThan(0.002);
+
+    expect(topState.openness).toBeGreaterThan(0);
+    expect(topState.openness).toBeLessThan(1);
+    expect(bottomState.openness).toBeCloseTo(topState.openness, 12);
+    expect(1 - topState.weightA).toBeLessThan(0.001);
+    expect(1 - bottomState.weightA).toBeLessThan(0.001);
+    expect(1 - topState.openness ** (1 - topState.weightA)).toBeLessThan(0.002);
+    expect(1 - bottomState.openness ** (1 - bottomState.weightA)).toBeLessThan(0.002);
+  });
+
+  it("settles through the tangent center before a cover direction changes", () => {
+    const current = readChannelState({ x: CENTER_A - 0.04, y: CENTER_B, z: 0.75 });
+    const centerTarget = readChannelState({ x: CENTER_A, y: CENTER_B, z: 0.75 });
+
+    expect(current.weightA).toBe(1);
+    expect(centerTarget.weightA).toBe(0.5);
+    settleMengerHoverChannelState(current, centerTarget, 0.2, 1e-6);
+    expect(current.weightA).toBeGreaterThan(0.5);
+    expect(current.weightA).toBeLessThan(1);
+
+    const crossedTarget = readChannelState({ x: CENTER_A + 0.04, y: CENTER_B, z: 0.75 });
+    const initialSignA = current.signA;
+    let signChangedAtWeight: number | null = null;
+    let settled = false;
+    for (let frame = 0; frame < 200 && !settled; frame += 1) {
+      settled = settleMengerHoverChannelState(current, crossedTarget, 0.2, 1e-6);
+      if (current.signA !== initialSignA && signChangedAtWeight === null) {
+        signChangedAtWeight = current.weightA;
+      }
+    }
+
+    expect(signChangedAtWeight).toBe(0);
+    expect(settled).toBe(true);
+    expect(current).toEqual(crossedTarget);
+  });
+
+  it("changes direction at full openness before it closes", () => {
+    const current = readChannelState(null);
+    current.openness = 1;
+    const target = readChannelState({ x: CENTER_A + 0.04, y: CENTER_B, z: 0.75 });
+
+    expect(settleMengerHoverChannelState(current, target, 1, 1e-6)).toBe(false);
+    expect(current.openness).toBe(1);
+    expect(current.signA).toBe(target.signA);
+    expect(current.signB).toBe(target.signB);
+    expect(current.weightA).toBe(target.weightA);
+
+    expect(settleMengerHoverChannelState(current, target, 1, 1e-6)).toBe(true);
+    expect(current).toEqual(target);
+  });
+
+  it("changes direction while closed before it opens", () => {
+    const current = readChannelState(null);
+    const target = readChannelState({ x: CENTER_A + 0.04, y: CENTER_B, z: 0.75 });
+
+    expect(settleMengerHoverChannelState(current, target, 1, 1e-6)).toBe(false);
+    expect(current.openness).toBe(0);
+    expect(current.signA).toBe(target.signA);
+    expect(current.signB).toBe(target.signB);
+    expect(current.weightA).toBe(target.weightA);
+
+    expect(settleMengerHoverChannelState(current, target, 1, 1e-6)).toBe(true);
+    expect(current).toEqual(target);
+  });
+
+  it("retreats a cover before changing direction near closed", () => {
+    const current = readChannelState({ x: CENTER_A - 0.04, y: CENTER_B, z: 0.75 });
+    const target = readChannelState({ x: CENTER_A + 0.04, y: CENTER_B, z: 0.75 });
+    current.openness = 5e-7;
+
+    expect(settleMengerHoverChannelState(current, target, 1, 1e-6)).toBe(false);
+    expect(current.signA).toBe(target.signA);
+    expect(current.weightA).toBe(0);
+    expect(current.weightA).not.toBe(target.weightA);
+  });
+
+  it("retreats both covers in sequence when both directions change", () => {
+    const current = readChannelState({
+      x: CENTER_A - 0.04,
+      y: CENTER_B - 0.04,
+      z: 0.75,
+    });
+    const target = readChannelState({
+      x: CENTER_A + 0.04,
+      y: CENTER_B + 0.04,
+      z: 0.75,
+    });
+    const initialSignA = current.signA;
+    const initialSignB = current.signB;
+    let signAChangedAtWeight: number | null = null;
+    let signBChangedAtWeight: number | null = null;
+    let settled = false;
+    for (let frame = 0; frame < 300 && !settled; frame += 1) {
+      settled = settleMengerHoverChannelState(current, target, 0.2, 1e-6);
+      if (current.signA !== initialSignA && signAChangedAtWeight === null) {
+        signAChangedAtWeight = current.weightA;
+      }
+      if (current.signB !== initialSignB && signBChangedAtWeight === null) {
+        signBChangedAtWeight = current.weightA;
+      }
+    }
+
+    expect(signAChangedAtWeight).toBe(0);
+    expect(signBChangedAtWeight).toBe(1);
+    expect(settled).toBe(true);
+    expect(current).toEqual(target);
+  });
+
+  it("includes distance from the channel face in three-dimensional falloff", () => {
+    const surfaceState = readChannelState({ x: CENTER_A, y: CENTER_B, z: 1 });
+    const interiorState = readChannelState({ x: CENTER_A, y: CENTER_B, z: 0.75 });
+
+    expect(surfaceState.openness).toBe(1);
+    expect(interiorState.openness).toBeGreaterThan(0);
+    expect(interiorState.openness).toBeLessThan(surfaceState.openness);
   });
 
   it("links a depth-three ray only to crossed lower-stage covers", () => {
@@ -352,6 +500,20 @@ describe("Menger hover", () => {
     }
     expect(topology.stages[0]?.maximumBlockerLinksPerMove).toBe(18);
     expect(topology.stages[1]?.maximumBlockerLinksPerMove).toBe(2);
+  });
+
+  it("builds the supported depth-five model and topology", () => {
+    const model = createMengerDepthTransitionModel({
+      maximumDepth: 5,
+      retainFinalSettledVoxels: false,
+      staggerGroupCount: 1,
+    });
+    const topology = createMengerHoverTopology(model);
+
+    expect(model.stages[model.stages.length - 1]?.depth).toBe(5);
+    expect(topology.stages).toHaveLength(4);
+    expect(topology.channelCount).toBe(22_140);
+    expect(topology.stages[topology.stages.length - 1]?.blockerLinks).toEqual([]);
   });
 
   it("heals along the last slide split after the pointer leaves", () => {

@@ -10,6 +10,8 @@ import { LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS } from "@/components/logo/l
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import { type LogoViewState } from "@/components/logo/logoViewDrag";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
+import { PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE } from "@/lib/publicLandingLogo";
+import { clearPublicLandingLogoStaticFallbackPrehydration } from "@/lib/publicLandingLogoPrehydration";
 import {
   MENGER_HOVER_DEFAULT_DEPTH,
   MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
@@ -109,6 +111,7 @@ export function LandingHeroMenger() {
   );
   const [didSceneFail, setDidSceneFail] = useState(() => didMengerHoverSceneRenderFail);
   const [hasSlotSize, setHasSlotSize] = useState(false);
+  const [isHydratedFallbackVisibilityReady, setIsHydratedFallbackVisibilityReady] = useState(false);
   const [isSlotIntersecting, setIsSlotIntersecting] = useState(false);
   const [isSceneReady, setIsSceneReady] = useState(false);
   const slotRef = useRef<HTMLDivElement | null>(null);
@@ -132,6 +135,18 @@ export function LandingHeroMenger() {
       })}#${resolvedTheme.cacheKey}:${staticFallbackView.elevationDegrees}:${staticFallbackView.rotationDegrees}`,
     [faceColors, resolvedTheme.cacheKey, staticFallbackView],
   );
+
+  useLayoutEffect(() => {
+    setIsHydratedFallbackVisibilityReady(true);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!isHydratedFallbackVisibilityReady) {
+      return;
+    }
+
+    clearPublicLandingLogoStaticFallbackPrehydration();
+  }, [isHydratedFallbackVisibilityReady]);
 
   useLayoutEffect(() => {
     const nextView = {
@@ -169,7 +184,12 @@ export function LandingHeroMenger() {
       secondIntersectionFrame = 0;
     };
     const resizeObserver = new ResizeObserver(syncSlotSize);
-    const intersectionObserver = new IntersectionObserver(([entry]) => {
+    const intersectionObserver = new IntersectionObserver((entries) => {
+      const entry = entries.at(-1);
+      if (!entry) {
+        return;
+      }
+
       cancelPendingIntersection();
       if (!entry.isIntersecting) {
         setIsSlotIntersecting(false);
@@ -281,6 +301,7 @@ export function LandingHeroMenger() {
       data-testid="landing-preview-hero-menger"
     >
       <img
+        key={isHydratedFallbackVisibilityReady ? "hydrated" : "prehydration"}
         alt=""
         aria-hidden="true"
         className={
@@ -288,6 +309,7 @@ export function LandingHeroMenger() {
             ? "pointer-events-none absolute inset-0 z-10 h-full w-full object-contain opacity-0 transition-opacity duration-300 ease-out"
             : "pointer-events-none absolute inset-0 z-10 h-full w-full object-contain opacity-100 transition-opacity duration-300 ease-out"
         }
+        {...{ [PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE]: "" }}
         data-testid="landing-preview-hero-menger-fallback"
         decoding="async"
         height="360"

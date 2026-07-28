@@ -376,7 +376,3 @@ export function createMengerDepthTransitionModel({
     totalDurationMs: previousStage.endTimeMs,
   };
 }
-
-export const MENGER_DEPTH_TRANSITION_MODEL = createMengerDepthTransitionModel({
-  staggerGroupCount: 1,
-});

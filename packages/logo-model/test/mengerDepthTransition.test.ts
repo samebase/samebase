@@ -1,7 +1,6 @@
 import {
   MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT,
   MENGER_DEPTH_TRANSITION_DEPTH_HOLD_MS,
-  MENGER_DEPTH_TRANSITION_MODEL,
   MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS,
   MENGER_DEPTH_TRANSITION_SPLIT_HOLD_MS,
   createMengerDepthTransitionModel,
@@ -11,6 +10,10 @@ import {
 } from "../src/mengerDepthTransition.ts";
 import { voxelKey } from "../src/voxel.ts";
 import { describe, expect, it } from "vite-plus/test";
+
+const MENGER_DEPTH_TRANSITION_MODEL = createMengerDepthTransitionModel({
+  staggerGroupCount: 1,
+});
 
 function coordinateKey([x, y, z]: readonly [number, number, number]): string {
   return voxelKey(x, y, z);

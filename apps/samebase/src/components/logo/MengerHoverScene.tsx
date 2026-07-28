@@ -37,8 +37,8 @@ import {
   createMengerHoverState,
   createMengerHoverTopology,
   projectMengerHoverLineToVisibleFacePlanes,
+  settleMengerHoverChannelState,
   writeMengerHoverState,
-  type MengerHoverChannelState,
   type MengerHoverProbe,
 } from "@samebase/logo-model/menger-hover";
 import {
@@ -62,10 +62,6 @@ type ClientPoint = {
   y: number;
 };
 
-type HoverStageBuffers = {
-  openness: Float64Array;
-};
-
 type MengerHoverStageMeshes = {
   blockerLinkTexture: MengerHoverTexture;
   coverGeometry: THREE.BufferGeometry;
@@ -74,12 +70,6 @@ type MengerHoverStageMeshes = {
   settledMesh: THREE.InstancedMesh;
   stage: MengerDepthTransitionStage;
 };
-
-function createHoverStageBuffers(channelCount: number): HoverStageBuffers {
-  return {
-    openness: new Float64Array(channelCount),
-  };
-}
 
 export function MengerHoverScene({
   cameraFrustumPadding,
@@ -198,7 +188,6 @@ export function MengerHoverScene({
       topMaterial,
       leftMaterial,
       leftMaterial,
-      leftMaterial,
     ];
     const depthOneOnly = maximumDepth === 1;
     const depthOneMesh = new THREE.InstancedMesh(geometry, materials, model.depthOneVoxels.length);
@@ -212,7 +201,8 @@ export function MengerHoverScene({
         })
       : null;
     const topology = createMengerHoverTopology(model);
-    const hoverState = createMengerHoverState(model);
+    const hoverTargetState = createMengerHoverState(model);
+    const hoverRenderedState = createMengerHoverState(model);
     const stateTexture = createMengerHoverStateTexture(topology.channelCount);
     const coverInstanceCount = depthOneOnly
       ? 0
@@ -301,9 +291,6 @@ export function MengerHoverScene({
       });
       coverMesh.instanceMatrix.needsUpdate = true;
     }
-    const stageBuffers = topology.stages.map((stage) =>
-      createHoverStageBuffers(stage.channelCount),
-    );
     const fitRadius = (MENGER_SCENE_WORLD_SIZE / 2) * Math.sqrt(3);
     const cameraDepthBounds = resolveLogoSceneCameraDepthBounds(fitRadius);
     camera.far = cameraDepthBounds.far;
@@ -374,31 +361,6 @@ export function MengerHoverScene({
       container.dataset.hoverVisibleFaceCount = String(projection.visibleFaceCount);
 
       return probe;
-    };
-
-    const settleChannelStates = (
-      channelStates: MengerHoverChannelState[],
-      buffers: HoverStageBuffers,
-      smoothing: number,
-    ): boolean => {
-      let settled = true;
-      const settleScalar = (target: number, buffer: Float64Array, channel: number): number => {
-        const current = buffer[channel] ?? 0;
-        let next = current + (target - current) * smoothing;
-        if (Math.abs(next - target) < HOVER_OPENNESS_SETTLE_EPSILON) {
-          next = target;
-        } else {
-          settled = false;
-        }
-
-        buffer[channel] = next;
-        return next;
-      };
-      for (const [channel, channelState] of channelStates.entries()) {
-        channelState.openness = settleScalar(channelState.openness, buffers.openness, channel);
-      }
-
-      return settled;
     };
 
     const scheduleFrame = () => {
@@ -559,7 +521,13 @@ export function MengerHoverScene({
         if (probe !== null) {
           directionProbe = probe;
         }
-        writeMengerHoverState(hoverState, model, probe, directionProbe, revealRadiusRef.current);
+        writeMengerHoverState(
+          hoverTargetState,
+          model,
+          probe,
+          directionProbe,
+          revealRadiusRef.current,
+        );
         const previousFrameTime = lastFrameTime;
         lastFrameTime = now;
         const elapsedMs =
@@ -571,19 +539,30 @@ export function MengerHoverScene({
           : 1 - Math.exp(-elapsedMs / HOVER_OPENNESS_SMOOTHING_TAU_MS);
         let settled = true;
         let maximumOpenness = 0;
-        for (const [stageIndex, stageState] of hoverState.stages.entries()) {
-          const buffers = stageBuffers[stageIndex];
-          if (!settleChannelStates(stageState, buffers, smoothing)) {
-            settled = false;
-          }
+        for (let stageIndex = 0; stageIndex < hoverTargetState.stages.length; stageIndex += 1) {
+          const targetStageState = hoverTargetState.stages[stageIndex];
+          const renderedStageState = hoverRenderedState.stages[stageIndex];
           const stageTopology = topology.stages[stageIndex];
-          for (const [channel, channelState] of stageState.entries()) {
+
+          for (let channel = 0; channel < targetStageState.length; channel += 1) {
+            const targetChannelState = targetStageState[channel];
+            const renderedChannelState = renderedStageState[channel];
+            if (
+              !settleMengerHoverChannelState(
+                renderedChannelState,
+                targetChannelState,
+                smoothing,
+                HOVER_OPENNESS_SETTLE_EPSILON,
+              )
+            ) {
+              settled = false;
+            }
             const textureOffset = (stageTopology.channelStateOffset + channel) * 4;
-            stateTexture.data[textureOffset] = channelState.openness;
-            stateTexture.data[textureOffset + 1] = channelState.signA;
-            stateTexture.data[textureOffset + 2] = channelState.signB;
-            stateTexture.data[textureOffset + 3] = channelState.weightA;
-            maximumOpenness = Math.max(maximumOpenness, channelState.openness);
+            stateTexture.data[textureOffset] = renderedChannelState.openness;
+            stateTexture.data[textureOffset + 1] = renderedChannelState.signA;
+            stateTexture.data[textureOffset + 2] = renderedChannelState.signB;
+            stateTexture.data[textureOffset + 3] = renderedChannelState.weightA;
+            maximumOpenness = Math.max(maximumOpenness, renderedChannelState.openness);
           }
         }
         stateTexture.texture.needsUpdate = true;
@@ -649,12 +628,14 @@ export function MengerHoverScene({
         presentationTiltClientPoint = { x: event.clientX, y: event.clientY };
       }
       if (event.buttons !== 0) {
-        renderScene();
+        if (interactionRef.current.status === "idle") {
+          scheduleFrame();
+        }
         return;
       }
 
       clientPointerRef.current = { x: event.clientX, y: event.clientY };
-      renderScene();
+      scheduleFrame();
     };
     const onWindowPointerUp = (event: PointerEvent) => {
       if (!event.isPrimary || event.pointerType === "touch") {
@@ -665,7 +646,7 @@ export function MengerHoverScene({
       if (event.pointerType === "mouse") {
         presentationTiltClientPoint = clientPointerRef.current;
       }
-      renderScene();
+      scheduleFrame();
     };
     const onWindowBlur = () => {
       presentationTiltClientPoint = null;
@@ -680,7 +661,7 @@ export function MengerHoverScene({
     const onPagePointerLeave = () => {
       clientPointerRef.current = null;
       presentationTiltClientPoint = null;
-      renderScene();
+      scheduleFrame();
     };
     window.addEventListener("blur", onWindowBlur);
     window.addEventListener("pointermove", onWindowPointerMove);
@@ -712,11 +693,13 @@ export function MengerHoverScene({
       leftMaterial.dispose();
       stateTexture.texture.dispose();
       settledSurface?.geometry.dispose();
+      clearProbe();
       delete container.dataset.hoverChannelCount;
       delete container.dataset.hoverDynamicUploadBytes;
       delete container.dataset.hoverCpuSubmissionMs;
       delete container.dataset.hoverMaximumOpenness;
       delete container.dataset.hoverSceneBuildMs;
+      delete container.dataset.hoverSettled;
       delete container.dataset.hoverTriangleCount;
       delete container.dataset.hoverVisibleInstanceCount;
       delete container.dataset.presentationAppliedAngleDegrees;

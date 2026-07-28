@@ -65,11 +65,6 @@ export type MengerHoverTopology = {
   stages: MengerHoverStageTopology[];
 };
 
-type ChannelTangentDeltas = {
-  deltaA: number;
-  deltaB: number;
-};
-
 type MengerHoverWorldPoint = {
   x: number;
   y: number;
@@ -177,28 +172,6 @@ function readChannelFaceCoordinates(channel: number, faceGridSize: number) {
   };
 }
 
-function readChannelTangentDeltas(
-  axis: MengerHoleAxis,
-  centerA: number,
-  centerB: number,
-  point: MengerHoverProbe,
-): ChannelTangentDeltas {
-  switch (axis) {
-    case 0:
-      return { deltaA: centerA - point.y, deltaB: centerB - point.z };
-    case 1:
-      return { deltaA: centerA - point.x, deltaB: centerB - point.z };
-    case 2:
-      return { deltaA: centerA - point.x, deltaB: centerB - point.y };
-    default:
-      return axis satisfies never;
-  }
-}
-
-function clampUnit(value: number): number {
-  return Math.min(Math.max(value, 0), 1);
-}
-
 function writeChannelState(
   target: MengerHoverChannelState,
   channel: number,
@@ -208,23 +181,40 @@ function writeChannelState(
   revealRadius: number,
 ): void {
   const faceGridSize = stage.gridSize / 3;
-  const { axis, coordinateA, coordinateB } = readChannelFaceCoordinates(channel, faceGridSize);
+  const axis = readChannelAxis(channel, faceGridSize);
+  const channelWithinAxis = channel - axis * faceGridSize * faceGridSize;
+  const coordinateA = Math.floor(channelWithinAxis / faceGridSize);
+  const coordinateB = channelWithinAxis % faceGridSize;
   const centerA = (coordinateA + 0.5) / faceGridSize;
   const centerB = (coordinateB + 0.5) / faceGridSize;
   const slidePoint = probe ?? directionProbe;
+  let deltaA = 0;
+  let deltaB = 0;
   if (slidePoint === null) {
     target.signA = 1;
     target.signB = 1;
     target.weightA = 0.5;
   } else {
-    const { deltaA, deltaB } = readChannelTangentDeltas(axis, centerA, centerB, slidePoint);
+    switch (axis) {
+      case 0:
+        deltaA = centerA - slidePoint.y;
+        deltaB = centerB - slidePoint.z;
+        break;
+      case 1:
+        deltaA = centerA - slidePoint.x;
+        deltaB = centerB - slidePoint.z;
+        break;
+      case 2:
+        deltaA = centerA - slidePoint.x;
+        deltaB = centerB - slidePoint.y;
+        break;
+      default:
+        return axis satisfies never;
+    }
     const totalDelta = Math.abs(deltaA) + Math.abs(deltaB);
-    const holeSize = 1 / faceGridSize / 3;
-    const directionalBlend = clampUnit(totalDelta / (holeSize / 2));
-    const directionalWeightA = totalDelta > 0 ? Math.abs(deltaA) / totalDelta : 0.5;
     target.signA = deltaA >= 0 ? 1 : -1;
     target.signB = deltaB >= 0 ? 1 : -1;
-    target.weightA = 0.5 + (directionalWeightA - 0.5) * directionalBlend;
+    target.weightA = totalDelta > 0 ? Math.abs(deltaA) / totalDelta : 0.5;
   }
 
   if (probe === null) {
@@ -247,9 +237,7 @@ function writeChannelState(
       return axis satisfies never;
   }
 
-  const { deltaA, deltaB } = readChannelTangentDeltas(axis, centerA, centerB, probe);
-  const radius = normalizeMengerHoverRevealRadius(revealRadius);
-  const closeness = 1 - Math.hypot(axisDelta, deltaA, deltaB) / radius;
+  const closeness = 1 - Math.hypot(axisDelta, deltaA, deltaB) / revealRadius;
   const normalized =
     closeness > 0 ? Math.min(closeness / (1 - MENGER_HOVER_FULL_OPEN_RADIUS_FRACTION), 1) : 0;
   target.openness = normalized * normalized * (3 - 2 * normalized);
@@ -269,6 +257,62 @@ export function createMengerHoverState(model: MengerDepthTransitionModel): Menge
   };
 }
 
+function settleMengerHoverScalar(
+  current: number,
+  target: number,
+  smoothing: number,
+  epsilon: number,
+): number {
+  const next = current + (target - current) * smoothing;
+  return Math.abs(next - target) < epsilon ? target : next;
+}
+
+/**
+Moves one rendered channel toward its pointer target. A cover direction can
+change only while that cover is fully retreated. This keeps the two-cover hole
+continuous when the pointer crosses a channel center.
+*/
+export function settleMengerHoverChannelState(
+  current: MengerHoverChannelState,
+  target: MengerHoverChannelState,
+  smoothing: number,
+  epsilon: number,
+): boolean {
+  const directionCanChange = current.openness === 0 || current.openness === 1;
+  const directionDiffers =
+    current.signA !== target.signA ||
+    current.signB !== target.signB ||
+    current.weightA !== target.weightA;
+
+  if (directionCanChange && directionDiffers) {
+    current.signA = target.signA;
+    current.signB = target.signB;
+    current.weightA = target.weightA;
+    return current.openness === target.openness;
+  }
+
+  current.openness = settleMengerHoverScalar(current.openness, target.openness, smoothing, epsilon);
+
+  if (!directionCanChange) {
+    const weightTarget =
+      current.signA !== target.signA ? 0 : current.signB !== target.signB ? 1 : target.weightA;
+    current.weightA = settleMengerHoverScalar(current.weightA, weightTarget, smoothing, epsilon);
+
+    if (current.signA !== target.signA && current.weightA === 0) {
+      current.signA = target.signA;
+    } else if (current.signB !== target.signB && current.weightA === 1) {
+      current.signB = target.signB;
+    }
+  }
+
+  return (
+    current.openness === target.openness &&
+    current.signA === target.signA &&
+    current.signB === target.signB &&
+    current.weightA === target.weightA
+  );
+}
+
 /**
 Updates one stable channel-state allocation. This is the per-frame path used
 by the renderer.
@@ -280,15 +324,28 @@ export function writeMengerHoverState(
   directionProbe: MengerHoverProbe | null,
   revealRadius: number,
 ): void {
-  model.stages.forEach((stage, stageIndex) => {
+  const normalizedRevealRadius = normalizeMengerHoverRevealRadius(revealRadius);
+  for (let stageIndex = 0; stageIndex < model.stages.length; stageIndex += 1) {
+    const stage = model.stages[stageIndex];
     const stageState = target.stages[stageIndex];
-    if (!stageState) {
-      throw new Error("Every Menger hover stage must have channel state.");
+    if (!stage || !stageState) {
+      throw new Error("Every Menger hover stage must have model and channel state.");
     }
-    stageState.forEach((channelState, channel) => {
-      writeChannelState(channelState, channel, stage, probe, directionProbe, revealRadius);
-    });
-  });
+    for (let channel = 0; channel < stageState.length; channel += 1) {
+      const channelState = stageState[channel];
+      if (!channelState) {
+        throw new Error("Every Menger hover channel must have state.");
+      }
+      writeChannelState(
+        channelState,
+        channel,
+        stage,
+        probe,
+        directionProbe,
+        normalizedRevealRadius,
+      );
+    }
+  }
 }
 
 export function readMengerHoverState(
@@ -355,7 +412,7 @@ export function createMengerHoverTopology(model: MengerDepthTransitionModel): Me
     channelStateOffset += channelCount;
     return mutableStage;
   });
-  const blockerIndexes = model.stages.map(createBlockerIndexes);
+  const blockerIndexes = model.stages.slice(0, -1).map(createBlockerIndexes);
 
   for (let rayStageIndex = 1; rayStageIndex < model.stages.length; rayStageIndex += 1) {
     const rayStage = model.stages[rayStageIndex];

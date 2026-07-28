@@ -26,7 +26,8 @@ test("Menger sponge moves from depth one through depth two to depth three", asyn
   const progress = page.getByLabel("Transition progress");
 
   await expect(controls).toBeVisible();
-  await expect(scene.locator("canvas")).toBeVisible();
+  const canvas = scene.locator("canvas");
+  await expect(canvas).toBeVisible();
   const layoutMetrics = await transitionPage.evaluate((element) => ({
     pageHeight: element.clientHeight,
     sceneHeight:
@@ -59,6 +60,15 @@ test("Menger sponge moves from depth one through depth two to depth three", asyn
   await expect(progress).toHaveValue("150");
   await expect(transitionPage).toHaveAttribute("data-phase", "transition");
   await waitForPaint(page);
+  const firstStaggerFrame = await canvas.screenshot();
+  await canvas.evaluate((element) => {
+    element.dataset.mengerTransitionContext = "original";
+  });
+  await page.getByLabel("Stagger groups").fill("12");
+  await expect(canvas).toHaveAttribute("data-menger-transition-context", "original");
+  await waitForPaint(page);
+  const secondStaggerFrame = await canvas.screenshot();
+  expect(secondStaggerFrame.equals(firstStaggerFrame)).toBe(false);
 
   await expect(workspace).toHaveScreenshot(
     "logo-menger-depth-transition-depth-two-transition.png",

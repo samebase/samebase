@@ -28,7 +28,6 @@ const RENDER_PIXEL_RATIO_MAX = 2;
 type MengerTransitionStageMeshes = {
   movingMesh: THREE.InstancedMesh;
   settledMesh: THREE.InstancedMesh;
-  stage: MengerDepthTransitionStage;
 };
 
 export function MengerDepthTransitionScene({
@@ -51,6 +50,9 @@ export function MengerDepthTransitionScene({
   viewSnapEnabled: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  // This scene always receives the same retained depth-three topology. The
+  // stagger control changes move timing only, so renderer-owned meshes stay.
+  const modelRef = useRef(model);
   const progressRef = useRef(progress);
   const renderSceneRef = useRef<(nextProgress: number) => void>(() => {});
   const viewRef = useRef<LogoViewState>({ elevationDegrees, rotationDegrees });
@@ -99,10 +101,14 @@ export function MengerDepthTransitionScene({
       topMaterial,
       leftMaterial,
       leftMaterial,
-      leftMaterial,
     ];
-    const depthOneMesh = new THREE.InstancedMesh(geometry, materials, model.depthOneVoxels.length);
-    const stageMeshes: MengerTransitionStageMeshes[] = model.stages.map((stage) => {
+    const initialModel = modelRef.current;
+    const depthOneMesh = new THREE.InstancedMesh(
+      geometry,
+      materials,
+      initialModel.depthOneVoxels.length,
+    );
+    const stageMeshes: MengerTransitionStageMeshes[] = initialModel.stages.map((stage) => {
       if (stage.settledVoxels === null) {
         throw new Error("A Menger transition stage must retain settled voxels.");
       }
@@ -111,7 +117,7 @@ export function MengerDepthTransitionScene({
       movingMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       movingMesh.frustumCulled = false;
 
-      return { movingMesh, settledMesh, stage };
+      return { movingMesh, settledMesh };
     });
     const logoGroup = new THREE.Group();
     logoGroup.add(depthOneMesh);
@@ -121,14 +127,15 @@ export function MengerDepthTransitionScene({
     scene.add(logoGroup);
 
     const matrix = new THREE.Matrix4();
-    model.depthOneVoxels.forEach((coordinate, index) => {
+    initialModel.depthOneVoxels.forEach((coordinate, index) => {
       writeMengerVoxelMatrix(matrix, coordinate, 3);
       depthOneMesh.setMatrixAt(index, matrix);
     });
     depthOneMesh.instanceMatrix.needsUpdate = true;
     depthOneMesh.computeBoundingSphere();
 
-    for (const { settledMesh, stage } of stageMeshes) {
+    for (const [stageIndex, { settledMesh }] of stageMeshes.entries()) {
+      const stage = initialModel.stages[stageIndex];
       if (stage.settledVoxels === null) {
         throw new Error("A Menger transition stage must retain settled voxels.");
       }
@@ -173,6 +180,7 @@ export function MengerDepthTransitionScene({
     };
 
     const renderScene = (nextProgress: number): void => {
+      const currentModel = modelRef.current;
       const view = viewRef.current;
       const [cameraX, cameraY, cameraZ] = getWorldCameraVector(view.elevationDegrees);
       const [upX, upY, upZ] = getWorldScreenVerticalAxis(view.elevationDegrees);
@@ -185,14 +193,15 @@ export function MengerDepthTransitionScene({
       camera.updateMatrixWorld();
       logoGroup.updateMatrixWorld(true);
 
-      const elapsedMs = THREE.MathUtils.clamp(nextProgress, 0, 1) * model.totalDurationMs;
-      const stage = readMengerDepthTransitionStage(model, elapsedMs);
-      depthOneMesh.visible = stage === null;
-      for (const stageMesh of stageMeshes) {
-        const stageVisible = stageMesh.stage === stage;
+      const elapsedMs = THREE.MathUtils.clamp(nextProgress, 0, 1) * currentModel.totalDurationMs;
+      const activeStage = readMengerDepthTransitionStage(currentModel, elapsedMs);
+      depthOneMesh.visible = activeStage === null;
+      for (const [stageIndex, stageMesh] of stageMeshes.entries()) {
+        const stage = currentModel.stages[stageIndex];
+        const stageVisible = stage === activeStage;
         stageMesh.settledMesh.visible = stageVisible;
         stageMesh.movingMesh.visible = stageVisible;
-        renderStageMoves(stageMesh.stage, stageMesh.movingMesh, elapsedMs);
+        renderStageMoves(stage, stageMesh.movingMesh, elapsedMs);
       }
 
       renderer.render(scene, camera);
@@ -234,7 +243,12 @@ export function MengerDepthTransitionScene({
       scene.clear();
       container.replaceChildren();
     };
-  }, [leftFaceColor, model, rightFaceColor, topFaceColor]);
+  }, [leftFaceColor, rightFaceColor, topFaceColor]);
+
+  useEffect(() => {
+    modelRef.current = model;
+    renderSceneRef.current(progressRef.current);
+  }, [model]);
 
   useEffect(() => {
     progressRef.current = progress;
