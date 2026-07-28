@@ -610,6 +610,7 @@ test.describe("mobile landing preview", () => {
     await page.goto(LANDING_PREVIEW_ROUTE, {
       waitUntil: "domcontentloaded",
     });
+    await page.waitForLoadState("networkidle");
 
     const workspace = page.locator('[data-workspace-layout-v2="responsive"]');
     const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
