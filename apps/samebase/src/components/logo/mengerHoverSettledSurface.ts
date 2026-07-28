@@ -79,6 +79,9 @@ export function createMengerHoverSettledSurface({
   if (!finalStage || !tileStage) {
     throw new Error("The Menger hover surface needs at least three sponge depths.");
   }
+  if (tileStage.settledVoxels === null) {
+    throw new Error("The Menger hover surface tile must retain its settled voxel coordinates.");
+  }
 
   const tileFilledVoxels = new Set(tileStage.settledVoxels.map(([x, y, z]) => voxelKey(x, y, z)));
   const surfaceQuads = buildLogoSurfaceQuads(tileFilledVoxels, tileStage.gridSize);

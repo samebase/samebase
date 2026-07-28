@@ -110,10 +110,17 @@ const mengerDepthOneSurface = buildSurfaceMeshes(
   STATIC_LOGO_GRID_SIZE,
 );
 const mengerDepthSurfaces = new Map(
-  mengerDepthTransitionModel.stages.map((stage) => [
-    stage.depth,
-    buildSurfaceMeshes(createFilledVoxelSet(stage.settledVoxels), stage.gridSize),
-  ]),
+  mengerDepthTransitionModel.stages.map((stage) => {
+    const settledVoxels = stage.settledVoxels;
+    if (settledVoxels === null) {
+      throw new Error("The Menger transition composition needs every settled voxel.");
+    }
+
+    return [
+      stage.depth,
+      buildSurfaceMeshes(createFilledVoxelSet(settledVoxels), stage.gridSize),
+    ] as const;
+  }),
 );
 
 function planShuffleMoves(): PlannedShuffleMove[] {

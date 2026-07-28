@@ -26,6 +26,10 @@ import {
   createDefaultVoxelState,
 } from "@samebase/logo-model/voxel";
 import {
+  MENGER_HOVER_DEFAULT_DEPTH,
+  MENGER_HOVER_MAX_DEPTH,
+} from "@samebase/logo-model/menger-hover";
+import {
   SIERPINSKI_CARPET_HOVER_DEFAULT_DEPTH,
   SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC,
   SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
@@ -35,6 +39,7 @@ import {
 import {
   buildLogoCarpetHoverRouteSearch,
   buildLogoIsoRouteSearch,
+  buildLogoMengerHoverRouteSearch,
   buildLogoRouteSearch,
   DEFAULT_LOGO_OPACITY,
   LOGO_ROUTE_SEARCH_KEYS,
@@ -279,8 +284,8 @@ describe("logoRouteSearch", () => {
     expect(validateLogoCarpetHoverRouteSearch({ radius: "0.055" })).toEqual({ radius: 0.055 });
   });
 
-  it("clears default carpet state with tombstones when building carpet route search", () => {
-    const carpetDefaults = {
+  it("clears default hover state with tombstones when building hover route search", () => {
+    const routeBuildDefaults = {
       autoRotateEnabled: false,
       autoShuffleEnabled: false,
       faceColorAnimationEnabled: false,
@@ -302,7 +307,7 @@ describe("logoRouteSearch", () => {
       voxelState: DEFAULT_VOXEL_STATE,
     } as const;
     const search = buildLogoCarpetHoverRouteSearch({
-      ...carpetDefaults,
+      ...routeBuildDefaults,
       carpetMechanic: SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC,
       carpetRevealDepth: SIERPINSKI_CARPET_HOVER_DEFAULT_DEPTH,
       carpetRevealRadius: SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
@@ -317,7 +322,7 @@ describe("logoRouteSearch", () => {
     expect(search.depth).toBeUndefined();
 
     const nonDefaultSearch = buildLogoCarpetHoverRouteSearch({
-      ...carpetDefaults,
+      ...routeBuildDefaults,
       carpetMechanic: "grow",
       carpetRevealDepth: 3,
       carpetRevealRadius: 0.5,
@@ -326,6 +331,27 @@ describe("logoRouteSearch", () => {
     expect(nonDefaultSearch.mechanic).toBe("grow");
     expect(nonDefaultSearch.depth).toBe(3);
     expect(nonDefaultSearch.radius).toBe(0.5);
+
+    const mengerDefaults = buildLogoMengerHoverRouteSearch({
+      ...routeBuildDefaults,
+      mengerHoverDepth: MENGER_HOVER_DEFAULT_DEPTH,
+    });
+    expect(mengerDefaults).toEqual({});
+    expect("depth" in mengerDefaults).toBe(true);
+    expect(mengerDefaults.depth).toBeUndefined();
+
+    expect(
+      buildLogoMengerHoverRouteSearch({
+        ...routeBuildDefaults,
+        mengerHoverDepth: 1,
+      }).depth,
+    ).toBe(1);
+    expect(
+      buildLogoMengerHoverRouteSearch({
+        ...routeBuildDefaults,
+        mengerHoverDepth: 99,
+      }).depth,
+    ).toBe(MENGER_HOVER_MAX_DEPTH);
   });
 
   it("preserves canonical theme mode flags when building route search", () => {

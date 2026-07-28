@@ -13,6 +13,7 @@ import {
   type SierpinskiCarpetHoverDepth,
   type SierpinskiCarpetHoverMechanic,
 } from "@samebase/logo-model/sierpinski-carpet-hover";
+import { MENGER_HOVER_DEFAULT_DEPTH } from "@samebase/logo-model/menger-hover";
 import {
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
   LOGO_ISOMETRIC_CUBE_SIDE_PIXELS,
@@ -1015,6 +1016,20 @@ export function buildLogoCarpetHoverRouteSearch(
         : undefined,
     radius:
       revealRadius !== SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS ? revealRadius : undefined,
+  };
+}
+
+export function buildLogoMengerHoverRouteSearch(
+  args: LogoRouteSearchBuildState & {
+    mengerHoverDepth: number;
+    themeModeSearch?: RootThemeModeSearch;
+  },
+): LogoRouteSearch {
+  const depth = clampLogoFractalDepthForRenderer(args.mengerHoverDepth, "three");
+
+  return {
+    ...buildLogoRouteSearch(args),
+    depth: depth !== MENGER_HOVER_DEFAULT_DEPTH ? depth : undefined,
   };
 }
 

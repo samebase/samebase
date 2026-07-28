@@ -36,18 +36,23 @@ function expectStageShape(
   settledCount: number,
   moveCount: number,
 ): void {
-  const settledKeys = new Set(stage.settledVoxels.map(coordinateKey));
+  const settledVoxels = stage.settledVoxels;
+  if (settledVoxels === null) {
+    throw new Error("The complete Menger stage shape needs settled voxel coordinates.");
+  }
+  const settledKeys = new Set(settledVoxels.map(coordinateKey));
   const moverOriginKeys = new Set(stage.moves.map((move) => coordinateKey(move.from)));
   const splitKeys = new Set([...settledKeys, ...moverOriginKeys]);
 
   expect(stage.sourceVoxels).toHaveLength(sourceCount);
-  expect(stage.settledVoxels).toHaveLength(settledCount);
+  expect(stage.settledVoxelCount).toBe(settledCount);
+  expect(settledVoxels).toHaveLength(settledCount);
   expect(stage.moves).toHaveLength(moveCount);
   expect(moverOriginKeys.size).toBe(moveCount);
   expect(splitKeys.size).toBe(sourceCount * 26);
   expect(stage.moves.every((move) => settledKeys.has(coordinateKey(move.to)))).toBe(true);
   expect(
-    stage.settledVoxels.every(([x, y, z]) =>
+    settledVoxels.every(([x, y, z]) =>
       [x, y, z].every((axis) => axis >= 0 && axis < stage.gridSize),
     ),
   ).toBe(true);
@@ -186,5 +191,22 @@ describe("Menger depth transition", () => {
     }
     expectStageShape(depthFour, 8_000, 160_000, 48_000);
     expect(model.totalDurationMs).toBe(depthFour.endTimeMs);
+  });
+
+  it("can omit only the final settled coordinates while keeping their exact count", () => {
+    const model = createMengerDepthTransitionModel({
+      maximumDepth: 4,
+      retainFinalSettledVoxels: false,
+      staggerGroupCount: 1,
+    });
+    const depthThree = model.stages[1];
+    const depthFour = model.stages[2];
+    if (!depthThree || !depthFour) {
+      throw new Error("The compact hover model must include depths three and four.");
+    }
+
+    expect(depthThree.settledVoxels).toHaveLength(8_000);
+    expect(depthFour.settledVoxelCount).toBe(160_000);
+    expect(depthFour.settledVoxels).toBeNull();
   });
 });

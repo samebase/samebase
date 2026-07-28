@@ -35,9 +35,11 @@ async function openMengerHoverCase(
   page: Page,
   {
     elevationDegrees,
+    maximumDepth = "4",
     rotationDegrees,
   }: {
     elevationDegrees: string;
+    maximumDepth?: string;
     rotationDegrees: string;
   },
 ): Promise<Locator> {
@@ -46,7 +48,9 @@ async function openMengerHoverCase(
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await signInIfNeeded(
     page,
-    `/logo/hover/menger?elev=${elevationDegrees}&rot=${rotationDegrees}&top=red-400`,
+    `/logo/hover/menger?elev=${elevationDegrees}&rot=${rotationDegrees}&top=red-400${
+      maximumDepth === "4" ? "" : `&depth=${maximumDepth}`
+    }`,
   );
 
   const hoverPage = page.locator('[data-testid="logo-menger-hover-page"]');
@@ -56,7 +60,7 @@ async function openMengerHoverCase(
   await expect(controls).toBeVisible({ timeout: 30_000 });
   await expect(scene.locator("canvas")).toBeVisible();
   await expect(hoverPage).toHaveAttribute("data-menger-research-mode", "hover");
-  await expect(scene).toHaveAttribute("data-menger-maximum-depth", "4");
+  await expect(scene).toHaveAttribute("data-menger-maximum-depth", maximumDepth);
   await expect(scene).toHaveAttribute("data-logo-elevation-degrees", elevationDegrees);
   await expect(scene).toHaveAttribute("data-logo-rotation-degrees", rotationDegrees);
   await expect(scene).toHaveAttribute("data-hover-settled", "true");
@@ -197,6 +201,35 @@ test("Menger hover rests at depth one in the face-on view", async ({ page }) => 
   await expect(scene).not.toHaveAttribute("data-hover-coordinate-x", /.+/);
   await waitForPaint(page);
   await expect(scene).toHaveScreenshot("logo-menger-hover-face-on-resting.png", SCREENSHOT_OPTIONS);
+});
+
+test("Menger hover controls reveal depth from one through five", async ({ page }) => {
+  const scene = await openMengerHoverCase(page, {
+    elevationDegrees: "0",
+    rotationDegrees: "180",
+  });
+  const controls = page.locator('[data-testid="logo-menger-hover-controls"]');
+  const depthSlider = controls.getByRole("slider", { name: "Reveal depth" });
+
+  await expect(depthSlider).toHaveAttribute("min", "1");
+  await expect(depthSlider).toHaveAttribute("max", "5");
+  await expect(depthSlider).toHaveValue("4");
+
+  await depthSlider.focus();
+  await depthSlider.press("Home");
+  await depthSlider.press("Tab");
+  await expect(depthSlider).toHaveValue("1");
+  await expect(scene).toHaveAttribute("data-menger-maximum-depth", "1");
+  await expect(scene).toHaveAttribute("data-hover-channel-count", "0");
+  await expect(scene).toHaveAttribute("data-hover-visible-instance-count", "20");
+  await expect(page).toHaveURL(/(?:\?|&)depth=1(?:&|$)/);
+
+  await depthSlider.focus();
+  await depthSlider.press("ArrowRight");
+  await depthSlider.press("Tab");
+  await expect(depthSlider).toHaveValue("2");
+  await expect(scene).toHaveAttribute("data-menger-maximum-depth", "2");
+  await expect(page).toHaveURL(/(?:\?|&)depth=2(?:&|$)/);
 });
 
 test("Menger hover extends every visible face plane beyond the canvas", async ({ page }) => {

@@ -34,7 +34,9 @@ export type MengerDepthTransitionStage = {
   endTimeMs: number;
   gridSize: number;
   moves: MengerDepthTransitionMove[];
-  settledVoxels: VoxelCoordinate[];
+  settledVoxelCount: number;
+  /** Null only when a compact final stage keeps the count but not its coordinates. */
+  settledVoxels: VoxelCoordinate[] | null;
   sourceVoxels: VoxelCoordinate[];
   splitTimeMs: number;
 };
@@ -232,10 +234,12 @@ function createMengerDepthTransitionStage(
   depth: MengerDepthTransitionStage["depth"],
   startTimeMs: number,
   staggerGroupCount: number,
+  retainSettledVoxels: boolean,
 ): MengerDepthTransitionStage {
   const retainedChildren = readMengerCoordinates();
   const retainedChildKeys = new Set(retainedChildren.map(([x, y, z]) => `${x},${y},${z}`));
-  const settledVoxels: VoxelCoordinate[] = [];
+  const settledVoxels: VoxelCoordinate[] | null = retainSettledVoxels ? [] : null;
+  let settledVoxelCount = 0;
   const moves: MengerDepthTransitionMove[] = [];
   const splitTimeMs = startTimeMs + MENGER_DEPTH_TRANSITION_SPLIT_HOLD_MS;
   const stageStagger = createStaggerGroups(depth, staggerGroupCount);
@@ -248,7 +252,10 @@ function createMengerDepthTransitionStage(
           const coordinate = toChildCoordinate(parent, child);
 
           if (retainedChildKeys.has(`${x},${y},${z}`)) {
-            settledVoxels.push(coordinate);
+            settledVoxelCount += 1;
+            if (settledVoxels) {
+              settledVoxels.push(coordinate);
+            }
             continue;
           }
 
@@ -288,7 +295,9 @@ function createMengerDepthTransitionStage(
     }
   }
 
-  settledVoxels.sort(compareVoxelCoordinates);
+  if (settledVoxels) {
+    settledVoxels.sort(compareVoxelCoordinates);
+  }
   moves.sort(
     (left, right) =>
       left.startTimeMs - right.startTimeMs || compareVoxelCoordinates(left.from, right.from),
@@ -304,17 +313,24 @@ function createMengerDepthTransitionStage(
     endTimeMs,
     gridSize: 3 ** depth,
     moves,
+    settledVoxelCount,
     settledVoxels,
     sourceVoxels,
     splitTimeMs,
   };
 }
 
+/**
+The hover renderer can omit the final settled coordinates because its exact
+surface reuses the previous stage. Transition models retain all coordinates.
+*/
 export function createMengerDepthTransitionModel({
   maximumDepth = 3,
+  retainFinalSettledVoxels = true,
   staggerGroupCount: requestedStaggerGroupCount,
 }: {
   maximumDepth?: number;
+  retainFinalSettledVoxels?: boolean;
   staggerGroupCount: number;
 }): MengerDepthTransitionModel {
   if (!Number.isInteger(maximumDepth) || maximumDepth < 2) {
@@ -329,15 +345,26 @@ export function createMengerDepthTransitionModel({
     Math.min(MENGER_DEPTH_TRANSITION_MAX_STAGGER_GROUP_COUNT, Math.round(finiteStaggerGroupCount)),
   );
   const depthOneVoxels = readMengerCoordinates();
-  const depthTwo = createMengerDepthTransitionStage(depthOneVoxels, 2, 0, staggerGroupCount);
+  const depthTwo = createMengerDepthTransitionStage(
+    depthOneVoxels,
+    2,
+    0,
+    staggerGroupCount,
+    maximumDepth > 2 || retainFinalSettledVoxels,
+  );
   const stages: [MengerDepthTransitionStage, ...MengerDepthTransitionStage[]] = [depthTwo];
   let previousStage = depthTwo;
   for (let depth = 3; depth <= maximumDepth; depth += 1) {
+    const sourceVoxels = previousStage.settledVoxels;
+    if (sourceVoxels === null) {
+      throw new Error("Only the final Menger stage can omit settled voxel coordinates.");
+    }
     const stage = createMengerDepthTransitionStage(
-      previousStage.settledVoxels,
+      sourceVoxels,
       depth,
       previousStage.endTimeMs + MENGER_DEPTH_TRANSITION_DEPTH_HOLD_MS,
       staggerGroupCount,
+      depth < maximumDepth || retainFinalSettledVoxels,
     );
     stages.push(stage);
     previousStage = stage;
