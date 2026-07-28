@@ -43,7 +43,7 @@ export function createSamebaseSocialCardSvgMarkup({
 }: {
   faceTreatment?: LogoFaceTreatment;
 } = {}) {
-  const logoBody = createLogoSvgBody("spatial", faceTreatment);
+  const logoBody = createLogoSvgBody("side-primary", faceTreatment);
 
   return `<svg
   xmlns="http://www.w3.org/2000/svg"
