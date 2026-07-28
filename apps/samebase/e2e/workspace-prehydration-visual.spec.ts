@@ -45,6 +45,13 @@ const STABLE_WORKSPACE_PREHYDRATION_VISUAL_MASK_STYLE = `
 }
 `;
 
+const RENDERED_SEPARATOR_STYLE = {
+  backgroundIsVisible: true,
+  heightIsPositive: true,
+  touchesExpectedEdge: true,
+  width: "1px",
+} as const;
+
 type MobilePrehydrationVisualScenario = {
   edgePane: "right";
   id: string;
@@ -104,6 +111,17 @@ const MOBILE_PREHYDRATION_VISUAL_SCENARIOS = [
   },
 ] satisfies MobilePrehydrationVisualScenario[];
 
+const CROSS_SIDE_MERGED_PREHYDRATION_SCENARIOS = [
+  {
+    mobilePane: "right",
+    mergedSide: "left",
+  },
+  {
+    mobilePane: "left",
+    mergedSide: "right",
+  },
+] as const;
+
 async function seedWorkspaceSidebarState(page: Page, state: WorkspaceSidebarState) {
   await page.addInitScript(
     ({ storageKey, storageVersion, workspaceSidebarState }) => {
@@ -135,6 +153,32 @@ async function blockHydrationScripts(page: Page) {
       contentType: "text/javascript",
       status: 200,
     });
+  });
+}
+
+async function getHorizontalSeparatorStyles(page: Page) {
+  return page.locator("[data-workspace-layout-v2-mobile-main-pane-surface]").evaluate((element) => {
+    const readSeparatorStyle = (pseudoElement: "::before" | "::after") => {
+      const styles = window.getComputedStyle(element, pseudoElement);
+
+      if (styles.content === "none") {
+        return null;
+      }
+
+      return {
+        backgroundIsVisible:
+          styles.backgroundColor !== "rgba(0, 0, 0, 0)" && styles.backgroundColor !== "transparent",
+        heightIsPositive: Number.parseFloat(styles.height) > 0,
+        touchesExpectedEdge:
+          pseudoElement === "::before" ? styles.left === "0px" : styles.right === "0px",
+        width: styles.width,
+      };
+    };
+
+    return {
+      left: readSeparatorStyle("::before"),
+      right: readSeparatorStyle("::after"),
+    };
   });
 }
 
@@ -269,6 +313,66 @@ for (const scenario of MOBILE_PREHYDRATION_VISUAL_SCENARIOS) {
     } finally {
       await prehydratedPage?.close();
       await hydratedPage?.close();
+    }
+  });
+}
+
+for (const scenario of CROSS_SIDE_MERGED_PREHYDRATION_SCENARIOS) {
+  test(`mobile workspace prehydration keeps merged ${scenario.mergedSide} outer separators off the ${scenario.mobilePane} view`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT_SIZE);
+    await seedWorkspaceSidebarState(page, {
+      leftDesktopOpen: true,
+      leftDesktopWidthPx: 240,
+      leftMobileWidthPx: 96,
+      mobilePane: scenario.mobilePane,
+      mobileSurface: {
+        kind: "merged",
+        mainWidthPx: 294,
+        side: scenario.mergedSide,
+      },
+      rightDesktopOpen: true,
+      rightDesktopWidthPx: 288,
+      rightMobileWidthPx: 96,
+    });
+    await blockHydrationScripts(page);
+
+    await page.goto("/logo?dev", {
+      waitUntil: "domcontentloaded",
+    });
+
+    const layout = page.locator('[data-workspace-layout-v2="responsive"]').first();
+    await expect(layout).toHaveAttribute("data-mobile-pane", scenario.mobilePane);
+    await expect(layout).toHaveAttribute(
+      "data-workspace-layout-v2-mobile-merged-side",
+      scenario.mergedSide,
+    );
+    await expect
+      .poll(async () => getHorizontalSeparatorStyles(page))
+      .toEqual(
+        scenario.mobilePane === "left"
+          ? {
+              left: RENDERED_SEPARATOR_STYLE,
+              right: null,
+            }
+          : {
+              left: null,
+              right: RENDERED_SEPARATOR_STYLE,
+            },
+      );
+
+    const mainPaneBox = await page
+      .locator("[data-workspace-layout-v2-mobile-main-pane-surface]")
+      .boundingBox();
+    if (mainPaneBox === null) {
+      throw new Error("Expected the prehydrated main pane to have a bounding box.");
+    }
+
+    if (scenario.mobilePane === "left") {
+      expect(Math.round(mainPaneBox.x + mainPaneBox.width)).toBe(MOBILE_VIEWPORT_SIZE.width);
+    } else {
+      expect(Math.round(mainPaneBox.x)).toBe(0);
     }
   });
 }
