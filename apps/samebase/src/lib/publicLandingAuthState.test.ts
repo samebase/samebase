@@ -64,8 +64,8 @@ describe("publicLandingAuthState", () => {
   });
 
   it("maps the public password auth mode to a stable landing surface", () => {
-    expect(getPasswordAuthSurface("preview_seed")).toBe("seeded_sign_in");
-    expect(getPasswordAuthSurface("production_review_seed")).toBe("seeded_sign_in");
+    expect(getPasswordAuthSurface("preview_seed")).toBe("sign_in");
+    expect(getPasswordAuthSurface("manual")).toBe("sign_in");
     expect(getPasswordAuthSurface("local_worktree_seed")).toBe("local_worktree");
     expect(getPasswordAuthSurface("off")).toBe("hidden");
   });
@@ -91,13 +91,13 @@ describe("publicLandingAuthState", () => {
     ).toBe("local_worktree");
   });
 
-  it("keeps production review password auth visible in prod-ui mode", () => {
+  it("keeps manual password auth visible in prod-ui mode", () => {
     expect(
       getVisiblePasswordAuthSurface({
-        passwordAuthMode: "production_review_seed",
+        passwordAuthMode: "manual",
         prodUiModeEnabled: true,
       }),
-    ).toBe("seeded_sign_in");
+    ).toBe("sign_in");
   });
 
   it("reuses the remembered password auth mode while the public policy reloads", () => {

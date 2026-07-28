@@ -28,8 +28,7 @@ type Env = {
   readonly CLOUDFLARE_EMAIL_ACCOUNT_ID: string | undefined;
   readonly CLOUDFLARE_EMAIL_API_TOKEN: string | undefined;
   readonly OPENAI_APPS_CHALLENGE_TOKEN: string | undefined;
-  readonly OPENAI_REVIEW_AUTH_EMAIL: string | undefined;
-  readonly OPENAI_REVIEW_AUTH_PASSWORD: string | undefined;
+  readonly PASSWORD_AUTH_ENABLED: string | undefined;
 };
 
 /**

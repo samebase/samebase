@@ -4,7 +4,7 @@ import { type RootRouteSearch } from "@/routeSearch/root";
 import type { PasswordAuthMode as PublicPasswordAuthMode } from "../../convex/deploymentProfile";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
-export type PasswordAuthSurface = "hidden" | "local_worktree" | "seeded_sign_in";
+export type PasswordAuthSurface = "hidden" | "local_worktree" | "sign_in";
 
 function withLocalStorage<T>(reader: (storage: Storage) => T, fallback: T): T {
   try {
@@ -18,7 +18,7 @@ const isStoredPasswordAuthMode = guard<string | null, PublicPasswordAuthMode>((v
   value === "off" ||
   value === "local_worktree_seed" ||
   value === "preview_seed" ||
-  value === "production_review_seed"
+  value === "manual"
     ? value
     : null,
 );
@@ -68,9 +68,8 @@ export function getPasswordAuthSurface(
     case "local_worktree_seed":
       return "local_worktree";
     case "preview_seed":
-      return "seeded_sign_in";
-    case "production_review_seed":
-      return "seeded_sign_in";
+    case "manual":
+      return "sign_in";
     case "off":
       return "hidden";
     default:
@@ -87,7 +86,7 @@ export function getVisiblePasswordAuthSurface(args: {
   passwordAuthMode: PublicPasswordAuthMode;
   prodUiModeEnabled: boolean;
 }): PasswordAuthSurface {
-  if (args.prodUiModeEnabled && args.passwordAuthMode !== "production_review_seed") {
+  if (args.prodUiModeEnabled && args.passwordAuthMode !== "manual") {
     return "hidden";
   }
   return getPasswordAuthSurface(args.passwordAuthMode);

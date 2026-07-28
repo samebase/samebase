@@ -6,12 +6,13 @@ import { guard } from "@samebase/dependent/main";
 import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktreePasswordAuth";
 import { buildAuthTokenProfileCustomClaims } from "../shared/authTokenClaims";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
-import { env, type DatabaseWriter } from "./_generated/server";
+import { type DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import {
   assertPasswordAuthFlowAllowed,
-  assertProductionReviewPasswordEmailAllowed,
+  assertPasswordAuthLogLevelAllowed,
+  type PasswordAuthMode,
   resolveDeploymentProfile,
   resolvePasswordAuthMode,
 } from "./deploymentProfile";
@@ -164,19 +165,16 @@ async function applyAutoSeedProviderKeys(db: DatabaseWriter, userId: Id<"users">
 
 const googleClientId = readOptionalEnv("AUTH_GOOGLE_ID");
 const googleClientSecret = readOptionalEnv("AUTH_GOOGLE_SECRET");
-const passwordAuthMode = resolvePasswordAuthMode(resolveDeploymentProfile());
-const passwordAuthEnabled = passwordAuthMode !== "off";
 
-function readSeededPasswordEmail(): string | null {
+function readSeededPasswordEmail(passwordAuthMode: PasswordAuthMode): string | null {
   switch (passwordAuthMode) {
-    case "off":
-      return null;
     case "local_worktree_seed":
       return LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL;
     case "preview_seed":
       return readOptionalEnv("PREVIEW_SEED_AUTH_EMAIL");
-    case "production_review_seed":
-      return env.OPENAI_REVIEW_AUTH_EMAIL ?? null;
+    case "manual":
+    case "off":
+      return null;
     default:
       passwordAuthMode satisfies never;
       return null;
@@ -231,30 +229,24 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         };
       },
     }),
-    ...(passwordAuthEnabled
-      ? [
-          Password({
-            profile: (params) => {
-              if (params.flow === "signIn" || params.flow === "signUp") {
-                assertPasswordAuthFlowAllowed(passwordAuthMode, params.flow);
-              }
-              const rawEmail = params.email;
-              if (!isNonEmptyString(rawEmail)) {
-                throw new Error("Missing `email` for password authentication");
-              }
-              const email = normalizeAccountEmail(rawEmail);
-              assertProductionReviewPasswordEmailAllowed({
-                email,
-                passwordAuthMode,
-                reviewEmail: env.OPENAI_REVIEW_AUTH_EMAIL,
-              });
-              return {
-                email,
-              };
-            },
-          }),
-        ]
-      : []),
+    Password({
+      profile: (params) => {
+        assertPasswordAuthLogLevelAllowed(readOptionalEnv("AUTH_LOG_LEVEL"));
+        const passwordAuthMode = resolvePasswordAuthMode(resolveDeploymentProfile());
+        const rawFlow = params.flow;
+        if (!isNonEmptyString(rawFlow)) {
+          throw new Error("Missing password authentication flow");
+        }
+        assertPasswordAuthFlowAllowed(passwordAuthMode, rawFlow);
+        const rawEmail = params.email;
+        if (!isNonEmptyString(rawEmail)) {
+          throw new Error("Missing `email` for password authentication");
+        }
+        return {
+          email: normalizeAccountEmail(rawEmail),
+        };
+      },
+    }),
     ...(googleClientId && googleClientSecret
       ? [
           Google({
@@ -291,11 +283,19 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         return;
       }
       await applyAutoSeedProviderKeys(ctx.db, args.userId);
+      const passwordAuthMode = resolvePasswordAuthMode(resolveDeploymentProfile());
+      // Dashboard-created accounts must work before email delivery is configured.
+      if (
+        args.provider.id === "password" &&
+        (passwordAuthMode === "manual" || passwordAuthMode === "off")
+      ) {
+        return;
+      }
       const notification = buildNewUserNotification({
         existingUserId: args.existingUserId,
         profile: args.profile,
         providerId: args.provider.id,
-        seededPasswordEmail: readSeededPasswordEmail(),
+        seededPasswordEmail: readSeededPasswordEmail(passwordAuthMode),
         userId: args.userId,
       });
       if (notification) {

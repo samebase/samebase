@@ -188,7 +188,7 @@ export function PasswordAuthForm({
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const effectiveFlow = surface === "seeded_sign_in" ? "signIn" : flow;
+  const effectiveFlow = surface === "sign_in" ? "signIn" : flow;
 
   const submitLabel = pending
     ? effectiveFlow === "signIn"
