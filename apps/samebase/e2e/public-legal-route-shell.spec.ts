@@ -87,4 +87,8 @@ test("public legal routes share the public account right sidebar", async ({ page
   await expect(page.getByRole("heading", { name: "Privacy Policy" })).toBeVisible();
   await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
   await expectPublicRouteRightSidebarAccount(page);
+  await expect(page.getByTestId("workspace-layout-v2-pane-main")).toHaveScreenshot(
+    "privacy-shell.png",
+    getLegalShellScreenshotOptions(page),
+  );
 });
