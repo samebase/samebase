@@ -13,6 +13,7 @@
     "./identity": "./src/identity.ts",
     "./left-face-style": "./src/leftFaceStyle.ts",
     "./menger-depth-transition": "./src/mengerDepthTransition.ts",
+    "./menger-hover": "./src/mengerHover.ts",
     "./rotation": "./src/rotation.ts",
     "./shuffle": "./src/shuffle.ts",
     "./sierpinski-carpet-hover": "./src/sierpinskiCarpetHover.ts",

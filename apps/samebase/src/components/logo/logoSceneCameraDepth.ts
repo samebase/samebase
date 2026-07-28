@@ -2,6 +2,8 @@ const MIN_ISOMETRIC_CAMERA_DISTANCE = 11;
 const CAMERA_DEPTH_PADDING = 2.5;
 const MIN_CAMERA_FAR_PLANE = 100;
 
+export const LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS = 2;
+
 export function resolveLogoSceneCameraDepthBounds(cameraFitRadius: number): {
   distance: number;
   far: number;

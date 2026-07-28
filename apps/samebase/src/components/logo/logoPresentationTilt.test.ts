@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   getLogoPresentationTiltTransitionAlpha,
   getPointerLogoPresentationTiltTarget,
+  getRadialPointerLogoPresentationTiltTarget,
   NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
   resolveLogoPresentationTiltTarget,
 } from "@/components/logo/logoPresentationTilt";
@@ -85,6 +86,105 @@ describe("logo presentation tilt", () => {
     expect(target.horizontal).toBeCloseTo(24);
     expect(target.vertical).toBeCloseTo(24);
     expect(Math.hypot(target.horizontal, target.vertical)).toBeGreaterThan(24);
+  });
+
+  it("starts radial tilt outside the cube-relative neutral circle", () => {
+    expect(
+      getRadialPointerLogoPresentationTiltTarget({
+        baseRadius: 100,
+        centerX: 200,
+        centerY: 200,
+        clientX: 300,
+        clientY: 200,
+        radiusScale: 1,
+        strengthScale: 1,
+      }),
+    ).toBe(NEUTRAL_LOGO_PRESENTATION_TILT_TARGET);
+
+    const east = getRadialPointerLogoPresentationTiltTarget({
+      baseRadius: 100,
+      centerX: 200,
+      centerY: 200,
+      clientX: 325,
+      clientY: 200,
+      radiusScale: 1,
+      strengthScale: 1,
+    });
+    expect(east.horizontal).toBeCloseTo(1.2);
+    expect(east.vertical).toBe(0);
+    const north = getRadialPointerLogoPresentationTiltTarget({
+      baseRadius: 100,
+      centerX: 200,
+      centerY: 200,
+      clientX: 200,
+      clientY: 75,
+      radiusScale: 1,
+      strengthScale: 1,
+    });
+    expect(north.horizontal).toBe(0);
+    expect(north.vertical).toBeCloseTo(1.2);
+
+    const diagonal = getRadialPointerLogoPresentationTiltTarget({
+      baseRadius: 100,
+      centerX: 200,
+      centerY: 200,
+      clientX: 200 + 125 / Math.sqrt(2),
+      clientY: 200 - 125 / Math.sqrt(2),
+      radiusScale: 1,
+      strengthScale: 1,
+    });
+    expect(diagonal.horizontal).toBeCloseTo(1.2 / Math.sqrt(2));
+    expect(diagonal.vertical).toBeCloseTo(1.2 / Math.sqrt(2));
+  });
+
+  it("changes only the radial neutral threshold when its scale changes", () => {
+    expect(
+      getRadialPointerLogoPresentationTiltTarget({
+        baseRadius: 100,
+        centerX: 200,
+        centerY: 200,
+        clientX: 310,
+        clientY: 200,
+        radiusScale: 1.2,
+        strengthScale: 1,
+      }),
+    ).toBe(NEUTRAL_LOGO_PRESENTATION_TILT_TARGET);
+    const active = getRadialPointerLogoPresentationTiltTarget({
+      baseRadius: 100,
+      centerX: 200,
+      centerY: 200,
+      clientX: 330,
+      clientY: 200,
+      radiusScale: 1.2,
+      strengthScale: 1,
+    });
+    expect(active.horizontal).toBeCloseTo(0.48);
+    expect(active.vertical).toBe(0);
+  });
+
+  it("changes only the radial target angle when its strength changes", () => {
+    const doubleStrength = getRadialPointerLogoPresentationTiltTarget({
+      baseRadius: 100,
+      centerX: 200,
+      centerY: 200,
+      clientX: 325,
+      clientY: 200,
+      radiusScale: 1,
+      strengthScale: 2,
+    });
+    expect(doubleStrength.horizontal).toBeCloseTo(2.4);
+    expect(doubleStrength.vertical).toBe(0);
+    expect(
+      getRadialPointerLogoPresentationTiltTarget({
+        baseRadius: 100,
+        centerX: 200,
+        centerY: 200,
+        clientX: 325,
+        clientY: 200,
+        radiusScale: 1,
+        strengthScale: 0,
+      }),
+    ).toBe(NEUTRAL_LOGO_PRESENTATION_TILT_TARGET);
   });
 
   it("resolves interchangeable degree inputs to the renderer contract", () => {

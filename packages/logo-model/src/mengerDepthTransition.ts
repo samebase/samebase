@@ -20,25 +20,30 @@ const FACE_NEIGHBOR_OFFSETS: readonly VoxelCoordinate[] = [
 ];
 
 export type MengerDepthTransitionMove = {
+  faceColumnChannel: number;
   from: VoxelCoordinate;
+  holeAxis: MengerHoleAxis;
   startTimeMs: number;
   to: VoxelCoordinate;
 };
 
+export type MengerHoleAxis = 0 | 1 | 2;
+
 export type MengerDepthTransitionStage = {
-  depth: 2 | 3;
+  depth: number;
   endTimeMs: number;
   gridSize: number;
   moves: MengerDepthTransitionMove[];
-  settledVoxels: VoxelCoordinate[];
+  settledVoxelCount: number;
+  /** Null only when a compact final stage keeps the count but not its coordinates. */
+  settledVoxels: VoxelCoordinate[] | null;
   sourceVoxels: VoxelCoordinate[];
   splitTimeMs: number;
 };
 
 export type MengerDepthTransitionModel = {
   depthOneVoxels: VoxelCoordinate[];
-  depthThree: MengerDepthTransitionStage;
-  depthTwo: MengerDepthTransitionStage;
+  stages: [MengerDepthTransitionStage, ...MengerDepthTransitionStage[]];
   totalDurationMs: number;
 };
 
@@ -55,11 +60,11 @@ export function readMengerDepthTransitionStage(
   model: MengerDepthTransitionModel,
   elapsedMs: number,
 ): MengerDepthTransitionStage | null {
-  if (elapsedMs > model.depthThree.splitTimeMs) {
-    return model.depthThree;
-  }
-  if (elapsedMs > model.depthTwo.splitTimeMs) {
-    return model.depthTwo;
+  for (let stageIndex = model.stages.length - 1; stageIndex >= 0; stageIndex -= 1) {
+    const stage = model.stages[stageIndex];
+    if (stage && elapsedMs > stage.splitTimeMs) {
+      return stage;
+    }
   }
 
   return null;
@@ -152,10 +157,9 @@ function createStaggerGroups(
 
 function readFaceColumnChannel(
   parent: VoxelCoordinate,
-  child: VoxelCoordinate,
+  holeAxis: MengerHoleAxis,
   faceGridSize: number,
 ): number {
-  const holeAxis = child.findIndex((axis) => axis !== 1);
   // Ignore depth along the hole axis so an entire face-on ray shares one
   // movement pattern and one start time.
   let faceCoordinateA: number;
@@ -174,10 +178,22 @@ function readFaceColumnChannel(
       faceCoordinateB = parent[1];
       break;
     default:
-      throw new Error("Every absorbed Menger child must identify a hole axis.");
+      return holeAxis satisfies never;
   }
 
   return holeAxis * faceGridSize * faceGridSize + faceCoordinateA * faceGridSize + faceCoordinateB;
+}
+
+function readHoleAxis(child: VoxelCoordinate): MengerHoleAxis {
+  const holeAxis = child.findIndex((axis) => axis !== 1);
+  switch (holeAxis) {
+    case 0:
+    case 1:
+    case 2:
+      return holeAxis;
+    default:
+      throw new Error("Every absorbed Menger child must identify a hole axis.");
+  }
 }
 
 function readFaceNeighbors(child: VoxelCoordinate): VoxelCoordinate[] {
@@ -218,10 +234,12 @@ function createMengerDepthTransitionStage(
   depth: MengerDepthTransitionStage["depth"],
   startTimeMs: number,
   staggerGroupCount: number,
+  retainSettledVoxels: boolean,
 ): MengerDepthTransitionStage {
   const retainedChildren = readMengerCoordinates();
   const retainedChildKeys = new Set(retainedChildren.map(([x, y, z]) => `${x},${y},${z}`));
-  const settledVoxels: VoxelCoordinate[] = [];
+  const settledVoxels: VoxelCoordinate[] | null = retainSettledVoxels ? [] : null;
+  let settledVoxelCount = 0;
   const moves: MengerDepthTransitionMove[] = [];
   const splitTimeMs = startTimeMs + MENGER_DEPTH_TRANSITION_SPLIT_HOLD_MS;
   const stageStagger = createStaggerGroups(depth, staggerGroupCount);
@@ -234,7 +252,10 @@ function createMengerDepthTransitionStage(
           const coordinate = toChildCoordinate(parent, child);
 
           if (retainedChildKeys.has(`${x},${y},${z}`)) {
-            settledVoxels.push(coordinate);
+            settledVoxelCount += 1;
+            if (settledVoxels) {
+              settledVoxels.push(coordinate);
+            }
             continue;
           }
 
@@ -243,7 +264,12 @@ function createMengerDepthTransitionStage(
             continue;
           }
 
-          const faceColumnChannel = readFaceColumnChannel(parent, child, stageStagger.faceGridSize);
+          const holeAxis = readHoleAxis(child);
+          const faceColumnChannel = readFaceColumnChannel(
+            parent,
+            holeAxis,
+            stageStagger.faceGridSize,
+          );
           const destinationChild = readDestinationChild(
             child,
             faceColumnChannel,
@@ -255,7 +281,9 @@ function createMengerDepthTransitionStage(
             throw new Error("Every Menger transition move must resolve to a stagger group.");
           }
           moves.push({
+            faceColumnChannel,
             from: coordinate,
+            holeAxis,
             startTimeMs:
               splitTimeMs +
               (staggerGroup * MENGER_DEPTH_TRANSITION_MOVE_DURATION_MS) /
@@ -267,7 +295,9 @@ function createMengerDepthTransitionStage(
     }
   }
 
-  settledVoxels.sort(compareVoxelCoordinates);
+  if (settledVoxels) {
+    settledVoxels.sort(compareVoxelCoordinates);
+  }
   moves.sort(
     (left, right) =>
       left.startTimeMs - right.startTimeMs || compareVoxelCoordinates(left.from, right.from),
@@ -283,15 +313,30 @@ function createMengerDepthTransitionStage(
     endTimeMs,
     gridSize: 3 ** depth,
     moves,
+    settledVoxelCount,
     settledVoxels,
     sourceVoxels,
     splitTimeMs,
   };
 }
 
-export function createMengerDepthTransitionModel(
-  requestedStaggerGroupCount: number,
-): MengerDepthTransitionModel {
+/**
+The hover renderer can omit the final settled coordinates because its exact
+surface reuses the previous stage. Transition models retain all coordinates.
+*/
+export function createMengerDepthTransitionModel({
+  maximumDepth = 3,
+  retainFinalSettledVoxels = true,
+  staggerGroupCount: requestedStaggerGroupCount,
+}: {
+  maximumDepth?: number;
+  retainFinalSettledVoxels?: boolean;
+  staggerGroupCount: number;
+}): MengerDepthTransitionModel {
+  if (!Number.isInteger(maximumDepth) || maximumDepth < 2) {
+    throw new Error("Menger transition depth must be an integer of at least 2.");
+  }
+
   const finiteStaggerGroupCount = Number.isFinite(requestedStaggerGroupCount)
     ? requestedStaggerGroupCount
     : MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT;
@@ -300,20 +345,34 @@ export function createMengerDepthTransitionModel(
     Math.min(MENGER_DEPTH_TRANSITION_MAX_STAGGER_GROUP_COUNT, Math.round(finiteStaggerGroupCount)),
   );
   const depthOneVoxels = readMengerCoordinates();
-  const depthTwo = createMengerDepthTransitionStage(depthOneVoxels, 2, 0, staggerGroupCount);
-  const depthThree = createMengerDepthTransitionStage(
-    depthTwo.settledVoxels,
-    3,
-    depthTwo.endTimeMs + MENGER_DEPTH_TRANSITION_DEPTH_HOLD_MS,
+  const depthTwo = createMengerDepthTransitionStage(
+    depthOneVoxels,
+    2,
+    0,
     staggerGroupCount,
+    maximumDepth > 2 || retainFinalSettledVoxels,
   );
+  const stages: [MengerDepthTransitionStage, ...MengerDepthTransitionStage[]] = [depthTwo];
+  let previousStage = depthTwo;
+  for (let depth = 3; depth <= maximumDepth; depth += 1) {
+    const sourceVoxels = previousStage.settledVoxels;
+    if (sourceVoxels === null) {
+      throw new Error("Only the final Menger stage can omit settled voxel coordinates.");
+    }
+    const stage = createMengerDepthTransitionStage(
+      sourceVoxels,
+      depth,
+      previousStage.endTimeMs + MENGER_DEPTH_TRANSITION_DEPTH_HOLD_MS,
+      staggerGroupCount,
+      depth < maximumDepth || retainFinalSettledVoxels,
+    );
+    stages.push(stage);
+    previousStage = stage;
+  }
 
   return {
     depthOneVoxels,
-    depthThree,
-    depthTwo,
-    totalDurationMs: depthThree.endTimeMs,
+    stages,
+    totalDurationMs: previousStage.endTimeMs,
   };
 }
-
-export const MENGER_DEPTH_TRANSITION_MODEL = createMengerDepthTransitionModel(1);

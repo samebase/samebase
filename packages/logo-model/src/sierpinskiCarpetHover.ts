@@ -1,21 +1,16 @@
 export const SIERPINSKI_CARPET_HOVER_DEPTHS = [1, 2, 3, 4, 5, 6] as const;
 export const SIERPINSKI_CARPET_HOVER_MECHANICS = ["grow", "slide"] as const;
-export const SIERPINSKI_CARPET_HOVER_FALLOFFS = ["per-depth", "shared"] as const;
 
 export type SierpinskiCarpetHoverDepth = (typeof SIERPINSKI_CARPET_HOVER_DEPTHS)[number];
 
 export type SierpinskiCarpetHoverMechanic = (typeof SIERPINSKI_CARPET_HOVER_MECHANICS)[number];
 
-export type SierpinskiCarpetHoverFalloff = (typeof SIERPINSKI_CARPET_HOVER_FALLOFFS)[number];
-
 export const SIERPINSKI_CARPET_HOVER_MAX_DEPTH: SierpinskiCarpetHoverDepth = 6;
 export const SIERPINSKI_CARPET_HOVER_DEFAULT_DEPTH: SierpinskiCarpetHoverDepth = 5;
 export const SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC: SierpinskiCarpetHoverMechanic = "slide";
-export const SIERPINSKI_CARPET_HOVER_DEFAULT_FALLOFF: SierpinskiCarpetHoverFalloff = "shared";
 export const SIERPINSKI_CARPET_HOVER_MIN_REVEAL_RADIUS = 0.05;
 export const SIERPINSKI_CARPET_HOVER_MAX_REVEAL_RADIUS = 1;
 export const SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS = 0.55;
-export const SIERPINSKI_CARPET_HOVER_PER_DEPTH_RADIUS_RATIO = 0.55;
 export const SIERPINSKI_CARPET_HOVER_FULL_OPEN_RADIUS_FRACTION = 0.25;
 
 export function normalizeSierpinskiCarpetHoverRevealRadius(value: number): number {
@@ -59,7 +54,6 @@ export type SierpinskiCarpetHoverHole = {
 };
 
 export type SierpinskiCarpetHoverConfig = {
-  falloff: SierpinskiCarpetHoverFalloff;
   maxDepth: SierpinskiCarpetHoverDepth;
   revealRadius: number;
 };
@@ -121,28 +115,12 @@ export function createSierpinskiCarpetHoverHoles(): SierpinskiCarpetHoverHole[] 
 
 export const SIERPINSKI_CARPET_HOVER_HOLES = createSierpinskiCarpetHoverHoles();
 
-function readDepthRevealRadius(
-  depth: SierpinskiCarpetHoverDepth,
-  config: SierpinskiCarpetHoverConfig,
-): number {
-  const baseRadius =
-    Number.isFinite(config.revealRadius) && config.revealRadius > 0 ? config.revealRadius : 0;
-  switch (config.falloff) {
-    case "shared":
-      return baseRadius;
-    case "per-depth":
-      return baseRadius * SIERPINSKI_CARPET_HOVER_PER_DEPTH_RADIUS_RATIO ** (depth - 2);
-    default:
-      return config.falloff satisfies never;
-  }
-}
-
 /**
 Openness is a pure function of the current pointer position: 1 is the hole at
 its natural size, 0 is fully covered. The depth-one hole is the resting logo
 state and stays open without a pointer; every deeper hole closes when the
-pointer leaves or sits beyond that depth's reveal radius, and is fully open
-within SIERPINSKI_CARPET_HOVER_FULL_OPEN_RADIUS_FRACTION of the radius.
+pointer leaves or sits beyond the shared reveal radius, and is fully open
+within SIERPINSKI_CARPET_HOVER_FULL_OPEN_RADIUS_FRACTION of that radius.
 */
 export function readSierpinskiCarpetHoleOpenness(
   hole: SierpinskiCarpetHoverHole,
@@ -156,7 +134,8 @@ export function readSierpinskiCarpetHoleOpenness(
     return 0;
   }
 
-  const radius = readDepthRevealRadius(hole.depth, config);
+  const radius =
+    Number.isFinite(config.revealRadius) && config.revealRadius > 0 ? config.revealRadius : 0;
   if (radius <= 0) {
     return 0;
   }

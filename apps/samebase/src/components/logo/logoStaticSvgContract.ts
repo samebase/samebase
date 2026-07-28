@@ -2,6 +2,7 @@ import { LOGO_IDENTITY_VIEWS, type LogoIdentityViewId } from "@samebase/logo-mod
 import { type LogoFaceTreatment } from "@samebase/logo-model/face-treatment";
 
 export const LOGO_THREE_SVG_VIEWBOX_SIZE = 360;
+export const LOGO_THREE_SVG_CAMERA_FRUSTUM_PADDING = 1.12;
 export const STATIC_LOGO_BACKGROUND_COLOR = "transparent";
 export const DEFAULT_STATIC_LOGO_SVG_URL = "/logo-static.svg";
 export const LOGO_BRAND_ASSET_ROOT = "/brand";

@@ -26,7 +26,8 @@ test("Menger sponge moves from depth one through depth two to depth three", asyn
   const progress = page.getByLabel("Transition progress");
 
   await expect(controls).toBeVisible();
-  await expect(scene.locator("canvas")).toBeVisible();
+  const canvas = scene.locator("canvas");
+  await expect(canvas).toBeVisible();
   const layoutMetrics = await transitionPage.evaluate((element) => ({
     pageHeight: element.clientHeight,
     sceneHeight:
@@ -59,6 +60,15 @@ test("Menger sponge moves from depth one through depth two to depth three", asyn
   await expect(progress).toHaveValue("150");
   await expect(transitionPage).toHaveAttribute("data-phase", "transition");
   await waitForPaint(page);
+  const firstStaggerFrame = await canvas.screenshot();
+  await canvas.evaluate((element) => {
+    element.dataset.mengerTransitionContext = "original";
+  });
+  await page.getByLabel("Stagger groups").fill("12");
+  await expect(canvas).toHaveAttribute("data-menger-transition-context", "original");
+  await waitForPaint(page);
+  const secondStaggerFrame = await canvas.screenshot();
+  expect(secondStaggerFrame.equals(firstStaggerFrame)).toBe(false);
 
   await expect(workspace).toHaveScreenshot(
     "logo-menger-depth-transition-depth-two-transition.png",
@@ -128,18 +138,25 @@ test.describe("Menger sponge on a high-density phone", () => {
     const canvas = scene.locator("canvas");
     const workspaceLayout = page.locator("[data-workspace-layout-v2]");
 
-    await page.getByTestId("workspace-layout-v2-pane-main").evaluate((carousel) => {
-      const mainPane = carousel.querySelector("[data-workspace-layout-v2-mobile-main-pane]");
-      if (!(mainPane instanceof HTMLElement)) {
-        throw new Error("Expected the mobile main pane.");
-      }
+    // The carousel scroll can race pane detection while the page is still
+    // settling under parallel-suite load, so retry the scroll until the
+    // layout reports the main pane.
+    await expect(async () => {
+      await page.getByTestId("workspace-layout-v2-pane-main").evaluate((carousel) => {
+        const mainPane = carousel.querySelector("[data-workspace-layout-v2-mobile-main-pane]");
+        if (!(mainPane instanceof HTMLElement)) {
+          throw new Error("Expected the mobile main pane.");
+        }
 
-      carousel.style.scrollSnapType = "none";
-      carousel.scrollLeft =
-        mainPane.offsetLeft - Number.parseFloat(window.getComputedStyle(carousel).paddingLeft);
-      carousel.dispatchEvent(new Event("scroll", { bubbles: true }));
-    });
-    await expect(workspaceLayout).toHaveAttribute("data-mobile-pane", "main");
+        carousel.style.scrollSnapType = "none";
+        carousel.scrollLeft =
+          mainPane.offsetLeft - Number.parseFloat(window.getComputedStyle(carousel).paddingLeft);
+        carousel.dispatchEvent(new Event("scroll", { bubbles: true }));
+      });
+      await expect(workspaceLayout).toHaveAttribute("data-mobile-pane", "main", {
+        timeout: 1_000,
+      });
+    }).toPass({ timeout: 20_000 });
     await expect(canvas).toBeVisible();
     const layoutMetrics = await transitionPage.evaluate((element) => {
       const sceneElement = element.querySelector(

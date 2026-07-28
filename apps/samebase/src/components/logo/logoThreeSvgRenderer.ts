@@ -1,4 +1,7 @@
-import { LOGO_THREE_SVG_VIEWBOX_SIZE } from "./logoStaticSvgContract";
+import {
+  LOGO_THREE_SVG_CAMERA_FRUSTUM_PADDING,
+  LOGO_THREE_SVG_VIEWBOX_SIZE,
+} from "./logoStaticSvgContract";
 import {
   DEFAULT_LOGO_LEFT_FACE_STYLE,
   getLogoLeftFaceStripeBasisScale,
@@ -66,7 +69,6 @@ export type LogoProjectedQuad = {
   uvs: readonly LogoFaceUvPoint[];
 };
 
-const CAMERA_FRUSTUM_PADDING = 1.12;
 // Browsers can still show hairline cracks between adjacent projected polygons
 // even when the math is exact. A thin same-color stroke closes those seams
 // while still scaling down with the delivered SVG on smaller surfaces.
@@ -237,11 +239,13 @@ function readBaseCoordinates(
 }
 
 export function createLogoProjector({
+  cameraFrustumPadding = LOGO_THREE_SVG_CAMERA_FRUSTUM_PADDING,
   elevationDegrees = DEFAULT_ELEVATION_DEGREES,
   rotationDegrees = DEFAULT_ROTATION_DEGREES,
   scenePoints,
   viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
 }: {
+  cameraFrustumPadding?: number;
   elevationDegrees?: number;
   rotationDegrees?: number;
   scenePoints: readonly LogoWorldPoint[];
@@ -254,7 +258,7 @@ export function createLogoProjector({
     const rotatedPoint = rotateWorldPoint(point);
     return Math.max(maxRadius, Math.hypot(rotatedPoint.x, rotatedPoint.y, rotatedPoint.z));
   }, 0);
-  const frustumHalfHeight = radius > 0 ? radius * CAMERA_FRUSTUM_PADDING : CAMERA_FRUSTUM_PADDING;
+  const frustumHalfHeight = radius > 0 ? radius * cameraFrustumPadding : cameraFrustumPadding;
 
   return {
     cameraDirection,
@@ -264,6 +268,7 @@ export function createLogoProjector({
 }
 
 function getProjectedScene({
+  cameraFrustumPadding,
   elevationDegrees = DEFAULT_ELEVATION_DEGREES,
   faceColors,
   filledVoxels,
@@ -271,6 +276,7 @@ function getProjectedScene({
   rotationDegrees = DEFAULT_ROTATION_DEGREES,
   viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
 }: {
+  cameraFrustumPadding: number;
   elevationDegrees?: number;
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;
@@ -280,6 +286,7 @@ function getProjectedScene({
 }) {
   const surfaceQuads = buildLogoSurfaceQuads(filledVoxels, gridSize);
   const projector = createLogoProjector({
+    cameraFrustumPadding,
     elevationDegrees,
     rotationDegrees,
     scenePoints: surfaceQuads.flatMap((quad) => quad.vertices.map(toLogoWorldPoint)),
@@ -366,6 +373,7 @@ function createLogoProjectedQuadsWithProjector({
 }
 
 export function createLogoThreeProjectedQuads({
+  cameraFrustumPadding = LOGO_THREE_SVG_CAMERA_FRUSTUM_PADDING,
   elevationDegrees = DEFAULT_ELEVATION_DEGREES,
   faceColors,
   filledVoxels,
@@ -373,6 +381,7 @@ export function createLogoThreeProjectedQuads({
   rotationDegrees = DEFAULT_ROTATION_DEGREES,
   viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
 }: {
+  cameraFrustumPadding?: number;
   elevationDegrees?: number;
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;
@@ -381,6 +390,7 @@ export function createLogoThreeProjectedQuads({
   viewBoxSize?: number;
 }): LogoProjectedQuad[] {
   const { projector, rotatedQuads } = getProjectedScene({
+    cameraFrustumPadding,
     elevationDegrees,
     faceColors,
     filledVoxels,
@@ -427,6 +437,7 @@ export function createLogoThreeProjectedQuads({
 
 export function createLogoThreeSvgMarkup({
   backgroundColor,
+  cameraFrustumPadding = LOGO_THREE_SVG_CAMERA_FRUSTUM_PADDING,
   depth = DEFAULT_LOGO_FRACTAL_DEPTH,
   elevationDegrees = DEFAULT_ELEVATION_DEGREES,
   faceColors,
@@ -437,6 +448,7 @@ export function createLogoThreeSvgMarkup({
   viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
 }: {
   backgroundColor: string;
+  cameraFrustumPadding?: number;
   depth?: number;
   elevationDegrees?: number;
   faceColors: FaceColors;
@@ -452,6 +464,7 @@ export function createLogoThreeSvgMarkup({
     return createLogoThreeRecursiveSvgMarkup({
       backgroundColor,
       baseGridSize,
+      cameraFrustumPadding,
       depth: normalizedDepth,
       elevationDegrees,
       faceColors,
@@ -463,6 +476,7 @@ export function createLogoThreeSvgMarkup({
   }
 
   const projectedQuads = createLogoThreeProjectedQuads({
+    cameraFrustumPadding,
     elevationDegrees,
     faceColors,
     filledVoxels,
@@ -863,6 +877,7 @@ function createRecursiveUseGroup({
 function createLogoThreeRecursiveSvgMarkup({
   backgroundColor,
   baseGridSize,
+  cameraFrustumPadding,
   depth,
   elevationDegrees,
   faceColors,
@@ -873,6 +888,7 @@ function createLogoThreeRecursiveSvgMarkup({
 }: {
   backgroundColor: string;
   baseGridSize: LogoGridSize;
+  cameraFrustumPadding: number;
   depth: number;
   elevationDegrees: number;
   faceColors: FaceColors;
@@ -883,6 +899,7 @@ function createLogoThreeRecursiveSvgMarkup({
 }): string {
   const fullGridSize = getLogoFractalGridSize(baseGridSize, depth);
   const projector = createLogoProjector({
+    cameraFrustumPadding,
     elevationDegrees,
     rotationDegrees,
     scenePoints: getSceneCubeCorners(fullGridSize),

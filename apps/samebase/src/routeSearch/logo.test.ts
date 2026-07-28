@@ -9,6 +9,10 @@ import { LOGO_DISTANCE_SCALE } from "@/components/logo/logoDistanceScale";
 import { LOGO_PREVIEW_ZOOM } from "@/components/logo/logoPreviewZoom";
 import { DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES } from "@/components/logo/logoShuffleAnimation";
 import {
+  LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
+  LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
+} from "@/components/logo/logoPresentationTilt";
+import {
   DEFAULT_LOGO_LEFT_FACE_STYLE,
   LOGO_LEFT_FACE_STRIPE,
 } from "@samebase/logo-model/left-face-style";
@@ -26,8 +30,11 @@ import {
   createDefaultVoxelState,
 } from "@samebase/logo-model/voxel";
 import {
+  MENGER_HOVER_DEFAULT_DEPTH,
+  MENGER_HOVER_MAX_DEPTH,
+} from "@samebase/logo-model/menger-hover";
+import {
   SIERPINSKI_CARPET_HOVER_DEFAULT_DEPTH,
-  SIERPINSKI_CARPET_HOVER_DEFAULT_FALLOFF,
   SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC,
   SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
   SIERPINSKI_CARPET_HOVER_MAX_DEPTH,
@@ -36,6 +43,7 @@ import {
 import {
   buildLogoCarpetHoverRouteSearch,
   buildLogoIsoRouteSearch,
+  buildLogoMengerHoverRouteSearch,
   buildLogoRouteSearch,
   DEFAULT_LOGO_OPACITY,
   LOGO_ROUTE_SEARCH_KEYS,
@@ -44,6 +52,7 @@ import {
   preserveLogoRouteDevModeSearch,
   validateLogoCarpetHoverRouteSearch,
   validateLogoIsoRouteSearch,
+  validateLogoMengerHoverRouteSearch,
   validateLogoRouteSearch,
   validateLogoRouteSearchForRenderer,
 } from "@/routeSearch/logo";
@@ -259,16 +268,45 @@ describe("logoRouteSearch", () => {
   it("keeps carpet hover params on the carpet route schema only", () => {
     expect(
       validateLogoCarpetHoverRouteSearch({
-        falloff: "per-depth",
         mechanic: "slide",
         radius: "0.5",
       }),
-    ).toEqual({ falloff: "per-depth", mechanic: "slide", radius: 0.5 });
+    ).toEqual({ mechanic: "slide", radius: 0.5 });
 
+    expect(validateLogoRouteSearch({ mechanic: "slide", radius: "0.5" })).toEqual({});
+    expect(validateLogoCarpetHoverRouteSearch({ mechanic: "spin" })).toEqual({});
+  });
+
+  it("keeps landing tilt on the Menger hover route schema only", () => {
     expect(
-      validateLogoRouteSearch({ falloff: "per-depth", mechanic: "slide", radius: "0.5" }),
+      validateLogoMengerHoverRouteSearch({
+        depth: "99",
+        tilt: "",
+        tiltRadius: "3.5",
+        tiltStrength: "1.5",
+      }),
+    ).toEqual({
+      depth: MENGER_HOVER_MAX_DEPTH,
+      tilt: true,
+      tiltRadius: 3.5,
+      tiltStrength: 1.5,
+    });
+    expect(validateLogoMengerHoverRouteSearch({ tiltRadius: "-1" })).toEqual({
+      tiltRadius: 0,
+    });
+    expect(validateLogoMengerHoverRouteSearch({ tiltStrength: "-1" })).toEqual({
+      tiltStrength: 0,
+    });
+    expect(validateLogoRouteSearch({ tilt: "", tiltRadius: "1.2", tiltStrength: "1.5" })).toEqual(
+      {},
+    );
+    expect(
+      validateLogoCarpetHoverRouteSearch({
+        tilt: "",
+        tiltRadius: "1.2",
+        tiltStrength: "1.5",
+      }),
     ).toEqual({});
-    expect(validateLogoCarpetHoverRouteSearch({ falloff: "steep", mechanic: "spin" })).toEqual({});
   });
 
   it("clamps carpet reveal depth and radius at the model bounds", () => {
@@ -283,8 +321,8 @@ describe("logoRouteSearch", () => {
     expect(validateLogoCarpetHoverRouteSearch({ radius: "0.055" })).toEqual({ radius: 0.055 });
   });
 
-  it("clears default carpet state with tombstones when building carpet route search", () => {
-    const carpetDefaults = {
+  it("clears default hover state with tombstones when building hover route search", () => {
+    const routeBuildDefaults = {
       autoRotateEnabled: false,
       autoShuffleEnabled: false,
       faceColorAnimationEnabled: false,
@@ -306,8 +344,7 @@ describe("logoRouteSearch", () => {
       voxelState: DEFAULT_VOXEL_STATE,
     } as const;
     const search = buildLogoCarpetHoverRouteSearch({
-      ...carpetDefaults,
-      carpetFalloff: SIERPINSKI_CARPET_HOVER_DEFAULT_FALLOFF,
+      ...routeBuildDefaults,
       carpetMechanic: SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC,
       carpetRevealDepth: SIERPINSKI_CARPET_HOVER_DEFAULT_DEPTH,
       carpetRevealRadius: SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
@@ -316,25 +353,93 @@ describe("logoRouteSearch", () => {
     expect(search).toEqual({});
     expect("mechanic" in search).toBe(true);
     expect(search.mechanic).toBeUndefined();
-    expect("falloff" in search).toBe(true);
-    expect(search.falloff).toBeUndefined();
     expect("radius" in search).toBe(true);
     expect(search.radius).toBeUndefined();
     expect("depth" in search).toBe(true);
     expect(search.depth).toBeUndefined();
 
     const nonDefaultSearch = buildLogoCarpetHoverRouteSearch({
-      ...carpetDefaults,
-      carpetFalloff: "per-depth",
+      ...routeBuildDefaults,
       carpetMechanic: "grow",
       carpetRevealDepth: 3,
       carpetRevealRadius: 0.5,
     });
 
-    expect(nonDefaultSearch.falloff).toBe("per-depth");
     expect(nonDefaultSearch.mechanic).toBe("grow");
     expect(nonDefaultSearch.depth).toBe(3);
     expect(nonDefaultSearch.radius).toBe(0.5);
+
+    const mengerDefaults = buildLogoMengerHoverRouteSearch({
+      ...routeBuildDefaults,
+      mengerHoverDepth: MENGER_HOVER_DEFAULT_DEPTH,
+      mengerHoverTiltEnabled: false,
+      mengerHoverTiltRadiusScale: LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
+      mengerHoverTiltStrengthScale: LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
+    });
+    expect(mengerDefaults).toEqual({});
+    expect("depth" in mengerDefaults).toBe(true);
+    expect(mengerDefaults.depth).toBeUndefined();
+    expect("tilt" in mengerDefaults).toBe(true);
+    expect(mengerDefaults.tilt).toBeUndefined();
+    expect("tiltRadius" in mengerDefaults).toBe(true);
+    expect(mengerDefaults.tiltRadius).toBeUndefined();
+    expect("tiltStrength" in mengerDefaults).toBe(true);
+    expect(mengerDefaults.tiltStrength).toBeUndefined();
+
+    expect(
+      buildLogoMengerHoverRouteSearch({
+        ...routeBuildDefaults,
+        mengerHoverDepth: 1,
+        mengerHoverTiltEnabled: false,
+        mengerHoverTiltRadiusScale: LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
+        mengerHoverTiltStrengthScale: LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
+      }).depth,
+    ).toBe(1);
+    expect(
+      buildLogoMengerHoverRouteSearch({
+        ...routeBuildDefaults,
+        mengerHoverDepth: 99,
+        mengerHoverTiltEnabled: true,
+        mengerHoverTiltRadiusScale: LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
+        mengerHoverTiltStrengthScale: LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
+      }).depth,
+    ).toBe(MENGER_HOVER_MAX_DEPTH);
+    expect(
+      buildLogoMengerHoverRouteSearch({
+        ...routeBuildDefaults,
+        mengerHoverDepth: MENGER_HOVER_DEFAULT_DEPTH,
+        mengerHoverTiltEnabled: true,
+        mengerHoverTiltRadiusScale: LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
+        mengerHoverTiltStrengthScale: 1,
+      }).tiltStrength,
+    ).toBe(1);
+    expect(
+      buildLogoMengerHoverRouteSearch({
+        ...routeBuildDefaults,
+        mengerHoverDepth: MENGER_HOVER_DEFAULT_DEPTH,
+        mengerHoverTiltEnabled: true,
+        mengerHoverTiltRadiusScale: 1.2,
+        mengerHoverTiltStrengthScale: 1.5,
+      }).tilt,
+    ).toBe(true);
+    expect(
+      buildLogoMengerHoverRouteSearch({
+        ...routeBuildDefaults,
+        mengerHoverDepth: MENGER_HOVER_DEFAULT_DEPTH,
+        mengerHoverTiltEnabled: true,
+        mengerHoverTiltRadiusScale: 1.2,
+        mengerHoverTiltStrengthScale: 1.5,
+      }).tiltRadius,
+    ).toBe(1.2);
+    expect(
+      buildLogoMengerHoverRouteSearch({
+        ...routeBuildDefaults,
+        mengerHoverDepth: MENGER_HOVER_DEFAULT_DEPTH,
+        mengerHoverTiltEnabled: true,
+        mengerHoverTiltRadiusScale: 1.2,
+        mengerHoverTiltStrengthScale: 1.5,
+      }).tiltStrength,
+    ).toBe(1.5);
   });
 
   it("preserves canonical theme mode flags when building route search", () => {

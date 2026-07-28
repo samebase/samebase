@@ -11,6 +11,7 @@ import {
 } from "@samebase/logo-model/identity";
 import {
   getPointerLogoPresentationTiltTarget,
+  LOGO_POINTER_TILT_MEDIA_QUERY,
   NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
   type LogoPresentationTiltTarget,
 } from "@/components/logo/logoPresentationTilt";
@@ -52,7 +53,6 @@ type LandingLogoSceneComponent = typeof import("@/components/logo/NLogoScene").N
 const AUTO_ROTATE_RESUME_DURATION_MS = 220;
 const AUTO_ROTATE_RESUME_MIN_SPEED_MULTIPLIER = 0.4;
 const REDUCED_MOTION_MEDIA_QUERY = "(prefers-reduced-motion: reduce)";
-const POINTER_TILT_MEDIA_QUERY = "(hover: hover) and (pointer: fine)";
 // The canvas receives the requested depth; the SVG fallback stays cheap enough
 // to render before the interactive scene is ready.
 const LANDING_STATIC_SVG_FALLBACK_DEPTH = 3;
@@ -322,7 +322,7 @@ export function PublicLandingLogo({
       return;
     }
 
-    const pointerMediaQuery = window.matchMedia(POINTER_TILT_MEDIA_QUERY);
+    const pointerMediaQuery = window.matchMedia(LOGO_POINTER_TILT_MEDIA_QUERY);
     const handleMousePointerMove = (event: PointerEvent) => {
       if (!event.isPrimary || event.pointerType !== "mouse" || !pointerMediaQuery.matches) {
         return;

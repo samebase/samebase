@@ -148,6 +148,7 @@ describe("readSuggestions", () => {
     expect(standardRows.map((row) => row.value)).not.toContain("/logo/iso");
     expect(developerPaths).toEqual([
       "/logo/hover/carpet",
+      "/logo/hover/menger",
       "/logo/iso",
       "/logo/raster",
       "/logo/raster-seams",

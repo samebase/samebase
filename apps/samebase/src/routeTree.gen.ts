@@ -45,6 +45,7 @@ import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobil
 import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
 import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-transition-transforms-lab";
 import { Route as logoMengerTransitionResearchRouteImport } from "./routes/logo-menger-transition-research";
+import { Route as logoMengerHoverResearchRouteImport } from "./routes/logo-menger-hover-research";
 import { Route as logoCarpetHoverResearchRouteImport } from "./routes/logo-carpet-hover-research";
 import { Route as vaultSettingsRouteImport } from "./routes/vault-settings";
 import { Route as vaultSchemaProjectRouteImport } from "./routes/vault-schema-project";
@@ -232,6 +233,11 @@ const logoMengerTransitionResearchRoute =
     path: "/logo/transition/menger",
     getParentRoute: () => rootRouteImport,
   } as any);
+const logoMengerHoverResearchRoute = logoMengerHoverResearchRouteImport.update({
+  id: "/logo/hover/menger",
+  path: "/logo/hover/menger",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const logoCarpetHoverResearchRoute = logoCarpetHoverResearchRouteImport.update({
   id: "/logo/hover/carpet",
   path: "/logo/hover/carpet",
@@ -286,6 +292,7 @@ export interface FileRoutesByFullPath {
   "/pitch/print": typeof pitchPrintRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/hover/carpet": typeof logoCarpetHoverResearchRoute;
+  "/logo/hover/menger": typeof logoMengerHoverResearchRoute;
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
@@ -328,6 +335,7 @@ export interface FileRoutesByTo {
   "/pitch/print": typeof pitchPrintRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/hover/carpet": typeof logoCarpetHoverResearchRoute;
+  "/logo/hover/menger": typeof logoMengerHoverResearchRoute;
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
@@ -371,6 +379,7 @@ export interface FileRoutesById {
   "/pitch/print": typeof pitchPrintRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/hover/carpet": typeof logoCarpetHoverResearchRoute;
+  "/logo/hover/menger": typeof logoMengerHoverResearchRoute;
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
@@ -415,6 +424,7 @@ export interface FileRouteTypes {
     | "/pitch/print"
     | "/vault/$"
     | "/logo/hover/carpet"
+    | "/logo/hover/menger"
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
@@ -457,6 +467,7 @@ export interface FileRouteTypes {
     | "/pitch/print"
     | "/vault/$"
     | "/logo/hover/carpet"
+    | "/logo/hover/menger"
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
@@ -499,6 +510,7 @@ export interface FileRouteTypes {
     | "/pitch/print"
     | "/vault/$"
     | "/logo/hover/carpet"
+    | "/logo/hover/menger"
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
@@ -542,6 +554,7 @@ export interface RootRouteChildren {
   pitchPrintRoute: typeof pitchPrintRoute;
   vaultFileRoute: typeof vaultFileRoute;
   logoCarpetHoverResearchRoute: typeof logoCarpetHoverResearchRoute;
+  logoMengerHoverResearchRoute: typeof logoMengerHoverResearchRoute;
   logoMengerTransitionResearchRoute: typeof logoMengerTransitionResearchRoute;
   logoTransitionTransformsLabRoute: typeof logoTransitionTransformsLabRoute;
   mcpConsentRoute: typeof mcpConsentRoute;
@@ -806,6 +819,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof logoMengerTransitionResearchRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/logo/hover/menger": {
+      id: "/logo/hover/menger";
+      path: "/logo/hover/menger";
+      fullPath: "/logo/hover/menger";
+      preLoaderRoute: typeof logoMengerHoverResearchRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/logo/hover/carpet": {
       id: "/logo/hover/carpet";
       path: "/logo/hover/carpet";
@@ -870,6 +890,7 @@ const rootRouteChildren: RootRouteChildren = {
   pitchPrintRoute: pitchPrintRoute,
   vaultFileRoute: vaultFileRoute,
   logoCarpetHoverResearchRoute: logoCarpetHoverResearchRoute,
+  logoMengerHoverResearchRoute: logoMengerHoverResearchRoute,
   logoMengerTransitionResearchRoute: logoMengerTransitionResearchRoute,
   logoTransitionTransformsLabRoute: logoTransitionTransformsLabRoute,
   mcpConsentRoute: mcpConsentRoute,

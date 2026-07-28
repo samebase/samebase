@@ -176,15 +176,31 @@ vi.mock("@/components/logo/LogoTransitionTransformsLabPage", () => ({
 
 vi.mock("@/components/logo/LogoMengerDepthTransitionPage", () => ({
   LogoMengerDepthTransitionPage: ({
+    mode,
     routeSearch,
   }: {
-    routeSearch: { elev?: number; primary?: string; rot?: number };
+    mode?: "hover" | "transition";
+    routeSearch: {
+      depth?: number;
+      elev?: number;
+      primary?: string;
+      rot?: number;
+      tilt?: true;
+      tiltRadius?: number;
+      tiltStrength?: number;
+    };
   }) => (
     <div
+      data-depth={routeSearch.depth}
       data-elevation={routeSearch.elev}
       data-primary={routeSearch.primary}
       data-rotation={routeSearch.rot}
-      data-testid="logo-menger-depth-transition-page"
+      data-tilt={routeSearch.tilt ? "true" : "false"}
+      data-tilt-radius={routeSearch.tiltRadius}
+      data-tilt-strength={routeSearch.tiltStrength}
+      data-testid={
+        mode === "hover" ? "logo-menger-hover-page" : "logo-menger-depth-transition-page"
+      }
     >
       Menger depth transition page
     </div>
@@ -197,7 +213,6 @@ vi.mock("@/components/logo/LogoSierpinskiCarpetHoverPage", () => ({
   }: {
     routeSearch: {
       depth?: number;
-      falloff?: string;
       mechanic?: string;
       primary?: string;
       radius?: number;
@@ -205,7 +220,6 @@ vi.mock("@/components/logo/LogoSierpinskiCarpetHoverPage", () => ({
   }) => (
     <div
       data-depth={routeSearch.depth}
-      data-falloff={routeSearch.falloff}
       data-mechanic={routeSearch.mechanic}
       data-primary={routeSearch.primary}
       data-radius={routeSearch.radius}
@@ -796,15 +810,28 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("passes shared logo search state to the carpet hover research route", async () => {
+  it("passes shared logo search state to the Menger hover research route", async () => {
     await renderRoute(
-      "/logo/hover/carpet?primary=emerald-500&mechanic=slide&falloff=per-depth&radius=0.5&depth=9",
+      "/logo/hover/menger?depth=99&elev=0&primary=emerald-500&rot=0&tilt&tiltRadius=1.2&tiltStrength=1.5",
     );
+
+    const page = rootElement?.querySelector('[data-testid="logo-menger-hover-page"]');
+    expect(page?.getAttribute("data-depth")).toBe("5");
+    expect(page?.getAttribute("data-elevation")).toBe("0");
+    expect(page?.getAttribute("data-primary")).toBe("emerald-500");
+    expect(page?.getAttribute("data-rotation")).toBe("0");
+    expect(page?.getAttribute("data-tilt")).toBe("true");
+    expect(page?.getAttribute("data-tilt-radius")).toBe("1.2");
+    expect(page?.getAttribute("data-tilt-strength")).toBe("1.5");
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("passes shared logo search state to the carpet hover research route", async () => {
+    await renderRoute("/logo/hover/carpet?primary=emerald-500&mechanic=slide&radius=0.5&depth=9");
 
     const page = rootElement?.querySelector('[data-testid="logo-carpet-hover-page"]');
     expect(page?.getAttribute("data-primary")).toBe("emerald-500");
     expect(page?.getAttribute("data-mechanic")).toBe("slide");
-    expect(page?.getAttribute("data-falloff")).toBe("per-depth");
     expect(page?.getAttribute("data-radius")).toBe("0.5");
     expect(page?.getAttribute("data-depth")).toBe("6");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
