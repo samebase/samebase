@@ -148,7 +148,6 @@ export function PublicLandingAuthControls({
     <div className="flex flex-col gap-2">
       <SignInWithGoogle
         authReturn={publicSignup ? "dashboard" : undefined}
-        visible
         markPublicSignupReturn={publicSignup}
       />
       {passwordAuthSurface !== "hidden" ? (

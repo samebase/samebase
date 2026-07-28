@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { renderToStaticMarkup } from "react-dom/server";
 import {
   buildPathWithTanStackSearch,
   parseTanStackSearch,
@@ -65,18 +64,9 @@ describe("SignInWithGoogle", () => {
     );
   }
 
-  function renderVisibleGoogleButton(props?: Parameters<typeof SignInWithGoogle>[0]) {
+  function renderGoogleButton(props?: Parameters<typeof SignInWithGoogle>[0]) {
     return SignInWithGoogle(props);
   }
-
-  it("reserves hidden provider space without leaving a button in the DOM", () => {
-    const markup = renderToStaticMarkup(<SignInWithGoogle visible={false} />);
-
-    expect(markup).toContain('aria-hidden="true"');
-    expect(markup).toContain("h-[42px]");
-    expect(markup).not.toContain("<button");
-    expect(markup).not.toContain("Google");
-  });
 
   it("preserves the MCP consent route when starting top-level Google auth", () => {
     const consentSearch = stringifyTanStackSearch({
@@ -95,7 +85,7 @@ describe("SignInWithGoogle", () => {
     });
     mockCurrentRouteLocationBuilder();
 
-    const element = renderVisibleGoogleButton();
+    const element = renderGoogleButton();
     const expectedRedirectTo = buildPathWithTanStackSearch({
       pathname: "/oauth/mcp/consent",
       search: {
@@ -126,7 +116,7 @@ describe("SignInWithGoogle", () => {
     });
     mockCurrentRouteLocationBuilder();
 
-    const element = renderVisibleGoogleButton({ markPublicSignupReturn: true });
+    const element = renderGoogleButton({ markPublicSignupReturn: true });
     const expectedRedirectTo = buildPathWithTanStackSearch({
       pathname: "/",
       search: {
@@ -151,7 +141,7 @@ describe("SignInWithGoogle", () => {
     });
     mockCurrentRouteLocationBuilder();
 
-    const element = renderVisibleGoogleButton({
+    const element = renderGoogleButton({
       authReturn: "dashboard",
       markPublicSignupReturn: true,
     });
@@ -179,7 +169,7 @@ describe("SignInWithGoogle", () => {
     });
     mockCurrentRouteLocationBuilder();
 
-    const element = renderVisibleGoogleButton({
+    const element = renderGoogleButton({
       authReturn: "dashboard",
       markPublicSignupReturn: true,
     });
@@ -204,7 +194,7 @@ describe("SignInWithGoogle", () => {
     });
     mockCurrentRouteLocationBuilder();
 
-    const element = renderVisibleGoogleButton();
+    const element = renderGoogleButton();
 
     element.props.onClick();
 

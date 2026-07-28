@@ -1,4 +1,3 @@
-import { setAuthFlag } from "@/authClient";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { useConvexAuth } from "convex/react";
 import { useEffect } from "react";
@@ -33,11 +32,6 @@ export function useCloseOAuthPopup(pathname: string, enabled: boolean) {
     }
     if (!isAuthenticated) {
       return;
-    }
-
-    // Remember that this user has authenticated, so we can auto-login next time.
-    if (!window.opener) {
-      setAuthFlag();
     }
 
     const opener = readSameOriginOpener();

@@ -156,7 +156,6 @@ describe("PasswordAuthForm", () => {
   });
 
   it("marks every root Google sign-in as a public signup return", async () => {
-    window.localStorage.setItem("samebase_auth_provider", "google");
     buildLocationMock.mockImplementation(
       (options: { search: (currentSearch: RootRouteSearch) => RootRouteSearch; to: string }) => {
         expect(options.to).toBe("/vault");

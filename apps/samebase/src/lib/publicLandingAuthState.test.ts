@@ -48,12 +48,6 @@ afterEach(() => {
 
 describe("publicLandingAuthState", () => {
   it("forces the public landing closed-signup state for marked Google returns", () => {
-    Object.defineProperty(window, "localStorage", {
-      configurable: true,
-      value: createMockStorage(),
-    });
-    window.localStorage.setItem("samebase_auth_provider", "google");
-
     const routeSearch = validateRootRouteSearch({ signup: "google" });
 
     expect(shouldRenderGoogleSignupClosedState("/", routeSearch)).toBe(true);

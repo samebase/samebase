@@ -920,9 +920,6 @@ test("public landing renders the closed Google signup return state", async ({ pa
 });
 
 test("public landing right sidebar omits developer mode links", async ({ page }) => {
-  await page.addInitScript(() => {
-    window.localStorage.setItem("samebase_auth_provider", "google");
-  });
   await page.goto("/", { waitUntil: "networkidle" });
 
   await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
