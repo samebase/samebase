@@ -5,6 +5,7 @@ import {
   createSamebaseSocialCardSvgMarkup,
   createSamebaseXProfileBannerSvgMarkup,
 } from "@/components/socialLogoAssets";
+import { createLogoIdentityViewSvgMarkup } from "@/components/logo/logoStaticSvgAsset";
 
 function readPublicAsset(assetPath: string) {
   return readFileSync(new URL(`../../public/${assetPath}`, import.meta.url), "utf8")
@@ -19,14 +20,23 @@ describe("socialLogoAssets", () => {
     );
   });
 
+  it("renders the variant 1 side-primary mark on the social card", () => {
+    const variantOneSvg = createLogoIdentityViewSvgMarkup("side-primary");
+    const variantOneBody = variantOneSvg.slice(
+      variantOneSvg.indexOf(">") + 1,
+      variantOneSvg.lastIndexOf("</svg>"),
+    );
+
+    expect(createSamebaseSocialCardSvgMarkup()).toContain(variantOneBody);
+  });
+
   it("keeps the committed profile banner svg in sync with the generated default treatment", () => {
     expect(readPublicAsset("samebase-x-profile-banner.svg")).toBe(
       createSamebaseXProfileBannerSvgMarkup().replace(/\r\n/g, "\n").trim(),
     );
   });
 
-  it("keeps social logo svgs on the duotone treatment by default", () => {
-    expect(createSamebaseSocialCardSvgMarkup()).toContain("#00b8db");
+  it("keeps the profile banner on the duotone treatment by default", () => {
     expect(createSamebaseXProfileBannerSvgMarkup()).toContain("#00b8db");
   });
 

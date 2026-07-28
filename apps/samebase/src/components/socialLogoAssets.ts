@@ -9,11 +9,11 @@ const BRAND_PRIMARY_COLOR = "#394447";
 const BRAND_BACKGROUND_COLOR = "#ffffff";
 const SOCIAL_CARD_WIDTH = 1200;
 const SOCIAL_CARD_HEIGHT = 630;
-const SOCIAL_CARD_TEXT_X = 520;
-const SOCIAL_CARD_SITE_NAME_Y = 286;
+const SOCIAL_CARD_TEXT_X = 433;
+const SOCIAL_CARD_SITE_NAME_Y = 262;
 const SOCIAL_CARD_SITE_NAME_FONT_SIZE = 82;
-const SOCIAL_CARD_TAGLINE_LINE_ONE_Y = 360;
-const SOCIAL_CARD_TAGLINE_LINE_TWO_Y = 417;
+const SOCIAL_CARD_TAGLINE_LINE_ONE_Y = 356;
+const SOCIAL_CARD_TAGLINE_LINE_TWO_Y = 413;
 const SOCIAL_CARD_TAGLINE_FONT_SIZE = 48;
 const X_PROFILE_LOGO_VIEWPORT_SIZE = 220;
 
@@ -43,7 +43,7 @@ export function createSamebaseSocialCardSvgMarkup({
 }: {
   faceTreatment?: LogoFaceTreatment;
 } = {}) {
-  const logoBody = createLogoSvgBody("spatial", faceTreatment);
+  const logoBody = createLogoSvgBody("side-primary", faceTreatment);
 
   return `<svg
   xmlns="http://www.w3.org/2000/svg"

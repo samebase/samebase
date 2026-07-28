@@ -93,6 +93,20 @@ describe("logoStaticSvgAsset", () => {
     });
   });
 
+  it("renders the side-primary mark as one seam-free path", () => {
+    for (const faceTreatment of LOGO_FACE_TREATMENTS) {
+      const sidePrimarySvg = createLogoIdentityViewSvgMarkup("side-primary", {
+        faceTreatment,
+      });
+
+      expect(sidePrimarySvg.match(/<path /g)).toHaveLength(1);
+      expect(sidePrimarySvg).not.toContain("<polygon ");
+    }
+
+    expect(createLogoIdentityViewSvgMarkup("side-diagonal")).toContain("<polygon ");
+    expect(createLogoIdentityViewSvgMarkup("spatial")).toContain("<polygon ");
+  });
+
   it("keeps the committed logo identity svgs in sync with their view contract", () => {
     for (const view of LOGO_IDENTITY_VIEW_CONTRACTS) {
       const committedSvg = readPublicAsset(view.assetPath);

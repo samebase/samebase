@@ -75,6 +75,7 @@ export type LogoProjectedQuad = {
 const FACE_STROKE_WIDTH = 0.14;
 const TRANSPARENT_STRIPED_FACE_BACKGROUND_COLOR = "#ffffff";
 const STRIPE_CLIP_EPSILON = 1e-9;
+const PROJECTED_POLYGON_AREA_EPSILON = 1e-6;
 const ORBIT_RIGHT_AXIS = normalizeVector({
   x: 1,
   y: 0,
@@ -165,6 +166,18 @@ function projectPoint(
 
 function serializePolygon(points: readonly LogoProjectedPoint[]): string {
   return points.map((point) => `${point.x.toFixed(6)},${point.y.toFixed(6)}`).join(" ");
+}
+
+function readProjectedPolygonArea(points: readonly LogoProjectedPoint[]): number {
+  let doubledArea = 0;
+
+  for (let index = 0; index < points.length; index += 1) {
+    const point = points[index];
+    const nextPoint = points[(index + 1) % points.length];
+    doubledArea += point.x * nextPoint.y - nextPoint.x * point.y;
+  }
+
+  return Math.abs(doubledArea) / 2;
 }
 
 function getSurfaceVertexUv(
@@ -490,18 +503,55 @@ export function createLogoThreeSvgMarkup({
   }
 
   const backgroundRect = `<rect x="0" y="0" width="${viewBoxSize}" height="${viewBoxSize}" fill="${escapeSvgAttribute(backgroundColor)}"/>`;
-  const polygons = projectedQuads
-    .map((quad) =>
-      createProjectedQuadSvgMarkup({
-        backgroundColor,
-        faceColors,
-        leftFaceStyle,
-        quad,
-      }),
-    )
-    .join("");
+  const visibleProjectedQuads = projectedQuads.filter(
+    (quad) => readProjectedPolygonArea(quad.points) > PROJECTED_POLYGON_AREA_EPSILON,
+  );
+  const renderedFaces =
+    createSingleColorProjectedPathSvgMarkup({
+      leftFaceStyle,
+      projectedQuads: visibleProjectedQuads,
+    }) ??
+    visibleProjectedQuads
+      .map((quad) =>
+        createProjectedQuadSvgMarkup({
+          backgroundColor,
+          faceColors,
+          leftFaceStyle,
+          quad,
+        }),
+      )
+      .join("");
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewBoxSize} ${viewBoxSize}" width="${viewBoxSize}" height="${viewBoxSize}">${backgroundRect}${polygons}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewBoxSize} ${viewBoxSize}" width="${viewBoxSize}" height="${viewBoxSize}">${backgroundRect}${renderedFaces}</svg>`;
+}
+
+// One SVG fill gives touching faces one raster boundary instead of a seam per projected quad.
+function createSingleColorProjectedPathSvgMarkup({
+  leftFaceStyle,
+  projectedQuads,
+}: {
+  leftFaceStyle: LogoLeftFaceStyle;
+  projectedQuads: readonly LogoProjectedQuad[];
+}): string | null {
+  if (projectedQuads.length === 0) {
+    return null;
+  }
+
+  const firstQuad = projectedQuads[0];
+  const normalizedStyle = normalizeLogoLeftFaceStyle(leftFaceStyle);
+  if (
+    (normalizedStyle.kind === "striped" &&
+      projectedQuads.some((quad) => quad.colorKey === "left")) ||
+    projectedQuads.some((quad) => quad.color !== firstQuad.color)
+  ) {
+    return null;
+  }
+
+  const projectedPolygons = new Set(projectedQuads.map((quad) => serializePolygon(quad.points)));
+  const pathData = [...projectedPolygons].map((points) => `M${points}Z`).join("");
+  const fill = escapeSvgAttribute(firstQuad.color);
+
+  return `<path d="${escapeSvgAttribute(pathData)}" fill="${fill}"/>`;
 }
 
 function createSolidProjectedQuadSvgMarkup({
