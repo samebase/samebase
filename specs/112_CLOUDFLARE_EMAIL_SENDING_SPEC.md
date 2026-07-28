@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase application email and deployment configuration
-- Last updated: 2026-07-12
+- Last updated: 2026-07-28
 - Related:
   - `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
   - `apps/samebase/convex/deploymentProfile.ts`
@@ -70,7 +70,8 @@ The first caller is the Convex Auth user-creation callback:
 
 1. It schedules an email only when Convex Auth reports that no existing or linked user was reused.
 2. It does not send for updates to an existing user.
-3. It does not send when deployment password-account seeding creates the operator account.
+3. It does not send when password-account seeding or the manual internal account action creates an
+   operator account.
 4. It schedules the action after the database transaction instead of waiting for Cloudflare, so an
    email-provider failure does not reject signup.
 5. The notification includes the new user's name, email, user ID, and auth provider when available.

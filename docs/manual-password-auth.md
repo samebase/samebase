@@ -54,17 +54,3 @@ Public password sign-up stays disabled.
 Disabling the switch blocks new password sign-ins. It does not end sessions that already exist.
 During a reconnect, a browser can briefly show its last known password form. The server still
 rejects the sign-in while the switch is disabled.
-
-## Production migration
-
-An account created by the former production review seed remains valid because both systems use the
-standard Convex Auth `password` provider.
-
-For a continuous production rollout:
-
-1. Set `PASSWORD_AUTH_ENABLED=true` before the new code deploys.
-2. Deploy the new code.
-3. Verify password sign-in.
-4. Remove `OPENAI_REVIEW_AUTH_EMAIL` and `OPENAI_REVIEW_AUTH_PASSWORD` from the deployment.
-
-The new code does not read the former variables.
