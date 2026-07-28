@@ -63,7 +63,7 @@ vi.mock("convex/react", () => ({
   useQuery: () => componentState.deploymentAuthPolicy,
 }));
 
-function renderPasswordAuthForm(surface: "local_worktree" | "seeded_sign_in"): string {
+function renderPasswordAuthForm(surface: "local_worktree" | "sign_in"): string {
   return renderToStaticMarkup(<PasswordAuthForm surface={surface} />);
 }
 
@@ -98,7 +98,7 @@ describe("PasswordAuthForm", () => {
   });
 
   it("renders the seeded sign-in-only surface without local shortcuts", () => {
-    const markup = renderPasswordAuthForm("seeded_sign_in");
+    const markup = renderPasswordAuthForm("sign_in");
 
     expect(markup).toContain("Password sign in");
     expect(markup).toContain('placeholder="you@example.com"');
@@ -256,10 +256,10 @@ describe("PasswordAuthForm", () => {
     expect(markup).not.toContain("Password sign in");
   });
 
-  it("renders production review password auth even in prod-ui mode after hydration", async () => {
+  it("renders manual password auth even in prod-ui mode after hydration", async () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "production" },
-      passwordAuthMode: "production_review_seed",
+      passwordAuthMode: "manual",
     };
     componentState.search = { "prod-ui": true };
     const rootElement = document.createElement("div");

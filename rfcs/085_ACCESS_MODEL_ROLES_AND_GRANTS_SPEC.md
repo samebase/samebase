@@ -5,7 +5,7 @@
 - Status: Proposed
 - Owner: Noter platform
 - Date: 2026-06-12
-- Last updated: 2026-07-26
+- Last updated: 2026-07-28
 - Related specs:
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
   - `rfcs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
@@ -99,7 +99,7 @@ became structural via access-key function wrappers.
 - `users.isApproved` (`apps/noter/convex/schema.ts:288`) feeds backend viewer-role resolution.
   `users.currentViewerAccess` returns the derived role plus access keys, so `ApprovalGate` can
   render `role_waitlisted` directly while route authorization still checks access keys.
-  `devAuth.ts:210-211` seeds `isApproved: true` for local/preview accounts.
+  `devAuth.ts:206-209` seeds `isApproved: true` for local/preview accounts.
 - `waitlist.joinWaitlist` (`apps/noter/convex/waitlist.ts:18-39`) exists but has zero frontend
   callers; `ApprovalGate` renders static copy.
 - `/vault/$` (`apps/noter/src/routes/vault-file.tsx:29-36`) renders `FileView` (file surface), while

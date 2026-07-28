@@ -19,12 +19,9 @@ export const vPasswordAuthMode = union(
   literal("off"),
   literal("local_worktree_seed"),
   literal("preview_seed"),
-  literal("production_review_seed"),
+  literal("manual"),
 );
 export type PasswordAuthMode = Infer<typeof vPasswordAuthMode>;
-
-const vPasswordAuthFlow = union(literal("signIn"), literal("signUp"));
-export type PasswordAuthFlow = Infer<typeof vPasswordAuthFlow>;
 
 const vPublicDeploymentAuthPolicy = object({
   deploymentProfile: vDeploymentProfile,
@@ -37,8 +34,7 @@ type DeploymentProfileEnv = {
   CONVEX_CLOUD_URL?: string;
   CONVEX_DEPLOYMENT?: string;
   CONVEX_SITE_URL?: string;
-  OPENAI_REVIEW_AUTH_EMAIL?: string;
-  OPENAI_REVIEW_AUTH_PASSWORD?: string;
+  PASSWORD_AUTH_ENABLED?: string;
   PREVIEW_SEED_AUTH_EMAIL?: string;
   PREVIEW_SEED_AUTH_PASSWORD?: string;
   SITE_URL?: string;
@@ -79,38 +75,8 @@ function hasPreviewSeedPasswordAuth(env: DeploymentProfileEnv): boolean {
   );
 }
 
-function hasCompleteProductionReviewSeedPasswordAuth(env: DeploymentProfileEnv): boolean {
-  const email = readTrimmedValue(env.OPENAI_REVIEW_AUTH_EMAIL);
-  const password = readTrimmedValue(env.OPENAI_REVIEW_AUTH_PASSWORD);
-  return email !== null && password !== null;
-}
-
-export function assertProductionReviewSeedPasswordAuthConfig(env: DeploymentProfileEnv): void {
-  const email = readTrimmedValue(env.OPENAI_REVIEW_AUTH_EMAIL);
-  const password = readTrimmedValue(env.OPENAI_REVIEW_AUTH_PASSWORD);
-  if (email === null || password === null) {
-    throw new Error(
-      "OPENAI_REVIEW_AUTH_EMAIL and OPENAI_REVIEW_AUTH_PASSWORD must be set together",
-    );
-  }
-}
-
-export function assertProductionReviewPasswordEmailAllowed(args: {
-  passwordAuthMode: PasswordAuthMode;
-  reviewEmail: string | undefined;
-  email: string;
-}): void {
-  if (args.passwordAuthMode !== "production_review_seed") {
-    return;
-  }
-
-  const reviewEmail = readTrimmedValue(args.reviewEmail);
-  if (reviewEmail === null) {
-    throw new Error("Missing required environment variable: OPENAI_REVIEW_AUTH_EMAIL");
-  }
-  if (args.email.trim().toLowerCase() !== reviewEmail.toLowerCase()) {
-    throw new Error("Password sign-in is limited to the OpenAI review account");
-  }
+function hasManualPasswordAuth(env: DeploymentProfileEnv): boolean {
+  return env.PASSWORD_AUTH_ENABLED === "true";
 }
 
 function readDeploymentSpecifier(env: DeploymentProfileEnv): string | null {
@@ -201,8 +167,6 @@ export function resolveDeploymentProfile(): DeploymentProfile {
     CONVEX_CLOUD_URL: readOptionalEnv("CONVEX_CLOUD_URL") ?? undefined,
     CONVEX_DEPLOYMENT: readOptionalEnv("CONVEX_DEPLOYMENT") ?? undefined,
     CONVEX_SITE_URL: readOptionalEnv("CONVEX_SITE_URL") ?? undefined,
-    OPENAI_REVIEW_AUTH_EMAIL: env.OPENAI_REVIEW_AUTH_EMAIL,
-    OPENAI_REVIEW_AUTH_PASSWORD: env.OPENAI_REVIEW_AUTH_PASSWORD,
     PREVIEW_SEED_AUTH_EMAIL: readOptionalEnv("PREVIEW_SEED_AUTH_EMAIL") ?? undefined,
     PREVIEW_SEED_AUTH_PASSWORD: readOptionalEnv("PREVIEW_SEED_AUTH_PASSWORD") ?? undefined,
     SITE_URL: readOptionalEnv("SITE_URL") ?? undefined,
@@ -211,8 +175,8 @@ export function resolveDeploymentProfile(): DeploymentProfile {
 
 /**
  * Password auth intentionally stays narrower than the deployment profile:
- * only local worktrees, previews, and the temporary production review account
- * get seeded credentials.
+ * local worktrees and previews use seeded accounts, while other deployments
+ * require the explicit manual-account switch.
  */
 export function resolvePasswordAuthModeFromEnv(
   profile: DeploymentProfile,
@@ -223,13 +187,10 @@ export function resolvePasswordAuthModeFromEnv(
       return "local_worktree_seed";
     case "preview":
       return "preview_seed";
-    case "production":
-      return hasCompleteProductionReviewSeedPasswordAuth(deploymentEnv)
-        ? "production_review_seed"
-        : "off";
     case "local_development":
     case "convex_dev":
-      return "off";
+    case "production":
+      return hasManualPasswordAuth(deploymentEnv) ? "manual" : "off";
     default:
       profile satisfies never;
       return "off";
@@ -238,34 +199,45 @@ export function resolvePasswordAuthModeFromEnv(
 
 export function resolvePasswordAuthMode(profile: DeploymentProfile): PasswordAuthMode {
   return resolvePasswordAuthModeFromEnv(profile, {
-    OPENAI_REVIEW_AUTH_EMAIL: env.OPENAI_REVIEW_AUTH_EMAIL,
-    OPENAI_REVIEW_AUTH_PASSWORD: env.OPENAI_REVIEW_AUTH_PASSWORD,
+    PASSWORD_AUTH_ENABLED: env.PASSWORD_AUTH_ENABLED,
   });
 }
 
+export function assertPasswordAuthLogLevelAllowed(authLogLevel: string | null): void {
+  if (authLogLevel === "DEBUG") {
+    throw new Error("Password authentication is unavailable while AUTH_LOG_LEVEL is DEBUG");
+  }
+}
+
 /**
- * Preview and production-review deployments intentionally keep password auth
- * to sign-in only. Local worktrees may still use the full sign-up path because
- * they are operator-owned.
+ * Preview and manual-account deployments keep password auth to sign-in only.
+ * Local worktrees may still use the full sign-up path because they are
+ * operator-owned.
  */
 export function assertPasswordAuthFlowAllowed(
   passwordAuthMode: PasswordAuthMode,
-  flow: PasswordAuthFlow,
+  flow: string,
 ): void {
   switch (passwordAuthMode) {
     case "preview_seed":
-      if (flow === "signUp") {
+      if (flow !== "signIn") {
         throw new Error("Preview deployments only allow password sign-in for the seeded account");
       }
       return;
-    case "production_review_seed":
-      if (flow === "signUp") {
-        throw new Error("Production review only allows password sign-in for the review account");
+    case "manual":
+      if (flow !== "signIn") {
+        throw new Error(
+          "Manual password authentication only allows sign-in for operator-created accounts",
+        );
       }
       return;
     case "local_worktree_seed":
+      if (flow === "signIn" || flow === "signUp") {
+        return;
+      }
+      throw new Error("Local worktrees only allow password sign-in and sign-up");
     case "off":
-      return;
+      throw new Error("Password authentication is disabled");
     default:
       passwordAuthMode satisfies never;
   }

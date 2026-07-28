@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
   assertPasswordAuthFlowAllowed,
-  assertProductionReviewPasswordEmailAllowed,
-  assertProductionReviewSeedPasswordAuthConfig,
+  assertPasswordAuthLogLevelAllowed,
   resolveDeploymentProfileFromEnv,
   resolvePasswordAuthMode,
   resolvePasswordAuthModeFromEnv,
@@ -89,84 +88,34 @@ describe("deploymentProfile", () => {
     expect(resolvePasswordAuthModeFromEnv({ kind: "production" }, {})).toBe("off");
   });
 
-  it("enables production review password auth only when both review envs are set", () => {
+  it("enables manual password auth only for the exact true switch", () => {
     expect(
       resolvePasswordAuthModeFromEnv(
         { kind: "production" },
         {
-          OPENAI_REVIEW_AUTH_EMAIL: "noter.guest@gmail.com",
-          OPENAI_REVIEW_AUTH_PASSWORD: "review-password",
+          PASSWORD_AUTH_ENABLED: "true",
         },
       ),
-    ).toBe("production_review_seed");
+    ).toBe("manual");
+    expect(
+      resolvePasswordAuthModeFromEnv(
+        { kind: "convex_dev" },
+        {
+          PASSWORD_AUTH_ENABLED: "true",
+        },
+      ),
+    ).toBe("manual");
 
     expect(resolvePasswordAuthModeFromEnv({ kind: "production" }, {})).toBe("off");
     expect(
-      resolvePasswordAuthModeFromEnv(
-        { kind: "production" },
-        { OPENAI_REVIEW_AUTH_EMAIL: "noter.guest@gmail.com" },
-      ),
+      resolvePasswordAuthModeFromEnv({ kind: "production" }, { PASSWORD_AUTH_ENABLED: "false" }),
     ).toBe("off");
     expect(
-      resolvePasswordAuthModeFromEnv(
-        { kind: "production" },
-        { OPENAI_REVIEW_AUTH_PASSWORD: "review-password" },
-      ),
+      resolvePasswordAuthModeFromEnv({ kind: "production" }, { PASSWORD_AUTH_ENABLED: "1" }),
     ).toBe("off");
-  });
-
-  it("rejects partial production review envs during password account seeding", () => {
-    expect(() =>
-      assertProductionReviewSeedPasswordAuthConfig({
-        OPENAI_REVIEW_AUTH_EMAIL: "noter.guest@gmail.com",
-      }),
-    ).toThrowError("OPENAI_REVIEW_AUTH_EMAIL and OPENAI_REVIEW_AUTH_PASSWORD must be set together");
-    expect(() =>
-      assertProductionReviewSeedPasswordAuthConfig({
-        OPENAI_REVIEW_AUTH_PASSWORD: "review-password",
-      }),
-    ).toThrowError("OPENAI_REVIEW_AUTH_EMAIL and OPENAI_REVIEW_AUTH_PASSWORD must be set together");
-
-    expect(() =>
-      assertProductionReviewSeedPasswordAuthConfig({
-        OPENAI_REVIEW_AUTH_EMAIL: "noter.guest@gmail.com",
-        OPENAI_REVIEW_AUTH_PASSWORD: "review-password",
-      }),
-    ).not.toThrow();
-  });
-
-  it("limits production review password sign-in to the configured email", () => {
-    expect(() =>
-      assertProductionReviewPasswordEmailAllowed({
-        email: "someone@example.com",
-        passwordAuthMode: "preview_seed",
-        reviewEmail: undefined,
-      }),
-    ).not.toThrow();
-
-    expect(() =>
-      assertProductionReviewPasswordEmailAllowed({
-        email: " Noter.Guest@gmail.com ",
-        passwordAuthMode: "production_review_seed",
-        reviewEmail: " Noter.Guest@gmail.com ",
-      }),
-    ).not.toThrow();
-
-    expect(() =>
-      assertProductionReviewPasswordEmailAllowed({
-        email: "other@example.com",
-        passwordAuthMode: "production_review_seed",
-        reviewEmail: "noter.guest@gmail.com",
-      }),
-    ).toThrowError("Password sign-in is limited to the OpenAI review account");
-
-    expect(() =>
-      assertProductionReviewPasswordEmailAllowed({
-        email: "noter.guest@gmail.com",
-        passwordAuthMode: "production_review_seed",
-        reviewEmail: undefined,
-      }),
-    ).toThrowError("Missing required environment variable: OPENAI_REVIEW_AUTH_EMAIL");
+    expect(
+      resolvePasswordAuthModeFromEnv({ kind: "production" }, { PASSWORD_AUTH_ENABLED: " true " }),
+    ).toBe("off");
   });
 
   it("blocks preview password sign-up while keeping preview sign-in enabled", () => {
@@ -175,13 +124,44 @@ describe("deploymentProfile", () => {
     );
 
     expect(() => assertPasswordAuthFlowAllowed("preview_seed", "signIn")).not.toThrow();
+    expect(() => assertPasswordAuthFlowAllowed("preview_seed", "reset")).toThrowError(
+      "Preview deployments only allow password sign-in for the seeded account",
+    );
   });
 
-  it("blocks production review password sign-up while keeping sign-in enabled", () => {
-    expect(() => assertPasswordAuthFlowAllowed("production_review_seed", "signUp")).toThrowError(
-      "Production review only allows password sign-in for the review account",
+  it("blocks manual password sign-up while keeping sign-in enabled", () => {
+    expect(() => assertPasswordAuthFlowAllowed("manual", "signUp")).toThrowError(
+      "Manual password authentication only allows sign-in for operator-created accounts",
     );
 
-    expect(() => assertPasswordAuthFlowAllowed("production_review_seed", "signIn")).not.toThrow();
+    expect(() => assertPasswordAuthFlowAllowed("manual", "signIn")).not.toThrow();
+    expect(() => assertPasswordAuthFlowAllowed("manual", "reset")).toThrowError(
+      "Manual password authentication only allows sign-in for operator-created accounts",
+    );
+  });
+
+  it("rejects password flows while password authentication is disabled", () => {
+    expect(() => assertPasswordAuthFlowAllowed("off", "signIn")).toThrowError(
+      "Password authentication is disabled",
+    );
+    expect(() => assertPasswordAuthFlowAllowed("off", "signUp")).toThrowError(
+      "Password authentication is disabled",
+    );
+  });
+
+  it("rejects password operations while Convex Auth debug logging is active", () => {
+    expect(() => assertPasswordAuthLogLevelAllowed("DEBUG")).toThrowError(
+      "Password authentication is unavailable while AUTH_LOG_LEVEL is DEBUG",
+    );
+    expect(() => assertPasswordAuthLogLevelAllowed("INFO")).not.toThrow();
+    expect(() => assertPasswordAuthLogLevelAllowed(null)).not.toThrow();
+  });
+
+  it("keeps local worktree password flows limited to sign-in and sign-up", () => {
+    expect(() => assertPasswordAuthFlowAllowed("local_worktree_seed", "signIn")).not.toThrow();
+    expect(() => assertPasswordAuthFlowAllowed("local_worktree_seed", "signUp")).not.toThrow();
+    expect(() => assertPasswordAuthFlowAllowed("local_worktree_seed", "reset")).toThrowError(
+      "Local worktrees only allow password sign-in and sign-up",
+    );
   });
 });

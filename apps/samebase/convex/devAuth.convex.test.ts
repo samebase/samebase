@@ -14,20 +14,18 @@ describe("devAuth password account seed", () => {
     await expect(
       t.mutation(internal.devAuth.resolveSeedPasswordAccountUser, {
         email: maximumEmail,
-        shouldLinkViaEmail: false,
       }),
     ).resolves.toEqual({ kind: "missing" });
     await expect(
       t.mutation(internal.devAuth.resolveSeedPasswordAccountUser, {
         email: tooLongEmail,
-        shouldLinkViaEmail: false,
       }),
     ).rejects.toThrowError(
       `Email address must be ${ACCOUNT_EMAIL_MAX_LENGTH} characters or fewer.`,
     );
   });
 
-  it("resolves an existing password account linked to the verified review user", async () => {
+  it("resolves an existing seed password account", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       const insertedUserId = await ctx.db.insert("users", {
@@ -46,83 +44,11 @@ describe("devAuth password account seed", () => {
     await expect(
       t.mutation(internal.devAuth.resolveSeedPasswordAccountUser, {
         email: "seed@example.com",
-        shouldLinkViaEmail: true,
       }),
     ).resolves.toEqual({
       kind: "existing",
       userId,
     });
-  });
-
-  it("fails when the review password account is linked to a duplicate user", async () => {
-    const t = makeConvexTest();
-    const ids = await t.run(async (ctx) => {
-      const approvedUserId = await ctx.db.insert("users", {
-        email: "seed@example.com",
-        emailVerificationTime: 1,
-        isApproved: true,
-      });
-      const passwordUserId = await ctx.db.insert("users", {
-        email: "seed@example.com",
-      });
-      await ctx.db.insert("authAccounts", {
-        userId: passwordUserId,
-        provider: "password",
-        providerAccountId: "seed@example.com",
-      });
-      return { approvedUserId, passwordUserId };
-    });
-
-    await expect(
-      t.mutation(internal.devAuth.resolveSeedPasswordAccountUser, {
-        email: "seed@example.com",
-        shouldLinkViaEmail: true,
-      }),
-    ).rejects.toThrowError(
-      `Review password account for seed@example.com is linked to ${ids.passwordUserId}, not verified user ${ids.approvedUserId}`,
-    );
-  });
-
-  it("returns the verified review user when the password account is missing", async () => {
-    const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
-        email: "seed@example.com",
-        emailVerificationTime: 1,
-        isApproved: true,
-      });
-    });
-
-    await expect(
-      t.mutation(internal.devAuth.resolveSeedPasswordAccountUser, {
-        email: "seed@example.com",
-        shouldLinkViaEmail: true,
-      }),
-    ).resolves.toEqual({
-      kind: "missing",
-      verifiedUserId: userId,
-    });
-  });
-
-  it("fails when the review email has multiple verified users", async () => {
-    const t = makeConvexTest();
-    await t.run(async (ctx) => {
-      await ctx.db.insert("users", {
-        email: "seed@example.com",
-        emailVerificationTime: 1,
-      });
-      await ctx.db.insert("users", {
-        email: "seed@example.com",
-        emailVerificationTime: 2,
-      });
-    });
-
-    await expect(
-      t.mutation(internal.devAuth.resolveSeedPasswordAccountUser, {
-        email: "seed@example.com",
-        shouldLinkViaEmail: true,
-      }),
-    ).rejects.toThrowError("Expected exactly one verified user for seed@example.com; found 2");
   });
 
   it("adds provider keys to the explicit seed user", async () => {

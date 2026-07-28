@@ -5,11 +5,7 @@ import {
   LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
 } from "../../../runtime/localWorktreePasswordAuth";
 import { internal } from "./_generated/api";
-import {
-  assertProductionReviewSeedPasswordAuthConfig,
-  resolveDeploymentProfile,
-  resolvePasswordAuthMode,
-} from "./deploymentProfile";
+import { resolveDeploymentProfile, resolvePasswordAuthMode } from "./deploymentProfile";
 import { internalAction, internalMutation, type DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import {
@@ -63,44 +59,22 @@ function readRequiredSeedPasswordAccountConfig(args: {
 function readSeedPasswordAccountConfig(): {
   email: string;
   password: string;
-  shouldLinkViaEmail: boolean;
 } {
   const deploymentProfile = resolveDeploymentProfile();
   const passwordAuthMode = resolvePasswordAuthMode(deploymentProfile);
-  if (deploymentProfile.kind === "production") {
-    const reviewEmail = readSeedValue("OPENAI_REVIEW_AUTH_EMAIL");
-    const reviewPassword = readSeedValue("OPENAI_REVIEW_AUTH_PASSWORD");
-    if (reviewEmail !== undefined || reviewPassword !== undefined) {
-      assertProductionReviewSeedPasswordAuthConfig({
-        OPENAI_REVIEW_AUTH_EMAIL: reviewEmail,
-        OPENAI_REVIEW_AUTH_PASSWORD: reviewPassword,
-      });
-    }
-  }
 
   switch (passwordAuthMode) {
     case "local_worktree_seed":
       return {
         email: normalizeAccountEmail(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL),
         password: LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
-        shouldLinkViaEmail: false,
       };
     case "preview_seed":
-      return {
-        ...readRequiredSeedPasswordAccountConfig({
-          emailEnvName: "PREVIEW_SEED_AUTH_EMAIL",
-          passwordEnvName: "PREVIEW_SEED_AUTH_PASSWORD",
-        }),
-        shouldLinkViaEmail: false,
-      };
-    case "production_review_seed":
-      return {
-        ...readRequiredSeedPasswordAccountConfig({
-          emailEnvName: "OPENAI_REVIEW_AUTH_EMAIL",
-          passwordEnvName: "OPENAI_REVIEW_AUTH_PASSWORD",
-        }),
-        shouldLinkViaEmail: true,
-      };
+      return readRequiredSeedPasswordAccountConfig({
+        emailEnvName: "PREVIEW_SEED_AUTH_EMAIL",
+        passwordEnvName: "PREVIEW_SEED_AUTH_PASSWORD",
+      });
+    case "manual":
     case "off":
       throw new Error("Password account seeding is disabled for this deployment profile");
     default:
@@ -277,7 +251,6 @@ const seedPasswordAccountUserResolution = union(
   }),
   object({
     kind: literal("missing"),
-    verifiedUserId: optional(id("users")),
   }),
 );
 type SeedPasswordAccountUserResolution = Infer<typeof seedPasswordAccountUserResolution>;
@@ -285,7 +258,6 @@ type SeedPasswordAccountUserResolution = Infer<typeof seedPasswordAccountUserRes
 export const resolveSeedPasswordAccountUser = internalMutation({
   args: {
     email: string(),
-    shouldLinkViaEmail: boolean(),
   },
   returns: seedPasswordAccountUserResolution,
   handler: async (ctx, args): Promise<SeedPasswordAccountUserResolution> => {
@@ -299,40 +271,10 @@ export const resolveSeedPasswordAccountUser = internalMutation({
     if (accounts.length > 1) {
       throw new Error(`Multiple password auth accounts exist for ${email}`);
     }
-    if (!args.shouldLinkViaEmail) {
-      if (accounts.length === 0) {
-        return { kind: "missing" };
-      }
-      return { kind: "existing", userId: accounts[0].userId };
-    }
-
-    const verifiedUserIds: Id<"users">[] = [];
-    for await (const user of ctx.db
-      .query("users")
-      .withIndex("email", (q) => q.eq("email", email))) {
-      if (user.emailVerificationTime !== undefined) {
-        verifiedUserIds.push(user._id);
-        if (verifiedUserIds.length > 1) {
-          break;
-        }
-      }
-    }
-    if (verifiedUserIds.length !== 1) {
-      throw new Error(
-        `Expected exactly one verified user for ${email}; found ${verifiedUserIds.length}`,
-      );
-    }
-    const verifiedUserId = verifiedUserIds[0];
     if (accounts.length === 0) {
-      return { kind: "missing", verifiedUserId };
+      return { kind: "missing" };
     }
-    const account = accounts[0];
-    if (account.userId !== verifiedUserId) {
-      throw new Error(
-        `Review password account for ${email} is linked to ${account.userId}, not verified user ${verifiedUserId}`,
-      );
-    }
-    return { kind: "existing", userId: verifiedUserId };
+    return { kind: "existing", userId: accounts[0].userId };
   },
 });
 
@@ -346,7 +288,7 @@ export const seedPasswordAccount = internalAction({
   args: {},
   returns: seedPasswordAccountReturns,
   handler: async (ctx): Promise<SeedPasswordAccountResult> => {
-    const { email, password, shouldLinkViaEmail } = readSeedPasswordAccountConfig();
+    const { email, password } = readSeedPasswordAccountConfig();
     const githubApiKey = readSeedValue("DEV_SEED_GITHUB_API_KEY");
     const convexManagementApiKey = readSeedValue("DEV_SEED_CONVEX_MANAGEMENT_API_KEY");
     const convexTeamId = readSeedValue("DEV_SEED_CONVEX_TEAM_ID");
@@ -379,7 +321,6 @@ export const seedPasswordAccount = internalAction({
       internal.devAuth.resolveSeedPasswordAccountUser,
       {
         email,
-        shouldLinkViaEmail,
       },
     );
     if (resolution.kind === "existing") {
@@ -402,17 +343,9 @@ export const seedPasswordAccount = internalAction({
           email,
           emailVerificationTime: Date.now(),
         },
-        shouldLinkViaEmail,
+        shouldLinkViaEmail: false,
         shouldLinkViaPhone: false,
       });
-      if (
-        resolution.verifiedUserId !== undefined &&
-        createdAccount.user._id !== resolution.verifiedUserId
-      ) {
-        throw new Error(
-          `Created review password account linked to ${createdAccount.user._id}, not verified user ${resolution.verifiedUserId}`,
-        );
-      }
       userId = createdAccount.user._id;
       created = true;
     }

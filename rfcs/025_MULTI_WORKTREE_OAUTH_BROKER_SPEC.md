@@ -4,9 +4,10 @@
 
 - Status: Proposed
 - Owner: Noter auth + dev workflow
-- Last updated: 2026-03-01
+- Last updated: 2026-07-28
 - Supersedes: Previous `025 Multi-Worktree OAuth Broker Spec`
 - Related specs:
+  - `specs/117_MANUAL_PASSWORD_AUTH_SPEC.md`
   - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `rfcs/015_BYO_CONVEX_OAUTH_AND_WORKTREE_PROVISIONING_SPEC.md`
   - `rfcs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
@@ -16,7 +17,7 @@
 
 This spec defines the product behavior for:
 
-1. Password app-login support in development.
+1. Password app-login support for local worktrees, previews, and operator-created accounts.
 2. API-key connection mode for GitHub/Convex, plus seed-only Cloudflare API-key bootstrap for
    anonymous local development.
 3. Anonymous worktree seed behavior for local development.
@@ -27,8 +28,9 @@ of truth for storage/indexing details.
 ## Locked Product Decisions
 
 1. App login providers:
-   - `prod`: Google only.
-   - `dev`: Google + password.
+   - Google when configured.
+   - Password for seeded local worktree and preview accounts.
+   - Password for operator-created accounts when the deployment enables it.
    - GitHub is not an app-login provider.
 2. Password seeding uses fixed development credentials in code:
    - Email: `nicu@noter.md`
@@ -42,7 +44,7 @@ of truth for storage/indexing details.
 
 ### `apps/noter/convex/auth.ts`
 
-1. Enable password provider only on development deployments.
+1. Enforce the password mode at the server authentication boundary.
 2. Keep Google login provider when configured.
 3. Keep allowlist checks in `createOrUpdateUser`.
 
@@ -90,7 +92,7 @@ Isolation contract:
 ### `apps/noter/src/SignInForm.tsx`
 
 1. Show Google login.
-2. Show password login UI only in dev.
+2. Show password login only when the deployment auth policy enables it.
 3. Do not show GitHub app-login button.
 
 ### Connections UI
@@ -104,8 +106,9 @@ Dashboard/provider controls must expose both:
 
 ### Password
 
-1. Password UI: `import.meta.env.DEV`.
-2. Password provider: dev deployment only.
+1. Local worktrees use the fixed development account.
+2. Preview deployments use their configured seeded account.
+3. Other deployments use operator-created accounts only when `PASSWORD_AUTH_ENABLED=true`.
 
 ### Provider API-key seed (anonymous/local worktree)
 

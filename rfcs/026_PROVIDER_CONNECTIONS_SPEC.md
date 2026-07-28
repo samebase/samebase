@@ -4,8 +4,9 @@
 
 - Status: Proposed
 - Owner: Noter auth + platform
-- Last updated: 2026-02-26
+- Last updated: 2026-07-28
 - Related specs:
+  - `specs/117_MANUAL_PASSWORD_AUTH_SPEC.md`
   - `rfcs/025_MULTI_WORKTREE_OAUTH_BROKER_SPEC.md`
   - `rfcs/015_BYO_CONVEX_OAUTH_AND_WORKTREE_PROVISIONING_SPEC.md`
   - `rfcs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
@@ -19,8 +20,9 @@ and Cloudflare credentials.
 ## Locked Product Decisions
 
 1. App login:
-   - `prod`: Google only.
-   - `dev`: Google + password.
+   - Google when configured.
+   - Password for seeded local worktree and preview accounts.
+   - Password for operator-created accounts when the deployment enables it.
    - GitHub is removed from app sign-in.
 2. Provider access is explicit connection-only flow for GitHub/Convex/Cloudflare.
 3. One active connection per (`userId`, `kind`).
@@ -117,7 +119,7 @@ Each status includes:
 ## OAuth + Login Split
 
 1. `apps/noter/convex/auth.ts`:
-   - App login providers are Google (+ password in dev).
+   - App login providers are Google and deployment-gated password authentication.
    - GitHub removed from app sign-in provider list.
 2. Dedicated GitHub provider-connection OAuth:
    - `apps/noter/convex/githubOAuth.ts`

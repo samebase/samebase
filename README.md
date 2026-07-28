@@ -28,7 +28,8 @@ TanStack Start/Vite on the frontend and Convex on the backend.
 - Frontend: React, TypeScript, Vite, TanStack Start, TanStack Router
 - Backend: Convex (queries, mutations, actions, scheduler)
 - Editor: CodeMirror 6
-- Auth: Convex Auth (Google in prod, Google + password in dev) + provider OAuth/API key connections
+- Auth: Convex Auth (Google plus deployment-gated password sign-in) + provider OAuth/API key
+  connections
 - UI: Tailwind CSS + Radix UI + shadcn/ui patterns
 - Workspace tooling: PNPM + Vite+
 
@@ -170,9 +171,9 @@ pnpm test
 ## Environment Setup
 
 1. Configure Convex deployment env vars.
-2. Configure app-login providers (Google, plus password in dev and preview when
-   `PREVIEW_SEED_AUTH_EMAIL` and `PREVIEW_SEED_AUTH_PASSWORD` are set on preview deployments; the
-   seeded preview email must still be allowlisted).
+2. Configure app-login providers. Google is the default. Local worktrees use their seeded password
+   account. Preview deployments use `PREVIEW_SEED_AUTH_EMAIL` and `PREVIEW_SEED_AUTH_PASSWORD`.
+   Other deployments can use the [manual password account runbook](docs/manual-password-auth.md).
 3. Configure provider connection OAuth/API keys (GitHub/Convex/Cloudflare).
 
 ## Contributing

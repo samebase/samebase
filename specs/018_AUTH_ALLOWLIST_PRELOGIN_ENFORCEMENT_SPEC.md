@@ -6,6 +6,7 @@
 - Owner: Samebase auth/backend
 - Last updated: 2026-06-19
 - Related specs:
+  - `specs/117_MANUAL_PASSWORD_AUTH_SPEC.md`
   - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
 
 ## Summary
