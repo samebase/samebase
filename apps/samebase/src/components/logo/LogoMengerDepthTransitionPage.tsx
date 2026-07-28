@@ -618,6 +618,7 @@ export function LogoMengerDepthTransitionPage({
       >
         {mode === "hover" ? (
           <MengerHoverScene
+            cameraFrustumPadding={1.12}
             elevationDegrees={view.elevationDegrees}
             faceColors={faceColors}
             maximumDepth={hoverMaximumDepth}

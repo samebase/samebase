@@ -1,4 +1,5 @@
 import {
+  LOGO_THREE_SVG_CAMERA_FRUSTUM_PADDING,
   STATIC_LOGO_BACKGROUND_COLOR,
   LOGO_IDENTITY_VIEW_CONTRACTS,
 } from "./logoStaticSvgContract";
@@ -21,6 +22,7 @@ import { createLogoThreeSvgMarkup } from "./logoThreeSvgRenderer";
 import { createFilledVoxelSet } from "@samebase/logo-model/voxel";
 
 type StaticLogoSvgOptions = {
+  cameraFrustumPadding?: number;
   depth?: number;
   faceColors?: FaceColors;
   faceTreatment?: LogoFaceTreatment;
@@ -49,6 +51,7 @@ export function createStaticLogoSvgMarkup(options: StaticLogoSvgOptions = {}) {
 
   return createLogoThreeSvgMarkup({
     backgroundColor: STATIC_LOGO_BACKGROUND_COLOR,
+    cameraFrustumPadding: options.cameraFrustumPadding ?? LOGO_THREE_SVG_CAMERA_FRUSTUM_PADDING,
     depth: options.depth,
     elevationDegrees: view.elevationDegrees,
     faceColors: options.faceColors ?? DEFAULT_FACE_COLORS,
@@ -68,6 +71,7 @@ export function createLogoIdentityViewSvgMarkup(
 
   return createLogoThreeSvgMarkup({
     backgroundColor: STATIC_LOGO_BACKGROUND_COLOR,
+    cameraFrustumPadding: options.cameraFrustumPadding ?? LOGO_THREE_SVG_CAMERA_FRUSTUM_PADDING,
     depth: options.depth,
     elevationDegrees: view.elevationDegrees,
     faceColors: options.faceColors ?? DEFAULT_FACE_COLORS,

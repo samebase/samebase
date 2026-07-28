@@ -414,6 +414,80 @@ test("landing preview uses the depth-four Menger hover scene", async ({ page }) 
   await expect(scene).toHaveCount(0);
 });
 
+test("landing preview keeps the prehydration and WebGL logo bounds equal", async ({
+  browser,
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/landing-preview", { waitUntil: "domcontentloaded" });
+
+  const hydratedHero = page.getByTestId("landing-preview-hero-menger");
+  await expect(hydratedHero.getByTestId("logo-menger-hover-scene").locator("canvas")).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(hydratedHero).toHaveAttribute("data-state", "ready");
+  await waitForPaint(page);
+
+  const prehydrationContext = await browser.newContext({
+    reducedMotion: "reduce",
+    viewport: { width: 1440, height: 1000 },
+  });
+  const prehydratedPage = await prehydrationContext.newPage();
+  try {
+    await prehydratedPage.route("**/*", async (route) => {
+      if (route.request().resourceType() === "script") {
+        await route.abort();
+        return;
+      }
+
+      await route.continue();
+    });
+    await prehydratedPage.goto(page.url(), { waitUntil: "domcontentloaded" });
+
+    const prehydratedHero = prehydratedPage.getByTestId("landing-preview-hero-menger");
+    await expect(prehydratedHero).toBeVisible();
+    await expect(prehydratedHero).toHaveAttribute("data-state", "loading");
+    await expect(prehydratedHero.getByTestId("landing-preview-hero-menger-fallback")).toHaveCSS(
+      "opacity",
+      "1",
+    );
+    await waitForPaint(prehydratedPage);
+
+    const prehydratedBox = await prehydratedHero.boundingBox();
+    const hydratedBox = await hydratedHero.boundingBox();
+    if (!prehydratedBox || !hydratedBox) {
+      throw new Error("The prehydration and hydrated Menger heroes must have bounding boxes.");
+    }
+    expect(prehydratedBox).toEqual(hydratedBox);
+
+    const prehydratedScreenshot = await prehydratedHero.screenshot({
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+    });
+    const hydratedScreenshot = await hydratedHero.screenshot({
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+    });
+    const prehydratedBounds = measureScreenshotForegroundBounds(prehydratedScreenshot);
+    const hydratedBounds = measureScreenshotForegroundBounds(hydratedScreenshot);
+    if (!prehydratedBounds || !hydratedBounds) {
+      throw new Error("The prehydration and hydrated screenshots must contain the Menger logo.");
+    }
+
+    for (const edge of ["minX", "minY", "maxX", "maxY"] as const) {
+      expect(
+        Math.abs(prehydratedBounds[edge] - hydratedBounds[edge]),
+        `${edge} must not move during hydration`,
+      ).toBeLessThanOrEqual(2);
+    }
+  } finally {
+    await prehydrationContext.close();
+  }
+});
+
 test("landing preview keeps its static Menger fallback when WebGL is unavailable", async ({
   page,
 }) => {
@@ -884,7 +958,7 @@ test("Menger hover keeps depth-two, depth-three, and depth-four openings distinc
     rotationDegrees: "180",
   });
   await movePointerRelativeToScene(page, scene, {
-    expectedProbe: [/-?0\.000/, "0.400", "0.345"],
+    expectedProbe: [/-?0\.000/, "0.400", "0.344"],
     x: 0.42,
     y: 0.55,
   });
@@ -943,7 +1017,7 @@ test("Menger hover keeps depth-two oblique tunnel surfaces exact", async ({ page
     rotationDegrees: "225",
   });
   await movePointerRelativeToScene(page, scene, {
-    expectedProbe: [/^0\.00[0-1]$/, "1.000", "0.056"],
+    expectedProbe: [/^0\.00[0-2]$/, "1.000", "0.057"],
     x: 0.52,
     y: 0.45,
   });
@@ -954,7 +1028,7 @@ test("Menger hover keeps depth-two oblique tunnel surfaces exact", async ({ page
   });
 
   await movePointerRelativeToScene(page, scene, {
-    expectedProbe: ["0.517", "1.000", "0.106"],
+    expectedProbe: ["0.520", "1.000", "0.107"],
     x: 0.35,
     y: 0.35,
   });
@@ -1021,7 +1095,7 @@ test("Menger hover keeps the three visible faces and internal tunnels aligned", 
     rotationDegrees: "29.3",
   });
   await movePointerRelativeToScene(page, scene, {
-    expectedProbe: ["0.795", "1.000", "0.710"],
+    expectedProbe: ["0.792", "1.000", "0.708"],
     x: 0.48,
     y: 0.34,
   });

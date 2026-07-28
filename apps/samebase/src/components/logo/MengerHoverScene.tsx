@@ -7,7 +7,10 @@ import {
   NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
   normalizeLogoPresentationTiltRadiusScale,
 } from "@/components/logo/logoPresentationTilt";
-import { resolveLogoSceneCameraDepthBounds } from "@/components/logo/logoSceneCameraDepth";
+import {
+  LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS,
+  resolveLogoSceneCameraDepthBounds,
+} from "@/components/logo/logoSceneCameraDepth";
 import { type LogoViewState } from "@/components/logo/logoViewDrag";
 import {
   createMengerHoverBlockerLinkTexture,
@@ -47,7 +50,6 @@ import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
-const CAMERA_FRUSTUM_PADDING = 1.12;
 const HOVER_FRAME_ELAPSED_MAX_MS = 100;
 const HOVER_FRAME_ELAPSED_RESTART_MS = 1000 / 60;
 const HOVER_OPENNESS_SETTLE_EPSILON = 0.001;
@@ -80,6 +82,7 @@ function createHoverStageBuffers(channelCount: number): HoverStageBuffers {
 }
 
 export function MengerHoverScene({
+  cameraFrustumPadding,
   elevationDegrees,
   faceColors,
   maximumDepth,
@@ -94,6 +97,7 @@ export function MengerHoverScene({
   rotationDegrees,
   viewSnapEnabled,
 }: {
+  cameraFrustumPadding: number;
   elevationDegrees: number;
   faceColors: FaceColors;
   maximumDepth: number;
@@ -617,7 +621,10 @@ export function MengerHoverScene({
       const width = container.clientWidth || 640;
       const height = container.clientHeight || 640;
       const aspect = width / height;
-      const frustumHalfSpan = fitRadius * CAMERA_FRUSTUM_PADDING;
+      const shortestSide = Math.min(width, height);
+      const edgeClearanceScale =
+        shortestSide / Math.max(shortestSide - LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS * 2, 1);
+      const frustumHalfSpan = fitRadius * cameraFrustumPadding * edgeClearanceScale;
       const frustumHalfHeight = Math.max(
         frustumHalfSpan,
         frustumHalfSpan / Math.max(aspect, 0.0001),
@@ -732,6 +739,7 @@ export function MengerHoverScene({
       container.replaceChildren();
     };
   }, [
+    cameraFrustumPadding,
     interactionRef,
     leftFaceColor,
     maximumDepth,

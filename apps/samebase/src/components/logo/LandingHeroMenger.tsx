@@ -6,6 +6,7 @@ import {
   createLogoRouteVoxelGrid,
   readLogoRouteRenderState,
 } from "@/components/logo/logoRouteRenderState";
+import { LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS } from "@/components/logo/logoSceneCameraDepth";
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import { type LogoViewState } from "@/components/logo/logoViewDrag";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
@@ -122,6 +123,7 @@ export function LandingHeroMenger() {
   const staticLogoSvgSrc = useMemo(
     () =>
       `${createStaticLogoSvgDataUrl({
+        cameraFrustumPadding: 1,
         depth: 1,
         faceColors,
         filledVoxels: LANDING_HERO_STATIC_VOXEL_GRID.filledVoxels,
@@ -274,7 +276,7 @@ export function LandingHeroMenger() {
   return (
     <div
       ref={slotRef}
-      className="relative hidden min-h-0 @3xl:block @3xl:scale-[1.07]"
+      className="relative hidden min-h-0 @3xl:block @3xl:aspect-square"
       data-state={didSceneFail ? "fallback" : isSceneReady ? "ready" : "loading"}
       data-testid="landing-preview-hero-menger"
     >
@@ -290,11 +292,13 @@ export function LandingHeroMenger() {
         decoding="async"
         height="360"
         src={staticLogoSvgSrc}
+        style={{ padding: LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS }}
         width="360"
       />
       {isSceneActive && MengerHoverScene !== null ? (
         <div className="absolute inset-0 z-0">
           <MengerHoverScene
+            cameraFrustumPadding={1}
             elevationDegrees={view.elevationDegrees}
             faceColors={faceColors}
             maximumDepth={MENGER_HOVER_DEFAULT_DEPTH}
