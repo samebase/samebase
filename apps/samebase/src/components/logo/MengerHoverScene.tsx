@@ -37,7 +37,6 @@ import {
   createMengerHoverState,
   createMengerHoverTopology,
   projectMengerHoverLineToVisibleFacePlanes,
-  settleMengerHoverChannelState,
   writeMengerHoverState,
   type MengerHoverProbe,
 } from "@samebase/logo-model/menger-hover";
@@ -219,7 +218,7 @@ export function MengerHoverScene({
     container.dataset.hoverDynamicUploadBytes = String(
       depthOneOnly ? 0 : stateTexture.data.byteLength,
     );
-    container.dataset.hoverTriangleCount = String(settledTriangleCount + coverInstanceCount * 24);
+    container.dataset.hoverTriangleCount = String(settledTriangleCount + coverInstanceCount * 48);
     container.dataset.hoverVisibleInstanceCount = String(settledInstanceCount + coverInstanceCount);
 
     const stageMeshes: MengerHoverStageMeshes[] = model.stages.map((stage, stageIndex) => {
@@ -547,20 +546,23 @@ export function MengerHoverScene({
           for (let channel = 0; channel < targetStageState.length; channel += 1) {
             const targetChannelState = targetStageState[channel];
             const renderedChannelState = renderedStageState[channel];
-            if (
-              !settleMengerHoverChannelState(
-                renderedChannelState,
-                targetChannelState,
-                smoothing,
-                HOVER_OPENNESS_SETTLE_EPSILON,
-              )
-            ) {
+            const nextOpenness =
+              renderedChannelState.openness +
+              (targetChannelState.openness - renderedChannelState.openness) * smoothing;
+            renderedChannelState.openness =
+              Math.abs(nextOpenness - targetChannelState.openness) < HOVER_OPENNESS_SETTLE_EPSILON
+                ? targetChannelState.openness
+                : nextOpenness;
+            renderedChannelState.anchorA = targetChannelState.anchorA;
+            renderedChannelState.anchorB = targetChannelState.anchorB;
+            renderedChannelState.weightA = targetChannelState.weightA;
+            if (renderedChannelState.openness !== targetChannelState.openness) {
               settled = false;
             }
             const textureOffset = (stageTopology.channelStateOffset + channel) * 4;
             stateTexture.data[textureOffset] = renderedChannelState.openness;
-            stateTexture.data[textureOffset + 1] = renderedChannelState.signA;
-            stateTexture.data[textureOffset + 2] = renderedChannelState.signB;
+            stateTexture.data[textureOffset + 1] = renderedChannelState.anchorA;
+            stateTexture.data[textureOffset + 2] = renderedChannelState.anchorB;
             stateTexture.data[textureOffset + 3] = renderedChannelState.weightA;
             maximumOpenness = Math.max(maximumOpenness, renderedChannelState.openness);
           }

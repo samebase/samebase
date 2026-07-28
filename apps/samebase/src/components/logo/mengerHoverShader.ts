@@ -35,7 +35,7 @@ export function createMengerHoverCoverGeometry(
   if (!boxIndex) {
     throw new Error("Menger hover covers need indexed box geometry.");
   }
-  const coverKinds = [0, 1] as const;
+  const coverKinds = [0, 1, 2, 3] as const;
   const vertexCount = boxIndex.count * coverKinds.length;
   const positions = new Float32Array(vertexCount * 3);
   const faceAxes = new Float32Array(vertexCount);
@@ -106,6 +106,27 @@ export function createMengerHoverBlockerLinkTexture(
   return result;
 }
 
+const APERTURE_BOUNDS_SHADER = `
+vec4 readHoverApertureBounds(
+  vec4 state,
+  float cellMinimumA,
+  float cellMinimumB,
+  float cellSize
+) {
+  float openness = state.r;
+  float widthA = openness <= 0.0 ? 0.0 : pow(openness, state.a);
+  float widthB = openness <= 0.0 ? 0.0 : pow(openness, 1.0 - state.a);
+  float minimumA = cellMinimumA + state.g * cellSize * (1.0 - widthA);
+  float minimumB = cellMinimumB + state.b * cellSize * (1.0 - widthB);
+  return vec4(
+    minimumA,
+    minimumA + cellSize * widthA,
+    minimumB,
+    minimumB + cellSize * widthB
+  );
+}
+`;
+
 const COVER_VERTEX_SHADER = `
 attribute float hoverBlockerLinkCount;
 attribute float hoverBlockerLinkOffset;
@@ -119,9 +140,11 @@ uniform float hoverStateTextureSize;
 uniform float hoverWorldSize;
 varying vec2 vHoverBlockerLink;
 varying vec4 vHoverCover;
-varying vec4 vHoverCoverState;
-varying vec3 vHoverOriginalPosition;
+varying vec4 vHoverCoverBounds;
+varying vec3 vHoverTransformedPosition;
 varying vec3 vHoverSpongePosition;
+
+${APERTURE_BOUNDS_SHADER}
 
 vec4 readHoverState(float index) {
   float roundedIndex = floor(index + 0.5);
@@ -151,41 +174,49 @@ void writeAxis(inout vec3 value, float axis, float component) {
   }
 }
 
+void writeInterval(
+  inout vec3 value,
+  vec3 source,
+  float axis,
+  float minimum,
+  float maximum
+) {
+  float component =
+    readAxis(source, axis) * (maximum - minimum) +
+    (minimum + maximum) * 0.5;
+  writeAxis(value, axis, component);
+}
+
 void main() {
   vec4 state = readHoverState(hoverChannelStateIndex);
-  float openness = state.r;
-  float slideA = openness <= 0.0 ? 0.0 : pow(openness, state.a);
-  float slideB = openness <= 0.0 ? 0.0 : pow(openness, 1.0 - state.a);
+  vec4 apertureBounds = readHoverApertureBounds(state, -0.5, -0.5, 1.0);
+  float minimumA = apertureBounds.x;
+  float maximumA = apertureBounds.y;
+  float minimumB = apertureBounds.z;
+  float maximumB = apertureBounds.w;
   float tangentAxisA = hoverHoleAxis < 0.5 ? 1.0 : 0.0;
   float tangentAxisB = hoverHoleAxis > 1.5 ? 1.0 : 2.0;
 
   vec3 transformed = position;
-  // Piece A owns the first-axis slab. Piece B owns its vacated gap
-  // except for the second-axis aperture, so their volumes never overlap.
+  // These four slabs exactly tile the cell outside the aperture. The fragment
+  // shader's internal-wall rules depend on this order.
   if (hoverCoverKind < 0.5) {
-    writeAxis(
-      transformed,
-      tangentAxisA,
-      readAxis(position, tangentAxisA) * (1.0 - slideA) + state.g * slideA * 0.5
-    );
+    writeInterval(transformed, position, tangentAxisA, -0.5, minimumA);
+  } else if (hoverCoverKind < 1.5) {
+    writeInterval(transformed, position, tangentAxisA, maximumA, 0.5);
+  } else if (hoverCoverKind < 2.5) {
+    writeInterval(transformed, position, tangentAxisA, minimumA, maximumA);
+    writeInterval(transformed, position, tangentAxisB, -0.5, minimumB);
   } else {
-    writeAxis(
-      transformed,
-      tangentAxisA,
-      readAxis(position, tangentAxisA) * slideA - state.g * (1.0 - slideA) * 0.5
-    );
-    writeAxis(
-      transformed,
-      tangentAxisB,
-      readAxis(position, tangentAxisB) * (1.0 - slideB) + state.b * slideB * 0.5
-    );
+    writeInterval(transformed, position, tangentAxisA, minimumA, maximumA);
+    writeInterval(transformed, position, tangentAxisB, maximumB, 0.5);
   }
 
   vec4 spongePosition = instanceMatrix * vec4(transformed, 1.0);
   vHoverBlockerLink = vec2(hoverBlockerLinkCount, hoverBlockerLinkOffset);
   vHoverCover = vec4(hoverCoverKind, hoverFaceAxis, hoverFaceSign, hoverHoleAxis);
-  vHoverCoverState = vec4(state.g, state.b, slideA, slideB);
-  vHoverOriginalPosition = position;
+  vHoverCoverBounds = vec4(minimumA, maximumA, minimumB, maximumB);
+  vHoverTransformedPosition = transformed;
   vHoverSpongePosition = spongePosition.xyz / hoverWorldSize + 0.5;
   gl_Position = projectionMatrix * modelViewMatrix * spongePosition;
 }
@@ -201,9 +232,11 @@ uniform sampler2D hoverStateTexture;
 uniform float hoverStateTextureSize;
 varying vec2 vHoverBlockerLink;
 varying vec4 vHoverCover;
-varying vec4 vHoverCoverState;
-varying vec3 vHoverOriginalPosition;
+varying vec4 vHoverCoverBounds;
+varying vec3 vHoverTransformedPosition;
 varying vec3 vHoverSpongePosition;
+
+${APERTURE_BOUNDS_SHADER}
 
 vec4 readTextureValue(sampler2D sourceTexture, float textureSize, float index) {
   float roundedIndex = floor(index + 0.5);
@@ -224,39 +257,52 @@ float readAxis(vec3 value, float axis) {
 }
 
 void main() {
-  // Remove collapsed pieces and the shared partition wall. The submitted
-  // boxes then rasterize only the boundary of one L-shaped cover solid.
   float coverKind = vHoverCover.x;
   float faceAxis = vHoverCover.y;
   float faceSign = vHoverCover.z;
   float holeAxis = vHoverCover.w;
-  float signA = vHoverCoverState.x;
-  float signB = vHoverCoverState.y;
-  float slideA = vHoverCoverState.z;
-  float slideB = vHoverCoverState.w;
+  float minimumA = vHoverCoverBounds.x;
+  float maximumA = vHoverCoverBounds.y;
+  float minimumB = vHoverCoverBounds.z;
+  float maximumB = vHoverCoverBounds.w;
   float tangentAxisA = holeAxis < 0.5 ? 1.0 : 0.0;
   float tangentAxisB = holeAxis > 1.5 ? 1.0 : 2.0;
   if (coverKind < 0.5) {
-    if (slideA >= 1.0) {
+    if (minimumA <= -0.5) {
       discard;
     }
     bool isApertureWall =
       abs(faceAxis - tangentAxisA) < 0.5 &&
-      faceSign * signA < -0.5;
-    bool coveredBySecondPiece =
-      signB * readAxis(vHoverOriginalPosition, tangentAxisB) >=
-      slideB - 0.5;
-    if (isApertureWall && coveredBySecondPiece) {
+      faceSign > 0.5;
+    float pointB = readAxis(vHoverTransformedPosition, tangentAxisB);
+    bool coveredByBSlab = pointB <= minimumB || pointB >= maximumB;
+    if (isApertureWall && coveredByBSlab) {
+      discard;
+    }
+  } else if (coverKind < 1.5) {
+    if (maximumA >= 0.5) {
+      discard;
+    }
+    bool isApertureWall =
+      abs(faceAxis - tangentAxisA) < 0.5 &&
+      faceSign < -0.5;
+    float pointB = readAxis(vHoverTransformedPosition, tangentAxisB);
+    bool coveredByBSlab = pointB <= minimumB || pointB >= maximumB;
+    if (isApertureWall && coveredByBSlab) {
+      discard;
+    }
+  } else if (coverKind < 2.5) {
+    if (maximumA <= minimumA || minimumB <= -0.5) {
+      discard;
+    }
+    if (abs(faceAxis - tangentAxisA) < 0.5) {
       discard;
     }
   } else {
-    if (slideA <= 0.0 || slideB >= 1.0) {
+    if (maximumA <= minimumA || maximumB >= 0.5) {
       discard;
     }
-    bool isSharedWall =
-      abs(faceAxis - tangentAxisA) < 0.5 &&
-      faceSign * signA > 0.5;
-    if (isSharedWall) {
+    if (abs(faceAxis - tangentAxisA) < 0.5) {
       discard;
     }
   }
@@ -278,14 +324,11 @@ void main() {
       );
       float openness = state.r;
       if (openness > 0.0) {
-        float slideA = pow(openness, state.a);
-        float slideB = pow(openness, 1.0 - state.a);
-        float maximumA = link.g + link.a;
-        float maximumB = link.b + link.a;
-        float minimumA = state.g > 0.0 ? link.g : maximumA - link.a * slideA;
-        float minimumB = state.b > 0.0 ? link.b : maximumB - link.a * slideB;
-        maximumA = state.g > 0.0 ? link.g + link.a * slideA : maximumA;
-        maximumB = state.b > 0.0 ? link.b + link.a * slideB : maximumB;
+        vec4 apertureBounds = readHoverApertureBounds(state, link.g, link.b, link.a);
+        float minimumA = apertureBounds.x;
+        float maximumA = apertureBounds.y;
+        float minimumB = apertureBounds.z;
+        float maximumB = apertureBounds.w;
         float pointA;
         float pointB;
         if (rayAxis < 0.5) {

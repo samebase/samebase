@@ -10,7 +10,6 @@ import {
   normalizeMengerHoverRevealRadius,
   projectMengerHoverLineToVisibleFacePlanes,
   readMengerHoverState,
-  settleMengerHoverChannelState,
   writeMengerHoverState,
 } from "../src/mengerHover.ts";
 import { describe, expect, it } from "vite-plus/test";
@@ -222,176 +221,42 @@ describe("Menger hover", () => {
     }
   });
 
-  it("splits the cover pair like the carpet slide", () => {
-    const diagonal = readChannelState({ x: CENTER_A - 0.2, y: CENTER_B - 0.2, z: 1 });
-    expect(diagonal.weightA).toBeCloseTo(0.5, 5);
-    expect(diagonal.signA).toBe(1);
-    expect(diagonal.signB).toBe(1);
+  it("uses the Carpet slide coordinates for one channel", () => {
+    const center = readChannelState({ x: CENTER_A, y: CENTER_B, z: 0.75 });
+    const left = readChannelState({ x: CENTER_A - 0.02, y: CENTER_B, z: 0.75 });
 
-    const cardinal = readChannelState({ x: CENTER_A - 0.28, y: CENTER_B, z: 1 });
-    expect(cardinal.weightA).toBeCloseTo(1, 5);
-
-    const near = readChannelState({ x: CENTER_A - 0.02, y: CENTER_B, z: 1 });
-    expect(near.weightA).toBe(1);
-  });
-
-  it("keeps the split continuous across a channel diagonal at partial openness", () => {
-    const leftState = readChannelState({ x: CENTER_A - 0.201, y: CENTER_B - 0.199, z: 1 });
-    const rightState = readChannelState({ x: CENTER_A - 0.199, y: CENTER_B - 0.201, z: 1 });
-
-    expect(leftState.openness).toBeGreaterThan(0.2);
-    expect(leftState.openness).toBeLessThan(1);
-    expect(Math.abs(leftState.openness - rightState.openness)).toBeLessThan(0.01);
-    expect(Math.abs(leftState.weightA - rightState.weightA)).toBeLessThan(0.05);
-    expect(leftState.signA).toBe(rightState.signA);
-    expect(leftState.signB).toBe(rightState.signB);
-  });
-
-  it("only flips a sign while that axis cover is fully retreated", () => {
-    const leftState = readChannelState({ x: CENTER_A - 0.001, y: CENTER_B - 0.3, z: 1 });
-    const rightState = readChannelState({ x: CENTER_A + 0.001, y: CENTER_B - 0.3, z: 1 });
-
-    expect(leftState.signA).toBe(1);
-    expect(rightState.signA).toBe(-1);
-    expect(leftState.weightA).toBeLessThan(0.01);
-    expect(rightState.weightA).toBeLessThan(0.01);
-  });
-
-  it("fully retreats each cover axis before its direction changes", () => {
-    const leftState = readChannelState(
-      { x: CENTER_A - 1e-6, y: CENTER_B + 0.04, z: 1 },
-      undefined,
-      0.05,
-    );
-    const rightState = readChannelState(
-      { x: CENTER_A + 1e-6, y: CENTER_B + 0.04, z: 1 },
-      undefined,
-      0.05,
-    );
-    const topState = readChannelState(
-      { x: CENTER_A + 0.04, y: CENTER_B - 1e-6, z: 1 },
-      undefined,
-      0.05,
-    );
-    const bottomState = readChannelState(
-      { x: CENTER_A + 0.04, y: CENTER_B + 1e-6, z: 1 },
-      undefined,
-      0.05,
-    );
-
-    expect(leftState.openness).toBeGreaterThan(0);
-    expect(leftState.openness).toBeLessThan(1);
-    expect(rightState.openness).toBeCloseTo(leftState.openness, 12);
-    expect(leftState.weightA).toBeLessThan(0.001);
-    expect(rightState.weightA).toBeLessThan(0.001);
-    expect(1 - leftState.openness ** leftState.weightA).toBeLessThan(0.002);
-    expect(1 - rightState.openness ** rightState.weightA).toBeLessThan(0.002);
-
-    expect(topState.openness).toBeGreaterThan(0);
-    expect(topState.openness).toBeLessThan(1);
-    expect(bottomState.openness).toBeCloseTo(topState.openness, 12);
-    expect(1 - topState.weightA).toBeLessThan(0.001);
-    expect(1 - bottomState.weightA).toBeLessThan(0.001);
-    expect(1 - topState.openness ** (1 - topState.weightA)).toBeLessThan(0.002);
-    expect(1 - bottomState.openness ** (1 - bottomState.weightA)).toBeLessThan(0.002);
-  });
-
-  it("settles through the tangent center before a cover direction changes", () => {
-    const current = readChannelState({ x: CENTER_A - 0.04, y: CENTER_B, z: 0.75 });
-    const centerTarget = readChannelState({ x: CENTER_A, y: CENTER_B, z: 0.75 });
-
-    expect(current.weightA).toBe(1);
-    expect(centerTarget.weightA).toBe(0.5);
-    settleMengerHoverChannelState(current, centerTarget, 0.2, 1e-6);
-    expect(current.weightA).toBeGreaterThan(0.5);
-    expect(current.weightA).toBeLessThan(1);
-
-    const crossedTarget = readChannelState({ x: CENTER_A + 0.04, y: CENTER_B, z: 0.75 });
-    const initialSignA = current.signA;
-    let signChangedAtWeight: number | null = null;
-    let settled = false;
-    for (let frame = 0; frame < 200 && !settled; frame += 1) {
-      settled = settleMengerHoverChannelState(current, crossedTarget, 0.2, 1e-6);
-      if (current.signA !== initialSignA && signChangedAtWeight === null) {
-        signChangedAtWeight = current.weightA;
-      }
-    }
-
-    expect(signChangedAtWeight).toBe(0);
-    expect(settled).toBe(true);
-    expect(current).toEqual(crossedTarget);
-  });
-
-  it("changes direction at full openness before it closes", () => {
-    const current = readChannelState(null);
-    current.openness = 1;
-    const target = readChannelState({ x: CENTER_A + 0.04, y: CENTER_B, z: 0.75 });
-
-    expect(settleMengerHoverChannelState(current, target, 1, 1e-6)).toBe(false);
-    expect(current.openness).toBe(1);
-    expect(current.signA).toBe(target.signA);
-    expect(current.signB).toBe(target.signB);
-    expect(current.weightA).toBe(target.weightA);
-
-    expect(settleMengerHoverChannelState(current, target, 1, 1e-6)).toBe(true);
-    expect(current).toEqual(target);
-  });
-
-  it("changes direction while closed before it opens", () => {
-    const current = readChannelState(null);
-    const target = readChannelState({ x: CENTER_A + 0.04, y: CENTER_B, z: 0.75 });
-
-    expect(settleMengerHoverChannelState(current, target, 1, 1e-6)).toBe(false);
-    expect(current.openness).toBe(0);
-    expect(current.signA).toBe(target.signA);
-    expect(current.signB).toBe(target.signB);
-    expect(current.weightA).toBe(target.weightA);
-
-    expect(settleMengerHoverChannelState(current, target, 1, 1e-6)).toBe(true);
-    expect(current).toEqual(target);
-  });
-
-  it("retreats a cover before changing direction near closed", () => {
-    const current = readChannelState({ x: CENTER_A - 0.04, y: CENTER_B, z: 0.75 });
-    const target = readChannelState({ x: CENTER_A + 0.04, y: CENTER_B, z: 0.75 });
-    current.openness = 5e-7;
-
-    expect(settleMengerHoverChannelState(current, target, 1, 1e-6)).toBe(false);
-    expect(current.signA).toBe(target.signA);
-    expect(current.weightA).toBe(0);
-    expect(current.weightA).not.toBe(target.weightA);
-  });
-
-  it("retreats both covers in sequence when both directions change", () => {
-    const current = readChannelState({
-      x: CENTER_A - 0.04,
-      y: CENTER_B - 0.04,
-      z: 0.75,
+    expect(center).toMatchObject({
+      anchorA: 0.5,
+      anchorB: 0.5,
+      weightA: 0.5,
     });
-    const target = readChannelState({
-      x: CENTER_A + 0.04,
+    expect(left.anchorA).toBeCloseTo(0.32, 12);
+    expect(left.anchorB).toBe(0.5);
+    expect(left.weightA).toBeCloseTo(0.68, 12);
+    expect(left.openness ** left.weightA * left.openness ** (1 - left.weightA)).toBeCloseTo(
+      left.openness,
+      12,
+    );
+  });
+
+  it("moves the aperture continuously across a channel center", () => {
+    const left = readChannelState({
+      x: CENTER_A - 1e-6,
       y: CENTER_B + 0.04,
       z: 0.75,
     });
-    const initialSignA = current.signA;
-    const initialSignB = current.signB;
-    let signAChangedAtWeight: number | null = null;
-    let signBChangedAtWeight: number | null = null;
-    let settled = false;
-    for (let frame = 0; frame < 300 && !settled; frame += 1) {
-      settled = settleMengerHoverChannelState(current, target, 0.2, 1e-6);
-      if (current.signA !== initialSignA && signAChangedAtWeight === null) {
-        signAChangedAtWeight = current.weightA;
-      }
-      if (current.signB !== initialSignB && signBChangedAtWeight === null) {
-        signBChangedAtWeight = current.weightA;
-      }
-    }
+    const right = readChannelState({
+      x: CENTER_A + 1e-6,
+      y: CENTER_B + 0.04,
+      z: 0.75,
+    });
 
-    expect(signAChangedAtWeight).toBe(0);
-    expect(signBChangedAtWeight).toBe(1);
-    expect(settled).toBe(true);
-    expect(current).toEqual(target);
+    expect(left.openness).toBeCloseTo(right.openness, 12);
+    expect(left.anchorA).toBeLessThan(0.5);
+    expect(right.anchorA).toBeGreaterThan(0.5);
+    expect(right.anchorA - left.anchorA).toBeLessThan(0.00002);
+    expect(left.anchorB).toBe(right.anchorB);
+    expect(left.weightA).toBeCloseTo(right.weightA, 12);
   });
 
   it("includes distance from the channel face in three-dimensional falloff", () => {
@@ -523,7 +388,7 @@ describe("Menger hover", () => {
 
     expect(healedState.openness).toBe(0);
     expect(healedState.weightA).toBe(liveState.weightA);
-    expect(healedState.signA).toBe(liveState.signA);
-    expect(healedState.signB).toBe(liveState.signB);
+    expect(healedState.anchorA).toBe(liveState.anchorA);
+    expect(healedState.anchorB).toBe(liveState.anchorB);
   });
 });

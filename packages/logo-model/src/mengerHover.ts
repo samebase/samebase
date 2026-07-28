@@ -27,9 +27,9 @@ and uploads one value per channel instead of copying the same value to every
 cube on the channel axis.
 */
 export type MengerHoverChannelState = {
+  anchorA: number;
+  anchorB: number;
   openness: number;
-  signA: 1 | -1;
-  signB: 1 | -1;
   weightA: number;
 };
 
@@ -187,12 +187,13 @@ function writeChannelState(
   const coordinateB = channelWithinAxis % faceGridSize;
   const centerA = (coordinateA + 0.5) / faceGridSize;
   const centerB = (coordinateB + 0.5) / faceGridSize;
+  const holeSize = 1 / stage.gridSize;
   const slidePoint = probe ?? directionProbe;
   let deltaA = 0;
   let deltaB = 0;
   if (slidePoint === null) {
-    target.signA = 1;
-    target.signB = 1;
+    target.anchorA = 0.5;
+    target.anchorB = 0.5;
     target.weightA = 0.5;
   } else {
     switch (axis) {
@@ -212,9 +213,11 @@ function writeChannelState(
         return axis satisfies never;
     }
     const totalDelta = Math.abs(deltaA) + Math.abs(deltaB);
-    target.signA = deltaA >= 0 ? 1 : -1;
-    target.signB = deltaB >= 0 ? 1 : -1;
-    target.weightA = totalDelta > 0 ? Math.abs(deltaA) / totalDelta : 0.5;
+    const directionalBlend = Math.min(totalDelta / (holeSize / 2), 1);
+    const directionalWeightA = totalDelta > 0 ? Math.abs(deltaA) / totalDelta : 0.5;
+    target.anchorA = Math.min(Math.max(0.5 - deltaA / holeSize, 0), 1);
+    target.anchorB = Math.min(Math.max(0.5 - deltaB / holeSize, 0), 1);
+    target.weightA = 0.5 + (directionalWeightA - 0.5) * directionalBlend;
   }
 
   if (probe === null) {
@@ -248,69 +251,13 @@ export function createMengerHoverState(model: MengerDepthTransitionModel): Menge
     stages: model.stages.map((stage) => {
       const faceGridSize = stage.gridSize / 3;
       return Array.from({ length: 3 * faceGridSize * faceGridSize }, () => ({
+        anchorA: 0.5,
+        anchorB: 0.5,
         openness: 0,
-        signA: 1,
-        signB: 1,
         weightA: 0.5,
       }));
     }),
   };
-}
-
-function settleMengerHoverScalar(
-  current: number,
-  target: number,
-  smoothing: number,
-  epsilon: number,
-): number {
-  const next = current + (target - current) * smoothing;
-  return Math.abs(next - target) < epsilon ? target : next;
-}
-
-/**
-Moves one rendered channel toward its pointer target. A cover direction can
-change only while that cover is fully retreated. This keeps the two-cover hole
-continuous when the pointer crosses a channel center.
-*/
-export function settleMengerHoverChannelState(
-  current: MengerHoverChannelState,
-  target: MengerHoverChannelState,
-  smoothing: number,
-  epsilon: number,
-): boolean {
-  const directionCanChange = current.openness === 0 || current.openness === 1;
-  const directionDiffers =
-    current.signA !== target.signA ||
-    current.signB !== target.signB ||
-    current.weightA !== target.weightA;
-
-  if (directionCanChange && directionDiffers) {
-    current.signA = target.signA;
-    current.signB = target.signB;
-    current.weightA = target.weightA;
-    return current.openness === target.openness;
-  }
-
-  current.openness = settleMengerHoverScalar(current.openness, target.openness, smoothing, epsilon);
-
-  if (!directionCanChange) {
-    const weightTarget =
-      current.signA !== target.signA ? 0 : current.signB !== target.signB ? 1 : target.weightA;
-    current.weightA = settleMengerHoverScalar(current.weightA, weightTarget, smoothing, epsilon);
-
-    if (current.signA !== target.signA && current.weightA === 0) {
-      current.signA = target.signA;
-    } else if (current.signB !== target.signB && current.weightA === 1) {
-      current.signB = target.signB;
-    }
-  }
-
-  return (
-    current.openness === target.openness &&
-    current.signA === target.signA &&
-    current.signB === target.signB &&
-    current.weightA === target.weightA
-  );
 }
 
 /**

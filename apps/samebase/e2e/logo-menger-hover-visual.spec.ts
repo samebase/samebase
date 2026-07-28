@@ -726,7 +726,7 @@ test("Menger hover keeps deterministic depth-four work inside the research budge
   expect(await readNumberAttribute(scene, "data-hover-channel-count")).toBe(2_457);
   expect(await readNumberAttribute(scene, "data-hover-dynamic-upload-bytes")).toBe(40_000);
   expect(await readNumberAttribute(scene, "data-hover-visible-instance-count")).toBe(50_540);
-  expect(await readNumberAttribute(scene, "data-hover-triangle-count")).toBe(1_600_800);
+  expect(await readNumberAttribute(scene, "data-hover-triangle-count")).toBe(2_813_280);
 });
 
 test("Menger hover keeps depth-two, depth-three, and depth-four openings distinct", async ({
