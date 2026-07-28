@@ -4,13 +4,15 @@ import { signInIfNeeded } from "./liveHelpers";
 import { measureScreenshotForegroundBounds } from "./visualDiff";
 
 test.setTimeout(120_000);
+// Depth-four WebGL screenshots share the Linux software renderer, so keep one GPU-heavy page active at a time.
+test.describe.configure({ mode: "serial" });
 
 const SCREENSHOT_OPTIONS = {
   animations: "disabled",
   caret: "hide",
   maxDiffPixelRatio: 0.001,
   scale: "css",
-  timeout: 15_000,
+  timeout: 60_000,
 } as const;
 
 type HoleSize = {
@@ -54,11 +56,24 @@ async function openMengerHoverCase(
   await expect(controls).toBeVisible();
   await expect(scene.locator("canvas")).toBeVisible();
   await expect(hoverPage).toHaveAttribute("data-menger-research-mode", "hover");
+  await expect(scene).toHaveAttribute("data-menger-maximum-depth", "4");
   await expect(scene).toHaveAttribute("data-logo-elevation-degrees", elevationDegrees);
   await expect(scene).toHaveAttribute("data-logo-rotation-degrees", rotationDegrees);
   await expect(scene).toHaveAttribute("data-hover-settled", "true");
 
   return scene;
+}
+
+async function readNumberAttribute(locator: Locator, attribute: string): Promise<number> {
+  const value = await locator.getAttribute(attribute);
+  if (value === null) {
+    throw new Error(`The Menger hover scene must expose ${attribute}.`);
+  }
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    throw new Error(`The Menger hover scene must expose a numeric ${attribute}.`);
+  }
+  return number;
 }
 
 async function movePointerRelativeToScene(
@@ -184,7 +199,21 @@ test("Menger hover rests at depth one in the face-on view", async ({ page }) => 
   await expect(scene).toHaveScreenshot("logo-menger-hover-face-on-resting.png", SCREENSHOT_OPTIONS);
 });
 
-test("Menger hover keeps depth-two and depth-three openings at distinct sizes", async ({
+test("Menger hover keeps deterministic depth-four work inside the research budgets", async ({
+  page,
+}) => {
+  const scene = await openMengerHoverCase(page, {
+    elevationDegrees: "0",
+    rotationDegrees: "180",
+  });
+
+  expect(await readNumberAttribute(scene, "data-hover-channel-count")).toBe(2_457);
+  expect(await readNumberAttribute(scene, "data-hover-dynamic-upload-bytes")).toBe(40_000);
+  expect(await readNumberAttribute(scene, "data-hover-visible-instance-count")).toBe(50_540);
+  expect(await readNumberAttribute(scene, "data-hover-triangle-count")).toBe(1_600_800);
+});
+
+test("Menger hover keeps depth-two, depth-three, and depth-four openings distinct", async ({
   page,
 }) => {
   const scene = await openMengerHoverCase(page, {
@@ -202,7 +231,7 @@ test("Menger hover keeps depth-two and depth-three openings at distinct sizes", 
       animations: "disabled",
       caret: "hide",
       scale: "css",
-      timeout: 15_000,
+      timeout: 60_000,
     }),
   );
   const depthOneHole = holeSizes[0];
@@ -223,12 +252,20 @@ test("Menger hover keeps depth-two and depth-three openings at distinct sizes", 
       hole.height >= depthOneHole.height * 0.08 &&
       hole.height <= depthOneHole.height * 0.14,
   );
+  const hasDepthFourHole = holeSizes.some(
+    (hole) =>
+      hole.width >= depthOneHole.width * 0.025 &&
+      hole.width <= depthOneHole.width * 0.055 &&
+      hole.height >= depthOneHole.height * 0.025 &&
+      hole.height <= depthOneHole.height * 0.055,
+  );
 
   expect(
     hasDepthTwoHole,
     `Expected a depth-two opening near one third of the depth-one size. Observed ${JSON.stringify(holeSizes.slice(0, 24))}.`,
   ).toBe(true);
   expect(hasDepthThreeHole).toBe(true);
+  expect(hasDepthFourHole).toBe(true);
 
   await expect(scene).toHaveScreenshot(
     "logo-menger-hover-face-on-depth-hierarchy.png",

@@ -29,8 +29,37 @@ export function createMengerHoverStateTexture(channelCount: number): MengerHover
 export function createMengerHoverCoverGeometry(
   geometry: THREE.BoxGeometry,
   stage: MengerHoverStageTopology,
-): THREE.BoxGeometry {
-  const coverGeometry = geometry.clone();
+): THREE.BufferGeometry {
+  const boxIndex = geometry.getIndex();
+  const boxPosition = geometry.getAttribute("position");
+  if (!boxIndex) {
+    throw new Error("Menger hover covers need indexed box geometry.");
+  }
+  const coverKinds = [0, 1] as const;
+  const vertexCount = boxIndex.count * coverKinds.length;
+  const positions = new Float32Array(vertexCount * 3);
+  const kinds = new Float32Array(vertexCount);
+  const coverGeometry = new THREE.BufferGeometry();
+  let vertexOffset = 0;
+  for (const group of geometry.groups) {
+    const groupStart = vertexOffset;
+    for (const coverKind of coverKinds) {
+      for (let groupIndex = group.start; groupIndex < group.start + group.count; groupIndex += 1) {
+        const boxVertexIndex = boxIndex.getX(groupIndex);
+        const vectorOffset = vertexOffset * 3;
+        positions[vectorOffset] = boxPosition.getX(boxVertexIndex);
+        positions[vectorOffset + 1] = boxPosition.getY(boxVertexIndex);
+        positions[vectorOffset + 2] = boxPosition.getZ(boxVertexIndex);
+        kinds[vertexOffset] = coverKind;
+        vertexOffset += 1;
+      }
+    }
+    if (group.materialIndex !== undefined) {
+      coverGeometry.addGroup(groupStart, vertexOffset - groupStart, group.materialIndex);
+    }
+  }
+  coverGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  coverGeometry.setAttribute("hoverCoverKind", new THREE.BufferAttribute(kinds, 1));
   coverGeometry.setAttribute(
     "hoverBlockerLinkCount",
     new THREE.InstancedBufferAttribute(Float32Array.from(stage.moveBlockerLinkCounts), 1),
@@ -71,8 +100,8 @@ const COVER_VERTEX_SHADER = `
 attribute float hoverBlockerLinkCount;
 attribute float hoverBlockerLinkOffset;
 attribute float hoverChannelStateIndex;
+attribute float hoverCoverKind;
 attribute float hoverHoleAxis;
-uniform float hoverCoverKind;
 uniform sampler2D hoverStateTexture;
 uniform float hoverStateTextureSize;
 uniform float hoverWorldSize;
@@ -197,7 +226,6 @@ void main() {
 
 export function createMengerHoverCoverMaterials({
   blockerLinkTexture,
-  coverKind,
   leftColor,
   maximumBlockerLinksPerMove,
   rightColor,
@@ -206,7 +234,6 @@ export function createMengerHoverCoverMaterials({
   worldSize,
 }: {
   blockerLinkTexture: MengerHoverTexture;
-  coverKind: 0 | 1;
   leftColor: THREE.ColorRepresentation;
   maximumBlockerLinksPerMove: number;
   rightColor: THREE.ColorRepresentation;
@@ -221,7 +248,6 @@ export function createMengerHoverCoverMaterials({
         hoverBlockerLinkTexture: { value: blockerLinkTexture.texture },
         hoverBlockerLinkTextureSize: { value: blockerLinkTexture.size },
         hoverColor: { value: new THREE.Color(color) },
-        hoverCoverKind: { value: coverKind },
         hoverStateTexture: { value: stateTexture.texture },
         hoverStateTextureSize: { value: stateTexture.size },
         hoverWorldSize: { value: worldSize },
