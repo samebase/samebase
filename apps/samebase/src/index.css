@@ -236,6 +236,13 @@ a:any-link {
       right: 0;
     }
 
+    [data-workspace-layout-v2="responsive"][data-workspace-layout-v2-mobile-merged-side="left"]
+      [data-workspace-layout-v2-mobile-separator-pane="main"]::after,
+    [data-workspace-layout-v2="responsive"][data-workspace-layout-v2-mobile-merged-side="right"]
+      [data-workspace-layout-v2-mobile-separator-pane="main"]::before {
+      content: none;
+    }
+
     [data-workspace-layout-v2="responsive"][data-mobile-pane="left"]
       [data-workspace-layout-v2-mobile-separator-pane="left"]::before,
     [data-workspace-layout-v2="responsive"][data-mobile-pane="left"]

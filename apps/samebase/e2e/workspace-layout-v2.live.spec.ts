@@ -320,6 +320,53 @@ test("mobile v2 fixture keeps the visible pane borderless while adjacent panes o
     });
 });
 
+for (const mergedSide of ["left", "right"] as const) {
+  test(`mobile v2 fixture keeps only the internal separator for merged ${mergedSide}`, async ({
+    page,
+  }) => {
+    const viewport = page.viewportSize();
+    test.skip(viewport === null || viewport.width >= 768, "mobile-only repro");
+
+    await openWorkspaceLayoutV2Fixture(page);
+    await scrollWorkspaceCarouselToPane(page, mergedSide);
+
+    const layout = page.locator("[data-workspace-layout-v2]");
+    const sidebarPane = page.getByTestId(`workspace-layout-v2-pane-${mergedSide}`);
+    const mainPane = page
+      .locator('[data-testid="workspace-layout-v2-pane-main"] .snap-center > div')
+      .first();
+    const resizeHandle = page.getByTestId(`workspace-layout-v2-${mergedSide}-resize`);
+    const sidebarWidthPx = (await getRoundedBoundingBox(sidebarPane)).width;
+
+    await touchDragHandleByPx(
+      page,
+      resizeHandle,
+      mergedSide === "left" ? -sidebarWidthPx : sidebarWidthPx,
+    );
+
+    await expect(layout).toHaveAttribute("data-workspace-layout-v2-mobile-merged-side", mergedSide);
+    await expect
+      .poll(async () => getHorizontalSeparatorWidths(sidebarPane))
+      .toEqual({
+        left: "0px",
+        right: "0px",
+      });
+    await expect
+      .poll(async () => getHorizontalSeparatorWidths(mainPane))
+      .toEqual(
+        mergedSide === "left"
+          ? {
+              left: "1px",
+              right: "0px",
+            }
+          : {
+              left: "0px",
+              right: "1px",
+            },
+      );
+  });
+}
+
 test("mobile v2 fixture vertical main-editor scrolling reveals later Monaco content", async ({
   page,
 }) => {
