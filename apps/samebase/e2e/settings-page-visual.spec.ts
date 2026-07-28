@@ -364,14 +364,14 @@ test("signed-out direct Settings visits remain private", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/settings$/u);
   await expect(page.getByTestId("user-settings-page")).toHaveCount(0);
-  const mainAuthSection = page.getByTestId("public-landing-content");
   const sidebarAccountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
-  await expect(mainAuthSection.getByRole("button", { name: "Google" })).toHaveCount(0);
-  await expect(mainAuthSection.locator("input")).toHaveCount(0);
   await expect(sidebarAccountSection.getByRole("button", { name: "Google" })).toBeVisible();
   await expect(sidebarAccountSection.getByPlaceholder("you@example.com")).toBeVisible();
   await expect(sidebarAccountSection.getByPlaceholder("Password")).toBeVisible();
   await expect(
     sidebarAccountSection.getByRole("button", { exact: true, name: "Sign in" }),
   ).toBeVisible();
+  await expect(page.getByTestId("not-found-route-content")).toBeVisible();
+  await expect(page.getByTestId("public-landing-content")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Google" })).toHaveCount(1);
 });

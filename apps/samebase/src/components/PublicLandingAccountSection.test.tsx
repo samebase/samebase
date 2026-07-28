@@ -346,7 +346,17 @@ describe("PublicLandingAccountSection", () => {
   it("keeps protected-route login in the account sidebar", async () => {
     routeState.access = "access_user_preferences";
     prepareLandingAccountSection("/settings");
-    buildLocationMock.mockReturnValue({ href: "/settings" });
+    buildLocationMock.mockImplementation(
+      (options: { search: (currentSearch: RootRouteSearch) => RootRouteSearch; to: string }) => {
+        expect(options.to).toBe(".");
+        expect(options.search({})).toEqual({
+          auth: undefined,
+          "auth-return": undefined,
+          signup: "google",
+        });
+        return { href: "/settings?signup=google" };
+      },
+    );
     const rootElement = document.createElement("div");
     document.body.append(rootElement);
     const root = createRoot(rootElement);
@@ -371,7 +381,7 @@ describe("PublicLandingAccountSection", () => {
         to: ".",
       }),
     );
-    expect(signInWithGoogleMock).toHaveBeenCalledWith("/settings");
+    expect(signInWithGoogleMock).toHaveBeenCalledWith("/settings?signup=google");
 
     await act(async () => {
       root.unmount();
@@ -380,8 +390,18 @@ describe("PublicLandingAccountSection", () => {
   });
 
   it("keeps the MCP consent route when Google auth starts", async () => {
-    prepareLandingAccountSection("/oauth/mcp/consent");
-    buildLocationMock.mockReturnValue({ href: "/oauth/mcp/consent" });
+    prepareLandingAccountSection("/oauth/mcp/consent?signup=google");
+    buildLocationMock.mockImplementation(
+      (options: { search: (currentSearch: RootRouteSearch) => RootRouteSearch; to: string }) => {
+        expect(options.to).toBe(".");
+        expect(options.search({ signup: "google" })).toEqual({
+          auth: undefined,
+          "auth-return": undefined,
+          signup: undefined,
+        });
+        return { href: "/oauth/mcp/consent" };
+      },
+    );
     const rootElement = document.createElement("div");
     document.body.append(rootElement);
     const root = createRoot(rootElement);
@@ -416,6 +436,16 @@ describe("PublicLandingAccountSection", () => {
 
   it("shows the internal-app message after a failed public Google signup return", () => {
     const markup = renderLandingAccountSection("/?signup=google");
+
+    expect(markup).toContain("not logged in");
+    expect(markup).toContain("The app is still internal.");
+    expect(markup).not.toContain("Google");
+  });
+
+  it("shows the internal-app message after a failed protected-route Google signup return", () => {
+    routeState.access = "access_user_preferences";
+
+    const markup = renderLandingAccountSection("/settings?signup=google");
 
     expect(markup).toContain("not logged in");
     expect(markup).toContain("The app is still internal.");

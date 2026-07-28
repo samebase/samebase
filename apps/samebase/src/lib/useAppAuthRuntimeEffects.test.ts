@@ -83,7 +83,7 @@ describe("useAppAuthRuntimeEffects", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
     vi.stubGlobal("window", {
       location: {
-        pathname: "/pricing",
+        pathname: "/settings",
         search: "?prod-ui&signup=google",
         hash: "#top",
       },
@@ -94,7 +94,7 @@ describe("useAppAuthRuntimeEffects", () => {
     });
     mockCurrentRouteLocationBuilder();
 
-    useAppAuthRuntimeEffects("/pricing", {
+    useAppAuthRuntimeEffects("/settings", {
       "prod-ui": true,
       signup: "google",
     });
@@ -103,11 +103,11 @@ describe("useAppAuthRuntimeEffects", () => {
       "prod-ui": true,
       signup: "google",
     });
-    expect(useCloseOAuthPopupMock).toHaveBeenCalledWith("/pricing", true);
+    expect(useCloseOAuthPopupMock).toHaveBeenCalledWith("/settings", true);
     expect(replaceStateMock).toHaveBeenCalledWith(
       { __TSR_index: 4, __TSR_key: "landing" },
       "",
-      "/pricing?prod-ui#top",
+      "/settings?prod-ui#top",
     );
     expect(navigateMock).not.toHaveBeenCalled();
   });
@@ -116,7 +116,7 @@ describe("useAppAuthRuntimeEffects", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: false });
     vi.stubGlobal("window", {
       location: {
-        pathname: "/",
+        pathname: "/settings",
         search: "?signup=google",
         hash: "",
       },
@@ -125,7 +125,7 @@ describe("useAppAuthRuntimeEffects", () => {
       },
     });
 
-    useAppAuthRuntimeEffects("/", {
+    useAppAuthRuntimeEffects("/settings", {
       signup: "google",
     });
 

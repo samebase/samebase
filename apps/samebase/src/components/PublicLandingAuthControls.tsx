@@ -22,6 +22,7 @@ import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
+import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 /**
  * SSG cannot read per-browser auth preferences. Password auth controls that
@@ -143,12 +144,13 @@ export function PublicLandingAuthControls({
   }
 
   const publicSignup = googleAuthFlow === "public-signup";
+  const markPublicSignupReturn = location.pathname !== MCP_CONSENT_APP_PATH;
 
   return (
     <div className="flex flex-col gap-2">
       <SignInWithGoogle
         authReturn={publicSignup ? "dashboard" : undefined}
-        markPublicSignupReturn={publicSignup}
+        markPublicSignupReturn={markPublicSignupReturn}
       />
       {passwordAuthSurface !== "hidden" ? (
         <PasswordAuthForm

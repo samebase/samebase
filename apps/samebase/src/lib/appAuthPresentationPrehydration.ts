@@ -4,6 +4,7 @@ import {
 } from "@/lib/publicLanding";
 import { appBuildConfig } from "@/lib/appBuildConfig";
 import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
+import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 const APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID =
   "samebase-app-auth-presentation-prehydration";
@@ -14,6 +15,7 @@ export type AppAuthPresentationPrehydrationArgs = {
   browserConvexProxyPath: string | null;
   envConvexUrl: string | null;
   ignoredPathnames: readonly string[];
+  mcpConsentPathname: string;
   rootAttribute: string;
   styleElementId: string;
   staticAccountSectionTestId: string;
@@ -24,6 +26,7 @@ const appAuthPresentationPrehydrationArgs = {
   browserConvexProxyPath: appBuildConfig.browserConvexProxyPath,
   envConvexUrl: import.meta.env.VITE_CONVEX_URL ?? null,
   ignoredPathnames: ["/visual-fixture"],
+  mcpConsentPathname: MCP_CONSENT_APP_PATH,
   rootAttribute: APP_AUTH_PRESENTATION_PREHYDRATION_ROOT_ATTRIBUTE,
   styleElementId: APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID,
   staticAccountSectionTestId: APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
@@ -238,7 +241,7 @@ html[${args.rootAttribute}="signed-in"] ${signedInProviderSelector}::after {
     } else if (
       authPresentationHint.kind === "signedOut" &&
       !(
-        window.location.pathname === "/" &&
+        window.location.pathname !== args.mcpConsentPathname &&
         new URL(window.location.href).searchParams.get("signup") === "google"
       )
     ) {

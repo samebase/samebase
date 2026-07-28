@@ -1057,9 +1057,12 @@ test("public landing keeps the right pane mounted without a left pane on desktop
 
 test("mcp consent sign-in keeps legal links in the sidebar rail", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/oauth/mcp/consent?mcp_consent_request=mcpar_test&mcp_login_required=1", {
-    waitUntil: "networkidle",
-  });
+  await page.goto(
+    "/oauth/mcp/consent?mcp_consent_request=mcpar_test&mcp_login_required=1&signup=google",
+    {
+      waitUntil: "networkidle",
+    },
+  );
 
   const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 

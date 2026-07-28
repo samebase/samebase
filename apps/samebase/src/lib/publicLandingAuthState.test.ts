@@ -9,6 +9,7 @@ import {
   shouldRenderGoogleSignupClosedState,
 } from "./publicLandingAuthState";
 import { validateRootRouteSearch } from "@/routeSearch/root";
+import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
 
@@ -47,10 +48,19 @@ afterEach(() => {
 });
 
 describe("publicLandingAuthState", () => {
-  it("forces the public landing closed-signup state for marked Google returns", () => {
+  it.each(["/", "/settings"])(
+    "shows the closed-signup state for a marked Google return on %s",
+    (pathname) => {
+      const routeSearch = validateRootRouteSearch({ signup: "google" });
+
+      expect(shouldRenderGoogleSignupClosedState(pathname, routeSearch)).toBe(true);
+    },
+  );
+
+  it("keeps MCP consent available when a stale signup marker is present", () => {
     const routeSearch = validateRootRouteSearch({ signup: "google" });
 
-    expect(shouldRenderGoogleSignupClosedState("/", routeSearch)).toBe(true);
+    expect(shouldRenderGoogleSignupClosedState(MCP_CONSENT_APP_PATH, routeSearch)).toBe(false);
   });
 
   it("maps the public password auth mode to a stable landing surface", () => {

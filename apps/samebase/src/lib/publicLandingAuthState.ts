@@ -2,6 +2,7 @@ import { guard } from "@samebase/dependent";
 import { PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY } from "@/lib/authStorageKeys";
 import { type RootRouteSearch } from "@/routeSearch/root";
 import type { PasswordAuthMode as PublicPasswordAuthMode } from "../../convex/deploymentProfile";
+import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 export type PasswordAuthSurface = "hidden" | "local_worktree" | "seeded_sign_in";
 
@@ -57,7 +58,7 @@ export function shouldRenderGoogleSignupClosedState(
   pathname: string,
   routeSearch: RootRouteSearch,
 ): boolean {
-  return pathname === "/" && hasGoogleSignupReturn(routeSearch);
+  return pathname !== MCP_CONSENT_APP_PATH && hasGoogleSignupReturn(routeSearch);
 }
 
 export function getPasswordAuthSurface(
