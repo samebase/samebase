@@ -231,14 +231,7 @@ function expectWorkspaceMobileMergedSide(root: ParentNode, side: "left" | "right
   ).toBe(side);
 }
 
-function getMobileSeparatorEdges(root: ParentNode) {
-  return Array.from(root.querySelectorAll("[data-workspace-layout-v2-mobile-separator]")).map(
-    (separatorNode) =>
-      separatorNode.getAttribute("data-workspace-layout-v2-mobile-separator") ?? "",
-  );
-}
-
-function expectMobileMainPaneOwnedSeparators(
+function expectMobilePaneSeparatorOwnership(
   root: ParentNode,
   activePane: "left" | "main" | "right",
 ) {
@@ -246,23 +239,20 @@ function expectMobileMainPaneOwnedSeparators(
     activePane,
   );
   const leftPane = getRequiredElement(root, '[data-testid="workspace-layout-v2-pane-left"]');
-  const mainPane = getRequiredElement(root, "[data-workspace-layout-v2-mobile-main-pane]");
-  const mainPaneSurface = getRequiredElement(
-    mainPane,
-    "[data-workspace-layout-v2-mobile-main-pane-surface]",
-  );
+  const mainPane = getRequiredElement(root, "[data-workspace-layout-v2-mobile-main-pane] > div");
   const rightPane = getRequiredElement(root, '[data-testid="workspace-layout-v2-pane-right"]');
+  const paneEntries = [
+    ["left", leftPane],
+    ["main", mainPane],
+    ["right", rightPane],
+  ] as const;
 
-  for (const paneNode of [leftPane, mainPaneSurface, rightPane]) {
+  for (const [paneName, paneNode] of paneEntries) {
     expect(paneNode.classList.contains("border-x")).toBe(false);
     expect(paneNode.classList.contains("border-x-0")).toBe(false);
     expect(paneNode.classList.contains("border-border")).toBe(false);
+    expect(paneNode.getAttribute("data-workspace-layout-v2-mobile-separator-pane")).toBe(paneName);
   }
-
-  expect(root.querySelector("[data-workspace-layout-v2-mobile-separator-pane]")).toBeNull();
-  expect(getMobileSeparatorEdges(mainPane)).toEqual(["left-main", "main-right"]);
-  expect(getMobileSeparatorEdges(leftPane)).toEqual([]);
-  expect(getMobileSeparatorEdges(rightPane)).toEqual([]);
 }
 
 describe("getMobilePaneScrollProgress", () => {
@@ -531,7 +521,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     );
   });
 
-  it("keeps both separators on the main pane while the left sidebar is active", () => {
+  it("lets the left sidebar stay borderless while the main pane owns the separator", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -541,10 +531,10 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       mountedRoot.render(renderMobileLayout({ mobilePane: "left" }));
     });
 
-    expectMobileMainPaneOwnedSeparators(rootElement, "left");
+    expectMobilePaneSeparatorOwnership(rootElement, "left");
   });
 
-  it("keeps both separators on the main pane while the main pane is active", () => {
+  it("lets the sidebars own both separators while the main pane is visible", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -554,7 +544,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       mountedRoot.render(renderMobileLayout({ mobilePane: "main" }));
     });
 
-    expectMobileMainPaneOwnedSeparators(rootElement, "main");
+    expectMobilePaneSeparatorOwnership(rootElement, "main");
   });
 
   it("keeps the left pane addressable on mobile layouts without a right pane", () => {
@@ -578,11 +568,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expect(
       rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')?.scrollLeft,
     ).toBe(0);
-    expect(
-      getMobileSeparatorEdges(
-        getRequiredElement(rootElement, "[data-workspace-layout-v2-mobile-main-pane]"),
-      ),
-    ).toEqual(["left-main"]);
   });
 
   it("omits a stale left mobile pane when a route does not provide a left pane", () => {
@@ -617,11 +602,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expect(
       rootElement.querySelector('[data-testid="workspace-layout-v2-pane-right"]'),
     ).not.toBeNull();
-    expect(
-      getMobileSeparatorEdges(
-        getRequiredElement(rootElement, "[data-workspace-layout-v2-mobile-main-pane]"),
-      ),
-    ).toEqual(["main-right"]);
     expect(latestRenderedPaneState?.mobilePane).toBe("left");
     expect(latestRenderedPaneState?.mobileSurface).toEqual({
       kind: "merged",
@@ -661,7 +641,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     });
   });
 
-  it("keeps both separators on the main pane while the right sidebar is active", () => {
+  it("lets the right sidebar stay borderless while the main pane owns the separator", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -671,7 +651,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       mountedRoot.render(renderMobileLayout({ mobilePane: "right" }));
     });
 
-    expectMobileMainPaneOwnedSeparators(rootElement, "right");
+    expectMobilePaneSeparatorOwnership(rootElement, "right");
   });
 
   it("omits mobile resize grips on the main pane", () => {

@@ -1,4 +1,4 @@
-import { devices, expect, test, type Page } from "@playwright/test";
+import { devices, expect, test, type Locator, type Page } from "@playwright/test";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
 
 const { defaultBrowserType: _pixel7BrowserType, ...pixel7Device } = devices["Pixel 7"];
@@ -143,6 +143,51 @@ async function getMobileMainPaneWidthPx(page: Page) {
   );
 }
 
+const RENDERED_SEPARATOR_STYLE = {
+  backgroundIsVisible: true,
+  heightIsPositive: true,
+  touchesExpectedEdge: true,
+  width: "1px",
+} as const;
+
+async function getHorizontalSeparatorStyles(locator: Locator) {
+  return locator.evaluate((element) => {
+    const readSeparatorStyle = (pseudoElement: "::before" | "::after") => {
+      const styles = window.getComputedStyle(element, pseudoElement);
+
+      if (styles.content === "none") {
+        return null;
+      }
+
+      return {
+        backgroundIsVisible:
+          styles.backgroundColor !== "rgba(0, 0, 0, 0)" && styles.backgroundColor !== "transparent",
+        heightIsPositive: Number.parseFloat(styles.height) > 0,
+        touchesExpectedEdge:
+          pseudoElement === "::before" ? styles.left === "0px" : styles.right === "0px",
+        width: styles.width,
+      };
+    };
+
+    return {
+      left: readSeparatorStyle("::before"),
+      right: readSeparatorStyle("::after"),
+    };
+  });
+}
+
+async function expectHorizontalSeparators(
+  locator: Locator,
+  expected: { left: boolean; right: boolean },
+) {
+  await expect
+    .poll(async () => getHorizontalSeparatorStyles(locator))
+    .toEqual({
+      left: expected.left ? RENDERED_SEPARATOR_STYLE : null,
+      right: expected.right ? RENDERED_SEPARATOR_STYLE : null,
+    });
+}
+
 async function scrollFileViewCarouselToPane(page: Page, pane: "left" | "main" | "right") {
   await page.getByTestId("workspace-layout-v2-pane-main").evaluate((element, nextPane) => {
     const mainPane = element.querySelector("[data-workspace-layout-v2-mobile-main-pane]");
@@ -256,6 +301,29 @@ test("fileview mobile carousel moves between left, main, and right panes", async
 
   await scrollFileViewCarouselToPane(page, "right");
   await expect(page.getByTestId("workspace-layout-v2-right-resize")).toHaveCount(1);
+});
+
+test("fileview mobile keeps the visible pane borderless while adjacent panes own separators", async ({
+  page,
+}) => {
+  await gotoFileViewFixture(page);
+
+  const leftPane = page.getByTestId("workspace-layout-v2-pane-left");
+  const mainPane = page.locator("[data-workspace-layout-v2-mobile-main-pane-surface]");
+  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+
+  await scrollFileViewCarouselToPane(page, "left");
+  await expectHorizontalSeparators(leftPane, { left: false, right: false });
+  await expectHorizontalSeparators(mainPane, { left: true, right: true });
+
+  await scrollFileViewCarouselToPane(page, "main");
+  await expectHorizontalSeparators(leftPane, { left: true, right: true });
+  await expectHorizontalSeparators(mainPane, { left: false, right: false });
+  await expectHorizontalSeparators(rightPane, { left: true, right: true });
+
+  await scrollFileViewCarouselToPane(page, "right");
+  await expectHorizontalSeparators(mainPane, { left: true, right: true });
+  await expectHorizontalSeparators(rightPane, { left: false, right: false });
 });
 
 test("fileview mobile resize grip waits for the carousel to settle", async ({ page }) => {
@@ -395,6 +463,83 @@ test("fileview mobile merge resize keeps the sidebar beside a complete main pane
   await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(1);
   await expect(page.getByTestId("workspace-layout-v2-right-resize")).toHaveCount(0);
 });
+
+for (const mergedSide of ["left", "right"] as const) {
+  test(`fileview mobile keeps equal-width merged ${mergedSide} separators off the outer edge`, async ({
+    page,
+  }) => {
+    await gotoFileViewFixture(page);
+    await scrollFileViewCarouselToPane(page, mergedSide);
+
+    const oppositeSide = mergedSide === "left" ? "right" : "left";
+    const minWidthPx = await getMobileSidebarMinWidthPx(page);
+    const mergedPane = page.getByTestId(`workspace-layout-v2-pane-${mergedSide}`);
+    const mergedPaneWidthBefore = (await getBox(page, `workspace-layout-v2-pane-${mergedSide}`))
+      .width;
+
+    await touchDragHandleByPx(
+      page,
+      `workspace-layout-v2-${mergedSide}-resize`,
+      mergedSide === "left"
+        ? minWidthPx - mergedPaneWidthBefore - minWidthPx
+        : mergedPaneWidthBefore - minWidthPx + minWidthPx,
+    );
+
+    await expectMobileMergedSide(page, mergedSide);
+    await scrollFileViewCarouselToPane(page, oppositeSide);
+
+    const oppositePane = page.getByTestId(`workspace-layout-v2-pane-${oppositeSide}`);
+    const oppositePaneWidthBefore = (await getBox(page, `workspace-layout-v2-pane-${oppositeSide}`))
+      .width;
+    await touchDragHandleByPx(
+      page,
+      `workspace-layout-v2-${oppositeSide}-resize`,
+      oppositeSide === "left"
+        ? minWidthPx - oppositePaneWidthBefore - minWidthPx
+        : oppositePaneWidthBefore - minWidthPx + minWidthPx,
+    );
+
+    await expect(getFileViewLayoutShell(page)).toHaveAttribute("data-mobile-pane", oppositeSide);
+    await expectMobileMergedSide(page, mergedSide);
+    await expect
+      .poll(async () =>
+        Math.round((await getBox(page, `workspace-layout-v2-pane-${mergedSide}`)).width),
+      )
+      .toBe(minWidthPx);
+    await expect
+      .poll(async () =>
+        Math.round((await getBox(page, `workspace-layout-v2-pane-${oppositeSide}`)).width),
+      )
+      .toBe(minWidthPx);
+
+    const viewport = page.viewportSize();
+    if (viewport === null) {
+      throw new Error("Expected a mobile viewport.");
+    }
+
+    const mergedPaneBox = await mergedPane.boundingBox();
+    const mainPane = page.locator("[data-workspace-layout-v2-mobile-main-pane-surface]");
+    const mainPaneBox = await mainPane.boundingBox();
+    if (mergedPaneBox === null || mainPaneBox === null) {
+      throw new Error("Expected merged workspace panes to have bounding boxes.");
+    }
+
+    if (mergedSide === "left") {
+      expect(Math.round(mergedPaneBox.x + mergedPaneBox.width)).toBe(0);
+      expect(Math.round(mainPaneBox.x)).toBe(0);
+    } else {
+      expect(Math.round(mergedPaneBox.x)).toBe(viewport.width);
+      expect(Math.round(mainPaneBox.x + mainPaneBox.width)).toBe(viewport.width);
+    }
+
+    await expectHorizontalSeparators(oppositePane, { left: false, right: false });
+    await expectHorizontalSeparators(
+      mainPane,
+      oppositeSide === "left" ? { left: true, right: false } : { left: false, right: true },
+    );
+    await expectHorizontalSeparators(mergedPane, { left: true, right: true });
+  });
+}
 
 test("logo mobile merge resize keeps main width while opening the right sidebar @logo-research", async ({
   page,

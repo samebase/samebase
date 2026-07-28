@@ -43,6 +43,21 @@ async function expectTouchFirstViewport(page: Page, expectedWidthPx: number) {
   });
 }
 
+async function getHorizontalSeparatorWidths(locator: Locator) {
+  return locator.evaluate((element) => {
+    const readSeparatorWidth = (pseudoElement: "::before" | "::after") => {
+      const styles = window.getComputedStyle(element, pseudoElement);
+
+      return styles.content === "none" ? "0px" : styles.width;
+    };
+
+    return {
+      left: readSeparatorWidth("::before"),
+      right: readSeparatorWidth("::after"),
+    };
+  });
+}
+
 /**
  * Invariant: expectHeaderWithoutBottomBorder keeps the fixture headers flush
  * with their pane content so v2 chrome changes stay intentional.
@@ -84,8 +99,12 @@ test.describe("workspace layout v2 touch-first phone", () => {
     await expectTouchFirstViewport(page, 390);
 
     const fixture = page.getByTestId("workspace-layout-v2-visual-fixture");
+    const mainPane = page.locator("[data-workspace-layout-v2-mobile-main-pane-surface]");
 
     await expect(fixture).toBeVisible();
+    await expect
+      .poll(async () => getHorizontalSeparatorWidths(mainPane))
+      .toEqual({ left: "0px", right: "0px" });
     await expect(fixture).toHaveScreenshot("workspace-layout-v2-status-bar-mobile.png", {
       animations: "disabled",
       caret: "hide",

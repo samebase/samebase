@@ -2,9 +2,9 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Superseded
 - Owner: Samebase frontend/workspace shell
-- Last updated: 2026-07-04
+- Last updated: 2026-07-28
 - Related specs:
   - `specs/087_WORKSPACE_LAYOUT_V2_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`
   - `specs/092_WORKSPACE_PANE_MIN_RESIZE_MERGE_SPEC.md`
@@ -20,6 +20,10 @@
   - `apps/samebase/src/index.css`
 
 ## Summary
+
+This plan is no longer current. `WorkspaceLayoutV2` uses pane-owned mobile separators. The active
+pane stays borderless, and the adjacent pane owns the separator. This prevents the main pane from
+adding a second 1 px line beside the Codex embedded browser divider.
 
 `WorkspaceLayoutV2` should stop making pane contents indirectly own mobile pane separators.
 

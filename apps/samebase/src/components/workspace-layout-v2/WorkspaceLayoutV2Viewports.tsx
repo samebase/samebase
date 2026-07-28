@@ -27,20 +27,6 @@ type WorkspaceLayoutV2ViewportProps = WorkspaceLayoutV2ResolvedPaneContent & {
   showRightPane: boolean;
 };
 
-function renderMobileSeparator(edge: "left-main" | "main-right") {
-  return (
-    <div
-      aria-hidden="true"
-      data-testid={`workspace-layout-v2-mobile-separator-${edge}`}
-      data-workspace-layout-v2-mobile-separator={edge}
-      className={cn(
-        "pointer-events-none absolute inset-y-0 z-[29] w-px -translate-x-1/2 bg-border md:hidden",
-        edge === "left-main" ? "left-0" : "left-full",
-      )}
-    />
-  );
-}
-
 export function WorkspaceLayoutV2Viewport({
   activeResizeSide,
   carouselRef,
@@ -78,6 +64,7 @@ export function WorkspaceLayoutV2Viewport({
     return (
       <div
         data-workspace-layout-v2-mobile-pane="left"
+        data-workspace-layout-v2-mobile-separator-pane="left"
         data-testid="workspace-layout-v2-pane-left"
         className={cn(
           "workspace-layout-v2-responsive-left-pane relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-background",
@@ -103,19 +90,18 @@ export function WorkspaceLayoutV2Viewport({
         data-workspace-layout-v2-mobile-main-pane
         data-workspace-layout-v2-mobile-pane="main"
         className={cn(
-          "workspace-layout-v2-responsive-main-pane relative h-full min-h-0 shrink-0",
+          "workspace-layout-v2-responsive-main-pane h-full min-h-0 shrink-0",
           "snap-center snap-always",
         )}
         style={{ width: mainPaneWidth }}
       >
         <div
           data-workspace-layout-v2-mobile-main-pane-surface
+          data-workspace-layout-v2-mobile-separator-pane="main"
           className="box-border h-full min-h-0 overflow-hidden bg-background"
         >
           {mainContent}
         </div>
-        {showLeftPane ? renderMobileSeparator("left-main") : null}
-        {showRightPane ? renderMobileSeparator("main-right") : null}
       </div>
     );
   }
@@ -128,6 +114,7 @@ export function WorkspaceLayoutV2Viewport({
     return (
       <div
         data-workspace-layout-v2-mobile-pane="right"
+        data-workspace-layout-v2-mobile-separator-pane="right"
         data-testid="workspace-layout-v2-pane-right"
         className={cn(
           "workspace-layout-v2-responsive-right-pane relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-background",

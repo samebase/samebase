@@ -236,6 +236,7 @@ describe("AppWorkspaceShell", () => {
       const leftPane = document.createElement("div");
       leftPane.className = "workspace-layout-v2-responsive-left-pane";
       leftPane.setAttribute("data-workspace-layout-v2-mobile-pane", "left");
+      leftPane.setAttribute("data-workspace-layout-v2-mobile-separator-pane", "left");
       leftPane.setAttribute("data-testid", "workspace-layout-v2-pane-left");
       carousel.append(leftPane);
     }
@@ -246,23 +247,15 @@ describe("AppWorkspaceShell", () => {
     mainPane.setAttribute("data-workspace-layout-v2-mobile-main-pane", "");
     mainPane.setAttribute("data-workspace-layout-v2-mobile-pane", "main");
     mainPaneSurface.setAttribute("data-workspace-layout-v2-mobile-main-pane-surface", "");
+    mainPaneSurface.setAttribute("data-workspace-layout-v2-mobile-separator-pane", "main");
     mainPane.append(mainPaneSurface);
-    if (includeLeftPane) {
-      const leftMainSeparator = document.createElement("div");
-      leftMainSeparator.setAttribute("data-workspace-layout-v2-mobile-separator", "left-main");
-      mainPane.append(leftMainSeparator);
-    }
-    if (includeRightPane) {
-      const mainRightSeparator = document.createElement("div");
-      mainRightSeparator.setAttribute("data-workspace-layout-v2-mobile-separator", "main-right");
-      mainPane.append(mainRightSeparator);
-    }
     carousel.append(mainPane);
 
     if (includeRightPane) {
       const rightPane = document.createElement("div");
       rightPane.className = "workspace-layout-v2-responsive-right-pane";
       rightPane.setAttribute("data-workspace-layout-v2-mobile-pane", "right");
+      rightPane.setAttribute("data-workspace-layout-v2-mobile-separator-pane", "right");
       rightPane.setAttribute("data-testid", "workspace-layout-v2-pane-right");
       carousel.append(rightPane);
     }
@@ -776,11 +769,6 @@ describe("AppWorkspaceShell", () => {
     expect(carousel.scrollLeft).toBe(600);
     expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("right");
     expect(layoutRoot.hasAttribute("data-workspace-layout-v2-mobile-merged-side")).toBe(false);
-    expect(
-      carousel
-        .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
-        ?.querySelectorAll("[data-workspace-layout-v2-mobile-separator]").length,
-    ).toBe(2);
     expect(
       carousel
         .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
