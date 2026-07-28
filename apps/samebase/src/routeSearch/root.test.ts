@@ -45,7 +45,6 @@ describe("rootRouteSearch", () => {
         "add-convex": "",
         auth: "google",
         "auth-return": "dashboard",
-        "create-account": "",
         background: "#ffffff",
         border: "stone-300",
         delete: "",
@@ -58,14 +57,12 @@ describe("rootRouteSearch", () => {
         "prod-ui": "",
         secondary: "cyan-500",
         signup: "google",
-        "sign-in": "",
         "swipe-debug": "",
         top: "white-base",
       }),
     ).toEqual({
       auth: "google",
       "auth-return": "dashboard",
-      "create-account": true,
       background: "#ffffff",
       border: "stone-300",
       depth: 2,
@@ -77,7 +74,6 @@ describe("rootRouteSearch", () => {
       "prod-ui": true,
       secondary: "cyan-500",
       signup: "google",
-      "sign-in": true,
       "swipe-debug": true,
       top: "white-base",
     });
@@ -105,20 +101,16 @@ describe("rootRouteSearch", () => {
         dark: "false",
         dev: "1",
         devtools: "false",
-        "create-account": "false",
         light: 0,
         "prod-ui": false,
-        "sign-in": "false",
         "swipe-debug": "false",
       }),
     ).toEqual({
-      "create-account": true,
       dark: true,
       dev: true,
       devtools: true,
       light: true,
       "prod-ui": true,
-      "sign-in": true,
       "swipe-debug": true,
     });
   });
@@ -147,18 +139,14 @@ describe("rootRouteSearch", () => {
 
   it("parses the root search contract from a search string", () => {
     expect(
-      readRootRouteSearch(
-        "?prod-ui&dev&auth=google&signup=google&sign-in&create-account&primary=red-600&delete",
-      ),
+      readRootRouteSearch("?prod-ui&dev&auth=google&signup=google&primary=red-600&delete"),
     ).toEqual({
       auth: "google",
-      "create-account": true,
       delete: true,
       dev: true,
       primary: "red-600",
       "prod-ui": true,
       signup: "google",
-      "sign-in": true,
     });
   });
 

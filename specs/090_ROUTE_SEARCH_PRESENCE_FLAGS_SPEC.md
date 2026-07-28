@@ -42,7 +42,6 @@ The shared known list lives in `ROUTE_SEARCH_PRESENCE_FLAG_KEYS`. It currently c
 - `add-cloudflare`
 - `add-convex`
 - `compare`
-- `create-account`
 - `dark`
 - `delete`
 - `delete-account`
@@ -55,7 +54,6 @@ The shared known list lives in `ROUTE_SEARCH_PRESENCE_FLAG_KEYS`. It currently c
 - `openedByCli`
 - `prod-ui`
 - `reset`
-- `sign-in`
 
 New key-only route toggles must be added to that list and covered by a focused route-search test.
 

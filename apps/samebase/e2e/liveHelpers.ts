@@ -3,7 +3,6 @@ import {
   LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
   LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
 } from "../../../runtime/localWorktreePasswordAuth";
-import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
 
 function buildSameOriginPath(page: Page, path: string): string {
   const targetUrl = new URL(path, page.url());
@@ -15,12 +14,6 @@ export async function signInIfNeeded(page: Page, routeAfterSignIn?: string): Pro
   const targetPath = routeAfterSignIn ? buildSameOriginPath(page, routeAfterSignIn) : null;
   const emailInput = page.getByPlaceholder("you@example.com");
   const passwordInput = page.getByPlaceholder("Password");
-  const publicAccountButton = page
-    .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)
-    .getByRole("button", { name: "not logged in" });
-  const publicSignInLink = page
-    .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)
-    .getByRole("link", { name: "?sign-in" });
   const signInButton = page.getByRole("button", { exact: true, name: "Sign in" });
   const signedInMarkers = getSignedInMarkers(page);
 
@@ -34,14 +27,6 @@ export async function signInIfNeeded(page: Page, routeAfterSignIn?: string): Pro
 
   for (let attempt = 1; attempt <= 5; attempt += 1) {
     try {
-      if (!(await emailInput.isVisible().catch(() => false))) {
-        if (await publicAccountButton.isVisible().catch(() => false)) {
-          await publicAccountButton.click();
-        }
-        if (await publicSignInLink.isVisible().catch(() => false)) {
-          await publicSignInLink.click();
-        }
-      }
       await emailInput.waitFor({ state: "visible", timeout: 5_000 });
     } catch {
       await waitForAnyVisible(signedInMarkers, 30_000);

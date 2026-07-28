@@ -14,8 +14,8 @@ import {
 import {
   APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
-  PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
 } from "@/lib/publicLanding";
+import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const TEST_ARGS = {
@@ -23,7 +23,7 @@ const TEST_ARGS = {
   browserConvexProxyPath: null,
   envConvexUrl: TEST_STORAGE_NAMESPACE,
   ignoredPathnames: [],
-  passwordAuthSectionTestId: PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
+  mcpConsentPathname: MCP_CONSENT_APP_PATH,
   rootAttribute: "data-app-auth-presentation-prehydrated",
   styleElementId: "samebase-app-auth-presentation-prehydration",
   staticAccountSectionTestId: APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
@@ -220,7 +220,6 @@ describe("appAuthPresentationPrehydration", () => {
       "signed-in",
     );
     expect(styleText).toContain(`[data-testid="${APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}"]`);
-    expect(styleText).toContain(`[data-testid="${PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID}"]`);
     expect(styleText).toContain("[data-app-auth-prehydration-signed-in]");
     expect(styleText).toContain("[data-app-auth-prehydration-account-label]::after");
     expect(styleText).toContain('content: "nicu@samebase.com";');
@@ -358,6 +357,32 @@ describe("appAuthPresentationPrehydration", () => {
     expect(styleText).toContain('content: "not logged in";');
     expect(styleText).toContain("[data-app-auth-prehydration-signed-out]");
     expect(styleText).toContain("[data-app-auth-prehydration-signed-out-label]::after");
+    expect(styleText).not.toContain("[aria-expanded]");
+  });
+
+  it.each(["/?signup=google", "/settings?signup=google"])(
+    "does not reveal signed-out auth controls before the closed-signup state hydrates on %s",
+    (route) => {
+      window.history.replaceState({}, "", route);
+
+      runAppAuthPresentationPrehydrationScript();
+
+      expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
+        false,
+      );
+      expect(document.getElementById("samebase-app-auth-presentation-prehydration")).toBeNull();
+    },
+  );
+
+  it("keeps MCP consent controls available when a stale signup marker is present", () => {
+    window.history.replaceState({}, "", `${MCP_CONSENT_APP_PATH}?signup=google`);
+
+    runAppAuthPresentationPrehydrationScript();
+
+    expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
+      "signed-out",
+    );
+    expect(document.getElementById("samebase-app-auth-presentation-prehydration")).not.toBeNull();
   });
 
   it("does not prehydrate ignored paths", () => {

@@ -3,12 +3,10 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import { AUTH_FLAG_STORAGE_KEY, AUTH_PROVIDER_STORAGE_KEY } from "@/lib/authStorageKeys";
 import { buildGoogleRedirectSearch } from "@/lib/googleAuthRedirect";
 import { type RootRouteSearch } from "@/routeSearch/root";
 import { resetSamebasePostHogClient } from "@/lib/posthogClient";
 
-type AuthProvider = "google" | "password";
 const POPUP_WATCH_INTERVAL_MS = 500;
 const POPUP_WATCH_TIMEOUT_MS = 120_000;
 type AuthActions = ReturnType<typeof useAuthActions>;
@@ -57,52 +55,6 @@ const isAuthPopupRedirectTo = guard<unknown, string>((value) => {
   }
 });
 
-export function clearAuthFlag() {
-  localStorage.removeItem(AUTH_FLAG_STORAGE_KEY);
-  localStorage.removeItem(AUTH_PROVIDER_STORAGE_KEY);
-}
-
-function clearAuthProvider() {
-  localStorage.removeItem(AUTH_PROVIDER_STORAGE_KEY);
-}
-
-export function setAuthFlag() {
-  localStorage.setItem(AUTH_FLAG_STORAGE_KEY, "1");
-}
-
-export function setAuthProvider(provider: AuthProvider) {
-  localStorage.setItem(AUTH_PROVIDER_STORAGE_KEY, provider);
-}
-
-/**
- * Keep provider bookkeeping next to the auth action so every Google login path
- * stamps the same provider before redirecting into Convex Auth.
- */
-export function signInWithGoogleAction(args: { signIn: SignInAction; redirectTo: string }) {
-  setAuthProvider("google");
-  return args.signIn("google", { redirectTo: args.redirectTo });
-}
-
-/**
- * Password auth does not redirect, so mark the provider after the auth action
- * resolves successfully.
- */
-export function signInWithPasswordAction(
-  args: {
-    signIn: SignInAction;
-  } & PasswordSignInArgs,
-) {
-  return args
-    .signIn("password", {
-      flow: args.flow,
-      email: args.email,
-      password: args.password,
-    })
-    .then(() => {
-      setAuthProvider("password");
-    });
-}
-
 export async function signInWithAgentBrowserHandoffAction(args: {
   signIn: SignInAction;
   token: string;
@@ -121,7 +73,6 @@ export function signOutWithAnalytics(args: {
   signOut: SignOutAction;
   posthog: PostHogResetClient;
 }) {
-  clearAuthFlag();
   try {
     args.posthog.reset();
   } catch {
@@ -145,8 +96,8 @@ export function useAppSignInActions() {
   const { signIn } = useAuthActions();
 
   return {
-    signInWithGoogle: (redirectTo: string) => signInWithGoogleAction({ signIn, redirectTo }),
-    signInWithPassword: (args: PasswordSignInArgs) => signInWithPasswordAction({ signIn, ...args }),
+    signInWithGoogle: (redirectTo: string) => signIn("google", { redirectTo }),
+    signInWithPassword: (args: PasswordSignInArgs) => signIn("password", args),
   };
 }
 
@@ -179,7 +130,6 @@ export function openAuthPopup(
   // Don't call signIn directly; the library would try window.location.href
   // which breaks in iframes. Instead open a popup that will auto-trigger sign-in.
   // Listen for auth tokens sent from the popup via postMessage.
-  setAuthProvider(provider);
   let popup: Window | null = null;
   let popupPollIntervalId: number | null = null;
   let popupTimeoutId: number | null = null;
@@ -193,13 +143,6 @@ export function openAuthPopup(
     if (popupTimeoutId !== null) {
       window.clearTimeout(popupTimeoutId);
       popupTimeoutId = null;
-    }
-  };
-  const clearPendingProvider = () => {
-    try {
-      clearAuthProvider();
-    } catch {
-      // The provider marker is best-effort when browser storage is unavailable.
     }
   };
   const handler = (event: MessageEvent) => {
@@ -232,7 +175,6 @@ export function openAuthPopup(
       }
       console.warn("authClient:failed to persist popup auth tokens");
       cleanup();
-      clearPendingProvider();
       return;
     }
     cleanup();
@@ -251,18 +193,15 @@ export function openAuthPopup(
   );
   if (!popup) {
     cleanup();
-    clearPendingProvider();
     return;
   }
   popupPollIntervalId = window.setInterval(() => {
     if (popup.closed) {
       cleanup();
-      clearPendingProvider();
     }
   }, POPUP_WATCH_INTERVAL_MS);
   popupTimeoutId = window.setTimeout(() => {
     cleanup();
-    clearPendingProvider();
   }, POPUP_WATCH_TIMEOUT_MS);
 }
 
@@ -293,7 +232,7 @@ export function useAutoSignIn(rootRouteSearch: RootRouteSearch) {
       // Preserve TanStack Router history metadata while stripping auth params
       // from the popup/bootstrap URL before the provider redirect begins.
       window.history.replaceState(window.history.state, "", redirectTo);
-      void signInWithGoogleAction({ signIn, redirectTo });
+      void signIn("google", { redirectTo });
     }
   }, [authProvider, authReturn, router, signIn, signupReturn]);
 }

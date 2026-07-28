@@ -8,11 +8,9 @@ import { buildGoogleAuthPopupSearch, buildGoogleRedirectSearch } from "./lib/goo
 
 export function SignInWithGoogle({
   authReturn,
-  visible = true,
   markPublicSignupReturn = false,
 }: {
   authReturn?: "dashboard";
-  visible?: boolean;
   markPublicSignupReturn?: boolean;
 } = {}) {
   const { signInWithGoogle } = useAppSignInActions();
@@ -34,17 +32,6 @@ export function SignInWithGoogle({
         }),
       to: authReturn === "dashboard" ? "/" : ".",
     }).href;
-
-  if (!visible) {
-    // Preserve the landing auth slot without leaving a provider button for password managers.
-    return (
-      <div
-        aria-hidden="true"
-        data-testid={PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID}
-        className="h-[42px]"
-      />
-    );
-  }
 
   return (
     <Button

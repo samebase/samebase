@@ -49,7 +49,6 @@ vi.mock("@tanstack/react-router", () => ({
 import {
   openAuthPopup,
   signInWithAgentBrowserHandoffAction,
-  signInWithPasswordAction,
   signOutWithAnalytics,
   useAutoSignIn,
 } from "./authClient";
@@ -116,16 +115,10 @@ describe("useAutoSignIn", () => {
       },
     });
 
-    vi.stubGlobal("localStorage", {
-      getItem: vi.fn(() => null),
-      removeItem: localStorageRemoveItemMock,
-      setItem: localStorageSetItemMock,
-    });
     mockCurrentRouteLocationBuilder();
 
     useAutoSignIn({ auth: "google" });
 
-    expect(localStorageSetItemMock).toHaveBeenCalledWith("samebase_auth_provider", "google");
     expect(replaceStateMock).toHaveBeenCalledWith(
       { __TSR_index: 7, __TSR_key: "popup-route" },
       "",
@@ -160,11 +153,6 @@ describe("useAutoSignIn", () => {
       },
     });
 
-    vi.stubGlobal("localStorage", {
-      getItem: vi.fn(() => null),
-      removeItem: localStorageRemoveItemMock,
-      setItem: localStorageSetItemMock,
-    });
     mockCurrentRouteLocationBuilder();
 
     useAutoSignIn({ auth: "google", signup: "google" });
@@ -204,11 +192,6 @@ describe("useAutoSignIn", () => {
       },
     });
 
-    vi.stubGlobal("localStorage", {
-      getItem: vi.fn(() => null),
-      removeItem: localStorageRemoveItemMock,
-      setItem: localStorageSetItemMock,
-    });
     mockCurrentRouteLocationBuilder();
 
     useAutoSignIn({
@@ -239,40 +222,10 @@ describe("useAutoSignIn", () => {
       },
     });
 
-    vi.stubGlobal("localStorage", {
-      getItem: vi.fn(() => null),
-      removeItem: localStorageRemoveItemMock,
-      setItem: localStorageSetItemMock,
-    });
-
     useAutoSignIn({});
 
-    expect(localStorageSetItemMock).not.toHaveBeenCalled();
     expect(replaceStateMock).not.toHaveBeenCalled();
     expect(signInMock).not.toHaveBeenCalled();
-  });
-
-  it("records the password provider after a successful password sign-in", async () => {
-    signInMock.mockResolvedValue(undefined);
-
-    vi.stubGlobal("localStorage", {
-      removeItem: localStorageRemoveItemMock,
-      setItem: localStorageSetItemMock,
-    });
-
-    await signInWithPasswordAction({
-      signIn: signInMock,
-      flow: "signIn",
-      email: "nicu@samebase.com",
-      password: "pass1234",
-    });
-
-    expect(signInMock).toHaveBeenCalledWith("password", {
-      flow: "signIn",
-      email: "nicu@samebase.com",
-      password: "pass1234",
-    });
-    expect(localStorageSetItemMock).toHaveBeenCalledWith("samebase_auth_provider", "password");
   });
 
   it("accepts only a completed browser handoff sign-in", async () => {
@@ -308,11 +261,6 @@ describe("useAutoSignIn", () => {
     });
     signOutMock.mockResolvedValue(undefined);
 
-    vi.stubGlobal("localStorage", {
-      removeItem: localStorageRemoveItemMock,
-      setItem: localStorageSetItemMock,
-    });
-
     await expect(
       signOutWithAnalytics({
         signOut: signOutMock,
@@ -320,8 +268,6 @@ describe("useAutoSignIn", () => {
       }),
     ).resolves.toBeUndefined();
 
-    expect(localStorageRemoveItemMock).toHaveBeenCalledWith("samebase_was_authenticated");
-    expect(localStorageRemoveItemMock).toHaveBeenCalledWith("samebase_auth_provider");
     expect(resetMock).toHaveBeenCalledTimes(1);
     expect(signOutMock).toHaveBeenCalledTimes(1);
   });
@@ -373,7 +319,6 @@ describe("useAutoSignIn", () => {
       }),
     );
 
-    expect(localStorageSetItemMock).toHaveBeenCalledWith("samebase_auth_provider", "google");
     expect(localStorageSetItemMock).toHaveBeenCalledWith("__convexAuthAccessToken", "token");
     expect(locationState.href).toBe("/vault?prod-ui");
     expect(locationReloadMock).not.toHaveBeenCalled();
@@ -484,41 +429,11 @@ describe("useAutoSignIn", () => {
       }),
     );
 
-    expect(localStorageSetItemMock).toHaveBeenCalledWith("samebase_auth_provider", "google");
     expect(localStorageSetItemMock).toHaveBeenCalledWith("__convexAuthRefreshToken", "refresh");
     expect(localStorageSetItemMock).toHaveBeenCalledWith("__convexAuthAccessToken", "token");
     expect(localStorageRemoveItemMock).toHaveBeenCalledWith("__convexAuthRefreshToken");
     expect(localStorageRemoveItemMock).toHaveBeenCalledWith("__convexAuthAccessToken");
-    expect(localStorageRemoveItemMock).toHaveBeenCalledWith("samebase_auth_provider");
     expect(locationState.href).toBe("https://samebase.com/");
-    expect(locationReloadMock).not.toHaveBeenCalled();
-  });
-
-  it("clears the pending provider marker when the popup is blocked", () => {
-    const locationReloadMock = vi.fn();
-    vi.stubGlobal("window", {
-      addEventListener: vi.fn(),
-      clearInterval: vi.fn(),
-      clearTimeout: vi.fn(),
-      location: {
-        href: "https://samebase.com/",
-        origin: "https://samebase.com",
-        reload: locationReloadMock,
-      },
-      open: vi.fn(() => null),
-      removeEventListener: vi.fn(),
-      setInterval: vi.fn(() => 1),
-      setTimeout: vi.fn(() => 2),
-    });
-    vi.stubGlobal("localStorage", {
-      removeItem: localStorageRemoveItemMock,
-      setItem: localStorageSetItemMock,
-    });
-
-    openAuthPopup("google", { popupPath: "/?auth=google" });
-
-    expect(localStorageSetItemMock).toHaveBeenCalledWith("samebase_auth_provider", "google");
-    expect(localStorageRemoveItemMock).toHaveBeenCalledWith("samebase_auth_provider");
     expect(locationReloadMock).not.toHaveBeenCalled();
   });
 });

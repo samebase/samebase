@@ -4,7 +4,7 @@ import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
 import {
   APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
-  PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
+  PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
 } from "../src/lib/publicLanding";
 import { signInIfNeeded } from "./liveHelpers";
 
@@ -33,7 +33,7 @@ async function openSettings(page: Page) {
 }
 
 async function createPendingAccount(page: Page, email: string) {
-  const passwordAuthSection = page.getByTestId(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
+  const passwordAuthSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
   await passwordAuthSection.getByPlaceholder("you@example.com").waitFor({ state: "visible" });
   await passwordAuthSection.getByRole("button", { name: "Need an account?" }).click();
   await passwordAuthSection.getByPlaceholder("you@example.com").fill(email);
@@ -364,10 +364,14 @@ test("signed-out direct Settings visits remain private", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/settings$/u);
   await expect(page.getByTestId("user-settings-page")).toHaveCount(0);
-  const passwordAuthSection = page.getByTestId("public-landing-password-auth-section");
-  await expect(passwordAuthSection.getByPlaceholder("you@example.com")).toBeVisible();
-  await expect(passwordAuthSection.getByPlaceholder("Password")).toBeVisible();
+  const sidebarAccountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
+  await expect(sidebarAccountSection.getByRole("button", { name: "Google" })).toBeVisible();
+  await expect(sidebarAccountSection.getByPlaceholder("you@example.com")).toBeVisible();
+  await expect(sidebarAccountSection.getByPlaceholder("Password")).toBeVisible();
   await expect(
-    passwordAuthSection.getByRole("button", { exact: true, name: "Sign in" }),
+    sidebarAccountSection.getByRole("button", { exact: true, name: "Sign in" }),
   ).toBeVisible();
+  await expect(page.getByTestId("not-found-route-content")).toBeVisible();
+  await expect(page.getByTestId("public-landing-content")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Google" })).toHaveCount(1);
 });

@@ -1,10 +1,10 @@
 import {
   APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
-  PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
 } from "@/lib/publicLanding";
 import { appBuildConfig } from "@/lib/appBuildConfig";
 import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
+import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 const APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID =
   "samebase-app-auth-presentation-prehydration";
@@ -15,7 +15,7 @@ export type AppAuthPresentationPrehydrationArgs = {
   browserConvexProxyPath: string | null;
   envConvexUrl: string | null;
   ignoredPathnames: readonly string[];
-  passwordAuthSectionTestId: string;
+  mcpConsentPathname: string;
   rootAttribute: string;
   styleElementId: string;
   staticAccountSectionTestId: string;
@@ -26,7 +26,7 @@ const appAuthPresentationPrehydrationArgs = {
   browserConvexProxyPath: appBuildConfig.browserConvexProxyPath,
   envConvexUrl: import.meta.env.VITE_CONVEX_URL ?? null,
   ignoredPathnames: ["/visual-fixture"],
-  passwordAuthSectionTestId: PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
+  mcpConsentPathname: MCP_CONSENT_APP_PATH,
   rootAttribute: APP_AUTH_PRESENTATION_PREHYDRATION_ROOT_ATTRIBUTE,
   styleElementId: APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID,
   staticAccountSectionTestId: APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
@@ -111,8 +111,6 @@ function InlineScript_prehydrateAppAuthPresentation(
       staticAccountSectionSelector + " [data-app-auth-prehydration-account-label]";
     const signedInProviderSelector =
       staticAccountSectionSelector + " [data-app-auth-prehydration-provider]";
-    const passwordAuthSectionSelector =
-      "[data-testid=" + cssStringLiteral(args.passwordAuthSectionTestId) + "]";
     const styleElement = document.createElement("style");
     styleElement.id = args.styleElementId;
     styleElement.textContent = `
@@ -136,6 +134,10 @@ html[${args.rootAttribute}="signed-out"] ${accountLabelSelector}::after {
 
 html[${args.rootAttribute}="signed-out"] ${staticAccountLabelSelector} {
   display: none !important;
+}
+
+html[${args.rootAttribute}="signed-out"] ${staticAccountSectionSelector} {
+  border-bottom: 0 !important;
 }
 
 html[${args.rootAttribute}="signed-out"] ${staticAccountContentSelector} {
@@ -188,9 +190,6 @@ html[${args.rootAttribute}="signed-in"] ${signedInAccountLabelSelector}::after {
   content: ${cssStringLiteral(presentation.label)};
 }
 
-html[${args.rootAttribute}="signed-in"] ${passwordAuthSectionSelector} {
-  display: none !important;
-}
 ${
   presentation.kind === "signed-in" && presentation.providerLabel !== null
     ? `
@@ -239,7 +238,13 @@ html[${args.rootAttribute}="signed-in"] ${signedInProviderSelector}::after {
         label: authPresentationHint.label,
         providerLabel: readAuthProviderLabel(authPresentationHint.profile),
       });
-    } else if (authPresentationHint.kind === "signedOut") {
+    } else if (
+      authPresentationHint.kind === "signedOut" &&
+      !(
+        window.location.pathname !== args.mcpConsentPathname &&
+        new URL(window.location.href).searchParams.get("signup") === "google"
+      )
+    ) {
       installPrehydrationStyle({
         kind: "signed-out",
         label: "not logged in",

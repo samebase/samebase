@@ -17,11 +17,8 @@ export function buildGoogleRedirectSearch<TSearch extends RootRouteSearch>(
     ...search,
     auth: undefined,
     "auth-return": options.authReturn,
-    "create-account": undefined,
-    // Only cold public landing signup attempts should preserve the
-    // unauthenticated return marker.
+    // Preserve the marker so a signed-out return can explain that signup is closed.
     signup: options.markPublicSignupReturn ? "google" : undefined,
-    "sign-in": undefined,
   };
 }
 
@@ -34,10 +31,7 @@ export function buildGoogleAuthPopupSearch<TSearch extends RootRouteSearch>(
     ...search,
     auth,
     "auth-return": options.authReturn,
-    "create-account": undefined,
-    // Keep iframe-based Google auth aligned with the top-level button so failed
-    // public signup returns land on the same pending access state.
+    // Keep iframe-based Google auth aligned with the top-level button.
     signup: options.markPublicSignupReturn ? "google" : undefined,
-    "sign-in": undefined,
   };
 }

@@ -1,7 +1,6 @@
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME } from "@/components/appSidebarNavigation";
 import { PublicLandingAccountSection } from "@/components/PublicLandingAccountSection";
-import { PublicLandingPasswordAuthControls } from "@/components/PublicLandingAuthControls";
 import { buttonVariants } from "@/components/ui/button";
 import {
   VaultDashboardSidebarContent,
@@ -46,7 +45,6 @@ function PublicAppRightSidebarContent({ accountPending }: { accountPending: bool
   return (
     <VaultDashboardSidebarContent>
       {accountPending ? <AppRightSidebarAccountLoadingSection /> : <PublicLandingAccountSection />}
-      <PublicLandingPasswordAuthControls />
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />
       </div>

@@ -3,7 +3,9 @@ import { APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME } from "@/components/appSidebarN
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDownIcon, PersonIcon } from "@/lib/radixIcons";
+import { PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID } from "@/lib/publicLanding";
 import { clsx } from "clsx";
+import { Chrome } from "lucide-react";
 import type { AccountPresentation } from "../../../shared/accountPresentation";
 import { Link } from "@tanstack/react-router";
 import { SETTINGS_ROUTE } from "@/lib/settingsRoute";
@@ -113,18 +115,27 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
   return (
     <>
       <div data-app-auth-prehydration-signed-out className="hidden">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className={ACCOUNT_SECTION_TRIGGER_CLASS_NAME}
+        <div
+          data-app-auth-prehydration-signed-out-label
+          className="min-w-0 line-clamp-2 border-b border-border/50 pb-3 text-sm font-medium [overflow-wrap:anywhere]"
         >
-          <span
-            data-app-auth-prehydration-signed-out-label
-            className={ACCOUNT_SECTION_TRIGGER_LABEL_CLASS_NAME}
-          />
-          <ChevronDownIcon className="mt-0.5 h-4 w-4 shrink-0 transition-transform" />
-        </Button>
+          {null}
+        </div>
+        <div className="mt-3">
+          <div className="flex flex-col gap-2">
+            <Button
+              aria-hidden="true"
+              data-testid={PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID}
+              className="h-auto flex-1 py-2.5 disabled:opacity-100"
+              disabled
+              tabIndex={-1}
+              variant="outline"
+              type="button"
+            >
+              <Chrome className="mr-2 h-4 w-4" /> Google
+            </Button>
+          </div>
+        </div>
       </div>
       <div data-app-auth-prehydration-signed-in className="hidden">
         <div className="flex flex-wrap items-start gap-3">

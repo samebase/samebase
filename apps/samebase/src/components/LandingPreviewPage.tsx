@@ -313,9 +313,7 @@ function LandingCreateAppButton() {
           applySearchPatch(currentSearch, {
             auth: null,
             "auth-return": null,
-            "create-account": null,
             signup: null,
-            "sign-in": true,
           })
         }
         onClick={() => {

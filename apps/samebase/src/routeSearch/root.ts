@@ -59,10 +59,6 @@ const RouteSearchSchema_root = defineRouteSearchParams({
     suggestion: "hidden",
     valueType: "freeform",
   }),
-  "create-account": routeSearchPresenceParam({
-    access: "access_public",
-    suggestion: "route",
-  }),
   delete: routeSearchPresenceParam({
     access: "access_dashboard",
     suggestion: "route",
@@ -90,10 +86,6 @@ const RouteSearchSchema_root = defineRouteSearchParams({
     // signup=google is an auth-return marker, not a route option to preview.
     suggestion: "route",
     valueType: "manual",
-  }),
-  "sign-in": routeSearchPresenceParam({
-    access: "access_public",
-    suggestion: "route",
   }),
 });
 
@@ -139,7 +131,6 @@ const rootRouteSearchParamMetadata = {
   "auth-return": rootRouteSearchOwnParamMetadata["auth-return"],
   auth: rootRouteSearchOwnParamMetadata.auth,
   code: rootRouteSearchOwnParamMetadata.code,
-  "create-account": rootRouteSearchOwnParamMetadata["create-account"],
   delete: rootRouteSearchOwnParamMetadata.delete,
   devtools: rootRouteSearchOwnParamMetadata.devtools,
   [MOBILE_SIDEBAR_DEBUG_QUERY_PARAM]:
@@ -147,7 +138,6 @@ const rootRouteSearchParamMetadata = {
   "prod-ui": rootRouteSearchOwnParamMetadata["prod-ui"],
   [SEARCH_RESET_QUERY_PARAM]: rootRouteSearchOwnParamMetadata[SEARCH_RESET_QUERY_PARAM],
   signup: rootRouteSearchOwnParamMetadata.signup,
-  "sign-in": rootRouteSearchOwnParamMetadata["sign-in"],
 } as const satisfies RouteSearchParamMetadataByKey<RootRouteSearch>;
 
 const ROOT_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(rootRouteSearchParamMetadata);

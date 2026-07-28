@@ -153,7 +153,7 @@ test("localStorage right sidebar omits the route shortcut", async ({ page }) => 
   const publicLinks = rightSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
   const accountSection = rightSidebar.getByTestId(AUTHENTICATED_APP_ACCOUNT_SECTION_TEST_ID);
   await expect(accountSection).toBeVisible();
-  await expect(accountSection.getByRole("button", { name: "not logged in" })).toHaveCount(0);
+  await expect(accountSection.getByText("not logged in", { exact: true })).toHaveCount(0);
   await expect(publicLinks.locator("#public-local-storage-route-link")).toHaveCount(0);
   await expect(
     publicLinks.getByRole("link", {

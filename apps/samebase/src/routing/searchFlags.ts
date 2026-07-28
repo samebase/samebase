@@ -7,7 +7,6 @@ export const ROUTE_SEARCH_PRESENCE_FLAG_KEYS = [
   "add-cloudflare",
   "add-convex",
   "compare",
-  "create-account",
   "dark",
   "delete",
   "delete-account",
@@ -20,7 +19,6 @@ export const ROUTE_SEARCH_PRESENCE_FLAG_KEYS = [
   "openedByCli",
   "prod-ui",
   "reset",
-  "sign-in",
 ] as const;
 
 export type SearchPatch<Search extends object> = {

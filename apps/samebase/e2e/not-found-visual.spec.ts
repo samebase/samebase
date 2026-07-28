@@ -57,9 +57,30 @@ test("signed-out protected routes keep auth in the right sidebar", async ({ page
   await expect(
     page
       .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)
-      .getByRole("button", { name: "not logged in" }),
+      .getByText("not logged in", { exact: true }),
   ).toBeVisible();
   await expect(content).toHaveScreenshot("not-found-signed-out-protected.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.1,
+    scale: "css",
+  });
+});
+
+test("failed Google signup on a protected route keeps feedback in the right sidebar", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/new-app?signup=google", { waitUntil: "networkidle" });
+
+  await expect(page).toHaveURL(/\/new-app\?signup=google$/u);
+  await expect(page.getByTestId("not-found-route-content")).toBeVisible();
+  const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
+  await expect(accountSection.getByText("The app is still internal.")).toBeVisible();
+  await expect(accountSection.getByRole("button", { name: "Google" })).toHaveCount(0);
+  await expect(accountSection.locator("input")).toHaveCount(0);
+  await expect(accountSection).toHaveScreenshot("not-found-protected-google-signup-closed.png", {
     animations: "disabled",
     caret: "hide",
     maxDiffPixelRatio: 0.1,
