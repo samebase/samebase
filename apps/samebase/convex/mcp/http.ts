@@ -133,7 +133,6 @@ function callGetAuthenticationStatusMcpTool(_ctx: ActionCtx, invocation: McpTool
   const authentication: McpAuthenticationStatus = {
     authenticated: true,
     user: {
-      userId: viewerUser._id,
       name: viewerUser.name,
       email: normalizedEmail,
     },

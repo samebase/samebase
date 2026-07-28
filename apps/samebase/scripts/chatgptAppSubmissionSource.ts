@@ -22,17 +22,17 @@ type ToolJustifications = {
 const noDestructiveActions =
   "Does not delete, overwrite, revoke access, or perform irreversible destructive actions.";
 
-export const toolJustifications: Record<string, ToolJustifications | undefined> = {
+export const toolJustifications = {
   samebase_auth_getAuthenticationStatus: {
     read_only_justification:
-      "Reports the authenticated Samebase account, current role, access keys, and MCP token scopes for the caller's own bearer token.",
+      "Reports the authenticated Samebase account, current role, access keys, and MCP token scopes. Request authentication and usage bookkeeping can update private Samebase records.",
     open_world_justification:
-      "Reads Samebase authentication state for the caller's own token; writes nothing and does not contact third-party provider APIs.",
+      "Does not create, publish, or modify public internet state or third-party provider resources.",
     destructive_justification: noDestructiveActions,
   },
   vault_dashboard_getUserVaults: {
     read_only_justification:
-      "Lists the authenticated user's Samebase apps with repository metadata, provisioning state, and the user's own provider coordinates (Convex deployment names and URLs, Cloudflare worker names and dashboard links).",
+      "Lists the authenticated user's Samebase apps with repository metadata, setup state, and stable identifiers for attached provider resources. Request authentication and usage bookkeeping can update private Samebase records.",
     open_world_justification:
       "Does not create, publish, or modify public internet state or third-party systems.",
     destructive_justification: noDestructiveActions,
@@ -53,21 +53,23 @@ export const toolJustifications: Record<string, ToolJustifications | undefined> 
   },
   vault_convex_discoverProjects: {
     read_only_justification:
-      "Discovers exact convex.json files in the vault repository and Convex projects readable through the caller's connected team.",
+      "Discovers exact convex.json files and readable Convex projects, and may refresh private Samebase connection bookkeeping while reading provider state.",
     open_world_justification:
-      "Reads from GitHub, Convex, and available Cloudflare Worker markers; writes nothing anywhere.",
+      "Reads GitHub, Convex, and available Cloudflare Worker markers; it does not change provider or public internet state.",
     destructive_justification: noDestructiveActions,
   },
   vault_cloudflare_listAccounts: {
     read_only_justification:
-      "Only lists Cloudflare accounts readable with the caller's connected Cloudflare login.",
-    open_world_justification: "Reads from the Cloudflare API; writes nothing anywhere.",
+      "Lists Cloudflare accounts and may refresh private Samebase connection bookkeeping while reading Cloudflare.",
+    open_world_justification:
+      "Reads the Cloudflare API; it does not change Cloudflare or public internet state.",
     destructive_justification: noDestructiveActions,
   },
   vault_cloudflare_discoverWorkers: {
     read_only_justification:
-      "Lists Workers on the chosen Cloudflare account and observes their live repository roots against the vault repository.",
-    open_world_justification: "Reads from the Cloudflare API; writes nothing anywhere.",
+      "Lists Workers and their live repository roots, and may refresh private Samebase connection bookkeeping while reading Cloudflare.",
+    open_world_justification:
+      "Reads the Cloudflare API; it does not change Cloudflare or public internet state.",
     destructive_justification: noDestructiveActions,
   },
   vault_convex_attachProjects: {
@@ -90,7 +92,7 @@ export const toolJustifications: Record<string, ToolJustifications | undefined> 
     open_world_justification:
       "Creates or patches build triggers on the caller's own Cloudflare account for the caller's own repository.",
     destructive_justification:
-      "May update the app's own existing build trigger configuration; does not delete user data, repositories, deployments, or Workers.",
+      "May overwrite the app's existing production and preview build trigger configuration, including repository roots and commands. It does not delete user data, repositories, deployments, or Workers.",
   },
   vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds: {
     read_only_justification:
@@ -105,7 +107,8 @@ export const toolJustifications: Record<string, ToolJustifications | undefined> 
       "Restarts a failed managed provisioning run from its failed step, which can create the provider resources the failed run had not completed.",
     open_world_justification:
       "Resumes resource creation in GitHub, Convex, and Cloudflare on the caller's own accounts.",
-    destructive_justification: noDestructiveActions,
+    destructive_justification:
+      "Can overwrite existing Workers Builds trigger configuration and rotate or revoke previously recorded Convex deploy keys while repairing the app.",
   },
   create_browser_handoff: {
     read_only_justification:
@@ -115,77 +118,113 @@ export const toolJustifications: Record<string, ToolJustifications | undefined> 
     destructive_justification:
       "Consumes the one-time handoff token on redemption or account mismatch; does not delete user data, repositories, deployments, Workers, or provider resources.",
   },
+} as const satisfies Record<string, ToolJustifications>;
+
+type SubmissionToolName = keyof typeof toolJustifications;
+
+type SubmissionTestCase = {
+  description: string;
+  user_prompt: string;
+  file_attachment_urls: null;
+  tools_triggered: readonly [SubmissionToolName, ...SubmissionToolName[]];
+  expected_output: string;
+  expected_output_url: null;
 };
+
+type SubmissionNegativeTestCase = Omit<SubmissionTestCase, "tools_triggered"> & {
+  tools_triggered: null;
+};
+
+type SubmissionTestCases = readonly [
+  SubmissionTestCase,
+  SubmissionTestCase,
+  SubmissionTestCase,
+  SubmissionTestCase,
+  SubmissionTestCase,
+];
+
+type SubmissionNegativeTestCases = readonly [
+  SubmissionNegativeTestCase,
+  SubmissionNegativeTestCase,
+  SubmissionNegativeTestCase,
+];
 
 export const testCases = [
   {
-    description: "List the authenticated user's Samebase apps.",
-    user_prompt: "List my Samebase apps.",
-    file_attachment_urls: null,
-    tools_triggered: "vault_dashboard_getUserVaults",
-    expected_output:
-      "Returns the user's Samebase apps with repository names, provisioning state, provider resources, and branch summaries.",
-    expected_output_url: null,
-  },
-  {
-    description: "Inspect provisioning status for existing Samebase apps.",
-    user_prompt: "Show me the provisioning state and provider resources for my Samebase apps.",
-    file_attachment_urls: null,
-    tools_triggered: "vault_dashboard_getUserVaults",
-    expected_output:
-      "Summarizes each app's source setup, Convex and Cloudflare provisioning state, and relevant provider URLs when available.",
-    expected_output_url: null,
-  },
-  {
-    description: "Create a new private Samebase app with a unique provider resource name.",
+    description:
+      "Confirm the submitted reviewer credentials resolve to the prepared Samebase demo account.",
     user_prompt:
-      "Create a private Samebase app under GitHub owner samebase. Choose a new name that starts with tmp-plugin-review-private- and ends with six lowercase letters. Use that same name for the GitHub repository, Convex project, and Cloudflare Worker.",
+      "Am I connected to Samebase? Report the authenticated account, role, and granted MCP scope names. Do not make changes.",
     file_attachment_urls: null,
-    tools_triggered: "vault_actions_createRepository",
+    tools_triggered: ["samebase_auth_getAuthenticationStatus"],
     expected_output:
-      "Starts app provisioning with the new generated name and returns the Samebase vault ID and provisioning run ID.",
+      "Confirms the reviewer account is authenticated, reports its email, role, and granted scope names, and does not expose tokens or internal account IDs.",
     expected_output_url: null,
   },
   {
-    description: "Create a public Samebase app only when public visibility is explicit.",
+    description:
+      "Inspect the existing Samebase apps already prepared in the reviewer demo account.",
     user_prompt:
-      "Create a public Samebase app under GitHub owner samebase. Choose a new name that starts with tmp-plugin-review-public- and ends with six lowercase letters. Use that same name for the GitHub repository, Convex project, and Cloudflare Worker.",
+      "List my Samebase apps. For each app, report its repository, default branch when known, source setup state, provider setup state, attached Convex projects, and attached Cloudflare Workers. Do not make changes.",
     file_attachment_urls: null,
-    tools_triggered: "vault_actions_createRepository",
+    tools_triggered: ["vault_dashboard_getUserVaults"],
     expected_output:
-      "Starts app provisioning with public GitHub repository visibility and the new generated name.",
+      "Returns one summary per visible app using repository coordinates, default branch, independent source and provider states, and stable attached-resource names or identifiers. It does not claim live provider state or provider URLs.",
     expected_output_url: null,
   },
   {
-    description: "Build and publish a web app through the bundled Samebase skills.",
+    description:
+      "Read the Cloudflare account fixture already connected to the prepared reviewer demo account.",
     user_prompt:
-      "Build a customer feedback dashboard with Samebase under GitHub owner samebase. Choose a new app name that starts with tmp-plugin-review-feedback- and ends with six lowercase letters. Use a private repository, then validate and publish the app.",
+      "List the Cloudflare accounts available through my connected Samebase account. Report each account name and account ID. Do not make changes to Cloudflare.",
     file_attachment_urls: null,
-    tools_triggered: "vault_dashboard_getUserVaults, vault_actions_createRepository",
+    tools_triggered: ["vault_cloudflare_listAccounts"],
     expected_output:
-      "Uses the Samebase building and hosting skills, creates or reuses the app through Samebase, works in the returned repository, validates the project, and reports the deployed URL only after provider deployment succeeds.",
+      "Returns the Cloudflare accounts readable through the reviewer account as account-name and account-ID pairs. It creates no Cloudflare resource.",
     expected_output_url: null,
   },
-] as const;
+  {
+    description:
+      "Create one private app with the reviewer account's prepared noter-guest GitHub, Convex, and Cloudflare connections.",
+    user_prompt:
+      "Create one private Samebase app under my GitHub owner noter-guest. Choose a unique name that starts with tmp-plugin-review- and ends with six lowercase letters. Use exactly that name for the app, GitHub repository, Convex project, and Cloudflare Worker. Wait until source setup reaches ready or failed. If source setup is ready, then wait until provider setup reaches ready or failed. Report the repository and final states.",
+    file_attachment_urls: null,
+    tools_triggered: ["vault_dashboard_getUserVaults", "vault_actions_createRepository"],
+    expected_output:
+      "Reads inventory before creation and creates one private repository-backed app. It polls until source setup is ready or failed. After source setup is ready, it also polls provider setup until ready or failed. It reports the repository and final states without treating the initial run IDs as completion.",
+    expected_output_url: null,
+  },
+  {
+    description:
+      "Create a browser handoff for the authenticated reviewer account without changing provider resources.",
+    user_prompt: "Open my Samebase dashboard in the browser.",
+    file_attachment_urls: null,
+    tools_triggered: ["create_browser_handoff"],
+    expected_output:
+      "Creates and presents one short-lived Samebase sign-in URL for the current MCP account. It does not create or modify GitHub, Convex, or Cloudflare resources.",
+    expected_output_url: null,
+  },
+] as const satisfies SubmissionTestCases;
 
 export const negativeTestCases = [
   {
     description: "Do not invoke Samebase for Git-only work in an unrelated repository.",
     user_prompt:
-      "Open a pull request in octocat/Hello-World with these code changes. Do not connect the repository to Samebase or change provider resources.",
+      "Change the README heading in octocat/Hello-World and open a pull request. Do not connect the repository to Samebase or change provider resources.",
     file_attachment_urls: null,
     tools_triggered: null,
     expected_output:
-      "Uses available GitHub or local Git tools without invoking Samebase because the user explicitly keeps this repository outside Samebase.",
+      "Uses available GitHub or local Git capabilities without invoking Samebase because the user explicitly keeps this repository outside Samebase.",
     expected_output_url: null,
   },
   {
-    description: "Do not trigger Samebase for deletion requests.",
-    user_prompt: "Delete my Samebase app and remove all of its provider resources.",
+    description: "Do not perform destructive provider deletion through the Samebase plugin.",
+    user_prompt:
+      "Delete one of my Samebase apps and automatically remove its GitHub repository, Convex project, and Cloudflare Worker.",
     file_attachment_urls: null,
     tools_triggered: null,
     expected_output:
-      "The app should not be invoked because this MCP server does not expose deletion or destructive resource-removal tools.",
+      "Does not call any write or provider-deletion action because the plugin exposes no deletion tool. It may explain that deletion must use the Samebase dashboard, but it must not claim that any resource was removed.",
     expected_output_url: null,
   },
   {
@@ -198,4 +237,4 @@ export const negativeTestCases = [
       "The app should not be invoked because direct Cloudflare administration is outside this MCP server's supported Samebase workflows.",
     expected_output_url: null,
   },
-] as const;
+] as const satisfies SubmissionNegativeTestCases;

@@ -2,14 +2,15 @@
 
 # Discover Convex projects (`discover_convex_projects`)
 
-MCP tool `vault_convex_discoverProjects` · scope `access_provider_connections` · read_only
+MCP tool `vault_convex_discoverProjects` · scope `access_provider_connections` · write
 
 Reads the vault's exact default-branch Git tree to find explicit convex.json files and default
 package.json plus convex/ layouts. Discovery uses exact tree entry types, paths, and object SHAs
 only. It does not read or validate convex.json or package.json contents. It also lists projects
 available through the connected Convex team and annotates current Cloudflare Worker marker
 references when available. A partial source scan never proves that an unlisted code location is
-absent.
+absent. It may refresh private Samebase provider-connection bookkeeping, but it does not change
+GitHub, Convex, Cloudflare, or public internet state.
 
 ## Arguments
 

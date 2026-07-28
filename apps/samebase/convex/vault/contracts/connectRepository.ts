@@ -25,7 +25,7 @@ export const connectRepositoryContract = {
     safety: "write",
     annotations: {
       readOnlyHint: false,
-      openWorldHint: true,
+      openWorldHint: false,
       destructiveHint: false,
     },
     inputDescriptions: {

@@ -20,10 +20,10 @@ export const cloudflareListAccountsContract = {
     name: "vault_cloudflare_listAccounts",
     description:
       "List the Cloudflare accounts available on the caller's connected Cloudflare login, for choosing where a Worker lives.",
-    safety: "read_only",
+    safety: "write",
     annotations: {
-      readOnlyHint: true,
-      openWorldHint: true,
+      readOnlyHint: false,
+      openWorldHint: false,
       destructiveHint: false,
     },
     inputDescriptions: {},

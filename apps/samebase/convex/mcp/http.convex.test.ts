@@ -110,7 +110,7 @@ describe("MCP tool listing access", () => {
       expect.objectContaining({
         name: "samebase_auth_getAuthenticationStatus",
         annotations: {
-          readOnlyHint: true,
+          readOnlyHint: false,
           openWorldHint: false,
           destructiveHint: false,
         },
@@ -118,7 +118,7 @@ describe("MCP tool listing access", () => {
       expect.objectContaining({
         name: "vault_dashboard_getUserVaults",
         annotations: {
-          readOnlyHint: true,
+          readOnlyHint: false,
           openWorldHint: false,
           destructiveHint: false,
         },
@@ -134,24 +134,24 @@ describe("MCP tool listing access", () => {
       expect.objectContaining({
         name: "vault_convex_discoverProjects",
         annotations: {
-          readOnlyHint: true,
-          openWorldHint: true,
+          readOnlyHint: false,
+          openWorldHint: false,
           destructiveHint: false,
         },
       }),
       expect.objectContaining({
         name: "vault_cloudflare_listAccounts",
         annotations: {
-          readOnlyHint: true,
-          openWorldHint: true,
+          readOnlyHint: false,
+          openWorldHint: false,
           destructiveHint: false,
         },
       }),
       expect.objectContaining({
         name: "vault_cloudflare_discoverWorkers",
         annotations: {
-          readOnlyHint: true,
-          openWorldHint: true,
+          readOnlyHint: false,
+          openWorldHint: false,
           destructiveHint: false,
         },
       }),
@@ -159,7 +159,7 @@ describe("MCP tool listing access", () => {
         name: "vault_convex_attachProjects",
         annotations: {
           readOnlyHint: false,
-          openWorldHint: true,
+          openWorldHint: false,
           destructiveHint: false,
         },
       }),
@@ -167,7 +167,7 @@ describe("MCP tool listing access", () => {
         name: "vault_cloudflare_attachWorkers",
         annotations: {
           readOnlyHint: false,
-          openWorldHint: true,
+          openWorldHint: false,
           destructiveHint: false,
         },
       }),
@@ -176,7 +176,7 @@ describe("MCP tool listing access", () => {
         annotations: {
           readOnlyHint: false,
           openWorldHint: true,
-          destructiveHint: false,
+          destructiveHint: true,
         },
       }),
       expect.objectContaining({
@@ -192,7 +192,7 @@ describe("MCP tool listing access", () => {
         annotations: {
           readOnlyHint: false,
           openWorldHint: true,
-          destructiveHint: false,
+          destructiveHint: true,
         },
       }),
     ]);
@@ -505,7 +505,7 @@ describe("MCP tools/call access enforcement", () => {
   });
 
   it("reports authentication status for a valid MCP bearer token", async () => {
-    const { callTool, userId } = await seedMcpBearer({ isApproved: true });
+    const { callTool } = await seedMcpBearer({ isApproved: true });
 
     const payload = await callTool("samebase_auth_getAuthenticationStatus");
     expect(payload).toMatchObject({
@@ -520,7 +520,6 @@ describe("MCP tools/call access enforcement", () => {
           authentication: {
             authenticated: true,
             user: {
-              userId,
               name: "Ada",
               email: "ada@example.com",
             },
@@ -531,6 +530,7 @@ describe("MCP tools/call access enforcement", () => {
         },
       },
     });
+    expect(JSON.stringify(payload)).not.toContain("userId");
   });
 
   it("fails closed instead of returning malformed stored account fields", async () => {

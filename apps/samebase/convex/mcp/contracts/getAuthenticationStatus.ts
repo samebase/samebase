@@ -3,10 +3,9 @@ import { v, type Infer } from "convex/values";
 import { vAccessKey, vViewerRole } from "../../accessModelValidators";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
-const { array, id, literal, null: nullValue, object, optional, string, union } = v;
+const { array, literal, null: nullValue, object, optional, string, union } = v;
 
 const vMcpAuthenticationStatusUser = object({
-  userId: id("users"),
   name: optional(string()),
   email: string(),
 });
@@ -41,9 +40,9 @@ export const getAuthenticationStatusContract = {
     name: "samebase_auth_getAuthenticationStatus",
     description:
       "Read the caller's current Samebase MCP authentication state: account identity, role, access keys, and OAuth token scopes.",
-    safety: "read_only",
+    safety: "write",
     annotations: {
-      readOnlyHint: true,
+      readOnlyHint: false,
       openWorldHint: false,
       destructiveHint: false,
     },

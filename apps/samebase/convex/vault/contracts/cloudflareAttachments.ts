@@ -77,10 +77,10 @@ export const cloudflareDiscoverWorkersContract = {
     name: "vault_cloudflare_discoverWorkers",
     description:
       "Discover Workers in a Cloudflare account and observe which ones are currently connected to this vault's GitHub repository and live Workers Builds roots.",
-    safety: "read_only",
+    safety: "write",
     annotations: {
-      readOnlyHint: true,
-      openWorldHint: true,
+      readOnlyHint: false,
+      openWorldHint: false,
       destructiveHint: false,
     },
     inputDescriptions: {
@@ -91,7 +91,8 @@ export const cloudflareDiscoverWorkersContract = {
   doc: `Reads every visible Worker in the selected Cloudflare account and observes each Worker's
 current GitHub repository, Workers Builds root, trigger pair, and Convex marker. Only a Worker with
 one verified root for the vault's repository is eligible for attachment. A partial inventory never
-proves that an unlisted Worker is absent. This action writes no attachment or provider resource.`,
+proves that an unlisted Worker is absent. It may refresh private Samebase provider-connection
+bookkeeping, but it writes no attachment or provider resource.`,
 } as const;
 
 export const cloudflareAttachWorkersContract = {
@@ -117,7 +118,7 @@ export const cloudflareAttachWorkersContract = {
     safety: "write",
     annotations: {
       readOnlyHint: false,
-      openWorldHint: true,
+      openWorldHint: false,
       destructiveHint: false,
     },
     inputDescriptions: {

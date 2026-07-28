@@ -2,7 +2,7 @@
 
 # List Cloudflare accounts (`list_cloudflare_accounts`)
 
-MCP tool `vault_cloudflare_listAccounts` · scope `access_provider_connections` · read_only
+MCP tool `vault_cloudflare_listAccounts` · scope `access_provider_connections` · write
 
 Discovery read for the manual Cloudflare attach flow: returns the accounts on the caller's connected
 Cloudflare login. Use the chosen `accountId` with `discover_cloudflare_workers`, then attach one or
