@@ -10,6 +10,7 @@ import {
   INSTALL_ICON_SVG_URL,
   MASKABLE_COMPACT_IDENTITY_SOURCE_SVG_URL,
   createCompactIdentitySvgMarkup,
+  createDarkCompactIdentitySvgMarkup,
   createFaviconCompactIdentitySvgMarkup,
   createMaskableCompactIdentitySvgMarkup,
 } from "@/components/compactIdentitySvgAsset";
@@ -77,6 +78,15 @@ const rasterContracts = [
     openingSize: 60,
   },
   {
+    canvasSize: 256,
+    filename: "chatgpt-app-icon-dark.png",
+    inset: 38,
+    inverted: true,
+    markSize: 180,
+    openingInset: 98,
+    openingSize: 60,
+  },
+  {
     canvasSize: 512,
     filename: "icon-512.png",
     inset: 77,
@@ -127,6 +137,15 @@ describe("compactIdentitySvgAsset", () => {
     expect(generatedSvg).toContain('x="3" y="3" width="2" height="2"');
   });
 
+  it("keeps the dark ChatGPT icon on the inverse compact identity", () => {
+    const generatedSvg = createDarkCompactIdentitySvgMarkup();
+
+    expect(generatedSvg).toContain(`fill="${COMPACT_IDENTITY_FOREGROUND_COLOR}"`);
+    expect(generatedSvg).toContain(`fill="${COMPACT_IDENTITY_BACKGROUND_COLOR}"`);
+    expect(generatedSvg).toContain('x="9" y="9" width="42" height="42"');
+    expect(generatedSvg).toContain('x="23" y="23" width="14" height="14"');
+  });
+
   it("keeps the maskable mark square and inside its safe area", () => {
     const generatedSvg = createMaskableCompactIdentitySvgMarkup().replace(/\r\n/g, "\n").trim();
 
@@ -160,7 +179,10 @@ describe("compactIdentitySvgAsset", () => {
             x < contract.openingInset + contract.openingSize &&
             y >= contract.openingInset &&
             y < contract.openingInset + contract.openingSize;
-          const expectedColor = insideMark && !insideOpening ? foreground : background;
+          const inverted = "inverted" in contract && contract.inverted;
+          const canvasColor = inverted ? foreground : background;
+          const markColor = inverted ? background : foreground;
+          const expectedColor = insideMark && !insideOpening ? markColor : canvasColor;
           const pixelOffset = (y * png.width + x) * 4;
 
           if (

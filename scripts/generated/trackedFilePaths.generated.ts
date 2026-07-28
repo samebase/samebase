@@ -589,6 +589,7 @@ export const trackedFilePaths = [
   "apps/samebase/public/brand/social/samebase-x-profile-banner-duotone.svg",
   "apps/samebase/public/brand/social/samebase-x-profile-banner-striped.png",
   "apps/samebase/public/brand/social/samebase-x-profile-banner-striped.svg",
+  "apps/samebase/public/chatgpt-app-icon-dark.png",
   "apps/samebase/public/chatgpt-app-icon.png",
   "apps/samebase/public/docs/actions/attach_cloudflare_workers.md",
   "apps/samebase/public/docs/actions/attach_convex_projects.md",
