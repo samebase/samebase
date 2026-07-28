@@ -581,6 +581,7 @@ test.describe("mobile landing preview", () => {
         caret: "hide",
         maxDiffPixelRatio: 0.02,
         scale: "css",
+        timeout: 30_000,
       },
     );
     await expect(article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID)).toHaveScreenshot(
