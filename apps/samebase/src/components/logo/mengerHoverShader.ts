@@ -110,8 +110,9 @@ varying float vHoverBlockerLinkOffset;
 varying vec3 vHoverSpongePosition;
 
 vec4 readHoverState(float index) {
-  float x = mod(index, hoverStateTextureSize);
-  float y = floor(index / hoverStateTextureSize);
+  float roundedIndex = floor(index + 0.5);
+  float y = floor((roundedIndex + 0.5) / hoverStateTextureSize);
+  float x = roundedIndex - y * hoverStateTextureSize;
   vec2 uv = (vec2(x, y) + 0.5) / hoverStateTextureSize;
   return texture2D(hoverStateTexture, uv);
 }
@@ -161,8 +162,9 @@ varying float vHoverBlockerLinkOffset;
 varying vec3 vHoverSpongePosition;
 
 vec4 readTextureValue(sampler2D sourceTexture, float textureSize, float index) {
-  float x = mod(index, textureSize);
-  float y = floor(index / textureSize);
+  float roundedIndex = floor(index + 0.5);
+  float y = floor((roundedIndex + 0.5) / textureSize);
+  float x = roundedIndex - y * textureSize;
   vec2 uv = (vec2(x, y) + 0.5) / textureSize;
   return texture2D(sourceTexture, uv);
 }

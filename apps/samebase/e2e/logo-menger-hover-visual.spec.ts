@@ -20,6 +20,12 @@ type HoleSize = {
   width: number;
 };
 
+type NormalizedFacePoint = {
+  name: string;
+  x: number;
+  y: number;
+};
+
 async function waitForPaint(page: Page): Promise<void> {
   await page.evaluate(async () => {
     await document.fonts.ready;
@@ -190,6 +196,35 @@ function readFaceOnHoleSizes(screenshot: Buffer): HoleSize[] {
   }
 
   return holeSizes.sort((left, right) => right.width * right.height - left.width * left.height);
+}
+
+function countLightPixelsNearFacePoint(screenshot: Buffer, point: NormalizedFacePoint): number {
+  const png = PNG.sync.read(screenshot);
+  const faceBounds = measureScreenshotForegroundBounds(screenshot);
+  if (!faceBounds) {
+    throw new Error("The face-on Menger screenshot must contain the cube face.");
+  }
+
+  const faceWidth = faceBounds.maxX - faceBounds.minX + 1;
+  const faceHeight = faceBounds.maxY - faceBounds.minY + 1;
+  const centerX = Math.round(faceBounds.minX + faceWidth * point.x);
+  const centerY = Math.round(faceBounds.minY + faceHeight * point.y);
+  let lightPixelCount = 0;
+
+  for (let y = centerY - 2; y <= centerY + 2; y += 1) {
+    for (let x = centerX - 2; x <= centerX + 2; x += 1) {
+      const index = (y * png.width + x) * 4;
+      const red = png.data[index];
+      const green = png.data[index + 1];
+      const blue = png.data[index + 2];
+      const alpha = png.data[index + 3];
+      if (red >= 220 && green >= 220 && blue >= 220 && alpha > 0) {
+        lightPixelCount += 1;
+      }
+    }
+  }
+
+  return lightPixelCount;
 }
 
 test("Menger hover rests at depth one in the face-on view", async ({ page }) => {
@@ -387,6 +422,54 @@ test("Menger hover keeps depth-two, depth-three, and depth-four openings distinc
     "logo-menger-hover-face-on-depth-hierarchy.png",
     SCREENSHOT_OPTIONS,
   );
+});
+
+test("Menger hover clears depth-four blocker links at texture row boundaries", async ({ page }) => {
+  const scene = await openMengerHoverCase(page, {
+    elevationDegrees: "0",
+    rotationDegrees: "0",
+  });
+  const restingScreenshot = await scene.screenshot({
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    timeout: 60_000,
+  });
+  const faceBounds = measureScreenshotForegroundBounds(restingScreenshot);
+  const sceneBox = await scene.boundingBox();
+  if (!faceBounds || !sceneBox) {
+    throw new Error("The face-on Menger scene must expose its face and scene bounds.");
+  }
+
+  const faceWidth = faceBounds.maxX - faceBounds.minX + 1;
+  const faceHeight = faceBounds.maxY - faceBounds.minY + 1;
+  await page.mouse.move(
+    sceneBox.x + faceBounds.minX + (faceWidth * 5) / 6,
+    sceneBox.y + faceBounds.minY + faceHeight / 2,
+  );
+  await expect(scene).toHaveAttribute("data-hover-coordinate-x", "1.000");
+  await expect(scene).toHaveAttribute("data-hover-coordinate-y", /^0\.49[0-9]$|^0\.50[0-9]$/);
+  await expect(scene).toHaveAttribute("data-hover-coordinate-z", /^0\.16[0-9]$/);
+  await expect(scene).toHaveAttribute("data-hover-settled", "true");
+  await waitForPaint(page);
+
+  const revealedScreenshot = await scene.screenshot({
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    timeout: 60_000,
+  });
+  const paths = [
+    { name: "E-W-SE", x: 20.5 / 27, y: 14.5 / 27 },
+    { name: "E-S-NW", x: 21.5 / 27, y: 15.5 / 27 },
+  ] satisfies NormalizedFacePoint[];
+
+  for (const path of paths) {
+    expect(
+      countLightPixelsNearFacePoint(revealedScreenshot, path),
+      `${path.name} must stay open through the full sponge.`,
+    ).toBeGreaterThanOrEqual(10);
+  }
 });
 
 test("Menger hover keeps the three visible faces and internal tunnels aligned", async ({
