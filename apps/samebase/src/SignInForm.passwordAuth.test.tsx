@@ -354,12 +354,17 @@ describe("PasswordAuthForm", () => {
     expect(onSignIn).toHaveBeenCalledTimes(1);
   });
 
-  it("navigates to the dashboard after password sign-in once auth state is authenticated", async () => {
+  it("navigates to the dashboard after password success when the auth controls leave the tree", async () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "preview" },
       passwordAuthMode: "local_worktree_seed",
     };
-    signInWithPasswordMock.mockResolvedValue(undefined);
+    let resolvePasswordSignIn: (() => void) | undefined;
+    signInWithPasswordMock.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolvePasswordSignIn = resolve;
+      }),
+    );
     vi.stubEnv("VITE_LOCAL_WORKTREE_PASSWORD_EMAIL", "Nicu@samebase.com");
     vi.stubEnv("VITE_LOCAL_WORKTREE_PASSWORD_VALUE", "pass1234");
     const rootElement = document.createElement("div");
@@ -389,11 +394,19 @@ describe("PasswordAuthForm", () => {
     });
     expect(navigateMock).not.toHaveBeenCalled();
 
-    componentState.isAuthenticated = true;
     await act(async () => {
-      localRoot.render(<PublicLandingAuthControls googleAuthFlow="public-signup" />);
+      localRoot.render(<div>Signed-in owner branch</div>);
     });
+    expect(rootElement.textContent).toBe("Signed-in owner branch");
 
+    const completePasswordSignIn = resolvePasswordSignIn;
+    if (completePasswordSignIn === undefined) {
+      throw new Error("Expected password sign-in to be pending.");
+    }
+    await act(async () => {
+      completePasswordSignIn();
+      await Promise.resolve();
+    });
     expect(navigateMock).toHaveBeenCalledWith({
       search: expect.any(Function),
       to: "/vault",

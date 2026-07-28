@@ -124,8 +124,11 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
         <div className="mt-3">
           <div className="flex flex-col gap-2">
             <Button
+              aria-hidden="true"
               data-testid={PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID}
-              className="h-auto flex-1 py-2.5"
+              className="h-auto flex-1 py-2.5 disabled:opacity-100"
+              disabled
+              tabIndex={-1}
               variant="outline"
               type="button"
             >

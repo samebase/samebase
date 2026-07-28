@@ -22,7 +22,6 @@ import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
-import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 /**
  * SSG cannot read per-browser auth preferences. Password auth controls that
@@ -55,16 +54,11 @@ function readLocalWorktreePasswordCredentials(): {
 }
 
 function usePublicLandingPasswordAuthControls(): {
-  onPasswordSignIn: () => Promise<unknown> | void;
   passwordAuthSurface: PasswordAuthSurface;
 } {
-  const navigate = useNavigate();
-  const { isAuthenticated } = useConvexAuth();
   const hasHydrated = useHasHydrated();
-  const [passwordSignInReadyForDashboard, setPasswordSignInReadyForDashboard] = useState(false);
   const location = useLocation({
     select: (currentLocation) => ({
-      pathname: currentLocation.pathname,
       searchStr: currentLocation.searchStr,
     }),
   });
@@ -101,26 +95,6 @@ function usePublicLandingPasswordAuthControls(): {
   }, [deploymentAuthPolicy?.passwordAuthMode]);
 
   useEffect(() => {
-    if (
-      !passwordSignInReadyForDashboard ||
-      !isAuthenticated ||
-      location.pathname === MCP_CONSENT_APP_PATH
-    ) {
-      return;
-    }
-
-    void navigate({
-      search: (currentSearch) => ({
-        ...currentSearch,
-        auth: undefined,
-        "auth-return": undefined,
-        signup: undefined,
-      }),
-      to: DASHBOARD_ROUTE,
-    });
-  }, [isAuthenticated, location.pathname, navigate, passwordSignInReadyForDashboard]);
-
-  useEffect(() => {
     // Router search state intentionally drives this effect even though the URL
     // helpers read window.location.search while deciding whether to strip it.
     if (
@@ -141,12 +115,7 @@ function usePublicLandingPasswordAuthControls(): {
     window.history.replaceState(window.history.state, "", nextPath);
   }, [deploymentProfile, prodUiQueryEnabled, productionPublicOrigin]);
 
-  return {
-    onPasswordSignIn: () => {
-      setPasswordSignInReadyForDashboard(true);
-    },
-    passwordAuthSurface,
-  };
+  return { passwordAuthSurface };
 }
 
 export function PublicLandingAuthControls({
@@ -154,6 +123,7 @@ export function PublicLandingAuthControls({
 }: {
   googleAuthFlow: "current-route" | "public-signup";
 }) {
+  const navigate = useNavigate();
   const { isAuthenticated } = useConvexAuth();
   const location = useLocation({
     select: (currentLocation) => ({
@@ -166,7 +136,7 @@ export function PublicLandingAuthControls({
     location.pathname,
     rootRouteSearch,
   );
-  const { onPasswordSignIn, passwordAuthSurface } = usePublicLandingPasswordAuthControls();
+  const { passwordAuthSurface } = usePublicLandingPasswordAuthControls();
 
   if (isAuthenticated || showGoogleSignupClosedState) {
     return null;
@@ -182,7 +152,23 @@ export function PublicLandingAuthControls({
         markPublicSignupReturn={publicSignup}
       />
       {passwordAuthSurface !== "hidden" ? (
-        <PasswordAuthForm onSignIn={onPasswordSignIn} surface={passwordAuthSurface} />
+        <PasswordAuthForm
+          onSignIn={
+            publicSignup
+              ? () =>
+                  navigate({
+                    search: (currentSearch) => ({
+                      ...currentSearch,
+                      auth: undefined,
+                      "auth-return": undefined,
+                      signup: undefined,
+                    }),
+                    to: DASHBOARD_ROUTE,
+                  })
+              : undefined
+          }
+          surface={passwordAuthSurface}
+        />
       ) : null}
     </div>
   );

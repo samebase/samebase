@@ -12,7 +12,12 @@ import {
 import { readRootRouteSearch, type RootRouteSearch } from "@/routeSearch/root";
 import { PublicLandingAccountSection } from "./PublicLandingAccountSection";
 
-const routeState = vi.hoisted<{ pathname: string; search: RootRouteSearch }>(() => ({
+const routeState = vi.hoisted<{
+  access: "access_public" | "access_user_preferences";
+  pathname: string;
+  search: RootRouteSearch;
+}>(() => ({
+  access: "access_public",
   pathname: "/",
   search: {},
 }));
@@ -147,6 +152,15 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
         searchStr: search.length > 0 ? `?${search}` : "",
       });
     },
+    useMatches: ({
+      select,
+    }: {
+      select: (matches: Array<{ staticData: { access: typeof routeState.access } }>) => unknown;
+    }) =>
+      select([
+        { staticData: { access: "access_public" } },
+        { staticData: { access: routeState.access } },
+      ]),
     useNavigate: () => vi.fn(),
     useRouter: () => ({
       buildLocation: buildLocationMock,
@@ -197,6 +211,7 @@ describe("PublicLandingAccountSection", () => {
   beforeEach(() => {
     authState.isAuthenticated = false;
     authState.isLoading = false;
+    routeState.access = "access_public";
     Object.defineProperty(window, "localStorage", {
       configurable: true,
       value: createTestStorage(),
@@ -326,6 +341,42 @@ describe("PublicLandingAccountSection", () => {
     expect(markup).toContain("Google");
     expect(markup).not.toContain("lucide-chevron-down");
     expect(markup).not.toContain("The app is still internal.");
+  });
+
+  it("keeps protected-route login in the account sidebar", async () => {
+    routeState.access = "access_user_preferences";
+    prepareLandingAccountSection("/settings");
+    buildLocationMock.mockReturnValue({ href: "/settings" });
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+
+    await act(async () => {
+      root.render(createLandingAccountSectionElement());
+    });
+
+    const googleButton = Array.from(rootElement.querySelectorAll("button")).find(
+      (button) => button.textContent.trim() === "Google",
+    );
+    if (!(googleButton instanceof HTMLButtonElement)) {
+      throw new Error("Google sign-in button not found.");
+    }
+
+    await act(async () => {
+      googleButton.click();
+    });
+
+    expect(buildLocationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: ".",
+      }),
+    );
+    expect(signInWithGoogleMock).toHaveBeenCalledWith("/settings");
+
+    await act(async () => {
+      root.unmount();
+    });
+    rootElement.remove();
   });
 
   it("keeps the MCP consent route when Google auth starts", async () => {

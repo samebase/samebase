@@ -13,7 +13,7 @@ import { type GetFunctionReferenceReturnType } from "@/lib/convexUtils";
 import { shouldRenderGoogleSignupClosedState } from "@/lib/publicLandingAuthState";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 import { readRootRouteSearch } from "@/routeSearch/root";
-import { useLocation } from "@tanstack/react-router";
+import { useLocation, useMatches } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
@@ -25,6 +25,9 @@ type PublicLandingSignedInViewer = NonNullable<
 >;
 
 function PublicLandingLoggedOutAccountSection() {
+  const routeIsPublic = useMatches({
+    select: (matches) => matches.every((match) => match.staticData.access === "access_public"),
+  });
   const location = useLocation({
     select: (currentLocation) => ({
       pathname: currentLocation.pathname,
@@ -54,7 +57,9 @@ function PublicLandingLoggedOutAccountSection() {
         ) : (
           <PublicLandingAuthControls
             googleAuthFlow={
-              location.pathname === MCP_CONSENT_APP_PATH ? "current-route" : "public-signup"
+              location.pathname === MCP_CONSENT_APP_PATH || !routeIsPublic
+                ? "current-route"
+                : "public-signup"
             }
           />
         )}

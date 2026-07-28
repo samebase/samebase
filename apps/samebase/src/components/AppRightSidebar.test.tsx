@@ -170,6 +170,17 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
       pathname: "/vault",
       searchStr: "",
     }),
+    useMatches: ({
+      select,
+    }: {
+      select: (
+        matches: Array<{ staticData: { access: "access_public" | "access_dashboard" } }>,
+      ) => unknown;
+    }) =>
+      select([
+        { staticData: { access: "access_public" } },
+        { staticData: { access: "access_dashboard" } },
+      ]),
     useNavigate: () => vi.fn(),
     useRouter: () => ({
       buildLocation: () => ({ href: "/" }),
@@ -297,7 +308,7 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).not.toContain("Account");
   });
 
-  it("shows the public signed-out account row without provider controls", () => {
+  it("shows the single signed-out auth surface in the protected-route sidebar", () => {
     authState.isAuthenticated = false;
     authState.isLoading = false;
 
@@ -309,6 +320,26 @@ describe("AppRightSidebarContent", () => {
     expect(markup).not.toContain("checking login");
     expect(markup).not.toContain("/providers");
     expect(markup).not.toContain(">/vault<");
+  });
+
+  it("keeps the prehydration Google placeholder non-interactive", () => {
+    authState.isAuthenticated = false;
+    authState.isLoading = true;
+
+    const markup = renderRightSidebar([]);
+    const rootElement = document.createElement("div");
+    rootElement.innerHTML = markup;
+    const googlePlaceholder = Array.from(rootElement.querySelectorAll("button")).find(
+      (button) => button.textContent.trim() === "Google",
+    );
+
+    if (!(googlePlaceholder instanceof HTMLButtonElement)) {
+      throw new Error("Prehydration Google placeholder not found.");
+    }
+
+    expect(googlePlaceholder.disabled).toBe(true);
+    expect(googlePlaceholder.getAttribute("aria-hidden")).toBe("true");
+    expect(googlePlaceholder.tabIndex).toBe(-1);
   });
 
   it("uses the public signed-out account row after hydration when loading without local auth material", async () => {
