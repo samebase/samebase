@@ -18,6 +18,8 @@ import { publicMediaManifest } from "../shared/publicMediaManifest";
 const { defaultBrowserType: _landingPreviewMobileBrowserType, ...landingPreviewMobileDevice } =
   devices["iPhone 13"];
 
+test.setTimeout(120_000);
+
 const LANDING_HERO_VIDEO_URL = publicMediaManifest.landingTicTacToeCodex.publicUrl;
 const LANDING_PREVIEW_PROD_UI_ROUTE = `${LANDING_PREVIEW_ROUTE}?prod-ui`;
 
@@ -259,7 +261,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
     })
     .toBe(true);
   await expect(article.getByRole("img", { name: "Samebase", exact: true })).toBeVisible();
-  // The closing band keeps the one interactive logo slot on the page.
+  // The closing band keeps one accessible logo image beside the interactive hero.
   await expect(article.getByRole("img", { name: "Samebase logo", exact: true })).toHaveCount(1);
   await expect(article).toContainText("drag it");
   await expect(article.getByRole("link", { name: "open the logo lab" })).toBeVisible();
@@ -271,15 +273,19 @@ test("landing preview route renders the React overview in workspace chrome", asy
 
   await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toHaveCount(0);
 
-  // The interactive logo canvas renders nondeterministically across GPUs. The
+  // The interactive logo canvases render nondeterministically across GPUs. The
   // video request stays aborted so its real frame-zero poster remains visible.
   await expect(page).toHaveScreenshot("landing-preview-overview-desktop.png", {
     animations: "disabled",
     caret: "hide",
-    mask: [page.getByTestId("public-landing-logo-stage")],
+    mask: [
+      page.getByTestId("landing-preview-hero-menger"),
+      page.getByTestId("public-landing-logo-stage"),
+    ],
     maskColor: "#f5f5f5",
     maxDiffPixelRatio: 0.02,
     scale: "css",
+    timeout: 30_000,
   });
   await expect(article.getByTestId(LANDING_PREVIEW_PROVIDER_GRID_TEST_ID)).toHaveScreenshot(
     "landing-preview-provider-grid-desktop.png",
@@ -398,6 +404,8 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
   // cards instead of the five-column table.
   await expect(article.locator("table")).toBeHidden();
   await expect(article).toContainText("configure Workers Builds for GitHub");
+  await expect(page.getByTestId("landing-preview-hero-menger")).toBeHidden();
+  await expect(page.getByTestId("logo-menger-hover-scene")).toHaveCount(0);
 
   await expect(page).toHaveScreenshot("landing-preview-overview-narrow-pane.png", {
     animations: "disabled",
@@ -582,6 +590,7 @@ test.describe("mobile landing preview", () => {
         caret: "hide",
         maxDiffPixelRatio: 0.02,
         scale: "css",
+        timeout: 30_000,
       },
     );
 

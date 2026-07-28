@@ -84,6 +84,8 @@ export function MengerHoverScene({
   faceColors,
   maximumDepth,
   onInteractionEnd,
+  onRenderReady,
+  onRenderUnavailable,
   onViewChange,
   pointerTiltEnabled,
   pointerTiltRadiusScale,
@@ -96,6 +98,8 @@ export function MengerHoverScene({
   faceColors: FaceColors;
   maximumDepth: number;
   onInteractionEnd: (finalView: LogoViewState) => void;
+  onRenderReady?: () => void;
+  onRenderUnavailable?: () => void;
   onViewChange: (nextView: LogoViewState) => void;
   pointerTiltEnabled: boolean;
   pointerTiltRadiusScale: number;
@@ -158,11 +162,18 @@ export function MengerHoverScene({
 
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
-    const renderer = new THREE.WebGLRenderer({
-      alpha: true,
-      antialias: true,
-      powerPreference: "high-performance",
-    });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        alpha: true,
+        antialias: true,
+        powerPreference: "high-performance",
+      });
+    } catch (error: unknown) {
+      console.error("Failed to create Menger hover renderer", error);
+      onRenderUnavailable?.();
+      return;
+    }
     renderer.setClearColor(0x000000, 0);
     renderer.domElement.setAttribute("aria-hidden", "true");
     container.replaceChildren(renderer.domElement);
@@ -598,6 +609,7 @@ export function MengerHoverScene({
       if (firstRenderPending) {
         firstRenderPending = false;
         container.dataset.hoverSceneBuildMs = (performance.now() - sceneBuildStartedAt).toFixed(3);
+        onRenderReady?.();
       }
     };
 
@@ -719,7 +731,16 @@ export function MengerHoverScene({
       scene.clear();
       container.replaceChildren();
     };
-  }, [interactionRef, leftFaceColor, maximumDepth, model, rightFaceColor, topFaceColor]);
+  }, [
+    interactionRef,
+    leftFaceColor,
+    maximumDepth,
+    model,
+    onRenderReady,
+    onRenderUnavailable,
+    rightFaceColor,
+    topFaceColor,
+  ]);
 
   useEffect(() => {
     revealRadiusRef.current = revealRadius;

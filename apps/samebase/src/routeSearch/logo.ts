@@ -567,7 +567,7 @@ const RouteSearchSchema_logoMengerHover = defineRouteSearchParams({
       access: "access_public",
       sampleValue: "1.5",
       ...logoViewRouteSearchSuggestion,
-      valueSuggestions: ["0", "0.5", "0.75", "1", "1.25", "1.5", "2"],
+      valueSuggestions: ["0", "0.5", "0.75", "1", "1.25", "1.5", "1.67", "2"],
       valueType: "numeric",
     },
   ),

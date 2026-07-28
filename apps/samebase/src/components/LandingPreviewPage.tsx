@@ -1,14 +1,7 @@
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
+import { LandingHeroMenger } from "@/components/logo/LandingHeroMenger";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
-import {
-  SierpinskiCarpetHoverScene,
-  type SierpinskiCarpetHoverSceneConfig,
-} from "@/components/logo/SierpinskiCarpetHoverScene";
-import { getTailwindColorHex } from "@/components/logo/logoTailwindColors";
-import { readLogoRouteRenderState } from "@/components/logo/logoRouteRenderState";
-import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
-import { SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS } from "@samebase/logo-model/sierpinski-carpet-hover";
 import {
   isAppPresentationAuthenticated,
   useAppAuthPresentation,
@@ -43,7 +36,7 @@ import docsReceiptsMarkdown from "@/content/docs-receipts.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
 import { publicMediaManifest } from "../../shared/publicMediaManifest";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 type LandingPreviewDocumentKey = "overview" | "doItYourself" | "theStack" | "receipts" | "pricing";
 
@@ -568,47 +561,6 @@ function LandingClosingBandLogo() {
   );
 }
 
-/**
-Fixed hero reveal tuning at the lab default radius, capped at depth four so
-the finest revealed holes stay crisp squares at hero sizes. The lab route at
-/logo/hover/carpet owns the adjustable knobs.
-*/
-const LANDING_HERO_CARPET_CONFIG: SierpinskiCarpetHoverSceneConfig = {
-  maxDepth: 4,
-  mechanic: "slide",
-  revealRadius: SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
-};
-
-/**
-Desktop-only hero mark: the carpet opens deeper recursion around the pointer
-page-wide, colored by the same root-retained logo params that follow the
-visitor into the app. Below @3xl the canonical mobile order keeps the video
-first and hover has no touch analog, so the scene stays display-none and its
-draw loop skips the hidden canvas.
-*/
-function LandingHeroCarpet() {
-  const rootRouteSearch = useRootRouteSearch();
-  const routeState = useMemo(
-    () =>
-      readLogoRouteRenderState({
-        renderMode: "raster",
-        routeSearch: rootRouteSearch,
-      }),
-    [rootRouteSearch],
-  );
-  const { faceColors } = useResolvedAppThemeColorState(routeState.themeColors);
-
-  return (
-    <div className="hidden min-h-0 @3xl:block" data-testid="landing-preview-hero-carpet">
-      <SierpinskiCarpetHoverScene
-        carpetColor={getTailwindColorHex(faceColors.right)}
-        config={LANDING_HERO_CARPET_CONFIG}
-        touchReveal={false}
-      />
-    </div>
-  );
-}
-
 function LandingPreviewOverview() {
   return (
     <article
@@ -653,7 +605,7 @@ function LandingPreviewOverview() {
                 </p>
               </div>
             </div>
-            <LandingHeroCarpet />
+            <LandingHeroMenger />
           </div>
           <div className="mt-12" style={{ containerType: "inline-size" }}>
             <div

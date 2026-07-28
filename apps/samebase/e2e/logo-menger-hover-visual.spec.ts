@@ -1,5 +1,13 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import {
+  STATIC_LOGO_ELEVATION_DEGREES,
+  STATIC_LOGO_ROTATION_DEGREES,
+} from "@samebase/logo-model/identity";
 import { PNG } from "pngjs";
+import {
+  DRAG_ELEVATION_DEGREES_PER_PIXEL,
+  DRAG_ROTATION_DEGREES_PER_PIXEL,
+} from "../src/components/logo/logoViewDragConstants";
 import { signInIfNeeded } from "./liveHelpers";
 import { measureScreenshotForegroundBounds } from "./visualDiff";
 
@@ -37,6 +45,45 @@ async function waitForPaint(page: Page): Promise<void> {
   });
 }
 
+async function dragSceneByPixels(
+  page: Page,
+  scene: Locator,
+  delta: { x: number; y: number },
+): Promise<void> {
+  const sceneBox = await scene.boundingBox();
+  if (!sceneBox) {
+    throw new Error("The Menger hover scene must have a bounding box.");
+  }
+
+  const centerX = sceneBox.x + sceneBox.width / 2;
+  const centerY = sceneBox.y + sceneBox.height / 2;
+  await page.mouse.move(centerX, centerY);
+  await page.mouse.down();
+  await page.mouse.move(centerX + delta.x, centerY + delta.y);
+  await page.mouse.up();
+}
+
+async function installUnavailableWebGL(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const originalGetContextDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLCanvasElement.prototype,
+      "getContext",
+    );
+    const originalGetContext = originalGetContextDescriptor?.value;
+    if (typeof originalGetContext !== "function") {
+      return;
+    }
+
+    HTMLCanvasElement.prototype.getContext = function (contextId, ...args) {
+      if (contextId === "webgl" || contextId === "webgl2" || contextId === "experimental-webgl") {
+        return null;
+      }
+
+      return Reflect.apply(originalGetContext, this, [contextId, ...args]);
+    };
+  });
+}
+
 async function openMengerHoverCase(
   page: Page,
   {
@@ -44,7 +91,7 @@ async function openMengerHoverCase(
     maximumDepth = "4",
     pointerTiltEnabled = false,
     pointerTiltRadiusScale = "1",
-    pointerTiltStrengthScale = "1",
+    pointerTiltStrengthScale = "1.67",
     reducedMotion = "reduce",
     rotationDegrees,
   }: {
@@ -66,7 +113,7 @@ async function openMengerHoverCase(
       maximumDepth === "4" ? "" : `&depth=${maximumDepth}`
     }${pointerTiltEnabled ? "&tilt" : ""}${
       pointerTiltRadiusScale === "1" ? "" : `&tiltRadius=${pointerTiltRadiusScale}`
-    }${pointerTiltStrengthScale === "1" ? "" : `&tiltStrength=${pointerTiltStrengthScale}`}`,
+    }${pointerTiltStrengthScale === "1.67" ? "" : `&tiltStrength=${pointerTiltStrengthScale}`}`,
   );
 
   const hoverPage = page.locator('[data-testid="logo-menger-hover-page"]');
@@ -289,6 +336,106 @@ test("Menger hover controls reveal depth from one through five", async ({ page }
   await expect(page).toHaveURL(/(?:\?|&)depth=2(?:&|$)/);
 });
 
+test("landing preview uses the depth-four Menger hover scene", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/landing-preview", { waitUntil: "domcontentloaded" });
+
+  const hero = page.getByTestId("landing-preview-hero-menger");
+  const fallback = page.getByTestId("landing-preview-hero-menger-fallback");
+  const scene = hero.getByTestId("logo-menger-hover-scene");
+  await expect(hero).toBeVisible({ timeout: 30_000 });
+  await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
+  await expect(hero).toHaveAttribute("data-state", "ready");
+  await expect(fallback).toHaveCSS("opacity", "0");
+  await expect(scene).toHaveAttribute("data-menger-maximum-depth", "4");
+  await expect(scene).toHaveAttribute("data-menger-pointer-tilt", "landing");
+  await expect(scene).toHaveAttribute("data-menger-pointer-tilt-radius-scale", "1");
+  await expect(scene).toHaveAttribute("data-menger-pointer-tilt-strength-scale", "1.67");
+  await expect(scene).toHaveAttribute("data-logo-elevation-degrees", "0");
+  await expect(scene).toHaveAttribute("data-logo-rotation-degrees", "0");
+
+  const sceneBox = await scene.boundingBox();
+  if (!sceneBox) {
+    throw new Error("The landing Menger scene must have a bounding box.");
+  }
+  await page.mouse.move(sceneBox.x + sceneBox.width / 2, sceneBox.y + sceneBox.height / 2);
+  await expect
+    .poll(() => readNumberAttribute(scene, "data-hover-maximum-openness"))
+    .toBeGreaterThan(0);
+  await expect(scene).toHaveAttribute("data-hover-settled", "true");
+  await waitForPaint(page);
+  await expect(hero).toHaveScreenshot("landing-preview-hero-menger.png", SCREENSHOT_OPTIONS);
+
+  await dragSceneByPixels(page, scene, { x: 5, y: 0 });
+  await expect(scene).toHaveAttribute("data-logo-elevation-degrees", "0");
+  await expect(scene).toHaveAttribute("data-logo-rotation-degrees", "0");
+  await expect
+    .poll(() => {
+      const url = new URL(page.url());
+      return {
+        elevation: url.searchParams.get("elev"),
+        rotation: url.searchParams.get("rot"),
+      };
+    })
+    .toEqual({ elevation: null, rotation: null });
+
+  await dragSceneByPixels(page, scene, {
+    x: STATIC_LOGO_ROTATION_DEGREES / DRAG_ROTATION_DEGREES_PER_PIXEL,
+    y: STATIC_LOGO_ELEVATION_DEGREES / DRAG_ELEVATION_DEGREES_PER_PIXEL,
+  });
+  await expect
+    .poll(() => {
+      const url = new URL(page.url());
+      return {
+        elevation: url.searchParams.get("elev"),
+        rotation: url.searchParams.get("rot"),
+      };
+    })
+    .toEqual({ elevation: "35.3", rotation: "45" });
+
+  await dragSceneByPixels(page, scene, { x: 5, y: 0 });
+  await expect
+    .poll(() => {
+      const url = new URL(page.url());
+      return {
+        elevation: url.searchParams.get("elev"),
+        rotation: url.searchParams.get("rot"),
+      };
+    })
+    .toEqual({ elevation: "35.3", rotation: "45" });
+
+  await page
+    .locator('[data-scroll-restoration-id="workspace-layout-v2-main"]')
+    .evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+  await expect(hero).not.toBeInViewport();
+  await expect(scene).toHaveCount(0);
+});
+
+test("landing preview keeps its static Menger fallback when WebGL is unavailable", async ({
+  page,
+}) => {
+  const pageErrors: Error[] = [];
+  page.on("pageerror", (error) => {
+    pageErrors.push(error);
+  });
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await installUnavailableWebGL(page);
+  await page.goto("/landing-preview", { waitUntil: "domcontentloaded" });
+
+  const hero = page.getByTestId("landing-preview-hero-menger");
+  const fallback = page.getByTestId("landing-preview-hero-menger-fallback");
+  await expect(hero).toBeVisible({ timeout: 30_000 });
+  await expect(hero).toHaveAttribute("data-state", "fallback", { timeout: 30_000 });
+  await expect(fallback).toHaveCSS("opacity", "1");
+  await expect(hero.getByTestId("logo-menger-hover-scene")).toHaveCount(0);
+  await page.waitForTimeout(200);
+  expect(pageErrors).toEqual([]);
+});
+
 test("Menger hover composes the optional landing tilt with its stored view", async ({ page }) => {
   const scene = await openMengerHoverCase(page, {
     elevationDegrees: "30",
@@ -423,7 +570,7 @@ test("Menger hover persists its adjustable tilt radius and strength", async ({ p
   await expect(radiusSlider).toHaveValue("1");
   await expect(strengthSlider).toHaveAttribute("min", "0");
   await expect(strengthSlider).toHaveAttribute("max", "2");
-  await expect(strengthSlider).toHaveValue("1");
+  await expect(strengthSlider).toHaveValue("1.67");
   await radiusSlider.fill("1.2");
   await radiusSlider.press("Tab");
   await strengthSlider.fill("1.5");
