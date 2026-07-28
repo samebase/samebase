@@ -133,6 +133,10 @@ html[${args.rootAttribute}="signed-out"] ${staticAccountLabelSelector} {
   display: none !important;
 }
 
+html[${args.rootAttribute}="signed-out"] ${staticAccountSectionSelector} {
+  border-bottom: 0 !important;
+}
+
 html[${args.rootAttribute}="signed-out"] ${staticAccountContentSelector} {
   display: block !important;
   margin-top: 0 !important;

@@ -43,11 +43,11 @@ function PublicLandingLoggedOutAccountSection() {
   return (
     <div
       data-testid={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
-      className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
+      className="vault-dashboard-sidebar-inset py-3"
     >
       <div
         data-vault-dashboard-account-section-label
-        className="min-w-0 line-clamp-2 text-sm font-medium [overflow-wrap:anywhere]"
+        className="min-w-0 line-clamp-2 border-b border-border/50 pb-3 text-sm font-medium [overflow-wrap:anywhere]"
       >
         not logged in
       </div>

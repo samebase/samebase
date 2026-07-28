@@ -117,7 +117,7 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
       <div data-app-auth-prehydration-signed-out className="hidden">
         <div
           data-app-auth-prehydration-signed-out-label
-          className="min-w-0 line-clamp-2 text-sm font-medium [overflow-wrap:anywhere]"
+          className="min-w-0 line-clamp-2 border-b border-border/50 pb-3 text-sm font-medium [overflow-wrap:anywhere]"
         >
           {null}
         </div>
