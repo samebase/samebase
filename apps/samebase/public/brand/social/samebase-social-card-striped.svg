@@ -18,7 +18,7 @@
   </svg>
 
   <text
-    x="520"
+    x="433"
     y="262"
     fill="#394447"
     font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
@@ -36,14 +36,14 @@
     letter-spacing="0"
   >
     <tspan
-      x="520"
-      y="326"
+      x="433"
+      y="356"
     >
       The correct way
     </tspan>
     <tspan
-      x="520"
-      y="383"
+      x="433"
+      y="413"
     >
       to build web apps
     </tspan>
