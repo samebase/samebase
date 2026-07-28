@@ -38,10 +38,18 @@ export function createMengerHoverCoverGeometry(
   const coverKinds = [0, 1] as const;
   const vertexCount = boxIndex.count * coverKinds.length;
   const positions = new Float32Array(vertexCount * 3);
+  const faceAxes = new Float32Array(vertexCount);
+  const faceSigns = new Float32Array(vertexCount);
   const kinds = new Float32Array(vertexCount);
   const coverGeometry = new THREE.BufferGeometry();
   let vertexOffset = 0;
   for (const group of geometry.groups) {
+    const materialIndex = group.materialIndex;
+    if (materialIndex === undefined) {
+      throw new Error("Every Menger cover face must have a material index.");
+    }
+    const faceAxis = Math.floor(materialIndex / 2);
+    const faceSign = materialIndex % 2 === 0 ? 1 : -1;
     const groupStart = vertexOffset;
     for (const coverKind of coverKinds) {
       for (let groupIndex = group.start; groupIndex < group.start + group.count; groupIndex += 1) {
@@ -50,16 +58,18 @@ export function createMengerHoverCoverGeometry(
         positions[vectorOffset] = boxPosition.getX(boxVertexIndex);
         positions[vectorOffset + 1] = boxPosition.getY(boxVertexIndex);
         positions[vectorOffset + 2] = boxPosition.getZ(boxVertexIndex);
+        faceAxes[vertexOffset] = faceAxis;
+        faceSigns[vertexOffset] = faceSign;
         kinds[vertexOffset] = coverKind;
         vertexOffset += 1;
       }
     }
-    if (group.materialIndex !== undefined) {
-      coverGeometry.addGroup(groupStart, vertexOffset - groupStart, group.materialIndex);
-    }
+    coverGeometry.addGroup(groupStart, vertexOffset - groupStart, materialIndex);
   }
   coverGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   coverGeometry.setAttribute("hoverCoverKind", new THREE.BufferAttribute(kinds, 1));
+  coverGeometry.setAttribute("hoverFaceAxis", new THREE.BufferAttribute(faceAxes, 1));
+  coverGeometry.setAttribute("hoverFaceSign", new THREE.BufferAttribute(faceSigns, 1));
   coverGeometry.setAttribute(
     "hoverBlockerLinkCount",
     new THREE.InstancedBufferAttribute(Float32Array.from(stage.moveBlockerLinkCounts), 1),
@@ -101,12 +111,16 @@ attribute float hoverBlockerLinkCount;
 attribute float hoverBlockerLinkOffset;
 attribute float hoverChannelStateIndex;
 attribute float hoverCoverKind;
+attribute float hoverFaceAxis;
+attribute float hoverFaceSign;
 attribute float hoverHoleAxis;
 uniform sampler2D hoverStateTexture;
 uniform float hoverStateTextureSize;
 uniform float hoverWorldSize;
-varying float vHoverBlockerLinkCount;
-varying float vHoverBlockerLinkOffset;
+varying vec2 vHoverBlockerLink;
+varying vec4 vHoverCover;
+varying vec4 vHoverCoverState;
+varying vec3 vHoverOriginalPosition;
 varying vec3 vHoverSpongePosition;
 
 vec4 readHoverState(float index) {
@@ -117,34 +131,62 @@ vec4 readHoverState(float index) {
   return texture2D(hoverStateTexture, uv);
 }
 
+float readAxis(vec3 value, float axis) {
+  if (axis < 0.5) {
+    return value.x;
+  }
+  if (axis < 1.5) {
+    return value.y;
+  }
+  return value.z;
+}
+
+void writeAxis(inout vec3 value, float axis, float component) {
+  if (axis < 0.5) {
+    value.x = component;
+  } else if (axis < 1.5) {
+    value.y = component;
+  } else {
+    value.z = component;
+  }
+}
+
 void main() {
   vec4 state = readHoverState(hoverChannelStateIndex);
   float openness = state.r;
-  float weight = hoverCoverKind < 0.5 ? state.a : 1.0 - state.a;
-  float signValue = hoverCoverKind < 0.5 ? state.g : state.b;
-  float slide = openness <= 0.0 ? 0.0 : pow(openness, weight);
-  float signedSlide = signValue * slide;
-  float tangentAxis;
-  if (hoverCoverKind < 0.5) {
-    tangentAxis = hoverHoleAxis < 0.5 ? 1.0 : 0.0;
-  } else {
-    tangentAxis = hoverHoleAxis > 1.5 ? 1.0 : 2.0;
-  }
+  float slideA = openness <= 0.0 ? 0.0 : pow(openness, state.a);
+  float slideB = openness <= 0.0 ? 0.0 : pow(openness, 1.0 - state.a);
+  float tangentAxisA = hoverHoleAxis < 0.5 ? 1.0 : 0.0;
+  float tangentAxisB = hoverHoleAxis > 1.5 ? 1.0 : 2.0;
 
   vec3 transformed = position;
-  float scaleValue = max(0.0, 1.0 - abs(signedSlide));
-  if (tangentAxis < 0.5) {
-    transformed.x = transformed.x * scaleValue + signedSlide * 0.5;
-  } else if (tangentAxis < 1.5) {
-    transformed.y = transformed.y * scaleValue + signedSlide * 0.5;
+  // Piece A owns the first-axis slab. Piece B owns its vacated gap
+  // except for the second-axis aperture, so their volumes never overlap.
+  if (hoverCoverKind < 0.5) {
+    writeAxis(
+      transformed,
+      tangentAxisA,
+      readAxis(position, tangentAxisA) * (1.0 - slideA) + state.g * slideA * 0.5
+    );
   } else {
-    transformed.z = transformed.z * scaleValue + signedSlide * 0.5;
+    writeAxis(
+      transformed,
+      tangentAxisA,
+      readAxis(position, tangentAxisA) * slideA - state.g * (1.0 - slideA) * 0.5
+    );
+    writeAxis(
+      transformed,
+      tangentAxisB,
+      readAxis(position, tangentAxisB) * (1.0 - slideB) + state.b * slideB * 0.5
+    );
   }
 
   vec4 spongePosition = instanceMatrix * vec4(transformed, 1.0);
+  vHoverBlockerLink = vec2(hoverBlockerLinkCount, hoverBlockerLinkOffset);
+  vHoverCover = vec4(hoverCoverKind, hoverFaceAxis, hoverFaceSign, hoverHoleAxis);
+  vHoverCoverState = vec4(state.g, state.b, slideA, slideB);
+  vHoverOriginalPosition = position;
   vHoverSpongePosition = spongePosition.xyz / hoverWorldSize + 0.5;
-  vHoverBlockerLinkCount = hoverBlockerLinkCount;
-  vHoverBlockerLinkOffset = hoverBlockerLinkOffset;
   gl_Position = projectionMatrix * modelViewMatrix * spongePosition;
 }
 `;
@@ -157,8 +199,10 @@ uniform float hoverBlockerLinkTextureSize;
 uniform vec3 hoverColor;
 uniform sampler2D hoverStateTexture;
 uniform float hoverStateTextureSize;
-varying float vHoverBlockerLinkCount;
-varying float vHoverBlockerLinkOffset;
+varying vec2 vHoverBlockerLink;
+varying vec4 vHoverCover;
+varying vec4 vHoverCoverState;
+varying vec3 vHoverOriginalPosition;
 varying vec3 vHoverSpongePosition;
 
 vec4 readTextureValue(sampler2D sourceTexture, float textureSize, float index) {
@@ -169,13 +213,60 @@ vec4 readTextureValue(sampler2D sourceTexture, float textureSize, float index) {
   return texture2D(sourceTexture, uv);
 }
 
+float readAxis(vec3 value, float axis) {
+  if (axis < 0.5) {
+    return value.x;
+  }
+  if (axis < 1.5) {
+    return value.y;
+  }
+  return value.z;
+}
+
 void main() {
+  // Remove collapsed pieces and the shared partition wall. The submitted
+  // boxes then rasterize only the boundary of one L-shaped cover solid.
+  float coverKind = vHoverCover.x;
+  float faceAxis = vHoverCover.y;
+  float faceSign = vHoverCover.z;
+  float holeAxis = vHoverCover.w;
+  float signA = vHoverCoverState.x;
+  float signB = vHoverCoverState.y;
+  float slideA = vHoverCoverState.z;
+  float slideB = vHoverCoverState.w;
+  float tangentAxisA = holeAxis < 0.5 ? 1.0 : 0.0;
+  float tangentAxisB = holeAxis > 1.5 ? 1.0 : 2.0;
+  if (coverKind < 0.5) {
+    if (slideA >= 1.0) {
+      discard;
+    }
+    bool isApertureWall =
+      abs(faceAxis - tangentAxisA) < 0.5 &&
+      faceSign * signA < -0.5;
+    bool coveredBySecondPiece =
+      signB * readAxis(vHoverOriginalPosition, tangentAxisB) >=
+      slideB - 0.5;
+    if (isApertureWall && coveredBySecondPiece) {
+      discard;
+    }
+  } else {
+    if (slideA <= 0.0 || slideB >= 1.0) {
+      discard;
+    }
+    bool isSharedWall =
+      abs(faceAxis - tangentAxisA) < 0.5 &&
+      faceSign * signA > 0.5;
+    if (isSharedWall) {
+      discard;
+    }
+  }
+
   for (int linkIndex = 0; linkIndex < ${loopLimit}; linkIndex += 1) {
-    if (float(linkIndex) < vHoverBlockerLinkCount) {
+    if (float(linkIndex) < vHoverBlockerLink.x) {
       vec4 link = readTextureValue(
         hoverBlockerLinkTexture,
         hoverBlockerLinkTextureSize,
-        vHoverBlockerLinkOffset + float(linkIndex)
+        vHoverBlockerLink.y + float(linkIndex)
       );
       float packedChannelAndAxis = link.r;
       float rayAxis = mod(packedChannelAndAxis, 3.0);

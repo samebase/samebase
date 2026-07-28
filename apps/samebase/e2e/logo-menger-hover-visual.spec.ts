@@ -436,10 +436,21 @@ test("Menger hover keeps depth-two oblique tunnel surfaces exact", async ({ page
     y: 0.45,
   });
 
-  await expect(scene).toHaveScreenshot(
-    "logo-menger-hover-depth-two-oblique-cover.png",
-    SCREENSHOT_OPTIONS,
-  );
+  await expect(scene).toHaveScreenshot("logo-menger-hover-depth-two-oblique-cover.png", {
+    ...SCREENSHOT_OPTIONS,
+    maxDiffPixelRatio: 0,
+  });
+
+  await movePointerRelativeToScene(page, scene, {
+    expectedProbe: ["0.517", "1.000", "0.106"],
+    x: 0.35,
+    y: 0.35,
+  });
+  await expect(scene).toHaveAttribute("data-hover-maximum-openness", "1.000000");
+  await expect(scene).toHaveScreenshot("logo-menger-hover-depth-two-oblique-fully-open.png", {
+    ...SCREENSHOT_OPTIONS,
+    maxDiffPixelRatio: 0,
+  });
 });
 
 test("Menger hover clears depth-four blocker links at texture row boundaries", async ({ page }) => {

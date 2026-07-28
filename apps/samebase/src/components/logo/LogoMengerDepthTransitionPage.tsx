@@ -335,7 +335,7 @@ export function LogoMengerDepthTransitionPage({
               ? "Pointer reveal disabled"
               : `Pointer reveals through depth ${hoverMaximumDepth}`}
           </div>
-          <div>2 covers per hole, one axis each</div>
+          <div>2 non-overlapping cover pieces per face</div>
         </div>
       </div>
     ),
