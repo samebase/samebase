@@ -1,9 +1,5 @@
 import { guard } from "@samebase/dependent";
-import {
-  AUTH_FLAG_STORAGE_KEY,
-  AUTH_PROVIDER_STORAGE_KEY,
-  PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
-} from "@/lib/authStorageKeys";
+import { PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY } from "@/lib/authStorageKeys";
 import { type RootRouteSearch } from "@/routeSearch/root";
 import type { PasswordAuthMode as PublicPasswordAuthMode } from "../../convex/deploymentProfile";
 
@@ -15,14 +11,6 @@ function withLocalStorage<T>(reader: (storage: Storage) => T, fallback: T): T {
   } catch {
     return fallback;
   }
-}
-
-function readAuthFlagValue(): string | null {
-  return withLocalStorage((storage) => storage.getItem(AUTH_FLAG_STORAGE_KEY), null);
-}
-
-function readAuthProviderValue(): string | null {
-  return withLocalStorage((storage) => storage.getItem(AUTH_PROVIDER_STORAGE_KEY), null);
 }
 
 const isStoredPasswordAuthMode = guard<string | null, PublicPasswordAuthMode>((value) =>
@@ -61,68 +49,15 @@ export function resolvePublicLandingPasswordAuthMode(
   return passwordAuthMode ?? readStoredPasswordAuthMode() ?? "off";
 }
 
-function hasGoogleAuth(search: RootRouteSearch): boolean {
-  return search.auth === "google";
-}
-
 function hasGoogleSignupReturn(search: RootRouteSearch): boolean {
   return search.signup === "google";
-}
-
-function hasPublicCreateAccount(search: RootRouteSearch): boolean {
-  return search["create-account"] === true;
-}
-
-function hasPublicSignIn(search: RootRouteSearch): boolean {
-  return search["sign-in"] === true;
 }
 
 export function shouldRenderGoogleSignupClosedState(
   pathname: string,
   routeSearch: RootRouteSearch,
 ): boolean {
-  return (
-    pathname === "/" && (hasGoogleSignupReturn(routeSearch) || hasPublicCreateAccount(routeSearch))
-  );
-}
-
-function isKnownUnauthenticatedLandingVisit(
-  pathname: string,
-  routeSearch: RootRouteSearch,
-): boolean {
-  return (
-    pathname === "/" &&
-    !hasGoogleAuth(routeSearch) &&
-    readAuthFlagValue() !== "1" &&
-    readAuthProviderValue() === null
-  );
-}
-
-export function shouldRenderPublicLandingWithoutAuthGate(
-  pathname: string,
-  routeSearch: RootRouteSearch,
-): boolean {
-  if (shouldRenderGoogleSignupClosedState(pathname, routeSearch) || hasPublicSignIn(routeSearch)) {
-    return true;
-  }
-  return isKnownUnauthenticatedLandingVisit(pathname, routeSearch);
-}
-
-/**
- * Keep the anonymous landing auth slot stable while hiding Google auth unless
- * the operator explicitly enables the public `?sign-in` route state.
- */
-export function shouldShowGoogleAuthForPathname(
-  pathname: string,
-  routeSearch: RootRouteSearch,
-): boolean {
-  if (shouldRenderGoogleSignupClosedState(pathname, routeSearch)) {
-    return false;
-  }
-  if (pathname === "/") {
-    return hasPublicSignIn(routeSearch);
-  }
-  return true;
+  return pathname === "/" && hasGoogleSignupReturn(routeSearch);
 }
 
 export function getPasswordAuthSurface(

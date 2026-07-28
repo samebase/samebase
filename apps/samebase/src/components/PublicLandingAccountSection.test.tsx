@@ -24,6 +24,8 @@ const queryState = vi.hoisted<{ index: number; results: unknown[] }>(() => ({
   index: 0,
   results: [],
 }));
+const buildLocationMock = vi.hoisted(() => vi.fn());
+const signInWithGoogleMock = vi.hoisted(() => vi.fn());
 const setMobilePane = vi.hoisted(() => vi.fn());
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const PROFILE_JWT = [
@@ -88,7 +90,7 @@ vi.mock("@/authClient", () => ({
     signOut: vi.fn(),
   }),
   useAppSignInActions: () => ({
-    signInWithGoogle: vi.fn(),
+    signInWithGoogle: signInWithGoogleMock,
   }),
 }));
 
@@ -131,7 +133,13 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
       select: (location: { pathname: string; searchStr: string }) => unknown;
     }) => {
       const search = Object.entries(routeState.search)
-        .flatMap(([key, value]) => (value ? [key] : []))
+        .flatMap(([key, value]) =>
+          value === true
+            ? [key]
+            : typeof value === "string"
+              ? [`${key}=${encodeURIComponent(value)}`]
+              : [],
+        )
         .join("&");
 
       return select({
@@ -141,7 +149,7 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
     },
     useNavigate: () => vi.fn(),
     useRouter: () => ({
-      buildLocation: () => ({ href: "/" }),
+      buildLocation: buildLocationMock,
     }),
   };
 });
@@ -195,6 +203,9 @@ describe("PublicLandingAccountSection", () => {
     });
     queryState.index = 0;
     queryState.results = [];
+    buildLocationMock.mockReset();
+    buildLocationMock.mockReturnValue({ href: "/" });
+    signInWithGoogleMock.mockReset();
     setMobilePane.mockClear();
   });
 
@@ -210,9 +221,8 @@ describe("PublicLandingAccountSection", () => {
     expect(markup).not.toContain("/settings");
     expect(markup).not.toContain("Sign out");
     expect(hydratedMarkup).toContain("not logged in");
+    expect(hydratedMarkup).toContain("Google");
     expect(hydratedMarkup).not.toContain("checking login");
-    expect(hydratedMarkup).not.toContain("?sign-in");
-    expect(hydratedMarkup).not.toContain("?create-account");
   });
 
   it("uses local JWT profile claims after hydration while auth state loads", async () => {
@@ -309,39 +319,55 @@ describe("PublicLandingAccountSection", () => {
     expect(hydratedMarkup).not.toContain("not logged in");
   });
 
-  it("shows the logged-out account summary collapsed by default", () => {
+  it("shows Google auth in a static logged-out account section", () => {
     const markup = renderLandingAccountSection("/");
 
     expect(markup).toContain("not logged in");
-    expect(markup).not.toContain("?sign-in");
-    expect(markup).not.toContain("?create-account");
-    expect(markup).not.toContain("Google");
-  });
-
-  it("shows Google auth from the sign-in route state", () => {
-    const markup = renderLandingAccountSection("/?sign-in");
-
-    expect(markup).toContain("not logged in");
     expect(markup).toContain("Google");
-    expect(markup).toContain("?create-account");
+    expect(markup).not.toContain("lucide-chevron-down");
     expect(markup).not.toContain("The app is still internal.");
   });
 
-  it("shows Google auth directly on the MCP consent route", () => {
-    const markup = renderLandingAccountSection("/oauth/mcp/consent");
+  it("keeps the MCP consent route when Google auth starts", async () => {
+    prepareLandingAccountSection("/oauth/mcp/consent");
+    buildLocationMock.mockReturnValue({ href: "/oauth/mcp/consent" });
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
 
-    expect(markup).toContain("not logged in");
-    expect(markup).toContain("Google");
-    expect(markup).not.toContain("?sign-in");
-    expect(markup).not.toContain("?create-account");
+    await act(async () => {
+      root.render(createLandingAccountSectionElement());
+    });
+
+    const googleButton = Array.from(rootElement.querySelectorAll("button")).find(
+      (button) => button.textContent.trim() === "Google",
+    );
+    if (!(googleButton instanceof HTMLButtonElement)) {
+      throw new Error("Google sign-in button not found.");
+    }
+
+    await act(async () => {
+      googleButton.click();
+    });
+
+    expect(buildLocationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: ".",
+      }),
+    );
+    expect(signInWithGoogleMock).toHaveBeenCalledWith("/oauth/mcp/consent");
+
+    await act(async () => {
+      root.unmount();
+    });
+    rootElement.remove();
   });
 
-  it("shows the internal-app message from the create-account route state", () => {
-    const markup = renderLandingAccountSection("/?create-account");
+  it("shows the internal-app message after a failed public Google signup return", () => {
+    const markup = renderLandingAccountSection("/?signup=google");
 
     expect(markup).toContain("not logged in");
     expect(markup).toContain("The app is still internal.");
-    expect(markup).toContain("?sign-in");
     expect(markup).not.toContain("Google");
   });
 });

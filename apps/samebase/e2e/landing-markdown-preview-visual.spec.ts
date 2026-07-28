@@ -93,17 +93,17 @@ async function expectSidebarFiles(sidebar: Locator) {
   await expect(sidebar).not.toContainText("samebase.com");
 }
 
-async function expectExplicitSignInUrl(page: Page) {
+async function expectPublicLandingUrl(page: Page) {
   await expect
     .poll(() => {
       const url = new URL(page.url());
       return {
         auth: url.searchParams.get("auth"),
         pathname: url.pathname,
-        signIn: url.searchParams.has("sign-in"),
+        signup: url.searchParams.get("signup"),
       };
     })
-    .toEqual({ auth: null, pathname: "/", signIn: true });
+    .toEqual({ auth: null, pathname: "/", signup: null });
 }
 
 async function readMainPaneScrollTop(page: Page) {
@@ -501,7 +501,7 @@ test("landing document navigation resets new articles and restores history posit
   await expect.poll(() => readMainPaneScrollTop(page)).toBe(overviewScrollTop);
 });
 
-test("landing preview CTA reopens the desktop sign-in sidebar", async ({ page }) => {
+test("landing preview CTA reopens the desktop public sidebar", async ({ page }) => {
   await page.setViewportSize({ height: 900, width: 1440 });
   await showLandingHeroPoster(page);
   await page.goto(LANDING_PREVIEW_ROUTE, {
@@ -521,7 +521,7 @@ test("landing preview CTA reopens the desktop sign-in sidebar", async ({ page })
     .first()
     .click();
 
-  await expectExplicitSignInUrl(page);
+  await expectPublicLandingUrl(page);
   await expect(page.getByTestId("workspace-layout-v2-pane-right")).toHaveCSS("width", "288px");
   await expect(
     page
@@ -534,7 +534,7 @@ test("landing preview CTA reopens the desktop sign-in sidebar", async ({ page })
 test.describe("mobile landing preview", () => {
   test.use(landingPreviewMobileDevice);
 
-  test("selects the explicit sign-in sidebar", async ({ page }) => {
+  test("selects the public sidebar", async ({ page }) => {
     await page.setViewportSize({ height: 900, width: 390 });
     await showLandingHeroPoster(page);
     await page.goto(LANDING_PREVIEW_PROD_UI_ROUTE, {
@@ -587,7 +587,7 @@ test.describe("mobile landing preview", () => {
 
     await article.getByRole("button", { name: "Open Samebase" }).first().click();
 
-    await expectExplicitSignInUrl(page);
+    await expectPublicLandingUrl(page);
     await expect(workspace).toHaveAttribute("data-mobile-pane", "right");
     await expect(
       page

@@ -876,18 +876,13 @@ test("public landing renders the routed landing UI directly", async ({ page }) =
   await expect(landingLogo).toHaveClass(/opacity-0/);
   const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
   await expect(accountSection).toBeVisible();
-  await expect(accountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
-  await expect(accountSection.getByRole("link", { name: "?sign-in", exact: true })).toHaveCount(0);
-  await accountSection.getByRole("button", { name: "not logged in" }).click();
-  await expect(accountSection.getByRole("link", { name: "?sign-in", exact: true })).toBeVisible();
-  await expect(
-    accountSection.getByRole("link", { name: "?create-account", exact: true }),
-  ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
+  await expect(accountSection.getByText("not logged in", { exact: true })).toBeVisible();
+  await expect(accountSection.locator("[aria-expanded]")).toHaveCount(0);
+  await expect(accountSection.getByRole("button", { name: "Google" })).toBeVisible();
 });
 
-test("landing sign-in state shows Google sign-in", async ({ page }) => {
-  await page.goto("/?sign-in", { waitUntil: "networkidle" });
+test("public landing shows Google sign-in by default", async ({ page }) => {
+  await page.goto("/", { waitUntil: "networkidle" });
 
   const googleButton = page.getByRole("button", { name: "Google" });
 
@@ -899,13 +894,9 @@ test("landing sign-in state shows Google sign-in", async ({ page }) => {
 });
 
 test("public landing interactive elements use pointer cursors", async ({ page }) => {
-  await page.goto("/?sign-in", { waitUntil: "networkidle" });
+  await page.goto("/", { waitUntil: "networkidle" });
 
   await expect(page.getByRole("button", { name: "Google" })).toHaveCSS("cursor", "pointer");
-  await expect(page.getByRole("link", { name: "?create-account", exact: true })).toHaveCSS(
-    "cursor",
-    "pointer",
-  );
 });
 
 test("public landing renders the closed Google signup return state", async ({ page }) => {
@@ -916,10 +907,11 @@ test("public landing renders the closed Google signup return state", async ({ pa
 
   await expect(accountSection).toBeVisible();
   await expect(accountSection.getByText("The app is still internal.")).toBeVisible();
-  await expect(accountSection.getByRole("link", { name: "?sign-in" })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Google", exact: true, includeHidden: true }),
   ).toHaveCount(0);
+  await expect(accountSection.getByPlaceholder("you@example.com")).toHaveCount(0);
+  await expect(accountSection.getByPlaceholder("Password")).toHaveCount(0);
 
   await expect(accountSection).toHaveScreenshot(
     "public-landing-google-signup-closed.png",
@@ -933,7 +925,7 @@ test("public landing right sidebar omits developer mode links", async ({ page })
   });
   await page.goto("/", { waitUntil: "networkidle" });
 
-  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
   await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
   await expect(page.getByRole("link", { exact: true, name: "?dev" })).toHaveCount(0);
   await expect(page.getByRole("link", { exact: true, name: "?dev-" })).toHaveCount(0);
@@ -1982,7 +1974,7 @@ test("public landing stays within the navigation budget", async ({ page }) => {
 test("prod-ui mode hides developer password auth controls", async ({ page }) => {
   await page.goto("/?prod-ui", { waitUntil: "networkidle" });
 
-  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
   await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
 
   await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
@@ -1995,7 +1987,7 @@ test("prod-ui mode does not override landing dev editing", async ({ page }) => {
 
   await page.goto("/?prod-ui&dev", { waitUntil: "domcontentloaded" });
 
-  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
   await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
   await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
   const landingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);

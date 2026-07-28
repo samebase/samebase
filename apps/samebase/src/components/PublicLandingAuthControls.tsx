@@ -2,14 +2,11 @@ import { useAppSignInActions } from "@/authClient";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import { PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID } from "@/lib/publicLanding";
 import {
   getVisiblePasswordAuthSurface,
   rememberPublicLandingPasswordAuthMode,
   resolvePublicLandingPasswordAuthMode,
   shouldRenderGoogleSignupClosedState,
-  shouldRenderPublicLandingWithoutAuthGate,
-  shouldShowGoogleAuthForPathname,
   type PasswordAuthSurface,
 } from "@/lib/publicLandingAuthState";
 import {
@@ -117,9 +114,7 @@ function usePublicLandingPasswordAuthControls(): {
         ...currentSearch,
         auth: undefined,
         "auth-return": undefined,
-        "create-account": undefined,
         signup: undefined,
-        "sign-in": undefined,
       }),
       to: DASHBOARD_ROUTE,
     });
@@ -154,7 +149,12 @@ function usePublicLandingPasswordAuthControls(): {
   };
 }
 
-export function PublicLandingAuthControls() {
+export function PublicLandingAuthControls({
+  googleAuthFlow,
+}: {
+  googleAuthFlow: "current-route" | "public-signup";
+}) {
+  const { isAuthenticated } = useConvexAuth();
   const location = useLocation({
     select: (currentLocation) => ({
       pathname: currentLocation.pathname,
@@ -162,51 +162,28 @@ export function PublicLandingAuthControls() {
     }),
   });
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
-  const showGoogleAuth = shouldShowGoogleAuthForPathname(location.pathname, rootRouteSearch);
   const showGoogleSignupClosedState = shouldRenderGoogleSignupClosedState(
     location.pathname,
     rootRouteSearch,
   );
-  const markPublicSignupReturn = shouldRenderPublicLandingWithoutAuthGate(
-    location.pathname,
-    rootRouteSearch,
-  );
   const { onPasswordSignIn, passwordAuthSurface } = usePublicLandingPasswordAuthControls();
 
-  if (showGoogleSignupClosedState) {
+  if (isAuthenticated || showGoogleSignupClosedState) {
     return null;
   }
 
-  const authReturn = location.pathname === "/" ? "dashboard" : undefined;
+  const publicSignup = googleAuthFlow === "public-signup";
 
   return (
     <div className="flex flex-col gap-2">
       <SignInWithGoogle
-        authReturn={authReturn}
-        visible={showGoogleAuth}
-        markPublicSignupReturn={markPublicSignupReturn}
+        authReturn={publicSignup ? "dashboard" : undefined}
+        visible
+        markPublicSignupReturn={publicSignup}
       />
       {passwordAuthSurface !== "hidden" ? (
         <PasswordAuthForm onSignIn={onPasswordSignIn} surface={passwordAuthSurface} />
       ) : null}
-    </div>
-  );
-}
-
-export function PublicLandingPasswordAuthControls() {
-  const { isAuthenticated } = useConvexAuth();
-  const { onPasswordSignIn, passwordAuthSurface } = usePublicLandingPasswordAuthControls();
-
-  if (isAuthenticated || passwordAuthSurface === "hidden") {
-    return null;
-  }
-
-  return (
-    <div
-      data-testid={PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID}
-      className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
-    >
-      <PasswordAuthForm onSignIn={onPasswordSignIn} surface={passwordAuthSurface} />
     </div>
   );
 }

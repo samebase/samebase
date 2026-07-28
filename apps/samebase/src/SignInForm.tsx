@@ -118,7 +118,9 @@ export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: Si
               onChange={setLandingMarkdownDraft}
             />
           </div>
-          {authPlacement === "inline" ? <PublicLandingAuthControls /> : null}
+          {authPlacement === "inline" ? (
+            <PublicLandingAuthControls googleAuthFlow="current-route" />
+          ) : null}
           <div className="flex flex-col gap-2 pt-2">
             <a
               className="text-center text-sm text-muted-foreground underline underline-offset-4"

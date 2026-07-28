@@ -57,7 +57,7 @@ test("signed-out protected routes keep auth in the right sidebar", async ({ page
   await expect(
     page
       .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)
-      .getByRole("button", { name: "not logged in" }),
+      .getByText("not logged in", { exact: true }),
   ).toBeVisible();
   await expect(content).toHaveScreenshot("not-found-signed-out-protected.png", {
     animations: "disabled",

@@ -197,10 +197,8 @@ describe("useAppAuthRuntimeEffects", () => {
     ).toEqual({
       auth: undefined,
       "auth-return": undefined,
-      "create-account": undefined,
       "prod-ui": true,
       signup: "google",
-      "sign-in": undefined,
     });
     expect(replaceStateMock).not.toHaveBeenCalled();
   });

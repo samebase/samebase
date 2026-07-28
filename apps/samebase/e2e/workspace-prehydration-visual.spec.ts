@@ -7,7 +7,6 @@ import {
 import {
   APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
-  PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
 } from "../src/lib/publicLanding";
 import { PUBLIC_LANDING_LOGO_STAGE_TEST_ID } from "../src/lib/publicLandingLogo";
 import { expectScreenshotsToMatch } from "./visualDiff";
@@ -28,10 +27,6 @@ const STABLE_WORKSPACE_PREHYDRATION_VISUAL_MASK_STYLE = `
 }
 
 [data-testid="${APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}"] {
-  display: none !important;
-}
-
-[data-testid="${PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID}"] {
   display: none !important;
 }
 

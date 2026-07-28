@@ -7,8 +7,6 @@ import {
   rememberPublicLandingPasswordAuthMode,
   resolvePublicLandingPasswordAuthMode,
   shouldRenderGoogleSignupClosedState,
-  shouldRenderPublicLandingWithoutAuthGate,
-  shouldShowGoogleAuthForPathname,
 } from "./publicLandingAuthState";
 import { validateRootRouteSearch } from "@/routeSearch/root";
 
@@ -49,39 +47,6 @@ afterEach(() => {
 });
 
 describe("publicLandingAuthState", () => {
-  it("keeps the anonymous landing visible even when Convex auth tokens exist", () => {
-    Object.defineProperty(window, "localStorage", {
-      configurable: true,
-      value: createMockStorage(),
-    });
-    window.localStorage.setItem("__convexAuthRefreshToken", "anon-token");
-
-    expect(shouldRenderPublicLandingWithoutAuthGate("/", validateRootRouteSearch({}))).toBe(true);
-  });
-
-  it("hides the anonymous landing after a remembered auth flow starts", () => {
-    Object.defineProperty(window, "localStorage", {
-      configurable: true,
-      value: createMockStorage(),
-    });
-    window.localStorage.setItem("samebase_auth_provider", "google");
-
-    expect(shouldRenderPublicLandingWithoutAuthGate("/", validateRootRouteSearch({}))).toBe(false);
-  });
-
-  it("keeps Google auth hidden on the normal public landing and dev route state", () => {
-    Object.defineProperty(window, "localStorage", {
-      configurable: true,
-      value: createMockStorage(),
-    });
-    window.localStorage.setItem("samebase_auth_provider", "google");
-
-    expect(shouldShowGoogleAuthForPathname("/", validateRootRouteSearch({}))).toBe(false);
-    expect(shouldShowGoogleAuthForPathname("/", validateRootRouteSearch({ dev: true }))).toBe(
-      false,
-    );
-  });
-
   it("forces the public landing closed-signup state for marked Google returns", () => {
     Object.defineProperty(window, "localStorage", {
       configurable: true,
@@ -92,17 +57,6 @@ describe("publicLandingAuthState", () => {
     const routeSearch = validateRootRouteSearch({ signup: "google" });
 
     expect(shouldRenderGoogleSignupClosedState("/", routeSearch)).toBe(true);
-    expect(shouldRenderPublicLandingWithoutAuthGate("/", routeSearch)).toBe(true);
-    expect(shouldShowGoogleAuthForPathname("/", routeSearch)).toBe(false);
-  });
-
-  it("uses explicit public account route states for sign in and account creation", () => {
-    expect(
-      shouldRenderGoogleSignupClosedState("/", validateRootRouteSearch({ "create-account": "" })),
-    ).toBe(true);
-    expect(shouldShowGoogleAuthForPathname("/", validateRootRouteSearch({ "sign-in": "" }))).toBe(
-      true,
-    );
   });
 
   it("maps the public password auth mode to a stable landing surface", () => {

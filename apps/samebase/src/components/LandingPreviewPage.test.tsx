@@ -96,7 +96,7 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("provisions the database + backend");
     expect(markup).toContain("Every connected app stays visible in one inventory.");
     expect(markup).toContain("Open Samebase");
-    expect(markup.split('href="/?sign-in"').length - 1).toBe(2);
+    expect(markup.split('href="/"').length - 1).toBe(2);
     expect(markup).toContain("Free today; an idle app costs $0/month.");
     expect(markup).not.toContain("no chatbot");
     expect(markup).not.toContain("$0/month idle");
@@ -237,7 +237,7 @@ describe("LandingPreviewPage", () => {
     const markup = renderToStaticMarkup(<LandingPreviewPage />);
 
     expect(markup.split('href="/vault"').length - 1).toBe(2);
-    expect(markup).not.toContain('href="/?sign-in"');
+    expect(markup).not.toContain('href="/"');
   });
 
   it("renders the landing preview without the docs sidebar", () => {

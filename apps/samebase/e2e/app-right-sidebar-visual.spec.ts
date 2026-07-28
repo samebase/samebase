@@ -317,12 +317,13 @@ test("signed-out app right sidebar prehydration matches the hydrated account row
   page,
 }, testInfo: TestInfo) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle");
   await waitForFonts(page);
 
   const hydratedAccountSection = getAccountSection(page);
-  await expect(hydratedAccountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
+  await expect(hydratedAccountSection.getByText("not logged in", { exact: true })).toBeVisible();
+  await expect(hydratedAccountSection.getByRole("button", { name: "Google" })).toBeVisible();
   const hydratedScreenshot = await hydratedAccountSection.screenshot({
     animations: "disabled",
     caret: "hide",
@@ -330,7 +331,7 @@ test("signed-out app right sidebar prehydration matches the hydrated account row
   });
 
   await blockHydrationScripts(page);
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle");
   await waitForFonts(page);
 

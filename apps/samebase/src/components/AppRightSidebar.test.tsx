@@ -124,8 +124,13 @@ vi.mock("convex/react", async (importOriginal) => {
 
 vi.mock("@/authClient", () => ({
   isInIframe: () => false,
+  openAuthPopup: vi.fn(),
   useAppAuthActions: () => ({
     signOut: vi.fn(),
+  }),
+  useAppSignInActions: () => ({
+    signInWithGoogle: vi.fn(),
+    signInWithPassword: vi.fn(),
   }),
 }));
 
@@ -164,6 +169,10 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
       href: "/vault",
       pathname: "/vault",
       searchStr: "",
+    }),
+    useNavigate: () => vi.fn(),
+    useRouter: () => ({
+      buildLocation: () => ({ href: "/" }),
     }),
   };
 });
@@ -295,6 +304,8 @@ describe("AppRightSidebarContent", () => {
     const markup = renderRightSidebar([]);
 
     expect(markup).toContain("not logged in");
+    expect(markup).toContain("Google");
+    expect(markup).not.toContain("lucide-chevron-down");
     expect(markup).not.toContain("checking login");
     expect(markup).not.toContain("/providers");
     expect(markup).not.toContain(">/vault<");
