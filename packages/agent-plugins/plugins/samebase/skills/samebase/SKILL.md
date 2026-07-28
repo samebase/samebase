@@ -49,6 +49,7 @@ tools for live provider state, logs, environment values, migrations, domains, an
 state when no Samebase tool exposes that read or action.
 
 The plugin cannot delete a Samebase app or its attached provider resources. Direct the user to the
-Samebase dashboard. Do not call any MCP tool for the deletion request.
+Samebase dashboard. Do not call any MCP tool for the deletion request. Do not delete these resources
+with provider-native tools.
 
 Keep credentials out of Git, logs, screenshots, and responses. Report only states that you verified.

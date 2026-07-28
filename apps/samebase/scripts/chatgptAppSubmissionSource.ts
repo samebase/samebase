@@ -88,7 +88,7 @@ export const toolJustifications = {
   },
   vault_cloudflare_configureWorkersBuildsForGitHub: {
     read_only_justification:
-      "Creates or updates the app's own Workers Builds production and preview triggers, may create a Workers Builds API token under API-key auth, and starts the initial production build.",
+      "Creates or updates the app's own Workers Builds production and preview triggers, may create a Workers Builds API token under API-key auth, and starts a production build.",
     open_world_justification:
       "Creates or patches build triggers on the caller's own Cloudflare account for the caller's own repository, then starts a production build.",
     destructive_justification:

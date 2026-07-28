@@ -248,7 +248,7 @@ describe("MCP tool listing access", () => {
     );
     expect(configureWorkersBuildsTool).not.toHaveProperty("outputSchema");
     expect(configureWorkersBuildsTool).toMatchObject({
-      description: expect.stringContaining("start the initial production build"),
+      description: expect.stringContaining("start a production build"),
     });
     expect(
       tools.find((tool) => tool.name === "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds"),

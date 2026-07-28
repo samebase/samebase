@@ -424,15 +424,13 @@ UI code:
   `packages/agent-context/manifests/samebase.md` and
   `research/2026-05-23-agent-context-agents-migration-map.md`. The package does not replace live
   routing yet; keep always-loaded rules until a migration proves each replacement is reachable.
-- For git/PR/shipping details, use `docs/agent-workflows.md`.
-- For monorepo directories published as external repositories, use `docs/repository-exports.md`.
-- For safe Convex production reads, use `docs/convex-production-reads.md`.
-- For live browser validation and route-first UI repros, use
-  `skills/samebase-playwright-live/SKILL.md`.
-- For Samebase agent plugin updates and cross-model reviewer tests, use
-  `skills/update-samebase-agent-plugin/SKILL.md`.
-- For PR authoring details, use `skills/create-pr/SKILL.md`.
-- For macOS UI control, use `skills/mac-app-control/SKILL.md`.
+- Git, PR, and shipping details: `docs/agent-workflows.md`.
+- Repository exports: `docs/repository-exports.md`.
+- Safe Convex production reads: `docs/convex-production-reads.md`.
+- Live browser and route-first UI checks: `skills/samebase-playwright-live/SKILL.md`.
+- Agent plugin updates and model tests: `skills/update-samebase-agent-plugin/SKILL.md`.
+- PR authoring: `skills/create-pr/SKILL.md`.
+- macOS UI control: `skills/mac-app-control/SKILL.md`.
 
 <!-- convex-ai-start -->
 

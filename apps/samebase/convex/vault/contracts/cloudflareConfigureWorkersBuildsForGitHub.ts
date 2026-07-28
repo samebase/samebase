@@ -17,7 +17,7 @@ export const cloudflareConfigureWorkersBuildsForGitHubContract = {
     title: "Configure Workers Builds for GitHub",
     name: "vault_cloudflare_configureWorkersBuildsForGitHub",
     description:
-      "Configure the selected Worker's production and preview Workers Builds triggers for the vault's GitHub repository, then start the initial production build.",
+      "Configure the selected Worker's production and preview Workers Builds triggers for the vault's GitHub repository, then start a production build.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -31,8 +31,7 @@ export const cloudflareConfigureWorkersBuildsForGitHubContract = {
     },
   } satisfies AppFunctionMcpMetadata,
   doc: `Configures the production and preview Workers Builds triggers for an attached Worker,
-GitHub repository, and root directory, then starts the initial production build. A trigger
-belonging to a different repository is never adopted. Samebase reads the current Worker and
-repository state live, writes the provider configuration, and stores no trigger or status mirror
-in Convex.`,
+GitHub repository, and root directory, then starts a production build. A trigger belonging to a
+different repository is never adopted. Samebase reads the current Worker and repository state
+live, writes the provider configuration, and stores no trigger or status mirror in Convex.`,
 } as const;
