@@ -10,15 +10,8 @@ export const MENGER_HOVER_DEFAULT_REVEAL_RADIUS = 0.55;
 const MENGER_HOVER_FULL_OPEN_RADIUS_FRACTION = 0.25;
 const MENGER_HOLE_AXES: readonly MengerHoleAxis[] = [0, 1, 2];
 
-/**
-Unit sponge coordinates: the full cube spans [0, 1] on every axis.
-outsideDistance is how far the pointer ray passes outside the cube surface in
-the same unit scale; probes on the surface use 0. It joins the channel
-distance term so influence fades continuously while the pointer skims past
-the silhouette instead of collapsing to the resting state at the edge.
-*/
+/** Unit sponge coordinates: the full cube spans [0, 1] on every axis. */
 export type MengerHoverProbe = {
-  outsideDistance: number;
   x: number;
   y: number;
   z: number;
@@ -176,7 +169,7 @@ function writeChannelState(
 
   const { deltaA, deltaB } = readChannelTangentDeltas(axis, centerA, centerB, probe);
   const radius = normalizeMengerHoverRevealRadius(revealRadius);
-  const closeness = 1 - Math.hypot(axisDelta, deltaA, deltaB, probe.outsideDistance) / radius;
+  const closeness = 1 - Math.hypot(axisDelta, deltaA, deltaB) / radius;
   const normalized =
     closeness > 0 ? Math.min(closeness / (1 - MENGER_HOVER_FULL_OPEN_RADIUS_FRACTION), 1) : 0;
   target.openness = normalized * normalized * (3 - 2 * normalized);

@@ -27,15 +27,11 @@ const CHANNEL = 2 * 9 + 1;
 const CENTER_A = 0.5 / 3;
 const CENTER_B = 1.5 / 3;
 
-function toProbe(point: { x: number; y: number; z: number }) {
-  return { outsideDistance: 0, ...point };
-}
-
 function readChannelState(probe: { x: number; y: number; z: number } | null, lastProbe = probe) {
   const state = readMengerHoverState(
     MENGER_DEPTH_TRANSITION_MODEL,
-    probe === null ? null : toProbe(probe),
-    lastProbe === null ? null : toProbe(lastProbe),
+    probe,
+    lastProbe,
     MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
   ).stages[0]?.[CHANNEL];
   if (!state) {
@@ -82,7 +78,7 @@ describe("Menger hover", () => {
     const state = createMengerHoverState(MENGER_DEPTH_TRANSITION_MODEL);
     const stages = state.stages;
     const channels = stages.flat();
-    const probe = toProbe({ x: CENTER_A, y: CENTER_B, z: 1 });
+    const probe = { x: CENTER_A, y: CENTER_B, z: 1 };
 
     writeMengerHoverState(
       state,
@@ -249,38 +245,6 @@ describe("Menger hover", () => {
     }
     expect(topology.stages[0]?.maximumBlockerLinksPerMove).toBe(18);
     expect(topology.stages[1]?.maximumBlockerLinksPerMove).toBe(2);
-  });
-
-  it("fades openness with the pointer outside distance", () => {
-    const onSurface = readChannelState({ x: CENTER_A, y: CENTER_B, z: 1 });
-    expect(onSurface.openness).toBe(1);
-
-    const nearMissProbe = {
-      ...toProbe({ x: CENTER_A, y: CENTER_B, z: 1 }),
-      outsideDistance: 0.3,
-    };
-    const farMissProbe = {
-      ...toProbe({ x: CENTER_A, y: CENTER_B, z: 1 }),
-      outsideDistance: 0.6,
-    };
-    const nearMissState = readMengerHoverState(
-      MENGER_DEPTH_TRANSITION_MODEL,
-      nearMissProbe,
-      nearMissProbe,
-      MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
-    ).stages[0]?.[CHANNEL];
-    const farMissState = readMengerHoverState(
-      MENGER_DEPTH_TRANSITION_MODEL,
-      farMissProbe,
-      farMissProbe,
-      MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
-    );
-
-    expect(nearMissState?.openness).toBeGreaterThan(0);
-    expect(nearMissState?.openness).toBeLessThan(1);
-    expect(
-      farMissState.stages.every((stage) => stage.every((channel) => channel.openness === 0)),
-    ).toBe(true);
   });
 
   it("heals along the last slide split after the pointer leaves", () => {

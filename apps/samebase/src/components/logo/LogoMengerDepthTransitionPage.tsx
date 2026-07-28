@@ -375,11 +375,10 @@ function MengerDepthTransitionScene({
     };
 
     /**
-    The probe is the pointer mapped onto the sponge surface. When the ray
-    misses the cube, the nearest cube point to the ray still drives the
-    reveal and the leftover ray-to-cube distance fades it, so skimming past
-    the silhouette narrows the influence smoothly instead of snapping every
-    hole shut at the outline.
+    The probe is the pointer ray mapped onto the sponge surface. When the ray
+    misses the cube, its point in the cube-center plane clamps to the nearest
+    surface position. This box-shaped trackball keeps the same surface
+    direction active while the pointer moves anywhere else on the page.
     */
     const readHoverProbe = (): MengerHoverProbe | null => {
       const clientPointer = clientPointerRef.current;
@@ -402,7 +401,6 @@ function MengerDepthTransitionScene({
       hoverLocalMatrix.copy(logoGroup.matrixWorld).invert();
       hoverLocalRay.copy(raycaster.ray).applyMatrix4(hoverLocalMatrix);
       const intersection = raycaster.intersectObject(hoverProxy, false).at(0);
-      let outsideDistance = 0;
       if (intersection) {
         hoverClampedPoint.copy(intersection.point).applyMatrix4(hoverLocalMatrix);
       } else {
@@ -413,12 +411,9 @@ function MengerDepthTransitionScene({
           THREE.MathUtils.clamp(hoverRayPoint.y, -halfWorldSize, halfWorldSize),
           THREE.MathUtils.clamp(hoverRayPoint.z, -halfWorldSize, halfWorldSize),
         );
-        outsideDistance =
-          hoverRayPoint.distanceTo(hoverClampedPoint) / MENGER_DEPTH_TRANSITION_WORLD_SIZE;
       }
 
       const probe: MengerHoverProbe = {
-        outsideDistance,
         x: hoverClampedPoint.x / MENGER_DEPTH_TRANSITION_WORLD_SIZE + 0.5,
         y: hoverClampedPoint.y / MENGER_DEPTH_TRANSITION_WORLD_SIZE + 0.5,
         z: hoverClampedPoint.z / MENGER_DEPTH_TRANSITION_WORLD_SIZE + 0.5,
@@ -517,6 +512,7 @@ function MengerDepthTransitionScene({
           ? 1
           : 1 - Math.exp(-elapsedMs / HOVER_OPENNESS_SMOOTHING_TAU_MS);
         let hoverSettled = true;
+        let maximumHoverOpenness = 0;
         for (const [stageIndex, stageState] of hoverState.stages.entries()) {
           const buffers = hoverStageBuffers[stageIndex];
           if (!settleHoverChannelStates(stageState, buffers, smoothing)) {
@@ -529,9 +525,11 @@ function MengerDepthTransitionScene({
             hoverStateTexture.data[textureOffset + 1] = channelState.signA;
             hoverStateTexture.data[textureOffset + 2] = channelState.signB;
             hoverStateTexture.data[textureOffset + 3] = channelState.weightA;
+            maximumHoverOpenness = Math.max(maximumHoverOpenness, channelState.openness);
           }
         }
         hoverStateTexture.texture.needsUpdate = true;
+        container.dataset.hoverMaximumOpenness = maximumHoverOpenness.toFixed(6);
         container.dataset.hoverSettled = hoverSettled ? "true" : "false";
         if (!hoverSettled) {
           scheduleHoverFrame();
@@ -647,6 +645,7 @@ function MengerDepthTransitionScene({
       delete container.dataset.hoverChannelCount;
       delete container.dataset.hoverDynamicUploadBytes;
       delete container.dataset.hoverCpuSubmissionMs;
+      delete container.dataset.hoverMaximumOpenness;
       delete container.dataset.hoverSceneBuildMs;
       delete container.dataset.hoverTriangleCount;
       delete container.dataset.hoverVisibleInstanceCount;
