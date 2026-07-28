@@ -571,7 +571,7 @@ async function readUserVaults(
   const convexProjectsByVault = groupVaultRows(userConvexProjects);
   const cloudflareWorkersByVault = groupVaultRows(userCloudflareWorkers);
   const connectedVaults = vaults.filter(isConnectedVault);
-  const initializingVaultResults: UserVaultResult[] = [];
+  const initializingVaultResults: Array<UserVaultResult & { _creationTime: number }> = [];
   for (const vault of vaults) {
     if (vault.state !== "provisioning" && vault.state !== "failed") {
       continue;
@@ -600,7 +600,7 @@ async function readUserVaults(
     });
   }
 
-  const vaultResults: UserVaultResult[] = await Promise.all(
+  const vaultResults: Array<UserVaultResult & { _creationTime: number }> = await Promise.all(
     connectedVaults.map(async (vault) => {
       const deletion = await resolveVaultDeletionSummary(ctx, vault);
       const convexProjects = (convexProjectsByVault.get(vault._id) ?? []).sort(
@@ -694,15 +694,17 @@ async function readUserVaults(
   );
 
   // Sort by last edit time if available, otherwise by creation time
-  return [...vaultResults, ...initializingVaultResults].sort((a, b) => {
-    const aTime = a.lastEditTime ?? a._creationTime;
-    const bTime = b.lastEditTime ?? b._creationTime;
-    return (
-      bTime - aTime ||
-      a.repositoryFullName.localeCompare(b.repositoryFullName) ||
-      a._id.localeCompare(b._id)
-    );
-  });
+  return [...vaultResults, ...initializingVaultResults]
+    .sort((a, b) => {
+      const aTime = a.lastEditTime ?? a._creationTime;
+      const bTime = b.lastEditTime ?? b._creationTime;
+      return (
+        bTime - aTime ||
+        a.repositoryFullName.localeCompare(b.repositoryFullName) ||
+        a._id.localeCompare(b._id)
+      );
+    })
+    .map(({ _creationTime: _sortTime, ...vault }) => vault);
 }
 
 export const getUserVaults = query({

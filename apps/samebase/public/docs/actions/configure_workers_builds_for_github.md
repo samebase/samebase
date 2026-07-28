@@ -6,9 +6,9 @@ MCP tool `vault_cloudflare_configureWorkersBuildsForGitHub` · scope `access_pro
 write
 
 Configures the production and preview Workers Builds triggers for an attached Worker, GitHub
-repository, and root directory. A trigger belonging to a different repository is never adopted.
-Samebase reads the current Worker and repository state live, writes the provider configuration, and
-stores no trigger or status mirror in Convex.
+repository, and root directory, then starts the initial production build. A trigger belonging to a
+different repository is never adopted. Samebase reads the current Worker and repository state live,
+writes the provider configuration, and stores no trigger or status mirror in Convex.
 
 ## Arguments
 

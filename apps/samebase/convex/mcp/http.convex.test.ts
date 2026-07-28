@@ -243,9 +243,18 @@ describe("MCP tool listing access", () => {
         additionalProperties: false,
       },
     });
+    const configureWorkersBuildsTool = tools.find(
+      (tool) => tool.name === "vault_cloudflare_configureWorkersBuildsForGitHub",
+    );
+    expect(configureWorkersBuildsTool).not.toHaveProperty("outputSchema");
+    expect(configureWorkersBuildsTool).toMatchObject({
+      description: expect.stringContaining("start the initial production build"),
+    });
     expect(
-      tools.find((tool) => tool.name === "vault_cloudflare_configureWorkersBuildsForGitHub"),
-    ).not.toHaveProperty("outputSchema");
+      tools.find((tool) => tool.name === "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds"),
+    ).toMatchObject({
+      description: expect.stringContaining("start a production build"),
+    });
   });
 });
 
@@ -489,7 +498,12 @@ describe("MCP tools/call access enforcement", () => {
   });
 
   it("executes the tool when scopes and current access both allow it", async () => {
-    const { callTool } = await seedMcpBearer({ isApproved: true });
+    const { callTool, t, userId } = await seedMcpBearer({ isApproved: true });
+    await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
+      userId,
+      ghRepoOwner: "ada",
+      ghRepoName: "existing-app",
+    });
 
     const payload = await callTool("vault_dashboard_getUserVaults");
     expect(payload).toMatchObject({
@@ -497,11 +511,12 @@ describe("MCP tools/call access enforcement", () => {
         content: [
           {
             type: "text",
-            text: "Found 0 vaults.",
+            text: "Found 1 vault.",
           },
         ],
       },
     });
+    expect(JSON.stringify(payload)).not.toContain("_creationTime");
   });
 
   it("reports authentication status for a valid MCP bearer token", async () => {

@@ -96,7 +96,6 @@ const LIST_SPACING_SAMEBASE_WORKER_ID = fakeCloudflareWorkerId("worker-samebase"
 const LIST_SPACING_CONVEX_PROJECT_ID = fakeConvexProjectId("convex-project-samebase");
 const LIST_SPACING_VAULT = {
   _id: LIST_SPACING_VAULT_ID,
-  _creationTime: FIXTURE_NOW - 900_000,
   ghRepoOwner: "samebase",
   ghRepoName: "samebase",
   repositoryFullName: "samebase/samebase",

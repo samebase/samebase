@@ -18,7 +18,7 @@ codex plugin marketplace add samebase/agent-plugins
 codex plugin add samebase@samebase
 ```
 
-Start a new Codex task after installation so both workflow skills and the MCP server load. Complete
+Start a new Codex task after installation so the workflow skill and the MCP server load. Complete
 Samebase OAuth when Codex prompts for access.
 
 ## Claude Code
@@ -35,10 +35,8 @@ Open `/mcp` to complete Samebase authentication if Claude Code prompts for it.
 
 ## Responsibility split
 
-- `samebase-building` selects the create, connect, or existing-app path, preserves control-plane
-  identifiers, then implements and validates the requested product in the local repository.
-- `samebase-hosting` commits and pushes authorized source, observes the resulting GitHub, Convex,
-  and Cloudflare state, and returns only the deployment result it can verify.
+- The `samebase` skill selects the create, connect, or existing-app path. It then guides repository
+  work, an authorized publish, and deployment verification.
 - Samebase MCP owns app inventory, stable provider joins, and explicit repair flows.
 - Git and the app repository own source changes and version identity.
 - Routine logs, environment values, migrations, and custom domains remain provider-direct.

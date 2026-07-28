@@ -4,6 +4,10 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
+const vitePlusBinPath = path.resolve(
+  path.dirname(fileURLToPath(import.meta.resolve("vite-plus"))),
+  "../bin/vp",
+);
 
 /**
  * Keep generated files aligned with the checked-in formatter config instead of
@@ -15,11 +19,15 @@ export function formatWithVpFmt(filePath: string, contents: string): Promise<str
   const normalizedContents = contents.endsWith("\n") ? contents : `${contents}\n`;
 
   return new Promise((resolve, reject) => {
-    const child = spawn("pnpm", ["exec", "vp", "fmt", `--stdin-filepath=${filePath}`], {
-      cwd: repoRoot,
-      env: process.env,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    const child = spawn(
+      process.execPath,
+      [vitePlusBinPath, "fmt", `--stdin-filepath=${filePath}`],
+      {
+        cwd: repoRoot,
+        env: process.env,
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
 
     let stdout = "";
     let stderr = "";

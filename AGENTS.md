@@ -429,6 +429,8 @@ UI code:
 - For safe Convex production reads, use `docs/convex-production-reads.md`.
 - For live browser validation and route-first UI repros, use
   `skills/samebase-playwright-live/SKILL.md`.
+- For Samebase agent plugin updates and cross-model reviewer tests, use
+  `skills/update-samebase-agent-plugin/SKILL.md`.
 - For PR authoring details, use `skills/create-pr/SKILL.md`.
 - For macOS UI control, use `skills/mac-app-control/SKILL.md`.
 

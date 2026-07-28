@@ -104,6 +104,7 @@ async function loadCatalog(): Promise<LoadedCatalog> {
     root: appDir,
     server: {
       middlewareMode: true,
+      ws: false,
     },
   });
 
