@@ -43,12 +43,16 @@ async function openMengerHoverCase(
     elevationDegrees,
     maximumDepth = "4",
     pointerTiltEnabled = false,
+    pointerTiltRadiusScale = "1",
+    pointerTiltStrengthScale = "1",
     reducedMotion = "reduce",
     rotationDegrees,
   }: {
     elevationDegrees: string;
     maximumDepth?: string;
     pointerTiltEnabled?: boolean;
+    pointerTiltRadiusScale?: string;
+    pointerTiltStrengthScale?: string;
     reducedMotion?: "no-preference" | "reduce";
     rotationDegrees: string;
   },
@@ -60,7 +64,9 @@ async function openMengerHoverCase(
     page,
     `/logo/hover/menger?elev=${elevationDegrees}&rot=${rotationDegrees}&top=red-400${
       maximumDepth === "4" ? "" : `&depth=${maximumDepth}`
-    }${pointerTiltEnabled ? "&tilt" : ""}`,
+    }${pointerTiltEnabled ? "&tilt" : ""}${
+      pointerTiltRadiusScale === "1" ? "" : `&tiltRadius=${pointerTiltRadiusScale}`
+    }${pointerTiltStrengthScale === "1" ? "" : `&tiltStrength=${pointerTiltStrengthScale}`}`,
   );
 
   const hoverPage = page.locator('[data-testid="logo-menger-hover-page"]');
@@ -76,6 +82,14 @@ async function openMengerHoverCase(
   await expect(scene).toHaveAttribute(
     "data-menger-pointer-tilt",
     pointerTiltEnabled ? "landing" : "off",
+  );
+  await expect(scene).toHaveAttribute(
+    "data-menger-pointer-tilt-radius-scale",
+    pointerTiltRadiusScale,
+  );
+  await expect(scene).toHaveAttribute(
+    "data-menger-pointer-tilt-strength-scale",
+    pointerTiltStrengthScale,
   );
   await expect(scene).toHaveAttribute("data-hover-settled", "true");
 
@@ -296,8 +310,14 @@ test("Menger hover composes the optional landing tilt with its stored view", asy
     SCREENSHOT_OPTIONS,
   );
 
+  const tiltCenterX = await readNumberAttribute(scene, "data-presentation-tilt-center-x");
+  const tiltCenterY = await readNumberAttribute(scene, "data-presentation-tilt-center-y");
+  const neutralRadius = await readNumberAttribute(scene, "data-presentation-tilt-neutral-radius");
+  const activePointerX = tiltCenterX - neutralRadius - 24;
+  expect(activePointerX).toBeGreaterThan(sceneBox.x);
+  expect(activePointerX).toBeLessThan(sceneBox.x + sceneBox.width);
   const storedUrl = page.url();
-  await page.mouse.move(sceneBox.x - 64, sceneBox.y + sceneBox.height / 2);
+  await page.mouse.move(activePointerX, tiltCenterY);
   await expect
     .poll(() => readNumberAttribute(scene, "data-presentation-horizontal-degrees"))
     .toBeLessThan(-0.1);
@@ -319,6 +339,164 @@ test("Menger hover composes the optional landing tilt with its stored view", asy
   await expect(scene).toHaveAttribute("data-presentation-horizontal-degrees", "0.000");
   await expect(scene).toHaveAttribute("data-presentation-vertical-degrees", "0.000");
   await expect(scene).toHaveAttribute("data-presentation-tilt-settled", "true");
+});
+
+test("Menger hover uses a projected cube radius in every pointer direction", async ({ page }) => {
+  const scene = await openMengerHoverCase(page, {
+    elevationDegrees: "0",
+    maximumDepth: "2",
+    pointerTiltEnabled: true,
+    reducedMotion: "no-preference",
+    rotationDegrees: "180",
+  });
+  const canvasBox = await scene.locator("canvas").boundingBox();
+  if (!canvasBox) {
+    throw new Error("The Menger hover canvas must have a bounding box.");
+  }
+
+  const centerX = await readNumberAttribute(scene, "data-presentation-tilt-center-x");
+  const centerY = await readNumberAttribute(scene, "data-presentation-tilt-center-y");
+  const baseRadius = await readNumberAttribute(scene, "data-presentation-tilt-base-radius");
+  const neutralRadius = await readNumberAttribute(scene, "data-presentation-tilt-neutral-radius");
+  expect(baseRadius).toBeGreaterThan(0);
+  expect(neutralRadius).toBeCloseTo(baseRadius, 2);
+  const restingScreenshot = await scene.screenshot({
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+  });
+  const foregroundBounds = measureScreenshotForegroundBounds(restingScreenshot);
+  if (!foregroundBounds) {
+    throw new Error("The resting Menger scene must contain a projected cube.");
+  }
+  const foregroundCornerRadius = Math.hypot(
+    (foregroundBounds.maxX - foregroundBounds.minX + 1) / 2,
+    (foregroundBounds.maxY - foregroundBounds.minY + 1) / 2,
+  );
+  expect(Math.abs(baseRadius - foregroundCornerRadius)).toBeLessThan(2);
+
+  for (const [name, directionX, directionY, targetAttribute, activeSign] of [
+    ["east", 1, 0, "data-presentation-horizontal-degrees", 1],
+    ["west", -1, 0, "data-presentation-horizontal-degrees", -1],
+    ["south", 0, 1, "data-presentation-vertical-degrees", -1],
+    ["north", 0, -1, "data-presentation-vertical-degrees", 1],
+  ] as const) {
+    await test.step(name, async () => {
+      await page.mouse.move(
+        centerX + directionX * neutralRadius * 0.99,
+        centerY + directionY * neutralRadius * 0.99,
+      );
+      await expect(scene).toHaveAttribute("data-presentation-horizontal-degrees", "0.000");
+      await expect(scene).toHaveAttribute("data-presentation-vertical-degrees", "0.000");
+
+      const activeX = centerX + directionX * neutralRadius * 1.01;
+      const activeY = centerY + directionY * neutralRadius * 1.01;
+      expect(activeX).toBeGreaterThan(canvasBox.x);
+      expect(activeX).toBeLessThan(canvasBox.x + canvasBox.width);
+      expect(activeY).toBeGreaterThan(canvasBox.y);
+      expect(activeY).toBeLessThan(canvasBox.y + canvasBox.height);
+      await page.mouse.move(activeX, activeY);
+      if (activeSign > 0) {
+        await expect.poll(() => readNumberAttribute(scene, targetAttribute)).toBeGreaterThan(0);
+      } else {
+        await expect.poll(() => readNumberAttribute(scene, targetAttribute)).toBeLessThan(0);
+      }
+    });
+  }
+});
+
+test("Menger hover persists its adjustable tilt radius and strength", async ({ page }) => {
+  let scene = await openMengerHoverCase(page, {
+    elevationDegrees: "0",
+    maximumDepth: "2",
+    pointerTiltEnabled: true,
+    reducedMotion: "no-preference",
+    rotationDegrees: "180",
+  });
+  const controls = page.locator('[data-testid="logo-menger-hover-controls"]');
+  const radiusSlider = controls.getByRole("slider", { name: "Tilt radius" });
+  const strengthSlider = controls.getByRole("slider", { name: "Tilt strength" });
+  const tiltCheckbox = controls.getByRole("checkbox", { name: "Landing tilt" });
+
+  await expect(radiusSlider).toHaveAttribute("min", "0");
+  await expect(radiusSlider).toHaveAttribute("max", "2");
+  await expect(radiusSlider).toHaveValue("1");
+  await expect(strengthSlider).toHaveAttribute("min", "0");
+  await expect(strengthSlider).toHaveAttribute("max", "2");
+  await expect(strengthSlider).toHaveValue("1");
+  await radiusSlider.fill("1.2");
+  await radiusSlider.press("Tab");
+  await strengthSlider.fill("1.5");
+  await strengthSlider.press("Tab");
+  await expect(page).toHaveURL(/(?:\?|&)tiltRadius=1\.2(?:&|$)/);
+  await expect(page).toHaveURL(/(?:\?|&)tiltStrength=1\.5(?:&|$)/);
+  await expect(scene).toHaveAttribute("data-menger-pointer-tilt-radius-scale", "1.2");
+  await expect(scene).toHaveAttribute("data-menger-pointer-tilt-strength-scale", "1.5");
+
+  const centerX = await readNumberAttribute(scene, "data-presentation-tilt-center-x");
+  const centerY = await readNumberAttribute(scene, "data-presentation-tilt-center-y");
+  const baseRadius = await readNumberAttribute(scene, "data-presentation-tilt-base-radius");
+  const neutralRadius = await readNumberAttribute(scene, "data-presentation-tilt-neutral-radius");
+  const canvasBox = await scene.locator("canvas").boundingBox();
+  if (!canvasBox) {
+    throw new Error("The Menger hover canvas must have a bounding box.");
+  }
+  expect(neutralRadius).toBeCloseTo(baseRadius * 1.2, 2);
+  const neutralPointerX = centerX + baseRadius * 1.1;
+  const activePointerX = centerX + baseRadius * 1.3;
+  expect(neutralPointerX).toBeLessThan(canvasBox.x + canvasBox.width);
+  expect(activePointerX).toBeLessThan(canvasBox.x + canvasBox.width);
+  await page.mouse.move(neutralPointerX, centerY);
+  await expect(scene).toHaveAttribute("data-presentation-horizontal-degrees", "0.000");
+  await page.mouse.move(activePointerX, centerY);
+  await expect
+    .poll(() => readNumberAttribute(scene, "data-presentation-horizontal-degrees"))
+    .toBeCloseTo(0.72, 2);
+
+  await tiltCheckbox.click();
+  await expect(page).not.toHaveURL(/(?:\?|&)tilt(?:&|$)/);
+  await expect(page).toHaveURL(/(?:\?|&)tiltRadius=1\.2(?:&|$)/);
+  await expect(page).toHaveURL(/(?:\?|&)tiltStrength=1\.5(?:&|$)/);
+  await tiltCheckbox.click();
+  await page.reload();
+  scene = page.locator('[data-testid="logo-menger-hover-scene"]');
+  await expect(scene.locator("canvas")).toBeVisible();
+  await expect(radiusSlider).toHaveValue("1.2");
+  await expect(strengthSlider).toHaveValue("1.5");
+  await expect(scene).toHaveAttribute("data-menger-pointer-tilt-radius-scale", "1.2");
+  await expect(scene).toHaveAttribute("data-menger-pointer-tilt-strength-scale", "1.5");
+  const depthSlider = controls.getByRole("slider", { name: "Reveal depth" });
+  await depthSlider.fill("3");
+  await depthSlider.press("Tab");
+  await expect(page).toHaveURL(/(?:\?|&)depth=3(?:&|$)/);
+  await expect(page).toHaveURL(/(?:\?|&)tiltRadius=1\.2(?:&|$)/);
+  await expect(page).toHaveURL(/(?:\?|&)tiltStrength=1\.5(?:&|$)/);
+  await expect(scene).toHaveAttribute("data-menger-maximum-depth", "3");
+  await expect(scene).toHaveAttribute("data-menger-pointer-tilt-radius-scale", "1.2");
+  await expect(scene).toHaveAttribute("data-menger-pointer-tilt-strength-scale", "1.5");
+
+  await page.goto("/logo/hover/menger?depth=2&elev=0&rot=180&tilt&tiltRadius=3.5&tiltStrength=2.5");
+  await expect(scene.locator("canvas")).toBeVisible();
+  await expect(radiusSlider).toHaveAttribute("max", "3.5");
+  await expect(radiusSlider).toHaveValue("3.5");
+  await expect(strengthSlider).toHaveAttribute("max", "2.5");
+  await expect(strengthSlider).toHaveValue("2.5");
+  await expect(scene).toHaveAttribute("data-menger-pointer-tilt-radius-scale", "3.5");
+  await expect(scene).toHaveAttribute("data-menger-pointer-tilt-strength-scale", "2.5");
+
+  await radiusSlider.fill("1.5");
+  await expect(radiusSlider).toHaveValue("1.5");
+  await expect(radiusSlider).toHaveAttribute("max", "3.5");
+  await radiusSlider.press("Tab");
+  await expect(page).toHaveURL(/(?:\?|&)tiltRadius=1\.5(?:&|$)/);
+  await expect(radiusSlider).toHaveAttribute("max", "2");
+
+  await strengthSlider.fill("1.5");
+  await expect(strengthSlider).toHaveValue("1.5");
+  await expect(strengthSlider).toHaveAttribute("max", "2.5");
+  await strengthSlider.press("Tab");
+  await expect(page).toHaveURL(/(?:\?|&)tiltStrength=1\.5(?:&|$)/);
+  await expect(strengthSlider).toHaveAttribute("max", "2");
 });
 
 test("Menger hover suppresses landing tilt for reduced motion", async ({ page }) => {

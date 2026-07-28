@@ -1,10 +1,11 @@
 import { getTailwindColorHex, type FaceColors } from "@/components/logo/logoTailwindColors";
 import {
+  getRadialPointerLogoPresentationTiltTarget,
   getLogoPresentationTiltTransitionAlpha,
-  getPointerLogoPresentationTiltTarget,
   LOGO_POINTER_TILT_MEDIA_QUERY,
   LOGO_PRESENTATION_TILT_SETTLED_DEGREES,
   NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
+  normalizeLogoPresentationTiltRadiusScale,
 } from "@/components/logo/logoPresentationTilt";
 import { resolveLogoSceneCameraDepthBounds } from "@/components/logo/logoSceneCameraDepth";
 import { type LogoViewState } from "@/components/logo/logoViewDrag";
@@ -51,6 +52,7 @@ const HOVER_FRAME_ELAPSED_MAX_MS = 100;
 const HOVER_FRAME_ELAPSED_RESTART_MS = 1000 / 60;
 const HOVER_OPENNESS_SETTLE_EPSILON = 0.001;
 const HOVER_OPENNESS_SMOOTHING_TAU_MS = 58;
+const MENGER_CUBE_CORNER_SIGNS = [-1, 1] as const;
 const RENDER_PIXEL_RATIO_MAX = 2;
 
 type ClientPoint = {
@@ -84,6 +86,8 @@ export function MengerHoverScene({
   onInteractionEnd,
   onViewChange,
   pointerTiltEnabled,
+  pointerTiltRadiusScale,
+  pointerTiltStrengthScale,
   revealRadius,
   rotationDegrees,
   viewSnapEnabled,
@@ -94,6 +98,8 @@ export function MengerHoverScene({
   onInteractionEnd: (finalView: LogoViewState) => void;
   onViewChange: (nextView: LogoViewState) => void;
   pointerTiltEnabled: boolean;
+  pointerTiltRadiusScale: number;
+  pointerTiltStrengthScale: number;
   revealRadius: number;
   rotationDegrees: number;
   viewSnapEnabled: boolean;
@@ -101,6 +107,8 @@ export function MengerHoverScene({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const clientPointerRef = useRef<ClientPoint | null>(null);
   const pointerTiltEnabledRef = useRef(pointerTiltEnabled);
+  const pointerTiltRadiusScaleRef = useRef(pointerTiltRadiusScale);
+  const pointerTiltStrengthScaleRef = useRef(pointerTiltStrengthScale);
   const renderSceneRef = useRef<() => void>(() => {});
   const revealRadiusRef = useRef(revealRadius);
   const viewRef = useRef<LogoViewState>({ elevationDegrees, rotationDegrees });
@@ -286,9 +294,11 @@ export function MengerHoverScene({
     camera.far = cameraDepthBounds.far;
     const pointerMediaQuery = window.matchMedia(LOGO_POINTER_TILT_MEDIA_QUERY);
     const presentationTiltAxisVector = new THREE.Vector3();
+    const presentationTiltProjectionPoint = new THREE.Vector3();
     const presentationTiltScreenRightVector = new THREE.Vector3();
     const presentationTiltNeutralQuaternion = new THREE.Quaternion();
     const presentationTiltTargetQuaternion = new THREE.Quaternion();
+    let presentationTiltClientPoint: ClientPoint | null = null;
     let presentationTiltTarget = NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
     let lastPresentationTiltFrameTime: number | null = null;
 
@@ -387,14 +397,51 @@ export function MengerHoverScene({
       });
     };
 
-    const updatePresentationTiltTarget = (clientPoint: ClientPoint | null) => {
+    const updatePresentationTiltTarget = () => {
       const bounds = renderer.domElement.getBoundingClientRect();
+      if (bounds.width <= 0 || bounds.height <= 0) {
+        presentationTiltTarget = NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
+        return;
+      }
+
+      presentationTiltProjectionPoint.set(0, 0, 0).applyMatrix4(logoGroup.matrix).project(camera);
+      const centerX = bounds.left + ((presentationTiltProjectionPoint.x + 1) * bounds.width) / 2;
+      const centerY = bounds.top + ((1 - presentationTiltProjectionPoint.y) * bounds.height) / 2;
+      const cubeHalfSize = MENGER_SCENE_WORLD_SIZE / 2;
+      let baseRadius = 0;
+      for (const xSign of MENGER_CUBE_CORNER_SIGNS) {
+        for (const ySign of MENGER_CUBE_CORNER_SIGNS) {
+          for (const zSign of MENGER_CUBE_CORNER_SIGNS) {
+            presentationTiltProjectionPoint
+              .set(xSign * cubeHalfSize, ySign * cubeHalfSize, zSign * cubeHalfSize)
+              .applyMatrix4(logoGroup.matrix)
+              .project(camera);
+            const cornerX =
+              bounds.left + ((presentationTiltProjectionPoint.x + 1) * bounds.width) / 2;
+            const cornerY =
+              bounds.top + ((1 - presentationTiltProjectionPoint.y) * bounds.height) / 2;
+            baseRadius = Math.max(baseRadius, Math.hypot(cornerX - centerX, cornerY - centerY));
+          }
+        }
+      }
+
+      const radiusScale = normalizeLogoPresentationTiltRadiusScale(
+        pointerTiltRadiusScaleRef.current,
+      );
+      container.dataset.presentationTiltCenterX = centerX.toFixed(3);
+      container.dataset.presentationTiltCenterY = centerY.toFixed(3);
+      container.dataset.presentationTiltBaseRadius = baseRadius.toFixed(3);
+      container.dataset.presentationTiltNeutralRadius = (baseRadius * radiusScale).toFixed(3);
       presentationTiltTarget =
-        clientPoint !== null && pointerMediaQuery.matches && bounds.width > 0 && bounds.height > 0
-          ? getPointerLogoPresentationTiltTarget({
-              bounds,
-              clientX: clientPoint.x,
-              clientY: clientPoint.y,
+        presentationTiltClientPoint !== null && pointerMediaQuery.matches
+          ? getRadialPointerLogoPresentationTiltTarget({
+              baseRadius,
+              centerX,
+              centerY,
+              clientX: presentationTiltClientPoint.x,
+              clientY: presentationTiltClientPoint.y,
+              radiusScale,
+              strengthScale: pointerTiltStrengthScaleRef.current,
             })
           : NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
     };
@@ -471,8 +518,10 @@ export function MengerHoverScene({
       logoGroup.rotation.y = THREE.MathUtils.degToRad(
         toRenderedRotationDegrees(view.rotationDegrees),
       );
-      const presentationTiltSettled = applyPresentationTilt(now);
+      logoGroup.updateMatrix();
       camera.updateMatrixWorld();
+      updatePresentationTiltTarget();
+      const presentationTiltSettled = applyPresentationTilt(now);
       presentationTiltGroup.updateMatrixWorld(true);
 
       depthOneMesh.visible = depthOneOnly;
@@ -569,7 +618,6 @@ export function MengerHoverScene({
       camera.top = frustumHalfHeight;
       camera.bottom = -frustumHalfHeight;
       camera.updateProjectionMatrix();
-      updatePresentationTiltTarget(clientPointerRef.current);
       renderScene();
     };
 
@@ -579,9 +627,10 @@ export function MengerHoverScene({
       }
 
       if (event.pointerType === "mouse") {
-        updatePresentationTiltTarget({ x: event.clientX, y: event.clientY });
+        presentationTiltClientPoint = { x: event.clientX, y: event.clientY };
       }
       if (event.buttons !== 0) {
+        renderScene();
         return;
       }
 
@@ -595,16 +644,15 @@ export function MengerHoverScene({
 
       clientPointerRef.current = { x: event.clientX, y: event.clientY };
       if (event.pointerType === "mouse") {
-        updatePresentationTiltTarget(clientPointerRef.current);
+        presentationTiltClientPoint = clientPointerRef.current;
       }
       renderScene();
     };
     const onWindowBlur = () => {
-      presentationTiltTarget = NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
+      presentationTiltClientPoint = null;
       renderScene();
     };
     const onPointerCapabilityChange = () => {
-      updatePresentationTiltTarget(pointerMediaQuery.matches ? clientPointerRef.current : null);
       renderScene();
     };
     const onReducedMotionChange = () => {
@@ -612,7 +660,7 @@ export function MengerHoverScene({
     };
     const onPagePointerLeave = () => {
       clientPointerRef.current = null;
-      presentationTiltTarget = NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
+      presentationTiltClientPoint = null;
       renderScene();
     };
     window.addEventListener("blur", onWindowBlur);
@@ -653,7 +701,11 @@ export function MengerHoverScene({
       delete container.dataset.hoverTriangleCount;
       delete container.dataset.hoverVisibleInstanceCount;
       delete container.dataset.presentationAppliedAngleDegrees;
+      delete container.dataset.presentationTiltBaseRadius;
+      delete container.dataset.presentationTiltCenterX;
+      delete container.dataset.presentationTiltCenterY;
       delete container.dataset.presentationHorizontalDegrees;
+      delete container.dataset.presentationTiltNeutralRadius;
       delete container.dataset.presentationTiltSettled;
       delete container.dataset.presentationVerticalDegrees;
       for (const stageMesh of stageMeshes) {
@@ -680,6 +732,16 @@ export function MengerHoverScene({
   }, [pointerTiltEnabled]);
 
   useEffect(() => {
+    pointerTiltRadiusScaleRef.current = pointerTiltRadiusScale;
+    renderSceneRef.current();
+  }, [pointerTiltRadiusScale]);
+
+  useEffect(() => {
+    pointerTiltStrengthScaleRef.current = pointerTiltStrengthScale;
+    renderSceneRef.current();
+  }, [pointerTiltStrengthScale]);
+
+  useEffect(() => {
     viewRef.current = { elevationDegrees, rotationDegrees };
     renderSceneRef.current();
   }, [elevationDegrees, rotationDegrees]);
@@ -691,6 +753,8 @@ export function MengerHoverScene({
       className="h-full min-h-0 w-full cursor-grab touch-none select-none active:cursor-grabbing"
       data-menger-maximum-depth={maximumDepth}
       data-menger-pointer-tilt={pointerTiltEnabled ? "landing" : "off"}
+      data-menger-pointer-tilt-radius-scale={pointerTiltRadiusScale}
+      data-menger-pointer-tilt-strength-scale={pointerTiltStrengthScale}
       data-menger-research-mode="hover"
       data-logo-elevation-degrees={elevationDegrees}
       data-logo-rotation-degrees={rotationDegrees}

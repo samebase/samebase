@@ -37,6 +37,12 @@ import {
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
 import {
+  LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
+  LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
+  normalizeLogoPresentationTiltRadiusScale,
+  normalizeLogoPresentationTiltStrengthScale,
+} from "@/components/logo/logoPresentationTilt";
+import {
   DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
   normalizeLogoShuffleParallelMoves,
   readLogoShuffleParallelMoves,
@@ -533,6 +539,38 @@ const RouteSearchSchema_logoMengerHover = defineRouteSearchParams({
     access: "access_public",
     ...logoViewRouteSearchSuggestion,
   }),
+  tiltRadius: routeSearchValueParam(
+    routeSearchNormalizedFiniteNumber(normalizeLogoPresentationTiltRadiusScale),
+    {
+      numericDefaultValue: LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
+      numericRange: {
+        minValue: 0,
+        rangeType: "min",
+      },
+      numericStepValue: 0.05,
+      access: "access_public",
+      sampleValue: "1.2",
+      ...logoViewRouteSearchSuggestion,
+      valueSuggestions: ["0.5", "0.75", "1", "1.25", "1.5", "2"],
+      valueType: "numeric",
+    },
+  ),
+  tiltStrength: routeSearchValueParam(
+    routeSearchNormalizedFiniteNumber(normalizeLogoPresentationTiltStrengthScale),
+    {
+      numericDefaultValue: LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
+      numericRange: {
+        minValue: 0,
+        rangeType: "min",
+      },
+      numericStepValue: 0.05,
+      access: "access_public",
+      sampleValue: "1.5",
+      ...logoViewRouteSearchSuggestion,
+      valueSuggestions: ["0", "0.5", "0.75", "1", "1.25", "1.5", "2"],
+      valueType: "numeric",
+    },
+  ),
 });
 
 type LogoRouteSearchFields = InferRouteSearch<typeof RouteSearchSchema_logo>;
@@ -598,6 +636,8 @@ function readLogoMengerHoverRouteSearchFields(search: LogoMengerHoverRouteSearch
   return {
     ...readLogoRouteSearchFields(search),
     ...(search.tilt ? { tilt: true as const } : {}),
+    ...(typeof search.tiltRadius === "number" ? { tiltRadius: search.tiltRadius } : {}),
+    ...(typeof search.tiltStrength === "number" ? { tiltStrength: search.tiltStrength } : {}),
   };
 }
 
@@ -1088,15 +1128,27 @@ export function buildLogoMengerHoverRouteSearch(
   args: LogoRouteSearchBuildState & {
     mengerHoverDepth: number;
     mengerHoverTiltEnabled: boolean;
+    mengerHoverTiltRadiusScale: number;
+    mengerHoverTiltStrengthScale: number;
     themeModeSearch?: RootThemeModeSearch;
   },
 ): LogoMengerHoverRouteSearch {
   const depth = clampLogoFractalDepthForRenderer(args.mengerHoverDepth, "three");
+  const tiltRadiusScale = normalizeLogoPresentationTiltRadiusScale(args.mengerHoverTiltRadiusScale);
+  const tiltStrengthScale = normalizeLogoPresentationTiltStrengthScale(
+    args.mengerHoverTiltStrengthScale,
+  );
 
   return {
     ...buildLogoRouteSearch(args),
     depth: depth !== MENGER_HOVER_DEFAULT_DEPTH ? depth : undefined,
     tilt: args.mengerHoverTiltEnabled ? true : undefined,
+    tiltRadius:
+      tiltRadiusScale !== LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE ? tiltRadiusScale : undefined,
+    tiltStrength:
+      tiltStrengthScale !== LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE
+        ? tiltStrengthScale
+        : undefined,
   };
 }
 

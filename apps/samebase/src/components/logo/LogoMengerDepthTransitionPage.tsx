@@ -1,6 +1,16 @@
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { MengerDepthTransitionScene } from "@/components/logo/MengerDepthTransitionScene";
 import { MengerHoverScene } from "@/components/logo/MengerHoverScene";
+import {
+  LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
+  LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
+  LOGO_PRESENTATION_TILT_RADIUS_SCALE_SLIDER_MAX,
+  LOGO_PRESENTATION_TILT_RADIUS_SCALE_SLIDER_MIN,
+  LOGO_PRESENTATION_TILT_STRENGTH_SCALE_SLIDER_MAX,
+  LOGO_PRESENTATION_TILT_STRENGTH_SCALE_SLIDER_MIN,
+  normalizeLogoPresentationTiltRadiusScale,
+  normalizeLogoPresentationTiltStrengthScale,
+} from "@/components/logo/logoPresentationTilt";
 import { readLogoRouteRenderState } from "@/components/logo/logoRouteRenderState";
 import { type LogoViewState } from "@/components/logo/logoViewDrag";
 import { Button } from "@/components/ui/button";
@@ -63,6 +73,12 @@ export function LogoMengerDepthTransitionPage({
   const { backgroundColor, faceColors } = useResolvedAppThemeColorState(routeState.themeColors);
   const searchHoverMaximumDepth = routeSearch.depth ?? MENGER_HOVER_DEFAULT_DEPTH;
   const pointerTiltEnabled = routeSearch.tilt === true;
+  const searchPointerTiltRadiusScale = normalizeLogoPresentationTiltRadiusScale(
+    routeSearch.tiltRadius ?? LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
+  );
+  const searchPointerTiltStrengthScale = normalizeLogoPresentationTiltStrengthScale(
+    routeSearch.tiltStrength ?? LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
+  );
   const [progress, setProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackVersion, setPlaybackVersion] = useState(0);
@@ -71,6 +87,12 @@ export function LogoMengerDepthTransitionPage({
   );
   const [hoverRevealRadius, setHoverRevealRadius] = useState(MENGER_HOVER_DEFAULT_REVEAL_RADIUS);
   const [hoverMaximumDepth, setHoverMaximumDepth] = useState(searchHoverMaximumDepth);
+  const [pointerTiltRadiusScale, setPointerTiltRadiusScale] = useState(
+    searchPointerTiltRadiusScale,
+  );
+  const [pointerTiltStrengthScale, setPointerTiltStrengthScale] = useState(
+    searchPointerTiltStrengthScale,
+  );
   const [view, setView] = useState<LogoViewState>({
     elevationDegrees: routeState.elevationDegrees,
     rotationDegrees: routeState.rotationDegrees,
@@ -105,6 +127,14 @@ export function LogoMengerDepthTransitionPage({
   useLayoutEffect(() => {
     setHoverMaximumDepth(searchHoverMaximumDepth);
   }, [searchHoverMaximumDepth]);
+
+  useLayoutEffect(() => {
+    setPointerTiltRadiusScale(searchPointerTiltRadiusScale);
+  }, [searchPointerTiltRadiusScale]);
+
+  useLayoutEffect(() => {
+    setPointerTiltStrengthScale(searchPointerTiltStrengthScale);
+  }, [searchPointerTiltStrengthScale]);
 
   useEffect(() => {
     if (mode === "hover") {
@@ -228,7 +258,19 @@ export function LogoMengerDepthTransitionPage({
   const updateHoverMaximumDepth = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     setHoverMaximumDepth(Number(event.target.value));
   }, []);
-  const commitHoverMaximumDepth = useCallback(() => {
+  const updatePointerTiltRadiusScale = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setPointerTiltRadiusScale(
+      normalizeLogoPresentationTiltRadiusScale(Math.round(Number(event.target.value) * 100) / 100),
+    );
+  }, []);
+  const updatePointerTiltStrengthScale = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setPointerTiltStrengthScale(
+      normalizeLogoPresentationTiltStrengthScale(
+        Math.round(Number(event.target.value) * 100) / 100,
+      ),
+    );
+  }, []);
+  const commitHoverDraftSettings = useCallback(() => {
     replaceRouteSearch(
       preserveLogoRouteDevModeSearch(
         buildLogoMengerHoverRouteSearch({
@@ -236,13 +278,24 @@ export function LogoMengerDepthTransitionPage({
           elevationDegrees: view.elevationDegrees,
           mengerHoverDepth: hoverMaximumDepth,
           mengerHoverTiltEnabled: pointerTiltEnabled,
+          mengerHoverTiltRadiusScale: pointerTiltRadiusScale,
+          mengerHoverTiltStrengthScale: pointerTiltStrengthScale,
           rotationDegrees: view.rotationDegrees,
           themeModeSearch: routeSearch,
         }),
         routeSearch,
       ),
     );
-  }, [hoverMaximumDepth, pointerTiltEnabled, replaceRouteSearch, routeSearch, routeState, view]);
+  }, [
+    hoverMaximumDepth,
+    pointerTiltEnabled,
+    pointerTiltRadiusScale,
+    pointerTiltStrengthScale,
+    replaceRouteSearch,
+    routeSearch,
+    routeState,
+    view,
+  ]);
   const updatePointerTiltEnabled = useCallback(
     (enabled: boolean) => {
       replaceRouteSearch(
@@ -252,6 +305,8 @@ export function LogoMengerDepthTransitionPage({
             elevationDegrees: view.elevationDegrees,
             mengerHoverDepth: hoverMaximumDepth,
             mengerHoverTiltEnabled: enabled,
+            mengerHoverTiltRadiusScale: pointerTiltRadiusScale,
+            mengerHoverTiltStrengthScale: pointerTiltStrengthScale,
             rotationDegrees: view.rotationDegrees,
             themeModeSearch: routeSearch,
           }),
@@ -259,7 +314,15 @@ export function LogoMengerDepthTransitionPage({
         ),
       );
     },
-    [hoverMaximumDepth, replaceRouteSearch, routeSearch, routeState, view],
+    [
+      hoverMaximumDepth,
+      pointerTiltRadiusScale,
+      pointerTiltStrengthScale,
+      replaceRouteSearch,
+      routeSearch,
+      routeState,
+      view,
+    ],
   );
   const commitView = useCallback(
     (finalView: LogoViewState) => {
@@ -270,6 +333,8 @@ export function LogoMengerDepthTransitionPage({
               elevationDegrees: finalView.elevationDegrees,
               mengerHoverDepth: hoverMaximumDepth,
               mengerHoverTiltEnabled: pointerTiltEnabled,
+              mengerHoverTiltRadiusScale: pointerTiltRadiusScale,
+              mengerHoverTiltStrengthScale: pointerTiltStrengthScale,
               rotationDegrees: finalView.rotationDegrees,
               themeModeSearch: routeSearch,
             })
@@ -281,7 +346,16 @@ export function LogoMengerDepthTransitionPage({
             });
       replaceRouteSearch(preserveLogoRouteDevModeSearch(nextSearch, routeSearch));
     },
-    [hoverMaximumDepth, mode, pointerTiltEnabled, replaceRouteSearch, routeSearch, routeState],
+    [
+      hoverMaximumDepth,
+      mode,
+      pointerTiltEnabled,
+      pointerTiltRadiusScale,
+      pointerTiltStrengthScale,
+      replaceRouteSearch,
+      routeSearch,
+      routeState,
+    ],
   );
   const hoverControlsContent = useMemo(
     () => (
@@ -317,10 +391,10 @@ export function LogoMengerDepthTransitionPage({
             className="h-2 w-full cursor-pointer accent-foreground"
             max={MENGER_HOVER_MAX_DEPTH}
             min={MENGER_HOVER_MIN_DEPTH}
-            onBlur={commitHoverMaximumDepth}
+            onBlur={commitHoverDraftSettings}
             onChange={updateHoverMaximumDepth}
-            onKeyUp={commitHoverMaximumDepth}
-            onPointerUp={commitHoverMaximumDepth}
+            onKeyUp={commitHoverDraftSettings}
+            onPointerUp={commitHoverDraftSettings}
             step="1"
             type="range"
             value={hoverMaximumDepth}
@@ -363,6 +437,64 @@ export function LogoMengerDepthTransitionPage({
           </label>
         </div>
 
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between text-xs">
+            <label htmlFor="menger-hover-pointer-tilt-radius">Tilt radius</label>
+            <output
+              className="font-mono text-xs text-muted-foreground"
+              htmlFor="menger-hover-pointer-tilt-radius"
+            >
+              {pointerTiltRadiusScale.toFixed(2)}×
+            </output>
+          </div>
+          <input
+            id="menger-hover-pointer-tilt-radius"
+            aria-label="Tilt radius"
+            className="h-2 w-full cursor-pointer accent-foreground"
+            max={Math.max(
+              LOGO_PRESENTATION_TILT_RADIUS_SCALE_SLIDER_MAX,
+              searchPointerTiltRadiusScale,
+            )}
+            min={LOGO_PRESENTATION_TILT_RADIUS_SCALE_SLIDER_MIN}
+            onBlur={commitHoverDraftSettings}
+            onChange={updatePointerTiltRadiusScale}
+            onKeyUp={commitHoverDraftSettings}
+            onPointerUp={commitHoverDraftSettings}
+            step="any"
+            type="range"
+            value={pointerTiltRadiusScale}
+          />
+        </div>
+
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between text-xs">
+            <label htmlFor="menger-hover-pointer-tilt-strength">Tilt strength</label>
+            <output
+              className="font-mono text-xs text-muted-foreground"
+              htmlFor="menger-hover-pointer-tilt-strength"
+            >
+              {pointerTiltStrengthScale.toFixed(2)}×
+            </output>
+          </div>
+          <input
+            id="menger-hover-pointer-tilt-strength"
+            aria-label="Tilt strength"
+            className="h-2 w-full cursor-pointer accent-foreground"
+            max={Math.max(
+              LOGO_PRESENTATION_TILT_STRENGTH_SCALE_SLIDER_MAX,
+              searchPointerTiltStrengthScale,
+            )}
+            min={LOGO_PRESENTATION_TILT_STRENGTH_SCALE_SLIDER_MIN}
+            onBlur={commitHoverDraftSettings}
+            onChange={updatePointerTiltStrengthScale}
+            onKeyUp={commitHoverDraftSettings}
+            onPointerUp={commitHoverDraftSettings}
+            step="any"
+            type="range"
+            value={pointerTiltStrengthScale}
+          />
+        </div>
+
         <div className="grid gap-1 border-t pt-3 font-mono text-xs text-muted-foreground">
           <div>Depth 1 at rest</div>
           <div>
@@ -375,13 +507,19 @@ export function LogoMengerDepthTransitionPage({
       </div>
     ),
     [
-      commitHoverMaximumDepth,
+      commitHoverDraftSettings,
       hoverMaximumDepth,
       hoverRevealRadius,
       pointerTiltEnabled,
+      pointerTiltRadiusScale,
+      pointerTiltStrengthScale,
+      searchPointerTiltRadiusScale,
+      searchPointerTiltStrengthScale,
       updateHoverMaximumDepth,
       updateHoverRevealRadius,
       updatePointerTiltEnabled,
+      updatePointerTiltRadiusScale,
+      updatePointerTiltStrengthScale,
     ],
   );
   const transitionControlsContent = useMemo(
@@ -470,6 +608,8 @@ export function LogoMengerDepthTransitionPage({
         className="h-full min-h-0 w-full"
         data-menger-research-mode={mode}
         data-menger-pointer-tilt={pointerTiltEnabled ? "landing" : "off"}
+        data-menger-pointer-tilt-radius-scale={pointerTiltRadiusScale}
+        data-menger-pointer-tilt-strength-scale={pointerTiltStrengthScale}
         data-phase={phase}
         data-testid={
           mode === "hover" ? "logo-menger-hover-page" : "logo-menger-depth-transition-page"
@@ -484,6 +624,8 @@ export function LogoMengerDepthTransitionPage({
             onInteractionEnd={commitView}
             onViewChange={setView}
             pointerTiltEnabled={pointerTiltEnabled}
+            pointerTiltRadiusScale={pointerTiltRadiusScale}
+            pointerTiltStrengthScale={pointerTiltStrengthScale}
             revealRadius={hoverRevealRadius}
             rotationDegrees={view.rotationDegrees}
             viewSnapEnabled={routeState.viewSnapEnabled}
