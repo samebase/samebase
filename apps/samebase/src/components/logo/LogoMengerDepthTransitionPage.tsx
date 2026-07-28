@@ -4,12 +4,13 @@ import { MengerHoverScene } from "@/components/logo/MengerHoverScene";
 import { readLogoRouteRenderState } from "@/components/logo/logoRouteRenderState";
 import { type LogoViewState } from "@/components/logo/logoViewDrag";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import {
   buildLogoMengerHoverRouteSearch,
   buildLogoRouteSearch,
   preserveLogoRouteDevModeSearch,
-  type LogoRouteSearch,
+  type LogoMengerHoverRouteSearch,
 } from "@/routeSearch/logo";
 import {
   MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT,
@@ -48,8 +49,8 @@ export function LogoMengerDepthTransitionPage({
   routeSearch,
 }: {
   mode?: MengerResearchMode;
-  replaceRouteSearch: (nextSearch: LogoRouteSearch) => void;
-  routeSearch: LogoRouteSearch;
+  replaceRouteSearch: (nextSearch: LogoMengerHoverRouteSearch) => void;
+  routeSearch: LogoMengerHoverRouteSearch;
 }) {
   const routeState = useMemo(
     () =>
@@ -61,6 +62,7 @@ export function LogoMengerDepthTransitionPage({
   );
   const { backgroundColor, faceColors } = useResolvedAppThemeColorState(routeState.themeColors);
   const searchHoverMaximumDepth = routeSearch.depth ?? MENGER_HOVER_DEFAULT_DEPTH;
+  const pointerTiltEnabled = routeSearch.tilt === true;
   const [progress, setProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackVersion, setPlaybackVersion] = useState(0);
@@ -233,13 +235,32 @@ export function LogoMengerDepthTransitionPage({
           ...routeState,
           elevationDegrees: view.elevationDegrees,
           mengerHoverDepth: hoverMaximumDepth,
+          mengerHoverTiltEnabled: pointerTiltEnabled,
           rotationDegrees: view.rotationDegrees,
           themeModeSearch: routeSearch,
         }),
         routeSearch,
       ),
     );
-  }, [hoverMaximumDepth, replaceRouteSearch, routeSearch, routeState, view]);
+  }, [hoverMaximumDepth, pointerTiltEnabled, replaceRouteSearch, routeSearch, routeState, view]);
+  const updatePointerTiltEnabled = useCallback(
+    (enabled: boolean) => {
+      replaceRouteSearch(
+        preserveLogoRouteDevModeSearch(
+          buildLogoMengerHoverRouteSearch({
+            ...routeState,
+            elevationDegrees: view.elevationDegrees,
+            mengerHoverDepth: hoverMaximumDepth,
+            mengerHoverTiltEnabled: enabled,
+            rotationDegrees: view.rotationDegrees,
+            themeModeSearch: routeSearch,
+          }),
+          routeSearch,
+        ),
+      );
+    },
+    [hoverMaximumDepth, replaceRouteSearch, routeSearch, routeState, view],
+  );
   const commitView = useCallback(
     (finalView: LogoViewState) => {
       const nextSearch =
@@ -248,6 +269,7 @@ export function LogoMengerDepthTransitionPage({
               ...routeState,
               elevationDegrees: finalView.elevationDegrees,
               mengerHoverDepth: hoverMaximumDepth,
+              mengerHoverTiltEnabled: pointerTiltEnabled,
               rotationDegrees: finalView.rotationDegrees,
               themeModeSearch: routeSearch,
             })
@@ -259,7 +281,7 @@ export function LogoMengerDepthTransitionPage({
             });
       replaceRouteSearch(preserveLogoRouteDevModeSearch(nextSearch, routeSearch));
     },
-    [hoverMaximumDepth, mode, replaceRouteSearch, routeSearch, routeState],
+    [hoverMaximumDepth, mode, pointerTiltEnabled, replaceRouteSearch, routeSearch, routeState],
   );
   const hoverControlsContent = useMemo(
     () => (
@@ -328,6 +350,19 @@ export function LogoMengerDepthTransitionPage({
           />
         </div>
 
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="menger-hover-pointer-tilt"
+            checked={pointerTiltEnabled}
+            onCheckedChange={(checked) => {
+              updatePointerTiltEnabled(checked === true);
+            }}
+          />
+          <label className="text-xs" htmlFor="menger-hover-pointer-tilt">
+            Landing tilt
+          </label>
+        </div>
+
         <div className="grid gap-1 border-t pt-3 font-mono text-xs text-muted-foreground">
           <div>Depth 1 at rest</div>
           <div>
@@ -343,8 +378,10 @@ export function LogoMengerDepthTransitionPage({
       commitHoverMaximumDepth,
       hoverMaximumDepth,
       hoverRevealRadius,
+      pointerTiltEnabled,
       updateHoverMaximumDepth,
       updateHoverRevealRadius,
+      updatePointerTiltEnabled,
     ],
   );
   const transitionControlsContent = useMemo(
@@ -432,6 +469,7 @@ export function LogoMengerDepthTransitionPage({
       <div
         className="h-full min-h-0 w-full"
         data-menger-research-mode={mode}
+        data-menger-pointer-tilt={pointerTiltEnabled ? "landing" : "off"}
         data-phase={phase}
         data-testid={
           mode === "hover" ? "logo-menger-hover-page" : "logo-menger-depth-transition-page"
@@ -445,6 +483,7 @@ export function LogoMengerDepthTransitionPage({
             maximumDepth={hoverMaximumDepth}
             onInteractionEnd={commitView}
             onViewChange={setView}
+            pointerTiltEnabled={pointerTiltEnabled}
             revealRadius={hoverRevealRadius}
             rotationDegrees={view.rotationDegrees}
             viewSnapEnabled={routeState.viewSnapEnabled}

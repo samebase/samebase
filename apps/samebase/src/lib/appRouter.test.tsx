@@ -180,13 +180,14 @@ vi.mock("@/components/logo/LogoMengerDepthTransitionPage", () => ({
     routeSearch,
   }: {
     mode?: "hover" | "transition";
-    routeSearch: { depth?: number; elev?: number; primary?: string; rot?: number };
+    routeSearch: { depth?: number; elev?: number; primary?: string; rot?: number; tilt?: true };
   }) => (
     <div
       data-depth={routeSearch.depth}
       data-elevation={routeSearch.elev}
       data-primary={routeSearch.primary}
       data-rotation={routeSearch.rot}
+      data-tilt={routeSearch.tilt ? "true" : "false"}
       data-testid={
         mode === "hover" ? "logo-menger-hover-page" : "logo-menger-depth-transition-page"
       }
@@ -800,13 +801,14 @@ describe("appRouter", () => {
   });
 
   it("passes shared logo search state to the Menger hover research route", async () => {
-    await renderRoute("/logo/hover/menger?depth=99&elev=0&primary=emerald-500&rot=0");
+    await renderRoute("/logo/hover/menger?depth=99&elev=0&primary=emerald-500&rot=0&tilt");
 
     const page = rootElement?.querySelector('[data-testid="logo-menger-hover-page"]');
     expect(page?.getAttribute("data-depth")).toBe("5");
     expect(page?.getAttribute("data-elevation")).toBe("0");
     expect(page?.getAttribute("data-primary")).toBe("emerald-500");
     expect(page?.getAttribute("data-rotation")).toBe("0");
+    expect(page?.getAttribute("data-tilt")).toBe("true");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 

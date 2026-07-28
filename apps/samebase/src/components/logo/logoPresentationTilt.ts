@@ -11,6 +11,9 @@ export const NEUTRAL_LOGO_PRESENTATION_TILT_TARGET: LogoPresentationTiltTarget =
   vertical: 0,
 };
 
+export const LOGO_POINTER_TILT_MEDIA_QUERY = "(hover: hover) and (pointer: fine)";
+export const LOGO_PRESENTATION_TILT_SETTLED_DEGREES = 0.01;
+
 const LOGO_PRESENTATION_TILT_DAMPING_PER_SECOND = 18;
 const LOGO_PRESENTATION_TILT_MAX_FRAME_SECONDS = 0.064;
 // The target stays unbounded; only its visible angular rate is bounded so a

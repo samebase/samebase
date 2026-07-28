@@ -2,10 +2,10 @@ import { LogoMengerDepthTransitionPage } from "@/components/logo/LogoMengerDepth
 import { buildLogoLabPageHead } from "@/lib/pageMetadata";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import {
-  LOGO_ROUTE_SEARCH_KEYS,
-  LOGO_ROUTE_SEARCH_PARAM_ACCESS,
-  readLogoRouteSearchParamSuggestionsForRenderer,
-  validateLogoRouteSearchForRenderer,
+  LOGO_MENGER_HOVER_ROUTE_SEARCH_KEYS,
+  LOGO_MENGER_HOVER_ROUTE_SEARCH_PARAM_ACCESS,
+  LOGO_MENGER_HOVER_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+  validateLogoMengerHoverRouteSearch,
 } from "@/routeSearch/logo";
 import { createFileRoute } from "@tanstack/react-router";
 
@@ -34,10 +34,10 @@ export const Route = createFileRoute("/logo/hover/menger")({
   head: () => buildLogoLabPageHead(pathname, "Menger Hover Reveal Lab"),
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
-    acceptedSearchKeys: LOGO_ROUTE_SEARCH_KEYS,
-    searchParamAccess: LOGO_ROUTE_SEARCH_PARAM_ACCESS,
-    searchParamSuggestions: readLogoRouteSearchParamSuggestionsForRenderer("three"),
+    acceptedSearchKeys: LOGO_MENGER_HOVER_ROUTE_SEARCH_KEYS,
+    searchParamAccess: LOGO_MENGER_HOVER_ROUTE_SEARCH_PARAM_ACCESS,
+    searchParamSuggestions: LOGO_MENGER_HOVER_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: LogoMengerHoverRouteComponent,
-  validateSearch: validateLogoRouteSearchForRenderer("three"),
+  validateSearch: validateLogoMengerHoverRouteSearch,
 });

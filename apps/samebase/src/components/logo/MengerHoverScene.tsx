@@ -1,4 +1,11 @@
 import { getTailwindColorHex, type FaceColors } from "@/components/logo/logoTailwindColors";
+import {
+  getLogoPresentationTiltTransitionAlpha,
+  getPointerLogoPresentationTiltTarget,
+  LOGO_POINTER_TILT_MEDIA_QUERY,
+  LOGO_PRESENTATION_TILT_SETTLED_DEGREES,
+  NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
+} from "@/components/logo/logoPresentationTilt";
 import { resolveLogoSceneCameraDepthBounds } from "@/components/logo/logoSceneCameraDepth";
 import { type LogoViewState } from "@/components/logo/logoViewDrag";
 import {
@@ -76,6 +83,7 @@ export function MengerHoverScene({
   maximumDepth,
   onInteractionEnd,
   onViewChange,
+  pointerTiltEnabled,
   revealRadius,
   rotationDegrees,
   viewSnapEnabled,
@@ -85,12 +93,14 @@ export function MengerHoverScene({
   maximumDepth: number;
   onInteractionEnd: (finalView: LogoViewState) => void;
   onViewChange: (nextView: LogoViewState) => void;
+  pointerTiltEnabled: boolean;
   revealRadius: number;
   rotationDegrees: number;
   viewSnapEnabled: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const clientPointerRef = useRef<ClientPoint | null>(null);
+  const pointerTiltEnabledRef = useRef(pointerTiltEnabled);
   const renderSceneRef = useRef<() => void>(() => {});
   const revealRadiusRef = useRef(revealRadius);
   const viewRef = useRef<LogoViewState>({ elevationDegrees, rotationDegrees });
@@ -100,9 +110,16 @@ export function MengerHoverScene({
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,
+    interactionRef,
   } = useLogoViewDrag<HTMLDivElement>({
     elevationDegrees,
     onInteractionEnd,
+    onPointerCaptureEnd: () => {
+      renderSceneRef.current();
+    },
+    onPointerCaptureStart: () => {
+      renderSceneRef.current();
+    },
     onViewChange,
     rotationDegrees,
     viewDragConfig: viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined,
@@ -231,7 +248,9 @@ export function MengerHoverScene({
     for (const { coverMesh, settledMesh } of stageMeshes) {
       logoGroup.add(settledMesh, coverMesh);
     }
-    scene.add(logoGroup);
+    const presentationTiltGroup = new THREE.Group();
+    presentationTiltGroup.add(logoGroup);
+    scene.add(presentationTiltGroup);
 
     const matrix = new THREE.Matrix4();
     model.depthOneVoxels.forEach((coordinate, index) => {
@@ -265,6 +284,13 @@ export function MengerHoverScene({
     const fitRadius = (MENGER_SCENE_WORLD_SIZE / 2) * Math.sqrt(3);
     const cameraDepthBounds = resolveLogoSceneCameraDepthBounds(fitRadius);
     camera.far = cameraDepthBounds.far;
+    const pointerMediaQuery = window.matchMedia(LOGO_POINTER_TILT_MEDIA_QUERY);
+    const presentationTiltAxisVector = new THREE.Vector3();
+    const presentationTiltScreenRightVector = new THREE.Vector3();
+    const presentationTiltNeutralQuaternion = new THREE.Quaternion();
+    const presentationTiltTargetQuaternion = new THREE.Quaternion();
+    let presentationTiltTarget = NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
+    let lastPresentationTiltFrameTime: number | null = null;
 
     const clearProbe = () => {
       delete container.dataset.hoverCoordinateX;
@@ -361,8 +387,81 @@ export function MengerHoverScene({
       });
     };
 
+    const updatePresentationTiltTarget = (clientPoint: ClientPoint | null) => {
+      const bounds = renderer.domElement.getBoundingClientRect();
+      presentationTiltTarget =
+        clientPoint !== null && pointerMediaQuery.matches && bounds.width > 0 && bounds.height > 0
+          ? getPointerLogoPresentationTiltTarget({
+              bounds,
+              clientX: clientPoint.x,
+              clientY: clientPoint.y,
+            })
+          : NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
+    };
+
+    const applyPresentationTilt = (timestampMs: number): boolean => {
+      const target =
+        pointerTiltEnabledRef.current && !reducedMotionQuery.matches
+          ? presentationTiltTarget
+          : NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
+      container.dataset.presentationHorizontalDegrees = target.horizontal.toFixed(3);
+      container.dataset.presentationVerticalDegrees = target.vertical.toFixed(3);
+
+      if (reducedMotionQuery.matches) {
+        presentationTiltTargetQuaternion.identity();
+        presentationTiltGroup.quaternion.identity();
+        lastPresentationTiltFrameTime = timestampMs;
+        return true;
+      }
+
+      if (interactionRef.current.status !== "idle") {
+        presentationTiltTargetQuaternion.copy(presentationTiltGroup.quaternion);
+      } else {
+        const magnitude = Math.hypot(target.horizontal, target.vertical);
+        if (magnitude === 0) {
+          presentationTiltTargetQuaternion.identity();
+        } else {
+          presentationTiltScreenRightVector.crossVectors(camera.up, camera.position).normalize();
+          presentationTiltAxisVector
+            .copy(presentationTiltScreenRightVector)
+            .multiplyScalar(-target.vertical)
+            .addScaledVector(camera.up, target.horizontal)
+            .normalize();
+          presentationTiltTargetQuaternion.setFromAxisAngle(
+            presentationTiltAxisVector,
+            THREE.MathUtils.degToRad(magnitude),
+          );
+        }
+      }
+
+      const remainingAngle = presentationTiltGroup.quaternion.angleTo(
+        presentationTiltTargetQuaternion,
+      );
+      if (remainingAngle <= THREE.MathUtils.degToRad(LOGO_PRESENTATION_TILT_SETTLED_DEGREES)) {
+        presentationTiltGroup.quaternion.copy(presentationTiltTargetQuaternion);
+        lastPresentationTiltFrameTime = timestampMs;
+        return true;
+      }
+
+      const previousFrameTime = lastPresentationTiltFrameTime;
+      lastPresentationTiltFrameTime = timestampMs;
+      if (previousFrameTime === null) {
+        return false;
+      }
+
+      presentationTiltGroup.quaternion.slerp(
+        presentationTiltTargetQuaternion,
+        getLogoPresentationTiltTransitionAlpha({
+          deltaSeconds: (timestampMs - previousFrameTime) / 1000,
+          remainingDegrees: THREE.MathUtils.radToDeg(remainingAngle),
+        }),
+      );
+      return false;
+    };
+
     const renderScene = (timestampMs?: number): void => {
       const cpuSubmissionStartedAt = performance.now();
+      const now = timestampMs ?? performance.now();
       const view = viewRef.current;
       const [cameraX, cameraY, cameraZ] = getWorldCameraVector(view.elevationDegrees);
       const [upX, upY, upZ] = getWorldScreenVerticalAxis(view.elevationDegrees);
@@ -372,8 +471,9 @@ export function MengerHoverScene({
       logoGroup.rotation.y = THREE.MathUtils.degToRad(
         toRenderedRotationDegrees(view.rotationDegrees),
       );
+      const presentationTiltSettled = applyPresentationTilt(now);
       camera.updateMatrixWorld();
-      logoGroup.updateMatrixWorld(true);
+      presentationTiltGroup.updateMatrixWorld(true);
 
       depthOneMesh.visible = depthOneOnly;
       if (settledSurface) {
@@ -396,7 +496,6 @@ export function MengerHoverScene({
           directionProbe = probe;
         }
         writeMengerHoverState(hoverState, model, probe, directionProbe, revealRadiusRef.current);
-        const now = timestampMs ?? performance.now();
         const previousFrameTime = lastFrameTime;
         lastFrameTime = now;
         const elapsedMs =
@@ -433,6 +532,16 @@ export function MengerHoverScene({
         }
       }
 
+      container.dataset.presentationTiltSettled = presentationTiltSettled ? "true" : "false";
+      container.dataset.presentationAppliedAngleDegrees = THREE.MathUtils.radToDeg(
+        presentationTiltGroup.quaternion.angleTo(presentationTiltNeutralQuaternion),
+      ).toFixed(3);
+      if (!presentationTiltSettled) {
+        scheduleFrame();
+      } else {
+        lastPresentationTiltFrameTime = null;
+      }
+
       renderer.render(scene, camera);
       container.dataset.hoverCpuSubmissionMs = (performance.now() - cpuSubmissionStartedAt).toFixed(
         3,
@@ -460,11 +569,19 @@ export function MengerHoverScene({
       camera.top = frustumHalfHeight;
       camera.bottom = -frustumHalfHeight;
       camera.updateProjectionMatrix();
+      updatePresentationTiltTarget(clientPointerRef.current);
       renderScene();
     };
 
     const onWindowPointerMove = (event: PointerEvent) => {
-      if (!event.isPrimary || event.pointerType === "touch" || event.buttons !== 0) {
+      if (!event.isPrimary || event.pointerType === "touch") {
+        return;
+      }
+
+      if (event.pointerType === "mouse") {
+        updatePresentationTiltTarget({ x: event.clientX, y: event.clientY });
+      }
+      if (event.buttons !== 0) {
         return;
       }
 
@@ -477,14 +594,32 @@ export function MengerHoverScene({
       }
 
       clientPointerRef.current = { x: event.clientX, y: event.clientY };
+      if (event.pointerType === "mouse") {
+        updatePresentationTiltTarget(clientPointerRef.current);
+      }
+      renderScene();
+    };
+    const onWindowBlur = () => {
+      presentationTiltTarget = NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
+      renderScene();
+    };
+    const onPointerCapabilityChange = () => {
+      updatePresentationTiltTarget(pointerMediaQuery.matches ? clientPointerRef.current : null);
+      renderScene();
+    };
+    const onReducedMotionChange = () => {
       renderScene();
     };
     const onPagePointerLeave = () => {
       clientPointerRef.current = null;
+      presentationTiltTarget = NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
       renderScene();
     };
+    window.addEventListener("blur", onWindowBlur);
     window.addEventListener("pointermove", onWindowPointerMove);
     window.addEventListener("pointerup", onWindowPointerUp);
+    pointerMediaQuery.addEventListener("change", onPointerCapabilityChange);
+    reducedMotionQuery.addEventListener("change", onReducedMotionChange);
     document.documentElement.addEventListener("pointerleave", onPagePointerLeave);
 
     renderSceneRef.current = renderScene;
@@ -494,8 +629,11 @@ export function MengerHoverScene({
 
     return () => {
       resizeObserver.disconnect();
+      window.removeEventListener("blur", onWindowBlur);
       window.removeEventListener("pointermove", onWindowPointerMove);
       window.removeEventListener("pointerup", onWindowPointerUp);
+      pointerMediaQuery.removeEventListener("change", onPointerCapabilityChange);
+      reducedMotionQuery.removeEventListener("change", onReducedMotionChange);
       document.documentElement.removeEventListener("pointerleave", onPagePointerLeave);
       renderSceneRef.current = () => {};
       if (animationFrame !== 0) {
@@ -514,6 +652,10 @@ export function MengerHoverScene({
       delete container.dataset.hoverSceneBuildMs;
       delete container.dataset.hoverTriangleCount;
       delete container.dataset.hoverVisibleInstanceCount;
+      delete container.dataset.presentationAppliedAngleDegrees;
+      delete container.dataset.presentationHorizontalDegrees;
+      delete container.dataset.presentationTiltSettled;
+      delete container.dataset.presentationVerticalDegrees;
       for (const stageMesh of stageMeshes) {
         stageMesh.blockerLinkTexture.texture.dispose();
         stageMesh.coverGeometry.dispose();
@@ -525,12 +667,17 @@ export function MengerHoverScene({
       scene.clear();
       container.replaceChildren();
     };
-  }, [leftFaceColor, maximumDepth, model, rightFaceColor, topFaceColor]);
+  }, [interactionRef, leftFaceColor, maximumDepth, model, rightFaceColor, topFaceColor]);
 
   useEffect(() => {
     revealRadiusRef.current = revealRadius;
     renderSceneRef.current();
   }, [revealRadius]);
+
+  useEffect(() => {
+    pointerTiltEnabledRef.current = pointerTiltEnabled;
+    renderSceneRef.current();
+  }, [pointerTiltEnabled]);
 
   useEffect(() => {
     viewRef.current = { elevationDegrees, rotationDegrees };
@@ -543,6 +690,7 @@ export function MengerHoverScene({
       aria-label="Menger sponge hover reveal"
       className="h-full min-h-0 w-full cursor-grab touch-none select-none active:cursor-grabbing"
       data-menger-maximum-depth={maximumDepth}
+      data-menger-pointer-tilt={pointerTiltEnabled ? "landing" : "off"}
       data-menger-research-mode="hover"
       data-logo-elevation-degrees={elevationDegrees}
       data-logo-rotation-degrees={rotationDegrees}

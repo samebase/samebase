@@ -13,7 +13,10 @@ import {
   type SierpinskiCarpetHoverDepth,
   type SierpinskiCarpetHoverMechanic,
 } from "@samebase/logo-model/sierpinski-carpet-hover";
-import { MENGER_HOVER_DEFAULT_DEPTH } from "@samebase/logo-model/menger-hover";
+import {
+  MENGER_HOVER_DEFAULT_DEPTH,
+  MENGER_HOVER_MAX_DEPTH,
+} from "@samebase/logo-model/menger-hover";
 import {
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
   LOGO_ISOMETRIC_CUBE_SIDE_PIXELS,
@@ -523,11 +526,22 @@ const RouteSearchSchema_logoCarpetHover = defineRouteSearchParams({
   ),
 });
 
+/** The landing-style tilt option belongs only to the Menger hover lab. */
+const RouteSearchSchema_logoMengerHover = defineRouteSearchParams({
+  ...RouteSearchSchema_logo.shape,
+  tilt: routeSearchPresenceParam({
+    access: "access_public",
+    ...logoViewRouteSearchSuggestion,
+  }),
+});
+
 type LogoRouteSearchFields = InferRouteSearch<typeof RouteSearchSchema_logo>;
 
 type LogoIsoRouteSearchFields = InferRouteSearch<typeof RouteSearchSchema_logoIso>;
 
 type LogoCarpetHoverRouteSearchFields = InferRouteSearch<typeof RouteSearchSchema_logoCarpetHover>;
+
+type LogoMengerHoverRouteSearchFields = InferRouteSearch<typeof RouteSearchSchema_logoMengerHover>;
 
 function readLogoRouteSearchFields(search: LogoRouteSearchFields) {
   const themeModeSearch = readRootThemeModeSearch(search);
@@ -580,11 +594,20 @@ function readLogoCarpetHoverRouteSearchFields(search: LogoCarpetHoverRouteSearch
   };
 }
 
+function readLogoMengerHoverRouteSearchFields(search: LogoMengerHoverRouteSearchFields) {
+  return {
+    ...readLogoRouteSearchFields(search),
+    ...(search.tilt ? { tilt: true as const } : {}),
+  };
+}
+
 export type LogoRouteSearch = ReturnType<typeof readLogoRouteSearchFields>;
 
 export type LogoIsoRouteSearch = ReturnType<typeof readLogoIsoRouteSearchFields>;
 
 export type LogoCarpetHoverRouteSearch = ReturnType<typeof readLogoCarpetHoverRouteSearchFields>;
+
+export type LogoMengerHoverRouteSearch = ReturnType<typeof readLogoMengerHoverRouteSearchFields>;
 
 export type LogoRouteSearchBuildState = {
   autoRotateEnabled: boolean;
@@ -673,8 +696,24 @@ export const LOGO_CARPET_HOVER_ROUTE_SEARCH_PARAM_ACCESS = readRouteSearchParamA
   LOGO_CARPET_HOVER_ROUTE_SEARCH_PARAM_METADATA,
 );
 
+const LOGO_MENGER_HOVER_ROUTE_SEARCH_PARAM_METADATA = readRouteSearchParamMetadata(
+  RouteSearchSchema_logoMengerHover,
+) satisfies RouteSearchParamMetadataByKey<LogoMengerHoverRouteSearch>;
+
+export const LOGO_MENGER_HOVER_ROUTE_SEARCH_KEYS = keys(
+  LOGO_MENGER_HOVER_ROUTE_SEARCH_PARAM_METADATA,
+);
+
+export const LOGO_MENGER_HOVER_ROUTE_SEARCH_PARAM_ACCESS = readRouteSearchParamAccess(
+  LOGO_MENGER_HOVER_ROUTE_SEARCH_PARAM_METADATA,
+);
+
 const LOGO_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
   LOGO_ROUTE_SEARCH_PARAM_METADATA,
+);
+
+const LOGO_MENGER_HOVER_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
+  LOGO_MENGER_HOVER_ROUTE_SEARCH_PARAM_METADATA,
 );
 
 function readLogoDepthValueSuggestions(depthMax: number): RouteSearchParamValueSuggestions {
@@ -733,6 +772,12 @@ export const LOGO_CARPET_HOVER_ROUTE_SEARCH_PARAM_SUGGESTIONS =
   readLogoRouteSearchParamSuggestionsWithDepthMax(
     LOGO_CARPET_HOVER_ROUTE_SEARCH_PARAM_METADATA,
     SIERPINSKI_CARPET_HOVER_MAX_DEPTH,
+  );
+
+export const LOGO_MENGER_HOVER_ROUTE_SEARCH_PARAM_SUGGESTIONS =
+  readLogoRouteSearchParamSuggestionsWithDepthMax(
+    LOGO_MENGER_HOVER_ROUTE_SEARCH_PARAM_METADATA,
+    MENGER_HOVER_MAX_DEPTH,
   );
 
 export function validateLogoRouteSearch(search: Record<string, unknown>): LogoRouteSearch {
@@ -795,6 +840,26 @@ export function validateLogoCarpetHoverRouteSearch(
   return {
     ...parsedSearch,
     depth: SIERPINSKI_CARPET_HOVER_MAX_DEPTH,
+  };
+}
+
+export function validateLogoMengerHoverRouteSearch(
+  search: Record<string, unknown>,
+): LogoMengerHoverRouteSearch {
+  const presenceNormalizedSearch = normalizeRouteSearchPresenceFlags(
+    search,
+    LOGO_MENGER_HOVER_ROUTE_PRESENCE_SEARCH_KEYS,
+  );
+  const parsedSearch = readLogoMengerHoverRouteSearchFields(
+    RouteSearchSchema_logoMengerHover.parse(presenceNormalizedSearch),
+  );
+  if (typeof parsedSearch.depth !== "number" || parsedSearch.depth <= MENGER_HOVER_MAX_DEPTH) {
+    return parsedSearch;
+  }
+
+  return {
+    ...parsedSearch,
+    depth: MENGER_HOVER_MAX_DEPTH,
   };
 }
 
@@ -1022,14 +1087,16 @@ export function buildLogoCarpetHoverRouteSearch(
 export function buildLogoMengerHoverRouteSearch(
   args: LogoRouteSearchBuildState & {
     mengerHoverDepth: number;
+    mengerHoverTiltEnabled: boolean;
     themeModeSearch?: RootThemeModeSearch;
   },
-): LogoRouteSearch {
+): LogoMengerHoverRouteSearch {
   const depth = clampLogoFractalDepthForRenderer(args.mengerHoverDepth, "three");
 
   return {
     ...buildLogoRouteSearch(args),
     depth: depth !== MENGER_HOVER_DEFAULT_DEPTH ? depth : undefined,
+    tilt: args.mengerHoverTiltEnabled ? true : undefined,
   };
 }
 

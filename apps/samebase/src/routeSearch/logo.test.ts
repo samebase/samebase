@@ -48,6 +48,7 @@ import {
   preserveLogoRouteDevModeSearch,
   validateLogoCarpetHoverRouteSearch,
   validateLogoIsoRouteSearch,
+  validateLogoMengerHoverRouteSearch,
   validateLogoRouteSearch,
   validateLogoRouteSearchForRenderer,
 } from "@/routeSearch/logo";
@@ -272,6 +273,15 @@ describe("logoRouteSearch", () => {
     expect(validateLogoCarpetHoverRouteSearch({ mechanic: "spin" })).toEqual({});
   });
 
+  it("keeps landing tilt on the Menger hover route schema only", () => {
+    expect(validateLogoMengerHoverRouteSearch({ depth: "99", tilt: "" })).toEqual({
+      depth: MENGER_HOVER_MAX_DEPTH,
+      tilt: true,
+    });
+    expect(validateLogoRouteSearch({ tilt: "" })).toEqual({});
+    expect(validateLogoCarpetHoverRouteSearch({ tilt: "" })).toEqual({});
+  });
+
   it("clamps carpet reveal depth and radius at the model bounds", () => {
     expect(validateLogoCarpetHoverRouteSearch({ depth: "9" })).toEqual({
       depth: SIERPINSKI_CARPET_HOVER_MAX_DEPTH,
@@ -335,23 +345,35 @@ describe("logoRouteSearch", () => {
     const mengerDefaults = buildLogoMengerHoverRouteSearch({
       ...routeBuildDefaults,
       mengerHoverDepth: MENGER_HOVER_DEFAULT_DEPTH,
+      mengerHoverTiltEnabled: false,
     });
     expect(mengerDefaults).toEqual({});
     expect("depth" in mengerDefaults).toBe(true);
     expect(mengerDefaults.depth).toBeUndefined();
+    expect("tilt" in mengerDefaults).toBe(true);
+    expect(mengerDefaults.tilt).toBeUndefined();
 
     expect(
       buildLogoMengerHoverRouteSearch({
         ...routeBuildDefaults,
         mengerHoverDepth: 1,
+        mengerHoverTiltEnabled: false,
       }).depth,
     ).toBe(1);
     expect(
       buildLogoMengerHoverRouteSearch({
         ...routeBuildDefaults,
         mengerHoverDepth: 99,
+        mengerHoverTiltEnabled: true,
       }).depth,
     ).toBe(MENGER_HOVER_MAX_DEPTH);
+    expect(
+      buildLogoMengerHoverRouteSearch({
+        ...routeBuildDefaults,
+        mengerHoverDepth: MENGER_HOVER_DEFAULT_DEPTH,
+        mengerHoverTiltEnabled: true,
+      }).tilt,
+    ).toBe(true);
   });
 
   it("preserves canonical theme mode flags when building route search", () => {

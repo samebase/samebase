@@ -42,21 +42,25 @@ async function openMengerHoverCase(
   {
     elevationDegrees,
     maximumDepth = "4",
+    pointerTiltEnabled = false,
+    reducedMotion = "reduce",
     rotationDegrees,
   }: {
     elevationDegrees: string;
     maximumDepth?: string;
+    pointerTiltEnabled?: boolean;
+    reducedMotion?: "no-preference" | "reduce";
     rotationDegrees: string;
   },
 ): Promise<Locator> {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.emulateMedia({ reducedMotion });
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await signInIfNeeded(
     page,
     `/logo/hover/menger?elev=${elevationDegrees}&rot=${rotationDegrees}&top=red-400${
       maximumDepth === "4" ? "" : `&depth=${maximumDepth}`
-    }`,
+    }${pointerTiltEnabled ? "&tilt" : ""}`,
   );
 
   const hoverPage = page.locator('[data-testid="logo-menger-hover-page"]');
@@ -69,6 +73,10 @@ async function openMengerHoverCase(
   await expect(scene).toHaveAttribute("data-menger-maximum-depth", maximumDepth);
   await expect(scene).toHaveAttribute("data-logo-elevation-degrees", elevationDegrees);
   await expect(scene).toHaveAttribute("data-logo-rotation-degrees", rotationDegrees);
+  await expect(scene).toHaveAttribute(
+    "data-menger-pointer-tilt",
+    pointerTiltEnabled ? "landing" : "off",
+  );
   await expect(scene).toHaveAttribute("data-hover-settled", "true");
 
   return scene;
@@ -265,6 +273,185 @@ test("Menger hover controls reveal depth from one through five", async ({ page }
   await expect(depthSlider).toHaveValue("2");
   await expect(scene).toHaveAttribute("data-menger-maximum-depth", "2");
   await expect(page).toHaveURL(/(?:\?|&)depth=2(?:&|$)/);
+});
+
+test("Menger hover composes the optional landing tilt with its stored view", async ({ page }) => {
+  const scene = await openMengerHoverCase(page, {
+    elevationDegrees: "30",
+    maximumDepth: "2",
+    pointerTiltEnabled: true,
+    reducedMotion: "no-preference",
+    rotationDegrees: "225",
+  });
+  const controls = page.locator('[data-testid="logo-menger-hover-controls"]');
+  const tiltCheckbox = controls.getByRole("checkbox", { name: "Landing tilt" });
+  const sceneBox = await scene.boundingBox();
+  if (!sceneBox) {
+    throw new Error("The Menger hover scene must have a bounding box.");
+  }
+
+  await expect(tiltCheckbox).toHaveAttribute("aria-checked", "true");
+  await expect(controls).toHaveScreenshot(
+    "logo-menger-hover-controls-landing-tilt.png",
+    SCREENSHOT_OPTIONS,
+  );
+
+  const storedUrl = page.url();
+  await page.mouse.move(sceneBox.x - 64, sceneBox.y + sceneBox.height / 2);
+  await expect
+    .poll(() => readNumberAttribute(scene, "data-presentation-horizontal-degrees"))
+    .toBeLessThan(-0.1);
+  await expect(scene).toHaveAttribute("data-presentation-vertical-degrees", "0.000");
+  await expect(scene).toHaveAttribute("data-presentation-tilt-settled", "true");
+  await expect(scene).toHaveAttribute("data-logo-elevation-degrees", "30");
+  await expect(scene).toHaveAttribute("data-logo-rotation-degrees", "225");
+  expect(page.url()).toBe(storedUrl);
+  await waitForPaint(page);
+  await expect(scene).toHaveScreenshot("logo-menger-hover-depth-two-landing-tilt.png", {
+    ...SCREENSHOT_OPTIONS,
+    maxDiffPixelRatio: 0,
+  });
+
+  await tiltCheckbox.click();
+  await expect(tiltCheckbox).toHaveAttribute("aria-checked", "false");
+  await expect(page).not.toHaveURL(/(?:\?|&)tilt(?:&|$)/);
+  await expect(scene).toHaveAttribute("data-menger-pointer-tilt", "off");
+  await expect(scene).toHaveAttribute("data-presentation-horizontal-degrees", "0.000");
+  await expect(scene).toHaveAttribute("data-presentation-vertical-degrees", "0.000");
+  await expect(scene).toHaveAttribute("data-presentation-tilt-settled", "true");
+});
+
+test("Menger hover suppresses landing tilt for reduced motion", async ({ page }) => {
+  const scene = await openMengerHoverCase(page, {
+    elevationDegrees: "30",
+    maximumDepth: "2",
+    pointerTiltEnabled: true,
+    rotationDegrees: "225",
+  });
+  const sceneBox = await scene.boundingBox();
+  if (!sceneBox) {
+    throw new Error("The Menger hover scene must have a bounding box.");
+  }
+
+  await page.mouse.move(sceneBox.x - 64, sceneBox.y + sceneBox.height / 2);
+  await expect(scene).toHaveAttribute("data-presentation-horizontal-degrees", "0.000");
+  await expect(scene).toHaveAttribute("data-presentation-vertical-degrees", "0.000");
+  await expect(scene).toHaveAttribute("data-presentation-tilt-settled", "true");
+});
+
+test("Menger hover snaps an active landing tilt to neutral for reduced motion", async ({
+  page,
+}) => {
+  const scene = await openMengerHoverCase(page, {
+    elevationDegrees: "30",
+    maximumDepth: "2",
+    pointerTiltEnabled: true,
+    reducedMotion: "no-preference",
+    rotationDegrees: "225",
+  });
+  const sceneBox = await scene.boundingBox();
+  if (!sceneBox) {
+    throw new Error("The Menger hover scene must have a bounding box.");
+  }
+
+  await page.mouse.move(sceneBox.x + sceneBox.width + 60, sceneBox.y + sceneBox.height / 2);
+  await expect
+    .poll(() => readNumberAttribute(scene, "data-presentation-applied-angle-degrees"))
+    .toBeGreaterThan(0.1);
+  await expect(scene).toHaveAttribute("data-presentation-tilt-settled", "true");
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(scene).toHaveAttribute("data-presentation-horizontal-degrees", "0.000");
+  expect(await scene.getAttribute("data-presentation-applied-angle-degrees")).toBe("0.000");
+  expect(await scene.getAttribute("data-presentation-tilt-settled")).toBe("true");
+});
+
+test("Menger hover resumes landing tilt after a pointer cancellation", async ({ page }) => {
+  const scene = await openMengerHoverCase(page, {
+    elevationDegrees: "30",
+    maximumDepth: "2",
+    pointerTiltEnabled: true,
+    reducedMotion: "no-preference",
+    rotationDegrees: "225",
+  });
+  const sceneBox = await scene.boundingBox();
+  if (!sceneBox) {
+    throw new Error("The Menger hover scene must have a bounding box.");
+  }
+  const pointerY = sceneBox.y + sceneBox.height / 2;
+
+  await page.mouse.move(sceneBox.x - 180, pointerY);
+  await expect(scene).toHaveAttribute("data-presentation-tilt-settled", "true");
+  await expect
+    .poll(() => readNumberAttribute(scene, "data-presentation-applied-angle-degrees"))
+    .toBeGreaterThan(0.1);
+
+  await scene.evaluate((element) => {
+    element.addEventListener(
+      "pointerdown",
+      (event) => {
+        element.setAttribute("data-test-pointer-id", String(event.pointerId));
+      },
+      { once: true },
+    );
+  });
+  await page.mouse.move(sceneBox.x + sceneBox.width / 2, pointerY);
+  await page.mouse.down();
+  await page.mouse.move(sceneBox.x + sceneBox.width * 0.3, pointerY);
+  await expect
+    .poll(() => readNumberAttribute(scene, "data-presentation-applied-angle-degrees"))
+    .toBeGreaterThan(0.1);
+
+  const pointerId = await readNumberAttribute(scene, "data-test-pointer-id");
+  await scene.dispatchEvent("pointercancel", {
+    button: 0,
+    buttons: 0,
+    clientX: sceneBox.x + sceneBox.width * 0.3,
+    clientY: pointerY,
+    isPrimary: true,
+    pointerId,
+    pointerType: "mouse",
+  });
+  await expect
+    .poll(() => readNumberAttribute(scene, "data-presentation-applied-angle-degrees"))
+    .toBeLessThan(0.01);
+  await expect(scene).toHaveAttribute("data-presentation-tilt-settled", "true");
+  await page.mouse.up();
+});
+
+test("Menger hover recalculates landing tilt after a canvas resize", async ({ page }) => {
+  const scene = await openMengerHoverCase(page, {
+    elevationDegrees: "30",
+    maximumDepth: "2",
+    pointerTiltEnabled: true,
+    reducedMotion: "no-preference",
+    rotationDegrees: "225",
+  });
+  const sceneBox = await scene.boundingBox();
+  if (!sceneBox) {
+    throw new Error("The Menger hover scene must have a bounding box.");
+  }
+
+  await page.mouse.move(sceneBox.x + sceneBox.width + 60, sceneBox.y + sceneBox.height / 2);
+  await expect(scene).toHaveAttribute("data-presentation-tilt-settled", "true");
+  const initialTarget = await readNumberAttribute(scene, "data-presentation-horizontal-degrees");
+
+  await page.setViewportSize({ width: 1200, height: 1000 });
+  await expect
+    .poll(async () => {
+      const resizedSceneBox = await scene.boundingBox();
+      return resizedSceneBox?.width ?? sceneBox.width;
+    })
+    .toBeLessThan(sceneBox.width);
+  await expect
+    .poll(async () => {
+      const resizedTarget = await readNumberAttribute(
+        scene,
+        "data-presentation-horizontal-degrees",
+      );
+      return Math.abs(resizedTarget - initialTarget);
+    })
+    .toBeGreaterThan(0.05);
 });
 
 test("Menger hover extends every visible face plane beyond the canvas", async ({ page }) => {
