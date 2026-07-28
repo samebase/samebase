@@ -24,6 +24,7 @@ type LogoIdentitySvgAsset = {
 };
 type LogoAssetModules = {
   createCompactIdentitySvgMarkup: () => string;
+  createDarkCompactIdentitySvgMarkup: () => string;
   createFaviconCompactIdentitySvgMarkup: () => string;
   createLogoIdentitySvgAssets: () => LogoIdentitySvgAsset[];
   createMaskableCompactIdentitySvgMarkup: () => string;
@@ -51,6 +52,16 @@ const compactIdentityIconJobs: IconJob[] = [
   { canvasSize: 256, outputPath: path.join(publicDir, "chatgpt-app-icon.png") },
   { canvasSize: 256, outputPath: agentPluginIconPath },
   { canvasSize: 512, outputPath: path.join(publicDir, "icon-512.png") },
+];
+
+const darkCompactIdentityIconJobs: IconJob[] = [
+  {
+    canvasSize: 256,
+    outputPath: path.join(
+      repoRoot,
+      trackedFilePath("apps/samebase/public/chatgpt-app-icon-dark.png"),
+    ),
+  },
 ];
 
 const maskableCompactIdentityIconJobs: IconJob[] = [
@@ -184,6 +195,10 @@ async function loadLogoAssetModules(): Promise<LogoAssetModules> {
       compactIdentityModule,
       "createFaviconCompactIdentitySvgMarkup",
     );
+    const createDarkCompactIdentitySvgMarkup = readUnknownFunction(
+      compactIdentityModule,
+      "createDarkCompactIdentitySvgMarkup",
+    );
     const createMaskableCompactIdentitySvgMarkup = readUnknownFunction(
       compactIdentityModule,
       "createMaskableCompactIdentitySvgMarkup",
@@ -204,6 +219,11 @@ async function loadLogoAssetModules(): Promise<LogoAssetModules> {
     return {
       createCompactIdentitySvgMarkup: () =>
         readStringResult(createCompactIdentitySvgMarkup(), "createCompactIdentitySvgMarkup"),
+      createDarkCompactIdentitySvgMarkup: () =>
+        readStringResult(
+          createDarkCompactIdentitySvgMarkup(),
+          "createDarkCompactIdentitySvgMarkup",
+        ),
       createFaviconCompactIdentitySvgMarkup: () =>
         readStringResult(
           createFaviconCompactIdentitySvgMarkup(),
@@ -324,6 +344,13 @@ function syncCompactIdentityAssets(modules: LogoAssetModules) {
     generateIconPng({
       ...job,
       inputAssetPath: sourceAssetPath,
+    });
+  }
+  const darkMarkup = modules.createDarkCompactIdentitySvgMarkup();
+  for (const job of darkCompactIdentityIconJobs) {
+    generateIconPngFromMarkup({
+      ...job,
+      markup: darkMarkup,
     });
   }
   for (const job of maskableCompactIdentityIconJobs) {

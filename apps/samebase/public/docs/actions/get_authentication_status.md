@@ -2,7 +2,7 @@
 
 # Get authentication status (`get_authentication_status`)
 
-MCP tool `samebase_auth_getAuthenticationStatus` · scope `access_public` · read_only
+MCP tool `samebase_auth_getAuthenticationStatus` · scope `access_public` · write
 
 Returns the current MCP caller's Samebase authentication state for the bearer token used on the
 request: whether it still resolves to an active Samebase account, the account identity, the current
@@ -36,9 +36,6 @@ JSON Schema for the tool's `structuredContent`:
             "user": {
               "type": "object",
               "properties": {
-                "userId": {
-                  "type": "string"
-                },
                 "name": {
                   "type": "string"
                 },
@@ -46,7 +43,7 @@ JSON Schema for the tool's `structuredContent`:
                   "type": "string"
                 }
               },
-              "required": ["userId", "email"],
+              "required": ["email"],
               "additionalProperties": false
             },
             "role": {

@@ -101,7 +101,6 @@ export const vVaultDeletionSummary = union(
     failedAt: number(),
     currentStep: vVaultDeletionStep,
     message: string(),
-    lastError: string(),
     updatedAt: number(),
   }),
 );
@@ -155,9 +154,9 @@ export const getUserVaultsContract = {
     name: "vault_dashboard_getUserVaults",
     description:
       "List the Samebase vaults available to the authenticated user, including attached provider resources.",
-    safety: "read_only",
+    safety: "write",
     annotations: {
-      readOnlyHint: true,
+      readOnlyHint: false,
       openWorldHint: false,
       destructiveHint: false,
     },

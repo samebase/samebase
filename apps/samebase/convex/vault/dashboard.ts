@@ -277,19 +277,14 @@ async function resolveVaultDeletionSummary(
       };
     }
     case "delete_failed": {
-      const [run, latestEvent] = await Promise.all([
-        ctx.db.get(deletion.runId),
-        readLatestDeletionEvent(ctx, deletion.runId),
-      ]);
-      const lastError = run?.state === "failed" ? run.lastError : "Vault deletion failed.";
+      const run = await ctx.db.get(deletion.runId);
       return {
         state: "delete_failed",
         runId: deletion.runId,
         failedAt: deletion.failedAt,
         currentStep: run?.currentStep ?? "initialize_deletion",
-        message: latestEvent?.message ?? lastError,
-        lastError,
-        updatedAt: run?.updatedAt ?? latestEvent?.createdAt ?? deletion.failedAt,
+        message: "Vault removal failed. Retry it from the Samebase dashboard.",
+        updatedAt: run?.updatedAt ?? deletion.failedAt,
       };
     }
     default: {

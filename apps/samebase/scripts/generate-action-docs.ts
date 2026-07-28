@@ -316,9 +316,19 @@ ${actionLines}
 }
 
 function renderSubmissionJson(contracts: ActionContractDoc[]): string {
+  const contractNames = new Set(contracts.map((contract) => contract.mcp.name));
+  const justificationsByMcpName = new Map(Object.entries(toolJustifications));
+  for (const testCase of testCases) {
+    for (const toolName of testCase.tools_triggered) {
+      if (!contractNames.has(toolName)) {
+        throw new Error(`OpenAI submission test references unknown MCP tool ${toolName}.`);
+      }
+    }
+  }
+
   const tools = Object.fromEntries(
     contracts.map((contract) => {
-      const justifications = toolJustifications[contract.mcp.name];
+      const justifications = justificationsByMcpName.get(contract.mcp.name);
       if (!justifications) {
         throw new Error(
           `chatgptAppSubmissionSource.ts has no justifications for ${contract.mcp.name}.`,
@@ -344,11 +354,14 @@ function renderSubmissionJson(contracts: ActionContractDoc[]): string {
   }
 
   const submission = {
-    $schema: "https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json",
+    $schema: "https://developers.openai.com/plugins/schemas/chatgpt-app-submission.v1.json",
     schema_version: 1,
     app_info: appInfo,
     tools,
-    test_cases: testCases,
+    test_cases: testCases.map((testCase) => ({
+      ...testCase,
+      tools_triggered: testCase.tools_triggered.join(", "),
+    })),
     negative_test_cases: negativeTestCases,
   };
   return `${JSON.stringify(submission, null, 2)}\n`;

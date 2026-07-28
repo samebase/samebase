@@ -1,6 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 
-import type { Id } from "../../_generated/dataModel";
 import {
   getAuthenticationStatusContract,
   type McpAuthenticationStatus,
@@ -14,7 +13,6 @@ describe("get authentication status MCP contract", () => {
 
     expect(authenticatedStatus.fields.user.fields.email.isOptional).toBe("required");
     expectTypeOf<AuthenticatedMcpStatus["user"]>().toEqualTypeOf<{
-      userId: Id<"users">;
       name?: string;
       email: string;
     }>();

@@ -87,10 +87,10 @@ export const convexDiscoverProjectsContract = {
     name: "vault_convex_discoverProjects",
     description:
       "Discover Convex code locations in a vault's GitHub repository and projects available through the connected Convex team.",
-    safety: "read_only",
+    safety: "write",
     annotations: {
-      readOnlyHint: true,
-      openWorldHint: true,
+      readOnlyHint: false,
+      openWorldHint: false,
       destructiveHint: false,
     },
     inputDescriptions: {
@@ -102,7 +102,8 @@ default package.json plus convex/ layouts. Discovery uses exact tree entry types
 SHAs only. It does not read or validate convex.json or package.json contents. It also lists projects
 available through the connected Convex team and annotates current Cloudflare Worker marker
 references when available. A partial source scan never proves that an unlisted code location is
-absent.`,
+absent. It may refresh private Samebase provider-connection bookkeeping, but it does not change
+GitHub, Convex, Cloudflare, or public internet state.`,
 } as const;
 
 const vConvexProjectCodeLocationSelection = object({
@@ -127,7 +128,7 @@ export const convexAttachProjectsContract = {
     safety: "write",
     annotations: {
       readOnlyHint: false,
-      openWorldHint: true,
+      openWorldHint: false,
       destructiveHint: false,
     },
     inputDescriptions: {

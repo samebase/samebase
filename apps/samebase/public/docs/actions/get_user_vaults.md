@@ -2,7 +2,7 @@
 
 # List Samebase vaults (`get_user_vaults`)
 
-MCP tool `vault_dashboard_getUserVaults` · scope `access_dashboard` · read_only
+MCP tool `vault_dashboard_getUserVaults` · scope `access_dashboard` · write
 
 Returns every vault the authenticated account can see. Repository connection, source setup, provider
 setup, and deletion are independent axes; a source-setup failure does not revoke an already
@@ -446,22 +446,11 @@ JSON Schema for the tool's `structuredContent`:
                   "message": {
                     "type": "string"
                   },
-                  "lastError": {
-                    "type": "string"
-                  },
                   "updatedAt": {
                     "type": "number"
                   }
                 },
-                "required": [
-                  "state",
-                  "runId",
-                  "failedAt",
-                  "currentStep",
-                  "message",
-                  "lastError",
-                  "updatedAt"
-                ],
+                "required": ["state", "runId", "failedAt", "currentStep", "message", "updatedAt"],
                 "additionalProperties": false
               }
             ]

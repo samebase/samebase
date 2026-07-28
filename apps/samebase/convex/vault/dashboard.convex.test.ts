@@ -1319,7 +1319,8 @@ describe("vault dashboard Convex contract", () => {
             githubRepository: { action: "skip", reason: "not_requested" },
           },
         },
-        lastError: "Convex deletion failed.",
+        lastError:
+          "Error: Uncaught Error: Convex deletion failed.\n    at deleteProject (convex/vault/deletion/workflow.ts:100:1)",
         completedAt: 5,
       });
       await ctx.db.patch(vaultId, {
@@ -1337,10 +1338,15 @@ describe("vault dashboard Convex contract", () => {
 
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
-      deletion: { state: "delete_failed" },
+      deletion: {
+        state: "delete_failed",
+        currentStep: "delete_convex",
+        message: "Vault removal failed. Retry it from the Samebase dashboard.",
+      },
       hasConvexProvision: true,
       canRemoveConvexProvision: true,
     });
+    expect(vaults[0]?.deletion).not.toHaveProperty("lastError");
   });
 
   it("keeps the vault row until branch-heavy local cleanup finishes", async () => {

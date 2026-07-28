@@ -21,7 +21,7 @@ export const retryInfrastructureProvisioningContract = {
     annotations: {
       readOnlyHint: false,
       openWorldHint: true,
-      destructiveHint: false,
+      destructiveHint: true,
     },
     inputDescriptions: {
       vaultId: "Samebase vault id of the app whose managed provisioning failed.",

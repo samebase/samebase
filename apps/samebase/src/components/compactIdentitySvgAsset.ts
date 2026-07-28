@@ -6,6 +6,8 @@ export const COMPACT_IDENTITY_SOURCE_SVG_URL = "/brand/icon/compact-v1.svg";
 export const MASKABLE_COMPACT_IDENTITY_SOURCE_SVG_URL = "/brand/icon/compact-v1-maskable.svg";
 
 type CompactIdentityGeometry = {
+  backgroundColor: string;
+  foregroundColor: string;
   inset: number;
   markSize: number;
   openingInset: number;
@@ -14,6 +16,8 @@ type CompactIdentityGeometry = {
 };
 
 function createCompactIdentitySvgMarkupForGeometry({
+  backgroundColor,
+  foregroundColor,
   inset,
   markSize,
   openingInset,
@@ -21,9 +25,9 @@ function createCompactIdentitySvgMarkupForGeometry({
   viewBoxSize,
 }: CompactIdentityGeometry) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${viewBoxSize}" height="${viewBoxSize}" viewBox="0 0 ${viewBoxSize} ${viewBoxSize}" shape-rendering="crispEdges">
-  <rect width="${viewBoxSize}" height="${viewBoxSize}" fill="${COMPACT_IDENTITY_BACKGROUND_COLOR}" />
-  <rect x="${inset}" y="${inset}" width="${markSize}" height="${markSize}" fill="${COMPACT_IDENTITY_FOREGROUND_COLOR}" />
-  <rect x="${openingInset}" y="${openingInset}" width="${openingSize}" height="${openingSize}" fill="${COMPACT_IDENTITY_BACKGROUND_COLOR}" />
+  <rect width="${viewBoxSize}" height="${viewBoxSize}" fill="${backgroundColor}" />
+  <rect x="${inset}" y="${inset}" width="${markSize}" height="${markSize}" fill="${foregroundColor}" />
+  <rect x="${openingInset}" y="${openingInset}" width="${openingSize}" height="${openingSize}" fill="${backgroundColor}" />
 </svg>`;
 }
 
@@ -34,6 +38,24 @@ function createCompactIdentitySvgMarkupForGeometry({
  */
 export function createCompactIdentitySvgMarkup() {
   return createCompactIdentitySvgMarkupForGeometry({
+    backgroundColor: COMPACT_IDENTITY_BACKGROUND_COLOR,
+    foregroundColor: COMPACT_IDENTITY_FOREGROUND_COLOR,
+    inset: 9,
+    markSize: 42,
+    openingInset: 23,
+    openingSize: 14,
+    viewBoxSize: 60,
+  });
+}
+
+/**
+ * The ChatGPT dark-mode icon keeps the compact geometry and swaps the
+ * foreground and background colors.
+ */
+export function createDarkCompactIdentitySvgMarkup() {
+  return createCompactIdentitySvgMarkupForGeometry({
+    backgroundColor: COMPACT_IDENTITY_FOREGROUND_COLOR,
+    foregroundColor: COMPACT_IDENTITY_BACKGROUND_COLOR,
     inset: 9,
     markSize: 42,
     openingInset: 23,
@@ -48,6 +70,8 @@ export function createCompactIdentitySvgMarkup() {
  */
 export function createFaviconCompactIdentitySvgMarkup() {
   return createCompactIdentitySvgMarkupForGeometry({
+    backgroundColor: COMPACT_IDENTITY_BACKGROUND_COLOR,
+    foregroundColor: COMPACT_IDENTITY_FOREGROUND_COLOR,
     inset: 1,
     markSize: 6,
     openingInset: 3,
@@ -62,6 +86,8 @@ export function createFaviconCompactIdentitySvgMarkup() {
  */
 export function createMaskableCompactIdentitySvgMarkup() {
   return createCompactIdentitySvgMarkupForGeometry({
+    backgroundColor: COMPACT_IDENTITY_BACKGROUND_COLOR,
+    foregroundColor: COMPACT_IDENTITY_FOREGROUND_COLOR,
     inset: 7,
     markSize: 18,
     openingInset: 13,

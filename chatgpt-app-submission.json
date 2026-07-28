@@ -1,33 +1,33 @@
 {
-  "$schema": "https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json",
+  "$schema": "https://developers.openai.com/plugins/schemas/chatgpt-app-submission.v1.json",
   "schema_version": 1,
   "app_info": {
     "display_name": "Samebase",
-    "subtitle": "Create and connect web apps",
-    "description": "Create web apps in the user's own GitHub, Convex, and Cloudflare accounts, or connect an existing GitHub repository and attach provider resources later. Inspect vault attachments and live provider state from one inventory.",
+    "subtitle": "Build and ship web apps",
+    "description": "Build and ship web apps in the user's GitHub, Convex, and Cloudflare accounts. Samebase creates, connects, configures, and inspects provider resources through MCP. Bundled skills guide the coding agent through repository setup, implementation, validation, and deployment.",
     "category": "DEVELOPER_TOOLS"
   },
   "tools": {
     "samebase_auth_getAuthenticationStatus": {
       "annotations": {
-        "readOnlyHint": true,
+        "readOnlyHint": false,
         "openWorldHint": false,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Reports the authenticated Samebase account, current role, access keys, and MCP token scopes for the caller's own bearer token.",
-        "open_world_justification": "Reads Samebase authentication state for the caller's own token; writes nothing and does not contact third-party provider APIs.",
+        "read_only_justification": "Reports the authenticated Samebase account, current role, access keys, and MCP token scopes. Request authentication and usage bookkeeping can update private Samebase records.",
+        "open_world_justification": "Does not create, publish, or modify public internet state or third-party provider resources.",
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
       }
     },
     "vault_dashboard_getUserVaults": {
       "annotations": {
-        "readOnlyHint": true,
+        "readOnlyHint": false,
         "openWorldHint": false,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Lists the authenticated user's Samebase apps with repository metadata, provisioning state, and the user's own provider coordinates (Convex deployment names and URLs, Cloudflare worker names and dashboard links).",
+        "read_only_justification": "Lists the authenticated user's Samebase apps with repository metadata, setup state, and stable identifiers for attached provider resources. Request authentication and usage bookkeeping can update private Samebase records.",
         "open_world_justification": "Does not create, publish, or modify public internet state or third-party systems.",
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
       }
@@ -47,7 +47,7 @@
     "vault_actions_connectRepository": {
       "annotations": {
         "readOnlyHint": false,
-        "openWorldHint": true,
+        "openWorldHint": false,
         "destructiveHint": false
       },
       "justifications": {
@@ -58,44 +58,44 @@
     },
     "vault_convex_discoverProjects": {
       "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": true,
+        "readOnlyHint": false,
+        "openWorldHint": false,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Discovers exact convex.json files in the vault repository and Convex projects readable through the caller's connected team.",
-        "open_world_justification": "Reads from GitHub, Convex, and available Cloudflare Worker markers; writes nothing anywhere.",
+        "read_only_justification": "Discovers exact convex.json files and readable Convex projects, and may refresh private Samebase connection bookkeeping while reading provider state.",
+        "open_world_justification": "Reads GitHub, Convex, and available Cloudflare Worker markers; it does not change provider or public internet state.",
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
       }
     },
     "vault_cloudflare_listAccounts": {
       "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": true,
+        "readOnlyHint": false,
+        "openWorldHint": false,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Only lists Cloudflare accounts readable with the caller's connected Cloudflare login.",
-        "open_world_justification": "Reads from the Cloudflare API; writes nothing anywhere.",
+        "read_only_justification": "Lists Cloudflare accounts and may refresh private Samebase connection bookkeeping while reading Cloudflare.",
+        "open_world_justification": "Reads the Cloudflare API; it does not change Cloudflare or public internet state.",
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
       }
     },
     "vault_cloudflare_discoverWorkers": {
       "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": true,
+        "readOnlyHint": false,
+        "openWorldHint": false,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Lists Workers on the chosen Cloudflare account and observes their live repository roots against the vault repository.",
-        "open_world_justification": "Reads from the Cloudflare API; writes nothing anywhere.",
+        "read_only_justification": "Lists Workers and their live repository roots, and may refresh private Samebase connection bookkeeping while reading Cloudflare.",
+        "open_world_justification": "Reads the Cloudflare API; it does not change Cloudflare or public internet state.",
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
       }
     },
     "vault_convex_attachProjects": {
       "annotations": {
         "readOnlyHint": false,
-        "openWorldHint": true,
+        "openWorldHint": false,
         "destructiveHint": false
       },
       "justifications": {
@@ -107,7 +107,7 @@
     "vault_cloudflare_attachWorkers": {
       "annotations": {
         "readOnlyHint": false,
-        "openWorldHint": true,
+        "openWorldHint": false,
         "destructiveHint": false
       },
       "justifications": {
@@ -120,12 +120,12 @@
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
-        "destructiveHint": false
+        "destructiveHint": true
       },
       "justifications": {
         "read_only_justification": "Creates or updates the app's own Workers Builds production and preview triggers connecting its Worker to its repository, and may create a Workers Builds API token under API-key auth.",
         "open_world_justification": "Creates or patches build triggers on the caller's own Cloudflare account for the caller's own repository.",
-        "destructive_justification": "May update the app's own existing build trigger configuration; does not delete user data, repositories, deployments, or Workers."
+        "destructive_justification": "May overwrite the app's existing production and preview build trigger configuration, including repository roots and commands. It does not delete user data, repositories, deployments, or Workers."
       }
     },
     "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds": {
@@ -144,12 +144,12 @@
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
-        "destructiveHint": false
+        "destructiveHint": true
       },
       "justifications": {
         "read_only_justification": "Restarts a failed managed provisioning run from its failed step, which can create the provider resources the failed run had not completed.",
         "open_world_justification": "Resumes resource creation in GitHub, Convex, and Cloudflare on the caller's own accounts.",
-        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
+        "destructive_justification": "Can overwrite existing Workers Builds trigger configuration and rotate or revoke previously recorded Convex deploy keys while repairing the app."
       }
     },
     "create_browser_handoff": {
@@ -167,85 +167,61 @@
   },
   "test_cases": [
     {
-      "description": "List the authenticated user's Samebase apps.",
-      "user_prompt": "List my Samebase apps.",
+      "description": "Confirm the submitted reviewer credentials resolve to the prepared Samebase demo account.",
+      "user_prompt": "Am I connected to Samebase? Report the authenticated account, role, and granted MCP scope names. Do not make changes.",
+      "file_attachment_urls": null,
+      "tools_triggered": "samebase_auth_getAuthenticationStatus",
+      "expected_output": "Confirms the reviewer account is authenticated, reports its email, role, and granted scope names, and does not expose tokens or internal account IDs.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Inspect the existing Samebase apps already prepared in the reviewer demo account.",
+      "user_prompt": "List my Samebase apps. For each app, report its repository, default branch when known, source setup state, provider setup state, attached Convex projects, and attached Cloudflare Workers. Do not make changes.",
       "file_attachment_urls": null,
       "tools_triggered": "vault_dashboard_getUserVaults",
-      "expected_output": "Returns the user's Samebase apps with repository names, provisioning state, provider resources, and branch summaries.",
+      "expected_output": "Returns one summary per visible app using repository coordinates, default branch, independent source and provider states, and stable attached-resource names or identifiers. It does not claim live provider state or provider URLs.",
       "expected_output_url": null
     },
     {
-      "description": "Inspect provisioning status for existing Samebase apps.",
-      "user_prompt": "Show me the provisioning state and provider resources for my Samebase apps.",
+      "description": "Read the Cloudflare account fixture already connected to the prepared reviewer demo account.",
+      "user_prompt": "List the Cloudflare accounts available through my connected Samebase account. Report each account name and account ID. Do not make changes to Cloudflare.",
       "file_attachment_urls": null,
-      "tools_triggered": "vault_dashboard_getUserVaults",
-      "expected_output": "Summarizes each app's source setup, Convex and Cloudflare provisioning state, and relevant provider URLs when available.",
+      "tools_triggered": "vault_cloudflare_listAccounts",
+      "expected_output": "Returns the Cloudflare accounts readable through the reviewer account as account-name and account-ID pairs. It creates no Cloudflare resource.",
       "expected_output_url": null
     },
     {
-      "description": "Create a new private Samebase app with explicit provider resource names.",
-      "user_prompt": "Create a private Samebase app named tmp-chatgpt-mcp-test under GitHub owner samebase, with Convex project tmp-chatgpt-mcp-test and Cloudflare Worker tmp-chatgpt-mcp-test.",
-      "file_attachment_urls": null,
-      "tools_triggered": "vault_actions_createRepository",
-      "expected_output": "Starts app provisioning and returns the Samebase vault ID and provisioning run ID.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Create a public Samebase app when public repository visibility is explicitly requested.",
-      "user_prompt": "Create a public Samebase app named tmp-public-chatgpt-test for GitHub owner samebase, Convex project tmp-public-chatgpt-test, and Cloudflare Worker tmp-public-chatgpt-test. Use the description 'ChatGPT MCP submission test app'.",
-      "file_attachment_urls": null,
-      "tools_triggered": "vault_actions_createRepository",
-      "expected_output": "Starts app provisioning with public GitHub repository visibility and returns the Samebase vault ID and provisioning run ID.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Connect an existing GitHub repository without changing its providers.",
-      "user_prompt": "Connect the existing GitHub repository samebase/tmp-chatgpt-existing to Samebase. Keep it GitHub-only for now and do not attach Convex or Cloudflare.",
-      "file_attachment_urls": null,
-      "tools_triggered": "vault_actions_connectRepository",
-      "expected_output": "Creates the repository-backed Samebase vault and starts repository tree sync while leaving Convex and Cloudflare unconfigured.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Use the read tool before creating a new app when the user asks to inspect existing apps first.",
-      "user_prompt": "Check my current Samebase apps, then create a private app named tmp-after-list-chatgpt under GitHub owner samebase with matching Convex project and Cloudflare Worker names.",
+      "description": "Create one private app with the reviewer account's prepared noter-guest GitHub, Convex, and Cloudflare connections.",
+      "user_prompt": "Create one private Samebase app under my GitHub owner noter-guest. Choose a unique name that starts with tmp-plugin-review- and ends with six lowercase letters. Use exactly that name for the app, GitHub repository, Convex project, and Cloudflare Worker. Wait until source setup reaches ready or failed. If source setup is ready, then wait until provider setup reaches ready or failed. Report the repository and final states.",
       "file_attachment_urls": null,
       "tools_triggered": "vault_dashboard_getUserVaults, vault_actions_createRepository",
-      "expected_output": "Lists the current Samebase apps, then starts provisioning for the requested new app and reports the created vault and run identifiers.",
+      "expected_output": "Reads inventory before creation and creates one private repository-backed app. It polls until source setup is ready or failed. After source setup is ready, it also polls provider setup until ready or failed. It reports the repository and final states without treating the initial run IDs as completion.",
       "expected_output_url": null
     },
     {
-      "description": "Configure Workers Builds for GitHub when that configuration is missing.",
-      "user_prompt": "One of my Samebase apps says its Cloudflare Worker is not connected to GitHub. Fix it.",
-      "file_attachment_urls": null,
-      "tools_triggered": "vault_dashboard_getUserVaults, vault_cloudflare_configureWorkersBuildsForGitHub",
-      "expected_output": "Reads the app state, finds the Worker whose live repository configuration is missing, and configures its production and preview Workers Builds triggers for GitHub using the vault and Worker ids.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Create a browser handoff link for the current Samebase account.",
-      "user_prompt": "Open Samebase in the browser so I can see this account's dashboard.",
+      "description": "Create a browser handoff for the authenticated reviewer account without changing provider resources.",
+      "user_prompt": "Open my Samebase dashboard in the browser.",
       "file_attachment_urls": null,
       "tools_triggered": "create_browser_handoff",
-      "expected_output": "Returns a short-lived Samebase browser URL that signs in the current MCP grant's user and opens the dashboard.",
+      "expected_output": "Creates and presents one short-lived Samebase sign-in URL for the current MCP account. It does not create or modify GitHub, Convex, or Cloudflare resources.",
       "expected_output_url": null
     }
   ],
   "negative_test_cases": [
     {
-      "description": "Do not trigger Samebase for direct GitHub pull request work.",
-      "user_prompt": "Open a pull request in my existing GitHub repository with these code changes.",
+      "description": "Do not invoke Samebase for Git-only work in an unrelated repository.",
+      "user_prompt": "Change the README heading in octocat/Hello-World and open a pull request. Do not connect the repository to Samebase or change provider resources.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "The app should not be invoked because Samebase does not expose GitHub pull request tools through this MCP server.",
+      "expected_output": "Uses available GitHub or local Git capabilities without invoking Samebase because the user explicitly keeps this repository outside Samebase.",
       "expected_output_url": null
     },
     {
-      "description": "Do not trigger Samebase for deletion requests.",
-      "user_prompt": "Delete my Samebase app and remove all of its provider resources.",
+      "description": "Do not perform destructive provider deletion through the Samebase plugin.",
+      "user_prompt": "Delete one of my Samebase apps and automatically remove its GitHub repository, Convex project, and Cloudflare Worker.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "The app should not be invoked because this MCP server does not expose deletion or destructive resource-removal tools.",
+      "expected_output": "Does not call any write or provider-deletion action because the plugin exposes no deletion tool. It may explain that deletion must use the Samebase dashboard, but it must not claim that any resource was removed.",
       "expected_output_url": null
     },
     {

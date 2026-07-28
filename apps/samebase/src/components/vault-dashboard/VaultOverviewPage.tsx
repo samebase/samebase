@@ -151,7 +151,7 @@ function VaultStateNotice({
   if (vault.deletion.state === "delete_failed") {
     return (
       <FailureNotice
-        description={vault.deletion.message || vault.deletion.lastError}
+        description={vault.deletion.message}
         isRetrying={isRetryingVaultAction}
         onRetry={onRetryVaultDeletion}
         title="Vault removal failed"
