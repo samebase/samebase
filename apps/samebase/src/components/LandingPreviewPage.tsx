@@ -580,7 +580,7 @@ function LandingPreviewOverview() {
         </p>
 
         <section className="mt-10">
-          <div className="@3xl:grid @3xl:grid-cols-[minmax(0,1fr)_minmax(0,0.72fr)] @3xl:gap-10">
+          <div className="@3xl:grid @3xl:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] @3xl:gap-10">
             <div>
               <h1 className="max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
                 <span className="block">Not another AI app builder.</span>

@@ -158,19 +158,37 @@ export function LandingHeroMenger() {
         setIsSceneReady(false);
       }
     };
+    let firstIntersectionFrame = 0;
+    let secondIntersectionFrame = 0;
+    const cancelPendingIntersection = () => {
+      window.cancelAnimationFrame(firstIntersectionFrame);
+      window.cancelAnimationFrame(secondIntersectionFrame);
+      firstIntersectionFrame = 0;
+      secondIntersectionFrame = 0;
+    };
     const resizeObserver = new ResizeObserver(syncSlotSize);
     const intersectionObserver = new IntersectionObserver(([entry]) => {
-      const nextIsSlotIntersecting = entry.isIntersecting;
-      setIsSlotIntersecting(nextIsSlotIntersecting);
-      if (!nextIsSlotIntersecting) {
+      cancelPendingIntersection();
+      if (!entry.isIntersecting) {
+        setIsSlotIntersecting(false);
         setIsSceneReady(false);
+        return;
       }
+
+      // Route scroll restoration must move an off-screen hero before depth 4
+      // allocates its WebGL scene from the first top-of-page paint.
+      firstIntersectionFrame = window.requestAnimationFrame(() => {
+        secondIntersectionFrame = window.requestAnimationFrame(() => {
+          setIsSlotIntersecting(true);
+        });
+      });
     });
     resizeObserver.observe(slot);
     intersectionObserver.observe(slot);
     syncSlotSize();
 
     return () => {
+      cancelPendingIntersection();
       intersectionObserver.disconnect();
       resizeObserver.disconnect();
     };
@@ -256,7 +274,7 @@ export function LandingHeroMenger() {
   return (
     <div
       ref={slotRef}
-      className="relative hidden min-h-0 @3xl:block"
+      className="relative hidden min-h-0 @3xl:block @3xl:scale-[1.07]"
       data-state={didSceneFail ? "fallback" : isSceneReady ? "ready" : "loading"}
       data-testid="landing-preview-hero-menger"
     >
