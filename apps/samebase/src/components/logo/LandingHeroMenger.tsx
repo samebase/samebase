@@ -12,10 +12,7 @@ import { type LogoViewState } from "@/components/logo/logoViewDrag";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import { PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE } from "@/lib/publicLandingLogo";
 import { clearPublicLandingLogoStaticFallbackPrehydration } from "@/lib/publicLandingLogoPrehydration";
-import {
-  MENGER_HOVER_DEFAULT_DEPTH,
-  MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
-} from "@samebase/logo-model/menger-hover";
+import { MENGER_HOVER_DEFAULT_REVEAL_RADIUS } from "@samebase/logo-model/menger-hover";
 import { LOGO_GRID_SIZE_3, MENGER_SPONGE_VOXEL_STATE } from "@samebase/logo-model/voxel";
 import {
   buildLogoRouteSearch,
@@ -34,6 +31,7 @@ const LANDING_HERO_STATIC_VOXEL_GRID = createLogoRouteVoxelGrid({
   gridSize: LOGO_GRID_SIZE_3,
   voxelState: MENGER_SPONGE_VOXEL_STATE,
 });
+const LANDING_HERO_MENGER_DEPTH = 3;
 const LANDING_HERO_DEFAULT_VIEW: LogoViewState = {
   elevationDegrees: 0,
   rotationDegrees: 0,
@@ -197,7 +195,7 @@ export function LandingHeroMenger() {
         return;
       }
 
-      // Route scroll restoration must move an off-screen hero before depth 4
+      // Route scroll restoration must move an off-screen hero before depth 3
       // allocates its WebGL scene from the first top-of-page paint.
       firstIntersectionFrame = window.requestAnimationFrame(() => {
         secondIntersectionFrame = window.requestAnimationFrame(() => {
@@ -323,7 +321,7 @@ export function LandingHeroMenger() {
             cameraFrustumPadding={1}
             elevationDegrees={view.elevationDegrees}
             faceColors={faceColors}
-            maximumDepth={MENGER_HOVER_DEFAULT_DEPTH}
+            maximumDepth={LANDING_HERO_MENGER_DEPTH}
             onInteractionEnd={commitView}
             onRenderReady={markSceneReady}
             onRenderUnavailable={markSceneUnavailable}
