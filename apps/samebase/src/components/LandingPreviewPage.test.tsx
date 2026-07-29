@@ -79,7 +79,7 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("Not another AI app builder.");
     expect(markup).toContain("The tool your AI uses");
     expect(markup).toContain("to ship real apps.");
-    expect(markup).toContain(">beta</span>");
+    expect(markup).toContain(">BETA</span>");
     expect(markup).toContain("-rotate-3");
     expect(markup).toContain("border-0");
     expect(markup).toContain("bg-blue-600");
@@ -91,14 +91,16 @@ describe("LandingPreviewPage", () => {
     expect(markup).not.toContain("no chatbot");
     expect(markup).not.toContain("$0/month idle");
 
-    // The real Codex capture replaces the scripted placeholder loop.
+    // The real ChatGPT capture replaces the scripted placeholder loop.
     expect(markup).toContain(`src="${publicMediaManifest.landingTicTacToeCodex.publicUrl}"`);
     expect(markup).toContain('poster="/landing-preview/tic-tac-toe-codex-poster.webp"');
-    expect(markup).toContain("Codex builds and plays a 4x4x4 tic-tac-toe game with Samebase");
+    expect(markup).toContain("ChatGPT builds and plays a 4x4x4 tic-tac-toe game with Samebase");
     expect(markup).toContain('controls=""');
     expect(markup).toContain('width="1280"');
     expect(markup).toContain('height="850"');
     expect(markup).toContain('preload="metadata"');
+    expect(markup).toContain('data-testid="landing-preview-chatgpt-video-label"');
+    expect(markup).toContain('alt="ChatGPT"');
     expect(markup).toContain('data-testid="landing-preview-hero-video-frame"');
     expect(markup).toContain("border-radius:1.104% / 1.664%");
     expect(markup).not.toContain("placeholder loop");

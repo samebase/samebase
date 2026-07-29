@@ -1,3 +1,4 @@
+import chatgptAppIconUrl from "@/assets/chatgpt-app-128.webp";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { LandingHeroMenger } from "@/components/logo/LandingHeroMenger";
@@ -140,10 +141,7 @@ const LANDING_CLOSING_LOGO_ROUTE_SEARCH = {
   "auto-rotate": true,
   "auto-shuffle": true,
   depth: 2,
-  primary: "#8d2676",
-  secondary: "#ee342f",
   shuffleMoves: 1,
-  top: "#f3b01c",
   vox: MENGER_SPONGE_VOXEL_STATE,
 } as const satisfies LogoRouteSearch;
 
@@ -389,7 +387,7 @@ function LandingPreviewOverview() {
             <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
           </span>
           <Badge className="h-7 -rotate-3 rounded-none border-0 bg-blue-600 px-3 py-0 text-sm font-semibold text-white">
-            beta
+            BETA
           </Badge>
         </p>
 
@@ -421,7 +419,48 @@ function LandingPreviewOverview() {
             </div>
             <LandingHeroMenger />
           </div>
-          <div className="mt-12" style={{ containerType: "inline-size" }}>
+          <div className="relative mt-12" style={{ containerType: "inline-size" }}>
+            <div
+              className="pointer-events-none absolute -top-12 right-[7%] z-10 flex items-center @3xl:-top-14"
+              data-testid="landing-preview-chatgpt-video-label"
+            >
+              <svg
+                aria-hidden
+                className="-mr-1 mt-7 h-9 w-14 text-foreground @3xl:mt-9 @3xl:h-11 @3xl:w-16"
+                fill="none"
+                viewBox="0 0 64 44"
+              >
+                <path
+                  d="M61 5c-20-1-38 8-49 28"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeWidth="2.5"
+                />
+                <path
+                  d="m24 29-13 4-1-13"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2.5"
+                />
+              </svg>
+              <div className="flex rotate-6 items-center gap-1.5">
+                <span
+                  aria-hidden
+                  className="font-mono text-xs font-semibold tracking-[0.08em] @3xl:text-sm"
+                >
+                  ChatGPT
+                </span>
+                <img
+                  alt="ChatGPT"
+                  className="h-12 w-12 @3xl:h-16 @3xl:w-16"
+                  draggable={false}
+                  height="64"
+                  src={chatgptAppIconUrl}
+                  width="64"
+                />
+              </div>
+            </div>
             <div
               className="overflow-hidden"
               data-testid="landing-preview-hero-video-frame"
@@ -432,7 +471,7 @@ function LandingPreviewOverview() {
               }}
             >
               <video
-                aria-label="Codex builds and plays a 4x4x4 tic-tac-toe game with Samebase"
+                aria-label="ChatGPT builds and plays a 4x4x4 tic-tac-toe game with Samebase"
                 autoPlay
                 className="block w-full"
                 controls
@@ -583,7 +622,7 @@ function LandingPreviewOverview() {
               label="03 · lanes"
             >
               Local folder, worktrees, pull requests: each lane gets isolated code, data, and
-              deploy. Codex and Claude Code already understand worktrees; the stack keeps up.
+              deploy. ChatGPT and Claude Code already understand worktrees; the stack keeps up.
             </LandingClaim>
             <LandingClaim
               heading={

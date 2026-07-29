@@ -283,6 +283,27 @@ test("signed-in app right sidebar keeps the account row inside the minimum mobil
   }
 });
 
+test("signed-out Google sign-in fits the minimum mobile right pane", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await seedAppWorkspaceSidebarState(page, {
+    ...APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE,
+    mobilePane: "right",
+    rightMobileWidthPx: 96,
+  });
+  await page.goto("/?prod-ui", { waitUntil: "networkidle" });
+
+  const rightPane = getRightPane(page);
+  const googleButton = page.getByRole("button", { name: "Continue with Google" });
+
+  await expect(rightPane).toHaveCSS("width", "96px");
+  await expect(googleButton).toBeVisible();
+  await expect(googleButton).toHaveCSS("white-space", "normal");
+  await expectNoHorizontalOverflow(rightPane);
+  await expect(googleButton).toHaveScreenshot("app-right-sidebar-google-button-mobile-min.png", {
+    ...appRightSidebarScreenshotOptions,
+  });
+});
+
 test("signed-in app right sidebar prehydration includes the password provider label", async ({
   page,
 }, testInfo: TestInfo) => {

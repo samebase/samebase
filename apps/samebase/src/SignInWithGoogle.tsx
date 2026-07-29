@@ -36,7 +36,7 @@ export function SignInWithGoogle({
   return (
     <Button
       data-testid={PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID}
-      className="h-auto flex-1 py-2.5"
+      className="h-auto min-w-0 flex-1 whitespace-normal py-2.5 @max-[200px]:leading-tight @max-[120px]:px-1.5"
       variant="outline"
       type="button"
       onClick={() => {
@@ -47,7 +47,8 @@ export function SignInWithGoogle({
         }
       }}
     >
-      <Chrome className="mr-2 h-4 w-4" /> Continue with Google
+      <Chrome className="mr-2 h-4 w-4 @max-[120px]:hidden" />
+      <span className="min-w-0">Continue with Google</span>
     </Button>
   );
 }

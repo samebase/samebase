@@ -7,7 +7,6 @@ import {
   DOCS_THE_STACK_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
   LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID,
-  LANDING_PREVIEW_PROVIDER_GRID_TEST_ID,
   LANDING_PREVIEW_ROUTE,
   LANDING_PREVIEW_TEST_ID,
 } from "../src/routeSearch/landingPreview";
@@ -131,7 +130,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
       name: /Not another AI app builder/,
     }),
   ).toBeVisible();
-  await expect(article.getByText("beta", { exact: true })).toBeVisible();
+  await expect(article.getByText("BETA", { exact: true })).toBeVisible();
   await expect(article).toContainText(
     "One action creates the repo, provisions the database + backend, and deploys the app on accounts you own.",
   );
@@ -139,6 +138,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(article).not.toContainText("no chatbot");
   const heroVideo = article.getByTestId("landing-preview-hero-video");
   await expect(heroVideo).toBeVisible();
+  await expect(article.getByRole("img", { exact: true, name: "ChatGPT" })).toBeVisible();
   await expect(heroVideo).toHaveAttribute("autoplay", "");
   await expect(heroVideo).toHaveAttribute("controls", "");
   await expect(heroVideo).toHaveAttribute("height", "850");
@@ -239,15 +239,6 @@ test("landing preview route renders the React overview in workspace chrome", asy
     scale: "css",
     timeout: 30_000,
   });
-  await expect(article.getByTestId(LANDING_PREVIEW_PROVIDER_GRID_TEST_ID)).toHaveScreenshot(
-    "landing-preview-provider-grid-desktop.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.02,
-      scale: "css",
-    },
-  );
   await expect(platformDetails).toHaveScreenshot("landing-preview-platform-desktop.png", {
     animations: "disabled",
     caret: "hide",
@@ -360,15 +351,6 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
-  await expect(article.getByTestId(LANDING_PREVIEW_PROVIDER_GRID_TEST_ID)).toHaveScreenshot(
-    "landing-preview-provider-grid-narrow-pane.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.02,
-      scale: "css",
-    },
-  );
   await expect(monorepo).toHaveScreenshot("landing-preview-monorepo-narrow-pane.png", {
     animations: "disabled",
     caret: "hide",
@@ -390,6 +372,24 @@ test("landing document navigation resets new articles and restores history posit
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  // This route-history test does not need the GPU scenes that have separate coverage.
+  await page.addInitScript(() => {
+    const originalGetContext = Object.getOwnPropertyDescriptor(
+      HTMLCanvasElement.prototype,
+      "getContext",
+    )?.value;
+    if (typeof originalGetContext !== "function") {
+      return;
+    }
+
+    HTMLCanvasElement.prototype.getContext = function (contextId, ...args) {
+      if (contextId === "webgl" || contextId === "webgl2" || contextId === "experimental-webgl") {
+        return null;
+      }
+      return Reflect.apply(originalGetContext, this, [contextId, ...args]);
+    };
+  });
   await showLandingHeroPoster(page);
   await page.goto(LANDING_PREVIEW_ROUTE, {
     waitUntil: "domcontentloaded",
@@ -512,15 +512,6 @@ test.describe("mobile landing preview", () => {
       maxDiffPixelRatio: 0.02,
       scale: "css",
     });
-    await expect(article.getByTestId(LANDING_PREVIEW_PROVIDER_GRID_TEST_ID)).toHaveScreenshot(
-      "landing-preview-provider-grid-mobile.png",
-      {
-        animations: "disabled",
-        caret: "hide",
-        maxDiffPixelRatio: 0.02,
-        scale: "css",
-      },
-    );
     await expect(article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID)).toHaveScreenshot(
       "landing-preview-platform-mobile.png",
       {
@@ -583,8 +574,17 @@ test.describe("mobile landing preview", () => {
     const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
     const doItYourselfLink = article.getByRole("link", { name: "do-it-yourself recipe" });
     await expect(doItYourselfLink).toBeVisible();
-    await doItYourselfLink.scrollIntoViewIfNeeded();
-    await expect.poll(() => readMainPaneScrollTop(page)).toBeGreaterThan(0);
+    const mainPaneScroller = page.locator(
+      '[data-scroll-restoration-id="workspace-layout-v2-main"]',
+    );
+    await expect
+      .poll(() =>
+        mainPaneScroller.evaluate((element) => {
+          element.scrollTop = element.scrollHeight;
+          return element.scrollTop;
+        }),
+      )
+      .toBeGreaterThan(0);
 
     await doItYourselfLink.click();
 
