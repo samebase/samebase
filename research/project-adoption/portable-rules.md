@@ -61,10 +61,12 @@ pull request text.
 
 Route authentication does not replace authorization at the data boundary. Direct backend queries and
 mutations must reject an unauthenticated caller even when the normal user interface has a protected
-route.
+route. Test both anonymous rejection and authenticated behavior for every public data function.
 
 Sign-out must remove private data from browser-owned persistent caches unless the product has an
-explicit per-device retention contract.
+explicit per-device retention contract. A private cache must start paused after a page load and
+clear old persistent data before a valid session can resume reads. A failed clear must not expose
+old data to a new session.
 
 ## Use A Small Decision Spike
 
