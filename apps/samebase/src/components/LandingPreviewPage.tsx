@@ -520,15 +520,6 @@ function LandingPreviewOverview() {
           </div>
         </LandingSection>
 
-        <LandingSection ariaLabel="Monorepo">
-          <LandingSectionIntro
-            heading="Your monorepo is the map."
-            kicker="monorepos"
-            sub="Samebase shows each connected Worker and Convex project under its repository path."
-          />
-          <LandingRepositoryTree />
-        </LandingSection>
-
         <LandingSection>
           <div className="@5xl:grid @5xl:grid-cols-[minmax(0,1fr)_460px] @5xl:items-start @5xl:gap-x-14">
             <div>
@@ -664,6 +655,15 @@ function LandingPreviewOverview() {
               ))}
             </div>
           </div>
+        </LandingSection>
+
+        <LandingSection ariaLabel="Monorepo">
+          <LandingSectionIntro
+            heading="Your monorepo is the map."
+            kicker="monorepos"
+            sub="Samebase shows each connected Worker and Convex project under its repository path."
+          />
+          <LandingRepositoryTree />
         </LandingSection>
 
         <LandingSection>
