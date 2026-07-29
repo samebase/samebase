@@ -395,16 +395,18 @@ function LandingPreviewOverview() {
       data-testid={LANDING_PREVIEW_ARTICLE_TEST_ID}
     >
       <div className="mx-auto w-full max-w-[1200px] px-6 pt-10 @2xl:px-10 @3xl:pt-14">
-        <p className="flex items-center gap-2.5">
-          <img
-            alt=""
-            className="h-6 w-6 dark:invert"
-            height="24"
-            src="/brand/logo/v1-side-primary-duotone.svg"
-            width="24"
-          />
-          <span className="text-base font-semibold tracking-[-0.01em]">Samebase</span>
-          <Badge className="h-6 -rotate-3 rounded-none border-0 bg-blue-600 px-2.5 py-0 text-[13px] font-semibold text-white">
+        <p className="flex items-center gap-4">
+          <span className="flex items-center gap-1.5">
+            <img
+              alt=""
+              className="h-9 w-9 dark:invert"
+              height="36"
+              src="/brand/logo/v1-side-primary-duotone.svg"
+              width="36"
+            />
+            <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
+          </span>
+          <Badge className="h-9 -rotate-3 rounded-none border-0 bg-blue-600 px-4 py-0 text-[19px] font-semibold text-white">
             beta
           </Badge>
         </p>
