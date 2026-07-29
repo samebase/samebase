@@ -4,8 +4,10 @@
 
 - Status: Implemented for MVP
 - Owner: Samebase backend/frontend
-- Last updated: 2026-07-20
+- Last updated: 2026-07-29
 - Related plan: `archive/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
+- Proposed display and write-safety update:
+  `rfcs/098_PROVIDER_SETUP_DISPLAY_AND_WRITE_SAFETY_PLAN.md`
 - Related vault-first cleanup: `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
 - Cloudflare Workers migration: `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
 - Manual Convex attachment: `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`

@@ -4,10 +4,11 @@
 
 - Status: Accepted
 - Owner: Samebase provider resources, vault dashboard
-- Last updated: 2026-07-22
+- Last updated: 2026-07-29
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
+  - `rfcs/098_PROVIDER_SETUP_DISPLAY_AND_WRITE_SAFETY_PLAN.md`
 
 ## Current Contract
 

@@ -10,7 +10,7 @@
   resources, using `github.com/nicu-chiciuc/weight_tsx` as the motivating example.
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-  - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
+  - `archive/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
   - `specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`
   - `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
   - `research/2026-05-18-new-app-provider-name-selection.md`

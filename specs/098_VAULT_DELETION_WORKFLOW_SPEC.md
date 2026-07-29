@@ -5,11 +5,12 @@
 - Status: Accepted next-phase implementation plan
 - Owner: Samebase vault deletion, durable workflows, and vault-scoped cleanup
 - Created: 2026-05-09
+- Last updated: 2026-07-29
 - Related docs:
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`
-  - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `rfcs/098_PROVIDER_SETUP_DISPLAY_AND_WRITE_SAFETY_PLAN.md`
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
   - `research/2026-05-09-vault-deletion-workflow-research.md`
   - [PR #724: Research vault deletion workflow failure](https://github.com/samebase/samebase/pull/724)
@@ -57,8 +58,7 @@ address execution budgets for branch-heavy vaults, not only the immediate uninde
 
 1. Preserve a single user confirmation for vault deletion.
 2. Create a durable deletion run before external provider deletes begin.
-3. Allow deletion only when the vault is quiescent: source setup and provider provisioning are
-   completed, failed, or not configured.
+3. Allow deletion only when source setup and provider writes are not active.
 4. Mark the vault as deleting before any destructive work starts.
 5. Keep repo-backed behavior blocked while deletion is active or failed.
 6. Snapshot only the provider identifiers needed for idempotent retry.
@@ -111,9 +111,7 @@ A vault is quiescent for deletion when:
 1. the vault has no active deletion gate
 2. source setup is not running: the vault is connected or failed, but not provisioning
 3. no `workflow_vaultProvisioning_runs` row for the vault is `queued` or `running`
-4. connected Convex state is `not_configured`, `connected`, or `failed`, but not `provisioning`
-5. connected Cloudflare state is `not_configured`, `connected`, or `failed`, but not `provisioning`
-6. no vault provisioning write lock is active for an in-flight provider workflow
+4. no vault infrastructure write owner is active
 
 The dashboard should disable delete with a short reason while a vault is not quiescent. A direct
 selected-vault `?delete` URL, such as `/vault/samebase/samebase?delete`, for a non-quiescent vault
@@ -539,8 +537,8 @@ It should:
 
 External provider API validation happens inside Workflow after the durable run exists. Local
 validation, including quiescence, fails before queueing. For example, requesting GitHub repository
-deletion for an existing-repository vault or deleting a vault whose Cloudflare provider state is
-still provisioning should fail before the run is inserted.
+deletion for an existing-repository vault or deleting a vault during an active provider write should
+fail before the run is inserted.
 
 If Workflow startup fails after the run and gate are inserted, the action must mark the run failed,
 patch the vault gate to `delete_failed`, append an error event, and return an error.

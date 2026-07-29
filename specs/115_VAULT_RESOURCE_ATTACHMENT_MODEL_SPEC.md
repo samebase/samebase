@@ -4,12 +4,13 @@
 
 - Status: Accepted
 - Owner: Samebase
-- Last updated: 2026-07-22
+- Last updated: 2026-07-29
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`
   - `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`
   - `specs/110_VAULT_ROUTE_SURFACE_SPEC.md`
+  - `rfcs/098_PROVIDER_SETUP_DISPLAY_AND_WRITE_SAFETY_PLAN.md`
 
 ## Current Contract
 
