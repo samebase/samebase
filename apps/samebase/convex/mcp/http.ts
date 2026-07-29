@@ -1133,7 +1133,7 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
           tools: {},
         },
         serverInfo: {
-          name: "samebase",
+          name: "Samebase",
           version: "0.1.0",
         },
         instructions: MCP_SERVER_INSTRUCTIONS,

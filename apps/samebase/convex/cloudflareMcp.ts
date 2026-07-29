@@ -212,7 +212,7 @@ async function initializeSession(args: {
       protocolVersion: MCP_PROTOCOL_VERSION,
       capabilities: {},
       clientInfo: {
-        name: "samebase",
+        name: "Samebase",
         version: "0.0.0",
       },
     },

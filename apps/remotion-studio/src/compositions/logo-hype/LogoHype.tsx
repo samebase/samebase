@@ -610,7 +610,7 @@ export function LogoHype() {
           width: "100%",
         }}
       >
-        samebase
+        Samebase
       </div>
       <div
         style={{

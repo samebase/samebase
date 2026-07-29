@@ -421,7 +421,7 @@ describe("MCP tools/call access enforcement", () => {
           "A started provisioning run, requested build, or successful Git push is not proof of a successful deployment.",
         ),
         serverInfo: {
-          name: "samebase",
+          name: "Samebase",
           version: "0.1.0",
         },
       },

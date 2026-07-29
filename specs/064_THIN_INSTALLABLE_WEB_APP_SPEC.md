@@ -4,7 +4,7 @@
 
 - Status: Accepted and implemented
 - Owner: Samebase frontend
-- Last updated: 2026-07-20
+- Last updated: 2026-07-30
 - Related files: `specs/085_DEPLOY_SAFE_APP_BOOT_AND_RECOVERY_SPEC.md`,
   `rfcs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md`, `apps/samebase/index.html`,
   `apps/samebase/public/_redirects`, `apps/samebase/public/favicon.png`,
@@ -17,7 +17,7 @@
 
 ## Summary
 
-noter should remain installable from mobile browsers, but that installability must be as thin as
+Samebase should remain installable from mobile browsers, but that installability must be as thin as
 possible:
 
 1. Ship a static web app manifest and explicit install icons.
@@ -72,7 +72,7 @@ References:
 ## Goals
 
 - Restore mobile installability without reintroducing stale deploy behavior.
-- Ensure Add to Home Screen uses explicit noter brand assets instead of browser heuristics.
+- Ensure Add to Home Screen uses explicit Samebase brand assets instead of browser heuristics.
 - Keep the browser-first refresh model simple and reliable.
 - Make install metadata auditable in repo files rather than hidden in plugin transforms.
 
@@ -92,7 +92,7 @@ References:
 
 ### 1. Decouple installability from caching
 
-noter shall treat installability metadata and runtime caching as separate concerns.
+Samebase shall treat installability metadata and runtime caching as separate concerns.
 
 - Installability comes from a static manifest file and explicit install icons.
 - Caching remains ordinary browser/network behavior for the deployed SPA.
@@ -105,9 +105,9 @@ Add a committed `apps/samebase/public/manifest.webmanifest`.
 The manifest shall contain only the minimal fields needed for stable install behavior:
 
 - `id: "/"`
-- `name: "noter"`
-- `short_name: "noter"`
-- `start_url: "/"`
+- `name: "Samebase"`
+- `short_name: "Samebase"`
+- `start_url: "/vault"`
 - `scope: "/"`
 - `display: "standalone"`
 - `theme_color`
@@ -120,7 +120,7 @@ build plugin.
 
 ### 3. Install icon contract
 
-noter shall maintain two icon layers:
+Samebase shall maintain two icon layers:
 
 - Browser chrome icons: small favicon assets for tabs/address bar.
 - Install icons: dedicated larger icons for homescreen and installed-app surfaces.
@@ -164,8 +164,8 @@ Any future prerendered public HTML document must be produced from the canonical 
 must inherit the same manifest and Apple touch icon links from the app HTML shell. Do not
 reintroduce a separate legal-page metadata renderer.
 
-The manifest `start_url` remains `/` even when install is triggered from a legal page, so installed
-launches enter the main app surface instead of a document page.
+The manifest `start_url` remains `/vault` even when install is triggered from a legal page, so
+installed launches enter the main app surface instead of a document page.
 
 No service worker registration script or plugin-generated install metadata may be introduced.
 
@@ -237,9 +237,8 @@ problems are not. The accepted app-side deploy recovery contract now lives in
 
 ## Acceptance Criteria
 
-- noter remains browser-first and refresh-safe.
-- Install metadata reflects current lowercase `noter` branding and the compact identity source of
-  truth.
+- Samebase remains browser-first and refresh-safe.
+- Install metadata reflects current `Samebase` branding and the compact identity source of truth.
 - Mobile install uses explicit brand icon assets rather than fallback heuristics.
 - The thin install path works without a service worker.
 - Removing site data is not needed to see new deployments in a normal browser session.
