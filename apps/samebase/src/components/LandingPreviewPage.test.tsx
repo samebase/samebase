@@ -85,7 +85,6 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("bg-blue-600");
     expect(markup).toContain("rounded-none");
     expect(markup).toContain("provisions the database + backend");
-    expect(markup).toContain("Every connected app stays visible in one inventory.");
     expect(markup).toContain("Open Samebase");
     expect(markup.split(">Open Samebase</button>").length - 1).toBe(2);
     expect(markup).toContain("Idle apps cost $0/month.");
@@ -111,28 +110,6 @@ describe("LandingPreviewPage", () => {
     );
     expect(markup).toContain("Samebase repeats it, so you never choose again.");
     expect(markup).toContain("deploys + domains + edge");
-    expect(markup).toContain('data-testid="landing-preview-stack-details"');
-    expect(markup).toContain('data-testid="landing-preview-stack-model"');
-    expect(markup).toContain("base + starting shape");
-    expect(markup).toContain("One base. More than one app shape.");
-    expect(markup).toContain("/landing-preview/logos/vite-plus.svg");
-    expect(markup).toContain("/landing-preview/logos/tanstack.svg");
-    expect(markup).toContain("/landing-preview/logos/tailwindcss.svg");
-    expect(markup).toContain("Tailwind CSS");
-    expect(markup).toContain("current starter");
-    expect(markup).toContain("replaceable");
-    expect(markup).toContain("A complete app, not a contract.");
-    expect(markup).toContain("It is a strong starting shape, not a platform rule.");
-    expect(markup).toContain("Convex and Workers do not depend on TanStack.");
-    expect(markup).toContain("provider base");
-    expect(markup).toContain("independent resources");
-    expect(markup).toContain(
-      "Attach one or more Convex projects and Cloudflare Workers as each app needs them.",
-    );
-    expect(markup).toContain("one PostHog proxy");
-    expect(markup).toContain("one Worker for third-level domains");
-    expect(markup).toContain("Why we chose the base and starter");
-    expect(markup).not.toContain("/landing-preview/logos/react.svg");
     expect(markup).toContain('data-testid="landing-preview-platform-details"');
     expect(markup).toContain("local workflow");
     expect(markup).toContain("macOS");
@@ -143,7 +120,17 @@ describe("LandingPreviewPage", () => {
     );
     expect(markup).toContain("no Bash");
     expect(markup).toContain("no WSL");
-    expect(markup).toContain('href="/docs/the-stack"');
+
+    // The monorepo example stays focused on repository paths.
+    expect(markup).toContain('aria-label="Monorepo"');
+    expect(markup).toContain("Your monorepo is the map.");
+    expect(markup).toContain(
+      "Samebase shows each connected Worker and Convex project under its repository path.",
+    );
+    expect(markup.split("you/shop").length - 1).toBe(1);
+    expect(markup).toContain("apps/storefront");
+    expect(markup).toContain("apps/admin");
+    expect(markup).toContain("services/events");
 
     // Ask your agent.
     expect(markup).toContain("don&#x27;t trust us");
@@ -158,14 +145,6 @@ describe("LandingPreviewPage", () => {
     const fourClaimsIndex = markup.indexOf('aria-label="Four claims"');
     expect(platformDetailsIndex).toBeGreaterThan(askAgentIndex);
     expect(fourClaimsIndex).toBeGreaterThan(platformDetailsIndex);
-
-    const stackDetailsIndex = markup.indexOf('data-testid="landing-preview-stack-details"');
-    const inventoryHeadingIndex = markup.indexOf(
-      "More products, not more systems to maintain.",
-      stackDetailsIndex,
-    );
-    expect(stackDetailsIndex).toBeGreaterThan(fourClaimsIndex);
-    expect(inventoryHeadingIndex).toBeGreaterThan(stackDetailsIndex);
 
     // The four claims.
     expect(markup).toContain("Delete your Samebase account. Your app doesn&#x27;t notice.");
@@ -186,25 +165,9 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("No account? You create one in the same flow.");
     expect(markup).toContain("watch it before you sign up · nothing is skipped");
 
-    // One base: the inventory facts the positioning probes kept missing.
-    expect(markup).toContain("More products, not more systems to maintain.");
-    expect(markup).toContain("Every app sits on the same base, not the same shape.");
-    expect(markup).toContain("also readable by your agent, over MCP");
-    expect(markup).toContain("github-only");
-    expect(markup).toContain("not attached");
-    expect(markup).toContain("apps/admin");
-    expect(markup).toContain("configure Workers Builds for GitHub");
-    expect(markup).toContain("monorepo locations follow convex.json and live Workers Builds roots");
-    // One row set, two renderings: the table and the stacked cards.
-    expect(markup.split("you/birdlog").length - 1).toBe(2);
-
-    // Cost, the self-hosting callout, and the closing argument.
+    // Cost and the closing argument.
     expect(markup).toContain("cost follows real usage");
     expect(markup).toContain("an idle idea");
-    expect(markup).toContain("Samebase runs on Samebase.");
-    expect(markup).toContain(
-      "One monorepo, one Convex deployment, and three specialized Cloudflare Workers.",
-    );
     expect(markup).not.toContain("If an AI chat box were really the best way");
     expect(markup).toContain("If your app builder is so good, why is it not building itself?");
 

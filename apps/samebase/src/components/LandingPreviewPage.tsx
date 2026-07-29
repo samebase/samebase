@@ -21,8 +21,6 @@ import {
   LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID,
   LANDING_PREVIEW_PROVIDER_GRID_TEST_ID,
   LANDING_PREVIEW_ROUTE,
-  LANDING_PREVIEW_STACK_DETAILS_TEST_ID,
-  LANDING_PREVIEW_STACK_MODEL_TEST_ID,
   LANDING_PREVIEW_TEST_ID,
 } from "@/routeSearch/landingPreview";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
@@ -131,58 +129,11 @@ const LANDING_SETUP_STEPS = [
   },
 ] as const;
 
-type LandingProviderCell = { kind: "attached"; value: string } | { kind: "notAttached" };
-type LandingInventoryState =
-  | { kind: "healthy" }
-  | { kind: "githubOnly" }
-  | { kind: "repair"; action: string };
-
-/**
-The demo rows must keep demonstrating every lifecycle state agents kept missing
-in the positioning probes: a full-stack app, an existing repo left GitHub-only,
-two derived locations in one monorepo, and a drifted target with its repair action.
-*/
-const LANDING_INVENTORY_ROWS: readonly {
-  cloudflare: LandingProviderCell;
-  convex: LandingProviderCell;
-  github: string;
-  location: string;
-  repository: string;
-  state: LandingInventoryState;
-}[] = [
-  {
-    cloudflare: { kind: "attached", value: "birdlog.you.workers.dev" },
-    convex: { kind: "attached", value: "birdlog-prod" },
-    github: "you/birdlog",
-    location: "/",
-    repository: "birdlog",
-    state: { kind: "healthy" },
-  },
-  {
-    cloudflare: { kind: "notAttached" },
-    convex: { kind: "notAttached" },
-    github: "you/notes",
-    location: "/",
-    repository: "notes",
-    state: { kind: "githubOnly" },
-  },
-  {
-    cloudflare: { kind: "attached", value: "shop-web.you.workers.dev" },
-    convex: { kind: "attached", value: "shop-web" },
-    github: "you/shop",
-    location: "apps/web",
-    repository: "shop",
-    state: { kind: "healthy" },
-  },
-  {
-    cloudflare: { kind: "attached", value: "worker created" },
-    convex: { kind: "attached", value: "shop-admin" },
-    github: "you/shop",
-    location: "apps/admin",
-    repository: "shop",
-    state: { kind: "repair", action: "configure Workers Builds for GitHub" },
-  },
-];
+const LANDING_MONOREPO_PATHS = [
+  { path: "apps/storefront", resources: ["Convex", "Worker"] },
+  { path: "apps/admin", resources: ["Worker"] },
+  { path: "services/events", resources: ["Worker"] },
+] as const;
 
 const LANDING_COST_ROWS = [
   { profile: "an idle idea", value: "$0.00", zeroCost: true },
@@ -358,124 +309,28 @@ function LandingClaim({
   );
 }
 
-function LandingProviderCellText({ cell }: { cell: LandingProviderCell }) {
-  switch (cell.kind) {
-    case "attached":
-      return <>{cell.value}</>;
-    case "notAttached":
-      return <span className="text-muted-foreground">not attached</span>;
-    default:
-      return cell satisfies never;
-  }
-}
-
-function LandingInventoryStateText({ state }: { state: LandingInventoryState }) {
-  switch (state.kind) {
-    case "healthy":
-      return <span className="font-semibold text-secondary">✓ healthy</span>;
-    case "githubOnly":
-      return <>github-only</>;
-    case "repair":
-      return (
-        <>
-          ! repair: <span className="font-semibold text-secondary">{state.action}</span>
-        </>
-      );
-    default:
-      return state satisfies never;
-  }
-}
-
-function LandingInventoryRepositoryLabel({
-  location,
-  repository,
-}: {
-  location: string;
-  repository: string;
-}) {
+function LandingRepositoryTree() {
   return (
-    <>
-      <span className="font-semibold text-foreground">{repository}</span>
-      <span className="text-muted-foreground"> · {location}</span>
-    </>
-  );
-}
-
-/**
-One row set, two renderings: a five-column table where the pane can hold it,
-stacked per-app cards below @3xl. The display-none variant drops out of the
-accessibility tree, so the inventory is announced once.
-*/
-function LandingInventory() {
-  return (
-    <>
-      <table className="mt-3 hidden w-full border-collapse font-mono text-xs @3xl:table">
-        <thead>
-          <tr className="border-b border-border bg-muted/50 text-left uppercase tracking-[0.14em] text-muted-foreground">
-            <th className="px-3 py-2.5 font-normal">repository · location</th>
-            <th className="px-3 py-2.5 font-normal">github</th>
-            <th className="px-3 py-2.5 font-normal">convex</th>
-            <th className="px-3 py-2.5 font-normal">cloudflare</th>
-            <th className="px-3 py-2.5 text-right font-normal">state</th>
-          </tr>
-        </thead>
-        <tbody>
-          {LANDING_INVENTORY_ROWS.map((row) => (
-            <tr className="border-b border-border" key={`${row.repository}-${row.location}`}>
-              <td className="px-3 py-3">
-                <LandingInventoryRepositoryLabel
-                  location={row.location}
-                  repository={row.repository}
-                />
-              </td>
-              <td className="px-3 py-3">{row.github}</td>
-              <td className="px-3 py-3">
-                <LandingProviderCellText cell={row.convex} />
-              </td>
-              <td className="px-3 py-3">
-                <LandingProviderCellText cell={row.cloudflare} />
-              </td>
-              <td className="px-3 py-3 text-right">
-                <LandingInventoryStateText state={row.state} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="mt-3 grid gap-4 @3xl:hidden">
-        {LANDING_INVENTORY_ROWS.map((row) => (
-          <div className="border border-border" key={`${row.repository}-${row.location}`}>
-            <p className="flex items-baseline justify-between gap-4 border-b border-border bg-muted/50 px-3.5 py-2.5 font-mono text-[13px]">
-              <LandingInventoryRepositoryLabel
-                location={row.location}
-                repository={row.repository}
-              />
-              <span className="text-right">
-                <LandingInventoryStateText state={row.state} />
-              </span>
-            </p>
-            <dl className="grid gap-1.5 px-3.5 py-3 font-mono text-xs">
-              <div className="flex items-baseline justify-between gap-4">
-                <dt className="text-muted-foreground">github</dt>
-                <dd>{row.github}</dd>
-              </div>
-              <div className="flex items-baseline justify-between gap-4">
-                <dt className="text-muted-foreground">convex</dt>
-                <dd>
-                  <LandingProviderCellText cell={row.convex} />
-                </dd>
-              </div>
-              <div className="flex items-baseline justify-between gap-4">
-                <dt className="text-muted-foreground">cloudflare</dt>
-                <dd>
-                  <LandingProviderCellText cell={row.cloudflare} />
-                </dd>
-              </div>
-            </dl>
-          </div>
+    <div className="mt-8 max-w-[680px]">
+      <p className="border-b border-border pb-3 font-mono text-sm font-semibold text-foreground">
+        you/shop
+      </p>
+      <ul className="ml-2.5 border-l border-border pl-5">
+        {LANDING_MONOREPO_PATHS.map((entry) => (
+          <li
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4 py-3"
+            key={entry.path}
+          >
+            <span className="font-mono text-[13px] font-semibold text-foreground [overflow-wrap:anywhere]">
+              {entry.path}
+            </span>
+            <span className="text-right font-mono text-xs text-muted-foreground">
+              {entry.resources.join(" + ")}
+            </span>
+          </li>
         ))}
-      </div>
-    </>
+      </ul>
+    </div>
   );
 }
 
@@ -566,7 +421,7 @@ function LandingPreviewOverview() {
               </h1>
               <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
                 One action creates the repo, provisions the database + backend, and deploys the app
-                on accounts you own. Every connected app stays visible in one inventory.
+                on accounts you own.
               </p>
               <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4">
                 <LandingCreateAppButton />
@@ -663,6 +518,15 @@ function LandingPreviewOverview() {
               role="deploys + domains + edge"
             />
           </div>
+        </LandingSection>
+
+        <LandingSection ariaLabel="Monorepo">
+          <LandingSectionIntro
+            heading="Your monorepo is the map."
+            kicker="monorepos"
+            sub="Samebase shows each connected Worker and Convex project under its repository path."
+          />
+          <LandingRepositoryTree />
         </LandingSection>
 
         <LandingSection>
@@ -803,184 +667,35 @@ function LandingPreviewOverview() {
         </LandingSection>
 
         <LandingSection>
-          <div className="mb-12 @3xl:mb-16" data-testid={LANDING_PREVIEW_STACK_DETAILS_TEST_ID}>
-            <LandingSectionIntro
-              heading="One base. More than one app shape."
-              kicker="base + starting shape"
-              sub="Our default is TypeScript from the frontend through backend functions, Workers, and repository automation. It is a strong starting shape, not a platform rule."
-            />
-            <div
-              className="mt-8 border border-border"
-              data-testid={LANDING_PREVIEW_STACK_MODEL_TEST_ID}
-            >
-              <div className="p-5 @3xl:grid @3xl:grid-cols-[160px_minmax(0,1fr)] @3xl:gap-8 @3xl:p-6">
-                <div>
-                  <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                    current starter
-                  </p>
-                  <p className="mt-1 font-mono text-[11px] font-semibold text-secondary">
-                    replaceable
-                  </p>
-                </div>
-                <div className="mt-5 @3xl:mt-0">
-                  <div className="grid grid-cols-2 gap-5 @2xl:grid-cols-3">
-                    <div className="flex h-7 items-center">
-                      <img
-                        alt="Vite+"
-                        className="h-5 w-auto dark:hidden"
-                        height="15"
-                        src="/landing-preview/logos/vite-plus.svg"
-                        width="103"
-                      />
-                      <img
-                        alt="Vite+"
-                        className="hidden h-5 w-auto dark:block"
-                        height="15"
-                        src="/landing-preview/logos/vite-plus-dark.svg"
-                        width="103"
-                      />
-                    </div>
-                    <div className="flex h-7 items-center gap-1.5">
-                      <img
-                        alt="TanStack"
-                        className="h-5 w-auto dark:hidden"
-                        height="660"
-                        src="/landing-preview/logos/tanstack.svg"
-                        width="3178"
-                      />
-                      <img
-                        alt="TanStack"
-                        className="hidden h-5 w-auto dark:block"
-                        height="660"
-                        src="/landing-preview/logos/tanstack-dark.svg"
-                        width="3178"
-                      />
-                      <span className="text-base font-semibold">Start</span>
-                    </div>
-                    <div className="flex h-7 items-center gap-1.5">
-                      <img
-                        alt=""
-                        className="h-5 w-auto"
-                        height="33"
-                        src="/landing-preview/logos/tailwindcss.svg"
-                        width="54"
-                      />
-                      <span className="text-base font-semibold">Tailwind CSS</span>
-                    </div>
-                  </div>
-                  <p className="mt-4 max-w-[62ch] text-sm leading-relaxed text-primary">
-                    A complete app, not a contract. Keep it, replace the frontend, or remove it.
-                    Convex and Workers do not depend on TanStack.
-                  </p>
-                </div>
-              </div>
-              <div className="border-t border-border bg-muted/40 p-5 @3xl:grid @3xl:grid-cols-[160px_minmax(0,1fr)] @3xl:gap-8 @3xl:p-6">
-                <div>
-                  <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                    provider base
-                  </p>
-                  <p className="mt-1 font-mono text-[11px] font-semibold text-secondary">
-                    independent resources
-                  </p>
-                </div>
-                <div className="mt-5 @3xl:mt-0">
-                  <p className="max-w-[62ch] text-sm leading-relaxed text-primary">
-                    GitHub is the source. Attach one or more Convex projects and Cloudflare Workers
-                    as each app needs them.
-                  </p>
-                  <div className="mt-5 grid grid-cols-2 gap-4 @2xl:grid-cols-3">
-                    <div className="border-t border-border pt-3">
-                      <p className="font-semibold">GitHub</p>
-                      <p className="mt-1 text-sm text-muted-foreground">code + pull requests</p>
-                    </div>
-                    <div className="border-t border-border pt-3">
-                      <p className="font-semibold">Convex</p>
-                      <p className="mt-1 text-sm text-muted-foreground">data + backend functions</p>
-                    </div>
-                    <div className="border-t border-border pt-3">
-                      <p className="font-semibold">Cloudflare Workers</p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        apps + domains + edge services
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <p className="mt-5 max-w-[76ch] text-sm leading-relaxed text-primary">
-              <span className="font-semibold text-foreground">Samebase uses the same model:</span>{" "}
-              one product Worker, one PostHog proxy, and one Worker for third-level domains.{" "}
-              <LandingInlineLink to={DOCS_THE_STACK_ROUTE}>
-                Why we chose the base and starter
-              </LandingInlineLink>
-            </p>
-          </div>
-          <LandingSectionIntro
-            heading="More products, not more systems to maintain."
-            kicker="one inventory"
-            sub="Every app sits on the same base, not the same shape. One inventory holds provider state, coordinates, and the action that repairs what drifts."
-          />
-          <div className="mt-8 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+          <div className="max-w-[760px]">
             <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-              your apps · one inventory
+              cost follows real usage
             </p>
-            <p className="font-mono text-xs text-muted-foreground">
-              also readable by your agent, over MCP
-            </p>
-          </div>
-          <LandingInventory />
-          <p className="mt-5 max-w-[92ch] font-mono text-[13px] leading-relaxed text-primary">
-            and not only new apps: connect an existing repo and leave it GitHub-only · attach Convex
-            or Cloudflare later · monorepo locations follow convex.json and live Workers Builds
-            roots
-          </p>
-        </LandingSection>
-
-        <LandingSection>
-          <div className="@5xl:grid @5xl:grid-cols-[minmax(0,1fr)_420px] @5xl:items-start @5xl:gap-x-14">
-            <div>
-              <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                cost follows real usage
-              </p>
-              <div className="mt-4">
-                {LANDING_COST_ROWS.map((row) => (
-                  <div
-                    className="flex items-baseline justify-between gap-6 border-t border-border py-3"
-                    key={row.profile}
+            <div className="mt-4">
+              {LANDING_COST_ROWS.map((row) => (
+                <div
+                  className="flex items-baseline justify-between gap-6 border-t border-border py-3"
+                  key={row.profile}
+                >
+                  <p className="text-base">{row.profile}</p>
+                  <p
+                    className={
+                      row.zeroCost
+                        ? "text-right font-mono text-sm font-semibold text-secondary"
+                        : "text-right font-mono text-sm"
+                    }
                   >
-                    <p className="text-base">{row.profile}</p>
-                    <p
-                      className={
-                        row.zeroCost
-                          ? "text-right font-mono text-sm font-semibold text-secondary"
-                          : "text-right font-mono text-sm"
-                      }
-                    >
-                      {row.value}
-                      {row.zeroCost ? (
-                        <LandingFootnoteMark
-                          fragment="landing-note-zero"
-                          label="footnote: zero"
-                          marker="‡"
-                        />
-                      ) : null}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="mt-10 flex items-start gap-3.5 border border-border bg-muted/50 p-5 @5xl:mt-9">
-              <img
-                alt="Samebase"
-                className="mt-0.5 h-7 w-7"
-                height="28"
-                src="/brand/logo/v2-side-diagonal-duotone.svg"
-                width="28"
-              />
-              <p className="max-w-[44ch] text-[15px] leading-relaxed text-primary">
-                <span className="font-semibold text-foreground">Samebase runs on Samebase.</span>{" "}
-                One monorepo, one Convex deployment, and three specialized Cloudflare Workers.
-              </p>
+                    {row.value}
+                    {row.zeroCost ? (
+                      <LandingFootnoteMark
+                        fragment="landing-note-zero"
+                        label="footnote: zero"
+                        marker="‡"
+                      />
+                    ) : null}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </LandingSection>

@@ -51,6 +51,7 @@ apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/docs-pricing
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/docs-receipts-desktop.png
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-markdown-preview-mobile.png
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-hero-mobile.png
+apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-monorepo-narrow-pane.png
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-overview-desktop.png
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-overview-narrow-pane.png
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-platform-desktop.png
@@ -59,9 +60,6 @@ apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-prev
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-provider-grid-desktop.png
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-provider-grid-mobile.png
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-provider-grid-narrow-pane.png
-apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-stack-desktop.png
-apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-stack-mobile.png
-apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-stack-narrow-pane.png
 apps/samebase/e2e/local-storage-route-visual.spec.ts-snapshots/local-storage-workspace.png
 apps/samebase/e2e/logo-carpet-hover-visual.spec.ts-snapshots/logo-carpet-hover-grow.png
 apps/samebase/e2e/logo-carpet-hover-visual.spec.ts-snapshots/logo-carpet-hover-phone.png

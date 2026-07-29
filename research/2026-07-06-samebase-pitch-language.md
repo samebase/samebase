@@ -104,9 +104,9 @@ notice."
 
 ## Landing working draft: show the monorepo
 
-Status: working copy, not shipped UI copy. Last updated 2026-07-29.
+Status: accepted landing direction. Last updated 2026-07-29.
 
-Use this section to agree on the message before editing `LandingPreviewPage.tsx`. Copy changes here
+Use this section to keep the agreed message separate from its React rendering. Copy proposals here
 do not need React assertions, screenshots, or Playwright runs.
 
 ### Positioning decision
@@ -115,23 +115,31 @@ Provider dashboards show the Worker and the Convex project as separate resources
 these resources in the monorepo that contains them. The user does not have to match resource names
 between provider dashboards.
 
+This is a recognition section for developers who already use monorepos. It does not teach the
+concept or document every supported resource layout. It answers one question: will Samebase keep the
+repository understandable after its resources are deployed?
+
 ### Recommended landing section
+
+Kicker:
+
+> Monorepos
 
 Heading:
 
-> See your monorepo in one view.
+> Your monorepo is the map.
 
 Body:
 
-> Samebase shows each connected Cloudflare Worker and Convex project under its repository path.
+> Samebase shows each connected Worker and Convex project under its repository path.
 
 The repository view is the proof. It should show the grouping without another explanatory paragraph:
 
 ```text
-samebase/
-├─ apps/samebase/       Convex + product Worker
-├─ apps/posthog-proxy/  Worker
-└─ apps/domain-router/  Worker
+you/shop
+├─ apps/storefront     Convex + Worker
+├─ apps/admin          Worker
+└─ services/events     Worker
 ```
 
 Template and provider details belong in the stack guide. They do not need to appear in this landing
@@ -148,6 +156,10 @@ section.
 - Do not promise automatic discovery. Samebase shows resources that the user attaches and verifies.
 - Do not call repository locations durable apps or app roots. Samebase groups current provider
   resources by their verified locations.
+- Do not show dependency arrows. Samebase groups resources by repository path. It does not model
+  which Worker calls which Convex project.
+- Do not enumerate every Convex and Worker combination. One mixed example is enough to show that
+  repository paths can have different resource shapes.
 
 ### External message checks
 

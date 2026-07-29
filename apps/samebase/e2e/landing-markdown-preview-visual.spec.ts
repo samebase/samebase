@@ -9,8 +9,6 @@ import {
   LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID,
   LANDING_PREVIEW_PROVIDER_GRID_TEST_ID,
   LANDING_PREVIEW_ROUTE,
-  LANDING_PREVIEW_STACK_DETAILS_TEST_ID,
-  LANDING_PREVIEW_STACK_MODEL_TEST_ID,
   LANDING_PREVIEW_TEST_ID,
 } from "../src/routeSearch/landingPreview";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
@@ -135,7 +133,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
   ).toBeVisible();
   await expect(article.getByText("beta", { exact: true })).toBeVisible();
   await expect(article).toContainText(
-    "One action creates the repo, provisions the database + backend, and deploys the app on accounts you own. Every connected app stays visible in one inventory.",
+    "One action creates the repo, provisions the database + backend, and deploys the app on accounts you own.",
   );
   await expect(article.getByRole("button", { name: "Open Samebase" })).toHaveCount(2);
   await expect(article).not.toContainText("no chatbot");
@@ -165,6 +163,15 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(
     article.getByRole("heading", { exact: true, name: "Ask your agent." }),
   ).toBeVisible();
+  const monorepo = article.getByRole("region", { name: "Monorepo" });
+  await expect(monorepo).toContainText("Your monorepo is the map.");
+  await expect(monorepo).toContainText(
+    "Samebase shows each connected Worker and Convex project under its repository path.",
+  );
+  await expect(monorepo).toContainText("you/shop");
+  await expect(monorepo).toContainText("apps/storefront");
+  await expect(monorepo).toContainText("apps/admin");
+  await expect(monorepo).toContainText("services/events");
   await expect(article).toContainText(
     "Read samebase.com/llms.txt. Should I use Samebase with you for my next app? Verify the receipts before you answer.",
   );
@@ -177,26 +184,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
     "Setup is three OAuth connects and one GitHub app. We filmed all of it.",
   );
   await expect(article).toContainText("No account? You create one in the same flow.");
-  await expect(
-    article.getByRole("heading", { name: "More products, not more systems to maintain." }),
-  ).toBeVisible();
-  await expect(article).toContainText("Every app sits on the same base, not the same shape.");
-  await expect(article).toContainText("also readable by your agent, over MCP");
-  // The wide pane renders the inventory as a table; the card variant is display-none.
-  const inventoryTable = article.getByRole("table");
-  await expect(inventoryTable).toBeVisible();
-  await expect(inventoryTable).toContainText("birdlog.you.workers.dev");
-  await expect(inventoryTable).toContainText("github-only");
-  await expect(inventoryTable).toContainText("not attached");
-  await expect(inventoryTable).toContainText("configure Workers Builds for GitHub");
-  await expect(article).toContainText(
-    "monorepo locations follow convex.json and live Workers Builds roots",
-  );
   await expect(article).toContainText("cost follows real usage");
-  await expect(article).toContainText("Samebase runs on Samebase.");
-  await expect(article).toContainText(
-    "One monorepo, one Convex deployment, and three specialized Cloudflare Workers.",
-  );
   await expect(article).not.toContainText("If an AI chat box were really the best way");
   await expect(article).toContainText(
     "If your app builder is so good, why is it not building itself?",
@@ -206,16 +194,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(article.getByRole("img", { name: "GitHub" })).toBeVisible();
   await expect(article.getByRole("img", { name: "Convex" })).toBeVisible();
   await expect(article).toContainText("Cloudflare");
-  const stackDetails = article.getByTestId(LANDING_PREVIEW_STACK_DETAILS_TEST_ID);
   const platformDetails = article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID);
-  await expect(stackDetails).toContainText("One base. More than one app shape.");
-  await expect(stackDetails).toContainText("current starter");
-  await expect(stackDetails.getByRole("img", { name: "Vite+" })).toBeVisible();
-  await expect(stackDetails.getByRole("img", { name: "TanStack" })).toBeVisible();
-  await expect(stackDetails).toContainText("Tailwind CSS");
-  await expect(stackDetails).toContainText("provider base");
-  await expect(stackDetails).toContainText("Convex and Workers do not depend on TanStack.");
-  await expect(stackDetails).toContainText("one PostHog proxy");
   await expect(platformDetails).toContainText("macOS · Linux · Windows");
   await expect
     .poll(async () => {
@@ -234,27 +213,6 @@ test("landing preview route renders the React overview in workspace chrome", asy
       return askTop < platformTop && platformTop < firstClaimTop;
     })
     .toBe(true);
-  await expect
-    .poll(async () => {
-      const [setupTop, stackTop, oneBaseTop] = await Promise.all([
-        article
-          .getByRole("heading", {
-            exact: true,
-            name: "Setup is three OAuth connects and one GitHub app. We filmed all of it.",
-          })
-          .evaluate((element) => element.getBoundingClientRect().top),
-        stackDetails.evaluate((element) => element.getBoundingClientRect().top),
-        article
-          .getByRole("heading", {
-            exact: true,
-            name: "More products, not more systems to maintain.",
-          })
-          .evaluate((element) => element.getBoundingClientRect().top),
-      ]);
-      return setupTop < stackTop && stackTop < oneBaseTop;
-    })
-    .toBe(true);
-  await expect(article.getByRole("img", { name: "Samebase", exact: true })).toBeVisible();
   // The closing band keeps one accessible logo image beside the interactive hero.
   await expect(article.getByRole("img", { name: "Samebase logo", exact: true })).toHaveCount(1);
   await expect(article).toContainText("drag it");
@@ -290,12 +248,6 @@ test("landing preview route renders the React overview in workspace chrome", asy
       scale: "css",
     },
   );
-  await expect(stackDetails).toHaveScreenshot("landing-preview-stack-desktop.png", {
-    animations: "disabled",
-    caret: "hide",
-    maxDiffPixelRatio: 0.02,
-    scale: "css",
-  });
   await expect(platformDetails).toHaveScreenshot("landing-preview-platform-desktop.png", {
     animations: "disabled",
     caret: "hide",
@@ -394,10 +346,9 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
       name: /Not another AI app builder/,
     }),
   ).toBeVisible();
-  // Below the @3xl container width the inventory renders as stacked per-app
-  // cards instead of the five-column table.
-  await expect(article.locator("table")).toBeHidden();
-  await expect(article).toContainText("configure Workers Builds for GitHub");
+  const monorepo = article.getByRole("region", { name: "Monorepo" });
+  await expect(monorepo).toContainText("apps/storefront");
+  await expect(monorepo).toContainText("Convex + Worker");
   await expect(page.getByTestId("landing-preview-hero-menger")).toBeHidden();
   await expect(page.getByTestId("logo-menger-hover-scene")).toHaveCount(0);
 
@@ -418,15 +369,12 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
       scale: "css",
     },
   );
-  await expect(article.getByTestId(LANDING_PREVIEW_STACK_DETAILS_TEST_ID)).toHaveScreenshot(
-    "landing-preview-stack-narrow-pane.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.02,
-      scale: "css",
-    },
-  );
+  await expect(monorepo).toHaveScreenshot("landing-preview-monorepo-narrow-pane.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
   await expect(article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID)).toHaveScreenshot(
     "landing-preview-platform-narrow-pane.png",
     {
@@ -574,16 +522,6 @@ test.describe("mobile landing preview", () => {
         caret: "hide",
         maxDiffPixelRatio: 0.02,
         scale: "css",
-      },
-    );
-    await expect(article.getByTestId(LANDING_PREVIEW_STACK_MODEL_TEST_ID)).toHaveScreenshot(
-      "landing-preview-stack-mobile.png",
-      {
-        animations: "disabled",
-        caret: "hide",
-        maxDiffPixelRatio: 0.02,
-        scale: "css",
-        timeout: 30_000,
       },
     );
     await expect(article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID)).toHaveScreenshot(
