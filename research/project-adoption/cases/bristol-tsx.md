@@ -76,7 +76,7 @@ The first read-only inventory found:
 | Normal local development         | frontend and Convex start in parallel              | setup-aware `npm run dev`                    | partial |
 | One-time linked-worktree setup   | none                                               | `npm run dev -- --once`                      | gap     |
 | Anonymous linked-worktree setup  | none                                               | local backend, auth user, and synthetic data | gap     |
-| Framework-neutral behavior tests | manual route checklist only                        | required before migration                    | gap     |
+| Framework-neutral behavior tests | first HTTP boundary test passes                    | required before migration                    | partial |
 | Branch build                     | Cloudflare non-default-branch trigger              | retain                                       | exists  |
 | Worker version upload            | `deploy:preview`, no production traffic            | retain                                       | exists  |
 | Public pull request preview      | disabled because the backend has no safe bootstrap | safe preview or explicit no-access result    | gap     |
@@ -145,7 +145,7 @@ The first Bristol code checkpoint uses only Node's built-in test runner. It adds
 `tests/characterization/server-boundary.test.mjs` and the script:
 
 ```json
-"test:characterization": "node --test ./tests/characterization/*.test.mjs"
+"test:characterization": "node --test tests/characterization/server-boundary.test.mjs"
 ```
 
 The test reads `BRISTOL_TEST_BASE_URL` and checks:
@@ -159,6 +159,22 @@ The test reads `BRISTOL_TEST_BASE_URL` and checks:
 
 Run the same test against the current Next.js app, the candidate TanStack app, the local Worker, and
 the non-production branch URL.
+
+### First Test Slice Result
+
+[Bristol pull request #8](https://github.com/nicu-chiciuc/bristol_tsx/pull/8) contains commit
+`dff1846793b8d866163a69a8bae3cad3c3a7560b`.
+
+The characterization test passed against the current production Worker. Lint, TypeScript, format,
+the Next.js build, the OpenNext build, and an independent review also passed.
+
+Cloudflare branch build `d9f5f093-a66b-44be-9363-3f1196263f6e` completed successfully in
+approximately 166 seconds. It deployed the isolated Convex preview and uploaded non-promoted Worker
+version `23f9af54-f23e-4f5c-96b7-06d9ad1512ba`. It uploaded 7,374.58 KiB before compression and
+1,432.85 KiB after compression. It did not change production traffic.
+
+The build proves that the current branch trigger can run a framework-neutral test checkpoint without
+production promotion. It does not yet create a safe public pull request preview.
 
 ### Recommended Development Interface
 
@@ -216,9 +232,9 @@ Do not approve the full framework migration until this spike passes.
 
 ## Checkpoints
 
-1. Process charter, capability inventory, and test plan
-2. Framework-neutral characterization tests
-3. TanStack Start and Cloudflare preview spike
-4. Runtime migration, if the spike passes
-5. Worktree, preview, cleanup, and release workflows
-6. Bidirectional findings and portable outputs
+1. Process charter, capability inventory, and test plan: complete
+2. Framework-neutral characterization tests: in progress, first HTTP boundary slice complete
+3. TanStack Start and Cloudflare preview spike: pending
+4. Runtime migration, if the spike passes: pending
+5. Worktree, preview, cleanup, and release workflows: pending
+6. Bidirectional findings and portable outputs: in progress
