@@ -100,6 +100,46 @@ client output with transformation-resistant fingerprints as an independent contr
 the original JSON text and its compact serialization is not sufficient because a bundler can convert
 the same records to JavaScript object literals.
 
+## Prove Authenticated Server Rendering With Synthetic State
+
+Use an explicit local-worktree profile as the positive control for synthetic authentication. A
+loopback backend URL is an additional check, not the main permission. Limit account creation to one
+random identity under `example.invalid`, one exact flow, and one runner-owned backend. Keep the
+password, access token, and refresh token in the parent process. Generate signing keys there and
+send them to the runner-owned backend through standard input. Do not put raw values in command
+arguments, runner-authored environment files, logs, fixtures, or client output.
+
+An authenticated server-rendering proof must cover this complete request path:
+
+1. create a synthetic account in the isolated backend
+2. validate the access token at a same-origin server endpoint
+3. set an `HttpOnly`, host-only, `SameSite=Lax` session cookie
+4. send the cookie to the local Worker runtime
+5. recheck the identity in the protected server function
+6. render a synthetic private canary only after authentication
+7. prove the canary is absent from the client bundle
+
+Return `401` and remove the cookie only for a verified authentication rejection. Return `503` and
+keep the cookie when configuration, DNS, the network, or the backend is unavailable. This
+distinction prevents a provider outage from becoming a destructive sign-out.
+
+When the Worker runtime cannot fetch a loopback backend, a supervised temporary tunnel can expose
+the backend for this proof. Use the tunnel only with synthetic data. The parent process must wait
+for backend and tunnel readiness before it starts the Worker. Match the acceptance probe to the real
+consumer. In Bristol, the host DNS resolver could not resolve the new quick-tunnel hostname, but
+local Workerd could resolve and use it. Tunnel registration plus the authenticated Workerd request
+was the correct proof. A host fetch was a false negative.
+
+The parent process must own all created files and process groups. Refuse to replace existing local
+configuration. Write an ownership marker before setup. Track short setup and build commands as well
+as long-running backend, tunnel, and Worker commands. On normal exit, failure, `SIGINT`, or
+`SIGTERM`, stop each process group with a bounded escalation, remove only marker-owned state, and
+prove that all selected ports are closed.
+
+Test the interrupt path. A successful normal run does not prove cleanup. An early Bristol runner
+stopped the main backend listener but left a site listener and local state after `SIGINT`. Tracking
+only the visible long-running services was not sufficient.
+
 ## Keep Preview Terms Exact
 
 Use separate names for:
@@ -116,7 +156,8 @@ frontend preview is unsafe when its backend has no safe account bootstrap.
 Make the version-upload command own the rebuild, privacy scan, Worker name, and configuration path.
 If the build tool creates a generated deploy configuration, verify that it points back to the
 expected source configuration before upload. Remove deployment-only backend keys from the upload
-process environment. Use a version upload command that does not change traffic.
+process environment. Require the application backend URL and prove that the generated server bundle
+contains that exact URL before upload. Use a version upload command that does not change traffic.
 
 ## Separate Configuration From Promotion
 
