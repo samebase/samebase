@@ -10,6 +10,7 @@ import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { LANDING_CLOSING_BAND_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
 import { replaceRootLogoRouteSearch, useRootRouteSearch } from "@/routeSearch/root";
 import { applySearchPatch } from "@/routing/searchFlags";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   useWorkspacePaneActions,
@@ -577,6 +578,9 @@ function LandingPreviewOverview() {
             width="24"
           />
           <span className="text-base font-semibold tracking-[-0.01em]">Samebase</span>
+          <Badge className="-rotate-3" variant="outline">
+            beta
+          </Badge>
         </p>
 
         <section className="mt-10">

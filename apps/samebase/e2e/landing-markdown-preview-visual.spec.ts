@@ -145,6 +145,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
       name: /Not another AI app builder/,
     }),
   ).toBeVisible();
+  await expect(article.getByText("beta", { exact: true })).toBeVisible();
   await expect(article).toContainText(
     "One action creates the repo, provisions the database + backend, and deploys the app on accounts you own. Every connected app stays visible in one inventory.",
   );
