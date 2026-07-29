@@ -49,6 +49,11 @@ Before a rename:
 
 Do not copy script names from Samebase without mapping their meaning.
 
+During a framework spike, add candidate scripts under an explicit scope such as `spike:*`. Keep the
+current production and provider scripts unchanged until the decision gate passes. Pin each framework
+package to its own tested version. Do not assume packages with the same framework label have the
+same release number.
+
 ## Protect Current Behavior
 
 Create framework-neutral characterization tests before a framework migration. Test public and
@@ -79,10 +84,16 @@ For a server-rendered Cloudflare application, the spike must prove:
 - Convex access in the correct environment
 - static assets
 - the build and Worker upload path
+- a required client-bundle privacy scan
 - no production traffic
 
 Stop and return to the decision record if the spike changes product behavior or requires an unsafe
 credential boundary.
+
+Return exact redirect and unavailable responses from request middleware when the framework must
+preserve an empty HTTP body. A server function can serialize a thrown response through its transport
+and change the result. Keep the authorization check in the server function too, even when request
+middleware already protects the document.
 
 ## Keep Preview Terms Exact
 
@@ -96,6 +107,11 @@ Use separate names for:
 
 A successful build is not a deployment. A version upload does not imply public traffic. A public
 frontend preview is unsafe when its backend has no safe account bootstrap.
+
+Make the version-upload command own the rebuild, privacy scan, Worker name, and configuration path.
+If the build tool creates a generated deploy configuration, verify that it points back to the
+expected source configuration before upload. Remove deployment-only backend keys from the upload
+process environment. Use a version upload command that does not change traffic.
 
 ## Separate Configuration From Promotion
 
