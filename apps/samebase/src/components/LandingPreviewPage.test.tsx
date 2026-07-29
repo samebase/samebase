@@ -179,11 +179,10 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("The hosting math.");
     expect(markup).toContain("First customer: me, Nicu.");
 
-    // The closing band keeps the one interactive logo slot on the page.
+    // The closing band keeps one fractal logo without logo-lab helper copy.
     expect(markup).toContain("Same stack. Your accounts. No magic.");
-    expect(markup).toContain("drag it");
-    expect(markup).toContain("open the logo lab");
-    expect(markup).toContain('href="/logo"');
+    expect(markup).not.toContain("drag it");
+    expect(markup).not.toContain("open the logo lab");
     expect(markup.split('data-testid="public-landing-logo"').length - 1).toBe(1);
 
     // Retired copy from the slogan-era overview.

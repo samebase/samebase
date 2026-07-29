@@ -213,10 +213,10 @@ test("landing preview route renders the React overview in workspace chrome", asy
       return askTop < platformTop && platformTop < firstClaimTop;
     })
     .toBe(true);
-  // The closing band keeps one accessible logo image beside the interactive hero.
+  // The closing band keeps one accessible fractal mark without logo-lab helper copy.
   await expect(article.getByRole("img", { name: "Samebase logo", exact: true })).toHaveCount(1);
-  await expect(article).toContainText("drag it");
-  await expect(article.getByRole("link", { name: "open the logo lab" })).toBeVisible();
+  await expect(article).not.toContainText("drag it");
+  await expect(article.getByRole("link", { name: "open the logo lab" })).toHaveCount(0);
   await expect(article.getByRole("link", { name: "do-it-yourself recipe" })).toBeVisible();
   await expect(article.getByRole("heading", { name: /The correct/ })).toHaveCount(0);
   await expect(article).not.toContainText("the leaving test");

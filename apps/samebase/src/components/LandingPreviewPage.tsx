@@ -3,7 +3,6 @@ import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { LandingHeroMenger } from "@/components/logo/LandingHeroMenger";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { LANDING_CLOSING_BAND_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
-import { replaceRootLogoRouteSearch, useRootRouteSearch } from "@/routeSearch/root";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,13 +22,15 @@ import {
   LANDING_PREVIEW_ROUTE,
   LANDING_PREVIEW_TEST_ID,
 } from "@/routeSearch/landingPreview";
+import { type LogoRouteSearch } from "@/routeSearch/logo";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
 import docsPricingMarkdown from "@/content/docs-pricing.md?raw";
 import docsReceiptsMarkdown from "@/content/docs-receipts.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
 import { publicMediaManifest } from "../../shared/publicMediaManifest";
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { MENGER_SPONGE_VOXEL_STATE } from "@samebase/logo-model/voxel";
+import { Link, useLocation } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 type LandingPreviewDocumentKey = "overview" | "doItYourself" | "theStack" | "receipts" | "pricing";
@@ -134,6 +135,17 @@ const LANDING_MONOREPO_PATHS = [
   { path: "apps/admin", resources: ["Worker"] },
   { path: "services/events", resources: ["Worker"] },
 ] as const;
+
+const LANDING_CLOSING_LOGO_ROUTE_SEARCH = {
+  "auto-rotate": true,
+  "auto-shuffle": true,
+  depth: 2,
+  primary: "#8d2676",
+  secondary: "#ee342f",
+  shuffleMoves: 1,
+  top: "#f3b01c",
+  vox: MENGER_SPONGE_VOXEL_STATE,
+} as const satisfies LogoRouteSearch;
 
 const LANDING_COST_ROWS = [
   { profile: "an idle idea", value: "$0.00", zeroCost: true },
@@ -355,36 +367,6 @@ function LandingFootnote({
         {children}
       </div>
     </div>
-  );
-}
-
-/**
-The closing band auto-rotates under its own view-state key; deliberate drags
-still write the shared logo params back to the URL so the mark follows the
-visitor into the app.
-*/
-function LandingClosingBandLogo() {
-  const navigate = useNavigate();
-  const rootRouteSearch = useRootRouteSearch();
-
-  return (
-    <PublicLandingLogo
-      animateLeftFaceStripes
-      autoRotate
-      replaceRouteSearch={(nextSearch) => {
-        void navigate({
-          hash: true,
-          replace: true,
-          resetScroll: false,
-          search: (currentSearch) => replaceRootLogoRouteSearch(currentSearch, nextSearch),
-          state: true,
-          to: ".",
-        });
-      }}
-      routeSearch={rootRouteSearch}
-      stage="wide"
-      viewStateKey={LANDING_CLOSING_BAND_VIEW_STATE_KEY}
-    />
   );
 }
 
@@ -787,13 +769,12 @@ function LandingPreviewOverview() {
 
         <LandingSection>
           <div className="mb-14">
-            <LandingClosingBandLogo />
-            <p className="mt-6 text-center font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-              drag it ·{" "}
-              <Link className="no-underline hover:text-foreground" to="/logo">
-                open the logo lab
-              </Link>
-            </p>
+            <PublicLandingLogo
+              routeSearch={LANDING_CLOSING_LOGO_ROUTE_SEARCH}
+              routeSearchSource="static"
+              stage="wide"
+              viewStateKey={LANDING_CLOSING_BAND_VIEW_STATE_KEY}
+            />
           </div>
           <h2 className="max-w-[20ch] text-[clamp(26px,3.4cqw,36px)] font-bold leading-tight tracking-[-0.025em]">
             Same stack. Your accounts. No magic.
