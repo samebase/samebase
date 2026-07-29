@@ -37,6 +37,11 @@ session to `/account-deletion`. Repeated requests return the same active run wit
 phrase. A deleting user cannot use ordinary authenticated product routes or create new user-owned
 data.
 
+The request rejects while a manual provider change is active and tells the user to wait for it to
+finish. A manual provider change rejects after the request marks the user as deleting. These two
+start checks prevent account deletion and a provider change from owning the same account at the same
+time.
+
 The deletion page is a direct projection of persisted backend progress. It shows these groups:
 
 - Vaults and staged changes, including the number of deleted vaults and current cleanup phase.
@@ -107,6 +112,7 @@ until real deletion volume justifies automation.
 ## Required Validation
 
 - A request is idempotent and capability retries keep observing the same run.
+- Account deletion and manual provider changes reject each other at their start mutations.
 - More than 96 vault cleanup batches complete successfully.
 - Every detailed destructive batch fails closed when conflicting work appears.
 - Normal routes and writes reject a deleting user.
