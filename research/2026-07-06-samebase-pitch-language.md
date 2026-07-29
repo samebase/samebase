@@ -102,7 +102,7 @@ notice."
 - Never say "platform" without immediately disclaiming hosting; the ownership story dies the moment
   the listener files Samebase under "hosts my app".
 
-## Landing working draft: the repository holds the product
+## Landing working draft: show the monorepo
 
 Status: working copy, not shipped UI copy. Last updated 2026-07-29.
 
@@ -111,19 +111,19 @@ do not need React assertions, screenshots, or Playwright runs.
 
 ### Positioning decision
 
-The user benefit is not future templates or abstract flexibility. Provider dashboards show separate
-Workers and projects with separate names. Samebase restores their repository context. The user sees
-one repository, its paths, and the resources that run from each path.
+Provider dashboards show the Worker and the Convex project as separate resources. Samebase shows
+these resources in the monorepo that contains them. The user does not have to match resource names
+between provider dashboards.
 
 ### Recommended landing section
 
 Heading:
 
-> See the monorepo, not scattered services.
+> See your monorepo in one view.
 
 Body:
 
-> Workers and Convex projects stay grouped under the repository paths where they run.
+> Samebase shows each connected Cloudflare Worker and Convex project under its repository path.
 
 The repository view is the proof. It should show the grouping without another explanatory paragraph:
 
@@ -139,9 +139,10 @@ section.
 
 ### Copy rules for this point
 
-- Explain the result before the term `monorepo`.
-- Use real parts of the Samebase repository instead of words such as `flexible`, `extendable`, or
-  `future-proof`.
+- Use `monorepo` in the heading. Do not replace it with an abstract term such as `system` or
+  `repository context`.
+- Apply ASD-STE100 principles. Use short sentences. Use active voice. Use one term for each item.
+- Use specific nouns. Do not use words such as `flexible`, `extendable`, or `future-proof`.
 - Do not say that no other product supports monorepos. Cloudflare, Railway, Render, and other tools
   support several deployable services in one repository.
 - Do not promise automatic discovery. Samebase shows resources that the user attaches and verifies.
