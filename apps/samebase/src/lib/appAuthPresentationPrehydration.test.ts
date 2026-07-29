@@ -171,7 +171,7 @@ describe("appAuthPresentationPrehydration", () => {
     expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
       "signed-out",
     );
-    expect(styleText).toContain('content: "not logged in";');
+    expect(styleText).toContain('content: "Sign in or create an account";');
     expect(styleText).not.toContain("legacy@example.com");
     expect(styleText).not.toContain("Provider name");
   });
@@ -196,7 +196,7 @@ describe("appAuthPresentationPrehydration", () => {
       const styleText = document.getElementById(
         "samebase-app-auth-presentation-prehydration",
       )?.textContent;
-      expect(styleText).toContain('content: "not logged in";');
+      expect(styleText).toContain('content: "Sign in or create an account";');
       expect(styleText).not.toContain(accountLabel.trim());
     },
   );
@@ -283,7 +283,7 @@ describe("appAuthPresentationPrehydration", () => {
     expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
       "signed-out",
     );
-    expect(styleText).toContain('content: "not logged in";');
+    expect(styleText).toContain('content: "Sign in or create an account";');
     expect(styleText).not.toContain("Nicu");
     expect(styleText).not.toContain("GitHub");
   });
@@ -342,7 +342,7 @@ describe("appAuthPresentationPrehydration", () => {
     );
     expect(
       document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
-    ).toContain('content: "not logged in";');
+    ).toContain('content: "Sign in or create an account";');
   });
 
   it("visually replaces the checking login account label with signed-out presentation without local auth material", () => {
@@ -354,7 +354,7 @@ describe("appAuthPresentationPrehydration", () => {
     const styleText = document.getElementById(
       "samebase-app-auth-presentation-prehydration",
     )?.textContent;
-    expect(styleText).toContain('content: "not logged in";');
+    expect(styleText).toContain('content: "Sign in or create an account";');
     expect(styleText).toContain("[data-app-auth-prehydration-signed-out]");
     expect(styleText).toContain("[data-app-auth-prehydration-signed-out-label]::after");
     expect(styleText).not.toContain("[aria-expanded]");
@@ -427,7 +427,7 @@ describe("appAuthPresentationPrehydration", () => {
 
     expect(
       document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
-    ).toContain('content: "not logged in";');
+    ).toContain('content: "Sign in or create an account";');
   });
 
   it("uses signed-out presentation for malformed JWTs without a refresh token", () => {
@@ -437,7 +437,7 @@ describe("appAuthPresentationPrehydration", () => {
 
     expect(
       document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
-    ).toContain('content: "not logged in";');
+    ).toContain('content: "Sign in or create an account";');
   });
 
   it("does not paint an account label from a JWT with non-finite exp", () => {
@@ -452,7 +452,7 @@ describe("appAuthPresentationPrehydration", () => {
 
     expect(
       document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
-    ).toContain('content: "not logged in";');
+    ).toContain('content: "Sign in or create an account";');
     expect(
       document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
     ).not.toContain('content: "Nicu";');

@@ -247,7 +247,7 @@ html[${args.rootAttribute}="signed-in"] ${signedInProviderSelector}::after {
     ) {
       installPrehydrationStyle({
         kind: "signed-out",
-        label: "not logged in",
+        label: "Sign in or create an account",
         providerLabel: null,
       });
     }

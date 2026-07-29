@@ -302,7 +302,7 @@ describe("AppRightSidebarContent", () => {
     const hydratedMarkup = await renderRightSidebarAfterEffects([]);
 
     expect(markup).toContain("checking login");
-    expect(hydratedMarkup).toContain("not logged in");
+    expect(hydratedMarkup).toContain("Sign in or create an account");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("/providers");
     expect(hydratedMarkup).not.toContain("Account");
@@ -314,8 +314,8 @@ describe("AppRightSidebarContent", () => {
 
     const markup = renderRightSidebar([]);
 
-    expect(markup).toContain("not logged in");
-    expect(markup).toContain("Google");
+    expect(markup).toContain("Sign in or create an account");
+    expect(markup).toContain("Continue with Google");
     expect(markup).not.toContain("lucide-chevron-down");
     expect(markup).not.toContain("checking login");
     expect(markup).not.toContain("/providers");
@@ -330,7 +330,7 @@ describe("AppRightSidebarContent", () => {
     const rootElement = document.createElement("div");
     rootElement.innerHTML = markup;
     const googlePlaceholder = Array.from(rootElement.querySelectorAll("button")).find(
-      (button) => button.textContent.trim() === "Google",
+      (button) => button.textContent.trim() === "Continue with Google",
     );
 
     if (!(googlePlaceholder instanceof HTMLButtonElement)) {
@@ -350,7 +350,7 @@ describe("AppRightSidebarContent", () => {
     const hydratedMarkup = await renderRightSidebarAfterEffects([]);
 
     expect(markup).toContain("checking login");
-    expect(hydratedMarkup).toContain("not logged in");
+    expect(hydratedMarkup).toContain("Sign in or create an account");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("/providers");
   });
@@ -459,7 +459,7 @@ describe("AppRightSidebarContent", () => {
 
     expect(hydratedMarkup).toContain("checking login");
     expect(hydratedMarkup).not.toContain("Account");
-    expect(hydratedMarkup).not.toContain("not logged in");
+    expect(hydratedMarkup).not.toContain("Sign in or create an account");
     expect(hydratedMarkup).not.toContain("/providers");
     expectProviderStatusQueriesNotSeen();
   });
@@ -574,7 +574,7 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).toContain("/new-app");
     expect(hydratedMarkup).toContain("/connect-repo");
     expect(hydratedMarkup).not.toContain("checking login");
-    expect(hydratedMarkup).not.toContain("not logged in");
+    expect(hydratedMarkup).not.toContain("Sign in or create an account");
     expectProviderStatusQueriesNotSeen();
   });
 });

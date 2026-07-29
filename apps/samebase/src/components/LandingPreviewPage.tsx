@@ -1,15 +1,10 @@
+import chatgptAppIconUrl from "@/assets/chatgpt-app-128.webp";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { LandingHeroMenger } from "@/components/logo/LandingHeroMenger";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
-import {
-  isAppPresentationAuthenticated,
-  useAppAuthPresentation,
-} from "@/lib/appAuthPresentationState";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { LANDING_CLOSING_BAND_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
-import { replaceRootLogoRouteSearch, useRootRouteSearch } from "@/routeSearch/root";
-import { applySearchPatch } from "@/routing/searchFlags";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   useWorkspacePaneActions,
@@ -26,16 +21,17 @@ import {
   LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID,
   LANDING_PREVIEW_PROVIDER_GRID_TEST_ID,
   LANDING_PREVIEW_ROUTE,
-  LANDING_PREVIEW_STACK_DETAILS_TEST_ID,
   LANDING_PREVIEW_TEST_ID,
 } from "@/routeSearch/landingPreview";
+import { type LogoRouteSearch } from "@/routeSearch/logo";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
 import docsPricingMarkdown from "@/content/docs-pricing.md?raw";
 import docsReceiptsMarkdown from "@/content/docs-receipts.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
 import { publicMediaManifest } from "../../shared/publicMediaManifest";
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { MENGER_SPONGE_VOXEL_STATE } from "@samebase/logo-model/voxel";
+import { Link, useLocation } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 type LandingPreviewDocumentKey = "overview" | "doItYourself" | "theStack" | "receipts" | "pricing";
@@ -135,58 +131,19 @@ const LANDING_SETUP_STEPS = [
   },
 ] as const;
 
-type LandingProviderCell = { kind: "attached"; value: string } | { kind: "notAttached" };
-type LandingInventoryState =
-  | { kind: "healthy" }
-  | { kind: "githubOnly" }
-  | { kind: "repair"; action: string };
+const LANDING_MONOREPO_PATHS = [
+  { path: "apps/storefront", resources: ["Convex", "Worker"] },
+  { path: "apps/admin", resources: ["Worker"] },
+  { path: "services/events", resources: ["Worker"] },
+] as const;
 
-/**
-The demo rows must keep demonstrating every lifecycle state agents kept missing
-in the positioning probes: a full-stack app, an existing repo left GitHub-only,
-two derived locations in one monorepo, and a drifted target with its repair action.
-*/
-const LANDING_INVENTORY_ROWS: readonly {
-  cloudflare: LandingProviderCell;
-  convex: LandingProviderCell;
-  github: string;
-  location: string;
-  repository: string;
-  state: LandingInventoryState;
-}[] = [
-  {
-    cloudflare: { kind: "attached", value: "birdlog.you.workers.dev" },
-    convex: { kind: "attached", value: "birdlog-prod" },
-    github: "you/birdlog",
-    location: "/",
-    repository: "birdlog",
-    state: { kind: "healthy" },
-  },
-  {
-    cloudflare: { kind: "notAttached" },
-    convex: { kind: "notAttached" },
-    github: "you/notes",
-    location: "/",
-    repository: "notes",
-    state: { kind: "githubOnly" },
-  },
-  {
-    cloudflare: { kind: "attached", value: "shop-web.you.workers.dev" },
-    convex: { kind: "attached", value: "shop-web" },
-    github: "you/shop",
-    location: "apps/web",
-    repository: "shop",
-    state: { kind: "healthy" },
-  },
-  {
-    cloudflare: { kind: "attached", value: "worker created" },
-    convex: { kind: "attached", value: "shop-admin" },
-    github: "you/shop",
-    location: "apps/admin",
-    repository: "shop",
-    state: { kind: "repair", action: "configure Workers Builds for GitHub" },
-  },
-];
+const LANDING_CLOSING_LOGO_ROUTE_SEARCH = {
+  "auto-rotate": true,
+  "auto-shuffle": true,
+  depth: 2,
+  shuffleMoves: 1,
+  vox: MENGER_SPONGE_VOXEL_STATE,
+} as const satisfies LogoRouteSearch;
 
 const LANDING_COST_ROWS = [
   { profile: "an idle idea", value: "$0.00", zeroCost: true },
@@ -287,35 +244,11 @@ function LandingSectionIntro({
 }
 
 function LandingCreateAppButton() {
-  const authPresentation = useAppAuthPresentation();
-  const { setMobilePane, setRightDesktopOpen } = useWorkspacePaneActions();
-
-  if (isAppPresentationAuthenticated(authPresentation)) {
-    return (
-      <Button asChild className="h-12 px-7 text-base font-semibold no-underline">
-        <Link to={DASHBOARD_ROUTE}>Open Samebase</Link>
-      </Button>
-    );
-  }
+  const { openRightPane } = useWorkspacePaneActions();
 
   return (
-    <Button asChild className="h-12 px-7 text-base font-semibold no-underline">
-      <Link
-        to="/"
-        search={(currentSearch) =>
-          applySearchPatch(currentSearch, {
-            auth: null,
-            "auth-return": null,
-            signup: null,
-          })
-        }
-        onClick={() => {
-          setRightDesktopOpen(true);
-          setMobilePane("right");
-        }}
-      >
-        Open Samebase
-      </Link>
+    <Button className="h-12 px-7 text-base font-semibold no-underline" onClick={openRightPane}>
+      Open Samebase
     </Button>
   );
 }
@@ -386,124 +319,28 @@ function LandingClaim({
   );
 }
 
-function LandingProviderCellText({ cell }: { cell: LandingProviderCell }) {
-  switch (cell.kind) {
-    case "attached":
-      return <>{cell.value}</>;
-    case "notAttached":
-      return <span className="text-muted-foreground">not attached</span>;
-    default:
-      return cell satisfies never;
-  }
-}
-
-function LandingInventoryStateText({ state }: { state: LandingInventoryState }) {
-  switch (state.kind) {
-    case "healthy":
-      return <span className="font-semibold text-secondary">✓ healthy</span>;
-    case "githubOnly":
-      return <>github-only</>;
-    case "repair":
-      return (
-        <>
-          ! repair: <span className="font-semibold text-secondary">{state.action}</span>
-        </>
-      );
-    default:
-      return state satisfies never;
-  }
-}
-
-function LandingInventoryRepositoryLabel({
-  location,
-  repository,
-}: {
-  location: string;
-  repository: string;
-}) {
+function LandingRepositoryTree() {
   return (
-    <>
-      <span className="font-semibold text-foreground">{repository}</span>
-      <span className="text-muted-foreground"> · {location}</span>
-    </>
-  );
-}
-
-/**
-One row set, two renderings: a five-column table where the pane can hold it,
-stacked per-app cards below @3xl. The display-none variant drops out of the
-accessibility tree, so the inventory is announced once.
-*/
-function LandingInventory() {
-  return (
-    <>
-      <table className="mt-3 hidden w-full border-collapse font-mono text-xs @3xl:table">
-        <thead>
-          <tr className="border-b border-border bg-muted/50 text-left uppercase tracking-[0.14em] text-muted-foreground">
-            <th className="px-3 py-2.5 font-normal">repository · location</th>
-            <th className="px-3 py-2.5 font-normal">github</th>
-            <th className="px-3 py-2.5 font-normal">convex</th>
-            <th className="px-3 py-2.5 font-normal">cloudflare</th>
-            <th className="px-3 py-2.5 text-right font-normal">state</th>
-          </tr>
-        </thead>
-        <tbody>
-          {LANDING_INVENTORY_ROWS.map((row) => (
-            <tr className="border-b border-border" key={`${row.repository}-${row.location}`}>
-              <td className="px-3 py-3">
-                <LandingInventoryRepositoryLabel
-                  location={row.location}
-                  repository={row.repository}
-                />
-              </td>
-              <td className="px-3 py-3">{row.github}</td>
-              <td className="px-3 py-3">
-                <LandingProviderCellText cell={row.convex} />
-              </td>
-              <td className="px-3 py-3">
-                <LandingProviderCellText cell={row.cloudflare} />
-              </td>
-              <td className="px-3 py-3 text-right">
-                <LandingInventoryStateText state={row.state} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="mt-3 grid gap-4 @3xl:hidden">
-        {LANDING_INVENTORY_ROWS.map((row) => (
-          <div className="border border-border" key={`${row.repository}-${row.location}`}>
-            <p className="flex items-baseline justify-between gap-4 border-b border-border bg-muted/50 px-3.5 py-2.5 font-mono text-[13px]">
-              <LandingInventoryRepositoryLabel
-                location={row.location}
-                repository={row.repository}
-              />
-              <span className="text-right">
-                <LandingInventoryStateText state={row.state} />
-              </span>
-            </p>
-            <dl className="grid gap-1.5 px-3.5 py-3 font-mono text-xs">
-              <div className="flex items-baseline justify-between gap-4">
-                <dt className="text-muted-foreground">github</dt>
-                <dd>{row.github}</dd>
-              </div>
-              <div className="flex items-baseline justify-between gap-4">
-                <dt className="text-muted-foreground">convex</dt>
-                <dd>
-                  <LandingProviderCellText cell={row.convex} />
-                </dd>
-              </div>
-              <div className="flex items-baseline justify-between gap-4">
-                <dt className="text-muted-foreground">cloudflare</dt>
-                <dd>
-                  <LandingProviderCellText cell={row.cloudflare} />
-                </dd>
-              </div>
-            </dl>
-          </div>
+    <div className="mt-8 max-w-[680px]">
+      <p className="border-b border-border pb-3 font-mono text-sm font-semibold text-foreground">
+        you/shop
+      </p>
+      <ul className="ml-2.5 border-l border-border pl-5">
+        {LANDING_MONOREPO_PATHS.map((entry) => (
+          <li
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4 py-3"
+            key={entry.path}
+          >
+            <span className="font-mono text-[13px] font-semibold text-foreground [overflow-wrap:anywhere]">
+              {entry.path}
+            </span>
+            <span className="text-right font-mono text-xs text-muted-foreground">
+              {entry.resources.join(" + ")}
+            </span>
+          </li>
         ))}
-      </div>
-    </>
+      </ul>
+    </div>
   );
 }
 
@@ -531,36 +368,6 @@ function LandingFootnote({
   );
 }
 
-/**
-The closing band auto-rotates under its own view-state key; deliberate drags
-still write the shared logo params back to the URL so the mark follows the
-visitor into the app.
-*/
-function LandingClosingBandLogo() {
-  const navigate = useNavigate();
-  const rootRouteSearch = useRootRouteSearch();
-
-  return (
-    <PublicLandingLogo
-      animateLeftFaceStripes
-      autoRotate
-      replaceRouteSearch={(nextSearch) => {
-        void navigate({
-          hash: true,
-          replace: true,
-          resetScroll: false,
-          search: (currentSearch) => replaceRootLogoRouteSearch(currentSearch, nextSearch),
-          state: true,
-          to: ".",
-        });
-      }}
-      routeSearch={rootRouteSearch}
-      stage="wide"
-      viewStateKey={LANDING_CLOSING_BAND_VIEW_STATE_KEY}
-    />
-  );
-}
-
 function LandingPreviewOverview() {
   return (
     <article
@@ -568,15 +375,20 @@ function LandingPreviewOverview() {
       data-testid={LANDING_PREVIEW_ARTICLE_TEST_ID}
     >
       <div className="mx-auto w-full max-w-[1200px] px-6 pt-10 @2xl:px-10 @3xl:pt-14">
-        <p className="flex items-center gap-2.5">
-          <img
-            alt=""
-            className="h-6 w-6 dark:invert"
-            height="24"
-            src="/brand/logo/v1-side-primary-duotone.svg"
-            width="24"
-          />
-          <span className="text-base font-semibold tracking-[-0.01em]">Samebase</span>
+        <p className="flex items-center gap-4">
+          <span className="flex items-center gap-1.5">
+            <img
+              alt=""
+              className="h-9 w-9 dark:invert"
+              height="36"
+              src="/brand/logo/v1-side-primary-duotone.svg"
+              width="36"
+            />
+            <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
+          </span>
+          <Badge className="h-7 -rotate-3 rounded-none border-0 bg-blue-600 px-3 py-0 text-sm font-semibold text-white">
+            BETA
+          </Badge>
         </p>
 
         <section className="mt-10">
@@ -591,12 +403,12 @@ function LandingPreviewOverview() {
               </h1>
               <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
                 One action creates the repo, provisions the database + backend, and deploys the app
-                on accounts you own. Every connected app stays visible in one inventory.
+                on accounts you own.
               </p>
               <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4">
                 <LandingCreateAppButton />
                 <p className="text-sm text-muted-foreground">
-                  Free today; an idle app costs $0/month.
+                  Idle apps cost $0/month.
                   <LandingFootnoteMark
                     fragment="landing-note-zero"
                     label="footnote: zero"
@@ -607,7 +419,48 @@ function LandingPreviewOverview() {
             </div>
             <LandingHeroMenger />
           </div>
-          <div className="mt-12" style={{ containerType: "inline-size" }}>
+          <div className="relative mt-12" style={{ containerType: "inline-size" }}>
+            <div
+              className="pointer-events-none absolute -top-12 right-[7%] z-10 flex items-center @3xl:-top-14"
+              data-testid="landing-preview-chatgpt-video-label"
+            >
+              <svg
+                aria-hidden
+                className="-mr-1 mt-7 h-9 w-14 text-foreground @3xl:mt-9 @3xl:h-11 @3xl:w-16"
+                fill="none"
+                viewBox="0 0 64 44"
+              >
+                <path
+                  d="M61 5c-20-1-38 8-49 28"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeWidth="2.5"
+                />
+                <path
+                  d="m24 29-13 4-1-13"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2.5"
+                />
+              </svg>
+              <div className="flex rotate-6 items-center gap-1.5">
+                <span
+                  aria-hidden
+                  className="font-mono text-xs font-semibold tracking-[0.08em] @3xl:text-sm"
+                >
+                  ChatGPT
+                </span>
+                <img
+                  alt="ChatGPT"
+                  className="h-12 w-12 @3xl:h-16 @3xl:w-16"
+                  draggable={false}
+                  height="64"
+                  src={chatgptAppIconUrl}
+                  width="64"
+                />
+              </div>
+            </div>
             <div
               className="overflow-hidden"
               data-testid="landing-preview-hero-video-frame"
@@ -618,7 +471,7 @@ function LandingPreviewOverview() {
               }}
             >
               <video
-                aria-label="Codex builds and plays a 4x4x4 tic-tac-toe game with Samebase"
+                aria-label="ChatGPT builds and plays a 4x4x4 tic-tac-toe game with Samebase"
                 autoPlay
                 className="block w-full"
                 controls
@@ -718,7 +571,7 @@ function LandingPreviewOverview() {
             </div>
           </div>
           <div
-            className="mt-8 border-y border-border py-6"
+            className="mt-8 border-t border-border py-6"
             data-testid={LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID}
           >
             <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
@@ -769,7 +622,7 @@ function LandingPreviewOverview() {
               label="03 · lanes"
             >
               Local folder, worktrees, pull requests: each lane gets isolated code, data, and
-              deploy. Codex and Claude Code already understand worktrees; the stack keeps up.
+              deploy. ChatGPT and Claude Code already understand worktrees; the stack keeps up.
             </LandingClaim>
             <LandingClaim
               heading={
@@ -827,149 +680,45 @@ function LandingPreviewOverview() {
           </div>
         </LandingSection>
 
-        <LandingSection>
-          <div
-            className="mb-12 text-center @3xl:mb-16"
-            data-testid={LANDING_PREVIEW_STACK_DETAILS_TEST_ID}
-          >
-            <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-              standard stack
-            </p>
-            <h2 className="mx-auto mt-3 max-w-[24ch] text-[clamp(24px,3cqw,32px)] font-semibold leading-[1.25] tracking-[-0.02em]">
-              Chosen for how agents build now.
-            </h2>
-            <div className="mt-8 grid gap-8 @3xl:grid-cols-3 @3xl:gap-10">
-              <div>
-                <div className="flex h-8 items-center justify-center">
-                  <img
-                    alt="Vite+"
-                    className="h-5 w-auto dark:hidden"
-                    height="15"
-                    src="/landing-preview/logos/vite-plus.svg"
-                    width="103"
-                  />
-                  <img
-                    alt="Vite+"
-                    className="hidden h-5 w-auto dark:block"
-                    height="15"
-                    src="/landing-preview/logos/vite-plus-dark.svg"
-                    width="103"
-                  />
-                </div>
-                <p className="mx-auto mt-2 max-w-[26ch] text-sm leading-relaxed text-primary">
-                  One fast toolchain for the agent loop.
-                </p>
-              </div>
-              <div>
-                <div className="flex h-8 items-center justify-center gap-1.5">
-                  <img
-                    alt="TanStack"
-                    className="h-5 w-auto dark:hidden"
-                    height="660"
-                    src="/landing-preview/logos/tanstack.svg"
-                    width="3178"
-                  />
-                  <img
-                    alt="TanStack"
-                    className="hidden h-5 w-auto dark:block"
-                    height="660"
-                    src="/landing-preview/logos/tanstack-dark.svg"
-                    width="3178"
-                  />
-                  <span className="text-base font-semibold">Start</span>
-                </div>
-                <p className="mx-auto mt-2 max-w-[26ch] text-sm leading-relaxed text-primary">
-                  Full-stack TypeScript with official support for Cloudflare Workers.
-                </p>
-              </div>
-              <div>
-                <div className="flex h-8 items-center justify-center gap-1.5">
-                  <img
-                    alt=""
-                    className="h-5 w-auto"
-                    height="33"
-                    src="/landing-preview/logos/tailwindcss.svg"
-                    width="54"
-                  />
-                  <span className="text-base font-semibold">Tailwind CSS</span>
-                </div>
-                <p className="mx-auto mt-2 max-w-[26ch] text-sm leading-relaxed text-primary">
-                  One styling language from product UI to landing pages.
-                </p>
-              </div>
-            </div>
-            <p className="mt-7 text-sm text-primary">
-              <LandingInlineLink to={DOCS_THE_STACK_ROUTE}>
-                Why we chose this stack
-              </LandingInlineLink>
-            </p>
-          </div>
+        <LandingSection ariaLabel="Monorepo">
           <LandingSectionIntro
-            heading="More products, not more systems to maintain."
-            kicker="one base"
-            sub="Every app sits on the same base, not the same shape. One inventory holds provider state, coordinates, and the action that repairs what drifts."
+            heading="Full monorepo support, by design."
+            kicker="monorepos"
+            sub="Samebase shows each connected Worker and Convex project under its repository path."
           />
-          <div className="mt-8 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-            <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-              your apps · one inventory
-            </p>
-            <p className="font-mono text-xs text-muted-foreground">
-              also readable by your agent, over MCP
-            </p>
-          </div>
-          <LandingInventory />
-          <p className="mt-5 max-w-[92ch] font-mono text-[13px] leading-relaxed text-primary">
-            and not only new apps: connect an existing repo and leave it GitHub-only · attach Convex
-            or Cloudflare later · monorepo locations follow convex.json and live Workers Builds
-            roots
-          </p>
+          <LandingRepositoryTree />
         </LandingSection>
 
         <LandingSection>
-          <div className="@5xl:grid @5xl:grid-cols-[minmax(0,1fr)_420px] @5xl:items-start @5xl:gap-x-14">
-            <div>
-              <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                cost follows real usage
-              </p>
-              <div className="mt-4">
-                {LANDING_COST_ROWS.map((row) => (
-                  <div
-                    className="flex items-baseline justify-between gap-6 border-t border-border py-3"
-                    key={row.profile}
+          <div className="max-w-[760px]">
+            <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+              cost follows real usage
+            </p>
+            <div className="mt-4">
+              {LANDING_COST_ROWS.map((row) => (
+                <div
+                  className="flex items-baseline justify-between gap-6 border-t border-border py-3"
+                  key={row.profile}
+                >
+                  <p className="text-base">{row.profile}</p>
+                  <p
+                    className={
+                      row.zeroCost
+                        ? "text-right font-mono text-sm font-semibold text-secondary"
+                        : "text-right font-mono text-sm"
+                    }
                   >
-                    <p className="text-base">{row.profile}</p>
-                    <p
-                      className={
-                        row.zeroCost
-                          ? "text-right font-mono text-sm font-semibold text-secondary"
-                          : "text-right font-mono text-sm"
-                      }
-                    >
-                      {row.value}
-                      {row.zeroCost ? (
-                        <LandingFootnoteMark
-                          fragment="landing-note-zero"
-                          label="footnote: zero"
-                          marker="‡"
-                        />
-                      ) : null}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="mt-10 flex items-start gap-3.5 border border-border bg-muted/50 p-5 @5xl:mt-9">
-              <img
-                alt="Samebase"
-                className="mt-0.5 h-7 w-7"
-                height="28"
-                src="/brand/logo/v2-side-diagonal-duotone.svg"
-                width="28"
-              />
-              <p className="max-w-[44ch] text-[15px] leading-relaxed text-primary">
-                <span className="font-semibold text-foreground">Samebase runs on Samebase.</span>{" "}
-                One monorepo, one Convex deployment, and three specialized Cloudflare Workers.
-              </p>
+                    {row.value}
+                    {row.zeroCost ? (
+                      <LandingFootnoteMark
+                        fragment="landing-note-zero"
+                        label="footnote: zero"
+                        marker="‡"
+                      />
+                    ) : null}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </LandingSection>
@@ -1058,25 +807,28 @@ function LandingPreviewOverview() {
         </LandingSection>
 
         <LandingSection>
-          <div className="mb-14">
-            <LandingClosingBandLogo />
-            <p className="mt-6 text-center font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-              drag it ·{" "}
-              <Link className="no-underline hover:text-foreground" to="/logo">
-                open the logo lab
-              </Link>
-            </p>
-          </div>
-          <h2 className="max-w-[20ch] text-[clamp(26px,3.4cqw,36px)] font-bold leading-tight tracking-[-0.025em]">
-            Same stack. Your accounts. No magic.
-          </h2>
-          <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-muted-foreground">
-            The manual-setup article walks through every step Samebase automates. It doubles as the
-            exit door.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
-            <LandingCreateAppButton />
-            <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>Do it yourself</LandingInlineLink>
+          <div className="@4xl:grid @4xl:grid-cols-[minmax(0,1fr)_420px] @4xl:items-center @4xl:gap-x-14">
+            <div>
+              <h2 className="max-w-[20ch] text-[clamp(26px,3.4cqw,36px)] font-bold leading-tight tracking-[-0.025em]">
+                Same stack. Your accounts. No magic.
+              </h2>
+              <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-muted-foreground">
+                The manual-setup article walks through every step Samebase automates. It doubles as
+                the exit door.
+              </p>
+              <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
+                <LandingCreateAppButton />
+                <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>Do it yourself</LandingInlineLink>
+              </div>
+            </div>
+            <div className="mt-12 @4xl:mt-0">
+              <PublicLandingLogo
+                routeSearch={LANDING_CLOSING_LOGO_ROUTE_SEARCH}
+                routeSearchSource="static"
+                stage="wide"
+                viewStateKey={LANDING_CLOSING_BAND_VIEW_STATE_KEY}
+              />
+            </div>
           </div>
         </LandingSection>
       </div>

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import {
   DocsDoItYourselfPage,
   DocsPricingPage,
@@ -8,16 +8,6 @@ import {
   LandingPreviewPage,
 } from "@/components/LandingPreviewPage";
 import { publicMediaManifest } from "../../shared/publicMediaManifest";
-
-const appAuthState = vi.hoisted(() => ({ authenticated: false }));
-
-vi.mock("@/lib/appAuthPresentationState", () => ({
-  isAppPresentationAuthenticated: () => appAuthState.authenticated,
-  useAppAuthPresentation: () =>
-    appAuthState.authenticated
-      ? { kind: "confirmedAuthenticated", profile: null }
-      : { kind: "signedOut" },
-}));
 
 vi.mock("@/components/AppWorkspaceShell", () => ({
   AppWorkspaceRouteChrome: ({
@@ -72,8 +62,8 @@ vi.mock("@tanstack/react-router", () => ({
 
 vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
   useWorkspacePaneActions: () => ({
+    openRightPane: () => {},
     setMobilePane: () => {},
-    setRightDesktopOpen: () => {},
   }),
   useWorkspacePaneState: () => ({
     isMobile: false,
@@ -82,10 +72,6 @@ vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
 }));
 
 describe("LandingPreviewPage", () => {
-  beforeEach(() => {
-    appAuthState.authenticated = false;
-  });
-
   it("renders the agent-first landing overview by default", () => {
     const markup = renderToStaticMarkup(<LandingPreviewPage />);
 
@@ -93,22 +79,28 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("Not another AI app builder.");
     expect(markup).toContain("The tool your AI uses");
     expect(markup).toContain("to ship real apps.");
+    expect(markup).toContain(">BETA</span>");
+    expect(markup).toContain("-rotate-3");
+    expect(markup).toContain("border-0");
+    expect(markup).toContain("bg-blue-600");
+    expect(markup).toContain("rounded-none");
     expect(markup).toContain("provisions the database + backend");
-    expect(markup).toContain("Every connected app stays visible in one inventory.");
     expect(markup).toContain("Open Samebase");
-    expect(markup.split('href="/"').length - 1).toBe(2);
-    expect(markup).toContain("Free today; an idle app costs $0/month.");
+    expect(markup.split(">Open Samebase</button>").length - 1).toBe(2);
+    expect(markup).toContain("Idle apps cost $0/month.");
     expect(markup).not.toContain("no chatbot");
     expect(markup).not.toContain("$0/month idle");
 
-    // The real Codex capture replaces the scripted placeholder loop.
+    // The real ChatGPT capture replaces the scripted placeholder loop.
     expect(markup).toContain(`src="${publicMediaManifest.landingTicTacToeCodex.publicUrl}"`);
     expect(markup).toContain('poster="/landing-preview/tic-tac-toe-codex-poster.webp"');
-    expect(markup).toContain("Codex builds and plays a 4x4x4 tic-tac-toe game with Samebase");
+    expect(markup).toContain("ChatGPT builds and plays a 4x4x4 tic-tac-toe game with Samebase");
     expect(markup).toContain('controls=""');
     expect(markup).toContain('width="1280"');
     expect(markup).toContain('height="850"');
     expect(markup).toContain('preload="metadata"');
+    expect(markup).toContain('data-testid="landing-preview-chatgpt-video-label"');
+    expect(markup).toContain('alt="ChatGPT"');
     expect(markup).toContain('data-testid="landing-preview-hero-video-frame"');
     expect(markup).toContain("border-radius:1.104% / 1.664%");
     expect(markup).not.toContain("placeholder loop");
@@ -120,18 +112,6 @@ describe("LandingPreviewPage", () => {
     );
     expect(markup).toContain("Samebase repeats it, so you never choose again.");
     expect(markup).toContain("deploys + domains + edge");
-    expect(markup).toContain('data-testid="landing-preview-stack-details"');
-    expect(markup).toContain("standard stack");
-    expect(markup).toContain("Chosen for how agents build now.");
-    expect(markup).toContain("/landing-preview/logos/vite-plus.svg");
-    expect(markup).toContain("/landing-preview/logos/tanstack.svg");
-    expect(markup).toContain("/landing-preview/logos/tailwindcss.svg");
-    expect(markup).toContain("Tailwind CSS");
-    expect(markup).toContain("One fast toolchain for the agent loop.");
-    expect(markup).toContain("Full-stack TypeScript with official support for Cloudflare Workers.");
-    expect(markup).toContain("One styling language from product UI to landing pages.");
-    expect(markup).toContain("Why we chose this stack");
-    expect(markup).not.toContain("/landing-preview/logos/react.svg");
     expect(markup).toContain('data-testid="landing-preview-platform-details"');
     expect(markup).toContain("local workflow");
     expect(markup).toContain("macOS");
@@ -142,7 +122,17 @@ describe("LandingPreviewPage", () => {
     );
     expect(markup).toContain("no Bash");
     expect(markup).toContain("no WSL");
-    expect(markup).toContain('href="/docs/the-stack"');
+
+    // The monorepo example stays focused on repository paths.
+    expect(markup).toContain('aria-label="Monorepo"');
+    expect(markup).toContain("Full monorepo support, by design.");
+    expect(markup).toContain(
+      "Samebase shows each connected Worker and Convex project under its repository path.",
+    );
+    expect(markup.split("you/shop").length - 1).toBe(1);
+    expect(markup).toContain("apps/storefront");
+    expect(markup).toContain("apps/admin");
+    expect(markup).toContain("services/events");
 
     // Ask your agent.
     expect(markup).toContain("don&#x27;t trust us");
@@ -157,11 +147,6 @@ describe("LandingPreviewPage", () => {
     const fourClaimsIndex = markup.indexOf('aria-label="Four claims"');
     expect(platformDetailsIndex).toBeGreaterThan(askAgentIndex);
     expect(fourClaimsIndex).toBeGreaterThan(platformDetailsIndex);
-
-    const stackDetailsIndex = markup.indexOf('data-testid="landing-preview-stack-details"');
-    const oneBaseIndex = markup.indexOf("one base");
-    expect(stackDetailsIndex).toBeGreaterThan(fourClaimsIndex);
-    expect(oneBaseIndex).toBeGreaterThan(stackDetailsIndex);
 
     // The four claims.
     expect(markup).toContain("Delete your Samebase account. Your app doesn&#x27;t notice.");
@@ -182,25 +167,9 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("No account? You create one in the same flow.");
     expect(markup).toContain("watch it before you sign up · nothing is skipped");
 
-    // One base: the inventory facts the positioning probes kept missing.
-    expect(markup).toContain("More products, not more systems to maintain.");
-    expect(markup).toContain("Every app sits on the same base, not the same shape.");
-    expect(markup).toContain("also readable by your agent, over MCP");
-    expect(markup).toContain("github-only");
-    expect(markup).toContain("not attached");
-    expect(markup).toContain("apps/admin");
-    expect(markup).toContain("configure Workers Builds for GitHub");
-    expect(markup).toContain("monorepo locations follow convex.json and live Workers Builds roots");
-    // One row set, two renderings: the table and the stacked cards.
-    expect(markup.split("you/birdlog").length - 1).toBe(2);
-
-    // Cost, the self-hosting callout, and the closing argument.
+    // Cost and the closing argument.
     expect(markup).toContain("cost follows real usage");
     expect(markup).toContain("an idle idea");
-    expect(markup).toContain("Samebase runs on Samebase.");
-    expect(markup).toContain(
-      "One monorepo, one Convex deployment, and three specialized Cloudflare Workers.",
-    );
     expect(markup).not.toContain("If an AI chat box were really the best way");
     expect(markup).toContain("If your app builder is so good, why is it not building itself?");
 
@@ -212,11 +181,10 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("The hosting math.");
     expect(markup).toContain("First customer: me, Nicu.");
 
-    // The closing band keeps the one interactive logo slot on the page.
+    // The closing band keeps one fractal logo without logo-lab helper copy.
     expect(markup).toContain("Same stack. Your accounts. No magic.");
-    expect(markup).toContain("drag it");
-    expect(markup).toContain("open the logo lab");
-    expect(markup).toContain('href="/logo"');
+    expect(markup).not.toContain("drag it");
+    expect(markup).not.toContain("open the logo lab");
     expect(markup.split('data-testid="public-landing-logo"').length - 1).toBe(1);
 
     // Retired copy from the slogan-era overview.
@@ -231,13 +199,11 @@ describe("LandingPreviewPage", () => {
     expect(markup).not.toContain("no Samebase account needed");
   });
 
-  it("links authenticated viewers to their app inventory", () => {
-    appAuthState.authenticated = true;
-
+  it("renders Open Samebase as a pane action instead of navigation", () => {
     const markup = renderToStaticMarkup(<LandingPreviewPage />);
 
-    expect(markup.split('href="/vault"').length - 1).toBe(2);
-    expect(markup).not.toContain('href="/"');
+    expect(markup.split(">Open Samebase</button>").length - 1).toBe(2);
+    expect(markup).not.toContain('href="/vault"');
   });
 
   it("renders the landing preview without the docs sidebar", () => {

@@ -280,7 +280,7 @@ test("landing preview shows its query-aware fallback when the scene re-enters", 
   });
   await expect(hero).not.toBeInViewport();
   await expect(scene).toHaveCount(0);
-  await expect(fallback).toHaveCSS("opacity", "1");
+  await expect(fallback).toHaveClass(/opacity-100/);
   await expect(fallback).toHaveAttribute("src", /#.*:20:0$/);
 
   const reentryState = await scrollport.evaluate((element) => {
@@ -296,12 +296,12 @@ test("landing preview shows its query-aware fallback when the scene re-enters", 
     const heroBounds = heroElement.getBoundingClientRect();
     const scrollportBounds = element.getBoundingClientRect();
     return {
+      fallbackTargetsVisible: fallbackElement.classList.contains("opacity-100"),
       isInScrollport:
         heroBounds.bottom > scrollportBounds.top && heroBounds.top < scrollportBounds.bottom,
-      opacity: window.getComputedStyle(fallbackElement).opacity,
     };
   });
-  expect(reentryState).toEqual({ isInScrollport: true, opacity: "1" });
+  expect(reentryState).toEqual({ fallbackTargetsVisible: true, isInScrollport: true });
   await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
   await expect(hero).toHaveAttribute("data-state", "ready");
   await expect(fallback).toHaveCSS("opacity", "0");

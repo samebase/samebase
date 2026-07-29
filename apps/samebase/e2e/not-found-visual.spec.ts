@@ -57,7 +57,7 @@ test("signed-out protected routes keep auth in the right sidebar", async ({ page
   await expect(
     page
       .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)
-      .getByText("not logged in", { exact: true }),
+      .getByText("Sign in or create an account", { exact: true }),
   ).toBeVisible();
   await expect(content).toHaveScreenshot("not-found-signed-out-protected.png", {
     animations: "disabled",
@@ -78,7 +78,7 @@ test("failed Google signup on a protected route keeps feedback in the right side
   await expect(page.getByTestId("not-found-route-content")).toBeVisible();
   const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
   await expect(accountSection.getByText("The app is still internal.")).toBeVisible();
-  await expect(accountSection.getByRole("button", { name: "Google" })).toHaveCount(0);
+  await expect(accountSection.getByRole("button", { name: "Continue with Google" })).toHaveCount(0);
   await expect(accountSection.locator("input")).toHaveCount(0);
   await expect(accountSection).toHaveScreenshot("not-found-protected-google-signup-closed.png", {
     animations: "disabled",

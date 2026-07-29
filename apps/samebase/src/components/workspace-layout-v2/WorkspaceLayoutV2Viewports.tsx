@@ -18,6 +18,7 @@ type WorkspaceLayoutV2ViewportProps = WorkspaceLayoutV2ResolvedPaneContent & {
   carouselRef: RefObject<HTMLDivElement | null>;
   desktopLeftWidthPx: number;
   desktopRightWidthPx: number;
+  enableDesktopPaneTransitions: boolean;
   hasMeasuredViewport: boolean;
   leftWidthPx: number;
   lockCarouselScroll: boolean;
@@ -32,6 +33,7 @@ export function WorkspaceLayoutV2Viewport({
   carouselRef,
   desktopLeftWidthPx,
   desktopRightWidthPx,
+  enableDesktopPaneTransitions,
   hasMeasuredViewport,
   leftContent,
   leftWidthPx,
@@ -69,6 +71,9 @@ export function WorkspaceLayoutV2Viewport({
         className={cn(
           "workspace-layout-v2-responsive-left-pane relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-background",
           "snap-start snap-always",
+          enableDesktopPaneTransitions &&
+            activeResizeSide !== "left" &&
+            "md:transition-[width] motion-reduce:transition-none!",
           desktopLeftWidthPx > 0
             ? activeResizeSide === "left"
               ? "md:border-r md:border-primary"
@@ -119,6 +124,9 @@ export function WorkspaceLayoutV2Viewport({
         className={cn(
           "workspace-layout-v2-responsive-right-pane relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-background",
           "snap-end snap-always",
+          enableDesktopPaneTransitions &&
+            activeResizeSide !== "right" &&
+            "md:transition-[width] motion-reduce:transition-none!",
           desktopRightWidthPx > 0
             ? activeResizeSide === "right"
               ? "md:border-l md:border-primary"

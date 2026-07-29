@@ -25,8 +25,10 @@ async function expectPublicRouteRightSidebarAccount(page: Page) {
     .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
 
   await expect(accountSection).toBeVisible();
-  await expect(accountSection.getByText("not logged in", { exact: true })).toBeVisible();
-  await expect(accountSection.getByRole("button", { name: "Google" })).toBeVisible();
+  await expect(
+    accountSection.getByText("Sign in or create an account", { exact: true }),
+  ).toBeVisible();
+  await expect(accountSection.getByRole("button", { name: "Continue with Google" })).toBeVisible();
   return accountSection;
 }
 

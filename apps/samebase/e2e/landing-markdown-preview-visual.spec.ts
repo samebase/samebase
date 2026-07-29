@@ -7,9 +7,7 @@ import {
   DOCS_THE_STACK_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
   LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID,
-  LANDING_PREVIEW_PROVIDER_GRID_TEST_ID,
   LANDING_PREVIEW_ROUTE,
-  LANDING_PREVIEW_STACK_DETAILS_TEST_ID,
   LANDING_PREVIEW_TEST_ID,
 } from "../src/routeSearch/landingPreview";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
@@ -95,19 +93,6 @@ async function expectSidebarFiles(sidebar: Locator) {
   await expect(sidebar).not.toContainText("samebase.com");
 }
 
-async function expectPublicLandingUrl(page: Page) {
-  await expect
-    .poll(() => {
-      const url = new URL(page.url());
-      return {
-        auth: url.searchParams.get("auth"),
-        pathname: url.pathname,
-        signup: url.searchParams.get("signup"),
-      };
-    })
-    .toEqual({ auth: null, pathname: "/", signup: null });
-}
-
 async function readMainPaneScrollTop(page: Page) {
   return page
     .locator('[data-scroll-restoration-id="workspace-layout-v2-main"]')
@@ -145,13 +130,15 @@ test("landing preview route renders the React overview in workspace chrome", asy
       name: /Not another AI app builder/,
     }),
   ).toBeVisible();
+  await expect(article.getByText("BETA", { exact: true })).toBeVisible();
   await expect(article).toContainText(
-    "One action creates the repo, provisions the database + backend, and deploys the app on accounts you own. Every connected app stays visible in one inventory.",
+    "One action creates the repo, provisions the database + backend, and deploys the app on accounts you own.",
   );
   await expect(article.getByRole("button", { name: "Open Samebase" })).toHaveCount(2);
   await expect(article).not.toContainText("no chatbot");
   const heroVideo = article.getByTestId("landing-preview-hero-video");
   await expect(heroVideo).toBeVisible();
+  await expect(article.getByRole("img", { exact: true, name: "ChatGPT" })).toBeVisible();
   await expect(heroVideo).toHaveAttribute("autoplay", "");
   await expect(heroVideo).toHaveAttribute("controls", "");
   await expect(heroVideo).toHaveAttribute("height", "850");
@@ -176,6 +163,15 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(
     article.getByRole("heading", { exact: true, name: "Ask your agent." }),
   ).toBeVisible();
+  const monorepo = article.getByRole("region", { name: "Monorepo" });
+  await expect(monorepo).toContainText("Full monorepo support, by design.");
+  await expect(monorepo).toContainText(
+    "Samebase shows each connected Worker and Convex project under its repository path.",
+  );
+  await expect(monorepo).toContainText("you/shop");
+  await expect(monorepo).toContainText("apps/storefront");
+  await expect(monorepo).toContainText("apps/admin");
+  await expect(monorepo).toContainText("services/events");
   await expect(article).toContainText(
     "Read samebase.com/llms.txt. Should I use Samebase with you for my next app? Verify the receipts before you answer.",
   );
@@ -188,26 +184,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
     "Setup is three OAuth connects and one GitHub app. We filmed all of it.",
   );
   await expect(article).toContainText("No account? You create one in the same flow.");
-  await expect(
-    article.getByRole("heading", { name: "More products, not more systems to maintain." }),
-  ).toBeVisible();
-  await expect(article).toContainText("Every app sits on the same base, not the same shape.");
-  await expect(article).toContainText("also readable by your agent, over MCP");
-  // The wide pane renders the inventory as a table; the card variant is display-none.
-  const inventoryTable = article.getByRole("table");
-  await expect(inventoryTable).toBeVisible();
-  await expect(inventoryTable).toContainText("birdlog.you.workers.dev");
-  await expect(inventoryTable).toContainText("github-only");
-  await expect(inventoryTable).toContainText("not attached");
-  await expect(inventoryTable).toContainText("configure Workers Builds for GitHub");
-  await expect(article).toContainText(
-    "monorepo locations follow convex.json and live Workers Builds roots",
-  );
   await expect(article).toContainText("cost follows real usage");
-  await expect(article).toContainText("Samebase runs on Samebase.");
-  await expect(article).toContainText(
-    "One monorepo, one Convex deployment, and three specialized Cloudflare Workers.",
-  );
   await expect(article).not.toContainText("If an AI chat box were really the best way");
   await expect(article).toContainText(
     "If your app builder is so good, why is it not building itself?",
@@ -217,11 +194,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(article.getByRole("img", { name: "GitHub" })).toBeVisible();
   await expect(article.getByRole("img", { name: "Convex" })).toBeVisible();
   await expect(article).toContainText("Cloudflare");
-  const stackDetails = article.getByTestId(LANDING_PREVIEW_STACK_DETAILS_TEST_ID);
   const platformDetails = article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID);
-  await expect(stackDetails.getByRole("img", { name: "Vite+" })).toBeVisible();
-  await expect(stackDetails.getByRole("img", { name: "TanStack" })).toBeVisible();
-  await expect(stackDetails).toContainText("Tailwind CSS");
   await expect(platformDetails).toContainText("macOS · Linux · Windows");
   await expect
     .poll(async () => {
@@ -240,31 +213,10 @@ test("landing preview route renders the React overview in workspace chrome", asy
       return askTop < platformTop && platformTop < firstClaimTop;
     })
     .toBe(true);
-  await expect
-    .poll(async () => {
-      const [setupTop, stackTop, oneBaseTop] = await Promise.all([
-        article
-          .getByRole("heading", {
-            exact: true,
-            name: "Setup is three OAuth connects and one GitHub app. We filmed all of it.",
-          })
-          .evaluate((element) => element.getBoundingClientRect().top),
-        stackDetails.evaluate((element) => element.getBoundingClientRect().top),
-        article
-          .getByRole("heading", {
-            exact: true,
-            name: "More products, not more systems to maintain.",
-          })
-          .evaluate((element) => element.getBoundingClientRect().top),
-      ]);
-      return setupTop < stackTop && stackTop < oneBaseTop;
-    })
-    .toBe(true);
-  await expect(article.getByRole("img", { name: "Samebase", exact: true })).toBeVisible();
-  // The closing band keeps one accessible logo image beside the interactive hero.
+  // The closing band keeps one accessible fractal mark without logo-lab helper copy.
   await expect(article.getByRole("img", { name: "Samebase logo", exact: true })).toHaveCount(1);
-  await expect(article).toContainText("drag it");
-  await expect(article.getByRole("link", { name: "open the logo lab" })).toBeVisible();
+  await expect(article).not.toContainText("drag it");
+  await expect(article.getByRole("link", { name: "open the logo lab" })).toHaveCount(0);
   await expect(article.getByRole("link", { name: "do-it-yourself recipe" })).toBeVisible();
   await expect(article.getByRole("heading", { name: /The correct/ })).toHaveCount(0);
   await expect(article).not.toContainText("the leaving test");
@@ -286,21 +238,6 @@ test("landing preview route renders the React overview in workspace chrome", asy
     maxDiffPixelRatio: 0.02,
     scale: "css",
     timeout: 30_000,
-  });
-  await expect(article.getByTestId(LANDING_PREVIEW_PROVIDER_GRID_TEST_ID)).toHaveScreenshot(
-    "landing-preview-provider-grid-desktop.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.02,
-      scale: "css",
-    },
-  );
-  await expect(stackDetails).toHaveScreenshot("landing-preview-stack-desktop.png", {
-    animations: "disabled",
-    caret: "hide",
-    maxDiffPixelRatio: 0.02,
-    scale: "css",
   });
   await expect(platformDetails).toHaveScreenshot("landing-preview-platform-desktop.png", {
     animations: "disabled",
@@ -400,10 +337,9 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
       name: /Not another AI app builder/,
     }),
   ).toBeVisible();
-  // Below the @3xl container width the inventory renders as stacked per-app
-  // cards instead of the five-column table.
-  await expect(article.locator("table")).toBeHidden();
-  await expect(article).toContainText("configure Workers Builds for GitHub");
+  const monorepo = article.getByRole("region", { name: "Monorepo" });
+  await expect(monorepo).toContainText("apps/storefront");
+  await expect(monorepo).toContainText("Convex + Worker");
   await expect(page.getByTestId("landing-preview-hero-menger")).toBeHidden();
   await expect(page.getByTestId("logo-menger-hover-scene")).toHaveCount(0);
 
@@ -415,24 +351,12 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
-  await expect(article.getByTestId(LANDING_PREVIEW_PROVIDER_GRID_TEST_ID)).toHaveScreenshot(
-    "landing-preview-provider-grid-narrow-pane.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.02,
-      scale: "css",
-    },
-  );
-  await expect(article.getByTestId(LANDING_PREVIEW_STACK_DETAILS_TEST_ID)).toHaveScreenshot(
-    "landing-preview-stack-narrow-pane.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.02,
-      scale: "css",
-    },
-  );
+  await expect(monorepo).toHaveScreenshot("landing-preview-monorepo-narrow-pane.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
   await expect(article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID)).toHaveScreenshot(
     "landing-preview-platform-narrow-pane.png",
     {
@@ -448,6 +372,24 @@ test("landing document navigation resets new articles and restores history posit
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  // This route-history test does not need the GPU scenes that have separate coverage.
+  await page.addInitScript(() => {
+    const originalGetContext = Object.getOwnPropertyDescriptor(
+      HTMLCanvasElement.prototype,
+      "getContext",
+    )?.value;
+    if (typeof originalGetContext !== "function") {
+      return;
+    }
+
+    HTMLCanvasElement.prototype.getContext = function (contextId, ...args) {
+      if (contextId === "webgl" || contextId === "webgl2" || contextId === "experimental-webgl") {
+        return null;
+      }
+      return Reflect.apply(originalGetContext, this, [contextId, ...args]);
+    };
+  });
   await showLandingHeroPoster(page);
   await page.goto(LANDING_PREVIEW_ROUTE, {
     waitUntil: "domcontentloaded",
@@ -494,9 +436,6 @@ test("landing document navigation resets new articles and restores history posit
   await expect(page).toHaveURL(new RegExp(`${LANDING_PREVIEW_ROUTE}$`));
   await expect.poll(() => readMainPaneScrollTop(page)).toBe(overviewScrollTop);
 
-  await page.locator("#public-landing-theme-dark-toggle").click();
-  await expect.poll(() => readMainPaneScrollTop(page)).toBe(overviewScrollTop);
-
   await page.getByRole("link", { exact: true, name: "/terms" }).click();
   await expect.poll(() => new URL(page.url()).pathname).toBe("/terms");
   await expect.poll(() => readMainPaneScrollTop(page)).toBe(0);
@@ -520,8 +459,16 @@ test("landing preview CTA reopens the desktop public sidebar", async ({ page }) 
     await document.fonts.ready;
   });
 
-  await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
-  await expect(page.getByTestId("workspace-layout-v2-pane-right")).toHaveCSS("width", "0px");
+  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(rightPane).toHaveCSS("transition-property", "none");
+  if (await rightPane.evaluate((pane) => Number.parseFloat(getComputedStyle(pane).width) > 0)) {
+    await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
+  }
+  await expect(rightPane).toHaveCSS("width", "0px");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await expect(rightPane).toHaveCSS("transition-property", "width");
+  await expect(rightPane).toHaveCSS("transition-duration", "0.15s");
 
   await page
     .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
@@ -529,13 +476,13 @@ test("landing preview CTA reopens the desktop public sidebar", async ({ page }) 
     .first()
     .click();
 
-  await expectPublicLandingUrl(page);
-  await expect(page.getByTestId("workspace-layout-v2-pane-right")).toHaveCSS("width", "288px");
+  await expect(page).toHaveURL(new RegExp(`${LANDING_PREVIEW_ROUTE}$`));
+  await expect(rightPane).toHaveAttribute("style", /width: 288px/);
   await expect(
     page
       .getByTestId("workspace-layout-v2-pane-right")
       .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)
-      .getByRole("button", { name: "Google" }),
+      .getByRole("button", { name: "Continue with Google" }),
   ).toBeVisible();
 });
 
@@ -565,25 +512,6 @@ test.describe("mobile landing preview", () => {
       maxDiffPixelRatio: 0.02,
       scale: "css",
     });
-    await expect(article.getByTestId(LANDING_PREVIEW_PROVIDER_GRID_TEST_ID)).toHaveScreenshot(
-      "landing-preview-provider-grid-mobile.png",
-      {
-        animations: "disabled",
-        caret: "hide",
-        maxDiffPixelRatio: 0.02,
-        scale: "css",
-      },
-    );
-    await expect(article.getByTestId(LANDING_PREVIEW_STACK_DETAILS_TEST_ID)).toHaveScreenshot(
-      "landing-preview-stack-mobile.png",
-      {
-        animations: "disabled",
-        caret: "hide",
-        maxDiffPixelRatio: 0.02,
-        scale: "css",
-        timeout: 30_000,
-      },
-    );
     await expect(article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID)).toHaveScreenshot(
       "landing-preview-platform-mobile.png",
       {
@@ -595,15 +523,45 @@ test.describe("mobile landing preview", () => {
       },
     );
 
+    const carousel = page.getByTestId("workspace-layout-v2-pane-main");
+    const startingScrollLeft = await carousel.evaluate((element) => element.scrollLeft);
+    await carousel.evaluate((element) => {
+      element.setAttribute("data-test-scroll-positions", JSON.stringify([element.scrollLeft]));
+      element.addEventListener("scroll", () => {
+        const parsedPositions: unknown = JSON.parse(
+          element.getAttribute("data-test-scroll-positions") ?? "[]",
+        );
+        const positions = Array.isArray(parsedPositions)
+          ? parsedPositions.filter((position) => typeof position === "number")
+          : [];
+        positions.push(element.scrollLeft);
+        element.setAttribute("data-test-scroll-positions", JSON.stringify(positions));
+      });
+    });
+
     await article.getByRole("button", { name: "Open Samebase" }).first().click();
 
-    await expectPublicLandingUrl(page);
+    await expect(page).toHaveURL(new RegExp(`${LANDING_PREVIEW_ROUTE}(?:\\?prod-ui)?$`));
     await expect(workspace).toHaveAttribute("data-mobile-pane", "right");
+    const endingScrollLeft = await carousel.evaluate((element) => element.scrollLeft);
+    const scrollPositions = await carousel.evaluate((element) => {
+      const parsedPositions: unknown = JSON.parse(
+        element.getAttribute("data-test-scroll-positions") ?? "[]",
+      );
+      return Array.isArray(parsedPositions)
+        ? parsedPositions.filter((position) => typeof position === "number")
+        : [];
+    });
+    expect(
+      scrollPositions.some(
+        (scrollLeft) => scrollLeft > startingScrollLeft && scrollLeft < endingScrollLeft,
+      ),
+    ).toBe(true);
     await expect(
       page
         .getByTestId("workspace-layout-v2-pane-right")
         .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)
-        .getByRole("button", { name: "Google" }),
+        .getByRole("button", { name: "Continue with Google" }),
     ).toBeVisible();
   });
 
@@ -616,8 +574,17 @@ test.describe("mobile landing preview", () => {
     const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
     const doItYourselfLink = article.getByRole("link", { name: "do-it-yourself recipe" });
     await expect(doItYourselfLink).toBeVisible();
-    await doItYourselfLink.scrollIntoViewIfNeeded();
-    await expect.poll(() => readMainPaneScrollTop(page)).toBeGreaterThan(0);
+    const mainPaneScroller = page.locator(
+      '[data-scroll-restoration-id="workspace-layout-v2-main"]',
+    );
+    await expect
+      .poll(() =>
+        mainPaneScroller.evaluate((element) => {
+          element.scrollTop = element.scrollHeight;
+          return element.scrollTop;
+        }),
+      )
+      .toBeGreaterThan(0);
 
     await doItYourselfLink.click();
 

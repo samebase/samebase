@@ -126,13 +126,14 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
             <Button
               aria-hidden="true"
               data-testid={PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID}
-              className="h-auto flex-1 py-2.5 disabled:opacity-100"
+              className="h-auto min-w-0 flex-1 whitespace-normal py-2.5 disabled:opacity-100 @max-[200px]:leading-tight @max-[120px]:px-1.5"
               disabled
               tabIndex={-1}
               variant="outline"
               type="button"
             >
-              <Chrome className="mr-2 h-4 w-4" /> Google
+              <Chrome className="mr-2 h-4 w-4 @max-[120px]:hidden" />
+              <span className="min-w-0">Continue with Google</span>
             </Button>
           </div>
         </div>

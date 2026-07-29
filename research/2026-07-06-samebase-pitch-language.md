@@ -101,3 +101,79 @@ notice."
   the providers only when asked.
 - Never say "platform" without immediately disclaiming hosting; the ownership story dies the moment
   the listener files Samebase under "hosts my app".
+
+## Landing working draft: show the monorepo
+
+Status: accepted landing direction. Last updated 2026-07-29.
+
+Use this section to keep the agreed message separate from its React rendering. Copy proposals here
+do not need React assertions, screenshots, or Playwright runs.
+
+### Positioning decision
+
+Provider dashboards show the Worker and the Convex project as separate resources. Samebase shows
+these resources in the monorepo that contains them. The user does not have to match resource names
+between provider dashboards.
+
+This is a recognition section for developers who already use monorepos. It does not teach the
+concept or document every supported resource layout. It answers one question: will Samebase keep the
+repository understandable after its resources are deployed?
+
+### Recommended landing section
+
+Kicker:
+
+> Monorepos
+
+Heading:
+
+> Full monorepo support, by design.
+
+Body:
+
+> Samebase shows each connected Worker and Convex project under its repository path.
+
+The repository view is the proof. It should show the grouping without another explanatory paragraph:
+
+```text
+you/shop
+├─ apps/storefront     Convex + Worker
+├─ apps/admin          Worker
+└─ services/events     Worker
+```
+
+Template and provider details belong in the stack guide. They do not need to appear in this landing
+section.
+
+### Copy rules for this point
+
+- Use `monorepo` in the heading. Do not replace it with an abstract term such as `system` or
+  `repository context`.
+- Apply ASD-STE100 principles. Use short sentences. Use active voice. Use one term for each item.
+- Use specific nouns. Do not use words such as `flexible`, `extendable`, or `future-proof`.
+- Do not say that no other product supports monorepos. Cloudflare, Railway, Render, and other tools
+  support several deployable services in one repository.
+- Do not promise automatic discovery. Samebase shows resources that the user attaches and verifies.
+- Do not call repository locations durable apps or app roots. Samebase groups current provider
+  resources by their verified locations.
+- Do not show dependency arrows. Samebase groups resources by repository path. It does not model
+  which Worker calls which Convex project.
+- Do not enumerate every Convex and Worker combination. One mixed example is enough to show that
+  repository paths can have different resource shapes.
+
+### External message checks
+
+- [Cloudflare Workers monorepos](https://developers.cloudflare.com/workers/ci-cd/builds/advanced-setups/)
+  use one repository with a separate root, commands, and watch paths for each Worker. This supports
+  the independent-Worker model.
+- [Nx](https://nx.dev/docs/concepts/decisions/what-is-a-monorepo) explains that one repository can
+  contain distinct projects that use the same stack or different stacks. This supports describing
+  the repository before the framework.
+- [Railway](https://docs.railway.com/deployments/monorepo) can detect deployable JavaScript packages
+  and create one service for each package. This makes a broad uniqueness claim unsafe.
+- [shadcn/ui](https://ui.shadcn.com/docs) separates strong defaults from open code that the user can
+  change. This is the useful model for the Samebase starter.
+- [Bolt](https://support.bolt.new/integrations/git) can import an existing GitHub repository, while
+  [Lovable](https://docs.lovable.dev/introduction/faq) cannot currently start from one. Competitor
+  support changes, so the landing should state the Samebase model instead of making a broad claim
+  about every builder.
