@@ -548,7 +548,7 @@ function LandingPreviewOverview() {
             width="24"
           />
           <span className="text-base font-semibold tracking-[-0.01em]">Samebase</span>
-          <Badge className="-rotate-3" variant="outline">
+          <Badge className="h-6 -rotate-3 rounded-none border-0 bg-blue-600 px-2.5 py-0 text-[13px] font-semibold text-white">
             beta
           </Badge>
         </p>

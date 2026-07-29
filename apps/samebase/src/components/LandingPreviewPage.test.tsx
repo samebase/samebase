@@ -81,6 +81,9 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("to ship real apps.");
     expect(markup).toContain(">beta</span>");
     expect(markup).toContain("-rotate-3");
+    expect(markup).toContain("border-0");
+    expect(markup).toContain("bg-blue-600");
+    expect(markup).toContain("rounded-none");
     expect(markup).toContain("provisions the database + backend");
     expect(markup).toContain("Every connected app stays visible in one inventory.");
     expect(markup).toContain("Open Samebase");
