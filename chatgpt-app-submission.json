@@ -1,5 +1,5 @@
 {
-  "$schema": "https://developers.openai.com/plugins/schemas/chatgpt-app-submission.v1.json",
+  "$schema": "https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json",
   "schema_version": 1,
   "app_info": {
     "display_name": "Samebase",
@@ -168,23 +168,23 @@
   "test_cases": [
     {
       "description": "Confirm the submitted reviewer credentials resolve to the prepared Samebase demo account.",
-      "user_prompt": "Am I connected to Samebase? Report the authenticated account, role, and granted MCP scope names. Do not change GitHub, Convex, or Cloudflare resources.",
+      "user_prompt": "Am I connected to Samebase?",
       "file_attachment_urls": null,
       "tools_triggered": "samebase_auth_getAuthenticationStatus",
-      "expected_output": "Confirms the reviewer account is authenticated, reports its email, role, and granted scope names, and does not expose tokens or internal account IDs.",
+      "expected_output": "Confirms that the reviewer account is connected. It can report the account email, role, and granted scope names, but must not expose tokens or internal account IDs.",
       "expected_output_url": null
     },
     {
       "description": "Inspect the existing Samebase apps already prepared in the reviewer demo account.",
-      "user_prompt": "List my Samebase apps. For each app, report its repository, default branch when known, source setup state, provider setup state, attached Convex projects, and attached Cloudflare Workers. Do not change GitHub, Convex, or Cloudflare resources.",
+      "user_prompt": "List my Samebase apps and their setup status.",
       "file_attachment_urls": null,
       "tools_triggered": "vault_dashboard_getUserVaults",
-      "expected_output": "Returns one summary per visible app using repository coordinates, default branch, independent source and provider states, and stable attached-resource names or identifiers. It does not claim live provider state or provider URLs.",
+      "expected_output": "Returns one summary per visible app. Each summary includes its repository and independent source and provider setup states. It can include the default branch and attached resource names or identifiers when available, but must not claim that inventory is live provider state.",
       "expected_output_url": null
     },
     {
       "description": "Read the Cloudflare account fixture already connected to the prepared reviewer demo account.",
-      "user_prompt": "List the Cloudflare accounts available through my connected Samebase account. Report each account name and account ID. Do not make changes to Cloudflare.",
+      "user_prompt": "Which Cloudflare accounts are connected to my Samebase account?",
       "file_attachment_urls": null,
       "tools_triggered": "vault_cloudflare_listAccounts",
       "expected_output": "Returns the Cloudflare accounts readable through the reviewer account as account-name and account-ID pairs. It creates no Cloudflare resource.",
@@ -192,10 +192,10 @@
     },
     {
       "description": "Create one private app with the reviewer account's prepared noter-guest GitHub, Convex, and Cloudflare connections.",
-      "user_prompt": "Create one private Samebase app under my GitHub owner noter-guest. Choose a unique name that starts with tmp-plugin-review- and ends with six lowercase letters. Use exactly that name for the app, GitHub repository, Convex project, and Cloudflare Worker. Wait until source setup reaches ready or failed. If source setup is ready, then wait until provider setup reaches ready or failed. Report the repository and final states.",
+      "user_prompt": "Create a private Samebase app under noter-guest with a unique name that starts with tmp-plugin-review-. Wait until it is ready.",
       "file_attachment_urls": null,
       "tools_triggered": "vault_dashboard_getUserVaults, vault_actions_createRepository",
-      "expected_output": "Reads inventory before creation and creates one private repository-backed app. It polls until source setup is ready or failed. After source setup is ready, it also polls provider setup until ready or failed. It reports the repository and final states without treating the initial run IDs as completion.",
+      "expected_output": "Reads inventory before creation and creates one private repository-backed app. It uses the selected name for the app and its new provider resources. It polls until source setup is ready or failed. After source setup is ready, it also polls provider setup until ready or failed. It reports the repository and final states without treating the initial run IDs as completion.",
       "expected_output_url": null
     },
     {
@@ -210,15 +210,15 @@
   "negative_test_cases": [
     {
       "description": "Do not invoke Samebase for Git-only work in an unrelated repository.",
-      "user_prompt": "Change the README heading in octocat/Hello-World and open a pull request. Do not connect the repository to Samebase or change provider resources.",
+      "user_prompt": "Change the README heading in octocat/Hello-World and open a pull request.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "Uses available GitHub or local Git capabilities without invoking Samebase because the user explicitly keeps this repository outside Samebase.",
+      "expected_output": "Uses available GitHub or local Git capabilities without invoking Samebase because this is ordinary work in an unrelated repository.",
       "expected_output_url": null
     },
     {
       "description": "Do not perform destructive provider deletion through the Samebase plugin.",
-      "user_prompt": "Delete one of my Samebase apps and automatically remove its GitHub repository, Convex project, and Cloudflare Worker.",
+      "user_prompt": "Delete one of my Samebase apps and all of its resources.",
       "file_attachment_urls": null,
       "tools_triggered": null,
       "expected_output": "Does not call any write or provider-deletion action because the plugin exposes no deletion tool. It may explain that deletion must use the Samebase dashboard, but it must not claim that any resource was removed.",
@@ -226,7 +226,7 @@
     },
     {
       "description": "Do not trigger Samebase for direct provider administration outside managed app creation.",
-      "user_prompt": "Create a standalone Cloudflare Worker for me without creating a Samebase app.",
+      "user_prompt": "Create a standalone Cloudflare Worker for me.",
       "file_attachment_urls": null,
       "tools_triggered": null,
       "expected_output": "The app should not be invoked because direct Cloudflare administration is outside this MCP server's supported Samebase workflows.",

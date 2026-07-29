@@ -35,4 +35,12 @@ not copy tool schemas or general coding instructions into the skill.
    select the declared tool or tools and preserve the required sequence. Each negative case must not
    select a Samebase tool.
 7. If a case fails, simplify the public skill and rerun the full suite on the smallest agent.
-8. Record the models and the pass or fail result in the pull request.
+8. Update the last-run record below. Include the date, tested artifact commit, models, and result.
+   Also put this result in the pull request.
+
+## Last full run
+
+- Date: 2026-07-29
+- Artifact commit: `b1fe2b41`
+- Models: GPT-5.6 Terra low and GPT-5.6 Sol low
+- Result: all five positive cases and all three negative cases passed
