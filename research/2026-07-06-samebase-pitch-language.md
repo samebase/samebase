@@ -127,7 +127,7 @@ Kicker:
 
 Heading:
 
-> Your monorepo is the map.
+> Full monorepo support, by design.
 
 Body:
 

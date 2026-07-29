@@ -659,7 +659,7 @@ function LandingPreviewOverview() {
 
         <LandingSection ariaLabel="Monorepo">
           <LandingSectionIntro
-            heading="Your monorepo is the map."
+            heading="Full monorepo support, by design."
             kicker="monorepos"
             sub="Samebase shows each connected Worker and Convex project under its repository path."
           />

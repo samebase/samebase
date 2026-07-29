@@ -123,7 +123,7 @@ describe("LandingPreviewPage", () => {
 
     // The monorepo example stays focused on repository paths.
     expect(markup).toContain('aria-label="Monorepo"');
-    expect(markup).toContain("Your monorepo is the map.");
+    expect(markup).toContain("Full monorepo support, by design.");
     expect(markup).toContain(
       "Samebase shows each connected Worker and Convex project under its repository path.",
     );

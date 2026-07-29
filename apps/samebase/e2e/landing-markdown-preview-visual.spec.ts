@@ -164,7 +164,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
     article.getByRole("heading", { exact: true, name: "Ask your agent." }),
   ).toBeVisible();
   const monorepo = article.getByRole("region", { name: "Monorepo" });
-  await expect(monorepo).toContainText("Your monorepo is the map.");
+  await expect(monorepo).toContainText("Full monorepo support, by design.");
   await expect(monorepo).toContainText(
     "Samebase shows each connected Worker and Convex project under its repository path.",
   );
