@@ -80,7 +80,7 @@ async function installUnavailableCanvasRendering(page: Page): Promise<void> {
   });
 }
 
-test("landing preview uses the depth-four Menger hover scene", async ({ page }) => {
+test("landing preview uses the depth-three Menger hover scene", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/landing-preview", { waitUntil: "domcontentloaded" });
@@ -92,7 +92,7 @@ test("landing preview uses the depth-four Menger hover scene", async ({ page }) 
   await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
   await expect(hero).toHaveAttribute("data-state", "ready");
   await expect(fallback).toHaveCSS("opacity", "0");
-  await expect(scene).toHaveAttribute("data-menger-maximum-depth", "4");
+  await expect(scene).toHaveAttribute("data-menger-maximum-depth", "3");
   await expect(scene).toHaveAttribute("data-menger-pointer-tilt", "landing");
   await expect(scene).toHaveAttribute("data-menger-pointer-tilt-radius-scale", "1");
   await expect(scene).toHaveAttribute("data-menger-pointer-tilt-strength-scale", "1.67");
