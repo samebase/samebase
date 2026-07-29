@@ -101,3 +101,86 @@ notice."
   the providers only when asked.
 - Never say "platform" without immediately disclaiming hosting; the ownership story dies the moment
   the listener files Samebase under "hosts my app".
+
+## Landing working draft: the repository holds the product
+
+Status: working copy, not shipped UI copy. Last updated 2026-07-29.
+
+Use this section to agree on the message before editing `LandingPreviewPage.tsx`. Copy changes here
+do not need React assertions, screenshots, or Playwright runs.
+
+### Positioning decision
+
+The template gets the first app running. It is not the product boundary. Samebase stays with the
+repository as it grows, and it shows each attached Convex project and Cloudflare Worker at the
+repository path where it runs.
+
+This is not a promise of many starter templates. Samebase has one starter today. The stronger point
+is that the starter does not force every part of the repository to use the same framework or the
+same provider resources.
+
+### Recommended landing section
+
+Kicker:
+
+> one repository
+
+Heading:
+
+> One repository can hold the whole product.
+
+Body:
+
+> The starter gets the first app running. It does not set the shape of everything that follows. Keep
+> it, replace the frontend, or add an admin, API, proxy, or domain router beside it. Samebase shows
+> each attached Convex project and Worker at the path where it runs.
+
+Proof:
+
+> Samebase itself runs this way: one repository, one Convex backend, a product Worker, a PostHog
+> proxy, and a domain router.
+
+The repository example should make the model visible:
+
+```text
+samebase/
+├─ apps/samebase/       Convex + product Worker
+├─ apps/posthog-proxy/  Worker
+└─ apps/domain-router/  Worker
+```
+
+The current starter and provider details can follow this section. They are evidence for the message,
+not the message itself:
+
+- Current starter: Vite+, TanStack Start, and Tailwind.
+- Provider base: GitHub, Convex, and Cloudflare Workers.
+- Rule: Convex projects and Workers are independent resources. A Worker does not require TanStack or
+  Convex. A Convex project does not require a Worker.
+
+### Copy rules for this point
+
+- Explain the result before the term `monorepo`.
+- Use real parts of the Samebase repository instead of words such as `flexible`, `extendable`, or
+  `future-proof`.
+- Do not say that no other product supports monorepos. Cloudflare, Railway, Render, and other tools
+  support several deployable services in one repository.
+- Do not promise automatic discovery. Samebase shows resources that the user attaches and verifies.
+- Do not call repository locations durable apps or app roots. Samebase groups current provider
+  resources by their verified locations.
+
+### External message checks
+
+- [Cloudflare Workers monorepos](https://developers.cloudflare.com/workers/ci-cd/builds/advanced-setups/)
+  use one repository with a separate root, commands, and watch paths for each Worker. This supports
+  the independent-Worker model.
+- [Nx](https://nx.dev/docs/concepts/decisions/what-is-a-monorepo) explains that one repository can
+  contain distinct projects that use the same stack or different stacks. This supports describing
+  the repository before the framework.
+- [Railway](https://docs.railway.com/deployments/monorepo) can detect deployable JavaScript packages
+  and create one service for each package. This makes a broad uniqueness claim unsafe.
+- [shadcn/ui](https://ui.shadcn.com/docs) separates strong defaults from open code that the user can
+  change. This is the useful model for the Samebase starter.
+- [Bolt](https://support.bolt.new/integrations/git) can import an existing GitHub repository, while
+  [Lovable](https://docs.lovable.dev/introduction/faq) cannot currently start from one. Competitor
+  support changes, so the landing should state the Samebase model instead of making a broad claim
+  about every builder.
