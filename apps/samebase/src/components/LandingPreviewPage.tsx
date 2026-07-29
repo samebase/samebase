@@ -550,7 +550,7 @@ function LandingPreviewOverview() {
             </div>
           </div>
           <div
-            className="mt-8 border-y border-border py-6"
+            className="mt-8 border-t border-border py-6"
             data-testid={LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID}
           >
             <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
