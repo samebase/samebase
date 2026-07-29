@@ -72,6 +72,21 @@ describe("Cloudflare MCP client", () => {
     ).resolves.toBe("tool result");
 
     expect(requests).toHaveLength(4);
+    expect(requests[0]?.body).toBe(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2025-03-26",
+          capabilities: {},
+          clientInfo: {
+            name: "Samebase",
+            version: "0.0.0",
+          },
+        },
+      }),
+    );
     for (const request of requests) {
       expect(new Headers(request.headers).has("Origin")).toBe(false);
     }

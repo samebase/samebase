@@ -2,7 +2,7 @@
   "name": "samebase-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "samebase monorepo with PNPM and Vite+ tooling",
+  "description": "Samebase monorepo with PNPM and Vite+ tooling",
   "keywords": [
     "convex",
     "monorepo",
