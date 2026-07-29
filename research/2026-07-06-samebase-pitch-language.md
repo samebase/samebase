@@ -111,36 +111,21 @@ do not need React assertions, screenshots, or Playwright runs.
 
 ### Positioning decision
 
-The template gets the first app running. It is not the product boundary. Samebase stays with the
-repository as it grows, and it shows each attached Convex project and Cloudflare Worker at the
-repository path where it runs.
-
-This is not a promise of many starter templates. Samebase has one starter today. The stronger point
-is that the starter does not force every part of the repository to use the same framework or the
-same provider resources.
+The user benefit is not future templates or abstract flexibility. Provider dashboards show separate
+Workers and projects with separate names. Samebase restores their repository context. The user sees
+one repository, its paths, and the resources that run from each path.
 
 ### Recommended landing section
 
-Kicker:
-
-> one repository
-
 Heading:
 
-> One repository can hold the whole product.
+> See the monorepo, not scattered services.
 
 Body:
 
-> The starter gets the first app running. It does not set the shape of everything that follows. Keep
-> it, replace the frontend, or add an admin, API, proxy, or domain router beside it. Samebase shows
-> each attached Convex project and Worker at the path where it runs.
+> Workers and Convex projects stay grouped under the repository paths where they run.
 
-Proof:
-
-> Samebase itself runs this way: one repository, one Convex backend, a product Worker, a PostHog
-> proxy, and a domain router.
-
-The repository example should make the model visible:
+The repository view is the proof. It should show the grouping without another explanatory paragraph:
 
 ```text
 samebase/
@@ -149,13 +134,8 @@ samebase/
 └─ apps/domain-router/  Worker
 ```
 
-The current starter and provider details can follow this section. They are evidence for the message,
-not the message itself:
-
-- Current starter: Vite+, TanStack Start, and Tailwind.
-- Provider base: GitHub, Convex, and Cloudflare Workers.
-- Rule: Convex projects and Workers are independent resources. A Worker does not require TanStack or
-  Convex. A Convex project does not require a Worker.
+Template and provider details belong in the stack guide. They do not need to appear in this landing
+section.
 
 ### Copy rules for this point
 
