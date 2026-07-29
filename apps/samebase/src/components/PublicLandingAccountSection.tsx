@@ -49,7 +49,7 @@ function PublicLandingLoggedOutAccountSection() {
         data-vault-dashboard-account-section-label
         className="min-w-0 line-clamp-2 border-b border-border/50 pb-3 text-sm font-medium [overflow-wrap:anywhere]"
       >
-        not logged in
+        Sign in or create an account
       </div>
       <div className="mt-3">
         {showGoogleSignupClosedState ? (

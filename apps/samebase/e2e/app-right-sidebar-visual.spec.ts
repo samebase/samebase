@@ -166,7 +166,9 @@ test("signed-in app right sidebar renders a static account section", async ({ pa
   const accountSection = getSignedInAccountSection(page);
 
   await expect(accountSection).toBeVisible();
-  await expect(accountSection.getByText("not logged in", { exact: true })).toHaveCount(0);
+  await expect(
+    accountSection.getByText("Sign in or create an account", { exact: true }),
+  ).toHaveCount(0);
   await expect(accountSection.getByText(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL)).toBeVisible();
   await expect(accountSection.getByText("Signed in with Password", { exact: true })).toBeVisible();
   await expect(accountSection.getByTestId("dashboard-sidebar-account-icon")).toBeVisible();
@@ -322,8 +324,12 @@ test("signed-out app right sidebar prehydration matches the hydrated account row
   await waitForFonts(page);
 
   const hydratedAccountSection = getAccountSection(page);
-  await expect(hydratedAccountSection.getByText("not logged in", { exact: true })).toBeVisible();
-  await expect(hydratedAccountSection.getByRole("button", { name: "Google" })).toBeVisible();
+  await expect(
+    hydratedAccountSection.getByText("Sign in or create an account", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    hydratedAccountSection.getByRole("button", { name: "Continue with Google" }),
+  ).toBeVisible();
   const hydratedScreenshot = await hydratedAccountSection.screenshot({
     animations: "disabled",
     caret: "hide",
@@ -341,7 +347,7 @@ test("signed-out app right sidebar prehydration matches the hydrated account row
   expect(
     accountTextEvidenceIncludes(
       prehydratedTextEvidence,
-      "not logged in",
+      "Sign in or create an account",
       prehydratedTextEvidence.signedOutAfterContent,
     ),
   ).toBe(true);

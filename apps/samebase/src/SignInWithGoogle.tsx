@@ -47,7 +47,7 @@ export function SignInWithGoogle({
         }
       }}
     >
-      <Chrome className="mr-2 h-4 w-4" /> Google
+      <Chrome className="mr-2 h-4 w-4" /> Continue with Google
     </Button>
   );
 }

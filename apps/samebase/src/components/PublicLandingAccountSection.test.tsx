@@ -235,8 +235,8 @@ describe("PublicLandingAccountSection", () => {
     expect(markup).not.toContain("dashboard-sidebar-account-row");
     expect(markup).not.toContain("/settings");
     expect(markup).not.toContain("Sign out");
-    expect(hydratedMarkup).toContain("not logged in");
-    expect(hydratedMarkup).toContain("Google");
+    expect(hydratedMarkup).toContain("Sign in or create an account");
+    expect(hydratedMarkup).toContain("Continue with Google");
     expect(hydratedMarkup).not.toContain("checking login");
   });
 
@@ -251,7 +251,7 @@ describe("PublicLandingAccountSection", () => {
     expect(hydratedMarkup).toContain("Nicu");
     expect(hydratedMarkup).not.toContain("Sign out");
     expect(hydratedMarkup).not.toContain("checking login");
-    expect(hydratedMarkup).not.toContain("not logged in");
+    expect(hydratedMarkup).not.toContain("Sign in or create an account");
     expect(queryState.index).toBe(0);
   });
 
@@ -267,7 +267,7 @@ describe("PublicLandingAccountSection", () => {
 
     expect(markup).toContain("checking login");
     expect(hydratedMarkup).toContain("checking login");
-    expect(hydratedMarkup).not.toContain("not logged in");
+    expect(hydratedMarkup).not.toContain("Sign in or create an account");
     expect(queryState.index).toBe(0);
   });
 
@@ -281,7 +281,7 @@ describe("PublicLandingAccountSection", () => {
     expect(markup).toContain("checking login");
     expect(hydratedMarkup).toContain("checking login");
     expect(hydratedMarkup).not.toContain("Account");
-    expect(hydratedMarkup).not.toContain("not logged in");
+    expect(hydratedMarkup).not.toContain("Sign in or create an account");
   });
 
   it("keeps local JWT profile claims after hydration while the signed-in viewer loads", async () => {
@@ -296,7 +296,7 @@ describe("PublicLandingAccountSection", () => {
     expect(hydratedMarkup).toContain("Nicu");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Account");
-    expect(hydratedMarkup).not.toContain("not logged in");
+    expect(hydratedMarkup).not.toContain("Sign in or create an account");
   });
 
   it("shows the signed-in account name after the viewer loads", async () => {
@@ -320,7 +320,7 @@ describe("PublicLandingAccountSection", () => {
     expect(hydratedMarkup).toContain("Nicu");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Account");
-    expect(hydratedMarkup).not.toContain("not logged in");
+    expect(hydratedMarkup).not.toContain("Sign in or create an account");
   });
 
   it("keeps checking login after an empty signed-in viewer loads", async () => {
@@ -331,14 +331,14 @@ describe("PublicLandingAccountSection", () => {
 
     expect(hydratedMarkup).toContain("checking login");
     expect(hydratedMarkup).not.toContain("Account");
-    expect(hydratedMarkup).not.toContain("not logged in");
+    expect(hydratedMarkup).not.toContain("Sign in or create an account");
   });
 
   it("shows Google auth in a static logged-out account section", () => {
     const markup = renderLandingAccountSection("/");
 
-    expect(markup).toContain("not logged in");
-    expect(markup).toContain("Google");
+    expect(markup).toContain("Sign in or create an account");
+    expect(markup).toContain("Continue with Google");
     expect(markup).not.toContain("lucide-chevron-down");
     expect(markup).not.toContain("The app is still internal.");
   });
@@ -366,7 +366,7 @@ describe("PublicLandingAccountSection", () => {
     });
 
     const googleButton = Array.from(rootElement.querySelectorAll("button")).find(
-      (button) => button.textContent.trim() === "Google",
+      (button) => button.textContent.trim() === "Continue with Google",
     );
     if (!(googleButton instanceof HTMLButtonElement)) {
       throw new Error("Google sign-in button not found.");
@@ -411,7 +411,7 @@ describe("PublicLandingAccountSection", () => {
     });
 
     const googleButton = Array.from(rootElement.querySelectorAll("button")).find(
-      (button) => button.textContent.trim() === "Google",
+      (button) => button.textContent.trim() === "Continue with Google",
     );
     if (!(googleButton instanceof HTMLButtonElement)) {
       throw new Error("Google sign-in button not found.");
@@ -437,7 +437,7 @@ describe("PublicLandingAccountSection", () => {
   it("shows the internal-app message after a failed public Google signup return", () => {
     const markup = renderLandingAccountSection("/?signup=google");
 
-    expect(markup).toContain("not logged in");
+    expect(markup).toContain("Sign in or create an account");
     expect(markup).toContain("The app is still internal.");
     expect(markup).not.toContain("Google");
   });
@@ -447,7 +447,7 @@ describe("PublicLandingAccountSection", () => {
 
     const markup = renderLandingAccountSection("/settings?signup=google");
 
-    expect(markup).toContain("not logged in");
+    expect(markup).toContain("Sign in or create an account");
     expect(markup).toContain("The app is still internal.");
     expect(markup).not.toContain("Google");
   });

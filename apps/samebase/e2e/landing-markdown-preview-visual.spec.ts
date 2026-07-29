@@ -537,7 +537,7 @@ test("landing preview CTA reopens the desktop public sidebar", async ({ page }) 
     page
       .getByTestId("workspace-layout-v2-pane-right")
       .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)
-      .getByRole("button", { name: "Google" }),
+      .getByRole("button", { name: "Continue with Google" }),
   ).toBeVisible();
 });
 
@@ -635,7 +635,7 @@ test.describe("mobile landing preview", () => {
       page
         .getByTestId("workspace-layout-v2-pane-right")
         .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)
-        .getByRole("button", { name: "Google" }),
+        .getByRole("button", { name: "Continue with Google" }),
     ).toBeVisible();
   });
 

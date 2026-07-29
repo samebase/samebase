@@ -178,7 +178,7 @@ describe("PasswordAuthForm", () => {
     });
 
     const googleButton = Array.from(rootElement.querySelectorAll("button")).find(
-      (button) => button.textContent.trim() === "Google",
+      (button) => button.textContent.trim() === "Continue with Google",
     );
     if (!(googleButton instanceof HTMLButtonElement)) {
       throw new Error("Google sign-in button not found.");
