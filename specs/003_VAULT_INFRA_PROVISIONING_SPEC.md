@@ -6,9 +6,8 @@
 - Owner: Samebase backend/frontend
 - Last updated: 2026-07-29
 - Related plan: `archive/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
-- Proposed display and write-safety update:
-  `rfcs/098_PROVIDER_SETUP_DISPLAY_AND_WRITE_SAFETY_PLAN.md`
 - Related vault-first cleanup: `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
+- Related deletion contract: `specs/098_VAULT_DELETION_WORKFLOW_SPEC.md`
 - Cloudflare Workers migration: `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
 - Manual Convex attachment: `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`
 - Resource attachment model: `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
@@ -55,6 +54,7 @@ Vault creation succeeds even if downstream provisioning partially fails.
 - `apps/samebase/convex/vault/convexMutations.ts`
 - `apps/samebase/convex/vault/cloudflare.ts`
 - `apps/samebase/convex/vault/cloudflareMutations.ts`
+- `apps/samebase/convex/vault/infrastructureOperation.ts`
 - `apps/samebase/convex/schema.ts`
 - `apps/samebase/src/components/vault-dashboard/VaultDashboard.tsx`
 
@@ -85,6 +85,25 @@ used by the dashboard.
 Indexes:
 
 - `by_vault`
+
+### `workflow_vaultProvisioning_writeLocks`
+
+This table stores the current or most recent infrastructure write for one vault. Its owner is one
+of:
+
+- `{ kind: "managed_run", runId }`
+- `{ kind: "manual_provider_write", actionId, target, expiresAt }`
+
+A managed owner can be `active`, `succeeded`, or `failed`. A manual owner can also be
+`recovery_required` or `recovering`. Only an active managed owner or a manual owner in `active`,
+`recovery_required`, or `recovering` state blocks another infrastructure write.
+
+`lastWriteAt.convex` and `lastWriteAt.cloudflare` are independent optional times. Samebase updates
+one of these times only when the matching provider write gets a known result. A write to one
+provider must not clear the other provider time.
+
+The provisioning plan is durable retry input. It is not an active operation and does not block a
+manual write by itself.
 
 ### `vaultConvexProjects`
 
@@ -152,6 +171,12 @@ states apply. Each Convex attachment returns source placement as `valid`, `missi
 may cache those results in the browser for a short bounded interval, but the actions do not write
 them to Convex tables. Stable attachment rows remain unchanged when a provider resource changes or
 disappears.
+
+Each provider observation query uses the matching `lastWriteAt` value in its query key. When that
+value changes, the dashboard makes one new read and shows `Checking` until the read returns. An
+older result must not create attention or repair UI during this check. The first new result becomes
+the normal state, including a provider read failure. Samebase does not continuously poll for this
+write-safety check.
 
 Cloudflare uses three independently loading observation axes:
 
@@ -230,7 +255,10 @@ Repository default branch:
 
 3. `api.vault.dashboard.getUserVaults`
 
-- Returns: stable Worker and Convex project attachments for the authenticated user
+- Returns: stable attachments, the managed `providerPlan`, and the vault `providerWrite` summary for
+  the authenticated user
+- `providerWrite` returns its status, owner, affected providers, update time, and independent
+  provider write times. Its idle variant returns the provider write times only.
 
 4. `api.vault.providerObservations.observeCloudflareWorkers`
 
@@ -328,9 +356,25 @@ sequenceDiagram
 - `configure_workers_builds_for_github` and `rotate_convex_deploy_keys_for_workers_builds` do not
   change either attachment row. Their provider writes are observed live when a caller next requests
   current state.
-- `workflow_vaultProvisioning_writeLocks` records the active/succeeded/failed writer run.
+- One shared infrastructure-state reader checks the deletion gate, queued or running managed runs,
+  and the write-lock row.
+- Only one operation can change a provider attachment or provider resource in one vault at one time.
+- A database-only attachment change checks the operation and changes the attachment in one
+  transaction.
+- An external provider write claims the manual owner before its first provider call. The action
+  records the known result and affected provider times before it releases the block.
+- A manual action has a five-minute action deadline and a ten-minute owner expiry. At owner expiry,
+  Samebase starts one leased `recovering` attempt for the same action ID. A user can also start one
+  leased attempt from `recovery_required` with Retry. The attempt has a five-minute action deadline
+  and an eleven-minute lease. An error or an expired lease returns the exact attempt to
+  `recovery_required`. A late, concurrent, or replaced attempt cannot call a later provider, record
+  a checkpoint, or complete.
 - `workflow_vaultProvisioning_runs` and `workflow_vaultProvisioning_events` record managed app
   creation and retry progress. Explicit manual provider attachment does not create a Workflow run.
+
+The dashboard derives control state from `getUserVaults`. Backend mutations use the shared reader to
+reject conflicts. There is no separate command-availability API, generic provider framework,
+resource-level lock, manual-action Workflow run, or manual-action history table.
 
 ## UI Surface
 
@@ -422,3 +466,8 @@ Dashboard external links:
 - [x] Infra status + URL are visible in dashboard query/UI surfaces.
 - [x] Managed vault dashboard cards expose direct Cloudflare project and Convex deployment links
       when the stored infrastructure metadata is available.
+- [x] A plan without an active managed run does not block a manual provider action.
+- [x] Managed setup, manual writes, recovery, and deletion reject conflicting vault infrastructure
+      writes in the backend.
+- [x] An old manual action ID cannot complete or clear a newer owner.
+- [x] Provider-specific write times cause one fresh observation read without continuous polling.

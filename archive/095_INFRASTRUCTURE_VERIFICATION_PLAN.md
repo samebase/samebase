@@ -8,7 +8,6 @@
 - Last updated: 2026-07-19
 - Archived: 2026-07-29
 - Current contract: `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-- Current proposal: `rfcs/098_PROVIDER_SETUP_DISPLAY_AND_WRITE_SAFETY_PLAN.md`
 - Origin: operator question after the v1651 deploy-key rename (PR #1171,
   https://github.com/samebase/samebase/pull/1171): fresh provisioning wires the conventional
   `CONVEX_DEPLOY_KEY` contract, but a Worker wired before the rename keeps its recorded

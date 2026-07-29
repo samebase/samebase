@@ -10,7 +10,6 @@
   - `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`
   - `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`
   - `specs/110_VAULT_ROUTE_SURFACE_SPEC.md`
-  - `rfcs/098_PROVIDER_SETUP_DISPLAY_AND_WRITE_SAFETY_PLAN.md`
 
 ## Current Contract
 
@@ -71,6 +70,25 @@ Provider observations are current evidence, not attachment identity:
   directory.
 - `SAMEBASE_CONVEX_PROJECT` supplies the Worker's current declared Convex project coordinates.
 - Convex supplies the project's current team and accessibility under the connected credential.
+
+The managed provider plan, durable attachments, and provider observations stay separate. Settings
+uses this precedence for one resource row:
+
+1. Show the attachment when it exists.
+2. Add current provider observations only to that attachment row.
+3. If no attachment exists, show the matching plan item while a managed provider run is active or
+   after that managed provider run fails.
+4. Show the empty state only when no attachment and no applicable plan item exist.
+
+An attachment replaces its plan item. A canceled run does not keep a plan-only row visible. A plan
+row uses the readable planned project or Worker name. It has no provider link or manual repair
+action. An observation must not create a resource row.
+
+Each provider observation query includes its provider-specific `lastWriteAt` value in the query key.
+If that value is newer than the displayed observation, Settings shows `Checking` until one new read
+returns. During `Checking`, the older observation cannot create attention or repair UI. The first
+new result becomes current, including a provider read failure. This is one bounded read, not
+continuous polling.
 
 The dashboard derives a resource tree at read time:
 
@@ -155,6 +173,9 @@ stores the Cloudflare root only inside the Worker build configuration. These are
 provider intents, not a reusable domain entity. Checkpoints resolve exact provider identities and
 never use the derived root tree as authority.
 
+The plan is retry input and a temporary dashboard projection source. It is not an attachment,
+provider observation, or active operation.
+
 ## Non-Goals
 
 - Inferring packages, applications, ownership, or parent-child relationships from repository
@@ -179,6 +200,10 @@ never use the derived root tree as authority.
   read-only observed Worker roots, default Worker selection, Worker-referenced Convex ordering,
   exact build access targets, exact root grouping, `Needs attention`, and project-attachment Data
   and Schema routes.
+- Projection tests cover plan-only rows, attachment replacement, observation decoration, canceled
+  plans, readable labels, empty states, and the rule that observations never create rows.
+- Freshness tests cover a client that missed the active write, an observation that finishes during a
+  write, independent provider times, `Checking`, and a failed fresh read.
 
 ## Rollout
 

@@ -8,7 +8,6 @@
 - Last updated: 2026-07-29
 - Related docs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-  - `rfcs/098_PROVIDER_SETUP_DISPLAY_AND_WRITE_SAFETY_PLAN.md`
   - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `research/2026-05-06-vault-first-provisioning-model.md`
 
@@ -434,8 +433,8 @@ For Samebase-managed repository creation:
 6. seed the starter app
 7. sync the exact default-branch tree into `observations_vaultRepository_branchTrees`
 8. attach Convex and Cloudflare resources directly to the vault
-9. let the dashboard derive its summaries from source setup, attachments, live observations, and
-   workflow state
+9. let the dashboard derive its summaries and controls from source setup, the managed provider plan,
+   attachments, live observations, and provider-write state
 
 External provider validation happens after the vault exists so failures have a visible dashboard
 target. Local input validation can happen before insert when it does not require provider calls.
@@ -506,9 +505,29 @@ Provider rows should read from explicit boundaries:
 2. Convex: stable project attachments, live provider observations, and relevant workflow state
 3. Cloudflare: stable Worker attachments, live provider observations, and relevant workflow state
 
+For a new Samebase-managed app, Settings shows applicable planned Convex and Cloudflare rows
+immediately, before their attachment rows exist. It uses the planned project and Worker names as the
+primary labels. While the managed provider run is active, each target shows `Setting up` and does
+not show an empty, attention, or manual repair state. Spec 115 defines the exact plan, attachment,
+and observation row precedence.
+
+Overview and Settings remain available during setup. Before GitHub connects, Overview shows source
+setup. After GitHub connects, Overview shows the normal repository content, including the default
+branch and pull requests, with a small `Setting up` status for provider work. Provider setup must
+not replace the normal repository content.
+
+After a provider write, an affected target shows `Checking` until one observation made with the new
+provider write time returns. The dashboard must not use an older observation for attention or
+repair.
+
 Repo-backed controls should stay hidden or disabled until GitHub is connected. Managed Retry targets
 the failed managed run. Manual provider repair targets the selected attachment and current provider
-observation.
+observation. While a managed provider operation or a manual provider write is active or needs
+recovery, the dashboard disables conflicting provider changes, managed Retry, and vault deletion.
+The frontend derives this state from the dashboard subscription. Overview, Settings, safe reads,
+provider links, and observation reloads remain available. A manual write in `recovery_required`
+shows Retry for that exact write. The retry action uses the backend claim and cannot start a second
+recovery attempt.
 
 Dashboard summary labels such as creating, active, degraded, or failed should be derived from the
 independent connection, setup, attachment, live-observation, workflow, and deletion axes. For
@@ -608,6 +627,12 @@ Frontend:
 7. a failed managed provider run shows Retry, and a manual repair names its exact target
 8. when existing-repo onboarding ships, connected existing-repo vaults render like other connected
    vaults after GitHub state is connected
+9. immediate New App Settings shows readable planned Convex and Cloudflare targets without empty,
+   attention, repair, or duplicate rows
+10. Overview keeps normal repository content after GitHub connects while provider setup continues
+11. stale affected observations show `Checking` before they can show attention or repair
+12. conflicting provider controls and direct-dialog confirm actions stay disabled from subscription
+    state while navigation remains available
 
 ## Acceptance Criteria
 
@@ -627,3 +652,5 @@ Frontend:
     provider observations, and workflow state.
 13. Aggregate `vaults.infra*` mirrors are absent.
 14. Managed retries create new runs rather than mutating previous terminal runs.
+15. New App Settings shows planned provider targets before attachments exist.
+16. Overview and Settings remain available during provider setup.

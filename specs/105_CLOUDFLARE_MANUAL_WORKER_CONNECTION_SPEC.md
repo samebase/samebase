@@ -8,7 +8,6 @@
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
-  - `rfcs/098_PROVIDER_SETUP_DISPLAY_AND_WRITE_SAFETY_PLAN.md`
 
 ## Current Contract
 
@@ -118,6 +117,28 @@ and the readable `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<p
 the production and preview triggers. That live Cloudflare configuration is the relationship.
 Samebase does not persist a Worker-to-project edge.
 
+### Operation safety
+
+`attachWorkers` and `detachWorker` are database-only attachment changes. Each mutation checks the
+shared vault infrastructure state and changes the attachment in the same transaction.
+
+Creating a Worker, connecting an unconnected Worker, configuring Workers Builds, and rotating Convex
+deploy keys are external provider writes. Each action claims the durable manual provider owner
+before its first provider call. A stopped action keeps the same action ID and exact non-secret
+target for recovery. Only recovery for that action ID can repeat or complete the provider work. A
+late action or a different action ID cannot record the result.
+
+A recovery attempt has an exact attempt ID, deadline, and lease. Only one attempt can be
+`recovering`. An error or expired lease returns that exact attempt to `recovery_required`. Retry
+claims `recovery_required` in the backend before it calls Cloudflare. If a requested Worker create
+has no checkpointed Worker identity and the planned name already exists, recovery reports a name
+collision and does not adopt that Worker.
+
+A known create, connect, or Builds-configuration result updates `lastWriteAt.cloudflare`. A known
+deploy-key rotation result updates both `lastWriteAt.convex` and `lastWriteAt.cloudflare`, because
+the operation changes keys in Convex and trigger variables in Cloudflare. An unknown result stays
+`recovery_required` and does not advance a provider time.
+
 ## Non-Goals
 
 - Persisting Worker root, trigger, URL, marker, or deploy-key state.
@@ -131,6 +152,11 @@ Samebase does not persist a Worker-to-project edge.
   different-repository Workers, provider type, exact repo identity, ambiguous roots,
   production/preview disagreement, and marker disagreement.
 - Mutation tests cover atomic batches, global identity conflicts, idempotency, and origin upgrade.
+- Operation tests cover the same-transaction attachment gate, durable claims for all Cloudflare
+  provider writes, exact-action recovery, stale completion rejection, and interrupted deploy-key
+  rotation.
+- Write-time tests prove that Cloudflare-only actions update only Cloudflare and deploy-key rotation
+  updates both providers after a known result.
 - UI tests cover vault-level routing, default multiple selection, grouping by read-only live root,
   the focused unconnected-Worker root flow, count copy, exact Convex action targets, root drift,
   rootless Builds repair, and `Needs attention`.

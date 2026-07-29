@@ -10,7 +10,6 @@
   [BuilderIO/agent-native](https://github.com/BuilderIO/agent-native)
 - Related rfcs: `rfcs/089_MCP_CONVEX_FUNCTION_EXPOSURE_SPEC.md`,
   `archive/090_PROVISIONING_BUILDING_BLOCKS_PLAN.md`,
-  `rfcs/098_PROVIDER_SETUP_DISPLAY_AND_WRITE_SAFETY_PLAN.md`,
   `rfcs/063_MCP_PREACCOUNT_ONBOARDING_FLOW_SPEC.md`,
   `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`, `rfcs/094_AGENT_ACTION_DOCS_REGISTRY_PLAN.md`
   (guide layer; see its relationship section)

@@ -10,7 +10,6 @@
   - `specs/103_CONVEX_API_VALIDATION_SPEC.md`
   - `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`
   - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
-  - `rfcs/098_PROVIDER_SETUP_DISPLAY_AND_WRITE_SAFETY_PLAN.md`
 
 ## Current Contract
 
@@ -109,6 +108,26 @@ the attachment automatically.
 Data and Schema routes identify the `vaultConvexProjects` attachment directly. They do not resolve a
 project by config root and never choose the first project at a shared path.
 
+### Operation safety
+
+Attaching projects, changing a code location, reconciling a team, and detaching a project are
+database-only attachment changes. Each mutation checks the shared vault infrastructure state and
+changes the attachment in the same transaction.
+
+Creating a Convex project is an external provider write. It claims the durable manual provider owner
+before its first provider call. A stopped create keeps the same action ID and exact non-secret
+target for recovery. Only recovery for that action ID can repeat or complete the create. A late
+action or a different action ID cannot record the result.
+
+A recovery attempt has an exact attempt ID, deadline, and lease. Only one attempt can be
+`recovering`. An error or expired lease returns that exact attempt to `recovery_required`. Retry
+claims `recovery_required` in the backend before it calls Convex. If a requested create has no
+checkpointed project identity and the planned name already exists, recovery reports a name collision
+and does not adopt that project.
+
+A known create result updates `lastWriteAt.convex`. An unknown result stays `recovery_required` and
+does not advance the provider time.
+
 ## Non-Goals
 
 - Persisting deployment or dashboard metadata.
@@ -125,6 +144,8 @@ project by config root and never choose the first project at a shared path.
 - Mutation tests cover atomic batches, global `projectId` uniqueness, shared code locations,
   idempotency, origin upgrade, code-location compare-and-swap, and team compare-and-swap.
 - Provider tests cover transfers, inaccessible projects, stale markers, and writes that fail closed.
+- Operation tests cover the same-transaction attachment gate, durable create claims, exact-action
+  recovery, stale completion rejection, and Convex-only write times.
 - UI and route tests cover multi-selection, Worker-reference ordering without automatic selection,
   closed code-location selectors, moved code, shared roots, team reconciliation, explicit removal,
   and attachment-ID Data and Schema routes.

@@ -8,7 +8,6 @@
 - Last updated: 2026-07-03
 - Archived: 2026-07-29
 - Current contract: `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-- Current proposal: `rfcs/098_PROVIDER_SETUP_DISPLAY_AND_WRITE_SAFETY_PLAN.md`
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `archive/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`

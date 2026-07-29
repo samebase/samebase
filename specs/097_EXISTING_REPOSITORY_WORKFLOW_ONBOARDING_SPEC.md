@@ -10,7 +10,6 @@
 - Related docs:
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-  - `rfcs/098_PROVIDER_SETUP_DISPLAY_AND_WRITE_SAFETY_PLAN.md`
   - `specs/065_GITHUB_REPOSITORY_PICKER_DISCOVERY_SPEC.md`
   - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `research/2026-05-08-existing-repository-workflow-onboarding.md`
@@ -189,10 +188,10 @@ tree exists.
 ### Provider Setup Boundary
 
 Existing repositories do not auto-provision Convex or Cloudflare. Connected existing-repository rows
-start with no provider resource attachments. The standard vault dashboard immediately exposes
-`?add-cloudflare` and `?add-convex`; repository import does not add a separate provider-onboarding
-stage. Those vault-level dialogs perform verified resource discovery as defined in
-`specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`.
+start with no managed provider plan and no provider resource attachments. The standard vault
+dashboard immediately exposes `?add-cloudflare` and `?add-convex`; repository import does not add a
+separate provider-onboarding stage. Those vault-level dialogs perform verified resource discovery as
+defined in `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`.
 
 ## Target Flow
 

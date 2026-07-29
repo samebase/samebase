@@ -10,7 +10,6 @@
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-  - `rfcs/098_PROVIDER_SETUP_DISPLAY_AND_WRITE_SAFETY_PLAN.md`
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
   - `research/2026-05-09-vault-deletion-workflow-research.md`
   - [PR #724: Research vault deletion workflow failure](https://github.com/samebase/samebase/pull/724)
@@ -111,15 +110,17 @@ A vault is quiescent for deletion when:
 1. the vault has no active deletion gate
 2. source setup is not running: the vault is connected or failed, but not provisioning
 3. no `workflow_vaultProvisioning_runs` row for the vault is `queued` or `running`
-4. no vault infrastructure write owner is active
+4. no manual provider write owner is `active`, `recovery_required`, or `recovering`
 
 The dashboard should disable delete with a short reason while a vault is not quiescent. A direct
 selected-vault `?delete` URL, such as `/vault/samebase/samebase?delete`, for a non-quiescent vault
-should show the current setup state and the same reason instead of opening the destructive dialog.
+keeps the delete dialog open, disables its confirmation action, and shows the same server reason.
 
-The queueing action must also enforce this rule. If a vault becomes non-quiescent between render and
-click, the action rejects without inserting a deletion run, without setting the deletion gate, and
-without touching providers. The user can delete after the active setup run succeeds or fails.
+The queueing action must also enforce this rule through the shared vault infrastructure-state
+reader. It checks and sets the deletion gate in the same transaction. If a managed run or manual
+write claims the vault first, deletion rejects without inserting a deletion run, without setting the
+deletion gate, and without touching providers. If deletion claims the vault first, later managed and
+manual provider writes reject.
 
 ### Dedicated Deletion Runs
 
@@ -666,6 +667,7 @@ An active or failed deletion gate must block or hide:
 4. branch refresh and remote-branch sync
 5. infrastructure provisioning and retry
 6. source setup completion writes for the same vault
+7. provider attachment changes and external provider writes
 
 Backend functions that already load the vault should check the vault deletion gate in the same
 helper that checks connected GitHub state. Backend functions that currently mutate by `vaultId`
@@ -803,6 +805,7 @@ Backend:
 13. `workflow_vaultProvisioning_runs` and `workflow_vaultProvisioning_events` are deleted in batches
 14. the vault row is deleted only after dependent cleanup succeeds
 15. source setup and provider provisioning writes fail closed after deletion starts
+16. simultaneous deletion and managed or manual provider-write claims permit only one operation
 
 Frontend:
 
@@ -830,3 +833,5 @@ Frontend:
 9. The vault row is deleted once, last.
 10. Failed deletion leaves a retryable visible state.
 11. Repo-backed writers fail closed while deletion is active or failed.
+12. Managed setup, manual provider writes, and manual recovery cannot start after deletion claims
+    the vault.

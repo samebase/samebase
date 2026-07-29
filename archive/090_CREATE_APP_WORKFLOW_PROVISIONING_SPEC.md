@@ -9,8 +9,6 @@
 - Current contracts:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
-- Current proposal:
-  - `rfcs/098_PROVIDER_SETUP_DISPLAY_AND_WRITE_SAFETY_PLAN.md`
 - Related docs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
