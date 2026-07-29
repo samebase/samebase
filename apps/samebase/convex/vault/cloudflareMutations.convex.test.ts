@@ -299,13 +299,7 @@ describe("vault Cloudflare Worker attachment mutations", () => {
       vaultId: ids.primaryVaultId,
       userId: ids.userId,
       actionId: "connect-worker",
-      target: {
-        action: "connect_cloudflare_worker",
-        accountId: "account-1",
-        workerName: "connected-worker",
-        workerTag: "connected-tag",
-        rootDirectory: "/",
-      },
+      action: "connect_cloudflare_worker",
     });
     const connectedWorkerId = await t.mutation(
       internal.vault.cloudflareMutations.recordManualConnectedWorker,
@@ -313,7 +307,9 @@ describe("vault Cloudflare Worker attachment mutations", () => {
         vaultId: ids.primaryVaultId,
         userId: ids.userId,
         actionId: "connect-worker",
-        checkpoint: { expectedState: "active" },
+        accountId: "account-1",
+        workerName: "connected-worker",
+        workerTag: "connected-tag",
       },
     );
     await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
@@ -321,31 +317,22 @@ describe("vault Cloudflare Worker attachment mutations", () => {
       userId: ids.userId,
       actionId: "connect-worker",
       action: "connect_cloudflare_worker",
-      completion: {
-        expectedState: "active",
-        result: "failed",
-        providerResult: "not_started",
-      },
+      completion: { result: "failed" },
     });
 
     await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
       vaultId: ids.secondaryVaultId,
       userId: ids.userId,
       actionId: "create-worker",
-      target: {
-        action: "create_cloudflare_worker",
-        state: "requested",
-        accountId: "account-1",
-        workerName: "created-worker",
-        rootDirectory: "apps/web",
-      },
+      action: "create_cloudflare_worker",
     });
     await expect(
       t.mutation(internal.vault.cloudflareMutations.recordManualWorkerCreated, {
         vaultId: ids.secondaryVaultId,
         userId: ids.userId,
         actionId: "old-create-worker",
-        checkpoint: { expectedState: "active" },
+        accountId: "account-1",
+        workerName: "created-worker",
         workerTag: "created-tag",
       }),
     ).rejects.toThrow("Manual provider action no longer owns the vault write.");
@@ -355,7 +342,8 @@ describe("vault Cloudflare Worker attachment mutations", () => {
         vaultId: ids.secondaryVaultId,
         userId: ids.userId,
         actionId: "create-worker",
-        checkpoint: { expectedState: "active" },
+        accountId: "account-1",
+        workerName: "created-worker",
         workerTag: "created-tag",
       },
     );
@@ -383,11 +371,7 @@ describe("vault Cloudflare Worker attachment mutations", () => {
       write: {
         owner: {
           actionId: "create-worker",
-          target: {
-            action: "create_cloudflare_worker",
-            state: "created",
-            workerTag: "created-tag",
-          },
+          action: "create_cloudflare_worker",
         },
         state: "active",
       },

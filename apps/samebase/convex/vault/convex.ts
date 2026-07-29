@@ -18,7 +18,6 @@ import {
   type GitHubConvexCodeLocationDiscovery,
 } from "../githubRepoApi";
 import { toErrorMessage } from "../jsonUtils";
-import type { ManualProviderWriteTarget } from "../appProvisioningModel";
 import { validateAppResourceName } from "../../shared/appResourceNames";
 import {
   getConvexCodeLocationPath,
@@ -36,7 +35,10 @@ import {
   vConvexAttachmentProject,
   vConvexCodeLocationSelection,
 } from "./contracts/convexAttachments";
-import { requireManualProviderActionDeadline } from "./infrastructureOperation";
+import {
+  attemptManualProviderWriteFailureRecord,
+  requireManualProviderActionDeadline,
+} from "./infrastructureOperation";
 
 const { id } = v;
 
@@ -406,15 +408,11 @@ async function createProjectForUser(
       vaultId: args.vaultId,
       userId: args.userId,
       actionId,
-      target: {
-        action: "create_convex_project",
-        state: "requested",
-        projectName: validation.value,
-        codeLocation,
-      },
+      action: "create_convex_project",
     },
   );
-  let providerWriteStarted = false;
+  let providerCreateStarted = false;
+  let projectRecorded = false;
   try {
     const [sourceDiscovery, connection] = await Promise.all([
       discoverConvexCodeLocations(ctx, args),
@@ -432,7 +430,7 @@ async function createProjectForUser(
       );
     }
     requireManualProviderActionDeadline(claim.deadlineAt);
-    providerWriteStarted = true;
+    providerCreateStarted = true;
     const created = await requestConvexManagementApi(
       connection.token,
       "POST",
@@ -448,11 +446,12 @@ async function createProjectForUser(
         vaultId: args.vaultId,
         userId: args.userId,
         actionId,
-        checkpoint: { expectedState: "active" },
         teamId: connection.teamId,
         projectId: created.id,
+        codeLocation: removeConvexCodeLocationEvidence(codeLocation),
       },
     );
+    projectRecorded = true;
     try {
       const project = await readConvexProject({ connection, projectId: created.id });
       await recordConvexTeamSlug(ctx, { userId: args.userId, connection, project });
@@ -468,167 +467,25 @@ async function createProjectForUser(
       userId: args.userId,
       actionId,
       action: "create_convex_project",
-      completion: {
-        expectedState: "active",
-        result: "succeeded",
-        providerResult: "complete",
-      },
+      completion: { result: "succeeded" },
     });
     return convexProjectId;
   } catch (error) {
-    if (!providerWriteStarted) {
-      await ctx.runMutation(
-        internal.vault.infrastructureOperation.finishManualProviderWriteResult,
-        {
-          vaultId: args.vaultId,
-          userId: args.userId,
-          actionId,
-          action: "create_convex_project",
-          completion: {
-            expectedState: "active",
-            result: "failed",
-            providerResult: "not_started",
-          },
-        },
-      );
-    }
-    throw error;
-  }
-}
-
-async function recoverCreateConvexProject(
-  ctx: ActionCtx,
-  args: {
-    vaultId: Id<"vaults">;
-    userId: Id<"users">;
-    actionId: string;
-    recoveryAttemptId: string;
-    target: Extract<ManualProviderWriteTarget, { action: "create_convex_project" }>;
-  },
-): Promise<void> {
-  const checkpoint = async (): Promise<void> => {
-    await ctx.runMutation(
-      internal.vault.infrastructureOperation.checkpointManualProviderRecoveryAttempt,
-      {
-        vaultId: args.vaultId,
-        userId: args.userId,
-        actionId: args.actionId,
-        action: "create_convex_project",
-        recoveryAttemptId: args.recoveryAttemptId,
-      },
-    );
-  };
-  await checkpoint();
-  const [sourceDiscovery, connection] = await Promise.all([
-    discoverConvexCodeLocations(ctx, args),
-    resolveConvexConnection(ctx, args.userId),
-  ]);
-  requireVerifiedConvexCodeLocation(sourceDiscovery.source, args.target.codeLocation);
-
-  let project: ProjectResponse;
-  if (args.target.state === "created") {
-    if (args.target.teamId !== connection.teamId) {
-      throw new Error("Connect the Convex team that owns the recovered project and try again.");
-    }
-    await checkpoint();
-    project = await readConvexProject({ connection, projectId: args.target.projectId });
-    if (project.id !== args.target.projectId) {
-      throw new Error("Recovered Convex project identity changed.");
-    }
-  } else {
-    await checkpoint();
-    const projects = await listProjectsForConnection(connection);
-    const existing = projects.find(
-      (candidate) =>
-        candidate.name === args.target.projectName || candidate.slug === args.target.projectName,
-    );
-    if (existing) {
-      throw new Error(
-        `Convex project ${args.target.projectName} exists, but this provider write did not record its identity. Delete that project in Convex, then use Retry.`,
-      );
-    }
-    await checkpoint();
-    const created = await requestConvexManagementApi(
-      connection.token,
-      "POST",
-      "/teams/{team_id}/create_project",
-      {
-        params: { path: { team_id: connection.teamId } },
-        body: { projectName: args.target.projectName, deploymentType: "prod" },
-      },
-    );
-    await checkpoint();
-    project = await readConvexProject({ connection, projectId: created.id });
-  }
-  const convexProjectId = await ctx.runMutation(
-    internal.vault.convexMutations.recordManualProjectCreated,
-    {
+    const reportedError =
+      providerCreateStarted && !projectRecorded
+        ? new Error(
+            `The Convex project ${validation.value} can exist, but Samebase could not attach it. Check the project in Convex. If it exists, attach it to this app. Reason: ${toErrorMessage(error)}`,
+          )
+        : error;
+    await attemptManualProviderWriteFailureRecord(ctx, {
       vaultId: args.vaultId,
       userId: args.userId,
-      actionId: args.actionId,
-      checkpoint: {
-        expectedState: "recovering",
-        recoveryAttemptId: args.recoveryAttemptId,
-      },
-      teamId: connection.teamId,
-      projectId: project.id,
-    },
-  );
-  try {
-    await recordConvexTeamSlug(ctx, { userId: args.userId, connection, project });
-  } catch (error) {
-    console.warn("vault:convex:recover_project:metadata_refresh_failed", {
-      vaultId: args.vaultId,
-      convexProjectId,
-      message: toErrorMessage(error),
+      actionId,
+      action: "create_convex_project",
     });
+    throw reportedError;
   }
-  await ctx.runMutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
-    vaultId: args.vaultId,
-    userId: args.userId,
-    actionId: args.actionId,
-    action: "create_convex_project",
-    completion: {
-      expectedState: "recovering",
-      recoveryAttemptId: args.recoveryAttemptId,
-      result: "succeeded",
-      providerResult: "complete",
-    },
-  });
 }
-
-export const recoverManualConvexProviderWrite = internalAction({
-  args: {
-    vaultId: id("vaults"),
-    actionId: v.string(),
-    recoveryAttemptId: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args): Promise<null> => {
-    const recovery = await ctx.runQuery(
-      internal.vault.infrastructureOperation.readManualProviderRecoveryAttempt,
-      args,
-    );
-    if (!recovery || recovery.target.action !== "create_convex_project") {
-      return null;
-    }
-    try {
-      requireManualProviderActionDeadline(recovery.deadlineAt);
-      await recoverCreateConvexProject(ctx, {
-        ...args,
-        userId: recovery.userId,
-        target: recovery.target,
-      });
-    } catch (error) {
-      await ctx.runMutation(
-        internal.vault.infrastructureOperation.returnManualProviderRecoveryAttemptToRequired,
-        args,
-      );
-      throw error;
-    }
-    return null;
-  },
-});
 
 async function createProjectForManagedWorkflow(
   ctx: Pick<ActionCtx, "runQuery" | "runMutation">,

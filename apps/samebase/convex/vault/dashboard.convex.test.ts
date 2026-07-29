@@ -1119,92 +1119,6 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
-  it("maps an internal recovery attempt to the existing active provider write state", async () => {
-    const t = makeConvexTest();
-    const ids = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      const vaultId = await ctx.db.insert("vaults", {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
-        vaultId,
-        repositoryFullName: "ada/manual-recovery",
-        trigger: "connect_existing_repository",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 10,
-        updatedAt: 20,
-        completedAt: 20,
-      });
-      await ctx.db.replace(vaultId, {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "connect_existing_repository",
-        runId,
-        ghRepoId: "123",
-        owner: "ada",
-        name: "manual-recovery",
-        visibility: "private",
-        defaultBranch: "main",
-        connectedAt: 20,
-      });
-      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-        vaultId,
-        owner: {
-          kind: "manual_provider_write",
-          actionId: "manual-recovery",
-          target: {
-            action: "create_convex_project",
-            state: "requested",
-            projectName: "manual-recovery",
-            codeLocation: {
-              kind: "config",
-              convexConfigPath: "convex.json",
-              blobSha: "convex-config",
-            },
-          },
-          expiresAt: 100,
-        },
-        state: "recovering",
-        recoveryAttemptId: "manual-recovery-attempt",
-        recoveryDeadlineAt: 200,
-        recoveryLeaseExpiresAt: 300,
-        lastWriteAt: {},
-        updatedAt: 50,
-      });
-      return { userId, vaultId };
-    });
-    const asUser = t.withIdentity({
-      subject: `${ids.userId}|test-session`,
-      tokenIdentifier: `test:${ids.userId}`,
-    });
-
-    const [vault] = await asUser.query(api.vault.dashboard.getUserVaults);
-
-    expect(vault).toMatchObject({
-      _id: ids.vaultId,
-      providerWrite: {
-        status: "active",
-        owner: {
-          kind: "manual_provider_write",
-          actionId: "manual-recovery",
-          action: "create_convex_project",
-        },
-        affectedProviders: ["convex"],
-        updatedAt: 50,
-        lastWriteAt: {},
-      },
-    });
-  });
-
   it("shows an active provider write lock but recovers after a failed lock", async () => {
     const cases = [
       {
@@ -1525,7 +1439,7 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
-  it("shows a terminal manual Cloudflare write with independent write times", async () => {
+  it("projects a terminal manual Cloudflare write as idle with independent write times", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
@@ -1567,14 +1481,7 @@ describe("vault dashboard Convex contract", () => {
         owner: {
           kind: "manual_provider_write",
           actionId: "cloudflare-action",
-          target: {
-            action: "create_cloudflare_worker",
-            state: "created",
-            accountId: "cloudflare-account",
-            workerName: "manual-worker",
-            workerTag: "manual-worker-tag",
-            rootDirectory: "/",
-          },
+          action: "create_cloudflare_worker",
           expiresAt: 300,
         },
         state: "succeeded",
@@ -1596,15 +1503,7 @@ describe("vault dashboard Convex contract", () => {
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
       providerWrite: {
-        status: "succeeded",
-        owner: {
-          kind: "manual_provider_write",
-          actionId: "cloudflare-action",
-          action: "create_cloudflare_worker",
-          expiresAt: 300,
-        },
-        affectedProviders: ["cloudflare"],
-        updatedAt: 200,
+        status: "idle",
         lastWriteAt: {
           convex: 100,
           cloudflare: 200,

@@ -17,7 +17,7 @@ import type {
   VaultRepositorySettingsState,
 } from "@/components/vault-dashboard/vaultRepositorySettingsState";
 import { VaultWorkspaceDataInspector } from "@/components/vault-dashboard/VaultWorkspaceDataInspector";
-import { Loader2, MoreHorizontal } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import type { ReactNode } from "react";
 import type { VaultWorkspaceSelected } from "./vaultWorkspaceModel";
 
@@ -331,26 +331,10 @@ export function RepositorySettings({
           </div>
         </div>
         {settingsState.providerActionBlockReason ? (
-          <div className="mb-3 flex flex-wrap items-center gap-3" role="status">
+          <div className="mb-3" role="status">
             <p className="text-xs leading-5 text-muted-foreground">
               {settingsState.providerActionBlockReason}
             </p>
-            {settingsState.providerRecoveryAction ? (
-              <Button
-                disabled={settingsState.providerRecoveryAction.disabled}
-                size="sm"
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  settingsState.providerRecoveryAction?.onClick?.();
-                }}
-              >
-                {settingsState.providerRecoveryAction.pending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : null}
-                {settingsState.providerRecoveryAction.label}
-              </Button>
-            ) : null}
           </div>
         ) : null}
         <div className="border-t border-border">

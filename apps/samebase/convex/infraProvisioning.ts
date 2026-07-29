@@ -730,6 +730,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
     if (holdsProvisioningWriteLock && writeLock) {
       await ctx.db.patch(writeLock._id, {
         state: "failed",
+        lastWriteAt: { convex: now, cloudflare: now },
         updatedAt: now,
       });
     }

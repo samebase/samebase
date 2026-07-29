@@ -53,10 +53,7 @@ export function resolveVaultDeletionEligibility(
     case "manual_provider_write":
       return {
         state: "blocked",
-        reason:
-          infrastructure.operation.write.state === "recovery_required"
-            ? "A provider change needs recovery."
-            : "A provider change is still running.",
+        reason: "A provider change is still running.",
       };
     case "deletion":
       return {

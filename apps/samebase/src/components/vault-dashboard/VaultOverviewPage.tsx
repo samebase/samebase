@@ -191,8 +191,7 @@ function VaultStateNotice({
     );
   }
   if (vault.providerSetup.status === "failed") {
-    const providerWriteBlocked =
-      vault.providerWrite.status === "active" || vault.providerWrite.status === "recovery_required";
+    const providerWriteBlocked = vault.providerWrite.status === "active";
     return (
       <FailureNotice
         description={vault.providerSetup.message}

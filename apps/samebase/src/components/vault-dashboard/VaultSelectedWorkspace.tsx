@@ -56,7 +56,6 @@ export function VaultSelectedWorkspace({
   const retryInfrastructureProvisioning = useAction(
     api.vault.actions.retryInfrastructureProvisioning,
   );
-  const retryProviderWriteRecovery = useAction(api.vault.actions.retryProviderWriteRecovery);
   const reconcileConvexProjectTeam = useAction(api.vault.convex.reconcileProjectTeam);
   const detachCloudflareWorker = useAction(api.vault.cloudflare.detachWorker);
   const detachConvexProject = useAction(api.vault.convex.detachProject);
@@ -178,24 +177,6 @@ export function VaultSelectedWorkspace({
     }
   };
 
-  const handleRetryProviderWriteRecovery = async () => {
-    if (vault.providerWrite.status !== "recovery_required" || providerActionInFlight !== null) {
-      return;
-    }
-    setProviderActionInFlight({ kind: "retry_provider_write_recovery" });
-    try {
-      await retryProviderWriteRecovery({ vaultId: vault._id });
-    } catch (error) {
-      toast({
-        title: "Could not retry provider recovery",
-        description: error instanceof Error ? error.message : "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setProviderActionInFlight(null);
-    }
-  };
-
   const runProviderAction = async ({
     action,
     errorTitle,
@@ -311,9 +292,6 @@ export function VaultSelectedWorkspace({
     detachCloudflareWorkerOnClick: handleDetachCloudflareWorker,
     detachConvexProjectOnClick: handleDetachConvexProject,
     reconcileConvexProjectTeamOnClick: handleReconcileConvexProjectTeam,
-    retryProviderWriteRecoveryOnClick: () => {
-      void handleRetryProviderWriteRecovery();
-    },
     rotateConvexDeployKeysForWorkersBuildsOnClick: handleRotateConvexDeployKeysForWorkersBuilds,
   });
 

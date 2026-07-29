@@ -333,16 +333,7 @@ function readAffectedProviders(
   if (write.owner.kind === "managed_run") {
     return ["convex", "cloudflare"];
   }
-  return readManualProviderWriteProviders(write.owner.target.action);
-}
-
-function readProviderWriteOwner(
-  write: NonNullable<VaultInfrastructureState["providerWrite"]>,
-): Extract<ProviderWriteSummary, { status: "active" }>["owner"] {
-  if (write.owner.kind === "managed_run") {
-    return write.owner;
-  }
-  return readManualProviderWriteOwner(write.owner);
+  return readManualProviderWriteProviders(write.owner.action);
 }
 
 function readManualProviderWriteOwner(
@@ -350,11 +341,14 @@ function readManualProviderWriteOwner(
     NonNullable<VaultInfrastructureState["providerWrite"]>["owner"],
     { kind: "manual_provider_write" }
   >,
-): Extract<ProviderWriteSummary, { status: "recovery_required" }>["owner"] {
+): Extract<
+  Extract<ProviderWriteSummary, { status: "active" }>["owner"],
+  { kind: "manual_provider_write" }
+> {
   return {
     kind: "manual_provider_write",
     actionId: owner.actionId,
-    action: owner.target.action,
+    action: owner.action,
     expiresAt: owner.expiresAt,
   };
 }
@@ -376,46 +370,18 @@ function resolveProviderWriteSummary(
   }
   if (infrastructure.operation.kind === "manual_provider_write") {
     const write = infrastructure.operation.write;
-    const shared = {
+    return {
+      status: "active",
       owner: readManualProviderWriteOwner(write.owner),
       affectedProviders: readAffectedProviders(write),
       updatedAt: write.updatedAt,
       lastWriteAt: write.lastWriteAt,
     };
-    const state = write.state;
-    switch (state) {
-      case "active":
-      case "recovering":
-        return { status: "active", ...shared };
-      case "recovery_required":
-        return { status: "recovery_required", ...shared };
-      case "succeeded":
-      case "failed":
-        return { status: write.state, ...shared };
-      default:
-        state satisfies never;
-        throw new Error("Unknown manual provider write state.");
-    }
   }
 
-  const write = infrastructure.providerWrite;
-  if (
-    !write ||
-    write.state === "active" ||
-    write.state === "recovering" ||
-    write.state === "recovery_required"
-  ) {
-    return {
-      status: "idle",
-      lastWriteAt: write?.lastWriteAt ?? {},
-    };
-  }
   return {
-    status: write.state,
-    owner: readProviderWriteOwner(write),
-    affectedProviders: readAffectedProviders(write),
-    updatedAt: write.updatedAt,
-    lastWriteAt: write.lastWriteAt,
+    status: "idle",
+    lastWriteAt: infrastructure.providerWrite?.lastWriteAt ?? {},
   };
 }
 

@@ -522,12 +522,15 @@ repair.
 
 Repo-backed controls should stay hidden or disabled until GitHub is connected. Managed Retry targets
 the failed managed run. Manual provider repair targets the selected attachment and current provider
-observation. While a managed provider operation or a manual provider write is active or needs
-recovery, the dashboard disables conflicting provider changes, managed Retry, and vault deletion.
-The frontend derives this state from the dashboard subscription. Overview, Settings, safe reads,
-provider links, and observation reloads remain available. A manual write in `recovery_required`
-shows Retry for that exact write. The retry action uses the backend claim and cannot start a second
-recovery attempt.
+observation. While a managed provider operation or a manual provider write is active, the dashboard
+disables conflicting provider changes, managed Retry, and vault deletion. The frontend derives this
+state from the dashboard subscription. Overview, Settings, safe reads, provider links, and
+observation reloads remain available.
+
+If a manual action is silent at expiry, the backend marks it failed and advances the affected
+provider write times. Settings shows `Checking` while it gets fresh provider observations. It then
+shows the same normal create, attach, configure, or repair actions that apply to the observed state.
+There is no manual replay state, special Retry action, or automatic provider call.
 
 Dashboard summary labels such as creating, active, degraded, or failed should be derived from the
 independent connection, setup, attachment, live-observation, workflow, and deletion axes. For

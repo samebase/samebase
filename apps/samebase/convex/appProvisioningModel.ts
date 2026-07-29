@@ -1,7 +1,6 @@
 import { defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 
-import { vConvexCodeLocationSelection } from "./vault/contracts/convexAttachments";
 import { vVaultCloudflareBuildConfig } from "./vault/model";
 
 const { id, literal, number, object, optional, string, union } = v;
@@ -75,56 +74,6 @@ export const vManualProviderWriteAction = union(
 );
 export type ManualProviderWriteAction = Infer<typeof vManualProviderWriteAction>;
 
-export const vManualProviderWriteTarget = union(
-  object({
-    action: literal("create_convex_project"),
-    state: literal("requested"),
-    projectName: string(),
-    codeLocation: vConvexCodeLocationSelection,
-  }),
-  object({
-    action: literal("create_convex_project"),
-    state: literal("created"),
-    projectName: string(),
-    codeLocation: vConvexCodeLocationSelection,
-    teamId: string(),
-    projectId: string(),
-  }),
-  object({
-    action: literal("connect_cloudflare_worker"),
-    accountId: string(),
-    workerName: string(),
-    workerTag: string(),
-    rootDirectory: string(),
-  }),
-  object({
-    action: literal("create_cloudflare_worker"),
-    state: literal("requested"),
-    accountId: string(),
-    workerName: string(),
-    rootDirectory: string(),
-  }),
-  object({
-    action: literal("create_cloudflare_worker"),
-    state: literal("created"),
-    accountId: string(),
-    workerName: string(),
-    workerTag: string(),
-    rootDirectory: string(),
-  }),
-  object({
-    action: literal("configure_workers_builds_for_github"),
-    workerId: id("vaultCloudflareWorkers"),
-    rootDirectory: string(),
-  }),
-  object({
-    action: literal("rotate_convex_deploy_keys_for_workers_builds"),
-    workerId: id("vaultCloudflareWorkers"),
-    convexProjectId: id("vaultConvexProjects"),
-  }),
-);
-export type ManualProviderWriteTarget = Infer<typeof vManualProviderWriteTarget>;
-
 const vaultProviderWriteBase = {
   vaultId: id("vaults"),
   lastWriteAt: vVaultProviderWriteTimes,
@@ -134,7 +83,7 @@ const vaultProviderWriteBase = {
 const manualProviderWriteOwner = {
   kind: literal("manual_provider_write"),
   actionId: string(),
-  target: vManualProviderWriteTarget,
+  action: vManualProviderWriteAction,
   expiresAt: number(),
 };
 
@@ -212,25 +161,7 @@ export const vaultProvisioningTables = {
       object({
         ...vaultProviderWriteBase,
         owner: object(manualProviderWriteOwner),
-        state: literal("active"),
-      }),
-      object({
-        ...vaultProviderWriteBase,
-        owner: object(manualProviderWriteOwner),
-        state: literal("recovery_required"),
-      }),
-      object({
-        ...vaultProviderWriteBase,
-        owner: object(manualProviderWriteOwner),
-        state: literal("recovering"),
-        recoveryAttemptId: string(),
-        recoveryDeadlineAt: number(),
-        recoveryLeaseExpiresAt: number(),
-      }),
-      object({
-        ...vaultProviderWriteBase,
-        owner: object(manualProviderWriteOwner),
-        state: union(literal("succeeded"), literal("failed")),
+        state: union(literal("active"), literal("succeeded"), literal("failed")),
       }),
     ),
   ).index("by_vault", ["vaultId"]),

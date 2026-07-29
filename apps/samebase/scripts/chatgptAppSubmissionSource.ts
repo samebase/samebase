@@ -102,14 +102,6 @@ export const toolJustifications = {
     destructive_justification:
       "Rotates the app's own build deploy keys: previously recorded keys are deleted once replacements are installed, and its own new keys are cleaned up on failure. It then starts a production build. It does not delete user data, deployments, or Workers.",
   },
-  vault_actions_retryProviderWriteRecovery: {
-    read_only_justification:
-      "Retries the exact incomplete manual provider action for one app and records its result.",
-    open_world_justification:
-      "Can create or update the caller's own Convex or Cloudflare resources, as selected by the original provider action.",
-    destructive_justification:
-      "Can overwrite the app's existing Workers Builds trigger configuration or rotate its Convex deploy keys when the original action requires that work.",
-  },
   vault_actions_retryInfrastructureProvisioning: {
     read_only_justification:
       "Restarts a failed managed provisioning run from its failed step, which can create the provider resources the failed run had not completed.",

@@ -24,9 +24,6 @@ type VaultRepositorySettingsActionKind = "configure" | "connect" | "remove" | "r
 
 export type VaultRepositorySettingsPendingAction =
   | {
-      kind: "retry_provider_write_recovery";
-    }
-  | {
       kind: "configure_workers_builds_for_github";
       workerId: Id<"vaultCloudflareWorkers">;
     }
@@ -83,50 +80,17 @@ export type VaultRepositorySettingsState = {
   attentionResources: readonly VaultRepositorySettingsResource[];
   pendingResources: readonly VaultRepositorySettingsResource[];
   providerActionBlockReason: string | null;
-  providerRecoveryAction: {
-    disabled: boolean;
-    label: string;
-    onClick?: () => void;
-    pending: boolean;
-  } | null;
   roots: readonly {
     resources: readonly VaultRepositorySettingsResource[];
     rootDirectory: string;
   }[];
 };
 
-function readManualProviderRecoveryReason(
-  action: Extract<
-    VaultDashboardVault["providerWrite"],
-    { status: "recovery_required" }
-  >["owner"]["action"],
-): string {
-  switch (action) {
-    case "create_convex_project":
-      return "Samebase could not confirm Convex project creation.";
-    case "connect_cloudflare_worker":
-      return "Samebase could not confirm the Cloudflare Worker connection.";
-    case "create_cloudflare_worker":
-      return "Samebase could not confirm Cloudflare Worker creation.";
-    case "configure_workers_builds_for_github":
-      return "Samebase could not confirm Workers Builds configuration.";
-    case "rotate_convex_deploy_keys_for_workers_builds":
-      return "Samebase could not confirm Convex deploy key rotation.";
-    default:
-      action satisfies never;
-      throw new Error("Unknown manual provider recovery action.");
-  }
-}
-
 export function readVaultProviderActionBlockReason(vault: VaultDashboardVault): string | null {
   switch (vault.providerWrite.status) {
     case "active":
       return "A provider operation is in progress.";
-    case "recovery_required":
-      return readManualProviderRecoveryReason(vault.providerWrite.owner.action);
-    case "failed":
     case "idle":
-    case "succeeded":
       break;
   }
 
@@ -680,6 +644,7 @@ function buildActionList(
 
 function buildConvexRow({
   changeConvexProjectConfigPathOnClick,
+  checkingName,
   detachConvexProjectOnClick,
   observationState,
   pendingAction,
@@ -688,6 +653,7 @@ function buildConvexRow({
   settingUp,
 }: {
   changeConvexProjectConfigPathOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
+  checkingName: string;
   detachConvexProjectOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   observationState: VaultProviderObservationState<VaultConvexProjectObservation>;
   pendingAction: VaultRepositorySettingsPendingAction | null;
@@ -725,6 +691,8 @@ function buildConvexRow({
       ...base,
       state: "checking",
       description: "Checking",
+      name: checkingName,
+      owner: undefined,
     };
   }
   if (observationState.state === "loading") {
@@ -958,7 +926,6 @@ export function buildVaultRepositorySettingsState({
   detachConvexProjectOnClick,
   pendingAction,
   reconcileConvexProjectTeamOnClick,
-  retryProviderWriteRecoveryOnClick,
   vault,
   rotateConvexDeployKeysForWorkersBuildsOnClick,
 }: {
@@ -981,7 +948,6 @@ export function buildVaultRepositorySettingsState({
   detachConvexProjectOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   pendingAction: VaultRepositorySettingsPendingAction | null;
   reconcileConvexProjectTeamOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
-  retryProviderWriteRecoveryOnClick?: () => void;
   vault: VaultDashboardVault;
   rotateConvexDeployKeysForWorkersBuildsOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
@@ -1019,6 +985,10 @@ export function buildVaultRepositorySettingsState({
       left.projectId.localeCompare(right.projectId) ||
       left.convexProjectId.localeCompare(right.convexProjectId),
   )) {
+    const plannedProjectName =
+      vault.providerPlan && isPlannedConvexAttachment(vault.providerPlan.convex, project)
+        ? vault.providerPlan.convex.projectName
+        : null;
     const settingUp =
       applicablePlan &&
       managedSetupActive &&
@@ -1033,6 +1003,7 @@ export function buildVaultRepositorySettingsState({
       getConvexCodeRootDirectory(project.codeLocation),
       buildConvexRow({
         changeConvexProjectConfigPathOnClick,
+        checkingName: plannedProjectName ?? "Convex project",
         detachConvexProjectOnClick,
         observationState: convexObservations,
         pendingAction,
@@ -1138,16 +1109,6 @@ export function buildVaultRepositorySettingsState({
     attentionResources: attentionResources.map(applyWriteBlock),
     pendingResources: pendingResources.map(applyWriteBlock),
     providerActionBlockReason,
-    providerRecoveryAction:
-      vault.providerWrite.status === "recovery_required"
-        ? {
-            disabled: providerWritePending || !retryProviderWriteRecoveryOnClick,
-            label:
-              pendingAction?.kind === "retry_provider_write_recovery" ? "Retrying..." : "Retry",
-            onClick: retryProviderWriteRecoveryOnClick,
-            pending: pendingAction?.kind === "retry_provider_write_recovery",
-          }
-        : null,
     roots: [...resourcesByRoot.entries()]
       .sort(([leftRoot], [rightRoot]) => compareRootDirectories(leftRoot, rightRoot))
       .map(([rootDirectory, resources]) => ({

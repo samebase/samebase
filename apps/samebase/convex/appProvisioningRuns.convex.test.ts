@@ -73,16 +73,7 @@ async function createRetryFixture(blocker: RetryBlocker) {
           owner: {
             kind: "manual_provider_write",
             actionId: "manual-action",
-            target: {
-              action: "create_convex_project",
-              state: "requested",
-              projectName: "manual-project",
-              codeLocation: {
-                kind: "config",
-                convexConfigPath: "convex.json",
-                blobSha: "convex-config-blob",
-              },
-            },
+            action: "create_convex_project",
             expiresAt: 20,
           },
           state: "active",

@@ -3,7 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { Id } from "../../../convex/_generated/dataModel";
 import { useVaultProviderObservations } from "./useVaultProviderObservations";
@@ -58,6 +58,10 @@ describe("useVaultProviderObservations", () => {
     }
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("settles empty provider collections without leaving disabled queries loading", async () => {
     const queryClient = new QueryClient();
     const rootElement = document.createElement("div");
@@ -70,7 +74,7 @@ describe("useVaultProviderObservations", () => {
         _id: fakeVaultId("vault-empty"),
         cloudflareWorkers: [],
         convexProjects: [],
-        providerWrite: { lastWriteAt: {} },
+        providerWrite: { status: "idle", lastWriteAt: {} },
       });
       return null;
     }
@@ -138,7 +142,7 @@ describe("useVaultProviderObservations", () => {
             teamId: "team-failed",
           },
         ],
-        providerWrite: { lastWriteAt: {} },
+        providerWrite: { status: "idle", lastWriteAt: {} },
       });
       return null;
     }
@@ -180,7 +184,7 @@ describe("useVaultProviderObservations", () => {
         _id: fakeVaultId("vault-stale"),
         cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-stale") }],
         convexProjects: [],
-        providerWrite: { lastWriteAt: {} },
+        providerWrite: { status: "idle", lastWriteAt: {} },
       });
       return null;
     }
@@ -260,7 +264,10 @@ describe("useVaultProviderObservations", () => {
             teamId: "team-missed-active",
           },
         ],
-        providerWrite: { lastWriteAt: { cloudflare: 100, convex: 200 } },
+        providerWrite: {
+          status: "idle",
+          lastWriteAt: { cloudflare: 100, convex: 200 },
+        },
       });
       return null;
     }
@@ -285,6 +292,59 @@ describe("useVaultProviderObservations", () => {
         expect(latest?.cloudflare.workers.state).toBe("loaded");
         expect(latest?.convex.state).toBe("loaded");
       });
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      queryClient.clear();
+      rootElement.remove();
+    }
+  });
+
+  it("suppresses stale Cloudflare results while a manual Cloudflare write is active", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    let latest: ReturnType<typeof useVaultProviderObservations> | undefined;
+
+    function Probe() {
+      latest = useVaultProviderObservations({
+        _id: fakeVaultId("vault-active-manual-write"),
+        cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-active-manual-write") }],
+        convexProjects: [],
+        providerWrite: {
+          status: "active",
+          owner: {
+            kind: "manual_provider_write",
+            actionId: "manual-cloudflare-write",
+            action: "configure_workers_builds_for_github",
+            expiresAt: 300,
+          },
+          affectedProviders: ["cloudflare"],
+          updatedAt: 200,
+          lastWriteAt: {},
+        },
+      });
+      return null;
+    }
+
+    try {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <Probe />
+          </QueryClientProvider>,
+        );
+        await Promise.resolve();
+      });
+
+      expect(latest?.cloudflare.workers.state).toBe("checking");
+      expect(latest?.cloudflare.builds.state).toBe("checking");
+      expect(latest?.cloudflare.convexBuildAccess.state).toBe("checking");
+      expect(latest?.convex.state).toBe("loaded");
     } finally {
       await act(async () => {
         root.unmount();
@@ -334,6 +394,7 @@ describe("useVaultProviderObservations", () => {
           },
         ],
         providerWrite: {
+          status: "idle",
           lastWriteAt:
             cloudflareLastWriteAt === undefined ? {} : { cloudflare: cloudflareLastWriteAt },
         },
@@ -379,6 +440,59 @@ describe("useVaultProviderObservations", () => {
       await act(async () => {
         root.unmount();
       });
+      queryClient.clear();
+      rootElement.remove();
+    }
+  });
+
+  it("polls Cloudflare build status every 60 seconds while the vault remains mounted", async () => {
+    vi.useFakeTimers();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    let mounted = true;
+
+    function Probe() {
+      useVaultProviderObservations({
+        _id: fakeVaultId("vault-build-polling"),
+        cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-build-polling") }],
+        convexProjects: [],
+        providerWrite: { status: "idle", lastWriteAt: {} },
+      });
+      return null;
+    }
+
+    try {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <Probe />
+          </QueryClientProvider>,
+        );
+        await Promise.resolve();
+      });
+      expect(providerActions.observeCloudflareWorkerBuilds).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60 * 1000);
+      });
+      expect(providerActions.observeCloudflareWorkerBuilds).toHaveBeenCalledTimes(2);
+
+      await act(async () => {
+        root.unmount();
+      });
+      mounted = false;
+      await vi.advanceTimersByTimeAsync(2 * 60 * 1000);
+      expect(providerActions.observeCloudflareWorkerBuilds).toHaveBeenCalledTimes(2);
+    } finally {
+      if (mounted) {
+        await act(async () => {
+          root.unmount();
+        });
+      }
       queryClient.clear();
       rootElement.remove();
     }

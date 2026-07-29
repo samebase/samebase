@@ -188,7 +188,7 @@ const deleteCloudflareOptions = {
 };
 
 describe("vault deletion Convex resource planning", () => {
-  it("blocks deletion while a manual provider write needs recovery", async () => {
+  it("blocks deletion while a manual provider write is active", async () => {
     const { ids, t } = await createExistingRepositoryVaultWithConvex({
       origin: "selected_existing",
     });
@@ -198,19 +198,10 @@ describe("vault deletion Convex resource planning", () => {
         owner: {
           kind: "manual_provider_write",
           actionId: "create-convex-project",
-          target: {
-            action: "create_convex_project",
-            state: "requested",
-            projectName: "manual-convex",
-            codeLocation: {
-              kind: "config",
-              convexConfigPath: "convex.json",
-              blobSha: "convex-config-blob",
-            },
-          },
+          action: "create_convex_project",
           expiresAt: 20,
         },
-        state: "recovery_required",
+        state: "active",
         lastWriteAt: { convex: 12 },
         updatedAt: 12,
       });
@@ -225,7 +216,7 @@ describe("vault deletion Convex resource planning", () => {
           removeCloudflareProvision: false,
         },
       }),
-    ).rejects.toThrow("A provider change needs recovery.");
+    ).rejects.toThrow("A provider change is still running.");
   });
 
   it("keeps an attached Convex project when provider cleanup is not selected", async () => {

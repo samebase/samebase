@@ -106,7 +106,6 @@ import type * as vault_contracts_convexAttachments from "../vault/contracts/conv
 import type * as vault_contracts_createRepository from "../vault/contracts/createRepository.js";
 import type * as vault_contracts_getUserVaults from "../vault/contracts/getUserVaults.js";
 import type * as vault_contracts_retryInfrastructureProvisioning from "../vault/contracts/retryInfrastructureProvisioning.js";
-import type * as vault_contracts_retryProviderWriteRecovery from "../vault/contracts/retryProviderWriteRecovery.js";
 import type * as vault_convex from "../vault/convex.js";
 import type * as vault_convexDeployKeys from "../vault/convexDeployKeys.js";
 import type * as vault_convexMutations from "../vault/convexMutations.js";
@@ -241,7 +240,6 @@ declare const fullApi: ApiFromModules<{
   "vault/contracts/createRepository": typeof vault_contracts_createRepository;
   "vault/contracts/getUserVaults": typeof vault_contracts_getUserVaults;
   "vault/contracts/retryInfrastructureProvisioning": typeof vault_contracts_retryInfrastructureProvisioning;
-  "vault/contracts/retryProviderWriteRecovery": typeof vault_contracts_retryProviderWriteRecovery;
   "vault/convex": typeof vault_convex;
   "vault/convexDeployKeys": typeof vault_convexDeployKeys;
   "vault/convexMutations": typeof vault_convexMutations;

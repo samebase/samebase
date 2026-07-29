@@ -2,33 +2,17 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import { INITIAL_ACCOUNT_DELETION_DATA_PROGRESS } from "../accountDeletion/model";
 import { makeConvexTest } from "../test.setup";
 import {
-  MANUAL_PROVIDER_RECOVERY_LEASE_MS,
+  MANUAL_PROVIDER_ACTION_LIMIT_MS,
   MANUAL_PROVIDER_WRITE_EXPIRY_MS,
   readVaultInfrastructureState,
+  requireManualProviderActionDeadline,
+  requireManualProviderWriteCheckpoint,
 } from "./infrastructureOperation";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
-
-const convexTarget = {
-  action: "create_convex_project",
-  state: "requested",
-  projectName: "manual-convex",
-  codeLocation: {
-    kind: "config",
-    convexConfigPath: "convex.json",
-    blobSha: "convex-config-blob",
-  },
-} as const;
-
-const cloudflareTarget = {
-  action: "create_cloudflare_worker",
-  state: "requested",
-  accountId: "cloudflare-account",
-  workerName: "manual-worker",
-  rootDirectory: "/",
-} as const;
 
 async function createConnectedVault() {
   const t = makeConvexTest();
@@ -79,25 +63,6 @@ async function readProviderWrite(t: ConvexTest, vaultId: Id<"vaults">) {
       .query("workflow_vaultProvisioning_writeLocks")
       .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
       .unique();
-  });
-}
-
-async function requireRecovery(t: ConvexTest, vaultId: Id<"vaults">): Promise<void> {
-  await t.run(async (ctx) => {
-    const write = await ctx.db
-      .query("workflow_vaultProvisioning_writeLocks")
-      .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-      .unique();
-    if (!write || write.owner.kind !== "manual_provider_write") {
-      throw new Error("Manual provider write fixture is missing.");
-    }
-    await ctx.db.replace(write._id, {
-      vaultId: write.vaultId,
-      owner: write.owner,
-      state: "recovery_required",
-      lastWriteAt: write.lastWriteAt,
-      updatedAt: Date.now(),
-    });
   });
 }
 
@@ -177,6 +142,42 @@ describe("vault infrastructure operation reads", () => {
       updatedAt: 40,
     });
   });
+
+  it("blocks only while a manual provider write is active", async () => {
+    const { ids, t } = await createConnectedVault();
+    await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
+      vaultId: ids.vaultId,
+      userId: ids.userId,
+      actionId: "manual-action",
+      action: "create_convex_project",
+    });
+
+    const active = await t.run(async (ctx) => {
+      const vault = await ctx.db.get(ids.vaultId);
+      if (!vault || vault.state !== "connected") {
+        throw new Error("Connected vault fixture is missing.");
+      }
+      return await readVaultInfrastructureState(ctx, vault);
+    });
+    expect(active.operation.kind).toBe("manual_provider_write");
+
+    await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
+      vaultId: ids.vaultId,
+      userId: ids.userId,
+      actionId: "manual-action",
+      action: "create_convex_project",
+      completion: { result: "failed" },
+    });
+
+    const terminal = await t.run(async (ctx) => {
+      const vault = await ctx.db.get(ids.vaultId);
+      if (!vault || vault.state !== "connected") {
+        throw new Error("Connected vault fixture is missing.");
+      }
+      return await readVaultInfrastructureState(ctx, vault);
+    });
+    expect(terminal.operation).toEqual({ kind: "none" });
+  });
 });
 
 describe("manual provider write ownership", () => {
@@ -189,7 +190,7 @@ describe("manual provider write ownership", () => {
         vaultId: ids.vaultId,
         userId: ids.userId,
         actionId: "first-action",
-        target: convexTarget,
+        action: "create_convex_project",
       });
 
       await expect(
@@ -197,7 +198,7 @@ describe("manual provider write ownership", () => {
           vaultId: ids.vaultId,
           userId: ids.userId,
           actionId: "second-action",
-          target: cloudflareTarget,
+          action: "create_cloudflare_worker",
         }),
       ).rejects.toThrow("Another vault infrastructure operation is active.");
 
@@ -205,6 +206,7 @@ describe("manual provider write ownership", () => {
         owner: {
           kind: "manual_provider_write",
           actionId: "first-action",
+          action: "create_convex_project",
           expiresAt: 1_000 + MANUAL_PROVIDER_WRITE_EXPIRY_MS,
         },
         state: "active",
@@ -212,6 +214,50 @@ describe("manual provider write ownership", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("rejects a claim after account deletion starts", async () => {
+    const { ids, t } = await createConnectedVault();
+    await t.run(async (ctx) => {
+      const now = Date.now();
+      const sessionId = await ctx.db.insert("authSessions", {
+        userId: ids.userId,
+        expirationTime: now + 60_000,
+      });
+      const deletionRunId = await ctx.db.insert("workflow_accountDeletion_runs", {
+        identity: {
+          state: "active",
+          userId: ids.userId,
+          email: "ada@example.com",
+        },
+        completionCapability: "a".repeat(64),
+        state: "queued",
+        currentStep: "request_accepted",
+        requestedAt: now,
+        updatedAt: now,
+        initiatingSessionId: sessionId,
+        workflow: { state: "not_started" },
+        retryCount: 0,
+        outcomes: {
+          billing: { state: "not_started" },
+          providerRevocation: { state: "not_started" },
+          completionEmail: { state: "not_started" },
+        },
+        dataDeletion: INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
+      });
+      await ctx.db.patch(ids.userId, {
+        accountDeletion: { state: "deleting", runId: deletionRunId, requestedAt: now },
+      });
+    });
+
+    await expect(
+      t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        actionId: "late-action",
+        action: "create_convex_project",
+      }),
+    ).rejects.toThrow("Account deletion is in progress.");
   });
 
   it("rejects delayed completion from an older action", async () => {
@@ -223,18 +269,14 @@ describe("manual provider write ownership", () => {
         vaultId: ids.vaultId,
         userId: ids.userId,
         actionId: "old-action",
-        target: convexTarget,
+        action: "create_convex_project",
       });
       await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
         vaultId: ids.vaultId,
         userId: ids.userId,
         actionId: "old-action",
         action: "create_convex_project",
-        completion: {
-          expectedState: "active",
-          result: "succeeded",
-          providerResult: "complete",
-        },
+        completion: { result: "succeeded" },
       });
 
       vi.setSystemTime(2_000);
@@ -242,7 +284,7 @@ describe("manual provider write ownership", () => {
         vaultId: ids.vaultId,
         userId: ids.userId,
         actionId: "new-action",
-        target: cloudflareTarget,
+        action: "create_cloudflare_worker",
       });
 
       await expect(
@@ -251,18 +293,11 @@ describe("manual provider write ownership", () => {
           userId: ids.userId,
           actionId: "old-action",
           action: "create_convex_project",
-          completion: {
-            expectedState: "active",
-            result: "failed",
-            providerResult: "complete",
-          },
+          completion: { result: "failed" },
         }),
       ).rejects.toThrow("Manual provider action no longer owns the vault write.");
       await expect(readProviderWrite(t, ids.vaultId)).resolves.toMatchObject({
-        owner: {
-          kind: "manual_provider_write",
-          actionId: "new-action",
-        },
+        owner: { actionId: "new-action" },
         state: "active",
       });
     } finally {
@@ -270,7 +305,7 @@ describe("manual provider write ownership", () => {
     }
   });
 
-  it("starts one recovery attempt when the active write expires", async () => {
+  it("lets an in-flight provider result record after the provider-call deadline", async () => {
     const { ids, t } = await createConnectedVault();
     vi.useFakeTimers();
     vi.setSystemTime(1_000);
@@ -278,231 +313,127 @@ describe("manual provider write ownership", () => {
       await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
         vaultId: ids.vaultId,
         userId: ids.userId,
-        actionId: "expiring-action",
-        target: convexTarget,
+        actionId: "timed-out-action",
+        action: "create_convex_project",
       });
+      vi.setSystemTime(1_000 + MANUAL_PROVIDER_ACTION_LIMIT_MS);
+
+      expect(() =>
+        requireManualProviderActionDeadline(1_000 + MANUAL_PROVIDER_ACTION_LIMIT_MS),
+      ).toThrow("Manual provider action time limit expired.");
+      await expect(
+        t.run(async (ctx) => {
+          await requireManualProviderWriteCheckpoint(ctx, {
+            vaultId: ids.vaultId,
+            userId: ids.userId,
+            actionId: "timed-out-action",
+            action: "create_convex_project",
+          });
+          return true;
+        }),
+      ).resolves.toBe(true);
+
+      await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        actionId: "timed-out-action",
+        action: "create_convex_project",
+        completion: { result: "succeeded" },
+      });
+      await expect(readProviderWrite(t, ids.vaultId)).resolves.toMatchObject({
+        state: "succeeded",
+        lastWriteAt: { convex: 1_000 + MANUAL_PROVIDER_ACTION_LIMIT_MS },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("expires a silent action and requests a fresh provider read", async () => {
+    const { ids, t } = await createConnectedVault();
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    try {
+      await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        actionId: "silent-action",
+        action: "create_convex_project",
+      });
+
+      vi.setSystemTime(1_000 + MANUAL_PROVIDER_WRITE_EXPIRY_MS - 1);
+      await t.mutation(internal.vault.infrastructureOperation.expireManualProviderWrite, {
+        vaultId: ids.vaultId,
+        actionId: "silent-action",
+      });
+      await expect(readProviderWrite(t, ids.vaultId)).resolves.toMatchObject({ state: "active" });
 
       vi.setSystemTime(1_000 + MANUAL_PROVIDER_WRITE_EXPIRY_MS);
-      await t.mutation(internal.vault.infrastructureOperation.enterManualProviderWriteRecovery, {
-        vaultId: ids.vaultId,
-        actionId: "expiring-action",
-      });
-
-      await expect(readProviderWrite(t, ids.vaultId)).resolves.toMatchObject({
-        owner: {
-          kind: "manual_provider_write",
-          actionId: "expiring-action",
-        },
-        state: "recovering",
-        recoveryDeadlineAt: 1_000 + MANUAL_PROVIDER_WRITE_EXPIRY_MS + 5 * 60 * 1_000,
-        recoveryLeaseExpiresAt:
-          1_000 + MANUAL_PROVIDER_WRITE_EXPIRY_MS + MANUAL_PROVIDER_RECOVERY_LEASE_MS,
-      });
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("rejects a concurrent recovery claim", async () => {
-    const { ids, t } = await createConnectedVault();
-    vi.useFakeTimers();
-    vi.setSystemTime(1_000);
-    try {
-      await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        actionId: "concurrent-recovery",
-        target: convexTarget,
-      });
-      await requireRecovery(t, ids.vaultId);
-      const recovery = await t.mutation(
-        internal.vault.infrastructureOperation.claimManualProviderRecovery,
-        {
-          vaultId: ids.vaultId,
-          userId: ids.userId,
-        },
-      );
-
-      await expect(
-        t.mutation(internal.vault.infrastructureOperation.claimManualProviderRecovery, {
-          vaultId: ids.vaultId,
-          userId: ids.userId,
-        }),
-      ).rejects.toThrow("Manual provider recovery is not available.");
-      await expect(readProviderWrite(t, ids.vaultId)).resolves.toMatchObject({
-        state: "recovering",
-        recoveryAttemptId: recovery.recoveryAttemptId,
-      });
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("returns the exact failed recovery attempt to recovery required", async () => {
-    const { ids, t } = await createConnectedVault();
-    vi.useFakeTimers();
-    vi.setSystemTime(1_000);
-    try {
-      await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        actionId: "failed-recovery",
-        target: convexTarget,
-      });
-      await requireRecovery(t, ids.vaultId);
-      const recovery = await t.mutation(
-        internal.vault.infrastructureOperation.claimManualProviderRecovery,
-        {
-          vaultId: ids.vaultId,
-          userId: ids.userId,
-        },
-      );
-      await t.mutation(
-        internal.vault.infrastructureOperation.returnManualProviderRecoveryAttemptToRequired,
-        {
-          vaultId: ids.vaultId,
-          actionId: "failed-recovery",
-          recoveryAttemptId: recovery.recoveryAttemptId,
-        },
-      );
-
-      await expect(readProviderWrite(t, ids.vaultId)).resolves.toMatchObject({
-        state: "recovery_required",
-        lastWriteAt: {},
-      });
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("returns an abandoned exact attempt after its watchdog lease", async () => {
-    const { ids, t } = await createConnectedVault();
-    vi.useFakeTimers();
-    vi.setSystemTime(1_000);
-    try {
-      await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        actionId: "abandoned-recovery",
-        target: convexTarget,
-      });
-      await requireRecovery(t, ids.vaultId);
-      const recovery = await t.mutation(
-        internal.vault.infrastructureOperation.claimManualProviderRecovery,
-        {
-          vaultId: ids.vaultId,
-          userId: ids.userId,
-        },
-      );
-      vi.setSystemTime(1_000 + MANUAL_PROVIDER_RECOVERY_LEASE_MS);
-      await t.mutation(internal.vault.infrastructureOperation.watchManualProviderRecoveryAttempt, {
-        vaultId: ids.vaultId,
-        actionId: "abandoned-recovery",
-        recoveryAttemptId: recovery.recoveryAttemptId,
-      });
-
-      await expect(readProviderWrite(t, ids.vaultId)).resolves.toMatchObject({
-        state: "recovery_required",
-      });
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("finishes a known failure before any provider write without a refresh time", async () => {
-    const { ids, t } = await createConnectedVault();
-    await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
-      vaultId: ids.vaultId,
-      userId: ids.userId,
-      actionId: "known-pre-provider-failure",
-      target: convexTarget,
-    });
-
-    await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
-      vaultId: ids.vaultId,
-      userId: ids.userId,
-      actionId: "known-pre-provider-failure",
-      action: "create_convex_project",
-      completion: {
-        expectedState: "active",
-        result: "failed",
-        providerResult: "not_started",
-      },
-    });
-
-    await expect(readProviderWrite(t, ids.vaultId)).resolves.toMatchObject({
-      state: "failed",
-      lastWriteAt: {},
-    });
-  });
-
-  it("does not let an old attempt reset or finish a newer attempt", async () => {
-    const { ids, t } = await createConnectedVault();
-    vi.useFakeTimers();
-    vi.setSystemTime(1_000);
-    try {
-      await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        actionId: "stale-attempt",
-        target: convexTarget,
-      });
-      await requireRecovery(t, ids.vaultId);
-      const first = await t.mutation(
-        internal.vault.infrastructureOperation.claimManualProviderRecovery,
-        {
-          vaultId: ids.vaultId,
-          userId: ids.userId,
-        },
-      );
-      await t.mutation(
-        internal.vault.infrastructureOperation.returnManualProviderRecoveryAttemptToRequired,
-        {
-          vaultId: ids.vaultId,
-          actionId: "stale-attempt",
-          recoveryAttemptId: first.recoveryAttemptId,
-        },
-      );
-      const second = await t.mutation(
-        internal.vault.infrastructureOperation.claimManualProviderRecovery,
-        {
-          vaultId: ids.vaultId,
-          userId: ids.userId,
-        },
-      );
-      await t.mutation(
-        internal.vault.infrastructureOperation.returnManualProviderRecoveryAttemptToRequired,
-        {
-          vaultId: ids.vaultId,
-          actionId: "stale-attempt",
-          recoveryAttemptId: first.recoveryAttemptId,
-        },
-      );
       await expect(
         t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
           vaultId: ids.vaultId,
           userId: ids.userId,
-          actionId: "stale-attempt",
+          actionId: "silent-action",
           action: "create_convex_project",
-          completion: {
-            expectedState: "recovering",
-            recoveryAttemptId: first.recoveryAttemptId,
-            result: "succeeded",
-            providerResult: "complete",
-          },
+          completion: { result: "succeeded" },
         }),
-      ).rejects.toThrow("Manual provider recovery attempt changed before result was recorded.");
-
+      ).rejects.toThrow("Manual provider action state changed before result was recorded.");
+      await t.mutation(internal.vault.infrastructureOperation.expireManualProviderWrite, {
+        vaultId: ids.vaultId,
+        actionId: "silent-action",
+      });
       await expect(readProviderWrite(t, ids.vaultId)).resolves.toMatchObject({
-        state: "recovering",
-        recoveryAttemptId: second.recoveryAttemptId,
+        owner: { actionId: "silent-action" },
+        state: "failed",
+        lastWriteAt: { convex: 1_000 + MANUAL_PROVIDER_WRITE_EXPIRY_MS },
       });
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("updates provider timestamps independently", async () => {
+  it("does not let an old expiry change a newer action", async () => {
+    const { ids, t } = await createConnectedVault();
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    try {
+      await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        actionId: "old-action",
+        action: "create_convex_project",
+      });
+      await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        actionId: "old-action",
+        action: "create_convex_project",
+        completion: { result: "succeeded" },
+      });
+
+      vi.setSystemTime(2_000);
+      await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        actionId: "new-action",
+        action: "create_cloudflare_worker",
+      });
+      vi.setSystemTime(1_000 + MANUAL_PROVIDER_WRITE_EXPIRY_MS);
+      await t.mutation(internal.vault.infrastructureOperation.expireManualProviderWrite, {
+        vaultId: ids.vaultId,
+        actionId: "old-action",
+      });
+
+      await expect(readProviderWrite(t, ids.vaultId)).resolves.toMatchObject({
+        owner: { actionId: "new-action" },
+        state: "active",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("updates provider refresh times independently", async () => {
     const { ids, t } = await createConnectedVault();
     await t.run(async (ctx) => {
       await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
@@ -521,18 +452,14 @@ describe("manual provider write ownership", () => {
         vaultId: ids.vaultId,
         userId: ids.userId,
         actionId: "convex-action",
-        target: convexTarget,
+        action: "create_convex_project",
       });
       await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
         vaultId: ids.vaultId,
         userId: ids.userId,
         actionId: "convex-action",
         action: "create_convex_project",
-        completion: {
-          expectedState: "active",
-          result: "succeeded",
-          providerResult: "complete",
-        },
+        completion: { result: "succeeded" },
       });
 
       vi.setSystemTime(200);
@@ -540,62 +467,32 @@ describe("manual provider write ownership", () => {
         vaultId: ids.vaultId,
         userId: ids.userId,
         actionId: "cloudflare-action",
-        target: cloudflareTarget,
+        action: "create_cloudflare_worker",
       });
       await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
         vaultId: ids.vaultId,
         userId: ids.userId,
         actionId: "cloudflare-action",
         action: "create_cloudflare_worker",
-        completion: {
-          expectedState: "active",
-          result: "failed",
-          providerResult: "complete",
-        },
+        completion: { result: "failed" },
       });
 
       await expect(readProviderWrite(t, ids.vaultId)).resolves.toMatchObject({
         state: "failed",
-        lastWriteAt: {
-          convex: 100,
-          cloudflare: 200,
-        },
+        lastWriteAt: { convex: 100, cloudflare: 200 },
       });
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("records one complete two-provider result atomically", async () => {
+  it("records one result for a two-provider action", async () => {
     const { ids, t } = await createConnectedVault();
-    const target = await t.run(async (ctx) => {
-      const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        convexConfigPath: "convex.json",
-        teamId: "team",
-        projectId: "project",
-        origin: "selected_existing",
-      });
-      const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-        accountId: "account",
-        workerName: "worker",
-        workerTag: "worker-tag",
-        origin: "selected_existing",
-      });
-      return {
-        action: "rotate_convex_deploy_keys_for_workers_builds" as const,
-        workerId,
-        convexProjectId,
-      };
-    });
     await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
       vaultId: ids.vaultId,
       userId: ids.userId,
-      actionId: "partial-rotation",
-      target,
+      actionId: "key-rotation",
+      action: "rotate_convex_deploy_keys_for_workers_builds",
     });
 
     vi.useFakeTimers();
@@ -604,13 +501,9 @@ describe("manual provider write ownership", () => {
       await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
         vaultId: ids.vaultId,
         userId: ids.userId,
-        actionId: "partial-rotation",
+        actionId: "key-rotation",
         action: "rotate_convex_deploy_keys_for_workers_builds",
-        completion: {
-          expectedState: "active",
-          result: "succeeded",
-          providerResult: "complete",
-        },
+        completion: { result: "succeeded" },
       });
       await expect(readProviderWrite(t, ids.vaultId)).resolves.toMatchObject({
         state: "succeeded",

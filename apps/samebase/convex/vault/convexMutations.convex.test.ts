@@ -337,16 +337,7 @@ describe("vault Convex project attachment mutations", () => {
       vaultId: ids.primaryVaultId,
       userId: ids.userId,
       actionId: "manual-project",
-      target: {
-        action: "create_convex_project",
-        state: "requested",
-        projectName: "manual-project",
-        codeLocation: {
-          kind: "config",
-          convexConfigPath: "convex.json",
-          blobSha: "config-blob",
-        },
-      },
+      action: "create_convex_project",
     });
 
     await expect(
@@ -354,9 +345,9 @@ describe("vault Convex project attachment mutations", () => {
         vaultId: ids.primaryVaultId,
         userId: ids.userId,
         actionId: "old-project-action",
-        checkpoint: { expectedState: "active" },
         teamId: "team-1",
         projectId: "project-1",
+        codeLocation: { kind: "config", convexConfigPath: "convex.json" },
       }),
     ).rejects.toThrow("Manual provider action no longer owns the vault write.");
     const convexProjectId = await t.mutation(
@@ -365,9 +356,9 @@ describe("vault Convex project attachment mutations", () => {
         vaultId: ids.primaryVaultId,
         userId: ids.userId,
         actionId: "manual-project",
-        checkpoint: { expectedState: "active" },
         teamId: "team-1",
         projectId: "project-1",
+        codeLocation: { kind: "config", convexConfigPath: "convex.json" },
       },
     );
 
@@ -388,12 +379,7 @@ describe("vault Convex project attachment mutations", () => {
       write: {
         owner: {
           actionId: "manual-project",
-          target: {
-            action: "create_convex_project",
-            state: "created",
-            teamId: "team-1",
-            projectId: "project-1",
-          },
+          action: "create_convex_project",
         },
         state: "active",
       },

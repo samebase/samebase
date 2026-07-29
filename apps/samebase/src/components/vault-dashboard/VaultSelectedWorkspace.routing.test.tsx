@@ -2,11 +2,9 @@
 
 import * as React from "react";
 import { useLocation } from "@tanstack/react-router";
-import { getFunctionName } from "convex/server";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
@@ -15,7 +13,6 @@ import type { VaultWorkspaceSelected } from "./vaultWorkspaceModel";
 
 const actionState = vi.hoisted(() => ({
   fallback: vi.fn(async () => undefined),
-  handlersByFunctionName: new Map<string, (args: unknown) => Promise<unknown>>(),
 }));
 const toastMock = vi.hoisted(() => vi.fn());
 
@@ -24,8 +21,7 @@ vi.mock("convex/react", async (importOriginal) => {
 
   return {
     ...actual,
-    useAction: (reference: Parameters<typeof actual.useAction>[0]) =>
-      actionState.handlersByFunctionName.get(getFunctionName(reference)) ?? actionState.fallback,
+    useAction: () => actionState.fallback,
   };
 });
 vi.mock("@/components/ui/use-toast", () => ({
@@ -148,30 +144,12 @@ function makeWorkspace(vault: UserVaultResult): VaultWorkspaceSelected {
   };
 }
 
-function makeRecoveryRequiredVault(): UserVaultResult {
-  return makeVault({
-    providerWrite: {
-      status: "recovery_required",
-      owner: {
-        kind: "manual_provider_write",
-        actionId: "provider-action-1",
-        action: "create_convex_project",
-        expiresAt: 30,
-      },
-      affectedProviders: ["convex"],
-      updatedAt: 20,
-      lastWriteAt: {},
-    },
-  });
-}
-
 describe("VaultSelectedWorkspace dialog route", () => {
   let root: Root | null = null;
   let rootElement: HTMLDivElement | null = null;
 
   beforeEach(() => {
     actionState.fallback.mockClear();
-    actionState.handlersByFunctionName.clear();
     toastMock.mockReset();
   });
 
@@ -240,138 +218,5 @@ describe("VaultSelectedWorkspace dialog route", () => {
       element.querySelector('[data-testid="router-location"]')?.getAttribute("data-href") ?? "";
     expect(href).toContain("add-cloudflare");
     expect(href).toContain("dev");
-  });
-
-  it("shows recovery Retry and keeps provider controls disabled", async () => {
-    await renderWorkspace(makeWorkspace(makeRecoveryRequiredVault()), "/vault/ada/demo/settings");
-
-    expect(rootElement?.textContent).toContain(
-      "Samebase could not confirm Convex project creation.",
-    );
-    const buttons = [...(rootElement?.querySelectorAll<HTMLButtonElement>("button") ?? [])];
-    expect(buttons.filter((button) => button.textContent === "Retry")).toHaveLength(1);
-    expect(
-      buttons.find((button) => button.textContent.includes("Add Cloudflare Worker"))?.disabled,
-    ).toBe(true);
-    expect(
-      buttons.find((button) => button.textContent.includes("Add Convex project"))?.disabled,
-    ).toBe(true);
-    expect(buttons.find((button) => button.textContent.includes("Remove vault"))?.disabled).toBe(
-      true,
-    );
-  });
-
-  it("can close a provider dialog when recovery becomes required", async () => {
-    await renderWorkspace(
-      makeWorkspace(makeRecoveryRequiredVault()),
-      "/vault/ada/demo/settings?add-cloudflare",
-    );
-    expect(rootElement?.querySelector('[role="dialog"]')).not.toBeNull();
-    expect(rootElement?.textContent).toContain(
-      "Samebase could not confirm Convex project creation.",
-    );
-    const closeButton = rootElement?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Close provider dialog"]',
-    );
-    if (!closeButton) {
-      throw new Error("Expected the provider dialog close action.");
-    }
-
-    await act(async () => {
-      closeButton.click();
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(rootElement?.querySelector('[role="dialog"]')).toBeNull();
-    expect(rootElement?.textContent).toContain("Retry");
-  });
-
-  it("disables recovery Retry while the action is pending", async () => {
-    let resolveRecovery: (() => void) | undefined;
-    const retryRecovery = vi.fn(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveRecovery = resolve;
-        }),
-    );
-    actionState.handlersByFunctionName.set(
-      getFunctionName(api.vault.actions.retryProviderWriteRecovery),
-      retryRecovery,
-    );
-    await renderWorkspace(makeWorkspace(makeRecoveryRequiredVault()), "/vault/ada/demo/settings");
-    const retryButton = [
-      ...(rootElement?.querySelectorAll<HTMLButtonElement>("button") ?? []),
-    ].find((button) => button.textContent.includes("Retry"));
-    if (!retryButton) {
-      throw new Error("Expected provider recovery Retry.");
-    }
-
-    await act(async () => {
-      retryButton.click();
-      await Promise.resolve();
-    });
-
-    expect(retryButton.disabled).toBe(true);
-    expect(rootElement?.textContent).toContain("Retrying...");
-
-    await act(async () => {
-      resolveRecovery?.();
-      await Promise.resolve();
-    });
-  });
-
-  it("starts provider recovery for the selected vault", async () => {
-    const retryRecovery = vi.fn(async () => undefined);
-    actionState.handlersByFunctionName.set(
-      getFunctionName(api.vault.actions.retryProviderWriteRecovery),
-      retryRecovery,
-    );
-    await renderWorkspace(makeWorkspace(makeRecoveryRequiredVault()), "/vault/ada/demo/settings");
-    const retryButton = [
-      ...(rootElement?.querySelectorAll<HTMLButtonElement>("button") ?? []),
-    ].find((button) => button.textContent === "Retry");
-    if (!retryButton) {
-      throw new Error("Expected provider recovery Retry.");
-    }
-
-    await act(async () => {
-      retryButton.click();
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(retryRecovery).toHaveBeenCalledWith({ vaultId: fakeVaultId() });
-    expect(toastMock).not.toHaveBeenCalled();
-  });
-
-  it("shows the provider recovery error and enables Retry again", async () => {
-    const retryRecovery = vi.fn(async () => {
-      throw new Error("Recovery did not start.");
-    });
-    actionState.handlersByFunctionName.set(
-      getFunctionName(api.vault.actions.retryProviderWriteRecovery),
-      retryRecovery,
-    );
-    await renderWorkspace(makeWorkspace(makeRecoveryRequiredVault()), "/vault/ada/demo/settings");
-    const retryButton = [
-      ...(rootElement?.querySelectorAll<HTMLButtonElement>("button") ?? []),
-    ].find((button) => button.textContent === "Retry");
-    if (!retryButton) {
-      throw new Error("Expected provider recovery Retry.");
-    }
-
-    await act(async () => {
-      retryButton.click();
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(toastMock).toHaveBeenCalledWith({
-      title: "Could not retry provider recovery",
-      description: "Recovery did not start.",
-      variant: "destructive",
-    });
-    expect(retryButton.disabled).toBe(false);
   });
 });

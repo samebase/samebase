@@ -59,12 +59,12 @@ active triggers. It records the `selected_existing` attachment before configurin
 then re-reads Cloudflare and requires the requested root. Each unconnected Worker is configured
 individually because roots are per Worker and Cloudflare writes are not batch-atomic.
 
-If Cloudflare reports an error after attachment, Samebase re-observes the Worker before explaining
-the recovery. A Worker with no completed repository connection stays under `Needs attention`. A
-Worker with a partial or complete connection appears under Cloudflare's observed root, and the
-message names the recovery action for the observed state. The attachment always remains. A Worker
-with active triggers for another repository is not available in this flow. Samebase never silently
-replaces that connection.
+If Cloudflare reports an error after attachment, Samebase re-observes the Worker before it explains
+what to do next. A Worker with no completed repository connection stays under `Needs attention`. A
+Worker with a partial or complete connection appears under Cloudflare's observed root. The message
+names the normal action for the observed state. The attachment always remains. A Worker with active
+triggers for another repository is not available in this flow. Samebase never silently replaces that
+connection.
 
 The client never supplies a root as attachment authority.
 
@@ -124,20 +124,28 @@ shared vault infrastructure state and changes the attachment in the same transac
 
 Creating a Worker, connecting an unconnected Worker, configuring Workers Builds, and rotating Convex
 deploy keys are external provider writes. Each action claims the durable manual provider owner
-before its first provider call. A stopped action keeps the same action ID and exact non-secret
-target for recovery. Only recovery for that action ID can repeat or complete the provider work. A
-late action or a different action ID cannot record the result.
+before its first provider call. Normal success or error makes the owner terminal and ends the block.
+A late action or a different action ID cannot record the result.
 
-A recovery attempt has an exact attempt ID, deadline, and lease. Only one attempt can be
-`recovering`. An error or expired lease returns that exact attempt to `recovery_required`. Retry
-claims `recovery_required` in the backend before it calls Cloudflare. If a requested Worker create
-has no checkpointed Worker identity and the planned name already exists, recovery reports a name
-collision and does not adopt that Worker.
+One fenced expiry handles a silent action. It marks only the matching active action failed and
+advances `lastWriteAt.cloudflare`. Deploy-key rotation also advances `lastWriteAt.convex`. Expiry
+does not call Cloudflare or Convex and does not replay the stored operation.
+
+After expiry, Samebase reads the live provider state. The user or agent then uses the normal action
+for that state:
+
+- An uncheckpointed created Worker appears in the normal account scan. The user can attach or
+  connect that existing Worker. Samebase does not adopt it automatically.
+- An attached Worker with incomplete Builds configuration uses the normal Configure Workers Builds
+  action.
+- Incomplete Convex build access uses the normal key repair action for the observed attached
+  project. Repeating this action replaces the deterministic deploy keys and writes one complete
+  production and preview configuration.
 
 A known create, connect, or Builds-configuration result updates `lastWriteAt.cloudflare`. A known
 deploy-key rotation result updates both `lastWriteAt.convex` and `lastWriteAt.cloudflare`, because
-the operation changes keys in Convex and trigger variables in Cloudflare. An unknown result stays
-`recovery_required` and does not advance a provider time.
+the operation changes keys in Convex and trigger variables in Cloudflare. Expiry updates the same
+provider times so the dashboard cannot reuse an observation from before the silent action.
 
 ## Non-Goals
 
@@ -153,10 +161,10 @@ the operation changes keys in Convex and trigger variables in Cloudflare. An unk
   production/preview disagreement, and marker disagreement.
 - Mutation tests cover atomic batches, global identity conflicts, idempotency, and origin upgrade.
 - Operation tests cover the same-transaction attachment gate, durable claims for all Cloudflare
-  provider writes, exact-action recovery, stale completion rejection, and interrupted deploy-key
-  rotation.
+  provider writes, one fenced expiry, stale completion rejection, live observation after expiry, and
+  normal repair after interrupted deploy-key rotation.
 - Write-time tests prove that Cloudflare-only actions update only Cloudflare and deploy-key rotation
-  updates both providers after a known result.
+  updates both providers after a known result or expiry.
 - UI tests cover vault-level routing, default multiple selection, grouping by read-only live root,
   the focused unconnected-Worker root flow, count copy, exact Convex action targets, root drift,
   rootless Builds repair, and `Needs attention`.

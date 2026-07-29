@@ -1,8 +1,7 @@
 import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
+import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
 import { useQuery } from "@tanstack/react-query";
 import { useAction } from "convex/react";
-import type { ConvexCodeLocation } from "../../../shared/convexCodeLocation";
 import { vaultExternalDataQueryKey } from "@/lib/vaultExternalDataQueryKey";
 
 export type VaultCloudflareWorkerObservation =
@@ -31,27 +30,19 @@ export type VaultCloudflareProviderObservationState = {
   convexBuildAccess: VaultProviderObservationState<VaultCloudflareWorkerConvexBuildAccessObservation>;
 };
 
-type VaultProviderObservationTarget = {
-  _id: Id<"vaults">;
-  cloudflareWorkers: readonly { workerId: Id<"vaultCloudflareWorkers"> }[];
-  convexProjects: readonly {
-    codeLocation: ConvexCodeLocation;
-    convexProjectId: Id<"vaultConvexProjects">;
-    projectId: string;
-    teamId: string;
-  }[];
-  providerWrite: {
-    lastWriteAt: {
-      cloudflare?: number;
-      convex?: number;
-    };
-  };
+type VaultProviderObservationTarget = Pick<UserVaultResult, "_id" | "providerWrite"> & {
+  cloudflareWorkers: readonly Pick<UserVaultResult["cloudflareWorkers"][number], "workerId">[];
+  convexProjects: readonly Pick<
+    UserVaultResult["convexProjects"][number],
+    "codeLocation" | "convexProjectId" | "projectId" | "teamId"
+  >[];
 };
 
 const PROVIDER_OBSERVATION_STALE_TIME_MS = 60 * 1000;
 const PROVIDER_OBSERVATION_GC_TIME_MS = 5 * 60 * 1000;
 
 function providerObservationState<TObservation>({
+  checking,
   data,
   isError,
   isRefetchError,
@@ -59,6 +50,7 @@ function providerObservationState<TObservation>({
   reload,
   requested,
 }: {
+  checking: boolean;
   data: readonly TObservation[] | undefined;
   isError: boolean;
   isRefetchError: boolean;
@@ -68,6 +60,9 @@ function providerObservationState<TObservation>({
 }): VaultProviderObservationState<TObservation> {
   if (!requested) {
     return { state: "loaded", observations: [], refreshFailed: false, reload };
+  }
+  if (checking) {
+    return { state: "checking" };
   }
   if (data) {
     return { state: "loaded", observations: data, refreshFailed: isRefetchError, reload };
@@ -95,6 +90,11 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
   const vaultId = vault?._id;
   const cloudflareLastWriteAt = vault?.providerWrite.lastWriteAt.cloudflare;
   const convexLastWriteAt = vault?.providerWrite.lastWriteAt.convex;
+  const activeManualWrite =
+    vault?.providerWrite.status === "active" &&
+    vault.providerWrite.owner.kind === "manual_provider_write"
+      ? vault.providerWrite
+      : null;
   const cloudflareWorkerIds = [...(vault?.cloudflareWorkers ?? [])]
     .map((worker) => worker.workerId)
     .sort((left, right) => left.localeCompare(right));
@@ -142,6 +142,8 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
     retry: false,
     staleTime: PROVIDER_OBSERVATION_STALE_TIME_MS,
     gcTime: PROVIDER_OBSERVATION_GC_TIME_MS,
+    refetchInterval: PROVIDER_OBSERVATION_STALE_TIME_MS,
+    refetchIntervalInBackground: false,
   });
   const cloudflareBuildAccessTargets = (cloudflareBuildsQuery.data ?? [])
     .flatMap((observation) =>
@@ -213,6 +215,7 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
     void convexQuery.refetch();
   };
   const workers = providerObservationState({
+    checking: activeManualWrite?.affectedProviders.includes("cloudflare") === true,
     data: cloudflareWorkersQuery.data,
     isError: cloudflareWorkersQuery.isError,
     isRefetchError: cloudflareWorkersQuery.isRefetchError,
@@ -221,6 +224,7 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
     requested: cloudflareWorkerIds.length > 0,
   });
   const builds = providerObservationState({
+    checking: activeManualWrite?.affectedProviders.includes("cloudflare") === true,
     data: cloudflareBuildsQuery.data,
     isError: cloudflareBuildsQuery.isError,
     isRefetchError: cloudflareBuildsQuery.isRefetchError,
@@ -236,28 +240,32 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
           refreshFailed: false,
           reload: reloadCloudflareConvexBuildAccess,
         }
-      : !cloudflareBuildsQuery.data
-        ? cloudflareBuildsQuery.isError
-          ? { state: "failed" as const, reload: reloadCloudflareBuilds }
-          : cloudflareLastWriteAt !== undefined
-            ? { state: "checking" as const }
-            : { state: "loading" as const }
-        : cloudflareBuildAccessTargets.length === 0
-          ? {
-              state: "loaded" as const,
-              observations: [],
-              refreshFailed: false,
-              reload: reloadCloudflareBuilds,
-            }
-          : providerObservationState({
-              data: cloudflareConvexBuildAccessQuery.data,
-              isError: cloudflareConvexBuildAccessQuery.isError,
-              isRefetchError: cloudflareConvexBuildAccessQuery.isRefetchError,
-              lastWriteAt: cloudflareLastWriteAt,
-              reload: reloadCloudflareConvexBuildAccess,
-              requested: true,
-            });
+      : activeManualWrite?.affectedProviders.includes("cloudflare") === true
+        ? { state: "checking" as const }
+        : !cloudflareBuildsQuery.data
+          ? cloudflareBuildsQuery.isError
+            ? { state: "failed" as const, reload: reloadCloudflareBuilds }
+            : cloudflareLastWriteAt !== undefined
+              ? { state: "checking" as const }
+              : { state: "loading" as const }
+          : cloudflareBuildAccessTargets.length === 0
+            ? {
+                state: "loaded" as const,
+                observations: [],
+                refreshFailed: false,
+                reload: reloadCloudflareBuilds,
+              }
+            : providerObservationState({
+                checking: false,
+                data: cloudflareConvexBuildAccessQuery.data,
+                isError: cloudflareConvexBuildAccessQuery.isError,
+                isRefetchError: cloudflareConvexBuildAccessQuery.isRefetchError,
+                lastWriteAt: cloudflareLastWriteAt,
+                reload: reloadCloudflareConvexBuildAccess,
+                requested: true,
+              });
   const convex = providerObservationState({
+    checking: activeManualWrite?.affectedProviders.includes("convex") === true,
     data: convexQuery.data,
     isError: convexQuery.isError,
     isRefetchError: convexQuery.isRefetchError,

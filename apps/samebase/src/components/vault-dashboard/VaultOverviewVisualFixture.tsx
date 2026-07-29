@@ -978,10 +978,7 @@ function VaultOverviewProviderSettingsFixture({
         ...PROVISIONING_VAULT,
         providerPlan: PROVISIONING_CREATED_PROVIDER_PLAN,
         providerWrite: {
-          status: "succeeded",
-          owner: { kind: "managed_run", runId: PROVISIONING_RUN_ID },
-          affectedProviders: ["convex", "cloudflare"],
-          updatedAt: FIXTURE_NOW,
+          status: "idle",
           lastWriteAt: {
             cloudflare: FIXTURE_NOW,
             convex: FIXTURE_NOW,
@@ -996,10 +993,7 @@ function VaultOverviewProviderSettingsFixture({
         ...PROVISIONING_VAULT,
         providerPlan: PROVISIONING_CREATED_PROVIDER_PLAN,
         providerWrite: {
-          status: "succeeded",
-          owner: { kind: "managed_run", runId: PROVISIONING_RUN_ID },
-          affectedProviders: ["convex", "cloudflare"],
-          updatedAt: FIXTURE_NOW,
+          status: "idle",
           lastWriteAt: {
             cloudflare: FIXTURE_NOW,
             convex: FIXTURE_NOW,

@@ -387,7 +387,7 @@ describe("vault Convex project attachments", () => {
       throw new Error(`Unexpected Convex request: ${input.method} ${input.url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
-    const { asUser, vaultId } = await createConnectedVault();
+    const { asUser, t, vaultId } = await createConnectedVault();
     try {
       await expect(
         asUser.action(api.vault.convex.createProject, {
@@ -405,68 +405,6 @@ describe("vault Convex project attachments", () => {
     }
 
     expect(fetchMock.mock.calls.some(([input]) => input.method === "POST")).toBe(false);
-  });
-
-  it("does not adopt a same-name Convex project without a creation checkpoint", async () => {
-    setGitHubConfigs([{ path: "convex.json", sha: "root-sha" }]);
-    const fetchMock = vi.fn(async (input: Request) => {
-      if (input.url.includes("/teams/1000/projects?limit=100")) {
-        return jsonResponse({
-          items: [
-            {
-              createTime: 1_710_000_000_000,
-              id: 1003,
-              name: "new-project",
-              slug: "new-project",
-              teamId: 1000,
-              teamSlug: "team-1000",
-            },
-          ],
-          pagination: { hasMore: false },
-        });
-      }
-      throw new Error(`Unexpected Convex request: ${input.method} ${input.url}`);
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    const { t, vaultId } = await createConnectedVault();
-    const now = Date.now();
-    await t.run(async (ctx) => {
-      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-        vaultId,
-        owner: {
-          kind: "manual_provider_write",
-          actionId: "convex-collision",
-          target: {
-            action: "create_convex_project",
-            state: "requested",
-            projectName: "new-project",
-            codeLocation: {
-              kind: "config",
-              convexConfigPath: "convex.json",
-              blobSha: "root-sha",
-            },
-          },
-          expiresAt: now,
-        },
-        state: "recovering",
-        recoveryAttemptId: "convex-collision-attempt",
-        recoveryDeadlineAt: now + 5 * 60 * 1_000,
-        recoveryLeaseExpiresAt: now + 11 * 60 * 1_000,
-        lastWriteAt: {},
-        updatedAt: now,
-      });
-    });
-
-    await expect(
-      t.action(internal.vault.convex.recoverManualConvexProviderWrite, {
-        vaultId,
-        actionId: "convex-collision",
-        recoveryAttemptId: "convex-collision-attempt",
-      }),
-    ).rejects.toThrow(
-      "Convex project new-project exists, but this provider write did not record its identity. Delete that project in Convex, then use Retry.",
-    );
-    expect(fetchMock.mock.calls.some(([input]) => input.method === "POST")).toBe(false);
     await expect(
       t.run(
         async (ctx) =>
@@ -476,11 +414,59 @@ describe("vault Convex project attachments", () => {
             .unique(),
       ),
     ).resolves.toMatchObject({
-      state: "recovery_required",
-      owner: { kind: "manual_provider_write", actionId: "convex-collision" },
+      state: "failed",
+      lastWriteAt: { convex: expect.any(Number) },
     });
+  });
+
+  it("reports that a project can exist when its local checkpoint expires", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    setGitHubConfigs([{ path: "convex.json", sha: "root-sha" }]);
+    const fetchMock = vi.fn(async (input: Request) => {
+      if (input.url.includes("/teams/1000/projects?limit=100")) {
+        return jsonResponse({ items: [], pagination: { hasMore: false } });
+      }
+      if (input.url.endsWith("/teams/1000/create_project")) {
+        vi.setSystemTime(1_000 + 10 * 60 * 1_000);
+        return jsonResponse({ id: 1003, projectId: 1003, slug: "new-project" });
+      }
+      throw new Error(`Unexpected Convex request: ${input.method} ${input.url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const failureRecordWarning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { asUser, t, vaultId } = await createConnectedVault();
+    try {
+      await expect(
+        asUser.action(api.vault.convex.createProject, {
+          vaultId,
+          projectName: "new-project",
+          codeLocation: {
+            kind: "config",
+            convexConfigPath: "convex.json",
+            blobSha: "root-sha",
+          },
+        }),
+      ).rejects.toThrow(
+        "The Convex project new-project can exist, but Samebase could not attach it.",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(fetchMock.mock.calls.filter(([input]) => input.method === "POST")).toHaveLength(1);
+    expect(failureRecordWarning).toHaveBeenCalledWith(
+      "vault:manual_provider_write:failure_record_failed",
+      expect.objectContaining({ action: "create_convex_project", vaultId }),
+    );
     await expect(
-      t.run(async (ctx) => await ctx.db.query("vaultConvexProjects").collect()),
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("vaultConvexProjects")
+            .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+            .collect(),
+      ),
     ).resolves.toEqual([]);
   });
 

@@ -122,7 +122,12 @@ describe("markWorkflowProvisioningFailed", () => {
     expect(result.writeLock).toMatchObject({
       owner: { kind: "managed_run", runId: ids.runId },
       state: "failed",
+      lastWriteAt: {
+        convex: expect.any(Number),
+        cloudflare: expect.any(Number),
+      },
     });
+    expect(result.writeLock?.lastWriteAt.convex).toBe(result.writeLock?.lastWriteAt.cloudflare);
     expect(result.event).toMatchObject({
       step: "attach_worker",
       level: "error",

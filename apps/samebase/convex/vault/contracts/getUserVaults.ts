@@ -132,12 +132,6 @@ const vProviderWriteOwner = union(
     expiresAt: number(),
   }),
 );
-const vManualProviderWriteOwner = object({
-  kind: literal("manual_provider_write"),
-  actionId: string(),
-  action: vManualProviderWriteAction,
-  expiresAt: number(),
-});
 const vProviderWriteProviders = array(providerSetupProvider);
 
 export const vProviderWriteSummary = union(
@@ -147,20 +141,6 @@ export const vProviderWriteSummary = union(
   }),
   object({
     status: literal("active"),
-    owner: vProviderWriteOwner,
-    affectedProviders: vProviderWriteProviders,
-    updatedAt: number(),
-    lastWriteAt: vVaultProviderWriteTimes,
-  }),
-  object({
-    status: literal("recovery_required"),
-    owner: vManualProviderWriteOwner,
-    affectedProviders: vProviderWriteProviders,
-    updatedAt: number(),
-    lastWriteAt: vVaultProviderWriteTimes,
-  }),
-  object({
-    status: union(literal("succeeded"), literal("failed")),
     owner: vProviderWriteOwner,
     affectedProviders: vProviderWriteProviders,
     updatedAt: number(),

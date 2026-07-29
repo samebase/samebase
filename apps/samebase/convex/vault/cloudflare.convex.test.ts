@@ -236,10 +236,11 @@ function stubExistingWorkersProvider(
 }
 
 function stubConnectWorkerProvider(
-  failure: "initial_build" | "preview_trigger" | "production_trigger",
+  failure: "initial_build" | "preview_trigger" | "production_trigger" | "verification",
 ): ReturnType<typeof vi.fn> {
   let triggers: ReturnType<typeof buildTriggers> = [];
   let triggerCreateCount = 0;
+  let failNextVerification = false;
   const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     const method = input instanceof Request ? input.method : (init?.method ?? "GET");
@@ -253,6 +254,10 @@ function stubConnectWorkerProvider(
       return cloudflareResponse(workerDetails("portal", "portal-tag"));
     }
     if (url.pathname.endsWith("/builds/workers/portal-tag/triggers")) {
+      if (failNextVerification) {
+        failNextVerification = false;
+        return cloudflareResponse(null, 500);
+      }
       return cloudflareResponse(triggers);
     }
     if (url.pathname.endsWith("/builds/repos/connections")) {
@@ -280,182 +285,16 @@ function stubConnectWorkerProvider(
       return cloudflareResponse({ trigger_uuid: trigger.trigger_uuid });
     }
     if (method === "POST" && url.pathname.endsWith("/builds")) {
-      return failure === "initial_build" ? cloudflareResponse(null, 500) : cloudflareResponse({});
+      if (failure === "initial_build") {
+        return cloudflareResponse(null, 500);
+      }
+      failNextVerification = failure === "verification";
+      return cloudflareResponse({});
     }
     throw new Error(`Unexpected provider request: ${method} ${url}`);
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
-}
-
-function stubRecoverableConnectWorkerProvider() {
-  let triggers: ReturnType<typeof buildTriggers> = [];
-  let failedFirstTrigger = false;
-  let triggerReadsAfterFailure = 0;
-  let successfulTriggerCount = 0;
-  let initialBuildCount = 0;
-  const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-    const url = new URL(input instanceof Request ? input.url : String(input));
-    const method = input instanceof Request ? input.method : (init?.method ?? "GET");
-    if (url.hostname === "api.github.com" && url.pathname === "/repos/ada/demo") {
-      return jsonResponse({ id: 123, default_branch: "main", owner: { id: 456 } });
-    }
-    if (url.pathname === "/client/v4/accounts") {
-      return cloudflareResponse([{ id: accountId, name: "Ada Cloudflare", type: "standard" }]);
-    }
-    if (url.pathname.endsWith("/workers/workers/portal")) {
-      return cloudflareResponse(workerDetails("portal", "portal-tag"));
-    }
-    if (url.pathname.endsWith("/builds/workers/portal-tag/triggers")) {
-      if (failedFirstTrigger) {
-        triggerReadsAfterFailure += 1;
-        if (triggerReadsAfterFailure === 2) {
-          return cloudflareResponse(null, 500);
-        }
-      }
-      return cloudflareResponse(triggers);
-    }
-    if (url.pathname.endsWith("/builds/repos/connections")) {
-      return cloudflareResponse({ repo_connection_uuid: "repo-connection" });
-    }
-    if (url.pathname.endsWith("/builds/tokens")) {
-      return cloudflareResponse([
-        {
-          build_token_uuid: "build-token",
-          build_token_name: "samebase build token",
-          cloudflare_token_id: "opaque-oauth-token-id",
-        },
-      ]);
-    }
-    if (method === "POST" && url.pathname.endsWith("/builds/triggers")) {
-      if (!failedFirstTrigger) {
-        failedFirstTrigger = true;
-        return cloudflareResponse(null, 500);
-      }
-      const trigger = buildTriggers("apps/portal").at(successfulTriggerCount);
-      if (!trigger) {
-        throw new Error("Unexpected extra trigger creation.");
-      }
-      successfulTriggerCount += 1;
-      triggers = [...triggers, trigger];
-      return cloudflareResponse({ trigger_uuid: trigger.trigger_uuid });
-    }
-    if (method === "POST" && url.pathname.endsWith("/builds")) {
-      initialBuildCount += 1;
-      return cloudflareResponse({});
-    }
-    throw new Error(`Unexpected provider request: ${method} ${url}`);
-  });
-  vi.stubGlobal("fetch", fetchMock);
-  return {
-    fetchMock,
-    readInitialBuildCount: () => initialBuildCount,
-  };
-}
-
-function stubRecoverableDeployKeyRotationProvider() {
-  let previewKeyCreateCount = 0;
-  let productionKeyCreateCount = 0;
-  const environmentVariables = new Map<string, unknown>();
-  const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-    const request = input instanceof Request ? input : new Request(String(input), init);
-    const url = new URL(request.url);
-    const method = request.method;
-    if (url.hostname === "api.github.com" && url.pathname === "/repos/ada/demo") {
-      return jsonResponse({ id: 123, default_branch: "main", owner: { id: 456 } });
-    }
-    if (url.hostname === "api.convex.dev") {
-      if (
-        method === "GET" &&
-        url.pathname === "/v1/projects/1001/deployment" &&
-        url.searchParams.get("defaultProd") === "true"
-      ) {
-        return jsonResponse({
-          class: "s16",
-          createTime: 1,
-          deploymentType: "prod",
-          deploymentUrl: "https://demo.convex.cloud",
-          id: 2001,
-          isDefault: true,
-          kind: "cloud",
-          name: "demo-prod",
-          projectId: "1001",
-          reference: "prod",
-          region: "aws-us-east-1",
-        });
-      }
-      if (method === "POST" && url.pathname.endsWith("/delete_deploy_key")) {
-        return new Response(null, { status: 200 });
-      }
-      if (method === "POST" && url.pathname.endsWith("/delete_preview_deploy_key")) {
-        return new Response(null, { status: 200 });
-      }
-      if (method === "POST" && url.pathname.endsWith("/create_deploy_key")) {
-        productionKeyCreateCount += 1;
-        return jsonResponse({
-          deployKey: `prod:demo-prod|production-secret-${productionKeyCreateCount}`,
-        });
-      }
-      if (method === "POST" && url.pathname.endsWith("/create_preview_deploy_key")) {
-        previewKeyCreateCount += 1;
-        if (previewKeyCreateCount === 1) {
-          return jsonResponse({ code: "temporary", message: "Interrupted request." }, 500);
-        }
-        return jsonResponse({
-          previewDeployKey: `preview:demo|preview-secret-${previewKeyCreateCount}`,
-        });
-      }
-    }
-    if (url.pathname === "/client/v4/accounts") {
-      return cloudflareResponse([{ id: accountId, name: "Ada Cloudflare", type: "standard" }]);
-    }
-    if (url.pathname.endsWith("/workers/workers/portal")) {
-      return cloudflareResponse(workerDetails("portal", "portal-tag"));
-    }
-    if (url.pathname.endsWith("/builds/workers/portal-tag/triggers")) {
-      return cloudflareResponse(buildTriggers("apps/portal"));
-    }
-    const environmentVariablesMatch = url.pathname.match(
-      /^\/client\/v4\/accounts\/[^/]+\/builds\/triggers\/([^/]+)\/environment_variables$/,
-    );
-    if (environmentVariablesMatch) {
-      if (method === "PATCH") {
-        const body: unknown = await request.clone().json();
-        if (!body || typeof body !== "object" || Array.isArray(body)) {
-          throw new Error("Expected Cloudflare environment variables.");
-        }
-        const stored = Object.fromEntries(
-          Object.entries(body).map(([key, value]) => {
-            if (!value || typeof value !== "object" || Array.isArray(value)) {
-              throw new Error(`Expected Cloudflare environment variable ${key}.`);
-            }
-            return [
-              key,
-              {
-                ...value,
-                created_on: "2026-07-20T00:00:00Z",
-              },
-            ];
-          }),
-        );
-        environmentVariables.set(url.pathname, stored);
-        return cloudflareResponse(stored);
-      }
-      if (method === "GET") {
-        return cloudflareResponse(environmentVariables.get(url.pathname) ?? {});
-      }
-    }
-    if (method === "POST" && url.pathname.endsWith("/builds/triggers/production-trigger/builds")) {
-      return cloudflareResponse({});
-    }
-    throw new Error(`Unexpected provider request: ${method} ${url}`);
-  });
-  vi.stubGlobal("fetch", fetchMock);
-  return {
-    fetchMock,
-    readPreviewKeyCreateCount: () => previewKeyCreateCount,
-    readProductionKeyCreateCount: () => productionKeyCreateCount,
-  };
 }
 
 describe("vault Cloudflare Worker attachments", () => {
@@ -510,10 +349,10 @@ describe("vault Cloudflare Worker attachments", () => {
       failure: "initial_build" as const,
       expectedMessage:
         "portal was added and GitHub Builds is connected, but Cloudflare reported an error after setup.",
-      expectedWriteState: "succeeded",
+      expectedWriteState: "failed",
     },
   ])(
-    "keeps an existing Worker attached after a $failure failure and reports its observed recovery path",
+    "keeps an existing Worker attached after a $failure failure and reports the observed result",
     async ({ failure, expectedMessage, expectedWriteState }) => {
       const { asUser, t, userId, vaultId } = await createCloudflareConnectedVault();
       stubConnectWorkerProvider(failure);
@@ -561,6 +400,104 @@ describe("vault Cloudflare Worker attachments", () => {
     },
   );
 
+  it("records success when a second check confirms the configured Worker", async () => {
+    const { asUser, t, vaultId } = await createCloudflareConnectedVault();
+    stubConnectWorkerProvider("verification");
+
+    await expect(
+      asUser.action(api.vault.cloudflare.connectWorker, {
+        vaultId,
+        accountId,
+        workerName: "portal",
+        workerTag: "portal-tag",
+        rootDirectory: "apps/portal",
+      }),
+    ).resolves.toEqual({
+      state: "ready",
+      workerId: expect.any(String),
+    });
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("workflow_vaultProvisioning_writeLocks")
+            .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+            .unique(),
+      ),
+    ).resolves.toMatchObject({
+      state: "succeeded",
+      lastWriteAt: { cloudflare: expect.any(Number) },
+    });
+  });
+
+  it("reports that a Worker can exist when its local checkpoint expires", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      const method = input instanceof Request ? input.method : (init?.method ?? "GET");
+      if (url.hostname === "api.github.com" && url.pathname === "/repos/ada/demo") {
+        return jsonResponse({ id: 123, default_branch: "main", owner: { id: 456 } });
+      }
+      if (url.pathname === "/client/v4/accounts") {
+        return cloudflareResponse([{ id: accountId, name: "Ada Cloudflare", type: "standard" }]);
+      }
+      if (method === "GET" && url.pathname.endsWith("/workers/workers/new-worker")) {
+        return jsonResponse(
+          {
+            success: false,
+            errors: [{ code: 10007, message: "Worker not found" }],
+            messages: [],
+            result: null,
+          },
+          404,
+        );
+      }
+      if (method === "POST" && url.pathname.endsWith("/workers/workers")) {
+        vi.setSystemTime(1_000 + 10 * 60 * 1_000);
+        return cloudflareResponse(workerDetails("new-worker", "new-worker-tag"));
+      }
+      throw new Error(`Unexpected provider request: ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const failureRecordWarning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { asUser, t, vaultId } = await createCloudflareConnectedVault();
+    try {
+      await expect(
+        asUser.action(api.vault.cloudflare.createWorker, {
+          vaultId,
+          accountId,
+          workerName: "new-worker",
+          rootDirectory: "/",
+        }),
+      ).rejects.toThrow(
+        "The Cloudflare Worker new-worker can exist, but Samebase could not record it.",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(
+      fetchMock.mock.calls.filter(([input, init]) => {
+        const requestMethod = input instanceof Request ? input.method : init?.method;
+        return requestMethod === "POST";
+      }),
+    ).toHaveLength(1);
+    expect(failureRecordWarning).toHaveBeenCalledWith(
+      "vault:manual_provider_write:failure_record_failed",
+      expect.objectContaining({ action: "create_cloudflare_worker", vaultId }),
+    );
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("vaultCloudflareWorkers")
+            .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+            .collect(),
+      ),
+    ).resolves.toEqual([]);
+  });
+
   it("uses one backend conflict rule for browser and MCP configuration writes", async () => {
     const { asUser, t, userId, vaultId } = await createCloudflareConnectedVault();
     const workerId = await t.run(
@@ -579,11 +516,7 @@ describe("vault Cloudflare Worker attachments", () => {
       vaultId,
       userId,
       actionId: "active-configuration",
-      target: {
-        action: "configure_workers_builds_for_github",
-        workerId,
-        rootDirectory: "/",
-      },
+      action: "configure_workers_builds_for_github",
     });
 
     await expect(
@@ -606,253 +539,6 @@ describe("vault Cloudflare Worker attachments", () => {
       text: "Another vault infrastructure operation is active.",
     });
     expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("does not adopt a same-name Worker without a creation checkpoint", async () => {
-    const { t, vaultId } = await createCloudflareConnectedVault();
-    const fetchMock = stubExistingWorkersProvider({ portal: "/" });
-    const now = Date.now();
-    await t.run(async (ctx) => {
-      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-        vaultId,
-        owner: {
-          kind: "manual_provider_write",
-          actionId: "worker-collision",
-          target: {
-            action: "create_cloudflare_worker",
-            state: "requested",
-            accountId,
-            workerName: "portal",
-            rootDirectory: "/",
-          },
-          expiresAt: now,
-        },
-        state: "recovering",
-        recoveryAttemptId: "worker-collision-attempt",
-        recoveryDeadlineAt: now + 5 * 60 * 1_000,
-        recoveryLeaseExpiresAt: now + 11 * 60 * 1_000,
-        lastWriteAt: {},
-        updatedAt: now,
-      });
-    });
-
-    await expect(
-      t.action(internal.vault.cloudflare.recoverManualCloudflareProviderWrite, {
-        vaultId,
-        actionId: "worker-collision",
-        recoveryAttemptId: "worker-collision-attempt",
-      }),
-    ).rejects.toThrow(
-      "Cloudflare Worker portal exists, but this provider write did not record its identity. Delete that Worker in Cloudflare, then use Retry.",
-    );
-    expect(
-      fetchMock.mock.calls.some(([input]) => input instanceof Request && input.method === "POST"),
-    ).toBe(false);
-    await expect(
-      t.run(
-        async (ctx) =>
-          await ctx.db
-            .query("workflow_vaultProvisioning_writeLocks")
-            .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-            .unique(),
-      ),
-    ).resolves.toMatchObject({
-      state: "recovery_required",
-      owner: { kind: "manual_provider_write", actionId: "worker-collision" },
-    });
-    await expect(
-      t.run(async (ctx) => await ctx.db.query("vaultCloudflareWorkers").collect()),
-    ).resolves.toEqual([]);
-  });
-
-  it("recovers an interrupted Worker connection with the same action and no second initial build", async () => {
-    const { asUser, t, vaultId } = await createCloudflareConnectedVault();
-    const provider = stubRecoverableConnectWorkerProvider();
-    vi.useFakeTimers();
-    vi.setSystemTime(1_000);
-    try {
-      await expect(
-        asUser.action(api.vault.cloudflare.connectWorker, {
-          vaultId,
-          accountId,
-          workerName: "portal",
-          workerTag: "portal-tag",
-          rootDirectory: "apps/portal",
-        }),
-      ).resolves.toMatchObject({
-        state: "added_with_notice",
-      });
-      const active = await t.run(
-        async (ctx) =>
-          await ctx.db
-            .query("workflow_vaultProvisioning_writeLocks")
-            .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-            .unique(),
-      );
-      expect(active).toMatchObject({
-        owner: {
-          kind: "manual_provider_write",
-          target: { action: "connect_cloudflare_worker" },
-        },
-        state: "active",
-      });
-      if (!active || active.owner.kind !== "manual_provider_write") {
-        throw new Error("Expected an active manual provider write.");
-      }
-      const actionId = active.owner.actionId;
-
-      vi.setSystemTime(active.owner.expiresAt);
-      await t.mutation(internal.vault.infrastructureOperation.enterManualProviderWriteRecovery, {
-        vaultId,
-        actionId,
-      });
-      const recovery = await t.run(
-        async (ctx) =>
-          await ctx.db
-            .query("workflow_vaultProvisioning_writeLocks")
-            .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-            .unique(),
-      );
-      if (!recovery || recovery.state !== "recovering") {
-        throw new Error("Expected an active manual provider recovery.");
-      }
-      vi.clearAllTimers();
-      vi.setSystemTime(recovery.recoveryDeadlineAt - 1);
-      await t.action(internal.vault.cloudflare.recoverManualCloudflareProviderWrite, {
-        vaultId,
-        actionId,
-        recoveryAttemptId: recovery.recoveryAttemptId,
-      });
-
-      await expect(
-        t.run(
-          async (ctx) =>
-            await ctx.db
-              .query("workflow_vaultProvisioning_writeLocks")
-              .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-              .unique(),
-        ),
-      ).resolves.toMatchObject({
-        owner: {
-          kind: "manual_provider_write",
-          actionId,
-        },
-        state: "succeeded",
-        lastWriteAt: { cloudflare: expect.any(Number) },
-      });
-      expect(provider.readInitialBuildCount()).toBe(0);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("recovers an interrupted deploy-key rotation with the same action", async () => {
-    const { asUser, t, userId, vaultId } = await createCloudflareConnectedVault();
-    const { convexProjectId, workerId } = await t.run(async (ctx) => {
-      await ctx.db.insert("providerConnections", {
-        kind: "convex",
-        userId,
-        auth: { method: "api_key", credential: "convex-token" },
-        teamId: "1000",
-        teamSlug: "ada-team",
-        createdAt: 1,
-        updatedAt: 1,
-      });
-      const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
-        vaultId,
-        userId,
-        teamId: "1000",
-        projectId: "1001",
-        convexConfigPath: "convex.json",
-        origin: "selected_existing",
-      });
-      const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
-        vaultId,
-        userId,
-        accountId,
-        workerName: "portal",
-        workerTag: "portal-tag",
-        origin: "selected_existing",
-      });
-      return { convexProjectId, workerId };
-    });
-    const provider = stubRecoverableDeployKeyRotationProvider();
-    vi.useFakeTimers();
-    vi.setSystemTime(1_000);
-    try {
-      await expect(
-        asUser.action(api.vault.cloudflare.rotateConvexDeployKeysForWorkersBuilds, {
-          vaultId,
-          workerId,
-          convexProjectId,
-        }),
-      ).rejects.toThrow();
-      const active = await t.run(
-        async (ctx) =>
-          await ctx.db
-            .query("workflow_vaultProvisioning_writeLocks")
-            .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-            .unique(),
-      );
-      expect(active).toMatchObject({
-        owner: {
-          kind: "manual_provider_write",
-          target: { action: "rotate_convex_deploy_keys_for_workers_builds" },
-        },
-        state: "active",
-      });
-      if (!active || active.owner.kind !== "manual_provider_write") {
-        throw new Error("Expected an active manual provider write.");
-      }
-      const actionId = active.owner.actionId;
-
-      vi.setSystemTime(active.owner.expiresAt);
-      await t.mutation(internal.vault.infrastructureOperation.enterManualProviderWriteRecovery, {
-        vaultId,
-        actionId,
-      });
-      const recovery = await t.run(
-        async (ctx) =>
-          await ctx.db
-            .query("workflow_vaultProvisioning_writeLocks")
-            .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-            .unique(),
-      );
-      if (!recovery || recovery.state !== "recovering") {
-        throw new Error("Expected an active manual provider recovery.");
-      }
-      vi.clearAllTimers();
-      vi.setSystemTime(recovery.recoveryDeadlineAt - 1);
-      await t.action(internal.vault.cloudflare.recoverManualCloudflareProviderWrite, {
-        vaultId,
-        actionId,
-        recoveryAttemptId: recovery.recoveryAttemptId,
-      });
-
-      await expect(
-        t.run(
-          async (ctx) =>
-            await ctx.db
-              .query("workflow_vaultProvisioning_writeLocks")
-              .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-              .unique(),
-        ),
-      ).resolves.toMatchObject({
-        owner: {
-          kind: "manual_provider_write",
-          actionId,
-        },
-        state: "succeeded",
-        lastWriteAt: {
-          convex: expect.any(Number),
-          cloudflare: expect.any(Number),
-        },
-      });
-      expect(provider.readProductionKeyCreateCount()).toBe(2);
-      expect(provider.readPreviewKeyCreateCount()).toBe(2);
-    } finally {
-      vi.useRealTimers();
-    }
   });
 
   it("rejects the whole selection when one live Worker placement becomes ambiguous", async () => {

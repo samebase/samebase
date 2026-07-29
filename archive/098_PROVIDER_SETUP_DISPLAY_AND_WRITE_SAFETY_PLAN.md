@@ -22,9 +22,11 @@ current contracts are in the specs above, with code and tests as the first autho
 
 The implemented direction kept Overview and Settings available, showed planned provider resources,
 used one vault-level infrastructure operation gate in the backend, and made one fresh provider read
-after a known write. Manual write recovery uses one leased attempt and one exact Retry action. The
-write-lock table moved directly to its final schema because deployment requires the table to be
-empty. There is no compatibility or migration path.
+after a known or expired write. A silent manual write ends through one fenced expiry. Samebase then
+uses live provider observations and the normal provider actions. It has no manual replay state,
+automatic provider replay, special Retry action, recovery lease, or stored replay target. The
+write-lock table moved directly to its final schema because deployment requires the table to contain
+zero rows. There is no compatibility or migration path.
 
 ## Evidence
 

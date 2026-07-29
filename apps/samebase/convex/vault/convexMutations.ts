@@ -311,68 +311,26 @@ export const recordManualProjectCreated = internalMutation({
     vaultId: id("vaults"),
     userId: id("users"),
     actionId: string(),
-    checkpoint: union(
-      object({ expectedState: literal("active") }),
-      object({
-        expectedState: literal("recovering"),
-        recoveryAttemptId: string(),
-      }),
-    ),
     teamId: string(),
     projectId: string(),
+    codeLocation: vConvexCodeLocation,
   },
   returns: id("vaultConvexProjects"),
   handler: async (ctx, args): Promise<Id<"vaultConvexProjects">> => {
-    const write = await requireManualProviderWriteCheckpoint(ctx, {
+    await requireManualProviderWriteCheckpoint(ctx, {
       vaultId: args.vaultId,
       userId: args.userId,
       actionId: args.actionId,
       action: "create_convex_project",
-      ...args.checkpoint,
     });
-    const target = write.owner.target;
-    if (target.action !== "create_convex_project") {
-      throw new Error("Manual Convex project target changed.");
-    }
-    if (
-      target.state === "created" &&
-      (target.teamId !== args.teamId || target.projectId !== args.projectId)
-    ) {
-      throw new Error("Manual Convex project checkpoint already names another project.");
-    }
-    const codeLocation: ConvexCodeLocation =
-      target.codeLocation.kind === "config"
-        ? {
-            kind: "config",
-            convexConfigPath: target.codeLocation.convexConfigPath,
-          }
-        : {
-            kind: "directory",
-            convexDirectoryPath: target.codeLocation.convexDirectoryPath,
-          };
-    const convexProjectId = await insertProject(ctx, {
+    return await insertProject(ctx, {
       vaultId: args.vaultId,
       userId: args.userId,
       teamId: args.teamId,
       projectId: args.projectId,
-      codeLocation,
+      codeLocation: args.codeLocation,
       origin: "provisioned",
     });
-    await ctx.db.patch(write._id, {
-      owner: {
-        ...write.owner,
-        target: {
-          action: "create_convex_project",
-          state: "created",
-          projectName: target.projectName,
-          codeLocation: target.codeLocation,
-          teamId: args.teamId,
-          projectId: args.projectId,
-        },
-      },
-      updatedAt: Date.now(),
-    });
-    return convexProjectId;
   },
 });
 

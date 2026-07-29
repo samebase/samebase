@@ -398,33 +398,24 @@ export const recordManualConnectedWorker = internalMutation({
     vaultId: id("vaults"),
     userId: id("users"),
     actionId: string(),
-    checkpoint: union(
-      object({ expectedState: literal("active") }),
-      object({
-        expectedState: literal("recovering"),
-        recoveryAttemptId: string(),
-      }),
-    ),
+    accountId: string(),
+    workerName: string(),
+    workerTag: string(),
   },
   returns: id("vaultCloudflareWorkers"),
   handler: async (ctx, args): Promise<Id<"vaultCloudflareWorkers">> => {
-    const write = await requireManualProviderWriteCheckpoint(ctx, {
+    await requireManualProviderWriteCheckpoint(ctx, {
       vaultId: args.vaultId,
       userId: args.userId,
       actionId: args.actionId,
       action: "connect_cloudflare_worker",
-      ...args.checkpoint,
     });
-    const target = write.owner.target;
-    if (target.action !== "connect_cloudflare_worker") {
-      throw new Error("Manual Cloudflare Worker target changed.");
-    }
     return await insertWorker(ctx, {
       vaultId: args.vaultId,
       userId: args.userId,
-      accountId: target.accountId,
-      workerName: target.workerName,
-      workerTag: target.workerTag,
+      accountId: args.accountId,
+      workerName: args.workerName,
+      workerTag: args.workerTag,
       origin: "selected_existing",
     });
   },
@@ -435,54 +426,26 @@ export const recordManualWorkerCreated = internalMutation({
     vaultId: id("vaults"),
     userId: id("users"),
     actionId: string(),
-    checkpoint: union(
-      object({ expectedState: literal("active") }),
-      object({
-        expectedState: literal("recovering"),
-        recoveryAttemptId: string(),
-      }),
-    ),
+    accountId: string(),
+    workerName: string(),
     workerTag: string(),
   },
   returns: id("vaultCloudflareWorkers"),
   handler: async (ctx, args): Promise<Id<"vaultCloudflareWorkers">> => {
-    const write = await requireManualProviderWriteCheckpoint(ctx, {
+    await requireManualProviderWriteCheckpoint(ctx, {
       vaultId: args.vaultId,
       userId: args.userId,
       actionId: args.actionId,
       action: "create_cloudflare_worker",
-      ...args.checkpoint,
     });
-    const target = write.owner.target;
-    if (target.action !== "create_cloudflare_worker") {
-      throw new Error("Manual Cloudflare Worker target changed.");
-    }
-    if (target.state === "created" && target.workerTag !== args.workerTag) {
-      throw new Error("Manual Cloudflare Worker checkpoint already names another Worker.");
-    }
-    const workerId = await insertWorker(ctx, {
+    return await insertWorker(ctx, {
       vaultId: args.vaultId,
       userId: args.userId,
-      accountId: target.accountId,
-      workerName: target.workerName,
+      accountId: args.accountId,
+      workerName: args.workerName,
       workerTag: args.workerTag,
       origin: "provisioned",
     });
-    await ctx.db.patch(write._id, {
-      owner: {
-        ...write.owner,
-        target: {
-          action: "create_cloudflare_worker",
-          state: "created",
-          accountId: target.accountId,
-          workerName: target.workerName,
-          workerTag: args.workerTag,
-          rootDirectory: target.rootDirectory,
-        },
-      },
-      updatedAt: Date.now(),
-    });
-    return workerId;
   },
 });
 

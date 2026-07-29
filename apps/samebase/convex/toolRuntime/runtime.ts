@@ -17,14 +17,12 @@ import {
 import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub";
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
-import { retryProviderWriteRecoveryContract } from "../vault/contracts/retryProviderWriteRecovery";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 import { buildAgentBrowserHandoffUrl } from "../../shared/agentBrowserHandoff";
 import {
   createAppForUser,
   connectRepositoryForUser,
   retryInfrastructureProvisioningForUser,
-  retryProviderWriteRecoveryForUser,
 } from "../vault/actions";
 import { attachExistingProjectsForUser, discoverProjectsForUser } from "../vault/convex";
 import {
@@ -483,49 +481,6 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsTool = internalActi
 });
 
 // Current provider state is observed live; there is no verification mutation tool.
-
-const retryProviderWriteRecoveryToolResultValidator = object({
-  status: toolStatus,
-  text: string(),
-  structuredContent: optional(nullValue()),
-});
-type RetryProviderWriteRecoveryToolResult = Infer<
-  typeof retryProviderWriteRecoveryToolResultValidator
->;
-
-export const retryProviderWriteRecoveryTool = internalAction({
-  args: object({
-    userId: id("users"),
-    grantedScopes: array(string()),
-    ...retryProviderWriteRecoveryContract.args,
-  }),
-  returns: retryProviderWriteRecoveryToolResultValidator,
-  handler: async (
-    ctx,
-    { grantedScopes, ...retryArgs },
-  ): Promise<RetryProviderWriteRecoveryToolResult> => {
-    if (!mcpScopeAllowsAccess(retryProviderWriteRecoveryContract.access, grantedScopes)) {
-      return {
-        status: "blocked",
-        text: `Insufficient scope for ${retryProviderWriteRecoveryContract.mcp.name}.`,
-      };
-    }
-
-    try {
-      await retryProviderWriteRecoveryForUser(ctx, retryArgs);
-      return {
-        status: "ok",
-        text: "Retried provider recovery.",
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Tool execution failed.";
-      return {
-        status: "error",
-        text: message,
-      };
-    }
-  },
-});
 
 const retryInfrastructureProvisioningToolResultValidator = object({
   status: toolStatus,

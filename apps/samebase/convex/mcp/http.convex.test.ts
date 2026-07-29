@@ -188,14 +188,6 @@ describe("MCP tool listing access", () => {
         },
       }),
       expect.objectContaining({
-        name: "vault_actions_retryProviderWriteRecovery",
-        annotations: {
-          readOnlyHint: false,
-          openWorldHint: true,
-          destructiveHint: true,
-        },
-      }),
-      expect.objectContaining({
         name: "vault_actions_retryInfrastructureProvisioning",
         annotations: {
           readOnlyHint: false,
@@ -306,9 +298,6 @@ describe("MCP usage attribution dimensions", () => {
     expect(
       readMcpToolNameForUsage({ name: "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds" }),
     ).toBe("vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds");
-    expect(readMcpToolNameForUsage({ name: "vault_actions_retryProviderWriteRecovery" })).toBe(
-      "vault_actions_retryProviderWriteRecovery",
-    );
     expect(readMcpToolNameForUsage({ name: "vault_actions_retryInfrastructureProvisioning" })).toBe(
       "vault_actions_retryInfrastructureProvisioning",
     );

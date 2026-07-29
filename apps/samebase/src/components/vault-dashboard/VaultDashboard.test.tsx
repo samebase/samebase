@@ -993,7 +993,6 @@ describe("VaultOverviewPage", () => {
           attentionResources: [],
           pendingResources: [],
           providerActionBlockReason: "A provider operation is in progress.",
-          providerRecoveryAction: null,
           roots: [
             {
               rootDirectory: "/",
@@ -2019,6 +2018,58 @@ describe("buildVaultRepositorySettingsState", () => {
         state: "loading",
       },
     ]);
+  });
+
+  it("does not show raw Convex identifiers while fresh provider data is loading", () => {
+    const convexProjectId = fakeConvexProjectId("convex-checking");
+    const rawProjectId = "raw-convex-project-id";
+    const rawTeamId = "raw-convex-team-id";
+    const state = buildVaultRepositorySettingsState({
+      cloudflareObservations: makeLoadedCloudflareObservations({
+        workers: [],
+        builds: [],
+        convexBuildAccess: [],
+      }),
+      connectedCloudflareAccount: undefined,
+      pendingAction: null,
+      convexObservations: { state: "checking" },
+      vault: makeRepositorySettingsBuilderVault({
+        providerPlan: {
+          convexConfigPath: "convex.json",
+          convex: {
+            state: "created",
+            projectName: "readable-convex-name",
+            teamId: rawTeamId,
+            projectId: rawProjectId,
+          },
+          cloudflare: {
+            state: "created",
+            accountId: "cloudflare-account",
+            workerName: "readable-worker-name",
+            workerTag: "readable-worker-tag",
+            rootDirectory: "/",
+          },
+        },
+        convexProjects: [
+          makeRepositorySettingsConvexProject({
+            convexProjectId,
+            projectId: rawProjectId,
+            teamId: rawTeamId,
+          }),
+        ],
+      }),
+    });
+    const resource = getRepositorySettingsResource(state, "/", "convex");
+
+    expect(resource).toMatchObject({
+      description: "Checking",
+      name: "readable-convex-name",
+      provider: "convex",
+      state: "checking",
+    });
+    expect(resource.owner).toBeUndefined();
+    expect(JSON.stringify(resource)).not.toContain(rawProjectId);
+    expect(JSON.stringify(resource)).not.toContain(rawTeamId);
   });
 
   it("disables every provider write while a local provider action is pending", () => {

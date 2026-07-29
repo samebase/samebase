@@ -110,7 +110,7 @@ A vault is quiescent for deletion when:
 1. the vault has no active deletion gate
 2. source setup is not running: the vault is connected or failed, but not provisioning
 3. no `workflow_vaultProvisioning_runs` row for the vault is `queued` or `running`
-4. no manual provider write owner is `active`, `recovery_required`, or `recovering`
+4. no manual provider write owner is `active`
 
 The dashboard should disable delete with a short reason while a vault is not quiescent. A direct
 selected-vault `?delete` URL, such as `/vault/samebase/samebase?delete`, for a non-quiescent vault
@@ -833,5 +833,4 @@ Frontend:
 9. The vault row is deleted once, last.
 10. Failed deletion leaves a retryable visible state.
 11. Repo-backed writers fail closed while deletion is active or failed.
-12. Managed setup, manual provider writes, and manual recovery cannot start after deletion claims
-    the vault.
+12. Managed setup and manual provider writes cannot start after deletion claims the vault.

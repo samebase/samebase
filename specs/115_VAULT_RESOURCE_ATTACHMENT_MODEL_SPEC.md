@@ -90,6 +90,12 @@ returns. During `Checking`, the older observation cannot create attention or rep
 new result becomes current, including a provider read failure. This is one bounded read, not
 continuous polling.
 
+An active manual provider write suppresses conflicting attachment and repair actions. Success,
+error, or fenced expiry ends that block. Expiry advances the affected provider write times before
+the dashboard derives a next action. After the fresh observation returns, the dashboard uses the
+normal attachment or repair action for that observed state. Provider observations do not carry a
+manual replay state.
+
 The dashboard derives a resource tree at read time:
 
 - a Convex project's root is the parent directory of `convexConfigPath` or `convexDirectoryPath`;

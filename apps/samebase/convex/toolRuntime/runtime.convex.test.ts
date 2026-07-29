@@ -179,19 +179,6 @@ describe("toolRuntime scope enforcement", () => {
       text: "Insufficient scope for vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds.",
     });
 
-    const retryProviderWriteRecovery = await t.action(
-      internal.toolRuntime.runtime.retryProviderWriteRecoveryTool,
-      {
-        userId,
-        grantedScopes,
-        vaultId,
-      },
-    );
-    expect(retryProviderWriteRecovery).toMatchObject({
-      status: "blocked",
-      text: "Insufficient scope for vault_actions_retryProviderWriteRecovery.",
-    });
-
     const retry = await t.action(internal.toolRuntime.runtime.retryInfrastructureProvisioningTool, {
       userId,
       grantedScopes,

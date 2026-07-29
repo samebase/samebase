@@ -92,18 +92,33 @@ This table stores the current or most recent infrastructure write for one vault.
 of:
 
 - `{ kind: "managed_run", runId }`
-- `{ kind: "manual_provider_write", actionId, target, expiresAt }`
+- `{ kind: "manual_provider_write", actionId, action, expiresAt }`
 
-A managed owner can be `active`, `succeeded`, or `failed`. A manual owner can also be
-`recovery_required` or `recovering`. Only an active managed owner or a manual owner in `active`,
-`recovery_required`, or `recovering` state blocks another infrastructure write.
+An owner can be `active`, `succeeded`, or `failed`. Only `active` blocks another infrastructure
+write. A manual owner stores one manual action name from a fixed list. The action maps to the
+provider observation times that can change:
+
+- `create_convex_project`: Convex
+- `connect_cloudflare_worker`, `create_cloudflare_worker`, and
+  `configure_workers_builds_for_github`: Cloudflare
+- `rotate_convex_deploy_keys_for_workers_builds`: Convex and Cloudflare
+
+The owner does not store provider targets or replay input. It stores one expiry at 10 minutes. The
+action derives a 5-minute call limit from that expiry. After 5 minutes, it must not start another
+provider call. An in-flight provider call can return and record its result before the owner expires
+at 10 minutes. There is no second stored expiry.
 
 `lastWriteAt.convex` and `lastWriteAt.cloudflare` are independent optional times. Samebase updates
-one of these times only when the matching provider write gets a known result. A write to one
-provider must not clear the other provider time.
+one of these times when the matching provider state can have changed. A write to one provider must
+not clear the other provider time.
 
 The provisioning plan is durable retry input. It is not an active operation and does not block a
 manual write by itself.
+
+Deployment has one destructive precondition. The target deployment must contain zero rows in
+`workflow_vaultProvisioning_writeLocks` before this table shape is deployed. If one or more rows
+exist, the operator must stop the deployment and clear them first. Product code has no compatibility
+reader, data migration, or fallback for an older row shape.
 
 ### `vaultConvexProjects`
 
@@ -257,8 +272,10 @@ Repository default branch:
 
 - Returns: stable attachments, the managed `providerPlan`, and the vault `providerWrite` summary for
   the authenticated user
-- `providerWrite` returns its status, owner, affected providers, update time, and independent
-  provider write times. Its idle variant returns the provider write times only.
+- An active `providerWrite` returns its owner, affected providers, update time, and independent
+  provider write times. An idle summary returns the provider write times only. The dashboard
+  projects terminal lock rows as idle because they are fencing and refresh evidence, not current
+  provider state.
 
 4. `api.vault.providerObservations.observeCloudflareWorkers`
 
@@ -362,19 +379,27 @@ sequenceDiagram
 - A database-only attachment change checks the operation and changes the attachment in one
   transaction.
 - An external provider write claims the manual owner before its first provider call. The action
-  records the known result and affected provider times before it releases the block.
-- A manual action has a five-minute action deadline and a ten-minute owner expiry. At owner expiry,
-  Samebase starts one leased `recovering` attempt for the same action ID. A user can also start one
-  leased attempt from `recovery_required` with Retry. The attempt has a five-minute action deadline
-  and an eleven-minute lease. An error or an expired lease returns the exact attempt to
-  `recovery_required`. A late, concurrent, or replaced attempt cannot call a later provider, record
-  a checkpoint, or complete.
+  records success or error and affected provider times before it ends the block.
+- A bookkeeping error must not replace the provider error. If a create call starts but the local
+  resource checkpoint fails, the error tells the user that the provider resource can exist and names
+  the normal inspect and attach action.
+- A manual action stops starting provider calls 5 minutes after it claims the owner. The owner
+  expires 10 minutes after the claim. This gap lets an in-flight provider call return and record its
+  result before expiry. Only the 10-minute expiry is stored and scheduled.
+- The scheduled mutation checks the exact action ID, expiry, and `active` state. If they still
+  match, it marks the action `failed` and advances the provider times mapped from the stored action.
+  A replaced or terminal owner does not change.
+- Expiry never calls a provider. It does not replay an action, adopt a resource, run compensation,
+  or create another recovery state. After the fresh provider observations return, the user or agent
+  uses the normal create, attach, configure, or repair action for the observed state.
+- A late action result cannot change an expired or replaced owner.
 - `workflow_vaultProvisioning_runs` and `workflow_vaultProvisioning_events` record managed app
   creation and retry progress. Explicit manual provider attachment does not create a Workflow run.
 
 The dashboard derives control state from `getUserVaults`. Backend mutations use the shared reader to
 reject conflicts. There is no separate command-availability API, generic provider framework,
-resource-level lock, manual-action Workflow run, or manual-action history table.
+resource-level lock, manual-action Workflow run, manual-action history table, manual replay API, or
+manual Retry API.
 
 ## UI Surface
 
@@ -467,7 +492,9 @@ Dashboard external links:
 - [x] Managed vault dashboard cards expose direct Cloudflare project and Convex deployment links
       when the stored infrastructure metadata is available.
 - [x] A plan without an active managed run does not block a manual provider action.
-- [x] Managed setup, manual writes, recovery, and deletion reject conflicting vault infrastructure
+- [x] Managed setup, active manual writes, and deletion reject conflicting vault infrastructure
       writes in the backend.
 - [x] An old manual action ID cannot complete or clear a newer owner.
+- [x] One fenced expiry ends a silent manual action and requests fresh affected-provider
+      observations without replay.
 - [x] Provider-specific write times cause one fresh observation read without continuous polling.
