@@ -84,7 +84,7 @@ For a server-rendered Cloudflare application, the spike must prove:
 - Convex access in the correct environment
 - static assets
 - the build and Worker upload path
-- a required client-bundle privacy scan
+- a required client-module boundary and client-output privacy scan
 - no production traffic
 
 Stop and return to the decision record if the spike changes product behavior or requires an unsafe
@@ -94,6 +94,11 @@ Return exact redirect and unavailable responses from request middleware when the
 preserve an empty HTTP body. A server function can serialize a thrown response through its transport
 and change the result. Keep the authorization check in the server function too, even when request
 middleware already protects the document.
+
+For private source files, block their directory from the client module graph. Then scan the emitted
+client output with transformation-resistant fingerprints as an independent control. Comparing only
+the original JSON text and its compact serialization is not sufficient because a bundler can convert
+the same records to JavaScript object literals.
 
 ## Keep Preview Terms Exact
 

@@ -91,39 +91,40 @@ The first read-only inventory found:
 
 Record each question that the project worker cannot answer from Bristol and the portable rules.
 
-| ID        | Question                                                           | Routed source | Answer given                                                              | Project adaptation                    | Validation              |
-| --------- | ------------------------------------------------------------------ | ------------- | ------------------------------------------------------------------------- | ------------------------------------- | ----------------------- |
-| BRIS-Q001 | Must an anonymous worktree have an isolated Convex backend?        | Samebase      | yes, a local anonymous backend                                            | use an isolated Bristol local backend | source review           |
-| BRIS-Q002 | What command prepares a fresh Samebase linked worktree?            | Samebase      | `pnpm dev --once`                                                         | use `npm run dev -- --once`           | worker review           |
-| BRIS-Q003 | What safe user and synthetic application data does setup create?   | Samebase      | one approved auth user, no application data                               | add a Bristol-owned synthetic seed    | source review           |
-| BRIS-Q004 | How are branch build, Worker version, and Convex preview owned?    | Samebase      | separate provider resources tied to one branch                            | design pending                        | source review           |
-| BRIS-Q005 | How does preview cleanup prove exact ownership and absence?        | Samebase      | exact version and Convex preview identity, with an absence-proof gap      | design pending                        | source review           |
-| BRIS-Q006 | Which package-script names are stable operator actions?            | Samebase      | verb plus mode or scope                                                   | keep one setup-aware `dev` interface  | worker review           |
-| BRIS-Q007 | Does TanStack Start have an official Cloudflare SSR path?          | public docs   | yes, through the Cloudflare Vite plugin                                   | official path implemented             | version upload passes   |
-| BRIS-Q008 | Does Convex Auth have a supported TanStack authenticated-SSR path? | public docs   | no complete official guide                                                | keep a Bristol-owned session bridge   | real auth proof pending |
-| BRIS-Q009 | What mutation pattern is safe for browser acceptance?              | Samebase      | create a unique temporary item and delete it in `finally`                 | use synthetic preview data only       | source review           |
-| BRIS-Q010 | Which Samebase parts cannot be copied?                             | Samebase      | auth, vault, provider, dashboard, and cleanup implementations are private | reimplement only the proven contract  | license review          |
-| BRIS-Q011 | How should Convex authorization be tested without a live backend?  | public docs   | use `convex-test` with authenticated and anonymous identities             | test every public data function       | 26 checks pass          |
-| BRIS-Q012 | When can a private browser cache resume after sign-out or reload?  | Bristol       | only after a valid session clears old persistent data                     | start paused and clear before resume  | race tests pass         |
+| ID        | Question                                                           | Routed source  | Answer given                                                              | Project adaptation                    | Validation              |
+| --------- | ------------------------------------------------------------------ | -------------- | ------------------------------------------------------------------------- | ------------------------------------- | ----------------------- |
+| BRIS-Q001 | Must an anonymous worktree have an isolated Convex backend?        | Samebase       | yes, a local anonymous backend                                            | use an isolated Bristol local backend | source review           |
+| BRIS-Q002 | What command prepares a fresh Samebase linked worktree?            | Samebase       | `pnpm dev --once`                                                         | use `npm run dev -- --once`           | worker review           |
+| BRIS-Q003 | What safe user and synthetic application data does setup create?   | Samebase       | one approved auth user, no application data                               | add a Bristol-owned synthetic seed    | source review           |
+| BRIS-Q004 | How are branch build, Worker version, and Convex preview owned?    | Samebase       | separate provider resources tied to one branch                            | design pending                        | source review           |
+| BRIS-Q005 | How does preview cleanup prove exact ownership and absence?        | Samebase       | exact version and Convex preview identity, with an absence-proof gap      | design pending                        | source review           |
+| BRIS-Q006 | Which package-script names are stable operator actions?            | Samebase       | verb plus mode or scope                                                   | keep one setup-aware `dev` interface  | worker review           |
+| BRIS-Q007 | Does TanStack Start have an official Cloudflare SSR path?          | public docs    | yes, through the Cloudflare Vite plugin                                   | official path implemented             | version upload passes   |
+| BRIS-Q008 | Does Convex Auth have a supported TanStack authenticated-SSR path? | public docs    | no complete official guide                                                | keep a Bristol-owned session bridge   | real auth proof pending |
+| BRIS-Q009 | What mutation pattern is safe for browser acceptance?              | Samebase       | create a unique temporary item and delete it in `finally`                 | use synthetic preview data only       | source review           |
+| BRIS-Q010 | Which Samebase parts cannot be copied?                             | Samebase       | auth, vault, provider, dashboard, and cleanup implementations are private | reimplement only the proven contract  | license review          |
+| BRIS-Q011 | How should Convex authorization be tested without a live backend?  | public docs    | use `convex-test` with authenticated and anonymous identities             | test every public data function       | 26 checks pass          |
+| BRIS-Q012 | When can a private browser cache resume after sign-out or reload?  | Bristol        | only after a valid session clears old persistent data                     | start paused and clear before resume  | race tests pass         |
+| BRIS-Q013 | How can a build prove transformed private JSON is absent?          | Bristol review | block source modules, then scan stable content fingerprints               | use two independent client gates      | deliberate import fails |
 
 ## Bidirectional Findings
 
-| ID       | Requirement                                       | Bristol evidence                                   | Samebase or shared evidence                               | Direction           | Validation         | Status    |
-| -------- | ------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------- | ------------------- | ------------------ | --------- |
-| BRIS-F01 | Complete generated tracked-file list              | PR #1313 added three tracked documents             | worktree setup regenerated the missing entries            | Samebase only       | generated diff     | ready     |
-| BRIS-F02 | Least-privilege build secrets                     | production and preview keys are split              | Samebase writes both keys to both triggers                | Bristol to Samebase | provider record    | candidate |
-| BRIS-F03 | Configuration must not promote                    | Bristol avoided the combined action                | Samebase key rotation starts production                   | Bristol to Samebase | source review      | candidate |
-| BRIS-F04 | Detect the repository package manager             | Bristol uses npm and the pnpm trigger failed       | adopted builds hard-code pnpm                             | Bristol to Samebase | failed build       | candidate |
-| BRIS-F05 | Support the real default branch                   | adopted repositories can use another name          | Samebase app build treats only `main` as production       | shared              | source review      | candidate |
-| BRIS-F06 | Distinguish source sync from staged edits         | Bristol inventory reported `fileCount: 0`          | `fileCount` counts staged Samebase edits                  | Samebase only       | source review      | candidate |
-| BRIS-F07 | Prove preview resource absence                    | a failed build can create no preview               | cleanup assumes every PR made both previews               | shared              | source review      | candidate |
-| BRIS-F08 | Authorize at the data boundary                    | all 13 public data functions now require auth      | Samebase route rules cannot protect Bristol functions     | Bristol only        | 26 checks pass     | ready     |
-| BRIS-F09 | Remove private browser data on sign-out           | cache starts paused and clears before resume       | portable safety rule now records the boundary             | Bristol first       | race tests pass    | ready     |
-| BRIS-F10 | Keep operator scripts stable during a spike       | `spike:*` owns the candidate path                  | production callers keep their current script names        | shared              | both builds pass   | ready     |
-| BRIS-F11 | Pin framework packages independently              | Start and Router use different compatible versions | Samebase also pins Start and Router to different versions | shared              | lockfile build     | candidate |
-| BRIS-F12 | Verify generated deploy configuration             | the upload wrapper checks its source config        | generated redirects can otherwise select stale output     | Bristol first       | dry run passes     | ready     |
-| BRIS-F13 | Put direct HTTP responses at the request boundary | request middleware returns `307` and `503`         | prior portable rules had no response-serialization rule   | Bristol first       | Workerd tests      | ready     |
-| BRIS-F14 | Make private-bundle checks mandatory              | build and upload both scan the client output       | an optional privacy command can be skipped                | Bristol first       | bundle scan passes | ready     |
+| ID       | Requirement                                       | Bristol evidence                                   | Samebase or shared evidence                               | Direction           | Validation              | Status    |
+| -------- | ------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------- | ------------------- | ----------------------- | --------- |
+| BRIS-F01 | Complete generated tracked-file list              | PR #1313 added three tracked documents             | worktree setup regenerated the missing entries            | Samebase only       | generated diff          | ready     |
+| BRIS-F02 | Least-privilege build secrets                     | production and preview keys are split              | Samebase writes both keys to both triggers                | Bristol to Samebase | provider record         | candidate |
+| BRIS-F03 | Configuration must not promote                    | Bristol avoided the combined action                | Samebase key rotation starts production                   | Bristol to Samebase | source review           | candidate |
+| BRIS-F04 | Detect the repository package manager             | Bristol uses npm and the pnpm trigger failed       | adopted builds hard-code pnpm                             | Bristol to Samebase | failed build            | candidate |
+| BRIS-F05 | Support the real default branch                   | adopted repositories can use another name          | Samebase app build treats only `main` as production       | shared              | source review           | candidate |
+| BRIS-F06 | Distinguish source sync from staged edits         | Bristol inventory reported `fileCount: 0`          | `fileCount` counts staged Samebase edits                  | Samebase only       | source review           | candidate |
+| BRIS-F07 | Prove preview resource absence                    | a failed build can create no preview               | cleanup assumes every PR made both previews               | shared              | source review           | candidate |
+| BRIS-F08 | Authorize at the data boundary                    | all 13 public data functions now require auth      | Samebase route rules cannot protect Bristol functions     | Bristol only        | 26 checks pass          | ready     |
+| BRIS-F09 | Remove private browser data on sign-out           | cache starts paused and clears before resume       | portable safety rule now records the boundary             | Bristol first       | race tests pass         | ready     |
+| BRIS-F10 | Keep operator scripts stable during a spike       | `spike:*` owns the candidate path                  | production callers keep their current script names        | shared              | both builds pass        | ready     |
+| BRIS-F11 | Pin framework packages independently              | Start and Router use different compatible versions | Samebase also pins Start and Router to different versions | shared              | lockfile build          | candidate |
+| BRIS-F12 | Verify generated deploy configuration             | the upload wrapper checks its source config        | generated redirects can otherwise select stale output     | Bristol first       | dry run passes          | ready     |
+| BRIS-F13 | Put direct HTTP responses at the request boundary | request middleware returns `307` and `503`         | prior portable rules had no response-serialization rule   | Bristol first       | Workerd tests           | ready     |
+| BRIS-F14 | Make private-bundle checks mandatory              | client graph block plus output fingerprints        | exact source serialization changes during bundling        | Bristol first       | deliberate import fails | ready     |
 
 ## Characterization Test Plan
 
@@ -246,8 +247,8 @@ The spike proves these boundaries:
 4. the protected server function checks the session again
 5. `/api/get_raw` keeps its exact disabled `400` response
 6. PWA assets remain available and generated assets use an immutable cache header
-7. the required bundle scan finds neither the synthetic private canary nor a complete private year
-   document in the client output
+7. the client build rejects every module under `src/data`, then an independent fingerprint scan
+   finds neither the synthetic private canary nor transformed private records in the output
 8. the version upload command rebuilds first, runs the bundle scan, removes Convex deploy keys,
    verifies the generated Wrangler configuration belongs to the spike, and cannot override the
    Worker name or configuration
@@ -280,6 +281,14 @@ still disabled.
 An independent review found no remaining blockers for a non-promoted version upload. The full
 framework migration is not approved yet. It still needs a real authenticated Convex SSR proof and an
 isolated synthetic preview bootstrap.
+
+A later Codex pull request review found that the first output scan compared only the original and
+compact JSON serializations. Vite can convert JSON to JavaScript object literals, so that scan could
+miss the same private records after transformation. Bristol commit
+`664a87b73b07c4db2a8bd60e3fa7709b3299dae1` adds a client-only module-graph block as the primary
+control and stable content fingerprints as an independent output control. A deliberate client import
+of a real year module failed before output, and synthetic tests prove the fingerprint detects the
+transformed object-literal shape without printing private values.
 
 ### Recommended Development Interface
 
