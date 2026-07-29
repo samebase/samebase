@@ -4,7 +4,7 @@
   "app_info": {
     "display_name": "Samebase",
     "subtitle": "Build and ship web apps",
-    "description": "Build and ship web apps in the user's GitHub, Convex, and Cloudflare accounts. Samebase creates, connects, configures, and inspects provider resources through MCP. Bundled skills guide the coding agent through repository setup, implementation, validation, and deployment.",
+    "description": "Build and ship web apps in the user's GitHub, Convex, and Cloudflare accounts. Samebase creates, connects, configures, and inspects provider resources through MCP. One bundled skill guides the coding agent through repository setup, implementation, validation, and deployment.",
     "category": "DEVELOPER_TOOLS"
   },
   "tools": {
@@ -123,9 +123,9 @@
         "destructiveHint": true
       },
       "justifications": {
-        "read_only_justification": "Creates or updates the app's own Workers Builds production and preview triggers connecting its Worker to its repository, and may create a Workers Builds API token under API-key auth.",
-        "open_world_justification": "Creates or patches build triggers on the caller's own Cloudflare account for the caller's own repository.",
-        "destructive_justification": "May overwrite the app's existing production and preview build trigger configuration, including repository roots and commands. It does not delete user data, repositories, deployments, or Workers."
+        "read_only_justification": "Creates or updates the app's own Workers Builds production and preview triggers, may create a Workers Builds API token under API-key auth, and starts a production build.",
+        "open_world_justification": "Creates or patches build triggers on the caller's own Cloudflare account for the caller's own repository, then starts a production build.",
+        "destructive_justification": "May overwrite the app's existing production and preview build trigger configuration, including repository roots and commands, before starting a production build. It does not delete user data, repositories, deployments, or Workers."
       }
     },
     "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds": {
@@ -135,9 +135,9 @@
         "destructiveHint": true
       },
       "justifications": {
-        "read_only_justification": "Rotates the app's Convex deploy keys and writes them into its Workers Builds trigger variables.",
-        "open_world_justification": "Creates deploy keys on the caller's Convex deployment and sets variables on the caller's Cloudflare build triggers.",
-        "destructive_justification": "Rotates the app's own build deploy keys: previously recorded keys are deleted once replacements are installed, and its own new keys are cleaned up on failure. Does not delete user data, deployments, or Workers."
+        "read_only_justification": "Rotates the app's Convex deploy keys, writes them into its Workers Builds trigger variables, and starts a production build.",
+        "open_world_justification": "Creates deploy keys on the caller's Convex deployment, sets variables on the caller's Cloudflare build triggers, and starts a production build.",
+        "destructive_justification": "Rotates the app's own build deploy keys: previously recorded keys are deleted once replacements are installed, and its own new keys are cleaned up on failure. It then starts a production build. It does not delete user data, deployments, or Workers."
       }
     },
     "vault_actions_retryInfrastructureProvisioning": {
@@ -168,7 +168,7 @@
   "test_cases": [
     {
       "description": "Confirm the submitted reviewer credentials resolve to the prepared Samebase demo account.",
-      "user_prompt": "Am I connected to Samebase? Report the authenticated account, role, and granted MCP scope names. Do not make changes.",
+      "user_prompt": "Am I connected to Samebase? Report the authenticated account, role, and granted MCP scope names. Do not change GitHub, Convex, or Cloudflare resources.",
       "file_attachment_urls": null,
       "tools_triggered": "samebase_auth_getAuthenticationStatus",
       "expected_output": "Confirms the reviewer account is authenticated, reports its email, role, and granted scope names, and does not expose tokens or internal account IDs.",
@@ -176,7 +176,7 @@
     },
     {
       "description": "Inspect the existing Samebase apps already prepared in the reviewer demo account.",
-      "user_prompt": "List my Samebase apps. For each app, report its repository, default branch when known, source setup state, provider setup state, attached Convex projects, and attached Cloudflare Workers. Do not make changes.",
+      "user_prompt": "List my Samebase apps. For each app, report its repository, default branch when known, source setup state, provider setup state, attached Convex projects, and attached Cloudflare Workers. Do not change GitHub, Convex, or Cloudflare resources.",
       "file_attachment_urls": null,
       "tools_triggered": "vault_dashboard_getUserVaults",
       "expected_output": "Returns one summary per visible app using repository coordinates, default branch, independent source and provider states, and stable attached-resource names or identifiers. It does not claim live provider state or provider URLs.",

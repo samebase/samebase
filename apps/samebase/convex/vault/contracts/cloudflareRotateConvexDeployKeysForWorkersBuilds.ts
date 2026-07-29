@@ -17,7 +17,7 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
     title: "Rotate Convex deploy keys for Workers Builds",
     name: "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds",
     description:
-      "Rotate Samebase-named production and preview Convex deploy keys, then write them with the readable SAMEBASE_CONVEX_PROJECT marker to both Workers Builds triggers.",
+      "Rotate Samebase-named production and preview Convex deploy keys, write them with the readable SAMEBASE_CONVEX_PROJECT marker to both Workers Builds triggers, then start a production build.",
     safety: "write",
     annotations: {
       readOnlyHint: false,

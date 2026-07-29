@@ -142,6 +142,7 @@ describe("vault dashboard Convex contract", () => {
     const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
 
     expect(vaults).toHaveLength(1);
+    expect(vaults[0]).not.toHaveProperty("_creationTime");
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
       hasConnectedGitHubRepository: false,

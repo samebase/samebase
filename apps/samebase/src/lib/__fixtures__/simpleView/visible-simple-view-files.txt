@@ -507,6 +507,7 @@ skills/samebase-playwright-live/references/playwright-cli-quickref.md
 skills/samebase-playwright-live/references/runbook.md
 skills/samebase-playwright-live/SKILL.md
 skills/samebase-refactoring-style/SKILL.md
+skills/update-samebase-agent-plugin/SKILL.md
 slogans.md
 specs/003_VAULT_INFRA_PROVISIONING_SPEC.md
 specs/005_COMMIT_REVIEW_SIDEBAR_SPEC.md

@@ -209,7 +209,6 @@ function makeRepositorySettingsBuilderVault(
 ): RepositorySettingsBuilderVault {
   const vault: RepositorySettingsBuilderVault = {
     _id: fakeVaultId(),
-    _creationTime: 0,
     ghRepoOwner: "ada",
     ghRepoName: "demo",
     repositoryFullName: "ada/demo",
