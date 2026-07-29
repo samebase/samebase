@@ -195,7 +195,7 @@ row, disabled while any run is active; no result UI beyond the refreshed noun: f
 closes the operate loop: read the noun, act, verify, read the noun). Truth-table tests extend the
 existing `nextAction` enumeration.
 
-Phase 2: **Existence verifiers**: fill the `attach_worker` and `attach_convex` registry entries :
+Phase 2: **Existence verifiers**: fill the `attach_worker` and `attach_convex` registry entries:
 Worker and Convex deployment existence, each with a new explicit missing-upstream variant on its row
 and a `nextAction` mapping to `connect_cloudflare_worker` / `connect_convex_deployment` /
 `retry_infrastructure_provisioning`. This is a state-shape change and ships as its own reviewed

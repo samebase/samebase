@@ -94,6 +94,9 @@ Each non-idle status returns the owner, affected providers, and update time. A m
 its run ID. A manual owner returns its action ID and action type. An active manual owner also
 returns its expiry time.
 
+The terminal `succeeded` or `failed` status does not block a new write. It stays until the next
+managed or manual action replaces it.
+
 The object also returns `lastWriteAt.convex` and `lastWriteAt.cloudflare`. Each time is optional. It
 records when Samebase most recently got a known result from an action that could change that
 provider. A later write to one provider must not clear or replace the time for the other provider.
@@ -105,6 +108,9 @@ Settings uses this row order:
 3. Show the matching plan item when an active managed run or a failed managed provider run has no
    attachment.
 4. Show the empty state only when no attachment and no applicable plan item exist.
+
+A canceled managed run does not keep a plan item visible. If no attachment exists, Settings shows
+the empty state.
 
 An attachment replaces its plan item. Do not show both rows. Use the planned project name and Worker
 name as the primary labels. Do not use a provider ID as the primary label. An observation can add
@@ -185,6 +191,11 @@ type VaultInfrastructureWriteOwner =
       expiresAt: number;
     };
 ```
+
+Use this widen-migrate-narrow sequence for persisted lock rows. First deploy a schema and readers
+that accept the legacy `runId` shape and the new owner union. Then deploy new writers, backfill the
+legacy rows, verify the backfill, and remove the legacy shape in a later deployment. Do not delete
+and recreate an active lock. Current run mutations reject a missing lock.
 
 Keep one vault-level lock. Do not add resource-level locks. A manual action does not need a Workflow
 run or a history table. The manual owner stores the non-secret target data that it needs to repeat
