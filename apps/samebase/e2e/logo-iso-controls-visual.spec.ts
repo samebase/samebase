@@ -165,14 +165,8 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
     "href",
     "/",
   );
-  await expect(publicLinks.getByRole("link", { name: "?light", exact: true })).toHaveAttribute(
-    "href",
-    "/logo?light",
-  );
-  await expect(publicLinks.getByRole("link", { name: "?dark", exact: true })).toHaveAttribute(
-    "href",
-    "/logo?dark",
-  );
+  await expect(publicLinks.getByRole("link", { name: "?light", exact: true })).toHaveCount(0);
+  await expect(publicLinks.getByRole("link", { name: "?dark", exact: true })).toHaveCount(0);
   await expect(publicLinks).toHaveScreenshot("logo-right-sidebar-meta-section.png", {
     animations: "disabled",
     caret: "hide",
@@ -214,38 +208,7 @@ test("logo right sidebar public path links navigate on click", async ({ page }) 
   await expect(page).toHaveURL(/\/terms$/);
 });
 
-test("logo public query links toggle root theme mode", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/logo?dev", {
-    waitUntil: "domcontentloaded",
-  });
-
-  const linksSidebar = page.getByTestId("workspace-layout-v2-pane-right");
-  const publicLinks = linksSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
-
-  await publicLinks.getByRole("link", { name: "?light", exact: true }).click();
-  await expectLogoSearchEntries(page, [
-    ["dev", ""],
-    ["light", ""],
-  ]);
-  await expect(page.locator("html")).not.toHaveClass(/dark/);
-  await expect(publicLinks.getByRole("link", { name: "?light-", exact: true })).toBeVisible();
-
-  await publicLinks.getByRole("link", { name: "?dark", exact: true }).click();
-  await expectLogoSearchEntries(page, [
-    ["dark", ""],
-    ["dev", ""],
-  ]);
-  await expect(page.locator("html")).toHaveClass(/dark/);
-  await expect(publicLinks.getByRole("link", { name: "?dark-", exact: true })).toBeVisible();
-
-  await publicLinks.getByRole("link", { name: "?dark-", exact: true }).click();
-  await expectLogoSearchEntries(page, [["dev", ""]]);
-  await expect(publicLinks.getByRole("link", { name: "?light", exact: true })).toBeVisible();
-  await expect(publicLinks.getByRole("link", { name: "?dark", exact: true })).toBeVisible();
-});
-
-test("logo public query links repaint the three scene theme colors", async ({ page }) => {
+test("logo theme query repaints the three scene colors", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo?dev&light", {
     waitUntil: "domcontentloaded",
@@ -255,11 +218,10 @@ test("logo public query links repaint the three scene theme colors", async ({ pa
   await waitForPaint(page);
 
   const lightPixel = await sampleLogoCanvasCorner(page);
-  const publicLinks = page
-    .getByTestId("workspace-layout-v2-pane-right")
-    .getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
-  await publicLinks.getByRole("link", { name: "?dark", exact: true }).click();
+  await page.goto("/logo?dev&dark", {
+    waitUntil: "domcontentloaded",
+  });
   await expectLogoSearchEntries(page, [
     ["dark", ""],
     ["dev", ""],
@@ -309,23 +271,13 @@ test("logo public query color overrides repaint the three scene background color
   expect(await sampleLogoCanvasCorner(page)).toEqual([17, 34, 51, 255]);
 });
 
-test("logo public query links cancel conflicting root theme modes", async ({ page }) => {
+test("logo root query cancels conflicting theme modes", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo?dev&light&dark", {
     waitUntil: "domcontentloaded",
   });
 
   await expectLogoSearchEntries(page, [["dev", ""]]);
-  await expect(
-    page
-      .getByTestId("workspace-layout-v2-pane-right")
-      .getByRole("link", { name: "?light", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page
-      .getByTestId("workspace-layout-v2-pane-right")
-      .getByRole("link", { name: "?dark", exact: true }),
-  ).toBeVisible();
 });
 
 test("logo recursive depth renders a rotatable shuffleable Three scene", async ({ page }) => {

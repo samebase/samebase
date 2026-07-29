@@ -436,9 +436,6 @@ test("landing document navigation resets new articles and restores history posit
   await expect(page).toHaveURL(new RegExp(`${LANDING_PREVIEW_ROUTE}$`));
   await expect.poll(() => readMainPaneScrollTop(page)).toBe(overviewScrollTop);
 
-  await page.locator("#public-landing-theme-dark-toggle").click();
-  await expect.poll(() => readMainPaneScrollTop(page)).toBe(overviewScrollTop);
-
   await page.getByRole("link", { exact: true, name: "/terms" }).click();
   await expect.poll(() => new URL(page.url()).pathname).toBe("/terms");
   await expect.poll(() => readMainPaneScrollTop(page)).toBe(0);

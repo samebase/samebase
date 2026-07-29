@@ -7,12 +7,10 @@ import {
   hasSelectedAppBuildVersion,
 } from "@/lib/appBuild";
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
-import { buildToggledRootThemeModeSearch, readRootThemeMode } from "@/lib/rootThemeModeSearch";
-import { applySearchPatch, formatRouteSearchPresenceFlagLinkLabel } from "@/routing/searchFlags";
-import { readRootRouteSearch } from "@/routeSearch/root";
+import { formatRouteSearchPresenceFlagLinkLabel } from "@/routing/searchFlags";
 import { appBuildConfig } from "@/lib/appBuildConfig";
 import { Link, useLocation } from "@tanstack/react-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 
 function normalizeRepoUrl(repoUrl: string): string {
   return repoUrl.endsWith(".git") ? repoUrl.slice(0, -4) : repoUrl;
@@ -31,48 +29,6 @@ const APP_SIDEBAR_META_VERSION_CLASS_NAMES = {
   right:
     "flex max-w-full min-w-0 flex-row-reverse flex-wrap items-center justify-end gap-x-2 gap-y-1 font-mono",
 } as const satisfies Record<AppSidebarMetaLinkAlignment, string>;
-
-const APP_SIDEBAR_META_QUERY_LINK_ROW_CLASS_NAMES = {
-  left: "flex max-w-full min-w-0 flex-row items-baseline justify-start",
-  right: "flex max-w-full min-w-0 flex-row items-baseline justify-end",
-} as const satisfies Record<AppSidebarMetaLinkAlignment, string>;
-
-const APP_SIDEBAR_META_QUERY_LINK_LAYOUT_CLASS_NAME =
-  "min-w-0 max-w-full line-clamp-2 [overflow-wrap:anywhere]";
-
-const APP_SIDEBAR_META_QUERY_SUFFIX_CLASS_NAMES = {
-  active: "pointer-events-none inline-block w-[1ch] shrink-0 select-none",
-  inactive: "pointer-events-none invisible inline-block w-[1ch] shrink-0 select-none",
-} as const;
-
-function AppSidebarMetaQueryLinkRow({
-  active,
-  children,
-  linkAlignment,
-  suffixTestId,
-}: {
-  active: boolean;
-  children: ReactNode;
-  linkAlignment: AppSidebarMetaLinkAlignment;
-  suffixTestId: string;
-}) {
-  return (
-    <span className={APP_SIDEBAR_META_QUERY_LINK_ROW_CLASS_NAMES[linkAlignment]}>
-      {children}
-      <span
-        aria-hidden="true"
-        data-testid={suffixTestId}
-        className={
-          active
-            ? APP_SIDEBAR_META_QUERY_SUFFIX_CLASS_NAMES.active
-            : APP_SIDEBAR_META_QUERY_SUFFIX_CLASS_NAMES.inactive
-        }
-      >
-        -
-      </span>
-    </span>
-  );
-}
 
 /**
  * SSG emits the same root HTML for every query string, while hydration renders
@@ -101,10 +57,8 @@ export function AppSidebarMetaSection({
 }) {
   const { appCommit, appCommitNumber, appRepoUrl } = appBuildConfig;
   const location = useLocation();
-  const rootRouteSearch = readRootRouteSearch(location.searchStr);
 
   const hasHydrated = useHasHydrated();
-  const themeMode = readRootThemeMode(rootRouteSearch);
   const showSearchResetLink = hasHydrated && location.searchStr.length > 0;
 
   const buildVersionLabel = formatAppBuildVersionLabel(appCommitNumber);
@@ -119,66 +73,22 @@ export function AppSidebarMetaSection({
       className={APP_SIDEBAR_META_SECTION_CLASS_NAMES[linkAlignment]}
     >
       {showSearchResetLink ? (
-        <Link
-          id="public-landing-search-reset"
-          resetScroll={false}
-          to={location.pathname}
-          hash={location.hash}
-          search={() => ({
-            [SEARCH_RESET_QUERY_PARAM]: true as const,
-          })}
-        >
-          {formatRouteSearchPresenceFlagLinkLabel(SEARCH_RESET_QUERY_PARAM, true)}
-        </Link>
+        <>
+          <Link
+            id="public-landing-search-reset"
+            resetScroll={false}
+            to={location.pathname}
+            hash={location.hash}
+            search={() => ({
+              [SEARCH_RESET_QUERY_PARAM]: true as const,
+            })}
+          >
+            {formatRouteSearchPresenceFlagLinkLabel(SEARCH_RESET_QUERY_PARAM, true)}
+          </Link>
+          <div aria-hidden="true" className="h-3" />
+        </>
       ) : null}
-      <AppSidebarMetaQueryLinkRow
-        active={themeMode === "light"}
-        linkAlignment={linkAlignment}
-        suffixTestId="public-landing-theme-light-toggle-suffix"
-      >
-        <Link
-          id="public-landing-theme-light-toggle"
-          className={APP_SIDEBAR_META_QUERY_LINK_LAYOUT_CLASS_NAME}
-          aria-label={formatRouteSearchPresenceFlagLinkLabel("light", themeMode !== "light")}
-          resetScroll={false}
-          to={location.pathname}
-          hash={location.hash}
-          search={() =>
-            applySearchPatch(
-              rootRouteSearch,
-              buildToggledRootThemeModeSearch(rootRouteSearch, "light"),
-            )
-          }
-        >
-          {formatRouteSearchPresenceFlagLinkLabel("light", true)}
-        </Link>
-      </AppSidebarMetaQueryLinkRow>
-      <AppSidebarMetaQueryLinkRow
-        active={themeMode === "dark"}
-        linkAlignment={linkAlignment}
-        suffixTestId="public-landing-theme-dark-toggle-suffix"
-      >
-        <Link
-          id="public-landing-theme-dark-toggle"
-          className={APP_SIDEBAR_META_QUERY_LINK_LAYOUT_CLASS_NAME}
-          aria-label={formatRouteSearchPresenceFlagLinkLabel("dark", themeMode !== "dark")}
-          resetScroll={false}
-          to={location.pathname}
-          hash={location.hash}
-          search={() =>
-            applySearchPatch(
-              rootRouteSearch,
-              buildToggledRootThemeModeSearch(rootRouteSearch, "dark"),
-            )
-          }
-        >
-          {formatRouteSearchPresenceFlagLinkLabel("dark", true)}
-        </Link>
-      </AppSidebarMetaQueryLinkRow>
-      {/* Keep query-param shortcuts visually separate from path links. */}
-      <div aria-hidden="true" className="h-3" />
 
-      {/* Path links live below query-param shortcuts. */}
       <Link to="/terms">/terms</Link>
       <Link to="/privacy">/privacy</Link>
       <Link to="/">/landing</Link>

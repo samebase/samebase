@@ -39,7 +39,6 @@ const NAVIGATION_BUDGET_MS = {
 } as const;
 const COPY_SHORTCUT_KEY = process.platform === "darwin" ? "Meta+C" : "Control+C";
 const LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS = ["/terms", "/privacy", "/landing"] as const;
-const rootThemeLightModeLinkLabel = formatRouteSearchPresenceFlagLinkLabel("light", true);
 const searchResetLinkLabel = formatRouteSearchPresenceFlagLinkLabel(SEARCH_RESET_QUERY_PARAM, true);
 const strictScreenshotOptions = {
   animations: "disabled",
@@ -954,9 +953,7 @@ test("public landing omits section divider lines", async ({ page }) => {
 });
 
 test("landing reset shortcut stays visible before clearing root search", async ({ page }) => {
-  await page.goto("/", { waitUntil: "networkidle" });
-
-  await page.getByRole("link", { name: rootThemeLightModeLinkLabel, exact: true }).click();
+  await page.goto("/?light", { waitUntil: "networkidle" });
   await expect(page).toHaveURL(/\/\?light$/);
 
   const resetLink = page.getByRole("link", { name: searchResetLinkLabel, exact: true });

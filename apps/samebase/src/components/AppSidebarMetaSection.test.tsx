@@ -6,7 +6,6 @@ import { createRoot, hydrateRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { APP_BUILD_STATUS_BAR_TEST_ID } from "@/lib/appBuild";
 import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
 import { AppSidebarMetaSection } from "./AppSidebarMetaSection";
 
@@ -128,7 +127,7 @@ describe("AppSidebarMetaSection", () => {
     });
   }
 
-  it("omits hidden dev shortcuts from prerendered markup", () => {
+  it("omits nonessential shortcuts from prerendered markup", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/"]}>
         <AppSidebarMetaSection linkAlignment="left" />
@@ -142,20 +141,28 @@ describe("AppSidebarMetaSection", () => {
     expect(markup).not.toContain('id="public-local-storage-route-link"');
     expect(markup).not.toContain(`>${LOCAL_STORAGE_ROUTE}<`);
     expect(markup).not.toContain(">/landing-preview<");
+    expect(markup).not.toContain('id="public-landing-theme-light-toggle"');
+    expect(markup).not.toContain('id="public-landing-theme-dark-toggle"');
   });
 
-  it("does not add hidden dev shortcuts after local browser load", async () => {
+  it("does not add nonessential shortcuts after local browser load", async () => {
     await renderSidebarMetaSection();
 
     const prodUiShortcut = rootElement?.querySelector("#public-landing-prod-ui-toggle");
     const devShortcut = rootElement?.querySelector("#public-landing-dev-toggle");
     const localStorageShortcut = rootElement?.querySelector("#public-local-storage-route-link");
+    const lightThemeShortcut = rootElement?.querySelector("#public-landing-theme-light-toggle");
+    const darkThemeShortcut = rootElement?.querySelector("#public-landing-theme-dark-toggle");
 
     expect(prodUiShortcut).toBeNull();
     expect(devShortcut).toBeNull();
     expect(localStorageShortcut).toBeNull();
+    expect(lightThemeShortcut).toBeNull();
+    expect(darkThemeShortcut).toBeNull();
     expect(rootElement?.textContent).not.toContain("?prod-ui");
     expect(rootElement?.textContent).not.toContain("?dev");
+    expect(rootElement?.textContent).not.toContain("?light");
+    expect(rootElement?.textContent).not.toContain("?dark");
     expect(rootElement?.textContent).not.toContain(LOCAL_STORAGE_ROUTE);
     expect(rootElement?.textContent).not.toContain("/landing-preview");
   });
@@ -181,43 +188,6 @@ describe("AppSidebarMetaSection", () => {
 
     expect(landingPreviewPathLink).toBeUndefined();
     expect(romanianQueryLink).toBeNull();
-  });
-
-  it("keeps an active theme suffix outside the toggle hit target", async () => {
-    const element = await renderSidebarMetaSection("/?dev&dark");
-    const darkSuffix = element.querySelector<HTMLElement>(
-      '[data-testid="public-landing-theme-dark-toggle-suffix"]',
-    );
-    if (!darkSuffix) {
-      throw new Error("Expected public landing dark shortcut suffix.");
-    }
-
-    await act(async () => {
-      darkSuffix.dispatchEvent(
-        new MouseEvent("click", {
-          bubbles: true,
-          button: 0,
-          cancelable: true,
-        }),
-      );
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationHref()).toBe("/?dev&dark");
-  });
-
-  it("toggles an active theme shortcut through the committed router location", async () => {
-    const element = await renderSidebarMetaSection("/?dev&dark");
-    const darkLink = element.querySelector<HTMLAnchorElement>("#public-landing-theme-dark-toggle");
-    if (!darkLink) {
-      throw new Error("Expected public landing dark shortcut.");
-    }
-
-    await clickLink(darkLink);
-
-    expect(readLocationHref()).toBe("/?dev");
-    expect(darkLink.textContent).toBe("?dark");
-    expect(darkLink.getAttribute("aria-label")).toBe("?dark");
   });
 
   it("navigates path links without hover preview state", async () => {
@@ -264,23 +234,5 @@ describe("AppSidebarMetaSection", () => {
 
     await clickLink(landingLink);
     expect(readLocationHref()).toBe("/");
-  });
-
-  it("uses the same committed search state for right-aligned query links", async () => {
-    const element = await renderSidebarMetaSection("/?light", {
-      linkAlignment: "right",
-    });
-    const lightLink = element.querySelector<HTMLAnchorElement>(
-      "#public-landing-theme-light-toggle",
-    );
-    if (!lightLink) {
-      throw new Error("Expected public landing light shortcut.");
-    }
-
-    expect(
-      element.querySelector(`[data-testid="${APP_BUILD_STATUS_BAR_TEST_ID}"]`)?.className,
-    ).toContain("text-right");
-    expect(lightLink.textContent).toBe("?light");
-    expect(lightLink.getAttribute("aria-label")).toBe("?light-");
   });
 });
