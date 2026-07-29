@@ -570,7 +570,7 @@ function LandingPreviewOverview() {
               <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4">
                 <LandingCreateAppButton />
                 <p className="text-sm text-muted-foreground">
-                  Free today; an idle app costs $0/month.
+                  Idle apps cost $0/month.
                   <LandingFootnoteMark
                     fragment="landing-note-zero"
                     label="footnote: zero"

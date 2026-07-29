@@ -85,7 +85,7 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("Every connected app stays visible in one inventory.");
     expect(markup).toContain("Open Samebase");
     expect(markup.split(">Open Samebase</button>").length - 1).toBe(2);
-    expect(markup).toContain("Free today; an idle app costs $0/month.");
+    expect(markup).toContain("Idle apps cost $0/month.");
     expect(markup).not.toContain("no chatbot");
     expect(markup).not.toContain("$0/month idle");
 
