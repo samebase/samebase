@@ -18,6 +18,8 @@ Current key docs:
   `research/`, `docs/`, `skills/`, `archive/`, or a PR body
 - `docs/artifacts/samebase-app/` for regenerating the public `samebase/app` artifact history
 - `docs/playwright-visual-testing.md` for Linux-canonical visual test workflow
+- `docs/existing-app-cloudflare-workers-migration.md` for moving an adopted application from an old
+  host to Cloudflare Workers with branch validation, cutover, monitoring, and rollback
 - `docs/samebase-domains-workers-builds.md` for the `samebase-domains` Workers Builds trigger
   settings
 - `docs/samebase-posthog-proxy-workers-builds.md` for the `samebase-posthog-proxy` PostHog proxy
