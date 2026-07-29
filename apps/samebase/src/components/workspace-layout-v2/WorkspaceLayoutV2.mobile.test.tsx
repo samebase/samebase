@@ -15,6 +15,7 @@ import {
 } from "./WorkspaceLayoutV2Geometry";
 import {
   WorkspacePaneRuntimeProvider,
+  useWorkspacePaneActions,
   useWorkspacePaneState,
   type WorkspacePaneState,
 } from "./WorkspacePaneRuntime";
@@ -34,9 +35,11 @@ const originalGetBoundingClientRectDescriptor = Object.getOwnPropertyDescriptor(
 );
 let latestSetRenderedMobilePane: ((nextPane: WorkspaceSidebarState["mobilePane"]) => void) | null =
   null;
+let latestOpenRightPane: (() => void) | null = null;
 let latestRenderedPaneState: WorkspacePaneState | null = null;
 let testViewportWidthPx = VIEWPORT_WIDTH_PX;
 let testViewportHeightPx = VIEWPORT_HEIGHT_PX;
+let testPrefersReducedMotion = false;
 
 Object.defineProperty(window, "matchMedia", {
   configurable: true,
@@ -44,7 +47,7 @@ Object.defineProperty(window, "matchMedia", {
     addEventListener: vi.fn(),
     addListener: vi.fn(),
     dispatchEvent: vi.fn(),
-    matches: true,
+    matches: query === "(prefers-reduced-motion: reduce)" && testPrefersReducedMotion,
     media: query,
     onchange: null,
     removeEventListener: vi.fn(),
@@ -181,6 +184,11 @@ function WorkspacePaneStateProbe() {
   return null;
 }
 
+function WorkspacePaneActionsProbe() {
+  latestOpenRightPane = useWorkspacePaneActions().openRightPane;
+  return null;
+}
+
 function ControlledMobileLayout() {
   const controller = useWorkspaceLayoutV2MemorySidebarController(
     createMobileSidebarState({ mobilePane: "main" }),
@@ -191,6 +199,7 @@ function ControlledMobileLayout() {
 
   return (
     <WorkspacePaneRuntimeProvider controller={controller}>
+      <WorkspacePaneActionsProbe />
       {renderMobileLayoutContent({})}
     </WorkspacePaneRuntimeProvider>
   );
@@ -325,6 +334,8 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
   afterEach(() => {
     testViewportWidthPx = VIEWPORT_WIDTH_PX;
     testViewportHeightPx = VIEWPORT_HEIGHT_PX;
+    testPrefersReducedMotion = false;
+    latestOpenRightPane = null;
     latestRenderedPaneState = null;
     latestSetRenderedMobilePane = null;
     if (root !== null) {
@@ -477,6 +488,89 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expect(
       rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
     ).toBe("main");
+  });
+
+  it("smoothly opens the right pane for an explicit user action", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(<ControlledMobileLayout />);
+    });
+
+    const carouselNode = getRequiredElement(
+      rootElement,
+      '[data-testid="workspace-layout-v2-pane-main"]',
+    );
+    const scrollToCalls: ScrollToOptions[] = [];
+    carouselNode.scrollTo = (first?: ScrollToOptions | number, y?: number) => {
+      if (typeof first === "number") {
+        carouselNode.scrollLeft = first;
+        carouselNode.scrollTop = y ?? carouselNode.scrollTop;
+        return;
+      }
+
+      const options = first ?? {};
+      scrollToCalls.push(options);
+      carouselNode.scrollLeft = options.left ?? carouselNode.scrollLeft;
+    };
+
+    act(() => {
+      latestOpenRightPane?.();
+    });
+
+    expect(scrollToCalls).toEqual([
+      {
+        behavior: "smooth",
+        left: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2,
+      },
+    ]);
+    expect(
+      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+    ).toBe("main");
+
+    act(() => {
+      carouselNode.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+
+    expect(
+      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+    ).toBe("right");
+  });
+
+  it("opens the right pane without motion when reduced motion is requested", () => {
+    testPrefersReducedMotion = true;
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(<ControlledMobileLayout />);
+    });
+
+    const carouselNode = getRequiredElement(
+      rootElement,
+      '[data-testid="workspace-layout-v2-pane-main"]',
+    );
+    const scrollToCalls: ScrollToOptions[] = [];
+    carouselNode.scrollTo = (first?: ScrollToOptions | number) => {
+      if (typeof first !== "number") {
+        scrollToCalls.push(first ?? {});
+      }
+    };
+
+    act(() => {
+      latestOpenRightPane?.();
+    });
+
+    expect(scrollToCalls).toEqual([]);
+    expect(carouselNode.scrollLeft).toBe(DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2);
+    expect(
+      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+    ).toBe("right");
   });
 
   it("keeps the resize grip reachable when a mobile sidebar fills the viewport", () => {

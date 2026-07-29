@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import {
   DocsDoItYourselfPage,
   DocsPricingPage,
@@ -8,16 +8,6 @@ import {
   LandingPreviewPage,
 } from "@/components/LandingPreviewPage";
 import { publicMediaManifest } from "../../shared/publicMediaManifest";
-
-const appAuthState = vi.hoisted(() => ({ authenticated: false }));
-
-vi.mock("@/lib/appAuthPresentationState", () => ({
-  isAppPresentationAuthenticated: () => appAuthState.authenticated,
-  useAppAuthPresentation: () =>
-    appAuthState.authenticated
-      ? { kind: "confirmedAuthenticated", profile: null }
-      : { kind: "signedOut" },
-}));
 
 vi.mock("@/components/AppWorkspaceShell", () => ({
   AppWorkspaceRouteChrome: ({
@@ -72,8 +62,8 @@ vi.mock("@tanstack/react-router", () => ({
 
 vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
   useWorkspacePaneActions: () => ({
+    openRightPane: () => {},
     setMobilePane: () => {},
-    setRightDesktopOpen: () => {},
   }),
   useWorkspacePaneState: () => ({
     isMobile: false,
@@ -82,10 +72,6 @@ vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
 }));
 
 describe("LandingPreviewPage", () => {
-  beforeEach(() => {
-    appAuthState.authenticated = false;
-  });
-
   it("renders the agent-first landing overview by default", () => {
     const markup = renderToStaticMarkup(<LandingPreviewPage />);
 
@@ -98,7 +84,7 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("provisions the database + backend");
     expect(markup).toContain("Every connected app stays visible in one inventory.");
     expect(markup).toContain("Open Samebase");
-    expect(markup.split('href="/"').length - 1).toBe(2);
+    expect(markup.split(">Open Samebase</button>").length - 1).toBe(2);
     expect(markup).toContain("Free today; an idle app costs $0/month.");
     expect(markup).not.toContain("no chatbot");
     expect(markup).not.toContain("$0/month idle");
@@ -233,13 +219,11 @@ describe("LandingPreviewPage", () => {
     expect(markup).not.toContain("no Samebase account needed");
   });
 
-  it("links authenticated viewers to their app inventory", () => {
-    appAuthState.authenticated = true;
-
+  it("renders Open Samebase as a pane action instead of navigation", () => {
     const markup = renderToStaticMarkup(<LandingPreviewPage />);
 
-    expect(markup.split('href="/vault"').length - 1).toBe(2);
-    expect(markup).not.toContain('href="/"');
+    expect(markup.split(">Open Samebase</button>").length - 1).toBe(2);
+    expect(markup).not.toContain('href="/vault"');
   });
 
   it("renders the landing preview without the docs sidebar", () => {

@@ -95,19 +95,6 @@ async function expectSidebarFiles(sidebar: Locator) {
   await expect(sidebar).not.toContainText("samebase.com");
 }
 
-async function expectPublicLandingUrl(page: Page) {
-  await expect
-    .poll(() => {
-      const url = new URL(page.url());
-      return {
-        auth: url.searchParams.get("auth"),
-        pathname: url.pathname,
-        signup: url.searchParams.get("signup"),
-      };
-    })
-    .toEqual({ auth: null, pathname: "/", signup: null });
-}
-
 async function readMainPaneScrollTop(page: Page) {
   return page
     .locator('[data-scroll-restoration-id="workspace-layout-v2-main"]')
@@ -521,8 +508,23 @@ test("landing preview CTA reopens the desktop public sidebar", async ({ page }) 
     await document.fonts.ready;
   });
 
-  await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
-  await expect(page.getByTestId("workspace-layout-v2-pane-right")).toHaveCSS("width", "0px");
+  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  if (await rightPane.evaluate((pane) => Number.parseFloat(getComputedStyle(pane).width) > 0)) {
+    await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
+  }
+  await expect(rightPane).toHaveCSS("width", "0px");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+
+  await rightPane.evaluate((pane) => {
+    pane.addEventListener(
+      "transitionrun",
+      () => {
+        pane.setAttribute("data-test-width-transition-ran", "");
+      },
+      { once: true },
+    );
+  });
 
   await page
     .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
@@ -530,8 +532,10 @@ test("landing preview CTA reopens the desktop public sidebar", async ({ page }) 
     .first()
     .click();
 
-  await expectPublicLandingUrl(page);
-  await expect(page.getByTestId("workspace-layout-v2-pane-right")).toHaveCSS("width", "288px");
+  await expect(page).toHaveURL(new RegExp(`${LANDING_PREVIEW_ROUTE}$`));
+  await expect(rightPane).toHaveAttribute("data-test-width-transition-ran", "");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(rightPane).toHaveCSS("width", "288px");
   await expect(
     page
       .getByTestId("workspace-layout-v2-pane-right")
@@ -596,10 +600,40 @@ test.describe("mobile landing preview", () => {
       },
     );
 
+    const carousel = page.getByTestId("workspace-layout-v2-pane-main");
+    const startingScrollLeft = await carousel.evaluate((element) => element.scrollLeft);
+    await carousel.evaluate((element) => {
+      element.setAttribute("data-test-scroll-positions", JSON.stringify([element.scrollLeft]));
+      element.addEventListener("scroll", () => {
+        const parsedPositions: unknown = JSON.parse(
+          element.getAttribute("data-test-scroll-positions") ?? "[]",
+        );
+        const positions = Array.isArray(parsedPositions)
+          ? parsedPositions.filter((position) => typeof position === "number")
+          : [];
+        positions.push(element.scrollLeft);
+        element.setAttribute("data-test-scroll-positions", JSON.stringify(positions));
+      });
+    });
+
     await article.getByRole("button", { name: "Open Samebase" }).first().click();
 
-    await expectPublicLandingUrl(page);
+    await expect(page).toHaveURL(new RegExp(`${LANDING_PREVIEW_ROUTE}(?:\\?prod-ui)?$`));
     await expect(workspace).toHaveAttribute("data-mobile-pane", "right");
+    const endingScrollLeft = await carousel.evaluate((element) => element.scrollLeft);
+    const scrollPositions = await carousel.evaluate((element) => {
+      const parsedPositions: unknown = JSON.parse(
+        element.getAttribute("data-test-scroll-positions") ?? "[]",
+      );
+      return Array.isArray(parsedPositions)
+        ? parsedPositions.filter((position) => typeof position === "number")
+        : [];
+    });
+    expect(
+      scrollPositions.some(
+        (scrollLeft) => scrollLeft > startingScrollLeft && scrollLeft < endingScrollLeft,
+      ),
+    ).toBe(true);
     await expect(
       page
         .getByTestId("workspace-layout-v2-pane-right")

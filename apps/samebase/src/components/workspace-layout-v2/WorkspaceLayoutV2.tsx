@@ -1,4 +1,10 @@
-import { useRef, type CSSProperties, type ReactElement, type ReactNode } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { useElementSize } from "@/hooks/useElementSize";
 import {
   useWorkspaceLayoutV2Actions,
@@ -81,6 +87,9 @@ export function WorkspaceLayoutV2({
   const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
   const activeResizeSide = useWorkspaceLayoutV2Selector((state) => state.activeResizeSide);
   const isMobilePaneSettled = useWorkspaceLayoutV2Selector((state) => state.mobile.isPaneSettled);
+  const mobilePaneNavigationRequest = useWorkspaceLayoutV2Selector(
+    (state) => state.mobile.paneNavigationRequest,
+  );
   const viewportSize = useWorkspaceLayoutV2Selector((state) => state.viewportSize);
   const { setActiveResizeSide, setViewportSize } = useWorkspaceLayoutV2Actions();
   useElementSize(viewportRef, setViewportSize);
@@ -104,6 +113,12 @@ export function WorkspaceLayoutV2({
   const hasLeftPane = !!left;
   const hasRightPane = !!right;
   const hasMeasuredViewport = viewportSize.widthPx > 0;
+  const hasCompletedViewportMeasurementRef = useRef(false);
+  const enableDesktopPaneTransitions =
+    hasMeasuredViewport && hasCompletedViewportMeasurementRef.current;
+  useLayoutEffect(() => {
+    hasCompletedViewportMeasurementRef.current = hasMeasuredViewport;
+  }, [hasMeasuredViewport]);
   const mobilePane = getAvailableMobilePane({
     hasLeftPane,
     hasRightPane,
@@ -184,6 +199,7 @@ export function WorkspaceLayoutV2({
     mainWidthPx: mobileMainWidthPx,
     mergedSurfaceSide: activeMobileMergedSurfaceSide,
     mobilePane,
+    mobilePaneNavigationRequest,
     rightWidthPx: mobileRightWidthPx,
     setMobilePane,
     viewportWidthPx: viewportSize.widthPx,
@@ -290,6 +306,7 @@ export function WorkspaceLayoutV2({
           carouselRef={mobileCarouselRef}
           desktopLeftWidthPx={desktopLeftWidthPx}
           desktopRightWidthPx={desktopRightWidthPx}
+          enableDesktopPaneTransitions={enableDesktopPaneTransitions}
           hasMeasuredViewport={hasMeasuredViewport}
           leftContent={left}
           leftWidthPx={mobileLeftWidthPx}

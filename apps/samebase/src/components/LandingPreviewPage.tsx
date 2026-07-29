@@ -2,14 +2,8 @@ import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { LandingHeroMenger } from "@/components/logo/LandingHeroMenger";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
-import {
-  isAppPresentationAuthenticated,
-  useAppAuthPresentation,
-} from "@/lib/appAuthPresentationState";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { LANDING_CLOSING_BAND_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
 import { replaceRootLogoRouteSearch, useRootRouteSearch } from "@/routeSearch/root";
-import { applySearchPatch } from "@/routing/searchFlags";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -288,35 +282,11 @@ function LandingSectionIntro({
 }
 
 function LandingCreateAppButton() {
-  const authPresentation = useAppAuthPresentation();
-  const { setMobilePane, setRightDesktopOpen } = useWorkspacePaneActions();
-
-  if (isAppPresentationAuthenticated(authPresentation)) {
-    return (
-      <Button asChild className="h-12 px-7 text-base font-semibold no-underline">
-        <Link to={DASHBOARD_ROUTE}>Open Samebase</Link>
-      </Button>
-    );
-  }
+  const { openRightPane } = useWorkspacePaneActions();
 
   return (
-    <Button asChild className="h-12 px-7 text-base font-semibold no-underline">
-      <Link
-        to="/"
-        search={(currentSearch) =>
-          applySearchPatch(currentSearch, {
-            auth: null,
-            "auth-return": null,
-            signup: null,
-          })
-        }
-        onClick={() => {
-          setRightDesktopOpen(true);
-          setMobilePane("right");
-        }}
-      >
-        Open Samebase
-      </Link>
+    <Button className="h-12 px-7 text-base font-semibold no-underline" onClick={openRightPane}>
+      Open Samebase
     </Button>
   );
 }
