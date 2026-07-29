@@ -6,6 +6,9 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { GitHubRepositoryNameSlashPreview } from "@/components/NewAppPage";
 import { VaultOverviewVaultPickerPane } from "./VaultOverviewVaultPickerPane";
+import { VaultOverviewPage } from "./VaultOverviewPage";
+import { VaultOverviewSidebar } from "./VaultOverviewSidebar";
+import { RepositorySettings } from "./VaultRepositorySettings";
 import { VaultCloudflareDialogContent } from "./VaultCloudflareDialog";
 import { VaultConvexDialogContent } from "./VaultConvexDialog";
 import { VaultDeleteDialogContent } from "./VaultDeleteDialog";
@@ -216,6 +219,8 @@ function makeRepositorySettingsBuilderVault(
     fileCount: 0,
     sourceSetup: { status: "ready" },
     providerSetup: { status: "not_applicable" },
+    providerPlan: null,
+    providerWrite: { status: "idle", lastWriteAt: {} },
     deletion: {
       state: "not_deleting",
       deleteAction: { state: "available" },
@@ -794,6 +799,30 @@ describe("VaultOverviewVaultPickerPane", () => {
     expect(deletingMarkup).not.toContain("Loading checks");
   });
 
+  it("includes the current setup state in each sidebar link name", () => {
+    const vault = makeRepositorySettingsBuilderVault({
+      sourceSetup: {
+        status: "running",
+        runId: fakeRunId(),
+        step: "sync_tree",
+        updatedAt: 30,
+      },
+    });
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
+        <VaultOverviewSidebar
+          page="overview"
+          selectedVaultId={null}
+          sidebarSummaries={{ state: "loading" }}
+          vaults={[vault]}
+          workspace={null}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain('aria-label="ada/demo, Setting up"');
+  });
+
   it("renders the new root vault picker loading and empty states", () => {
     const loadingMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
@@ -812,6 +841,187 @@ describe("VaultOverviewVaultPickerPane", () => {
     expect(loadingMarkup).toContain('aria-label="Loading vaults"');
     expect(emptyMarkup).toContain("No vaults");
     expect(emptyMarkup).not.toContain("Samebase logo");
+  });
+});
+
+describe("VaultOverviewPage", () => {
+  it("keeps repository content visible while provider setup runs", () => {
+    const vault = makeRepositorySettingsBuilderVault({
+      providerSetup: {
+        status: "running",
+        provider: "cloudflare",
+        runId: fakeRunId(),
+        step: "attach_worker",
+        updatedAt: 20,
+      },
+      providerWrite: {
+        status: "active",
+        owner: { kind: "managed_run", runId: fakeRunId() },
+        affectedProviders: ["convex", "cloudflare"],
+        updatedAt: 20,
+        lastWriteAt: {},
+      },
+    });
+    const cloudflareObservations = makeLoadedCloudflareObservations({
+      workers: [],
+      builds: [],
+      convexBuildAccess: [],
+    });
+    const convexObservations = {
+      state: "loaded" as const,
+      refreshFailed: false,
+      reload: () => {},
+      observations: [],
+    };
+    const settingsState = buildVaultRepositorySettingsState({
+      cloudflareObservations,
+      connectedCloudflareAccount: undefined,
+      convexObservations,
+      pendingAction: null,
+      vault,
+    });
+    const workspace = {
+      access: { state: "ready" as const, accessKeys: [] },
+      cloudflareConnection: { state: "loading" as const },
+      cloudflareObservations,
+      convexObservations,
+      environmentRoots: [],
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      pullRequests: {
+        state: "current" as const,
+        defaultBranch: {
+          headCommitOid: "abcdef1234567890",
+          headCommitTitle: "Initial repository commit",
+          headCommitCommittedAt: "2026-07-29T10:00:00Z",
+          headCommitUrl: "https://github.com/ada/demo/commit/abcdef1234567890",
+          statusCheckRollup: null,
+          checks: {
+            state: "none" as const,
+            totalCount: 0,
+            successCount: 0,
+            failureCount: 0,
+            runningCount: 0,
+            neutralCount: 0,
+            unknownCount: 0,
+          },
+        },
+        refreshing: false,
+        allPullRequests: [],
+        resourcesStale: false,
+        resourcesByPullRequestId: new Map(),
+        loadMore: { state: "exhausted" as const },
+      },
+      vault,
+    };
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
+        <VaultOverviewPage
+          developerToolsVisible={false}
+          isRetryingVaultAction={false}
+          onOpenDeleteDialog={() => {}}
+          onRetryInfrastructureProvisioning={() => {}}
+          onRetryVaultDeletion={() => {}}
+          page="overview"
+          settingsState={settingsState}
+          workspace={workspace}
+        />
+      </TestRouterProvider>,
+    );
+    const unconnectedMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
+        <VaultOverviewPage
+          developerToolsVisible={false}
+          isRetryingVaultAction={false}
+          onOpenDeleteDialog={() => {}}
+          onRetryInfrastructureProvisioning={() => {}}
+          onRetryVaultDeletion={() => {}}
+          page="overview"
+          settingsState={settingsState}
+          workspace={{
+            ...workspace,
+            vault: {
+              ...vault,
+              hasConnectedGitHubRepository: false,
+              sourceSetup: {
+                status: "running",
+                runId: fakeRunId(),
+                step: "create_github_repo",
+                updatedAt: 20,
+              },
+            },
+          }}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain("Setting up");
+    expect(markup).toContain("Initial repository commit");
+    expect(markup).toContain("Open pull requests");
+    expect(unconnectedMarkup).toContain("ada/");
+    expect(unconnectedMarkup).toContain("demo");
+    expect(unconnectedMarkup).not.toContain('href="https://github.com/ada/demo"');
+  });
+
+  it("keeps safe provider links during setup and provider checks", () => {
+    const vault = makeRepositorySettingsBuilderVault({});
+    const workspace = {
+      access: { state: "ready" as const, accessKeys: [] },
+      cloudflareConnection: { state: "loading" as const },
+      cloudflareObservations: makeLoadedCloudflareObservations({
+        workers: [],
+        builds: [],
+        convexBuildAccess: [],
+      }),
+      convexObservations: {
+        state: "loaded" as const,
+        refreshFailed: false,
+        reload: () => {},
+        observations: [],
+      },
+      environmentRoots: [],
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      pullRequests: { state: "not_requested" as const },
+      vault,
+    };
+    const markup = renderToStaticMarkup(
+      <RepositorySettings
+        developerToolsVisible={false}
+        onOpenDeleteDialog={() => {}}
+        settingsState={{
+          addCloudflareWorker: { disabled: true },
+          addConvexProject: { disabled: true },
+          attentionResources: [],
+          pendingResources: [],
+          providerActionBlockReason: "A provider operation is in progress.",
+          providerRecoveryAction: null,
+          roots: [
+            {
+              rootDirectory: "/",
+              resources: [
+                {
+                  href: "https://dash.cloudflare.com/example",
+                  name: "demo-worker",
+                  provider: "cloudflare",
+                  resourceId: "worker",
+                  state: "setting_up",
+                },
+                {
+                  href: "https://dashboard.convex.dev/example",
+                  name: "demo-convex",
+                  provider: "convex",
+                  resourceId: "project",
+                  state: "checking",
+                },
+              ],
+            },
+          ],
+        }}
+        workspace={workspace}
+      />,
+    );
+
+    expect(markup).toContain('href="https://dash.cloudflare.com/example"');
+    expect(markup).toContain('href="https://dashboard.convex.dev/example"');
   });
 });
 
@@ -899,6 +1109,30 @@ describe("VaultDeleteDialogContent", () => {
 
     expect(markup).toContain("Also remove Convex project/deployment");
     expect(markup).not.toContain("Only available for infrastructure provisioned by Samebase.");
+  });
+
+  it("shows the server block reason and disables removal", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDeleteDialogContent
+        {...baseProps}
+        blockedReason="Vault setup is still running."
+        target={{
+          id: fakeVaultId(),
+          repositoryFullName: "ada/demo",
+          isSamebaseManaged: true,
+          canRemoveGithubRepo: true,
+          hasConvexProvision: false,
+          hasCloudflareProvision: false,
+          canRemoveConvexProvision: false,
+          canRemoveCloudflareProvision: false,
+        }}
+      />,
+    );
+    const removeButton = markup.match(/<button[^>]*>Remove Vault<\/button>/)?.[0];
+
+    expect(markup).toContain("Vault setup is still running.");
+    expect(removeButton).toBeDefined();
+    expect(removeButton).toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
   });
 });
 
@@ -1054,6 +1288,73 @@ describe("VaultConvexDialogContent", () => {
     expect(markup).toContain(">Web<");
     expect(addButton).toBeDefined();
     expect(addButton).not.toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
+  });
+
+  it("shows the operation block reason and disables confirmation", () => {
+    const markup = renderToStaticMarkup(
+      <VaultConvexDialogContent
+        blockedReason="A provider operation is in progress."
+        codeLocations={codeLocations}
+        createCodeLocationKey="config:apps/web/convex.json"
+        createProjectName=""
+        projects={projects}
+        error={null}
+        isLoading={false}
+        isSubmitting={false}
+        mode="existing"
+        onCreateCodeLocationKeyChange={() => {}}
+        onCreateProjectNameChange={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onProjectCodeLocationKeyChange={() => {}}
+        onProjectToggle={() => {}}
+        onSubmit={() => {}}
+        repairProject={null}
+        selectedProjectCodeLocationKeys={{
+          "project-1": "config:apps/web/convex.json",
+        }}
+        sourceCompleteness="complete"
+        vault={vault}
+      />,
+    );
+    const addButton = markup.match(/<button[^>]*>Add 1 project<\/button>/)?.[0];
+
+    expect(markup).toContain("A provider operation is in progress.");
+    expect(addButton).toBeDefined();
+    expect(addButton).toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
+  });
+
+  it("keeps Cancel enabled when a pending submit needs recovery", () => {
+    const markup = renderToStaticMarkup(
+      <VaultConvexDialogContent
+        blockedReason="Samebase could not confirm Convex project creation."
+        codeLocations={codeLocations}
+        createCodeLocationKey="config:apps/web/convex.json"
+        createProjectName=""
+        projects={projects}
+        error={null}
+        isLoading={false}
+        isSubmitting
+        mode="existing"
+        onCreateCodeLocationKeyChange={() => {}}
+        onCreateProjectNameChange={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onProjectCodeLocationKeyChange={() => {}}
+        onProjectToggle={() => {}}
+        onSubmit={() => {}}
+        repairProject={null}
+        selectedProjectCodeLocationKeys={{
+          "project-1": "config:apps/web/convex.json",
+        }}
+        sourceCompleteness="complete"
+        vault={vault}
+      />,
+    );
+    const cancelButton = markup.match(/<button[^>]*>Cancel<\/button>/)?.[0];
+
+    expect(cancelButton).toBeDefined();
+    expect(cancelButton).not.toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
   });
 
   it("shows empty discovery messages only after a successful complete scan", () => {
@@ -1400,6 +1701,82 @@ describe("VaultCloudflareDialogContent", () => {
     expect(markup).toContain("Create Worker");
   });
 
+  it("shows the operation block reason and disables confirmation", () => {
+    const markup = renderToStaticMarkup(
+      <VaultCloudflareDialogContent
+        accounts={[{ accountId: "account-1", accountName: "Ada" }]}
+        blockedReason="A provider operation is in progress."
+        createRootDirectory="apps/web"
+        createWorkerName="web-worker"
+        didAddWorker={false}
+        error={null}
+        folderSuggestions={[]}
+        isLoading={false}
+        isSubmitting={false}
+        inventoryState="complete"
+        mode="create"
+        onAccountChange={() => {}}
+        onCreateRootDirectoryChange={() => {}}
+        onCreateWorkerNameChange={() => {}}
+        onConnectWorker={() => {}}
+        onConnectWorkerBack={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onSubmit={() => {}}
+        onWorkerToggle={() => {}}
+        repairWorker={null}
+        selectedAccountId="account-1"
+        selectedWorkerTags={[]}
+        vault={vault}
+        workerToConnect={null}
+        workers={[]}
+      />,
+    );
+    const createButton = markup.match(/<button[^>]*>Create Worker<\/button>/)?.[0];
+
+    expect(markup).toContain("A provider operation is in progress.");
+    expect(createButton).toBeDefined();
+    expect(createButton).toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
+  });
+
+  it("shows an enabled Close action when a pending connection needs recovery", () => {
+    const markup = renderToStaticMarkup(
+      <VaultCloudflareDialogContent
+        accounts={[{ accountId: "account-1", accountName: "Ada" }]}
+        blockedReason="Samebase could not confirm the Cloudflare Worker connection."
+        createRootDirectory="apps/web"
+        createWorkerName=""
+        didAddWorker={false}
+        error={null}
+        folderSuggestions={[]}
+        isLoading={false}
+        isSubmitting
+        inventoryState="complete"
+        mode="connect"
+        onAccountChange={() => {}}
+        onCreateRootDirectoryChange={() => {}}
+        onCreateWorkerNameChange={() => {}}
+        onConnectWorker={() => {}}
+        onConnectWorkerBack={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onSubmit={() => {}}
+        onWorkerToggle={() => {}}
+        repairWorker={null}
+        selectedAccountId="account-1"
+        selectedWorkerTags={[]}
+        vault={vault}
+        workerToConnect={{ workerName: "web-worker", workerTag: "worker-tag" }}
+        workers={[]}
+      />,
+    );
+    const closeButton = markup.match(/<button[^>]*>Close<\/button>/)?.[0];
+
+    expect(closeButton).toBeDefined();
+    expect(closeButton).not.toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
+    expect(markup).not.toContain(">Back</button>");
+  });
+
   it("uses the same dialog to repair Builds when no live root exists", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
@@ -1478,6 +1855,141 @@ describe("VaultCloudflareDialogContent", () => {
 });
 
 describe("buildVaultRepositorySettingsState", () => {
+  it("shows readable planned targets while managed setup is active", () => {
+    const state = buildVaultRepositorySettingsState({
+      cloudflareObservations: makeLoadedCloudflareObservations({
+        workers: [],
+        builds: [],
+        convexBuildAccess: [],
+      }),
+      connectedCloudflareAccount: {
+        accountId: "account-1",
+        accountName: "Ada Cloud",
+      },
+      convexObservations: {
+        state: "loaded",
+        refreshFailed: false,
+        reload: () => {},
+        observations: [],
+      },
+      pendingAction: null,
+      vault: makeRepositorySettingsBuilderVault({
+        providerPlan: {
+          convexConfigPath: "convex.json",
+          convex: {
+            state: "planned",
+            projectName: "demo-convex",
+          },
+          cloudflare: {
+            state: "planned",
+            accountId: "account-1",
+            workerName: "demo-worker",
+            rootDirectory: "/",
+          },
+        },
+        providerSetup: {
+          status: "running",
+          provider: "cloudflare",
+          runId: fakeRunId(),
+          step: "attach_worker",
+          updatedAt: 20,
+        },
+        providerWrite: {
+          status: "active",
+          owner: { kind: "managed_run", runId: fakeRunId() },
+          affectedProviders: ["convex", "cloudflare"],
+          updatedAt: 20,
+          lastWriteAt: {},
+        },
+      }),
+    });
+
+    expect(state.attentionResources).toEqual([]);
+    expect(state.pendingResources).toEqual([]);
+    expect(state.roots).toHaveLength(1);
+    expect(state.roots[0]?.resources).toMatchObject([
+      {
+        description: "Setting up",
+        name: "demo-convex",
+        provider: "convex",
+        state: "setting_up",
+      },
+      {
+        description: "Setting up",
+        name: "demo-worker",
+        owner: "Ada Cloud",
+        provider: "cloudflare",
+        state: "setting_up",
+      },
+    ]);
+    expect(state.roots[0]?.resources.every((resource) => !resource.href && !resource.actions)).toBe(
+      true,
+    );
+    expect(state.addCloudflareWorker.disabled).toBe(true);
+    expect(state.addConvexProject.disabled).toBe(true);
+  });
+
+  it("keeps planned targets after a managed retry fails before it claims the write", () => {
+    const state = buildVaultRepositorySettingsState({
+      cloudflareObservations: makeLoadedCloudflareObservations({
+        workers: [],
+        builds: [],
+        convexBuildAccess: [],
+      }),
+      connectedCloudflareAccount: undefined,
+      convexObservations: {
+        state: "loaded",
+        refreshFailed: false,
+        reload: () => {},
+        observations: [],
+      },
+      pendingAction: null,
+      vault: makeRepositorySettingsBuilderVault({
+        providerPlan: {
+          convexConfigPath: "apps/web/convex.json",
+          convex: {
+            state: "planned",
+            projectName: "demo-convex",
+          },
+          cloudflare: {
+            state: "planned",
+            accountId: "account-1",
+            workerName: "demo-worker",
+            rootDirectory: "apps/web",
+          },
+        },
+        providerSetup: {
+          status: "failed",
+          provider: "convex",
+          runId: fakeRunId(),
+          step: "claim_infra",
+          message: "Another operation already owns this vault.",
+          updatedAt: 30,
+        },
+        providerWrite: { status: "idle", lastWriteAt: {} },
+      }),
+    });
+
+    expect(state.roots).toHaveLength(1);
+    expect(state.roots[0]).toMatchObject({
+      rootDirectory: "apps/web",
+      resources: [
+        {
+          description: "Another operation already owns this vault.",
+          name: "demo-convex",
+          provider: "convex",
+          state: "failed",
+        },
+        {
+          description: "Another operation already owns this vault.",
+          name: "demo-worker",
+          provider: "cloudflare",
+          state: "failed",
+        },
+      ],
+    });
+  });
+
   it("keeps unresolved loading resources out of the attention section", () => {
     const workerId = fakeCloudflareWorkerId("worker-loading");
     const state = buildVaultRepositorySettingsState({
@@ -1507,6 +2019,50 @@ describe("buildVaultRepositorySettingsState", () => {
         state: "loading",
       },
     ]);
+  });
+
+  it("disables every provider write while a local provider action is pending", () => {
+    const workerId = fakeCloudflareWorkerId("worker-pending");
+    const state = buildVaultRepositorySettingsState({
+      addCloudflareWorkerOnClick: () => {},
+      addConvexOnClick: () => {},
+      cloudflareObservations: makeLoadedCloudflareObservations({
+        workers: [makeAvailableRepositorySettingsCloudflareObservation({ workerId })],
+        builds: [
+          makeAvailableRepositorySettingsCloudflareBuildsObservation({
+            workerId,
+            repository: {
+              state: "ready",
+              rootDirectory: "/",
+              builds: { state: "not_available" },
+            },
+          }),
+        ],
+        convexBuildAccess: [],
+      }),
+      connectedCloudflareAccount: undefined,
+      convexObservations: {
+        state: "loaded",
+        refreshFailed: false,
+        reload: () => {},
+        observations: [],
+      },
+      detachCloudflareWorkerOnClick: () => {},
+      pendingAction: { kind: "detach_cloudflare_worker", workerId },
+      vault: makeRepositorySettingsBuilderVault({
+        cloudflareWorkers: [
+          makeRepositorySettingsCloudflareWorker({
+            workerId,
+            workerName: "pending-worker",
+          }),
+        ],
+      }),
+    });
+    const resource = getRepositorySettingsResource(state, "/", "cloudflare");
+
+    expect(state.addCloudflareWorker.disabled).toBe(true);
+    expect(state.addConvexProject.disabled).toBe(true);
+    expect(resource.actions?.every((action) => action.disabled)).toBe(true);
   });
 
   it("groups resources by observed roots and keeps unresolved Workers in attention", () => {

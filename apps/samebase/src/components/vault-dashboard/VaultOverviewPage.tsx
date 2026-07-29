@@ -9,7 +9,6 @@ import { RepositorySettings } from "@/components/vault-dashboard/VaultRepository
 import { VaultWorkspaceDataInspector } from "@/components/vault-dashboard/VaultWorkspaceDataInspector";
 import type { VaultRepositorySettingsState } from "@/components/vault-dashboard/vaultRepositorySettingsState";
 import { buildVaultDashboardRoute, buildVaultSettingsRoute } from "@/lib/vaultRoutes";
-import { formatVaultProviderSetupStep } from "./vaultProviderSetup";
 import { formatVaultSourceSetupStep } from "./vaultSourceSetup";
 import { Link } from "@tanstack/react-router";
 import { AlertTriangle, LayoutList, Loader2, Settings } from "lucide-react";
@@ -33,41 +32,54 @@ function RepositoryHeader({
   owner,
   page,
   repoName,
+  repositoryConnected,
   repositoryUrl,
 }: {
   owner: string;
   page: VaultOverviewPageKind;
   repoName: string;
+  repositoryConnected: boolean;
   repositoryUrl: string;
 }) {
   const overviewRoute = buildVaultDashboardRoute({ owner, repoName });
   const settingsRoute = buildVaultSettingsRoute({ owner, repoName });
+  const repositoryIdentity = (
+    <>
+      <div className="min-w-0 flex-1 text-base">
+        <span className="block line-clamp-2 text-muted-foreground [overflow-wrap:anywhere] @3xl:inline">
+          {owner}/
+        </span>
+        <h1 className="block line-clamp-3 font-semibold text-foreground [overflow-wrap:anywhere] @3xl:ml-1 @3xl:inline">
+          {repoName}
+        </h1>
+      </div>
+      <span
+        aria-hidden="true"
+        className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center text-foreground"
+      >
+        <GitHubProviderLogo />
+      </span>
+    </>
+  );
 
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-background">
       <div className="mx-auto flex w-full max-w-[1100px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 @3xl:px-6 @5xl:px-8">
-        <a
-          aria-label={`Open ${owner}/${repoName} on GitHub`}
-          className="flex w-full min-w-0 items-start gap-2 text-left no-underline hover:no-underline @3xl:w-auto @3xl:flex-1"
-          href={repositoryUrl}
-          rel="noreferrer noopener"
-          target="_blank"
-        >
-          <div className="min-w-0 flex-1 text-base">
-            <span className="block line-clamp-2 text-muted-foreground [overflow-wrap:anywhere] @3xl:inline">
-              {owner}/
-            </span>
-            <h1 className="block line-clamp-3 font-semibold text-foreground [overflow-wrap:anywhere] @3xl:ml-1 @3xl:inline">
-              {repoName}
-            </h1>
-          </div>
-          <span
-            aria-hidden="true"
-            className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center text-foreground"
+        {repositoryConnected ? (
+          <a
+            aria-label={`Open ${owner}/${repoName} on GitHub`}
+            className="flex w-full min-w-0 items-start gap-2 text-left no-underline hover:no-underline @3xl:w-auto @3xl:flex-1"
+            href={repositoryUrl}
+            rel="noreferrer noopener"
+            target="_blank"
           >
-            <GitHubProviderLogo />
-          </span>
-        </a>
+            {repositoryIdentity}
+          </a>
+        ) : (
+          <div className="flex w-full min-w-0 items-start gap-2 text-left @3xl:w-auto @3xl:flex-1">
+            {repositoryIdentity}
+          </div>
+        )}
         <nav aria-label="Repository" className="flex w-full items-center gap-1 @3xl:w-auto">
           <Link
             aria-current={page === "overview" ? "page" : undefined}
@@ -103,11 +115,13 @@ function FailureNotice({
   description,
   isRetrying,
   onRetry,
+  retryDisabled,
   title,
 }: {
   description: string;
   isRetrying?: boolean;
   onRetry?: () => void;
+  retryDisabled?: boolean;
   title: string;
 }) {
   const content = (
@@ -125,7 +139,13 @@ function FailureNotice({
       {onRetry ? (
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">{content}</div>
-          <Button disabled={isRetrying} size="sm" type="button" variant="outline" onClick={onRetry}>
+          <Button
+            disabled={isRetrying || retryDisabled}
+            size="sm"
+            type="button"
+            variant="outline"
+            onClick={onRetry}
+          >
             {isRetrying ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {isRetrying ? "Retrying..." : "Retry"}
           </Button>
@@ -171,11 +191,14 @@ function VaultStateNotice({
     );
   }
   if (vault.providerSetup.status === "failed") {
+    const providerWriteBlocked =
+      vault.providerWrite.status === "active" || vault.providerWrite.status === "recovery_required";
     return (
       <FailureNotice
         description={vault.providerSetup.message}
         isRetrying={isRetryingVaultAction}
         onRetry={onRetryInfrastructureProvisioning}
+        retryDisabled={providerWriteBlocked}
         title="Provider setup failed"
       />
     );
@@ -197,10 +220,13 @@ export function VaultOverviewPage({
     workspace.access.state === "ready" && workspace.access.accessKeys.includes("access_files_read");
   const provisioningLabel =
     workspace.vault.sourceSetup.status === "running"
-      ? formatVaultSourceSetupStep(workspace.vault.sourceSetup.step)
+      ? workspace.vault.hasConnectedGitHubRepository
+        ? "Setting up"
+        : formatVaultSourceSetupStep(workspace.vault.sourceSetup.step)
       : workspace.vault.providerSetup.status === "running"
-        ? formatVaultProviderSetupStep(workspace.vault.providerSetup.step)
+        ? "Setting up"
         : null;
+  const showRepositoryContent = workspace.vault.hasConnectedGitHubRepository;
 
   return (
     <div className="min-h-full bg-background text-foreground">
@@ -208,6 +234,7 @@ export function VaultOverviewPage({
         owner={workspace.vault.ghRepoOwner}
         page={page}
         repoName={workspace.vault.ghRepoName}
+        repositoryConnected={workspace.vault.hasConnectedGitHubRepository}
         repositoryUrl={workspace.githubRepositoryUrl}
       />
       {page === "settings" ? (
@@ -233,14 +260,17 @@ export function VaultOverviewPage({
                 {provisioningLabel}
               </span>
             </section>
-          ) : (
+          ) : null}
+          {showRepositoryContent ? (
             <>
-              <VaultStateNotice
-                isRetryingVaultAction={isRetryingVaultAction}
-                onRetryInfrastructureProvisioning={onRetryInfrastructureProvisioning}
-                onRetryVaultDeletion={onRetryVaultDeletion}
-                vault={workspace.vault}
-              />
+              {provisioningLabel ? null : (
+                <VaultStateNotice
+                  isRetryingVaultAction={isRetryingVaultAction}
+                  onRetryInfrastructureProvisioning={onRetryInfrastructureProvisioning}
+                  onRetryVaultDeletion={onRetryVaultDeletion}
+                  vault={workspace.vault}
+                />
+              )}
               <DefaultBranchSection filesReadEnabled={filesReadEnabled} workspace={workspace} />
               {developerToolsVisible ? <VaultWorkspaceDataInspector workspace={workspace} /> : null}
               <PullRequestsSection
@@ -249,6 +279,13 @@ export function VaultOverviewPage({
                 vault={workspace.vault}
               />
             </>
+          ) : provisioningLabel ? null : (
+            <VaultStateNotice
+              isRetryingVaultAction={isRetryingVaultAction}
+              onRetryInfrastructureProvisioning={onRetryInfrastructureProvisioning}
+              onRetryVaultDeletion={onRetryVaultDeletion}
+              vault={workspace.vault}
+            />
           )}
         </main>
       )}
@@ -272,6 +309,7 @@ export function VaultOverviewLoadingPage({
         owner={owner}
         page={page}
         repoName={repoName}
+        repositoryConnected={false}
         repositoryUrl={`https://github.com/${owner}/${repoName}`}
       />
       <main

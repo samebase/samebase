@@ -1,6 +1,6 @@
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import type { ConvexCodeLocation } from "../../../shared/convexCodeLocation";
 import { vaultExternalDataQueryKey } from "@/lib/vaultExternalDataQueryKey";
@@ -16,6 +16,7 @@ export type VaultConvexProjectObservation =
 
 export type VaultProviderObservationState<TObservation> =
   | { state: "loading" }
+  | { state: "checking" }
   | {
       state: "loaded";
       observations: readonly TObservation[];
@@ -39,6 +40,12 @@ type VaultProviderObservationTarget = {
     projectId: string;
     teamId: string;
   }[];
+  providerWrite: {
+    lastWriteAt: {
+      cloudflare?: number;
+      convex?: number;
+    };
+  };
 };
 
 const PROVIDER_OBSERVATION_STALE_TIME_MS = 60 * 1000;
@@ -48,12 +55,14 @@ function providerObservationState<TObservation>({
   data,
   isError,
   isRefetchError,
+  lastWriteAt,
   reload,
   requested,
 }: {
   data: readonly TObservation[] | undefined;
   isError: boolean;
   isRefetchError: boolean;
+  lastWriteAt: number | undefined;
   reload: () => void;
   requested: boolean;
 }): VaultProviderObservationState<TObservation> {
@@ -63,15 +72,16 @@ function providerObservationState<TObservation>({
   if (data) {
     return { state: "loaded", observations: data, refreshFailed: isRefetchError, reload };
   }
+  if (!isError && lastWriteAt !== undefined) {
+    return { state: "checking" };
+  }
   return isError ? { state: "failed", reload } : { state: "loading" };
 }
 
 export function useVaultProviderObservations(vault: VaultProviderObservationTarget | null): {
   cloudflare: VaultCloudflareProviderObservationState;
   convex: VaultProviderObservationState<VaultConvexProjectObservation>;
-  invalidateExternalData: () => Promise<void>;
 } {
-  const queryClient = useQueryClient();
   const observeCloudflareWorkers = useAction(
     api.vault.providerObservations.observeCloudflareWorkers,
   );
@@ -83,6 +93,8 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
   );
   const observeConvexProjects = useAction(api.vault.providerObservations.observeConvexProjects);
   const vaultId = vault?._id;
+  const cloudflareLastWriteAt = vault?.providerWrite.lastWriteAt.cloudflare;
+  const convexLastWriteAt = vault?.providerWrite.lastWriteAt.convex;
   const cloudflareWorkerIds = [...(vault?.cloudflareWorkers ?? [])]
     .map((worker) => worker.workerId)
     .sort((left, right) => left.localeCompare(right));
@@ -96,7 +108,12 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
     .sort((left, right) => left.convexProjectId.localeCompare(right.convexProjectId));
 
   const cloudflareWorkersQuery = useQuery({
-    queryKey: [...vaultExternalDataQueryKey(vaultId), "cloudflare-workers", cloudflareWorkerIds],
+    queryKey: [
+      ...vaultExternalDataQueryKey(vaultId),
+      "cloudflare-workers",
+      cloudflareWorkerIds,
+      cloudflareLastWriteAt,
+    ],
     queryFn: async () => {
       if (!vaultId) {
         throw new Error("Vault is required to observe Cloudflare Workers.");
@@ -104,6 +121,7 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
       return await observeCloudflareWorkers({ vaultId });
     },
     enabled: Boolean(vaultId && cloudflareWorkerIds.length > 0),
+    retry: false,
     staleTime: PROVIDER_OBSERVATION_STALE_TIME_MS,
     gcTime: PROVIDER_OBSERVATION_GC_TIME_MS,
   });
@@ -112,6 +130,7 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
       ...vaultExternalDataQueryKey(vaultId),
       "cloudflare-worker-builds",
       cloudflareWorkerIds,
+      cloudflareLastWriteAt,
     ],
     queryFn: async () => {
       if (!vaultId) {
@@ -120,10 +139,9 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
       return await observeCloudflareWorkerBuilds({ vaultId });
     },
     enabled: Boolean(vaultId && cloudflareWorkerIds.length > 0),
+    retry: false,
     staleTime: PROVIDER_OBSERVATION_STALE_TIME_MS,
     gcTime: PROVIDER_OBSERVATION_GC_TIME_MS,
-    refetchInterval: PROVIDER_OBSERVATION_STALE_TIME_MS,
-    refetchIntervalInBackground: false,
   });
   const cloudflareBuildAccessTargets = (cloudflareBuildsQuery.data ?? [])
     .flatMap((observation) =>
@@ -144,6 +162,7 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
       "cloudflare-worker-convex-build-access",
       cloudflareBuildAccessTargets,
       convexProjectTargets,
+      cloudflareLastWriteAt,
     ],
     queryFn: async () => {
       if (!vaultId) {
@@ -158,11 +177,17 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
       });
     },
     enabled: Boolean(vaultId && cloudflareBuildAccessTargets.length > 0),
+    retry: false,
     staleTime: PROVIDER_OBSERVATION_STALE_TIME_MS,
     gcTime: PROVIDER_OBSERVATION_GC_TIME_MS,
   });
   const convexQuery = useQuery({
-    queryKey: [...vaultExternalDataQueryKey(vaultId), "convex", convexProjectTargets],
+    queryKey: [
+      ...vaultExternalDataQueryKey(vaultId),
+      "convex",
+      convexProjectTargets,
+      convexLastWriteAt,
+    ],
     queryFn: async () => {
       if (!vaultId) {
         throw new Error("Vault is required to observe Convex projects.");
@@ -170,6 +195,7 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
       return await observeConvexProjects({ vaultId });
     },
     enabled: Boolean(vaultId && convexProjectTargets.length > 0),
+    retry: false,
     staleTime: PROVIDER_OBSERVATION_STALE_TIME_MS,
     gcTime: PROVIDER_OBSERVATION_GC_TIME_MS,
   });
@@ -186,15 +212,11 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
   const reloadConvex = () => {
     void convexQuery.refetch();
   };
-  const invalidateExternalData = async () => {
-    await queryClient.invalidateQueries({
-      queryKey: vaultExternalDataQueryKey(vaultId),
-    });
-  };
   const workers = providerObservationState({
     data: cloudflareWorkersQuery.data,
     isError: cloudflareWorkersQuery.isError,
     isRefetchError: cloudflareWorkersQuery.isRefetchError,
+    lastWriteAt: cloudflareLastWriteAt,
     reload: reloadCloudflareWorkers,
     requested: cloudflareWorkerIds.length > 0,
   });
@@ -202,6 +224,7 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
     data: cloudflareBuildsQuery.data,
     isError: cloudflareBuildsQuery.isError,
     isRefetchError: cloudflareBuildsQuery.isRefetchError,
+    lastWriteAt: cloudflareLastWriteAt,
     reload: reloadCloudflareBuilds,
     requested: cloudflareWorkerIds.length > 0,
   });
@@ -216,7 +239,9 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
       : !cloudflareBuildsQuery.data
         ? cloudflareBuildsQuery.isError
           ? { state: "failed" as const, reload: reloadCloudflareBuilds }
-          : { state: "loading" as const }
+          : cloudflareLastWriteAt !== undefined
+            ? { state: "checking" as const }
+            : { state: "loading" as const }
         : cloudflareBuildAccessTargets.length === 0
           ? {
               state: "loaded" as const,
@@ -228,6 +253,7 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
               data: cloudflareConvexBuildAccessQuery.data,
               isError: cloudflareConvexBuildAccessQuery.isError,
               isRefetchError: cloudflareConvexBuildAccessQuery.isRefetchError,
+              lastWriteAt: cloudflareLastWriteAt,
               reload: reloadCloudflareConvexBuildAccess,
               requested: true,
             });
@@ -235,6 +261,7 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
     data: convexQuery.data,
     isError: convexQuery.isError,
     isRefetchError: convexQuery.isRefetchError,
+    lastWriteAt: convexLastWriteAt,
     reload: reloadConvex,
     requested: convexProjectTargets.length > 0,
   });
@@ -246,6 +273,5 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
       convexBuildAccess,
     },
     convex,
-    invalidateExternalData,
   };
 }

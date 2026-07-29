@@ -133,7 +133,7 @@ export function VaultOverviewSidebar({
           <Link
             key={vault._id}
             aria-current={selected ? "page" : undefined}
-            aria-label={vault.repositoryFullName}
+            aria-label={`${vault.repositoryFullName}, ${status.label}`}
             data-vault-status={status.label}
             className={
               selected

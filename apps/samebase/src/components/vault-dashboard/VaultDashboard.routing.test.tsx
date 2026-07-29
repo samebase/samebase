@@ -86,10 +86,7 @@ describe("VaultDashboard dialog route cleanup", () => {
   }
 
   function setLoadingWorkspace() {
-    workspaceModelMock.mockReturnValue({
-      commands: { invalidateExternalData: vi.fn() },
-      model: { state: "loading" },
-    });
+    workspaceModelMock.mockReturnValue({ state: "loading" });
   }
 
   function setSettledWorkspace(
@@ -111,13 +108,10 @@ describe("VaultDashboard dialog route cleanup", () => {
         },
   ) {
     workspaceModelMock.mockReturnValue({
-      commands: { invalidateExternalData: vi.fn() },
-      model: {
-        state: "ready",
-        selection,
-        sidebarSummaries: { state: "loaded", summaries: [] },
-        vaults: [],
-      },
+      state: "ready",
+      selection,
+      sidebarSummaries: { state: "loaded", summaries: [] },
+      vaults: [],
     });
   }
 
@@ -154,7 +148,7 @@ describe("VaultDashboard dialog route cleanup", () => {
     expect(readLocationHref()).toContain("dev");
   });
 
-  it("clears a provider dialog when the selected vault cannot manage attachments", async () => {
+  it("keeps a direct provider dialog route while GitHub setup blocks its confirmation", async () => {
     setSettledWorkspace({
       state: "selected",
       workspace: {
@@ -171,7 +165,7 @@ describe("VaultDashboard dialog route cleanup", () => {
 
     await renderDashboard("/vault/samebase/samebase?add-cloudflare&dev", "samebase/samebase");
 
-    expect(readLocationHref()).not.toContain("add-cloudflare");
+    expect(readLocationHref()).toContain("add-cloudflare");
     expect(readLocationHref()).toContain("dev");
   });
 

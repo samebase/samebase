@@ -58,6 +58,9 @@ export type VaultOverviewVisualMode =
   | "vault-overview-v2-provisioning-ready"
   | "vault-overview-v2-root"
   | "vault-overview-v2-settings"
+  | "vault-overview-v2-settings-active"
+  | "vault-overview-v2-settings-checking"
+  | "vault-overview-v2-settings-completed"
   | "vault-overview-v2-settings-loading";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
@@ -103,6 +106,8 @@ const LIST_SPACING_VAULT = {
   fileCount: 18,
   sourceSetup: { status: "ready" },
   providerSetup: { status: "ready" },
+  providerPlan: null,
+  providerWrite: { status: "idle", lastWriteAt: {} },
   deletion: {
     state: "not_deleting",
     deleteAction: { state: "available" },
@@ -583,6 +588,47 @@ const PROVISIONING_EMPTY_CONVEX_OBSERVATIONS = {
   reload: () => {},
 } satisfies VaultProviderObservationState<VaultConvexProjectObservation>;
 
+const PROVISIONING_CHECKING_CLOUDFLARE_OBSERVATIONS = {
+  workers: { state: "checking" },
+  builds: { state: "checking" },
+  convexBuildAccess: { state: "checking" },
+} satisfies VaultCloudflareProviderObservationState;
+
+const PROVISIONING_CHECKING_CONVEX_OBSERVATIONS = {
+  state: "checking",
+} satisfies VaultProviderObservationState<VaultConvexProjectObservation>;
+
+const PROVISIONING_PLANNED_PROVIDER_PLAN = {
+  convexConfigPath: "convex.json",
+  convex: {
+    state: "planned",
+    projectName: "tmp-f149-vault-loading-states",
+  },
+  cloudflare: {
+    state: "planned",
+    accountId: "fixture-cloudflare-account",
+    workerName: "tmp-f149-vault-loading-states",
+    rootDirectory: "/",
+  },
+} satisfies NonNullable<UserVaultResult["providerPlan"]>;
+
+const PROVISIONING_CREATED_PROVIDER_PLAN = {
+  convexConfigPath: "convex.json",
+  convex: {
+    state: "created",
+    projectName: "tmp-f149-vault-loading-states",
+    teamId: "38516",
+    projectId: "2653471",
+  },
+  cloudflare: {
+    state: "created",
+    accountId: "fixture-cloudflare-account",
+    workerName: "tmp-f149-vault-loading-states",
+    workerTag: "tmp-f149-vault-loading-states-tag",
+    rootDirectory: "/",
+  },
+} satisfies NonNullable<UserVaultResult["providerPlan"]>;
+
 function fixturePullRequests(
   pullRequests: readonly FixturePullRequest[],
   defaultBranch: VaultDefaultBranchObservation | null,
@@ -879,6 +925,143 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
   );
 }
 
+type VaultOverviewProviderSettingsVisualMode = Extract<
+  VaultOverviewVisualMode,
+  | "vault-overview-v2-settings-active"
+  | "vault-overview-v2-settings-checking"
+  | "vault-overview-v2-settings-completed"
+>;
+
+function VaultOverviewProviderSettingsFixture({
+  mode,
+}: {
+  mode: VaultOverviewProviderSettingsVisualMode;
+}) {
+  let vault: UserVaultResult;
+  let cloudflareObservations: VaultCloudflareProviderObservationState;
+  let convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
+
+  switch (mode) {
+    case "vault-overview-v2-settings-active":
+      vault = {
+        ...PROVISIONING_VAULT,
+        cloudflareWorkers: [],
+        convexProjects: [],
+        providerPlan: PROVISIONING_PLANNED_PROVIDER_PLAN,
+        providerSetup: {
+          status: "running",
+          provider: "cloudflare",
+          runId: PROVISIONING_RUN_ID,
+          step: "attach_worker",
+          updatedAt: FIXTURE_NOW,
+        },
+        providerWrite: {
+          status: "active",
+          owner: { kind: "managed_run", runId: PROVISIONING_RUN_ID },
+          affectedProviders: ["convex", "cloudflare"],
+          updatedAt: FIXTURE_NOW,
+          lastWriteAt: {},
+        },
+        deletion: {
+          state: "not_deleting",
+          deleteAction: {
+            state: "disabled",
+            reason: "Vault setup is still running.",
+          },
+        },
+      };
+      cloudflareObservations = PROVISIONING_EMPTY_CLOUDFLARE_OBSERVATIONS;
+      convexObservations = PROVISIONING_EMPTY_CONVEX_OBSERVATIONS;
+      break;
+    case "vault-overview-v2-settings-checking":
+      vault = {
+        ...PROVISIONING_VAULT,
+        providerPlan: PROVISIONING_CREATED_PROVIDER_PLAN,
+        providerWrite: {
+          status: "succeeded",
+          owner: { kind: "managed_run", runId: PROVISIONING_RUN_ID },
+          affectedProviders: ["convex", "cloudflare"],
+          updatedAt: FIXTURE_NOW,
+          lastWriteAt: {
+            cloudflare: FIXTURE_NOW,
+            convex: FIXTURE_NOW,
+          },
+        },
+      };
+      cloudflareObservations = PROVISIONING_CHECKING_CLOUDFLARE_OBSERVATIONS;
+      convexObservations = PROVISIONING_CHECKING_CONVEX_OBSERVATIONS;
+      break;
+    case "vault-overview-v2-settings-completed":
+      vault = {
+        ...PROVISIONING_VAULT,
+        providerPlan: PROVISIONING_CREATED_PROVIDER_PLAN,
+        providerWrite: {
+          status: "succeeded",
+          owner: { kind: "managed_run", runId: PROVISIONING_RUN_ID },
+          affectedProviders: ["convex", "cloudflare"],
+          updatedAt: FIXTURE_NOW,
+          lastWriteAt: {
+            cloudflare: FIXTURE_NOW,
+            convex: FIXTURE_NOW,
+          },
+        },
+      };
+      cloudflareObservations = PROVISIONING_CLOUDFLARE_OBSERVATIONS;
+      convexObservations = PROVISIONING_CONVEX_OBSERVATIONS;
+      break;
+  }
+
+  const { settingsState, workspace } = buildFixtureWorkspace({
+    cloudflareAccountId: "fixture-cloudflare-account",
+    cloudflareAccountName: "Fixture Account",
+    cloudflareObservations,
+    convexObservations,
+    githubRepositoryUrl: "https://github.com/nicu-chiciuc/tmp-f149-vault-loading-states",
+    pullRequests: fixturePullRequests([], PROVISIONING_DEFAULT_BRANCH),
+    vault,
+  });
+
+  return (
+    <TestRouterProvider
+      initialEntries={["/vault/nicu-chiciuc/tmp-f149-vault-loading-states/settings"]}
+    >
+      <WorkspaceLayoutV2FixtureFrame
+        dataTestId={mode}
+        left={{
+          header: <VaultOverviewVaultListHeader />,
+          content: (
+            <VaultOverviewSidebar
+              page="settings"
+              selectedVaultId={vault._id}
+              sidebarSummaries={{
+                state: "loaded",
+                summaries: [{ vaultId: vault._id, checks: PROVISIONING_DEFAULT_BRANCH.checks }],
+              }}
+              vaults={[vault]}
+              workspace={workspace}
+            />
+          ),
+        }}
+        main={{
+          content: (
+            <VaultOverviewPage
+              developerToolsVisible={false}
+              isRetryingVaultAction={false}
+              page="settings"
+              settingsState={settingsState}
+              workspace={workspace}
+              onOpenDeleteDialog={() => {}}
+              onRetryInfrastructureProvisioning={() => {}}
+              onRetryVaultDeletion={() => {}}
+            />
+          ),
+        }}
+        shortcutPaneSide="left"
+      />
+    </TestRouterProvider>
+  );
+}
+
 export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisualMode }) {
   const [nextPullRequestPageLoaded, setNextPullRequestPageLoaded] = useState(false);
   const page =
@@ -906,6 +1089,10 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
     case "vault-overview-v2-provisioning-worker":
     case "vault-overview-v2-provisioning-ready":
       return <VaultOverviewProvisioningFixture mode={mode} />;
+    case "vault-overview-v2-settings-active":
+    case "vault-overview-v2-settings-checking":
+    case "vault-overview-v2-settings-completed":
+      return <VaultOverviewProviderSettingsFixture mode={mode} />;
   }
 
   if (mode === "vault-overview-v2-root") {

@@ -87,6 +87,7 @@ function getConvexCodeLocationSelection(option: ConvexCodeLocationOption) {
 }
 
 export function VaultConvexDialogContent({
+  blockedReason,
   codeLocations,
   createCodeLocationKey,
   createProjectName,
@@ -107,6 +108,7 @@ export function VaultConvexDialogContent({
   sourceCompleteness,
   vault,
 }: {
+  blockedReason?: string | null;
   codeLocations: readonly ConvexCodeLocationOption[];
   createCodeLocationKey: string;
   createProjectName: string;
@@ -134,6 +136,7 @@ export function VaultConvexDialogContent({
   const sortedProjects = [...projects].sort(compareConvexProjectOption);
   const selectedProjectCount = Object.keys(selectedProjectCodeLocationKeys).length;
   const submitDisabled =
+    Boolean(blockedReason) ||
     isLoading ||
     isSubmitting ||
     codeLocationOptions.length === 0 ||
@@ -312,7 +315,11 @@ export function VaultConvexDialogContent({
               )}
             </>
           )}
-          {error ? <div className="text-sm text-red-600">{error}</div> : null}
+          {blockedReason ? (
+            <div className="text-sm text-muted-foreground">{blockedReason}</div>
+          ) : error ? (
+            <div className="text-sm text-red-600">{error}</div>
+          ) : null}
         </div>
         <DialogFooter>
           <Button
@@ -320,7 +327,7 @@ export function VaultConvexDialogContent({
             onClick={() => {
               onOpenChange(false);
             }}
-            disabled={isSubmitting}
+            disabled={isSubmitting && !blockedReason}
           >
             Cancel
           </Button>
@@ -349,11 +356,13 @@ export function VaultConvexDialogContent({
 }
 
 export function VaultConvexDialog({
+  blockedReason,
   onClose,
   onSaved,
   repairProjectId,
   vault,
 }: {
+  blockedReason: string | null;
   onClose: () => void;
   onSaved: () => void;
   repairProjectId: Id<"vaultConvexProjects"> | null;
@@ -378,7 +387,12 @@ export function VaultConvexDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resourcesQuery = useQuery({
-    queryKey: ["vault-provider-discovery", vault._id, "convex-projects"],
+    queryKey: [
+      "vault-provider-discovery",
+      vault._id,
+      "convex-projects",
+      vault.providerWrite.lastWriteAt.convex,
+    ],
     queryFn: () => discoverProjects({ vaultId: vault._id }),
     retry: false,
   });
@@ -401,7 +415,7 @@ export function VaultConvexDialog({
     : null;
 
   const handleSubmit = async () => {
-    if (!resourcesQuery.data || isSubmitting) {
+    if (blockedReason || !resourcesQuery.data || isSubmitting) {
       return;
     }
 
@@ -464,6 +478,7 @@ export function VaultConvexDialog({
 
   return (
     <VaultConvexDialogContent
+      blockedReason={blockedReason}
       codeLocations={codeLocations}
       createCodeLocationKey={createCodeLocationKey}
       createProjectName={createProjectName}
@@ -476,7 +491,7 @@ export function VaultConvexDialog({
       onCreateProjectNameChange={setCreateProjectName}
       onModeChange={setMode}
       onOpenChange={(isOpen) => {
-        if (!isOpen && !isSubmitting) {
+        if (!isOpen && (!isSubmitting || blockedReason)) {
           onClose();
         }
       }}

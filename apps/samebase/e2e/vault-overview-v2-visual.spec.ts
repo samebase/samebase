@@ -59,12 +59,15 @@ test("uses the overview vault rows on the canonical root route", async ({ page }
   const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
 
   const samebaseLink = vaultNavigation.getByRole("link", {
-    name: "samebase/samebase",
+    name: "samebase/samebase, 4/4 passed",
     exact: true,
   });
   await expect(samebaseLink).toHaveAttribute("href", "/vault/samebase/samebase");
   await expect(
-    vaultNavigation.getByRole("link", { name: "noter/guestbook", exact: true }),
+    vaultNavigation.getByRole("link", {
+      name: "noter/guestbook, 4/4 passed",
+      exact: true,
+    }),
   ).toHaveAttribute("href", "/vault/noter/guestbook");
   await expect(fixture).toHaveScreenshot("vault-overview-v2-root.png", {
     animations: "disabled",
@@ -413,19 +416,17 @@ test("reproduces the observed new repository provisioning states", async ({ page
   await expect(sourceFixture.getByRole("heading", { name: "Open pull requests" })).toHaveCount(0);
 
   const githubFixture = await openVaultOverviewV2(page, "vault-overview-v2-provisioning-github");
-  await expect(githubFixture.getByRole("status")).toHaveText("Syncing repository files");
-  await expect(githubFixture.getByLabel("Loading default branch")).toHaveCount(0);
-  await expect(githubFixture.getByRole("heading", { name: "Open pull requests" })).toHaveCount(0);
+  await expect(githubFixture.getByRole("status")).toHaveText("Setting up");
+  await expect(githubFixture.getByLabel("Loading default branch")).toBeVisible();
+  await expect(githubFixture.getByRole("heading", { name: "Open pull requests" })).toBeVisible();
 
   const earlyEmptyFixture = await openVaultOverviewV2(
     page,
     "vault-overview-v2-provisioning-early-empty",
   );
-  await expect(earlyEmptyFixture.getByRole("status")).toHaveText("Connecting Cloudflare Worker");
-  await expect(earlyEmptyFixture.getByText("No default branch commit is available.")).toHaveCount(
-    0,
-  );
-  await expect(earlyEmptyFixture.getByText("No open pull requests.")).toHaveCount(0);
+  await expect(earlyEmptyFixture.getByRole("status")).toHaveText("Setting up");
+  await expect(earlyEmptyFixture.getByText("No default branch commit is available.")).toBeVisible();
+  await expect(earlyEmptyFixture.getByText("No open pull requests.")).toBeVisible();
 
   const completeEmptyFixture = await openVaultOverviewV2(
     page,
@@ -460,6 +461,57 @@ test("reproduces the observed new repository provisioning states", async ({ page
   await expect(readyFixture.getByText("No open pull requests.")).toBeVisible();
 });
 
+test("shows stable provider setup states in Settings", async ({ page }) => {
+  await page.setViewportSize({ width: 700, height: 995 });
+
+  const activeFixture = await openVaultOverviewV2(page, "vault-overview-v2-settings-active");
+  const activeConnections = activeFixture
+    .getByRole("heading", { name: "Connections" })
+    .locator("..")
+    .locator("..");
+  await expect(activeConnections.getByText("Setting up", { exact: true })).toHaveCount(2);
+  await expect(activeFixture.getByText("Attention required")).toHaveCount(0);
+  await expect(activeFixture.getByText("A provider operation is in progress.")).toBeVisible();
+  await expect(activeFixture.getByRole("button", { name: "Add Cloudflare Worker" })).toBeDisabled();
+  await expect(activeFixture.getByRole("button", { name: "Add Convex project" })).toBeDisabled();
+  await expect(activeFixture.getByRole("button", { name: "Remove vault" })).toBeDisabled();
+  await expect(activeFixture).toHaveScreenshot("vault-overview-v2-settings-active.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+
+  const checkingFixture = await openVaultOverviewV2(page, "vault-overview-v2-settings-checking");
+  await expect(checkingFixture.getByText("Checking", { exact: true })).toHaveCount(2);
+  await expect(checkingFixture.getByText("Attention required")).toHaveCount(0);
+  await expect(checkingFixture.getByRole("button", { name: "Reload" })).toHaveCount(0);
+  await expect(checkingFixture).toHaveScreenshot("vault-overview-v2-settings-checking.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+
+  const completedFixture = await openVaultOverviewV2(page, "vault-overview-v2-settings-completed");
+  await expect(completedFixture.getByText("Setting up", { exact: true })).toHaveCount(0);
+  await expect(completedFixture.getByText("Checking", { exact: true })).toHaveCount(0);
+  const completedConnections = completedFixture
+    .getByRole("heading", { name: "Connections" })
+    .locator("..")
+    .locator("..");
+  await expect(
+    completedConnections.getByText("tmp-f149-vault-loading-states", { exact: true }),
+  ).toHaveCount(2);
+  await expect(completedFixture.getByText("Attention required")).toHaveCount(0);
+  await expect(completedFixture).toHaveScreenshot("vault-overview-v2-settings-completed.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+});
+
 test("preserves repository identity at the minimum sidebar width", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const fixture = await openVaultOverviewV2(page, "vault-overview-v2", {
@@ -470,7 +522,7 @@ test("preserves repository identity at the minimum sidebar width", async ({ page
   const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
 
   const selectedVault = vaultNavigation.getByRole("link", {
-    name: "samebase/samebase",
+    name: "samebase/samebase, 4/4 passed",
     exact: true,
   });
   await expect(selectedVault).toBeVisible();

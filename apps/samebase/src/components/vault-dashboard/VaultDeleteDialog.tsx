@@ -49,6 +49,7 @@ type VaultDeleteOptions = {
 };
 
 export function VaultDeleteDialogContent({
+  blockedReason,
   commitError,
   deleteError,
   didAttemptCommit,
@@ -63,6 +64,7 @@ export function VaultDeleteDialogContent({
   stagedChangesCount,
   target,
 }: {
+  blockedReason?: string | null;
   commitError: string | null;
   deleteError: string | null;
   didAttemptCommit: boolean;
@@ -157,6 +159,9 @@ export function VaultDeleteDialogContent({
           ) : null}
           {deleteError ? <div className="text-sm text-red-600">{deleteError}</div> : null}
           {commitError ? <div className="text-sm text-red-600">{commitError}</div> : null}
+          {blockedReason ? (
+            <div className="text-sm text-muted-foreground">{blockedReason}</div>
+          ) : null}
           {didAttemptCommit && hasStagedChanges ? (
             <div className="text-sm text-muted-foreground">
               Some local changes are still uncommitted. You can retry commit or remove anyway.
@@ -192,7 +197,7 @@ export function VaultDeleteDialogContent({
           <Button
             variant="destructive"
             onClick={onRemoveVault}
-            disabled={isDeleting || isCommitting}
+            disabled={Boolean(blockedReason) || isDeleting || isCommitting}
           >
             {isDeleting ? (
               <>
@@ -232,12 +237,14 @@ export function VaultDeleteDialog({
     removeCloudflareProvision: false,
   });
 
-  if (
-    vault.deletion.state !== "not_deleting" ||
-    vault.deletion.deleteAction.state !== "available"
-  ) {
-    return null;
-  }
+  const confirmBlockedReason =
+    vault.deletion.state === "deleting"
+      ? "Vault removal is in progress."
+      : vault.deletion.state === "delete_failed"
+        ? "Retry vault removal before you remove this vault."
+        : vault.deletion.deleteAction.state === "disabled"
+          ? vault.deletion.deleteAction.reason
+          : null;
 
   const target = {
     id: vault._id,
@@ -278,7 +285,7 @@ export function VaultDeleteDialog({
   };
 
   const handleRemoveVault = async () => {
-    if (operation.state !== "idle") {
+    if (confirmBlockedReason || operation.state !== "idle") {
       return;
     }
 
@@ -313,6 +320,7 @@ export function VaultDeleteDialog({
 
   return (
     <VaultDeleteDialogContent
+      blockedReason={confirmBlockedReason}
       commitError={operation.state === "idle" ? operation.commitError : null}
       deleteError={operation.state === "idle" ? operation.deleteError : null}
       didAttemptCommit={operation.didAttemptCommit}
