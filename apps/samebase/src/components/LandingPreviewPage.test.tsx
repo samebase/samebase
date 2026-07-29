@@ -112,16 +112,26 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("Samebase repeats it, so you never choose again.");
     expect(markup).toContain("deploys + domains + edge");
     expect(markup).toContain('data-testid="landing-preview-stack-details"');
-    expect(markup).toContain("standard stack");
-    expect(markup).toContain("Chosen for how agents build now.");
+    expect(markup).toContain('data-testid="landing-preview-stack-model"');
+    expect(markup).toContain("base + starting shape");
+    expect(markup).toContain("One base. More than one app shape.");
     expect(markup).toContain("/landing-preview/logos/vite-plus.svg");
     expect(markup).toContain("/landing-preview/logos/tanstack.svg");
     expect(markup).toContain("/landing-preview/logos/tailwindcss.svg");
     expect(markup).toContain("Tailwind CSS");
-    expect(markup).toContain("One fast toolchain for the agent loop.");
-    expect(markup).toContain("Full-stack TypeScript with official support for Cloudflare Workers.");
-    expect(markup).toContain("One styling language from product UI to landing pages.");
-    expect(markup).toContain("Why we chose this stack");
+    expect(markup).toContain("current starter");
+    expect(markup).toContain("replaceable");
+    expect(markup).toContain("A complete app, not a contract.");
+    expect(markup).toContain("It is a strong starting shape, not a platform rule.");
+    expect(markup).toContain("Convex and Workers do not depend on TanStack.");
+    expect(markup).toContain("provider base");
+    expect(markup).toContain("independent resources");
+    expect(markup).toContain(
+      "Attach one or more Convex projects and Cloudflare Workers as each app needs them.",
+    );
+    expect(markup).toContain("one PostHog proxy");
+    expect(markup).toContain("one Worker for third-level domains");
+    expect(markup).toContain("Why we chose the base and starter");
     expect(markup).not.toContain("/landing-preview/logos/react.svg");
     expect(markup).toContain('data-testid="landing-preview-platform-details"');
     expect(markup).toContain("local workflow");
@@ -150,9 +160,12 @@ describe("LandingPreviewPage", () => {
     expect(fourClaimsIndex).toBeGreaterThan(platformDetailsIndex);
 
     const stackDetailsIndex = markup.indexOf('data-testid="landing-preview-stack-details"');
-    const oneBaseIndex = markup.indexOf("one base");
+    const inventoryHeadingIndex = markup.indexOf(
+      "More products, not more systems to maintain.",
+      stackDetailsIndex,
+    );
     expect(stackDetailsIndex).toBeGreaterThan(fourClaimsIndex);
-    expect(oneBaseIndex).toBeGreaterThan(stackDetailsIndex);
+    expect(inventoryHeadingIndex).toBeGreaterThan(stackDetailsIndex);
 
     // The four claims.
     expect(markup).toContain("Delete your Samebase account. Your app doesn&#x27;t notice.");

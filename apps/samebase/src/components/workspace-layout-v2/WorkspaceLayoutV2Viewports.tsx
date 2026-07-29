@@ -73,7 +73,7 @@ export function WorkspaceLayoutV2Viewport({
           "snap-start snap-always",
           enableDesktopPaneTransitions &&
             activeResizeSide !== "left" &&
-            "md:transition-[width] motion-reduce:transition-none",
+            "md:transition-[width] motion-reduce:transition-none!",
           desktopLeftWidthPx > 0
             ? activeResizeSide === "left"
               ? "md:border-r md:border-primary"
@@ -126,7 +126,7 @@ export function WorkspaceLayoutV2Viewport({
           "snap-end snap-always",
           enableDesktopPaneTransitions &&
             activeResizeSide !== "right" &&
-            "md:transition-[width] motion-reduce:transition-none",
+            "md:transition-[width] motion-reduce:transition-none!",
           desktopRightWidthPx > 0
             ? activeResizeSide === "right"
               ? "md:border-l md:border-primary"

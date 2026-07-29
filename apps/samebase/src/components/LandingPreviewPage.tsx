@@ -22,6 +22,7 @@ import {
   LANDING_PREVIEW_PROVIDER_GRID_TEST_ID,
   LANDING_PREVIEW_ROUTE,
   LANDING_PREVIEW_STACK_DETAILS_TEST_ID,
+  LANDING_PREVIEW_STACK_MODEL_TEST_ID,
   LANDING_PREVIEW_TEST_ID,
 } from "@/routeSearch/landingPreview";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
@@ -802,85 +803,121 @@ function LandingPreviewOverview() {
         </LandingSection>
 
         <LandingSection>
-          <div
-            className="mb-12 text-center @3xl:mb-16"
-            data-testid={LANDING_PREVIEW_STACK_DETAILS_TEST_ID}
-          >
-            <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-              standard stack
-            </p>
-            <h2 className="mx-auto mt-3 max-w-[24ch] text-[clamp(24px,3cqw,32px)] font-semibold leading-[1.25] tracking-[-0.02em]">
-              Chosen for how agents build now.
-            </h2>
-            <div className="mt-8 grid gap-8 @3xl:grid-cols-3 @3xl:gap-10">
-              <div>
-                <div className="flex h-8 items-center justify-center">
-                  <img
-                    alt="Vite+"
-                    className="h-5 w-auto dark:hidden"
-                    height="15"
-                    src="/landing-preview/logos/vite-plus.svg"
-                    width="103"
-                  />
-                  <img
-                    alt="Vite+"
-                    className="hidden h-5 w-auto dark:block"
-                    height="15"
-                    src="/landing-preview/logos/vite-plus-dark.svg"
-                    width="103"
-                  />
+          <div className="mb-12 @3xl:mb-16" data-testid={LANDING_PREVIEW_STACK_DETAILS_TEST_ID}>
+            <LandingSectionIntro
+              heading="One base. More than one app shape."
+              kicker="base + starting shape"
+              sub="Our default is TypeScript from the frontend through backend functions, Workers, and repository automation. It is a strong starting shape, not a platform rule."
+            />
+            <div
+              className="mt-8 border border-border"
+              data-testid={LANDING_PREVIEW_STACK_MODEL_TEST_ID}
+            >
+              <div className="p-5 @3xl:grid @3xl:grid-cols-[160px_minmax(0,1fr)] @3xl:gap-8 @3xl:p-6">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                    current starter
+                  </p>
+                  <p className="mt-1 font-mono text-[11px] font-semibold text-secondary">
+                    replaceable
+                  </p>
                 </div>
-                <p className="mx-auto mt-2 max-w-[26ch] text-sm leading-relaxed text-primary">
-                  One fast toolchain for the agent loop.
-                </p>
+                <div className="mt-5 @3xl:mt-0">
+                  <div className="grid grid-cols-2 gap-5 @2xl:grid-cols-3">
+                    <div className="flex h-7 items-center">
+                      <img
+                        alt="Vite+"
+                        className="h-5 w-auto dark:hidden"
+                        height="15"
+                        src="/landing-preview/logos/vite-plus.svg"
+                        width="103"
+                      />
+                      <img
+                        alt="Vite+"
+                        className="hidden h-5 w-auto dark:block"
+                        height="15"
+                        src="/landing-preview/logos/vite-plus-dark.svg"
+                        width="103"
+                      />
+                    </div>
+                    <div className="flex h-7 items-center gap-1.5">
+                      <img
+                        alt="TanStack"
+                        className="h-5 w-auto dark:hidden"
+                        height="660"
+                        src="/landing-preview/logos/tanstack.svg"
+                        width="3178"
+                      />
+                      <img
+                        alt="TanStack"
+                        className="hidden h-5 w-auto dark:block"
+                        height="660"
+                        src="/landing-preview/logos/tanstack-dark.svg"
+                        width="3178"
+                      />
+                      <span className="text-base font-semibold">Start</span>
+                    </div>
+                    <div className="flex h-7 items-center gap-1.5">
+                      <img
+                        alt=""
+                        className="h-5 w-auto"
+                        height="33"
+                        src="/landing-preview/logos/tailwindcss.svg"
+                        width="54"
+                      />
+                      <span className="text-base font-semibold">Tailwind CSS</span>
+                    </div>
+                  </div>
+                  <p className="mt-4 max-w-[62ch] text-sm leading-relaxed text-primary">
+                    A complete app, not a contract. Keep it, replace the frontend, or remove it.
+                    Convex and Workers do not depend on TanStack.
+                  </p>
+                </div>
               </div>
-              <div>
-                <div className="flex h-8 items-center justify-center gap-1.5">
-                  <img
-                    alt="TanStack"
-                    className="h-5 w-auto dark:hidden"
-                    height="660"
-                    src="/landing-preview/logos/tanstack.svg"
-                    width="3178"
-                  />
-                  <img
-                    alt="TanStack"
-                    className="hidden h-5 w-auto dark:block"
-                    height="660"
-                    src="/landing-preview/logos/tanstack-dark.svg"
-                    width="3178"
-                  />
-                  <span className="text-base font-semibold">Start</span>
+              <div className="border-t border-border bg-muted/40 p-5 @3xl:grid @3xl:grid-cols-[160px_minmax(0,1fr)] @3xl:gap-8 @3xl:p-6">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                    provider base
+                  </p>
+                  <p className="mt-1 font-mono text-[11px] font-semibold text-secondary">
+                    independent resources
+                  </p>
                 </div>
-                <p className="mx-auto mt-2 max-w-[26ch] text-sm leading-relaxed text-primary">
-                  Full-stack TypeScript with official support for Cloudflare Workers.
-                </p>
-              </div>
-              <div>
-                <div className="flex h-8 items-center justify-center gap-1.5">
-                  <img
-                    alt=""
-                    className="h-5 w-auto"
-                    height="33"
-                    src="/landing-preview/logos/tailwindcss.svg"
-                    width="54"
-                  />
-                  <span className="text-base font-semibold">Tailwind CSS</span>
+                <div className="mt-5 @3xl:mt-0">
+                  <p className="max-w-[62ch] text-sm leading-relaxed text-primary">
+                    GitHub is the source. Attach one or more Convex projects and Cloudflare Workers
+                    as each app needs them.
+                  </p>
+                  <div className="mt-5 grid grid-cols-2 gap-4 @2xl:grid-cols-3">
+                    <div className="border-t border-border pt-3">
+                      <p className="font-semibold">GitHub</p>
+                      <p className="mt-1 text-sm text-muted-foreground">code + pull requests</p>
+                    </div>
+                    <div className="border-t border-border pt-3">
+                      <p className="font-semibold">Convex</p>
+                      <p className="mt-1 text-sm text-muted-foreground">data + backend functions</p>
+                    </div>
+                    <div className="border-t border-border pt-3">
+                      <p className="font-semibold">Cloudflare Workers</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        apps + domains + edge services
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <p className="mx-auto mt-2 max-w-[26ch] text-sm leading-relaxed text-primary">
-                  One styling language from product UI to landing pages.
-                </p>
               </div>
             </div>
-            <p className="mt-7 text-sm text-primary">
+            <p className="mt-5 max-w-[76ch] text-sm leading-relaxed text-primary">
+              <span className="font-semibold text-foreground">Samebase uses the same model:</span>{" "}
+              one product Worker, one PostHog proxy, and one Worker for third-level domains.{" "}
               <LandingInlineLink to={DOCS_THE_STACK_ROUTE}>
-                Why we chose this stack
+                Why we chose the base and starter
               </LandingInlineLink>
             </p>
           </div>
           <LandingSectionIntro
             heading="More products, not more systems to maintain."
-            kicker="one base"
+            kicker="one inventory"
             sub="Every app sits on the same base, not the same shape. One inventory holds provider state, coordinates, and the action that repairs what drifts."
           />
           <div className="mt-8 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">

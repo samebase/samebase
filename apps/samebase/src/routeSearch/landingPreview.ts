@@ -19,6 +19,7 @@ export const LANDING_PREVIEW_ARTICLE_TEST_ID = "landing-preview-article";
 export const LANDING_PREVIEW_PROVIDER_GRID_TEST_ID = "landing-preview-provider-grid";
 export const LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID = "landing-preview-platform-details";
 export const LANDING_PREVIEW_STACK_DETAILS_TEST_ID = "landing-preview-stack-details";
+export const LANDING_PREVIEW_STACK_MODEL_TEST_ID = "landing-preview-stack-model";
 export const DOCS_SIDEBAR_TEST_ID = "docs-sidebar";
 
 // The landing keeps its left pane surface for now: the workspace prehydration

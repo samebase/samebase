@@ -10,6 +10,7 @@ import {
   LANDING_PREVIEW_PROVIDER_GRID_TEST_ID,
   LANDING_PREVIEW_ROUTE,
   LANDING_PREVIEW_STACK_DETAILS_TEST_ID,
+  LANDING_PREVIEW_STACK_MODEL_TEST_ID,
   LANDING_PREVIEW_TEST_ID,
 } from "../src/routeSearch/landingPreview";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
@@ -207,9 +208,14 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(article).toContainText("Cloudflare");
   const stackDetails = article.getByTestId(LANDING_PREVIEW_STACK_DETAILS_TEST_ID);
   const platformDetails = article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID);
+  await expect(stackDetails).toContainText("One base. More than one app shape.");
+  await expect(stackDetails).toContainText("current starter");
   await expect(stackDetails.getByRole("img", { name: "Vite+" })).toBeVisible();
   await expect(stackDetails.getByRole("img", { name: "TanStack" })).toBeVisible();
   await expect(stackDetails).toContainText("Tailwind CSS");
+  await expect(stackDetails).toContainText("provider base");
+  await expect(stackDetails).toContainText("Convex and Workers do not depend on TanStack.");
+  await expect(stackDetails).toContainText("one PostHog proxy");
   await expect(platformDetails).toContainText("macOS · Linux · Windows");
   await expect
     .poll(async () => {
@@ -510,21 +516,14 @@ test("landing preview CTA reopens the desktop public sidebar", async ({ page }) 
 
   const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
   await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(rightPane).toHaveCSS("transition-property", "none");
   if (await rightPane.evaluate((pane) => Number.parseFloat(getComputedStyle(pane).width) > 0)) {
     await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
   }
   await expect(rightPane).toHaveCSS("width", "0px");
   await page.emulateMedia({ reducedMotion: "no-preference" });
-
-  await rightPane.evaluate((pane) => {
-    pane.addEventListener(
-      "transitionrun",
-      () => {
-        pane.setAttribute("data-test-width-transition-ran", "");
-      },
-      { once: true },
-    );
-  });
+  await expect(rightPane).toHaveCSS("transition-property", "width");
+  await expect(rightPane).toHaveCSS("transition-duration", "0.15s");
 
   await page
     .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
@@ -533,9 +532,7 @@ test("landing preview CTA reopens the desktop public sidebar", async ({ page }) 
     .click();
 
   await expect(page).toHaveURL(new RegExp(`${LANDING_PREVIEW_ROUTE}$`));
-  await expect(rightPane).toHaveAttribute("data-test-width-transition-ran", "");
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await expect(rightPane).toHaveCSS("width", "288px");
+  await expect(rightPane).toHaveAttribute("style", /width: 288px/);
   await expect(
     page
       .getByTestId("workspace-layout-v2-pane-right")
@@ -579,7 +576,7 @@ test.describe("mobile landing preview", () => {
         scale: "css",
       },
     );
-    await expect(article.getByTestId(LANDING_PREVIEW_STACK_DETAILS_TEST_ID)).toHaveScreenshot(
+    await expect(article.getByTestId(LANDING_PREVIEW_STACK_MODEL_TEST_ID)).toHaveScreenshot(
       "landing-preview-stack-mobile.png",
       {
         animations: "disabled",
