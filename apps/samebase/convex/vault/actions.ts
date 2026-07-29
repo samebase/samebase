@@ -30,6 +30,7 @@ import {
 import { createRepositoryContract, type CreateRepositoryArgs } from "./contracts/createRepository";
 import { connectRepositoryContract } from "./contracts/connectRepository";
 import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
+import { retryProviderWriteRecoveryContract } from "./contracts/retryProviderWriteRecovery";
 
 const { array, boolean, literal, null: nullValue, object, string, union } = v;
 const githubRepositoryOwnerKind = union(literal("user"), literal("organization"));
@@ -877,6 +878,52 @@ export const retryInfrastructureProvisioning = action({
   mcp: retryInfrastructureProvisioningContract.mcp,
   handler: async (ctx, args): Promise<null> => {
     return await retryInfrastructureProvisioningForUser(ctx, {
+      ...args,
+      userId: ctx.viewer.userId,
+    });
+  },
+});
+
+export async function retryProviderWriteRecoveryForUser(
+  ctx: Pick<ActionCtx, "runAction" | "runMutation">,
+  args: { userId: Id<"users">; vaultId: Id<"vaults"> },
+): Promise<null> {
+  const recovery = await ctx.runMutation(
+    internal.vault.infrastructureOperation.claimManualProviderRecovery,
+    args,
+  );
+  const recoveryArgs = {
+    vaultId: args.vaultId,
+    actionId: recovery.actionId,
+    recoveryAttemptId: recovery.recoveryAttemptId,
+  };
+
+  switch (recovery.target.action) {
+    case "create_convex_project":
+      await ctx.runAction(internal.vault.convex.recoverManualConvexProviderWrite, recoveryArgs);
+      break;
+    case "connect_cloudflare_worker":
+    case "create_cloudflare_worker":
+    case "configure_workers_builds_for_github":
+    case "rotate_convex_deploy_keys_for_workers_builds":
+      await ctx.runAction(
+        internal.vault.cloudflare.recoverManualCloudflareProviderWrite,
+        recoveryArgs,
+      );
+      break;
+    default:
+      recovery.target satisfies never;
+  }
+  return null;
+}
+
+export const retryProviderWriteRecovery = action({
+  access: retryProviderWriteRecoveryContract.access,
+  args: retryProviderWriteRecoveryContract.args,
+  returns: retryProviderWriteRecoveryContract.returns,
+  mcp: retryProviderWriteRecoveryContract.mcp,
+  handler: async (ctx, args): Promise<null> => {
+    return await retryProviderWriteRecoveryForUser(ctx, {
       ...args,
       userId: ctx.viewer.userId,
     });

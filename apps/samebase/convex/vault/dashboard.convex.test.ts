@@ -748,6 +748,32 @@ describe("vault dashboard Convex contract", () => {
         projectId: "convex-project",
         origin: "provisioned",
       });
+      await ctx.db.insert("workflow_vaultProvisioning_plans", {
+        vaultId,
+        userId,
+        convexConfigPath: "convex.json",
+        convex: {
+          state: "created",
+          projectName: "provider-state",
+          teamId: "provider-state-team-id",
+          projectId: "convex-project",
+        },
+        cloudflare: {
+          state: "planned",
+          accountId: "cloudflare-account",
+          workerName: "provider-state",
+          build: {
+            rootDirectory: "/",
+            buildCommand: "pnpm run build",
+            deployCommand: "pnpm run deploy",
+            previewDeployCommand: "pnpm run deploy:preview",
+            pathIncludes: ["*"],
+            pathExcludes: [],
+          },
+        },
+        createdAt: 25,
+        updatedAt: 25,
+      });
 
       return { runId, userId, vaultId };
     });
@@ -769,6 +795,28 @@ describe("vault dashboard Convex contract", () => {
         runId: ids.runId,
         step: "attach_worker",
         updatedAt: 30,
+      },
+      providerPlan: {
+        convexConfigPath: "convex.json",
+        convex: {
+          state: "created",
+          projectName: "provider-state",
+          teamId: "provider-state-team-id",
+          projectId: "convex-project",
+        },
+        cloudflare: {
+          state: "planned",
+          accountId: "cloudflare-account",
+          workerName: "provider-state",
+          rootDirectory: "/",
+        },
+      },
+      providerWrite: {
+        status: "active",
+        owner: { kind: "managed_run", runId: ids.runId },
+        affectedProviders: ["convex", "cloudflare"],
+        updatedAt: 30,
+        lastWriteAt: {},
       },
     });
     expect(vaults[0]).not.toHaveProperty("cloudflareWorkersDevUrl");
@@ -844,8 +892,9 @@ describe("vault dashboard Convex contract", () => {
       });
       await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId,
-        runId: retryRunId,
+        owner: { kind: "managed_run", runId: retryRunId },
         state: "active",
+        lastWriteAt: {},
         updatedAt: 44,
       });
 
@@ -944,8 +993,9 @@ describe("vault dashboard Convex contract", () => {
       });
       await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId,
-        runId: retryRunId,
+        owner: { kind: "managed_run", runId: retryRunId },
         state: "failed",
+        lastWriteAt: {},
         updatedAt: 44,
       });
       await ctx.db.insert("workflow_vaultProvisioning_events", {
@@ -978,6 +1028,179 @@ describe("vault dashboard Convex contract", () => {
         step: "attach_worker",
         message: expectedMessage,
         updatedAt: 45,
+      },
+    });
+  });
+
+  it("shows a failed retry before the provisioning lock is claimed", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const createRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/retry-before-claim",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 10,
+        updatedAt: 20,
+        completedAt: 20,
+      });
+      const retryRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/retry-before-claim",
+        trigger: "retry",
+        state: "failed",
+        currentStep: "run_created",
+        lastError: "Retry failed before infrastructure claim.",
+        createdAt: 30,
+        updatedAt: 31,
+        completedAt: 31,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId: createRunId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "retry-before-claim",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 15,
+      });
+      await ctx.db.insert("observations_vaultRepository_branchTrees", {
+        vaultId,
+        branch: "main",
+        commitSHA: "commit",
+        treeData: {
+          sha: "tree",
+          truncated: false,
+          tree: [],
+        },
+        lastTreeRefreshAt: 19,
+      });
+      return { retryRunId, userId, vaultId };
+    });
+
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+
+    expect(vaults[0]).toMatchObject({
+      _id: ids.vaultId,
+      providerSetup: {
+        status: "failed",
+        provider: "convex",
+        runId: ids.retryRunId,
+        step: "claim_infra",
+        message: "Retry failed before infrastructure claim.",
+        updatedAt: 31,
+      },
+      providerWrite: {
+        status: "idle",
+        lastWriteAt: {},
+      },
+    });
+  });
+
+  it("maps an internal recovery attempt to the existing active provider write state", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/manual-recovery",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 10,
+        updatedAt: 20,
+        completedAt: 20,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "manual-recovery",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+      });
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+        vaultId,
+        owner: {
+          kind: "manual_provider_write",
+          actionId: "manual-recovery",
+          target: {
+            action: "create_convex_project",
+            state: "requested",
+            projectName: "manual-recovery",
+            codeLocation: {
+              kind: "config",
+              convexConfigPath: "convex.json",
+              blobSha: "convex-config",
+            },
+          },
+          expiresAt: 100,
+        },
+        state: "recovering",
+        recoveryAttemptId: "manual-recovery-attempt",
+        recoveryDeadlineAt: 200,
+        recoveryLeaseExpiresAt: 300,
+        lastWriteAt: {},
+        updatedAt: 50,
+      });
+      return { userId, vaultId };
+    });
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    const [vault] = await asUser.query(api.vault.dashboard.getUserVaults);
+
+    expect(vault).toMatchObject({
+      _id: ids.vaultId,
+      providerWrite: {
+        status: "active",
+        owner: {
+          kind: "manual_provider_write",
+          actionId: "manual-recovery",
+          action: "create_convex_project",
+        },
+        affectedProviders: ["convex"],
+        updatedAt: 50,
+        lastWriteAt: {},
       },
     });
   });
@@ -1088,8 +1311,9 @@ describe("vault dashboard Convex contract", () => {
         if (testCase.writeLockState) {
           await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
             vaultId,
-            runId,
+            owner: { kind: "managed_run", runId },
             state: testCase.writeLockState,
+            lastWriteAt: {},
             updatedAt: 44,
           });
         }
@@ -1159,6 +1383,30 @@ describe("vault dashboard Convex contract", () => {
         },
         lastTreeRefreshAt: 29,
       });
+      await ctx.db.insert("workflow_vaultProvisioning_plans", {
+        vaultId,
+        userId,
+        convexConfigPath: "convex.json",
+        convex: {
+          state: "planned",
+          projectName: "readable-convex-name",
+        },
+        cloudflare: {
+          state: "planned",
+          accountId: "cloudflare-account",
+          workerName: "readable-worker-name",
+          build: {
+            rootDirectory: "/",
+            buildCommand: "pnpm run build",
+            deployCommand: "pnpm run deploy",
+            previewDeployCommand: "pnpm run deploy:preview",
+            pathIncludes: ["*"],
+            pathExcludes: [],
+          },
+        },
+        createdAt: 25,
+        updatedAt: 25,
+      });
 
       return { runId, userId, vaultId };
     });
@@ -1179,6 +1427,33 @@ describe("vault dashboard Convex contract", () => {
         updatedAt: 30,
       },
       providerSetup: { status: "not_applicable" },
+      providerPlan: {
+        convexConfigPath: "convex.json",
+        convex: {
+          state: "planned",
+          projectName: "readable-convex-name",
+        },
+        cloudflare: {
+          state: "planned",
+          accountId: "cloudflare-account",
+          workerName: "readable-worker-name",
+          rootDirectory: "/",
+        },
+      },
+      providerWrite: {
+        status: "active",
+        owner: {
+          kind: "managed_run",
+          runId: ids.runId,
+        },
+        affectedProviders: ["convex", "cloudflare"],
+        updatedAt: 30,
+        lastWriteAt: {},
+      },
+      hasConvexProvision: false,
+      hasCloudflareProvision: false,
+      convexProjects: [],
+      cloudflareWorkers: [],
     });
   });
 
@@ -1246,6 +1521,94 @@ describe("vault dashboard Convex contract", () => {
       _id: ids.vaultId,
       providerSetup: {
         status: "not_applicable",
+      },
+    });
+  });
+
+  it("shows a terminal manual Cloudflare write with independent write times", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/manual-cloudflare-write",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 10,
+        updatedAt: 20,
+        completedAt: 20,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "manual-cloudflare-write",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+      });
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+        vaultId,
+        owner: {
+          kind: "manual_provider_write",
+          actionId: "cloudflare-action",
+          target: {
+            action: "create_cloudflare_worker",
+            state: "created",
+            accountId: "cloudflare-account",
+            workerName: "manual-worker",
+            workerTag: "manual-worker-tag",
+            rootDirectory: "/",
+          },
+          expiresAt: 300,
+        },
+        state: "succeeded",
+        lastWriteAt: {
+          convex: 100,
+          cloudflare: 200,
+        },
+        updatedAt: 200,
+      });
+      return { userId, vaultId };
+    });
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+
+    expect(vaults[0]).toMatchObject({
+      _id: ids.vaultId,
+      providerWrite: {
+        status: "succeeded",
+        owner: {
+          kind: "manual_provider_write",
+          actionId: "cloudflare-action",
+          action: "create_cloudflare_worker",
+          expiresAt: 300,
+        },
+        affectedProviders: ["cloudflare"],
+        updatedAt: 200,
+        lastWriteAt: {
+          convex: 100,
+          cloudflare: 200,
+        },
       },
     });
   });
@@ -1549,8 +1912,9 @@ describe("vault dashboard Convex contract", () => {
       });
       await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId,
-        runId,
+        owner: { kind: "managed_run", runId },
         state: "succeeded",
+        lastWriteAt: {},
         updatedAt: 9,
       });
       await ctx.db.insert("workflow_vaultProvisioning_events", {

@@ -6,6 +6,7 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
 import type { AppProvisioningStep } from "./appProvisioningModel";
+import { readVaultInfrastructureState } from "./vault/infrastructureOperation";
 import { isLiveConnectedVault } from "./vault/state";
 
 const workflow = new WorkflowManager(components.workflow);
@@ -218,11 +219,12 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
     }
 
     const now = Date.now();
-    const writeLock = await ctx.db
-      .query("workflow_vaultProvisioning_writeLocks")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .first();
-    if (writeLock && writeLock.state === "active" && writeLock.runId !== args.runId) {
+    const infrastructure = await readVaultInfrastructureState(ctx, vault);
+    if (
+      infrastructure.operation.kind !== "none" &&
+      (infrastructure.operation.kind !== "managed_run" ||
+        infrastructure.operation.runId !== args.runId)
+    ) {
       await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
         runId: args.runId,
         step: "claim_infra",
@@ -233,17 +235,25 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
       return { claimed: false };
     }
 
+    const writeLock = infrastructure.providerWrite;
     if (writeLock) {
       await ctx.db.patch(writeLock._id, {
-        runId: args.runId,
+        owner: {
+          kind: "managed_run",
+          runId: args.runId,
+        },
         state: "active",
         updatedAt: now,
       });
     } else {
       await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId: args.vaultId,
-        runId: args.runId,
+        owner: {
+          kind: "managed_run",
+          runId: args.runId,
+        },
         state: "active",
+        lastWriteAt: {},
         updatedAt: now,
       });
     }
@@ -280,14 +290,20 @@ export const finishComposedInfrastructureProvisioning = internalMutation({
     const writeLock = await ctx.db
       .query("workflow_vaultProvisioning_writeLocks")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .first();
-    if (!writeLock || writeLock.state !== "active" || writeLock.runId !== args.runId) {
+      .unique();
+    if (
+      !writeLock ||
+      writeLock.owner.kind !== "managed_run" ||
+      writeLock.state !== "active" ||
+      writeLock.owner.runId !== args.runId
+    ) {
       throw new Error("Composed infrastructure run no longer holds the provisioning write lock.");
     }
 
+    const now = Date.now();
     await ctx.db.patch(writeLock._id, {
       state: "succeeded",
-      updatedAt: Date.now(),
+      updatedAt: now,
     });
 
     return null;

@@ -58,8 +58,9 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
     if (args.activeOwnership) {
       await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId,
-        runId,
+        owner: { kind: "managed_run", runId },
         state: "active",
+        lastWriteAt: {},
         updatedAt: 31,
       });
     }
@@ -105,8 +106,8 @@ describe("markWorkflowProvisioningFailed", () => {
       const run = await ctx.db.get(ids.runId);
       const writeLock = await ctx.db
         .query("workflow_vaultProvisioning_writeLocks")
-        .withIndex("by_run", (q) => q.eq("runId", ids.runId))
-        .first();
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .unique();
       const event = await ctx.db
         .query("workflow_vaultProvisioning_events")
         .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
@@ -119,6 +120,7 @@ describe("markWorkflowProvisioningFailed", () => {
       lastError: expectedMessage,
     });
     expect(result.writeLock).toMatchObject({
+      owner: { kind: "managed_run", runId: ids.runId },
       state: "failed",
     });
     expect(result.event).toMatchObject({

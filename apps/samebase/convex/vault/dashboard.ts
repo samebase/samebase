@@ -3,13 +3,8 @@ import { internal } from "../_generated/api";
 import { internalQuery, type QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { mutation, query } from "../functions";
-import {
-  isConnectedVault,
-  isLiveConnectedVault,
-  isSamebaseManagedVault,
-  type ConnectedVault,
-} from "./state";
-import { readVaultDeletionEligibility } from "./deletion/eligibility";
+import { isConnectedVault, isLiveConnectedVault, isSamebaseManagedVault } from "./state";
+import { resolveVaultDeletionEligibility } from "./deletion/eligibility";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
 import { hasStagedFileChanges } from "../../shared/stagedFiles";
 import { vVaultResourceLinksState } from "./dashboardModel";
@@ -18,23 +13,30 @@ import type { AppProvisioningRunStep } from "../appProvisioningModel";
 import { getConvexCodeLocationKey, readConvexCodeLocation } from "../../shared/convexCodeLocation";
 import {
   getUserVaultsContract,
+  type ManagedProviderPlan,
   type ProviderSetupSummary,
   type ProviderSetupStep,
+  type ProviderWriteSummary,
   type SourceSetupSummary,
   type SourceSetupStep,
   type UserVaultResult,
   type UserVaultsResult,
   type VaultDeletionSummary,
 } from "./contracts/getUserVaults";
+import {
+  readManualProviderWriteProviders,
+  readVaultInfrastructureState,
+  type VaultInfrastructureState,
+} from "./infrastructureOperation";
 
 const { array, boolean, id, object, string } = v;
 type SourceSetupVault = Extract<
   Doc<"vaults">,
   { githubMode: "create_repository" | "connect_existing_repository" }
 >;
-type VaultProvisioningWriteLock = Doc<"workflow_vaultProvisioning_writeLocks">;
 type ConvexProject = Doc<"vaultConvexProjects">;
 type CloudflareWorker = Doc<"vaultCloudflareWorkers">;
+type ProvisioningRun = Doc<"workflow_vaultProvisioning_runs">;
 const SOURCE_SETUP_ERROR_EVENT_SCAN_LIMIT = 20;
 
 function classifyProvisioningStep(
@@ -162,16 +164,14 @@ function getSourceSetupVaultFallbackUpdatedAt(vault: SourceSetupVault): number {
   }
 }
 
-async function readProviderRunSummary(
-  ctx: Pick<QueryCtx, "db">,
-  args: {
-    provider: "convex" | "cloudflare";
-    runId: Id<"workflow_vaultProvisioning_runs">;
-    status: "running" | "failed";
-    fallbackUpdatedAt: number;
-  },
-): Promise<Extract<ProviderSetupSummary, { status: "running" | "failed" }>> {
-  const run = await ctx.db.get(args.runId);
+function readProviderRunSummary(args: {
+  provider: "convex" | "cloudflare";
+  runId: Id<"workflow_vaultProvisioning_runs">;
+  run: ProvisioningRun | null;
+  status: "running" | "failed";
+  fallbackUpdatedAt: number;
+}): Extract<ProviderSetupSummary, { status: "running" | "failed" }> {
+  const run = args.run;
   if (!run) {
     return {
       status: "failed",
@@ -205,31 +205,16 @@ async function readProviderRunSummary(
   };
 }
 
-/**
- * The create workflow can sync the first tree before it acquires the provisioning
- * write lock; keep the setup log visible during that transition instead of
- * flashing empty UI.
- */
-async function readRunningProviderRunSummary(
+async function readLatestFailedRetry(
   ctx: Pick<QueryCtx, "db">,
-  args: {
-    provider: "convex" | "cloudflare";
-    runId: Id<"workflow_vaultProvisioning_runs">;
-  },
-): Promise<Extract<ProviderSetupSummary, { status: "running" }> | null> {
-  const run = await ctx.db.get(args.runId);
-  if (!run || (run.state !== "queued" && run.state !== "running")) {
-    return null;
-  }
-  const step = readProviderSetupStep(run);
-
-  return {
-    status: "running",
-    provider: args.provider,
-    runId: args.runId,
-    step,
-    updatedAt: run.updatedAt,
-  };
+  vaultId: Id<"vaults">,
+): Promise<ProvisioningRun | null> {
+  const run = await ctx.db
+    .query("workflow_vaultProvisioning_runs")
+    .withIndex("by_vault_and_state", (q) => q.eq("vaultId", vaultId).eq("state", "failed"))
+    .order("desc")
+    .first();
+  return run?.trigger === "retry" ? run : null;
 }
 
 async function readLatestDeletionEvent(
@@ -246,11 +231,12 @@ async function readLatestDeletionEvent(
 async function resolveVaultDeletionSummary(
   ctx: Pick<QueryCtx, "db">,
   vault: Doc<"vaults">,
+  infrastructure: VaultInfrastructureState,
 ): Promise<VaultDeletionSummary> {
   const deletion = readVaultDeletionState(vault);
   switch (deletion.state) {
     case "not_deleting": {
-      const eligibility = await readVaultDeletionEligibility(ctx, vault);
+      const eligibility = resolveVaultDeletionEligibility(vault, infrastructure);
       return {
         state: "not_deleting",
         deleteAction:
@@ -294,60 +280,227 @@ async function resolveVaultDeletionSummary(
   }
 }
 
-async function readVaultProvisioningWriteLock(
+async function readManagedProviderPlan(
   ctx: Pick<QueryCtx, "db">,
   vaultId: Id<"vaults">,
-): Promise<VaultProvisioningWriteLock | null> {
-  return await ctx.db
-    .query("workflow_vaultProvisioning_writeLocks")
+): Promise<ManagedProviderPlan> {
+  const plan = await ctx.db
+    .query("workflow_vaultProvisioning_plans")
     .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-    .first();
+    .unique();
+  if (!plan) {
+    return null;
+  }
+
+  const cloudflare = {
+    ...plan.cloudflare,
+    rootDirectory: plan.cloudflare.build.rootDirectory,
+  };
+  switch (cloudflare.state) {
+    case "planned":
+    case "creating":
+      return {
+        convexConfigPath: plan.convexConfigPath,
+        convex: plan.convex,
+        cloudflare: {
+          state: cloudflare.state,
+          accountId: cloudflare.accountId,
+          workerName: cloudflare.workerName,
+          rootDirectory: cloudflare.rootDirectory,
+        },
+      };
+    case "created":
+      return {
+        convexConfigPath: plan.convexConfigPath,
+        convex: plan.convex,
+        cloudflare: {
+          state: "created",
+          accountId: cloudflare.accountId,
+          workerName: cloudflare.workerName,
+          workerTag: cloudflare.workerTag,
+          rootDirectory: cloudflare.rootDirectory,
+        },
+      };
+    default:
+      cloudflare satisfies never;
+      throw new Error("Unknown Cloudflare provider plan state.");
+  }
+}
+
+function readAffectedProviders(
+  write: NonNullable<VaultInfrastructureState["providerWrite"]>,
+): ("convex" | "cloudflare")[] {
+  if (write.owner.kind === "managed_run") {
+    return ["convex", "cloudflare"];
+  }
+  return readManualProviderWriteProviders(write.owner.target.action);
+}
+
+function readProviderWriteOwner(
+  write: NonNullable<VaultInfrastructureState["providerWrite"]>,
+): Extract<ProviderWriteSummary, { status: "active" }>["owner"] {
+  if (write.owner.kind === "managed_run") {
+    return write.owner;
+  }
+  return readManualProviderWriteOwner(write.owner);
+}
+
+function readManualProviderWriteOwner(
+  owner: Extract<
+    NonNullable<VaultInfrastructureState["providerWrite"]>["owner"],
+    { kind: "manual_provider_write" }
+  >,
+): Extract<ProviderWriteSummary, { status: "recovery_required" }>["owner"] {
+  return {
+    kind: "manual_provider_write",
+    actionId: owner.actionId,
+    action: owner.target.action,
+    expiresAt: owner.expiresAt,
+  };
+}
+
+function resolveProviderWriteSummary(
+  infrastructure: VaultInfrastructureState,
+): ProviderWriteSummary {
+  if (infrastructure.operation.kind === "managed_run") {
+    return {
+      status: "active",
+      owner: {
+        kind: "managed_run",
+        runId: infrastructure.operation.runId,
+      },
+      affectedProviders: ["convex", "cloudflare"],
+      updatedAt: infrastructure.operation.updatedAt,
+      lastWriteAt: infrastructure.providerWrite?.lastWriteAt ?? {},
+    };
+  }
+  if (infrastructure.operation.kind === "manual_provider_write") {
+    const write = infrastructure.operation.write;
+    const shared = {
+      owner: readManualProviderWriteOwner(write.owner),
+      affectedProviders: readAffectedProviders(write),
+      updatedAt: write.updatedAt,
+      lastWriteAt: write.lastWriteAt,
+    };
+    const state = write.state;
+    switch (state) {
+      case "active":
+      case "recovering":
+        return { status: "active", ...shared };
+      case "recovery_required":
+        return { status: "recovery_required", ...shared };
+      case "succeeded":
+      case "failed":
+        return { status: write.state, ...shared };
+      default:
+        state satisfies never;
+        throw new Error("Unknown manual provider write state.");
+    }
+  }
+
+  const write = infrastructure.providerWrite;
+  if (
+    !write ||
+    write.state === "active" ||
+    write.state === "recovering" ||
+    write.state === "recovery_required"
+  ) {
+    return {
+      status: "idle",
+      lastWriteAt: write?.lastWriteAt ?? {},
+    };
+  }
+  return {
+    status: write.state,
+    owner: readProviderWriteOwner(write),
+    affectedProviders: readAffectedProviders(write),
+    updatedAt: write.updatedAt,
+    lastWriteAt: write.lastWriteAt,
+  };
+}
+
+async function readManagedProviderOperation(
+  ctx: Pick<QueryCtx, "db">,
+  infrastructure: VaultInfrastructureState,
+  latestFailedRetry: ProvisioningRun | null,
+): Promise<{
+  runId: Id<"workflow_vaultProvisioning_runs">;
+  run: ProvisioningRun | null;
+  status: "running" | "failed";
+  fallbackUpdatedAt: number;
+} | null> {
+  if (infrastructure.operation.kind === "managed_run") {
+    return {
+      runId: infrastructure.operation.runId,
+      run: infrastructure.operation.run,
+      status: "running",
+      fallbackUpdatedAt: infrastructure.operation.updatedAt,
+    };
+  }
+  if (infrastructure.operation.kind !== "none") {
+    return null;
+  }
+
+  const write = infrastructure.providerWrite;
+  if (write && (!latestFailedRetry || write.updatedAt >= latestFailedRetry.updatedAt)) {
+    if (write.owner.kind !== "managed_run" || write.state !== "failed") {
+      return null;
+    }
+    return {
+      runId: write.owner.runId,
+      run:
+        latestFailedRetry?._id === write.owner.runId
+          ? latestFailedRetry
+          : await ctx.db.get(write.owner.runId),
+      status: "failed",
+      fallbackUpdatedAt: write.updatedAt,
+    };
+  }
+  return latestFailedRetry
+    ? {
+        runId: latestFailedRetry._id,
+        run: latestFailedRetry,
+        status: "failed",
+        fallbackUpdatedAt: latestFailedRetry.updatedAt,
+      }
+    : null;
 }
 
 async function resolveProviderSetupSummary(
   ctx: Pick<QueryCtx, "db">,
-  vault: ConnectedVault,
   convexProjects: ConvexProject[],
   cloudflareWorkers: CloudflareWorker[],
+  infrastructure: VaultInfrastructureState,
+  latestFailedRetry: ProvisioningRun | null,
 ): Promise<ProviderSetupSummary> {
-  const writeLock = await readVaultProvisioningWriteLock(ctx, vault._id);
+  const managedOperation = await readManagedProviderOperation(
+    ctx,
+    infrastructure,
+    latestFailedRetry,
+  );
 
   if (convexProjects.length === 0) {
-    if (writeLock?.state === "active" || writeLock?.state === "failed") {
-      return await readProviderRunSummary(ctx, {
+    if (managedOperation) {
+      return readProviderRunSummary({
         provider: "convex",
-        runId: writeLock.runId,
-        status: writeLock.state === "failed" ? "failed" : "running",
-        fallbackUpdatedAt: writeLock.updatedAt,
+        ...managedOperation,
       });
     }
-    const runningCreateRun = await readRunningProviderRunSummary(ctx, {
-      provider: "convex",
-      runId: vault.runId,
-    });
-    return runningCreateRun ?? { status: "not_applicable" };
+    return { status: "not_applicable" };
   }
   if (cloudflareWorkers.length === 0) {
-    if (writeLock?.state === "active" || writeLock?.state === "failed") {
-      return await readProviderRunSummary(ctx, {
+    if (managedOperation) {
+      return readProviderRunSummary({
         provider: "cloudflare",
-        runId: writeLock.runId,
-        status: writeLock.state === "failed" ? "failed" : "running",
-        fallbackUpdatedAt: writeLock.updatedAt,
+        ...managedOperation,
       });
     }
-    const runningCreateRun = await readRunningProviderRunSummary(ctx, {
-      provider: "cloudflare",
-      runId: vault.runId,
-    });
-    return runningCreateRun ?? { status: "not_applicable" };
+    return { status: "not_applicable" };
   }
-  if (writeLock?.state === "active") {
-    return await readProviderRunSummary(ctx, {
+  if (managedOperation?.status === "running") {
+    return readProviderRunSummary({
       provider: "cloudflare",
-      runId: writeLock.runId,
-      status: "running",
-      fallbackUpdatedAt: writeLock.updatedAt,
+      ...managedOperation,
     });
   }
 
@@ -576,7 +729,11 @@ async function readUserVaults(
     if (vault.state !== "provisioning" && vault.state !== "failed") {
       continue;
     }
-    const deletion = await resolveVaultDeletionSummary(ctx, vault);
+    const [infrastructure, providerPlan] = await Promise.all([
+      readVaultInfrastructureState(ctx, vault),
+      readManagedProviderPlan(ctx, vault._id),
+    ]);
+    const deletion = await resolveVaultDeletionSummary(ctx, vault, infrastructure);
     initializingVaultResults.push({
       _id: vault._id,
       _creationTime: vault._creationTime,
@@ -588,6 +745,8 @@ async function readUserVaults(
       lastEditTime: undefined,
       sourceSetup: await resolveSourceSetupSummary(ctx, vault),
       providerSetup: { status: "not_applicable" },
+      providerPlan,
+      providerWrite: resolveProviderWriteSummary(infrastructure),
       deletion,
       isSamebaseManaged: vault.githubMode === "create_repository",
       hasConnectedGitHubRepository: false,
@@ -602,7 +761,13 @@ async function readUserVaults(
 
   const vaultResults: Array<UserVaultResult & { _creationTime: number }> = await Promise.all(
     connectedVaults.map(async (vault) => {
-      const deletion = await resolveVaultDeletionSummary(ctx, vault);
+      const [infrastructure, providerPlan, latestFailedRetry] = await Promise.all([
+        readVaultInfrastructureState(ctx, vault),
+        readManagedProviderPlan(ctx, vault._id),
+        readLatestFailedRetry(ctx, vault._id),
+      ]);
+      const deletion = await resolveVaultDeletionSummary(ctx, vault, infrastructure);
+      const providerWrite = resolveProviderWriteSummary(infrastructure);
       const convexProjects = (convexProjectsByVault.get(vault._id) ?? []).sort(
         compareConvexProjectSortOrder,
       );
@@ -641,6 +806,8 @@ async function readUserVaults(
           lastEditTime: undefined,
           sourceSetup: { status: "not_applicable" },
           providerSetup: { status: "not_applicable" },
+          providerPlan,
+          providerWrite,
           deletion,
           isSamebaseManaged: isSamebaseManagedVault(vault),
           hasConnectedGitHubRepository: true,
@@ -667,7 +834,13 @@ async function readUserVaults(
       const sourceSetup = await resolveSourceSetupSummary(ctx, vault);
       const providerSetup =
         sourceSetup.status === "ready"
-          ? await resolveProviderSetupSummary(ctx, vault, convexProjects, cloudflareWorkers)
+          ? await resolveProviderSetupSummary(
+              ctx,
+              convexProjects,
+              cloudflareWorkers,
+              infrastructure,
+              latestFailedRetry,
+            )
           : { status: "not_applicable" as const };
       return {
         _id: vault._id,
@@ -680,6 +853,8 @@ async function readUserVaults(
         lastEditTime,
         sourceSetup,
         providerSetup,
+        providerPlan,
+        providerWrite,
         deletion,
         isSamebaseManaged: isSamebaseManagedVault(vault),
         hasConnectedGitHubRepository: true,

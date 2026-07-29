@@ -16,6 +16,11 @@ import {
 import { normalizeConvexConfigPath } from "../../shared/convexConfigPath";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import { vVaultProviderResourceOrigin, type VaultProviderResourceOrigin } from "./model";
+import {
+  requireUserVaultInfrastructureIdle,
+  requireManualProviderWriteCheckpoint,
+  recordManagedProviderWrite,
+} from "./infrastructureOperation";
 import { isLiveConnectedVault } from "./state";
 
 const { array, id, literal, null: nullValue, object, string, union } = v;
@@ -25,11 +30,12 @@ type ConvexProjectGraphReadCtx = Pick<QueryCtx, "db">;
 async function requireConnectedVault(
   ctx: ConvexProjectGraphReadCtx,
   args: { vaultId: Id<"vaults">; userId: Id<"users"> },
-): Promise<void> {
+): Promise<Extract<Doc<"vaults">, { state: "connected" }>> {
   const vault = await ctx.db.get(args.vaultId);
   if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
     throw new Error("Vault not found.");
   }
+  return vault;
 }
 
 async function requireActiveManagedProvisioning(
@@ -59,7 +65,12 @@ async function requireActiveManagedProvisioning(
   ) {
     throw new Error("Managed provisioning run does not match vault.");
   }
-  if (!writeLock || writeLock.state !== "active" || writeLock.runId !== args.runId) {
+  if (
+    !writeLock ||
+    writeLock.owner.kind !== "managed_run" ||
+    writeLock.state !== "active" ||
+    writeLock.owner.runId !== args.runId
+  ) {
     throw new Error("Managed provisioning run no longer holds the write lock.");
   }
   if (!plan || plan.userId !== args.userId) {
@@ -254,6 +265,7 @@ export const recordManagedProjectCreated = internalMutation({
     if (plan.convex.projectName !== args.projectName) {
       throw new Error("Managed Convex project does not match the provisioning plan.");
     }
+    let convexProjectId: Id<"vaultConvexProjects">;
     if (plan.convex.state === "created") {
       if (plan.convex.projectId !== args.projectId) {
         throw new Error("Managed Convex project checkpoint already names another project.");
@@ -261,29 +273,106 @@ export const recordManagedProjectCreated = internalMutation({
       if (plan.convex.teamId !== args.teamId) {
         throw new Error("Managed Convex project checkpoint already names another team.");
       }
-      return await insertProject(ctx, {
+      convexProjectId = await insertProject(ctx, {
+        ...args,
+        codeLocation: { kind: "config", convexConfigPath },
+        origin: "provisioned",
+      });
+    } else {
+      if (plan.convex.state !== "creating" || plan.convex.teamId !== args.teamId) {
+        throw new Error("Managed Convex project creation was not started for this team.");
+      }
+      await ctx.db.patch(plan._id, {
+        convex: {
+          state: "created",
+          projectName: args.projectName,
+          teamId: args.teamId,
+          projectId: args.projectId,
+        },
+        updatedAt: Date.now(),
+      });
+      convexProjectId = await insertProject(ctx, {
         ...args,
         codeLocation: { kind: "config", convexConfigPath },
         origin: "provisioned",
       });
     }
-    if (plan.convex.state !== "creating" || plan.convex.teamId !== args.teamId) {
-      throw new Error("Managed Convex project creation was not started for this team.");
+    await recordManagedProviderWrite(ctx, {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      provider: "convex",
+    });
+    return convexProjectId;
+  },
+});
+
+export const recordManualProjectCreated = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    userId: id("users"),
+    actionId: string(),
+    checkpoint: union(
+      object({ expectedState: literal("active") }),
+      object({
+        expectedState: literal("recovering"),
+        recoveryAttemptId: string(),
+      }),
+    ),
+    teamId: string(),
+    projectId: string(),
+  },
+  returns: id("vaultConvexProjects"),
+  handler: async (ctx, args): Promise<Id<"vaultConvexProjects">> => {
+    const write = await requireManualProviderWriteCheckpoint(ctx, {
+      vaultId: args.vaultId,
+      userId: args.userId,
+      actionId: args.actionId,
+      action: "create_convex_project",
+      ...args.checkpoint,
+    });
+    const target = write.owner.target;
+    if (target.action !== "create_convex_project") {
+      throw new Error("Manual Convex project target changed.");
     }
-    await ctx.db.patch(plan._id, {
-      convex: {
-        state: "created",
-        projectName: args.projectName,
-        teamId: args.teamId,
-        projectId: args.projectId,
+    if (
+      target.state === "created" &&
+      (target.teamId !== args.teamId || target.projectId !== args.projectId)
+    ) {
+      throw new Error("Manual Convex project checkpoint already names another project.");
+    }
+    const codeLocation: ConvexCodeLocation =
+      target.codeLocation.kind === "config"
+        ? {
+            kind: "config",
+            convexConfigPath: target.codeLocation.convexConfigPath,
+          }
+        : {
+            kind: "directory",
+            convexDirectoryPath: target.codeLocation.convexDirectoryPath,
+          };
+    const convexProjectId = await insertProject(ctx, {
+      vaultId: args.vaultId,
+      userId: args.userId,
+      teamId: args.teamId,
+      projectId: args.projectId,
+      codeLocation,
+      origin: "provisioned",
+    });
+    await ctx.db.patch(write._id, {
+      owner: {
+        ...write.owner,
+        target: {
+          action: "create_convex_project",
+          state: "created",
+          projectName: target.projectName,
+          codeLocation: target.codeLocation,
+          teamId: args.teamId,
+          projectId: args.projectId,
+        },
       },
       updatedAt: Date.now(),
     });
-    return await insertProject(ctx, {
-      ...args,
-      codeLocation: { kind: "config", convexConfigPath },
-      origin: "provisioned",
-    });
+    return convexProjectId;
   },
 });
 
@@ -302,7 +391,7 @@ export const attachProjects = internalMutation({
   },
   returns: array(id("vaultConvexProjects")),
   handler: async (ctx, args): Promise<Array<Id<"vaultConvexProjects">>> => {
-    await requireConnectedVault(ctx, args);
+    await requireUserVaultInfrastructureIdle(ctx, args);
 
     const projectIds = new Set<string>();
     const projects = args.projects.map((project) => ({
@@ -341,7 +430,7 @@ export const reconcileProjectTeam = internalMutation({
   },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
-    await requireConnectedVault(ctx, args);
+    await requireUserVaultInfrastructureIdle(ctx, args);
     const project = await ctx.db.get(args.convexProjectId);
     if (
       !project ||
@@ -368,7 +457,7 @@ export const reconcileProjectCodeLocation = internalMutation({
   },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
-    await requireConnectedVault(ctx, args);
+    await requireUserVaultInfrastructureIdle(ctx, args);
     const project = await ctx.db.get(args.convexProjectId);
     const expectedCodeLocation = normalizeConvexCodeLocation(args.expectedCodeLocation);
     const nextCodeLocation = normalizeConvexCodeLocation(args.nextCodeLocation);
@@ -421,7 +510,7 @@ export const detachProject = internalMutation({
   },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
-    await requireConnectedVault(ctx, args);
+    await requireUserVaultInfrastructureIdle(ctx, args);
     const project = await ctx.db.get(args.convexProjectId);
     if (!project || project.vaultId !== args.vaultId || project.userId !== args.userId) {
       throw new Error("Convex project attachment not found.");

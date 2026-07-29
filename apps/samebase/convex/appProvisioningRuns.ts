@@ -8,6 +8,7 @@ import {
   vAppProvisioningRunTrigger,
   vAppProvisioningStep,
 } from "./appProvisioningModel";
+import { readVaultInfrastructureState } from "./vault/infrastructureOperation";
 import { assertConnectedVault } from "./vault/state";
 
 const { id, literal, string, union } = v;
@@ -68,6 +69,12 @@ export const createForVault = internalMutation({
     const user = await ctx.db.get(args.userId);
     if (!user || user.accountDeletion !== undefined) {
       throw new Error("App provisioning is unavailable during account deletion.");
+    }
+    if (args.trigger === "retry") {
+      const infrastructure = await readVaultInfrastructureState(ctx, vault);
+      if (infrastructure.operation.kind !== "none") {
+        throw new Error("Another vault infrastructure operation is active.");
+      }
     }
     const connectedVault = assertConnectedVault(vault);
 

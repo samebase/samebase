@@ -37,6 +37,7 @@ import {
 import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub";
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
+import { retryProviderWriteRecoveryContract } from "../vault/contracts/retryProviderWriteRecovery";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 import {
   MCP_CONSENT_APP_PATH,
@@ -246,6 +247,17 @@ async function callRetryInfrastructureProvisioningMcpTool(
   );
 }
 
+async function callRetryProviderWriteRecoveryMcpTool(
+  ctx: ActionCtx,
+  invocation: McpToolInvocation,
+) {
+  return await ctx.runAction(
+    internal.toolRuntime.runtime.retryProviderWriteRecoveryTool,
+    // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
+    buildMcpToolInvocationArgs(invocation),
+  );
+}
+
 async function callCreateBrowserHandoffMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
   return await ctx.runAction(internal.toolRuntime.runtime.createBrowserHandoffTool, {
     ...buildMcpToolInvocationArgs(invocation),
@@ -407,6 +419,19 @@ const mcpToolCatalog = [
     ),
     outputSchema: undefined,
     call: callCloudflareRotateConvexDeployKeysForWorkersBuildsMcpTool,
+  },
+  {
+    access: retryProviderWriteRecoveryContract.access,
+    title: retryProviderWriteRecoveryContract.mcp.title,
+    name: retryProviderWriteRecoveryContract.mcp.name,
+    description: retryProviderWriteRecoveryContract.mcp.description,
+    annotations: retryProviderWriteRecoveryContract.mcp.annotations,
+    inputSchema: convexArgsToToolInputSchema(
+      retryProviderWriteRecoveryContract.args,
+      retryProviderWriteRecoveryContract.mcp.inputDescriptions,
+    ),
+    outputSchema: undefined,
+    call: callRetryProviderWriteRecoveryMcpTool,
   },
   {
     access: retryInfrastructureProvisioningContract.access,
@@ -657,6 +682,9 @@ export function readMcpToolNameForUsage(params: unknown): SamebaseUsageMcpToolNa
   }
   if (toolName === cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name) {
     return "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds";
+  }
+  if (toolName === retryProviderWriteRecoveryContract.mcp.name) {
+    return "vault_actions_retryProviderWriteRecovery";
   }
   if (toolName === retryInfrastructureProvisioningContract.mcp.name) {
     return "vault_actions_retryInfrastructureProvisioning";

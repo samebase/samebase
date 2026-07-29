@@ -14,6 +14,7 @@ import {
 import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub";
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
+import { retryProviderWriteRecoveryContract } from "../vault/contracts/retryProviderWriteRecovery";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 
 /**
@@ -38,6 +39,7 @@ export const actionContracts = [
   cloudflareAttachWorkersContract,
   cloudflareConfigureWorkersBuildsForGitHubContract,
   cloudflareRotateConvexDeployKeysForWorkersBuildsContract,
+  retryProviderWriteRecoveryContract,
   retryInfrastructureProvisioningContract,
   createBrowserHandoffContract,
 ] as const;

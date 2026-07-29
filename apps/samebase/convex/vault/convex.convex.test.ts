@@ -146,8 +146,9 @@ async function createManagedProjectCreatingFixture() {
     });
     await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
       vaultId: fixture.vaultId,
-      runId,
+      owner: { kind: "managed_run", runId },
       state: "active",
+      lastWriteAt: {},
       updatedAt: 3,
     });
     await ctx.db.insert("workflow_vaultProvisioning_plans", {
@@ -355,6 +356,132 @@ describe("vault Convex project attachments", () => {
       "vault:convex:create_project:metadata_refresh_failed",
       expect.objectContaining({ convexProjectId, vaultId }),
     );
+  });
+
+  it("checks the manual deadline immediately before the Convex create request", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    octokitMocks.getTree.mockImplementationOnce(async () => {
+      vi.setSystemTime(1_000 + 5 * 60 * 1_000);
+      return {
+        data: {
+          truncated: false,
+          tree: [
+            {
+              type: "blob",
+              mode: "100644",
+              path: "convex.json",
+              sha: "root-sha",
+            },
+          ],
+        },
+      };
+    });
+    const fetchMock = vi.fn(async (input: Request) => {
+      if (input.url.includes("/teams/1000/projects?limit=100")) {
+        return jsonResponse({ items: [], pagination: { hasMore: false } });
+      }
+      if (input.url.endsWith("/teams/1000/create_project")) {
+        return jsonResponse({ id: 1003, projectId: 1003, slug: "new-project" });
+      }
+      throw new Error(`Unexpected Convex request: ${input.method} ${input.url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { asUser, vaultId } = await createConnectedVault();
+    try {
+      await expect(
+        asUser.action(api.vault.convex.createProject, {
+          vaultId,
+          projectName: "new-project",
+          codeLocation: {
+            kind: "config",
+            convexConfigPath: "convex.json",
+            blobSha: "root-sha",
+          },
+        }),
+      ).rejects.toThrow("Manual provider action time limit expired.");
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(fetchMock.mock.calls.some(([input]) => input.method === "POST")).toBe(false);
+  });
+
+  it("does not adopt a same-name Convex project without a creation checkpoint", async () => {
+    setGitHubConfigs([{ path: "convex.json", sha: "root-sha" }]);
+    const fetchMock = vi.fn(async (input: Request) => {
+      if (input.url.includes("/teams/1000/projects?limit=100")) {
+        return jsonResponse({
+          items: [
+            {
+              createTime: 1_710_000_000_000,
+              id: 1003,
+              name: "new-project",
+              slug: "new-project",
+              teamId: 1000,
+              teamSlug: "team-1000",
+            },
+          ],
+          pagination: { hasMore: false },
+        });
+      }
+      throw new Error(`Unexpected Convex request: ${input.method} ${input.url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { t, vaultId } = await createConnectedVault();
+    const now = Date.now();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+        vaultId,
+        owner: {
+          kind: "manual_provider_write",
+          actionId: "convex-collision",
+          target: {
+            action: "create_convex_project",
+            state: "requested",
+            projectName: "new-project",
+            codeLocation: {
+              kind: "config",
+              convexConfigPath: "convex.json",
+              blobSha: "root-sha",
+            },
+          },
+          expiresAt: now,
+        },
+        state: "recovering",
+        recoveryAttemptId: "convex-collision-attempt",
+        recoveryDeadlineAt: now + 5 * 60 * 1_000,
+        recoveryLeaseExpiresAt: now + 11 * 60 * 1_000,
+        lastWriteAt: {},
+        updatedAt: now,
+      });
+    });
+
+    await expect(
+      t.action(internal.vault.convex.recoverManualConvexProviderWrite, {
+        vaultId,
+        actionId: "convex-collision",
+        recoveryAttemptId: "convex-collision-attempt",
+      }),
+    ).rejects.toThrow(
+      "Convex project new-project exists, but this provider write did not record its identity. Delete that project in Convex, then use Retry.",
+    );
+    expect(fetchMock.mock.calls.some(([input]) => input.method === "POST")).toBe(false);
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("workflow_vaultProvisioning_writeLocks")
+            .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+            .unique(),
+      ),
+    ).resolves.toMatchObject({
+      state: "recovery_required",
+      owner: { kind: "manual_provider_write", actionId: "convex-collision" },
+    });
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("vaultConvexProjects").collect()),
+    ).resolves.toEqual([]);
   });
 
   it("requires dashboard deletion when an interrupted managed create left a project", async () => {

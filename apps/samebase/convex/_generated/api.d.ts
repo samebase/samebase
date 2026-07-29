@@ -106,6 +106,7 @@ import type * as vault_contracts_convexAttachments from "../vault/contracts/conv
 import type * as vault_contracts_createRepository from "../vault/contracts/createRepository.js";
 import type * as vault_contracts_getUserVaults from "../vault/contracts/getUserVaults.js";
 import type * as vault_contracts_retryInfrastructureProvisioning from "../vault/contracts/retryInfrastructureProvisioning.js";
+import type * as vault_contracts_retryProviderWriteRecovery from "../vault/contracts/retryProviderWriteRecovery.js";
 import type * as vault_convex from "../vault/convex.js";
 import type * as vault_convexDeployKeys from "../vault/convexDeployKeys.js";
 import type * as vault_convexMutations from "../vault/convexMutations.js";
@@ -123,6 +124,7 @@ import type * as vault_deletion_providerActions from "../vault/deletion/provider
 import type * as vault_deletion_runs from "../vault/deletion/runs.js";
 import type * as vault_deletion_state from "../vault/deletion/state.js";
 import type * as vault_deletion_workflow from "../vault/deletion/workflow.js";
+import type * as vault_infrastructureOperation from "../vault/infrastructureOperation.js";
 import type * as vault_model from "../vault/model.js";
 import type * as vault_providerDashboardUrls from "../vault/providerDashboardUrls.js";
 import type * as vault_providerObservationQueries from "../vault/providerObservationQueries.js";
@@ -239,6 +241,7 @@ declare const fullApi: ApiFromModules<{
   "vault/contracts/createRepository": typeof vault_contracts_createRepository;
   "vault/contracts/getUserVaults": typeof vault_contracts_getUserVaults;
   "vault/contracts/retryInfrastructureProvisioning": typeof vault_contracts_retryInfrastructureProvisioning;
+  "vault/contracts/retryProviderWriteRecovery": typeof vault_contracts_retryProviderWriteRecovery;
   "vault/convex": typeof vault_convex;
   "vault/convexDeployKeys": typeof vault_convexDeployKeys;
   "vault/convexMutations": typeof vault_convexMutations;
@@ -256,6 +259,7 @@ declare const fullApi: ApiFromModules<{
   "vault/deletion/runs": typeof vault_deletion_runs;
   "vault/deletion/state": typeof vault_deletion_state;
   "vault/deletion/workflow": typeof vault_deletion_workflow;
+  "vault/infrastructureOperation": typeof vault_infrastructureOperation;
   "vault/model": typeof vault_model;
   "vault/providerDashboardUrls": typeof vault_providerDashboardUrls;
   "vault/providerObservationQueries": typeof vault_providerObservationQueries;

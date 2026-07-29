@@ -1,62 +1,7 @@
-import { v } from "convex/values";
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
-import { internalAction } from "./_generated/server";
 import { makeConvexTest } from "./test.setup";
-
-const workflowCloudflareActions = vi.hoisted(() => {
-  const build = {
-    rootDirectory: "/",
-    production: { triggerUuid: "production-trigger" },
-    preview: { triggerUuid: "preview-trigger" },
-  };
-  return {
-    build,
-    configureWorkersBuildsForGitHub: vi.fn(async (_args: unknown) => build),
-    rotateConvexDeployKeysForWorkersBuilds: vi.fn(async (_args: unknown) => null),
-  };
-});
-
-vi.mock("./vault/cloudflare", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./vault/cloudflare")>();
-  const { id, null: nullValue, object, string } = v;
-  const preparedBuilds = object({
-    rootDirectory: string(),
-    production: object({ triggerUuid: string() }),
-    preview: object({ triggerUuid: string() }),
-  });
-  return {
-    ...actual,
-    configureWorkersBuildsForGitHubForWorkflow: internalAction({
-      args: {
-        vaultId: id("vaults"),
-        runId: id("workflow_vaultProvisioning_runs"),
-        userId: id("users"),
-        workerId: id("vaultCloudflareWorkers"),
-      },
-      returns: preparedBuilds,
-      handler: async (_ctx, args) => {
-        return await workflowCloudflareActions.configureWorkersBuildsForGitHub(args);
-      },
-    }),
-    rotateConvexDeployKeysForWorkersBuildsForWorkflow: internalAction({
-      args: {
-        vaultId: id("vaults"),
-        runId: id("workflow_vaultProvisioning_runs"),
-        userId: id("users"),
-        workerId: id("vaultCloudflareWorkers"),
-        convexProjectId: id("vaultConvexProjects"),
-        build: preparedBuilds,
-      },
-      returns: nullValue(),
-      handler: async (_ctx, args): Promise<null> => {
-        await workflowCloudflareActions.rotateConvexDeployKeysForWorkersBuilds(args);
-        return null;
-      },
-    }),
-  };
-});
 
 async function createComposedVault() {
   const t = makeConvexTest();
@@ -168,15 +113,6 @@ async function attachComposedResources({
 }
 
 describe("app provisioning workflow composition", () => {
-  beforeEach(() => {
-    workflowCloudflareActions.configureWorkersBuildsForGitHub.mockReset();
-    workflowCloudflareActions.configureWorkersBuildsForGitHub.mockResolvedValue(
-      workflowCloudflareActions.build,
-    );
-    workflowCloudflareActions.rotateConvexDeployKeysForWorkersBuilds.mockReset();
-    workflowCloudflareActions.rotateConvexDeployKeysForWorkersBuilds.mockResolvedValue(null);
-  });
-
   it("maps the provisioning root to the Convex config path and reads exact attachments", async () => {
     const { ids, t } = await createComposedVault();
 
@@ -211,76 +147,78 @@ describe("app provisioning workflow composition", () => {
     });
   });
 
-  it("configures Workers Builds and rotates Convex deploy keys before completing managed infrastructure", async () => {
-    const { ids, t } = await createComposedVault();
-    const attachments = await attachComposedResources({ ids, t });
-    vi.useFakeTimers();
-    try {
-      await t.mutation(internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning, {
-        vaultId: ids.vaultId,
-        runId: ids.runId,
-      });
-      await t.finishAllScheduledFunctions(vi.runAllTimers);
-    } finally {
-      vi.useRealTimers();
-    }
-
-    expect(workflowCloudflareActions.configureWorkersBuildsForGitHub).toHaveBeenCalledWith({
-      vaultId: ids.vaultId,
-      runId: ids.runId,
-      userId: ids.userId,
-      workerId: attachments.workerId,
-    });
-    expect(workflowCloudflareActions.rotateConvexDeployKeysForWorkersBuilds).toHaveBeenCalledWith({
-      vaultId: ids.vaultId,
-      runId: ids.runId,
-      userId: ids.userId,
-      workerId: attachments.workerId,
-      convexProjectId: attachments.convexProjectId,
-      build: workflowCloudflareActions.build,
-    });
-    expect(
-      workflowCloudflareActions.configureWorkersBuildsForGitHub.mock.invocationCallOrder[0],
-    ).toBeLessThan(
-      workflowCloudflareActions.rotateConvexDeployKeysForWorkersBuilds.mock.invocationCallOrder[0],
-    );
-
-    const result = await t.run(async (ctx) => {
-      const events = await ctx.db
-        .query("workflow_vaultProvisioning_events")
-        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
-        .collect();
-      return {
-        run: await ctx.db.get(ids.runId),
-        steps: events.map((event) => event.step),
-      };
-    });
-    expect(result.run).toMatchObject({ state: "succeeded", currentStep: "finish" });
-    expect(result.steps).toEqual([
-      "claim_infra",
-      "claim_infra",
-      "configure_workers_builds_for_github",
-      "rotate_convex_deploy_keys_for_workers_builds",
-      "finish",
-    ]);
-  });
-
-  it("does not report success when Convex deploy-key rotation fails", async () => {
+  it("keeps managed provider freshness when infrastructure ownership completes", async () => {
     const { ids, t } = await createComposedVault();
     await attachComposedResources({ ids, t });
-    workflowCloudflareActions.rotateConvexDeployKeysForWorkersBuilds.mockRejectedValueOnce(
-      new Error("Could not set build variables."),
-    );
     vi.useFakeTimers();
     try {
-      await t.mutation(internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning, {
+      vi.setSystemTime(1_000);
+      await t.mutation(internal.appProvisioningWorkflow.claimComposedInfrastructureProvisioning, {
+        userId: ids.userId,
         vaultId: ids.vaultId,
         runId: ids.runId,
       });
-      await t.finishAllScheduledFunctions(vi.runAllTimers);
+      vi.setSystemTime(2_000);
+      await t.mutation(internal.vault.infrastructureOperation.recordManagedProviderWrites, {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+        providers: ["cloudflare"],
+      });
+      vi.setSystemTime(3_000);
+      await t.mutation(internal.vault.infrastructureOperation.recordManagedProviderWrites, {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+        providers: ["convex", "cloudflare"],
+      });
+      vi.setSystemTime(4_000);
+      await t.mutation(internal.appProvisioningWorkflow.finishComposedInfrastructureProvisioning, {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+      });
     } finally {
       vi.useRealTimers();
     }
+
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("workflow_vaultProvisioning_writeLocks")
+            .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+            .unique(),
+      ),
+    ).resolves.toMatchObject({
+      owner: { kind: "managed_run", runId: ids.runId },
+      state: "succeeded",
+      lastWriteAt: {
+        convex: 3_000,
+        cloudflare: 3_000,
+      },
+      updatedAt: 4_000,
+    });
+  });
+
+  it("records a managed provider failure without a finish event", async () => {
+    const { ids, t } = await createComposedVault();
+    await attachComposedResources({ ids, t });
+    await t.mutation(internal.appProvisioningWorkflow.claimComposedInfrastructureProvisioning, {
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+      runId: ids.runId,
+    });
+    await t.mutation(internal.appProvisioningRuns.appendRunEvent, {
+      runId: ids.runId,
+      step: "rotate_convex_deploy_keys_for_workers_builds",
+      level: "info",
+      message: "Rotating Convex deploy keys for Workers Builds.",
+      state: "running",
+    });
+    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+      runId: ids.runId,
+      workflowId: "workflow",
+      message: "Could not set build variables.",
+    });
 
     const result = await t.run(async (ctx) => {
       const events = await ctx.db
@@ -289,12 +227,20 @@ describe("app provisioning workflow composition", () => {
         .collect();
       return {
         run: await ctx.db.get(ids.runId),
+        write: await ctx.db
+          .query("workflow_vaultProvisioning_writeLocks")
+          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+          .unique(),
         steps: events.map((event) => event.step),
       };
     });
     expect(result.run).toMatchObject({
       state: "failed",
       currentStep: "rotate_convex_deploy_keys_for_workers_builds",
+    });
+    expect(result.write).toMatchObject({
+      owner: { kind: "managed_run", runId: ids.runId },
+      state: "failed",
     });
     expect(result.steps).not.toContain("finish");
   });
@@ -304,8 +250,9 @@ describe("app provisioning workflow composition", () => {
     const retryRunId = await t.run(async (ctx) => {
       await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId: ids.vaultId,
-        runId: ids.runId,
+        owner: { kind: "managed_run", runId: ids.runId },
         state: "active",
+        lastWriteAt: {},
         updatedAt: 0,
       });
       return await ctx.db.insert("workflow_vaultProvisioning_runs", {
@@ -336,6 +283,9 @@ describe("app provisioning workflow composition", () => {
             .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
             .unique(),
       ),
-    ).resolves.toMatchObject({ runId: ids.runId, state: "active" });
+    ).resolves.toMatchObject({
+      owner: { kind: "managed_run", runId: ids.runId },
+      state: "active",
+    });
   });
 });

@@ -75,6 +75,9 @@ const contractSourceByMcpName: Record<string, string> = {
   vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds: samebaseAppFilePath(
     "convex/vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds.ts",
   ),
+  vault_actions_retryProviderWriteRecovery: samebaseAppFilePath(
+    "convex/vault/contracts/retryProviderWriteRecovery.ts",
+  ),
   vault_actions_retryInfrastructureProvisioning: samebaseAppFilePath(
     "convex/vault/contracts/retryInfrastructureProvisioning.ts",
   ),

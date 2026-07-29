@@ -22,6 +22,7 @@ export type SamebaseUsageMcpToolName =
   | "vault_cloudflare_attachWorkers"
   | "vault_cloudflare_configureWorkersBuildsForGitHub"
   | "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds"
+  | "vault_actions_retryProviderWriteRecovery"
   | "vault_actions_retryInfrastructureProvisioning"
   | "create_browser_handoff"
   | "unknown";

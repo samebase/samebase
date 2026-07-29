@@ -286,6 +286,431 @@ JSON Schema for the tool's `structuredContent`:
               }
             ]
           },
+          "providerPlan": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "convexConfigPath": {
+                    "type": "string"
+                  },
+                  "convex": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "const": "planned"
+                          },
+                          "projectName": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["state", "projectName"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "const": "creating"
+                          },
+                          "projectName": {
+                            "type": "string"
+                          },
+                          "teamId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["state", "projectName", "teamId"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "const": "created"
+                          },
+                          "projectName": {
+                            "type": "string"
+                          },
+                          "teamId": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["state", "projectName", "teamId", "projectId"],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "cloudflare": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "const": "planned"
+                          },
+                          "accountId": {
+                            "type": "string"
+                          },
+                          "workerName": {
+                            "type": "string"
+                          },
+                          "rootDirectory": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["state", "accountId", "workerName", "rootDirectory"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "const": "creating"
+                          },
+                          "accountId": {
+                            "type": "string"
+                          },
+                          "workerName": {
+                            "type": "string"
+                          },
+                          "rootDirectory": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["state", "accountId", "workerName", "rootDirectory"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "const": "created"
+                          },
+                          "accountId": {
+                            "type": "string"
+                          },
+                          "workerName": {
+                            "type": "string"
+                          },
+                          "workerTag": {
+                            "type": "string"
+                          },
+                          "rootDirectory": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "state",
+                          "accountId",
+                          "workerName",
+                          "workerTag",
+                          "rootDirectory"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": ["convexConfigPath", "convex", "cloudflare"],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "providerWrite": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "const": "idle"
+                  },
+                  "lastWriteAt": {
+                    "type": "object",
+                    "properties": {
+                      "convex": {
+                        "type": "number"
+                      },
+                      "cloudflare": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["status", "lastWriteAt"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "const": "active"
+                  },
+                  "owner": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "managed_run"
+                          },
+                          "runId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["kind", "runId"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "manual_provider_write"
+                          },
+                          "actionId": {
+                            "type": "string"
+                          },
+                          "action": {
+                            "anyOf": [
+                              {
+                                "const": "create_convex_project"
+                              },
+                              {
+                                "const": "connect_cloudflare_worker"
+                              },
+                              {
+                                "const": "create_cloudflare_worker"
+                              },
+                              {
+                                "const": "configure_workers_builds_for_github"
+                              },
+                              {
+                                "const": "rotate_convex_deploy_keys_for_workers_builds"
+                              }
+                            ]
+                          },
+                          "expiresAt": {
+                            "type": "number"
+                          }
+                        },
+                        "required": ["kind", "actionId", "action", "expiresAt"],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "affectedProviders": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "const": "convex"
+                        },
+                        {
+                          "const": "cloudflare"
+                        }
+                      ]
+                    }
+                  },
+                  "updatedAt": {
+                    "type": "number"
+                  },
+                  "lastWriteAt": {
+                    "type": "object",
+                    "properties": {
+                      "convex": {
+                        "type": "number"
+                      },
+                      "cloudflare": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["status", "owner", "affectedProviders", "updatedAt", "lastWriteAt"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "const": "recovery_required"
+                  },
+                  "owner": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "manual_provider_write"
+                      },
+                      "actionId": {
+                        "type": "string"
+                      },
+                      "action": {
+                        "anyOf": [
+                          {
+                            "const": "create_convex_project"
+                          },
+                          {
+                            "const": "connect_cloudflare_worker"
+                          },
+                          {
+                            "const": "create_cloudflare_worker"
+                          },
+                          {
+                            "const": "configure_workers_builds_for_github"
+                          },
+                          {
+                            "const": "rotate_convex_deploy_keys_for_workers_builds"
+                          }
+                        ]
+                      },
+                      "expiresAt": {
+                        "type": "number"
+                      }
+                    },
+                    "required": ["kind", "actionId", "action", "expiresAt"],
+                    "additionalProperties": false
+                  },
+                  "affectedProviders": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "const": "convex"
+                        },
+                        {
+                          "const": "cloudflare"
+                        }
+                      ]
+                    }
+                  },
+                  "updatedAt": {
+                    "type": "number"
+                  },
+                  "lastWriteAt": {
+                    "type": "object",
+                    "properties": {
+                      "convex": {
+                        "type": "number"
+                      },
+                      "cloudflare": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["status", "owner", "affectedProviders", "updatedAt", "lastWriteAt"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "anyOf": [
+                      {
+                        "const": "succeeded"
+                      },
+                      {
+                        "const": "failed"
+                      }
+                    ]
+                  },
+                  "owner": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "managed_run"
+                          },
+                          "runId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["kind", "runId"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "manual_provider_write"
+                          },
+                          "actionId": {
+                            "type": "string"
+                          },
+                          "action": {
+                            "anyOf": [
+                              {
+                                "const": "create_convex_project"
+                              },
+                              {
+                                "const": "connect_cloudflare_worker"
+                              },
+                              {
+                                "const": "create_cloudflare_worker"
+                              },
+                              {
+                                "const": "configure_workers_builds_for_github"
+                              },
+                              {
+                                "const": "rotate_convex_deploy_keys_for_workers_builds"
+                              }
+                            ]
+                          },
+                          "expiresAt": {
+                            "type": "number"
+                          }
+                        },
+                        "required": ["kind", "actionId", "action", "expiresAt"],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "affectedProviders": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "const": "convex"
+                        },
+                        {
+                          "const": "cloudflare"
+                        }
+                      ]
+                    }
+                  },
+                  "updatedAt": {
+                    "type": "number"
+                  },
+                  "lastWriteAt": {
+                    "type": "object",
+                    "properties": {
+                      "convex": {
+                        "type": "number"
+                      },
+                      "cloudflare": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["status", "owner", "affectedProviders", "updatedAt", "lastWriteAt"],
+                "additionalProperties": false
+              }
+            ]
+          },
           "deletion": {
             "anyOf": [
               {
@@ -550,6 +975,8 @@ JSON Schema for the tool's `structuredContent`:
           "fileCount",
           "sourceSetup",
           "providerSetup",
+          "providerPlan",
+          "providerWrite",
           "deletion",
           "isSamebaseManaged",
           "hasConnectedGitHubRepository",

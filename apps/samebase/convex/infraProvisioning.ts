@@ -368,7 +368,11 @@ function runHoldsProvisioningWriteLock(
     runId: Id<"workflow_vaultProvisioning_runs">;
   },
 ): boolean {
-  return writeLock?.runId === args.runId && writeLock.state === "active";
+  return (
+    writeLock?.owner.kind === "managed_run" &&
+    writeLock.owner.runId === args.runId &&
+    writeLock.state === "active"
+  );
 }
 
 async function cancelSupersededProvisioningRun(

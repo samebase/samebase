@@ -188,6 +188,46 @@ const deleteCloudflareOptions = {
 };
 
 describe("vault deletion Convex resource planning", () => {
+  it("blocks deletion while a manual provider write needs recovery", async () => {
+    const { ids, t } = await createExistingRepositoryVaultWithConvex({
+      origin: "selected_existing",
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+        vaultId: ids.vaultId,
+        owner: {
+          kind: "manual_provider_write",
+          actionId: "create-convex-project",
+          target: {
+            action: "create_convex_project",
+            state: "requested",
+            projectName: "manual-convex",
+            codeLocation: {
+              kind: "config",
+              convexConfigPath: "convex.json",
+              blobSha: "convex-config-blob",
+            },
+          },
+          expiresAt: 20,
+        },
+        state: "recovery_required",
+        lastWriteAt: { convex: 12 },
+        updatedAt: 12,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.vault.deletion.runs.createInitialRun, {
+        ...ids,
+        options: {
+          removeGithubRepo: false,
+          removeConvexProvision: false,
+          removeCloudflareProvision: false,
+        },
+      }),
+    ).rejects.toThrow("A provider change needs recovery.");
+  });
+
   it("keeps an attached Convex project when provider cleanup is not selected", async () => {
     const { ids, t } = await createExistingRepositoryVaultWithConvex({
       origin: "provisioned",
