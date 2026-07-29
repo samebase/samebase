@@ -768,24 +768,28 @@ function LandingPreviewOverview() {
         </LandingSection>
 
         <LandingSection>
-          <div className="mb-14">
-            <PublicLandingLogo
-              routeSearch={LANDING_CLOSING_LOGO_ROUTE_SEARCH}
-              routeSearchSource="static"
-              stage="wide"
-              viewStateKey={LANDING_CLOSING_BAND_VIEW_STATE_KEY}
-            />
-          </div>
-          <h2 className="max-w-[20ch] text-[clamp(26px,3.4cqw,36px)] font-bold leading-tight tracking-[-0.025em]">
-            Same stack. Your accounts. No magic.
-          </h2>
-          <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-muted-foreground">
-            The manual-setup article walks through every step Samebase automates. It doubles as the
-            exit door.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
-            <LandingCreateAppButton />
-            <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>Do it yourself</LandingInlineLink>
+          <div className="@4xl:grid @4xl:grid-cols-[minmax(0,1fr)_420px] @4xl:items-center @4xl:gap-x-14">
+            <div>
+              <h2 className="max-w-[20ch] text-[clamp(26px,3.4cqw,36px)] font-bold leading-tight tracking-[-0.025em]">
+                Same stack. Your accounts. No magic.
+              </h2>
+              <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-muted-foreground">
+                The manual-setup article walks through every step Samebase automates. It doubles as
+                the exit door.
+              </p>
+              <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
+                <LandingCreateAppButton />
+                <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>Do it yourself</LandingInlineLink>
+              </div>
+            </div>
+            <div className="mt-12 @4xl:mt-0">
+              <PublicLandingLogo
+                routeSearch={LANDING_CLOSING_LOGO_ROUTE_SEARCH}
+                routeSearchSource="static"
+                stage="wide"
+                viewStateKey={LANDING_CLOSING_BAND_VIEW_STATE_KEY}
+              />
+            </div>
           </div>
         </LandingSection>
       </div>
