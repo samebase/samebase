@@ -20,6 +20,8 @@ describe("starterSeedManifest", () => {
     expect(filePaths).toContain(".node-version");
     expect(filePaths).toContain("wrangler.jsonc");
     expect(filePaths).toContain("scripts/build-cloudflare.ts");
+    expect(filePaths).toContain("scripts/check-typescript-sources.test.ts");
+    expect(filePaths).toContain("scripts/check-typescript-sources.ts");
     expect(filePaths).toContain("scripts/cloudflare-prerender-pages.ts");
     expect(filePaths).toContain("scripts/deploy-cloudflare.ts");
     expect(filePaths).toContain("scripts/ensure-convex-auth.ts");
@@ -57,8 +59,11 @@ describe("starterSeedManifest", () => {
         type: "module",
         scripts: expect.objectContaining({
           check:
-            "tsc && pnpm run typecheck:node && tsc --project convex/tsconfig.json && pnpm run verify:cloudflare-redirects",
-          build: "pnpm run typecheck:node && vp run build:cloudflare",
+            "tsc && pnpm run check:typescript-sources && pnpm run typecheck:node && tsc --project convex/tsconfig.json && pnpm run verify:cloudflare-redirects",
+          build: "vp run build:cloudflare",
+          "build:cloudflare":
+            "pnpm run check:typescript-sources && pnpm run typecheck:node && node ./scripts/build-cloudflare.ts",
+          "check:typescript-sources": "node ./scripts/check-typescript-sources.ts",
           "typecheck:node": "tsc --project tsconfig.node.json",
         }),
       }),
