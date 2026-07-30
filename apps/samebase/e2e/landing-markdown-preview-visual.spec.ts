@@ -196,6 +196,21 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(article).toContainText("Cloudflare");
   const platformDetails = article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID);
   await expect(platformDetails).toContainText("macOS · Linux · Windows");
+  await expect(platformDetails).toContainText(
+    "Samebase has been one PWA from the start. The same web app works well on desktop, iPhone, Android, and in the Codex browser.",
+  );
+  await expect(platformDetails.getByRole("link", { exact: true, name: "PWA" })).toHaveAttribute(
+    "href",
+    "https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/What_is_a_progressive_web_app",
+  );
+  await expect(platformDetails.getByRole("link", { exact: true, name: "PWA" })).toHaveAttribute(
+    "rel",
+    "noreferrer",
+  );
+  await expect(platformDetails.getByRole("link", { exact: true, name: "PWA" })).toHaveAttribute(
+    "target",
+    "_blank",
+  );
   await expect
     .poll(async () => {
       const [askTop, platformTop, firstClaimTop] = await Promise.all([
