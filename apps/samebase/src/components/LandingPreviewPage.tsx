@@ -417,7 +417,7 @@ function LandingPreviewOverview() {
                 </p>
               </div>
             </div>
-            <LandingHeroMenger />
+            <LandingHeroMenger placement="preview" />
           </div>
           <div className="relative mt-12" style={{ containerType: "inline-size" }}>
             <div

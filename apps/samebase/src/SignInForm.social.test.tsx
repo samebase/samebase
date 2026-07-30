@@ -46,7 +46,12 @@ const SAMEBASE_X_PROFILE_URL = "https://x.com/samebasecom";
 describe("public Samebase social links", () => {
   it("renders the Samebase X profile link on the public landing form", () => {
     const markup = renderToStaticMarkup(
-      <SignInForm authPlacement="sidebar" landingPageMarkdown="Samebase" topNotice={null} />,
+      <SignInForm
+        authPlacement="sidebar"
+        landingPageMarkdown="Samebase"
+        logo="classic"
+        topNotice={null}
+      />,
     );
 
     expect(markup).toContain(`href="${SAMEBASE_X_PROFILE_URL}"`);

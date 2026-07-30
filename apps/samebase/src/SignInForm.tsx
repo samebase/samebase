@@ -1,5 +1,6 @@
 import { LandingCopy } from "@/components/LandingCopy";
 import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControls";
+import { LandingHeroMenger } from "@/components/logo/LandingHeroMenger";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { LOGO_IDENTITY_VIEW_CONTRACTS } from "@/components/logo/logoStaticSvgContract";
 import {
@@ -23,6 +24,7 @@ import { type ReactNode, useState } from "react";
 type SignInFormProps = {
   authPlacement: "inline" | "sidebar";
   landingPageMarkdown: string;
+  logo: "classic" | "menger";
   topNotice: ReactNode;
 };
 
@@ -93,7 +95,12 @@ function LandingPageLogo({
   );
 }
 
-export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: SignInFormProps) {
+export function SignInForm({
+  authPlacement,
+  landingPageMarkdown,
+  logo,
+  topNotice,
+}: SignInFormProps) {
   const rootRouteSearch = useRootRouteSearch();
   const landingDevModeEnabled = isLandingDevModeEnabled(rootRouteSearch);
   const [landingMarkdownDraft, setLandingMarkdownDraft] = useState(landingPageMarkdown);
@@ -106,10 +113,14 @@ export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: Si
           className="max-w-[384px] mx-auto flex flex-col my-auto gap-4"
         >
           {topNotice}
-          <LandingPageLogo
-            landingDevModeEnabled={landingDevModeEnabled}
-            rootRouteSearch={rootRouteSearch}
-          />
+          {logo === "menger" ? (
+            <LandingHeroMenger placement="root" />
+          ) : (
+            <LandingPageLogo
+              landingDevModeEnabled={landingDevModeEnabled}
+              rootRouteSearch={rootRouteSearch}
+            />
+          )}
           <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
             <LandingCopy
               className="text-sm"

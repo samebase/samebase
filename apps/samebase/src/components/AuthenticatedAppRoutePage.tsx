@@ -19,6 +19,7 @@ function AuthenticatedRouteSignInForm() {
       <SignInForm
         authPlacement="inline"
         landingPageMarkdown={landingPageMarkdown}
+        logo="classic"
         topNotice={null}
       />
     </Suspense>

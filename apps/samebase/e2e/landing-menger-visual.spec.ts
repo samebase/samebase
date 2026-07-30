@@ -7,6 +7,11 @@ import {
   DRAG_ELEVATION_DEGREES_PER_PIXEL,
   DRAG_ROTATION_DEGREES_PER_PIXEL,
 } from "../src/components/logo/logoViewDragConstants";
+import {
+  PUBLIC_LANDING_COPY_TEST_ID,
+  PUBLIC_LANDING_MENGER_FALLBACK_TEST_ID,
+  PUBLIC_LANDING_MENGER_TEST_ID,
+} from "../src/lib/publicLanding";
 import { PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE } from "../src/lib/publicLandingLogo";
 import { measureScreenshotForegroundBounds } from "./visualDiff";
 
@@ -79,6 +84,57 @@ async function installUnavailableCanvasRendering(page: Page): Promise<void> {
     });
   });
 }
+
+test("root landing uses the depth-three Menger logo and follows the pointer", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const hero = page.getByTestId(PUBLIC_LANDING_MENGER_TEST_ID);
+  const fallback = page.getByTestId(PUBLIC_LANDING_MENGER_FALLBACK_TEST_ID);
+  const scene = hero.getByTestId("logo-menger-hover-scene");
+  await expect(hero).toBeVisible({ timeout: 30_000 });
+  await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
+  await expect(hero).toHaveAttribute("data-state", "ready");
+  await expect(fallback).toHaveCSS("opacity", "0");
+  await expect(scene).toHaveAttribute("data-menger-maximum-depth", "3");
+  await expect(scene).toHaveAttribute("data-menger-pointer-tilt", "landing");
+  await expect(page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID)).toHaveText("Samebase is near.");
+
+  const sceneBox = await scene.boundingBox();
+  if (!sceneBox) {
+    throw new Error("The root landing Menger scene must have a bounding box.");
+  }
+
+  await page.mouse.move(sceneBox.x + sceneBox.width / 2, sceneBox.y + sceneBox.height / 2);
+  await expect
+    .poll(() => readNumberAttribute(scene, "data-hover-maximum-openness"), {
+      timeout: 30_000,
+    })
+    .toBeGreaterThan(0);
+
+  await page.mouse.move(sceneBox.x + sceneBox.width, sceneBox.y + sceneBox.height / 2);
+  await expect
+    .poll(() => readNumberAttribute(scene, "data-presentation-horizontal-degrees"), {
+      timeout: 30_000,
+    })
+    .not.toBe(0);
+
+  await page.mouse.move(sceneBox.x + sceneBox.width / 2, sceneBox.y + sceneBox.height / 2);
+  await expect(scene).toHaveAttribute("data-hover-settled", "true", { timeout: 30_000 });
+  await waitForPaint(page);
+  await expect(hero).toHaveScreenshot("root-landing-menger.png", SCREENSHOT_OPTIONS);
+});
+
+test("root landing keeps its fractal fallback when WebGL is unavailable", async ({ page }) => {
+  await installUnavailableCanvasRendering(page);
+  await page.goto("/?prod-ui&rot=180", { waitUntil: "domcontentloaded" });
+
+  const hero = page.getByTestId(PUBLIC_LANDING_MENGER_TEST_ID);
+  const fallback = page.getByTestId(PUBLIC_LANDING_MENGER_FALLBACK_TEST_ID);
+  await expect(hero).toHaveAttribute("data-state", "fallback", { timeout: 30_000 });
+  await expect(fallback).toHaveCSS("opacity", "1");
+  await expect(hero.getByTestId("logo-menger-hover-scene")).toHaveCount(0);
+});
 
 test("landing preview uses the depth-three Menger hover scene", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });

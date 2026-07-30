@@ -10,6 +10,10 @@ import { LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS } from "@/components/logo/l
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import { type LogoViewState } from "@/components/logo/logoViewDrag";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
+import {
+  PUBLIC_LANDING_MENGER_FALLBACK_TEST_ID,
+  PUBLIC_LANDING_MENGER_TEST_ID,
+} from "@/lib/publicLanding";
 import { PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE } from "@/lib/publicLandingLogo";
 import { clearPublicLandingLogoStaticFallbackPrehydration } from "@/lib/publicLandingLogoPrehydration";
 import { MENGER_HOVER_DEFAULT_REVEAL_RADIUS } from "@samebase/logo-model/menger-hover";
@@ -75,7 +79,7 @@ The hero keeps a static Menger mark until the desktop-only slot has size and
 the interactive scene completes its first render. A hidden pane does not own
 a WebGL renderer or page-wide pointer listeners.
 */
-export function LandingHeroMenger() {
+export function LandingHeroMenger({ placement }: { placement: "preview" | "root" }) {
   const navigate = useNavigate();
   const rootRouteSearch = useRootRouteSearch();
   const routeState = useMemo(
@@ -294,9 +298,16 @@ export function LandingHeroMenger() {
   return (
     <div
       ref={slotRef}
-      className="relative hidden min-h-0 @3xl:block @3xl:aspect-square"
+      className={
+        placement === "root"
+          ? "relative mx-auto aspect-square min-h-0 w-full"
+          : "relative hidden min-h-0 @3xl:block @3xl:aspect-square"
+      }
       data-state={didSceneFail ? "fallback" : isSceneReady ? "ready" : "loading"}
-      data-testid="landing-preview-hero-menger"
+      data-testid={
+        placement === "root" ? PUBLIC_LANDING_MENGER_TEST_ID : "landing-preview-hero-menger"
+      }
+      style={placement === "root" ? { maxWidth: "min(22rem, calc(100svh - 12rem))" } : undefined}
     >
       <img
         key={isHydratedFallbackVisibilityReady ? "hydrated" : "prehydration"}
@@ -308,7 +319,11 @@ export function LandingHeroMenger() {
             : "pointer-events-none absolute inset-0 z-10 h-full w-full object-contain opacity-100 transition-opacity duration-300 ease-out"
         }
         {...{ [PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE]: "" }}
-        data-testid="landing-preview-hero-menger-fallback"
+        data-testid={
+          placement === "root"
+            ? PUBLIC_LANDING_MENGER_FALLBACK_TEST_ID
+            : "landing-preview-hero-menger-fallback"
+        }
         decoding="async"
         height="360"
         src={staticLogoSvgSrc}
