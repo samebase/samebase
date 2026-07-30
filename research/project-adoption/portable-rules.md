@@ -362,6 +362,17 @@ cutover gate.
 When the target reuses the production Worker, a default-branch merge is a production cutover even
 when the Worker name, DNS, and custom domain do not change.
 
+When a reviewed migration uses stacked pull requests, keep the stack as bounded review evidence.
+Create one promotion pull request from the final reviewed head to the production default branch. Do
+not merge every slice through the default branch when each merge starts a production build. Record
+the current source, backend, Worker deployment, Worker version, custom domain, and rollback target
+immediately before the one promotion merge.
+
+Read every non-secret production environment value that a new authentication gate uses. Require the
+exact accepted values before merge. A missing value fails the gate. Read the named values one at a
+time. Do not list the full provider environment because that output can contain signing keys and
+other secrets.
+
 Model backend and Worker promotion as separate steps. If the backend deploy succeeds and the Worker
 upload fails, the old Worker runs against new backend functions. Test that state and keep separate
 rollback procedures for backend functions and Worker versions.
