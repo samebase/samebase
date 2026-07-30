@@ -188,6 +188,48 @@ const deleteCloudflareOptions = {
 };
 
 describe("vault deletion Convex resource planning", () => {
+  it.each([
+    { currentStep: "run_created" as const, state: "queued" as const },
+    { currentStep: "sync_tree" as const, state: "running" as const },
+  ])("blocks deletion while connected repository setup is $state", async (run) => {
+    const { ids, t } = await createExistingRepositoryVaultWithConvex({
+      origin: "selected_existing",
+    });
+    await t.run(async (ctx) => {
+      const vault = await ctx.db.get(ids.vaultId);
+      if (!vault || vault.state !== "connected") {
+        throw new Error("Connected vault fixture is missing.");
+      }
+      await ctx.db.patch(vault.runId, {
+        state: run.state,
+        currentStep: run.currentStep,
+        updatedAt: 30,
+        completedAt: undefined,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.vault.deletion.runs.createInitialRun, {
+        ...ids,
+        options: {
+          removeGithubRepo: false,
+          removeConvexProvision: false,
+          removeCloudflareProvision: false,
+        },
+      }),
+    ).rejects.toThrow("Vault source setup is still running.");
+
+    const snapshot = await t.run(async (ctx) => ({
+      deletionRuns: await ctx.db
+        .query("workflow_vaultDeletion_runs")
+        .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", ids.vaultId))
+        .collect(),
+      vault: await ctx.db.get(ids.vaultId),
+    }));
+    expect(snapshot.deletionRuns).toEqual([]);
+    expect(snapshot.vault?.deletion).toEqual({ state: "not_deleting" });
+  });
+
   it("blocks deletion while a manual provider write is active", async () => {
     const { ids, t } = await createExistingRepositoryVaultWithConvex({
       origin: "selected_existing",

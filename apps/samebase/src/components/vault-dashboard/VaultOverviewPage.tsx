@@ -115,13 +115,11 @@ function FailureNotice({
   description,
   isRetrying,
   onRetry,
-  retryDisabled,
   title,
 }: {
   description: string;
   isRetrying?: boolean;
   onRetry?: () => void;
-  retryDisabled?: boolean;
   title: string;
 }) {
   const content = (
@@ -139,13 +137,7 @@ function FailureNotice({
       {onRetry ? (
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">{content}</div>
-          <Button
-            disabled={isRetrying || retryDisabled}
-            size="sm"
-            type="button"
-            variant="outline"
-            onClick={onRetry}
-          >
+          <Button disabled={isRetrying} size="sm" type="button" variant="outline" onClick={onRetry}>
             {isRetrying ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {isRetrying ? "Retrying..." : "Retry"}
           </Button>
@@ -191,13 +183,11 @@ function VaultStateNotice({
     );
   }
   if (vault.providerSetup.status === "failed") {
-    const providerWriteBlocked = vault.providerWrite.status === "active";
     return (
       <FailureNotice
         description={vault.providerSetup.message}
         isRetrying={isRetryingVaultAction}
         onRetry={onRetryInfrastructureProvisioning}
-        retryDisabled={providerWriteBlocked}
         title="Provider setup failed"
       />
     );

@@ -116,11 +116,12 @@ The dashboard should disable delete with a short reason while a vault is not qui
 selected-vault `?delete` URL, such as `/vault/samebase/samebase?delete`, for a non-quiescent vault
 keeps the delete dialog open, disables its confirmation action, and shows the same server reason.
 
-The queueing action must also enforce this rule through the shared vault infrastructure-state
-reader. It checks and sets the deletion gate in the same transaction. If a managed run or manual
-write claims the vault first, deletion rejects without inserting a deletion run, without setting the
-deletion gate, and without touching providers. If deletion claims the vault first, later managed and
-manual provider writes reject.
+The queueing action must also enforce this rule through the shared vault deletion eligibility
+reader. This reader combines the vault infrastructure state with an any-trigger active provisioning
+run check. The queueing action checks this result and sets the deletion gate in the same
+transaction. If a managed run or manual write claims the vault first, deletion rejects without
+inserting a deletion run, without setting the deletion gate, and without touching providers. If
+deletion claims the vault first, later managed and manual provider writes reject.
 
 ### Dedicated Deletion Runs
 

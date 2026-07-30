@@ -4,7 +4,10 @@ import { internalQuery, type QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { mutation, query } from "../functions";
 import { isConnectedVault, isLiveConnectedVault, isSamebaseManagedVault } from "./state";
-import { resolveVaultDeletionEligibility } from "./deletion/eligibility";
+import {
+  hasActiveVaultProvisioningRun,
+  resolveVaultDeletionEligibility,
+} from "./deletion/eligibility";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
 import { hasStagedFileChanges } from "../../shared/stagedFiles";
 import { vVaultResourceLinksState } from "./dashboardModel";
@@ -236,7 +239,11 @@ async function resolveVaultDeletionSummary(
   const deletion = readVaultDeletionState(vault);
   switch (deletion.state) {
     case "not_deleting": {
-      const eligibility = resolveVaultDeletionEligibility(vault, infrastructure);
+      const eligibility = resolveVaultDeletionEligibility(
+        vault,
+        infrastructure,
+        await hasActiveVaultProvisioningRun(ctx, vault._id),
+      );
       return {
         state: "not_deleting",
         deleteAction:

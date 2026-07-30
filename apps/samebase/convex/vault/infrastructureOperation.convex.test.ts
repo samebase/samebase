@@ -67,25 +67,14 @@ async function readProviderWrite(t: ConvexTest, vaultId: Id<"vaults">) {
 }
 
 describe("vault infrastructure operation reads", () => {
-  it("does not block on a running existing repository connection", async () => {
+  it("keeps source-only repository sync out of provider operations", async () => {
     const { ids, t } = await createConnectedVault();
     await t.run(async (ctx) => {
-      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/manual-provider-write",
-        trigger: "connect_existing_repository",
+      await ctx.db.patch(ids.runId, {
         state: "running",
         currentStep: "sync_tree",
-        createdAt: 30,
         updatedAt: 30,
-      });
-      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-        vaultId: ids.vaultId,
-        owner: { kind: "managed_run", runId },
-        state: "active",
-        lastWriteAt: {},
-        updatedAt: 30,
+        completedAt: undefined,
       });
     });
 

@@ -368,6 +368,70 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
+  it("blocks deletion during connected repository sync without reporting a provider write", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+    });
+    const ids = await t.mutation(
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      {
+        userId,
+        ghRepoOwner: "ada",
+        ghRepoName: "existing-app",
+      },
+    );
+    await t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
+      vaultId: ids.vaultId,
+      runId: ids.runId,
+      userId,
+      ghRepoId: "123",
+      ghRepoOwner: "ada",
+      ghRepoName: "existing-app",
+      defaultBranch: "main",
+      visibility: "private",
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ids.runId, {
+        state: "running",
+        currentStep: "sync_tree",
+        updatedAt: 30,
+      });
+    });
+    const asUser = t.withIdentity({
+      subject: `${userId}|test-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+
+    expect(vaults[0]).toMatchObject({
+      _id: ids.vaultId,
+      sourceSetup: {
+        status: "running",
+        runId: ids.runId,
+        step: "sync_tree",
+        updatedAt: 30,
+      },
+      providerSetup: { status: "not_applicable" },
+      providerWrite: {
+        status: "idle",
+        lastWriteAt: {},
+      },
+      deletion: {
+        state: "not_deleting",
+        deleteAction: {
+          state: "disabled",
+          reason: "Vault source setup is still running.",
+        },
+      },
+    });
+  });
+
   it("marks existing repository setup failed before GitHub connects", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
@@ -1507,6 +1571,120 @@ describe("vault dashboard Convex contract", () => {
         lastWriteAt: {
           convex: 100,
           cloudflare: 200,
+        },
+      },
+    });
+  });
+
+  it("keeps a managed failure superseded after the manual action finishes", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const createRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/manual-supersession",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 10,
+        updatedAt: 20,
+        completedAt: 20,
+      });
+      const retryRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/manual-supersession",
+        trigger: "retry",
+        state: "failed",
+        currentStep: "attach_convex",
+        lastError: "Managed provider setup failed.",
+        createdAt: 25,
+        updatedAt: 30,
+        completedAt: 30,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId: createRunId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "manual-supersession",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+      });
+      await ctx.db.insert("workflow_vaultProvisioning_plans", {
+        vaultId,
+        userId,
+        convexConfigPath: "convex.json",
+        convex: {
+          state: "planned",
+          projectName: "manual-supersession",
+        },
+        cloudflare: {
+          state: "planned",
+          accountId: "cloudflare-account",
+          workerName: "manual-supersession",
+          build: {
+            rootDirectory: "/",
+            buildCommand: "pnpm run build",
+            deployCommand: "pnpm run deploy",
+            previewDeployCommand: "pnpm run deploy:preview",
+            pathIncludes: ["*"],
+            pathExcludes: [],
+          },
+        },
+        createdAt: 25,
+        updatedAt: 25,
+      });
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+        vaultId,
+        owner: { kind: "managed_run", runId: retryRunId },
+        state: "failed",
+        lastWriteAt: {},
+        updatedAt: 30,
+      });
+      return { userId, vaultId };
+    });
+    await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
+      vaultId: ids.vaultId,
+      userId: ids.userId,
+      actionId: "current-action",
+      action: "create_convex_project",
+    });
+    await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
+      vaultId: ids.vaultId,
+      userId: ids.userId,
+      actionId: "current-action",
+      action: "create_convex_project",
+      completion: { result: "succeeded" },
+    });
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+
+    expect(vaults[0]).toMatchObject({
+      _id: ids.vaultId,
+      providerSetup: { status: "not_applicable" },
+      providerWrite: {
+        status: "idle",
+        lastWriteAt: {
+          convex: expect.any(Number),
         },
       },
     });

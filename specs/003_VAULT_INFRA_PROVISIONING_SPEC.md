@@ -113,7 +113,9 @@ one of these times when the matching provider state can have changed. A write to
 not clear the other provider time.
 
 The provisioning plan is durable retry input. It is not an active operation and does not block a
-manual write by itself.
+manual write by itself. When a user or agent starts an explicit manual provider action, it replaces
+an old managed setup failure, and the dashboard removes the old managed Retry action and plan-only
+rows.
 
 Deployment has one destructive precondition. The target deployment must contain zero rows in
 `workflow_vaultProvisioning_writeLocks` before this table shape is deployed. If one or more rows
