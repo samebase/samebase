@@ -6,7 +6,10 @@ import {
   toRenderedRotationDegrees,
   type LogoRotationAxisMode,
 } from "@samebase/logo-model/rotation";
-import { type LogoShuffleParallelMoves } from "@/components/logo/logoShuffleAnimation";
+import {
+  LOGO_SHUFFLE_PARALLEL_OPTIONS,
+  type LogoShuffleParallelMoves,
+} from "@/components/logo/logoShuffleAnimation";
 import {
   easeLogoShuffleProgress,
   getLogoRecursiveShuffleLayerPlacementCount,
@@ -67,7 +70,8 @@ const FACE_COLOR_ANIMATION_MIN_SATURATION = 0.5;
 const LEFT_FACE_STRIPE_ANIMATION_DURATION_MS = 4000;
 const THREE_RENDER_PIXEL_RATIO_MAX = 4;
 const SURFACE_MATERIAL_INDICES = [0, 1, 2, 3, 4, 5] as const;
-const THREE_RECURSIVE_TILE_DEPTH = 3;
+const THREE_RECURSIVE_TILE_DEPTH = 4;
+const RECURSIVE_MOVE_SLOT_COUNT = LOGO_SHUFFLE_PARALLEL_OPTIONS.length;
 const LEFT_FACE_STRIPE_MASK_GLSL = `
 float readLeftFaceStripeMask(float stripeCoordinate, float stripeWidth, float stripeGap) {
   if (stripeWidth <= 0.0) {
@@ -202,6 +206,31 @@ void main() {
   gl_Position = projectionMatrix * modelViewMatrix * transformedPosition;
 }
 `;
+const RECURSIVE_MOVE_SURFACE_VERTEX_SHADER = `
+attribute float logoFaceKind;
+attribute vec3 logoMoveWeights;
+uniform vec3 logoMoveOffset0;
+uniform vec3 logoMoveOffset1;
+uniform vec3 logoMoveOffset2;
+varying float vLogoFaceKind;
+varying vec2 vUv;
+
+void main() {
+  vLogoFaceKind = logoFaceKind;
+  vUv = uv;
+  vec4 transformedPosition = vec4(position, 1.0);
+
+  #ifdef USE_INSTANCING
+    transformedPosition = instanceMatrix * transformedPosition;
+  #endif
+
+  transformedPosition.xyz +=
+    logoMoveOffset0 * logoMoveWeights.x +
+    logoMoveOffset1 * logoMoveWeights.y +
+    logoMoveOffset2 * logoMoveWeights.z;
+  gl_Position = projectionMatrix * modelViewMatrix * transformedPosition;
+}
+`;
 
 export type LogoShuffleAnimationConfig = {
   enabled: boolean;
@@ -262,26 +291,17 @@ type ActiveTileMove = {
   toKey: string;
 };
 
-type RecursiveMoveLevel =
-  | {
-      kind: "cube";
-      coordinates: Float64Array;
-      instanceCapacity: number;
-      mesh: THREE.InstancedMesh<THREE.BoxGeometry, LogoSceneMaterials>;
-      placementCount: number;
-      prefixDepth: number;
-      suffixDepth: 0;
-    }
-  | {
-      kind: "surface";
-      coordinates: Float64Array;
-      instanceCapacity: number;
-      mesh: THREE.InstancedMesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
-      placementCount: number;
-      prefixDepth: number;
-      suffixDepth: number;
-      surfaceGeometry: RecursiveSurfaceGeometryState;
-    };
+type RecursiveMoveLevel = {
+  coordinates: Float64Array;
+  instanceCapacity: number;
+  mesh: THREE.InstancedMesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
+  moveWeights: Float32Array;
+  placementCount: number;
+  prefixDepth: number;
+  renderedMoveWeights: Float32Array;
+  suffixDepth: number;
+  surfaceGeometry: RecursiveSurfaceGeometryState;
+};
 
 type RecursiveTileSceneState = {
   currentFilledTiles: Set<string>;
@@ -294,6 +314,8 @@ type RecursiveTileSceneState = {
   materialState: RecursiveSurfaceMaterialState;
   mesh: THREE.InstancedMesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
   meshes: THREE.InstancedMesh<THREE.BufferGeometry, LogoSceneMaterial>[];
+  moveLayoutSignature: string | null;
+  moveMaterialState: RecursiveSurfaceMaterialState;
   repeatGridSize: number;
   surfaceGeometry: RecursiveSurfaceGeometryState;
   tileDepth: number;
@@ -353,6 +375,9 @@ type LeftFaceMaterialState = {
 type RecursiveSurfaceUniforms = {
   backgroundColor: THREE.IUniform<THREE.Color>;
   leftColor: THREE.IUniform<THREE.Color>;
+  moveOffset0: THREE.IUniform<THREE.Vector3>;
+  moveOffset1: THREE.IUniform<THREE.Vector3>;
+  moveOffset2: THREE.IUniform<THREE.Vector3>;
   opacity: THREE.IUniform<number>;
   rightColor: THREE.IUniform<THREE.Color>;
   topColor: THREE.IUniform<THREE.Color>;
@@ -1019,7 +1044,10 @@ function createRecursiveLogoMeshes({
     normalizedDistanceScale,
   );
   const surfaceGeometry = buildRecursiveSurfaceGeometry(tileSurfaceQuads);
-  const materialState = createRecursiveSurfaceMaterialState();
+  const materialState = createRecursiveSurfaceMaterialState(RECURSIVE_SURFACE_VERTEX_SHADER);
+  const moveMaterialState = createRecursiveSurfaceMaterialState(
+    RECURSIVE_MOVE_SURFACE_VERTEX_SHADER,
+  );
   const instanceState = createRecursiveInstanceMatrices({
     baseGridSize,
     baseFilledVoxels,
@@ -1060,6 +1088,8 @@ function createRecursiveLogoMeshes({
       materialState,
       mesh,
       meshes,
+      moveLayoutSignature: null,
+      moveMaterialState,
       repeatGridSize: instanceState.repeatGridSize,
       surfaceGeometry,
       tileDepth,
@@ -1181,6 +1211,9 @@ function createRecursiveSurfaceUniforms(): RecursiveSurfaceUniforms {
   return {
     backgroundColor: { value: new THREE.Color() },
     leftColor: { value: new THREE.Color() },
+    moveOffset0: { value: new THREE.Vector3() },
+    moveOffset1: { value: new THREE.Vector3() },
+    moveOffset2: { value: new THREE.Vector3() },
     opacity: { value: 1 },
     rightColor: { value: new THREE.Color() },
     topColor: { value: new THREE.Color() },
@@ -1192,12 +1225,12 @@ function createRecursiveSurfaceUniforms(): RecursiveSurfaceUniforms {
   };
 }
 
-function createRecursiveSurfaceMaterialState(): RecursiveSurfaceMaterialState {
+function createRecursiveSurfaceMaterialState(vertexShader: string): RecursiveSurfaceMaterialState {
   const uniforms = createRecursiveSurfaceUniforms();
   const material = new THREE.ShaderMaterial({
     fragmentShader: RECURSIVE_SURFACE_FRAGMENT_SHADER,
     uniforms,
-    vertexShader: RECURSIVE_SURFACE_VERTEX_SHADER,
+    vertexShader,
   });
   material.forceSinglePass = false;
 
@@ -1388,13 +1421,18 @@ function applySceneResolvedFaceColors({
   });
 
   if (sceneState.recursiveTileState) {
-    applyRecursiveSurfaceMaterialState({
-      backgroundColor,
-      faceColors,
-      leftFaceStyle: sceneState.leftFaceStyle,
-      materialState: sceneState.recursiveTileState.materialState,
-      opacity: sceneState.opacity,
-    });
+    for (const materialState of [
+      sceneState.recursiveTileState.materialState,
+      sceneState.recursiveTileState.moveMaterialState,
+    ]) {
+      applyRecursiveSurfaceMaterialState({
+        backgroundColor,
+        faceColors,
+        leftFaceStyle: sceneState.leftFaceStyle,
+        materialState,
+        opacity: sceneState.opacity,
+      });
+    }
   }
 }
 
@@ -1418,6 +1456,7 @@ function applySceneLeftFaceStripeAnimationProgress(
   const recursiveTileState = sceneState.recursiveTileState;
   if (recursiveTileState) {
     recursiveTileState.materialState.uniforms.stripeOffset.value = stripeOffset;
+    recursiveTileState.moveMaterialState.uniforms.stripeOffset.value = stripeOffset;
   }
 }
 
@@ -1505,6 +1544,10 @@ function applySceneOpacity(sceneState: SceneState, opacity: number): number {
   sceneState.renderer.domElement.style.opacity = "1";
   if (sceneState.recursiveTileState) {
     applyRecursiveSurfaceOpacity(sceneState.recursiveTileState.materialState, normalizedOpacity);
+    applyRecursiveSurfaceOpacity(
+      sceneState.recursiveTileState.moveMaterialState,
+      normalizedOpacity,
+    );
   }
   return normalizedOpacity;
 }
@@ -1526,11 +1569,14 @@ function replaceLogoGeometry(
   });
   const previousLogoMeshes = sceneState.logoMeshes;
   const previousRecursiveMaterial = sceneState.recursiveTileState?.materialState.material ?? null;
+  const previousRecursiveMoveMaterial =
+    sceneState.recursiveTileState?.moveMaterialState.material ?? null;
   for (const logoMesh of previousLogoMeshes) {
     sceneState.logoGroup.remove(logoMesh);
     logoMesh.geometry.dispose();
   }
   previousRecursiveMaterial?.dispose();
+  previousRecursiveMoveMaterial?.dispose();
   sceneState.logoMeshes = nextGeometry.meshes;
   for (const logoMesh of sceneState.logoMeshes) {
     sceneState.logoGroup.add(logoMesh);
@@ -1605,7 +1651,7 @@ function syncRecursiveSurfaceDrawOrder(sceneState: SceneState) {
     surfaceGeometry: tileState.surfaceGeometry,
   });
   for (const level of tileState.innerMoveLevels) {
-    if (level.kind === "surface" && level.placementCount > 0) {
+    if (level.placementCount > 0) {
       syncRecursiveSurfaceGeometryDrawOrder({
         camera: sceneState.camera,
         matrixWorld: level.mesh.matrixWorld,
@@ -1687,11 +1733,12 @@ function setRecursiveMovePlacementWorldCenter(
   target: THREE.Vector3,
   level: RecursiveMoveLevel,
   placementIndex: number,
+  includeMotion: boolean,
   tileGridSize: number,
   tileState: RecursiveTileSceneState,
 ): THREE.Vector3 {
   const coordinateOffset = placementIndex * 3;
-  return target.set(
+  target.set(
     (level.coordinates[coordinateOffset] * tileGridSize +
       tileGridSize / 2 -
       tileState.fullGridSize / 2) *
@@ -1705,11 +1752,22 @@ function setRecursiveMovePlacementWorldCenter(
       tileState.fullGridSize / 2) *
       tileState.distanceScale,
   );
+
+  if (!includeMotion) {
+    return target;
+  }
+
+  const moveWeightOffset = placementIndex * RECURSIVE_MOVE_SLOT_COUNT;
+  const { uniforms } = tileState.moveMaterialState;
+  target.addScaledVector(uniforms.moveOffset0.value, level.moveWeights[moveWeightOffset]);
+  target.addScaledVector(uniforms.moveOffset1.value, level.moveWeights[moveWeightOffset + 1]);
+  target.addScaledVector(uniforms.moveOffset2.value, level.moveWeights[moveWeightOffset + 2]);
+  return target;
 }
 
-function syncRecursiveMoveLevelInstanceOrder(sceneState: SceneState) {
+function syncRecursiveMoveLevelInstanceOrder(sceneState: SceneState, forceUpload = false) {
   const tileState = sceneState.recursiveTileState;
-  if (!tileState) {
+  if (!tileState || (!forceUpload && sceneState.opacity >= 1)) {
     return;
   }
 
@@ -1726,6 +1784,7 @@ function syncRecursiveMoveLevelInstanceOrder(sceneState: SceneState) {
             placementCenter,
             level,
             index,
+            true,
             tileGridSize,
             tileState,
           ),
@@ -1745,14 +1804,23 @@ function syncRecursiveMoveLevelInstanceOrder(sceneState: SceneState) {
         placementCenter,
         level,
         sourceIndex,
+        false,
         tileGridSize,
         tileState,
       );
       instanceMatrix.makeTranslation(placementCenter.x, placementCenter.y, placementCenter.z);
       level.mesh.setMatrixAt(targetIndex, instanceMatrix);
+      const sourceMoveWeightOffset = sourceIndex * RECURSIVE_MOVE_SLOT_COUNT;
+      const targetMoveWeightOffset = targetIndex * RECURSIVE_MOVE_SLOT_COUNT;
+      for (let moveSlot = 0; moveSlot < RECURSIVE_MOVE_SLOT_COUNT; moveSlot += 1) {
+        level.renderedMoveWeights[targetMoveWeightOffset + moveSlot] =
+          level.moveWeights[sourceMoveWeightOffset + moveSlot];
+      }
     });
     level.mesh.count = level.placementCount;
     level.mesh.instanceMatrix.needsUpdate = true;
+    const moveWeightAttribute = level.mesh.geometry.getAttribute("logoMoveWeights");
+    moveWeightAttribute.needsUpdate = true;
   }
 }
 
@@ -1805,11 +1873,10 @@ function clearActiveTileMoves(sceneState: SceneState) {
   if (tileState) {
     for (const level of tileState.innerMoveLevels) {
       sceneState.logoGroup.remove(level.mesh);
-      if (level.kind === "surface") {
-        level.surfaceGeometry.geometry.dispose();
-      }
+      level.surfaceGeometry.geometry.dispose();
     }
     tileState.innerMoveLevels = [];
+    tileState.moveLayoutSignature = null;
   }
   clearRecursiveMoveDiagnostics(sceneState);
 }
@@ -1845,6 +1912,28 @@ function buildRecursiveTileSurfaceGeometry(
   );
 }
 
+function buildRecursiveMoveSurfaceGeometry(
+  sceneState: SceneState,
+  tileState: RecursiveTileSceneState,
+  suffixDepth: number,
+): RecursiveSurfaceGeometryState {
+  if (suffixDepth === 0) {
+    return buildRecursiveSurfaceGeometry(SPACED_LOGO_CUBE_FACE_SPECS);
+  }
+
+  return buildRecursiveTileSurfaceGeometry(sceneState, tileState, suffixDepth);
+}
+
+function attachRecursiveMoveWeights(
+  surfaceGeometry: RecursiveSurfaceGeometryState,
+  renderedMoveWeights: Float32Array,
+) {
+  surfaceGeometry.geometry.setAttribute(
+    "logoMoveWeights",
+    new THREE.InstancedBufferAttribute(renderedMoveWeights, RECURSIVE_MOVE_SLOT_COUNT),
+  );
+}
+
 function syncRecursiveTileGeometry(sceneState: SceneState) {
   const tileState = sceneState.recursiveTileState;
   if (!tileState || tileState.repeatGridSize !== sceneState.baseGridSize) {
@@ -1871,15 +1960,12 @@ function syncRecursiveTileGeometry(sceneState: SceneState) {
   }
 
   for (const level of tileState.innerMoveLevels) {
-    if (level.kind === "cube") {
-      continue;
-    }
-
-    const nextLevelSurfaceGeometry = buildRecursiveTileSurfaceGeometry(
+    const nextLevelSurfaceGeometry = buildRecursiveMoveSurfaceGeometry(
       sceneState,
       tileState,
       level.suffixDepth,
     );
+    attachRecursiveMoveWeights(nextLevelSurfaceGeometry, level.renderedMoveWeights);
     const previousLevelGeometry = level.surfaceGeometry.geometry;
     level.mesh.geometry = nextLevelSurfaceGeometry.geometry;
     level.surfaceGeometry = nextLevelSurfaceGeometry;
@@ -1902,42 +1988,27 @@ function createRecursiveMoveLevel({
   suffixDepth: number;
   tileState: RecursiveTileSceneState;
 }): RecursiveMoveLevel {
-  if (suffixDepth === 0) {
-    const mesh = new THREE.InstancedMesh(
-      sceneState.cubeGeometry,
-      sceneState.cubeMaterials,
-      instanceCapacity,
-    );
-    mesh.count = 0;
-    mesh.frustumCulled = false;
-    sceneState.logoGroup.add(mesh);
-    return {
-      kind: "cube",
-      coordinates: new Float64Array(instanceCapacity * 3),
-      instanceCapacity,
-      mesh,
-      placementCount: 0,
-      prefixDepth,
-      suffixDepth,
-    };
-  }
-
-  const surfaceGeometry = buildRecursiveTileSurfaceGeometry(sceneState, tileState, suffixDepth);
+  const surfaceGeometry = buildRecursiveMoveSurfaceGeometry(sceneState, tileState, suffixDepth);
+  const moveWeights = new Float32Array(instanceCapacity * RECURSIVE_MOVE_SLOT_COUNT);
+  const renderedMoveWeights = new Float32Array(instanceCapacity * RECURSIVE_MOVE_SLOT_COUNT);
+  attachRecursiveMoveWeights(surfaceGeometry, renderedMoveWeights);
   const mesh = new THREE.InstancedMesh(
     surfaceGeometry.geometry,
-    tileState.materialState.material,
+    tileState.moveMaterialState.material,
     instanceCapacity,
   );
   mesh.count = 0;
   mesh.frustumCulled = false;
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   sceneState.logoGroup.add(mesh);
   return {
-    kind: "surface",
     coordinates: new Float64Array(instanceCapacity * 3),
     instanceCapacity,
     mesh,
+    moveWeights,
     placementCount: 0,
     prefixDepth,
+    renderedMoveWeights,
     suffixDepth,
     surfaceGeometry,
   };
@@ -1965,9 +2036,7 @@ function ensureRecursiveMoveLevel({
       return existingLevel;
     }
     sceneState.logoGroup.remove(existingLevel.mesh);
-    if (existingLevel.kind === "surface") {
-      existingLevel.surfaceGeometry.geometry.dispose();
-    }
+    existingLevel.surfaceGeometry.geometry.dispose();
     const nextLevel = createRecursiveMoveLevel({
       instanceCapacity,
       prefixDepth,
@@ -1992,6 +2061,7 @@ function ensureRecursiveMoveLevel({
 
 function clearRecursiveMoveDiagnostics(sceneState: SceneState) {
   delete sceneState.renderer.domElement.dataset.logoRecursiveMoveDepth;
+  delete sceneState.renderer.domElement.dataset.logoRecursiveMoveFrameMatrixUploadBytes;
   delete sceneState.renderer.domElement.dataset.logoRecursiveMoveFrom;
   delete sceneState.renderer.domElement.dataset.logoRecursiveMoveLayerCounts;
   delete sceneState.renderer.domElement.dataset.logoRecursiveMoveProgress;
@@ -2023,26 +2093,48 @@ function syncRecursiveMoveLevels(sceneState: SceneState, timestampMs: number) {
       },
     ];
   });
-  const activeMoveCoordinates = departedMoves.map(({ coordinate }) => coordinate);
-  if (activeMoveCoordinates.length === 0) {
+  if (departedMoves.length === 0) {
     hideRecursiveMoveLevels(sceneState);
     return;
   }
 
+  const moveOffsetUniforms = [
+    tileState.moveMaterialState.uniforms.moveOffset0,
+    tileState.moveMaterialState.uniforms.moveOffset1,
+    tileState.moveMaterialState.uniforms.moveOffset2,
+  ];
+  for (const moveOffsetUniform of moveOffsetUniforms) {
+    moveOffsetUniform.value.set(0, 0, 0);
+  }
+  departedMoves.forEach(({ coordinate, move }, moveSlot) => {
+    moveOffsetUniforms[moveSlot]?.value.set(
+      coordinate[0] - move.from[0],
+      coordinate[1] - move.from[1],
+      coordinate[2] - move.from[2],
+    );
+  });
+
+  const movingCoordinates = departedMoves.map(({ move }, moveSlot) => ({
+    coordinate: move.from,
+    moveSlot,
+  }));
   const animatedCoordinates = [
     ...[...tileState.currentFilledTiles].flatMap((key) => {
       const coordinate = parseVoxelKey(key);
-      return coordinate ? [coordinate] : [];
+      return coordinate ? [{ coordinate, moveSlot: null }] : [];
     }),
-    ...activeMoveCoordinates,
+    ...movingCoordinates,
   ];
-  const layerCounts = [activeMoveCoordinates.length];
+  const layerCounts = [departedMoves.length];
+  const moveLayoutSignature = departedMoves
+    .map(({ move }) => `${move.fromKey}:${move.toKey}:${move.startTimeMs}`)
+    .join("|");
 
   for (let prefixDepth = 1; prefixDepth <= tileState.tileDepth; prefixDepth += 1) {
     const suffixDepth = tileState.tileDepth - prefixDepth;
     const placementCount = getLogoRecursiveShuffleLayerPlacementCount({
       animatedCoordinateCount: animatedCoordinates.length,
-      movingCoordinateCount: activeMoveCoordinates.length,
+      movingCoordinateCount: departedMoves.length,
       prefixDepth,
     });
     const level = ensureRecursiveMoveLevel({
@@ -2052,19 +2144,41 @@ function syncRecursiveMoveLevels(sceneState: SceneState, timestampMs: number) {
       suffixDepth,
       tileState,
     });
-    level.placementCount = writeLogoRecursiveShuffleLayerCoordinates({
-      animatedCoordinates,
-      baseGridSize: sceneState.baseGridSize,
-      movingCoordinates: activeMoveCoordinates,
-      prefixDepth,
-      target: level.coordinates,
-    });
-    level.mesh.count = level.placementCount;
-    layerCounts.push(level.placementCount);
+    layerCounts.push(placementCount);
+
+    if (moveLayoutSignature !== tileState.moveLayoutSignature) {
+      level.placementCount = writeLogoRecursiveShuffleLayerCoordinates({
+        animatedCoordinates,
+        baseGridSize: sceneState.baseGridSize,
+        movingCoordinates,
+        moveSlotCount: RECURSIVE_MOVE_SLOT_COUNT,
+        prefixDepth,
+        targetCoordinates: level.coordinates,
+        targetMoveWeights: level.moveWeights,
+      });
+      const moveWeightScale = sceneState.baseGridSize ** suffixDepth * tileState.distanceScale;
+      for (
+        let moveWeightIndex = 0;
+        moveWeightIndex < level.placementCount * RECURSIVE_MOVE_SLOT_COUNT;
+        moveWeightIndex += 1
+      ) {
+        level.moveWeights[moveWeightIndex] *= moveWeightScale;
+      }
+      level.mesh.count = level.placementCount;
+    }
+  }
+
+  if (moveLayoutSignature !== tileState.moveLayoutSignature) {
+    tileState.moveLayoutSignature = moveLayoutSignature;
+    syncRecursiveMoveLevelInstanceOrder(sceneState, true);
   }
 
   const { move, progress } = departedMoves[0];
   sceneState.renderer.domElement.dataset.logoRecursiveMoveDepth = `${sceneState.recursiveRenderDepth}`;
+  sceneState.renderer.domElement.dataset.logoRecursiveMoveFrameMatrixUploadBytes =
+    sceneState.opacity < 1
+      ? `${layerCounts.slice(1).reduce((total, count) => total + count * 16 * 4, 0)}`
+      : "0";
   sceneState.renderer.domElement.dataset.logoRecursiveMoveFrom = move.from.join(",");
   sceneState.renderer.domElement.dataset.logoRecursiveMoveLayerCounts = layerCounts.join(",");
   sceneState.renderer.domElement.dataset.logoRecursiveMoveProgress =
@@ -2084,6 +2198,10 @@ function hideRecursiveMoveLevels(sceneState: SceneState) {
       level.mesh.count = 0;
     }
   }
+  tileState.moveLayoutSignature = null;
+  tileState.moveMaterialState.uniforms.moveOffset0.value.set(0, 0, 0);
+  tileState.moveMaterialState.uniforms.moveOffset1.value.set(0, 0, 0);
+  tileState.moveMaterialState.uniforms.moveOffset2.value.set(0, 0, 0);
   clearRecursiveMoveDiagnostics(sceneState);
 }
 

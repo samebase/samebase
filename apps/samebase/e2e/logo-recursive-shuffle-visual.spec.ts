@@ -8,6 +8,7 @@ const expectedLayerCounts = {
   2: "1,20",
   3: "1,20,400",
   4: "1,20,400,8000",
+  5: "1,20,400,8000,160000",
 } as const;
 
 async function advanceToRecursiveShuffleMidpoint(page: Page): Promise<number> {
@@ -24,7 +25,7 @@ async function advanceToRecursiveShuffleMidpoint(page: Page): Promise<number> {
   throw new Error("The recursive logo shuffle did not reach its midpoint.");
 }
 
-for (const depth of [2, 3, 4] as const) {
+for (const depth of [2, 3, 4, 5] as const) {
   test(`logo depth ${depth} repeats one shuffle move at every recursive scale`, async ({
     page,
   }) => {
@@ -51,10 +52,17 @@ for (const depth of [2, 3, 4] as const) {
       "data-logo-recursive-move-layer-counts",
       expectedLayerCounts[depth],
     );
+    await expect(canvas).toHaveAttribute("data-logo-recursive-move-frame-matrix-upload-bytes", "0");
     await expect(canvas).toHaveAttribute("data-logo-recursive-move-from", /^\d,\d,\d$/u);
     await expect(canvas).toHaveAttribute("data-logo-recursive-move-to", /^\d,\d,\d$/u);
     expect(progress).toBeGreaterThanOrEqual(0.48);
     expect(progress).toBeLessThanOrEqual(0.53);
+
+    // Chromium's Linux software renderer cannot stabilize the 160,000-instance
+    // canvas within the visual test timeout.
+    if (depth === 5) {
+      return;
+    }
 
     await expect(canvas).toHaveScreenshot(`logo-depth-${depth}-recursive-shuffle-midpoint.png`, {
       animations: "disabled",
