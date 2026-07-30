@@ -154,7 +154,9 @@ async function resolveAccount(args: {
     (candidate) => candidate.accountId === args.accountId,
   );
   if (!account) {
-    throw new Error("Cloudflare account is not available for this connection.");
+    throw new Error(
+      `The current Cloudflare credential cannot access Cloudflare account ${args.accountId}. Reconnect Cloudflare with access to this account, then retry.`,
+    );
   }
   return account;
 }

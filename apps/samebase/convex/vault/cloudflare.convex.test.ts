@@ -601,6 +601,67 @@ describe("vault Cloudflare Worker attachments", () => {
     ).resolves.toEqual([]);
   });
 
+  it("names the saved account when the current credential cannot access it", async () => {
+    const { runId, t, userId, vaultId } = await createManagedWorkerCreatingFixture();
+    const expectedMessage = `The current Cloudflare credential cannot access Cloudflare account ${accountId}. Reconnect Cloudflare with access to this account, then retry.`;
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      if (url.pathname === "/client/v4/accounts") {
+        return cloudflareResponse([
+          {
+            id: "00000000000000000000000000000002",
+            name: "Other Cloudflare account",
+            type: "standard",
+          },
+        ]);
+      }
+      throw new Error(`Unexpected provider request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    let failure: unknown;
+    try {
+      await t.action(internal.vault.cloudflare.ensureCloudflareWorkerConnection, {
+        vaultId,
+        runId,
+        userId,
+        accountId,
+        workerName: "managed-worker",
+      });
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(Error);
+    if (!(failure instanceof Error)) {
+      throw new Error("Expected the managed Cloudflare action to fail.");
+    }
+    expect(failure.message).toContain(expectedMessage);
+
+    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+      runId,
+      workflowId: "workflow-cloudflare-account",
+      message: failure.message,
+    });
+
+    const result = await t.run(async (ctx) => {
+      const run = await ctx.db.get(runId);
+      const event = await ctx.db
+        .query("workflow_vaultProvisioning_events")
+        .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
+        .first();
+      return { event, run };
+    });
+    expect(result.run).toMatchObject({
+      state: "failed",
+      lastError: expectedMessage,
+    });
+    expect(result.event).toMatchObject({
+      step: "attach_worker",
+      level: "error",
+      message: expectedMessage,
+    });
+  });
+
   it("retries an interrupted managed create after the Worker was deleted", async () => {
     const { runId, t, userId, vaultId } = await createManagedWorkerCreatingFixture();
     await t.run(async (ctx) => {

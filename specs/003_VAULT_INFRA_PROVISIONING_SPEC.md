@@ -274,7 +274,7 @@ Repository default branch:
 
 1. `api.vault.actions.createRepository`
 
-- Returns: `{ vaultId: string }`
+- Returns: `{ vaultId: Id<"vaults">, runId: Id<"workflow_vaultProvisioning_runs"> }`
 - Side effect: starts async infra provisioning through Convex Workflow
 
 2. `api.vault.actions.retryInfrastructureProvisioning`

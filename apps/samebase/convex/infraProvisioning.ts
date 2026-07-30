@@ -574,6 +574,7 @@ async function recordWorkflowRunFailure(
 const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Cloudflare connection is required to provision infrastructure.",
   "Cloudflare account selection is required before provisioning can continue.",
+  "The current Cloudflare credential cannot access Cloudflare account",
   "Cloudflare connection is missing Workers Builds write access.",
   "Cloudflare Workers and Pages GitHub App is not authorized",
   "Cloudflare Workers needs a configured workers.dev subdomain",
