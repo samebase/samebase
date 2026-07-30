@@ -123,8 +123,10 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 - In copy, docs, and examples: never use Vercel as an example provider; use Netlify when a
   non-Cloudflare provider example is needed. The product is provider-agnostic; Samebase itself runs
   on and recommends Cloudflare.
-- Use shell for one-offs. Checked-in TypeScript automation must run on macOS, Linux, and Windows
-  without Bash or PowerShell. Do not reach for Python first.
+- Use shell for one-offs. Handwritten Node automation is `.ts` run directly by Node 24 under the
+  package's ESM `type: module`; `.js`, `.mjs`, `.cjs`, `.mts`, and `.cts` require generated output
+  or a concrete runtime or mixed-module boundary. It must work on macOS, Linux, and Windows without
+  Bash or PowerShell. Do not reach for Python first.
 - Use template literals instead of arrays joined with `'\n'` for multi-line JavaScript and
   TypeScript snippets.
 - Format documents with oxfmt.

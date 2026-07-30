@@ -41,6 +41,17 @@ describe("starterSeedManifest", () => {
     expect(allFilePaths.length).toBeGreaterThan(10);
   });
 
+  it("keeps handwritten Node automation on the Node 24 TypeScript ESM contract", () => {
+    const scriptFiles = Object.keys(starterTemplateManifest.files).filter((filePath) =>
+      filePath.startsWith("scripts/"),
+    );
+
+    expect(starterTemplateManifest.files[".node-version"]).toBe("24\n");
+    expect(starterTemplateManifest.files["package.json"]).toContain('"type": "module"');
+    expect(scriptFiles.length).toBeGreaterThan(0);
+    expect(scriptFiles.every((filePath) => filePath.endsWith(".ts"))).toBe(true);
+  });
+
   it("keeps Cloudflare SPA mode and exact prerender aliases aligned", () => {
     expect(starterTemplateManifest.files["public/_redirects"]).toContain(
       "Cloudflare SPA mode owns app-route fallback through /index.html.",

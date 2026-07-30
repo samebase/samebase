@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -71,5 +71,16 @@ check(
   "The plugin must contain only the samebase skill.",
 );
 checkRelativePath(skillsRoot, "samebase/SKILL.md", "Samebase skill");
+
+const samebaseSkill = readFileSync(resolve(skillsRoot, "samebase/SKILL.md"), "utf8").replace(
+  /\s+/g,
+  " ",
+);
+check(
+  samebaseSkill.includes(
+    "For stack-alignment work, first compare the target repository's Node version, package module model, and authored source language with the current `samebase/app` generated-app contract.",
+  ),
+  "The Samebase skill must route stack-alignment work through the generated-app contract.",
+);
 
 console.log("Agent plugin checks passed.");

@@ -42,6 +42,10 @@ setup commands, lockfile, generated-file policy, and validation commands before 
 setup and code generation steps. Validate the final source. Commit or push only when the user asks
 to publish.
 
+For stack-alignment work, first compare the target repository's Node version, package module model,
+and authored source language with the current `samebase/app` generated-app contract. Record each
+intentional difference before implementation.
+
 ## Use the correct control surface
 
 Use Samebase for app inventory, provider joins, and explicit repair actions. Use provider-native
