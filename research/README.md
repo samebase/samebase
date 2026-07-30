@@ -18,3 +18,6 @@ contract into `specs/`.
 When a research document is no longer useful for active decisions, move it to `archive/`.
 
 See `docs/repo-documentation-standard.md` for the full placement decision table.
+
+Active multi-project adoption work is indexed in
+[`project-adoption/README.md`](project-adoption/README.md).
