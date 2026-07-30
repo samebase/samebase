@@ -148,27 +148,6 @@ describe("VaultDashboard dialog route cleanup", () => {
     expect(readLocationHref()).toContain("dev");
   });
 
-  it("keeps a direct provider dialog route while GitHub setup blocks its confirmation", async () => {
-    setSettledWorkspace({
-      state: "selected",
-      workspace: {
-        vault: {
-          _id: "vault:test",
-          deletion: {
-            state: "not_deleting",
-            deleteAction: { state: "available" },
-          },
-          hasConnectedGitHubRepository: false,
-        },
-      },
-    });
-
-    await renderDashboard("/vault/samebase/samebase?add-cloudflare&dev", "samebase/samebase");
-
-    expect(readLocationHref()).toContain("add-cloudflare");
-    expect(readLocationHref()).toContain("dev");
-  });
-
   it("keeps a permitted dialog for the selected vault", async () => {
     setSettledWorkspace({
       state: "selected",

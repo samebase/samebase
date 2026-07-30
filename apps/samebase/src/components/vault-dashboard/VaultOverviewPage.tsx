@@ -259,17 +259,16 @@ export function VaultOverviewPage({
                 {provisioningLabel}
               </span>
             </section>
-          ) : null}
+          ) : (
+            <VaultStateNotice
+              isRetryingVaultAction={isRetryingVaultAction}
+              onRetryInfrastructureProvisioning={onRetryInfrastructureProvisioning}
+              onRetryVaultDeletion={onRetryVaultDeletion}
+              vault={workspace.vault}
+            />
+          )}
           {showRepositoryContent ? (
             <>
-              {provisioningLabel ? null : (
-                <VaultStateNotice
-                  isRetryingVaultAction={isRetryingVaultAction}
-                  onRetryInfrastructureProvisioning={onRetryInfrastructureProvisioning}
-                  onRetryVaultDeletion={onRetryVaultDeletion}
-                  vault={workspace.vault}
-                />
-              )}
               <DefaultBranchSection filesReadEnabled={filesReadEnabled} workspace={workspace} />
               {developerToolsVisible ? <VaultWorkspaceDataInspector workspace={workspace} /> : null}
               <PullRequestsSection
@@ -278,14 +277,7 @@ export function VaultOverviewPage({
                 vault={workspace.vault}
               />
             </>
-          ) : provisioningLabel ? null : (
-            <VaultStateNotice
-              isRetryingVaultAction={isRetryingVaultAction}
-              onRetryInfrastructureProvisioning={onRetryInfrastructureProvisioning}
-              onRetryVaultDeletion={onRetryVaultDeletion}
-              vault={workspace.vault}
-            />
-          )}
+          ) : null}
         </main>
       )}
       <div aria-hidden="true" className="h-[20svh] min-h-20" />

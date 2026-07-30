@@ -327,15 +327,6 @@ async function readManagedProviderPlan(
   }
 }
 
-function readAffectedProviders(
-  write: NonNullable<VaultInfrastructureState["providerWrite"]>,
-): ("convex" | "cloudflare")[] {
-  if (write.owner.kind === "managed_run") {
-    return ["convex", "cloudflare"];
-  }
-  return readManualProviderWriteProviders(write.owner.action);
-}
-
 function readManualProviderWriteOwner(
   owner: Extract<
     NonNullable<VaultInfrastructureState["providerWrite"]>["owner"],
@@ -373,7 +364,7 @@ function resolveProviderWriteSummary(
     return {
       status: "active",
       owner: readManualProviderWriteOwner(write.owner),
-      affectedProviders: readAffectedProviders(write),
+      affectedProviders: readManualProviderWriteProviders(write.owner.action),
       updatedAt: write.updatedAt,
       lastWriteAt: write.lastWriteAt,
     };
