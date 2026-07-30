@@ -265,7 +265,7 @@ type VaultDeletionPlan = ProviderCleanupPlan &
   (
     | {
         target: {
-          kind: "noter_managed_repository";
+          kind: "samebase_managed_repository";
           ghRepoId: string;
           owner: string;
           name: string;
@@ -610,9 +610,10 @@ deletion run only. It must not recreate the vault or any vault-scoped rows.
 
 ### GitHub Repository
 
-1. Delete the repository only from a `noter_managed_repository` plan whose `githubRepository.action`
-   is `delete_repository`.
-2. Treat provider not-found as success.
+1. Delete the repository only from a `samebase_managed_repository` plan whose
+   `githubRepository.action` is `delete_repository`.
+2. Read owner and name, require the returned GitHub repository ID to match the plan, treat 404 as
+   already absent, and stop on an ID mismatch.
 3. Do not delete repositories for `connect_existing_repository` vaults.
 4. Do not delete repositories for failed create attempts without confirmed immutable GitHub
    identity.

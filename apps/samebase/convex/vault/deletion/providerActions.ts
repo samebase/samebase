@@ -226,6 +226,14 @@ export const deleteGitHubRepository = internalAction({
 
     const octokit = await resolveGitHubOctokit(ctx, args.userId);
     try {
+      const repository = await octokit.rest.repos.get({
+        owner: plan.githubRepository.owner,
+        repo: plan.githubRepository.name,
+      });
+      if (String(repository.data.id) !== plan.githubRepository.ghRepoId) {
+        throw new Error("GitHub repository identity changed.");
+      }
+
       await octokit.rest.repos.delete({
         owner: plan.githubRepository.owner,
         repo: plan.githubRepository.name,
