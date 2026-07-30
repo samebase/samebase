@@ -1,3 +1,5 @@
+import { defineRule, type ESTree } from "@oxlint/plugins";
+
 const textEntryControlNames = new Set(["input", "select", "textarea", "Input", "Textarea"]);
 const textEntryClassAttributeNames = new Set(["className"]);
 const nonTextInputTypes = new Set([
@@ -15,7 +17,7 @@ const nonTextInputTypes = new Set([
 const smallTailwindTextSizeClasses = new Set(["text-xs", "text-sm"]);
 const smallFontSizePx = 16;
 
-function getJsxElementName(nameNode) {
+function getJsxElementName(nameNode: ESTree.JSXElementName): string | null {
   if (nameNode.type === "JSXIdentifier") {
     return nameNode.name;
   }
@@ -25,14 +27,14 @@ function getJsxElementName(nameNode) {
   return null;
 }
 
-function getAttributeName(attribute) {
-  if (attribute.type !== "JSXAttribute" || attribute.name.type !== "JSXIdentifier") {
+function getAttributeName(attribute: ESTree.JSXAttribute): string | null {
+  if (attribute.name.type !== "JSXIdentifier") {
     return null;
   }
   return attribute.name.name;
 }
 
-function getStaticStringValue(node) {
+function getStaticStringValue(node: ESTree.Node | null): string | null {
   if (!node) {
     return null;
   }
@@ -48,16 +50,16 @@ function getStaticStringValue(node) {
   return null;
 }
 
-function findAttribute(node, name) {
+function findAttribute(node: ESTree.JSXOpeningElement, name: string): ESTree.JSXAttribute | null {
   for (const attribute of node.attributes) {
-    if (getAttributeName(attribute) === name) {
+    if (attribute.type === "JSXAttribute" && getAttributeName(attribute) === name) {
       return attribute;
     }
   }
   return null;
 }
 
-function readInputType(node) {
+function readInputType(node: ESTree.JSXOpeningElement): string | null {
   const typeAttribute = findAttribute(node, "type");
   if (!typeAttribute) {
     return null;
@@ -65,7 +67,7 @@ function readInputType(node) {
   return getStaticStringValue(typeAttribute.value)?.toLowerCase() ?? null;
 }
 
-function isTextEntryControl(node, elementName) {
+function isTextEntryControl(node: ESTree.JSXOpeningElement, elementName: string): boolean {
   if (!textEntryControlNames.has(elementName)) {
     return hasActiveContentEditable(node);
   }
@@ -77,7 +79,7 @@ function isTextEntryControl(node, elementName) {
   return inputType === null || !nonTextInputTypes.has(inputType);
 }
 
-function hasActiveContentEditable(node) {
+function hasActiveContentEditable(node: ESTree.JSXOpeningElement): boolean {
   const attribute =
     findAttribute(node, "contentEditable") ?? findAttribute(node, "contenteditable");
   if (!attribute) {
@@ -87,7 +89,7 @@ function hasActiveContentEditable(node) {
     return true;
   }
   if (attribute.value.type === "Literal") {
-    return attribute.value.value !== false && attribute.value.value !== "false";
+    return attribute.value.value !== "false";
   }
   if (
     attribute.value.type === "JSXExpressionContainer" &&
@@ -98,7 +100,7 @@ function hasActiveContentEditable(node) {
   return true;
 }
 
-function collectStaticClassNames(node, classNames) {
+function collectStaticClassNames(node: ESTree.Node | null, classNames: string[]): void {
   if (!node) {
     return;
   }
@@ -156,7 +158,7 @@ function collectStaticClassNames(node, classNames) {
       }
       if (property.key.type === "TemplateLiteral" && property.key.expressions.length === 0) {
         classNames.push(
-          ...(property.key.quasis[0]?.value.cooked ?? property.key.quasis[0]?.value.raw ?? "")
+          ...(property.key.quasis[0].value.cooked ?? property.key.quasis[0].value.raw)
             .split(/\s+/)
             .filter(Boolean),
         );
@@ -165,7 +167,7 @@ function collectStaticClassNames(node, classNames) {
   }
 }
 
-function stripVariantPrefixes(className) {
+function stripVariantPrefixes(className: string): string {
   let bracketDepth = 0;
   let lastVariantSeparator = -1;
 
@@ -191,7 +193,7 @@ function stripVariantPrefixes(className) {
   return className.slice(lastVariantSeparator + 1);
 }
 
-function readCssLengthPx(value) {
+function readCssLengthPx(value: string): number | null {
   const trimmedValue = value.trim();
   const normalizedValue = trimmedValue.startsWith("length:")
     ? trimmedValue.slice("length:".length).trim()
@@ -209,7 +211,7 @@ function readCssLengthPx(value) {
   return null;
 }
 
-function getSmallFontClass(className) {
+function getSmallFontClass(className: string): string | null {
   const baseClassName = stripVariantPrefixes(className);
   const normalizedBaseClassName = baseClassName.startsWith("!")
     ? baseClassName.slice(1)
@@ -237,7 +239,9 @@ function getSmallFontClass(className) {
   return null;
 }
 
-function readSmallFontSizeStyleValue(node) {
+function readSmallFontSizeStyleValue(
+  node: ESTree.JSXAttributeValue | null | undefined,
+): string | null {
   if (!node || node.type !== "JSXExpressionContainer") {
     return null;
   }
@@ -276,7 +280,7 @@ function readSmallFontSizeStyleValue(node) {
   return null;
 }
 
-export const noIosSmallTextEntryControl = {
+export const noIosSmallTextEntryControl = defineRule({
   meta: {
     type: "problem",
     docs: {
@@ -298,12 +302,16 @@ export const noIosSmallTextEntryControl = {
           return;
         }
         for (const attribute of node.attributes) {
+          if (attribute.type !== "JSXAttribute") {
+            continue;
+          }
+
           const attributeName = getAttributeName(attribute);
           if (!attributeName || !textEntryClassAttributeNames.has(attributeName)) {
             continue;
           }
 
-          const classNames = [];
+          const classNames: string[] = [];
           collectStaticClassNames(attribute.value, classNames);
           for (const className of classNames) {
             const smallFontClassName = getSmallFontClass(className);
@@ -320,7 +328,7 @@ export const noIosSmallTextEntryControl = {
 
         const styleAttribute = findAttribute(node, "style");
         const smallFontSizeStyleValue = readSmallFontSizeStyleValue(styleAttribute?.value);
-        if (smallFontSizeStyleValue) {
+        if (styleAttribute && smallFontSizeStyleValue) {
           context.report({
             node: styleAttribute,
             messageId: "style",
@@ -330,4 +338,4 @@ export const noIosSmallTextEntryControl = {
       },
     };
   },
-};
+});

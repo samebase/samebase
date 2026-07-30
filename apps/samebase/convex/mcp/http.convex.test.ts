@@ -108,14 +108,6 @@ describe("MCP tool listing access", () => {
       }),
     ).toEqual([
       expect.objectContaining({
-        name: "samebase_auth_getAuthenticationStatus",
-        annotations: {
-          readOnlyHint: false,
-          openWorldHint: false,
-          destructiveHint: false,
-        },
-      }),
-      expect.objectContaining({
         name: "vault_dashboard_getUserVaults",
         annotations: {
           readOnlyHint: false,
@@ -195,6 +187,14 @@ describe("MCP tool listing access", () => {
           destructiveHint: true,
         },
       }),
+      expect.objectContaining({
+        name: "samebase_auth_getAuthenticationStatus",
+        annotations: {
+          readOnlyHint: false,
+          openWorldHint: false,
+          destructiveHint: false,
+        },
+      }),
     ]);
   });
 
@@ -242,6 +242,10 @@ describe("MCP tool listing access", () => {
         required: ["vaultId", "runId"],
         additionalProperties: false,
       },
+    });
+    expect(tools.find((tool) => tool.name === "vault_cloudflare_listAccounts")).toMatchObject({
+      description:
+        "List Cloudflare accounts only for manual discovery and attachment of an existing Worker. This is not a managed app creation preflight.",
     });
     const configureWorkersBuildsTool = tools.find(
       (tool) => tool.name === "vault_cloudflare_configureWorkersBuildsForGitHub",
@@ -417,8 +421,8 @@ describe("MCP tools/call access enforcement", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       result: {
-        instructions: expect.stringContaining(
-          "A started provisioning run, requested build, or successful Git push is not proof of a successful deployment.",
+        instructions: expect.stringMatching(
+          /^Samebase is only for repository-backed apps.*Never use Samebase for unrelated Git work or standalone provider resources[\s\S]*For managed app creation, use only this closed sequence: read vault_dashboard_getUserVaults, call vault_actions_createRepository directly, then poll vault_dashboard_getUserVaults\. Do not call vault_cloudflare_listAccounts first\.[\s\S]*A started provisioning run, requested build, or successful Git push is not proof of a successful deployment\./,
         ),
         serverInfo: {
           name: "Samebase",

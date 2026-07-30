@@ -24,6 +24,7 @@ describe("starterSeedManifest", () => {
     expect(filePaths).toContain("scripts/deploy-cloudflare.ts");
     expect(filePaths).toContain("scripts/ensure-convex-auth.ts");
     expect(filePaths).toContain("scripts/generate-cloudflare-redirects.ts");
+    expect(filePaths).toContain("tsconfig.node.json");
     expect(filePaths).toContain("convex/auth.ts");
     expect(filePaths).toContain("convex/auth.config.ts");
     expect(filePaths).toContain("convex/guests.ts");
@@ -39,6 +40,72 @@ describe("starterSeedManifest", () => {
     expect(starterTemplateManifest.fileModes[".vite-hooks/pre-commit"]).toBe("100755");
     expect(new Set(allFilePaths).size).toBe(allFilePaths.length);
     expect(allFilePaths.length).toBeGreaterThan(10);
+  });
+
+  it("keeps one Vite+ toolchain and explicit TypeScript projects in normal checks and builds", () => {
+    const packageJson: unknown = JSON.parse(starterTemplateManifest.files["package.json"]);
+    const nodeTypeScriptConfig: unknown = JSON.parse(
+      starterTemplateManifest.files["tsconfig.node.json"],
+    );
+    const buildCloudflareScript = starterTemplateManifest.files["scripts/build-cloudflare.ts"];
+
+    expect(starterTemplateManifest.files[".node-version"]).toBe("24\n");
+    expect(packageJson).toEqual(
+      expect.objectContaining({
+        type: "module",
+        scripts: expect.objectContaining({
+          check: "vp check && vp run typecheck && vp test && vp run verify:cloudflare-redirects",
+          build: "vp run build:cloudflare",
+          "build:app": "vp run check && vp build",
+          "build:cloudflare": "node ./scripts/build-cloudflare.ts",
+          format: "vp fmt",
+          "format:check": "vp fmt --check",
+          lint: "vp lint --report-unused-disable-directives",
+          test: "vp test",
+          typecheck: "tsc && vp run typecheck:node && tsc --project convex/tsconfig.json",
+          "typecheck:node": "tsc --project tsconfig.node.json",
+          "verify:cloudflare-redirects":
+            "vp run generate:cloudflare-redirects && git diff --exit-code -- public/_redirects",
+        }),
+        devDependencies: expect.objectContaining({
+          vite: "npm:@voidzero-dev/vite-plus-core@0.1.24",
+          "vite-plus": "0.1.24",
+          vitest: "npm:@voidzero-dev/vite-plus-test@0.1.24",
+        }),
+        packageManager: "pnpm@11.1.1",
+        pnpm: {
+          overrides: {
+            vite: "npm:@voidzero-dev/vite-plus-core@0.1.24",
+            vitest: "npm:@voidzero-dev/vite-plus-test@0.1.24",
+          },
+        },
+      }),
+    );
+    expect(starterTemplateManifest.files["package.json"]).not.toContain('"eslint"');
+    expect(starterTemplateManifest.files["package.json"]).not.toContain('"prettier"');
+    expect(buildCloudflareScript).toContain(
+      'const WORKERS_BUILD_COMMAND = "vp run build:app && node ./scripts/verify-current-branch-head.ts";',
+    );
+    expect(buildCloudflareScript).toContain('await run("vp", ["run", "build:app"]);');
+    expect(nodeTypeScriptConfig).toEqual({
+      compilerOptions: {
+        target: "ESNext",
+        module: "NodeNext",
+        moduleResolution: "NodeNext",
+        types: ["node"],
+        skipLibCheck: true,
+        allowImportingTsExtensions: true,
+        verbatimModuleSyntax: true,
+        moduleDetection: "force",
+        noEmit: true,
+        strict: true,
+        noUnusedLocals: true,
+        noUnusedParameters: true,
+        erasableSyntaxOnly: true,
+        noFallthroughCasesInSwitch: true,
+      },
+      include: ["scripts/**/*.ts", "vite.config.ts"],
+    });
   });
 
   it("keeps Cloudflare SPA mode and exact prerender aliases aligned", () => {

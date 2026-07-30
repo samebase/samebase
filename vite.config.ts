@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import remotionEslintPlugin from "@remotion/eslint-plugin";
 import { defineConfig } from "vite-plus";
 import type { AppBuildConfig } from "./apps/samebase/src/lib/appBuildConfig";
 
@@ -48,8 +49,12 @@ export default defineConfig({
         specifier: "eslint-plugin-react-refresh",
       },
       {
+        name: "@remotion",
+        specifier: "@remotion/eslint-plugin",
+      },
+      {
         name: "samebase",
-        specifier: "./scripts/lint/eslint-plugin-samebase.js",
+        specifier: "./scripts/lint/eslint-plugin-samebase.ts",
       },
     ],
     rules: {
@@ -123,10 +128,7 @@ export default defineConfig({
         files: [
           "scripts/**/*.ts",
           "runtime/**/*.ts",
-          "**/*.config.js",
-          "**/*.config.cjs",
           "**/*.config.ts",
-          "**/*.cjs",
           "packages/onboarding-video-tools/**/*.ts",
           "apps/samebase/public/**/*.ts",
           "apps/samebase/convex/**/*.{ts,tsx}",
@@ -151,6 +153,18 @@ export default defineConfig({
         files: ["apps/samebase/src/components/workspace-layout-v2/**/*.{ts,tsx}"],
         rules: {
           "react-refresh/only-export-components": "off",
+        },
+      },
+      {
+        files: ["apps/remotion-studio/src/**/*.{ts,tsx}"],
+        rules: {
+          ...remotionEslintPlugin.configs.recommended.rules,
+          "no-console": "off",
+          "@typescript-eslint/no-empty-object-type": "off",
+          "react/jsx-key": "off",
+          "react/jsx-no-target-blank": "off",
+          "react/jsx-no-useless-fragment": "off",
+          "react/no-array-index-key": "off",
         },
       },
       {

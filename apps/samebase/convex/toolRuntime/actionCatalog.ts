@@ -23,11 +23,11 @@ the supported OAuth scopes, usage attribution names, the generated /docs/actions
 entries, and the ChatGPT submission file. `id` is the catalog vocabulary in snake_case;
 `mcp.name` is the wire-level MCP tool name.
 
-Order is the presentation order in generated docs: the status noun first, then create/import, then
-discovery reads, then attach, then repairs.
+Order is the presentation order in generated docs: app inventory first, then create/import,
+discovery reads, attach, and repairs. Browser handoff stays near the end, and authentication status
+is last because it is a diagnostic action, not a preflight.
 */
 export const actionContracts = [
-  getAuthenticationStatusContract,
   getUserVaultsContract,
   createRepositoryContract,
   connectRepositoryContract,
@@ -40,6 +40,7 @@ export const actionContracts = [
   cloudflareRotateConvexDeployKeysForWorkersBuildsContract,
   retryInfrastructureProvisioningContract,
   createBrowserHandoffContract,
+  getAuthenticationStatusContract,
 ] as const;
 
 export type ActionContract = (typeof actionContracts)[number];

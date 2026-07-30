@@ -4,13 +4,14 @@
 
 - Status: Accepted
 - Owner: Samebase linting/tooling
-- Last updated: 2026-05-01
+- Last updated: 2026-07-30
 - Depends on:
   - `vite.config.ts`
   - `package.json`
   - `tsconfig.scripts.json`
   - `apps/samebase/package.json`
   - `apps/samebase/tsconfig.json`
+  - `apps/remotion-studio/package.json`
   - `apps/samebase/convex/jsonUtils.ts`
   - `apps/samebase/convex/jsonUtils.test.ts`
   - `apps/samebase/lintConfig.test.ts`
@@ -71,6 +72,13 @@ incompatibility, or rollout decision appears.
 - The app/frontend lint entrypoints in `apps/samebase/package.json` now run Oxlint directly.
 - Root `package.json` also runs Oxlint for `runtime/**/*.ts`, `scripts/**/*.ts`, and
   `apps/samebase/scripts/**/*.ts` using `tsconfig.scripts.json`.
+- The root package owns Remotion Studio check, lint, and typecheck tasks. Its lint task uses the
+  root Vite+ and Oxlint config, where all 15 recommended `@remotion/eslint-plugin` rules keep their
+  upstream severities through Oxlint's JS-plugin bridge. The Remotion package owns its development,
+  build, and render commands.
+- Direct `eslint` runners, dependencies, and workspace-local `eslint.config.*` files are a review
+  smell because Vite+ and Oxlint own lint execution. ESLint-compatible plugins and `eslint-disable`
+  comments remain valid parts of the Oxlint contract.
 - `baseUrl` has been removed from the app tsconfigs so the repo aligns with the TypeScript 6 and
   TypeScript 7 direction instead of preserving deprecated lookup-root behavior.
 - The app package keeps the old intended TypeScript-focused lint surface instead of silently
@@ -144,6 +152,30 @@ When a rule cannot move cleanly, this document must record:
 - the accepted temporary behavior
 
 ## Working Log
+
+### 2026-07-30
+
+- Problem: Remotion Studio introduced `eslint src` after the repo had accepted one Vite+ and Oxlint
+  lint contract. Tried: loaded `@remotion/eslint-plugin@4.0.489` through Oxlint's JS-plugin bridge
+  and copied its complete recommended rule map into a Remotion-only override. Result: all 15 rules
+  keep their upstream severities, including the two warnings, while the old ESLint config, runner,
+  and direct dependencies are removed.
+
+- Problem: replacing the package-local ESLint runner with a package script that climbed to the
+  repository root kept the ownership boundary unclear. Tried: moved Remotion check, lint, and
+  typecheck tasks to the root package and left the Remotion package with development, build, and
+  render commands. Result: the root selects the Vite+ and Oxlint config and Remotion tsconfig
+  directly, with no package wrapper or repository scanner.
+
+- Problem: `pnpm peers check` was already failing before the Remotion migration. Tried: installed an
+  exact archive of branch head `94eb16dc` and ran the command. Result: the old
+  `@remotion/eslint-config-flat` path pulled `typescript-eslint@8.21.0`, which requires TypeScript
+  below 5.8 while the repo uses 5.9.2. After the migration, that mismatch is gone, but
+  `@remotion/eslint-plugin@4.0.489` pulls `@typescript-eslint/utils@5.19.0`, whose peer metadata
+  allows ESLint through version 8 while the existing plugin graph resolves ESLint 9.39.2. The direct
+  Vite+ lint pass and an intentional `Math.random()` violation prove that Oxlint executes the
+  Remotion rule. The accepted temporary behavior is to keep the exact Remotion version and the
+  visible peer failure, with no peer exception and no direct ESLint dependency.
 
 ### 2026-05-01
 

@@ -123,11 +123,20 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 - In copy, docs, and examples: never use Vercel as an example provider; use Netlify when a
   non-Cloudflare provider example is needed. The product is provider-agnostic; Samebase itself runs
   on and recommends Cloudflare.
-- Use shell for one-offs. Checked-in TypeScript automation must run on macOS, Linux, and Windows
+- Use shell for one-offs. Handwritten Node automation uses normal `.ts` files run directly by Node
+  24 under the package's ESM `"type": "module"`. Automation must work on macOS, Linux, and Windows
   without Bash or PowerShell. Do not reach for Python first.
+- Treat authored `.js`, `.mjs`, and `.cjs` files as a review smell. Keep one only when a named tool
+  or runtime cannot use normal TypeScript, and document that exact boundary. Generated output and
+  required shipped browser artifacts can be valid exceptions.
 - Use template literals instead of arrays joined with `'\n'` for multi-line JavaScript and
   TypeScript snippets.
-- Format documents with oxfmt.
+- Vite+ owns the shared app dev, build, test, lint, and format commands. Oxlint and Oxfmt are the
+  linter and formatter behind that contract. Treat a direct ESLint runner or dependency as a review
+  smell that needs an exact reason.
+- Specialized tools can own product-specific execution, such as Remotion Studio, bundle, and render
+  commands. Their lint and format commands stay on the root Vite+ contract.
+- Format documents with Oxfmt through Vite+.
 - Prefer exhaustive dispatch with `satisfies never` when it fits.
 - Assume responses may be read from a phone: every reference must be a tappable URL reachable off
   this machine: clickable Markdown links everywhere, PR numbers as links, the Cloudflare tunnel URL
