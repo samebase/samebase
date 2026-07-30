@@ -208,18 +208,6 @@ function readProviderRunSummary(args: {
   };
 }
 
-async function readLatestFailedRetry(
-  ctx: Pick<QueryCtx, "db">,
-  vaultId: Id<"vaults">,
-): Promise<ProvisioningRun | null> {
-  const run = await ctx.db
-    .query("workflow_vaultProvisioning_runs")
-    .withIndex("by_vault_and_state", (q) => q.eq("vaultId", vaultId).eq("state", "failed"))
-    .order("desc")
-    .first();
-  return run?.trigger === "retry" ? run : null;
-}
-
 async function readLatestDeletionEvent(
   ctx: Pick<QueryCtx, "db">,
   runId: Id<"workflow_vaultDeletion_runs">,
@@ -334,23 +322,6 @@ async function readManagedProviderPlan(
   }
 }
 
-function readManualProviderWriteOwner(
-  owner: Extract<
-    NonNullable<VaultInfrastructureState["providerWrite"]>["owner"],
-    { kind: "manual_provider_write" }
-  >,
-): Extract<
-  Extract<ProviderWriteSummary, { status: "active" }>["owner"],
-  { kind: "manual_provider_write" }
-> {
-  return {
-    kind: "manual_provider_write",
-    actionId: owner.actionId,
-    action: owner.action,
-    expiresAt: owner.expiresAt,
-  };
-}
-
 function resolveProviderWriteSummary(
   infrastructure: VaultInfrastructureState,
 ): ProviderWriteSummary {
@@ -359,10 +330,7 @@ function resolveProviderWriteSummary(
       status: "active",
       owner: {
         kind: "managed_run",
-        runId: infrastructure.operation.runId,
       },
-      affectedProviders: ["convex", "cloudflare"],
-      updatedAt: infrastructure.operation.updatedAt,
       lastWriteAt: infrastructure.providerWrite?.lastWriteAt ?? {},
     };
   }
@@ -370,9 +338,8 @@ function resolveProviderWriteSummary(
     const write = infrastructure.operation.write;
     return {
       status: "active",
-      owner: readManualProviderWriteOwner(write.owner),
+      owner: { kind: "manual_provider_write" },
       affectedProviders: readManualProviderWriteProviders(write.owner.action),
-      updatedAt: write.updatedAt,
       lastWriteAt: write.lastWriteAt,
     };
   }
@@ -386,7 +353,6 @@ function resolveProviderWriteSummary(
 async function readManagedProviderOperation(
   ctx: Pick<QueryCtx, "db">,
   infrastructure: VaultInfrastructureState,
-  latestFailedRetry: ProvisioningRun | null,
 ): Promise<{
   runId: Id<"workflow_vaultProvisioning_runs">;
   run: ProvisioningRun | null;
@@ -406,28 +372,15 @@ async function readManagedProviderOperation(
   }
 
   const write = infrastructure.providerWrite;
-  if (write && (!latestFailedRetry || write.updatedAt >= latestFailedRetry.updatedAt)) {
-    if (write.owner.kind !== "managed_run" || write.state !== "failed") {
-      return null;
-    }
-    return {
-      runId: write.owner.runId,
-      run:
-        latestFailedRetry?._id === write.owner.runId
-          ? latestFailedRetry
-          : await ctx.db.get(write.owner.runId),
-      status: "failed",
-      fallbackUpdatedAt: write.updatedAt,
-    };
+  if (!write || write.owner.kind !== "managed_run" || write.state !== "failed") {
+    return null;
   }
-  return latestFailedRetry
-    ? {
-        runId: latestFailedRetry._id,
-        run: latestFailedRetry,
-        status: "failed",
-        fallbackUpdatedAt: latestFailedRetry.updatedAt,
-      }
-    : null;
+  return {
+    runId: write.owner.runId,
+    run: await ctx.db.get(write.owner.runId),
+    status: "failed",
+    fallbackUpdatedAt: write.updatedAt,
+  };
 }
 
 async function resolveProviderSetupSummary(
@@ -435,13 +388,8 @@ async function resolveProviderSetupSummary(
   convexProjects: ConvexProject[],
   cloudflareWorkers: CloudflareWorker[],
   infrastructure: VaultInfrastructureState,
-  latestFailedRetry: ProvisioningRun | null,
 ): Promise<ProviderSetupSummary> {
-  const managedOperation = await readManagedProviderOperation(
-    ctx,
-    infrastructure,
-    latestFailedRetry,
-  );
+  const managedOperation = await readManagedProviderOperation(ctx, infrastructure);
 
   if (convexProjects.length === 0) {
     if (managedOperation) {
@@ -725,10 +673,9 @@ async function readUserVaults(
 
   const vaultResults: Array<UserVaultResult & { _creationTime: number }> = await Promise.all(
     connectedVaults.map(async (vault) => {
-      const [infrastructure, providerPlan, latestFailedRetry] = await Promise.all([
+      const [infrastructure, providerPlan] = await Promise.all([
         readVaultInfrastructureState(ctx, vault),
         readManagedProviderPlan(ctx, vault._id),
-        readLatestFailedRetry(ctx, vault._id),
       ]);
       const deletion = await resolveVaultDeletionSummary(ctx, vault, infrastructure);
       const providerWrite = resolveProviderWriteSummary(infrastructure);
@@ -803,7 +750,6 @@ async function readUserVaults(
               convexProjects,
               cloudflareWorkers,
               infrastructure,
-              latestFailedRetry,
             )
           : { status: "not_applicable" as const };
       return {

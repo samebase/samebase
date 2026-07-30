@@ -771,18 +771,14 @@ export async function rotateConvexDeployKeysForWorkersBuildsForUser(
   } catch (error) {
     await attemptManualProviderWriteFailureRecord(ctx, {
       vaultId: args.vaultId,
-      userId: args.userId,
       actionId,
-      action: "rotate_convex_deploy_keys_for_workers_builds",
     });
     throw error;
   }
   await ctx.runMutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
     vaultId: args.vaultId,
-    userId: args.userId,
     actionId,
-    action: "rotate_convex_deploy_keys_for_workers_builds",
-    completion: { result: "succeeded" },
+    result: "succeeded",
   });
 }
 
@@ -831,18 +827,14 @@ export async function configureWorkersBuildsForGitHubForUser(
   } catch (error) {
     await attemptManualProviderWriteFailureRecord(ctx, {
       vaultId: args.vaultId,
-      userId: args.userId,
       actionId,
-      action: "configure_workers_builds_for_github",
     });
     throw error;
   }
   await ctx.runMutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
     vaultId: args.vaultId,
-    userId: args.userId,
     actionId,
-    action: "configure_workers_builds_for_github",
-    completion: { result: "succeeded" },
+    result: "succeeded",
   });
 }
 
@@ -972,9 +964,7 @@ async function connectWorkerForUser(
   } catch (error) {
     await attemptManualProviderWriteFailureRecord(ctx, {
       vaultId: args.vaultId,
-      userId: args.userId,
       actionId,
-      action: "connect_cloudflare_worker",
     });
     throw error;
   }
@@ -1014,9 +1004,7 @@ async function connectWorkerForUser(
     if (!providerWrite.started) {
       await attemptManualProviderWriteFailureRecord(ctx, {
         vaultId: args.vaultId,
-        userId: args.userId,
         actionId,
-        action: "connect_cloudflare_worker",
       });
       throw error;
     }
@@ -1034,9 +1022,7 @@ async function connectWorkerForUser(
     } catch (observationError) {
       await attemptManualProviderWriteFailureRecord(ctx, {
         vaultId: args.vaultId,
-        userId: args.userId,
         actionId,
-        action: "connect_cloudflare_worker",
       });
       return {
         state: "added_with_notice",
@@ -1053,10 +1039,8 @@ async function connectWorkerForUser(
         internal.vault.infrastructureOperation.finishManualProviderWriteResult,
         {
           vaultId: args.vaultId,
-          userId: args.userId,
           actionId,
-          action: "connect_cloudflare_worker",
-          completion: { result: didConfigureBuilds ? "succeeded" : "failed" },
+          result: didConfigureBuilds ? "succeeded" : "failed",
         },
       );
       if (didConfigureBuilds) {
@@ -1070,9 +1054,7 @@ async function connectWorkerForUser(
     }
     await attemptManualProviderWriteFailureRecord(ctx, {
       vaultId: args.vaultId,
-      userId: args.userId,
       actionId,
-      action: "connect_cloudflare_worker",
     });
     if (observed.state === "ready") {
       const rootMessage =
@@ -1097,10 +1079,8 @@ async function connectWorkerForUser(
   }
   await ctx.runMutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
     vaultId: args.vaultId,
-    userId: args.userId,
     actionId,
-    action: "connect_cloudflare_worker",
-    completion: { result: "succeeded" },
+    result: "succeeded",
   });
   return { state: "ready", workerId };
 }
@@ -1191,10 +1171,8 @@ async function createWorkerForUser(
     );
     await ctx.runMutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
       vaultId: args.vaultId,
-      userId: args.userId,
       actionId,
-      action: "create_cloudflare_worker",
-      completion: { result: "succeeded" },
+      result: "succeeded",
     });
     return workerId;
   } catch (error) {
@@ -1206,9 +1184,7 @@ async function createWorkerForUser(
         : error;
     await attemptManualProviderWriteFailureRecord(ctx, {
       vaultId: args.vaultId,
-      userId: args.userId,
       actionId,
-      action: "create_cloudflare_worker",
     });
     throw reportedError;
   }

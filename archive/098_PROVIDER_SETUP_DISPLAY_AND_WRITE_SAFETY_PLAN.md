@@ -7,6 +7,7 @@
 - Created: 2026-07-29
 - Implemented: 2026-07-29
 - Archived: 2026-07-29
+- Last updated: 2026-07-30
 - Current contracts:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
@@ -26,7 +27,10 @@ after a known or expired write. A silent manual write ends through one fenced ex
 uses live provider observations and the normal provider actions. It has no manual replay state,
 automatic provider replay, special Retry action, recovery lease, or stored replay target. The
 write-lock table moved directly to its final schema because deployment requires the table to contain
-zero rows. There is no compatibility or migration path.
+zero rows. New-app create and managed retry own that lock from run creation.
+`connect_existing_repository` is source-only and never owns the provider lock. A source failure in a
+new-app create run marks its matching managed lock failed without changing provider freshness. There
+is no compatibility or migration path.
 
 ## Evidence
 

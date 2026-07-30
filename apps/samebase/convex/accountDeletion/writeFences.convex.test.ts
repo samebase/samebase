@@ -120,10 +120,9 @@ describe("account deletion late-write fences", () => {
     const { ids, t } = await seedDeletingUserWithConnectedVault();
 
     await expect(
-      t.mutation(internal.appProvisioningRuns.createForVault, {
+      t.mutation(internal.appProvisioningRuns.createRetryForVault, {
         userId: ids.userId,
         vaultId: ids.vaultId,
-        trigger: "retry",
       }),
     ).rejects.toThrow("App provisioning is unavailable during account deletion.");
     await t.run(async (ctx) => {

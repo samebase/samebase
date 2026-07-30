@@ -457,7 +457,11 @@ describe("vault Convex project attachments", () => {
     expect(fetchMock.mock.calls.filter(([input]) => input.method === "POST")).toHaveLength(1);
     expect(failureRecordWarning).toHaveBeenCalledWith(
       "vault:manual_provider_write:failure_record_failed",
-      expect.objectContaining({ action: "create_convex_project", vaultId }),
+      expect.objectContaining({
+        actionId: expect.any(String),
+        message: "Manual provider action state changed before result was recorded.",
+        vaultId,
+      }),
     );
     await expect(
       t.run(

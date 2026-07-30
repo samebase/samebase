@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase provider resources, vault dashboard
-- Last updated: 2026-07-29
+- Last updated: 2026-07-30
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
@@ -119,20 +119,14 @@ Samebase does not persist a Worker-to-project edge.
 
 ### Operation safety
 
-`attachWorkers` and `detachWorker` are database-only attachment changes. Each mutation checks the
-shared vault infrastructure state and changes the attachment in the same transaction.
+Cloudflare attachment mutations use the shared exclusion check in spec 003. Cloudflare provider
+actions use the claim, expiry, no-replay, and freshness rules in spec 003.
 
-Creating a Worker, connecting an unconnected Worker, configuring Workers Builds, and rotating Convex
-deploy keys are external provider writes. Each action claims the durable manual provider owner
-before its first provider call. Normal success or error makes the owner terminal and ends the block.
-A late action or a different action ID cannot record the result.
+Creating a Worker, connecting an unconnected Worker, and configuring Workers Builds affect
+Cloudflare observations. Deploy-key rotation affects Convex and Cloudflare observations.
 
-One fenced expiry handles a silent action. It marks only the matching active action failed and
-advances `lastWriteAt.cloudflare`. Deploy-key rotation also advances `lastWriteAt.convex`. Expiry
-does not call Cloudflare or Convex and does not replay the stored operation.
-
-After expiry, Samebase reads the live provider state. The user or agent then uses the normal action
-for that state:
+After a failed or silent provider action, Samebase gets fresh observations. The user or agent then
+uses the normal action for that state:
 
 - An uncheckpointed created Worker appears in the normal account scan. The user can attach or
   connect that existing Worker. Samebase does not adopt it automatically.
@@ -141,11 +135,6 @@ for that state:
 - Incomplete Convex build access uses the normal key repair action for the observed attached
   project. Repeating this action replaces the deterministic deploy keys and writes one complete
   production and preview configuration.
-
-A known create, connect, or Builds-configuration result updates `lastWriteAt.cloudflare`. A known
-deploy-key rotation result updates both `lastWriteAt.convex` and `lastWriteAt.cloudflare`, because
-the operation changes keys in Convex and trigger variables in Cloudflare. Expiry updates the same
-provider times so the dashboard cannot reuse an observation from before the silent action.
 
 ## Non-Goals
 
@@ -160,11 +149,10 @@ provider times so the dashboard cannot reuse an observation from before the sile
   different-repository Workers, provider type, exact repo identity, ambiguous roots,
   production/preview disagreement, and marker disagreement.
 - Mutation tests cover atomic batches, global identity conflicts, idempotency, and origin upgrade.
-- Operation tests cover the same-transaction attachment gate, durable claims for all Cloudflare
-  provider writes, one fenced expiry, stale completion rejection, live observation after expiry, and
-  normal repair after interrupted deploy-key rotation.
+- Operation tests cover the Cloudflare action mapping and the normal next action after a failed or
+  silent provider action.
 - Write-time tests prove that Cloudflare-only actions update only Cloudflare and deploy-key rotation
-  updates both providers after a known result or expiry.
+  updates both providers.
 - UI tests cover vault-level routing, default multiple selection, grouping by read-only live root,
   the focused unconnected-Worker root flow, count copy, exact Convex action targets, root drift,
   rootless Builds repair, and `Needs attention`.

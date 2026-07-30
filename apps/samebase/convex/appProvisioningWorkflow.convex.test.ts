@@ -26,6 +26,13 @@ async function createComposedVault() {
       createdAt: 10,
       updatedAt: 20,
     });
+    await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+      vaultId,
+      owner: { kind: "managed_run", runId },
+      state: "active",
+      lastWriteAt: {},
+      updatedAt: 20,
+    });
     await ctx.db.replace(vaultId, {
       userId,
       deletion: { state: "not_deleting" },
@@ -199,6 +206,59 @@ describe("app provisioning workflow composition", () => {
     });
   });
 
+  it("does not finish a managed lock owned by a newer run", async () => {
+    const { ids, t } = await createComposedVault();
+    const newerRunId = await t.run(async (ctx) => {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "ada/composed-app",
+        trigger: "retry",
+        state: "running",
+        currentStep: "claim_infra",
+        createdAt: 40,
+        updatedAt: 40,
+      });
+      const writeLock = await ctx.db
+        .query("workflow_vaultProvisioning_writeLocks")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .unique();
+      if (!writeLock) {
+        throw new Error("Expected managed write lock.");
+      }
+      await ctx.db.replace(writeLock._id, {
+        vaultId: ids.vaultId,
+        owner: { kind: "managed_run", runId },
+        state: "active",
+        lastWriteAt: { cloudflare: 41 },
+        updatedAt: 42,
+      });
+      return runId;
+    });
+
+    await expect(
+      t.mutation(internal.appProvisioningWorkflow.finishComposedInfrastructureProvisioning, {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+      }),
+    ).rejects.toThrow("Composed infrastructure run no longer holds the provisioning write lock.");
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("workflow_vaultProvisioning_writeLocks")
+            .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+            .unique(),
+      ),
+    ).resolves.toMatchObject({
+      owner: { kind: "managed_run", runId: newerRunId },
+      state: "active",
+      lastWriteAt: { cloudflare: 41 },
+      updatedAt: 42,
+    });
+  });
+
   it("records a managed provider failure without a finish event", async () => {
     const { ids, t } = await createComposedVault();
     await attachComposedResources({ ids, t });
@@ -248,13 +308,6 @@ describe("app provisioning workflow composition", () => {
   it("never takes an active provisioning lock from another run", async () => {
     const { ids, t } = await createComposedVault();
     const retryRunId = await t.run(async (ctx) => {
-      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-        vaultId: ids.vaultId,
-        owner: { kind: "managed_run", runId: ids.runId },
-        state: "active",
-        lastWriteAt: {},
-        updatedAt: 0,
-      });
       return await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId: ids.userId,
         vaultId: ids.vaultId,

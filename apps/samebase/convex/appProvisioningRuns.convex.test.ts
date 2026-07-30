@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
 
-type RetryBlocker = "none" | "queued_run" | "active_managed_lock" | "manual_write" | "deletion";
+type RetryBlocker = "none" | "active_managed_lock" | "manual_write" | "deletion";
 
 async function createRetryFixture(blocker: RetryBlocker) {
   const t = makeConvexTest();
@@ -45,18 +45,6 @@ async function createRetryFixture(blocker: RetryBlocker) {
 
     switch (blocker) {
       case "none":
-        break;
-      case "queued_run":
-        await ctx.db.insert("workflow_vaultProvisioning_runs", {
-          userId,
-          vaultId,
-          repositoryFullName: "ada/retry-guard",
-          trigger: "retry",
-          state: "queued",
-          currentStep: "run_created",
-          createdAt: 10,
-          updatedAt: 10,
-        });
         break;
       case "active_managed_lock":
         await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
@@ -129,20 +117,22 @@ async function createRetryFixture(blocker: RetryBlocker) {
 
 describe("app provisioning retry admission", () => {
   it.each([
-    ["a queued managed run", "queued_run"],
-    ["an active managed lock", "active_managed_lock"],
-    ["an active manual write", "manual_write"],
-    ["vault deletion", "deletion"],
-  ] as const)("rejects retry while %s is active", async (_label, blocker) => {
+    [
+      "an active managed lock",
+      "active_managed_lock",
+      "Another vault infrastructure operation is active.",
+    ],
+    ["an active manual write", "manual_write", "Another vault infrastructure operation is active."],
+    ["vault deletion", "deletion", "Vault deletion is in progress."],
+  ] as const)("rejects retry while %s is active", async (_label, blocker, message) => {
     const { ids, t } = await createRetryFixture(blocker);
 
     await expect(
-      t.mutation(internal.appProvisioningRuns.createForVault, {
+      t.mutation(internal.appProvisioningRuns.createRetryForVault, {
         userId: ids.userId,
         vaultId: ids.vaultId,
-        trigger: "retry",
       }),
-    ).rejects.toThrow("Another vault infrastructure operation is active.");
+    ).rejects.toThrow(message);
   });
 
   it("admits only one of two simultaneous retries", async () => {
@@ -150,35 +140,39 @@ describe("app provisioning retry admission", () => {
     const args = {
       userId: ids.userId,
       vaultId: ids.vaultId,
-      trigger: "retry" as const,
     };
 
     const results = await Promise.allSettled([
-      t.mutation(internal.appProvisioningRuns.createForVault, args),
-      t.mutation(internal.appProvisioningRuns.createForVault, args),
+      t.mutation(internal.appProvisioningRuns.createRetryForVault, args),
+      t.mutation(internal.appProvisioningRuns.createRetryForVault, args),
     ]);
 
     expect(results.map((result) => result.status).sort()).toEqual(["fulfilled", "rejected"]);
-    await expect(
-      t.run(async (ctx) =>
-        ctx.db
-          .query("workflow_vaultProvisioning_runs")
-          .withIndex("by_vault_and_state", (q) =>
-            q.eq("vaultId", ids.vaultId).eq("state", "queued"),
-          )
-          .collect(),
-      ),
-    ).resolves.toHaveLength(1);
+    const admitted = await t.run(async (ctx) => {
+      const queuedRuns = await ctx.db
+        .query("workflow_vaultProvisioning_runs")
+        .withIndex("by_vault_and_state", (q) => q.eq("vaultId", ids.vaultId).eq("state", "queued"))
+        .collect();
+      const writeLock = await ctx.db
+        .query("workflow_vaultProvisioning_writeLocks")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .unique();
+      return { queuedRuns, writeLock };
+    });
+    expect(admitted.queuedRuns).toHaveLength(1);
+    expect(admitted.writeLock).toMatchObject({
+      owner: { kind: "managed_run", runId: admitted.queuedRuns[0]?._id },
+      state: "active",
+    });
   });
 
   it("admits only one of a retry and vault deletion", async () => {
     const { ids, t } = await createRetryFixture("none");
 
     const results = await Promise.allSettled([
-      t.mutation(internal.appProvisioningRuns.createForVault, {
+      t.mutation(internal.appProvisioningRuns.createRetryForVault, {
         userId: ids.userId,
         vaultId: ids.vaultId,
-        trigger: "retry",
       }),
       t.mutation(internal.vault.deletion.runs.createInitialRun, {
         userId: ids.userId,

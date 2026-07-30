@@ -406,9 +406,7 @@ export const recordManualConnectedWorker = internalMutation({
   handler: async (ctx, args): Promise<Id<"vaultCloudflareWorkers">> => {
     await requireManualProviderWriteCheckpoint(ctx, {
       vaultId: args.vaultId,
-      userId: args.userId,
       actionId: args.actionId,
-      action: "connect_cloudflare_worker",
     });
     return await insertWorker(ctx, {
       vaultId: args.vaultId,
@@ -434,9 +432,7 @@ export const recordManualWorkerCreated = internalMutation({
   handler: async (ctx, args): Promise<Id<"vaultCloudflareWorkers">> => {
     await requireManualProviderWriteCheckpoint(ctx, {
       vaultId: args.vaultId,
-      userId: args.userId,
       actionId: args.actionId,
-      action: "create_cloudflare_worker",
     });
     return await insertWorker(ctx, {
       vaultId: args.vaultId,

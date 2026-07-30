@@ -6,7 +6,6 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
 import type { AppProvisioningStep } from "./appProvisioningModel";
-import { readVaultInfrastructureState } from "./vault/infrastructureOperation";
 import { isLiveConnectedVault } from "./vault/state";
 
 const workflow = new WorkflowManager(components.workflow);
@@ -218,12 +217,15 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
       throw new Error("Infrastructure provisioning plan not found for vault.");
     }
 
-    const now = Date.now();
-    const infrastructure = await readVaultInfrastructureState(ctx, vault);
+    const writeLock = await ctx.db
+      .query("workflow_vaultProvisioning_writeLocks")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .unique();
     if (
-      infrastructure.operation.kind !== "none" &&
-      (infrastructure.operation.kind !== "managed_run" ||
-        infrastructure.operation.runId !== args.runId)
+      !writeLock ||
+      writeLock.owner.kind !== "managed_run" ||
+      writeLock.owner.runId !== args.runId ||
+      writeLock.state !== "active"
     ) {
       await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
         runId: args.runId,
@@ -233,29 +235,6 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
         state: "canceled",
       });
       return { claimed: false };
-    }
-
-    const writeLock = infrastructure.providerWrite;
-    if (writeLock) {
-      await ctx.db.patch(writeLock._id, {
-        owner: {
-          kind: "managed_run",
-          runId: args.runId,
-        },
-        state: "active",
-        updatedAt: now,
-      });
-    } else {
-      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-        vaultId: args.vaultId,
-        owner: {
-          kind: "managed_run",
-          runId: args.runId,
-        },
-        state: "active",
-        lastWriteAt: {},
-        updatedAt: now,
-      });
     }
 
     await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {

@@ -348,6 +348,16 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       createdAt: now,
       updatedAt: now,
     });
+    await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+      vaultId,
+      owner: {
+        kind: "managed_run",
+        runId,
+      },
+      state: "active",
+      lastWriteAt: {},
+      updatedAt: now,
+    });
 
     // The run owns this GitHub attempt; later provider retries use their own runs.
     await ctx.db.patch(vaultId, {

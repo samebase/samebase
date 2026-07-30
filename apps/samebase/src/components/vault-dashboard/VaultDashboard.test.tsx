@@ -845,22 +845,9 @@ describe("VaultOverviewVaultPickerPane", () => {
 });
 
 describe("VaultOverviewPage", () => {
-  it("keeps repository content visible while provider setup runs", () => {
+  it("does not link an unconnected repository", () => {
     const vault = makeRepositorySettingsBuilderVault({
-      providerSetup: {
-        status: "running",
-        provider: "cloudflare",
-        runId: fakeRunId(),
-        step: "attach_worker",
-        updatedAt: 20,
-      },
-      providerWrite: {
-        status: "active",
-        owner: { kind: "managed_run", runId: fakeRunId() },
-        affectedProviders: ["convex", "cloudflare"],
-        updatedAt: 20,
-        lastWriteAt: {},
-      },
+      hasConnectedGitHubRepository: false,
     });
     const cloudflareObservations = makeLoadedCloudflareObservations({
       workers: [],
@@ -873,46 +860,6 @@ describe("VaultOverviewPage", () => {
       reload: () => {},
       observations: [],
     };
-    const settingsState = buildVaultRepositorySettingsState({
-      cloudflareObservations,
-      connectedCloudflareAccount: undefined,
-      convexObservations,
-      pendingAction: null,
-      vault,
-    });
-    const workspace = {
-      access: { state: "ready" as const, accessKeys: [] },
-      cloudflareConnection: { state: "loading" as const },
-      cloudflareObservations,
-      convexObservations,
-      environmentRoots: [],
-      githubRepositoryUrl: "https://github.com/ada/demo",
-      pullRequests: {
-        state: "current" as const,
-        defaultBranch: {
-          headCommitOid: "abcdef1234567890",
-          headCommitTitle: "Initial repository commit",
-          headCommitCommittedAt: "2026-07-29T10:00:00Z",
-          headCommitUrl: "https://github.com/ada/demo/commit/abcdef1234567890",
-          statusCheckRollup: null,
-          checks: {
-            state: "none" as const,
-            totalCount: 0,
-            successCount: 0,
-            failureCount: 0,
-            runningCount: 0,
-            neutralCount: 0,
-            unknownCount: 0,
-          },
-        },
-        refreshing: false,
-        allPullRequests: [],
-        resourcesStale: false,
-        resourcesByPullRequestId: new Map(),
-        loadMore: { state: "exhausted" as const },
-      },
-      vault,
-    };
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
         <VaultOverviewPage
@@ -922,44 +869,28 @@ describe("VaultOverviewPage", () => {
           onRetryInfrastructureProvisioning={() => {}}
           onRetryVaultDeletion={() => {}}
           page="overview"
-          settingsState={settingsState}
-          workspace={workspace}
-        />
-      </TestRouterProvider>,
-    );
-    const unconnectedMarkup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
-        <VaultOverviewPage
-          developerToolsVisible={false}
-          isRetryingVaultAction={false}
-          onOpenDeleteDialog={() => {}}
-          onRetryInfrastructureProvisioning={() => {}}
-          onRetryVaultDeletion={() => {}}
-          page="overview"
-          settingsState={settingsState}
+          settingsState={buildVaultRepositorySettingsState({
+            cloudflareObservations,
+            connectedCloudflareAccount: undefined,
+            convexObservations,
+            pendingAction: null,
+            vault,
+          })}
           workspace={{
-            ...workspace,
-            vault: {
-              ...vault,
-              hasConnectedGitHubRepository: false,
-              sourceSetup: {
-                status: "running",
-                runId: fakeRunId(),
-                step: "create_github_repo",
-                updatedAt: 20,
-              },
-            },
+            access: { state: "ready", accessKeys: [] },
+            cloudflareConnection: { state: "loading" },
+            cloudflareObservations,
+            convexObservations,
+            environmentRoots: [],
+            githubRepositoryUrl: "https://github.com/ada/demo",
+            pullRequests: { state: "not_requested" },
+            vault,
           }}
         />
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain("Setting up");
-    expect(markup).toContain("Initial repository commit");
-    expect(markup).toContain("Open pull requests");
-    expect(unconnectedMarkup).toContain("ada/");
-    expect(unconnectedMarkup).toContain("demo");
-    expect(unconnectedMarkup).not.toContain('href="https://github.com/ada/demo"');
+    expect(markup).not.toContain('href="https://github.com/ada/demo"');
   });
 
   it("keeps safe provider links during setup and provider checks", () => {
@@ -1895,9 +1826,7 @@ describe("buildVaultRepositorySettingsState", () => {
         },
         providerWrite: {
           status: "active",
-          owner: { kind: "managed_run", runId: fakeRunId() },
-          affectedProviders: ["convex", "cloudflare"],
-          updatedAt: 20,
+          owner: { kind: "managed_run" },
           lastWriteAt: {},
         },
       }),
@@ -1928,7 +1857,7 @@ describe("buildVaultRepositorySettingsState", () => {
     expect(state.addConvexProject.disabled).toBe(true);
   });
 
-  it("keeps planned targets after a managed retry fails before it claims the write", () => {
+  it("keeps planned targets after managed provider setup fails", () => {
     const state = buildVaultRepositorySettingsState({
       cloudflareObservations: makeLoadedCloudflareObservations({
         workers: [],
@@ -1961,8 +1890,8 @@ describe("buildVaultRepositorySettingsState", () => {
           status: "failed",
           provider: "convex",
           runId: fakeRunId(),
-          step: "claim_infra",
-          message: "Another operation already owns this vault.",
+          step: "attach_convex",
+          message: "Convex project setup failed.",
           updatedAt: 30,
         },
         providerWrite: { status: "idle", lastWriteAt: {} },
@@ -1974,13 +1903,13 @@ describe("buildVaultRepositorySettingsState", () => {
       rootDirectory: "apps/web",
       resources: [
         {
-          description: "Another operation already owns this vault.",
+          description: "Convex project setup failed.",
           name: "demo-convex",
           provider: "convex",
           state: "failed",
         },
         {
-          description: "Another operation already owns this vault.",
+          description: "Convex project setup failed.",
           name: "demo-worker",
           provider: "cloudflare",
           state: "failed",

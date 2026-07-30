@@ -90,10 +90,12 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
   const vaultId = vault?._id;
   const cloudflareLastWriteAt = vault?.providerWrite.lastWriteAt.cloudflare;
   const convexLastWriteAt = vault?.providerWrite.lastWriteAt.convex;
+  const providerWrite = vault?.providerWrite;
   const activeManualWrite =
-    vault?.providerWrite.status === "active" &&
-    vault.providerWrite.owner.kind === "manual_provider_write"
-      ? vault.providerWrite
+    providerWrite?.status === "active" &&
+    providerWrite.owner.kind === "manual_provider_write" &&
+    "affectedProviders" in providerWrite
+      ? providerWrite
       : null;
   const cloudflareWorkerIds = [...(vault?.cloudflareWorkers ?? [])]
     .map((worker) => worker.workerId)

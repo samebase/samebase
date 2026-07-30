@@ -13,8 +13,7 @@ import {
   type ManualProviderWriteAction,
 } from "../appProvisioningModel";
 import { toErrorMessage } from "../jsonUtils";
-import { readVaultDeletionState } from "./deletion/state";
-import { isConnectedVault, isLiveConnectedVault } from "./state";
+import { assertConnectedVault, isLiveConnectedVault } from "./state";
 
 type InfrastructureOperationReadCtx = Pick<QueryCtx, "db">;
 type ProviderWrite = Doc<"workflow_vaultProvisioning_writeLocks">;
@@ -46,10 +45,6 @@ export type VaultInfrastructureOperation =
   | {
       kind: "manual_provider_write";
       write: ManualProviderWrite;
-    }
-  | {
-      kind: "deletion";
-      state: "deleting" | "delete_failed";
     };
 
 export type VaultInfrastructureState = {
@@ -73,36 +68,6 @@ export function readManualProviderWriteProviders(action: ManualProviderWriteActi
   }
 }
 
-async function readActiveManagedRun(
-  ctx: InfrastructureOperationReadCtx,
-  vaultId: Id<"vaults">,
-): Promise<ProvisioningRun | null> {
-  const [queuedRun, runningRun] = await Promise.all([
-    ctx.db
-      .query("workflow_vaultProvisioning_runs")
-      .withIndex("by_vault_and_state", (q) => q.eq("vaultId", vaultId).eq("state", "queued"))
-      .filter((q) => q.or(q.eq(q.field("trigger"), "create"), q.eq(q.field("trigger"), "retry")))
-      .order("desc")
-      .first(),
-    ctx.db
-      .query("workflow_vaultProvisioning_runs")
-      .withIndex("by_vault_and_state", (q) => q.eq("vaultId", vaultId).eq("state", "running"))
-      .filter((q) => q.or(q.eq(q.field("trigger"), "create"), q.eq(q.field("trigger"), "retry")))
-      .order("desc")
-      .first(),
-  ]);
-  if (!queuedRun) {
-    return runningRun;
-  }
-  if (!runningRun) {
-    return queuedRun;
-  }
-  return runningRun.updatedAt > queuedRun.updatedAt ||
-    (runningRun.updatedAt === queuedRun.updatedAt && runningRun._id < queuedRun._id)
-    ? runningRun
-    : queuedRun;
-}
-
 /**
  * Reads the one vault-level operation that can change provider intent or
  * infrastructure. A provisioning plan is not an operation.
@@ -111,20 +76,10 @@ export async function readVaultInfrastructureState(
   ctx: InfrastructureOperationReadCtx,
   vault: Doc<"vaults">,
 ): Promise<VaultInfrastructureState> {
-  const [activeManagedRun, providerWrite] = await Promise.all([
-    readActiveManagedRun(ctx, vault._id),
-    ctx.db
-      .query("workflow_vaultProvisioning_writeLocks")
-      .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-      .unique(),
-  ]);
-  const deletion = readVaultDeletionState(vault);
-  if (deletion.state !== "not_deleting") {
-    return {
-      operation: { kind: "deletion", state: deletion.state },
-      providerWrite,
-    };
-  }
+  const providerWrite = await ctx.db
+    .query("workflow_vaultProvisioning_writeLocks")
+    .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+    .unique();
   if (providerWrite) {
     const owner = providerWrite.owner;
     if (owner.kind === "manual_provider_write" && providerWrite.state === "active") {
@@ -138,29 +93,13 @@ export async function readVaultInfrastructureState(
     }
   }
   if (providerWrite?.owner.kind === "managed_run" && providerWrite.state === "active") {
-    const run =
-      activeManagedRun?._id === providerWrite.owner.runId
-        ? activeManagedRun
-        : await ctx.db.get(providerWrite.owner.runId);
-    if (run && (run.trigger === "create" || run.trigger === "retry")) {
-      return {
-        operation: {
-          kind: "managed_run",
-          runId: providerWrite.owner.runId,
-          run,
-          updatedAt: run.updatedAt,
-        },
-        providerWrite,
-      };
-    }
-  }
-  if (activeManagedRun) {
+    const run = await ctx.db.get(providerWrite.owner.runId);
     return {
       operation: {
         kind: "managed_run",
-        runId: activeManagedRun._id,
-        run: activeManagedRun,
-        updatedAt: activeManagedRun.updatedAt,
+        runId: providerWrite.owner.runId,
+        run,
+        updatedAt: providerWrite.updatedAt,
       },
       providerWrite,
     };
@@ -177,14 +116,15 @@ export async function requireUserVaultInfrastructureIdle(
   args: { vaultId: Id<"vaults">; userId: Id<"users"> },
 ): Promise<Extract<Doc<"vaults">, { state: "connected" }>> {
   const vault = await ctx.db.get(args.vaultId);
-  if (!isConnectedVault(vault) || vault.userId !== args.userId) {
+  if (!vault || vault.state !== "connected" || vault.userId !== args.userId) {
     throw new Error("Vault not found.");
   }
-  const infrastructure = await readVaultInfrastructureState(ctx, vault);
+  const connectedVault = assertConnectedVault(vault);
+  const infrastructure = await readVaultInfrastructureState(ctx, connectedVault);
   if (infrastructure.operation.kind !== "none") {
     throw new Error("Another vault infrastructure operation is active.");
   }
-  return vault;
+  return connectedVault;
 }
 
 export async function recordManagedProviderWrite(
@@ -245,9 +185,7 @@ export function requireManualProviderActionDeadline(deadlineAt: number): void {
 
 type ManualProviderWriteOwnerArgs = {
   vaultId: Id<"vaults">;
-  userId: Id<"users">;
   actionId: string;
-  action: ManualProviderWriteAction;
 };
 
 async function requireManualProviderWriteOwner(
@@ -261,14 +199,13 @@ async function requireManualProviderWriteOwner(
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .unique(),
   ]);
-  if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+  if (!isLiveConnectedVault(vault)) {
     throw new Error("Vault not found.");
   }
   if (
     !write ||
     write.owner.kind !== "manual_provider_write" ||
-    write.owner.actionId !== args.actionId ||
-    write.owner.action !== args.action
+    write.owner.actionId !== args.actionId
   ) {
     throw new Error("Manual provider action no longer owns the vault write.");
   }
@@ -285,38 +222,7 @@ export async function requireManualProviderWriteCheckpoint(
   }
 }
 
-type FinishManualProviderWriteArgs = ManualProviderWriteOwnerArgs & {
-  completion: {
-    result: "succeeded" | "failed";
-  };
-};
-
-async function finishManualProviderWrite(
-  ctx: Pick<MutationCtx, "db">,
-  args: FinishManualProviderWriteArgs,
-): Promise<void> {
-  const write = await requireManualProviderWriteOwner(ctx, args);
-  if (write.state !== "active" || Date.now() >= write.owner.expiresAt) {
-    throw new Error("Manual provider action state changed before result was recorded.");
-  }
-
-  const now = Date.now();
-  const lastWriteAt = { ...write.lastWriteAt };
-  for (const provider of readManualProviderWriteProviders(args.action)) {
-    lastWriteAt[provider] = now;
-  }
-  await ctx.db.replace(write._id, {
-    vaultId: write.vaultId,
-    owner: write.owner,
-    state: args.completion.result,
-    lastWriteAt,
-    updatedAt: now,
-  });
-}
-
-const vManualProviderWriteCompletion = object({
-  result: union(literal("succeeded"), literal("failed")),
-});
+const vManualProviderWriteResult = union(literal("succeeded"), literal("failed"));
 
 export const claimManualProviderWrite = internalMutation({
   args: {
@@ -328,13 +234,14 @@ export const claimManualProviderWrite = internalMutation({
   returns: vManualProviderWriteClaim,
   handler: async (ctx, args): Promise<ManualProviderWriteClaim> => {
     const [vault, user] = await Promise.all([ctx.db.get(args.vaultId), ctx.db.get(args.userId)]);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+    if (!vault || vault.state !== "connected" || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
     }
+    const connectedVault = assertConnectedVault(vault);
     if (!user || user.accountDeletion !== undefined) {
       throw new Error("Account deletion is in progress.");
     }
-    const infrastructure = await readVaultInfrastructureState(ctx, vault);
+    const infrastructure = await readVaultInfrastructureState(ctx, connectedVault);
     if (infrastructure.operation.kind !== "none") {
       throw new Error("Another vault infrastructure operation is active.");
     }
@@ -380,14 +287,28 @@ export const claimManualProviderWrite = internalMutation({
 export const finishManualProviderWriteResult = internalMutation({
   args: {
     vaultId: id("vaults"),
-    userId: id("users"),
     actionId: string(),
-    action: vManualProviderWriteAction,
-    completion: vManualProviderWriteCompletion,
+    result: vManualProviderWriteResult,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await finishManualProviderWrite(ctx, args);
+    const write = await requireManualProviderWriteOwner(ctx, args);
+    if (write.state !== "active" || Date.now() >= write.owner.expiresAt) {
+      throw new Error("Manual provider action state changed before result was recorded.");
+    }
+
+    const now = Date.now();
+    const lastWriteAt = { ...write.lastWriteAt };
+    for (const provider of readManualProviderWriteProviders(write.owner.action)) {
+      lastWriteAt[provider] = now;
+    }
+    await ctx.db.replace(write._id, {
+      vaultId: write.vaultId,
+      owner: write.owner,
+      state: args.result,
+      lastWriteAt,
+      updatedAt: now,
+    });
     return null;
   },
 });
@@ -403,13 +324,12 @@ export async function attemptManualProviderWriteFailureRecord(
   try {
     await ctx.runMutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
       ...args,
-      completion: { result: "failed" },
+      result: "failed",
     });
   } catch (error) {
     console.warn("vault:manual_provider_write:failure_record_failed", {
       vaultId: args.vaultId,
       actionId: args.actionId,
-      action: args.action,
       message: toErrorMessage(error),
     });
   }

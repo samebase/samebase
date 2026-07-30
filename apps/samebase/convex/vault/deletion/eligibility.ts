@@ -61,11 +61,6 @@ export function resolveVaultDeletionEligibility(
         state: "blocked",
         reason: "A provider change is still running.",
       };
-    case "deletion":
-      return {
-        state: "blocked",
-        reason: "Vault deletion is already in progress.",
-      };
     default:
       infrastructure.operation satisfies never;
       throw new Error("Unknown vault infrastructure operation.");

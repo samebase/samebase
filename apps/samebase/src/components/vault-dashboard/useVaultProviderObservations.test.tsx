@@ -3,7 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { Id } from "../../../convex/_generated/dataModel";
 import { useVaultProviderObservations } from "./useVaultProviderObservations";
@@ -56,10 +56,6 @@ describe("useVaultProviderObservations", () => {
       action.mockReset();
       action.mockResolvedValue([]);
     }
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   it("settles empty provider collections without leaving disabled queries loading", async () => {
@@ -317,14 +313,8 @@ describe("useVaultProviderObservations", () => {
         convexProjects: [],
         providerWrite: {
           status: "active",
-          owner: {
-            kind: "manual_provider_write",
-            actionId: "manual-cloudflare-write",
-            action: "configure_workers_builds_for_github",
-            expiresAt: 300,
-          },
+          owner: { kind: "manual_provider_write" },
           affectedProviders: ["cloudflare"],
-          updatedAt: 200,
           lastWriteAt: {},
         },
       });
@@ -445,7 +435,7 @@ describe("useVaultProviderObservations", () => {
     }
   });
 
-  it("polls Cloudflare build status every 60 seconds while the vault remains mounted", async () => {
+  it("polls Cloudflare build status while the selected vault remains mounted", async () => {
     vi.useFakeTimers();
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },

@@ -3,7 +3,7 @@ import { v, type Infer } from "convex/values";
 import { vVaultDeletionStep } from "../deletion/model";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 import { vConvexCodeLocation } from "./convexAttachments";
-import { vManualProviderWriteAction, vVaultProviderWriteTimes } from "../../appProvisioningModel";
+import { vVaultProviderWriteTimes } from "../../appProvisioningModel";
 
 const { array, boolean, id, literal, null: nullValue, number, object, optional, string, union } = v;
 
@@ -120,18 +120,12 @@ export const vManagedProviderPlan = union(
   }),
 );
 
-const vProviderWriteOwner = union(
-  object({
-    kind: literal("managed_run"),
-    runId: id("workflow_vaultProvisioning_runs"),
-  }),
-  object({
-    kind: literal("manual_provider_write"),
-    actionId: string(),
-    action: vManualProviderWriteAction,
-    expiresAt: number(),
-  }),
-);
+const vManagedProviderWriteOwner = object({
+  kind: literal("managed_run"),
+});
+const vManualProviderWriteOwner = object({
+  kind: literal("manual_provider_write"),
+});
 const vProviderWriteProviders = array(providerSetupProvider);
 
 export const vProviderWriteSummary = union(
@@ -141,9 +135,13 @@ export const vProviderWriteSummary = union(
   }),
   object({
     status: literal("active"),
-    owner: vProviderWriteOwner,
+    owner: vManagedProviderWriteOwner,
+    lastWriteAt: vVaultProviderWriteTimes,
+  }),
+  object({
+    status: literal("active"),
+    owner: vManualProviderWriteOwner,
     affectedProviders: vProviderWriteProviders,
-    updatedAt: number(),
     lastWriteAt: vVaultProviderWriteTimes,
   }),
 );

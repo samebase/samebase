@@ -456,72 +456,14 @@ JSON Schema for the tool's `structuredContent`:
                     "const": "active"
                   },
                   "owner": {
-                    "anyOf": [
-                      {
-                        "type": "object",
-                        "properties": {
-                          "kind": {
-                            "const": "managed_run"
-                          },
-                          "runId": {
-                            "type": "string"
-                          }
-                        },
-                        "required": ["kind", "runId"],
-                        "additionalProperties": false
-                      },
-                      {
-                        "type": "object",
-                        "properties": {
-                          "kind": {
-                            "const": "manual_provider_write"
-                          },
-                          "actionId": {
-                            "type": "string"
-                          },
-                          "action": {
-                            "anyOf": [
-                              {
-                                "const": "create_convex_project"
-                              },
-                              {
-                                "const": "connect_cloudflare_worker"
-                              },
-                              {
-                                "const": "create_cloudflare_worker"
-                              },
-                              {
-                                "const": "configure_workers_builds_for_github"
-                              },
-                              {
-                                "const": "rotate_convex_deploy_keys_for_workers_builds"
-                              }
-                            ]
-                          },
-                          "expiresAt": {
-                            "type": "number"
-                          }
-                        },
-                        "required": ["kind", "actionId", "action", "expiresAt"],
-                        "additionalProperties": false
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "managed_run"
                       }
-                    ]
-                  },
-                  "affectedProviders": {
-                    "type": "array",
-                    "items": {
-                      "anyOf": [
-                        {
-                          "const": "convex"
-                        },
-                        {
-                          "const": "cloudflare"
-                        }
-                      ]
-                    }
-                  },
-                  "updatedAt": {
-                    "type": "number"
+                    },
+                    "required": ["kind"],
+                    "additionalProperties": false
                   },
                   "lastWriteAt": {
                     "type": "object",
@@ -536,7 +478,52 @@ JSON Schema for the tool's `structuredContent`:
                     "additionalProperties": false
                   }
                 },
-                "required": ["status", "owner", "affectedProviders", "updatedAt", "lastWriteAt"],
+                "required": ["status", "owner", "lastWriteAt"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "const": "active"
+                  },
+                  "owner": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "manual_provider_write"
+                      }
+                    },
+                    "required": ["kind"],
+                    "additionalProperties": false
+                  },
+                  "affectedProviders": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "const": "convex"
+                        },
+                        {
+                          "const": "cloudflare"
+                        }
+                      ]
+                    }
+                  },
+                  "lastWriteAt": {
+                    "type": "object",
+                    "properties": {
+                      "convex": {
+                        "type": "number"
+                      },
+                      "cloudflare": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["status", "owner", "affectedProviders", "lastWriteAt"],
                 "additionalProperties": false
               }
             ]

@@ -464,10 +464,8 @@ async function createProjectForUser(
     }
     await ctx.runMutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
       vaultId: args.vaultId,
-      userId: args.userId,
       actionId,
-      action: "create_convex_project",
-      completion: { result: "succeeded" },
+      result: "succeeded",
     });
     return convexProjectId;
   } catch (error) {
@@ -479,9 +477,7 @@ async function createProjectForUser(
         : error;
     await attemptManualProviderWriteFailureRecord(ctx, {
       vaultId: args.vaultId,
-      userId: args.userId,
       actionId,
-      action: "create_convex_project",
     });
     throw reportedError;
   }

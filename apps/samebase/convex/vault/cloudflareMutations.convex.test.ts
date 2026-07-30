@@ -314,10 +314,8 @@ describe("vault Cloudflare Worker attachment mutations", () => {
     );
     await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
       vaultId: ids.primaryVaultId,
-      userId: ids.userId,
       actionId: "connect-worker",
-      action: "connect_cloudflare_worker",
-      completion: { result: "failed" },
+      result: "failed",
     });
 
     await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {

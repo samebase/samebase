@@ -5,7 +5,6 @@ import type { Id } from "./_generated/dataModel";
 import {
   vAppProvisioningEventLevel,
   vAppProvisioningRunState,
-  vAppProvisioningRunTrigger,
   vAppProvisioningStep,
 } from "./appProvisioningModel";
 import { readVaultInfrastructureState } from "./vault/infrastructureOperation";
@@ -54,11 +53,10 @@ export const getById = internalQuery({
   },
 });
 
-export const createForVault = internalMutation({
+export const createRetryForVault = internalMutation({
   args: {
     userId: id("users"),
     vaultId: id("vaults"),
-    trigger: vAppProvisioningRunTrigger,
   },
   returns: id("workflow_vaultProvisioning_runs"),
   handler: async (ctx, args) => {
@@ -70,25 +68,44 @@ export const createForVault = internalMutation({
     if (!user || user.accountDeletion !== undefined) {
       throw new Error("App provisioning is unavailable during account deletion.");
     }
-    if (args.trigger === "retry") {
-      const infrastructure = await readVaultInfrastructureState(ctx, vault);
-      if (infrastructure.operation.kind !== "none") {
-        throw new Error("Another vault infrastructure operation is active.");
-      }
-    }
     const connectedVault = assertConnectedVault(vault);
-
+    const infrastructure = await readVaultInfrastructureState(ctx, connectedVault);
+    if (infrastructure.operation.kind !== "none") {
+      throw new Error("Another vault infrastructure operation is active.");
+    }
     const now = Date.now();
-    return await ctx.db.insert("workflow_vaultProvisioning_runs", {
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId: args.userId,
       vaultId: args.vaultId,
       repositoryFullName: `${connectedVault.owner}/${connectedVault.name}`,
-      trigger: args.trigger,
+      trigger: "retry",
       state: "queued",
       currentStep: "run_created",
       createdAt: now,
       updatedAt: now,
     });
+    const owner = {
+      kind: "managed_run" as const,
+      runId,
+    };
+    if (infrastructure.providerWrite) {
+      await ctx.db.replace(infrastructure.providerWrite._id, {
+        vaultId: args.vaultId,
+        owner,
+        state: "active",
+        lastWriteAt: infrastructure.providerWrite.lastWriteAt,
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+        vaultId: args.vaultId,
+        owner,
+        state: "active",
+        lastWriteAt: {},
+        updatedAt: now,
+      });
+    }
+    return runId;
   },
 });
 

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
-type ActiveOperation = "queued_run" | "active_managed_lock" | "deletion";
+type ActiveOperation = "active_managed_lock" | "deletion";
 
 async function createGuardedAttachmentFixture(operation: ActiveOperation) {
   const t = makeConvexTest();
@@ -60,18 +60,6 @@ async function createGuardedAttachmentFixture(operation: ActiveOperation) {
     });
 
     switch (operation) {
-      case "queued_run":
-        await ctx.db.insert("workflow_vaultProvisioning_runs", {
-          userId,
-          vaultId,
-          repositoryFullName: "ada/guarded-attachments",
-          trigger: "retry",
-          state: "queued",
-          currentStep: "run_created",
-          createdAt: 10,
-          updatedAt: 10,
-        });
-        break;
       case "active_managed_lock":
         {
           const managedRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
@@ -140,13 +128,15 @@ async function createGuardedAttachmentFixture(operation: ActiveOperation) {
 }
 
 describe.each([
-  ["a queued managed run", "queued_run"],
-  ["an active managed lock", "active_managed_lock"],
-  ["vault deletion", "deletion"],
-] as const)("provider attachment guards with %s", (_label, operation) => {
+  [
+    "an active managed lock",
+    "active_managed_lock",
+    "Another vault infrastructure operation is active.",
+  ],
+  ["vault deletion", "deletion", "Vault deletion is in progress."],
+] as const)("provider attachment guards with %s", (_label, operation, expectedError) => {
   it("rejects all Convex and Cloudflare attachment changes", async () => {
     const { ids, t } = await createGuardedAttachmentFixture(operation);
-    const expectedError = "Another vault infrastructure operation is active.";
 
     await expect(
       t.mutation(internal.vault.convexMutations.attachProjects, {

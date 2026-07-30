@@ -957,9 +957,7 @@ function VaultOverviewProviderSettingsFixture({
         },
         providerWrite: {
           status: "active",
-          owner: { kind: "managed_run", runId: PROVISIONING_RUN_ID },
-          affectedProviders: ["convex", "cloudflare"],
-          updatedAt: FIXTURE_NOW,
+          owner: { kind: "managed_run" },
           lastWriteAt: {},
         },
         deletion: {

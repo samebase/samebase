@@ -857,10 +857,9 @@ export async function retryInfrastructureProvisioningForUser(
   if (!isLiveConnectedVault(vault) || !isSamebaseManagedVault(vault)) {
     throw new Error("Infrastructure retry is available only for live Samebase-managed vaults");
   }
-  const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+  const runId = await ctx.runMutation(internal.appProvisioningRuns.createRetryForVault, {
     userId,
     vaultId: args.vaultId,
-    trigger: "retry",
   });
   await startVaultInfrastructureProvisioningOrFail(ctx, {
     vaultId: args.vaultId,

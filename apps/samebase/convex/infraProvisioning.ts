@@ -362,17 +362,33 @@ async function readVaultProvisioningWriteLock(
     .first();
 }
 
-function runHoldsProvisioningWriteLock(
-  writeLock: VaultProvisioningWriteLock | null,
+async function markMatchingManagedWriteLockFailed(
+  ctx: ProvisioningWriteLockCtx,
   args: {
+    vaultId: Id<"vaults">;
     runId: Id<"workflow_vaultProvisioning_runs">;
+    now: number;
+    invalidateProviderFreshness: boolean;
   },
-): boolean {
-  return (
-    writeLock?.owner.kind === "managed_run" &&
-    writeLock.owner.runId === args.runId &&
-    writeLock.state === "active"
-  );
+): Promise<boolean> {
+  const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
+  if (
+    !writeLock ||
+    writeLock.owner.kind !== "managed_run" ||
+    writeLock.owner.runId !== args.runId ||
+    writeLock.state !== "active"
+  ) {
+    return false;
+  }
+
+  await ctx.db.patch(writeLock._id, {
+    state: "failed",
+    lastWriteAt: args.invalidateProviderFreshness
+      ? { convex: args.now, cloudflare: args.now }
+      : writeLock.lastWriteAt,
+    updatedAt: args.now,
+  });
+  return true;
 }
 
 async function cancelSupersededProvisioningRun(
@@ -386,7 +402,7 @@ async function cancelSupersededProvisioningRun(
     runId: args.runId,
     step: args.step,
     level: "warn",
-    message: "Infrastructure provisioning was superseded by a newer run.",
+    message: "A newer run replaced this infrastructure provisioning run.",
     state: "canceled",
   });
 }
@@ -492,6 +508,12 @@ export const markWorkflowStartupFailed = internalMutation({
         runId: args.runId,
       });
     }
+    await markMatchingManagedWriteLockFailed(ctx, {
+      vaultId: run.vaultId,
+      runId: args.runId,
+      now,
+      invalidateProviderFreshness: false,
+    });
 
     await recordWorkflowRunFailure(ctx, {
       eventStep,
@@ -671,6 +693,12 @@ export const markWorkflowProvisioningFailed = internalMutation({
       await ctx.runMutation(internal.vault.records.markGithubProvisioningFailed, {
         runId: args.runId,
       });
+      await markMatchingManagedWriteLockFailed(ctx, {
+        vaultId,
+        runId: args.runId,
+        now,
+        invalidateProviderFreshness: false,
+      });
       await recordWorkflowRunFailure(ctx, {
         eventStep,
         now,
@@ -699,6 +727,12 @@ export const markWorkflowProvisioningFailed = internalMutation({
       sourceSetupFailureLogName = "app:provision:failed";
     }
     if (sourceSetupFailureLogName) {
+      await markMatchingManagedWriteLockFailed(ctx, {
+        vaultId,
+        runId: args.runId,
+        now,
+        invalidateProviderFreshness: false,
+      });
       await recordWorkflowRunFailure(ctx, {
         eventStep,
         now,
@@ -714,12 +748,13 @@ export const markWorkflowProvisioningFailed = internalMutation({
       return null;
     }
 
-    const writeLock = await readVaultProvisioningWriteLock(ctx, vaultId);
-    const holdsProvisioningWriteLock = runHoldsProvisioningWriteLock(writeLock, {
+    const markedWriteLockFailed = await markMatchingManagedWriteLockFailed(ctx, {
+      vaultId,
       runId: args.runId,
+      now,
+      invalidateProviderFreshness: true,
     });
-    const failedBeforeLockAcquisition = run.currentStep === "run_created";
-    if (!holdsProvisioningWriteLock && !failedBeforeLockAcquisition) {
+    if (!markedWriteLockFailed) {
       await cancelSupersededProvisioningRun(ctx, {
         runId: args.runId,
         step: eventStep,
@@ -727,13 +762,6 @@ export const markWorkflowProvisioningFailed = internalMutation({
       return null;
     }
 
-    if (holdsProvisioningWriteLock && writeLock) {
-      await ctx.db.patch(writeLock._id, {
-        state: "failed",
-        lastWriteAt: { convex: now, cloudflare: now },
-        updatedAt: now,
-      });
-    }
     await recordWorkflowRunFailure(ctx, {
       eventStep,
       now,

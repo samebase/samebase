@@ -51,6 +51,26 @@ describe("vault records Convex contract", () => {
         },
       ]),
     );
+    await expect(
+      t.run(async (ctx) => {
+        return await ctx.db
+          .query("workflow_vaultProvisioning_writeLocks")
+          .withIndex("by_vault", (q) => q.eq("vaultId", samebaseManaged.vaultId))
+          .unique();
+      }),
+    ).resolves.toMatchObject({
+      owner: { kind: "managed_run", runId: samebaseManaged.runId },
+      state: "active",
+      lastWriteAt: {},
+    });
+    await expect(
+      t.run(async (ctx) => {
+        return await ctx.db
+          .query("workflow_vaultProvisioning_writeLocks")
+          .withIndex("by_vault", (q) => q.eq("vaultId", existingRepository.vaultId))
+          .unique();
+      }),
+    ).resolves.toBeNull();
   });
 
   it("rejects case-insensitive duplicate Samebase-managed repository targets", async () => {

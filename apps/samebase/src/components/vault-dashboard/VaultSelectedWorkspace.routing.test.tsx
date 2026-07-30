@@ -46,13 +46,6 @@ vi.mock("./VaultCloudflareDialog", () => ({
       <button aria-label="Close provider dialog" onClick={onClose} type="button">
         Close
       </button>
-      <button
-        aria-label="Confirm Cloudflare action"
-        disabled={Boolean(blockedReason)}
-        type="button"
-      >
-        Add Cloudflare Worker
-      </button>
     </div>
   ),
 }));
@@ -183,7 +176,7 @@ describe("VaultSelectedWorkspace dialog route", () => {
     });
   }
 
-  it("keeps a blocked provider dialog open and disables its confirmation", async () => {
+  it("keeps a blocked provider dialog open with its route state", async () => {
     const vault = makeVault({
       providerSetup: {
         status: "running",
@@ -194,9 +187,7 @@ describe("VaultSelectedWorkspace dialog route", () => {
       },
       providerWrite: {
         status: "active",
-        owner: { kind: "managed_run", runId: fakeRunId() },
-        affectedProviders: ["convex", "cloudflare"],
-        updatedAt: 20,
+        owner: { kind: "managed_run" },
         lastWriteAt: {},
       },
     });
@@ -210,10 +201,6 @@ describe("VaultSelectedWorkspace dialog route", () => {
 
     expect(element.querySelector('[role="dialog"]')).not.toBeNull();
     expect(element.textContent).toContain("A provider operation is in progress.");
-    expect(
-      element.querySelector<HTMLButtonElement>('button[aria-label="Confirm Cloudflare action"]')
-        ?.disabled,
-    ).toBe(true);
     const href =
       element.querySelector('[data-testid="router-location"]')?.getAttribute("data-href") ?? "";
     expect(href).toContain("add-cloudflare");

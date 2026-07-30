@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase
-- Last updated: 2026-07-29
+- Last updated: 2026-07-30
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`
@@ -76,8 +76,9 @@ uses this precedence for one resource row:
 
 1. Show the attachment when it exists.
 2. Add current provider observations only to that attachment row.
-3. If no attachment exists, show the matching plan item while a managed provider run is active or
-   after that managed provider run fails.
+3. If no attachment exists, show the matching plan item while a managed provider run is active.
+   Continue to show it after that run fails. Stop showing it when a user or agent starts a later
+   manual provider action.
 4. Show the empty state only when no attachment and no applicable plan item exist.
 
 An attachment replaces its plan item. A canceled run does not keep a plan-only row visible. A plan
@@ -90,11 +91,10 @@ returns. During `Checking`, the older observation cannot create attention or rep
 new result becomes current, including a provider read failure. This is one bounded read, not
 continuous polling.
 
-An active manual provider write suppresses conflicting attachment and repair actions. Success,
-error, or fenced expiry ends that block. Expiry advances the affected provider write times before
-the dashboard derives a next action. After the fresh observation returns, the dashboard uses the
-normal attachment or repair action for that observed state. Provider observations do not carry a
-manual replay state.
+The shared operation contract in spec 003 suppresses conflicting attachment and repair actions. When
+an operation ends and its provider write time changes, the `Checking` rule above applies. After the
+fresh observation returns, the dashboard uses the normal attachment or repair action for that
+observed state. Provider observations do not carry a manual replay state.
 
 The dashboard derives a resource tree at read time:
 
@@ -206,8 +206,9 @@ provider observation, or active operation.
   read-only observed Worker roots, default Worker selection, Worker-referenced Convex ordering,
   exact build access targets, exact root grouping, `Needs attention`, and project-attachment Data
   and Schema routes.
-- Projection tests cover plan-only rows, attachment replacement, observation decoration, canceled
-  plans, readable labels, empty states, and the rule that observations never create rows.
+- Projection tests cover plan-only rows, manual supersession of a managed failure, attachment
+  replacement, observation decoration, canceled plans, readable labels, empty states, and the rule
+  that observations never create rows.
 - Freshness tests cover a client that missed the active write, an observation that finishes during a
   write, independent provider times, `Checking`, and a failed fresh read.
 

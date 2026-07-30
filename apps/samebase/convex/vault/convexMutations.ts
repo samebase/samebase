@@ -319,9 +319,7 @@ export const recordManualProjectCreated = internalMutation({
   handler: async (ctx, args): Promise<Id<"vaultConvexProjects">> => {
     await requireManualProviderWriteCheckpoint(ctx, {
       vaultId: args.vaultId,
-      userId: args.userId,
       actionId: args.actionId,
-      action: "create_convex_project",
     });
     return await insertProject(ctx, {
       vaultId: args.vaultId,

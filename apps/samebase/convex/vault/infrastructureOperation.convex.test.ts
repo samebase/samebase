@@ -89,49 +89,6 @@ describe("vault infrastructure operation reads", () => {
     expect(infrastructure.operation).toEqual({ kind: "none" });
   });
 
-  it("selects one equal-time managed run deterministically", async () => {
-    const { ids, t } = await createConnectedVault();
-    const runIds = await t.run(async (ctx) => {
-      const queuedRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/manual-provider-write",
-        trigger: "create",
-        state: "queued",
-        currentStep: "run_created",
-        createdAt: 30,
-        updatedAt: 40,
-      });
-      const runningRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/manual-provider-write",
-        trigger: "retry",
-        state: "running",
-        currentStep: "claim_infra",
-        createdAt: 31,
-        updatedAt: 40,
-      });
-      return { queuedRunId, runningRunId };
-    });
-
-    const infrastructure = await t.run(async (ctx) => {
-      const vault = await ctx.db.get(ids.vaultId);
-      if (!vault || vault.state !== "connected") {
-        throw new Error("Connected vault fixture is missing.");
-      }
-      return await readVaultInfrastructureState(ctx, vault);
-    });
-    const expectedRunId =
-      runIds.runningRunId < runIds.queuedRunId ? runIds.runningRunId : runIds.queuedRunId;
-
-    expect(infrastructure.operation).toMatchObject({
-      kind: "managed_run",
-      runId: expectedRunId,
-      updatedAt: 40,
-    });
-  });
-
   it("blocks only while a manual provider write is active", async () => {
     const { ids, t } = await createConnectedVault();
     await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
@@ -152,10 +109,8 @@ describe("vault infrastructure operation reads", () => {
 
     await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
       vaultId: ids.vaultId,
-      userId: ids.userId,
       actionId: "manual-action",
-      action: "create_convex_project",
-      completion: { result: "failed" },
+      result: "failed",
     });
 
     const terminal = await t.run(async (ctx) => {
@@ -262,10 +217,8 @@ describe("manual provider write ownership", () => {
       });
       await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
         vaultId: ids.vaultId,
-        userId: ids.userId,
         actionId: "old-action",
-        action: "create_convex_project",
-        completion: { result: "succeeded" },
+        result: "succeeded",
       });
 
       vi.setSystemTime(2_000);
@@ -279,10 +232,8 @@ describe("manual provider write ownership", () => {
       await expect(
         t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
           vaultId: ids.vaultId,
-          userId: ids.userId,
           actionId: "old-action",
-          action: "create_convex_project",
-          completion: { result: "failed" },
+          result: "failed",
         }),
       ).rejects.toThrow("Manual provider action no longer owns the vault write.");
       await expect(readProviderWrite(t, ids.vaultId)).resolves.toMatchObject({
@@ -314,9 +265,7 @@ describe("manual provider write ownership", () => {
         t.run(async (ctx) => {
           await requireManualProviderWriteCheckpoint(ctx, {
             vaultId: ids.vaultId,
-            userId: ids.userId,
             actionId: "timed-out-action",
-            action: "create_convex_project",
           });
           return true;
         }),
@@ -324,10 +273,8 @@ describe("manual provider write ownership", () => {
 
       await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
         vaultId: ids.vaultId,
-        userId: ids.userId,
         actionId: "timed-out-action",
-        action: "create_convex_project",
-        completion: { result: "succeeded" },
+        result: "succeeded",
       });
       await expect(readProviderWrite(t, ids.vaultId)).resolves.toMatchObject({
         state: "succeeded",
@@ -361,10 +308,8 @@ describe("manual provider write ownership", () => {
       await expect(
         t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
           vaultId: ids.vaultId,
-          userId: ids.userId,
           actionId: "silent-action",
-          action: "create_convex_project",
-          completion: { result: "succeeded" },
+          result: "succeeded",
         }),
       ).rejects.toThrow("Manual provider action state changed before result was recorded.");
       await t.mutation(internal.vault.infrastructureOperation.expireManualProviderWrite, {
@@ -394,10 +339,8 @@ describe("manual provider write ownership", () => {
       });
       await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
         vaultId: ids.vaultId,
-        userId: ids.userId,
         actionId: "old-action",
-        action: "create_convex_project",
-        completion: { result: "succeeded" },
+        result: "succeeded",
       });
 
       vi.setSystemTime(2_000);
@@ -445,10 +388,8 @@ describe("manual provider write ownership", () => {
       });
       await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
         vaultId: ids.vaultId,
-        userId: ids.userId,
         actionId: "convex-action",
-        action: "create_convex_project",
-        completion: { result: "succeeded" },
+        result: "succeeded",
       });
 
       vi.setSystemTime(200);
@@ -460,10 +401,8 @@ describe("manual provider write ownership", () => {
       });
       await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
         vaultId: ids.vaultId,
-        userId: ids.userId,
         actionId: "cloudflare-action",
-        action: "create_cloudflare_worker",
-        completion: { result: "failed" },
+        result: "failed",
       });
 
       await expect(readProviderWrite(t, ids.vaultId)).resolves.toMatchObject({
@@ -489,10 +428,8 @@ describe("manual provider write ownership", () => {
     try {
       await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
         vaultId: ids.vaultId,
-        userId: ids.userId,
         actionId: "key-rotation",
-        action: "rotate_convex_deploy_keys_for_workers_builds",
-        completion: { result: "succeeded" },
+        result: "succeeded",
       });
       await expect(readProviderWrite(t, ids.vaultId)).resolves.toMatchObject({
         state: "succeeded",

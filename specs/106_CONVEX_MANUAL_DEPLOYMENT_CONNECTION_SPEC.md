@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase provider resources, vault dashboard
-- Last updated: 2026-07-29
+- Last updated: 2026-07-30
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/103_CONVEX_API_VALIDATION_SPEC.md`
@@ -110,25 +110,14 @@ project by config root and never choose the first project at a shared path.
 
 ### Operation safety
 
-Attaching projects, changing a code location, reconciling a team, and detaching a project are
-database-only attachment changes. Each mutation checks the shared vault infrastructure state and
-changes the attachment in the same transaction.
+Convex attachment mutations use the shared exclusion check in spec 003. Convex provider actions use
+the claim, expiry, no-replay, and freshness rules in spec 003. Creating a Convex project affects
+only Convex observations.
 
-Creating a Convex project is an external provider write. It claims the durable manual provider owner
-before its first provider call. Normal success or error makes the owner terminal and ends the block.
-A late action or a different action ID cannot record the result.
-
-One fenced expiry handles a silent create. It marks only the matching active action failed and
-advances `lastWriteAt.convex`. It does not call Convex, repeat the create request, or store a replay
-target.
-
-After expiry, the user or agent uses the normal Convex discovery. If the project was created but its
-attachment was not recorded, discovery shows it as an existing project. The user can attach it with
-the normal existing-project action. Samebase does not adopt it automatically. If the project does
-not exist, the user can use the normal create action again.
-
-A known create result or expiry updates `lastWriteAt.convex` so the dashboard cannot reuse an
-observation from before the action.
+After a failed or silent create, Samebase gets a fresh Convex observation. If the project was
+created but its attachment was not recorded, normal discovery shows it as an existing project. The
+user can attach it with the normal existing-project action. Samebase does not adopt it
+automatically. If the project does not exist, the user can use the normal create action again.
 
 ## Non-Goals
 
@@ -146,9 +135,8 @@ observation from before the action.
 - Mutation tests cover atomic batches, global `projectId` uniqueness, shared code locations,
   idempotency, origin upgrade, code-location compare-and-swap, and team compare-and-swap.
 - Provider tests cover transfers, inaccessible projects, stale markers, and writes that fail closed.
-- Operation tests cover the same-transaction attachment gate, durable create claims, one fenced
-  expiry, stale completion rejection, normal existing-project attachment after expiry, and
-  Convex-only write times.
+- Operation tests cover the Convex-only action mapping and normal existing-project attachment after
+  a failed or silent create.
 - UI and route tests cover multi-selection, Worker-reference ordering without automatic selection,
   closed code-location selectors, moved code, shared roots, team reconciliation, explicit removal,
   and attachment-ID Data and Schema routes.

@@ -5,7 +5,7 @@
 - Status: Accepted and implemented
 - Owner: Samebase app creation, existing repository onboarding, and vault model
 - Created: 2026-05-07
-- Last updated: 2026-07-29
+- Last updated: 2026-07-30
 - Related docs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
@@ -511,6 +511,11 @@ primary labels. While the managed provider run is active, each target shows `Set
 not show an empty, attention, or manual repair state. Spec 115 defines the exact plan, attachment,
 and observation row precedence.
 
+The transaction that creates a new-app or managed retry run also creates its active managed provider
+lock. The lock covers source setup and provider setup. A source setup failure marks the matching
+lock failed without changing provider freshness. A `connect_existing_repository` run is source-only
+and never creates or owns the provider lock.
+
 Overview and Settings remain available during setup. Before GitHub connects, Overview shows source
 setup. After GitHub connects, Overview shows the normal repository content, including the default
 branch and pull requests, with a small `Setting up` status for provider work. Provider setup must
@@ -615,6 +620,9 @@ Backend:
 19. GitHub retry creates a new run and replaces the failed state's `runId`
 20. when existing-repo onboarding ships, connection writes connected existing-repository GitHub
     state
+21. create and managed retry runs own the provider lock from their creation transaction
+22. `connect_existing_repository` runs never own the provider lock
+23. source setup failure ends the matching managed lock without changing provider freshness
 
 Frontend:
 
