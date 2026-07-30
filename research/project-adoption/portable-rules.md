@@ -60,8 +60,20 @@ Passing one capability does not prove the others.
 ## Select One Toolchain Owner
 
 For the Samebase-aligned application toolchain, Vite Plus owns development, bundling, lint,
-formatting, tests, and package-task execution. Oxlint and Oxfmt are reached through Vite Plus. Test
-code imports the Vite Plus test API.
+formatting, and tests. Oxlint and Oxfmt are reached through Vite Plus. Test code imports the Vite
+Plus test API. Use `vp run` for post-install package-task execution in newly aligned application
+scripts.
+
+Do not assume that `vp run` can own the first process in a clean checkout. It loads the project
+configuration before it selects a task. When that configuration imports packages from
+`node_modules`, use the declared package manager to start one small Node TypeScript bootstrap. Let
+that bootstrap install the frozen graph through Vite Plus, then use Vite Plus for later application
+tools and tasks. Name and document this exception. Prove it from committed `HEAD` with no installed
+dependencies.
+
+The current Samebase monorepo still mixes `vp run` and pnpm task dispatch. Treat that as a separate
+normalization candidate, not as evidence that a target must copy the mixture and not as a reason to
+expand a focused lint or framework correction into a monorepo-wide script rewrite.
 
 Treat the package manager as a separate decision. An existing npm project can adopt Vite Plus
 without moving to pnpm. Keep the committed lockfile and package-manager behavior when that is an
@@ -109,6 +121,10 @@ and normal `.ts` files for handwritten scripts, tests, and supported configurati
 directly with Node. Use explicit `.ts` extensions for relative imports and keep syntax compatible
 with Node type stripping.
 
+Treat an authored `.js`, `.mjs`, or `.cjs` file as a review smell. Keep one only when a named tool
+or runtime cannot consume normal TypeScript, and document that exact boundary. Generated output and
+required shipped browser artifacts can be valid exceptions.
+
 Type-check the Node automation, tests, and configuration. An application TypeScript configuration
 that includes only `src` does not prove those files. Use a separate strict Node configuration when
 the browser and Node module-resolution rules differ.
@@ -120,8 +136,9 @@ static checking.
 Do not add a repository-wide extension scanner only to prove that authored files use TypeScript.
 Keep authored code inside explicit TypeScript configurations, make the normal checks execute those
 configurations, and use narrow structural tests for generated artifacts or named runtime boundaries.
-The toolchain contract should reject competing runner entry points. Code review and TypeScript
-inclusion should enforce the source language.
+Treat a competing runner entry point as a review smell that needs an explicit reason. Do not add a
+repository scanner only to enforce the selected tool name. Code review and TypeScript inclusion
+should enforce the source language.
 
 If a tool cannot load its TypeScript configuration under the selected runtime, record the exact tool
 boundary before adding a loader or an exception. Do not copy a legacy extension only because the

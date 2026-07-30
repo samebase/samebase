@@ -107,7 +107,7 @@ The first read-only inventory found:
 | Linked-worktree acceptance       | two real setup, browser, service, and cleanup cycles            | isolated committed-head proof          | complete                      |
 | Framework-neutral behavior tests | HTTP, data-auth, cache, Worker, and browser suites pass         | required before migration              | complete                      |
 | Authored Node source model       | Node 24, ESM, `.ts`, and strict Node type check                 | Samebase-aligned TypeScript            | complete                      |
-| Application toolchain            | direct Vite, ESLint, Prettier, and Vitest retained              | Vite Plus, Oxlint, Oxfmt, and VP tests | correction in progress        |
+| Application toolchain            | Vite Plus owns tools after the npm clean-root bootstrap         | Vite Plus, Oxlint, Oxfmt, and VP tests | complete                      |
 | Branch build                     | Cloudflare non-default-branch trigger                           | retain                                 | complete                      |
 | Worker version upload            | `deploy:preview` uploads without production traffic             | retain                                 | complete                      |
 | Public pull request preview      | stable branch URL with a fresh synthetic Convex backend         | safe public preview                    | complete                      |
@@ -154,7 +154,8 @@ Record each question that the project worker cannot answer from Bristol and the 
 | BRIS-Q027 | How should a stacked migration reach a production default branch?  | Bristol release | one promotion PR from the final reviewed head                              | keep slices as evidence; merge once      | draft PR and live reads  |
 | BRIS-Q028 | Which backend auth settings must the cutover gate read?            | Bristol review  | exact production profile and non-debug log policy                          | require `production` and `ERROR`         | live production read     |
 | BRIS-Q029 | Which source model must the adopted Node automation use?           | Samebase        | Node 24, ESM package semantics, and directly executed `.ts` files          | convert all handwritten Node files       | PR #16 and final preview |
-| BRIS-Q030 | Which tool owns development, lint, format, tests, and bundling?    | Samebase        | Vite Plus, with Oxlint and Oxfmt behind the same configuration             | keep npm, migrate the toolchain          | correction in progress   |
+| BRIS-Q030 | Which tool owns development, lint, format, tests, and bundling?    | Samebase        | Vite Plus, with Oxlint and Oxfmt behind the same configuration             | keep npm, migrate the toolchain          | final checks pass        |
+| BRIS-Q031 | Can Vite Plus start a clean checkout before dependencies exist?    | Bristol test    | no, `vp run` loads the project config before it selects the requested task | use npm only for clean-root bootstraps   | two-cycle acceptance     |
 
 ## Bidirectional Findings
 
@@ -206,11 +207,12 @@ Record each question that the project worker cannot answer from Bristol and the 
 | BRIS-F44 | Verify auth environment before production merge     | profile passed, but the production log level was missing         | code and docs alone did not prove the live backend setting       | Bristol first       | exact live value reads   | ready     |
 | BRIS-F45 | Preflight the complete authored source model        | 8,522 lines of `.mjs` bypassed the app TypeScript check          | generated apps use Node 24, ESM, and direct `.ts` execution      | shared              | strict build and preview | ready     |
 | BRIS-F46 | Do not replace a management gap with a file scanner | the source guard proved extensions but missed the selected tools | normal type checks and toolchain contracts give the useful proof | shared              | manager audit            | ready     |
-| BRIS-F47 | Check automation through every shared entry point   | final Cloudflare build runs both TypeScript checks               | generated-app check and build omitted script type checking       | shared              | PR #16 and app PR #23    | candidate |
-| BRIS-F48 | Apply project findings back to the mature source    | the source correction required a complete inventory              | review found a direct ESLint regression in Remotion              | Bristol to Samebase | toolchain correction     | candidate |
-| BRIS-F49 | Test public guidance against the live tool surface  | source-policy correction changed public routing guidance         | tool-description order biased some initial harness runs          | Samebase to shared  | fresh-agent suites       | candidate |
+| BRIS-F47 | Check automation through every shared entry point   | final Cloudflare build runs both TypeScript checks               | generated-app check and build omitted script type checking       | shared              | Bristol and app checks   | ready     |
+| BRIS-F48 | Apply project findings back to the mature source    | the source correction required a complete inventory              | review found a direct ESLint regression in Remotion              | Bristol to Samebase | Samebase PR #1317 checks | ready     |
+| BRIS-F49 | Test public guidance against the live tool surface  | source-policy correction changed public routing guidance         | tool-description order biased some initial harness runs          | Samebase to shared  | two full model suites    | ready     |
 | BRIS-F50 | Preflight the complete toolchain                    | direct Vite, ESLint, Prettier, and Vitest escaped review         | Samebase already documented Vite Plus as the single owner        | shared              | three-repository audit   | ready     |
-| BRIS-F51 | Keep package-manager and toolchain choices separate | npm is an existing-project constraint                            | Vite Plus does not require a pnpm migration                      | Bristol first       | correction in progress   | candidate |
+| BRIS-F51 | Keep package-manager and toolchain choices separate | npm is an existing-project constraint                            | Vite Plus does not require a pnpm migration                      | Bristol first       | clean provider build     | ready     |
+| BRIS-F52 | Test the clean-root process entry                   | `vp run` failed before config dependencies could load            | a clean install probe alone did not test the operator command    | Bristol first       | committed-head cycles    | ready     |
 
 ## Characterization Test Plan
 
@@ -838,11 +840,46 @@ Every difference must be adopted, kept as a proven target constraint, investigat
 implementation, or retained as one exact tested exception. Implementation does not start while a row
 is unclassified. An independent architecture review repeats the matrix after integration.
 
-The correction keeps Bristol's npm lockfile as an explicit existing-project constraint. It moves
-development, build, lint, format, tests, and task execution to Vite Plus, with Oxlint and Oxfmt
-behind the same configuration. Samebase moves Remotion into the root Vite Plus contract and checks
-all workspace package scripts for direct ESLint runners. The generated app makes lint and tests part
-of its normal check and real Cloudflare build. All three remove the broad source-extension guard.
+The first classified matrix is:
+
+| Area                     | Samebase                                            | Generated app                                       | Bristol before correction                           | Decision                                                                     |
+| ------------------------ | --------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Package manager          | pnpm workspace                                      | pnpm                                                | npm                                                 | Keep npm as an existing-project constraint                                   |
+| Node, modules, source    | Node 24, ESM, TypeScript                            | Node 24, ESM, TypeScript                            | corrected to the same model                         | Keep aligned                                                                 |
+| Public scripts           | intent names with mixed Vite Plus and pnpm dispatch | partial intent surface                              | intent names backed by direct tools                 | Keep names, use npm only for clean-root and provider boundaries              |
+| Package-task runner      | mixed `vp run` and pnpm                             | mixed `vp run` and pnpm                             | npm                                                 | Use Vite Plus after install; track broader Samebase normalization separately |
+| Clean-root bootstrap     | pnpm starts setup before app tools                  | generated setup owns installation                   | `vp run` cannot load missing config dependencies    | Let npm start Node TypeScript, then install through Vite Plus                |
+| Development and bundling | Vite Plus                                           | Vite Plus                                           | direct Vite                                         | Adopt Vite Plus                                                              |
+| Lint                     | Oxlint, except Remotion regression                  | Oxlint configured but not in normal check           | direct ESLint                                       | Repair all three contracts                                                   |
+| Format                   | Oxfmt through Vite Plus                             | Oxfmt configured, no package commands               | Prettier                                            | Use Vite Plus and Oxfmt                                                      |
+| Tests                    | Vite Plus test runner                               | tests exist, no package command                     | direct Vitest                                       | Use Vite Plus test commands and imports                                      |
+| Type checking            | project-specific TypeScript checks                  | TypeScript 6 with browser, Node, and Convex configs | TypeScript 5.9 with browser and Node configs        | Keep tested compiler versions, include every authored surface                |
+| Framework and CSS        | TanStack Start, Tailwind 4                          | TanStack Start, Tailwind 4                          | TanStack Start, Tailwind 3                          | Keep Bristol CSS as a current product constraint                             |
+| Build and deploy         | repository-owned Worker wrappers                    | repository-owned Worker wrappers                    | repository-owned Worker wrappers                    | Preserve behavior, add the complete normal check                             |
+| Vite Plus pin            | `0.1.24`                                            | floating `latest`, locked earlier                   | absent                                              | Pin `0.1.24` in corrected repositories                                       |
+| Configuration ownership  | root `vite.config.ts`                               | root `vite.config.ts`                               | separate Vite, ESLint, Prettier, and Vitest configs | Consolidate lint, format, and tests in Vite Plus                             |
+
+The correction keeps Bristol's npm lockfile as an explicit existing-project constraint. npm starts
+`dev` and `setup:worktree` before dependencies exist. Vite Plus performs the frozen install and owns
+later development, build, lint, format, test, and task execution, with Oxlint and Oxfmt behind the
+same configuration. Samebase moves Remotion into the root Vite Plus contract and records direct
+ESLint ownership as a review smell. The generated app makes lint and tests part of its normal check
+and real Cloudflare build. All three remove the broad source-extension guard without replacing it
+with a tool-name scanner.
+
+The first committed-head worktree run at Bristol commit `1604eef` found the missing bootstrap
+boundary. A clean linked worktree had no `node_modules`, and `vp run setup:worktree` tried to import
+the project config before it could select the setup task. Commit `d67d4c1` moved the two clean-root
+commands to the npm and Node boundary and delayed Convex imports until after Vite Plus installed the
+frozen graph.
+
+The final Bristol head `661a7fd` passes the clean provider build, 118 unit and Convex tests, 75
+contract tests, authenticated Worker acceptance, and two committed-head linked-worktree cycles. The
+two cycles install from an empty worktree, reuse the same synthetic state, run browser writes and
+deletes, stop all services, and remove the exact temporary worktree. The previous 65-rule ESLint
+surface keeps 63 useful rules at the same or stronger severity. The two omitted rules only supplied
+ESLint JSX reference metadata. Production dependencies have zero audit findings. Six high findings
+remain in development-only peer packages for the two rule bridges.
 
 ### Public Guidance Forward-Test Finding
 
@@ -930,6 +967,11 @@ production cutover.
 - [Bristol production-promotion pull request](https://github.com/nicu-chiciuc/bristol_tsx/pull/15)
 - [Bristol production auth settings](https://github.com/nicu-chiciuc/bristol_tsx/blob/60f667e64873f444a6b56dbd0d3b5e2583132c29/docs/cloudflare-workers-deployment.md#L124-L141)
 - [Bristol production release gate](https://github.com/nicu-chiciuc/bristol_tsx/blob/60f667e64873f444a6b56dbd0d3b5e2583132c29/docs/cloudflare-workers-deployment.md#L397-L428)
+- [Bristol final Vite Plus scripts](https://github.com/nicu-chiciuc/bristol_tsx/blob/661a7fde510e5255660dcf2dec66b5ad36de4dcc/package.json#L5-L36)
+- [Bristol final Vite Plus configuration](https://github.com/nicu-chiciuc/bristol_tsx/blob/661a7fde510e5255660dcf2dec66b5ad36de4dcc/vite.config.ts#L28-L282)
+- [Bristol dependency-safe setup](https://github.com/nicu-chiciuc/bristol_tsx/blob/661a7fde510e5255660dcf2dec66b5ad36de4dcc/scripts/setup-worktree.ts#L408-L546)
+- [Bristol committed-head worktree acceptance](https://github.com/nicu-chiciuc/bristol_tsx/blob/661a7fde510e5255660dcf2dec66b5ad36de4dcc/scripts/test-worktree-development.ts#L274-L450)
+- [Bristol Vite Plus adoption record](https://github.com/nicu-chiciuc/bristol_tsx/blob/661a7fde510e5255660dcf2dec66b5ad36de4dcc/research/2026-07-30-next-to-tanstack-start-workers.md#L304-L453)
 - [Cloudflare Worker Versions API](https://developers.cloudflare.com/api/resources/workers/subresources/beta/subresources/workers/subresources/versions/)
 - [Node.js TypeScript modules](https://nodejs.org/dist/latest/docs/api/typescript.html)
 - [Cloudflare Workers Builds image](https://developers.cloudflare.com/workers/ci-cd/builds/build-image/)
@@ -950,3 +992,5 @@ production cutover.
 6. Bidirectional findings and portable outputs: complete for the first case, candidate until a
    second project tests them
 7. Authored TypeScript source model: correction complete, final public preview passes
+8. Vite Plus, Oxlint, and Oxfmt toolchain: correction complete; clean provider build, authenticated
+   Worker acceptance, and committed-head linked-worktree acceptance pass
