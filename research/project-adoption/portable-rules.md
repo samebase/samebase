@@ -19,8 +19,12 @@ project.
 Map these capabilities before a framework or provider change:
 
 - synchronized source commit, application root, and package manager from its committed lock file
-- runtime version and pin, package module type, handwritten source extensions, configuration file
-  extensions, import style, and static-check inclusion
+- runtime version and pin, package module type, handwritten source language, configuration language,
+  import style, and static-check inclusion
+- public package scripts and every local, CI, provider, and nested-script caller
+- development server, task runner, bundler, linter, formatter, test runner, type checker, and code
+  generation
+- lint rule parity, test projects, configuration ownership, and core version pins
 - fresh checkout setup
 - normal local development
 - repeatable linked-worktree preparation
@@ -38,10 +42,10 @@ Map these capabilities before a framework or provider change:
 The framework runtime, repository workflow, and provider integration are separate layers. A
 framework can supply server rendering without supplying preview ownership or cleanup.
 
-Complete the source-model comparison before the first test, spike, or implementation commit.
-Existing file extensions in the target repository are evidence of its baseline. They are not a
-policy decision. When the work adopts a Samebase capability, compare the target with the current
-generated-app contract instead of copying only the nearest target pattern.
+Complete the full toolchain comparison before the first test, spike, or implementation commit.
+Existing files and commands in the target repository are evidence of its baseline. They are not a
+policy decision. When the work adopts a Samebase capability, compare the target with Samebase and
+the current generated-app contract instead of copying only the nearest target pattern.
 
 Keep these development capabilities separate:
 
@@ -52,6 +56,28 @@ Keep these development capabilities separate:
 - pull request preview cleanup
 
 Passing one capability does not prove the others.
+
+## Select One Toolchain Owner
+
+For the Samebase-aligned application toolchain, Vite Plus owns development, bundling, lint,
+formatting, tests, and package-task execution. Oxlint and Oxfmt are reached through Vite Plus. Test
+code imports the Vite Plus test API.
+
+Treat the package manager as a separate decision. An existing npm project can adopt Vite Plus
+without moving to pnpm. Keep the committed lockfile and package-manager behavior when that is an
+explicit project constraint, then prove Vite Plus uses them correctly.
+
+Before implementation, classify each difference in the task runner, linter, formatter, test runner,
+configuration owner, and version pins as one of:
+
+- adopt the Samebase practice
+- keep a proven target constraint
+- investigate before implementation
+- keep one exact tested exception
+
+Do not keep a direct ESLint, Prettier, Vitest, or Vite command only because it already passes. When
+an ESLint-compatible plugin carries a needed rule, load it through Oxlint's plugin bridge. An
+`eslint-disable` comment or an ESLint-compatible plugin is not a second linter.
 
 ## Treat Scripts As An Operator Interface
 
@@ -87,20 +113,15 @@ Type-check the Node automation, tests, and configuration. An application TypeScr
 that includes only `src` does not prove those files. Use a separate strict Node configuration when
 the browser and Node module-resolution rules differ.
 
-Normal repository checks and every shared build or dry-run entry point must run both the
-source-model guard and the Node type check. This includes the real provider build. A test that
-executes a TypeScript file does not replace static checking.
+Normal repository checks and every shared build or dry-run entry point must run the Node type check.
+This includes the real provider build. A test that executes a TypeScript file does not replace
+static checking.
 
-Add an executable source guard that rejects handwritten `.js`, `.jsx`, `.mjs`, `.cjs`, `.mts`, and
-`.cts` files. Inspect Git tracked files and untracked non-ignored files. List each allowed generated
-file as one exact repository-relative path and name the generator or runtime that owns it. A named
-browser-delivered JavaScript asset can also be a valid exception. These exceptions are not a reason
-to write Node automation in JavaScript.
-
-Test the real guard process in a temporary Git repository. Require a successful clean run and
-nonzero results for both a tracked forbidden file and an unstaged forbidden file. A unit test of the
-exported path classifier does not prove that the command-line entrypoint runs or that it sees
-untracked files.
+Do not add a repository-wide extension scanner only to prove that authored files use TypeScript.
+Keep authored code inside explicit TypeScript configurations, make the normal checks execute those
+configurations, and use narrow structural tests for generated artifacts or named runtime boundaries.
+The toolchain contract should reject competing runner entry points. Code review and TypeScript
+inclusion should enforce the source language.
 
 If a tool cannot load its TypeScript configuration under the selected runtime, record the exact tool
 boundary before adding a loader or an exception. Do not copy a legacy extension only because the

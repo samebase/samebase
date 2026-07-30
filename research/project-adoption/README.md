@@ -32,7 +32,7 @@ decisions, code changes, tests, and operator results. Agent hidden reasoning is 
 
 | Role              | Responsibility                                                                  |
 | ----------------- | ------------------------------------------------------------------------------- |
-| Manager           | Own the capability contract, run the source-model preflight, and keep records.  |
+| Manager           | Own the capability and toolchain contract, run preflight, and keep records.     |
 | Project worker    | Inspect or change one bounded project area and state which guidance is missing. |
 | Samebase adviser  | Find relevant Samebase code, tests, rules, and past decisions.                  |
 | Public researcher | Verify current platform and framework contracts from primary sources.           |
@@ -49,10 +49,19 @@ Before the first test, spike, or implementation commit, the manager compares:
 2. the current portable rules
 3. the current generated-app or reference-project contract for the capabilities in scope
 
-The comparison must include the package manager, runtime version and pin, package module type,
-handwritten source extensions, configuration file extensions, import style, static-check inclusion,
-and the real build and dry-run entry points. Existing target files show the current state. They do
-not define the desired source model.
+The comparison must include:
+
+- package manager, lockfile, and workspace model
+- runtime version, module type, authored source language, configuration language, and imports
+- public package-script names and every local, CI, and provider caller
+- development server and bundler
+- linter, configuration owner, important rule parity, and formatter
+- test runner, test projects, type checker, and code generation
+- framework, CSS toolchain, build adapter, and deployment adapter
+- real CI, build, deploy, preview, and dry-run commands
+- core version pins
+
+Existing target files show the current state. They do not define the desired toolchain.
 
 Record each difference as one of:
 
@@ -62,7 +71,12 @@ Record each difference as one of:
 - an explicit exception with a test
 
 The manager owns this preflight. Do not wait for a project worker to ask about a policy that the
-worker cannot see.
+worker cannot see. Do not start implementation while a row is not classified.
+
+After integration, an independent architecture review repeats the comparison against the finished
+package scripts, configuration, dependencies, lockfile, CI, and provider commands. Passing the
+existing commands proves that the current tools run. It does not prove that they are the selected
+tools.
 
 ## Knowledge Request Loop
 
