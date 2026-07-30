@@ -402,6 +402,12 @@ test("logo depth 5 keeps the tiled Three preview responsive", async ({ page }) =
   await expect(controlsSidebar.getByRole("button", { name: "Start shuffle" })).toBeVisible();
   await controlsSidebar.getByRole("button", { name: "Start shuffle" }).click();
   await expect(controlsSidebar.getByRole("button", { name: "Stop shuffle" })).toBeVisible();
+  await controlsSidebar.getByRole("button", { name: "Start auto rotate" }).click();
+  await expect(controlsSidebar.getByRole("button", { name: "Stop auto rotate" })).toBeVisible();
+  await page.waitForTimeout(1000);
+  await expect(page.getByText("Samebase could not finish loading.")).toHaveCount(0);
+  await controlsSidebar.getByRole("button", { name: "Stop auto rotate" }).click();
+  await expect(controlsSidebar.getByRole("button", { name: "Start auto rotate" })).toBeVisible();
 
   await controlsSidebar.getByLabel("Yaw value").fill("90");
   await expect

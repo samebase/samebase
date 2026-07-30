@@ -8,7 +8,17 @@ import { syncDocumentThemeColorSearch } from "@/lib/appThemeColorSearch";
 import { LogoPreviewPage } from "./LogoPreviewPage";
 import { type LogoIsoRouteSearch } from "@/routeSearch/logo";
 
-const { latestThreeSceneFaceColors } = vi.hoisted(() => ({
+const { latestThreeSceneAutoRotation, latestThreeSceneFaceColors } = vi.hoisted(() => ({
+  latestThreeSceneAutoRotation: vi.fn<
+    (
+      autoRotation:
+        | {
+            degreesPerSecond: number;
+            onViewChange: (nextView: { elevationDegrees: number; rotationDegrees: number }) => void;
+          }
+        | undefined,
+    ) => void
+  >(),
   latestThreeSceneFaceColors: vi.fn(),
 }));
 
@@ -28,7 +38,19 @@ vi.mock("@/components/AppWorkspaceShell", () => ({
 }));
 
 vi.mock("@/components/logo/NLogoScene", () => ({
-  NLogoScene: ({ faceColors }: { faceColors: unknown }) => {
+  NLogoScene: ({
+    autoRotation,
+    faceColors,
+  }: {
+    autoRotation:
+      | {
+          degreesPerSecond: number;
+          onViewChange: (nextView: { elevationDegrees: number; rotationDegrees: number }) => void;
+        }
+      | undefined;
+    faceColors: unknown;
+  }) => {
+    latestThreeSceneAutoRotation(autoRotation);
     latestThreeSceneFaceColors(faceColors);
     return <div data-testid="mock-three-logo-scene" />;
   },
@@ -44,12 +66,17 @@ vi.mock("@/components/logo/NLogoRasterScene", () => ({
   NLogoRasterScene: () => <div />,
 }));
 
-async function renderLogoPreviewPage(routeSearch: LogoIsoRouteSearch = {}) {
+async function renderLogoPreviewPage(
+  routeSearch: LogoIsoRouteSearch = {},
+  replaceRouteSearch: (nextSearch: LogoIsoRouteSearch) => void = () => {},
+) {
   const rootElement = document.createElement("div");
   document.body.append(rootElement);
   const root = createRoot(rootElement);
   await React.act(async () => {
-    root.render(<LogoPreviewPage replaceRouteSearch={() => {}} routeSearch={routeSearch} />);
+    root.render(
+      <LogoPreviewPage replaceRouteSearch={replaceRouteSearch} routeSearch={routeSearch} />,
+    );
   });
   return { root, rootElement };
 }
@@ -108,5 +135,55 @@ describe("LogoPreviewPage", () => {
       right: "#394447",
       top: "#ffffff",
     });
+  });
+
+  it("keeps auto-rotation frames outside React and commits the final view when stopped", async () => {
+    const replaceRouteSearch = vi.fn<(nextSearch: LogoIsoRouteSearch) => void>();
+    const rendered = await renderLogoPreviewPage(
+      {
+        "auto-rotate": true,
+        depth: 5,
+        rot: 45,
+        rotationSpeed: 24,
+      },
+      replaceRouteSearch,
+    );
+    root = rendered.root;
+
+    const autoRotation = latestThreeSceneAutoRotation.mock.lastCall?.[0];
+    if (autoRotation === undefined) {
+      throw new Error("Expected active Three scene auto-rotation.");
+    }
+
+    expect(autoRotation.degreesPerSecond).toBe(24);
+    const renderCount = latestThreeSceneAutoRotation.mock.calls.length;
+    React.act(() => {
+      for (let index = 0; index < 80; index += 1) {
+        autoRotation.onViewChange({
+          elevationDegrees: 35,
+          rotationDegrees: 45 + index,
+        });
+      }
+    });
+
+    expect(latestThreeSceneAutoRotation).toHaveBeenCalledTimes(renderCount);
+    expect(replaceRouteSearch).not.toHaveBeenCalled();
+
+    await React.act(async () => {
+      findButtonByText(rendered.rootElement, "Stop auto rotate").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+
+    expect(replaceRouteSearch).toHaveBeenCalledTimes(1);
+    expect(replaceRouteSearch).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        "auto-rotate": undefined,
+        depth: 5,
+        elev: 35,
+        rot: 124,
+        rotationSpeed: 24,
+      }),
+    );
   });
 });

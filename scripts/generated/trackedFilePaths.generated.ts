@@ -1198,8 +1198,6 @@ export const trackedFilePaths = [
   "apps/samebase/src/lib/themeStorageFallback.tsx",
   "apps/samebase/src/lib/treeRefreshStatus.test.ts",
   "apps/samebase/src/lib/treeRefreshStatus.ts",
-  "apps/samebase/src/lib/useAnimationFrameLoop.test.tsx",
-  "apps/samebase/src/lib/useAnimationFrameLoop.ts",
   "apps/samebase/src/lib/useAppAuthRuntimeEffects.test.ts",
   "apps/samebase/src/lib/useAppAuthRuntimeEffects.ts",
   "apps/samebase/src/lib/useCloseOAuthPopup.test.ts",

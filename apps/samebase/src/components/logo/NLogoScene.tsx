@@ -7,6 +7,10 @@ import {
   type LogoRotationAxisMode,
 } from "@samebase/logo-model/rotation";
 import {
+  advanceLogoAutoRotation,
+  normalizeLogoAutoRotateDegreesPerSecond,
+} from "@samebase/logo-model/auto-rotation";
+import {
   LOGO_SHUFFLE_PARALLEL_OPTIONS,
   type LogoShuffleParallelMoves,
 } from "@/components/logo/logoShuffleAnimation";
@@ -379,6 +383,10 @@ type RecursiveSurfaceGeometryState = {
 };
 
 type NLogoSceneProps = {
+  autoRotation?: {
+    degreesPerSecond: number;
+    onViewChange: (nextView: LogoViewState) => void;
+  };
   baseGridSize?: LogoGridSize;
   backgroundColor: string;
   className?: string;
@@ -2506,6 +2514,7 @@ function syncCubeShuffleAnimation(
 }
 
 export function NLogoScene({
+  autoRotation,
   baseGridSize = DEFAULT_LOGO_GRID_SIZE,
   backgroundColor,
   className,
@@ -2540,6 +2549,8 @@ export function NLogoScene({
   const backgroundColorRef = useRef(backgroundColor);
   const editModeRef = useRef(editMode);
   const renderViewRef = useRef<LogoViewState>({ elevationDegrees, rotationDegrees });
+  const autoRotationRef = useRef(autoRotation);
+  const lastAutoRotationFrameTimeMsRef = useRef<number | null>(null);
   const rotationAxisModeRef = useRef(rotationAxisMode);
   const voxelGridRef = useRef(voxelGrid);
   const voxelEditingEnabledRef = useRef(voxelEditingEnabled);
@@ -2589,6 +2600,7 @@ export function NLogoScene({
       }
     },
     onViewChange,
+    readCurrentView: () => renderViewRef.current,
     rotationDegrees,
     viewDragConfig,
   });
@@ -2618,8 +2630,27 @@ export function NLogoScene({
   }, [voxelEditingEnabled]);
 
   useEffect(() => {
-    // The persistent Three.js scene mirrors the controlled view as one pose,
-    // never as independently updated elevation and rotation values.
+    autoRotationRef.current =
+      autoRotation === undefined
+        ? undefined
+        : {
+            ...autoRotation,
+            degreesPerSecond: normalizeLogoAutoRotateDegreesPerSecond(
+              autoRotation.degreesPerSecond,
+            ),
+          };
+    if (autoRotation === undefined) {
+      renderViewRef.current = { elevationDegrees, rotationDegrees };
+    }
+    lastAutoRotationFrameTimeMsRef.current = null;
+    renderSceneRef.current(performance.now());
+    syncAnimationLoopRef.current();
+  }, [autoRotation, elevationDegrees, rotationDegrees]);
+
+  useEffect(() => {
+    // A changed controlled view is an explicit route or interaction boundary.
+    // Incidental parent renders do not run this effect, so scene-owned
+    // auto-rotation remains live between those boundaries.
     renderViewRef.current = { elevationDegrees, rotationDegrees };
     renderSceneRef.current(performance.now());
   }, [elevationDegrees, rotationDegrees]);
@@ -2950,6 +2981,7 @@ export function NLogoScene({
         window.cancelAnimationFrame(animationFrameId);
         animationFrameId = null;
       }
+      lastAutoRotationFrameTimeMsRef.current = null;
       lastPresentationTiltFrameTimeMs = null;
     };
 
@@ -2961,6 +2993,9 @@ export function NLogoScene({
       THREE.MathUtils.degToRad(LOGO_PRESENTATION_TILT_SETTLED_DEGREES);
 
     const hasActiveAnimation = () =>
+      (autoRotationRef.current !== undefined &&
+        autoRotationRef.current.degreesPerSecond > 0 &&
+        interactionRef.current.status === "idle") ||
       shuffleAnimationRef.current.enabled ||
       animateFaceColorsRef.current ||
       hasActiveLeftFaceStripeAnimation() ||
@@ -2968,6 +3003,31 @@ export function NLogoScene({
 
     const renderScene = (timestampMs: number) => {
       timer.update(timestampMs);
+      const autoRotation = autoRotationRef.current;
+      if (
+        autoRotation === undefined ||
+        autoRotation.degreesPerSecond <= 0 ||
+        interactionRef.current.status !== "idle"
+      ) {
+        lastAutoRotationFrameTimeMsRef.current = null;
+      } else {
+        const lastFrameTimeMs = lastAutoRotationFrameTimeMsRef.current;
+        lastAutoRotationFrameTimeMsRef.current = timestampMs;
+        if (lastFrameTimeMs !== null) {
+          const nextView = {
+            ...renderViewRef.current,
+            rotationDegrees: advanceLogoAutoRotation(
+              renderViewRef.current.rotationDegrees,
+              (timestampMs - lastFrameTimeMs) / 1000,
+              {
+                degreesPerSecond: autoRotation.degreesPerSecond,
+              },
+            ),
+          };
+          renderViewRef.current = nextView;
+          autoRotation.onViewChange(nextView);
+        }
+      }
       const sceneState = sceneStateRef.current;
       if (sceneState && shuffleAnimationRef.current.enabled) {
         syncCubeShuffleAnimation(
@@ -3071,6 +3131,7 @@ export function NLogoScene({
       syncAnimationLoopRef.current = () => {};
       faceColorAnimationStartedAtRef.current = null;
       leftFaceStripeAnimationStartedAtRef.current = null;
+      lastAutoRotationFrameTimeMsRef.current = null;
       renderer.dispose();
       container.replaceChildren();
     };

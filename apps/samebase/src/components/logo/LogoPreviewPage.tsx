@@ -2,7 +2,6 @@ import { NLogoScene } from "@/components/logo/NLogoScene";
 import { NLogoRasterScene } from "@/components/logo/NLogoRasterScene";
 import {
   LOGO_AUTO_ROTATE_SPEED,
-  advanceLogoAutoRotation,
   normalizeLogoAutoRotateDegreesPerSecond,
 } from "@samebase/logo-model/auto-rotation";
 import { type LogoRotationAxisMode } from "@samebase/logo-model/rotation";
@@ -133,7 +132,6 @@ import {
   type LogoIsoRouteSearch,
 } from "@/routeSearch/logo";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
-import { useAnimationFrameLoop } from "@/lib/useAnimationFrameLoop";
 import { usePacedCommittedState } from "@/lib/usePacedCommittedState";
 import { cn } from "@/lib/utils";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
@@ -142,6 +140,7 @@ import {
   useEffect,
   useId,
   useMemo,
+  useCallback,
   useRef,
   useState,
   type ChangeEvent,
@@ -630,16 +629,20 @@ function useLogoPreviewStore() {
  * state; `replaceRouteSearch` writes those changes back to TanStack Router.
  * The TanStack Store created here owns local-only controls such as edit mode,
  * animation toggles, opacity, and pane selection. Route writes go through
- * `usePacedCommittedState` so sliders, dragging, and auto-rotation can update
- * the UI immediately while noisy URL commits are debounced or flushed on end.
+ * `usePacedCommittedState` so sliders and dragging can update the UI
+ * immediately while noisy URL commits are debounced or flushed on end.
+ * The Three scene reports its live auto-rotation through a ref so animation
+ * frames do not schedule React renders.
  * The returned `controls` are React-bound controller callbacks, not pure
  * TanStack Store actions.
  */
 function useLogoPreviewController({
+  autoRotatedViewRef,
   replaceRouteSearch,
   renderMode,
   routeSearch,
 }: {
+  autoRotatedViewRef: { current: LogoViewState | null };
   replaceRouteSearch: LogoPreviewPageProps["replaceRouteSearch"];
   renderMode: LogoPreviewRenderMode;
   routeSearch: LogoIsoRouteSearch;
@@ -672,7 +675,18 @@ function useLogoPreviewController({
   };
   const updateRouteState = (
     updater: (currentState: LogoPreviewRouteState) => LogoPreviewRouteState,
-  ) => updater(pacedRouteState.value);
+  ) => {
+    const autoRotatedView = autoRotatedViewRef.current;
+    const currentState =
+      pacedRouteState.value.autoRotateEnabled && autoRotatedView !== null
+        ? {
+            ...pacedRouteState.value,
+            elevationDegrees: autoRotatedView.elevationDegrees,
+            rotationDegrees: autoRotatedView.rotationDegrees,
+          }
+        : pacedRouteState.value;
+    return updater(currentState);
+  };
   const commitRouteState = (
     updater: (currentState: LogoPreviewRouteState) => LogoPreviewRouteState,
   ) => {
@@ -691,14 +705,6 @@ function useLogoPreviewController({
 
   return {
     controls: {
-      advanceAutoRotation: (deltaSeconds: number) => {
-        setRouteStateDraft((currentState) => ({
-          ...currentState,
-          rotationDegrees: advanceLogoAutoRotation(currentState.rotationDegrees, deltaSeconds, {
-            degreesPerSecond: currentState.autoRotationDegreesPerSecond,
-          }),
-        }));
-      },
       applyPreset: (presetId: Exclude<LogoPresetSelection, "custom">) => {
         const preset = getLogoPreset(presetId);
         commitRouteState((currentState) => ({
@@ -776,6 +782,7 @@ function useLogoPreviewController({
       },
       setAutoRotating: (autoRotateEnabled: boolean) => {
         if (autoRotateEnabled) {
+          autoRotatedViewRef.current = null;
           pacedRouteState.cancelCommit();
         }
 
@@ -783,6 +790,9 @@ function useLogoPreviewController({
           ...currentState,
           autoRotateEnabled,
         }));
+        if (!autoRotateEnabled) {
+          autoRotatedViewRef.current = null;
+        }
       },
       setEditMode: (editMode: VoxelEdit["kind"]) => {
         store.actions.setIsoCubePixelTool(null);
@@ -1074,6 +1084,7 @@ function useLogoPreviewController({
           ...currentState,
           autoRotateEnabled: false,
         }));
+        autoRotatedViewRef.current = null;
         store.actions.setSceneInteracting(true);
       },
     },
@@ -1359,7 +1370,12 @@ export function LogoPreviewPage({
   replaceRouteSearch,
   routeSearch,
 }: LogoPreviewPageProps) {
+  const autoRotatedViewRef = useRef<LogoViewState | null>(null);
+  const recordAutoRotatedView = useCallback((nextView: LogoViewState) => {
+    autoRotatedViewRef.current = nextView;
+  }, []);
   const { controls, state } = useLogoPreviewController({
+    autoRotatedViewRef,
     replaceRouteSearch,
     renderMode,
     routeSearch,
@@ -1369,13 +1385,16 @@ export function LogoPreviewPage({
   const faceColorAnimationCheckboxId = useId();
   const stripeGapLinkedCheckboxId = useId();
   const stripeAnimationCheckboxId = useId();
-
-  useAnimationFrameLoop({
-    isRunning: state.autoRotateEnabled && renderMode === "three",
-    onFrame: (deltaSeconds) => {
-      controls.advanceAutoRotation(deltaSeconds);
-    },
-  });
+  const autoRotation = useMemo(
+    () =>
+      state.autoRotateEnabled
+        ? {
+            degreesPerSecond: state.autoRotationDegreesPerSecond,
+            onViewChange: recordAutoRotatedView,
+          }
+        : undefined,
+    [recordAutoRotatedView, state.autoRotateEnabled, state.autoRotationDegreesPerSecond],
+  );
 
   const selectedPreset =
     state.selectedPresetId === CUSTOM_LOGO_PRESET_ID ? null : getLogoPreset(state.selectedPresetId);
@@ -1445,6 +1464,7 @@ export function LogoPreviewPage({
       />
     ) : (
       <NLogoScene
+        autoRotation={autoRotation}
         baseGridSize={state.gridSize}
         backgroundColor={backgroundColor}
         className={cn(
