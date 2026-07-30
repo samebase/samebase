@@ -1,7 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { PNG } from "pngjs";
 import { signInIfNeeded } from "./liveHelpers";
-import { dispatchHumanTouchSwipe } from "./touchGestures";
 import { measureScreenshotForegroundBounds } from "./visualDiff";
 
 test.setTimeout(120_000);
@@ -36,6 +35,27 @@ async function waitForPaint(page: Page): Promise<void> {
       });
     });
   });
+}
+
+async function exposeMobileMainPane(page: Page): Promise<void> {
+  const workspaceLayout = page.locator("[data-workspace-layout-v2]");
+
+  await expect(async () => {
+    await page.getByTestId("workspace-layout-v2-pane-main").evaluate((carousel) => {
+      const mainPane = carousel.querySelector("[data-workspace-layout-v2-mobile-main-pane]");
+      if (!(mainPane instanceof HTMLElement)) {
+        throw new Error("Expected the mobile main pane.");
+      }
+
+      carousel.style.scrollSnapType = "none";
+      carousel.scrollLeft =
+        mainPane.offsetLeft - Number.parseFloat(window.getComputedStyle(carousel).paddingLeft);
+      carousel.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    await expect(workspaceLayout).toHaveAttribute("data-mobile-pane", "main", {
+      timeout: 1_000,
+    });
+  }).toPass({ timeout: 20_000 });
 }
 
 async function openMengerHoverCase(
@@ -297,6 +317,7 @@ test("Menger hover controls reveal depth from one through five", async ({ page }
 test("Menger hover keeps automatic-probe controls shareable in route search", async ({ page }) => {
   await openMengerHoverCase(page, {
     elevationDegrees: "0",
+    extraSearch: "&probeLoop=60",
     rotationDegrees: "180",
   });
   const controls = page.locator('[data-testid="logo-menger-hover-controls"]');
@@ -310,17 +331,44 @@ test("Menger hover keeps automatic-probe controls shareable in route search", as
   await expect(pathSelect).toContainText("Vertical 8");
   await expect(page.locator('[data-testid="logo-menger-automatic-probe-path"]')).toHaveCount(0);
 
-  await playCheckbox.click();
-  await expect(page).toHaveURL(/(?:\?|&)probe(?:&|$)/);
-
   await pathSelect.click();
   await page.getByRole("option", { name: "Orbit" }).click();
   await expect(pathSelect).toContainText("Orbit");
   await expect(page).toHaveURL(/(?:\?|&)probePath=orbit(?:&|$)/);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await playCheckbox.click();
+  await expect(page).toHaveURL(/(?:\?|&)probe(?:&|$)/);
+  await expect(page).toHaveURL(/(?:\?|&)probeLoop=60(?:&|$)/);
+  await expect(page.getByTestId("logo-menger-hover-scene")).toHaveAttribute(
+    "data-automatic-probe-state",
+    "playing",
+  );
+  const progressAfterStarting = await readNumberAttribute(
+    page.getByTestId("logo-menger-hover-scene"),
+    "data-automatic-probe-progress",
+  );
+  await expect
+    .poll(() =>
+      readNumberAttribute(
+        page.getByTestId("logo-menger-hover-scene"),
+        "data-automatic-probe-progress",
+      ),
+    )
+    .not.toBe(progressAfterStarting);
+  const progressBeforeShowingPath = await readNumberAttribute(
+    page.getByTestId("logo-menger-hover-scene"),
+    "data-automatic-probe-progress",
+  );
 
   await showPathCheckbox.click();
   await expect(page).toHaveURL(/(?:\?|&)probePathVisible(?:&|$)/);
   await expect(page.locator('[data-testid="logo-menger-automatic-probe-path"]')).toBeVisible();
+  expect(
+    await readNumberAttribute(
+      page.getByTestId("logo-menger-hover-scene"),
+      "data-automatic-probe-progress",
+    ),
+  ).toBeGreaterThanOrEqual(progressBeforeShowingPath);
 
   const urlBeforeWidthDraft = page.url();
   await widthSlider.fill("0.4");
@@ -362,6 +410,46 @@ test("Menger automatic probe has a deterministic reduced-motion research view", 
     "logo-menger-hover-automatic-probe-path.png",
     SCREENSHOT_OPTIONS,
   );
+});
+
+test("Menger automatic probe suspends frames while its scene is offscreen", async ({ page }) => {
+  const scene = await openMengerHoverCase(page, {
+    elevationDegrees: "0",
+    extraSearch: "&probe&probeLoop=10",
+    maximumDepth: "2",
+    reducedMotion: "reduce",
+    rotationDegrees: "180",
+  });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing");
+
+  await scene.evaluate((element) => {
+    element.style.display = "none";
+  });
+  await expect(scene).toHaveAttribute("data-automatic-probe-state", "suspended");
+  const renderCount = await readNumberAttribute(scene, "data-hover-render-count");
+
+  await page.mouse.move(20, 20);
+  await page.waitForTimeout(250);
+  await expect(scene).toHaveAttribute("data-hover-render-count", String(renderCount));
+});
+
+test("Menger automatic probe does not loop frames at depth one without tilt", async ({ page }) => {
+  const scene = await openMengerHoverCase(page, {
+    elevationDegrees: "0",
+    extraSearch: "&probe",
+    maximumDepth: "1",
+    reducedMotion: "no-preference",
+    rotationDegrees: "180",
+  });
+  await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing");
+  await expect(scene).toHaveAttribute("data-hover-settled", "true");
+  await expect(scene).toHaveAttribute("data-presentation-tilt-settled", "true");
+  await page.waitForTimeout(250);
+  const renderCount = await readNumberAttribute(scene, "data-hover-render-count");
+
+  await page.waitForTimeout(250);
+  await expect(scene).toHaveAttribute("data-hover-render-count", String(renderCount));
 });
 
 test("Menger hover composes the optional landing tilt with its stored view", async ({ page }) => {
@@ -972,8 +1060,9 @@ test.describe("Menger automatic probe on a phone", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await signInIfNeeded(
       page,
-      "/logo/hover/menger?depth=2&elev=0&rot=180&probe&probeLanding&probeLoop=10&probeRest=2&tilt&tiltRadius=0",
+      "/logo/hover/menger?depth=2&elev=0&rot=180&probe&probeLanding&probeLoop=10&probeRest=0.75&tilt&tiltRadius=0",
     );
+    await exposeMobileMainPane(page);
     const scene = page.locator('[data-testid="logo-menger-hover-scene"]');
     await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
     await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing");
@@ -986,30 +1075,87 @@ test.describe("Menger automatic probe on a phone", () => {
       })
       .toBeGreaterThan(0.1);
 
-    await scene.evaluate((element) => {
-      const observer = new MutationObserver(() => {
-        if (element.getAttribute("data-automatic-probe-state") === "dragging") {
-          element.setAttribute("data-test-saw-automatic-probe-dragging", "true");
-          observer.disconnect();
-        }
+    const sceneBounds = await scene.boundingBox();
+    if (sceneBounds === null) {
+      throw new Error("Expected a visible mobile Menger scene.");
+    }
+    const startX = sceneBounds.x + sceneBounds.width * 0.42;
+    const startY = sceneBounds.y + sceneBounds.height * 0.42;
+    const session = await page.context().newCDPSession(page);
+    const gestureStartTimeMs = Date.now();
+    let touchEnded = false;
+
+    try {
+      const touchPoint = {
+        force: 1,
+        id: 1,
+        radiusX: 4,
+        radiusY: 4,
+        x: startX,
+        y: startY,
+      };
+      await session.send("Input.dispatchTouchEvent", {
+        timestamp: gestureStartTimeMs / 1_000,
+        touchPoints: [touchPoint],
+        type: "touchStart",
       });
-      observer.observe(element, {
-        attributeFilter: ["data-automatic-probe-state"],
-        attributes: true,
+      await page.waitForTimeout(50);
+      await session.send("Input.dispatchTouchEvent", {
+        timestamp: (gestureStartTimeMs + 50) / 1_000,
+        touchPoints: [{ ...touchPoint, x: startX + 24, y: startY + 12 }],
+        type: "touchMove",
       });
-    });
-    await dispatchHumanTouchSwipe(page, scene, {
-      startX: 160,
-      startY: 160,
-      steps: [
-        { delayMs: 50, xOffset: 24, yOffset: 12 },
-        { delayMs: 50, xOffset: 48, yOffset: 24 },
-      ],
-    });
-    await expect(scene).toHaveAttribute("data-test-saw-automatic-probe-dragging", "true");
-    await expect(scene).toHaveAttribute("data-automatic-probe-state", "resting");
-    await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing", {
-      timeout: 3_000,
-    });
+      await expect(scene).toHaveAttribute("data-automatic-probe-state", "dragging");
+      const automaticCoordinatesDuringDrag = await Promise.all([
+        scene.getAttribute("data-automatic-probe-client-x"),
+        scene.getAttribute("data-automatic-probe-client-y"),
+        scene.getAttribute("data-automatic-probe-progress"),
+        scene.getAttribute("data-hover-coordinate-x"),
+        scene.getAttribute("data-hover-coordinate-y"),
+        scene.getAttribute("data-hover-coordinate-z"),
+      ]);
+      const opennessDuringDrag = await scene.getAttribute("data-hover-maximum-openness");
+
+      await page.waitForTimeout(100);
+      await session.send("Input.dispatchTouchEvent", {
+        timestamp: (gestureStartTimeMs + 150) / 1_000,
+        touchPoints: [{ ...touchPoint, x: startX + 48, y: startY + 24 }],
+        type: "touchMove",
+      });
+      await page.waitForTimeout(100);
+      await expect(scene).toHaveAttribute("data-automatic-probe-state", "dragging");
+      expect(
+        await Promise.all([
+          scene.getAttribute("data-automatic-probe-client-x"),
+          scene.getAttribute("data-automatic-probe-client-y"),
+          scene.getAttribute("data-automatic-probe-progress"),
+          scene.getAttribute("data-hover-coordinate-x"),
+          scene.getAttribute("data-hover-coordinate-y"),
+          scene.getAttribute("data-hover-coordinate-z"),
+        ]),
+      ).toEqual(automaticCoordinatesDuringDrag);
+      await expect(scene).toHaveAttribute("data-hover-maximum-openness", opennessDuringDrag ?? "");
+
+      await session.send("Input.dispatchTouchEvent", {
+        timestamp: (gestureStartTimeMs + 251) / 1_000,
+        touchPoints: [],
+        type: "touchEnd",
+      });
+      touchEnded = true;
+      await expect(scene).toHaveAttribute("data-automatic-probe-state", "resting");
+      await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing", {
+        timeout: 2_000,
+      });
+    } finally {
+      if (!touchEnded) {
+        await session
+          .send("Input.dispatchTouchEvent", {
+            touchPoints: [],
+            type: "touchEnd",
+          })
+          .catch(() => undefined);
+      }
+      await session.detach().catch(() => undefined);
+    }
   });
 });

@@ -52,6 +52,8 @@ import {
   MENGER_AUTOMATIC_PROBE_DEFAULT_PATH,
   MENGER_AUTOMATIC_PROBE_DEFAULT_REST_DURATION_SECONDS,
   MENGER_AUTOMATIC_PROBE_DEFAULT_WIDTH,
+  MENGER_AUTOMATIC_PROBE_MAXIMUM_DURATION_SECONDS,
+  MENGER_AUTOMATIC_PROBE_MAXIMUM_EXTENT,
   MENGER_AUTOMATIC_PROBE_PATHS,
   normalizeMengerAutomaticProbeExtent,
   normalizeMengerAutomaticProbeLoopDurationSeconds,
@@ -576,8 +578,9 @@ const RouteSearchSchema_logoMengerHover = defineRouteSearchParams({
     {
       numericDefaultValue: MENGER_AUTOMATIC_PROBE_DEFAULT_HEIGHT,
       numericRange: {
+        maxValue: MENGER_AUTOMATIC_PROBE_MAXIMUM_EXTENT,
         minValue: 0,
-        rangeType: "min",
+        rangeType: "closed",
       },
       numericStepValue: 0.05,
       access: "access_public",
@@ -596,8 +599,9 @@ const RouteSearchSchema_logoMengerHover = defineRouteSearchParams({
     {
       numericDefaultValue: MENGER_AUTOMATIC_PROBE_DEFAULT_LOOP_DURATION_SECONDS,
       numericRange: {
+        maxValue: MENGER_AUTOMATIC_PROBE_MAXIMUM_DURATION_SECONDS,
         minValue: 0.1,
-        rangeType: "min",
+        rangeType: "closed",
       },
       numericStepValue: 0.5,
       access: "access_public",
@@ -623,8 +627,9 @@ const RouteSearchSchema_logoMengerHover = defineRouteSearchParams({
     {
       numericDefaultValue: MENGER_AUTOMATIC_PROBE_DEFAULT_REST_DURATION_SECONDS,
       numericRange: {
+        maxValue: MENGER_AUTOMATIC_PROBE_MAXIMUM_DURATION_SECONDS,
         minValue: 0,
-        rangeType: "min",
+        rangeType: "closed",
       },
       numericStepValue: 0.5,
       access: "access_public",
@@ -639,8 +644,9 @@ const RouteSearchSchema_logoMengerHover = defineRouteSearchParams({
     {
       numericDefaultValue: MENGER_AUTOMATIC_PROBE_DEFAULT_WIDTH,
       numericRange: {
+        maxValue: MENGER_AUTOMATIC_PROBE_MAXIMUM_EXTENT,
         minValue: 0,
-        rangeType: "min",
+        rangeType: "closed",
       },
       numericStepValue: 0.05,
       access: "access_public",

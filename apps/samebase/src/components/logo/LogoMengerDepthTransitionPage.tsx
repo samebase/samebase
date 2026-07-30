@@ -22,6 +22,7 @@ import {
   MENGER_AUTOMATIC_PROBE_DEFAULT_WIDTH,
   MENGER_AUTOMATIC_PROBE_PATHS,
   readMengerAutomaticProbePoint,
+  type MengerAutomaticProbeMotionSettings,
   type MengerAutomaticProbeSettings,
 } from "@/components/logo/mengerAutomaticProbe";
 import { Button } from "@/components/ui/button";
@@ -130,6 +131,24 @@ export function LogoMengerDepthTransitionPage({
     searchPointerTiltStrengthScale,
   );
   const [automaticProbeDraft, setAutomaticProbeDraft] = useState(automaticProbe);
+  const automaticProbeMotion = useMemo<MengerAutomaticProbeMotionSettings>(
+    () => ({
+      enabled: automaticProbeDraft.enabled,
+      height: automaticProbeDraft.height,
+      loopDurationSeconds: automaticProbeDraft.loopDurationSeconds,
+      path: automaticProbeDraft.path,
+      restDurationSeconds: automaticProbeDraft.restDurationSeconds,
+      width: automaticProbeDraft.width,
+    }),
+    [
+      automaticProbeDraft.enabled,
+      automaticProbeDraft.height,
+      automaticProbeDraft.loopDurationSeconds,
+      automaticProbeDraft.path,
+      automaticProbeDraft.restDurationSeconds,
+      automaticProbeDraft.width,
+    ],
+  );
   const [view, setView] = useState<LogoViewState>({
     elevationDegrees: routeState.elevationDegrees,
     rotationDegrees: routeState.rotationDegrees,
@@ -959,7 +978,7 @@ export function LogoMengerDepthTransitionPage({
               }
             >
               <MengerHoverScene
-                automaticProbe={automaticProbeDraft}
+                automaticProbe={automaticProbeMotion}
                 cameraFrustumPadding={1.12}
                 elevationDegrees={view.elevationDegrees}
                 faceColors={faceColors}

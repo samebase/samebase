@@ -29,7 +29,7 @@ import {
 } from "@/components/logo/mengerSceneCoordinates";
 import {
   readMengerAutomaticProbePoint,
-  type MengerAutomaticProbeSettings,
+  type MengerAutomaticProbeMotionSettings,
 } from "@/components/logo/mengerAutomaticProbe";
 import { useLogoViewDrag } from "@/components/logo/useLogoViewDrag";
 import {
@@ -91,7 +91,7 @@ export function MengerHoverScene({
   rotationDegrees,
   viewSnapEnabled,
 }: {
-  automaticProbe: MengerAutomaticProbeSettings;
+  automaticProbe: MengerAutomaticProbeMotionSettings;
   cameraFrustumPadding: number;
   elevationDegrees: number;
   faceColors: FaceColors;
@@ -171,6 +171,8 @@ export function MengerHoverScene({
     let lastFrameTime: number | null = null;
     let directionProbe: MengerHoverProbe | null = null;
     let automaticProbeClientPoint: ClientPoint | null = null;
+    let automaticProbeModelPoint: MengerHoverProbe | null = null;
+    let renderCount = 0;
     let sceneIsVisible = true;
 
     const scene = new THREE.Scene();
@@ -323,10 +325,9 @@ export function MengerHoverScene({
     let presentationTiltTarget = NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
     let lastPresentationTiltFrameTime: number | null = null;
 
-    const clearAutomaticProbeClientPoint = (
-      state: "dragging" | "off" | "resting" | "suspended",
-    ) => {
+    const clearAutomaticProbeClientPoint = (state: "off" | "resting" | "suspended") => {
       automaticProbeClientPoint = null;
+      automaticProbeModelPoint = null;
       container.dataset.automaticProbeState = state;
       delete container.dataset.automaticProbeClientX;
       delete container.dataset.automaticProbeClientY;
@@ -377,7 +378,7 @@ export function MengerHoverScene({
         return false;
       } else {
         if (interactionRef.current.status !== "idle") {
-          clearAutomaticProbeClientPoint("dragging");
+          container.dataset.automaticProbeState = "dragging";
           return false;
         }
         if (timestampMs < automaticProbeResumeAtMsRef.current) {
@@ -419,7 +420,7 @@ export function MengerHoverScene({
       container.dataset.automaticProbeClientY = automaticProbeClientPoint.y.toFixed(3);
       container.dataset.automaticProbeProgress = progress.toFixed(4);
 
-      return !reducedMotionQuery.matches;
+      return !depthOneOnly || pointerTiltEnabledRef.current;
     };
 
     const clearProbe = () => {
@@ -437,6 +438,10 @@ export function MengerHoverScene({
     so the pointer mapping stays continuous inside and outside the canvas.
     */
     const readProbe = (): MengerHoverProbe | null => {
+      if (interactionRef.current.status !== "idle" && automaticProbeModelPoint !== null) {
+        return automaticProbeModelPoint;
+      }
+
       const clientPointer = automaticProbeClientPoint ?? clientPointerRef.current;
       if (clientPointer === null) {
         clearProbe();
@@ -477,12 +482,15 @@ export function MengerHoverScene({
       container.dataset.hoverFaceAxis = String(projection.axis);
       container.dataset.hoverFaceSign = String(projection.sign);
       container.dataset.hoverVisibleFaceCount = String(projection.visibleFaceCount);
+      if (automaticProbeClientPoint !== null) {
+        automaticProbeModelPoint = probe;
+      }
 
       return probe;
     };
 
     const scheduleFrame = () => {
-      if (animationFrame !== 0) {
+      if (animationFrame !== 0 || document.visibilityState !== "visible" || !sceneIsVisible) {
         return;
       }
 
@@ -606,6 +614,10 @@ export function MengerHoverScene({
     };
 
     const renderScene = (timestampMs?: number): void => {
+      if (document.visibilityState !== "visible" || !sceneIsVisible) {
+        return;
+      }
+
       const cpuSubmissionStartedAt = performance.now();
       const now = timestampMs ?? performance.now();
       const view = viewRef.current;
@@ -644,60 +656,66 @@ export function MengerHoverScene({
         if (probe !== null) {
           directionProbe = probe;
         }
-        writeMengerHoverState(
-          hoverTargetState,
-          model,
-          probe,
-          directionProbe,
-          revealRadiusRef.current,
-        );
-        const previousFrameTime = lastFrameTime;
-        lastFrameTime = now;
-        const elapsedMs =
-          previousFrameTime === null
-            ? HOVER_FRAME_ELAPSED_RESTART_MS
-            : Math.min(Math.max(now - previousFrameTime, 0), HOVER_FRAME_ELAPSED_MAX_MS);
-        const smoothing = reducedMotionQuery.matches
-          ? 1
-          : 1 - Math.exp(-elapsedMs / HOVER_OPENNESS_SMOOTHING_TAU_MS);
-        let settled = true;
-        let maximumOpenness = 0;
-        for (let stageIndex = 0; stageIndex < hoverTargetState.stages.length; stageIndex += 1) {
-          const targetStageState = hoverTargetState.stages[stageIndex];
-          const renderedStageState = hoverRenderedState.stages[stageIndex];
-          const stageTopology = topology.stages[stageIndex];
-
-          for (let channel = 0; channel < targetStageState.length; channel += 1) {
-            const targetChannelState = targetStageState[channel];
-            const renderedChannelState = renderedStageState[channel];
-            const nextOpenness =
-              renderedChannelState.openness +
-              (targetChannelState.openness - renderedChannelState.openness) * smoothing;
-            renderedChannelState.openness =
-              Math.abs(nextOpenness - targetChannelState.openness) < HOVER_OPENNESS_SETTLE_EPSILON
-                ? targetChannelState.openness
-                : nextOpenness;
-            renderedChannelState.anchorA = targetChannelState.anchorA;
-            renderedChannelState.anchorB = targetChannelState.anchorB;
-            renderedChannelState.weightA = targetChannelState.weightA;
-            if (renderedChannelState.openness !== targetChannelState.openness) {
-              settled = false;
-            }
-            const textureOffset = (stageTopology.channelStateOffset + channel) * 4;
-            stateTexture.data[textureOffset] = renderedChannelState.openness;
-            stateTexture.data[textureOffset + 1] = renderedChannelState.anchorA;
-            stateTexture.data[textureOffset + 2] = renderedChannelState.anchorB;
-            stateTexture.data[textureOffset + 3] = renderedChannelState.weightA;
-            maximumOpenness = Math.max(maximumOpenness, renderedChannelState.openness);
-          }
-        }
-        stateTexture.texture.needsUpdate = true;
-        container.dataset.hoverMaximumOpenness = maximumOpenness.toFixed(6);
-        container.dataset.hoverSettled = settled ? "true" : "false";
-        if (!settled) {
-          scheduleFrame();
-        } else {
+        const automaticRevealFrozen =
+          interactionRef.current.status !== "idle" && automaticProbeModelPoint !== null;
+        if (automaticRevealFrozen) {
           lastFrameTime = null;
+        } else {
+          writeMengerHoverState(
+            hoverTargetState,
+            model,
+            probe,
+            directionProbe,
+            revealRadiusRef.current,
+          );
+          const previousFrameTime = lastFrameTime;
+          lastFrameTime = now;
+          const elapsedMs =
+            previousFrameTime === null
+              ? HOVER_FRAME_ELAPSED_RESTART_MS
+              : Math.min(Math.max(now - previousFrameTime, 0), HOVER_FRAME_ELAPSED_MAX_MS);
+          const smoothing = reducedMotionQuery.matches
+            ? 1
+            : 1 - Math.exp(-elapsedMs / HOVER_OPENNESS_SMOOTHING_TAU_MS);
+          let settled = true;
+          let maximumOpenness = 0;
+          for (let stageIndex = 0; stageIndex < hoverTargetState.stages.length; stageIndex += 1) {
+            const targetStageState = hoverTargetState.stages[stageIndex];
+            const renderedStageState = hoverRenderedState.stages[stageIndex];
+            const stageTopology = topology.stages[stageIndex];
+
+            for (let channel = 0; channel < targetStageState.length; channel += 1) {
+              const targetChannelState = targetStageState[channel];
+              const renderedChannelState = renderedStageState[channel];
+              const nextOpenness =
+                renderedChannelState.openness +
+                (targetChannelState.openness - renderedChannelState.openness) * smoothing;
+              renderedChannelState.openness =
+                Math.abs(nextOpenness - targetChannelState.openness) < HOVER_OPENNESS_SETTLE_EPSILON
+                  ? targetChannelState.openness
+                  : nextOpenness;
+              renderedChannelState.anchorA = targetChannelState.anchorA;
+              renderedChannelState.anchorB = targetChannelState.anchorB;
+              renderedChannelState.weightA = targetChannelState.weightA;
+              if (renderedChannelState.openness !== targetChannelState.openness) {
+                settled = false;
+              }
+              const textureOffset = (stageTopology.channelStateOffset + channel) * 4;
+              stateTexture.data[textureOffset] = renderedChannelState.openness;
+              stateTexture.data[textureOffset + 1] = renderedChannelState.anchorA;
+              stateTexture.data[textureOffset + 2] = renderedChannelState.anchorB;
+              stateTexture.data[textureOffset + 3] = renderedChannelState.weightA;
+              maximumOpenness = Math.max(maximumOpenness, renderedChannelState.openness);
+            }
+          }
+          stateTexture.texture.needsUpdate = true;
+          container.dataset.hoverMaximumOpenness = maximumOpenness.toFixed(6);
+          container.dataset.hoverSettled = settled ? "true" : "false";
+          if (!settled) {
+            scheduleFrame();
+          } else {
+            lastFrameTime = null;
+          }
         }
       }
 
@@ -715,6 +733,8 @@ export function MengerHoverScene({
       }
 
       renderer.render(scene, camera);
+      renderCount += 1;
+      container.dataset.hoverRenderCount = String(renderCount);
       container.dataset.hoverCpuSubmissionMs = (performance.now() - cpuSubmissionStartedAt).toFixed(
         3,
       );
@@ -749,7 +769,12 @@ export function MengerHoverScene({
     };
 
     const onWindowPointerMove = (event: PointerEvent) => {
-      if (!event.isPrimary || event.pointerType === "touch") {
+      if (
+        !event.isPrimary ||
+        event.pointerType === "touch" ||
+        document.visibilityState !== "visible" ||
+        !sceneIsVisible
+      ) {
         return;
       }
 
@@ -767,7 +792,12 @@ export function MengerHoverScene({
       scheduleFrame();
     };
     const onWindowPointerUp = (event: PointerEvent) => {
-      if (!event.isPrimary || event.pointerType === "touch") {
+      if (
+        !event.isPrimary ||
+        event.pointerType === "touch" ||
+        document.visibilityState !== "visible" ||
+        !sceneIsVisible
+      ) {
         return;
       }
 
@@ -865,6 +895,7 @@ export function MengerHoverScene({
       delete container.dataset.hoverDynamicUploadBytes;
       delete container.dataset.hoverCpuSubmissionMs;
       delete container.dataset.hoverMaximumOpenness;
+      delete container.dataset.hoverRenderCount;
       delete container.dataset.hoverSceneBuildMs;
       delete container.dataset.hoverSettled;
       delete container.dataset.hoverTriangleCount;
@@ -905,7 +936,14 @@ export function MengerHoverScene({
   ]);
 
   useEffect(() => {
-    automaticProbeRef.current = automaticProbe;
+    automaticProbeRef.current = {
+      enabled: automaticProbe.enabled,
+      height: automaticProbe.height,
+      loopDurationSeconds: automaticProbe.loopDurationSeconds,
+      path: automaticProbe.path,
+      restDurationSeconds: automaticProbe.restDurationSeconds,
+      width: automaticProbe.width,
+    };
     automaticProbeCycleStartedAtMsRef.current = performance.now();
     automaticProbeResumeAtMsRef.current = 0;
     if (automaticProbeResumeTimeoutRef.current !== 0) {
@@ -913,7 +951,14 @@ export function MengerHoverScene({
       automaticProbeResumeTimeoutRef.current = 0;
     }
     renderSceneRef.current();
-  }, [automaticProbe]);
+  }, [
+    automaticProbe.enabled,
+    automaticProbe.height,
+    automaticProbe.loopDurationSeconds,
+    automaticProbe.path,
+    automaticProbe.restDurationSeconds,
+    automaticProbe.width,
+  ]);
 
   useEffect(() => {
     revealRadiusRef.current = revealRadius;
