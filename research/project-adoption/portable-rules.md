@@ -18,6 +18,7 @@ project.
 
 Map these capabilities before a framework or provider change:
 
+- synchronized source commit, application root, and package manager from its committed lock file
 - fresh checkout setup
 - normal local development
 - one-time linked-worktree setup
@@ -33,6 +34,16 @@ Map these capabilities before a framework or provider change:
 
 The framework runtime, repository workflow, and provider integration are separate layers. A
 framework can supply server rendering without supplying preview ownership or cleanup.
+
+Keep these development capabilities separate:
+
+- an isolated one-run acceptance test
+- one-time linked-worktree setup
+- long-running linked-worktree development
+- anonymous worktree ownership and cleanup
+- pull request preview cleanup
+
+Passing one capability does not prove the others.
 
 ## Treat Scripts As An Operator Interface
 
@@ -53,6 +64,9 @@ During a framework spike, add candidate scripts under an explicit scope such as 
 current production and provider scripts unchanged until the decision gate passes. Pin each framework
 package to its own tested version. Do not assume packages with the same framework label have the
 same release number.
+
+After the gate passes, remove the spike scripts and copied aliases that have no final caller. Shared
+script names are useful only when shared tooling or shared behavior consumes them.
 
 ## Protect Current Behavior
 
@@ -103,32 +117,41 @@ the same records to JavaScript object literals.
 ## Prove Authenticated Server Rendering With Synthetic State
 
 Use an explicit local-worktree profile as the positive control for synthetic authentication. A
-loopback backend URL is an additional check, not the main permission. Limit account creation to one
-random identity under `example.invalid`, one exact flow, and one runner-owned backend. Keep the
-password, access token, and refresh token in the parent process. Generate signing keys there and
-send them to the runner-owned backend through standard input. Do not put raw values in command
-arguments, runner-authored environment files, logs, fixtures, or client output.
+loopback backend URL is an additional check, not the main permission. Limit local account creation
+to one random identity under `example.invalid`, one exact sign-up flow, and one runner-owned
+backend. A deployed preview must use sign-in only against one seeded synthetic account.
 
-An authenticated server-rendering proof must cover this complete request path:
+Keep every credential in the process that owns the test. This includes the password, access token,
+refresh token, and signing keys that the project uses. Send signing keys to the runner-owned backend
+through standard input. Do not put raw values in command arguments, runner-authored environment
+files, logs, fixtures, or client output.
+
+An authenticated server-rendering proof must cover the project's final request path:
 
 1. create a synthetic account in the isolated backend
-2. validate the access token at a same-origin server endpoint
-3. set an `HttpOnly`, host-only, `SameSite=Lax` session cookie
-4. send the cookie to the local Worker runtime
+2. submit credentials or tokens through the final browser-session owner
+3. set the complete final cookie set with its real security attributes
+4. send those cookies to the local Worker runtime
 5. recheck the identity in the protected server function
-6. render a synthetic private canary only after authentication
-7. prove the canary is absent from the client bundle
+6. refresh and revoke the final credential set
+7. render a synthetic private canary only after authentication
+8. prove the canary is absent from the client bundle
+
+Bristol uses one host-only `HttpOnly` access cookie and one host-only `HttpOnly` refresh cookie.
+Another project can use a different set, but its proof must use the final set. A one-cookie spike
+does not prove a two-cookie browser session.
 
 Return `401` and remove the cookie only for a verified authentication rejection. Return `503` and
 keep the cookie when configuration, DNS, the network, or the backend is unavailable. This
 distinction prevents a provider outage from becoming a destructive sign-out.
 
-When the Worker runtime cannot fetch a loopback backend, a supervised temporary tunnel can expose
-the backend for this proof. Use the tunnel only with synthetic data. The parent process must wait
-for backend and tunnel readiness before it starts the Worker. Match the acceptance probe to the real
-consumer. In Bristol, the host DNS resolver could not resolve the new quick-tunnel hostname, but
-local Workerd could resolve and use it. Tunnel registration plus the authenticated Workerd request
-was the correct proof. A host fetch was a false negative.
+Try direct isolated Workerd-to-loopback access first. When the Worker runtime cannot fetch a
+loopback backend, a supervised temporary tunnel can expose the backend for this proof. Use the
+tunnel only with synthetic data. The parent process must wait for backend and tunnel readiness
+before it starts the Worker. Match the acceptance probe to the real consumer. In the Bristol spike,
+the host DNS resolver could not resolve the new quick-tunnel hostname, but local Workerd could
+resolve and use it. Tunnel registration plus the authenticated Workerd request was the correct
+proof. A host fetch was a false negative. The final Bristol runner uses direct loopback access.
 
 The parent process must own all created files and process groups. Refuse to replace existing local
 configuration. Write an ownership marker before setup. Track short setup and build commands as well
@@ -150,14 +173,52 @@ Use separate names for:
 - application backend preview
 - pull request environment
 
-A successful build is not a deployment. A version upload does not imply public traffic. A public
-frontend preview is unsafe when its backend has no safe account bootstrap.
+A successful build is not a deployment. A version upload does not imply production traffic, but it
+can create a public preview URL. A public frontend preview is unsafe when its backend has no safe
+account bootstrap.
 
-Make the version-upload command own the rebuild, privacy scan, Worker name, and configuration path.
-If the build tool creates a generated deploy configuration, verify that it points back to the
-expected source configuration before upload. Remove deployment-only backend keys from the upload
-process environment. Require the application backend URL and prove that the generated server bundle
-contains that exact URL before upload. Use a version upload command that does not change traffic.
+Require the branch name and full source commit in provider build metadata. Check that commit against
+the remote branch head before the backend build and again immediately before the Worker upload. Bind
+each built artifact to its source commit, backend URL, and deployment profile. Reject a missing,
+mismatched, or stale value.
+
+For a local upload, make the upload command own the rebuild and privacy scan. In provider CI, it can
+reuse the provider-built artifact only after it verifies the artifact metadata. In both paths, own
+the Worker name and configuration path. If the build tool creates a generated deploy configuration,
+verify that it points back to the expected source configuration before upload. Remove
+deployment-only backend keys from the upload process environment. Require the application backend
+URL and prove that the generated server bundle contains that exact URL before upload. Use a version
+upload command that does not change production traffic. For Wrangler, use `--keep-vars` so an upload
+does not remove provider-owned variables, and use `--strict` so warnings can stop an unsafe upload.
+
+For an existing Cloudflare Worker, check these states separately:
+
+- repository `preview_urls`
+- repository `workers_dev`
+- provider `previews_enabled`
+
+A version upload does not reconcile all three states. Wait for public preview propagation and retry
+the safe route check after a short initial `404`.
+
+A safe deployed preview needs a fresh backend, preview-only signing keys, an explicit preview
+profile, one seeded `example.invalid` account, sign-in only, and non-debug authentication logs. Keep
+the credential outside the repository. Select and show the browser profile before a check. Never
+capture DOM state while a credential field contains a value.
+
+Use a real replace operation when a browser tool enters a credential. Do not assume that a platform
+modifier shortcut selected the prior text. Verify only that the field lengths match the expected
+lengths before submission. Never return the values.
+
+If a browser capture exposes a credential, disable public access, rotate the account and signing
+keys, rebuild the backend and Worker, and restore access only after the new preview passes. Clear
+temporary browser, process, pipe, and clipboard state.
+
+Cloudflare preview URLs do not provide Workers Logs. Telemetry can also arrive late. An empty
+observation query is not proof that no requests or errors occurred. Keep build outcome, Worker
+version, public route checks, and named-browser acceptance as separate evidence.
+
+Discover branch builds, Worker versions, and backend previews independently during cleanup. Do not
+assume that a pull request created all of them or none of them.
 
 ## Separate Configuration From Promotion
 
@@ -169,6 +230,13 @@ Do not broaden credential access only to make an inventory status appear complet
 
 Keep the current production host and rollback target active until the new path passes its explicit
 cutover gate.
+
+When the target reuses the production Worker, a default-branch merge is a production cutover even
+when the Worker name, DNS, and custom domain do not change.
+
+Model backend and Worker promotion as separate steps. If the backend deploy succeeds and the Worker
+upload fails, the old Worker runs against new backend functions. Test that state and keep separate
+rollback procedures for backend functions and Worker versions.
 
 ## Bidirectional Review
 

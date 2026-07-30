@@ -55,6 +55,10 @@ worktrees and disjoint file ownership.
    - keep different because the constraints differ
    - defer because the evidence is not sufficient
 
+The manager observes the worker's questions, requested actions, provider reads, pass or fail
+results, elapsed work, and rework. The manager does not need hidden reasoning. Ask the worker to
+state the missing fact and the evidence that will let it continue.
+
 ## Decision Record
 
 Each important decision records:
