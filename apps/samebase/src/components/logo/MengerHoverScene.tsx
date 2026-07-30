@@ -27,6 +27,10 @@ import {
   MENGER_SCENE_WORLD_SIZE,
   writeMengerVoxelMatrix,
 } from "@/components/logo/mengerSceneCoordinates";
+import {
+  readMengerAutomaticProbePoint,
+  type MengerAutomaticProbeSettings,
+} from "@/components/logo/mengerAutomaticProbe";
 import { useLogoViewDrag } from "@/components/logo/useLogoViewDrag";
 import {
   MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT,
@@ -71,6 +75,7 @@ type MengerHoverStageMeshes = {
 };
 
 export function MengerHoverScene({
+  automaticProbe,
   cameraFrustumPadding,
   elevationDegrees,
   faceColors,
@@ -86,6 +91,7 @@ export function MengerHoverScene({
   rotationDegrees,
   viewSnapEnabled,
 }: {
+  automaticProbe: MengerAutomaticProbeSettings;
   cameraFrustumPadding: number;
   elevationDegrees: number;
   faceColors: FaceColors;
@@ -102,6 +108,10 @@ export function MengerHoverScene({
   viewSnapEnabled: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const automaticProbeRef = useRef(automaticProbe);
+  const automaticProbeCycleStartedAtMsRef = useRef(0);
+  const automaticProbeResumeAtMsRef = useRef(0);
+  const automaticProbeResumeTimeoutRef = useRef(0);
   const clientPointerRef = useRef<ClientPoint | null>(null);
   const pointerTiltEnabledRef = useRef(pointerTiltEnabled);
   const pointerTiltRadiusScaleRef = useRef(pointerTiltRadiusScale);
@@ -120,9 +130,17 @@ export function MengerHoverScene({
     elevationDegrees,
     onInteractionEnd,
     onPointerCaptureEnd: () => {
+      const resumedAtMs = performance.now() + automaticProbeRef.current.restDurationSeconds * 1_000;
+      automaticProbeResumeAtMsRef.current = resumedAtMs;
+      automaticProbeCycleStartedAtMsRef.current = resumedAtMs;
       renderSceneRef.current();
     },
     onPointerCaptureStart: () => {
+      if (automaticProbeResumeTimeoutRef.current !== 0) {
+        window.clearTimeout(automaticProbeResumeTimeoutRef.current);
+        automaticProbeResumeTimeoutRef.current = 0;
+      }
+      automaticProbeResumeAtMsRef.current = Number.POSITIVE_INFINITY;
       renderSceneRef.current();
     },
     onViewChange,
@@ -152,6 +170,8 @@ export function MengerHoverScene({
     let animationFrame = 0;
     let lastFrameTime: number | null = null;
     let directionProbe: MengerHoverProbe | null = null;
+    let automaticProbeClientPoint: ClientPoint | null = null;
+    let sceneIsVisible = true;
 
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
@@ -303,6 +323,105 @@ export function MengerHoverScene({
     let presentationTiltTarget = NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
     let lastPresentationTiltFrameTime: number | null = null;
 
+    const clearAutomaticProbeClientPoint = (
+      state: "dragging" | "off" | "resting" | "suspended",
+    ) => {
+      automaticProbeClientPoint = null;
+      container.dataset.automaticProbeState = state;
+      delete container.dataset.automaticProbeClientX;
+      delete container.dataset.automaticProbeClientY;
+      delete container.dataset.automaticProbeProgress;
+    };
+
+    const scheduleAutomaticProbeResume = (resumeAtMs: number) => {
+      if (automaticProbeResumeTimeoutRef.current !== 0) {
+        window.clearTimeout(automaticProbeResumeTimeoutRef.current);
+      }
+      automaticProbeResumeTimeoutRef.current = window.setTimeout(
+        () => {
+          automaticProbeResumeTimeoutRef.current = 0;
+          scheduleFrame();
+        },
+        Math.max(resumeAtMs - performance.now(), 0),
+      );
+    };
+
+    const updateAutomaticProbeClientPoint = (timestampMs: number): boolean => {
+      const settings = automaticProbeRef.current;
+      if (!settings.enabled) {
+        clearAutomaticProbeClientPoint("off");
+        return false;
+      }
+      if (document.visibilityState !== "visible" || !sceneIsVisible) {
+        clearAutomaticProbeClientPoint("suspended");
+        return false;
+      }
+
+      const bounds = renderer.domElement.getBoundingClientRect();
+      if (bounds.width <= 0 || bounds.height <= 0) {
+        clearAutomaticProbeClientPoint("suspended");
+        return false;
+      }
+
+      let progress: number;
+      if (reducedMotionQuery.matches) {
+        const point = { x: 0.5, y: 0.5 };
+        automaticProbeClientPoint = {
+          x: bounds.left + point.x * bounds.width,
+          y: bounds.top + point.y * bounds.height,
+        };
+        container.dataset.automaticProbeState = "reduced-motion";
+        container.dataset.automaticProbeClientX = automaticProbeClientPoint.x.toFixed(3);
+        container.dataset.automaticProbeClientY = automaticProbeClientPoint.y.toFixed(3);
+        container.dataset.automaticProbeProgress = "center";
+        return false;
+      } else {
+        if (interactionRef.current.status !== "idle") {
+          clearAutomaticProbeClientPoint("dragging");
+          return false;
+        }
+        if (timestampMs < automaticProbeResumeAtMsRef.current) {
+          clearAutomaticProbeClientPoint("resting");
+          scheduleAutomaticProbeResume(automaticProbeResumeAtMsRef.current);
+          return false;
+        }
+        if (automaticProbeCycleStartedAtMsRef.current === 0) {
+          automaticProbeCycleStartedAtMsRef.current = timestampMs;
+        }
+
+        const loopDurationMs = settings.loopDurationSeconds * 1_000;
+        const restDurationMs = settings.restDurationSeconds * 1_000;
+        const cycleDurationMs = loopDurationMs + restDurationMs;
+        const cycleElapsedMs =
+          (timestampMs - automaticProbeCycleStartedAtMsRef.current) / cycleDurationMs;
+        const cycleProgressMs = (cycleElapsedMs - Math.floor(cycleElapsedMs)) * cycleDurationMs;
+        if (cycleProgressMs >= loopDurationMs) {
+          clearAutomaticProbeClientPoint("resting");
+          scheduleAutomaticProbeResume(timestampMs + cycleDurationMs - cycleProgressMs);
+          return false;
+        }
+
+        progress = cycleProgressMs / loopDurationMs;
+        container.dataset.automaticProbeState = "playing";
+      }
+
+      const point = readMengerAutomaticProbePoint(
+        settings.path,
+        progress,
+        settings.width,
+        settings.height,
+      );
+      automaticProbeClientPoint = {
+        x: bounds.left + point.x * bounds.width,
+        y: bounds.top + point.y * bounds.height,
+      };
+      container.dataset.automaticProbeClientX = automaticProbeClientPoint.x.toFixed(3);
+      container.dataset.automaticProbeClientY = automaticProbeClientPoint.y.toFixed(3);
+      container.dataset.automaticProbeProgress = progress.toFixed(4);
+
+      return !reducedMotionQuery.matches;
+    };
+
     const clearProbe = () => {
       delete container.dataset.hoverCoordinateX;
       delete container.dataset.hoverCoordinateY;
@@ -318,7 +437,7 @@ export function MengerHoverScene({
     so the pointer mapping stays continuous inside and outside the canvas.
     */
     const readProbe = (): MengerHoverProbe | null => {
-      const clientPointer = clientPointerRef.current;
+      const clientPointer = automaticProbeClientPoint ?? clientPointerRef.current;
       if (clientPointer === null) {
         clearProbe();
         return null;
@@ -408,14 +527,18 @@ export function MengerHoverScene({
       container.dataset.presentationTiltCenterY = centerY.toFixed(3);
       container.dataset.presentationTiltBaseRadius = baseRadius.toFixed(3);
       container.dataset.presentationTiltNeutralRadius = (baseRadius * radiusScale).toFixed(3);
+      const tiltClientPoint = automaticProbeClientPoint ?? presentationTiltClientPoint;
+      const tiltClientPointEnabled =
+        automaticProbeClientPoint !== null ||
+        (presentationTiltClientPoint !== null && pointerMediaQuery.matches);
       presentationTiltTarget =
-        presentationTiltClientPoint !== null && pointerMediaQuery.matches
+        tiltClientPoint !== null && tiltClientPointEnabled
           ? getRadialPointerLogoPresentationTiltTarget({
               baseRadius,
               centerX,
               centerY,
-              clientX: presentationTiltClientPoint.x,
-              clientY: presentationTiltClientPoint.y,
+              clientX: tiltClientPoint.x,
+              clientY: tiltClientPoint.y,
               radiusScale,
               strengthScale: pointerTiltStrengthScaleRef.current,
             })
@@ -496,6 +619,7 @@ export function MengerHoverScene({
       );
       logoGroup.updateMatrix();
       camera.updateMatrixWorld();
+      const automaticProbeNeedsFrame = updateAutomaticProbeClientPoint(now);
       updatePresentationTiltTarget();
       const presentationTiltSettled = applyPresentationTilt(now);
       presentationTiltGroup.updateMatrixWorld(true);
@@ -586,6 +710,9 @@ export function MengerHoverScene({
       } else {
         lastPresentationTiltFrameTime = null;
       }
+      if (automaticProbeNeedsFrame) {
+        scheduleFrame();
+      }
 
       renderer.render(scene, camera);
       container.dataset.hoverCpuSubmissionMs = (performance.now() - cpuSubmissionStartedAt).toFixed(
@@ -665,12 +792,44 @@ export function MengerHoverScene({
       presentationTiltClientPoint = null;
       scheduleFrame();
     };
+    const suspendAutomaticProbeFrames = () => {
+      if (animationFrame !== 0) {
+        window.cancelAnimationFrame(animationFrame);
+        animationFrame = 0;
+      }
+      if (automaticProbeResumeTimeoutRef.current !== 0) {
+        window.clearTimeout(automaticProbeResumeTimeoutRef.current);
+        automaticProbeResumeTimeoutRef.current = 0;
+      }
+    };
+    const onDocumentVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        scheduleFrame();
+        return;
+      }
+
+      suspendAutomaticProbeFrames();
+      clearAutomaticProbeClientPoint("suspended");
+    };
+    const sceneVisibilityObserver = new IntersectionObserver((entries) => {
+      const entry = entries[0];
+      sceneIsVisible = entry.isIntersecting;
+      if (sceneIsVisible) {
+        scheduleFrame();
+        return;
+      }
+
+      suspendAutomaticProbeFrames();
+      clearAutomaticProbeClientPoint("suspended");
+    });
     window.addEventListener("blur", onWindowBlur);
     window.addEventListener("pointermove", onWindowPointerMove);
     window.addEventListener("pointerup", onWindowPointerUp);
     pointerMediaQuery.addEventListener("change", onPointerCapabilityChange);
     reducedMotionQuery.addEventListener("change", onReducedMotionChange);
+    document.addEventListener("visibilitychange", onDocumentVisibilityChange);
     document.documentElement.addEventListener("pointerleave", onPagePointerLeave);
+    sceneVisibilityObserver.observe(container);
 
     renderSceneRef.current = renderScene;
     const resizeObserver = new ResizeObserver(resizeScene);
@@ -684,10 +843,16 @@ export function MengerHoverScene({
       window.removeEventListener("pointerup", onWindowPointerUp);
       pointerMediaQuery.removeEventListener("change", onPointerCapabilityChange);
       reducedMotionQuery.removeEventListener("change", onReducedMotionChange);
+      document.removeEventListener("visibilitychange", onDocumentVisibilityChange);
       document.documentElement.removeEventListener("pointerleave", onPagePointerLeave);
+      sceneVisibilityObserver.disconnect();
       renderSceneRef.current = () => {};
       if (animationFrame !== 0) {
         window.cancelAnimationFrame(animationFrame);
+      }
+      if (automaticProbeResumeTimeoutRef.current !== 0) {
+        window.clearTimeout(automaticProbeResumeTimeoutRef.current);
+        automaticProbeResumeTimeoutRef.current = 0;
       }
       geometry.dispose();
       rightMaterial.dispose();
@@ -704,6 +869,10 @@ export function MengerHoverScene({
       delete container.dataset.hoverSettled;
       delete container.dataset.hoverTriangleCount;
       delete container.dataset.hoverVisibleInstanceCount;
+      delete container.dataset.automaticProbeClientX;
+      delete container.dataset.automaticProbeClientY;
+      delete container.dataset.automaticProbeProgress;
+      delete container.dataset.automaticProbeState;
       delete container.dataset.presentationAppliedAngleDegrees;
       delete container.dataset.presentationTiltBaseRadius;
       delete container.dataset.presentationTiltCenterX;
@@ -736,6 +905,17 @@ export function MengerHoverScene({
   ]);
 
   useEffect(() => {
+    automaticProbeRef.current = automaticProbe;
+    automaticProbeCycleStartedAtMsRef.current = performance.now();
+    automaticProbeResumeAtMsRef.current = 0;
+    if (automaticProbeResumeTimeoutRef.current !== 0) {
+      window.clearTimeout(automaticProbeResumeTimeoutRef.current);
+      automaticProbeResumeTimeoutRef.current = 0;
+    }
+    renderSceneRef.current();
+  }, [automaticProbe]);
+
+  useEffect(() => {
     revealRadiusRef.current = revealRadius;
     renderSceneRef.current();
   }, [revealRadius]);
@@ -766,6 +946,8 @@ export function MengerHoverScene({
       aria-label="Menger sponge hover reveal"
       className="h-full min-h-0 w-full cursor-grab touch-none select-none active:cursor-grabbing"
       data-menger-maximum-depth={maximumDepth}
+      data-menger-automatic-probe={automaticProbe.enabled ? "play" : "off"}
+      data-menger-automatic-probe-path={automaticProbe.path}
       data-menger-pointer-tilt={pointerTiltEnabled ? "landing" : "off"}
       data-menger-pointer-tilt-radius-scale={pointerTiltRadiusScale}
       data-menger-pointer-tilt-strength-scale={pointerTiltStrengthScale}

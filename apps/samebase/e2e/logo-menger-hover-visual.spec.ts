@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { PNG } from "pngjs";
 import { signInIfNeeded } from "./liveHelpers";
+import { dispatchHumanTouchSwipe } from "./touchGestures";
 import { measureScreenshotForegroundBounds } from "./visualDiff";
 
 test.setTimeout(120_000);
@@ -41,6 +42,7 @@ async function openMengerHoverCase(
   page: Page,
   {
     elevationDegrees,
+    extraSearch = "",
     maximumDepth = "4",
     pointerTiltEnabled = false,
     pointerTiltRadiusScale = "1",
@@ -49,6 +51,7 @@ async function openMengerHoverCase(
     rotationDegrees,
   }: {
     elevationDegrees: string;
+    extraSearch?: string;
     maximumDepth?: string;
     pointerTiltEnabled?: boolean;
     pointerTiltRadiusScale?: string;
@@ -66,7 +69,9 @@ async function openMengerHoverCase(
       maximumDepth === "4" ? "" : `&depth=${maximumDepth}`
     }${pointerTiltEnabled ? "&tilt" : ""}${
       pointerTiltRadiusScale === "1" ? "" : `&tiltRadius=${pointerTiltRadiusScale}`
-    }${pointerTiltStrengthScale === "1.67" ? "" : `&tiltStrength=${pointerTiltStrengthScale}`}`,
+    }${
+      pointerTiltStrengthScale === "1.67" ? "" : `&tiltStrength=${pointerTiltStrengthScale}`
+    }${extraSearch}`,
   );
 
   const hoverPage = page.locator('[data-testid="logo-menger-hover-page"]');
@@ -287,6 +292,76 @@ test("Menger hover controls reveal depth from one through five", async ({ page }
   await expect(depthSlider).toHaveValue("2");
   await expect(scene).toHaveAttribute("data-menger-maximum-depth", "2");
   await expect(page).toHaveURL(/(?:\?|&)depth=2(?:&|$)/);
+});
+
+test("Menger hover keeps automatic-probe controls shareable in route search", async ({ page }) => {
+  await openMengerHoverCase(page, {
+    elevationDegrees: "0",
+    rotationDegrees: "180",
+  });
+  const controls = page.locator('[data-testid="logo-menger-hover-controls"]');
+  const playCheckbox = controls.getByRole("checkbox", { name: "Play" });
+  const showPathCheckbox = controls.getByRole("checkbox", { name: "Show path" });
+  const pathSelect = controls.getByRole("combobox", { name: "Automatic probe path" });
+  const widthSlider = controls.getByRole("slider", { name: "Automatic probe path width" });
+
+  await expect(playCheckbox).toHaveAttribute("aria-checked", "false");
+  await expect(showPathCheckbox).toHaveAttribute("aria-checked", "false");
+  await expect(pathSelect).toContainText("Vertical 8");
+  await expect(page.locator('[data-testid="logo-menger-automatic-probe-path"]')).toHaveCount(0);
+
+  await playCheckbox.click();
+  await expect(page).toHaveURL(/(?:\?|&)probe(?:&|$)/);
+
+  await pathSelect.click();
+  await page.getByRole("option", { name: "Orbit" }).click();
+  await expect(pathSelect).toContainText("Orbit");
+  await expect(page).toHaveURL(/(?:\?|&)probePath=orbit(?:&|$)/);
+
+  await showPathCheckbox.click();
+  await expect(page).toHaveURL(/(?:\?|&)probePathVisible(?:&|$)/);
+  await expect(page.locator('[data-testid="logo-menger-automatic-probe-path"]')).toBeVisible();
+
+  const urlBeforeWidthDraft = page.url();
+  await widthSlider.fill("0.4");
+  expect(page.url()).toBe(urlBeforeWidthDraft);
+  await widthSlider.blur();
+  await expect(page).toHaveURL(/(?:\?|&)probeWidth=0\.4(?:&|$)/);
+});
+
+test("Menger automatic probe has a deterministic reduced-motion research view", async ({
+  page,
+}) => {
+  const scene = await openMengerHoverCase(page, {
+    elevationDegrees: "0",
+    extraSearch: "&probe&probeLanding&probePathVisible&probeWidth=0.4",
+    maximumDepth: "3",
+    pointerTiltEnabled: true,
+    reducedMotion: "reduce",
+    rotationDegrees: "180",
+  });
+  const controls = page.locator('[data-testid="logo-menger-hover-controls"]');
+  const frame = page.locator('[data-testid="logo-menger-hover-scene-frame"]');
+  const frameBox = await frame.boundingBox();
+  if (!frameBox) {
+    throw new Error("The landing-size Menger research scene must have a bounding box.");
+  }
+
+  expect(Math.abs(frameBox.width - frameBox.height)).toBeLessThanOrEqual(1);
+  expect(frameBox.width).toBeLessThanOrEqual(352);
+  await expect(scene).toHaveAttribute("data-automatic-probe-state", "reduced-motion");
+  await expect(scene).toHaveAttribute("data-automatic-probe-progress", "center");
+  await expect(scene).toHaveAttribute("data-presentation-horizontal-degrees", "0.000");
+  await expect(scene).toHaveAttribute("data-presentation-vertical-degrees", "0.000");
+  await expect(page.locator('[data-testid="logo-menger-automatic-probe-path"]')).toBeVisible();
+  await expect(controls).toHaveScreenshot(
+    "logo-menger-hover-controls-automatic-probe.png",
+    SCREENSHOT_OPTIONS,
+  );
+  await expect(frame).toHaveScreenshot(
+    "logo-menger-hover-automatic-probe-path.png",
+    SCREENSHOT_OPTIONS,
+  );
 });
 
 test("Menger hover composes the optional landing tilt with its stored view", async ({ page }) => {
@@ -880,4 +955,61 @@ test("Menger hover keeps the three visible faces and internal tunnels aligned", 
   });
 
   await expect(scene).toHaveScreenshot("logo-menger-hover-three-face-edge.png", SCREENSHOT_OPTIONS);
+});
+
+test.describe("Menger automatic probe on a phone", () => {
+  test.use({
+    deviceScaleFactor: 1,
+    hasTouch: true,
+    isMobile: true,
+    viewport: { height: 844, width: 390 },
+  });
+
+  test("drives reveal and tilt on a coarse pointer, then pauses for touch drag", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await signInIfNeeded(
+      page,
+      "/logo/hover/menger?depth=2&elev=0&rot=180&probe&probeLanding&probeLoop=10&probeRest=2&tilt&tiltRadius=0",
+    );
+    const scene = page.locator('[data-testid="logo-menger-hover-scene"]');
+    await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
+    await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing");
+    await expect(scene).toHaveAttribute("data-hover-maximum-openness", /^(?!0\.000000).+/);
+    await expect
+      .poll(async () => {
+        const horizontal = await readNumberAttribute(scene, "data-presentation-horizontal-degrees");
+        const vertical = await readNumberAttribute(scene, "data-presentation-vertical-degrees");
+        return Math.abs(horizontal) + Math.abs(vertical);
+      })
+      .toBeGreaterThan(0.1);
+
+    await scene.evaluate((element) => {
+      const observer = new MutationObserver(() => {
+        if (element.getAttribute("data-automatic-probe-state") === "dragging") {
+          element.setAttribute("data-test-saw-automatic-probe-dragging", "true");
+          observer.disconnect();
+        }
+      });
+      observer.observe(element, {
+        attributeFilter: ["data-automatic-probe-state"],
+        attributes: true,
+      });
+    });
+    await dispatchHumanTouchSwipe(page, scene, {
+      startX: 160,
+      startY: 160,
+      steps: [
+        { delayMs: 50, xOffset: 24, yOffset: 12 },
+        { delayMs: 50, xOffset: 48, yOffset: 24 },
+      ],
+    });
+    await expect(scene).toHaveAttribute("data-test-saw-automatic-probe-dragging", "true");
+    await expect(scene).toHaveAttribute("data-automatic-probe-state", "resting");
+    await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing", {
+      timeout: 3_000,
+    });
+  });
 });

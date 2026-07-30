@@ -2,6 +2,7 @@ import {
   LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
   LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
 } from "@/components/logo/logoPresentationTilt";
+import { MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS } from "@/components/logo/mengerAutomaticProbe";
 import {
   createLogoRouteVoxelGrid,
   readLogoRouteRenderState,
@@ -333,6 +334,7 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
       {isSceneActive && MengerHoverScene !== null ? (
         <div className="absolute inset-0 z-0">
           <MengerHoverScene
+            automaticProbe={MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS}
             cameraFrustumPadding={1}
             elevationDegrees={view.elevationDegrees}
             faceColors={faceColors}

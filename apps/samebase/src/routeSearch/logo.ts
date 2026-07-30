@@ -47,6 +47,18 @@ import {
   normalizeLogoPresentationTiltStrengthScale,
 } from "@/components/logo/logoPresentationTilt";
 import {
+  MENGER_AUTOMATIC_PROBE_DEFAULT_HEIGHT,
+  MENGER_AUTOMATIC_PROBE_DEFAULT_LOOP_DURATION_SECONDS,
+  MENGER_AUTOMATIC_PROBE_DEFAULT_PATH,
+  MENGER_AUTOMATIC_PROBE_DEFAULT_REST_DURATION_SECONDS,
+  MENGER_AUTOMATIC_PROBE_DEFAULT_WIDTH,
+  MENGER_AUTOMATIC_PROBE_PATHS,
+  normalizeMengerAutomaticProbeExtent,
+  normalizeMengerAutomaticProbeLoopDurationSeconds,
+  normalizeMengerAutomaticProbeRestDurationSeconds,
+  type MengerAutomaticProbeSettings,
+} from "@/components/logo/mengerAutomaticProbe";
+import {
   DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
   normalizeLogoShuffleParallelMoves,
   readLogoShuffleParallelMoves,
@@ -552,9 +564,92 @@ const RouteSearchSchema_logoCarpetHover = defineRouteSearchParams({
   ),
 });
 
-/** The landing-style tilt option belongs only to the Menger hover lab. */
+/** Landing-style pointer and automatic-probe options belong only to the Menger hover lab. */
 const RouteSearchSchema_logoMengerHover = defineRouteSearchParams({
   ...RouteSearchSchema_logo.shape,
+  probe: routeSearchPresenceParam({
+    access: "access_public",
+    ...logoMotionRouteSearchSuggestion,
+  }),
+  probeHeight: routeSearchValueParam(
+    routeSearchNormalizedFiniteNumber(normalizeMengerAutomaticProbeExtent),
+    {
+      numericDefaultValue: MENGER_AUTOMATIC_PROBE_DEFAULT_HEIGHT,
+      numericRange: {
+        minValue: 0,
+        rangeType: "min",
+      },
+      numericStepValue: 0.05,
+      access: "access_public",
+      sampleValue: "0.55",
+      ...logoMotionRouteSearchSuggestion,
+      valueSuggestions: ["0.3", "0.4", "0.55", "0.7", "1"],
+      valueType: "numeric",
+    },
+  ),
+  probeLanding: routeSearchPresenceParam({
+    access: "access_public",
+    ...logoViewRouteSearchSuggestion,
+  }),
+  probeLoop: routeSearchValueParam(
+    routeSearchNormalizedFiniteNumber(normalizeMengerAutomaticProbeLoopDurationSeconds),
+    {
+      numericDefaultValue: MENGER_AUTOMATIC_PROBE_DEFAULT_LOOP_DURATION_SECONDS,
+      numericRange: {
+        minValue: 0.1,
+        rangeType: "min",
+      },
+      numericStepValue: 0.5,
+      access: "access_public",
+      sampleValue: "5.5",
+      ...logoMotionRouteSearchSuggestion,
+      valueSuggestions: ["3", "4", "5.5", "7", "10"],
+      valueType: "numeric",
+    },
+  ),
+  probePath: routeSearchValueParam(routeSearchStringValue(MENGER_AUTOMATIC_PROBE_PATHS), {
+    access: "access_public",
+    sampleValue: "vertical-8",
+    ...logoMotionRouteSearchSuggestion,
+    valueSuggestions: MENGER_AUTOMATIC_PROBE_PATHS,
+    valueType: "options",
+  }),
+  probePathVisible: routeSearchPresenceParam({
+    access: "access_public",
+    ...logoViewRouteSearchSuggestion,
+  }),
+  probeRest: routeSearchValueParam(
+    routeSearchNormalizedFiniteNumber(normalizeMengerAutomaticProbeRestDurationSeconds),
+    {
+      numericDefaultValue: MENGER_AUTOMATIC_PROBE_DEFAULT_REST_DURATION_SECONDS,
+      numericRange: {
+        minValue: 0,
+        rangeType: "min",
+      },
+      numericStepValue: 0.5,
+      access: "access_public",
+      sampleValue: "1.5",
+      ...logoMotionRouteSearchSuggestion,
+      valueSuggestions: ["0", "0.5", "1.5", "2", "3"],
+      valueType: "numeric",
+    },
+  ),
+  probeWidth: routeSearchValueParam(
+    routeSearchNormalizedFiniteNumber(normalizeMengerAutomaticProbeExtent),
+    {
+      numericDefaultValue: MENGER_AUTOMATIC_PROBE_DEFAULT_WIDTH,
+      numericRange: {
+        minValue: 0,
+        rangeType: "min",
+      },
+      numericStepValue: 0.05,
+      access: "access_public",
+      sampleValue: "0.3",
+      ...logoMotionRouteSearchSuggestion,
+      valueSuggestions: ["0.2", "0.3", "0.4", "0.55", "0.8"],
+      valueType: "numeric",
+    },
+  ),
   tilt: routeSearchPresenceParam({
     access: "access_public",
     ...logoViewRouteSearchSuggestion,
@@ -656,6 +751,14 @@ function readLogoCarpetHoverRouteSearchFields(search: LogoCarpetHoverRouteSearch
 function readLogoMengerHoverRouteSearchFields(search: LogoMengerHoverRouteSearchFields) {
   return {
     ...readLogoRouteSearchFields(search),
+    ...(search.probe ? { probe: true as const } : {}),
+    ...(typeof search.probeHeight === "number" ? { probeHeight: search.probeHeight } : {}),
+    ...(search.probeLanding ? { probeLanding: true as const } : {}),
+    ...(typeof search.probeLoop === "number" ? { probeLoop: search.probeLoop } : {}),
+    ...(typeof search.probePath === "string" ? { probePath: search.probePath } : {}),
+    ...(search.probePathVisible ? { probePathVisible: true as const } : {}),
+    ...(typeof search.probeRest === "number" ? { probeRest: search.probeRest } : {}),
+    ...(typeof search.probeWidth === "number" ? { probeWidth: search.probeWidth } : {}),
     ...(search.tilt ? { tilt: true as const } : {}),
     ...(typeof search.tiltRadius === "number" ? { tiltRadius: search.tiltRadius } : {}),
     ...(typeof search.tiltStrength === "number" ? { tiltStrength: search.tiltStrength } : {}),
@@ -1156,6 +1259,7 @@ export function buildLogoCarpetHoverRouteSearch(
 
 export function buildLogoMengerHoverRouteSearch(
   args: LogoRouteSearchBuildState & {
+    mengerAutomaticProbe: MengerAutomaticProbeSettings;
     mengerHoverDepth: number;
     mengerHoverTiltEnabled: boolean;
     mengerHoverTiltRadiusScale: number;
@@ -1172,6 +1276,35 @@ export function buildLogoMengerHoverRouteSearch(
   return {
     ...buildLogoRouteSearch(args),
     depth: depth !== MENGER_HOVER_DEFAULT_DEPTH ? depth : undefined,
+    probe: args.mengerAutomaticProbe.enabled ? true : undefined,
+    probeHeight:
+      args.mengerAutomaticProbe.height !== MENGER_AUTOMATIC_PROBE_DEFAULT_HEIGHT
+        ? normalizeMengerAutomaticProbeExtent(args.mengerAutomaticProbe.height)
+        : undefined,
+    probeLanding: args.mengerAutomaticProbe.landingSize ? true : undefined,
+    probeLoop:
+      args.mengerAutomaticProbe.loopDurationSeconds !==
+      MENGER_AUTOMATIC_PROBE_DEFAULT_LOOP_DURATION_SECONDS
+        ? normalizeMengerAutomaticProbeLoopDurationSeconds(
+            args.mengerAutomaticProbe.loopDurationSeconds,
+          )
+        : undefined,
+    probePath:
+      args.mengerAutomaticProbe.path !== MENGER_AUTOMATIC_PROBE_DEFAULT_PATH
+        ? args.mengerAutomaticProbe.path
+        : undefined,
+    probePathVisible: args.mengerAutomaticProbe.showPath ? true : undefined,
+    probeRest:
+      args.mengerAutomaticProbe.restDurationSeconds !==
+      MENGER_AUTOMATIC_PROBE_DEFAULT_REST_DURATION_SECONDS
+        ? normalizeMengerAutomaticProbeRestDurationSeconds(
+            args.mengerAutomaticProbe.restDurationSeconds,
+          )
+        : undefined,
+    probeWidth:
+      args.mengerAutomaticProbe.width !== MENGER_AUTOMATIC_PROBE_DEFAULT_WIDTH
+        ? normalizeMengerAutomaticProbeExtent(args.mengerAutomaticProbe.width)
+        : undefined,
     tilt: args.mengerHoverTiltEnabled ? true : undefined,
     tiltRadius:
       tiltRadiusScale !== LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE ? tiltRadiusScale : undefined,

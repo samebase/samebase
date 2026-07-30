@@ -184,6 +184,14 @@ vi.mock("@/components/logo/LogoMengerDepthTransitionPage", () => ({
       depth?: number;
       elev?: number;
       primary?: string;
+      probe?: true;
+      probeHeight?: number;
+      probeLanding?: true;
+      probeLoop?: number;
+      probePath?: string;
+      probePathVisible?: true;
+      probeRest?: number;
+      probeWidth?: number;
       rot?: number;
       tilt?: true;
       tiltRadius?: number;
@@ -194,6 +202,14 @@ vi.mock("@/components/logo/LogoMengerDepthTransitionPage", () => ({
       data-depth={routeSearch.depth}
       data-elevation={routeSearch.elev}
       data-primary={routeSearch.primary}
+      data-probe={routeSearch.probe ? "true" : "false"}
+      data-probe-height={routeSearch.probeHeight}
+      data-probe-landing={routeSearch.probeLanding ? "true" : "false"}
+      data-probe-loop={routeSearch.probeLoop}
+      data-probe-path={routeSearch.probePath}
+      data-probe-path-visible={routeSearch.probePathVisible ? "true" : "false"}
+      data-probe-rest={routeSearch.probeRest}
+      data-probe-width={routeSearch.probeWidth}
       data-rotation={routeSearch.rot}
       data-tilt={routeSearch.tilt ? "true" : "false"}
       data-tilt-radius={routeSearch.tiltRadius}
@@ -812,13 +828,21 @@ describe("appRouter", () => {
 
   it("passes shared logo search state to the Menger hover research route", async () => {
     await renderRoute(
-      "/logo/hover/menger?depth=99&elev=0&primary=emerald-500&rot=0&tilt&tiltRadius=1.2&tiltStrength=1.5",
+      "/logo/hover/menger?depth=99&elev=0&primary=emerald-500&probe&probeHeight=0.7&probeLanding&probeLoop=7&probePath=orbit&probePathVisible&probeRest=2&probeWidth=0.4&rot=0&tilt&tiltRadius=1.2&tiltStrength=1.5",
     );
 
     const page = rootElement?.querySelector('[data-testid="logo-menger-hover-page"]');
     expect(page?.getAttribute("data-depth")).toBe("5");
     expect(page?.getAttribute("data-elevation")).toBe("0");
     expect(page?.getAttribute("data-primary")).toBe("emerald-500");
+    expect(page?.getAttribute("data-probe")).toBe("true");
+    expect(page?.getAttribute("data-probe-height")).toBe("0.7");
+    expect(page?.getAttribute("data-probe-landing")).toBe("true");
+    expect(page?.getAttribute("data-probe-loop")).toBe("7");
+    expect(page?.getAttribute("data-probe-path")).toBe("orbit");
+    expect(page?.getAttribute("data-probe-path-visible")).toBe("true");
+    expect(page?.getAttribute("data-probe-rest")).toBe("2");
+    expect(page?.getAttribute("data-probe-width")).toBe("0.4");
     expect(page?.getAttribute("data-rotation")).toBe("0");
     expect(page?.getAttribute("data-tilt")).toBe("true");
     expect(page?.getAttribute("data-tilt-radius")).toBe("1.2");
