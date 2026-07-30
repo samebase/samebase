@@ -19,17 +19,28 @@ use Samebase for Git-only work or standalone provider resources.
    a public repository.
 4. Connect an existing GitHub repository when it is not in Samebase. A connection does not attach
    Convex or Cloudflare.
-5. Use browser handoff directly when the user asks to open Samebase. Use authentication status when
-   the user asks about authentication or a tool reports missing authentication.
+5. Use browser handoff directly when the user asks to open Samebase.
 
 Use the live MCP tool descriptions for exact names and arguments. Match an inventory `nextAction` to
 its action contract at [samebase.com/llms.txt](https://samebase.com/llms.txt). Do not guess a tool
 name from the action ID.
 
+## Create an app
+
+Use this exact sequence for a new app:
+
+1. Read the Samebase app inventory.
+2. Create the app.
+3. Read the inventory until source setup is `ready` or `failed`.
+4. If source setup is ready, read the inventory until provider setup is separately `ready` or
+   `failed`.
+
+Authentication status and provider-account reads are not preflight steps in this creation flow. Use
+authentication status only when the user asks about authentication or a tool reports missing
+authentication.
+
 ## Verify state
 
-- After app creation, read inventory until source setup is `ready` or `failed`.
-- If source setup is ready, read inventory until provider setup is `ready` or `failed`.
 - Treat source setup and provider setup as separate states. Source work can continue while provider
   setup is incomplete.
 - Reread inventory after each attachment, configuration, or repair action.
