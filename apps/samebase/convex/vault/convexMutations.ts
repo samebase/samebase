@@ -198,8 +198,8 @@ export const readManagedProjectCreateCheckpoint = internalQuery({
     if (plan.convex.projectName !== args.projectName) {
       throw new Error("Managed Convex project does not match the provisioning plan.");
     }
-    if (plan.convex.state !== "planned" && plan.convex.teamId !== args.teamId) {
-      throw new Error("Managed Convex project was created under a different team.");
+    if (plan.convex.teamId !== args.teamId) {
+      throw new Error("Connected Convex team does not match the provisioning plan.");
     }
     switch (plan.convex.state) {
       case "planned":
@@ -230,6 +230,9 @@ export const beginManagedProjectCreate = internalMutation({
     if (plan.convex.projectName !== args.projectName) {
       throw new Error("Managed Convex project does not match the provisioning plan.");
     }
+    if (plan.convex.teamId !== args.teamId) {
+      throw new Error("Connected Convex team does not match the provisioning plan.");
+    }
     if (plan.convex.state !== "planned") {
       throw new Error("Managed Convex project creation already started.");
     }
@@ -237,7 +240,7 @@ export const beginManagedProjectCreate = internalMutation({
       convex: {
         state: "creating",
         projectName: args.projectName,
-        teamId: args.teamId,
+        teamId: plan.convex.teamId,
       },
       updatedAt: Date.now(),
     });

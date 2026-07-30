@@ -30,6 +30,7 @@ describe("vault records Convex contract", () => {
         ghRepoName: "Created-App",
         visibility: "private",
         convexProjectName: "created-app",
+        convexTeamId: "convex-team",
         cloudflareAccountId: "cloudflare-account",
         cloudflareWorkerName: "created-app",
       },
@@ -66,6 +67,26 @@ describe("vault records Convex contract", () => {
     await expect(
       t.run(async (ctx) => {
         return await ctx.db
+          .query("workflow_vaultProvisioning_plans")
+          .withIndex("by_vault", (q) => q.eq("vaultId", samebaseManaged.vaultId))
+          .unique();
+      }),
+    ).resolves.toMatchObject({
+      convex: {
+        state: "planned",
+        projectName: "created-app",
+        teamId: "convex-team",
+      },
+      cloudflare: {
+        state: "planned",
+        accountId: "cloudflare-account",
+        workerName: "created-app",
+        rootDirectory: "/",
+      },
+    });
+    await expect(
+      t.run(async (ctx) => {
+        return await ctx.db
           .query("workflow_vaultProvisioning_writeLocks")
           .withIndex("by_vault", (q) => q.eq("vaultId", existingRepository.vaultId))
           .unique();
@@ -89,6 +110,7 @@ describe("vault records Convex contract", () => {
       ghRepoName: "Example-App",
       visibility: "private",
       convexProjectName: "example-app",
+      convexTeamId: "convex-team",
       cloudflareAccountId: "cloudflare-account",
       cloudflareWorkerName: "example-app",
     });
@@ -100,6 +122,7 @@ describe("vault records Convex contract", () => {
         ghRepoName: " example-app ",
         visibility: "private",
         convexProjectName: "example-app-2",
+        convexTeamId: "convex-team",
         cloudflareAccountId: "cloudflare-account",
         cloudflareWorkerName: "example-app-2",
       }),

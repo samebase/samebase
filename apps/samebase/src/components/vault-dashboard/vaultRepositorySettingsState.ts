@@ -864,7 +864,7 @@ function buildPlannedConvexRow({
   return {
     description: failedMessage ?? "Setting up",
     name: plan.convex.projectName,
-    owner: plan.convex.state === "planned" ? undefined : plan.convex.teamId,
+    owner: plan.convex.teamId,
     provider: "convex",
     resourceId: "planned-convex",
     state: failedMessage ? "failed" : "setting_up",
@@ -995,8 +995,7 @@ export function buildVaultRepositorySettingsState({
       isPlannedConvexAttachment(applicablePlan.convex, project)
         ? {
             name: applicablePlan.convex.projectName,
-            owner:
-              applicablePlan.convex.state === "planned" ? undefined : applicablePlan.convex.teamId,
+            owner: applicablePlan.convex.teamId,
           }
         : null;
     addResourceToRoot(

@@ -603,6 +603,7 @@ const PROVISIONING_PLANNED_PROVIDER_PLAN = {
   convex: {
     state: "planned",
     projectName: "tmp-f149-vault-loading-states",
+    teamId: "38516",
   },
   cloudflare: {
     state: "planned",

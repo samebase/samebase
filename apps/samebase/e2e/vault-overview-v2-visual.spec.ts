@@ -470,6 +470,7 @@ test("shows stable provider setup states in Settings", async ({ page }) => {
     .locator("..")
     .locator("..");
   await expect(activeConnections.getByText("Setting up", { exact: true })).toHaveCount(2);
+  await expect(activeFixture.getByText("38516/", { exact: true })).toBeVisible();
   await expect(activeFixture.getByText("Attention required")).toHaveCount(0);
   await expect(activeFixture.getByText("A provider operation is in progress.")).toBeVisible();
   await expect(activeFixture.getByRole("button", { name: "Add Cloudflare Worker" })).toBeDisabled();

@@ -18,13 +18,14 @@ async function createRetryFixture(blocker: RetryBlocker) {
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const completedRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+    const failedRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId,
       vaultId,
       repositoryFullName: "ada/retry-guard",
       trigger: "create",
-      state: "succeeded",
-      currentStep: "finish",
+      state: "failed",
+      currentStep: "attach_convex",
+      lastError: "Convex setup failed.",
       createdAt: 1,
       updatedAt: 2,
       completedAt: 2,
@@ -34,7 +35,7 @@ async function createRetryFixture(blocker: RetryBlocker) {
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "create_repository",
-      runId: completedRunId,
+      runId: failedRunId,
       ghRepoId: "github-repository",
       owner: "ada",
       name: "retry-guard",
@@ -45,11 +46,18 @@ async function createRetryFixture(blocker: RetryBlocker) {
 
     switch (blocker) {
       case "none":
+        await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+          vaultId,
+          owner: { kind: "managed_run", runId: failedRunId },
+          state: "failed",
+          lastWriteAt: {},
+          updatedAt: 10,
+        });
         break;
       case "active_managed_lock":
         await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
           vaultId,
-          owner: { kind: "managed_run", runId: completedRunId },
+          owner: { kind: "managed_run", runId: failedRunId },
           state: "active",
           lastWriteAt: {},
           updatedAt: 10,
@@ -164,6 +172,82 @@ describe("app provisioning retry admission", () => {
       owner: { kind: "managed_run", runId: admitted.queuedRuns[0]?._id },
       state: "active",
     });
+  });
+
+  it("rejects retry after successful managed setup", async () => {
+    const { ids, t } = await createRetryFixture("none");
+    await t.run(async (ctx) => {
+      const write = await ctx.db
+        .query("workflow_vaultProvisioning_writeLocks")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .unique();
+      if (!write || write.owner.kind !== "managed_run") {
+        throw new Error("Expected managed provider write.");
+      }
+      await Promise.all([
+        ctx.db.patch(write.owner.runId, {
+          state: "succeeded",
+          currentStep: "finish",
+          lastError: undefined,
+        }),
+        ctx.db.patch(write._id, {
+          state: "succeeded",
+        }),
+      ]);
+    });
+
+    await expect(
+      t.mutation(internal.appProvisioningRuns.createRetryForVault, {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+      }),
+    ).rejects.toThrow("Infrastructure retry is available only after managed setup fails.");
+  });
+
+  it("rejects retry after a manual action supersedes failed managed setup", async () => {
+    const { ids, t } = await createRetryFixture("none");
+    await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
+      vaultId: ids.vaultId,
+      userId: ids.userId,
+      actionId: "manual-repair",
+      action: "create_convex_project",
+    });
+    await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
+      vaultId: ids.vaultId,
+      actionId: "manual-repair",
+      result: "succeeded",
+    });
+
+    await expect(
+      t.mutation(internal.appProvisioningRuns.createRetryForVault, {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+      }),
+    ).rejects.toThrow("Infrastructure retry is available only after managed setup fails.");
+  });
+
+  it("rejects provider retry after source setup fails", async () => {
+    const { ids, t } = await createRetryFixture("none");
+    await t.run(async (ctx) => {
+      const write = await ctx.db
+        .query("workflow_vaultProvisioning_writeLocks")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .unique();
+      if (!write || write.owner.kind !== "managed_run") {
+        throw new Error("Expected managed provider write.");
+      }
+      await ctx.db.patch(write.owner.runId, {
+        currentStep: "sync_tree",
+        lastError: "Source setup failed.",
+      });
+    });
+
+    await expect(
+      t.mutation(internal.appProvisioningRuns.createRetryForVault, {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+      }),
+    ).rejects.toThrow("Infrastructure retry is available only after provider setup fails.");
   });
 
   it("admits only one of a retry and vault deletion", async () => {

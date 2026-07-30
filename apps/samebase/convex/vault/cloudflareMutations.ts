@@ -336,7 +336,7 @@ export const beginManagedWorkerCreate = internalMutation({
         state: "creating",
         accountId: args.accountId,
         workerName: args.workerName,
-        build: plan.cloudflare.build,
+        rootDirectory: plan.cloudflare.rootDirectory,
       },
       updatedAt: Date.now(),
     });
@@ -378,7 +378,7 @@ export const recordManagedWorkerCreated = internalMutation({
           accountId: args.accountId,
           workerName: args.workerName,
           workerTag: args.workerTag,
-          build: plan.cloudflare.build,
+          rootDirectory: plan.cloudflare.rootDirectory,
         },
         updatedAt: Date.now(),
       });
@@ -499,7 +499,7 @@ export const readManagedWorkerConfigurationContext = internalQuery({
       accountId: worker.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
-      rootDirectory: plan.cloudflare.build.rootDirectory,
+      rootDirectory: plan.cloudflare.rootDirectory,
     };
   },
 });
@@ -576,7 +576,7 @@ export const readManagedWorkerConvexProjectConfigurationContext = internalQuery(
       accountId: worker.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
-      rootDirectory: plan.cloudflare.build.rootDirectory,
+      rootDirectory: plan.cloudflare.rootDirectory,
       convexProject: {
         convexProjectId: project._id,
         teamId: project.teamId,

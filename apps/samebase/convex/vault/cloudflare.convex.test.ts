@@ -166,19 +166,16 @@ async function createManagedWorkerCreatingFixture() {
       vaultId: fixture.vaultId,
       userId: fixture.userId,
       convexConfigPath: "convex.json",
-      convex: { state: "planned", projectName: "managed-project" },
+      convex: {
+        state: "planned",
+        projectName: "managed-project",
+        teamId: "convex-team",
+      },
       cloudflare: {
         state: "planned",
         accountId,
         workerName: "managed-worker",
-        build: {
-          rootDirectory: "/",
-          buildCommand: "pnpm run build",
-          deployCommand: "pnpm run deploy",
-          previewDeployCommand: "pnpm run deploy:preview",
-          pathIncludes: ["*"],
-          pathExcludes: [],
-        },
+        rootDirectory: "/",
       },
       createdAt: 3,
       updatedAt: 3,
@@ -606,6 +603,22 @@ describe("vault Cloudflare Worker attachments", () => {
 
   it("retries an interrupted managed create after the Worker was deleted", async () => {
     const { runId, t, userId, vaultId } = await createManagedWorkerCreatingFixture();
+    await t.run(async (ctx) => {
+      const connection = await ctx.db
+        .query("providerConnections")
+        .withIndex("by_user_kind", (q) => q.eq("userId", userId).eq("kind", "cloudflare"))
+        .unique();
+      if (!connection || connection.kind !== "cloudflare") {
+        throw new Error("Expected Cloudflare connection.");
+      }
+      await ctx.db.patch(connection._id, {
+        defaultAccount: {
+          state: "selected",
+          accountId: "00000000000000000000000000000002",
+          accountName: "Other Cloudflare account",
+        },
+      });
+    });
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
       const method = input instanceof Request ? input.method : (init?.method ?? "GET");
@@ -645,6 +658,21 @@ describe("vault Cloudflare Worker attachments", () => {
       workerName: "managed-worker",
       workerTag: "managed-worker-tag",
       origin: "provisioned",
+    });
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("providerConnections")
+            .withIndex("by_user_kind", (q) => q.eq("userId", userId).eq("kind", "cloudflare"))
+            .unique(),
+      ),
+    ).resolves.toMatchObject({
+      defaultAccount: {
+        state: "selected",
+        accountId: "00000000000000000000000000000002",
+        accountName: "Other Cloudflare account",
+      },
     });
     expect(
       fetchMock.mock.calls.filter(
@@ -708,20 +736,13 @@ describe("vault Cloudflare Worker attachments", () => {
         vaultId,
         userId,
         convexConfigPath: "convex.json",
-        convex: { state: "planned", projectName: "demo" },
+        convex: { state: "planned", projectName: "demo", teamId: "convex-team" },
         cloudflare: {
           state: "created",
           accountId,
           workerName: "managed",
           workerTag: "managed-tag",
-          build: {
-            rootDirectory: "/",
-            buildCommand: "pnpm run build",
-            deployCommand: "pnpm run deploy",
-            previewDeployCommand: "pnpm run deploy:preview",
-            pathIncludes: ["*"],
-            pathExcludes: [],
-          },
+          rootDirectory: "/",
         },
         createdAt: 4,
         updatedAt: 4,

@@ -133,6 +133,30 @@ describe("markWorkflowProvisioningFailed", () => {
     });
   });
 
+  it("keeps the Convex team mismatch visible", async () => {
+    const t = makeConvexTest();
+    const ids = await seedRun(t, {
+      repoName: "convex-team-mismatch",
+      trigger: "retry",
+      currentStep: "attach_convex",
+      workflowId: "workflow-convex-team",
+      vaultState: "connected",
+      activeOwnership: true,
+    });
+    const expectedMessage = "Connected Convex team does not match the provisioning plan.";
+
+    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+      runId: ids.runId,
+      workflowId: "workflow-convex-team",
+      message: `Error: ${expectedMessage}`,
+    });
+
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.runId))).resolves.toMatchObject({
+      state: "failed",
+      lastError: expectedMessage,
+    });
+  });
+
   it("records GitHub repository validation errors before infrastructure starts", async () => {
     const t = makeConvexTest();
     const ids = await seedRun(t, {

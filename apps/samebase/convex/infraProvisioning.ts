@@ -14,7 +14,7 @@ import {
   formatCloudflareGitHubAppRepositoryAuthorizationMessage,
   isCloudflareGitHubAppRepositoryAuthorizationError,
 } from "./cloudflareResources";
-import type { AppProvisioningStep } from "./appProvisioningModel";
+import { isAppProvisioningProviderStep, type AppProvisioningStep } from "./appProvisioningModel";
 import type { ProviderApiCallRecorder } from "./providerApiLog";
 
 type ConvexDeployKeyAllowedAction = NonNullable<
@@ -583,6 +583,7 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Cannot connect Cloudflare Worker",
   "Cloudflare Worker connection did not attach a Worker.",
   "Convex connection is required to provision infrastructure.",
+  "Connected Convex team does not match the provisioning plan.",
   "Convex project name",
   "Convex deployment connection did not attach a deployment.",
   "Cloudflare Worker is required before rotating Convex deploy keys for Workers Builds.",
@@ -648,19 +649,6 @@ function resolveSafeWorkflowRunError(args: {
   );
 }
 
-function isCreateAppPreInfrastructureStep(step: string): boolean {
-  return (
-    step === "run_created" ||
-    step === "initialize_vault" ||
-    step === "validate_connections" ||
-    step === "create_github_repo" ||
-    step === "fetch_github_repo" ||
-    step === "connect_github" ||
-    step === "seed_starter" ||
-    step === "sync_tree"
-  );
-}
-
 export const markWorkflowProvisioningFailed = internalMutation({
   args: {
     runId: v.id("workflow_vaultProvisioning_runs"),
@@ -723,7 +711,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
       null;
     if (run.trigger === "connect_existing_repository") {
       sourceSetupFailureLogName = "app:connect_existing:failed";
-    } else if (run.trigger === "create" && isCreateAppPreInfrastructureStep(run.currentStep)) {
+    } else if (run.trigger === "create" && !isAppProvisioningProviderStep(run.currentStep)) {
       sourceSetupFailureLogName = "app:provision:failed";
     }
     if (sourceSetupFailureLogName) {

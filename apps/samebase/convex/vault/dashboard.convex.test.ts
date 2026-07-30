@@ -583,6 +583,7 @@ describe("vault dashboard Convex contract", () => {
         ghRepoName: "early-vault",
         visibility: "private",
         convexProjectName: "early-vault",
+        convexTeamId: "convex-team",
         cloudflareAccountId: "cloudflare-account",
         cloudflareWorkerName: "early-vault",
       },
@@ -826,14 +827,7 @@ describe("vault dashboard Convex contract", () => {
           state: "planned",
           accountId: "cloudflare-account",
           workerName: "provider-state",
-          build: {
-            rootDirectory: "/",
-            buildCommand: "pnpm run build",
-            deployCommand: "pnpm run deploy",
-            previewDeployCommand: "pnpm run deploy:preview",
-            pathIncludes: ["*"],
-            pathExcludes: [],
-          },
+          rootDirectory: "/",
         },
         createdAt: 25,
         updatedAt: 25,
@@ -1117,7 +1111,9 @@ describe("vault dashboard Convex contract", () => {
         writeLockState: "failed",
         runState: "failed",
         expectedSetup: {
-          status: "ready",
+          status: "failed",
+          provider: "cloudflare",
+          message: "Worker setup failed.",
         },
       },
       {
@@ -1286,19 +1282,13 @@ describe("vault dashboard Convex contract", () => {
         convex: {
           state: "planned",
           projectName: "readable-convex-name",
+          teamId: "readable-convex-team",
         },
         cloudflare: {
           state: "planned",
           accountId: "cloudflare-account",
           workerName: "readable-worker-name",
-          build: {
-            rootDirectory: "/",
-            buildCommand: "pnpm run build",
-            deployCommand: "pnpm run deploy",
-            previewDeployCommand: "pnpm run deploy:preview",
-            pathIncludes: ["*"],
-            pathExcludes: [],
-          },
+          rootDirectory: "/",
         },
         createdAt: 25,
         updatedAt: 25,
@@ -1335,6 +1325,7 @@ describe("vault dashboard Convex contract", () => {
         convex: {
           state: "planned",
           projectName: "readable-convex-name",
+          teamId: "readable-convex-team",
         },
         cloudflare: {
           state: "planned",
@@ -1552,19 +1543,13 @@ describe("vault dashboard Convex contract", () => {
         convex: {
           state: "planned",
           projectName: "manual-supersession",
+          teamId: "convex-team",
         },
         cloudflare: {
           state: "planned",
           accountId: "cloudflare-account",
           workerName: "manual-supersession",
-          build: {
-            rootDirectory: "/",
-            buildCommand: "pnpm run build",
-            deployCommand: "pnpm run deploy",
-            previewDeployCommand: "pnpm run deploy:preview",
-            pathIncludes: ["*"],
-            pathExcludes: [],
-          },
+          rootDirectory: "/",
         },
         createdAt: 25,
         updatedAt: 25,

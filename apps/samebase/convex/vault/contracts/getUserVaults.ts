@@ -83,6 +83,7 @@ export const vManagedProviderPlan = union(
       object({
         state: literal("planned"),
         projectName: string(),
+        teamId: string(),
       }),
       object({
         state: literal("creating"),

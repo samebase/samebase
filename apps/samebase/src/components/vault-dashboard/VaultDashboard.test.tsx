@@ -1809,6 +1809,7 @@ describe("buildVaultRepositorySettingsState", () => {
           convex: {
             state: "planned",
             projectName: "demo-convex",
+            teamId: "team-1",
           },
           cloudflare: {
             state: "planned",
@@ -1839,6 +1840,7 @@ describe("buildVaultRepositorySettingsState", () => {
       {
         description: "Setting up",
         name: "demo-convex",
+        owner: "team-1",
         provider: "convex",
         state: "setting_up",
       },
@@ -1878,6 +1880,7 @@ describe("buildVaultRepositorySettingsState", () => {
           convex: {
             state: "planned",
             projectName: "demo-convex",
+            teamId: "team-1",
           },
           cloudflare: {
             state: "planned",
@@ -1905,6 +1908,7 @@ describe("buildVaultRepositorySettingsState", () => {
         {
           description: "Convex project setup failed.",
           name: "demo-convex",
+          owner: "team-1",
           provider: "convex",
           state: "failed",
         },

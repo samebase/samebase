@@ -375,7 +375,6 @@ async function createWorkerForManagedWorkflow(
     transport: connection.transport,
     accountId,
   });
-  await rememberDefaultAccount(ctx, { userId: args.userId, connection, account });
 
   let worker: { workerName: string; workerTag: string };
   if (checkpoint.state === "created") {

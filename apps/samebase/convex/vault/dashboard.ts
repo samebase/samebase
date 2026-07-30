@@ -287,39 +287,11 @@ async function readManagedProviderPlan(
     return null;
   }
 
-  const cloudflare = {
-    ...plan.cloudflare,
-    rootDirectory: plan.cloudflare.build.rootDirectory,
+  return {
+    convexConfigPath: plan.convexConfigPath,
+    convex: plan.convex,
+    cloudflare: plan.cloudflare,
   };
-  switch (cloudflare.state) {
-    case "planned":
-    case "creating":
-      return {
-        convexConfigPath: plan.convexConfigPath,
-        convex: plan.convex,
-        cloudflare: {
-          state: cloudflare.state,
-          accountId: cloudflare.accountId,
-          workerName: cloudflare.workerName,
-          rootDirectory: cloudflare.rootDirectory,
-        },
-      };
-    case "created":
-      return {
-        convexConfigPath: plan.convexConfigPath,
-        convex: plan.convex,
-        cloudflare: {
-          state: "created",
-          accountId: cloudflare.accountId,
-          workerName: cloudflare.workerName,
-          workerTag: cloudflare.workerTag,
-          rootDirectory: cloudflare.rootDirectory,
-        },
-      };
-    default:
-      cloudflare satisfies never;
-      throw new Error("Unknown Cloudflare provider plan state.");
-  }
 }
 
 function resolveProviderWriteSummary(
@@ -409,7 +381,7 @@ async function resolveProviderSetupSummary(
     }
     return { status: "not_applicable" };
   }
-  if (managedOperation?.status === "running") {
+  if (managedOperation) {
     return readProviderRunSummary({
       provider: "cloudflare",
       ...managedOperation,

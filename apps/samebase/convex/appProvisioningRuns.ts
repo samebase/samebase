@@ -3,6 +3,7 @@ import { internalMutation, internalQuery, type MutationCtx } from "./_generated/
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
+  isAppProvisioningProviderStep,
   vAppProvisioningEventLevel,
   vAppProvisioningRunState,
   vAppProvisioningStep,
@@ -73,6 +74,31 @@ export const createRetryForVault = internalMutation({
     if (infrastructure.operation.kind !== "none") {
       throw new Error("Another vault infrastructure operation is active.");
     }
+    const failedWrite = infrastructure.providerWrite;
+    if (
+      !failedWrite ||
+      failedWrite.owner.kind !== "managed_run" ||
+      failedWrite.state !== "failed"
+    ) {
+      throw new Error("Infrastructure retry is available only after managed setup fails.");
+    }
+    const failedRun = await ctx.db.get(failedWrite.owner.runId);
+    if (
+      !failedRun ||
+      failedRun.state !== "failed" ||
+      failedRun.vaultId !== args.vaultId ||
+      failedRun.userId !== args.userId
+    ) {
+      throw new Error("Failed managed setup does not match this vault.");
+    }
+    if (
+      failedRun.trigger === "connect_existing_repository" ||
+      (!isAppProvisioningProviderStep(failedRun.currentStep) &&
+        !(failedRun.trigger === "retry" && failedRun.currentStep === "run_created"))
+    ) {
+      throw new Error("Infrastructure retry is available only after provider setup fails.");
+    }
+
     const now = Date.now();
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId: args.userId,
@@ -84,27 +110,16 @@ export const createRetryForVault = internalMutation({
       createdAt: now,
       updatedAt: now,
     });
-    const owner = {
-      kind: "managed_run" as const,
-      runId,
-    };
-    if (infrastructure.providerWrite) {
-      await ctx.db.replace(infrastructure.providerWrite._id, {
-        vaultId: args.vaultId,
-        owner,
-        state: "active",
-        lastWriteAt: infrastructure.providerWrite.lastWriteAt,
-        updatedAt: now,
-      });
-    } else {
-      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-        vaultId: args.vaultId,
-        owner,
-        state: "active",
-        lastWriteAt: {},
-        updatedAt: now,
-      });
-    }
+    await ctx.db.replace(failedWrite._id, {
+      vaultId: args.vaultId,
+      owner: {
+        kind: "managed_run",
+        runId,
+      },
+      state: "active",
+      lastWriteAt: failedWrite.lastWriteAt,
+      updatedAt: now,
+    });
     return runId;
   },
 });

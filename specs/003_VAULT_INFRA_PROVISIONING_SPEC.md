@@ -66,23 +66,25 @@ Vault creation succeeds even if downstream provisioning partially fails.
 
 - `vaultId`, `userId`
 - `convexConfigPath`
-- `convex`: `{ state: "planned", projectName }`, `{ state: "creating", projectName, teamId }`, or
+- `convex`: `{ state: "planned", projectName, teamId }`,
+  `{ state: "creating", projectName, teamId }`, or
   `{ state: "created", projectName, teamId, projectId }`
-- `cloudflare`: `{ state: "planned", accountId, workerName, build }`,
-  `{ state: "creating", accountId, workerName, build }`, or
-  `{ state: "created", accountId, workerName, workerTag, build }`
+- `cloudflare`: `{ state: "planned", accountId, workerName, rootDirectory }`,
+  `{ state: "creating", accountId, workerName, rootDirectory }`, or
+  `{ state: "created", accountId, workerName, workerTag, rootDirectory }`
 - `createdAt`, `updatedAt`
 
-The plan row records user-selected provider names before side effects happen so retries use the same
-configuration. `creating` means the provider create request started but Samebase never recorded a
-confirmed result. Retry checks the exact planned name. If that provider resource exists, Samebase
-requires the user to delete it in the provider dashboard before retrying. If it is absent, Samebase
-repeats the create request without adding another workflow state. A same-named resource is never
-adopted implicitly. `created` is the exact provider identity checkpoint used by retry. Samebase
-writes that checkpoint and its stable `provisioned` resource attachment in one database transaction.
-Checkbox-controlled cleanup derives ownership only from the stable attachment, never from an
-unattached checkpoint. Current connected resource identities live in the durable resource tables
-used by the dashboard.
+The plan row records user-selected provider names and exact provider owners before side effects
+happen. The Convex team and Cloudflare account do not change during retry. If the active provider
+connection does not match the plan, Samebase stops and tells the user about the mismatch. `creating`
+means the provider create request started but Samebase never recorded a confirmed result. Retry
+checks the exact planned name. If that provider resource exists, Samebase requires the user to
+delete it in the provider dashboard before retrying. If it is absent, Samebase repeats the create
+request without adding another workflow state. A same-named resource is never adopted implicitly.
+`created` is the exact provider identity checkpoint used by retry. Samebase writes that checkpoint
+and its stable `provisioned` resource attachment in one database transaction. Checkbox-controlled
+cleanup derives ownership only from the stable attachment, never from an unattached checkpoint.
+Current connected resource identities live in the durable resource tables used by the dashboard.
 
 Indexes:
 
@@ -125,9 +127,9 @@ manual write by itself. When a user or agent starts an explicit manual provider 
 an old managed setup failure, and the dashboard removes the old managed Retry action and plan-only
 rows.
 
-Deployment has one destructive precondition. The target deployment must contain zero rows in
-`workflow_vaultProvisioning_writeLocks` before this table shape is deployed. If one or more rows
-exist, the operator must stop the deployment and clear them first. Product code has no compatibility
+Deployment has two destructive preconditions. The target deployment must contain zero rows in
+`workflow_vaultProvisioning_writeLocks` and zero rows in `workflow_vaultProvisioning_plans`. The
+operator must stop the deployment and clear these rows first. Product code has no compatibility
 reader, data migration, or fallback for an older row shape.
 
 ### `vaultConvexProjects`
@@ -276,7 +278,10 @@ Repository default branch:
 
 - Args: `{ vaultId: Id<"vaults"> }`
 - Returns: `null`
-- Behavior: validates ownership + samebase-managed, starts a managed provisioning retry
+- Behavior: validates ownership and Samebase management, then replaces the failed managed write with
+  one managed provisioning retry. The write must name a failed managed run for the same vault and
+  user. The failed create run must have reached provider setup. A source setup failure, successful
+  run, or later manual provider action does not permit provider retry.
 
 3. `api.vault.dashboard.getUserVaults`
 

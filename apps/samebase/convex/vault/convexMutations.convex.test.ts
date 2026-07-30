@@ -244,19 +244,16 @@ describe("vault Convex project attachment mutations", () => {
         vaultId: ids.primaryVaultId,
         userId: ids.userId,
         convexConfigPath: "apps/web/convex.json",
-        convex: { state: "planned", projectName: "managed-project" },
+        convex: {
+          state: "planned",
+          projectName: "managed-project",
+          teamId: "team-1",
+        },
         cloudflare: {
           state: "planned",
           accountId: "account-1",
           workerName: "managed-worker",
-          build: {
-            rootDirectory: "apps/web",
-            buildCommand: "pnpm run build",
-            deployCommand: "pnpm run deploy",
-            previewDeployCommand: "pnpm run deploy:preview",
-            pathIncludes: ["apps/web/*"],
-            pathExcludes: [],
-          },
+          rootDirectory: "apps/web",
         },
         createdAt: 10,
         updatedAt: 10,
@@ -264,6 +261,24 @@ describe("vault Convex project attachment mutations", () => {
       return { planId, runId, writeLockId };
     });
 
+    await expect(
+      t.query(internal.vault.convexMutations.readManagedProjectCreateCheckpoint, {
+        vaultId: ids.primaryVaultId,
+        userId: ids.userId,
+        runId,
+        projectName: "managed-project",
+        teamId: "team-2",
+      }),
+    ).rejects.toThrow("Connected Convex team does not match the provisioning plan.");
+    await expect(
+      t.mutation(internal.vault.convexMutations.beginManagedProjectCreate, {
+        vaultId: ids.primaryVaultId,
+        userId: ids.userId,
+        runId,
+        projectName: "managed-project",
+        teamId: "team-2",
+      }),
+    ).rejects.toThrow("Connected Convex team does not match the provisioning plan.");
     await t.mutation(internal.vault.convexMutations.beginManagedProjectCreate, {
       vaultId: ids.primaryVaultId,
       userId: ids.userId,

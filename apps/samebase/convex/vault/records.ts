@@ -8,7 +8,6 @@ import {
 } from "../_generated/server";
 import { query } from "../functions";
 import {
-  buildVaultCloudflareBuildConfigForRootDirectory,
   parseRepositoryFullName,
   vGitHubRepositoryVisibility,
   vVaultConnectedRepositoryTarget,
@@ -293,6 +292,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     ghRepoName: string(),
     visibility: vGitHubRepositoryVisibility,
     convexProjectName: string(),
+    convexTeamId: string(),
     cloudflareAccountId: string(),
     cloudflareWorkerName: string(),
   },
@@ -386,14 +386,13 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       convex: {
         state: "planned",
         projectName: args.convexProjectName,
+        teamId: args.convexTeamId,
       },
       cloudflare: {
         state: "planned",
         accountId: args.cloudflareAccountId,
         workerName: args.cloudflareWorkerName,
-        build: buildVaultCloudflareBuildConfigForRootDirectory({
-          rootDirectory: VAULT_ROOT_DIRECTORY,
-        }),
+        rootDirectory: VAULT_ROOT_DIRECTORY,
       },
       createdAt: now,
       updatedAt: now,

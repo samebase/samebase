@@ -307,9 +307,12 @@ JSON Schema for the tool's `structuredContent`:
                           },
                           "projectName": {
                             "type": "string"
+                          },
+                          "teamId": {
+                            "type": "string"
                           }
                         },
-                        "required": ["state", "projectName"],
+                        "required": ["state", "projectName", "teamId"],
                         "additionalProperties": false
                       },
                       {

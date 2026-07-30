@@ -1,8 +1,6 @@
 import { defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 
-import { vVaultCloudflareBuildConfig } from "./vault/model";
-
 const { id, literal, number, object, optional, string, union } = v;
 
 export const vAppProvisioningEventLevel = union(literal("info"), literal("warn"), literal("error"));
@@ -42,6 +40,30 @@ export const vAppProvisioningRunStep = union(
   literal("finish"),
 );
 export type AppProvisioningRunStep = Infer<typeof vAppProvisioningRunStep>;
+
+export function isAppProvisioningProviderStep(step: AppProvisioningRunStep): boolean {
+  switch (step) {
+    case "run_created":
+    case "initialize_vault":
+    case "validate_connections":
+    case "create_github_repo":
+    case "fetch_github_repo":
+    case "seed_starter":
+    case "connect_github":
+    case "sync_tree":
+      return false;
+    case "claim_infra":
+    case "attach_convex":
+    case "attach_worker":
+    case "configure_workers_builds_for_github":
+    case "rotate_convex_deploy_keys_for_workers_builds":
+    case "finish":
+      return true;
+    default:
+      step satisfies never;
+      throw new Error("Unknown app provisioning step.");
+  }
+}
 
 export const vAppProvisioningRunTrigger = union(
   literal("create"),
@@ -91,7 +113,7 @@ export const vaultProvisioningTables = {
   /**
    * The exact Convex project and Cloudflare Worker choices for one vault.
    * Retries read this row so every attempt uses the same provider names,
-   * Convex config path, Cloudflare account, and Worker build configuration.
+   * Convex team and config path, Cloudflare account, and Worker root directory.
    * `created` variants preserve identities returned by earlier provider-creation
    * checkpoints. Recording a `created` checkpoint and its stable resource
    * attachment is one database transaction.
@@ -104,6 +126,7 @@ export const vaultProvisioningTables = {
       object({
         state: literal("planned"),
         projectName: string(),
+        teamId: string(),
       }),
       object({
         state: literal("creating"),
@@ -122,20 +145,20 @@ export const vaultProvisioningTables = {
         state: literal("planned"),
         accountId: string(),
         workerName: string(),
-        build: vVaultCloudflareBuildConfig,
+        rootDirectory: string(),
       }),
       object({
         state: literal("creating"),
         accountId: string(),
         workerName: string(),
-        build: vVaultCloudflareBuildConfig,
+        rootDirectory: string(),
       }),
       object({
         state: literal("created"),
         accountId: string(),
         workerName: string(),
         workerTag: string(),
-        build: vVaultCloudflareBuildConfig,
+        rootDirectory: string(),
       }),
     ),
     createdAt: number(),
