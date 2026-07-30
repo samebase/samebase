@@ -12,6 +12,10 @@
   [pull request 9](https://github.com/nicu-chiciuc/bristol_tsx/pull/9)
 - Application migration pull request:
   [pull request 10](https://github.com/nicu-chiciuc/bristol_tsx/pull/10)
+- Application runtime extraction pull request:
+  [pull request 11](https://github.com/nicu-chiciuc/bristol_tsx/pull/11)
+- Application linked-worktree pull request:
+  [pull request 12](https://github.com/nicu-chiciuc/bristol_tsx/pull/12)
 - Samebase research branch: `codex-project-adoption-research`
 - Prior hosting record:
   [Netlify to Cloudflare Workers](../../2026-07-29-bristol-tsx-netlify-to-cloudflare-workers.md)
@@ -26,9 +30,9 @@ The application migration branch now uses TanStack Start instead of Next.js and 
 passed its runtime, security, route, and public-preview gates. Production cutover still needs
 operator approval.
 
-The work also identifies the useful development, worktree, preview, cleanup, and release
-capabilities that Bristol does not yet have. It does not claim that one isolated acceptance runner
-is a complete worktree development system.
+The work also identifies useful development, worktree, preview, cleanup, and release capabilities.
+Bristol now has normal linked-worktree development and isolated linked-worktree acceptance. Preview
+resource cleanup remains a separate gap.
 
 Knowledge can move from Samebase to Bristol, from Bristol to Samebase, or into a shared asset.
 
@@ -81,21 +85,22 @@ The first read-only inventory found:
 
 ## Capability Contract
 
-| Capability                       | Branch evidence                                                 | Target                                       | Status         |
-| -------------------------------- | --------------------------------------------------------------- | -------------------------------------------- | -------------- |
-| Fresh checkout setup             | dependency install is manual                                    | setup-aware one-time command                 | gap            |
-| Normal local development         | `dev` starts Vite and normal Convex development                 | retain                                       | complete       |
-| One-time linked-worktree setup   | none                                                            | setup-aware one-time command                 | gap            |
-| Anonymous linked-worktree setup  | isolated acceptance runner only                                 | local backend, auth user, and synthetic data | gap            |
-| Framework-neutral behavior tests | HTTP, data-auth, cache, Worker, and browser suites pass         | required before migration                    | complete       |
-| Branch build                     | Cloudflare non-default-branch trigger                           | retain                                       | complete       |
-| Worker version upload            | `deploy:preview` uploads without production traffic             | retain                                       | complete       |
-| Public pull request preview      | stable branch URL with a fresh synthetic Convex backend         | safe public preview                          | complete       |
-| Preview authentication           | preview-only keys, profile, account, seed, and sign-in contract | retain                                       | complete       |
-| Preview resource cleanup         | no project command                                              | exact branch ownership and cleanup           | gap            |
-| Production promotion             | Cloudflare default-branch trigger                               | retain behind gates                          | ready, not run |
-| Rollback                         | Netlify and prior Worker evidence                               | retain through framework cutover             | complete       |
-| Observability                    | build, version, route, and browser evidence; no preview logs    | state the preview limit                      | partial        |
+| Capability                       | Branch evidence                                                 | Target                                 | Status         |
+| -------------------------------- | --------------------------------------------------------------- | -------------------------------------- | -------------- |
+| Fresh checkout setup             | `dev` installs missing or stale dependencies                    | repeatable setup-aware command         | complete       |
+| Normal local development         | `dev` starts Vite and normal Convex development                 | retain                                 | complete       |
+| Repeatable linked-worktree setup | `setup:worktree` owns local state and one synthetic account     | isolated setup with explicit ownership | complete       |
+| Anonymous linked-worktree setup  | `dev` selects an owned anonymous loopback backend               | local backend and auth user            | complete       |
+| Linked-worktree acceptance       | two real setup, browser, service, and cleanup cycles            | isolated committed-head proof          | complete       |
+| Framework-neutral behavior tests | HTTP, data-auth, cache, Worker, and browser suites pass         | required before migration              | complete       |
+| Branch build                     | Cloudflare non-default-branch trigger                           | retain                                 | complete       |
+| Worker version upload            | `deploy:preview` uploads without production traffic             | retain                                 | complete       |
+| Public pull request preview      | stable branch URL with a fresh synthetic Convex backend         | safe public preview                    | complete       |
+| Preview authentication           | preview-only keys, profile, account, seed, and sign-in contract | retain                                 | complete       |
+| Preview resource cleanup         | no project command                                              | exact branch ownership and cleanup     | gap            |
+| Production promotion             | Cloudflare default-branch trigger                               | retain behind gates                    | ready, not run |
+| Rollback                         | Netlify and prior Worker evidence                               | retain through framework cutover       | complete       |
+| Observability                    | build, version, route, and browser evidence; no preview logs    | state the preview limit                | partial        |
 
 ## Knowledge Requests
 
@@ -104,7 +109,7 @@ Record each question that the project worker cannot answer from Bristol and the 
 | ID        | Question                                                           | Routed source  | Answer given                                                              | Project adaptation                     | Validation              |
 | --------- | ------------------------------------------------------------------ | -------------- | ------------------------------------------------------------------------- | -------------------------------------- | ----------------------- |
 | BRIS-Q001 | Must an anonymous worktree have an isolated Convex backend?        | Samebase       | yes, a local anonymous backend                                            | use an isolated Bristol local backend  | source review           |
-| BRIS-Q002 | What command prepares a fresh Samebase linked worktree?            | Samebase       | `pnpm dev --once`                                                         | keep as an unimplemented Bristol gap   | final script review     |
+| BRIS-Q002 | What command prepares a fresh Samebase linked worktree?            | Samebase       | `pnpm dev --once`                                                         | add repeatable `setup:worktree`        | two-cycle acceptance    |
 | BRIS-Q003 | What safe user and synthetic application data does setup create?   | Samebase       | one approved auth user, no application data                               | seed only isolated tests and previews  | browser acceptance      |
 | BRIS-Q004 | How are branch build, Worker version, and Convex preview owned?    | Samebase       | separate provider resources tied to one branch                            | track all three identities             | final preview passes    |
 | BRIS-Q005 | How does preview cleanup prove exact ownership and absence?        | Samebase       | exact version and Convex preview identity, with an absence-proof gap      | design pending                         | source review           |
@@ -125,33 +130,42 @@ Record each question that the project worker cannot answer from Bristol and the 
 
 ## Bidirectional Findings
 
-| ID       | Requirement                                       | Bristol evidence                                     | Samebase or shared evidence                                 | Direction           | Validation              | Status    |
-| -------- | ------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------- | ------------------- | ----------------------- | --------- |
-| BRIS-F01 | Complete generated tracked-file list              | PR #1313 added three tracked documents               | worktree setup regenerated the missing entries              | Samebase only       | generated diff          | ready     |
-| BRIS-F02 | Least-privilege build secrets                     | production and preview keys are split                | Samebase writes both keys to both triggers                  | Bristol to Samebase | provider record         | candidate |
-| BRIS-F03 | Configuration must not promote                    | Bristol avoided the combined action                  | Samebase key rotation starts production                     | Bristol to Samebase | source review           | candidate |
-| BRIS-F04 | Detect the repository package manager             | Bristol uses npm and the pnpm trigger failed         | adopted builds hard-code pnpm                               | Bristol to Samebase | failed build            | candidate |
-| BRIS-F05 | Support the real default branch                   | adopted repositories can use another name            | Samebase app build treats only `main` as production         | shared              | source review           | candidate |
-| BRIS-F06 | Distinguish source sync from staged edits         | Bristol inventory reported `fileCount: 0`            | `fileCount` counts staged Samebase edits                    | Samebase only       | source review           | candidate |
-| BRIS-F07 | Prove preview resource absence                    | a failed build can create no preview                 | cleanup assumes every PR made both previews                 | shared              | source review           | candidate |
-| BRIS-F08 | Authorize at the data boundary                    | all 13 public data functions now require auth        | Samebase route rules cannot protect Bristol functions       | Bristol only        | 26 checks pass          | ready     |
-| BRIS-F09 | Remove private browser data on sign-out           | cache starts paused and clears before resume         | portable safety rule now records the boundary               | Bristol first       | race tests pass         | ready     |
-| BRIS-F10 | Scope and later remove framework spike scripts    | `spike:*` first owned the candidate path             | production callers kept their current script names          | shared              | removed after gate      | ready     |
-| BRIS-F11 | Pin framework packages independently              | Start and Router use different compatible versions   | Samebase also pins Start and Router to different versions   | shared              | lockfile build          | candidate |
-| BRIS-F12 | Verify generated deploy configuration             | the upload wrapper checks its source config          | generated redirects can otherwise select stale output       | Bristol first       | dry run passes          | ready     |
-| BRIS-F13 | Put direct HTTP responses at the request boundary | request middleware returns `307` and `503`           | prior portable rules had no response-serialization rule     | Bristol first       | Workerd tests           | ready     |
-| BRIS-F14 | Make private-bundle checks mandatory              | client graph block plus output fingerprints          | exact source serialization changes during bundling          | Bristol first       | deliberate import fails | ready     |
-| BRIS-F15 | Separate invalid auth from backend failure        | `401` clears; `503` keeps the session cookie         | outage must not become destructive sign-out                 | Bristol first       | authenticated runner    | ready     |
-| BRIS-F16 | Test interrupt cleanup                            | first forced stop found a remaining site listener    | normal completion did not expose this lifecycle defect      | Bristol to Samebase | two forced stops pass   | candidate |
-| BRIS-F17 | Bind version upload to its backend URL            | upload checks the compiled `*.convex.cloud` URL      | generated config ownership alone cannot prove runtime auth  | Bristol first       | guard tests pass        | ready     |
-| BRIS-F18 | Probe through the real network consumer           | host DNS failed while local Workerd reached tunnel   | host and Worker runtimes can use different resolvers        | shared              | authenticated request   | ready     |
-| BRIS-F19 | Reconcile all preview URL controls                | `preview_urls` did not change `previews_enabled`     | existing Workers keep a separate provider switch            | shared              | public route passes     | ready     |
-| BRIS-F20 | Require branch and commit for a manual build      | a branch-only build failed the stale-head guard      | a branch name alone does not identify source                | shared              | guard tests pass        | ready     |
-| BRIS-F21 | Separate readiness from terminal provider state   | inventory was ready before the final build ended     | provider-native reads proved build and deployment state     | Samebase only       | provider reads          | candidate |
-| BRIS-F22 | Show complete preview backend readiness           | auth needed six defaults, a seed, URL, and version   | no one view showed the complete public-preview contract     | Samebase only       | browser acceptance      | candidate |
-| BRIS-F23 | Remove unused copied script names                 | three aliases and all spike scripts had no consumer  | shared names without shared behavior create false knowledge | Bristol first       | caller scan             | ready     |
-| BRIS-F24 | Keep credentials out of DOM captures              | one filled-field snapshot exposed a preview value    | account and signing keys needed immediate rotation          | shared              | rotated preview passes  | ready     |
-| BRIS-F25 | Prove credential entry replaces old text          | virtual paste appended when a shortcut did not clear | wrong combined input looked like a valid auth rejection     | shared              | exact-length check      | ready     |
+| ID       | Requirement                                       | Bristol evidence                                      | Samebase or shared evidence                                 | Direction           | Validation              | Status    |
+| -------- | ------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------- | ------------------- | ----------------------- | --------- |
+| BRIS-F01 | Complete generated tracked-file list              | PR #1313 added three tracked documents                | worktree setup regenerated the missing entries              | Samebase only       | generated diff          | ready     |
+| BRIS-F02 | Least-privilege build secrets                     | production and preview keys are split                 | Samebase writes both keys to both triggers                  | Bristol to Samebase | provider record         | candidate |
+| BRIS-F03 | Configuration must not promote                    | Bristol avoided the combined action                   | Samebase key rotation starts production                     | Bristol to Samebase | source review           | candidate |
+| BRIS-F04 | Detect the repository package manager             | Bristol uses npm and the pnpm trigger failed          | adopted builds hard-code pnpm                               | Bristol to Samebase | failed build            | candidate |
+| BRIS-F05 | Support the real default branch                   | adopted repositories can use another name             | Samebase app build treats only `main` as production         | shared              | source review           | candidate |
+| BRIS-F06 | Distinguish source sync from staged edits         | Bristol inventory reported `fileCount: 0`             | `fileCount` counts staged Samebase edits                    | Samebase only       | source review           | candidate |
+| BRIS-F07 | Prove preview resource absence                    | a failed build can create no preview                  | cleanup assumes every PR made both previews                 | shared              | source review           | candidate |
+| BRIS-F08 | Authorize at the data boundary                    | all 13 public data functions now require auth         | Samebase route rules cannot protect Bristol functions       | Bristol only        | 26 checks pass          | ready     |
+| BRIS-F09 | Remove private browser data on sign-out           | cache starts paused and clears before resume          | portable safety rule now records the boundary               | Bristol first       | race tests pass         | ready     |
+| BRIS-F10 | Scope and later remove framework spike scripts    | `spike:*` first owned the candidate path              | production callers kept their current script names          | shared              | removed after gate      | ready     |
+| BRIS-F11 | Pin framework packages independently              | Start and Router use different compatible versions    | Samebase also pins Start and Router to different versions   | shared              | lockfile build          | candidate |
+| BRIS-F12 | Verify generated deploy configuration             | the upload wrapper checks its source config           | generated redirects can otherwise select stale output       | Bristol first       | dry run passes          | ready     |
+| BRIS-F13 | Put direct HTTP responses at the request boundary | request middleware returns `307` and `503`            | prior portable rules had no response-serialization rule     | Bristol first       | Workerd tests           | ready     |
+| BRIS-F14 | Make private-bundle checks mandatory              | client graph block plus output fingerprints           | exact source serialization changes during bundling          | Bristol first       | deliberate import fails | ready     |
+| BRIS-F15 | Separate invalid auth from backend failure        | `401` clears; `503` keeps the session cookie          | outage must not become destructive sign-out                 | Bristol first       | authenticated runner    | ready     |
+| BRIS-F16 | Test interrupt cleanup                            | first forced stop found a remaining site listener     | normal completion did not expose this lifecycle defect      | Bristol to Samebase | two forced stops pass   | candidate |
+| BRIS-F17 | Bind version upload to its backend URL            | upload checks the compiled `*.convex.cloud` URL       | generated config ownership alone cannot prove runtime auth  | Bristol first       | guard tests pass        | ready     |
+| BRIS-F18 | Probe through the real network consumer           | host DNS failed while local Workerd reached tunnel    | host and Worker runtimes can use different resolvers        | shared              | authenticated request   | ready     |
+| BRIS-F19 | Reconcile all preview URL controls                | `preview_urls` did not change `previews_enabled`      | existing Workers keep a separate provider switch            | shared              | public route passes     | ready     |
+| BRIS-F20 | Require branch and commit for a manual build      | a branch-only build failed the stale-head guard       | a branch name alone does not identify source                | shared              | guard tests pass        | ready     |
+| BRIS-F21 | Separate readiness from terminal provider state   | inventory was ready before the final build ended      | provider-native reads proved build and deployment state     | Samebase only       | provider reads          | candidate |
+| BRIS-F22 | Show complete preview backend readiness           | auth needed six defaults, a seed, URL, and version    | no one view showed the complete public-preview contract     | Samebase only       | browser acceptance      | candidate |
+| BRIS-F23 | Remove unused copied script names                 | three aliases and all spike scripts had no consumer   | shared names without shared behavior create false knowledge | Bristol first       | caller scan             | ready     |
+| BRIS-F24 | Keep credentials out of DOM captures              | one filled-field snapshot exposed a preview value     | account and signing keys needed immediate rotation          | shared              | rotated preview passes  | ready     |
+| BRIS-F25 | Prove credential entry replaces old text          | virtual paste appended when a shortcut did not clear  | wrong combined input looked like a valid auth rejection     | shared              | exact-length check      | ready     |
+| BRIS-F26 | Sanitize before all linked setup work             | npm install, Git hooks, setup, and services are clean | service-only cleanup leaves earlier child processes exposed | Bristol to Samebase | injected-provider proof | candidate |
+| BRIS-F27 | Serialize first-run setup                         | a Git compare-and-swap lease owns the full setup      | marker-based setup has no equivalent concurrent-run lease   | Bristol to Samebase | lease contract checks   | candidate |
+| BRIS-F28 | Wait for hydration before browser input           | visible SSR controls did not yet have React handlers  | visibility alone is not an interaction-readiness proof      | shared              | two-cycle browser proof | ready     |
+| BRIS-F29 | Redact encoded credentials                        | one failure URL-encoded the synthetic email           | raw-value redaction alone missed the derived value          | shared              | failure-path proof      | ready     |
+| BRIS-F30 | Preserve unresolved cleanup evidence              | cleanup checks the lease and Git registration         | directory deletion alone can leave or hide owned state      | Bristol to Samebase | exact absence proof     | candidate |
+| BRIS-F31 | Classify only the expected missing-account result | pending setup accepts exact `InvalidAccountId`        | provider error text and recovery state must stay coupled    | Bristol only        | recovery contract check | ready     |
+| BRIS-F32 | State the supported process-cleanup platforms     | linked runtime fails closed on Windows                | skipped tests cannot prove a platform guarantee             | shared              | platform gate check     | ready     |
+| BRIS-F33 | Make a shared proxy target deterministic          | Bristol exposed the non-loopback acceptance need      | Samebase neither sets nor clears its proxy-target variable  | Bristol to Samebase | source review           | candidate |
+| BRIS-F34 | Enforce the final credential file mode            | setup corrects umask and rereads mode `0600`          | a requested creation mode is not a final-mode guarantee     | shared              | restrictive-umask check | ready     |
 
 ## Characterization Test Plan
 
@@ -392,16 +406,34 @@ The final branch keeps these distinct commands:
 
 ```text
 npm run dev
+npm run setup:worktree
 npm run test:e2e
+npm run test:worktree
 ```
 
-`npm run dev` starts the Vite frontend and normal Convex development service. `npm run test:e2e`
-creates a temporary anonymous Convex backend, installs synthetic authentication state, builds and
-starts local Workerd, runs browser acceptance, and removes all runner-owned state.
+`npm run dev` reads canonical Git identity. In the primary checkout, it starts Vite and the normal
+Convex development service. In a linked worktree, it installs stale dependencies, runs repeatable
+owned setup, and starts Vite with one anonymous loopback Convex backend.
 
-Bristol does not have a setup-aware `npm run dev -- --once` command. The isolated acceptance runner
-does not provide automatic main-versus-worktree selection, long-running anonymous development, or
-preview cleanup. Those capabilities remain separate gaps.
+`npm run setup:worktree` prepares or verifies the same linked-worktree state without leaving
+development services running. Setup uses deterministic local ports, one random `example.invalid`
+account, and an owner-bound credential file. It does not create application records.
+
+`npm run test:e2e` creates a temporary anonymous Convex backend, installs synthetic authentication
+state, builds and starts local Workerd, runs browser acceptance, and removes all runner-owned state.
+
+`npm run test:worktree` creates an exact temporary Git worktree from committed `HEAD`. It runs two
+setup, browser, service, and shutdown cycles. Each cycle proves one auth account, no retained
+Bristol records, closed owned ports, and a clean temporary worktree. Final cleanup proves that Git
+no longer reports that exact worktree.
+
+Linked-worktree development fails closed on Windows because the implementation does not prove the
+same process-tree cleanup and credential file permissions there. Primary development, builds, and
+normal tests keep their Windows path. Preview resource cleanup remains a separate gap.
+
+The final linked-worktree checkpoint passed 49 Node contract checks, 118 Vitest checks, the Vite
+client and Worker build, the private bundle scan, TypeScript, lint with one existing warning, and
+the real two-cycle acceptance.
 
 Copied aliases `dev:primary`, `build:cloudflare`, and `start` were removed because they had no
 distinct Bristol behavior or caller. All `spike:*` scripts were removed after the target runtime
@@ -433,7 +465,7 @@ The complete local result has:
 - an isolated local Convex and Workerd browser acceptance run
 - a production dependency audit with zero findings
 
-The full dependency audit has nine high findings in development-only glob tooling. Compatible
+The full dependency audit has eight high findings in development-only glob tooling. Compatible
 updates are applied. The forced plan would downgrade lint plugins across major versions, so it is
 not part of this runtime migration.
 
@@ -527,6 +559,9 @@ production cutover.
 - [Bristol final deployment contract](https://github.com/nicu-chiciuc/bristol_tsx/blob/dc44e63c2f283e4db187ba0ea95d48e383450e7e/docs/cloudflare-workers-deployment.md)
 - [Bristol final migration record](https://github.com/nicu-chiciuc/bristol_tsx/blob/dc44e63c2f283e4db187ba0ea95d48e383450e7e/research/2026-07-30-next-to-tanstack-start-workers.md)
 - [Bristol final branch build](https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/bristol-tsx/production/builds/08246b1a-dcbd-414f-859c-1d5d753ad088)
+- [Bristol linked-worktree scripts](https://github.com/nicu-chiciuc/bristol_tsx/blob/aa98dcfcf3ab3a767e40bd5a1b623c337dc5c78a/package.json#L5-L31)
+- [Bristol linked-worktree operating contract](https://github.com/nicu-chiciuc/bristol_tsx/blob/aa98dcfcf3ab3a767e40bd5a1b623c337dc5c78a/docs/cloudflare-workers-deployment.md#L198-L314)
+- [Bristol linked-worktree adoption findings](https://github.com/nicu-chiciuc/bristol_tsx/blob/aa98dcfcf3ab3a767e40bd5a1b623c337dc5c78a/research/2026-07-30-next-to-tanstack-start-workers.md#L271-L360)
 - [Cloudflare Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/)
 
 ## Checkpoints
@@ -535,6 +570,7 @@ production cutover.
 2. Framework-neutral characterization tests: complete
 3. TanStack Start and Cloudflare preview spike: complete
 4. Runtime migration: branch complete, production cutover pending
-5. Preview and release gates: complete; worktree setup and preview cleanup remain pending
+5. Preview and release gates: complete; linked-worktree development complete; preview cleanup
+   remains pending
 6. Bidirectional findings and portable outputs: complete for the first case, candidate until a
    second project tests them

@@ -21,7 +21,7 @@ Map these capabilities before a framework or provider change:
 - synchronized source commit, application root, and package manager from its committed lock file
 - fresh checkout setup
 - normal local development
-- one-time linked-worktree setup
+- repeatable linked-worktree preparation
 - anonymous linked-worktree setup
 - lint, type checks, tests, and production build
 - branch build and version upload
@@ -38,7 +38,7 @@ framework can supply server rendering without supplying preview ownership or cle
 Keep these development capabilities separate:
 
 - an isolated one-run acceptance test
-- one-time linked-worktree setup
+- repeatable linked-worktree preparation
 - long-running linked-worktree development
 - anonymous worktree ownership and cleanup
 - pull request preview cleanup
@@ -67,6 +67,66 @@ same release number.
 
 After the gate passes, remove the spike scripts and copied aliases that have no final caller. Shared
 script names are useful only when shared tooling or shared behavior consumes them.
+
+## Own Linked-Worktree Preparation
+
+Treat `dev`, `setup:worktree`, and `test:worktree` as useful intent names when their behavior
+matches the project. Do not force those exact names onto a project with a different operator
+interface.
+
+For a linked-worktree flow:
+
+1. Remove every inherited `GIT_*` value before Git identity discovery.
+2. Read the canonical process directory, worktree root, Git directory, and common Git directory.
+3. Prove that the process directory belongs to the returned worktree root.
+4. Accept linked-worktree identity only when its Git directory is below the common Git `worktrees`
+   directory. Use Git directory identity for concurrency and include the root in application-state
+   ownership.
+5. Remove production, preview, provider, and authentication values before dependency installation,
+   Git checkout hooks, setup commands, and development services.
+6. Use one atomic per-worktree setup lease. The lease must cover dependency installation, local
+   state preparation, account verification, and child cleanup.
+7. Bind local state to the exact owner and to hashes of the generated environment and backend
+   configuration.
+8. Create only the minimum explicit synthetic identities that the project contract needs. Use random
+   identities under `example.invalid` when email is the identity. Keep each credential in an
+   explicit state. Send signing keys through standard input.
+9. Set credential mode `0600` explicitly on supported platforms, then read the final mode back.
+10. Track short setup commands and their descendants as well as long-running service groups.
+11. Define valid, recoverable, and unsafe lease states. Recover only when the workflow proves that
+    the former owner cannot still write. Fail closed when ownership changed or recovery is not
+    proven safe.
+
+Bristol uses a Git reference with compare-and-swap updates for its setup lease. Another project can
+use a different atomic primitive only when it proves the same ownership, transition, and recovery
+facts. For a Git-reference process lease, each update and delete must compare the exact observed
+object ID. Recover only a valid quiescent same-host lease after its owner process is gone. Never
+recover an active, changed, invalid, or foreign-host lease by age. A database or fenced lease can
+use its own equivalent ownership proof.
+
+State the supported process-cleanup and file-permission platforms. A skipped platform test does not
+prove the guarantee. Fail closed for a linked-worktree flow when the project cannot prove safe
+cleanup or credential ownership on that platform.
+
+Server-rendered controls can be visible before client event handlers are ready. A browser acceptance
+test must wait for an application-owned hydration signal or another real interaction-readiness
+signal before it clicks. Network idle is not sufficient.
+
+Register each synthetic credential with the redactor before a command or browser action can report
+it. Redact raw and URL-encoded forms from output, errors, and stacks. Add a deliberate failing test
+for both forms. Do not put a secret value in a command argument.
+
+Run linked-worktree acceptance from committed `HEAD`. Run two full setup, browser, shutdown, and
+restart cycles. Check exact account and application-data counts after each cycle. Use the canonical
+temporary path when cleanup compares ownership. Read `git worktree list --porcelain -z` after each
+add attempt, including a failed add. Refuse removal while an unresolved setup lease exists. Remove
+only the exact registered worktree, then read the list again and prove that the registration is
+gone. A broad prune is not an absence proof. Preserve the temporary worktree when a failed proof
+needs operator inspection.
+
+Keep provider-specific recovery results, application table names, port ranges, and exact credential
+file names in the project. For example, Bristol accepts the exact Convex `InvalidAccountId` result
+only while its credential is pending. That result is not a portable missing-account rule.
 
 ## Protect Current Behavior
 
@@ -154,8 +214,9 @@ resolve and use it. Tunnel registration plus the authenticated Workerd request w
 proof. A host fetch was a false negative. The final Bristol runner uses direct loopback access.
 
 The parent process must own all created files and process groups. Refuse to replace existing local
-configuration. Write an ownership marker before setup. Track short setup and build commands as well
-as long-running backend, tunnel, and Worker commands. On normal exit, failure, `SIGINT`, or
+configuration. Write an ownership marker before setup. Treat dependency installation and Git
+checkout hooks as part of the same isolated trust boundary. Track short setup and build commands as
+well as long-running backend, tunnel, and Worker commands. On normal exit, failure, `SIGINT`, or
 `SIGTERM`, stop each process group with a bounded escalation, remove only marker-owned state, and
 prove that all selected ports are closed.
 
@@ -219,6 +280,11 @@ version, public route checks, and named-browser acceptance as separate evidence.
 
 Discover branch builds, Worker versions, and backend previews independently during cleanup. Do not
 assume that a pull request created all of them or none of them.
+
+When a shared preview runner uses a same-origin backend proxy, set or clear its proxy target for
+every run. An inherited target must not change the backend that a clean acceptance run uses. A
+non-loopback browser origin must prove that browser backend requests use the intended same-origin
+proxy for HTTP and WebSocket traffic. The browser must not receive a loopback backend URL.
 
 ## Separate Configuration From Promotion
 
