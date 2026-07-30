@@ -122,6 +122,15 @@ describe("LandingPreviewPage", () => {
     );
     expect(markup).toContain("no Bash");
     expect(markup).toContain("no WSL");
+    expect(markup).toContain("same web app");
+    expect(markup).toContain("Samebase has been one");
+    expect(markup).toContain(">PWA</a>");
+    expect(markup).toContain(
+      'href="https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/What_is_a_progressive_web_app"',
+    );
+    expect(markup).toContain(
+      "from the start. The same web app works well on desktop, iPhone, Android, and in the Codex browser. I test it myself in each environment.",
+    );
 
     // The monorepo example stays focused on repository paths.
     expect(markup).toContain('aria-label="Monorepo"');

@@ -121,15 +121,7 @@ export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: Si
           {authPlacement === "inline" ? (
             <PublicLandingAuthControls googleAuthFlow="current-route" />
           ) : null}
-          <div className="flex flex-wrap justify-center gap-2 pt-2">
-            <a
-              className="text-sm text-muted-foreground underline underline-offset-4"
-              href="https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/What_is_a_progressive_web_app"
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              What is a PWA?
-            </a>
+          <div className="flex flex-col gap-2 pt-2">
             <a
               className="text-center text-sm text-muted-foreground underline underline-offset-4"
               href="https://x.com/samebasecom"

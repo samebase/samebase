@@ -586,6 +586,17 @@ function LandingPreviewOverview() {
                 </span>
               </p>
             </div>
+            <div className="mt-6 grid gap-3 @3xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] @3xl:items-start @3xl:gap-10">
+              <p className="text-lg font-semibold tracking-[-0.01em]">same web app</p>
+              <p className="max-w-[48ch] text-sm leading-relaxed text-primary">
+                Samebase has been one{" "}
+                <LandingReceiptLink href="https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/What_is_a_progressive_web_app">
+                  PWA
+                </LandingReceiptLink>{" "}
+                from the start. The same web app works well on desktop, iPhone, Android, and in the
+                Codex browser. I test it myself in each environment.
+              </p>
+            </div>
           </div>
         </LandingSection>
 
