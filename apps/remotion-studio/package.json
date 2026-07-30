@@ -7,12 +7,9 @@
   "type": "module",
   "scripts": {
     "build": "remotion bundle",
-    "check": "pnpm run typecheck && pnpm run lint",
     "dev": "remotion studio",
-    "lint": "pnpm --dir ../.. exec vp lint --tsconfig apps/remotion-studio/tsconfig.json --report-unused-disable-directives apps/remotion-studio/src",
     "render:logo-hype": "remotion render LogoHype out/logo-hype.mp4",
-    "render:tic-tac-toe": "remotion render TicTacToeRecording out/tic-tac-toe-master.mp4",
-    "typecheck": "pnpm --dir ../.. exec tsgo -p apps/remotion-studio/tsconfig.json --pretty false"
+    "render:tic-tac-toe": "remotion render TicTacToeRecording out/tic-tac-toe-master.mp4"
   },
   "dependencies": {
     "@react-three/fiber": "9.6.1",

@@ -72,8 +72,10 @@ incompatibility, or rollout decision appears.
 - The app/frontend lint entrypoints in `apps/samebase/package.json` now run Oxlint directly.
 - Root `package.json` also runs Oxlint for `runtime/**/*.ts`, `scripts/**/*.ts`, and
   `apps/samebase/scripts/**/*.ts` using `tsconfig.scripts.json`.
-- Remotion Studio runs the same root Vite+ and Oxlint entrypoint. Its 15 recommended
-  `@remotion/eslint-plugin` rules keep their upstream severities through Oxlint's JS-plugin bridge.
+- The root package owns Remotion Studio check, lint, and typecheck tasks. Its lint task uses the
+  root Vite+ and Oxlint config, where all 15 recommended `@remotion/eslint-plugin` rules keep their
+  upstream severities through Oxlint's JS-plugin bridge. The Remotion package owns its development,
+  build, and render commands.
 - Direct `eslint` runners, dependencies, and workspace-local `eslint.config.*` files are a review
   smell because Vite+ and Oxlint own lint execution. ESLint-compatible plugins and `eslint-disable`
   comments remain valid parts of the Oxlint contract.
@@ -159,11 +161,11 @@ When a rule cannot move cleanly, this document must record:
   keep their upstream severities, including the two warnings, while the old ESLint config, runner,
   and direct dependencies are removed.
 
-- Problem: a package-local ESLint runner bypassed the accepted root contract because the migration
-  was reviewed as an isolated package change. Tried: made the selected lint owner explicit in
-  `AGENTS.md` and this accepted spec, then removed the direct runner and configuration. Result:
-  future reviews treat direct ESLint ownership as an exceptional smell without adding a repository
-  scanner for a code-review decision.
+- Problem: replacing the package-local ESLint runner with a package script that climbed to the
+  repository root kept the ownership boundary unclear. Tried: moved Remotion check, lint, and
+  typecheck tasks to the root package and left the Remotion package with development, build, and
+  render commands. Result: the root selects the Vite+ and Oxlint config and Remotion tsconfig
+  directly, with no package wrapper or repository scanner.
 
 - Problem: `pnpm peers check` was already failing before the Remotion migration. Tried: installed an
   exact archive of branch head `94eb16dc` and ran the command. Result: the old

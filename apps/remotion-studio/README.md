@@ -34,7 +34,7 @@ Each production composition owns its component, timing model, and supporting edi
 2. Put local source recordings in `apps/remotion-studio/public/media/`.
 3. Record timestamps, pacing decisions, and review notes in `apps/remotion-studio/notes/`.
 4. Build and inspect the composition in Remotion Studio.
-5. Run the studio checks and render a local master into `apps/remotion-studio/out/`.
+5. Run `pnpm check:remotion-studio` and render a local master into `apps/remotion-studio/out/`.
 6. Create the delivery encode and poster for the target surface.
 7. Upload accepted delivery files to the `samebase-public-media` R2 bucket.
 8. Record the immutable URL and observed metadata in `apps/samebase/shared/publicMediaManifest.ts`.
@@ -80,7 +80,7 @@ Do not commit:
 ## Commands
 
 - `pnpm --filter @samebase/remotion-studio dev`: open Remotion Studio.
-- `pnpm --filter @samebase/remotion-studio check`: typecheck and lint.
+- `pnpm check:remotion-studio`: typecheck and lint from the repository root.
 - `pnpm --filter @samebase/remotion-studio render:logo-hype`: render the logo identity exploration.
 - `pnpm --filter @samebase/remotion-studio render:tic-tac-toe`: render the production landing edit.
 
