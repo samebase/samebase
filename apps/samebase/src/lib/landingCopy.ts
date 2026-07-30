@@ -3,7 +3,7 @@ import { appBuildConfig } from "@/lib/appBuildConfig";
 export const landingPageBullets = [
   "your notes and code live in a real repository",
   "collaborate in real time with your team",
-  "work from desktop or mobile without context switching",
+  "one PWA works well on desktop, iPhone, Android, and in Codex. I test it in all of them myself",
   "use Codex to ship small apps directly from your workspace",
 ] as const;
 

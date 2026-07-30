@@ -64,6 +64,10 @@ test("landing copy keeps ProseMark behind manually entered dev mode", async ({
   const shellLandingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
   await expect(shellLandingCopy.locator(".cm-editor")).toHaveCount(0);
   await expect(shellLandingCopy.locator('[contenteditable="true"]')).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "What is a PWA?" })).toHaveAttribute(
+    "href",
+    "https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/What_is_a_progressive_web_app",
+  );
   const shellHeadingStyle = await readStaticHeadingStyle(shellLandingCopy);
   await waitForPaint(page);
   const shellScreenshot = await takeStableScreenshot(shellLandingCopy);
@@ -85,13 +89,14 @@ test("landing copy keeps ProseMark behind manually entered dev mode", async ({
     artifactPrefix: "landing-copy-dev-editable",
     // The style assertion above owns heading parity; this visual guard catches
     // broad layout drift across the static DOM and ProseMark rendering paths.
+    // More copy adds more text pixels, so allow minor glyph-rendering differences.
     maxDimensionDeltaPx: {
       height: 2,
     },
     maxTranslationPx: {
       y: 2,
     },
-    maxDiffPixelRatio: 0.05,
+    maxDiffPixelRatio: 0.052,
     testInfo,
   });
 });
