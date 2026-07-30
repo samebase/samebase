@@ -123,6 +123,63 @@ export function easeLogoShuffleProgress(value: number): number {
   return 1 - Math.pow(-2 * value + 2, 3) / 2;
 }
 
+export function getLogoRecursiveShuffleLayerPlacementCount({
+  animatedCoordinateCount,
+  movingCoordinateCount,
+  prefixDepth,
+}: {
+  animatedCoordinateCount: number;
+  movingCoordinateCount: number;
+  prefixDepth: number;
+}): number {
+  return movingCoordinateCount * animatedCoordinateCount ** prefixDepth;
+}
+
+export function writeLogoRecursiveShuffleLayerCoordinates({
+  animatedCoordinates,
+  baseGridSize,
+  movingCoordinates,
+  prefixDepth,
+  target,
+}: {
+  animatedCoordinates: readonly VoxelCoordinate[];
+  baseGridSize: number;
+  movingCoordinates: readonly VoxelCoordinate[];
+  prefixDepth: number;
+  target: Float64Array;
+}): number {
+  let targetOffset = 0;
+
+  const writePrefix = (
+    remainingPrefixDepth: number,
+    prefixX: number,
+    prefixY: number,
+    prefixZ: number,
+  ) => {
+    if (remainingPrefixDepth === 0) {
+      for (const movingCoordinate of movingCoordinates) {
+        target[targetOffset] = prefixX * baseGridSize + movingCoordinate[0];
+        target[targetOffset + 1] = prefixY * baseGridSize + movingCoordinate[1];
+        target[targetOffset + 2] = prefixZ * baseGridSize + movingCoordinate[2];
+        targetOffset += 3;
+      }
+      return;
+    }
+
+    for (const animatedCoordinate of animatedCoordinates) {
+      writePrefix(
+        remainingPrefixDepth - 1,
+        prefixX * baseGridSize + animatedCoordinate[0],
+        prefixY * baseGridSize + animatedCoordinate[1],
+        prefixZ * baseGridSize + animatedCoordinate[2],
+      );
+    }
+  };
+
+  writePrefix(prefixDepth, 0, 0, 0);
+  return targetOffset / 3;
+}
+
 export function getShuffleOriginCandidates({
   blockedKeys,
   elevationDegrees,
