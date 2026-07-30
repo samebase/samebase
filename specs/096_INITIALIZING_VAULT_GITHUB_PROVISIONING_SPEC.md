@@ -5,8 +5,8 @@
 - Status: Accepted and implemented
 - Owner: Samebase app creation, existing repository onboarding, and vault model
 - Created: 2026-05-07
+- Last updated: 2026-07-30
 - Related docs:
-  - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `research/2026-05-06-vault-first-provisioning-model.md`
@@ -433,8 +433,8 @@ For Samebase-managed repository creation:
 6. seed the starter app
 7. sync the exact default-branch tree into `observations_vaultRepository_branchTrees`
 8. attach Convex and Cloudflare resources directly to the vault
-9. let the dashboard derive its summaries from source setup, attachments, live observations, and
-   workflow state
+9. let the dashboard derive its summaries and controls from source setup, the managed provider plan,
+   attachments, live observations, and provider-write state
 
 External provider validation happens after the vault exists so failures have a visible dashboard
 target. Local input validation can happen before insert when it does not require provider calls.
@@ -454,8 +454,10 @@ Connecting an existing repository must use the same vault/run/GitHub state model
 5. write `state: "connected", githubMode: "connect_existing_repository"` with fetched repository
    identity and visibility stored
 6. sync default branch and tree state
-7. leave Convex and Cloudflare `not_configured` unless the product explicitly asks to provision them
-8. let the dashboard derive the vault summary from GitHub, Convex, and Cloudflare states
+7. create no Convex project or Cloudflare Worker attachments unless the user starts a separate
+   provider action
+8. let the dashboard derive the vault summary from connection, setup, attachments, observations, and
+   deletion state
 
 This flow is currently an action. Moving it to Workflow is part of this model so existing-repo
 onboarding gets the same observability and retry surface as Samebase-managed repository creation.
@@ -503,8 +505,37 @@ Provider rows should read from explicit boundaries:
 2. Convex: stable project attachments, live provider observations, and relevant workflow state
 3. Cloudflare: stable Worker attachments, live provider observations, and relevant workflow state
 
-Repo-backed controls should stay hidden or disabled until GitHub is connected. If manual retry
-buttons later exist, they should target the failed provider workflow block on that vault.
+For a new Samebase-managed app, Settings shows applicable planned Convex and Cloudflare rows
+immediately, before their attachment rows exist. It uses the planned project and Worker names as the
+primary labels. While the managed provider run is active, each target shows `Setting up` and does
+not show an empty, attention, or manual repair state. Spec 115 defines the exact plan, attachment,
+and observation row precedence.
+
+The transaction that creates a new-app or managed retry run also creates its active managed provider
+lock. The lock covers source setup and provider setup. A source setup failure marks the matching
+lock failed without changing provider freshness. A `connect_existing_repository` run is source-only
+and never creates or owns the provider lock.
+
+Overview and Settings remain available during setup. Before GitHub connects, Overview shows source
+setup. After GitHub connects, Overview shows the normal repository content, including the default
+branch and pull requests, with a small `Setting up` status for provider work. Provider setup must
+not replace the normal repository content.
+
+After a provider write, an affected target shows `Checking` until one observation made with the new
+provider write time returns. The dashboard must not use an older observation for attention or
+repair.
+
+Repo-backed controls should stay hidden or disabled until GitHub is connected. Managed Retry targets
+the failed managed run. Manual provider repair targets the selected attachment and current provider
+observation. While a managed provider operation or a manual provider write is active, the dashboard
+disables conflicting provider changes, managed Retry, and vault deletion. The frontend derives this
+state from the dashboard subscription. Overview, Settings, safe reads, provider links, and
+observation reloads remain available.
+
+If a manual action is silent at expiry, the backend marks it failed and advances the affected
+provider write times. Settings shows `Checking` while it gets fresh provider observations. It then
+shows the same normal create, attach, configure, or repair actions that apply to the observed state.
+There is no manual replay state, special Retry action, or automatic provider call.
 
 Dashboard summary labels such as creating, active, degraded, or failed should be derived from the
 independent connection, setup, attachment, live-observation, workflow, and deletion axes. For
@@ -538,7 +569,8 @@ The current state model is:
    its current root and trigger configuration
 5. dashboard labels such as creating, active, degraded, failed, or partial are derived from those
    resource rows, the active provisioning write lock, and run/event state
-6. provider retry actions target the failed block run, not a generic aggregate infra status
+6. managed Retry targets the failed managed run, while manual repair targets an exact attachment and
+   live provider state
 
 Top-level aggregate infrastructure fields have been removed. Dashboard and provisioning code read
 direct resource attachments, provider observations, and run/write-lock state.
@@ -557,16 +589,6 @@ dual-read, dual-write, or preserve old table/field variants.
 The operator clears rows that conflict with a required validator and removes rows from dropped
 tables before deployment. Product runtime must not hide destructive migration behavior inside normal
 requests.
-
-## Parked Follow-Up Work
-
-These items are intentionally outside the current New App reliability path:
-
-1. Define explicit manual provider retry UX only when a current failure case needs it. Any future
-   retry action should target one failed provider workflow block, create a new run, and preserve
-   older runs and events as history.
-2. Consider a generic restart-from-failed-step abstraction only after manual provider retry has
-   proven the provider-state model.
 
 ## Testing Plan
 
@@ -593,11 +615,14 @@ Backend:
 16. dashboard/provisioning summaries derive from direct attachments, live provider observations, and
     run/write-lock state
 17. the vault row has no aggregate `vaults.infra*` mirrors
-18. when backend retries ship, retried provider steps prove idempotency and keep terminal failures
-    visible through the same run/event summaries
-19. when manual retry ships, GitHub retry creates a new run and replaces the failed state's `runId`
+18. managed retries prove idempotency and keep terminal failures visible through the same run/event
+    summaries
+19. GitHub retry creates a new run and replaces the failed state's `runId`
 20. when existing-repo onboarding ships, connection writes connected existing-repository GitHub
     state
+21. create and managed retry runs own the provider lock from their creation transaction
+22. `connect_existing_repository` runs never own the provider lock
+23. source setup failure ends the matching managed lock without changing provider freshness
 
 Frontend:
 
@@ -610,9 +635,15 @@ Frontend:
 5. source readiness is driven by the explicit setup summary, independently of disposable tree rows
 6. dashboard summaries for Convex and Cloudflare are derived separately, not from a generic
    `infraState`
-7. when manual retry ships, the failed provider workflow block shows its retry target on the vault
+7. a failed managed provider run shows Retry, and a manual repair names its exact target
 8. when existing-repo onboarding ships, connected existing-repo vaults render like other connected
    vaults after GitHub state is connected
+9. immediate New App Settings shows readable planned Convex and Cloudflare targets without empty,
+   attention, repair, or duplicate rows
+10. Overview keeps normal repository content after GitHub connects while provider setup continues
+11. stale affected observations show `Checking` before they can show attention or repair
+12. conflicting provider controls and direct-dialog confirm actions stay disabled from subscription
+    state while navigation remains available
 
 ## Acceptance Criteria
 
@@ -631,4 +662,6 @@ Frontend:
 12. Convex and Cloudflare progress and failure are derived separately from stable attachments, live
     provider observations, and workflow state.
 13. Aggregate `vaults.infra*` mirrors are absent.
-14. When retries ship, they create new runs rather than mutating previous terminal runs.
+14. Managed retries create new runs rather than mutating previous terminal runs.
+15. New App Settings shows planned provider targets before attachments exist.
+16. Overview and Settings remain available during provider setup.

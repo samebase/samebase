@@ -210,27 +210,25 @@ describe("vault Cloudflare Worker attachment mutations", () => {
       });
       const writeLockId = await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId: ids.primaryVaultId,
-        runId,
+        owner: { kind: "managed_run", runId },
         state: "active",
+        lastWriteAt: { convex: 9 },
         updatedAt: 10,
       });
       const planId = await ctx.db.insert("workflow_vaultProvisioning_plans", {
         vaultId: ids.primaryVaultId,
         userId: ids.userId,
         convexConfigPath: "convex.json",
-        convex: { state: "planned", projectName: "managed-project" },
+        convex: {
+          state: "planned",
+          projectName: "managed-project",
+          teamId: "team-1",
+        },
         cloudflare: {
           state: "planned",
           accountId: "account-1",
           workerName: "managed-worker",
-          build: {
-            rootDirectory: "/",
-            buildCommand: "pnpm run build",
-            deployCommand: "pnpm run deploy",
-            previewDeployCommand: "pnpm run deploy:preview",
-            pathIncludes: ["*"],
-            pathExcludes: [],
-          },
+          rootDirectory: "/",
         },
         createdAt: 10,
         updatedAt: 10,
@@ -260,6 +258,7 @@ describe("vault Cloudflare Worker attachment mutations", () => {
       t.run(async (ctx) => ({
         plan: await ctx.db.get(planId),
         worker: await ctx.db.get(workerId),
+        writeLock: await ctx.db.get(writeLockId),
       })),
     ).resolves.toMatchObject({
       plan: { cloudflare: { state: "created", workerTag: "created-worker-tag" } },
@@ -269,6 +268,12 @@ describe("vault Cloudflare Worker attachment mutations", () => {
         workerName: "managed-worker",
         workerTag: "created-worker-tag",
         origin: "provisioned",
+      },
+      writeLock: {
+        lastWriteAt: {
+          convex: 9,
+          cloudflare: expect.any(Number),
+        },
       },
     });
 
@@ -283,6 +288,89 @@ describe("vault Cloudflare Worker attachment mutations", () => {
         workerTag: "other-worker-tag",
       }),
     ).rejects.toThrow("Managed provisioning run no longer holds the write lock.");
+  });
+
+  it("records manual connect and create checkpoints only for their current owners", async () => {
+    const { ids, t } = await createGraphFixture();
+    await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
+      vaultId: ids.primaryVaultId,
+      userId: ids.userId,
+      actionId: "connect-worker",
+      action: "connect_cloudflare_worker",
+    });
+    const connectedWorkerId = await t.mutation(
+      internal.vault.cloudflareMutations.recordManualConnectedWorker,
+      {
+        vaultId: ids.primaryVaultId,
+        userId: ids.userId,
+        actionId: "connect-worker",
+        accountId: "account-1",
+        workerName: "connected-worker",
+        workerTag: "connected-tag",
+      },
+    );
+    await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
+      vaultId: ids.primaryVaultId,
+      actionId: "connect-worker",
+      result: "failed",
+    });
+
+    await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
+      vaultId: ids.secondaryVaultId,
+      userId: ids.userId,
+      actionId: "create-worker",
+      action: "create_cloudflare_worker",
+    });
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.recordManualWorkerCreated, {
+        vaultId: ids.secondaryVaultId,
+        userId: ids.userId,
+        actionId: "old-create-worker",
+        accountId: "account-1",
+        workerName: "created-worker",
+        workerTag: "created-tag",
+      }),
+    ).rejects.toThrow("Manual provider action no longer owns the vault write.");
+    const createdWorkerId = await t.mutation(
+      internal.vault.cloudflareMutations.recordManualWorkerCreated,
+      {
+        vaultId: ids.secondaryVaultId,
+        userId: ids.userId,
+        actionId: "create-worker",
+        accountId: "account-1",
+        workerName: "created-worker",
+        workerTag: "created-tag",
+      },
+    );
+
+    await expect(
+      t.run(async (ctx) => ({
+        connected: await ctx.db.get(connectedWorkerId),
+        created: await ctx.db.get(createdWorkerId),
+        write: await ctx.db
+          .query("workflow_vaultProvisioning_writeLocks")
+          .withIndex("by_vault", (q) => q.eq("vaultId", ids.secondaryVaultId))
+          .unique(),
+      })),
+    ).resolves.toMatchObject({
+      connected: {
+        workerName: "connected-worker",
+        workerTag: "connected-tag",
+        origin: "selected_existing",
+      },
+      created: {
+        workerName: "created-worker",
+        workerTag: "created-tag",
+        origin: "provisioned",
+      },
+      write: {
+        owner: {
+          actionId: "create-worker",
+          action: "create_cloudflare_worker",
+        },
+        state: "active",
+      },
+    });
   });
 
   it("reads vault attachment context without inventing a Worker placement", async () => {

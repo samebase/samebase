@@ -157,27 +157,25 @@ async function createManagedWorkerCreatingFixture() {
     });
     await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
       vaultId: fixture.vaultId,
-      runId,
+      owner: { kind: "managed_run", runId },
       state: "active",
+      lastWriteAt: {},
       updatedAt: 3,
     });
     await ctx.db.insert("workflow_vaultProvisioning_plans", {
       vaultId: fixture.vaultId,
       userId: fixture.userId,
       convexConfigPath: "convex.json",
-      convex: { state: "planned", projectName: "managed-project" },
+      convex: {
+        state: "planned",
+        projectName: "managed-project",
+        teamId: "convex-team",
+      },
       cloudflare: {
         state: "planned",
         accountId,
         workerName: "managed-worker",
-        build: {
-          rootDirectory: "/",
-          buildCommand: "pnpm run build",
-          deployCommand: "pnpm run deploy",
-          previewDeployCommand: "pnpm run deploy:preview",
-          pathIncludes: ["*"],
-          pathExcludes: [],
-        },
+        rootDirectory: "/",
       },
       createdAt: 3,
       updatedAt: 3,
@@ -235,10 +233,11 @@ function stubExistingWorkersProvider(
 }
 
 function stubConnectWorkerProvider(
-  failure: "initial_build" | "preview_trigger" | "production_trigger",
+  failure: "initial_build" | "preview_trigger" | "production_trigger" | "verification",
 ): ReturnType<typeof vi.fn> {
   let triggers: ReturnType<typeof buildTriggers> = [];
   let triggerCreateCount = 0;
+  let failNextVerification = false;
   const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     const method = input instanceof Request ? input.method : (init?.method ?? "GET");
@@ -252,6 +251,10 @@ function stubConnectWorkerProvider(
       return cloudflareResponse(workerDetails("portal", "portal-tag"));
     }
     if (url.pathname.endsWith("/builds/workers/portal-tag/triggers")) {
+      if (failNextVerification) {
+        failNextVerification = false;
+        return cloudflareResponse(null, 500);
+      }
       return cloudflareResponse(triggers);
     }
     if (url.pathname.endsWith("/builds/repos/connections")) {
@@ -279,7 +282,11 @@ function stubConnectWorkerProvider(
       return cloudflareResponse({ trigger_uuid: trigger.trigger_uuid });
     }
     if (method === "POST" && url.pathname.endsWith("/builds")) {
-      return failure === "initial_build" ? cloudflareResponse(null, 500) : cloudflareResponse({});
+      if (failure === "initial_build") {
+        return cloudflareResponse(null, 500);
+      }
+      failNextVerification = failure === "verification";
+      return cloudflareResponse({});
     }
     throw new Error(`Unexpected provider request: ${method} ${url}`);
   });
@@ -327,20 +334,23 @@ describe("vault Cloudflare Worker attachments", () => {
     {
       failure: "production_trigger" as const,
       expectedMessage: "Use Configure Workers Builds under Needs attention.",
+      expectedWriteState: "failed",
     },
     {
       failure: "preview_trigger" as const,
       expectedMessage:
         "portal was added at apps/portal, but its Builds setup is incomplete. Use Configure Workers Builds on the Worker.",
+      expectedWriteState: "failed",
     },
     {
       failure: "initial_build" as const,
       expectedMessage:
         "portal was added and GitHub Builds is connected, but Cloudflare reported an error after setup.",
+      expectedWriteState: "failed",
     },
   ])(
-    "keeps an existing Worker attached after a $failure failure and reports its observed recovery path",
-    async ({ failure, expectedMessage }) => {
+    "keeps an existing Worker attached after a $failure failure and reports the observed result",
+    async ({ failure, expectedMessage, expectedWriteState }) => {
       const { asUser, t, userId, vaultId } = await createCloudflareConnectedVault();
       stubConnectWorkerProvider(failure);
 
@@ -359,23 +369,178 @@ describe("vault Cloudflare Worker attachments", () => {
         }),
       );
       await expect(
-        t.run(
-          async (ctx) =>
-            await ctx.db
-              .query("vaultCloudflareWorkers")
-              .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-              .unique(),
-        ),
+        t.run(async (ctx) => {
+          const worker = await ctx.db
+            .query("vaultCloudflareWorkers")
+            .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+            .unique();
+          const write = await ctx.db
+            .query("workflow_vaultProvisioning_writeLocks")
+            .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+            .unique();
+          return { worker, write };
+        }),
       ).resolves.toEqual(
         expect.objectContaining({
-          userId,
-          workerName: "portal",
-          workerTag: "portal-tag",
-          origin: "selected_existing",
+          worker: expect.objectContaining({
+            userId,
+            workerName: "portal",
+            workerTag: "portal-tag",
+            origin: "selected_existing",
+          }),
+          write: expect.objectContaining({
+            state: expectedWriteState,
+            lastWriteAt: { cloudflare: expect.any(Number) },
+          }),
         }),
       );
     },
   );
+
+  it("records success when a second check confirms the configured Worker", async () => {
+    const { asUser, t, vaultId } = await createCloudflareConnectedVault();
+    stubConnectWorkerProvider("verification");
+
+    await expect(
+      asUser.action(api.vault.cloudflare.connectWorker, {
+        vaultId,
+        accountId,
+        workerName: "portal",
+        workerTag: "portal-tag",
+        rootDirectory: "apps/portal",
+      }),
+    ).resolves.toEqual({
+      state: "ready",
+      workerId: expect.any(String),
+    });
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("workflow_vaultProvisioning_writeLocks")
+            .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+            .unique(),
+      ),
+    ).resolves.toMatchObject({
+      state: "succeeded",
+      lastWriteAt: { cloudflare: expect.any(Number) },
+    });
+  });
+
+  it("reports that a Worker can exist when its local checkpoint expires", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      const method = input instanceof Request ? input.method : (init?.method ?? "GET");
+      if (url.hostname === "api.github.com" && url.pathname === "/repos/ada/demo") {
+        return jsonResponse({ id: 123, default_branch: "main", owner: { id: 456 } });
+      }
+      if (url.pathname === "/client/v4/accounts") {
+        return cloudflareResponse([{ id: accountId, name: "Ada Cloudflare", type: "standard" }]);
+      }
+      if (method === "GET" && url.pathname.endsWith("/workers/workers/new-worker")) {
+        return jsonResponse(
+          {
+            success: false,
+            errors: [{ code: 10007, message: "Worker not found" }],
+            messages: [],
+            result: null,
+          },
+          404,
+        );
+      }
+      if (method === "POST" && url.pathname.endsWith("/workers/workers")) {
+        vi.setSystemTime(1_000 + 10 * 60 * 1_000);
+        return cloudflareResponse(workerDetails("new-worker", "new-worker-tag"));
+      }
+      throw new Error(`Unexpected provider request: ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const failureRecordWarning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { asUser, t, vaultId } = await createCloudflareConnectedVault();
+    try {
+      await expect(
+        asUser.action(api.vault.cloudflare.createWorker, {
+          vaultId,
+          accountId,
+          workerName: "new-worker",
+          rootDirectory: "/",
+        }),
+      ).rejects.toThrow(
+        "The Cloudflare Worker new-worker can exist, but Samebase could not record it.",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(
+      fetchMock.mock.calls.filter(([input, init]) => {
+        const requestMethod = input instanceof Request ? input.method : init?.method;
+        return requestMethod === "POST";
+      }),
+    ).toHaveLength(1);
+    expect(failureRecordWarning).toHaveBeenCalledWith(
+      "vault:manual_provider_write:failure_record_failed",
+      expect.objectContaining({
+        actionId: expect.any(String),
+        message: "Manual provider action state changed before result was recorded.",
+        vaultId,
+      }),
+    );
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("vaultCloudflareWorkers")
+            .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+            .collect(),
+      ),
+    ).resolves.toEqual([]);
+  });
+
+  it("uses one backend conflict rule for browser and MCP configuration writes", async () => {
+    const { asUser, t, userId, vaultId } = await createCloudflareConnectedVault();
+    const workerId = await t.run(
+      async (ctx) =>
+        await ctx.db.insert("vaultCloudflareWorkers", {
+          vaultId,
+          userId,
+          accountId,
+          workerName: "portal",
+          workerTag: "portal-tag",
+          origin: "selected_existing",
+        }),
+    );
+    const fetchMock = stubExistingWorkersProvider({ portal: "/" });
+    await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
+      vaultId,
+      userId,
+      actionId: "active-configuration",
+      action: "configure_workers_builds_for_github",
+    });
+
+    await expect(
+      asUser.action(api.vault.cloudflare.configureWorkersBuildsForGitHub, {
+        vaultId,
+        workerId,
+        rootDirectory: "/",
+      }),
+    ).rejects.toThrow("Another vault infrastructure operation is active.");
+    await expect(
+      t.action(internal.toolRuntime.runtime.cloudflareConfigureWorkersBuildsForGitHubTool, {
+        userId,
+        grantedScopes: ["access_provider_connections"],
+        vaultId,
+        workerId,
+        rootDirectory: "/",
+      }),
+    ).resolves.toEqual({
+      status: "error",
+      text: "Another vault infrastructure operation is active.",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 
   it("rejects the whole selection when one live Worker placement becomes ambiguous", async () => {
     const { asUser, t, vaultId } = await createCloudflareConnectedVault();
@@ -436,8 +601,85 @@ describe("vault Cloudflare Worker attachments", () => {
     ).resolves.toEqual([]);
   });
 
+  it("names the saved account when the current credential cannot access it", async () => {
+    const { runId, t, userId, vaultId } = await createManagedWorkerCreatingFixture();
+    const expectedMessage = `The current Cloudflare credential cannot access Cloudflare account ${accountId}. Reconnect Cloudflare with access to this account, then retry.`;
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      if (url.pathname === "/client/v4/accounts") {
+        return cloudflareResponse([
+          {
+            id: "00000000000000000000000000000002",
+            name: "Other Cloudflare account",
+            type: "standard",
+          },
+        ]);
+      }
+      throw new Error(`Unexpected provider request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    let failure: unknown;
+    try {
+      await t.action(internal.vault.cloudflare.ensureCloudflareWorkerConnection, {
+        vaultId,
+        runId,
+        userId,
+        accountId,
+        workerName: "managed-worker",
+      });
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(Error);
+    if (!(failure instanceof Error)) {
+      throw new Error("Expected the managed Cloudflare action to fail.");
+    }
+    expect(failure.message).toContain(expectedMessage);
+
+    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+      runId,
+      workflowId: "workflow-cloudflare-account",
+      message: failure.message,
+    });
+
+    const result = await t.run(async (ctx) => {
+      const run = await ctx.db.get(runId);
+      const event = await ctx.db
+        .query("workflow_vaultProvisioning_events")
+        .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
+        .first();
+      return { event, run };
+    });
+    expect(result.run).toMatchObject({
+      state: "failed",
+      lastError: expectedMessage,
+    });
+    expect(result.event).toMatchObject({
+      step: "attach_worker",
+      level: "error",
+      message: expectedMessage,
+    });
+  });
+
   it("retries an interrupted managed create after the Worker was deleted", async () => {
     const { runId, t, userId, vaultId } = await createManagedWorkerCreatingFixture();
+    await t.run(async (ctx) => {
+      const connection = await ctx.db
+        .query("providerConnections")
+        .withIndex("by_user_kind", (q) => q.eq("userId", userId).eq("kind", "cloudflare"))
+        .unique();
+      if (!connection || connection.kind !== "cloudflare") {
+        throw new Error("Expected Cloudflare connection.");
+      }
+      await ctx.db.patch(connection._id, {
+        defaultAccount: {
+          state: "selected",
+          accountId: "00000000000000000000000000000002",
+          accountName: "Other Cloudflare account",
+        },
+      });
+    });
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
       const method = input instanceof Request ? input.method : (init?.method ?? "GET");
@@ -477,6 +719,21 @@ describe("vault Cloudflare Worker attachments", () => {
       workerName: "managed-worker",
       workerTag: "managed-worker-tag",
       origin: "provisioned",
+    });
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("providerConnections")
+            .withIndex("by_user_kind", (q) => q.eq("userId", userId).eq("kind", "cloudflare"))
+            .unique(),
+      ),
+    ).resolves.toMatchObject({
+      defaultAccount: {
+        state: "selected",
+        accountId: "00000000000000000000000000000002",
+        accountName: "Other Cloudflare account",
+      },
     });
     expect(
       fetchMock.mock.calls.filter(
@@ -531,28 +788,22 @@ describe("vault Cloudflare Worker attachments", () => {
       });
       await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId,
-        runId: managedRunId,
+        owner: { kind: "managed_run", runId: managedRunId },
         state: "failed",
+        lastWriteAt: {},
         updatedAt: 4,
       });
       await ctx.db.insert("workflow_vaultProvisioning_plans", {
         vaultId,
         userId,
         convexConfigPath: "convex.json",
-        convex: { state: "planned", projectName: "demo" },
+        convex: { state: "planned", projectName: "demo", teamId: "convex-team" },
         cloudflare: {
           state: "created",
           accountId,
           workerName: "managed",
           workerTag: "managed-tag",
-          build: {
-            rootDirectory: "/",
-            buildCommand: "pnpm run build",
-            deployCommand: "pnpm run deploy",
-            previewDeployCommand: "pnpm run deploy:preview",
-            pathIncludes: ["*"],
-            pathExcludes: [],
-          },
+          rootDirectory: "/",
         },
         createdAt: 4,
         updatedAt: 4,

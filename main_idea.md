@@ -17,8 +17,8 @@ model and execution graph.
 
 Use these local anchors:
 
-- rfcs/090_PROVISIONING_BUILDING_BLOCKS_PLAN.md
-- specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md
+- archive/090_PROVISIONING_BUILDING_BLOCKS_PLAN.md
+- archive/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md
 - specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md
 - specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md
 - specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md
@@ -86,7 +86,7 @@ Use:
 - samebase/agent-plugins context from prior work
 - the recent public-docs/export discussion
 - docs/artifacts/samebase-app/\*
-- rfcs/090_PROVISIONING_BUILDING_BLOCKS_PLAN.md
+- archive/090_PROVISIONING_BUILDING_BLOCKS_PLAN.md
 
 Task: design the minimum durable action-contract system.
 

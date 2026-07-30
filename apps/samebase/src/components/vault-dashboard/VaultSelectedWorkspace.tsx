@@ -18,6 +18,7 @@ import { VaultDeleteDialog } from "./VaultDeleteDialog";
 import { VaultOverviewPage, type VaultOverviewPageKind } from "./VaultOverviewPage";
 import {
   buildVaultRepositorySettingsState,
+  readVaultProviderActionBlockReason,
   type VaultRepositorySettingsPendingAction,
 } from "./vaultRepositorySettingsState";
 import type { VaultWorkspaceSelected as VaultWorkspace } from "./vaultWorkspaceModel";
@@ -40,12 +41,10 @@ export function VaultSelectedWorkspace({
   developerToolsVisible,
   page,
   workspace,
-  invalidateExternalData,
 }: {
   developerToolsVisible: boolean;
   page: VaultOverviewPageKind;
   workspace: VaultWorkspace;
-  invalidateExternalData: () => Promise<void>;
 }) {
   const navigate = useNavigate();
   const router = useRouter();
@@ -81,10 +80,7 @@ export function VaultSelectedWorkspace({
     vaultDashboardDialogHistoryEntry?.dialog === "add-cloudflare"
       ? (vaultDashboardDialogHistoryEntry.repairWorkerId ?? null)
       : null;
-  const canDelete =
-    vault.deletion.state === "not_deleting" && vault.deletion.deleteAction.state === "available";
-  const canManageProviderAttachments =
-    vault.hasConnectedGitHubRepository && vault.deletion.state === "not_deleting";
+  const providerActionBlockReason = readVaultProviderActionBlockReason(vault);
 
   const replaceVaultDashboardDialogRoute = useCallback(
     (dialog: VaultDashboardQueryDialog) => {
@@ -164,7 +160,7 @@ export function VaultSelectedWorkspace({
   };
 
   const handleRetryInfrastructureProvisioning = async () => {
-    if (isRetryingVaultAction) {
+    if (providerActionBlockReason || isRetryingVaultAction) {
       return;
     }
     setIsRetryingVaultAction(true);
@@ -190,7 +186,7 @@ export function VaultSelectedWorkspace({
     errorTitle: string;
     run: () => Promise<unknown>;
   }) => {
-    if (providerActionInFlight) {
+    if (providerActionBlockReason || providerActionInFlight) {
       return;
     }
     setProviderActionInFlight(action);
@@ -204,7 +200,6 @@ export function VaultSelectedWorkspace({
       });
     } finally {
       setProviderActionInFlight(null);
-      void invalidateExternalData();
     }
   };
 
@@ -273,12 +268,8 @@ export function VaultSelectedWorkspace({
   };
 
   const settingsState = buildVaultRepositorySettingsState({
-    addCloudflareWorkerOnClick: canManageProviderAttachments
-      ? () => openProviderDialog({ provider: "cloudflare" })
-      : undefined,
-    addConvexOnClick: canManageProviderAttachments
-      ? () => openProviderDialog({ provider: "convex" })
-      : undefined,
+    addCloudflareWorkerOnClick: () => openProviderDialog({ provider: "cloudflare" }),
+    addConvexOnClick: () => openProviderDialog({ provider: "convex" }),
     connectedCloudflareAccount:
       workspace.cloudflareConnection.state === "ready" &&
       workspace.cloudflareConnection.connection.connected === true &&
@@ -288,32 +279,20 @@ export function VaultSelectedWorkspace({
             accountName: workspace.cloudflareConnection.connection.accountName,
           }
         : undefined,
-    configureWorkersBuildsForGitHubOnClick: canManageProviderAttachments
-      ? handleConfigureWorkersBuildsForGitHub
-      : undefined,
-    changeConvexProjectConfigPathOnClick: canManageProviderAttachments
-      ? (convexProjectId) =>
-          openProviderDialog({
-            provider: "convex",
-            repairProjectId: convexProjectId,
-          })
-      : undefined,
+    configureWorkersBuildsForGitHubOnClick: handleConfigureWorkersBuildsForGitHub,
+    changeConvexProjectConfigPathOnClick: (convexProjectId) =>
+      openProviderDialog({
+        provider: "convex",
+        repairProjectId: convexProjectId,
+      }),
     cloudflareObservations: workspace.cloudflareObservations,
     convexObservations: workspace.convexObservations,
     pendingAction: providerActionInFlight,
     vault,
-    detachCloudflareWorkerOnClick: canManageProviderAttachments
-      ? handleDetachCloudflareWorker
-      : undefined,
-    detachConvexProjectOnClick: canManageProviderAttachments
-      ? handleDetachConvexProject
-      : undefined,
-    reconcileConvexProjectTeamOnClick: canManageProviderAttachments
-      ? handleReconcileConvexProjectTeam
-      : undefined,
-    rotateConvexDeployKeysForWorkersBuildsOnClick: canManageProviderAttachments
-      ? handleRotateConvexDeployKeysForWorkersBuilds
-      : undefined,
+    detachCloudflareWorkerOnClick: handleDetachCloudflareWorker,
+    detachConvexProjectOnClick: handleDetachConvexProject,
+    reconcileConvexProjectTeamOnClick: handleReconcileConvexProjectTeam,
+    rotateConvexDeployKeysForWorkersBuildsOnClick: handleRotateConvexDeployKeysForWorkersBuilds,
   });
 
   const connectedAccountId =
@@ -350,7 +329,7 @@ export function VaultSelectedWorkspace({
           }
         }}
       />
-      {deleteModeActive && canDelete ? (
+      {deleteModeActive ? (
         <VaultDeleteDialog
           key={vault._id}
           vault={vault}
@@ -375,29 +354,27 @@ export function VaultSelectedWorkspace({
           }}
         />
       ) : null}
-      {addConvexModeActive && canManageProviderAttachments ? (
+      {addConvexModeActive ? (
         <VaultConvexDialog
+          blockedReason={providerActionBlockReason}
           key={`${vault._id}:${convexRepairProjectId ?? "add"}`}
           onClose={() => {
             closeVaultDashboardDialog("add-convex");
           }}
           onSaved={() => {
-            void invalidateExternalData();
             closeVaultDashboardDialog("add-convex");
           }}
           repairProjectId={convexRepairProjectId}
           vault={vault}
         />
       ) : null}
-      {addCloudflareWorkerModeActive && canManageProviderAttachments ? (
+      {addCloudflareWorkerModeActive ? (
         <VaultCloudflareDialog
+          blockedReason={providerActionBlockReason}
           key={`${vault._id}:${cloudflareRepairWorkerId ?? "add"}`}
           connectedAccountId={connectedAccountId}
           onClose={() => {
             closeVaultDashboardDialog("add-cloudflare");
-          }}
-          onSaved={() => {
-            void invalidateExternalData();
           }}
           repairWorkerId={cloudflareRepairWorkerId}
           vault={vault}

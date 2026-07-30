@@ -153,6 +153,16 @@ function projectAdminListItem(run: Doc<"workflow_accountDeletion_runs">) {
 
 const STAKES_FILE_STAGING_READ_BATCH_SIZE = 200;
 
+async function readAccountDeletionVaults(
+  db: DatabaseReader,
+  userId: Id<"users">,
+): Promise<Doc<"vaults">[]> {
+  return await db
+    .query("vaults")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .collect();
+}
+
 /**
 Counts what deletion would destroy for the confirmation phrase. vaultStagedFiles
 reads walk the by_vault index in take() batches cursored on _creationTime
@@ -161,14 +171,9 @@ stakes read unbounded.
 */
 async function countAccountDeletionStakes(
   db: DatabaseReader,
-  userId: Id<"users">,
+  vaults: Doc<"vaults">[],
   hasActiveSubscription: boolean,
 ): Promise<Infer<typeof vAccountDeletionStakes>> {
-  const vaults = await db
-    .query("vaults")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .collect();
-
   const affectedVaults: Array<Infer<typeof vAccountDeletionAffectedVault>> = [];
   let affectedVaultsComplete = true;
   let uncommittedFileChangeCount = 0;
@@ -257,9 +262,10 @@ export const stakes = query({
   args: {},
   returns: vAccountDeletionStakes,
   handler: async (ctx) => {
+    const vaults = await readAccountDeletionVaults(ctx.db, ctx.viewer.userId);
     return await countAccountDeletionStakes(
       ctx.db,
-      ctx.viewer.userId,
+      vaults,
       ctx.viewer.user.billingStatus === "active" || ctx.viewer.user.billingStatus === "past_due",
     );
   },
@@ -314,9 +320,21 @@ export const request = mutation({
       throw new Error("Account deletion completion capability is already in use.");
     }
 
+    const vaults = await readAccountDeletionVaults(ctx.db, ctx.viewer.userId);
+    for (const vault of vaults) {
+      const write = await ctx.db
+        .query("workflow_vaultProvisioning_writeLocks")
+        .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+        .unique();
+      if (write?.owner.kind === "manual_provider_write" && write.state === "active") {
+        throw new Error(
+          "A provider change is active. Wait for it to finish before you delete the account.",
+        );
+      }
+    }
     const currentStakes = await countAccountDeletionStakes(
       ctx.db,
-      ctx.viewer.userId,
+      vaults,
       ctx.viewer.user.billingStatus === "active" || ctx.viewer.user.billingStatus === "past_due",
     );
     if (

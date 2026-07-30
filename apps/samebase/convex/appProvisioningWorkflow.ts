@@ -2,7 +2,7 @@ import { v, type Infer } from "convex/values";
 import { vResultValidator, type RunResult } from "@convex-dev/workpool";
 import { WorkflowManager, type WorkflowCtx } from "@convex-dev/workflow";
 import { components, internal } from "./_generated/api";
-import { internalMutation, internalQuery } from "./_generated/server";
+import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
 import type { AppProvisioningStep } from "./appProvisioningModel";
@@ -58,6 +58,48 @@ const composedInfrastructureRetryContext = object({
   userId: id("users"),
 });
 type ComposedInfrastructureRetryContext = Infer<typeof composedInfrastructureRetryContext>;
+
+export async function startCreateAppProvisioningWorkflow(
+  ctx: MutationCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
+    userId: Id<"users">;
+    repositoryName: string;
+    repositoryOwner: string;
+    description: string | null;
+    private: boolean;
+  },
+): Promise<string> {
+  return await workflow.start(ctx, internal.appProvisioningWorkflow.provisionApp, args, {
+    startAsync: true,
+    onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
+    context: {
+      runId: args.runId,
+    },
+  });
+}
+
+export async function startVaultInfrastructureProvisioningWorkflow(
+  ctx: MutationCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
+  },
+): Promise<string> {
+  return await workflow.start(
+    ctx,
+    internal.appProvisioningWorkflow.provisionVaultInfrastructure,
+    args,
+    {
+      startAsync: true,
+      onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
+      context: {
+        runId: args.runId,
+      },
+    },
+  );
+}
 
 export function resolveWorkflowCompletionError(result: RunResult): string | null {
   switch (result.kind) {
@@ -217,12 +259,16 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
       throw new Error("Infrastructure provisioning plan not found for vault.");
     }
 
-    const now = Date.now();
     const writeLock = await ctx.db
       .query("workflow_vaultProvisioning_writeLocks")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .first();
-    if (writeLock && writeLock.state === "active" && writeLock.runId !== args.runId) {
+      .unique();
+    if (
+      !writeLock ||
+      writeLock.owner.kind !== "managed_run" ||
+      writeLock.owner.runId !== args.runId ||
+      writeLock.state !== "active"
+    ) {
       await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
         runId: args.runId,
         step: "claim_infra",
@@ -231,21 +277,6 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
         state: "canceled",
       });
       return { claimed: false };
-    }
-
-    if (writeLock) {
-      await ctx.db.patch(writeLock._id, {
-        runId: args.runId,
-        state: "active",
-        updatedAt: now,
-      });
-    } else {
-      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        state: "active",
-        updatedAt: now,
-      });
     }
 
     await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
@@ -280,14 +311,20 @@ export const finishComposedInfrastructureProvisioning = internalMutation({
     const writeLock = await ctx.db
       .query("workflow_vaultProvisioning_writeLocks")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .first();
-    if (!writeLock || writeLock.state !== "active" || writeLock.runId !== args.runId) {
+      .unique();
+    if (
+      !writeLock ||
+      writeLock.owner.kind !== "managed_run" ||
+      writeLock.state !== "active" ||
+      writeLock.owner.runId !== args.runId
+    ) {
       throw new Error("Composed infrastructure run no longer holds the provisioning write lock.");
     }
 
+    const now = Date.now();
     await ctx.db.patch(writeLock._id, {
       state: "succeeded",
-      updatedAt: Date.now(),
+      updatedAt: now,
     });
 
     return null;
@@ -785,47 +822,6 @@ export const connectExistingRepository = workflow.define({
 
 // Provider attachment and configuration actions run directly without standalone workflows.
 
-export const startCreateAppProvisioning = internalMutation({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
-    userId: id("users"),
-    repositoryName: string(),
-    repositoryOwner: string(),
-    description: createAppDescription,
-    private: boolean(),
-  },
-  returns: string(),
-  handler: async (ctx, args): Promise<string> => {
-    const workflowId: string = await workflow.start(
-      ctx,
-      internal.appProvisioningWorkflow.provisionApp,
-      args,
-      {
-        startAsync: true,
-        onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
-        context: {
-          runId: args.runId,
-        },
-      },
-    );
-
-    await ctx.db.patch(args.runId, {
-      workflowId,
-      updatedAt: Date.now(),
-    });
-    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
-      runId: args.runId,
-      step: "validate_connections",
-      level: "info",
-      message: "Queued app provisioning.",
-      state: "queued",
-    });
-
-    return workflowId;
-  },
-});
-
 export const startConnectExistingRepositoryProvisioning = internalMutation({
   args: {
     vaultId: id("vaults"),
@@ -858,45 +854,6 @@ export const startConnectExistingRepositoryProvisioning = internalMutation({
       step: "validate_connections",
       level: "info",
       message: "Queued existing repository connection.",
-      state: "queued",
-    });
-
-    return workflowId;
-  },
-});
-
-export const startVaultInfrastructureProvisioning = internalMutation({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
-  },
-  returns: string(),
-  handler: async (ctx, args): Promise<string> => {
-    const workflowId: string = await workflow.start(
-      ctx,
-      internal.appProvisioningWorkflow.provisionVaultInfrastructure,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-      },
-      {
-        startAsync: true,
-        onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
-        context: {
-          runId: args.runId,
-        },
-      },
-    );
-
-    await ctx.db.patch(args.runId, {
-      workflowId,
-      updatedAt: Date.now(),
-    });
-    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
-      runId: args.runId,
-      step: "claim_infra",
-      level: "info",
-      message: "Queued infrastructure provisioning.",
       state: "queued",
     });
 

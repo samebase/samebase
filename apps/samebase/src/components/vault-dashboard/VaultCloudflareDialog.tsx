@@ -46,6 +46,7 @@ type CloudflareWorkerSelection = {
 
 export function VaultCloudflareDialogContent({
   accounts,
+  blockedReason,
   createRootDirectory,
   createWorkerName,
   didAddWorker,
@@ -72,6 +73,7 @@ export function VaultCloudflareDialogContent({
   workers,
 }: {
   accounts: readonly CloudflareAccountOption[];
+  blockedReason?: string | null;
   createRootDirectory: string;
   createWorkerName: string;
   didAddWorker: boolean;
@@ -140,6 +142,7 @@ export function VaultCloudflareDialogContent({
     );
   const selectedAccount = sortedAccounts.find((account) => account.accountId === selectedAccountId);
   const submitDisabled =
+    Boolean(blockedReason) ||
     isSubmitting ||
     (repairWorker
       ? !createRootDirectory.trim()
@@ -326,27 +329,35 @@ export function VaultCloudflareDialogContent({
               )}
             </>
           )}
-          {error ? <div className="text-sm text-red-600">{error}</div> : null}
+          {blockedReason ? (
+            <div className="text-sm text-muted-foreground">{blockedReason}</div>
+          ) : error ? (
+            <div className="text-sm text-red-600">{error}</div>
+          ) : null}
         </div>
         <DialogFooter>
           <Button
             variant="outline"
             onClick={() => {
-              if (mode === "connect") {
+              if (blockedReason) {
+                onOpenChange(false);
+              } else if (mode === "connect") {
                 onConnectWorkerBack();
               } else {
                 onOpenChange(false);
               }
             }}
-            disabled={isSubmitting}
+            disabled={isSubmitting && !blockedReason}
           >
-            {mode === "connect"
-              ? "Back"
-              : didAddWorker
-                ? selectedWorkerTags.length > 0
-                  ? "Close"
-                  : "Done"
-                : "Cancel"}
+            {blockedReason
+              ? "Close"
+              : mode === "connect"
+                ? "Back"
+                : didAddWorker
+                  ? selectedWorkerTags.length > 0
+                    ? "Close"
+                    : "Done"
+                  : "Cancel"}
           </Button>
           {!isLoading ? (
             <Button onClick={onSubmit} disabled={submitDisabled}>
@@ -377,15 +388,15 @@ export function VaultCloudflareDialogContent({
 }
 
 export function VaultCloudflareDialog({
+  blockedReason,
   connectedAccountId,
   onClose,
-  onSaved,
   repairWorkerId,
   vault,
 }: {
+  blockedReason: string | null;
   connectedAccountId: string | undefined;
   onClose: () => void;
-  onSaved: () => void;
   repairWorkerId: Id<"vaultCloudflareWorkers"> | null;
   vault: UserVaultResult;
 }) {
@@ -449,6 +460,7 @@ export function VaultCloudflareDialog({
       "cloudflare-workers",
       selectedAccountId,
       attachedWorkerTags,
+      vault.providerWrite.lastWriteAt.cloudflare,
     ],
     queryFn: async () =>
       await discoverWorkers({ accountId: selectedAccountId, vaultId: vault._id }),
@@ -478,7 +490,7 @@ export function VaultCloudflareDialog({
     (accountsQuery.isPending || (selectedAccountId !== "" && workersQuery.isPending));
 
   const handleSubmit = async () => {
-    if (isSubmitting) {
+    if (blockedReason || isSubmitting) {
       return;
     }
 
@@ -511,7 +523,6 @@ export function VaultCloudflareDialog({
         if (result.state === "added_with_notice") {
           setSubmitError(result.message);
         }
-        onSaved();
         setIsSubmitting(false);
         return;
       } else if (mode === "existing") {
@@ -541,7 +552,6 @@ export function VaultCloudflareDialog({
           rootDirectory: createRootDirectory,
         });
       }
-      onSaved();
       onClose();
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Could not add Cloudflare Workers.");
@@ -552,6 +562,7 @@ export function VaultCloudflareDialog({
   return (
     <VaultCloudflareDialogContent
       accounts={accounts}
+      blockedReason={blockedReason}
       createRootDirectory={createRootDirectory}
       createWorkerName={createWorkerName}
       didAddWorker={connectedWorkerTags.length > 0}
@@ -587,7 +598,7 @@ export function VaultCloudflareDialog({
         }
       }}
       onOpenChange={(isOpen) => {
-        if (!isOpen && !isSubmitting) {
+        if (!isOpen && (!isSubmitting || blockedReason)) {
           onClose();
         }
       }}

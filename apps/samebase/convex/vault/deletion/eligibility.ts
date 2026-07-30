@@ -1,5 +1,9 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { QueryCtx } from "../../_generated/server";
+import {
+  readVaultInfrastructureState,
+  type VaultInfrastructureState,
+} from "../infrastructureOperation";
 import { readVaultDeletionState } from "./state";
 
 export type VaultDeletionEligibility =
@@ -11,29 +15,11 @@ export type VaultDeletionEligibility =
       reason: string;
     };
 
-async function hasActiveProvisioningRun(
-  ctx: Pick<QueryCtx, "db">,
-  vaultId: Id<"vaults">,
-): Promise<"queued" | "running" | null> {
-  const queuedRun = await ctx.db
-    .query("workflow_vaultProvisioning_runs")
-    .withIndex("by_vault_and_state", (q) => q.eq("vaultId", vaultId).eq("state", "queued"))
-    .first();
-  if (queuedRun) {
-    return "queued";
-  }
-
-  const runningRun = await ctx.db
-    .query("workflow_vaultProvisioning_runs")
-    .withIndex("by_vault_and_state", (q) => q.eq("vaultId", vaultId).eq("state", "running"))
-    .first();
-  return runningRun ? "running" : null;
-}
-
-export async function readVaultDeletionEligibility(
-  ctx: Pick<QueryCtx, "db">,
+export function resolveVaultDeletionEligibility(
   vault: Doc<"vaults">,
-): Promise<VaultDeletionEligibility> {
+  infrastructure: VaultInfrastructureState,
+  hasActiveProvisioningRun: boolean,
+): VaultDeletionEligibility {
   const deletion = readVaultDeletionState(vault);
   if (deletion.state !== "not_deleting") {
     return {
@@ -53,30 +39,58 @@ export async function readVaultDeletionEligibility(
       reason: "Vault source setup is still running.",
     };
   }
-  const activeProvisioningRun = await hasActiveProvisioningRun(ctx, vault._id);
-  if (activeProvisioningRun === "queued") {
-    return {
-      state: "blocked",
-      reason: "Vault setup is still queued.",
-    };
-  }
-  if (activeProvisioningRun === "running") {
-    return {
-      state: "blocked",
-      reason: "Vault setup is still running.",
-    };
-  }
 
-  const activeOwner = await ctx.db
-    .query("workflow_vaultProvisioning_writeLocks")
-    .withIndex("by_vault_and_state", (q) => q.eq("vaultId", vault._id).eq("state", "active"))
-    .first();
-  if (activeOwner) {
-    return {
-      state: "blocked",
-      reason: "Vault infrastructure provisioning is still running.",
-    };
+  switch (infrastructure.operation.kind) {
+    case "none":
+      return hasActiveProvisioningRun
+        ? {
+            state: "blocked",
+            reason: "Vault source setup is still running.",
+          }
+        : { state: "eligible" };
+    case "managed_run":
+      return {
+        state: "blocked",
+        reason:
+          infrastructure.operation.run?.state === "queued"
+            ? "Vault setup is still queued."
+            : "Vault setup is still running.",
+      };
+    case "manual_provider_write":
+      return {
+        state: "blocked",
+        reason: "A provider change is still running.",
+      };
+    default:
+      infrastructure.operation satisfies never;
+      throw new Error("Unknown vault infrastructure operation.");
   }
+}
 
-  return { state: "eligible" };
+export async function hasActiveVaultProvisioningRun(
+  ctx: Pick<QueryCtx, "db">,
+  vaultId: Id<"vaults">,
+): Promise<boolean> {
+  const [queuedRun, runningRun] = await Promise.all([
+    ctx.db
+      .query("workflow_vaultProvisioning_runs")
+      .withIndex("by_vault_and_state", (q) => q.eq("vaultId", vaultId).eq("state", "queued"))
+      .first(),
+    ctx.db
+      .query("workflow_vaultProvisioning_runs")
+      .withIndex("by_vault_and_state", (q) => q.eq("vaultId", vaultId).eq("state", "running"))
+      .first(),
+  ]);
+  return queuedRun !== null || runningRun !== null;
+}
+
+export async function readVaultDeletionEligibility(
+  ctx: Pick<QueryCtx, "db">,
+  vault: Doc<"vaults">,
+): Promise<VaultDeletionEligibility> {
+  const [infrastructure, hasActiveProvisioningRun] = await Promise.all([
+    readVaultInfrastructureState(ctx, vault),
+    hasActiveVaultProvisioningRun(ctx, vault._id),
+  ]);
+  return resolveVaultDeletionEligibility(vault, infrastructure, hasActiveProvisioningRun);
 }

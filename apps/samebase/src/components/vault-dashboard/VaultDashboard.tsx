@@ -23,11 +23,6 @@ export type VaultDashboardProps = {
   selectedRepositoryFullName?: string;
 };
 
-type VaultDashboardDialogAvailability = {
-  canDeleteVault: boolean;
-  canManageProviderAttachments: boolean;
-} | null;
-
 export function VaultDashboard({
   page = "overview",
   selectedRepositoryFullName,
@@ -36,38 +31,16 @@ export function VaultDashboard({
   const pathname = useLocation({ select: (location) => location.pathname });
   const rootRouteSearch = useRootRouteSearch();
   const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
-  const { commands: workspaceCommands, model: workspaceModel } = useVaultWorkspaceModel(
-    selectedRepositoryFullName,
-  );
-  const dialogAvailability: VaultDashboardDialogAvailability =
-    workspaceModel.state === "loading"
-      ? null
-      : workspaceModel.selection.state === "selected"
-        ? {
-            canDeleteVault:
-              workspaceModel.selection.workspace.vault.deletion.state === "not_deleting" &&
-              workspaceModel.selection.workspace.vault.deletion.deleteAction.state === "available",
-            canManageProviderAttachments:
-              workspaceModel.selection.workspace.vault.hasConnectedGitHubRepository &&
-              workspaceModel.selection.workspace.vault.deletion.state === "not_deleting",
-          }
-        : {
-            canDeleteVault: false,
-            canManageProviderAttachments: false,
-          };
+  const workspaceModel = useVaultWorkspaceModel(selectedRepositoryFullName);
+  const selectedVaultAvailable =
+    workspaceModel.state === "loading" ? null : workspaceModel.selection.state === "selected";
   let unavailableDialog: VaultDashboardQueryDialog | null = null;
-  if (dialogAvailability !== null) {
-    if (rootRouteSearch.delete === true && !dialogAvailability.canDeleteVault) {
+  if (selectedVaultAvailable === false) {
+    if (rootRouteSearch.delete === true) {
       unavailableDialog = "delete";
-    } else if (
-      rootRouteSearch["add-convex"] === true &&
-      !dialogAvailability.canManageProviderAttachments
-    ) {
+    } else if (rootRouteSearch["add-convex"] === true) {
       unavailableDialog = "add-convex";
-    } else if (
-      rootRouteSearch["add-cloudflare"] === true &&
-      !dialogAvailability.canManageProviderAttachments
-    ) {
+    } else if (rootRouteSearch["add-cloudflare"] === true) {
       unavailableDialog = "add-cloudflare";
     }
   }
@@ -149,7 +122,6 @@ export function VaultDashboard({
           <VaultSelectedWorkspace
             key={workspaceModel.selection.workspace.vault._id}
             developerToolsVisible={developerToolsVisible}
-            invalidateExternalData={workspaceCommands.invalidateExternalData}
             page={page}
             workspace={workspaceModel.selection.workspace}
           />

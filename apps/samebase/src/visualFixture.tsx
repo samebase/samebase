@@ -176,6 +176,9 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-overview-v2-provisioning-ready",
   "vault-overview-v2-root",
   "vault-overview-v2-settings",
+  "vault-overview-v2-settings-active",
+  "vault-overview-v2-settings-checking",
+  "vault-overview-v2-settings-completed",
   "vault-overview-v2-settings-loading",
 ] as const satisfies readonly VaultOverviewVisualMode[];
 

@@ -6,7 +6,7 @@
 - Owner: Noter app creation and provider provisioning
 - Created: 2026-05-18
 - Related:
-  - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
+  - `archive/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
   - `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
   - `research/2026-05-15-samebase-workers-provisioning-migration.md`
   - `docs/artifacts/notermd-app/cloudflare-workers-install.md`

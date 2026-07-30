@@ -7,8 +7,8 @@ import {
   type QueryCtx,
 } from "../_generated/server";
 import { query } from "../functions";
+import { startCreateAppProvisioningWorkflow } from "../appProvisioningWorkflow";
 import {
-  buildVaultCloudflareBuildConfigForRootDirectory,
   parseRepositoryFullName,
   vGitHubRepositoryVisibility,
   vVaultConnectedRepositoryTarget,
@@ -18,7 +18,7 @@ import { isConnectedVault, isLiveConnectedVault, isSamebaseManagedVault } from "
 import { isVaultDeletingOrDeleteFailed } from "./deletion/state";
 
 const nullValidator = v.null();
-const { array, boolean, id, object, optional, string } = v;
+const { array, boolean, id, object, optional, string, union } = v;
 
 type ProvisioningVault = Extract<Doc<"vaults">, { state: "provisioning" }>;
 
@@ -292,7 +292,9 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     ghRepoOwner: string(),
     ghRepoName: string(),
     visibility: vGitHubRepositoryVisibility,
+    description: union(string(), nullValidator),
     convexProjectName: string(),
+    convexTeamId: string(),
     cloudflareAccountId: string(),
     cloudflareWorkerName: string(),
   },
@@ -348,6 +350,16 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       createdAt: now,
       updatedAt: now,
     });
+    await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+      vaultId,
+      owner: {
+        kind: "managed_run",
+        runId,
+      },
+      state: "active",
+      lastWriteAt: {},
+      updatedAt: now,
+    });
 
     // The run owns this GitHub attempt; later provider retries use their own runs.
     await ctx.db.patch(vaultId, {
@@ -376,17 +388,41 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       convex: {
         state: "planned",
         projectName: args.convexProjectName,
+        teamId: args.convexTeamId,
       },
       cloudflare: {
         state: "planned",
         accountId: args.cloudflareAccountId,
         workerName: args.cloudflareWorkerName,
-        build: buildVaultCloudflareBuildConfigForRootDirectory({
-          rootDirectory: VAULT_ROOT_DIRECTORY,
-        }),
+        rootDirectory: VAULT_ROOT_DIRECTORY,
       },
       createdAt: now,
       updatedAt: now,
+    });
+    const workflowId = await startCreateAppProvisioningWorkflow(ctx, {
+      vaultId,
+      runId,
+      userId: args.userId,
+      repositoryName: name,
+      repositoryOwner: owner,
+      description: args.description,
+      private: args.visibility === "private",
+    });
+    const queuedAt = Date.now();
+    await ctx.db.patch(runId, {
+      workflowId,
+      currentStep: "validate_connections",
+      updatedAt: queuedAt,
+    });
+    await ctx.db.insert("workflow_vaultProvisioning_events", {
+      userId: args.userId,
+      vaultId,
+      repositoryFullName,
+      runId,
+      step: "validate_connections",
+      level: "info",
+      message: "Queued app provisioning.",
+      createdAt: queuedAt,
     });
     return { vaultId, runId };
   },

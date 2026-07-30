@@ -53,6 +53,7 @@ type CloudflareBuildEnvVarsResponse = components["schemas"]["builds_EnvironmentV
 type CloudflareApiCallOptions = {
   transport: CloudflareApiTransport;
   recordApiCall?: ProviderApiCallRecorder;
+  beforeProviderWrite?: () => void | Promise<void>;
 };
 
 export type CloudflareBuildToken = {
@@ -758,6 +759,7 @@ export async function createCloudflareWorker(args: {
   accountId: string;
   workerName: string;
   transport: CloudflareApiTransport;
+  beforeProviderWrite?: () => void | Promise<void>;
 }): Promise<CloudflareWorkerIdentity> {
   const existing = await readWorker({
     token: args.token,
@@ -771,6 +773,7 @@ export async function createCloudflareWorker(args: {
     );
   }
 
+  await args.beforeProviderWrite?.();
   const createdRaw = await requestCloudflareApi({
     token: args.token,
     transport: args.transport,
@@ -806,6 +809,7 @@ async function ensureRepositoryConnection(
 ): Promise<string> {
   const repositoryFullName = `${args.owner}/${args.repo}`;
   try {
+    await args.beforeProviderWrite?.();
     const raw = await requestCloudflareApi({
       token: args.token,
       method: "PUT",
@@ -881,6 +885,7 @@ async function resolveBuildTokenUuid(
     cloudflareTokenId: currentTokenId,
     transport: args.transport,
     recordApiCall: args.recordApiCall,
+    beforeProviderWrite: args.beforeProviderWrite,
   });
 }
 
@@ -1119,6 +1124,7 @@ async function createBuildToken(
     cloudflareTokenId: string;
   } & CloudflareApiCallOptions,
 ): Promise<string> {
+  await args.beforeProviderWrite?.();
   const raw = await requestCloudflareApi({
     token: args.token,
     method: "POST",
@@ -1404,6 +1410,7 @@ async function upsertBuildTrigger(
       expectedRepoConnectionUuid: args.repoConnectionUuid,
     });
     if (repositoryMatch === "target") {
+      await args.beforeProviderWrite?.();
       await requestCloudflareApi({
         token: args.token,
         method: "PATCH",
@@ -1426,6 +1433,7 @@ async function upsertBuildTrigger(
   }
 
   try {
+    await args.beforeProviderWrite?.();
     const raw = await requestCloudflareApi({
       token: args.token,
       method: "POST",
@@ -1490,6 +1498,7 @@ async function setTriggerEnvironmentVariables(
     envVars: CloudflareBuildEnvVars;
   } & CloudflareApiCallOptions,
 ): Promise<void> {
+  await args.beforeProviderWrite?.();
   await requestCloudflareApi({
     token: args.token,
     method: "PATCH",
@@ -1570,6 +1579,7 @@ async function triggerInitialBuild(
     branch: string;
   } & CloudflareApiCallOptions,
 ): Promise<void> {
+  await args.beforeProviderWrite?.();
   await requestCloudflareApi({
     token: args.token,
     method: "POST",
@@ -1630,6 +1640,7 @@ type ConfigureCloudflareWorkerBuildsArgs = {
   buildConfig: CloudflareBuildConfig;
   transport: CloudflareApiTransport;
   recordApiCall?: ProviderApiCallRecorder;
+  beforeProviderWrite?: () => void | Promise<void>;
 };
 
 type ConfigureCloudflareWorkerBuildsForGitHubArgs = {
@@ -1648,6 +1659,7 @@ type ConfigureCloudflareWorkerBuildsForGitHubArgs = {
   accountId: string;
   buildConfig: CloudflareBuildConfig;
   recordApiCall?: ProviderApiCallRecorder;
+  beforeProviderWrite?: () => void | Promise<void>;
 };
 
 type RotateConvexDeployKeysForCloudflareWorkerBuildsArgs = {
@@ -1668,6 +1680,7 @@ type RotateConvexDeployKeysForCloudflareWorkerBuildsArgs = {
   convex: CloudflareProvisionConvexState;
   convexProject: SamebaseConvexProjectReference;
   recordApiCall?: ProviderApiCallRecorder;
+  beforeProviderWrite?: () => void | Promise<void>;
 };
 
 function assertExpectedBuildTriggerStillExists(args: {
@@ -1936,6 +1949,7 @@ async function configureCloudflareWorkerBuilds(
     repo: args.repo,
     transport: args.transport,
     recordApiCall: args.recordApiCall,
+    beforeProviderWrite: args.beforeProviderWrite,
   });
 
   const existingTriggers = await listBuildTriggers({
@@ -1976,6 +1990,7 @@ async function configureCloudflareWorkerBuilds(
     authMethod: args.cloudflareAuthMethod,
     transport: args.transport,
     recordApiCall: args.recordApiCall,
+    beforeProviderWrite: args.beforeProviderWrite,
   });
 
   const productionTriggerUuid = await upsertBuildTrigger({
@@ -1991,6 +2006,7 @@ async function configureCloudflareWorkerBuilds(
     kind: "production",
     transport: args.transport,
     recordApiCall: args.recordApiCall,
+    beforeProviderWrite: args.beforeProviderWrite,
   });
   const previewTriggerUuid = await upsertBuildTrigger({
     token: args.cloudflareToken,
@@ -2005,6 +2021,7 @@ async function configureCloudflareWorkerBuilds(
     kind: "preview",
     transport: args.transport,
     recordApiCall: args.recordApiCall,
+    beforeProviderWrite: args.beforeProviderWrite,
   });
 
   return {
@@ -2055,6 +2072,7 @@ export async function configureCloudflareWorkerBuildsForGitHub(
       buildConfig: args.buildConfig,
       transport,
       recordApiCall: args.recordApiCall,
+      beforeProviderWrite: args.beforeProviderWrite,
     });
 
     if (args.triggerInitialBuild) {
@@ -2066,6 +2084,7 @@ export async function configureCloudflareWorkerBuildsForGitHub(
         branch: args.defaultBranch,
         transport,
         recordApiCall: args.recordApiCall,
+        beforeProviderWrite: args.beforeProviderWrite,
       });
     }
 
@@ -2152,6 +2171,7 @@ export async function rotateConvexDeployKeysForCloudflareWorkerBuilds(
         envVars: convexEnvVars,
         transport,
         recordApiCall: args.recordApiCall,
+        beforeProviderWrite: args.beforeProviderWrite,
       }),
       setTriggerEnvironmentVariables({
         token: args.cloudflareToken,
@@ -2160,6 +2180,7 @@ export async function rotateConvexDeployKeysForCloudflareWorkerBuilds(
         envVars: convexEnvVars,
         transport,
         recordApiCall: args.recordApiCall,
+        beforeProviderWrite: args.beforeProviderWrite,
       }),
     ]);
 
@@ -2201,6 +2222,7 @@ export async function rotateConvexDeployKeysForCloudflareWorkerBuilds(
       branch: args.defaultBranch,
       transport,
       recordApiCall: args.recordApiCall,
+      beforeProviderWrite: args.beforeProviderWrite,
     });
 
     console.log("infra:cloudflare:convex_deploy_keys:rotate_for_workers_builds:success", {

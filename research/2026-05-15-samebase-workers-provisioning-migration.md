@@ -11,7 +11,7 @@
   - `docs/artifacts/samebase-app/cloudflare-workers-install.md`
   - `docs/artifacts/samebase-app/regeneration-prompt.md`
   - `specs/005_STARTER_TEMPLATE_STRATEGY_SPEC.md`
-  - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
+  - `archive/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
 
 ## Prompt
 

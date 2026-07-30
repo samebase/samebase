@@ -245,29 +245,6 @@ async function markProvisioningStartupFailed(
   }
 }
 
-async function startVaultInfrastructureProvisioningOrFail(
-  ctx: Pick<ActionCtx, "runMutation">,
-  args: {
-    vaultId: Id<"vaults">;
-    runId: Id<"workflow_vaultProvisioning_runs">;
-  },
-): Promise<void> {
-  try {
-    await ctx.runMutation(
-      internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning,
-      args,
-    );
-  } catch (error) {
-    await markProvisioningStartupFailed(ctx, {
-      runId: args.runId,
-      vaultId: args.vaultId,
-      logName: "vault:provisioning_start_failure_mark_failed",
-      error,
-    });
-    throw error;
-  }
-}
-
 async function markDeletionStartupFailed(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
@@ -311,31 +288,6 @@ async function startVaultDeletionOrFail(
       runId: args.runId,
       vaultId: args.vaultId,
       logName: "vault:delete:workflow_start_failure_mark_failed",
-      error,
-    });
-    throw error;
-  }
-}
-
-async function startCreateAppProvisioningOrFail(
-  ctx: Pick<ActionCtx, "runMutation">,
-  args: {
-    vaultId: Id<"vaults">;
-    runId: Id<"workflow_vaultProvisioning_runs">;
-    userId: Id<"users">;
-    repositoryName: string;
-    repositoryOwner: string;
-    description: string | null;
-    private: boolean;
-  },
-): Promise<void> {
-  try {
-    await ctx.runMutation(internal.appProvisioningWorkflow.startCreateAppProvisioning, args);
-  } catch (error) {
-    await markProvisioningStartupFailed(ctx, {
-      runId: args.runId,
-      vaultId: args.vaultId,
-      logName: "vault:create:provisioning_start_failure_mark_failed",
       error,
     });
     throw error;
@@ -429,13 +381,10 @@ async function checkGitHubRepositoryNameAvailability(
   }
 }
 
-async function checkConvexProjectNameAvailability(
-  ctx: Pick<ActionCtx, "runQuery">,
-  args: {
-    userId: Id<"users">;
-    projectName: string;
-  },
-): Promise<AppResourceNameAvailability> {
+async function checkConvexProjectNameAvailabilityForConnection(args: {
+  connection: Awaited<ReturnType<typeof resolveConvexProvisioningConnection>>;
+  projectName: string;
+}): Promise<AppResourceNameAvailability> {
   const validation = validateCreateResourceName("convex", args.projectName);
   if (!validation.valid) {
     return validation.availability;
@@ -443,13 +392,9 @@ async function checkConvexProjectNameAvailability(
   const projectName = validation.value;
 
   try {
-    const { convexToken, convexTeamId } = await resolveConvexProvisioningConnection(
-      ctx,
-      args.userId,
-    );
     const projects = await listConvexManagementProjects({
-      token: convexToken,
-      teamId: convexTeamId,
+      token: args.connection.convexToken,
+      teamId: args.connection.convexTeamId,
     });
     const unavailableNames = new Set<string>();
     for (const project of projects) {
@@ -468,6 +413,31 @@ async function checkConvexProjectNameAvailability(
         baseName: projectName,
         unavailableNames,
       }),
+    });
+  } catch (error) {
+    console.warn("vault:create:convex_name_check_failed", {
+      message: toErrorMessage(error),
+    });
+    return buildUnknownResult("Could not check Convex project name.");
+  }
+}
+
+async function checkConvexProjectNameAvailability(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    userId: Id<"users">;
+    projectName: string;
+  },
+): Promise<AppResourceNameAvailability> {
+  const validation = validateCreateResourceName("convex", args.projectName);
+  if (!validation.valid) {
+    return validation.availability;
+  }
+
+  try {
+    return await checkConvexProjectNameAvailabilityForConnection({
+      connection: await resolveConvexProvisioningConnection(ctx, args.userId),
+      projectName: args.projectName,
     });
   } catch (error) {
     console.warn("vault:create:convex_name_check_failed", {
@@ -539,30 +509,55 @@ async function checkCloudflareWorkerNameAvailability(
   if (!validation.valid) {
     return validation.availability;
   }
-  const workerName = validation.value;
 
   try {
     const connection = await resolveCloudflareProvisioningConnection(ctx, args.userId);
+    return await checkCloudflareWorkerNameAvailabilityForConnection(ctx, {
+      userId: args.userId,
+      workerName: args.workerName,
+      connection,
+    });
+  } catch (error) {
+    console.warn("vault:create:cloudflare_name_check_failed", {
+      message: toErrorMessage(error),
+    });
+    return buildUnknownResult("Could not check Cloudflare Worker name.");
+  }
+}
+
+async function checkCloudflareWorkerNameAvailabilityForConnection(
+  ctx: Pick<ActionCtx, "runAction">,
+  args: {
+    userId: Id<"users">;
+    workerName: string;
+    connection: Awaited<ReturnType<typeof resolveCloudflareProvisioningConnection>>;
+  },
+): Promise<AppResourceNameAvailability> {
+  const validation = validateCreateResourceName("cloudflare", args.workerName);
+  if (!validation.valid) {
+    return validation.availability;
+  }
+
+  try {
     try {
       return await readCloudflareWorkerNameAvailability({
-        connection,
-        workerName,
+        connection: args.connection,
+        workerName: validation.value,
       });
     } catch (error) {
       if (
-        connection.cloudflareAuthMethod !== "api_key" &&
+        args.connection.cloudflareAuthMethod !== "api_key" &&
         isCloudflareMcpInvalidAccessTokenError(error)
       ) {
-        const refreshedConnection = await resolveCloudflareProvisioningConnection(
-          ctx,
-          args.userId,
-          {
-            forceRefresh: true,
-          },
-        );
+        const connection = await resolveCloudflareProvisioningConnection(ctx, args.userId, {
+          forceRefresh: true,
+        });
         return await readCloudflareWorkerNameAvailability({
-          connection: refreshedConnection,
-          workerName,
+          connection: {
+            ...connection,
+            cloudflareAccountId: args.connection.cloudflareAccountId,
+          },
+          workerName: validation.value,
         });
       }
       throw error;
@@ -766,17 +761,30 @@ export async function createAppForUser(
     );
   }
 
-  const resourceNameAvailability = await checkCreateResourceNameAvailabilityForUser(ctx, {
-    userId: args.userId,
-    githubRepositoryOwner: ghRepoOwner,
-    githubRepositoryName: repoName,
-    convexProjectName: convexNameValidation.value,
-    cloudflareWorkerName: cloudflareNameValidation.value,
-  });
-  assertResourceNameAvailable("GitHub repository name", resourceNameAvailability.github);
-  assertResourceNameAvailable("Convex project name", resourceNameAvailability.convex);
-  assertResourceNameAvailable("Cloudflare Worker name", resourceNameAvailability.cloudflare);
-  const { cloudflareAccountId } = await resolveCloudflareProvisioningConnection(ctx, args.userId);
+  const [convexConnection, cloudflareConnection] = await Promise.all([
+    resolveConvexProvisioningConnection(ctx, args.userId),
+    resolveCloudflareProvisioningConnection(ctx, args.userId),
+  ]);
+  const [githubNameAvailability, convexNameAvailability, cloudflareNameAvailability] =
+    await Promise.all([
+      checkGitHubRepositoryNameAvailability(ctx, {
+        userId: args.userId,
+        owner: ghRepoOwner,
+        repositoryName: repoName,
+      }),
+      checkConvexProjectNameAvailabilityForConnection({
+        connection: convexConnection,
+        projectName: convexNameValidation.value,
+      }),
+      checkCloudflareWorkerNameAvailabilityForConnection(ctx, {
+        userId: args.userId,
+        workerName: cloudflareNameValidation.value,
+        connection: cloudflareConnection,
+      }),
+    ]);
+  assertResourceNameAvailable("GitHub repository name", githubNameAvailability);
+  assertResourceNameAvailable("Convex project name", convexNameAvailability);
+  assertResourceNameAvailable("Cloudflare Worker name", cloudflareNameAvailability);
 
   const visibility = args.private === false ? "public" : "private";
   const { vaultId, runId } = await ctx.runMutation(
@@ -786,20 +794,13 @@ export async function createAppForUser(
       ghRepoOwner,
       ghRepoName: repoName,
       visibility,
+      description: args.description ?? null,
       convexProjectName: convexNameValidation.value,
-      cloudflareAccountId,
+      convexTeamId: convexConnection.convexTeamId,
+      cloudflareAccountId: cloudflareConnection.cloudflareAccountId,
       cloudflareWorkerName: cloudflareNameValidation.value,
     },
   );
-  await startCreateAppProvisioningOrFail(ctx, {
-    vaultId,
-    runId,
-    userId: args.userId,
-    repositoryName: repoName,
-    repositoryOwner: ghRepoOwner,
-    description: args.description ?? null,
-    private: args.private ?? true,
-  });
 
   return { vaultId, runId };
 }
@@ -857,14 +858,9 @@ export async function retryInfrastructureProvisioningForUser(
   if (!isLiveConnectedVault(vault) || !isSamebaseManagedVault(vault)) {
     throw new Error("Infrastructure retry is available only for live Samebase-managed vaults");
   }
-  const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+  await ctx.runMutation(internal.appProvisioningRuns.createRetryForVault, {
     userId,
     vaultId: args.vaultId,
-    trigger: "retry",
-  });
-  await startVaultInfrastructureProvisioningOrFail(ctx, {
-    vaultId: args.vaultId,
-    runId,
   });
 
   return null;

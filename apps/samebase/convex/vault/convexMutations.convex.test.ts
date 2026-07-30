@@ -235,27 +235,25 @@ describe("vault Convex project attachment mutations", () => {
       });
       const writeLockId = await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId: ids.primaryVaultId,
-        runId,
+        owner: { kind: "managed_run", runId },
         state: "active",
+        lastWriteAt: { cloudflare: 9 },
         updatedAt: 10,
       });
       const planId = await ctx.db.insert("workflow_vaultProvisioning_plans", {
         vaultId: ids.primaryVaultId,
         userId: ids.userId,
         convexConfigPath: "apps/web/convex.json",
-        convex: { state: "planned", projectName: "managed-project" },
+        convex: {
+          state: "planned",
+          projectName: "managed-project",
+          teamId: "team-1",
+        },
         cloudflare: {
           state: "planned",
           accountId: "account-1",
           workerName: "managed-worker",
-          build: {
-            rootDirectory: "apps/web",
-            buildCommand: "pnpm run build",
-            deployCommand: "pnpm run deploy",
-            previewDeployCommand: "pnpm run deploy:preview",
-            pathIncludes: ["apps/web/*"],
-            pathExcludes: [],
-          },
+          rootDirectory: "apps/web",
         },
         createdAt: 10,
         updatedAt: 10,
@@ -263,6 +261,24 @@ describe("vault Convex project attachment mutations", () => {
       return { planId, runId, writeLockId };
     });
 
+    await expect(
+      t.query(internal.vault.convexMutations.readManagedProjectCreateCheckpoint, {
+        vaultId: ids.primaryVaultId,
+        userId: ids.userId,
+        runId,
+        projectName: "managed-project",
+        teamId: "team-2",
+      }),
+    ).rejects.toThrow("Connected Convex team does not match the provisioning plan.");
+    await expect(
+      t.mutation(internal.vault.convexMutations.beginManagedProjectCreate, {
+        vaultId: ids.primaryVaultId,
+        userId: ids.userId,
+        runId,
+        projectName: "managed-project",
+        teamId: "team-2",
+      }),
+    ).rejects.toThrow("Connected Convex team does not match the provisioning plan.");
     await t.mutation(internal.vault.convexMutations.beginManagedProjectCreate, {
       vaultId: ids.primaryVaultId,
       userId: ids.userId,
@@ -297,6 +313,7 @@ describe("vault Convex project attachment mutations", () => {
       t.run(async (ctx) => ({
         plan: await ctx.db.get(planId),
         project: await ctx.db.get(convexProjectId),
+        writeLock: await ctx.db.get(writeLockId),
       })),
     ).resolves.toMatchObject({
       plan: { convex: { state: "created", projectId: "created-project" } },
@@ -306,6 +323,12 @@ describe("vault Convex project attachment mutations", () => {
         teamId: "team-1",
         projectId: "created-project",
         origin: "provisioned",
+      },
+      writeLock: {
+        lastWriteAt: {
+          convex: expect.any(Number),
+          cloudflare: 9,
+        },
       },
     });
 
@@ -321,6 +344,61 @@ describe("vault Convex project attachment mutations", () => {
         projectId: "other-project",
       }),
     ).rejects.toThrow("Managed provisioning run no longer holds the write lock.");
+  });
+
+  it("records a manual project checkpoint only for its current owner", async () => {
+    const { ids, t } = await createGraphFixture();
+    await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
+      vaultId: ids.primaryVaultId,
+      userId: ids.userId,
+      actionId: "manual-project",
+      action: "create_convex_project",
+    });
+
+    await expect(
+      t.mutation(internal.vault.convexMutations.recordManualProjectCreated, {
+        vaultId: ids.primaryVaultId,
+        userId: ids.userId,
+        actionId: "old-project-action",
+        teamId: "team-1",
+        projectId: "project-1",
+        codeLocation: { kind: "config", convexConfigPath: "convex.json" },
+      }),
+    ).rejects.toThrow("Manual provider action no longer owns the vault write.");
+    const convexProjectId = await t.mutation(
+      internal.vault.convexMutations.recordManualProjectCreated,
+      {
+        vaultId: ids.primaryVaultId,
+        userId: ids.userId,
+        actionId: "manual-project",
+        teamId: "team-1",
+        projectId: "project-1",
+        codeLocation: { kind: "config", convexConfigPath: "convex.json" },
+      },
+    );
+
+    await expect(
+      t.run(async (ctx) => ({
+        project: await ctx.db.get(convexProjectId),
+        write: await ctx.db
+          .query("workflow_vaultProvisioning_writeLocks")
+          .withIndex("by_vault", (q) => q.eq("vaultId", ids.primaryVaultId))
+          .unique(),
+      })),
+    ).resolves.toMatchObject({
+      project: {
+        projectId: "project-1",
+        convexConfigPath: "convex.json",
+        origin: "provisioned",
+      },
+      write: {
+        owner: {
+          actionId: "manual-project",
+          action: "create_convex_project",
+        },
+        state: "active",
+      },
+    });
   });
 
   it("enforces vault ownership", async () => {

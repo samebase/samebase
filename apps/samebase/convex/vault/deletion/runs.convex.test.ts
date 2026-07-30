@@ -141,19 +141,16 @@ async function createSamebaseManagedVaultWithConvex(args: { withProject: boolean
       vaultId,
       userId,
       convexConfigPath: "convex.json",
-      convex: { state: "planned", projectName: "managed-convex" },
+      convex: {
+        state: "planned",
+        projectName: "managed-convex",
+        teamId: "team-id",
+      },
       cloudflare: {
         state: "planned",
         accountId: "cloudflare-account",
         workerName: "managed-convex",
-        build: {
-          rootDirectory,
-          buildCommand: "pnpm run build",
-          deployCommand: "pnpm run deploy",
-          previewDeployCommand: "pnpm run deploy:preview",
-          pathIncludes: ["*"],
-          pathExcludes: [],
-        },
+        rootDirectory,
       },
       createdAt: 13,
       updatedAt: 13,
@@ -188,6 +185,79 @@ const deleteCloudflareOptions = {
 };
 
 describe("vault deletion Convex resource planning", () => {
+  it.each([
+    { currentStep: "run_created" as const, state: "queued" as const },
+    { currentStep: "sync_tree" as const, state: "running" as const },
+  ])("blocks deletion while connected repository setup is $state", async (run) => {
+    const { ids, t } = await createExistingRepositoryVaultWithConvex({
+      origin: "selected_existing",
+    });
+    await t.run(async (ctx) => {
+      const vault = await ctx.db.get(ids.vaultId);
+      if (!vault || vault.state !== "connected") {
+        throw new Error("Connected vault fixture is missing.");
+      }
+      await ctx.db.patch(vault.runId, {
+        state: run.state,
+        currentStep: run.currentStep,
+        updatedAt: 30,
+        completedAt: undefined,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.vault.deletion.runs.createInitialRun, {
+        ...ids,
+        options: {
+          removeGithubRepo: false,
+          removeConvexProvision: false,
+          removeCloudflareProvision: false,
+        },
+      }),
+    ).rejects.toThrow("Vault source setup is still running.");
+
+    const snapshot = await t.run(async (ctx) => ({
+      deletionRuns: await ctx.db
+        .query("workflow_vaultDeletion_runs")
+        .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", ids.vaultId))
+        .collect(),
+      vault: await ctx.db.get(ids.vaultId),
+    }));
+    expect(snapshot.deletionRuns).toEqual([]);
+    expect(snapshot.vault?.deletion).toEqual({ state: "not_deleting" });
+  });
+
+  it("blocks deletion while a manual provider write is active", async () => {
+    const { ids, t } = await createExistingRepositoryVaultWithConvex({
+      origin: "selected_existing",
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+        vaultId: ids.vaultId,
+        owner: {
+          kind: "manual_provider_write",
+          actionId: "create-convex-project",
+          action: "create_convex_project",
+          expiresAt: 20,
+        },
+        state: "active",
+        lastWriteAt: { convex: 12 },
+        updatedAt: 12,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.vault.deletion.runs.createInitialRun, {
+        ...ids,
+        options: {
+          removeGithubRepo: false,
+          removeConvexProvision: false,
+          removeCloudflareProvision: false,
+        },
+      }),
+    ).rejects.toThrow("A provider change is still running.");
+  });
+
   it("keeps an attached Convex project when provider cleanup is not selected", async () => {
     const { ids, t } = await createExistingRepositoryVaultWithConvex({
       origin: "provisioned",

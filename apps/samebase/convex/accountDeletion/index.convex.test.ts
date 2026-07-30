@@ -182,6 +182,39 @@ describe("account deletion foundation", () => {
     ).rejects.toThrow("Access denied");
   });
 
+  it("rejects account deletion while a manual provider change is active", async () => {
+    const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
+    const vaultId = await seedVault(t, ids.userId);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+        vaultId,
+        owner: {
+          kind: "manual_provider_write",
+          actionId: "active-provider-write",
+          action: "create_convex_project",
+          expiresAt: now + 60_000,
+        },
+        state: "active",
+        lastWriteAt: {},
+        updatedAt: now,
+      });
+    });
+    const confirmationStakes = await asUser.query(api.accountDeletion.index.stakes);
+
+    await expect(
+      asUser.mutation(api.accountDeletion.index.request, {
+        completionCapability,
+        confirmationPhrase: buildAccountDeletionConfirmationPhrase(confirmationStakes),
+        confirmationStakesSnapshot: serializeAccountDeletionConfirmationStakes(confirmationStakes),
+      }),
+    ).rejects.toThrow(
+      "A provider change is active. Wait for it to finish before you delete the account.",
+    );
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.userId))).resolves.not.toHaveProperty(
+      "accountDeletion",
+    );
+  });
+
   it("rejects staff self-deletion without removing staff access", async () => {
     const staff = await seedUser({ email: "nicu@samebase.com" });
 

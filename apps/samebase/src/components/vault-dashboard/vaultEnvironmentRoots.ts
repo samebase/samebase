@@ -291,7 +291,7 @@ export function buildProductionEnvironmentRoots({
         })
       : [];
   const convexLoading =
-    convexObservations.state === "loading"
+    convexObservations.state === "loading" || convexObservations.state === "checking"
       ? vault.convexProjects.map((project) => ({
           rootDirectory: getConvexCodeRootDirectory(project.codeLocation),
           sortKey: `1:${project.convexProjectId}`,

@@ -4,9 +4,10 @@
 
 - Status: Implemented for MVP
 - Owner: Samebase backend/frontend
-- Last updated: 2026-07-20
+- Last updated: 2026-07-30
 - Related plan: `archive/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 - Related vault-first cleanup: `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
+- Related deletion contract: `specs/098_VAULT_DELETION_WORKFLOW_SPEC.md`
 - Cloudflare Workers migration: `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
 - Manual Convex attachment: `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`
 - Resource attachment model: `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
@@ -32,16 +33,21 @@ Vault creation succeeds even if downstream provisioning partially fails.
 ## Important Behavior
 
 - `api.vault.actions.createRepository` (new samebase-managed repo) requires a selected GitHub
-  user/org owner and starts the create-app Workflow after inserting the initializing vault and run.
-  The Workflow validates provider connections and starts infrastructure provisioning after source
-  setup succeeds.
+  user/org owner. One admission transaction inserts the initializing vault, the create run, the
+  active managed provider lock, and the provisioning plan, then starts the Workflow and stores its
+  ID. A Workflow start failure rolls back all admission writes. The Workflow validates provider
+  connections and starts provider provisioning after source setup succeeds.
 - `api.vault.actions.connectRepository` (existing GitHub repo connection) does **not**
-  auto-provision infra.
+  auto-provision infra. Its `connect_existing_repository` run is source-only and never owns the
+  provider lock.
 - Existing GitHub vaults can attach or create Convex resources later through the manual Convex
   deployment connection flow in `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`.
-- `api.vault.actions.retryInfrastructureProvisioning` restarts the composed block sequence for a
-  failed Samebase-managed create flow. Manual provider setup failures still reopen the matching
-  provider connection dialog instead of running the managed infrastructure retry.
+- `api.vault.actions.retryInfrastructureProvisioning` uses one admission transaction to create the
+  retry run, replace the failed managed lock with its active owner, start the Workflow, and store
+  its ID. A Workflow start failure rolls back the new run and lock change. The Workflow restarts the
+  composed block sequence for a failed Samebase-managed create flow. Manual provider setup failures
+  still reopen the matching provider connection dialog instead of running the managed infrastructure
+  retry.
 
 ## Source of Truth Files
 
@@ -53,6 +59,7 @@ Vault creation succeeds even if downstream provisioning partially fails.
 - `apps/samebase/convex/vault/convexMutations.ts`
 - `apps/samebase/convex/vault/cloudflare.ts`
 - `apps/samebase/convex/vault/cloudflareMutations.ts`
+- `apps/samebase/convex/vault/infrastructureOperation.ts`
 - `apps/samebase/convex/schema.ts`
 - `apps/samebase/src/components/vault-dashboard/VaultDashboard.tsx`
 
@@ -62,27 +69,71 @@ Vault creation succeeds even if downstream provisioning partially fails.
 
 - `vaultId`, `userId`
 - `convexConfigPath`
-- `convex`: `{ state: "planned", projectName }`, `{ state: "creating", projectName, teamId }`, or
+- `convex`: `{ state: "planned", projectName, teamId }`,
+  `{ state: "creating", projectName, teamId }`, or
   `{ state: "created", projectName, teamId, projectId }`
-- `cloudflare`: `{ state: "planned", accountId, workerName, build }`,
-  `{ state: "creating", accountId, workerName, build }`, or
-  `{ state: "created", accountId, workerName, workerTag, build }`
+- `cloudflare`: `{ state: "planned", accountId, workerName, rootDirectory }`,
+  `{ state: "creating", accountId, workerName, rootDirectory }`, or
+  `{ state: "created", accountId, workerName, workerTag, rootDirectory }`
 - `createdAt`, `updatedAt`
 
-The plan row records user-selected provider names before side effects happen so retries use the same
-configuration. `creating` means the provider create request started but Samebase never recorded a
-confirmed result. Retry checks the exact planned name. If that provider resource exists, Samebase
-requires the user to delete it in the provider dashboard before retrying. If it is absent, Samebase
-repeats the create request without adding another workflow state. A same-named resource is never
-adopted implicitly. `created` is the exact provider identity checkpoint used by retry. Samebase
-writes that checkpoint and its stable `provisioned` resource attachment in one database transaction.
-Checkbox-controlled cleanup derives ownership only from the stable attachment, never from an
-unattached checkpoint. Current connected resource identities live in the durable resource tables
-used by the dashboard.
+The plan row records user-selected provider names and exact provider owners before side effects
+happen. The Convex team and Cloudflare account do not change during retry. If the active provider
+connection does not match the plan, Samebase stops and tells the user about the mismatch. `creating`
+means the provider create request started but Samebase never recorded a confirmed result. Retry
+checks the exact planned name. If that provider resource exists, Samebase requires the user to
+delete it in the provider dashboard before retrying. If it is absent, Samebase repeats the create
+request without adding another workflow state. A same-named resource is never adopted implicitly.
+`created` is the exact provider identity checkpoint used by retry. Samebase writes that checkpoint
+and its stable `provisioned` resource attachment in one database transaction. Checkbox-controlled
+cleanup derives ownership only from the stable attachment, never from an unattached checkpoint.
+Current connected resource identities live in the durable resource tables used by the dashboard.
 
 Indexes:
 
 - `by_vault`
+
+### `workflow_vaultProvisioning_writeLocks`
+
+This table stores the current or most recent infrastructure write for one vault. Its owner is one
+of:
+
+- `{ kind: "managed_run", runId }`
+- `{ kind: "manual_provider_write", actionId, action, expiresAt }`
+
+An owner can be `active`, `succeeded`, or `failed`. Only `active` blocks another infrastructure
+write. A manual owner stores one manual action name from a fixed list. The action maps to the
+provider observation times that can change:
+
+- `create_convex_project`: Convex
+- `connect_cloudflare_worker`, `create_cloudflare_worker`, and
+  `configure_workers_builds_for_github`: Cloudflare
+- `rotate_convex_deploy_keys_for_workers_builds`: Convex and Cloudflare
+
+Only create and retry runs can own a managed lock. The transaction that creates either run also
+creates its active lock. The lock stays active during source and provider setup. A terminal run
+transition makes the matching lock terminal. A source setup failure marks the matching lock failed
+but does not change a provider write time. A `connect_existing_repository` run is source-only and
+never creates or owns this lock.
+
+A manual owner does not store provider targets or replay input. It stores one expiry at 10 minutes.
+The action derives a 5-minute call limit from that expiry. After 5 minutes, it must not start
+another provider call. An in-flight provider call can return and record its result before the owner
+expires at 10 minutes. There is no second stored expiry.
+
+`lastWriteAt.convex` and `lastWriteAt.cloudflare` are independent optional times. Samebase updates
+one of these times when the matching provider state can have changed. A write to one provider must
+not clear the other provider time.
+
+The provisioning plan is durable retry input. It is not an active operation and does not block a
+manual write by itself. When a user or agent starts an explicit manual provider action, it replaces
+an old managed setup failure, and the dashboard removes the old managed Retry action and plan-only
+rows.
+
+Deployment has two destructive preconditions. The target deployment must contain zero rows in
+`workflow_vaultProvisioning_writeLocks` and zero rows in `workflow_vaultProvisioning_plans`. The
+operator must stop the deployment and clear these rows first. Product code has no compatibility
+reader, data migration, or fallback for an older row shape.
 
 ### `vaultConvexProjects`
 
@@ -151,6 +202,12 @@ may cache those results in the browser for a short bounded interval, but the act
 them to Convex tables. Stable attachment rows remain unchanged when a provider resource changes or
 disappears.
 
+Each provider observation query uses the matching `lastWriteAt` value in its query key. When that
+value changes, the dashboard makes one new read and shows `Checking` until the read returns. An
+older result must not create attention or repair UI during this check. The first new result becomes
+the normal state, including a provider read failure. Samebase does not continuously poll for this
+write-safety check.
+
 Cloudflare uses three independently loading observation axes:
 
 1. Worker identity, existence, and workers.dev availability.
@@ -217,18 +274,27 @@ Repository default branch:
 
 1. `api.vault.actions.createRepository`
 
-- Returns: `{ vaultId: string }`
+- Returns: `{ vaultId: Id<"vaults">, runId: Id<"workflow_vaultProvisioning_runs"> }`
 - Side effect: starts async infra provisioning through Convex Workflow
 
 2. `api.vault.actions.retryInfrastructureProvisioning`
 
 - Args: `{ vaultId: Id<"vaults"> }`
 - Returns: `null`
-- Behavior: validates ownership + samebase-managed, starts a managed provisioning retry
+- Behavior: validates ownership and Samebase management, then replaces the failed managed write with
+  one managed provisioning retry. The write must name a failed managed run for the same vault and
+  user. The failed create run must have reached provider setup. A source setup failure, successful
+  run, or later manual provider action does not permit provider retry.
 
 3. `api.vault.dashboard.getUserVaults`
 
-- Returns: stable Worker and Convex project attachments for the authenticated user
+- Returns: stable attachments, the managed `providerPlan`, and the vault `providerWrite` summary for
+  the authenticated user
+- An active `providerWrite` returns `status`, the owner `kind`, and the independent provider write
+  times. A manual owner also returns the affected providers. An idle summary returns `status` and
+  the provider write times. The public result does not expose run IDs, action IDs, manual action
+  names, expiry times, or lock update times. The dashboard projects terminal lock rows as idle
+  because they are fencing and refresh evidence, not current provider state.
 
 4. `api.vault.providerObservations.observeCloudflareWorkers`
 
@@ -278,7 +344,8 @@ Repository default branch:
 
 ### Internal
 
-- `appProvisioningWorkflow.startVaultInfrastructureProvisioning({ vaultId, runId })`
+- `appProvisioningRuns.createRetryForVault({ userId, vaultId })`
+- `vault/records.createInitializingSamebaseManagedVaultForUser(...)`
 - `appProvisioningWorkflow.provisionVaultInfrastructure({ vaultId, runId })`
 - `appProvisioningWorkflow.provisionApp(...)`
 - `vault/convex.ensureConvexProjectConnection(...)`
@@ -298,7 +365,7 @@ sequenceDiagram
   participant CFL as "Cloudflare Workers API"
   participant DB as "Convex DB"
 
-  VA->>DB: add initializing vault and appProvisioningRun
+  VA->>DB: add initializing vault, create run, and managed provider lock
   VA->>WF: start create-app workflow
   WF->>DB: create/fetch repo, connect vault, seed starter, sync tree
   WF->>CVXB: attach_convex child run
@@ -326,9 +393,36 @@ sequenceDiagram
 - `configure_workers_builds_for_github` and `rotate_convex_deploy_keys_for_workers_builds` do not
   change either attachment row. Their provider writes are observed live when a caller next requests
   current state.
-- `workflow_vaultProvisioning_writeLocks` records the active/succeeded/failed writer run.
+- One shared infrastructure-state reader checks the deletion gate and the write-lock row.
+- Only one operation can change a provider attachment or provider resource in one vault at one time.
+- The transaction that creates a create or retry run also creates its active managed lock. The
+  source-only `connect_existing_repository` run never gets this lock.
+- A source setup failure makes the matching managed lock failed without changing provider freshness.
+- A managed provider write advances only the matching provider write time.
+- A database-only attachment change checks the operation and changes the attachment in one
+  transaction.
+- An external provider write claims the manual owner before its first provider call. The action
+  records success or error and affected provider times before it ends the block.
+- A bookkeeping error must not replace the provider error. If a create call starts but the local
+  resource checkpoint fails, the error tells the user that the provider resource can exist and names
+  the normal inspect and attach action.
+- A manual action stops starting provider calls 5 minutes after it claims the owner. The owner
+  expires 10 minutes after the claim. This gap lets an in-flight provider call return and record its
+  result before expiry. Only the 10-minute expiry is stored and scheduled.
+- The scheduled mutation checks the exact action ID, expiry, and `active` state. If they still
+  match, it marks the action `failed` and advances the provider times mapped from the stored action.
+  A replaced or terminal owner does not change.
+- Expiry never calls a provider. It does not replay an action, adopt a resource, run compensation,
+  or create another recovery state. After the fresh provider observations return, the user or agent
+  uses the normal create, attach, configure, or repair action for the observed state.
+- A late action result cannot change an expired or replaced owner.
 - `workflow_vaultProvisioning_runs` and `workflow_vaultProvisioning_events` record managed app
   creation and retry progress. Explicit manual provider attachment does not create a Workflow run.
+
+The dashboard derives control state from `getUserVaults`. Backend mutations use the shared reader to
+reject conflicts. There is no separate command-availability API, generic provider framework,
+resource-level lock, manual-action Workflow run, manual-action history table, manual replay API, or
+manual Retry API.
 
 ## UI Surface
 
@@ -415,8 +509,18 @@ Dashboard external links:
 
 - [x] New samebase-managed vault creation schedules infra provisioning automatically.
 - [x] Existing-repo connect flow does not auto-provision infra.
+- [x] Create and retry own the managed provider lock from run creation.
+- [x] Existing-repo source setup never owns the provider lock.
+- [x] A source setup failure ends its matching managed lock without changing provider freshness.
 - [x] Retry path exists and is guarded to samebase-managed vaults.
 - [x] Failed Samebase-managed provider setup rows expose the guarded retry path.
 - [x] Infra status + URL are visible in dashboard query/UI surfaces.
 - [x] Managed vault dashboard cards expose direct Cloudflare project and Convex deployment links
       when the stored infrastructure metadata is available.
+- [x] A plan without an active managed run does not block a manual provider action.
+- [x] Managed setup, active manual writes, and deletion reject conflicting vault infrastructure
+      writes in the backend.
+- [x] An old manual action ID cannot complete or clear a newer owner.
+- [x] One fenced expiry ends a silent manual action and requests fresh affected-provider
+      observations without replay.
+- [x] Provider-specific write times cause one fresh observation read without continuous polling.

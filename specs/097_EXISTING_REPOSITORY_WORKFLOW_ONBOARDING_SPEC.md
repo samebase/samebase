@@ -6,10 +6,9 @@
   / `#733`
 - Owner: Samebase existing repository onboarding, vault source setup, and provisioning runs
 - Created: 2026-05-08
-- Last updated: 2026-07-21
+- Last updated: 2026-07-29
 - Related docs:
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
-  - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/065_GITHUB_REPOSITORY_PICKER_DISCOVERY_SPEC.md`
   - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
@@ -32,8 +31,8 @@ app creation:
 5. create no provider attachments for imported repositories; the standard vault-level discovery
    flows attach Convex projects and Cloudflare Workers later when the user chooses them
 
-Manual provider retry remains parked. This spec is only about durable source onboarding for existing
-repositories.
+This spec is only about durable source onboarding for existing repositories. Provider attachment and
+repair use the separate vault-level provider flows.
 
 ## Current Runtime
 
@@ -81,13 +80,12 @@ queues source setup and returns before the default branch tree is ready.
 
 ## Non-Goals
 
-1. Add manual provider retry UI.
-2. Auto-provision Convex or Cloudflare for imported repositories.
-3. Make empty repositories usable without a default branch and tree.
-4. Change connected GitHub repository identity in place.
-5. Build a generic provider framework.
-6. Preserve old connected existing-repository production rows.
-7. Add a multi-step onboarding wizard.
+1. Auto-provision Convex or Cloudflare for imported repositories.
+2. Make empty repositories usable without a default branch and tree.
+3. Change connected GitHub repository identity in place.
+4. Build a generic provider framework.
+5. Preserve old connected existing-repository production rows.
+6. Add a multi-step onboarding wizard.
 
 ## Accepted Decisions
 
@@ -190,10 +188,10 @@ tree exists.
 ### Provider Setup Boundary
 
 Existing repositories do not auto-provision Convex or Cloudflare. Connected existing-repository rows
-start with no provider resource attachments. The standard vault dashboard immediately exposes
-`?add-cloudflare` and `?add-convex`; repository import does not add a separate provider-onboarding
-stage. Those vault-level dialogs perform verified resource discovery as defined in
-`specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`.
+start with no managed provider plan and no provider resource attachments. The standard vault
+dashboard immediately exposes `?add-cloudflare` and `?add-convex`; repository import does not add a
+separate provider-onboarding stage. Those vault-level dialogs perform verified resource discovery as
+defined in `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`.
 
 ## Target Flow
 
@@ -357,7 +355,7 @@ the landed behavior contract, not as still-open runtime scope.
 4. Add the initializing-vault/run mutation for existing repositories.
 5. Replace synchronous `connectRepository` with the queueing action.
 6. Add the connect-existing Workflow and failure handling.
-7. Keep Convex and Cloudflare state `not_configured`.
+7. Create no Convex project or Cloudflare Worker attachments.
 8. Add backend tests for success, pre-connected failure, post-connected tree failure, duplicates,
    and required `runId`.
 

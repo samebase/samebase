@@ -1,9 +1,61 @@
+/// <reference types="vite/client" />
+
+import { convexTest } from "convex-test";
 import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
+import schema from "../schema";
+
+const modules = import.meta.glob([
+  "../**/*.ts",
+  "../_generated/*.js",
+  "!../**/*.test.ts",
+  "!../**/*.convex.test.ts",
+  "!../**/*.generated.ts",
+  "!../test.setup.ts",
+]);
 
 describe("vault records Convex contract", () => {
+  it("rolls back managed app admission when Workflow start fails", async () => {
+    const t = convexTest(schema, modules);
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.vault.records.createInitializingSamebaseManagedVaultForUser, {
+        userId,
+        ghRepoOwner: "Ada",
+        ghRepoName: "Failed-App",
+        visibility: "private",
+        description: null,
+        convexProjectName: "failed-app",
+        convexTeamId: "convex-team",
+        cloudflareAccountId: "cloudflare-account",
+        cloudflareWorkerName: "failed-app",
+      }),
+    ).rejects.toThrow();
+
+    await expect(
+      t.run(async (ctx) => ({
+        vaults: await ctx.db.query("vaults").collect(),
+        runs: await ctx.db.query("workflow_vaultProvisioning_runs").collect(),
+        locks: await ctx.db.query("workflow_vaultProvisioning_writeLocks").collect(),
+        plans: await ctx.db.query("workflow_vaultProvisioning_plans").collect(),
+      })),
+    ).resolves.toEqual({
+      vaults: [],
+      runs: [],
+      locks: [],
+      plans: [],
+    });
+  });
+
   it("defaults connection resource links open for new vaults", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
@@ -29,7 +81,9 @@ describe("vault records Convex contract", () => {
         ghRepoOwner: "Ada",
         ghRepoName: "Created-App",
         visibility: "private",
+        description: null,
         convexProjectName: "created-app",
+        convexTeamId: "convex-team",
         cloudflareAccountId: "cloudflare-account",
         cloudflareWorkerName: "created-app",
       },
@@ -39,6 +93,11 @@ describe("vault records Convex contract", () => {
       tokenIdentifier: `test:${userId}`,
     });
 
+    await expect(
+      t.run(async (ctx) => await ctx.db.get(samebaseManaged.runId)),
+    ).resolves.toMatchObject({
+      workflowId: expect.any(String),
+    });
     await expect(asUser.query(api.vault.dashboard.getUserVaultResourceLinksState)).resolves.toEqual(
       expect.arrayContaining([
         {
@@ -51,6 +110,46 @@ describe("vault records Convex contract", () => {
         },
       ]),
     );
+    await expect(
+      t.run(async (ctx) => {
+        return await ctx.db
+          .query("workflow_vaultProvisioning_writeLocks")
+          .withIndex("by_vault", (q) => q.eq("vaultId", samebaseManaged.vaultId))
+          .unique();
+      }),
+    ).resolves.toMatchObject({
+      owner: { kind: "managed_run", runId: samebaseManaged.runId },
+      state: "active",
+      lastWriteAt: {},
+    });
+    await expect(
+      t.run(async (ctx) => {
+        return await ctx.db
+          .query("workflow_vaultProvisioning_plans")
+          .withIndex("by_vault", (q) => q.eq("vaultId", samebaseManaged.vaultId))
+          .unique();
+      }),
+    ).resolves.toMatchObject({
+      convex: {
+        state: "planned",
+        projectName: "created-app",
+        teamId: "convex-team",
+      },
+      cloudflare: {
+        state: "planned",
+        accountId: "cloudflare-account",
+        workerName: "created-app",
+        rootDirectory: "/",
+      },
+    });
+    await expect(
+      t.run(async (ctx) => {
+        return await ctx.db
+          .query("workflow_vaultProvisioning_writeLocks")
+          .withIndex("by_vault", (q) => q.eq("vaultId", existingRepository.vaultId))
+          .unique();
+      }),
+    ).resolves.toBeNull();
   });
 
   it("rejects case-insensitive duplicate Samebase-managed repository targets", async () => {
@@ -68,7 +167,9 @@ describe("vault records Convex contract", () => {
       ghRepoOwner: "Ada",
       ghRepoName: "Example-App",
       visibility: "private",
+      description: null,
       convexProjectName: "example-app",
+      convexTeamId: "convex-team",
       cloudflareAccountId: "cloudflare-account",
       cloudflareWorkerName: "example-app",
     });
@@ -79,7 +180,9 @@ describe("vault records Convex contract", () => {
         ghRepoOwner: " ada ",
         ghRepoName: " example-app ",
         visibility: "private",
+        description: null,
         convexProjectName: "example-app-2",
+        convexTeamId: "convex-team",
         cloudflareAccountId: "cloudflare-account",
         cloudflareWorkerName: "example-app-2",
       }),

@@ -1,9 +1,92 @@
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { RequestError } from "@octokit/request-error";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+
+const octokitMocks = vi.hoisted(() => ({
+  getRepository: vi.fn(),
+  deleteRepository: vi.fn(),
+}));
+
+vi.mock("@octokit/rest", () => ({
+  Octokit: class {
+    readonly rest = {
+      repos: {
+        get: octokitMocks.getRepository,
+        delete: octokitMocks.deleteRepository,
+      },
+    };
+  },
+}));
 
 import { internal } from "../../_generated/api";
 import { makeConvexTest } from "../../test.setup";
 
+async function createGitHubDeletionFixture() {
+  const t = makeConvexTest();
+  const ids = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", {
+      name: "Ada",
+      email: "ada@example.com",
+      isApproved: true,
+    });
+    await ctx.db.insert("providerConnections", {
+      kind: "github",
+      userId,
+      auth: {
+        method: "api_key",
+        credential: "github-token",
+      },
+      username: "ada",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    const vaultId = await ctx.db.insert("vaults", {
+      userId,
+      deletion: { state: "not_deleting" },
+      state: "not_connected",
+    });
+    const runId = await ctx.db.insert("workflow_vaultDeletion_runs", {
+      userId,
+      vaultId,
+      repositoryFullName: "ada/demo",
+      createdAt: 2,
+      updatedAt: 2,
+      attempt: { kind: "initial" },
+      state: "running",
+      workflow: { state: "started", workflowId: "workflow-1" },
+      currentStep: "delete_github_repo",
+      snapshot: {
+        state: "retained_for_retry",
+        plan: {
+          target: {
+            kind: "samebase_managed_repository",
+            ghRepoId: "123",
+            owner: "ada",
+            name: "demo",
+            repositoryFullName: "ada/demo",
+          },
+          convex: { action: "skip", reason: "not_requested" },
+          cloudflare: { action: "skip", reason: "not_requested" },
+          githubRepository: {
+            action: "delete_repository",
+            ghRepoId: "123",
+            owner: "ada",
+            name: "demo",
+          },
+        },
+      },
+    });
+
+    return { runId, userId };
+  });
+
+  return { ids, t };
+}
+
 describe("vault deletion Convex provider actions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
@@ -213,5 +296,52 @@ describe("vault deletion Convex provider actions", () => {
     await expect(
       t.action(internal.vault.deletion.providerActions.deleteCloudflare, ids),
     ).rejects.toThrow("Cloudflare deletion plan must include at least one Worker.");
+  });
+
+  it("deletes the GitHub repository when its id matches the plan", async () => {
+    octokitMocks.getRepository.mockResolvedValue({ data: { id: 123 } });
+    octokitMocks.deleteRepository.mockResolvedValue({});
+    const { ids, t } = await createGitHubDeletionFixture();
+
+    await expect(
+      t.action(internal.vault.deletion.providerActions.deleteGitHubRepository, ids),
+    ).resolves.toBeNull();
+
+    expect(octokitMocks.getRepository).toHaveBeenCalledWith({
+      owner: "ada",
+      repo: "demo",
+    });
+    expect(octokitMocks.deleteRepository).toHaveBeenCalledWith({
+      owner: "ada",
+      repo: "demo",
+    });
+  });
+
+  it("treats a missing GitHub repository as already deleted", async () => {
+    octokitMocks.getRepository.mockRejectedValue(
+      new RequestError("Not Found", 404, {
+        request: {
+          method: "GET",
+          url: "https://api.github.com/repos/ada/demo",
+          headers: {},
+        },
+      }),
+    );
+    const { ids, t } = await createGitHubDeletionFixture();
+
+    await expect(
+      t.action(internal.vault.deletion.providerActions.deleteGitHubRepository, ids),
+    ).resolves.toBeNull();
+    expect(octokitMocks.deleteRepository).not.toHaveBeenCalled();
+  });
+
+  it("does not delete a reused GitHub owner and repository name", async () => {
+    octokitMocks.getRepository.mockResolvedValue({ data: { id: 456 } });
+    const { ids, t } = await createGitHubDeletionFixture();
+
+    await expect(
+      t.action(internal.vault.deletion.providerActions.deleteGitHubRepository, ids),
+    ).rejects.toThrow("GitHub repository identity changed.");
+    expect(octokitMocks.deleteRepository).not.toHaveBeenCalled();
   });
 });

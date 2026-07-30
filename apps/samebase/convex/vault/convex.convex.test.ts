@@ -146,27 +146,25 @@ async function createManagedProjectCreatingFixture() {
     });
     await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
       vaultId: fixture.vaultId,
-      runId,
+      owner: { kind: "managed_run", runId },
       state: "active",
+      lastWriteAt: {},
       updatedAt: 3,
     });
     await ctx.db.insert("workflow_vaultProvisioning_plans", {
       vaultId: fixture.vaultId,
       userId: fixture.userId,
       convexConfigPath: "convex.json",
-      convex: { state: "planned", projectName: "managed-project" },
+      convex: {
+        state: "planned",
+        projectName: "managed-project",
+        teamId: "1000",
+      },
       cloudflare: {
         state: "planned",
         accountId: "cloudflare-account",
         workerName: "managed-worker",
-        build: {
-          rootDirectory: "/",
-          buildCommand: "pnpm run build",
-          deployCommand: "pnpm run deploy",
-          previewDeployCommand: "pnpm run deploy:preview",
-          pathIncludes: ["*"],
-          pathExcludes: [],
-        },
+        rootDirectory: "/",
       },
       createdAt: 3,
       updatedAt: 3,
@@ -355,6 +353,122 @@ describe("vault Convex project attachments", () => {
       "vault:convex:create_project:metadata_refresh_failed",
       expect.objectContaining({ convexProjectId, vaultId }),
     );
+  });
+
+  it("checks the manual deadline immediately before the Convex create request", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    octokitMocks.getTree.mockImplementationOnce(async () => {
+      vi.setSystemTime(1_000 + 5 * 60 * 1_000);
+      return {
+        data: {
+          truncated: false,
+          tree: [
+            {
+              type: "blob",
+              mode: "100644",
+              path: "convex.json",
+              sha: "root-sha",
+            },
+          ],
+        },
+      };
+    });
+    const fetchMock = vi.fn(async (input: Request) => {
+      if (input.url.includes("/teams/1000/projects?limit=100")) {
+        return jsonResponse({ items: [], pagination: { hasMore: false } });
+      }
+      if (input.url.endsWith("/teams/1000/create_project")) {
+        return jsonResponse({ id: 1003, projectId: 1003, slug: "new-project" });
+      }
+      throw new Error(`Unexpected Convex request: ${input.method} ${input.url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { asUser, t, vaultId } = await createConnectedVault();
+    try {
+      await expect(
+        asUser.action(api.vault.convex.createProject, {
+          vaultId,
+          projectName: "new-project",
+          codeLocation: {
+            kind: "config",
+            convexConfigPath: "convex.json",
+            blobSha: "root-sha",
+          },
+        }),
+      ).rejects.toThrow("Manual provider action time limit expired.");
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(fetchMock.mock.calls.some(([input]) => input.method === "POST")).toBe(false);
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("workflow_vaultProvisioning_writeLocks")
+            .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+            .unique(),
+      ),
+    ).resolves.toMatchObject({
+      state: "failed",
+      lastWriteAt: { convex: expect.any(Number) },
+    });
+  });
+
+  it("reports that a project can exist when its local checkpoint expires", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    setGitHubConfigs([{ path: "convex.json", sha: "root-sha" }]);
+    const fetchMock = vi.fn(async (input: Request) => {
+      if (input.url.includes("/teams/1000/projects?limit=100")) {
+        return jsonResponse({ items: [], pagination: { hasMore: false } });
+      }
+      if (input.url.endsWith("/teams/1000/create_project")) {
+        vi.setSystemTime(1_000 + 10 * 60 * 1_000);
+        return jsonResponse({ id: 1003, projectId: 1003, slug: "new-project" });
+      }
+      throw new Error(`Unexpected Convex request: ${input.method} ${input.url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const failureRecordWarning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { asUser, t, vaultId } = await createConnectedVault();
+    try {
+      await expect(
+        asUser.action(api.vault.convex.createProject, {
+          vaultId,
+          projectName: "new-project",
+          codeLocation: {
+            kind: "config",
+            convexConfigPath: "convex.json",
+            blobSha: "root-sha",
+          },
+        }),
+      ).rejects.toThrow(
+        "The Convex project new-project can exist, but Samebase could not attach it.",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(fetchMock.mock.calls.filter(([input]) => input.method === "POST")).toHaveLength(1);
+    expect(failureRecordWarning).toHaveBeenCalledWith(
+      "vault:manual_provider_write:failure_record_failed",
+      expect.objectContaining({
+        actionId: expect.any(String),
+        message: "Manual provider action state changed before result was recorded.",
+        vaultId,
+      }),
+    );
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("vaultConvexProjects")
+            .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+            .collect(),
+      ),
+    ).resolves.toEqual([]);
   });
 
   it("requires dashboard deletion when an interrupted managed create left a project", async () => {

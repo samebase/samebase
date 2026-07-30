@@ -2,13 +2,15 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Implemented and historical
 - Owner: vault infrastructure provisioning, Cloudflare/Convex resource attachment
 - Created: 2026-07-03
 - Last updated: 2026-07-03
+- Archived: 2026-07-29
+- Current contract: `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-  - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
+  - `archive/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`
   - `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
@@ -131,7 +133,7 @@ Facts established from Cloudflare's published API (generated subset refreshed in
   embedded `repo_connection` and trigger `root_directory`; the code just never reads that pair
   together.
 - Repo → Workers has no direct endpoint (no account-level list of connections or triggers, no repo
-  filter — upstream API truth, not a subset artifact). Discovery scans: list account Workers, then
+  filter: upstream API truth, not a subset artifact). Discovery scans: list account Workers, then
   one Builds read per Worker, matching `repo_id === vault.ghRepoId` (Samebase writes the immutable
   numeric GitHub repo id into `repo_id`). Cost is 1 + N calls against a 1,200-requests/5-min
   user-token budget; acceptable for realistic account sizes.
@@ -172,7 +174,7 @@ Verification probes required before implementation (one-time, live):
 
 ## Phases
 
-1. **Phase 0 — safety + probes.** Run the five probes. Fix the trigger-adoption guard:
+1. **Phase 0: safety + probes.** Run the five probes. Fix the trigger-adoption guard:
    `matchesTriggerKind` adopts existing triggers by branch shape only and the upsert path PATCHes
    them without checking `repo_connection.repo_id`, so provisioning onto a Worker whose triggers
    point at a different repo silently reuses wrong-repo triggers. Stop before any schema change.
@@ -186,9 +188,9 @@ Verification probes required before implementation (one-time, live):
 3. **Phase 2: `rotate_convex_deploy_keys_for_workers_builds`.** Persist preview-deployment identity;
    deploy-key minting with slot recording owned by the Convex domain; env-var PATCH. Stop before
    discovery UI.
-4. **Phase 3 — discovery.** Repo-id scan behind the add-Cloudflare dialog; preselected candidates
+4. **Phase 3: discovery.** Repo-id scan behind the add-Cloudflare dialog; preselected candidates
    with evidence. Stop before touching the full flow.
-5. **Phase 4 — recompose the full flow.** `provisionApp` drives blocks 2–5 instead of
+5. **Phase 4: recompose the full flow.** `provisionApp` drives blocks 2–5 instead of
    `ensure_convex_preview` + `ensure_cloudflare`; delete the mega-step and the duplicated claim
    stacks. Update specs 003/105/106 (all three still describe superseded storage models).
 

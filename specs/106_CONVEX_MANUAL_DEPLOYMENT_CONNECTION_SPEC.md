@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase provider resources, vault dashboard
-- Last updated: 2026-07-22
+- Last updated: 2026-07-30
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/103_CONVEX_API_VALIDATION_SPEC.md`
@@ -108,6 +108,17 @@ the attachment automatically.
 Data and Schema routes identify the `vaultConvexProjects` attachment directly. They do not resolve a
 project by config root and never choose the first project at a shared path.
 
+### Operation safety
+
+Convex attachment mutations use the shared exclusion check in spec 003. Convex provider actions use
+the claim, expiry, no-replay, and freshness rules in spec 003. Creating a Convex project affects
+only Convex observations.
+
+After a failed or silent create, Samebase gets a fresh Convex observation. If the project was
+created but its attachment was not recorded, normal discovery shows it as an existing project. The
+user can attach it with the normal existing-project action. Samebase does not adopt it
+automatically. If the project does not exist, the user can use the normal create action again.
+
 ## Non-Goals
 
 - Persisting deployment or dashboard metadata.
@@ -124,6 +135,8 @@ project by config root and never choose the first project at a shared path.
 - Mutation tests cover atomic batches, global `projectId` uniqueness, shared code locations,
   idempotency, origin upgrade, code-location compare-and-swap, and team compare-and-swap.
 - Provider tests cover transfers, inaccessible projects, stale markers, and writes that fail closed.
+- Operation tests cover the Convex-only action mapping and normal existing-project attachment after
+  a failed or silent create.
 - UI and route tests cover multi-selection, Worker-reference ordering without automatic selection,
   closed code-location selectors, moved code, shared roots, team reconciliation, explicit removal,
   and attachment-ID Data and Schema routes.

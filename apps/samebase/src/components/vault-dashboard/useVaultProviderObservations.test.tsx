@@ -3,10 +3,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { Id } from "../../../convex/_generated/dataModel";
-import { vaultExternalDataQueryKey } from "@/lib/vaultExternalDataQueryKey";
 import { useVaultProviderObservations } from "./useVaultProviderObservations";
 
 const providerActions = vi.hoisted(() => ({
@@ -59,10 +58,6 @@ describe("useVaultProviderObservations", () => {
     }
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
   it("settles empty provider collections without leaving disabled queries loading", async () => {
     const queryClient = new QueryClient();
     const rootElement = document.createElement("div");
@@ -75,6 +70,7 @@ describe("useVaultProviderObservations", () => {
         _id: fakeVaultId("vault-empty"),
         cloudflareWorkers: [],
         convexProjects: [],
+        providerWrite: { status: "idle", lastWriteAt: {} },
       });
       return null;
     }
@@ -142,6 +138,7 @@ describe("useVaultProviderObservations", () => {
             teamId: "team-failed",
           },
         ],
+        providerWrite: { status: "idle", lastWriteAt: {} },
       });
       return null;
     }
@@ -183,6 +180,7 @@ describe("useVaultProviderObservations", () => {
         _id: fakeVaultId("vault-stale"),
         cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-stale") }],
         convexProjects: [],
+        providerWrite: { status: "idle", lastWriteAt: {} },
       });
       return null;
     }
@@ -227,33 +225,46 @@ describe("useVaultProviderObservations", () => {
     }
   });
 
-  it("invalidates only the selected vault's external data", async () => {
-    const vaultId = fakeVaultId("vault-a");
-    const otherVaultId = fakeVaultId("vault-b");
-    const queryClient = new QueryClient();
-    const selectedVaultProviderQueryKey = [
-      ...vaultExternalDataQueryKey(vaultId),
-      "cloudflare-workers",
-    ];
-    const selectedVaultPullRequestResourceQueryKey = [
-      ...vaultExternalDataQueryKey(vaultId),
-      "pull-request-resources",
-    ];
-    const otherVaultQueryKey = [...vaultExternalDataQueryKey(otherVaultId), "cloudflare-workers"];
-    queryClient.setQueryData(selectedVaultProviderQueryKey, []);
-    queryClient.setQueryData(selectedVaultPullRequestResourceQueryKey, []);
-    queryClient.setQueryData(otherVaultQueryKey, []);
+  it("checks fresh provider data when the client did not observe the active write", async () => {
+    let resolveWorkers: ((value: never[]) => void) | undefined;
+    let resolveConvex: ((value: never[]) => void) | undefined;
+    providerActions.observeCloudflareWorkers.mockImplementationOnce(
+      () =>
+        new Promise<never[]>((resolve) => {
+          resolveWorkers = resolve;
+        }),
+    );
+    providerActions.observeConvexProjects.mockImplementationOnce(
+      () =>
+        new Promise<never[]>((resolve) => {
+          resolveConvex = resolve;
+        }),
+    );
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
     const rootElement = document.createElement("div");
     document.body.append(rootElement);
     const root = createRoot(rootElement);
-    let invalidate: (() => Promise<void>) | undefined;
+    let latest: ReturnType<typeof useVaultProviderObservations> | undefined;
 
     function Probe() {
-      invalidate = useVaultProviderObservations({
-        _id: vaultId,
-        cloudflareWorkers: [],
-        convexProjects: [],
-      }).invalidateExternalData;
+      latest = useVaultProviderObservations({
+        _id: fakeVaultId("vault-missed-active"),
+        cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-missed-active") }],
+        convexProjects: [
+          {
+            codeLocation: { kind: "config", convexConfigPath: "convex.json" },
+            convexProjectId: fakeConvexProjectId("convex-missed-active"),
+            projectId: "project-missed-active",
+            teamId: "team-missed-active",
+          },
+        ],
+        providerWrite: {
+          status: "idle",
+          lastWriteAt: { cloudflare: 100, convex: 200 },
+        },
+      });
       return null;
     }
 
@@ -265,19 +276,156 @@ describe("useVaultProviderObservations", () => {
           </QueryClientProvider>,
         );
       });
-      if (!invalidate) {
-        throw new Error("Expected provider observation invalidation.");
-      }
+      expect(latest?.cloudflare.workers.state).toBe("checking");
+      expect(latest?.convex.state).toBe("checking");
 
       await act(async () => {
-        await invalidate?.();
+        resolveWorkers?.([]);
+        resolveConvex?.([]);
       });
 
-      expect(queryClient.getQueryState(selectedVaultProviderQueryKey)?.isInvalidated).toBe(true);
-      expect(
-        queryClient.getQueryState(selectedVaultPullRequestResourceQueryKey)?.isInvalidated,
-      ).toBe(true);
-      expect(queryClient.getQueryState(otherVaultQueryKey)?.isInvalidated).toBe(false);
+      await vi.waitFor(() => {
+        expect(latest?.cloudflare.workers.state).toBe("loaded");
+        expect(latest?.convex.state).toBe("loaded");
+      });
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      queryClient.clear();
+      rootElement.remove();
+    }
+  });
+
+  it("suppresses stale Cloudflare results while a manual Cloudflare write is active", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    let latest: ReturnType<typeof useVaultProviderObservations> | undefined;
+
+    function Probe() {
+      latest = useVaultProviderObservations({
+        _id: fakeVaultId("vault-active-manual-write"),
+        cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-active-manual-write") }],
+        convexProjects: [],
+        providerWrite: {
+          status: "active",
+          owner: { kind: "manual_provider_write" },
+          affectedProviders: ["cloudflare"],
+          lastWriteAt: {},
+        },
+      });
+      return null;
+    }
+
+    try {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <Probe />
+          </QueryClientProvider>,
+        );
+        await Promise.resolve();
+      });
+
+      expect(latest?.cloudflare.workers.state).toBe("checking");
+      expect(latest?.cloudflare.builds.state).toBe("checking");
+      expect(latest?.cloudflare.convexBuildAccess.state).toBe("checking");
+      expect(latest?.convex.state).toBe("loaded");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      queryClient.clear();
+      rootElement.remove();
+    }
+  });
+
+  it("starts one new Cloudflare read after an observation resolves during the write", async () => {
+    let resolveFirstWorkers: ((value: never[]) => void) | undefined;
+    let resolveSecondWorkers: ((value: never[]) => void) | undefined;
+    providerActions.observeCloudflareWorkers
+      .mockImplementationOnce(
+        () =>
+          new Promise<never[]>((resolve) => {
+            resolveFirstWorkers = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<never[]>((resolve) => {
+            resolveSecondWorkers = resolve;
+          }),
+      );
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    let latest: ReturnType<typeof useVaultProviderObservations> | undefined;
+    const vaultId = fakeVaultId("vault-resolved-during-write");
+    const workerId = fakeCloudflareWorkerId("worker-resolved-during-write");
+    const convexProjectId = fakeConvexProjectId("convex-unchanged");
+
+    function Probe({ cloudflareLastWriteAt }: { cloudflareLastWriteAt?: number }) {
+      latest = useVaultProviderObservations({
+        _id: vaultId,
+        cloudflareWorkers: [{ workerId }],
+        convexProjects: [
+          {
+            codeLocation: { kind: "config", convexConfigPath: "convex.json" },
+            convexProjectId,
+            projectId: "project-unchanged",
+            teamId: "team-unchanged",
+          },
+        ],
+        providerWrite: {
+          status: "idle",
+          lastWriteAt:
+            cloudflareLastWriteAt === undefined ? {} : { cloudflare: cloudflareLastWriteAt },
+        },
+      });
+      return null;
+    }
+
+    try {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <Probe />
+          </QueryClientProvider>,
+        );
+      });
+      await act(async () => {
+        resolveFirstWorkers?.([]);
+      });
+      await vi.waitFor(() => {
+        expect(latest?.cloudflare.workers.state).toBe("loaded");
+      });
+
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <Probe cloudflareLastWriteAt={300} />
+          </QueryClientProvider>,
+        );
+      });
+
+      expect(latest?.cloudflare.workers.state).toBe("checking");
+      expect(providerActions.observeCloudflareWorkers).toHaveBeenCalledTimes(2);
+      expect(providerActions.observeConvexProjects).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        resolveSecondWorkers?.([]);
+      });
+      await vi.waitFor(() => {
+        expect(latest?.cloudflare.workers.state).toBe("loaded");
+      });
+      expect(providerActions.observeCloudflareWorkers).toHaveBeenCalledTimes(2);
     } finally {
       await act(async () => {
         root.unmount();
@@ -302,6 +450,7 @@ describe("useVaultProviderObservations", () => {
         _id: fakeVaultId("vault-build-polling"),
         cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-build-polling") }],
         convexProjects: [],
+        providerWrite: { status: "idle", lastWriteAt: {} },
       });
       return null;
     }

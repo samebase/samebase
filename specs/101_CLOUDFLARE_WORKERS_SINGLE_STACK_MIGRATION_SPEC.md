@@ -5,6 +5,7 @@
 - Status: Accepted implementation plan
 - Owner: Samebase hosting, generated app provisioning, and public template stack
 - Created: 2026-05-15
+- Last updated: 2026-07-29
 - Related:
   - `research/2026-05-05-cloudflare-pages-workers-direction.md`
   - `research/2026-05-15-samebase-workers-provisioning-migration.md`
@@ -12,7 +13,7 @@
   - `docs/artifacts/samebase-app/cloudflare-workers-install.md`
   - `docs/artifacts/samebase-app/regeneration-prompt.md`
   - `specs/005_STARTER_TEMPLATE_STRATEGY_SPEC.md`
-  - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
+  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
 
 ## Summary
@@ -201,7 +202,7 @@ New Samebase-managed app creation should:
 10. configure non-production branch build/deploy commands
 11. set production and preview build variables/secrets
 12. trigger the first production build
-13. record the Workers production URL and Worker tag
+13. record the Worker tag and read the Workers production URL from Cloudflare
 14. surface preview URLs, status, and logs from Workers-compatible data
 
 ## Implementation Plan

@@ -1,8 +1,6 @@
 import { defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 
-import { vVaultCloudflareBuildConfig } from "./vault/model";
-
 const { id, literal, number, object, optional, string, union } = v;
 
 export const vAppProvisioningEventLevel = union(literal("info"), literal("warn"), literal("error"));
@@ -43,6 +41,30 @@ export const vAppProvisioningRunStep = union(
 );
 export type AppProvisioningRunStep = Infer<typeof vAppProvisioningRunStep>;
 
+export function isAppProvisioningProviderStep(step: AppProvisioningRunStep): boolean {
+  switch (step) {
+    case "run_created":
+    case "initialize_vault":
+    case "validate_connections":
+    case "create_github_repo":
+    case "fetch_github_repo":
+    case "seed_starter":
+    case "connect_github":
+    case "sync_tree":
+      return false;
+    case "claim_infra":
+    case "attach_convex":
+    case "attach_worker":
+    case "configure_workers_builds_for_github":
+    case "rotate_convex_deploy_keys_for_workers_builds":
+    case "finish":
+      return true;
+    default:
+      step satisfies never;
+      throw new Error("Unknown app provisioning step.");
+  }
+}
+
 export const vAppProvisioningRunTrigger = union(
   literal("create"),
   literal("connect_existing_repository"),
@@ -59,11 +81,39 @@ export const vAppProvisioningRunState = union(
 );
 export type AppProvisioningRunState = Infer<typeof vAppProvisioningRunState>;
 
+export const vVaultProviderWriteTimes = object({
+  convex: optional(number()),
+  cloudflare: optional(number()),
+});
+export type VaultProviderWriteTimes = Infer<typeof vVaultProviderWriteTimes>;
+
+export const vManualProviderWriteAction = union(
+  literal("create_convex_project"),
+  literal("connect_cloudflare_worker"),
+  literal("create_cloudflare_worker"),
+  literal("configure_workers_builds_for_github"),
+  literal("rotate_convex_deploy_keys_for_workers_builds"),
+);
+export type ManualProviderWriteAction = Infer<typeof vManualProviderWriteAction>;
+
+const vaultProviderWriteBase = {
+  vaultId: id("vaults"),
+  lastWriteAt: vVaultProviderWriteTimes,
+  updatedAt: number(),
+};
+
+const manualProviderWriteOwner = {
+  kind: literal("manual_provider_write"),
+  actionId: string(),
+  action: vManualProviderWriteAction,
+  expiresAt: number(),
+};
+
 export const vaultProvisioningTables = {
   /**
    * The exact Convex project and Cloudflare Worker choices for one vault.
    * Retries read this row so every attempt uses the same provider names,
-   * Convex config path, Cloudflare account, and Worker build configuration.
+   * Convex team and config path, Cloudflare account, and Worker root directory.
    * `created` variants preserve identities returned by earlier provider-creation
    * checkpoints. Recording a `created` checkpoint and its stable resource
    * attachment is one database transaction.
@@ -76,6 +126,7 @@ export const vaultProvisioningTables = {
       object({
         state: literal("planned"),
         projectName: string(),
+        teamId: string(),
       }),
       object({
         state: literal("creating"),
@@ -94,20 +145,20 @@ export const vaultProvisioningTables = {
         state: literal("planned"),
         accountId: string(),
         workerName: string(),
-        build: vVaultCloudflareBuildConfig,
+        rootDirectory: string(),
       }),
       object({
         state: literal("creating"),
         accountId: string(),
         workerName: string(),
-        build: vVaultCloudflareBuildConfig,
+        rootDirectory: string(),
       }),
       object({
         state: literal("created"),
         accountId: string(),
         workerName: string(),
         workerTag: string(),
-        build: vVaultCloudflareBuildConfig,
+        rootDirectory: string(),
       }),
     ),
     createdAt: number(),
@@ -115,19 +166,28 @@ export const vaultProvisioningTables = {
   }).index("by_vault", ["vaultId"]),
 
   /**
-   * The provisioning write lock for one vault. Only its active run may change
-   * Convex or Cloudflare resources. The row remains after completion so delayed
-   * work from older runs cannot write.
+   * The current or most recent provider write for one vault. Active managed
+   * runs and manual provider writes use this row as one vault-level lock.
+   * Terminal rows preserve provider refresh times and reject delayed completion
+   * from an older owner.
    */
-  workflow_vaultProvisioning_writeLocks: defineTable({
-    vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
-    state: union(literal("active"), literal("succeeded"), literal("failed")),
-    updatedAt: number(),
-  })
-    .index("by_vault", ["vaultId"])
-    .index("by_vault_and_state", ["vaultId", "state"])
-    .index("by_run", ["runId"]),
+  workflow_vaultProvisioning_writeLocks: defineTable(
+    union(
+      object({
+        ...vaultProviderWriteBase,
+        owner: object({
+          kind: literal("managed_run"),
+          runId: id("workflow_vaultProvisioning_runs"),
+        }),
+        state: union(literal("active"), literal("succeeded"), literal("failed")),
+      }),
+      object({
+        ...vaultProviderWriteBase,
+        owner: object(manualProviderWriteOwner),
+        state: union(literal("active"), literal("succeeded"), literal("failed")),
+      }),
+    ),
+  ).index("by_vault", ["vaultId"]),
 
   /**
    * One managed attempt to create, connect, or retry a vault, including

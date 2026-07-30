@@ -14,7 +14,7 @@ import {
   formatCloudflareGitHubAppRepositoryAuthorizationMessage,
   isCloudflareGitHubAppRepositoryAuthorizationError,
 } from "./cloudflareResources";
-import type { AppProvisioningStep } from "./appProvisioningModel";
+import { isAppProvisioningProviderStep, type AppProvisioningStep } from "./appProvisioningModel";
 import type { ProviderApiCallRecorder } from "./providerApiLog";
 
 type ConvexDeployKeyAllowedAction = NonNullable<
@@ -362,13 +362,33 @@ async function readVaultProvisioningWriteLock(
     .first();
 }
 
-function runHoldsProvisioningWriteLock(
-  writeLock: VaultProvisioningWriteLock | null,
+async function markMatchingManagedWriteLockFailed(
+  ctx: ProvisioningWriteLockCtx,
   args: {
+    vaultId: Id<"vaults">;
     runId: Id<"workflow_vaultProvisioning_runs">;
+    now: number;
+    invalidateProviderFreshness: boolean;
   },
-): boolean {
-  return writeLock?.runId === args.runId && writeLock.state === "active";
+): Promise<boolean> {
+  const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
+  if (
+    !writeLock ||
+    writeLock.owner.kind !== "managed_run" ||
+    writeLock.owner.runId !== args.runId ||
+    writeLock.state !== "active"
+  ) {
+    return false;
+  }
+
+  await ctx.db.patch(writeLock._id, {
+    state: "failed",
+    lastWriteAt: args.invalidateProviderFreshness
+      ? { convex: args.now, cloudflare: args.now }
+      : writeLock.lastWriteAt,
+    updatedAt: args.now,
+  });
+  return true;
 }
 
 async function cancelSupersededProvisioningRun(
@@ -382,7 +402,7 @@ async function cancelSupersededProvisioningRun(
     runId: args.runId,
     step: args.step,
     level: "warn",
-    message: "Infrastructure provisioning was superseded by a newer run.",
+    message: "A newer run replaced this infrastructure provisioning run.",
     state: "canceled",
   });
 }
@@ -488,6 +508,12 @@ export const markWorkflowStartupFailed = internalMutation({
         runId: args.runId,
       });
     }
+    await markMatchingManagedWriteLockFailed(ctx, {
+      vaultId: run.vaultId,
+      runId: args.runId,
+      now,
+      invalidateProviderFreshness: false,
+    });
 
     await recordWorkflowRunFailure(ctx, {
       eventStep,
@@ -548,6 +574,7 @@ async function recordWorkflowRunFailure(
 const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Cloudflare connection is required to provision infrastructure.",
   "Cloudflare account selection is required before provisioning can continue.",
+  "The current Cloudflare credential cannot access Cloudflare account",
   "Cloudflare connection is missing Workers Builds write access.",
   "Cloudflare Workers and Pages GitHub App is not authorized",
   "Cloudflare Workers needs a configured workers.dev subdomain",
@@ -557,6 +584,7 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Cannot connect Cloudflare Worker",
   "Cloudflare Worker connection did not attach a Worker.",
   "Convex connection is required to provision infrastructure.",
+  "Connected Convex team does not match the provisioning plan.",
   "Convex project name",
   "Convex deployment connection did not attach a deployment.",
   "Cloudflare Worker is required before rotating Convex deploy keys for Workers Builds.",
@@ -622,19 +650,6 @@ function resolveSafeWorkflowRunError(args: {
   );
 }
 
-function isCreateAppPreInfrastructureStep(step: string): boolean {
-  return (
-    step === "run_created" ||
-    step === "initialize_vault" ||
-    step === "validate_connections" ||
-    step === "create_github_repo" ||
-    step === "fetch_github_repo" ||
-    step === "connect_github" ||
-    step === "seed_starter" ||
-    step === "sync_tree"
-  );
-}
-
 export const markWorkflowProvisioningFailed = internalMutation({
   args: {
     runId: v.id("workflow_vaultProvisioning_runs"),
@@ -667,6 +682,12 @@ export const markWorkflowProvisioningFailed = internalMutation({
       await ctx.runMutation(internal.vault.records.markGithubProvisioningFailed, {
         runId: args.runId,
       });
+      await markMatchingManagedWriteLockFailed(ctx, {
+        vaultId,
+        runId: args.runId,
+        now,
+        invalidateProviderFreshness: false,
+      });
       await recordWorkflowRunFailure(ctx, {
         eventStep,
         now,
@@ -691,10 +712,16 @@ export const markWorkflowProvisioningFailed = internalMutation({
       null;
     if (run.trigger === "connect_existing_repository") {
       sourceSetupFailureLogName = "app:connect_existing:failed";
-    } else if (run.trigger === "create" && isCreateAppPreInfrastructureStep(run.currentStep)) {
+    } else if (run.trigger === "create" && !isAppProvisioningProviderStep(run.currentStep)) {
       sourceSetupFailureLogName = "app:provision:failed";
     }
     if (sourceSetupFailureLogName) {
+      await markMatchingManagedWriteLockFailed(ctx, {
+        vaultId,
+        runId: args.runId,
+        now,
+        invalidateProviderFreshness: false,
+      });
       await recordWorkflowRunFailure(ctx, {
         eventStep,
         now,
@@ -710,12 +737,13 @@ export const markWorkflowProvisioningFailed = internalMutation({
       return null;
     }
 
-    const writeLock = await readVaultProvisioningWriteLock(ctx, vaultId);
-    const holdsProvisioningWriteLock = runHoldsProvisioningWriteLock(writeLock, {
+    const markedWriteLockFailed = await markMatchingManagedWriteLockFailed(ctx, {
+      vaultId,
       runId: args.runId,
+      now,
+      invalidateProviderFreshness: true,
     });
-    const failedBeforeLockAcquisition = run.currentStep === "run_created";
-    if (!holdsProvisioningWriteLock && !failedBeforeLockAcquisition) {
+    if (!markedWriteLockFailed) {
       await cancelSupersededProvisioningRun(ctx, {
         runId: args.runId,
         step: eventStep,
@@ -723,12 +751,6 @@ export const markWorkflowProvisioningFailed = internalMutation({
       return null;
     }
 
-    if (holdsProvisioningWriteLock && writeLock) {
-      await ctx.db.patch(writeLock._id, {
-        state: "failed",
-        updatedAt: now,
-      });
-    }
     await recordWorkflowRunFailure(ctx, {
       eventStep,
       now,

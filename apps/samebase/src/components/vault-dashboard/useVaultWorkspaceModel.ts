@@ -20,12 +20,9 @@ function selectVault(
   return vaults.find((vault) => vault.repositoryFullName === repositoryFullName) ?? null;
 }
 
-export function useVaultWorkspaceModel(selectedRepositoryFullName: string | undefined): {
-  model: VaultWorkspaceModel;
-  commands: {
-    invalidateExternalData: () => Promise<void>;
-  };
-} {
+export function useVaultWorkspaceModel(
+  selectedRepositoryFullName: string | undefined,
+): VaultWorkspaceModel {
   const vaults = useCacheQuery(api.vault.dashboard.getUserVaults);
   const sidebarSummaries = useVaultSidebarSummaries();
   const selectedVault = useMemo(
@@ -114,10 +111,5 @@ export function useVaultWorkspaceModel(selectedRepositoryFullName: string | unde
     viewerAccess,
   ]);
 
-  return {
-    model,
-    commands: {
-      invalidateExternalData: providerObservations.invalidateExternalData,
-    },
-  };
+  return model;
 }

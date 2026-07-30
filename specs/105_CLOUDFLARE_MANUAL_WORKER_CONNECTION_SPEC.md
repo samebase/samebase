@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase provider resources, vault dashboard
-- Last updated: 2026-07-22
+- Last updated: 2026-07-30
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
@@ -59,12 +59,12 @@ active triggers. It records the `selected_existing` attachment before configurin
 then re-reads Cloudflare and requires the requested root. Each unconnected Worker is configured
 individually because roots are per Worker and Cloudflare writes are not batch-atomic.
 
-If Cloudflare reports an error after attachment, Samebase re-observes the Worker before explaining
-the recovery. A Worker with no completed repository connection stays under `Needs attention`. A
-Worker with a partial or complete connection appears under Cloudflare's observed root, and the
-message names the recovery action for the observed state. The attachment always remains. A Worker
-with active triggers for another repository is not available in this flow. Samebase never silently
-replaces that connection.
+If Cloudflare reports an error after attachment, Samebase re-observes the Worker before it explains
+what to do next. A Worker with no completed repository connection stays under `Needs attention`. A
+Worker with a partial or complete connection appears under Cloudflare's observed root. The message
+names the normal action for the observed state. The attachment always remains. A Worker with active
+triggers for another repository is not available in this flow. Samebase never silently replaces that
+connection.
 
 The client never supplies a root as attachment authority.
 
@@ -117,6 +117,25 @@ and the readable `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<p
 the production and preview triggers. That live Cloudflare configuration is the relationship.
 Samebase does not persist a Worker-to-project edge.
 
+### Operation safety
+
+Cloudflare attachment mutations use the shared exclusion check in spec 003. Cloudflare provider
+actions use the claim, expiry, no-replay, and freshness rules in spec 003.
+
+Creating a Worker, connecting an unconnected Worker, and configuring Workers Builds affect
+Cloudflare observations. Deploy-key rotation affects Convex and Cloudflare observations.
+
+After a failed or silent provider action, Samebase gets fresh observations. The user or agent then
+uses the normal action for that state:
+
+- An uncheckpointed created Worker appears in the normal account scan. The user can attach or
+  connect that existing Worker. Samebase does not adopt it automatically.
+- An attached Worker with incomplete Builds configuration uses the normal Configure Workers Builds
+  action.
+- Incomplete Convex build access uses the normal key repair action for the observed attached
+  project. Repeating this action replaces the deterministic deploy keys and writes one complete
+  production and preview configuration.
+
 ## Non-Goals
 
 - Persisting Worker root, trigger, URL, marker, or deploy-key state.
@@ -130,6 +149,10 @@ Samebase does not persist a Worker-to-project edge.
   different-repository Workers, provider type, exact repo identity, ambiguous roots,
   production/preview disagreement, and marker disagreement.
 - Mutation tests cover atomic batches, global identity conflicts, idempotency, and origin upgrade.
+- Operation tests cover the Cloudflare action mapping and the normal next action after a failed or
+  silent provider action.
+- Write-time tests prove that Cloudflare-only actions update only Cloudflare and deploy-key rotation
+  updates both providers.
 - UI tests cover vault-level routing, default multiple selection, grouping by read-only live root,
   the focused unconnected-Worker root flow, count copy, exact Convex action targets, root drift,
   rootless Builds repair, and `Needs attention`.

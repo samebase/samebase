@@ -8,6 +8,11 @@ import {
   type QueryCtx,
 } from "../_generated/server";
 import { vVaultProviderResourceOrigin } from "./model";
+import {
+  requireManualProviderWriteCheckpoint,
+  requireUserVaultInfrastructureIdle,
+  recordManagedProviderWrite,
+} from "./infrastructureOperation";
 import { isLiveConnectedVault } from "./state";
 
 const { array, id, literal, null: nullValue, object, string, union } = v;
@@ -95,7 +100,12 @@ async function requireActiveManagedProvisioning(
   ) {
     throw new Error("Managed provisioning run does not match vault.");
   }
-  if (!writeLock || writeLock.state !== "active" || writeLock.runId !== args.runId) {
+  if (
+    !writeLock ||
+    writeLock.owner.kind !== "managed_run" ||
+    writeLock.state !== "active" ||
+    writeLock.owner.runId !== args.runId
+  ) {
     throw new Error("Managed provisioning run no longer holds the write lock.");
   }
   if (!plan || plan.userId !== args.userId) {
@@ -210,7 +220,7 @@ export const attachWorkers = internalMutation({
   },
   returns: array(id("vaultCloudflareWorkers")),
   handler: async (ctx, args): Promise<Array<Id<"vaultCloudflareWorkers">>> => {
-    await requireConnectedVault(ctx, args);
+    await requireUserVaultInfrastructureIdle(ctx, args);
 
     const workerNames = new Set<string>();
     const workerTags = new Set<string>();
@@ -249,7 +259,7 @@ export const detachWorker = internalMutation({
   },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
-    await requireConnectedVault(ctx, args);
+    await requireUserVaultInfrastructureIdle(ctx, args);
     const worker = await requireWorker(ctx, args);
     if (
       worker.accountId !== args.accountId ||
@@ -326,7 +336,7 @@ export const beginManagedWorkerCreate = internalMutation({
         state: "creating",
         accountId: args.accountId,
         workerName: args.workerName,
-        build: plan.cloudflare.build,
+        rootDirectory: plan.cloudflare.rootDirectory,
       },
       updatedAt: Date.now(),
     });
@@ -352,26 +362,86 @@ export const recordManagedWorkerCreated = internalMutation({
     ) {
       throw new Error("Managed Cloudflare Worker does not match the provisioning plan.");
     }
+    let workerId: Id<"vaultCloudflareWorkers">;
     if (plan.cloudflare.state === "created") {
       if (plan.cloudflare.workerTag !== args.workerTag) {
         throw new Error("Managed Cloudflare Worker checkpoint already names another Worker.");
       }
-      return await insertWorker(ctx, { ...args, origin: "provisioned" });
+      workerId = await insertWorker(ctx, { ...args, origin: "provisioned" });
+    } else {
+      if (plan.cloudflare.state !== "creating") {
+        throw new Error("Managed Cloudflare Worker creation was not started.");
+      }
+      await ctx.db.patch(plan._id, {
+        cloudflare: {
+          state: "created",
+          accountId: args.accountId,
+          workerName: args.workerName,
+          workerTag: args.workerTag,
+          rootDirectory: plan.cloudflare.rootDirectory,
+        },
+        updatedAt: Date.now(),
+      });
+      workerId = await insertWorker(ctx, { ...args, origin: "provisioned" });
     }
-    if (plan.cloudflare.state !== "creating") {
-      throw new Error("Managed Cloudflare Worker creation was not started.");
-    }
-    await ctx.db.patch(plan._id, {
-      cloudflare: {
-        state: "created",
-        accountId: args.accountId,
-        workerName: args.workerName,
-        workerTag: args.workerTag,
-        build: plan.cloudflare.build,
-      },
-      updatedAt: Date.now(),
+    await recordManagedProviderWrite(ctx, {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      provider: "cloudflare",
     });
-    return await insertWorker(ctx, { ...args, origin: "provisioned" });
+    return workerId;
+  },
+});
+
+export const recordManualConnectedWorker = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    userId: id("users"),
+    actionId: string(),
+    accountId: string(),
+    workerName: string(),
+    workerTag: string(),
+  },
+  returns: id("vaultCloudflareWorkers"),
+  handler: async (ctx, args): Promise<Id<"vaultCloudflareWorkers">> => {
+    await requireManualProviderWriteCheckpoint(ctx, {
+      vaultId: args.vaultId,
+      actionId: args.actionId,
+    });
+    return await insertWorker(ctx, {
+      vaultId: args.vaultId,
+      userId: args.userId,
+      accountId: args.accountId,
+      workerName: args.workerName,
+      workerTag: args.workerTag,
+      origin: "selected_existing",
+    });
+  },
+});
+
+export const recordManualWorkerCreated = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    userId: id("users"),
+    actionId: string(),
+    accountId: string(),
+    workerName: string(),
+    workerTag: string(),
+  },
+  returns: id("vaultCloudflareWorkers"),
+  handler: async (ctx, args): Promise<Id<"vaultCloudflareWorkers">> => {
+    await requireManualProviderWriteCheckpoint(ctx, {
+      vaultId: args.vaultId,
+      actionId: args.actionId,
+    });
+    return await insertWorker(ctx, {
+      vaultId: args.vaultId,
+      userId: args.userId,
+      accountId: args.accountId,
+      workerName: args.workerName,
+      workerTag: args.workerTag,
+      origin: "provisioned",
+    });
   },
 });
 
@@ -429,7 +499,7 @@ export const readManagedWorkerConfigurationContext = internalQuery({
       accountId: worker.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
-      rootDirectory: plan.cloudflare.build.rootDirectory,
+      rootDirectory: plan.cloudflare.rootDirectory,
     };
   },
 });
@@ -506,7 +576,7 @@ export const readManagedWorkerConvexProjectConfigurationContext = internalQuery(
       accountId: worker.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
-      rootDirectory: plan.cloudflare.build.rootDirectory,
+      rootDirectory: plan.cloudflare.rootDirectory,
       convexProject: {
         convexProjectId: project._id,
         teamId: project.teamId,

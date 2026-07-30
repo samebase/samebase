@@ -41,9 +41,10 @@ function invokeResourceAction(action: VaultRepositorySettingsAction) {
 }
 
 function resourceAccessibleName(resource: VaultRepositorySettingsResource): string {
+  const resourceName = resource.owner ? `${resource.owner}/${resource.name}` : resource.name;
   return resource.provider === "cloudflare"
-    ? `Cloudflare Worker ${resource.owner}/${resource.name}`
-    : `Convex project ${resource.owner}/${resource.name}`;
+    ? `Cloudflare Worker ${resourceName}`
+    : `Convex project ${resourceName}`;
 }
 
 function resourceActionAccessibleName(
@@ -132,12 +133,14 @@ function SettingsResourceRow({ resource }: { resource: VaultRepositorySettingsRe
           {providerIcon(resource.provider)}
         </span>
         <div className="min-w-0">
-          <div className="line-clamp-2 text-xs leading-4 text-muted-foreground">
-            {resource.owner}/
-          </div>
+          {resource.owner ? (
+            <div className="line-clamp-2 text-xs leading-4 text-muted-foreground">
+              {resource.owner}/
+            </div>
+          ) : null}
           {resource.state === "loading" ? (
             <div className="mt-1 h-4 w-32 max-w-full bg-muted motion-safe:animate-pulse" />
-          ) : resource.state === "available" && resource.href ? (
+          ) : resource.href ? (
             <a
               className="line-clamp-2 text-sm font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
               href={resource.href}
@@ -239,6 +242,28 @@ export function RepositorySettings({
     workspace.vault.deletion.state === "not_deleting"
       ? workspace.vault.deletion.deleteAction
       : { state: "disabled" as const, reason: "Vault removal is already in progress." };
+  const removeVaultDisabled = deleteAction.state === "disabled";
+  const repositoryIdentity = (
+    <>
+      <span className="mt-0.5 flex h-4 w-5 shrink-0 items-center justify-center">
+        <GitHubProviderLogo />
+      </span>
+      <span className="min-w-0">
+        <span className="block line-clamp-2 text-xs text-muted-foreground">
+          {workspace.vault.ghRepoOwner}/
+        </span>
+        <span
+          className={
+            workspace.vault.hasConnectedGitHubRepository
+              ? "block line-clamp-2 text-sm font-medium underline decoration-border underline-offset-4"
+              : "block line-clamp-2 text-sm font-medium"
+          }
+        >
+          {workspace.vault.ghRepoName}
+        </span>
+      </span>
+    </>
+  );
 
   return (
     <main className="mx-auto grid w-full max-w-[960px] gap-8 px-4 py-6 @3xl:px-6 @5xl:px-8 @5xl:py-8">
@@ -250,24 +275,20 @@ export function RepositorySettings({
           Repository
         </h2>
         <div className="border-t border-border py-3">
-          <a
-            className="flex min-w-0 items-start gap-2.5 text-foreground no-underline hover:no-underline"
-            href={workspace.githubRepositoryUrl}
-            rel="noreferrer noopener"
-            target="_blank"
-          >
-            <span className="mt-0.5 flex h-4 w-5 shrink-0 items-center justify-center">
-              <GitHubProviderLogo />
-            </span>
-            <span className="min-w-0">
-              <span className="block line-clamp-2 text-xs text-muted-foreground">
-                {workspace.vault.ghRepoOwner}/
-              </span>
-              <span className="block line-clamp-2 text-sm font-medium underline decoration-border underline-offset-4">
-                {workspace.vault.ghRepoName}
-              </span>
-            </span>
-          </a>
+          {workspace.vault.hasConnectedGitHubRepository ? (
+            <a
+              className="flex min-w-0 items-start gap-2.5 text-foreground no-underline hover:no-underline"
+              href={workspace.githubRepositoryUrl}
+              rel="noreferrer noopener"
+              target="_blank"
+            >
+              {repositoryIdentity}
+            </a>
+          ) : (
+            <div className="flex min-w-0 items-start gap-2.5 text-foreground">
+              {repositoryIdentity}
+            </div>
+          )}
         </div>
       </section>
 
@@ -309,6 +330,13 @@ export function RepositorySettings({
             />
           </div>
         </div>
+        {settingsState.providerActionBlockReason ? (
+          <div className="mb-3" role="status">
+            <p className="text-xs leading-5 text-muted-foreground">
+              {settingsState.providerActionBlockReason}
+            </p>
+          </div>
+        ) : null}
         <div className="border-t border-border">
           {settingsState.pendingResources.map((resource) => (
             <SettingsResourceRow
@@ -324,11 +352,12 @@ export function RepositorySettings({
                 rootDirectory={root.rootDirectory}
               />
             ))
-          ) : (
+          ) : settingsState.pendingResources.length === 0 &&
+            settingsState.attentionResources.length === 0 ? (
             <div className="py-4 text-sm text-muted-foreground">
               No Cloudflare Workers or Convex projects are connected.
             </div>
-          )}
+          ) : null}
         </div>
       </section>
 
@@ -347,7 +376,7 @@ export function RepositorySettings({
           </p>
           <Button
             className="justify-self-start @3xl:justify-self-end"
-            disabled={deleteAction.state === "disabled"}
+            disabled={removeVaultDisabled}
             size="sm"
             type="button"
             variant="destructive"

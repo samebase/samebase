@@ -35,6 +35,10 @@ import {
   vConvexAttachmentProject,
   vConvexCodeLocationSelection,
 } from "./contracts/convexAttachments";
+import {
+  attemptManualProviderWriteFailureRecord,
+  requireManualProviderActionDeadline,
+} from "./infrastructureOperation";
 
 const { id } = v;
 
@@ -397,69 +401,86 @@ async function createProjectForUser(
     throw new Error(validation.message);
   }
   const codeLocation = normalizeConvexCodeLocationSelection(args.codeLocation);
-  const [sourceDiscovery, connection] = await Promise.all([
-    discoverConvexCodeLocations(ctx, args),
-    resolveConvexConnection(ctx, args.userId),
-  ]);
-  requireVerifiedConvexCodeLocation(sourceDiscovery.source, codeLocation);
-  const projects = await listProjectsForConnection(connection);
-  if (
-    projects.some(
-      (project) => project.name === validation.value || project.slug === validation.value,
-    )
-  ) {
-    throw new Error(
-      `Convex project name ${validation.value} already exists. Attach that project or choose another name.`,
-    );
-  }
-
-  const created = await requestConvexManagementApi(
-    connection.token,
-    "POST",
-    "/teams/{team_id}/create_project",
+  const actionId = crypto.randomUUID();
+  const claim = await ctx.runMutation(
+    internal.vault.infrastructureOperation.claimManualProviderWrite,
     {
-      params: { path: { team_id: connection.teamId } },
-      body: { projectName: validation.value, deploymentType: "prod" },
+      vaultId: args.vaultId,
+      userId: args.userId,
+      actionId,
+      action: "create_convex_project",
     },
   );
-  let convexProjectId: Id<"vaultConvexProjects">;
+  let providerCreateStarted = false;
+  let projectRecorded = false;
   try {
-    const [attachedProjectId] = await ctx.runMutation(
-      internal.vault.convexMutations.attachProjects,
+    const [sourceDiscovery, connection] = await Promise.all([
+      discoverConvexCodeLocations(ctx, args),
+      resolveConvexConnection(ctx, args.userId),
+    ]);
+    requireVerifiedConvexCodeLocation(sourceDiscovery.source, codeLocation);
+    const projects = await listProjectsForConnection(connection);
+    if (
+      projects.some(
+        (project) => project.name === validation.value || project.slug === validation.value,
+      )
+    ) {
+      throw new Error(
+        `Convex project name ${validation.value} already exists. Attach that project or choose another name.`,
+      );
+    }
+    requireManualProviderActionDeadline(claim.deadlineAt);
+    providerCreateStarted = true;
+    const created = await requestConvexManagementApi(
+      connection.token,
+      "POST",
+      "/teams/{team_id}/create_project",
+      {
+        params: { path: { team_id: connection.teamId } },
+        body: { projectName: validation.value, deploymentType: "prod" },
+      },
+    );
+    const convexProjectId = await ctx.runMutation(
+      internal.vault.convexMutations.recordManualProjectCreated,
       {
         vaultId: args.vaultId,
         userId: args.userId,
-        projects: [
-          {
-            teamId: connection.teamId,
-            projectId: created.id,
-            codeLocation: removeConvexCodeLocationEvidence(codeLocation),
-            origin: "provisioned",
-          },
-        ],
+        actionId,
+        teamId: connection.teamId,
+        projectId: created.id,
+        codeLocation: removeConvexCodeLocationEvidence(codeLocation),
       },
     );
-    if (!attachedProjectId) {
-      throw new Error("Convex project attachment was not recorded.");
+    projectRecorded = true;
+    try {
+      const project = await readConvexProject({ connection, projectId: created.id });
+      await recordConvexTeamSlug(ctx, { userId: args.userId, connection, project });
+    } catch (error) {
+      console.warn("vault:convex:create_project:metadata_refresh_failed", {
+        vaultId: args.vaultId,
+        convexProjectId,
+        message: toErrorMessage(error),
+      });
     }
-    convexProjectId = attachedProjectId;
-  } catch (error) {
-    throw new Error(
-      `Convex created project ${validation.value}, but Samebase could not attach it. Inspect Convex before retrying. Reason: ${toErrorMessage(error)}`,
-    );
-  }
-
-  try {
-    const project = await readConvexProject({ connection, projectId: created.id });
-    await recordConvexTeamSlug(ctx, { userId: args.userId, connection, project });
-  } catch (error) {
-    console.warn("vault:convex:create_project:metadata_refresh_failed", {
+    await ctx.runMutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
       vaultId: args.vaultId,
-      convexProjectId,
-      message: toErrorMessage(error),
+      actionId,
+      result: "succeeded",
     });
+    return convexProjectId;
+  } catch (error) {
+    const reportedError =
+      providerCreateStarted && !projectRecorded
+        ? new Error(
+            `The Convex project ${validation.value} can exist, but Samebase could not attach it. Check the project in Convex. If it exists, attach it to this app. Reason: ${toErrorMessage(error)}`,
+          )
+        : error;
+    await attemptManualProviderWriteFailureRecord(ctx, {
+      vaultId: args.vaultId,
+      actionId,
+    });
+    throw reportedError;
   }
-  return convexProjectId;
 }
 
 async function createProjectForManagedWorkflow(

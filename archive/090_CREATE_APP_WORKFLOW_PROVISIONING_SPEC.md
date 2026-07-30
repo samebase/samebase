@@ -1,10 +1,14 @@
-# Create App Workflow Provisioning Spec
+# Create App Workflow Provisioning History
 
 ## Document Control
 
-- Status: Accepted phased implementation plan
+- Status: Historical
 - Owner: Samebase app creation + infrastructure provisioning
 - Created: 2026-05-02
+- Archived: 2026-07-29
+- Current contracts:
+  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
 - Related docs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`

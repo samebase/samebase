@@ -465,9 +465,7 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsTool = internalActi
     }
 
     try {
-      await rotateConvexDeployKeysForWorkersBuildsForUser(ctx, operationArgs, {
-        state: "discover",
-      });
+      await rotateConvexDeployKeysForWorkersBuildsForUser(ctx, operationArgs);
       return {
         status: "ok",
         text: "Rotated Convex deploy keys for Workers Builds.",

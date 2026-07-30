@@ -9,11 +9,11 @@
   architecture, product wedge, action-contract catalog) into one direction; external reference is
   [BuilderIO/agent-native](https://github.com/BuilderIO/agent-native)
 - Related rfcs: `rfcs/089_MCP_CONVEX_FUNCTION_EXPOSURE_SPEC.md`,
-  `rfcs/090_PROVISIONING_BUILDING_BLOCKS_PLAN.md`,
+  `archive/090_PROVISIONING_BUILDING_BLOCKS_PLAN.md`,
   `rfcs/063_MCP_PREACCOUNT_ONBOARDING_FLOW_SPEC.md`,
   `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`, `rfcs/094_AGENT_ACTION_DOCS_REGISTRY_PLAN.md`
   (guide layer; see its relationship section)
-- Related specs: `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`,
+- Related specs: `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`,
   `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`,
   `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`,
   `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`,
