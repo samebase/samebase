@@ -154,53 +154,57 @@ Record each question that the project worker cannot answer from Bristol and the 
 
 ## Bidirectional Findings
 
-| ID       | Requirement                                       | Bristol evidence                                         | Samebase or shared evidence                                 | Direction           | Validation               | Status    |
-| -------- | ------------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------- | ------------------- | ------------------------ | --------- |
-| BRIS-F01 | Complete generated tracked-file list              | PR #1313 added three tracked documents                   | worktree setup regenerated the missing entries              | Samebase only       | generated diff           | ready     |
-| BRIS-F02 | Least-privilege build secrets                     | production and preview keys are split                    | Samebase writes both keys to both triggers                  | Bristol to Samebase | provider record          | candidate |
-| BRIS-F03 | Configuration must not promote                    | Bristol avoided the combined action                      | Samebase key rotation starts production                     | Bristol to Samebase | source review            | candidate |
-| BRIS-F04 | Detect the repository package manager             | Bristol uses npm and the pnpm trigger failed             | adopted builds hard-code pnpm                               | Bristol to Samebase | failed build             | candidate |
-| BRIS-F05 | Support the real default branch                   | adopted repositories can use another name                | Samebase app build treats only `main` as production         | shared              | source review            | candidate |
-| BRIS-F06 | Distinguish source sync from staged edits         | Bristol inventory reported `fileCount: 0`                | `fileCount` counts staged Samebase edits                    | Samebase only       | source review            | candidate |
-| BRIS-F07 | Prove preview resource absence                    | a failed build can create no preview                     | cleanup assumes every PR made both previews                 | shared              | source review            | candidate |
-| BRIS-F08 | Authorize at the data boundary                    | all 13 public data functions now require auth            | Samebase route rules cannot protect Bristol functions       | Bristol only        | 26 checks pass           | ready     |
-| BRIS-F09 | Remove private browser data on sign-out           | cache starts paused and clears before resume             | portable safety rule now records the boundary               | Bristol first       | race tests pass          | ready     |
-| BRIS-F10 | Scope and later remove framework spike scripts    | `spike:*` first owned the candidate path                 | production callers kept their current script names          | shared              | removed after gate       | ready     |
-| BRIS-F11 | Pin framework packages independently              | Start and Router use different compatible versions       | Samebase also pins Start and Router to different versions   | shared              | lockfile build           | candidate |
-| BRIS-F12 | Verify generated deploy configuration             | the upload wrapper checks its source config              | generated redirects can otherwise select stale output       | Bristol first       | dry run passes           | ready     |
-| BRIS-F13 | Put direct HTTP responses at the request boundary | request middleware returns `307` and `503`               | prior portable rules had no response-serialization rule     | Bristol first       | Workerd tests            | ready     |
-| BRIS-F14 | Make private-bundle checks mandatory              | client graph block plus output fingerprints              | exact source serialization changes during bundling          | Bristol first       | deliberate import fails  | ready     |
-| BRIS-F15 | Separate invalid auth from backend failure        | `401` clears; `503` keeps the session cookie             | outage must not become destructive sign-out                 | Bristol first       | authenticated runner     | ready     |
-| BRIS-F16 | Test interrupt cleanup                            | first forced stop found a remaining site listener        | normal completion did not expose this lifecycle defect      | Bristol to Samebase | two forced stops pass    | candidate |
-| BRIS-F17 | Bind version upload to its backend URL            | upload checks the compiled `*.convex.cloud` URL          | generated config ownership alone cannot prove runtime auth  | Bristol first       | guard tests pass         | ready     |
-| BRIS-F18 | Probe through the real network consumer           | host DNS failed while local Workerd reached tunnel       | host and Worker runtimes can use different resolvers        | shared              | authenticated request    | ready     |
-| BRIS-F19 | Reconcile all preview URL controls                | `preview_urls` did not change `previews_enabled`         | existing Workers keep a separate provider switch            | shared              | public route passes      | ready     |
-| BRIS-F20 | Require branch and commit for a manual build      | a branch-only build failed the stale-head guard          | a branch name alone does not identify source                | shared              | guard tests pass         | ready     |
-| BRIS-F21 | Separate readiness from terminal provider state   | inventory was ready before the final build ended         | provider-native reads proved build and deployment state     | Samebase only       | provider reads           | candidate |
-| BRIS-F22 | Show complete preview backend readiness           | auth needed six defaults, a seed, URL, and version       | no one view showed the complete public-preview contract     | Samebase only       | browser acceptance       | candidate |
-| BRIS-F23 | Remove unused copied script names                 | three aliases and all spike scripts had no consumer      | shared names without shared behavior create false knowledge | Bristol first       | caller scan              | ready     |
-| BRIS-F24 | Keep credentials out of DOM captures              | one filled-field snapshot exposed a preview value        | account and signing keys needed immediate rotation          | shared              | rotated preview passes   | ready     |
-| BRIS-F25 | Prove credential entry replaces old text          | virtual paste appended when a shortcut did not clear     | wrong combined input looked like a valid auth rejection     | shared              | exact-length check       | ready     |
-| BRIS-F26 | Sanitize before all linked setup work             | npm install, Git hooks, setup, and services are clean    | service-only cleanup leaves earlier child processes exposed | Bristol to Samebase | injected-provider proof  | candidate |
-| BRIS-F27 | Serialize first-run setup                         | a Git compare-and-swap lease owns the full setup         | marker-based setup has no equivalent concurrent-run lease   | Bristol to Samebase | lease contract checks    | candidate |
-| BRIS-F28 | Wait for hydration before browser input           | visible SSR controls did not yet have React handlers     | visibility alone is not an interaction-readiness proof      | shared              | two-cycle browser proof  | ready     |
-| BRIS-F29 | Redact encoded credentials                        | one failure URL-encoded the synthetic email              | raw-value redaction alone missed the derived value          | shared              | failure-path proof       | ready     |
-| BRIS-F30 | Preserve unresolved cleanup evidence              | cleanup checks the lease and Git registration            | directory deletion alone can leave or hide owned state      | Bristol to Samebase | exact absence proof      | candidate |
-| BRIS-F31 | Classify only the expected missing-account result | pending setup accepts exact `InvalidAccountId`           | provider error text and recovery state must stay coupled    | Bristol only        | recovery contract check  | ready     |
-| BRIS-F32 | State the supported process-cleanup platforms     | linked runtime fails closed on Windows                   | skipped tests cannot prove a platform guarantee             | shared              | platform gate check      | ready     |
-| BRIS-F33 | Make a shared proxy target deterministic          | Bristol exposed the non-loopback acceptance need         | Samebase neither sets nor clears its proxy-target variable  | Bristol to Samebase | source review            | candidate |
-| BRIS-F34 | Enforce the final credential file mode            | setup corrects umask and rereads mode `0600`             | a requested creation mode is not a final-mode guarantee     | shared              | restrictive-umask check  | ready     |
-| BRIS-F35 | Report bounded-list misses as unknown             | ten recent versions cannot prove absence                 | cleanup needs full Cloudflare pagination                    | shared              | live partial report      | ready     |
-| BRIS-F36 | Isolate read-only observer children               | each child gets a small environment and bounded output   | an empty project env file does not clear ambient overrides  | Bristol to Samebase | injected-override checks | candidate |
-| BRIS-F37 | Bind every provider read to stable identity       | main profile, account, build URL, and Worker are checked | stable attachments alone do not select a provider account   | Bristol to Samebase | live self-inspection     | candidate |
-| BRIS-F38 | Keep partial evidence out of destructive gates    | exit code `2` names two unproved joins                   | cleanup must fail closed on unknown ownership               | shared              | contract and live check  | ready     |
-| BRIS-F39 | Store an exact source-to-backend version join     | strict Worker annotation has commit and Convex URL       | Samebase UI still warns that the backend can be older       | Bristol to Samebase | live version read        | candidate |
-| BRIS-F40 | Validate the complete regional provider hostname  | live EU preview exposed a missing regional test          | first-label parsing accepted noncanonical nested hosts      | shared              | review and live check    | ready     |
-| BRIS-F41 | Expose live PR resources through the agent API    | repository observer cannot read Convex inventory         | UI shows the exact build and backend, current MCP does not  | Samebase only       | UI and MCP comparison    | candidate |
-| BRIS-F42 | Test direct production hydration during dogfood   | Samebase workspace recovered after refresh               | browser console emitted React hydration error `418`         | Bristol to Samebase | one live refresh         | candidate |
-| BRIS-F43 | Use one default-branch promotion for a PR stack   | merging seven slices through `main` starts seven builds  | one promotion PR keeps one cutover and all review evidence  | Bristol first       | draft PR and live reads  | ready     |
-| BRIS-F44 | Verify auth environment before production merge   | profile passed, but the production log level was missing | code and docs alone did not prove the live backend setting  | Bristol first       | exact live value reads   | ready     |
-| BRIS-F45 | Preflight the complete authored source model      | 8,522 lines of `.mjs` bypassed the app TypeScript check  | generated apps use Node 24, ESM, and direct `.ts` execution | shared              | strict build and preview | ready     |
+| ID       | Requirement                                        | Bristol evidence                                         | Samebase or shared evidence                                 | Direction           | Validation               | Status    |
+| -------- | -------------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------- | ------------------- | ------------------------ | --------- |
+| BRIS-F01 | Complete generated tracked-file list               | PR #1313 added three tracked documents                   | worktree setup regenerated the missing entries              | Samebase only       | generated diff           | ready     |
+| BRIS-F02 | Least-privilege build secrets                      | production and preview keys are split                    | Samebase writes both keys to both triggers                  | Bristol to Samebase | provider record          | candidate |
+| BRIS-F03 | Configuration must not promote                     | Bristol avoided the combined action                      | Samebase key rotation starts production                     | Bristol to Samebase | source review            | candidate |
+| BRIS-F04 | Detect the repository package manager              | Bristol uses npm and the pnpm trigger failed             | adopted builds hard-code pnpm                               | Bristol to Samebase | failed build             | candidate |
+| BRIS-F05 | Support the real default branch                    | adopted repositories can use another name                | Samebase app build treats only `main` as production         | shared              | source review            | candidate |
+| BRIS-F06 | Distinguish source sync from staged edits          | Bristol inventory reported `fileCount: 0`                | `fileCount` counts staged Samebase edits                    | Samebase only       | source review            | candidate |
+| BRIS-F07 | Prove preview resource absence                     | a failed build can create no preview                     | cleanup assumes every PR made both previews                 | shared              | source review            | candidate |
+| BRIS-F08 | Authorize at the data boundary                     | all 13 public data functions now require auth            | Samebase route rules cannot protect Bristol functions       | Bristol only        | 26 checks pass           | ready     |
+| BRIS-F09 | Remove private browser data on sign-out            | cache starts paused and clears before resume             | portable safety rule now records the boundary               | Bristol first       | race tests pass          | ready     |
+| BRIS-F10 | Scope and later remove framework spike scripts     | `spike:*` first owned the candidate path                 | production callers kept their current script names          | shared              | removed after gate       | ready     |
+| BRIS-F11 | Pin framework packages independently               | Start and Router use different compatible versions       | Samebase also pins Start and Router to different versions   | shared              | lockfile build           | candidate |
+| BRIS-F12 | Verify generated deploy configuration              | the upload wrapper checks its source config              | generated redirects can otherwise select stale output       | Bristol first       | dry run passes           | ready     |
+| BRIS-F13 | Put direct HTTP responses at the request boundary  | request middleware returns `307` and `503`               | prior portable rules had no response-serialization rule     | Bristol first       | Workerd tests            | ready     |
+| BRIS-F14 | Make private-bundle checks mandatory               | client graph block plus output fingerprints              | exact source serialization changes during bundling          | Bristol first       | deliberate import fails  | ready     |
+| BRIS-F15 | Separate invalid auth from backend failure         | `401` clears; `503` keeps the session cookie             | outage must not become destructive sign-out                 | Bristol first       | authenticated runner     | ready     |
+| BRIS-F16 | Test interrupt cleanup                             | first forced stop found a remaining site listener        | normal completion did not expose this lifecycle defect      | Bristol to Samebase | two forced stops pass    | candidate |
+| BRIS-F17 | Bind version upload to its backend URL             | upload checks the compiled `*.convex.cloud` URL          | generated config ownership alone cannot prove runtime auth  | Bristol first       | guard tests pass         | ready     |
+| BRIS-F18 | Probe through the real network consumer            | host DNS failed while local Workerd reached tunnel       | host and Worker runtimes can use different resolvers        | shared              | authenticated request    | ready     |
+| BRIS-F19 | Reconcile all preview URL controls                 | `preview_urls` did not change `previews_enabled`         | existing Workers keep a separate provider switch            | shared              | public route passes      | ready     |
+| BRIS-F20 | Require branch and commit for a manual build       | a branch-only build failed the stale-head guard          | a branch name alone does not identify source                | shared              | guard tests pass         | ready     |
+| BRIS-F21 | Separate readiness from terminal provider state    | inventory was ready before the final build ended         | provider-native reads proved build and deployment state     | Samebase only       | provider reads           | candidate |
+| BRIS-F22 | Show complete preview backend readiness            | auth needed six defaults, a seed, URL, and version       | no one view showed the complete public-preview contract     | Samebase only       | browser acceptance       | candidate |
+| BRIS-F23 | Remove unused copied script names                  | three aliases and all spike scripts had no consumer      | shared names without shared behavior create false knowledge | Bristol first       | caller scan              | ready     |
+| BRIS-F24 | Keep credentials out of DOM captures               | one filled-field snapshot exposed a preview value        | account and signing keys needed immediate rotation          | shared              | rotated preview passes   | ready     |
+| BRIS-F25 | Prove credential entry replaces old text           | virtual paste appended when a shortcut did not clear     | wrong combined input looked like a valid auth rejection     | shared              | exact-length check       | ready     |
+| BRIS-F26 | Sanitize before all linked setup work              | npm install, Git hooks, setup, and services are clean    | service-only cleanup leaves earlier child processes exposed | Bristol to Samebase | injected-provider proof  | candidate |
+| BRIS-F27 | Serialize first-run setup                          | a Git compare-and-swap lease owns the full setup         | marker-based setup has no equivalent concurrent-run lease   | Bristol to Samebase | lease contract checks    | candidate |
+| BRIS-F28 | Wait for hydration before browser input            | visible SSR controls did not yet have React handlers     | visibility alone is not an interaction-readiness proof      | shared              | two-cycle browser proof  | ready     |
+| BRIS-F29 | Redact encoded credentials                         | one failure URL-encoded the synthetic email              | raw-value redaction alone missed the derived value          | shared              | failure-path proof       | ready     |
+| BRIS-F30 | Preserve unresolved cleanup evidence               | cleanup checks the lease and Git registration            | directory deletion alone can leave or hide owned state      | Bristol to Samebase | exact absence proof      | candidate |
+| BRIS-F31 | Classify only the expected missing-account result  | pending setup accepts exact `InvalidAccountId`           | provider error text and recovery state must stay coupled    | Bristol only        | recovery contract check  | ready     |
+| BRIS-F32 | State the supported process-cleanup platforms      | linked runtime fails closed on Windows                   | skipped tests cannot prove a platform guarantee             | shared              | platform gate check      | ready     |
+| BRIS-F33 | Make a shared proxy target deterministic           | Bristol exposed the non-loopback acceptance need         | Samebase neither sets nor clears its proxy-target variable  | Bristol to Samebase | source review            | candidate |
+| BRIS-F34 | Enforce the final credential file mode             | setup corrects umask and rereads mode `0600`             | a requested creation mode is not a final-mode guarantee     | shared              | restrictive-umask check  | ready     |
+| BRIS-F35 | Report bounded-list misses as unknown              | ten recent versions cannot prove absence                 | cleanup needs full Cloudflare pagination                    | shared              | live partial report      | ready     |
+| BRIS-F36 | Isolate read-only observer children                | each child gets a small environment and bounded output   | an empty project env file does not clear ambient overrides  | Bristol to Samebase | injected-override checks | candidate |
+| BRIS-F37 | Bind every provider read to stable identity        | main profile, account, build URL, and Worker are checked | stable attachments alone do not select a provider account   | Bristol to Samebase | live self-inspection     | candidate |
+| BRIS-F38 | Keep partial evidence out of destructive gates     | exit code `2` names two unproved joins                   | cleanup must fail closed on unknown ownership               | shared              | contract and live check  | ready     |
+| BRIS-F39 | Store an exact source-to-backend version join      | strict Worker annotation has commit and Convex URL       | Samebase UI still warns that the backend can be older       | Bristol to Samebase | live version read        | candidate |
+| BRIS-F40 | Validate the complete regional provider hostname   | live EU preview exposed a missing regional test          | first-label parsing accepted noncanonical nested hosts      | shared              | review and live check    | ready     |
+| BRIS-F41 | Expose live PR resources through the agent API     | repository observer cannot read Convex inventory         | UI shows the exact build and backend, current MCP does not  | Samebase only       | UI and MCP comparison    | candidate |
+| BRIS-F42 | Test direct production hydration during dogfood    | Samebase workspace recovered after refresh               | browser console emitted React hydration error `418`         | Bristol to Samebase | one live refresh         | candidate |
+| BRIS-F43 | Use one default-branch promotion for a PR stack    | merging seven slices through `main` starts seven builds  | one promotion PR keeps one cutover and all review evidence  | Bristol first       | draft PR and live reads  | ready     |
+| BRIS-F44 | Verify auth environment before production merge    | profile passed, but the production log level was missing | code and docs alone did not prove the live backend setting  | Bristol first       | exact live value reads   | ready     |
+| BRIS-F45 | Preflight the complete authored source model       | 8,522 lines of `.mjs` bypassed the app TypeScript check  | generated apps use Node 24, ESM, and direct `.ts` execution | shared              | strict build and preview | ready     |
+| BRIS-F46 | Check unstaged source with the executable guard    | final guard lists cached and non-ignored untracked files | Samebase added a real unstaged-file command-line test       | shared              | temporary Git tests      | ready     |
+| BRIS-F47 | Check automation through every shared entry point  | final Cloudflare build runs both TypeScript checks       | generated-app check and build omitted script type checking  | shared              | PR #16 and app PR #23    | candidate |
+| BRIS-F48 | Apply project findings back to the mature source   | the source correction required a complete inventory      | review found five handwritten JavaScript files in Samebase  | Bristol to Samebase | source guard and checks  | candidate |
+| BRIS-F49 | Test public guidance against the live tool surface | source-policy correction changed public routing guidance | tool-description order biased some initial harness runs     | Samebase to shared  | fresh-agent suites       | candidate |
 
 ## Characterization Test Plan
 
@@ -737,17 +741,20 @@ The correction standard is:
 4. run those files directly with Node and use explicit `.ts` relative imports
 5. use TypeScript syntax that Node can erase
 6. type-check application code and Node automation with strict configurations
-7. run the source guard and both type checks in the real Cloudflare build
+7. run the source guard and Node type check in normal checks and every shared build or dry-run path
 8. reject handwritten JavaScript and special TypeScript module extensions
-9. allow only generated Convex JavaScript and the browser-delivered service worker JavaScript
+9. allow only named generated Convex JavaScript and the browser-delivered service worker JavaScript
 
 The process correction has three parts: convert Bristol, add the source-model preflight to this
 method, and make the Samebase rule visible in both repository and public agent guidance.
 
 The first source guard also exposed a validation mistake. Its classifier unit tests passed, but the
-real command did not run because its direct-entry condition was false. The final test creates a
-temporary Git repository, tracks a handwritten JavaScript file, executes the real guard process, and
-requires exit code `1`. A unit test of an exported classifier does not prove a command-line guard.
+real command did not run because its direct-entry condition was false. The final guard lists tracked
+files and untracked non-ignored files. Its first command-line test created a temporary Git
+repository, tracked a handwritten JavaScript file, executed the real guard process, and required
+exit code `1`. The Samebase follow-up added a second real command-line case for an unstaged
+forbidden file. A unit test of an exported classifier does not prove a command-line guard or its
+untracked-file inventory.
 
 [Bristol pull request #16](https://github.com/nicu-chiciuc/bristol_tsx/pull/16) completed the
 correction and merged into the non-production promotion branch. Final source commit
@@ -762,6 +769,31 @@ passed 118 application tests, 75 automation contracts, both TypeScript checks, t
 builds, and the private-bundle scan. Worker version `5b1e51d2-4944-4cba-a794-b650f15d30da` binds the
 exact source to preview backend `fiery-gnu-815`. The public route contract passes. Production still
 uses OpenNext version `785ac1b3-71f7-4255-8af5-55be71b10d45` at 100 percent traffic.
+
+### Samebase Backflow
+
+The Bristol correction required the same inventory in Samebase. The follow-up source review found
+five handwritten JavaScript files: the Remotion ESLint configuration, the repository lint-plugin
+entry point, and three lint-rule files. The correction converts these files to normal `.ts` source
+and adds one exact repository source guard with real tracked and unstaged command-line tests.
+
+The review also found a generated-application gap. The generated scripts were `.ts`, but the normal
+application check and shared build did not statically type-check them.
+[samebase/app pull request #23](https://github.com/samebase/app/pull/23) adds a strict NodeNext
+configuration and runs it in both entry points. This is a concrete Bristol-to-Samebase result:
+having TypeScript files is not sufficient when the normal proof does not include them.
+
+### Public Guidance Forward-Test Finding
+
+The correction also changed public Samebase guidance. Valid forward tests give each fresh agent the
+public skill and the actual live server and tool descriptions. The manager runs the full positive
+and negative suite for each selected model class. Initial harness runs that did not expose this same
+surface were invalid and were discarded.
+
+The tests also showed that tool-description order can bias routing. The manager must select the
+request route from the public request and skill before tool lookup. Tool discovery then identifies
+the live implementation of that selected route. This keeps the test focused on the public guidance
+instead of the harness order.
 
 ## TanStack Start Decision Gate
 
@@ -829,6 +861,7 @@ production cutover.
 - [Bristol exact preview join](https://github.com/nicu-chiciuc/bristol_tsx/blob/c14c4d2c48953ddb6155a7cbed6b0c55cfa397de/scripts/inspect-preview.mjs#L300-L478)
 - [Bristol exact ownership contract](https://github.com/nicu-chiciuc/bristol_tsx/blob/c14c4d2c48953ddb6155a7cbed6b0c55cfa397de/docs/cloudflare-workers-deployment.md#L148-L246)
 - [Bristol TypeScript source-model pull request](https://github.com/nicu-chiciuc/bristol_tsx/pull/16)
+- [Samebase generated-app script type-check pull request](https://github.com/samebase/app/pull/23)
 - [Bristol executable source guard](https://github.com/nicu-chiciuc/bristol_tsx/blob/ec0a6ca5bddae0cfc04a1d97ed30d1d6222c5e5b/scripts/check-typescript-sources.ts#L1-L57)
 - [Bristol source-guard integration tests](https://github.com/nicu-chiciuc/bristol_tsx/blob/ec0a6ca5bddae0cfc04a1d97ed30d1d6222c5e5b/tests/characterization/typescript-source-model.test.ts#L1-L77)
 - [Bristol final TypeScript preview build](https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/bristol-tsx/production/builds/9a9f850e-175e-43a9-91cb-d828606a7233)

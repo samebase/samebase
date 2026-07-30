@@ -19,13 +19,14 @@ project.
 Map these capabilities before a framework or provider change:
 
 - synchronized source commit, application root, and package manager from its committed lock file
-- runtime version and pin, package module model, handwritten source language, configuration file
-  extensions, import style, and type-check coverage
+- runtime version and pin, package module type, handwritten source extensions, configuration file
+  extensions, import style, and static-check inclusion
 - fresh checkout setup
 - normal local development
 - repeatable linked-worktree preparation
 - anonymous linked-worktree setup
 - lint, type checks, tests, and production build
+- every shared build and dry-run entry point
 - branch build and version upload
 - public preview access and its authentication boundary
 - preview resource ownership and cleanup
@@ -86,21 +87,36 @@ Type-check the Node automation, tests, and configuration. An application TypeScr
 that includes only `src` does not prove those files. Use a separate strict Node configuration when
 the browser and Node module-resolution rules differ.
 
-The real provider build must run both the source-model guard and the Node type check. A test that
+Normal repository checks and every shared build or dry-run entry point must run both the
+source-model guard and the Node type check. This includes the real provider build. A test that
 executes a TypeScript file does not replace static checking.
 
-Add a tracked-source guard that rejects handwritten `.js`, `.jsx`, `.mjs`, `.cjs`, `.mts`, and
-`.cts` files. Keep exceptions narrow and named. Generated JavaScript and a browser-delivered
-JavaScript asset can be valid output exceptions. They are not a reason to write Node automation in
-JavaScript.
+Add an executable source guard that rejects handwritten `.js`, `.jsx`, `.mjs`, `.cjs`, `.mts`, and
+`.cts` files. Inspect Git tracked files and untracked non-ignored files. List each allowed generated
+file as one exact repository-relative path and name the generator or runtime that owns it. A named
+browser-delivered JavaScript asset can also be a valid exception. These exceptions are not a reason
+to write Node automation in JavaScript.
 
-Test the real guard process in a temporary Git repository with a tracked forbidden file and require
-a nonzero exit result. A unit test of the exported path classifier does not prove that the
-command-line entrypoint runs.
+Test the real guard process in a temporary Git repository. Require a successful clean run and
+nonzero results for both a tracked forbidden file and an unstaged forbidden file. A unit test of the
+exported path classifier does not prove that the command-line entrypoint runs or that it sees
+untracked files.
 
 If a tool cannot load its TypeScript configuration under the selected runtime, record the exact tool
 boundary before adding a loader or an exception. Do not copy a legacy extension only because the
 target already uses it.
+
+## Forward-Test Public Agent Guidance
+
+When a change affects public agent guidance, test the public skill against the actual live server
+and tool descriptions. Select the request route from the public request and skill before tool
+lookup. The order of similar tool descriptions can otherwise bias routing and make the test measure
+the harness instead of the guidance.
+
+Run the complete positive and negative suite in fresh agents for every selected model class. Keep
+prior results and expected answers out of each prompt. Discard a harness run when the agent cannot
+read the public skill or the harness does not expose the live server and tool descriptions. Correct
+the harness, then rerun the complete suite.
 
 ## Own Linked-Worktree Preparation
 

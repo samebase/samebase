@@ -49,9 +49,10 @@ Before the first test, spike, or implementation commit, the manager compares:
 2. the current portable rules
 3. the current generated-app or reference-project contract for the capabilities in scope
 
-The comparison must include the package manager, runtime version and pin, package module model,
-handwritten source language, configuration file extensions, import style, and type-check coverage.
-Existing target files show the current state. They do not define the desired source model.
+The comparison must include the package manager, runtime version and pin, package module type,
+handwritten source extensions, configuration file extensions, import style, static-check inclusion,
+and the real build and dry-run entry points. Existing target files show the current state. They do
+not define the desired source model.
 
 Record each difference as one of:
 
@@ -80,6 +81,18 @@ worker cannot see.
 The manager observes the worker's questions, requested actions, provider reads, pass or fail
 results, elapsed work, and rework. The manager does not need hidden reasoning. Ask the worker to
 state the missing fact and the evidence that will let it continue.
+
+## Public Guidance Forward Tests
+
+When adoption work changes public agent guidance, the manager tests the published guidance, not an
+internal copy. First select the request route from the public request and skill. Then discover the
+available server and tool descriptions from the live test environment. Tool-description order can
+bias routing when several tools appear to match the same request.
+
+Run the complete positive and negative prompt suite with a fresh agent for each prompt and each
+selected model class. Do not give the agent prior answers, expected results, or earlier test output.
+A harness run is invalid when it does not expose the public skill and the actual live server and
+tool descriptions. Discard that run, correct the harness, and rerun the complete suite.
 
 ## Decision Record
 
