@@ -278,6 +278,68 @@ Cloudflare preview URLs do not provide Workers Logs. Telemetry can also arrive l
 observation query is not proof that no requests or errors occurred. Keep build outcome, Worker
 version, public route checks, and named-browser acceptance as separate evidence.
 
+Add a read-only observer before cleanup automation. Give it three explicit results:
+
+- complete when every required fact has direct evidence
+- partial when the reads are valid but one or more facts are unproved
+- invalid when a read fails or evidence is malformed or contradictory
+
+A partial result is useful evidence. It is not a release or cleanup gate.
+
+Bind source evidence before provider evidence. Compare the local commit, canonical repository branch
+head, and pull request head. Bind provider reads to the expected user or service identity, account,
+Worker, and provider-owned build URL. Validate identity before state reads begin. Reject a branch
+version that receives production traffic.
+
+Treat each observer child as a separate trust boundary. Start from a small OS environment allowlist,
+then add only the authentication source that the command needs. Do not inherit project environment
+files, endpoint overrides, output-file controls, runtime injection, unrelated provider credentials,
+or Git repository overrides. Use fixed executable and argument shapes that work on every supported
+platform. Bound stdout and stderr, do not print raw provider responses, and return only selected
+identifiers, states, and URLs.
+
+Provider list limits are part of the evidence. A missing item in a bounded response is unknown, not
+absent. Require complete evidence for each resource type that the project owns before cleanup. Read
+all pages when the provider API is paginated. A complete direct lookup can supply the same proof,
+and a project does not need inventory for a resource type that it does not create. A branch alias or
+timestamp identifies a candidate, not an exact source binding. Require structured provider metadata
+that joins the full source commit, Worker version, and backend identity before cleanup trusts that
+relationship.
+
+For each new preview Worker version, store one small versioned annotation when the provider supports
+it. Use an exact key set. Include only the full source commit and public backend deployment URL. Do
+not include branch copy, account data, credentials, tokens, test-account values, or private
+application data. Build the annotation only from metadata that already passed the source, profile,
+bundle, and backend checks. Do not let a caller replace the annotation or preview alias.
+
+Treat the annotation as evidence, not authority. Join it to the trusted source head, build, exact
+Worker version, active traffic, and live backend inventory. Trust the newest exact branch alias
+only. Do not fall back to older metadata that happens to match.
+
+Validate the complete backend hostname before deriving a deployment name. Convex currently documents
+`deployment-name.convex.cloud` and `deployment-name.eu-west-1.convex.cloud`. Reject extra labels,
+unsupported region labels, paths, queries, fragments, credentials, ports, and a region without a
+deployment name.
+
+Do not reuse a deploy key as an inventory key when the provider has a separate management
+credential. Keep the inventory unavailable until a safe read source exists.
+
+Keep broad provider management credentials in the system that already owns the provider connections.
+Do not copy Cloudflare and Convex management credentials into each adopted repository. Expose a
+read-only inventory action first. Add deletion only as a separate retained plan with an expiry and
+explicit approval. Re-read every provider fact immediately before deletion and prove absence after
+deletion.
+
+Require a closed or merged pull request before cleanup. Store the exact source head and planned
+resource IDs. Require set equality between the approved plan and the second live read. Reject
+duplicate IDs, changed pagination totals, incomplete pages, matching aliases with unowned metadata,
+and any selected Worker version that receives production traffic. If a delete response is lost or
+times out, read inventory before any retry.
+
+Make the agent API and UI expose the same evidence. A UI warning can be honest and still be
+insufficient for an automated cleanup gate. If the UI can show the pull request Worker and Convex
+preview but the agent API cannot read them, report the inventory as unavailable.
+
 Discover branch builds, Worker versions, and backend previews independently during cleanup. Do not
 assume that a pull request created all of them or none of them.
 
