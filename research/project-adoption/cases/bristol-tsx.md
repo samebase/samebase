@@ -782,6 +782,9 @@ application check and shared build did not statically type-check them.
 [samebase/app pull request #23](https://github.com/samebase/app/pull/23) adds a strict NodeNext
 configuration and runs it in both entry points. This is a concrete Bristol-to-Samebase result:
 having TypeScript files is not sufficient when the normal proof does not include them.
+[samebase/samebase pull request #1317](https://github.com/samebase/samebase/pull/1317) applies the
+same rule to the Samebase repository, refreshes the generated-app contract, and makes the manager
+preflight and source guard executable.
 
 ### Public Guidance Forward-Test Finding
 
@@ -862,6 +865,7 @@ production cutover.
 - [Bristol exact ownership contract](https://github.com/nicu-chiciuc/bristol_tsx/blob/c14c4d2c48953ddb6155a7cbed6b0c55cfa397de/docs/cloudflare-workers-deployment.md#L148-L246)
 - [Bristol TypeScript source-model pull request](https://github.com/nicu-chiciuc/bristol_tsx/pull/16)
 - [Samebase generated-app script type-check pull request](https://github.com/samebase/app/pull/23)
+- [Samebase TypeScript adoption contract pull request](https://github.com/samebase/samebase/pull/1317)
 - [Bristol executable source guard](https://github.com/nicu-chiciuc/bristol_tsx/blob/ec0a6ca5bddae0cfc04a1d97ed30d1d6222c5e5b/scripts/check-typescript-sources.ts#L1-L57)
 - [Bristol source-guard integration tests](https://github.com/nicu-chiciuc/bristol_tsx/blob/ec0a6ca5bddae0cfc04a1d97ed30d1d6222c5e5b/tests/characterization/typescript-source-model.test.ts#L1-L77)
 - [Bristol final TypeScript preview build](https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/bristol-tsx/production/builds/9a9f850e-175e-43a9-91cb-d828606a7233)
