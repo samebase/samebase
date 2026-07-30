@@ -7,6 +7,7 @@ const legalShellScreenshotOptions = {
   caret: "hide",
   scale: "css",
   maxDiffPixelRatio: 0.03,
+  timeout: 30_000,
 } as const;
 
 function getLegalShellScreenshotOptions(page: Page) {

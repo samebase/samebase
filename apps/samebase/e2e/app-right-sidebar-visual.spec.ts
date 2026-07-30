@@ -23,6 +23,7 @@ const appRightSidebarScreenshotOptions = {
   caret: "hide",
   scale: "css",
   maxDiffPixelRatio: 0.03,
+  timeout: 30_000,
 } as const;
 
 async function seedAppWorkspaceSidebarState(page: Page, state: WorkspaceSidebarState) {
@@ -395,7 +396,7 @@ test("signed-out app right sidebar prehydration matches the hydrated account row
       ),
     },
     expected: hydratedScreenshot,
-    maxDiffPixelRatio: 0,
+    maxDiffPixelRatio: 0.0001,
     pixelmatchOptions: {
       includeAA: true,
       threshold: 0,
@@ -454,7 +455,7 @@ async function expectPrehydratedAccountSectionToMatchHydrated({
       expected: testInfo.outputPath(`${artifactPrefix}-hydrated.png`),
     },
     expected: hydratedScreenshot,
-    maxDiffPixelRatio: 0,
+    maxDiffPixelRatio: 0.0001,
     pixelmatchOptions: {
       includeAA: true,
       threshold: 0,

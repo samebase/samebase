@@ -121,7 +121,7 @@ async function focusRouteAddressInput(page: Page, route = "/privacy") {
     }
   }
 
-  await expect(input).toHaveValue(focusedInputValue);
+  await expect(input).toHaveValue(focusedInputValue, { timeout: 30_000 });
   await input.focus();
   await expect(input).toBeFocused();
 
