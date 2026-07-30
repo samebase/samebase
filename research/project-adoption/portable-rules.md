@@ -19,6 +19,8 @@ project.
 Map these capabilities before a framework or provider change:
 
 - synchronized source commit, application root, and package manager from its committed lock file
+- runtime version and pin, package module model, handwritten source language, configuration file
+  extensions, import style, and type-check coverage
 - fresh checkout setup
 - normal local development
 - repeatable linked-worktree preparation
@@ -34,6 +36,11 @@ Map these capabilities before a framework or provider change:
 
 The framework runtime, repository workflow, and provider integration are separate layers. A
 framework can supply server rendering without supplying preview ownership or cleanup.
+
+Complete the source-model comparison before the first test, spike, or implementation commit.
+Existing file extensions in the target repository are evidence of its baseline. They are not a
+policy decision. When the work adopts a Samebase capability, compare the target with the current
+generated-app contract instead of copying only the nearest target pattern.
 
 Keep these development capabilities separate:
 
@@ -67,6 +74,28 @@ same release number.
 
 After the gate passes, remove the spike scripts and copied aliases that have no final caller. Shared
 script names are useful only when shared tooling or shared behavior consumes them.
+
+## Keep The Authored Source Model Explicit
+
+For a Samebase-aligned Node project, use Node 24, ESM package semantics through `"type": "module"`,
+and normal `.ts` files for handwritten scripts, tests, and supported configuration. Run those files
+directly with Node. Use explicit `.ts` extensions for relative imports and keep syntax compatible
+with Node type stripping.
+
+Type-check the Node automation, tests, and configuration. An application TypeScript configuration
+that includes only `src` does not prove those files. Use a separate strict Node configuration when
+the browser and Node module-resolution rules differ.
+
+The real provider build must run both the source-model guard and the Node type check. A test that
+executes a TypeScript file does not replace static checking.
+
+Add a tracked-source guard that rejects handwritten `.js`, `.mjs`, `.cjs`, `.mts`, and `.cts` files.
+Keep exceptions narrow and named. Generated JavaScript and a browser-delivered JavaScript asset can
+be valid output exceptions. They are not a reason to write Node automation in JavaScript.
+
+If a tool cannot load its TypeScript configuration under the selected runtime, record the exact tool
+boundary before adding a loader or an exception. Do not copy a legacy extension only because the
+target already uses it.
 
 ## Own Linked-Worktree Preparation
 

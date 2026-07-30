@@ -32,7 +32,7 @@ decisions, code changes, tests, and operator results. Agent hidden reasoning is 
 
 | Role              | Responsibility                                                                  |
 | ----------------- | ------------------------------------------------------------------------------- |
-| Manager           | Own the capability contract, route questions, and keep the decision record.     |
+| Manager           | Own the capability contract, run the source-model preflight, and keep records.  |
 | Project worker    | Inspect or change one bounded project area and state which guidance is missing. |
 | Samebase adviser  | Find relevant Samebase code, tests, rules, and past decisions.                  |
 | Public researcher | Verify current platform and framework contracts from primary sources.           |
@@ -40,6 +40,28 @@ decisions, code changes, tests, and operator results. Agent hidden reasoning is 
 
 One agent can perform more than one role when the scope is small. Edit-capable agents use isolated
 worktrees and disjoint file ownership.
+
+## Manager Preflight
+
+Before the first test, spike, or implementation commit, the manager compares:
+
+1. the target repository baseline
+2. the current portable rules
+3. the current generated-app or reference-project contract for the capabilities in scope
+
+The comparison must include the package manager, runtime version and pin, package module model,
+handwritten source language, configuration file extensions, import style, and type-check coverage.
+Existing target files show the current state. They do not define the desired source model.
+
+Record each difference as one of:
+
+- an accepted target constraint
+- a rule to adopt
+- a question that needs a source check
+- an explicit exception with a test
+
+The manager owns this preflight. Do not wait for a project worker to ask about a policy that the
+worker cannot see.
 
 ## Knowledge Request Loop
 

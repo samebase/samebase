@@ -89,6 +89,8 @@ The first read-only inventory found:
   bypass route middleware and call the Convex functions directly.
 - The baseline sign-out flow did not clear the persistent IndexedDB cache that contains health-query
   results.
+- The baseline pinned Node 22.16, had no package `"type": "module"`, and used `.mjs` for handwritten
+  Node automation. Its application TypeScript configuration did not include that automation.
 
 ## Capability Contract
 
@@ -100,6 +102,7 @@ The first read-only inventory found:
 | Anonymous linked-worktree setup  | `dev` selects an owned anonymous loopback backend               | local backend and auth user            | complete                      |
 | Linked-worktree acceptance       | two real setup, browser, service, and cleanup cycles            | isolated committed-head proof          | complete                      |
 | Framework-neutral behavior tests | HTTP, data-auth, cache, Worker, and browser suites pass         | required before migration              | complete                      |
+| Authored Node source model       | Node 24, ESM, `.ts`, source guard, and strict Node type check   | Samebase-aligned TypeScript            | correction in progress        |
 | Branch build                     | Cloudflare non-default-branch trigger                           | retain                                 | complete                      |
 | Worker version upload            | `deploy:preview` uploads without production traffic             | retain                                 | complete                      |
 | Public pull request preview      | stable branch URL with a fresh synthetic Convex backend         | safe public preview                    | complete                      |
@@ -145,6 +148,7 @@ Record each question that the project worker cannot answer from Bristol and the 
 | BRIS-Q026 | Which Convex deployment hostname shapes are valid?                 | public docs     | deployment name, optional `eu-west-1`, then `convex.cloud`                 | validate the full hostname first         | live regional URL passes |
 | BRIS-Q027 | How should a stacked migration reach a production default branch?  | Bristol release | one promotion PR from the final reviewed head                              | keep slices as evidence; merge once      | draft PR and live reads  |
 | BRIS-Q028 | Which backend auth settings must the cutover gate read?            | Bristol review  | exact production profile and non-debug log policy                          | require `production` and `ERROR`         | live production read     |
+| BRIS-Q029 | Which source model must the adopted Node automation use?           | Samebase        | Node 24, ESM package semantics, and directly executed `.ts` files          | convert all handwritten Node files       | correction in progress   |
 
 ## Bidirectional Findings
 
@@ -194,6 +198,7 @@ Record each question that the project worker cannot answer from Bristol and the 
 | BRIS-F42 | Test direct production hydration during dogfood   | Samebase workspace recovered after refresh               | browser console emitted React hydration error `418`         | Bristol to Samebase | one live refresh         | candidate |
 | BRIS-F43 | Use one default-branch promotion for a PR stack   | merging seven slices through `main` starts seven builds  | one promotion PR keeps one cutover and all review evidence  | Bristol first       | draft PR and live reads  | ready     |
 | BRIS-F44 | Verify auth environment before production merge   | profile passed, but the production log level was missing | code and docs alone did not prove the live backend setting  | Bristol first       | exact live value reads   | ready     |
+| BRIS-F45 | Preflight the complete authored source model      | 8,522 lines of `.mjs` bypassed the app TypeScript check  | generated apps use Node 24, ESM, and direct `.ts` execution | shared              | correction in progress   | candidate |
 
 ## Characterization Test Plan
 
@@ -258,6 +263,10 @@ version `23f9af54-f23e-4f5c-96b7-06d9ad1512ba`. It uploaded 7,374.58 KiB before 
 
 The build proves that the current branch trigger can run a framework-neutral test checkpoint without
 production promotion. It does not yet create a safe public pull request preview.
+
+The behavior proof remains valid, but the `.mjs` choice was a process defect. The first test copied
+the Bristol baseline before the manager compared it with the current Samebase generated-app source
+model. Later checkpoints repeated that pattern.
 
 ### Data Authorization Checkpoint
 
@@ -692,6 +701,47 @@ Select and show the browser profile before a credential or provider check. Use a
 operation for each field. Verify only that the resulting lengths match the expected lengths before
 submission. Do not return either value.
 
+### TypeScript Source Model Incident
+
+The migration used `.mjs` for handwritten Node scripts, tests, ESLint configuration, and PostCSS
+configuration. The final branch had 8,522 lines in these files. The application TypeScript
+configuration included `.ts` and `.tsx` application files, so it did not type-check this automation.
+
+The failure started in the first characterization checkpoint. The Bristol baseline already used
+`.mjs`, and the first new test copied that pattern. About 30 later commits treated the extension as
+an established local convention.
+
+The Samebase contract already had the missing answer:
+
+- the repository and generated applications use `"type": "module"`
+- Node 24 runs TypeScript helper files directly
+- generated helper scripts use normal `.ts` files
+- Samebase research states that scripts are TypeScript
+
+The adoption method mapped package-script names and runtime behavior, but it did not require a
+source-model preflight. The public Samebase skill told the worker to read repository instructions,
+but Bristol had no repository instruction file. The always-loaded Samebase rule also described
+portable TypeScript automation without saying that all handwritten automation must be TypeScript.
+
+The manager did not compare Bristol with the current generated-app contract before the first test.
+Review prompts checked deployment behavior, security, and preview ownership. They did not check
+whether all handwritten code was inside the TypeScript proof.
+
+The correction standard is:
+
+1. pin Node 24
+2. set package `"type": "module"`
+3. use normal `.ts` for handwritten Node scripts, tests, and supported configuration
+4. run those files directly with Node and use explicit `.ts` relative imports
+5. use TypeScript syntax that Node can erase
+6. type-check application code and Node automation with strict configurations
+7. run the source guard and both type checks in the real Cloudflare build
+8. reject handwritten JavaScript and special TypeScript module extensions
+9. allow only generated Convex JavaScript and the browser-delivered service worker JavaScript
+
+The process correction has three parts: convert Bristol, add the source-model preflight to this
+method, and make the Samebase rule visible in both repository and public agent guidance.
+
 ## TanStack Start Decision Gate
 
 Current official guidance provides a direct Cloudflare Workers path with TanStack Start, the
@@ -729,6 +779,9 @@ production cutover.
 - [Bristol persistent query cache](https://github.com/nicu-chiciuc/bristol_tsx/blob/2948c1c8e73a05664f1472377565e1ffb79db04b/src/lib/convexQueryCache.ts#L29-L165)
 - [Samebase worktree setup](https://github.com/samebase/samebase/blob/aee7798e5cc9cf5e5c4e729fe0d05c8301ef24a5/scripts/run-worktree-dev.ts#L199-L399)
 - [Samebase Cloudflare build modes](https://github.com/samebase/samebase/blob/aee7798e5cc9cf5e5c4e729fe0d05c8301ef24a5/apps/samebase/scripts/build-cloudflare.ts#L94-L165)
+- [Samebase generated-app Node pin](https://github.com/samebase/samebase/blob/25fb3d8057ef76ac9e6482f9edf3d4371d62f0f8/apps/samebase/convex/starterSeedManifest.generated.ts#L85)
+- [Samebase generated-app package and TypeScript scripts](https://github.com/samebase/samebase/blob/25fb3d8057ef76ac9e6482f9edf3d4371d62f0f8/apps/samebase/convex/starterSeedManifest.generated.ts#L143-L168)
+- [Samebase TypeScript stack decision](https://github.com/samebase/samebase/blob/25fb3d8057ef76ac9e6482f9edf3d4371d62f0f8/research/2026-07-06-stack-decision-rationale-interview.md#L72-L74)
 - [Samebase preview cleanup](https://github.com/samebase/samebase/blob/aee7798e5cc9cf5e5c4e729fe0d05c8301ef24a5/docs/samebase-pr-preview-cleanup.md#L20-L166)
 - [Samebase pull request resource read](https://github.com/samebase/samebase/blob/25fb3d8057ef76ac9e6482f9edf3d4371d62f0f8/apps/samebase/convex/vault/pullRequestResources.ts#L659-L718)
 - [Samebase Cloudflare version reads](https://github.com/samebase/samebase/blob/25fb3d8057ef76ac9e6482f9edf3d4371d62f0f8/apps/samebase/convex/cloudflareResources.ts#L2259-L2307)
@@ -758,6 +811,8 @@ production cutover.
 - [Bristol production auth settings](https://github.com/nicu-chiciuc/bristol_tsx/blob/60f667e64873f444a6b56dbd0d3b5e2583132c29/docs/cloudflare-workers-deployment.md#L124-L141)
 - [Bristol production release gate](https://github.com/nicu-chiciuc/bristol_tsx/blob/60f667e64873f444a6b56dbd0d3b5e2583132c29/docs/cloudflare-workers-deployment.md#L397-L428)
 - [Cloudflare Worker Versions API](https://developers.cloudflare.com/api/resources/workers/subresources/beta/subresources/workers/subresources/versions/)
+- [Node.js TypeScript modules](https://nodejs.org/dist/latest/docs/api/typescript.html)
+- [Cloudflare Workers Builds image](https://developers.cloudflare.com/workers/ci-cd/builds/build-image/)
 - [Convex deployment URL contract](https://docs.convex.dev/management-api/create-deployment)
 - [Convex list deployments](https://docs.convex.dev/management-api/list-deployments)
 - [Convex delete deployment](https://docs.convex.dev/management-api/delete-deployment)
