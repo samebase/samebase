@@ -5,7 +5,7 @@
 - Application: [nicu-chiciuc/bristol_tsx](https://github.com/nicu-chiciuc/bristol_tsx)
 - Production gate: [Bristol pull request 15](https://github.com/nicu-chiciuc/bristol_tsx/pull/15)
 - State: implementation and preview validation complete, production cutover pending
-- Reviewed head: `d2e193ab9597f92c1a64fd9459b355434dd2d3a7`
+- Reviewed head: `c867aa0c3dea87579c1c619a2cc7fbda6d3c0e7c`
 - Initial hosting case:
   [Netlify to Cloudflare Workers](../../2026-07-29-bristol-tsx-netlify-to-cloudflare-workers.md)
 
@@ -20,8 +20,8 @@ application and contract tests, authenticated Worker acceptance, two linked-work
 public preview route contract. Preview inspection now reports a complete source-to-Worker-to-Convex
 join.
 
-The production gate requires an explicit check for `AUTH_LOG_LEVEL=ERROR`. The cutover also needs
-operator approval.
+Bristol leaves `AUTH_LOG_LEVEL` unset in every deployment. Password authentication rejects an
+explicit `DEBUG` value. The cutover still needs operator approval.
 
 ## What The First Process Missed
 
