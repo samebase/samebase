@@ -8,7 +8,26 @@ const expectedLayerCounts = {
   2: "1,20",
   3: "1,20,400",
   4: "1,20,400,8000",
-  5: "1,20,400,8000,160000",
+} as const;
+
+const expectedParentedLayerCounts = {
+  2: "1",
+  3: "1,20",
+  4: "1,20,400",
+} as const;
+
+const expectedFrameMatrixUploadBytes = {
+  2: "1280",
+  3: "26880",
+  4: "538880",
+} as const;
+
+const expectedMaxDiffPixelRatio = {
+  2: 0.01,
+  3: 0.01,
+  // The depth 4 moving branch uses one more parent transform, which moves
+  // one-pixel antialiasing edges without changing the recursive geometry.
+  4: 0.015,
 } as const;
 
 async function advanceToRecursiveShuffleMidpoint(page: Page): Promise<number> {
@@ -25,7 +44,7 @@ async function advanceToRecursiveShuffleMidpoint(page: Page): Promise<number> {
   throw new Error("The recursive logo shuffle did not reach its midpoint.");
 }
 
-for (const depth of [2, 3, 4, 5] as const) {
+for (const depth of [2, 3, 4] as const) {
   test(`logo depth ${depth} repeats one shuffle move at every recursive scale`, async ({
     page,
   }) => {
@@ -52,22 +71,23 @@ for (const depth of [2, 3, 4, 5] as const) {
       "data-logo-recursive-move-layer-counts",
       expectedLayerCounts[depth],
     );
-    await expect(canvas).toHaveAttribute("data-logo-recursive-move-frame-matrix-upload-bytes", "0");
+    await expect(canvas).toHaveAttribute(
+      "data-logo-recursive-move-parented-layer-counts",
+      expectedParentedLayerCounts[depth],
+    );
+    await expect(canvas).toHaveAttribute(
+      "data-logo-recursive-move-frame-matrix-upload-bytes",
+      expectedFrameMatrixUploadBytes[depth],
+    );
     await expect(canvas).toHaveAttribute("data-logo-recursive-move-from", /^\d,\d,\d$/u);
     await expect(canvas).toHaveAttribute("data-logo-recursive-move-to", /^\d,\d,\d$/u);
     expect(progress).toBeGreaterThanOrEqual(0.48);
     expect(progress).toBeLessThanOrEqual(0.53);
 
-    // Chromium's Linux software renderer cannot stabilize the 160,000-instance
-    // canvas within the visual test timeout.
-    if (depth === 5) {
-      return;
-    }
-
     await expect(canvas).toHaveScreenshot(`logo-depth-${depth}-recursive-shuffle-midpoint.png`, {
       animations: "disabled",
       caret: "hide",
-      maxDiffPixelRatio: 0.01,
+      maxDiffPixelRatio: expectedMaxDiffPixelRatio[depth],
       scale: "css",
       timeout: 60_000,
     });

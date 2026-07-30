@@ -132,12 +132,18 @@ export function getLogoRecursiveShuffleLayerPlacementCount({
   animatedCoordinateCount,
   movingCoordinateCount,
   prefixDepth,
+  rootCoordinateCount,
 }: {
   animatedCoordinateCount: number;
   movingCoordinateCount: number;
   prefixDepth: number;
+  rootCoordinateCount: number;
 }): number {
-  return movingCoordinateCount * animatedCoordinateCount ** prefixDepth;
+  if (prefixDepth === 0) {
+    return movingCoordinateCount;
+  }
+
+  return rootCoordinateCount * movingCoordinateCount * animatedCoordinateCount ** (prefixDepth - 1);
 }
 
 export function writeLogoRecursiveShuffleLayerCoordinates({
@@ -146,6 +152,7 @@ export function writeLogoRecursiveShuffleLayerCoordinates({
   movingCoordinates,
   moveSlotCount,
   prefixDepth,
+  rootCoordinates,
   targetCoordinates,
   targetMoveWeights,
 }: {
@@ -154,6 +161,7 @@ export function writeLogoRecursiveShuffleLayerCoordinates({
   movingCoordinates: readonly LogoRecursiveShuffleCoordinate[];
   moveSlotCount: number;
   prefixDepth: number;
+  rootCoordinates: readonly LogoRecursiveShuffleCoordinate[];
   targetCoordinates: Float64Array;
   targetMoveWeights: Float32Array;
 }): number {
@@ -204,7 +212,25 @@ export function writeLogoRecursiveShuffleLayerCoordinates({
     }
   };
 
-  writePrefix(prefixDepth, 0, 0, 0);
+  if (prefixDepth === 0) {
+    writePrefix(0, 0, 0, 0);
+    return placementIndex;
+  }
+
+  for (const rootCoordinate of rootCoordinates) {
+    if (rootCoordinate.moveSlot !== null) {
+      prefixMoveWeights[rootCoordinate.moveSlot] = 1;
+    }
+    writePrefix(
+      prefixDepth - 1,
+      rootCoordinate.coordinate[0],
+      rootCoordinate.coordinate[1],
+      rootCoordinate.coordinate[2],
+    );
+    if (rootCoordinate.moveSlot !== null) {
+      prefixMoveWeights[rootCoordinate.moveSlot] = 0;
+    }
+  }
   return placementIndex;
 }
 

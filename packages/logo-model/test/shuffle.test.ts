@@ -74,7 +74,7 @@ describe("easeLogoShuffleProgress", () => {
 });
 
 describe("recursive shuffle layers", () => {
-  it("uses one synchronized moving coordinate at every recursive prefix", () => {
+  it("keeps settled roots fixed while recursive children move", () => {
     const animatedCoordinates = [
       { coordinate: [0, 0, 0], moveSlot: null },
       { coordinate: [2, 2, 2], moveSlot: 0 },
@@ -84,6 +84,7 @@ describe("recursive shuffle layers", () => {
       animatedCoordinateCount: animatedCoordinates.length,
       movingCoordinateCount: movingCoordinates.length,
       prefixDepth: 2,
+      rootCoordinateCount: animatedCoordinates.length,
     });
     const targetCoordinates = new Float64Array(placementCount * 3);
     const targetMoveWeights = new Float32Array(
@@ -91,6 +92,7 @@ describe("recursive shuffle layers", () => {
         animatedCoordinateCount: animatedCoordinates.length,
         movingCoordinateCount: movingCoordinates.length,
         prefixDepth: 2,
+        rootCoordinateCount: animatedCoordinates.length,
       }),
     );
 
@@ -101,15 +103,19 @@ describe("recursive shuffle layers", () => {
         movingCoordinates,
         moveSlotCount: 1,
         prefixDepth: 2,
+        rootCoordinates: animatedCoordinates.map(({ coordinate }) => ({
+          coordinate,
+          moveSlot: null,
+        })),
         targetCoordinates,
         targetMoveWeights,
       }),
     ).toBe(4);
     expect([...targetCoordinates]).toEqual([1, 0.5, 0, 7, 6.5, 6, 19, 18.5, 18, 25, 24.5, 24]);
-    expect([...targetMoveWeights]).toEqual([1, 4, 10, 13]);
+    expect([...targetMoveWeights]).toEqual([1, 4, 1, 4]);
   });
 
-  it("keeps parallel recursive move weights separate", () => {
+  it("keeps parallel child move weights separate below settled roots", () => {
     const animatedCoordinates = [
       { coordinate: [0, 0, 0], moveSlot: 0 },
       { coordinate: [2, 2, 2], moveSlot: 1 },
@@ -122,6 +128,7 @@ describe("recursive shuffle layers", () => {
       animatedCoordinateCount: animatedCoordinates.length,
       movingCoordinateCount: movingCoordinates.length,
       prefixDepth: 1,
+      rootCoordinateCount: animatedCoordinates.length,
     });
     const targetCoordinates = new Float64Array(placementCount * 3);
     const targetMoveWeights = new Float32Array(placementCount * 2);
@@ -133,15 +140,43 @@ describe("recursive shuffle layers", () => {
         movingCoordinates,
         moveSlotCount: 2,
         prefixDepth: 1,
+        rootCoordinates: animatedCoordinates.map(({ coordinate }) => ({
+          coordinate,
+          moveSlot: null,
+        })),
         targetCoordinates,
         targetMoveWeights,
       }),
     ).toBe(4);
     expect([...targetCoordinates]).toEqual([1, 0.5, 0, 2, 1.5, 2, 7, 6.5, 6, 8, 7.5, 8]);
-    expect([...targetMoveWeights]).toEqual([4, 0, 3, 1, 1, 3, 0, 4]);
+    expect([...targetMoveWeights]).toEqual([1, 0, 0, 1, 1, 0, 0, 1]);
   });
 
-  it("keeps one Menger move at every scale through depth five", () => {
+  it("passes a moving parent weight to its recursive descendants", () => {
+    const animatedCoordinates = [
+      { coordinate: [0, 0, 0], moveSlot: null },
+      { coordinate: [2, 2, 2], moveSlot: 0 },
+    ] as const;
+    const movingCoordinates = [{ coordinate: [1, 0.5, 0], moveSlot: 0 }] as const;
+    const targetCoordinates = new Float64Array(4 * 3);
+    const targetMoveWeights = new Float32Array(4);
+
+    expect(
+      writeLogoRecursiveShuffleLayerCoordinates({
+        animatedCoordinates,
+        baseGridSize: 3,
+        movingCoordinates,
+        moveSlotCount: 1,
+        prefixDepth: 2,
+        rootCoordinates: animatedCoordinates,
+        targetCoordinates,
+        targetMoveWeights,
+      }),
+    ).toBe(4);
+    expect([...targetMoveWeights]).toEqual([1, 4, 10, 13]);
+  });
+
+  it("splits each recursive move between settled roots and its moving parent", () => {
     const expectedLayerCounts = {
       2: [1, 20],
       3: [1, 20, 400],
@@ -150,13 +185,25 @@ describe("recursive shuffle layers", () => {
     } as const;
 
     for (const [depth, expectedCounts] of Object.entries(expectedLayerCounts)) {
-      const actualCounts = Array.from({ length: Number(depth) }, (_, prefixDepth) =>
-        getLogoRecursiveShuffleLayerPlacementCount({
-          animatedCoordinateCount: 20,
-          movingCoordinateCount: 1,
-          prefixDepth,
+      const actualCounts = [
+        1,
+        ...Array.from({ length: Number(depth) - 1 }, (_, index) => {
+          const prefixDepth = index + 1;
+          const settledPlacementCount = getLogoRecursiveShuffleLayerPlacementCount({
+            animatedCoordinateCount: 20,
+            movingCoordinateCount: 1,
+            prefixDepth,
+            rootCoordinateCount: 19,
+          });
+          const parentedPlacementCount = getLogoRecursiveShuffleLayerPlacementCount({
+            animatedCoordinateCount: 20,
+            movingCoordinateCount: 1,
+            prefixDepth: prefixDepth - 1,
+            rootCoordinateCount: 20,
+          });
+          return settledPlacementCount + parentedPlacementCount;
         }),
-      );
+      ];
       const visibleLeafCount =
         19 ** Number(depth) +
         actualCounts.reduce(
