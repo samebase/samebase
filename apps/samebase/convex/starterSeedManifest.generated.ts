@@ -13,10 +13,10 @@ export type StarterTemplateManifest = {
 };
 
 export const starterTemplateManifest: StarterTemplateManifest = {
-  version: "samebase-app-fc8b0d0eb541",
+  version: "samebase-app-a2e668005306",
   sourceRepo: "https://github.com/samebase/app.git",
-  sourceBranch: "codex-generated-app-node-typecheck",
-  sourceCommit: "fc8b0d0eb54125ad697ce1b4dd4a8ba1be04f3a6",
+  sourceBranch: "main",
+  sourceCommit: "a2e668005306c0c9e2f9a9ea1a5a9e383494b5b8",
   contentHash: "46e18f59485eba1b564283f33eb1efa0c371cfaa40710648579b204fc077bfce",
   commitMessage: "chore: seed starter template",
   files: {

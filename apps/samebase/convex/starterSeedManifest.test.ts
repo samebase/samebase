@@ -5,7 +5,7 @@ describe("starterSeedManifest", () => {
   it("contains a single template snapshot contract", () => {
     expect(starterTemplateManifest.version).toMatch(/^samebase-app-[0-9a-f]{12}$/);
     expect(starterTemplateManifest.sourceRepo).toBe("https://github.com/samebase/app.git");
-    expect(starterTemplateManifest.sourceBranch).toBe("codex-generated-app-node-typecheck");
+    expect(starterTemplateManifest.sourceBranch).toBe("main");
     expect(starterTemplateManifest.sourceCommit).toMatch(/^[0-9a-f]{40}$/);
     expect(starterTemplateManifest.contentHash).toMatch(/^[0-9a-f]{64}$/);
     expect(starterTemplateManifest.commitMessage).toBe("chore: seed starter template");
