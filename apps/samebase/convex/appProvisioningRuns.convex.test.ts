@@ -1,12 +1,24 @@
+/// <reference types="vite/client" />
+
+import { convexTest } from "convex-test";
 import { describe, expect, it } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
+import schema from "./schema";
+
+const modules = import.meta.glob([
+  "./**/*.ts",
+  "./_generated/*.js",
+  "!./**/*.test.ts",
+  "!./**/*.convex.test.ts",
+  "!./**/*.generated.ts",
+  "!./test.setup.ts",
+]);
 
 type RetryBlocker = "none" | "active_managed_lock" | "manual_write" | "deletion";
 
-async function createRetryFixture(blocker: RetryBlocker) {
-  const t = makeConvexTest();
+async function createRetryFixture(blocker: RetryBlocker, t = makeConvexTest()) {
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       name: "Ada",
@@ -117,7 +129,7 @@ async function createRetryFixture(blocker: RetryBlocker) {
         blocker satisfies never;
     }
 
-    return { userId, vaultId };
+    return { failedRunId, userId, vaultId };
   });
 
   return { ids, t };
@@ -168,9 +180,43 @@ describe("app provisioning retry admission", () => {
       return { queuedRuns, writeLock };
     });
     expect(admitted.queuedRuns).toHaveLength(1);
+    expect(admitted.queuedRuns[0]).toMatchObject({
+      workflowId: expect.any(String),
+    });
     expect(admitted.writeLock).toMatchObject({
       owner: { kind: "managed_run", runId: admitted.queuedRuns[0]?._id },
       state: "active",
+    });
+  });
+
+  it("rolls back retry admission when Workflow start fails", async () => {
+    const { ids, t } = await createRetryFixture("none", convexTest(schema, modules));
+
+    await expect(
+      t.mutation(internal.appProvisioningRuns.createRetryForVault, {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+      }),
+    ).rejects.toThrow();
+
+    await expect(
+      t.run(async (ctx) => {
+        const runs = await ctx.db
+          .query("workflow_vaultProvisioning_runs")
+          .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", ids.vaultId))
+          .collect();
+        const lock = await ctx.db
+          .query("workflow_vaultProvisioning_writeLocks")
+          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+          .unique();
+        return { runs, lock };
+      }),
+    ).resolves.toMatchObject({
+      runs: [{ _id: ids.failedRunId, state: "failed" }],
+      lock: {
+        owner: { kind: "managed_run", runId: ids.failedRunId },
+        state: "failed",
+      },
     });
   });
 

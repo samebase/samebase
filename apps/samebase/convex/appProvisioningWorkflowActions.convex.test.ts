@@ -59,6 +59,7 @@ describe("app provisioning workflow actions", () => {
         ghRepoOwner: "ada",
         ghRepoName: "demo",
         visibility: "private",
+        description: null,
         convexProjectName: "ada-demo",
         convexTeamId: "convex-team",
         cloudflareAccountId: "cloudflare-account",

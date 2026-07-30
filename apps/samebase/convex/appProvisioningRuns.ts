@@ -10,6 +10,7 @@ import {
 } from "./appProvisioningModel";
 import { readVaultInfrastructureState } from "./vault/infrastructureOperation";
 import { assertConnectedVault } from "./vault/state";
+import { startVaultInfrastructureProvisioningWorkflow } from "./appProvisioningWorkflow";
 
 const { id, literal, string, union } = v;
 const MAX_EVENTS_TO_LINK_TO_VAULT = 20;
@@ -100,10 +101,11 @@ export const createRetryForVault = internalMutation({
     }
 
     const now = Date.now();
+    const repositoryFullName = `${connectedVault.owner}/${connectedVault.name}`;
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId: args.userId,
       vaultId: args.vaultId,
-      repositoryFullName: `${connectedVault.owner}/${connectedVault.name}`,
+      repositoryFullName,
       trigger: "retry",
       state: "queued",
       currentStep: "run_created",
@@ -119,6 +121,26 @@ export const createRetryForVault = internalMutation({
       state: "active",
       lastWriteAt: failedWrite.lastWriteAt,
       updatedAt: now,
+    });
+    const workflowId = await startVaultInfrastructureProvisioningWorkflow(ctx, {
+      vaultId: args.vaultId,
+      runId,
+    });
+    const queuedAt = Date.now();
+    await ctx.db.patch(runId, {
+      workflowId,
+      currentStep: "claim_infra",
+      updatedAt: queuedAt,
+    });
+    await ctx.db.insert("workflow_vaultProvisioning_events", {
+      userId: args.userId,
+      vaultId: args.vaultId,
+      repositoryFullName,
+      runId,
+      step: "claim_infra",
+      level: "info",
+      message: "Queued infrastructure provisioning.",
+      createdAt: queuedAt,
     });
     return runId;
   },

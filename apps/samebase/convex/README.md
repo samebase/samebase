@@ -35,7 +35,7 @@ billing, and infrastructure provisioning.
 
 ### Infrastructure Provisioning
 
-- Entrypoint: `internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning`
+- Retry admission: `internal.appProvisioningRuns.createRetryForVault`
 - State tracking: `workflow_vaultProvisioning_plans`, `workflow_vaultProvisioning_writeLocks`,
   `vaultConvexProjects`, and `vaultCloudflareWorkers`
 - Retry path: `api.vault.actions.retryInfrastructureProvisioning`

@@ -33,18 +33,21 @@ Vault creation succeeds even if downstream provisioning partially fails.
 ## Important Behavior
 
 - `api.vault.actions.createRepository` (new samebase-managed repo) requires a selected GitHub
-  user/org owner. The first transaction inserts the initializing vault, the create run, and the
-  active managed provider lock. The Workflow validates provider connections and starts provider
-  provisioning after source setup succeeds.
+  user/org owner. One admission transaction inserts the initializing vault, the create run, the
+  active managed provider lock, and the provisioning plan, then starts the Workflow and stores its
+  ID. A Workflow start failure rolls back all admission writes. The Workflow validates provider
+  connections and starts provider provisioning after source setup succeeds.
 - `api.vault.actions.connectRepository` (existing GitHub repo connection) does **not**
   auto-provision infra. Its `connect_existing_repository` run is source-only and never owns the
   provider lock.
 - Existing GitHub vaults can attach or create Convex resources later through the manual Convex
   deployment connection flow in `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`.
-- `api.vault.actions.retryInfrastructureProvisioning` creates the retry run and its active managed
-  provider lock in one transaction, then restarts the composed block sequence for a failed
-  Samebase-managed create flow. Manual provider setup failures still reopen the matching provider
-  connection dialog instead of running the managed infrastructure retry.
+- `api.vault.actions.retryInfrastructureProvisioning` uses one admission transaction to create the
+  retry run, replace the failed managed lock with its active owner, start the Workflow, and store
+  its ID. A Workflow start failure rolls back the new run and lock change. The Workflow restarts the
+  composed block sequence for a failed Samebase-managed create flow. Manual provider setup failures
+  still reopen the matching provider connection dialog instead of running the managed infrastructure
+  retry.
 
 ## Source of Truth Files
 
@@ -341,7 +344,8 @@ Repository default branch:
 
 ### Internal
 
-- `appProvisioningWorkflow.startVaultInfrastructureProvisioning({ vaultId, runId })`
+- `appProvisioningRuns.createRetryForVault({ userId, vaultId })`
+- `vault/records.createInitializingSamebaseManagedVaultForUser(...)`
 - `appProvisioningWorkflow.provisionVaultInfrastructure({ vaultId, runId })`
 - `appProvisioningWorkflow.provisionApp(...)`
 - `vault/convex.ensureConvexProjectConnection(...)`

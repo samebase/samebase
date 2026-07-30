@@ -245,29 +245,6 @@ async function markProvisioningStartupFailed(
   }
 }
 
-async function startVaultInfrastructureProvisioningOrFail(
-  ctx: Pick<ActionCtx, "runMutation">,
-  args: {
-    vaultId: Id<"vaults">;
-    runId: Id<"workflow_vaultProvisioning_runs">;
-  },
-): Promise<void> {
-  try {
-    await ctx.runMutation(
-      internal.appProvisioningWorkflow.startVaultInfrastructureProvisioning,
-      args,
-    );
-  } catch (error) {
-    await markProvisioningStartupFailed(ctx, {
-      runId: args.runId,
-      vaultId: args.vaultId,
-      logName: "vault:provisioning_start_failure_mark_failed",
-      error,
-    });
-    throw error;
-  }
-}
-
 async function markDeletionStartupFailed(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
@@ -311,31 +288,6 @@ async function startVaultDeletionOrFail(
       runId: args.runId,
       vaultId: args.vaultId,
       logName: "vault:delete:workflow_start_failure_mark_failed",
-      error,
-    });
-    throw error;
-  }
-}
-
-async function startCreateAppProvisioningOrFail(
-  ctx: Pick<ActionCtx, "runMutation">,
-  args: {
-    vaultId: Id<"vaults">;
-    runId: Id<"workflow_vaultProvisioning_runs">;
-    userId: Id<"users">;
-    repositoryName: string;
-    repositoryOwner: string;
-    description: string | null;
-    private: boolean;
-  },
-): Promise<void> {
-  try {
-    await ctx.runMutation(internal.appProvisioningWorkflow.startCreateAppProvisioning, args);
-  } catch (error) {
-    await markProvisioningStartupFailed(ctx, {
-      runId: args.runId,
-      vaultId: args.vaultId,
-      logName: "vault:create:provisioning_start_failure_mark_failed",
       error,
     });
     throw error;
@@ -842,21 +794,13 @@ export async function createAppForUser(
       ghRepoOwner,
       ghRepoName: repoName,
       visibility,
+      description: args.description ?? null,
       convexProjectName: convexNameValidation.value,
       convexTeamId: convexConnection.convexTeamId,
       cloudflareAccountId: cloudflareConnection.cloudflareAccountId,
       cloudflareWorkerName: cloudflareNameValidation.value,
     },
   );
-  await startCreateAppProvisioningOrFail(ctx, {
-    vaultId,
-    runId,
-    userId: args.userId,
-    repositoryName: repoName,
-    repositoryOwner: ghRepoOwner,
-    description: args.description ?? null,
-    private: args.private ?? true,
-  });
 
   return { vaultId, runId };
 }
@@ -914,13 +858,9 @@ export async function retryInfrastructureProvisioningForUser(
   if (!isLiveConnectedVault(vault) || !isSamebaseManagedVault(vault)) {
     throw new Error("Infrastructure retry is available only for live Samebase-managed vaults");
   }
-  const runId = await ctx.runMutation(internal.appProvisioningRuns.createRetryForVault, {
+  await ctx.runMutation(internal.appProvisioningRuns.createRetryForVault, {
     userId,
     vaultId: args.vaultId,
-  });
-  await startVaultInfrastructureProvisioningOrFail(ctx, {
-    vaultId: args.vaultId,
-    runId,
   });
 
   return null;

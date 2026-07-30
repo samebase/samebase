@@ -7,6 +7,7 @@ import {
   type QueryCtx,
 } from "../_generated/server";
 import { query } from "../functions";
+import { startCreateAppProvisioningWorkflow } from "../appProvisioningWorkflow";
 import {
   parseRepositoryFullName,
   vGitHubRepositoryVisibility,
@@ -17,7 +18,7 @@ import { isConnectedVault, isLiveConnectedVault, isSamebaseManagedVault } from "
 import { isVaultDeletingOrDeleteFailed } from "./deletion/state";
 
 const nullValidator = v.null();
-const { array, boolean, id, object, optional, string } = v;
+const { array, boolean, id, object, optional, string, union } = v;
 
 type ProvisioningVault = Extract<Doc<"vaults">, { state: "provisioning" }>;
 
@@ -291,6 +292,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     ghRepoOwner: string(),
     ghRepoName: string(),
     visibility: vGitHubRepositoryVisibility,
+    description: union(string(), nullValidator),
     convexProjectName: string(),
     convexTeamId: string(),
     cloudflareAccountId: string(),
@@ -396,6 +398,31 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       },
       createdAt: now,
       updatedAt: now,
+    });
+    const workflowId = await startCreateAppProvisioningWorkflow(ctx, {
+      vaultId,
+      runId,
+      userId: args.userId,
+      repositoryName: name,
+      repositoryOwner: owner,
+      description: args.description,
+      private: args.visibility === "private",
+    });
+    const queuedAt = Date.now();
+    await ctx.db.patch(runId, {
+      workflowId,
+      currentStep: "validate_connections",
+      updatedAt: queuedAt,
+    });
+    await ctx.db.insert("workflow_vaultProvisioning_events", {
+      userId: args.userId,
+      vaultId,
+      repositoryFullName,
+      runId,
+      step: "validate_connections",
+      level: "info",
+      message: "Queued app provisioning.",
+      createdAt: queuedAt,
     });
     return { vaultId, runId };
   },

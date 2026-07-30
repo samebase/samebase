@@ -582,6 +582,7 @@ describe("vault dashboard Convex contract", () => {
         ghRepoOwner: "ada",
         ghRepoName: "early-vault",
         visibility: "private",
+        description: null,
         convexProjectName: "early-vault",
         convexTeamId: "convex-team",
         cloudflareAccountId: "cloudflare-account",
@@ -607,7 +608,8 @@ describe("vault dashboard Convex contract", () => {
     });
     expect(result.run).toMatchObject({
       vaultId: ids.vaultId,
-      currentStep: "run_created",
+      workflowId: expect.any(String),
+      currentStep: "validate_connections",
       state: "queued",
     });
     expect(result.events).toMatchObject([
@@ -616,6 +618,12 @@ describe("vault dashboard Convex contract", () => {
         runId: ids.runId,
         step: "initialize_vault",
         message: "Created the initializing Samebase vault.",
+      },
+      {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+        step: "validate_connections",
+        message: "Queued app provisioning.",
       },
     ]);
   });
