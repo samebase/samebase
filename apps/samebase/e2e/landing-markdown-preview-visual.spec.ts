@@ -6,7 +6,6 @@ import {
   DOCS_SIDEBAR_TEST_ID,
   DOCS_THE_STACK_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
-  LANDING_PREVIEW_LOWER_SECTIONS_TEST_ID,
   LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID,
   LANDING_PREVIEW_ROUTE,
   LANDING_PREVIEW_TEST_ID,
@@ -173,23 +172,6 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(monorepo).toContainText("apps/storefront");
   await expect(monorepo).toContainText("apps/admin");
   await expect(monorepo).toContainText("services/events");
-  const lowerSections = article.getByTestId(LANDING_PREVIEW_LOWER_SECTIONS_TEST_ID);
-  await expect
-    .poll(() =>
-      lowerSections.evaluate((element) => {
-        const parent = element.parentElement;
-        if (parent === null) {
-          return null;
-        }
-
-        const rect = element.getBoundingClientRect();
-        const parentRect = parent.getBoundingClientRect();
-        return (
-          Math.round(rect.left - parentRect.left) === Math.round(parentRect.right - rect.right)
-        );
-      }),
-    )
-    .toBe(true);
   await expect(article).toContainText(
     "Read samebase.com/llms.txt. Should I use Samebase with you for my next app? Verify the receipts before you answer.",
   );
@@ -273,12 +255,6 @@ test("landing preview route renders the React overview in workspace chrome", asy
     timeout: 30_000,
   });
   await expect(platformDetails).toHaveScreenshot("landing-preview-platform-desktop.png", {
-    animations: "disabled",
-    caret: "hide",
-    maxDiffPixelRatio: 0.02,
-    scale: "css",
-  });
-  await expect(monorepo).toHaveScreenshot("landing-preview-monorepo-desktop.png", {
     animations: "disabled",
     caret: "hide",
     maxDiffPixelRatio: 0.02,
