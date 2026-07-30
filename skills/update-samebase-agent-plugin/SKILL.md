@@ -26,7 +26,10 @@ not copy tool schemas or general coding instructions into the skill.
 
 1. Take only the eight `user_prompt` values from `chatgpt-app-submission.json`.
 2. Start a fresh agent with no prior discussion. Give it the public skill, live tool descriptions,
-   and one prompt at a time. Do not give expected tools, expected outputs, or prior findings.
+   and one prompt at a time. Freeze one identical input bundle for every prompt. If the bundle uses
+   file paths, allow read-only file commands and prohibit only external or state-changing calls. Do
+   not give expected tools, expected outputs, or prior findings. Discard a run when the subject
+   could not read the input bundle.
 3. Start with the smallest available agent. Run all eight prompts.
 4. Run all eight prompts again with a different, stronger agent before release.
 5. For a prompt that can change live state, ask for the intended tool sequence unless the user
@@ -41,6 +44,14 @@ not copy tool schemas or general coding instructions into the skill.
 ## Last full run
 
 - Date: 2026-07-30
-- Artifact commit: `990cbc22`
+- Artifact commit: `54e1d2e6`
 - Models: GPT-5.6 Terra low and GPT-5.6 Sol low
 - Result: all five positive cases and all three negative cases passed
+
+## Last focused stack-alignment run
+
+- Date: 2026-07-30
+- Artifact commit: `54e1d2e6`
+- Models: GPT-5.6 Terra low and GPT-5.6 Sol low
+- Result: both models selected Node 24, package `type: module`, directly executed `.ts` automation,
+  normal type-check coverage, and the real Cloudflare build path
