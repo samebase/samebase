@@ -129,7 +129,7 @@ describe("LandingPreviewPage", () => {
       'href="https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/What_is_a_progressive_web_app"',
     );
     expect(markup).toContain(
-      "from the start. The same web app works well on desktop, iPhone, Android, and in the Codex browser. I test it myself in each environment.",
+      "from the start. The same web app works well on desktop, iPhone, Android, and in the Codex browser.",
     );
 
     // The monorepo example stays focused on repository paths.

@@ -197,7 +197,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
   const platformDetails = article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID);
   await expect(platformDetails).toContainText("macOS · Linux · Windows");
   await expect(platformDetails).toContainText(
-    "Samebase has been one PWA from the start. The same web app works well on desktop, iPhone, Android, and in the Codex browser. I test it myself in each environment.",
+    "Samebase has been one PWA from the start. The same web app works well on desktop, iPhone, Android, and in the Codex browser.",
   );
   await expect(platformDetails.getByRole("link", { exact: true, name: "PWA" })).toHaveAttribute(
     "href",

@@ -594,7 +594,7 @@ function LandingPreviewOverview() {
                   PWA
                 </LandingReceiptLink>{" "}
                 from the start. The same web app works well on desktop, iPhone, Android, and in the
-                Codex browser. I test it myself in each environment.
+                Codex browser.
               </p>
             </div>
           </div>
