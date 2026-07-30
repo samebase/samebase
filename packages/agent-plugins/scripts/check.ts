@@ -78,9 +78,34 @@ const samebaseSkill = readFileSync(resolve(skillsRoot, "samebase/SKILL.md"), "ut
 );
 check(
   samebaseSkill.includes(
-    'For stack-alignment work, first compare the target repository with the current generated-app contract: Node 24, package `"type": "module"`, and normal `.ts` files for handwritten Node automation run directly by Node. Type-check that automation in normal checks and the real build. Record each intentional difference before implementation.',
+    "For stack-alignment work, compare the target with the generated app and, when accessible, current Samebase package scripts, configuration, dependencies, lock file, CI, and provider commands before edits.",
   ),
-  "The Samebase skill must route stack-alignment work through the generated-app contract.",
+  "The Samebase skill must compare the target, Samebase, and the generated app before edits.",
+);
+for (const requiredToolchainGroup of [
+  "runtime and package manager",
+  "command surface",
+  "lint and format rules",
+  "tests and type checks",
+  "framework and deploy adapters",
+  "shared version pins",
+]) {
+  check(
+    samebaseSkill.includes(requiredToolchainGroup),
+    `The Samebase skill stack-alignment contract must include ${requiredToolchainGroup}.`,
+  );
+}
+check(
+  samebaseSkill.includes(
+    "If private Samebase source is unavailable, record that gap and use the portable baseline: Node 24, ESM, TypeScript automation, Vite+ dev, build, and tests, Oxlint and Oxfmt through Vite+, explicit type checks, and the real provider build path.",
+  ),
+  "The Samebase skill must provide the portable stack baseline when private source is unavailable.",
+);
+check(
+  samebaseSkill.includes(
+    "Classify every difference as alignment, a proven target constraint, an investigation, or one exact tested exception before implementation.",
+  ),
+  "The Samebase skill must classify every toolchain difference before implementation.",
 );
 const scopeGateIndex = samebaseSkill.indexOf(
   "Do not use Samebase for unrelated Git work or standalone provider resources. A standalone Cloudflare Worker means no Samebase.",

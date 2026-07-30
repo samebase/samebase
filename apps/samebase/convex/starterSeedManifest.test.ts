@@ -20,8 +20,6 @@ describe("starterSeedManifest", () => {
     expect(filePaths).toContain(".node-version");
     expect(filePaths).toContain("wrangler.jsonc");
     expect(filePaths).toContain("scripts/build-cloudflare.ts");
-    expect(filePaths).toContain("scripts/check-typescript-sources.test.ts");
-    expect(filePaths).toContain("scripts/check-typescript-sources.ts");
     expect(filePaths).toContain("scripts/cloudflare-prerender-pages.ts");
     expect(filePaths).toContain("scripts/deploy-cloudflare.ts");
     expect(filePaths).toContain("scripts/ensure-convex-auth.ts");
@@ -44,32 +42,51 @@ describe("starterSeedManifest", () => {
     expect(allFilePaths.length).toBeGreaterThan(10);
   });
 
-  it("type-checks handwritten Node automation in normal checks and Cloudflare builds", () => {
-    const scriptFiles = Object.keys(starterTemplateManifest.files).filter((filePath) =>
-      filePath.startsWith("scripts/"),
-    );
+  it("keeps one Vite+ toolchain and explicit TypeScript projects in normal checks and builds", () => {
     const packageJson: unknown = JSON.parse(starterTemplateManifest.files["package.json"]);
     const nodeTypeScriptConfig: unknown = JSON.parse(
       starterTemplateManifest.files["tsconfig.node.json"],
     );
+    const buildCloudflareScript = starterTemplateManifest.files["scripts/build-cloudflare.ts"];
 
     expect(starterTemplateManifest.files[".node-version"]).toBe("24\n");
     expect(packageJson).toEqual(
       expect.objectContaining({
         type: "module",
         scripts: expect.objectContaining({
-          check:
-            "tsc && pnpm run check:typescript-sources && pnpm run typecheck:node && tsc --project convex/tsconfig.json && pnpm run verify:cloudflare-redirects",
+          check: "vp check && vp run typecheck && vp test && vp run verify:cloudflare-redirects",
           build: "vp run build:cloudflare",
-          "build:cloudflare":
-            "pnpm run check:typescript-sources && pnpm run typecheck:node && node ./scripts/build-cloudflare.ts",
-          "check:typescript-sources": "node ./scripts/check-typescript-sources.ts",
+          "build:app": "vp run check && vp build",
+          "build:cloudflare": "node ./scripts/build-cloudflare.ts",
+          format: "vp fmt",
+          "format:check": "vp fmt --check",
+          lint: "vp lint --report-unused-disable-directives",
+          test: "vp test",
+          typecheck: "tsc && vp run typecheck:node && tsc --project convex/tsconfig.json",
           "typecheck:node": "tsc --project tsconfig.node.json",
+          "verify:cloudflare-redirects":
+            "vp run generate:cloudflare-redirects && git diff --exit-code -- public/_redirects",
         }),
+        devDependencies: expect.objectContaining({
+          vite: "npm:@voidzero-dev/vite-plus-core@0.1.24",
+          "vite-plus": "0.1.24",
+          vitest: "npm:@voidzero-dev/vite-plus-test@0.1.24",
+        }),
+        packageManager: "pnpm@11.1.1",
+        pnpm: {
+          overrides: {
+            vite: "npm:@voidzero-dev/vite-plus-core@0.1.24",
+            vitest: "npm:@voidzero-dev/vite-plus-test@0.1.24",
+          },
+        },
       }),
     );
-    expect(scriptFiles.length).toBeGreaterThan(0);
-    expect(scriptFiles.every((filePath) => filePath.endsWith(".ts"))).toBe(true);
+    expect(starterTemplateManifest.files["package.json"]).not.toContain('"eslint"');
+    expect(starterTemplateManifest.files["package.json"]).not.toContain('"prettier"');
+    expect(buildCloudflareScript).toContain(
+      'const WORKERS_BUILD_COMMAND = "vp run build:app && node ./scripts/verify-current-branch-head.ts";',
+    );
+    expect(buildCloudflareScript).toContain('await run("vp", ["run", "build:app"]);');
     expect(nodeTypeScriptConfig).toEqual({
       compilerOptions: {
         target: "ESNext",

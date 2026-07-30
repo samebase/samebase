@@ -22,10 +22,9 @@ Before writing code:
    - convex
    - scripts
    - docs/logos
-3. Compare Samebase and the generated artifact toolchain pins. Keep Node, pnpm,
-   Wrangler, Convex, Vite+, TanStack Start, TypeScript, React, and related
-   shared deploy tooling aligned unless the plan explicitly explains a temporary
-   divergence.
+3. Run the complete toolchain comparison in the Toolchain Alignment section of
+   docs/artifacts/samebase-app/README.md. Classify every difference between Samebase,
+   the generated artifact, and the target before implementation.
 4. Produce a feature-parity checklist for the final app. Include small visible
    details like the QR share block.
 5. Produce a numbered commit plan that mirrors REPO_HISTORY.md style.

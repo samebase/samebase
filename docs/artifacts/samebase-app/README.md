@@ -200,17 +200,40 @@ The current Cloudflare Workers Git install trace lives in
 
 ## Toolchain Alignment
 
-Treat the generated app artifact and the Samebase app as one shared stack surface. When either side
-changes runtime or package-manager versions, update the other side deliberately instead of letting
-them drift.
+Use the current Samebase app as the first comparison baseline, not an unquestioned source. Findings
+from a target project or the generated app can justify changing Samebase when they produce a better
+shared contract. Never use the generated app alone as proof that a tool choice is current until it
+has been compared with Samebase and the target.
 
-Keep these aligned by default:
+Vite+ owns the shared dev, build, test, lint, and format command surface. Use `vp` entrypoints.
+Oxlint and Oxfmt are the linter and formatter behind those commands. Do not add a direct ESLint,
+Prettier, or Vitest runner when Vite+ carries the required behavior. ESLint-compatible plugins and
+`eslint-disable` comments are valid when Oxlint executes and validates them.
 
-- Node version pins such as `.node-version`, `NODE_VERSION`, or CI build image settings.
-- Package manager pins such as `packageManager`, pnpm versions, and build image `PNPM_VERSION`
-  settings.
-- Core deploy tooling such as Wrangler, Convex CLI/runtime packages, Vite+, TanStack Start,
-  TypeScript, and React versions when they are part of the shared app/deploy story.
+Authored application, automation, test, and supported configuration source uses normal `.ts` or
+`.tsx`. Treat an authored `.js`, `.mjs`, or `.cjs` file as a review smell. Keep one only when a
+named tool or runtime cannot use TypeScript, and document that exact boundary. Do not add a
+repository scanner only to enforce this review decision.
+
+Specialized packages can keep product-specific commands when Vite+ cannot replace them. Remotion
+Studio, bundle, and render commands are one current exception. Remotion lint and format still use
+the root Vite+ contract.
+
+Before implementation, compare Samebase, the generated app, and the target project across this
+manager matrix:
+
+- package manager, lock file, and workspace model
+- Node version, module type, source language, and import rules
+- public package scripts and every CI, provider, documentation, or automation caller
+- dev server, bundler, framework, CSS toolchain, and deployment adapter
+- linter, formatter, test runner, test projects, type checker, and code generation
+- Cloudflare, Convex, GitHub, and other provider commands
+- core version pins, including Wrangler, Convex, Vite+, TanStack Start, TypeScript, and React
+
+Classify each difference before implementation. Adopt the Samebase practice, keep a proven target
+constraint, investigate the difference, or keep one exact tested exception. Do not start while a
+matrix row is unclassified. Run the same comparison again against the final package scripts,
+configuration, dependencies, lock file, CI, and provider commands.
 
 This is a manual invariant for now. Do not introduce an automation script until the migration shape
 is stable enough that the check is clearly worth owning.

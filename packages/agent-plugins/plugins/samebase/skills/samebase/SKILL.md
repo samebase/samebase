@@ -69,10 +69,21 @@ setup commands, lockfile, generated-file policy, and validation commands before 
 setup and code generation steps. Validate the final source. Commit or push only when the user asks
 to publish.
 
-For stack-alignment work, first compare the target repository with the current generated-app
-contract: Node 24, package `"type": "module"`, and normal `.ts` files for handwritten Node
-automation run directly by Node. Type-check that automation in normal checks and the real build.
-Record each intentional difference before implementation.
+For stack-alignment work, compare the target with the generated app and, when accessible, current
+Samebase package scripts, configuration, dependencies, lock file, CI, and provider commands before
+edits. If private Samebase source is unavailable, record that gap and use the portable baseline:
+Node 24, ESM, TypeScript automation, Vite+ dev, build, and tests, Oxlint and Oxfmt through Vite+,
+explicit type checks, and the real provider build path. Cover the runtime and package manager,
+command surface, lint and format rules, tests and type checks, framework and deploy adapters, and
+shared version pins. Classify every difference as alignment, a proven target constraint, an
+investigation, or one exact tested exception before implementation. Samebase is the first baseline,
+not an unquestioned authority. Carry target and generated-app findings back when they improve the
+shared contract.
+
+Treat authored `.js`, `.mjs`, and `.cjs` files and direct ESLint, Prettier, Vitest, or Vite runners
+as review smells. Keep an exception only for one named tool or runtime boundary that cannot use the
+normal TypeScript and Vite+ path. Document the boundary. Do not add a repository scanner only to
+enforce a source extension or selected tool name.
 
 ## Use the correct control surface
 
