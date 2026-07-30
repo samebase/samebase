@@ -108,14 +108,6 @@ describe("MCP tool listing access", () => {
       }),
     ).toEqual([
       expect.objectContaining({
-        name: "samebase_auth_getAuthenticationStatus",
-        annotations: {
-          readOnlyHint: false,
-          openWorldHint: false,
-          destructiveHint: false,
-        },
-      }),
-      expect.objectContaining({
         name: "vault_dashboard_getUserVaults",
         annotations: {
           readOnlyHint: false,
@@ -193,6 +185,14 @@ describe("MCP tool listing access", () => {
           readOnlyHint: false,
           openWorldHint: true,
           destructiveHint: true,
+        },
+      }),
+      expect.objectContaining({
+        name: "samebase_auth_getAuthenticationStatus",
+        annotations: {
+          readOnlyHint: false,
+          openWorldHint: false,
+          destructiveHint: false,
         },
       }),
     ]);

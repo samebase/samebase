@@ -256,21 +256,6 @@ async function callCreateBrowserHandoffMcpTool(ctx: ActionCtx, invocation: McpTo
 
 const mcpToolCatalog = [
   {
-    access: getAuthenticationStatusContract.access,
-    title: getAuthenticationStatusContract.mcp.title,
-    name: getAuthenticationStatusContract.mcp.name,
-    description: getAuthenticationStatusContract.mcp.description,
-    annotations: getAuthenticationStatusContract.mcp.annotations,
-    inputSchema: convexArgsToToolInputSchema(
-      getAuthenticationStatusContract.args,
-      getAuthenticationStatusContract.mcp.inputDescriptions,
-    ),
-    outputSchema: convexValidatorToToolOutputSchema(
-      getAuthenticationStatusContract.structuredContent,
-    ),
-    call: callGetAuthenticationStatusMcpTool,
-  },
-  {
     access: getUserVaultsContract.access,
     title: getUserVaultsContract.mcp.title,
     name: getUserVaultsContract.mcp.name,
@@ -433,6 +418,21 @@ const mcpToolCatalog = [
     ),
     outputSchema: convexValidatorToToolOutputSchema(createBrowserHandoffContract.structuredContent),
     call: callCreateBrowserHandoffMcpTool,
+  },
+  {
+    access: getAuthenticationStatusContract.access,
+    title: getAuthenticationStatusContract.mcp.title,
+    name: getAuthenticationStatusContract.mcp.name,
+    description: getAuthenticationStatusContract.mcp.description,
+    annotations: getAuthenticationStatusContract.mcp.annotations,
+    inputSchema: convexArgsToToolInputSchema(
+      getAuthenticationStatusContract.args,
+      getAuthenticationStatusContract.mcp.inputDescriptions,
+    ),
+    outputSchema: convexValidatorToToolOutputSchema(
+      getAuthenticationStatusContract.structuredContent,
+    ),
+    call: callGetAuthenticationStatusMcpTool,
   },
 ] as const;
 

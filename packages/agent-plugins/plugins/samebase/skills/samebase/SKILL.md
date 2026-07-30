@@ -15,9 +15,12 @@ Use Samebase for repository-backed apps and work that joins GitHub, Convex, and 
 Choose the route from the user request before you read live tool descriptions. Do not add preflight
 actions. Each action reports missing authentication itself.
 
-- For an app-inventory request, read the Samebase app inventory directly.
-- For a Cloudflare account-list request, read the Cloudflare account list directly.
-- For a dashboard request, create a browser handoff directly.
+- For an app-inventory request, call only the Samebase app inventory. Do not call authentication
+  status or browser handoff as a preflight.
+- For a Cloudflare account-list request, call only the Cloudflare account list. Do not call app
+  inventory, authentication status, or browser handoff as a preflight.
+- For a dashboard request, call only browser handoff. Do not call app inventory or authentication
+  status as a preflight.
 - Use authentication status only when the user asks about authentication or after an action reports
   missing authentication.
 - For a new app, use only this closed flow:
@@ -27,9 +30,9 @@ actions. Each action reports missing authentication itself.
   4. If source setup is ready, separately read only the inventory until provider setup is `ready` or
      `failed`. Authentication-status, browser-handoff, and provider-account reads are not part of
      this flow.
-- Do not use Samebase for ordinary unrelated Git work or standalone provider resources.
-- For a deletion request, direct the user to the Samebase dashboard. Do not call any tool for the
-  request, and do not delete attached resources with provider-native tools.
+- For ordinary unrelated Git work or standalone provider resources, do not call Samebase.
+- For a deletion request, direct the user to the Samebase dashboard. Do not call any Samebase or
+  provider tool, including app inventory and browser handoff, and do not delete attached resources.
 
 After you select the route, use live tool descriptions only for the exact tool name and arguments.
 Match an inventory `nextAction` to its action contract at

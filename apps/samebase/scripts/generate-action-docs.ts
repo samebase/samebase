@@ -266,6 +266,12 @@ repository automation is TypeScript run directly by Node 24, so it does not requ
 The dashboard gives humans one inventory of every repository they connect, its provider resources,
 derived locations, current state, direct provider coordinates, and provider or connection repair
 actions.
+Every Samebase action checks its own authentication. Authentication status is a diagnostic action,
+not a preflight.
+Inventory reports Samebase-owned workflow state and stable resource IDs. It coordinates explicit
+Samebase actions; it is not proof of live provider state. Use provider-native tools to verify
+current provider existence, configuration, deployment state, and logs unless an explicit Samebase
+action exposes that live read.
 Codex and Claude Code can install \`samebase@samebase\`, which packages the create or connect, local
 repository build, and Git-backed hosting workflows. Cursor and other MCP clients can call the same
 actions directly.
@@ -293,8 +299,7 @@ HTML pages. Action and operate docs are raw markdown only.
 ## Actions
 
 Every operational action has one contract, and these are the same actions the dashboard buttons run.
-Inventory reports live provider state and stable Samebase resource ids. Choose an explicit action
-whose contract matches the observed state and required ids, then reread inventory.
+Choose an explicit action whose contract matches the required stable IDs, then reread inventory.
 
 ${actionLines}
 
