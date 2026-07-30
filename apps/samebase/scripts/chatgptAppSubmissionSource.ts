@@ -188,7 +188,7 @@ export const testCases = [
     file_attachment_urls: null,
     tools_triggered: ["vault_dashboard_getUserVaults", "vault_actions_createRepository"],
     expected_output:
-      "Reads inventory before creation and creates one private repository-backed app. It uses the selected name for the app and its new provider resources. It polls until source setup is ready or failed. After source setup is ready, it also polls provider setup until ready or failed. It reports the repository and final states without treating the initial run IDs as completion.",
+      "Reads inventory, then creates one private repository-backed app without a provider-account preflight. It uses the selected name for the app and its new provider resources. It polls only inventory until source setup is ready or failed. After source setup is ready, it also polls only inventory until provider setup is ready or failed. It reports the repository and final states without treating the initial run IDs as completion.",
     expected_output_url: null,
   },
   {
@@ -223,13 +223,12 @@ export const negativeTestCases = [
     expected_output_url: null,
   },
   {
-    description:
-      "Do not trigger Samebase for direct provider administration outside managed app creation.",
+    description: "Do not trigger Samebase for a standalone provider resource.",
     user_prompt: "Create a standalone Cloudflare Worker for me.",
     file_attachment_urls: null,
     tools_triggered: null,
     expected_output:
-      "The app should not be invoked because direct Cloudflare administration is outside this MCP server's supported Samebase workflows.",
+      "Uses a provider-native Cloudflare workflow without invoking Samebase because a standalone Worker is not a repository-backed Samebase app or provider attachment.",
     expected_output_url: null,
   },
 ] as const satisfies SubmissionNegativeTestCases;

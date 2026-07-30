@@ -8,6 +8,14 @@ description:
 
 # Samebase
 
+## Scope gate
+
+- Samebase is only for repository-backed apps and explicit provider attachments.
+- Do not use Samebase for unrelated Git work or standalone provider resources. A standalone
+  Cloudflare Worker means no Samebase.
+- For a deletion request, direct the user to the Samebase dashboard. Do not call any Samebase or
+  provider tool, including app inventory and browser handoff, and do not delete attached resources.
+
 Use Samebase for repository-backed apps and work that joins GitHub, Convex, and Cloudflare.
 
 ## Route the request
@@ -29,10 +37,9 @@ actions. Each action reports missing authentication itself.
   3. Read only the inventory until source setup is `ready` or `failed`.
   4. If source setup is ready, separately read only the inventory until provider setup is `ready` or
      `failed`. Authentication-status, browser-handoff, and provider-account reads are not part of
-     this flow.
-- For ordinary unrelated Git work or standalone provider resources, do not call Samebase.
-- For a deletion request, direct the user to the Samebase dashboard. Do not call any Samebase or
-  provider tool, including app inventory and browser handoff, and do not delete attached resources.
+     this flow. The complete sequence contains only inventory, create, and inventory polls. Call
+     create directly after inventory. Do not list Cloudflare accounts first. Create has no
+     `accountId` and uses the connected Cloudflare provider.
 
 After you select the route, use live tool descriptions only for the exact tool name and arguments.
 Match an inventory `nextAction` to its action contract at

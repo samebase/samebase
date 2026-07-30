@@ -4,11 +4,13 @@
 
 MCP tool `vault_cloudflare_listAccounts` · scope `access_provider_connections` · write
 
-Discovery read for the manual Cloudflare attach flow: returns the accounts on the caller's connected
-Cloudflare login. Use the chosen `accountId` with `discover_cloudflare_workers`, then attach one or
-more verified results with `attach_cloudflare_workers`. Requires a Cloudflare provider connection;
-reads from Cloudflare's API. The only writes are Samebase's own connection bookkeeping (OAuth token
-refresh and token health) when the connection needs it.
+Discovery read only for the manual existing-Worker attach flow: returns the accounts on the caller's
+connected Cloudflare login. Use the chosen `accountId` with `discover_cloudflare_workers`, then
+attach one or more verified results with `attach_cloudflare_workers`. This action is not a preflight
+for `vault_actions_createRepository`. Managed app creation uses the connected Cloudflare provider
+and does not accept an `accountId`. Requires a Cloudflare provider connection; reads from
+Cloudflare's API. The only writes are Samebase's own connection bookkeeping (OAuth token refresh and
+token health) when the connection needs it.
 
 ## Arguments
 

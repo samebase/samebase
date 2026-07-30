@@ -82,5 +82,22 @@ check(
   ),
   "The Samebase skill must route stack-alignment work through the generated-app contract.",
 );
+const scopeGateIndex = samebaseSkill.indexOf(
+  "Do not use Samebase for unrelated Git work or standalone provider resources. A standalone Cloudflare Worker means no Samebase.",
+);
+const positiveRouteIndex = samebaseSkill.indexOf(
+  "For an app-inventory request, call only the Samebase app inventory.",
+);
+check(scopeGateIndex >= 0, "The Samebase skill must exclude unrelated and standalone work.");
+check(
+  positiveRouteIndex >= 0 && scopeGateIndex < positiveRouteIndex,
+  "The Samebase skill exclusions must precede its positive action routes.",
+);
+check(
+  samebaseSkill.includes(
+    "The complete sequence contains only inventory, create, and inventory polls. Call create directly after inventory. Do not list Cloudflare accounts first. Create has no `accountId` and uses the connected Cloudflare provider.",
+  ),
+  "The Samebase skill must keep managed app creation on its closed tool sequence.",
+);
 
 console.log("Agent plugin checks passed.");
