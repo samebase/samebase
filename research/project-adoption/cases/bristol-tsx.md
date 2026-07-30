@@ -435,6 +435,15 @@ The final linked-worktree checkpoint passed 49 Node contract checks, 118 Vitest 
 client and Worker build, the private bundle scan, TypeScript, lint with one existing warning, and
 the real two-cycle acceptance.
 
+Cloudflare build
+[9712e392-ea0d-4c55-99aa-b08ecda83441](https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/bristol-tsx/production/builds/9712e392-ea0d-4c55-99aa-b08ecda83441)
+built commit `aa98dcfcf3ab3a767e40bd5a1b623c337dc5c78a`. It uploaded non-promoted Worker version
+`f48bbcd4-6c21-44a7-b0ed-549f1a61fd28`, version number 32, with alias
+`codex-linked-worktree-development`. The
+[public branch URL](https://codex-linked-worktree-development-bristol-tsx.pfp.workers.dev) passed
+the route contract. The active deployment remains `77f95a21-bc06-42c4-ba50-1b5f0ad9966d` at 100
+percent on the prior OpenNext version `785ac1b3-71f7-4255-8af5-55be71b10d45`.
+
 Copied aliases `dev:primary`, `build:cloudflare`, and `start` were removed because they had no
 distinct Bristol behavior or caller. All `spike:*` scripts were removed after the target runtime
 became the main branch implementation.
