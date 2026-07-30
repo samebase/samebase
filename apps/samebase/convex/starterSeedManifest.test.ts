@@ -5,7 +5,7 @@ describe("starterSeedManifest", () => {
   it("contains a single template snapshot contract", () => {
     expect(starterTemplateManifest.version).toMatch(/^samebase-app-[0-9a-f]{12}$/);
     expect(starterTemplateManifest.sourceRepo).toBe("https://github.com/samebase/app.git");
-    expect(starterTemplateManifest.sourceBranch).toBe("main");
+    expect(starterTemplateManifest.sourceBranch).toBe("codex-generated-app-node-typecheck");
     expect(starterTemplateManifest.sourceCommit).toMatch(/^[0-9a-f]{40}$/);
     expect(starterTemplateManifest.contentHash).toMatch(/^[0-9a-f]{64}$/);
     expect(starterTemplateManifest.commitMessage).toBe("chore: seed starter template");
@@ -24,6 +24,7 @@ describe("starterSeedManifest", () => {
     expect(filePaths).toContain("scripts/deploy-cloudflare.ts");
     expect(filePaths).toContain("scripts/ensure-convex-auth.ts");
     expect(filePaths).toContain("scripts/generate-cloudflare-redirects.ts");
+    expect(filePaths).toContain("tsconfig.node.json");
     expect(filePaths).toContain("convex/auth.ts");
     expect(filePaths).toContain("convex/auth.config.ts");
     expect(filePaths).toContain("convex/guests.ts");
@@ -41,15 +42,42 @@ describe("starterSeedManifest", () => {
     expect(allFilePaths.length).toBeGreaterThan(10);
   });
 
-  it("keeps handwritten Node automation on the Node 24 TypeScript ESM contract", () => {
+  it("type-checks handwritten Node automation in normal checks and Cloudflare builds", () => {
     const scriptFiles = Object.keys(starterTemplateManifest.files).filter((filePath) =>
       filePath.startsWith("scripts/"),
     );
+    const packageJson = starterTemplateManifest.files["package.json"];
+    const nodeTypeScriptConfig = starterTemplateManifest.files["tsconfig.node.json"];
 
     expect(starterTemplateManifest.files[".node-version"]).toBe("24\n");
-    expect(starterTemplateManifest.files["package.json"]).toContain('"type": "module"');
+    expect(packageJson).toContain('"type": "module"');
+    expect(packageJson).toContain(
+      '"check": "tsc && pnpm run typecheck:node && tsc --project convex/tsconfig.json && pnpm run verify:cloudflare-redirects"',
+    );
+    expect(packageJson).toContain('"build": "pnpm run typecheck:node && vp run build:cloudflare"');
+    expect(packageJson).toContain('"typecheck:node": "tsc --project tsconfig.node.json"');
     expect(scriptFiles.length).toBeGreaterThan(0);
     expect(scriptFiles.every((filePath) => filePath.endsWith(".ts"))).toBe(true);
+    expect(nodeTypeScriptConfig).toBe(`{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["scripts/**/*.ts", "vite.config.ts"]
+}
+`);
   });
 
   it("keeps Cloudflare SPA mode and exact prerender aliases aligned", () => {
