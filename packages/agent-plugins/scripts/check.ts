@@ -78,7 +78,7 @@ const samebaseSkill = readFileSync(resolve(skillsRoot, "samebase/SKILL.md"), "ut
 );
 check(
   samebaseSkill.includes(
-    "For stack-alignment work, first compare the target repository's Node version, package module model, and authored source language with the current `samebase/app` generated-app contract.",
+    'For stack-alignment work, first compare the target repository with the current generated-app contract: Node 24, package `"type": "module"`, and normal `.ts` files for handwritten Node automation run directly by Node.',
   ),
   "The Samebase skill must route stack-alignment work through the generated-app contract.",
 );
