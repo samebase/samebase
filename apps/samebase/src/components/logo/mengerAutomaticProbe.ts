@@ -12,8 +12,6 @@ export const MENGER_AUTOMATIC_PROBE_DEFAULT_WIDTH = 0.3;
 export const MENGER_AUTOMATIC_PROBE_DEFAULT_HEIGHT = 0.55;
 export const MENGER_AUTOMATIC_PROBE_DEFAULT_LOOP_DURATION_SECONDS = 5.5;
 export const MENGER_AUTOMATIC_PROBE_DEFAULT_REST_DURATION_SECONDS = 1.5;
-export const MENGER_AUTOMATIC_PROBE_MAXIMUM_DURATION_SECONDS = 3_600;
-export const MENGER_AUTOMATIC_PROBE_MAXIMUM_EXTENT = 4;
 
 export type MengerAutomaticProbeMotionSettings = {
   enabled: boolean;
@@ -46,21 +44,15 @@ export type MengerAutomaticProbePoint = {
 };
 
 export function normalizeMengerAutomaticProbeExtent(value: number): number {
-  return Number.isFinite(value)
-    ? Math.min(Math.max(value, 0), MENGER_AUTOMATIC_PROBE_MAXIMUM_EXTENT)
-    : 0;
+  return Number.isFinite(value) ? Math.max(value, 0) : 0;
 }
 
 export function normalizeMengerAutomaticProbeLoopDurationSeconds(value: number): number {
-  return Number.isFinite(value)
-    ? Math.min(Math.max(value, 0.1), MENGER_AUTOMATIC_PROBE_MAXIMUM_DURATION_SECONDS)
-    : 0.1;
+  return Number.isFinite(value) ? Math.max(value, 0.1) : 0.1;
 }
 
 export function normalizeMengerAutomaticProbeRestDurationSeconds(value: number): number {
-  return Number.isFinite(value)
-    ? Math.min(Math.max(value, 0), MENGER_AUTOMATIC_PROBE_MAXIMUM_DURATION_SECONDS)
-    : 0;
+  return Number.isFinite(value) ? Math.max(value, 0) : 0;
 }
 
 export function readMengerAutomaticProbePoint(

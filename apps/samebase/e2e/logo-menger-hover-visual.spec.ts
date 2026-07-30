@@ -452,6 +452,44 @@ test("Menger automatic probe does not loop frames at depth one without tilt", as
   await expect(scene).toHaveAttribute("data-hover-render-count", String(renderCount));
 });
 
+test("Menger automatic probe fails closed for overflowed finite route settings", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await signInIfNeeded(
+    page,
+    "/logo/hover/menger?depth=1&elev=0&rot=180&probe&probeHeight=1e308&probePath=orbit",
+  );
+  const scene = page.getByTestId("logo-menger-hover-scene");
+  await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
+
+  const expectInvalidProbeToStop = async () => {
+    await expect(scene).toHaveAttribute("data-automatic-probe-state", "invalid");
+    await expect(scene).not.toHaveAttribute("data-automatic-probe-client-x", /.+/);
+    await expect(scene).not.toHaveAttribute("data-automatic-probe-client-y", /.+/);
+    await expect(scene).not.toHaveAttribute("data-automatic-probe-progress", /.+/);
+    const dataAttributeValues = await scene.evaluate((element) =>
+      Array.from(element.attributes)
+        .filter(({ name }) => name.startsWith("data-"))
+        .map(({ value }) => value),
+    );
+    expect(dataAttributeValues.join(" ")).not.toMatch(/Infinity|NaN/);
+    await page.waitForTimeout(250);
+    const renderCount = await readNumberAttribute(scene, "data-hover-render-count");
+    await page.waitForTimeout(250);
+    await expect(scene).toHaveAttribute("data-hover-render-count", String(renderCount));
+  };
+
+  await expectInvalidProbeToStop();
+  await page.goto(
+    "/logo/hover/menger?depth=1&elev=0&rot=180&probe&probeLoop=1e308&probeRest=1e308",
+    { waitUntil: "domcontentloaded" },
+  );
+  await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
+  await expectInvalidProbeToStop();
+});
+
 test("Menger hover composes the optional landing tilt with its stored view", async ({ page }) => {
   const scene = await openMengerHoverCase(page, {
     elevationDegrees: "30",

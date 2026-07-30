@@ -58,6 +58,7 @@ const HOVER_FRAME_ELAPSED_RESTART_MS = 1000 / 60;
 const HOVER_OPENNESS_SETTLE_EPSILON = 0.001;
 const HOVER_OPENNESS_SMOOTHING_TAU_MS = 58;
 const MENGER_CUBE_CORNER_SIGNS = [-1, 1] as const;
+const MAXIMUM_HOST_TIMEOUT_DELAY_MS = 2_147_483_647;
 const RENDER_PIXEL_RATIO_MAX = 2;
 
 type ClientPoint = {
@@ -325,7 +326,7 @@ export function MengerHoverScene({
     let presentationTiltTarget = NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
     let lastPresentationTiltFrameTime: number | null = null;
 
-    const clearAutomaticProbeClientPoint = (state: "off" | "resting" | "suspended") => {
+    const clearAutomaticProbeClientPoint = (state: "invalid" | "off" | "resting" | "suspended") => {
       automaticProbeClientPoint = null;
       automaticProbeModelPoint = null;
       container.dataset.automaticProbeState = state;
@@ -335,6 +336,11 @@ export function MengerHoverScene({
     };
 
     const scheduleAutomaticProbeResume = (resumeAtMs: number) => {
+      const remainingMs = resumeAtMs - performance.now();
+      if (!Number.isFinite(resumeAtMs) || !Number.isFinite(remainingMs)) {
+        clearAutomaticProbeClientPoint("invalid");
+        return;
+      }
       if (automaticProbeResumeTimeoutRef.current !== 0) {
         window.clearTimeout(automaticProbeResumeTimeoutRef.current);
       }
@@ -343,7 +349,7 @@ export function MengerHoverScene({
           automaticProbeResumeTimeoutRef.current = 0;
           scheduleFrame();
         },
-        Math.max(resumeAtMs - performance.now(), 0),
+        Math.min(Math.max(remainingMs, 0), MAXIMUM_HOST_TIMEOUT_DELAY_MS),
       );
     };
 
@@ -393,9 +399,28 @@ export function MengerHoverScene({
         const loopDurationMs = settings.loopDurationSeconds * 1_000;
         const restDurationMs = settings.restDurationSeconds * 1_000;
         const cycleDurationMs = loopDurationMs + restDurationMs;
+        if (
+          !Number.isFinite(loopDurationMs) ||
+          loopDurationMs <= 0 ||
+          !Number.isFinite(restDurationMs) ||
+          restDurationMs < 0 ||
+          !Number.isFinite(cycleDurationMs) ||
+          cycleDurationMs <= 0
+        ) {
+          clearAutomaticProbeClientPoint("invalid");
+          return false;
+        }
         const cycleElapsedMs =
           (timestampMs - automaticProbeCycleStartedAtMsRef.current) / cycleDurationMs;
         const cycleProgressMs = (cycleElapsedMs - Math.floor(cycleElapsedMs)) * cycleDurationMs;
+        if (
+          !Number.isFinite(cycleElapsedMs) ||
+          !Number.isFinite(cycleProgressMs) ||
+          cycleProgressMs < 0
+        ) {
+          clearAutomaticProbeClientPoint("invalid");
+          return false;
+        }
         if (cycleProgressMs >= loopDurationMs) {
           clearAutomaticProbeClientPoint("resting");
           scheduleAutomaticProbeResume(timestampMs + cycleDurationMs - cycleProgressMs);
@@ -412,10 +437,19 @@ export function MengerHoverScene({
         settings.width,
         settings.height,
       );
-      automaticProbeClientPoint = {
-        x: bounds.left + point.x * bounds.width,
-        y: bounds.top + point.y * bounds.height,
-      };
+      const clientX = bounds.left + point.x * bounds.width;
+      const clientY = bounds.top + point.y * bounds.height;
+      if (
+        !Number.isFinite(progress) ||
+        !Number.isFinite(point.x) ||
+        !Number.isFinite(point.y) ||
+        !Number.isFinite(clientX) ||
+        !Number.isFinite(clientY)
+      ) {
+        clearAutomaticProbeClientPoint("invalid");
+        return false;
+      }
+      automaticProbeClientPoint = { x: clientX, y: clientY };
       container.dataset.automaticProbeClientX = automaticProbeClientPoint.x.toFixed(3);
       container.dataset.automaticProbeClientY = automaticProbeClientPoint.y.toFixed(3);
       container.dataset.automaticProbeProgress = progress.toFixed(4);

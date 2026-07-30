@@ -13,11 +13,7 @@ import {
   LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
   LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
 } from "@/components/logo/logoPresentationTilt";
-import {
-  MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
-  MENGER_AUTOMATIC_PROBE_MAXIMUM_DURATION_SECONDS,
-  MENGER_AUTOMATIC_PROBE_MAXIMUM_EXTENT,
-} from "@/components/logo/mengerAutomaticProbe";
+import { MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS } from "@/components/logo/mengerAutomaticProbe";
 import {
   DEFAULT_LOGO_LEFT_FACE_STYLE,
   LOGO_LEFT_FACE_STRIPE,
@@ -360,10 +356,10 @@ describe("logoRouteSearch", () => {
         probeWidth: "1e308",
       }),
     ).toEqual({
-      probeHeight: MENGER_AUTOMATIC_PROBE_MAXIMUM_EXTENT,
-      probeLoop: MENGER_AUTOMATIC_PROBE_MAXIMUM_DURATION_SECONDS,
-      probeRest: MENGER_AUTOMATIC_PROBE_MAXIMUM_DURATION_SECONDS,
-      probeWidth: MENGER_AUTOMATIC_PROBE_MAXIMUM_EXTENT,
+      probeHeight: 1e308,
+      probeLoop: 1e308,
+      probeRest: 1e308,
+      probeWidth: 1e308,
     });
     expect(validateLogoMengerHoverRouteSearch({ probePath: "spiral" })).toEqual({});
     expect(
@@ -487,6 +483,31 @@ describe("logoRouteSearch", () => {
       probePathVisible: true,
       probeRest: 2,
       probeWidth: 0.4,
+    });
+    expect(
+      buildLogoMengerHoverRouteSearch({
+        ...routeBuildDefaults,
+        mengerAutomaticProbe: {
+          enabled: true,
+          height: 1e308,
+          landingSize: false,
+          loopDurationSeconds: 1e308,
+          path: "vertical-8",
+          restDurationSeconds: 1e308,
+          showPath: false,
+          width: 1e308,
+        },
+        mengerHoverDepth: MENGER_HOVER_DEFAULT_DEPTH,
+        mengerHoverTiltEnabled: false,
+        mengerHoverTiltRadiusScale: LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
+        mengerHoverTiltStrengthScale: LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
+      }),
+    ).toMatchObject({
+      probe: true,
+      probeHeight: 1e308,
+      probeLoop: 1e308,
+      probeRest: 1e308,
+      probeWidth: 1e308,
     });
 
     expect(

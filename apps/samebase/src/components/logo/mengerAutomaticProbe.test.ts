@@ -1,6 +1,4 @@
 import {
-  MENGER_AUTOMATIC_PROBE_MAXIMUM_DURATION_SECONDS,
-  MENGER_AUTOMATIC_PROBE_MAXIMUM_EXTENT,
   MENGER_AUTOMATIC_PROBE_PATHS,
   normalizeMengerAutomaticProbeExtent,
   normalizeMengerAutomaticProbeLoopDurationSeconds,
@@ -37,17 +35,13 @@ describe("Menger automatic probe", () => {
 
   it("keeps time and size inputs in their valid semantic domains", () => {
     expect(normalizeMengerAutomaticProbeExtent(-1)).toBe(0);
-    expect(normalizeMengerAutomaticProbeExtent(1e308)).toBe(MENGER_AUTOMATIC_PROBE_MAXIMUM_EXTENT);
+    expect(normalizeMengerAutomaticProbeExtent(1e308)).toBe(1e308);
     expect(normalizeMengerAutomaticProbeExtent(Number.POSITIVE_INFINITY)).toBe(0);
     expect(normalizeMengerAutomaticProbeLoopDurationSeconds(0)).toBe(0.1);
-    expect(normalizeMengerAutomaticProbeLoopDurationSeconds(1e308)).toBe(
-      MENGER_AUTOMATIC_PROBE_MAXIMUM_DURATION_SECONDS,
-    );
+    expect(normalizeMengerAutomaticProbeLoopDurationSeconds(1e308)).toBe(1e308);
     expect(normalizeMengerAutomaticProbeLoopDurationSeconds(Number.NaN)).toBe(0.1);
     expect(normalizeMengerAutomaticProbeRestDurationSeconds(-1)).toBe(0);
-    expect(normalizeMengerAutomaticProbeRestDurationSeconds(1e308)).toBe(
-      MENGER_AUTOMATIC_PROBE_MAXIMUM_DURATION_SECONDS,
-    );
+    expect(normalizeMengerAutomaticProbeRestDurationSeconds(1e308)).toBe(1e308);
     expect(normalizeMengerAutomaticProbeRestDurationSeconds(Number.POSITIVE_INFINITY)).toBe(0);
   });
 });
