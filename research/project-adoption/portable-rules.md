@@ -89,9 +89,14 @@ the browser and Node module-resolution rules differ.
 The real provider build must run both the source-model guard and the Node type check. A test that
 executes a TypeScript file does not replace static checking.
 
-Add a tracked-source guard that rejects handwritten `.js`, `.mjs`, `.cjs`, `.mts`, and `.cts` files.
-Keep exceptions narrow and named. Generated JavaScript and a browser-delivered JavaScript asset can
-be valid output exceptions. They are not a reason to write Node automation in JavaScript.
+Add a tracked-source guard that rejects handwritten `.js`, `.jsx`, `.mjs`, `.cjs`, `.mts`, and
+`.cts` files. Keep exceptions narrow and named. Generated JavaScript and a browser-delivered
+JavaScript asset can be valid output exceptions. They are not a reason to write Node automation in
+JavaScript.
+
+Test the real guard process in a temporary Git repository with a tracked forbidden file and require
+a nonzero exit result. A unit test of the exported path classifier does not prove that the
+command-line entrypoint runs.
 
 If a tool cannot load its TypeScript configuration under the selected runtime, record the exact tool
 boundary before adding a loader or an exception. Do not copy a legacy extension only because the

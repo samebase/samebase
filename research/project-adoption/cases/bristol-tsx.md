@@ -20,6 +20,8 @@
   [pull request 13](https://github.com/nicu-chiciuc/bristol_tsx/pull/13)
 - Application preview-ownership pull request:
   [pull request 14](https://github.com/nicu-chiciuc/bristol_tsx/pull/14)
+- Application TypeScript source-model pull request:
+  [pull request 16](https://github.com/nicu-chiciuc/bristol_tsx/pull/16)
 - Application production-promotion pull request:
   [pull request 15](https://github.com/nicu-chiciuc/bristol_tsx/pull/15)
 - Samebase research branch: `codex-project-adoption-research`
@@ -102,7 +104,7 @@ The first read-only inventory found:
 | Anonymous linked-worktree setup  | `dev` selects an owned anonymous loopback backend               | local backend and auth user            | complete                      |
 | Linked-worktree acceptance       | two real setup, browser, service, and cleanup cycles            | isolated committed-head proof          | complete                      |
 | Framework-neutral behavior tests | HTTP, data-auth, cache, Worker, and browser suites pass         | required before migration              | complete                      |
-| Authored Node source model       | Node 24, ESM, `.ts`, source guard, and strict Node type check   | Samebase-aligned TypeScript            | correction in progress        |
+| Authored Node source model       | Node 24, ESM, `.ts`, source guard, and strict Node type check   | Samebase-aligned TypeScript            | complete                      |
 | Branch build                     | Cloudflare non-default-branch trigger                           | retain                                 | complete                      |
 | Worker version upload            | `deploy:preview` uploads without production traffic             | retain                                 | complete                      |
 | Public pull request preview      | stable branch URL with a fresh synthetic Convex backend         | safe public preview                    | complete                      |
@@ -148,7 +150,7 @@ Record each question that the project worker cannot answer from Bristol and the 
 | BRIS-Q026 | Which Convex deployment hostname shapes are valid?                 | public docs     | deployment name, optional `eu-west-1`, then `convex.cloud`                 | validate the full hostname first         | live regional URL passes |
 | BRIS-Q027 | How should a stacked migration reach a production default branch?  | Bristol release | one promotion PR from the final reviewed head                              | keep slices as evidence; merge once      | draft PR and live reads  |
 | BRIS-Q028 | Which backend auth settings must the cutover gate read?            | Bristol review  | exact production profile and non-debug log policy                          | require `production` and `ERROR`         | live production read     |
-| BRIS-Q029 | Which source model must the adopted Node automation use?           | Samebase        | Node 24, ESM package semantics, and directly executed `.ts` files          | convert all handwritten Node files       | correction in progress   |
+| BRIS-Q029 | Which source model must the adopted Node automation use?           | Samebase        | Node 24, ESM package semantics, and directly executed `.ts` files          | convert all handwritten Node files       | PR #16 and final preview |
 
 ## Bidirectional Findings
 
@@ -198,7 +200,7 @@ Record each question that the project worker cannot answer from Bristol and the 
 | BRIS-F42 | Test direct production hydration during dogfood   | Samebase workspace recovered after refresh               | browser console emitted React hydration error `418`         | Bristol to Samebase | one live refresh         | candidate |
 | BRIS-F43 | Use one default-branch promotion for a PR stack   | merging seven slices through `main` starts seven builds  | one promotion PR keeps one cutover and all review evidence  | Bristol first       | draft PR and live reads  | ready     |
 | BRIS-F44 | Verify auth environment before production merge   | profile passed, but the production log level was missing | code and docs alone did not prove the live backend setting  | Bristol first       | exact live value reads   | ready     |
-| BRIS-F45 | Preflight the complete authored source model      | 8,522 lines of `.mjs` bypassed the app TypeScript check  | generated apps use Node 24, ESM, and direct `.ts` execution | shared              | correction in progress   | candidate |
+| BRIS-F45 | Preflight the complete authored source model      | 8,522 lines of `.mjs` bypassed the app TypeScript check  | generated apps use Node 24, ESM, and direct `.ts` execution | shared              | strict build and preview | ready     |
 
 ## Characterization Test Plan
 
@@ -742,6 +744,25 @@ The correction standard is:
 The process correction has three parts: convert Bristol, add the source-model preflight to this
 method, and make the Samebase rule visible in both repository and public agent guidance.
 
+The first source guard also exposed a validation mistake. Its classifier unit tests passed, but the
+real command did not run because its direct-entry condition was false. The final test creates a
+temporary Git repository, tracks a handwritten JavaScript file, executes the real guard process, and
+requires exit code `1`. A unit test of an exported classifier does not prove a command-line guard.
+
+[Bristol pull request #16](https://github.com/nicu-chiciuc/bristol_tsx/pull/16) completed the
+correction and merged into the non-production promotion branch. Final source commit
+`ec0a6ca5bddae0cfc04a1d97ed30d1d6222c5e5b` uses Node 24, ESM package semantics, directly executed
+`.ts` automation, and a separate strict NodeNext type check. The executable source guard rejects
+`.js`, `.jsx`, `.mjs`, `.cjs`, `.mts`, and `.cts`. Its exact exceptions are the two generated Convex
+JavaScript files and the browser service worker.
+
+The final Cloudflare build
+[`9a9f850e-175e-43a9-91cb-d828606a7233`](https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/bristol-tsx/production/builds/9a9f850e-175e-43a9-91cb-d828606a7233)
+passed 118 application tests, 75 automation contracts, both TypeScript checks, the client and Worker
+builds, and the private-bundle scan. Worker version `5b1e51d2-4944-4cba-a794-b650f15d30da` binds the
+exact source to preview backend `fiery-gnu-815`. The public route contract passes. Production still
+uses OpenNext version `785ac1b3-71f7-4255-8af5-55be71b10d45` at 100 percent traffic.
+
 ## TanStack Start Decision Gate
 
 Current official guidance provides a direct Cloudflare Workers path with TanStack Start, the
@@ -807,6 +828,10 @@ production cutover.
 - [Bristol owned preview upload](https://github.com/nicu-chiciuc/bristol_tsx/blob/c14c4d2c48953ddb6155a7cbed6b0c55cfa397de/scripts/deploy-cloudflare.mjs#L42-L85)
 - [Bristol exact preview join](https://github.com/nicu-chiciuc/bristol_tsx/blob/c14c4d2c48953ddb6155a7cbed6b0c55cfa397de/scripts/inspect-preview.mjs#L300-L478)
 - [Bristol exact ownership contract](https://github.com/nicu-chiciuc/bristol_tsx/blob/c14c4d2c48953ddb6155a7cbed6b0c55cfa397de/docs/cloudflare-workers-deployment.md#L148-L246)
+- [Bristol TypeScript source-model pull request](https://github.com/nicu-chiciuc/bristol_tsx/pull/16)
+- [Bristol executable source guard](https://github.com/nicu-chiciuc/bristol_tsx/blob/ec0a6ca5bddae0cfc04a1d97ed30d1d6222c5e5b/scripts/check-typescript-sources.ts#L1-L57)
+- [Bristol source-guard integration tests](https://github.com/nicu-chiciuc/bristol_tsx/blob/ec0a6ca5bddae0cfc04a1d97ed30d1d6222c5e5b/tests/characterization/typescript-source-model.test.ts#L1-L77)
+- [Bristol final TypeScript preview build](https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/bristol-tsx/production/builds/9a9f850e-175e-43a9-91cb-d828606a7233)
 - [Bristol production-promotion pull request](https://github.com/nicu-chiciuc/bristol_tsx/pull/15)
 - [Bristol production auth settings](https://github.com/nicu-chiciuc/bristol_tsx/blob/60f667e64873f444a6b56dbd0d3b5e2583132c29/docs/cloudflare-workers-deployment.md#L124-L141)
 - [Bristol production release gate](https://github.com/nicu-chiciuc/bristol_tsx/blob/60f667e64873f444a6b56dbd0d3b5e2583132c29/docs/cloudflare-workers-deployment.md#L397-L428)
@@ -829,3 +854,4 @@ production cutover.
    cleanup: pending; production promotion: draft gate open, not run
 6. Bidirectional findings and portable outputs: complete for the first case, candidate until a
    second project tests them
+7. Authored TypeScript source model: correction complete, final public preview passes
