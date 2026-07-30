@@ -4,8 +4,13 @@ import {
   STATIC_LOGO_GRID_SIZE,
   STATIC_LOGO_VOXEL_COORDINATES,
 } from "../src/identity.ts";
-import { easeLogoShuffleProgress, getShuffleOriginCandidates } from "../src/shuffle.ts";
-import { createFilledVoxelSet, voxelKey } from "../src/voxel.ts";
+import {
+  easeLogoShuffleProgress,
+  getLogoRecursiveShuffleLayerPlacementCount,
+  getShuffleOriginCandidates,
+  writeLogoRecursiveShuffleLayerCoordinates,
+} from "../src/shuffle.ts";
+import { createFilledVoxelSet, type VoxelCoordinate, voxelKey } from "../src/voxel.ts";
 
 describe("getShuffleOriginCandidates", () => {
   it("returns only direct moves into vacant cells", () => {
@@ -65,5 +70,61 @@ describe("easeLogoShuffleProgress", () => {
     expect(easeLogoShuffleProgress(0)).toBe(0);
     expect(easeLogoShuffleProgress(0.5)).toBe(0.5);
     expect(easeLogoShuffleProgress(1)).toBe(1);
+  });
+});
+
+describe("recursive shuffle layers", () => {
+  it("uses one synchronized moving coordinate at every recursive prefix", () => {
+    const animatedCoordinates: readonly VoxelCoordinate[] = [
+      [0, 0, 0],
+      [2, 2, 2],
+    ];
+    const movingCoordinates: readonly VoxelCoordinate[] = [[1, 0.5, 0]];
+    const target = new Float64Array(
+      getLogoRecursiveShuffleLayerPlacementCount({
+        animatedCoordinateCount: animatedCoordinates.length,
+        movingCoordinateCount: movingCoordinates.length,
+        prefixDepth: 2,
+      }) * 3,
+    );
+
+    expect(
+      writeLogoRecursiveShuffleLayerCoordinates({
+        animatedCoordinates,
+        baseGridSize: 3,
+        movingCoordinates,
+        prefixDepth: 2,
+        target,
+      }),
+    ).toBe(4);
+    expect([...target]).toEqual([1, 0.5, 0, 7, 6.5, 6, 19, 18.5, 18, 25, 24.5, 24]);
+  });
+
+  it("keeps one Menger move at every scale through depth four", () => {
+    const expectedLayerCounts = {
+      2: [1, 20],
+      3: [1, 20, 400],
+      4: [1, 20, 400, 8000],
+    } as const;
+
+    for (const [depth, expectedCounts] of Object.entries(expectedLayerCounts)) {
+      const actualCounts = Array.from({ length: Number(depth) }, (_, prefixDepth) =>
+        getLogoRecursiveShuffleLayerPlacementCount({
+          animatedCoordinateCount: 20,
+          movingCoordinateCount: 1,
+          prefixDepth,
+        }),
+      );
+      const visibleLeafCount =
+        19 ** Number(depth) +
+        actualCounts.reduce(
+          (total, layerCount, prefixDepth) =>
+            total + layerCount * 19 ** (Number(depth) - prefixDepth - 1),
+          0,
+        );
+
+      expect(actualCounts).toEqual(expectedCounts);
+      expect(visibleLeafCount).toBe(20 ** Number(depth));
+    }
   });
 });

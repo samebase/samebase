@@ -11,6 +11,7 @@ import {
   LANDING_PREVIEW_TEST_ID,
 } from "../src/routeSearch/landingPreview";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
+import { PUBLIC_LANDING_LOGO_SCENE_TEST_ID } from "../src/lib/publicLandingLogo";
 import { publicMediaManifest } from "../shared/publicMediaManifest";
 
 const { defaultBrowserType: _landingPreviewMobileBrowserType, ...landingPreviewMobileDevice } =
@@ -230,6 +231,11 @@ test("landing preview route renders the React overview in workspace chrome", asy
     .toBe(true);
   // The closing band keeps one accessible fractal mark without logo-lab helper copy.
   await expect(article.getByRole("img", { name: "Samebase logo", exact: true })).toHaveCount(1);
+  const closingLogoCanvas = article
+    .getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID)
+    .locator("canvas");
+  await expect(closingLogoCanvas).toHaveAttribute("data-logo-recursive-move-depth", "2");
+  await expect(closingLogoCanvas).toHaveAttribute("data-logo-recursive-move-layer-counts", "1,20");
   await expect(article).not.toContainText("drag it");
   await expect(article.getByRole("link", { name: "open the logo lab" })).toHaveCount(0);
   await expect(article.getByRole("link", { name: "do-it-yourself recipe" })).toBeVisible();

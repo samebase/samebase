@@ -22,6 +22,9 @@ test("unknown routes render the animated not-found page", async ({ page }) => {
 
   const logoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
   await expect(logoScene).toHaveAttribute("data-state", "ready");
+  const logoCanvas = logoScene.locator("canvas");
+  await expect(logoCanvas).toHaveAttribute("data-logo-recursive-move-depth", "2");
+  await expect(logoCanvas).toHaveAttribute("data-logo-recursive-move-layer-counts", "1,20");
   const initialRotationDegrees = await logoScene.getAttribute("data-rotation-degrees");
   expect(initialRotationDegrees).not.toBeNull();
   if (initialRotationDegrees === null) {
