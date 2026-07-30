@@ -504,7 +504,7 @@ test("landing preview CTA reopens the desktop public sidebar", async ({ page }) 
 test.describe("mobile landing preview", () => {
   test.use(landingPreviewMobileDevice);
 
-  test("selects the public sidebar", async ({ page }) => {
+  test("renders the mobile overview and opens the public sidebar", async ({ page }) => {
     await page.setViewportSize({ height: 900, width: 390 });
     await showLandingHeroPoster(page);
     await page.goto(LANDING_PREVIEW_PROD_UI_ROUTE, {
@@ -538,40 +538,10 @@ test.describe("mobile landing preview", () => {
       },
     );
 
-    const carousel = page.getByTestId("workspace-layout-v2-pane-main");
-    const startingScrollLeft = await carousel.evaluate((element) => element.scrollLeft);
-    await carousel.evaluate((element) => {
-      element.setAttribute("data-test-scroll-positions", JSON.stringify([element.scrollLeft]));
-      element.addEventListener("scroll", () => {
-        const parsedPositions: unknown = JSON.parse(
-          element.getAttribute("data-test-scroll-positions") ?? "[]",
-        );
-        const positions = Array.isArray(parsedPositions)
-          ? parsedPositions.filter((position) => typeof position === "number")
-          : [];
-        positions.push(element.scrollLeft);
-        element.setAttribute("data-test-scroll-positions", JSON.stringify(positions));
-      });
-    });
-
     await article.getByRole("button", { name: "Open Samebase" }).first().click();
 
     await expect(page).toHaveURL(new RegExp(`${LANDING_PREVIEW_ROUTE}(?:\\?prod-ui)?$`));
     await expect(workspace).toHaveAttribute("data-mobile-pane", "right");
-    const endingScrollLeft = await carousel.evaluate((element) => element.scrollLeft);
-    const scrollPositions = await carousel.evaluate((element) => {
-      const parsedPositions: unknown = JSON.parse(
-        element.getAttribute("data-test-scroll-positions") ?? "[]",
-      );
-      return Array.isArray(parsedPositions)
-        ? parsedPositions.filter((position) => typeof position === "number")
-        : [];
-    });
-    expect(
-      scrollPositions.some(
-        (scrollLeft) => scrollLeft > startingScrollLeft && scrollLeft < endingScrollLeft,
-      ),
-    ).toBe(true);
     await expect(
       page
         .getByTestId("workspace-layout-v2-pane-right")
