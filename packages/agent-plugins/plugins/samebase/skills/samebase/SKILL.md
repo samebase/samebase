@@ -8,8 +8,33 @@ description:
 
 # Samebase
 
-Use Samebase for repository-backed apps and work that joins GitHub, Convex, and Cloudflare. Do not
-use Samebase for Git-only work or standalone provider resources.
+Use Samebase for repository-backed apps and work that joins GitHub, Convex, and Cloudflare.
+
+## Route the request
+
+Choose the route from the user request before you read live tool descriptions. Do not add preflight
+actions. Each action reports missing authentication itself.
+
+- For an app-inventory request, read the Samebase app inventory directly.
+- For a Cloudflare account-list request, read the Cloudflare account list directly.
+- For a dashboard request, create a browser handoff directly.
+- Use authentication status only when the user asks about authentication or after an action reports
+  missing authentication.
+- For a new app, use only this closed flow:
+  1. Read the app inventory.
+  2. Create the app.
+  3. Read only the inventory until source setup is `ready` or `failed`.
+  4. If source setup is ready, separately read only the inventory until provider setup is `ready` or
+     `failed`. Authentication-status, browser-handoff, and provider-account reads are not part of
+     this flow.
+- Do not use Samebase for ordinary unrelated Git work or standalone provider resources.
+- For a deletion request, direct the user to the Samebase dashboard. Do not call any tool for the
+  request, and do not delete attached resources with provider-native tools.
+
+After you select the route, use live tool descriptions only for the exact tool name and arguments.
+Match an inventory `nextAction` to its action contract at
+[samebase.com/llms.txt](https://samebase.com/llms.txt). Do not guess a tool name from the action ID
+or copy tool schemas into this skill.
 
 ## Select the app
 
@@ -19,25 +44,6 @@ use Samebase for Git-only work or standalone provider resources.
    a public repository.
 4. Connect an existing GitHub repository when it is not in Samebase. A connection does not attach
    Convex or Cloudflare.
-5. Use browser handoff directly when the user asks to open Samebase.
-
-Use the live MCP tool descriptions for exact names and arguments. Match an inventory `nextAction` to
-its action contract at [samebase.com/llms.txt](https://samebase.com/llms.txt). Do not guess a tool
-name from the action ID.
-
-## Create an app
-
-Use this exact sequence for a new app:
-
-1. Read the Samebase app inventory.
-2. Create the app.
-3. Read the inventory until source setup is `ready` or `failed`.
-4. If source setup is ready, read the inventory until provider setup is separately `ready` or
-   `failed`.
-
-Authentication status and provider-account reads are not preflight steps in this creation flow. Use
-authentication status only when the user asks about authentication or a tool reports missing
-authentication.
 
 ## Verify state
 
@@ -63,9 +69,5 @@ Record each intentional difference before implementation.
 Use Samebase for app inventory, provider joins, and explicit repair actions. Use provider-native
 tools for live provider state, logs, environment values, migrations, domains, and terminal build
 state when no Samebase tool exposes that read or action.
-
-The plugin cannot delete a Samebase app or its attached provider resources. Direct the user to the
-Samebase dashboard. Do not call any MCP tool for the deletion request. Do not delete these resources
-with provider-native tools.
 
 Keep credentials out of Git, logs, screenshots, and responses. Report only states that you verified.
