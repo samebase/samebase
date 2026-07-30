@@ -1,10 +1,12 @@
+import { defineRule } from "@oxlint/plugins";
+
 /**
 A hand-written `value is T` or `asserts value is T` annotation is an unchecked
 claim. TypeScript trusts it without verifying the body, so it keeps narrowing
 to a stale shape when the type evolves ("disconnected type safety" in
 docs/code-guardrails.md).
 */
-export const noHandWrittenTypePredicate = {
+export const noHandWrittenTypePredicate = defineRule({
   meta: {
     type: "problem",
     docs: {
@@ -28,4 +30,4 @@ export const noHandWrittenTypePredicate = {
       },
     };
   },
-};
+});

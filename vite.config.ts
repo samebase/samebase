@@ -49,7 +49,7 @@ export default defineConfig({
       },
       {
         name: "samebase",
-        specifier: "./scripts/lint/eslint-plugin-samebase.js",
+        specifier: "./scripts/lint/eslint-plugin-samebase.ts",
       },
     ],
     rules: {
@@ -123,10 +123,7 @@ export default defineConfig({
         files: [
           "scripts/**/*.ts",
           "runtime/**/*.ts",
-          "**/*.config.js",
-          "**/*.config.cjs",
           "**/*.config.ts",
-          "**/*.cjs",
           "packages/onboarding-video-tools/**/*.ts",
           "apps/samebase/public/**/*.ts",
           "apps/samebase/convex/**/*.{ts,tsx}",

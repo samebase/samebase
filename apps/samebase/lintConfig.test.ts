@@ -217,7 +217,7 @@ describe("lint config", () => {
         },
         {
           name: "samebase",
-          specifier: "./scripts/lint/eslint-plugin-samebase.js",
+          specifier: "./scripts/lint/eslint-plugin-samebase.ts",
         },
       ]),
     );

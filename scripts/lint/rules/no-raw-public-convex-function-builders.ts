@@ -1,10 +1,12 @@
+import { defineRule } from "@oxlint/plugins";
+
 const publicConvexFunctionBuilders = new Set(["action", "mutation", "query"]);
 
-function isGeneratedServerModule(moduleName) {
+function isGeneratedServerModule(moduleName: string): boolean {
   return moduleName.endsWith("_generated/server") || moduleName.endsWith("_generated/server.js");
 }
 
-export const noRawPublicConvexFunctionBuilders = {
+export const noRawPublicConvexFunctionBuilders = defineRule({
   meta: {
     type: "problem",
     docs: {
@@ -55,4 +57,4 @@ export const noRawPublicConvexFunctionBuilders = {
       },
     };
   },
-};
+});

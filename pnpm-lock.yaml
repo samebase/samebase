@@ -48,6 +48,9 @@ importers:
       '@edge-runtime/vm':
         specifier: ^5.0.0
         version: 5.0.0
+      '@oxlint/plugins':
+        specifier: 1.61.0
+        version: 1.61.0
       '@playwright/test':
         specifier: 1.58.2
         version: 1.58.2
