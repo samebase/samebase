@@ -463,6 +463,13 @@ test("Menger automatic probe fails closed for overflowed finite route settings",
   );
   const scene = page.getByTestId("logo-menger-hover-scene");
   await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
+  const controls = page.getByTestId("logo-menger-hover-controls");
+  await expect(controls.locator('output[for="menger-hover-automatic-probe-height"]')).toHaveText(
+    "1e+310%",
+  );
+  await expect(controls.locator('output[for="menger-hover-automatic-probe-width"]')).not.toHaveText(
+    /Infinity|NaN/,
+  );
 
   const expectInvalidProbeToStop = async () => {
     await expect(scene).toHaveAttribute("data-automatic-probe-state", "invalid");
@@ -481,6 +488,12 @@ test("Menger automatic probe fails closed for overflowed finite route settings",
     await expect(scene).toHaveAttribute("data-hover-render-count", String(renderCount));
   };
 
+  await expectInvalidProbeToStop();
+  await page.goto(
+    "/logo/hover/menger?elev=0&rot=180&probe&probeHeight=3e305&probeLoop=0.1&probeRest=0&probeWidth=3e305&tilt&tiltRadius=0",
+    { waitUntil: "domcontentloaded" },
+  );
+  await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
   await expectInvalidProbeToStop();
   await page.goto(
     "/logo/hover/menger?depth=1&elev=0&rot=180&probe&probeLoop=1e308&probeRest=1e308",

@@ -66,6 +66,21 @@ type ClientPoint = {
   y: number;
 };
 
+function hasFiniteSquaredLength(...components: number[]): boolean {
+  let squaredLength = 0;
+  for (const component of components) {
+    if (!Number.isFinite(component)) {
+      return false;
+    }
+    squaredLength += component * component;
+  }
+  return Number.isFinite(squaredLength);
+}
+
+function hasFiniteVector3(vector: THREE.Vector3): boolean {
+  return hasFiniteSquaredLength(vector.x, vector.y, vector.z);
+}
+
 type MengerHoverStageMeshes = {
   blockerLinkTexture: MengerHoverTexture;
   coverGeometry: THREE.BufferGeometry;
@@ -335,10 +350,16 @@ export function MengerHoverScene({
       delete container.dataset.automaticProbeProgress;
     };
 
+    const invalidateAutomaticProbe = () => {
+      clearAutomaticProbeClientPoint("invalid");
+      presentationTiltTarget = NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
+      lastPresentationTiltFrameTime = null;
+    };
+
     const scheduleAutomaticProbeResume = (resumeAtMs: number) => {
       const remainingMs = resumeAtMs - performance.now();
       if (!Number.isFinite(resumeAtMs) || !Number.isFinite(remainingMs)) {
-        clearAutomaticProbeClientPoint("invalid");
+        invalidateAutomaticProbe();
         return;
       }
       if (automaticProbeResumeTimeoutRef.current !== 0) {
@@ -407,7 +428,7 @@ export function MengerHoverScene({
           !Number.isFinite(cycleDurationMs) ||
           cycleDurationMs <= 0
         ) {
-          clearAutomaticProbeClientPoint("invalid");
+          invalidateAutomaticProbe();
           return false;
         }
         const cycleElapsedMs =
@@ -418,7 +439,7 @@ export function MengerHoverScene({
           !Number.isFinite(cycleProgressMs) ||
           cycleProgressMs < 0
         ) {
-          clearAutomaticProbeClientPoint("invalid");
+          invalidateAutomaticProbe();
           return false;
         }
         if (cycleProgressMs >= loopDurationMs) {
@@ -439,14 +460,17 @@ export function MengerHoverScene({
       );
       const clientX = bounds.left + point.x * bounds.width;
       const clientY = bounds.top + point.y * bounds.height;
+      const clientOffsetX = clientX - (bounds.left + bounds.width / 2);
+      const clientOffsetY = clientY - (bounds.top + bounds.height / 2);
       if (
         !Number.isFinite(progress) ||
         !Number.isFinite(point.x) ||
         !Number.isFinite(point.y) ||
         !Number.isFinite(clientX) ||
-        !Number.isFinite(clientY)
+        !Number.isFinite(clientY) ||
+        !hasFiniteSquaredLength(clientOffsetX, clientOffsetY)
       ) {
-        clearAutomaticProbeClientPoint("invalid");
+        invalidateAutomaticProbe();
         return false;
       }
       automaticProbeClientPoint = { x: clientX, y: clientY };
@@ -477,10 +501,18 @@ export function MengerHoverScene({
       }
 
       const clientPointer = automaticProbeClientPoint ?? clientPointerRef.current;
+      const automaticClientPointer = automaticProbeClientPoint !== null;
       if (clientPointer === null) {
         clearProbe();
         return null;
       }
+      const rejectInvalidProbe = (): null => {
+        clearProbe();
+        if (automaticClientPointer) {
+          invalidateAutomaticProbe();
+        }
+        return null;
+      };
 
       const bounds = renderer.domElement.getBoundingClientRect();
       if (bounds.width <= 0 || bounds.height <= 0) {
@@ -488,13 +520,24 @@ export function MengerHoverScene({
         return null;
       }
 
+      const clientOffsetX = clientPointer.x - bounds.left;
+      const clientOffsetY = clientPointer.y - bounds.top;
       pointerNdc.set(
-        ((clientPointer.x - bounds.left) / bounds.width) * 2 - 1,
-        -((clientPointer.y - bounds.top) / bounds.height) * 2 + 1,
+        (clientOffsetX / bounds.width) * 2 - 1,
+        -(clientOffsetY / bounds.height) * 2 + 1,
       );
+      if (!hasFiniteSquaredLength(pointerNdc.x, pointerNdc.y)) {
+        return rejectInvalidProbe();
+      }
       raycaster.setFromCamera(pointerNdc, camera);
+      if (!hasFiniteVector3(raycaster.ray.origin) || !hasFiniteVector3(raycaster.ray.direction)) {
+        return rejectInvalidProbe();
+      }
       localMatrix.copy(logoGroup.matrixWorld).invert();
       localRay.copy(raycaster.ray).applyMatrix4(localMatrix);
+      if (!hasFiniteVector3(localRay.origin) || !hasFiniteVector3(localRay.direction)) {
+        return rejectInvalidProbe();
+      }
       const projection = projectMengerHoverLineToVisibleFacePlanes(
         localRay.origin,
         localRay.direction,
@@ -504,12 +547,18 @@ export function MengerHoverScene({
         clearProbe();
         return null;
       }
+      if (!hasFiniteSquaredLength(projection.point.x, projection.point.y, projection.point.z)) {
+        return rejectInvalidProbe();
+      }
 
       const probe: MengerHoverProbe = {
         x: projection.point.x / MENGER_SCENE_WORLD_SIZE + 0.5,
         y: projection.point.y / MENGER_SCENE_WORLD_SIZE + 0.5,
         z: projection.point.z / MENGER_SCENE_WORLD_SIZE + 0.5,
       };
+      if (!hasFiniteSquaredLength(probe.x, probe.y, probe.z)) {
+        return rejectInvalidProbe();
+      }
       container.dataset.hoverCoordinateX = probe.x.toFixed(3);
       container.dataset.hoverCoordinateY = probe.y.toFixed(3);
       container.dataset.hoverCoordinateZ = probe.z.toFixed(3);
@@ -573,7 +622,7 @@ export function MengerHoverScene({
       const tiltClientPointEnabled =
         automaticProbeClientPoint !== null ||
         (presentationTiltClientPoint !== null && pointerMediaQuery.matches);
-      presentationTiltTarget =
+      const nextPresentationTiltTarget =
         tiltClientPoint !== null && tiltClientPointEnabled
           ? getRadialPointerLogoPresentationTiltTarget({
               baseRadius,
@@ -585,6 +634,17 @@ export function MengerHoverScene({
               strengthScale: pointerTiltStrengthScaleRef.current,
             })
           : NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
+      if (
+        automaticProbeClientPoint !== null &&
+        !hasFiniteSquaredLength(
+          nextPresentationTiltTarget.horizontal,
+          nextPresentationTiltTarget.vertical,
+        )
+      ) {
+        invalidateAutomaticProbe();
+        return;
+      }
+      presentationTiltTarget = nextPresentationTiltTarget;
     };
 
     const applyPresentationTilt = (timestampMs: number): boolean => {
@@ -667,7 +727,8 @@ export function MengerHoverScene({
       camera.updateMatrixWorld();
       const automaticProbeNeedsFrame = updateAutomaticProbeClientPoint(now);
       updatePresentationTiltTarget();
-      const presentationTiltSettled = applyPresentationTilt(now);
+      const presentationTiltSettled =
+        container.dataset.automaticProbeState === "invalid" || applyPresentationTilt(now);
       presentationTiltGroup.updateMatrixWorld(true);
 
       depthOneMesh.visible = depthOneOnly;
@@ -690,9 +751,10 @@ export function MengerHoverScene({
         if (probe !== null) {
           directionProbe = probe;
         }
+        const automaticProbeInvalid = container.dataset.automaticProbeState === "invalid";
         const automaticRevealFrozen =
           interactionRef.current.status !== "idle" && automaticProbeModelPoint !== null;
-        if (automaticRevealFrozen) {
+        if (automaticProbeInvalid || automaticRevealFrozen) {
           lastFrameTime = null;
         } else {
           writeMengerHoverState(
@@ -757,12 +819,12 @@ export function MengerHoverScene({
       container.dataset.presentationAppliedAngleDegrees = THREE.MathUtils.radToDeg(
         presentationTiltGroup.quaternion.angleTo(presentationTiltNeutralQuaternion),
       ).toFixed(3);
-      if (!presentationTiltSettled) {
+      if (!presentationTiltSettled && container.dataset.automaticProbeState !== "invalid") {
         scheduleFrame();
       } else {
         lastPresentationTiltFrameTime = null;
       }
-      if (automaticProbeNeedsFrame) {
+      if (automaticProbeNeedsFrame && container.dataset.automaticProbeState !== "invalid") {
         scheduleFrame();
       }
 

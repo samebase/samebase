@@ -66,6 +66,23 @@ const TRANSITION_PROGRESS_STEPS = 1_000;
 type TransitionPhase = `depth-${number}` | "transition";
 type MengerResearchMode = "hover" | "transition";
 
+function formatMengerAutomaticProbeExtentPercent(value: number): string {
+  if (!Number.isFinite(value)) {
+    return "0%";
+  }
+
+  const percent = value * 100;
+  if (Number.isFinite(percent)) {
+    return `${Math.round(percent)}%`;
+  }
+
+  const exponential = value.toExponential();
+  const separatorIndex = exponential.indexOf("e");
+  const coefficient = exponential.slice(0, separatorIndex);
+  const exponent = Number(exponential.slice(separatorIndex + 1)) + 2;
+  return `${coefficient}e${exponent >= 0 ? "+" : ""}${exponent}%`;
+}
+
 export function LogoMengerDepthTransitionPage({
   mode = "transition",
   replaceRouteSearch,
@@ -678,7 +695,7 @@ export function LogoMengerDepthTransitionPage({
                 className="font-mono text-xs text-muted-foreground"
                 htmlFor="menger-hover-automatic-probe-width"
               >
-                {Math.round(automaticProbeDraft.width * 100)}%
+                {formatMengerAutomaticProbeExtentPercent(automaticProbeDraft.width)}
               </output>
             </div>
             <input
@@ -709,7 +726,7 @@ export function LogoMengerDepthTransitionPage({
                 className="font-mono text-xs text-muted-foreground"
                 htmlFor="menger-hover-automatic-probe-height"
               >
-                {Math.round(automaticProbeDraft.height * 100)}%
+                {formatMengerAutomaticProbeExtentPercent(automaticProbeDraft.height)}
               </output>
             </div>
             <input
