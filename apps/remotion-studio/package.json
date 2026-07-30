@@ -9,7 +9,7 @@
     "build": "remotion bundle",
     "check": "pnpm run typecheck && pnpm run lint",
     "dev": "remotion studio",
-    "lint": "eslint --flag unstable_native_nodejs_ts_config src",
+    "lint": "pnpm --dir ../.. exec vp lint --tsconfig apps/remotion-studio/tsconfig.json --report-unused-disable-directives apps/remotion-studio/src",
     "render:logo-hype": "remotion render LogoHype out/logo-hype.mp4",
     "render:tic-tac-toe": "remotion render TicTacToeRecording out/tic-tac-toe-master.mp4",
     "typecheck": "pnpm --dir ../.. exec tsgo -p apps/remotion-studio/tsconfig.json --pretty false"
@@ -25,11 +25,9 @@
     "three": "^0.183.2"
   },
   "devDependencies": {
-    "@remotion/eslint-config-flat": "4.0.489",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.183.1",
-    "@types/web": "0.0.166",
-    "eslint": "9.39.2"
+    "@types/web": "0.0.166"
   }
 }

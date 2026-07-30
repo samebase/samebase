@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import remotionEslintPlugin from "@remotion/eslint-plugin";
 import { isRecord } from "@samebase/dependent/main";
 import { describe, expect, it } from "vite-plus/test";
 import repoViteConfig from "../../vite.config.ts";
@@ -216,6 +217,10 @@ describe("lint config", () => {
           specifier: "eslint-plugin-react-refresh",
         },
         {
+          name: "@remotion",
+          specifier: "@remotion/eslint-plugin",
+        },
+        {
           name: "samebase",
           specifier: "./scripts/lint/eslint-plugin-samebase.ts",
         },
@@ -244,6 +249,29 @@ describe("lint config", () => {
     });
   });
 
+  it("preserves the complete Remotion lint contract through Oxlint", () => {
+    const oxlintConfig = readRootLintConfig();
+    const remotionOverride = oxlintConfig.overrides?.find((override) =>
+      override.files?.includes("apps/remotion-studio/src/**/*.{ts,tsx}"),
+    );
+    const remotionRules = Object.fromEntries(
+      Object.entries(remotionOverride?.rules ?? {}).filter(([ruleName]) =>
+        ruleName.startsWith("@remotion/"),
+      ),
+    );
+
+    expect(Object.keys(remotionRules)).toHaveLength(15);
+    expect(remotionRules).toEqual(remotionEslintPlugin.configs.recommended.rules);
+    expect(remotionOverride?.rules).toMatchObject({
+      "no-console": "off",
+      "@typescript-eslint/no-empty-object-type": "off",
+      "react/jsx-key": "off",
+      "react/jsx-no-target-blank": "off",
+      "react/jsx-no-useless-fragment": "off",
+      "react/no-array-index-key": "off",
+    });
+  });
+
   it("uses vite.config.ts as the Oxc source of truth and vp for hooks/lint", () => {
     const fmtConfig = readRootFmtConfig();
     const stagedConfig = readRootStagedConfig();
@@ -252,6 +280,7 @@ describe("lint config", () => {
 
     expect(rootPackage.devDependencies).toMatchObject({
       "@convex-dev/eslint-plugin": "2.0.0",
+      "@remotion/eslint-plugin": "4.0.489",
       "eslint-plugin-react-refresh": "^0.4.7",
     });
     expect(rootPackage.devDependencies?.["eslint-plugin-samebase-local"]).toBeUndefined();
