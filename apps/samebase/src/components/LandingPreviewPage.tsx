@@ -18,6 +18,7 @@ import {
   DOCS_SIDEBAR_TEST_ID,
   DOCS_THE_STACK_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
+  LANDING_PREVIEW_LOWER_SECTIONS_TEST_ID,
   LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID,
   LANDING_PREVIEW_PROVIDER_GRID_TEST_ID,
   LANDING_PREVIEW_ROUTE,
@@ -691,157 +692,171 @@ function LandingPreviewOverview() {
           </div>
         </LandingSection>
 
-        <LandingSection ariaLabel="Monorepo">
-          <LandingSectionIntro
-            heading="Full monorepo support, by design."
-            kicker="monorepos"
-            sub="Samebase shows each connected Worker and Convex project under its repository path."
-          />
-          <LandingRepositoryTree />
-        </LandingSection>
-
-        <LandingSection>
-          <div className="max-w-[760px]">
-            <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-              cost follows real usage
-            </p>
-            <div className="mt-4">
-              {LANDING_COST_ROWS.map((row) => (
-                <div
-                  className="flex items-baseline justify-between gap-6 border-t border-border py-3"
-                  key={row.profile}
-                >
-                  <p className="text-base">{row.profile}</p>
-                  <p
-                    className={
-                      row.zeroCost
-                        ? "text-right font-mono text-sm font-semibold text-secondary"
-                        : "text-right font-mono text-sm"
-                    }
-                  >
-                    {row.value}
-                    {row.zeroCost ? (
-                      <LandingFootnoteMark
-                        fragment="landing-note-zero"
-                        label="footnote: zero"
-                        marker="‡"
-                      />
-                    ) : null}
-                  </p>
-                </div>
-              ))}
+        <div className="mx-auto max-w-[960px]" data-testid={LANDING_PREVIEW_LOWER_SECTIONS_TEST_ID}>
+          <LandingSection ariaLabel="Monorepo">
+            <div className="mx-auto max-w-[760px]">
+              <LandingSectionIntro
+                heading="Full monorepo support, by design."
+                kicker="monorepos"
+                sub="Samebase shows each connected Worker and Convex project under its repository path."
+              />
+              <LandingRepositoryTree />
             </div>
-          </div>
-        </LandingSection>
+          </LandingSection>
 
-        <section className="mt-16 @3xl:mt-24">
-          <blockquote className="max-w-[24ch] text-[clamp(28px,4cqw,40px)] font-semibold leading-[1.2] tracking-[-0.025em]">
-            If your app builder is so good, why is it not building itself?
-          </blockquote>
-        </section>
-
-        <LandingSection ariaLabel="Footnotes">
-          <div className="grid gap-8 @3xl:grid-cols-2 @3xl:gap-x-14">
-            <LandingFootnote fragment="landing-note-zero" heading="$0/month, receipted." marker="‡">
-              <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
-                GitHub Free: unlimited private repos.{" "}
-                <LandingReceiptLink href="https://www.convex.dev/pricing">
-                  Convex Free
-                </LandingReceiptLink>
-                : a million function calls a month.{" "}
-                <LandingReceiptLink href="https://developers.cloudflare.com/workers/platform/pricing/">
-                  Cloudflare Workers Free
-                </LandingReceiptLink>
-                : 100,000 requests a day, static assets free and unlimited. Samebase adds no floor
-                of its own.
+          <LandingSection>
+            <div className="mx-auto max-w-[760px]">
+              <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                cost follows real usage
               </p>
-            </LandingFootnote>
-            <LandingFootnote fragment="landing-note-risk" heading="Not hypothetical." marker="§">
-              <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
-                2024:{" "}
-                <LandingReceiptLink href="https://env.fail/posts/firewreck-1/">
-                  916 sites
-                </LandingReceiptLink>{" "}
-                exposing about{" "}
-                <LandingReceiptLink href="https://www.bleepingcomputer.com/news/security/misconfigured-firebase-instances-leaked-19-million-plaintext-passwords/">
-                  125 million user records
-                </LandingReceiptLink>{" "}
-                via misconfigured Firebase. 2025: the Tea app{" "}
-                <LandingReceiptLink href="https://www.engadget.com/cybersecurity/tea-app-suffers-breach-exposing-thousands-of-user-images-190731414.html">
-                  leaked 72,000 images
-                </LandingReceiptLink>
-                , and{" "}
-                <LandingReceiptLink href="https://www.superblocks.com/blog/lovable-vulnerabilities">
-                  170 of 1,645 scanned Lovable apps
-                </LandingReceiptLink>{" "}
-                had missing or broken Supabase row-level security (
-                <LandingReceiptLink href="https://nvd.nist.gov/vuln/detail/CVE-2025-48757">
-                  CVE-2025-48757
-                </LandingReceiptLink>
-                , disputed by the vendor). Convex,{" "}
-                <LandingReceiptLink href="https://stack.convex.dev/row-level-security">
-                  officially
-                </LandingReceiptLink>
-                : "your Convex database is only accessible via server functions."
-              </p>
-            </LandingFootnote>
-            <LandingFootnote fragment="landing-note-tokens" heading="The hosting math." marker="†">
-              <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
-                <LandingReceiptLink href="https://www.netlify.com/pricing/">
-                  Netlify Pro
-                </LandingReceiptLink>{" "}
-                is $20/month for 3,000 credits at 15 per successful production deploy: about 200 a
-                month before bandwidth and compute draw from the same pool. Cloudflare's{" "}
-                <LandingReceiptLink href="https://developers.cloudflare.com/workers/platform/pricing/">
-                  $5 Workers plan
-                </LandingReceiptLink>{" "}
-                includes{" "}
-                <LandingReceiptLink href="https://developers.cloudflare.com/workers/ci-cd/builds/limits-and-pricing/">
-                  six concurrent builds
-                </LandingReceiptLink>
-                , and Cloudflare itself says to start new projects on Workers.
-              </p>
-            </LandingFootnote>
-            <LandingFootnote
-              fragment="landing-note-first-customer"
-              heading="First customer: me, Nicu."
-              marker="*"
-            >
-              <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
-                Then my close friends. No upselling, no funnels, no VCs. Every claim on this page
-                links a{" "}
-                <LandingInlineLink to={DOCS_RECEIPTS_ROUTE}>dated receipt</LandingInlineLink> your
-                agent can verify instead of trusting us.
-              </p>
-            </LandingFootnote>
-          </div>
-        </LandingSection>
-
-        <LandingSection>
-          <div className="@4xl:grid @4xl:grid-cols-[minmax(0,1fr)_420px] @4xl:items-center @4xl:gap-x-14">
-            <div>
-              <h2 className="max-w-[20ch] text-[clamp(26px,3.4cqw,36px)] font-bold leading-tight tracking-[-0.025em]">
-                Same stack. Your accounts. No magic.
-              </h2>
-              <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-muted-foreground">
-                The manual-setup article walks through every step Samebase automates. It doubles as
-                the exit door.
-              </p>
-              <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
-                <LandingCreateAppButton />
-                <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>Do it yourself</LandingInlineLink>
+              <div className="mt-4">
+                {LANDING_COST_ROWS.map((row) => (
+                  <div
+                    className="flex items-baseline justify-between gap-6 border-t border-border py-3"
+                    key={row.profile}
+                  >
+                    <p className="text-base">{row.profile}</p>
+                    <p
+                      className={
+                        row.zeroCost
+                          ? "text-right font-mono text-sm font-semibold text-secondary"
+                          : "text-right font-mono text-sm"
+                      }
+                    >
+                      {row.value}
+                      {row.zeroCost ? (
+                        <LandingFootnoteMark
+                          fragment="landing-note-zero"
+                          label="footnote: zero"
+                          marker="‡"
+                        />
+                      ) : null}
+                    </p>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="mt-12 @4xl:mt-0">
-              <PublicLandingLogo
-                routeSearch={LANDING_CLOSING_LOGO_ROUTE_SEARCH}
-                routeSearchSource="static"
-                stage="wide"
-                viewStateKey={LANDING_CLOSING_BAND_VIEW_STATE_KEY}
-              />
+          </LandingSection>
+
+          <section className="mt-16 @3xl:mt-24">
+            <blockquote className="mx-auto max-w-[24ch] text-[clamp(28px,4cqw,40px)] font-semibold leading-[1.2] tracking-[-0.025em]">
+              If your app builder is so good, why is it not building itself?
+            </blockquote>
+          </section>
+
+          <LandingSection ariaLabel="Footnotes">
+            <div className="grid gap-8 @3xl:grid-cols-2 @3xl:gap-x-14">
+              <LandingFootnote
+                fragment="landing-note-zero"
+                heading="$0/month, receipted."
+                marker="‡"
+              >
+                <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
+                  GitHub Free: unlimited private repos.{" "}
+                  <LandingReceiptLink href="https://www.convex.dev/pricing">
+                    Convex Free
+                  </LandingReceiptLink>
+                  : a million function calls a month.{" "}
+                  <LandingReceiptLink href="https://developers.cloudflare.com/workers/platform/pricing/">
+                    Cloudflare Workers Free
+                  </LandingReceiptLink>
+                  : 100,000 requests a day, static assets free and unlimited. Samebase adds no floor
+                  of its own.
+                </p>
+              </LandingFootnote>
+              <LandingFootnote fragment="landing-note-risk" heading="Not hypothetical." marker="§">
+                <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
+                  2024:{" "}
+                  <LandingReceiptLink href="https://env.fail/posts/firewreck-1/">
+                    916 sites
+                  </LandingReceiptLink>{" "}
+                  exposing about{" "}
+                  <LandingReceiptLink href="https://www.bleepingcomputer.com/news/security/misconfigured-firebase-instances-leaked-19-million-plaintext-passwords/">
+                    125 million user records
+                  </LandingReceiptLink>{" "}
+                  via misconfigured Firebase. 2025: the Tea app{" "}
+                  <LandingReceiptLink href="https://www.engadget.com/cybersecurity/tea-app-suffers-breach-exposing-thousands-of-user-images-190731414.html">
+                    leaked 72,000 images
+                  </LandingReceiptLink>
+                  , and{" "}
+                  <LandingReceiptLink href="https://www.superblocks.com/blog/lovable-vulnerabilities">
+                    170 of 1,645 scanned Lovable apps
+                  </LandingReceiptLink>{" "}
+                  had missing or broken Supabase row-level security (
+                  <LandingReceiptLink href="https://nvd.nist.gov/vuln/detail/CVE-2025-48757">
+                    CVE-2025-48757
+                  </LandingReceiptLink>
+                  , disputed by the vendor). Convex,{" "}
+                  <LandingReceiptLink href="https://stack.convex.dev/row-level-security">
+                    officially
+                  </LandingReceiptLink>
+                  : "your Convex database is only accessible via server functions."
+                </p>
+              </LandingFootnote>
+              <LandingFootnote
+                fragment="landing-note-tokens"
+                heading="The hosting math."
+                marker="†"
+              >
+                <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
+                  <LandingReceiptLink href="https://www.netlify.com/pricing/">
+                    Netlify Pro
+                  </LandingReceiptLink>{" "}
+                  is $20/month for 3,000 credits at 15 per successful production deploy: about 200 a
+                  month before bandwidth and compute draw from the same pool. Cloudflare's{" "}
+                  <LandingReceiptLink href="https://developers.cloudflare.com/workers/platform/pricing/">
+                    $5 Workers plan
+                  </LandingReceiptLink>{" "}
+                  includes{" "}
+                  <LandingReceiptLink href="https://developers.cloudflare.com/workers/ci-cd/builds/limits-and-pricing/">
+                    six concurrent builds
+                  </LandingReceiptLink>
+                  , and Cloudflare itself says to start new projects on Workers.
+                </p>
+              </LandingFootnote>
+              <LandingFootnote
+                fragment="landing-note-first-customer"
+                heading="First customer: me, Nicu."
+                marker="*"
+              >
+                <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
+                  Then my close friends. No upselling, no funnels, no VCs. Every claim on this page
+                  links a{" "}
+                  <LandingInlineLink to={DOCS_RECEIPTS_ROUTE}>dated receipt</LandingInlineLink> your
+                  agent can verify instead of trusting us.
+                </p>
+              </LandingFootnote>
             </div>
-          </div>
-        </LandingSection>
+          </LandingSection>
+
+          <LandingSection>
+            <div className="@4xl:grid @4xl:grid-cols-[minmax(0,1fr)_420px] @4xl:items-center @4xl:gap-x-14">
+              <div>
+                <h2 className="max-w-[20ch] text-[clamp(26px,3.4cqw,36px)] font-bold leading-tight tracking-[-0.025em]">
+                  Same stack. Your accounts. No magic.
+                </h2>
+                <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-muted-foreground">
+                  The manual-setup article walks through every step Samebase automates. It doubles
+                  as the exit door.
+                </p>
+                <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
+                  <LandingCreateAppButton />
+                  <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>
+                    Do it yourself
+                  </LandingInlineLink>
+                </div>
+              </div>
+              <div className="mt-12 @4xl:mt-0">
+                <PublicLandingLogo
+                  routeSearch={LANDING_CLOSING_LOGO_ROUTE_SEARCH}
+                  routeSearchSource="static"
+                  stage="wide"
+                  viewStateKey={LANDING_CLOSING_BAND_VIEW_STATE_KEY}
+                />
+              </div>
+            </div>
+          </LandingSection>
+        </div>
       </div>
     </article>
   );
