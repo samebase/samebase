@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { realpathSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -14,13 +14,16 @@ const generatedJavaScriptPaths = new Set([
 
 const handwrittenSourceExtensions = new Set([".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts"]);
 
-export function readTrackedFilePaths(repoRoot: string): string[] {
-  return execFileSync("git", ["ls-files", "-z", "--cached"], {
+export function readPresentSourceFilePaths(repoRoot: string): string[] {
+  return execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
     cwd: repoRoot,
   })
     .toString("utf8")
     .split("\0")
-    .filter((filePath) => filePath.length > 0);
+    .filter(
+      (filePath) =>
+        filePath.length > 0 && existsSync(path.join(repoRoot, ...filePath.split(path.posix.sep))),
+    );
 }
 
 export function findHandwrittenJavaScript(filePaths: readonly string[]): string[] {
@@ -34,14 +37,14 @@ export function findHandwrittenJavaScript(filePaths: readonly string[]): string[
 }
 
 export function checkTypeScriptSources(repoRoot: string): void {
-  const handwrittenJavaScript = findHandwrittenJavaScript(readTrackedFilePaths(repoRoot));
+  const handwrittenJavaScript = findHandwrittenJavaScript(readPresentSourceFilePaths(repoRoot));
   if (handwrittenJavaScript.length === 0) {
-    console.log("All tracked handwritten source files use TypeScript.");
+    console.log("All present handwritten source files use TypeScript.");
     return;
   }
 
   fail(
-    `Tracked handwritten source files must use normal .ts or .tsx extensions:\n${handwrittenJavaScript
+    `Present handwritten source files must use normal .ts or .tsx extensions:\n${handwrittenJavaScript
       .map((filePath) => `- ${filePath}`)
       .join("\n")}`,
   );

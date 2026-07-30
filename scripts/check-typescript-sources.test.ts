@@ -40,7 +40,7 @@ describe("check-typescript-sources CLI", () => {
 
       const result = runGuard(repoRoot);
       expect(result.status).toBe(0);
-      expect(result.stdout).toContain("All tracked handwritten source files use TypeScript.");
+      expect(result.stdout).toContain("All present handwritten source files use TypeScript.");
     } finally {
       rmSync(repoRoot, { recursive: true, force: true });
     }
@@ -55,6 +55,22 @@ describe("check-typescript-sources CLI", () => {
       const result = runGuard(repoRoot);
       expect(result.status).toBe(1);
       expect(result.stderr).toContain("scripts/manual.mjs");
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects an untracked non-ignored JavaScript file through the real CLI", () => {
+    const repoRoot = createTemporaryRepo();
+
+    try {
+      const filePath = path.join(repoRoot, "scripts", "untracked.mjs");
+      mkdirSync(path.dirname(filePath), { recursive: true });
+      writeFileSync(filePath, "", "utf8");
+
+      const result = runGuard(repoRoot);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("scripts/untracked.mjs");
     } finally {
       rmSync(repoRoot, { recursive: true, force: true });
     }

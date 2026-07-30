@@ -46,38 +46,44 @@ describe("starterSeedManifest", () => {
     const scriptFiles = Object.keys(starterTemplateManifest.files).filter((filePath) =>
       filePath.startsWith("scripts/"),
     );
-    const packageJson = starterTemplateManifest.files["package.json"];
-    const nodeTypeScriptConfig = starterTemplateManifest.files["tsconfig.node.json"];
+    const packageJson: unknown = JSON.parse(starterTemplateManifest.files["package.json"]);
+    const nodeTypeScriptConfig: unknown = JSON.parse(
+      starterTemplateManifest.files["tsconfig.node.json"],
+    );
 
     expect(starterTemplateManifest.files[".node-version"]).toBe("24\n");
-    expect(packageJson).toContain('"type": "module"');
-    expect(packageJson).toContain(
-      '"check": "tsc && pnpm run typecheck:node && tsc --project convex/tsconfig.json && pnpm run verify:cloudflare-redirects"',
+    expect(packageJson).toEqual(
+      expect.objectContaining({
+        type: "module",
+        scripts: expect.objectContaining({
+          check:
+            "tsc && pnpm run typecheck:node && tsc --project convex/tsconfig.json && pnpm run verify:cloudflare-redirects",
+          build: "pnpm run typecheck:node && vp run build:cloudflare",
+          "typecheck:node": "tsc --project tsconfig.node.json",
+        }),
+      }),
     );
-    expect(packageJson).toContain('"build": "pnpm run typecheck:node && vp run build:cloudflare"');
-    expect(packageJson).toContain('"typecheck:node": "tsc --project tsconfig.node.json"');
     expect(scriptFiles.length).toBeGreaterThan(0);
     expect(scriptFiles.every((filePath) => filePath.endsWith(".ts"))).toBe(true);
-    expect(nodeTypeScriptConfig).toBe(`{
-  "compilerOptions": {
-    "target": "ESNext",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "types": ["node"],
-    "skipLibCheck": true,
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
-    "moduleDetection": "force",
-    "noEmit": true,
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true
-  },
-  "include": ["scripts/**/*.ts", "vite.config.ts"]
-}
-`);
+    expect(nodeTypeScriptConfig).toEqual({
+      compilerOptions: {
+        target: "ESNext",
+        module: "NodeNext",
+        moduleResolution: "NodeNext",
+        types: ["node"],
+        skipLibCheck: true,
+        allowImportingTsExtensions: true,
+        verbatimModuleSyntax: true,
+        moduleDetection: "force",
+        noEmit: true,
+        strict: true,
+        noUnusedLocals: true,
+        noUnusedParameters: true,
+        erasableSyntaxOnly: true,
+        noFallthroughCasesInSwitch: true,
+      },
+      include: ["scripts/**/*.ts", "vite.config.ts"],
+    });
   });
 
   it("keeps Cloudflare SPA mode and exact prerender aliases aligned", () => {
