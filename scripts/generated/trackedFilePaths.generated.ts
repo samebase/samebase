@@ -1383,7 +1383,6 @@ export const trackedFilePaths = [
   "links.md",
   "main_idea.md",
   "manual-tests/.runs/.gitignore",
-  "manual-tests/HOST-001-existing-repository-cloudflare-cutover.md",
   "manual-tests/MCP-001-phase1-foundation-and-discovery.md",
   "manual-tests/MCP-002-phase2-token-and-mcp-flow.md",
   "manual-tests/README.md",
