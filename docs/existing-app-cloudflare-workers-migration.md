@@ -2,221 +2,127 @@
 
 ## Purpose
 
-Use this runbook to move an existing repository from another web host to Cloudflare Workers. It
-covers applications that use Convex and are connected to Samebase.
+Use this runbook to move an existing application from another host to Cloudflare Workers. Keep the
+old host available until the new deployment, public hostname, and rollback path pass.
 
-Keep the old host online until the Cloudflare deployment and the public hostname pass all checks.
+## Decide the Runtime and Toolchain
 
-## Choose the Runtime
+Inspect the repository before provider changes:
 
-Inspect the application before you change provider settings.
+1. Identify the application root, framework, routes, package manager, lock file, and build commands.
+2. Find server-rendered pages, API routes, middleware, image transforms, and other server features.
+3. Use static assets only when every production route is static.
+4. Use the current Cloudflare adapter when the application needs a server runtime.
+5. Record the intended package manager, task runner, formatter, linter, test runner, and source
+   language before implementation starts.
 
-1. Identify the framework, package manager, lock file, build command, and current production URL.
-2. Search for server-rendered pages, API routes, middleware, image transforms, and incremental
-   static regeneration.
-3. Use a static Worker only when every production route can be built as static files.
-4. Use the current Cloudflare adapter for the framework when the application needs a server runtime.
-   For Next.js server rendering, use OpenNext on Workers.
-5. Check the adapter support table against the exact framework version. Upgrade the framework only
-   when the selected adapter requires it.
-
-Do not convert a server-rendered application to a static export only to make the provider change
-easier. That changes application behavior and increases migration risk.
+Do not remove server rendering only to simplify hosting. A lock file proves the current dependency
+graph. It does not decide which toolchain the owner wants after the migration.
 
 ## Record the Baseline
 
-Record this evidence before the first provider write:
+Record only the facts needed to validate or reverse the migration:
 
-- repository and default branch
-- source commit
-- current public URL and old provider deployment ID
-- framework and adapter versions
-- current DNS record ID, type, target, and proxy state
-- current Convex project and deployment
-- current Worker name, stable tag, versions, deployments, routes, and domains
-- production and preview build trigger IDs
-- non-secret environment variable names for each trigger
+- source commit and public URL
+- old host deployment and DNS rollback target
+- Cloudflare account, Worker, active version, and deployment
+- Convex project and production deployment
+- application root and provider build commands
+- production and preview trigger identities
+- non-secret environment variable names
 
-Do not copy deploy keys, tokens, private application data, or raw private logs into the record.
+Do not copy credentials, private data, response bodies, or raw private logs into the record.
 
-## Use Samebase
+## Use Samebase and Provider State
 
-1. Read the Samebase vault inventory.
-2. Reuse the existing vault when the repository is already connected.
-3. When no Worker exists, create an empty Worker in Cloudflare without a production route or custom
-   domain. Samebase cannot yet create the first Worker for an adopted repository.
-4. Discover and attach the exact Convex project and Cloudflare Worker.
-5. Compare the discovered repository root with the real application root.
-6. Read provider state after each Samebase action.
+Read the Samebase vault inventory first. Reuse the connected repository, Convex project, and Worker
+when their stable identities match. Do not create replacement resources from names alone.
 
-Samebase inventory proves the attachment state. It does not prove that a provider build or
-deployment completed. Use the Cloudflare API or dashboard for the terminal build result, Worker
-version, deployment, custom domain, and runtime logs.
+Samebase inventory proves the connected resource identities and workflow state. It does not prove
+that a provider build or deployment completed. Use live Cloudflare and Convex reads for terminal
+build results, Worker versions, active deployments, public routes, and backend state.
 
-Do not use an action that will give both Convex deploy keys to both build triggers. The production
-trigger gets only the production key. The preview trigger gets only the preview key.
+Keep configuration separate from production promotion. Show the exact provider change before a
+write, and start production only after branch validation passes.
 
-Current Samebase observation expects both secret names on both triggers. A least-privilege split
-therefore reports the Worker-to-Convex build relationship as `incomplete`. Record this state. Do not
-use the repair action because it will broaden secret access. Samebase must model the production and
-preview trigger secrets separately before it can report this safer layout as configured.
+## Commit the Deployment Contract
 
-## Build Contract
+Keep these facts in the application repository:
 
-Commit these parts of the deployment contract:
+- Worker and framework adapter configuration
+- locked runtime and deployment dependencies
+- production and preview build and deploy scripts
+- local and provider dry-run commands
+- generated-file policy
+- release and rollback commands
 
-- Worker configuration with compatibility settings, assets, logs, and trace sampling
-- framework adapter configuration
-- locked adapter, framework, Wrangler, and package manager versions
-- production and preview deploy scripts
-- a build script that selects the correct Convex deployment
-- a dry-run command for each deploy mode
-- a local Worker preview command
-- static asset cache headers
-- an operator file with release, rollback, and monitoring steps
+Remove production and preview deploy keys before application-build and upload child processes start.
+Commit generated files only when a clean provider build requires them.
 
-Remove both Convex deploy keys from the environment before the application build and Worker upload
-children start. This prevents a secret from entering the bundle or the upload process.
+## Protect Private Applications
 
-Some Convex deploy commands run the frontend command before code generation. If the provider build
-does not have generated Convex files, commit the generated directory or change the command order
-only when the Convex CLI contract permits it.
+Before public preview or cutover:
 
-## Protect Private Server Rendering
+1. Prove that an anonymous private request stops before private content renders.
+2. Confirm that its redirect or error response contains no private body.
+3. Test a valid saved browser session and a rejected saved session.
+4. Keep a valid session during a temporary provider failure.
+5. Clear credentials and private client state after provider-confirmed rejection.
 
-For a private application, an unauthenticated server request must stop before a private page
-renders. Use the application's supported authentication design.
+Use status, headers, and synthetic data for probes. Do not save private response bodies.
 
-1. Identify the browser credential, the server validation source, and the invalid-session behavior.
-2. Make the validated identity available to private server rendering.
-3. When the auth library cannot provide the identity to the server, bridge it with the smallest
-   supported session mechanism. An HTTP-only and same-site cookie is one option, not a universal
-   requirement.
-4. When the design uses a session write endpoint, require a same-origin fetch signal, a matching
-   `Origin` host, and the expected content type.
-5. Clear a rejected saved credential. Keep a valid saved credential during a temporary provider or
-   network failure.
-6. Redirect an unauthenticated private route to the sign-in page.
-7. Confirm that the redirect response has no private body.
-8. Disable public account creation when preview deployments have no safe user bootstrap.
+## Separate Production and Preview
 
-Run a production dependency audit. Fix critical findings before cutover. Record a narrow
-classification for each accepted finding.
+Use separate build triggers and credentials:
 
-## Configure Workers Builds
+| Setting       | Production                 | Preview                   |
+| ------------- | -------------------------- | ------------------------- |
+| Branch        | Default branch only        | Other branches            |
+| Deploy result | Active Worker deployment   | Inactive Worker version   |
+| Convex target | Production deployment      | Branch preview deployment |
+| Convex secret | Production deploy key only | Preview deploy key only   |
 
-Use two separate Cloudflare build triggers.
+Do not use the word `preview` for all provider states. Name the exact state: branch build, Worker
+version upload, public version URL, or Convex preview deployment.
 
-| Setting        | Production                 | Preview                                |
-| -------------- | -------------------------- | -------------------------------------- |
-| Branch         | Default branch only        | All branches except the default branch |
-| Build command  | Repository build command   | Repository build command               |
-| Deploy command | Production deploy          | Version upload only                    |
-| Convex secret  | Production deploy key only | Preview deploy key only                |
-| Project marker | Same non-secret marker     | Same non-secret marker                 |
+## Validate and Cut Over
 
-Keep public version preview URLs off when an empty Convex preview deployment has no safe account
-bootstrap. A successful branch build can still validate the full build and upload path without
-sending traffic to the uploaded version.
+Before merge:
 
-## Validate a Branch
+1. Run the repository checks, build, dry runs, and safe route tests.
+2. Confirm that the provider branch build used the reviewed commit.
+3. Confirm the uploaded Worker version receives no production traffic.
+4. Test the public branch URL when the application supports one.
+5. Test the named browser profile and account that the operator uses.
 
-Run local checks first:
+For cutover:
 
-1. lint
-2. type check
-3. application and Worker build
-4. production upload dry run
-5. preview upload dry run
-6. local Worker preview route checks
-7. production dependency audit
+1. Record the current deployment and DNS rollback facts.
+2. Merge only the reviewed commit.
+3. Wait for a terminal successful production build.
+4. Confirm the expected Worker version is active.
+5. Test the Workers URL before the public hostname changes.
+6. Move the public hostname and repeat the route and named-session checks.
+7. Observe the application for a predefined window with application-specific limits.
 
-Push a branch and wait for the Cloudflare build to stop. Record:
-
-- source commit
-- build ID, start time, stop time, duration, and outcome
-- upload size and compressed size
-- Worker version ID
-- confirmation that the version received no production traffic
-
-Do not merge while any current check fails.
-
-## Cut Over Production
-
-1. Keep the old host and DNS record active.
-2. Merge the reviewed branch to the default branch.
-3. Wait for the production build to stop with a successful outcome.
-4. Confirm the new Worker deployment ID and active version ID.
-5. Check the `workers.dev` URL before you change the public hostname.
-6. Test the sign-in page, private routes, disabled API routes, unknown routes, and static assets.
-7. Attach the existing public hostname as a Workers Custom Domain.
-8. Record the Custom Domain ID and the DNS change.
-9. Confirm the same route behavior on the public hostname.
-10. Open a protected route in the named browser profile that the operator already uses for the
-    application. Confirm that a stored valid login stays valid and that a rejected stored login
-    clears itself and returns to sign-in.
-11. Update the repository homepage only after the public hostname and the existing browser state
-    pass.
-
-Use status and headers for private route probes. Do not save a private response body in logs or test
-evidence.
-
-## Monitor
-
-Keep full Worker logs for 30 minutes after the hostname change. Keep a small trace sample enabled.
-Run the safe route probes every five minutes.
-
-Use a bounded telemetry window for each probe. Filter CPU measurements by the exact
-`$workers.event.request.url` and response status. A status-only group can include unrelated browser
-or service-worker traffic and give the checked route the wrong CPU result.
-
-Define the latency and CPU thresholds before cutover from the application's measured baseline or
-production SLO. The acceptance thresholds are:
-
-- zero Worker exceptions
-- zero HTTP 5xx probe responses
-- no private body in an unauthenticated redirect
-- no Convex authentication or connection error
-- no unrecoverable stored browser session
-- each warm checked route stays inside the recorded application CPU threshold
-
-Roll back when one Worker exception occurs, the same route returns 5xx after an immediate retry, or
-a warm route exceeds the recorded CPU threshold in two consecutive checks. Also roll back when the
-named existing browser profile cannot recover from its stored authentication state.
+Filter telemetry by the exact request URL and status. A broad status group can include unrelated
+browser or service-worker traffic.
 
 ## Roll Back
 
-Record the old DNS target and the last good Worker version before cutover.
+If the cutover fails:
 
-1. Detach the Workers Custom Domain.
-2. Restore the old DNS record.
-3. Confirm that the public hostname serves the old deployment.
-4. If application code must also roll back, restore the matching Convex functions before the
-   matching Worker version.
-5. Run the safe route checks again.
+1. Restore the old DNS target or known-good Worker version.
+2. Restore compatible Convex functions when the backend changed.
+3. Repeat the safe route and named-session checks.
 
-Do not delete the old provider site during the migration. Stop its new builds after the Worker
-branch build passes. Delete the old site only in a later, explicit cleanup task.
-
-## Required Evidence
-
-A complete migration record has:
-
-- baseline provider and DNS state
-- source commit and pull request
-- local command results
-- branch build and version
-- production build, version, and deployment
-- Workers Custom Domain and public URL
-- 30-minute monitoring table
-- rollback target
-- Samebase action trace
-- product gaps, their effect, and the safe workaround
+Keep the old host until the new host passes its observation window. Remove the old host only in a
+later task with its own approval.
 
 ## Sources
 
-- [Cloudflare Next.js guide](https://developers.cloudflare.com/workers/framework-guides/web-apps/nextjs/)
-- [OpenNext Cloudflare guide](https://opennext.js.org/cloudflare/get-started)
-- [Cloudflare Workers Builds configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)
+- [Cloudflare framework guides](https://developers.cloudflare.com/workers/framework-guides/)
+- [Cloudflare Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/)
+- [Cloudflare Workers versions and deployments](https://developers.cloudflare.com/workers/versions-and-deployments/)
 - [Cloudflare Workers Custom Domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/)
-- [Convex deploy command](https://docs.convex.dev/cli/reference/deploy)
+- [Convex deployment documentation](https://docs.convex.dev/production/multiple-deployments)
