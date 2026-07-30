@@ -1,6 +1,10 @@
 import { NLogoScene } from "@/components/logo/NLogoScene";
 import { NLogoRasterScene } from "@/components/logo/NLogoRasterScene";
-import { advanceLogoAutoRotation } from "@samebase/logo-model/auto-rotation";
+import {
+  LOGO_AUTO_ROTATE_SPEED,
+  advanceLogoAutoRotation,
+  normalizeLogoAutoRotateDegreesPerSecond,
+} from "@samebase/logo-model/auto-rotation";
 import { type LogoRotationAxisMode } from "@samebase/logo-model/rotation";
 import {
   readLogoRouteRenderState,
@@ -443,6 +447,7 @@ function areLogoPreviewRouteStatesEqual(
 ): boolean {
   return (
     left.autoRotateEnabled === right.autoRotateEnabled &&
+    left.autoRotationDegreesPerSecond === right.autoRotationDegreesPerSecond &&
     left.autoShuffleEnabled === right.autoShuffleEnabled &&
     left.elevationDegrees === right.elevationDegrees &&
     left.distanceScale === right.distanceScale &&
@@ -689,7 +694,9 @@ function useLogoPreviewController({
       advanceAutoRotation: (deltaSeconds: number) => {
         setRouteStateDraft((currentState) => ({
           ...currentState,
-          rotationDegrees: advanceLogoAutoRotation(currentState.rotationDegrees, deltaSeconds),
+          rotationDegrees: advanceLogoAutoRotation(currentState.rotationDegrees, deltaSeconds, {
+            degreesPerSecond: currentState.autoRotationDegreesPerSecond,
+          }),
         }));
       },
       applyPreset: (presetId: Exclude<LogoPresetSelection, "custom">) => {
@@ -962,6 +969,14 @@ function useLogoPreviewController({
             },
           ),
         );
+      },
+      setRotationSpeed: (autoRotationDegreesPerSecond: number) => {
+        debounceRouteState((currentState) => ({
+          ...currentState,
+          autoRotationDegreesPerSecond: normalizeLogoAutoRotateDegreesPerSecond(
+            autoRotationDegreesPerSecond,
+          ),
+        }));
       },
       setShuffleEnabled: (autoShuffleEnabled: boolean) => {
         if (autoShuffleEnabled) {
@@ -1935,20 +1950,36 @@ export function LogoPreviewPage({
         </LogoPreviewSection>
       )}
 
-      <LogoPreviewSection title="Motion">
+      <LogoPreviewSection title="Motion" testId="logo-preview-motion-section">
         <div className={LOGO_CONTROL_STACK_CLASS_NAME}>
           {renderMode === "three" ? (
-            <Button
-              type="button"
-              size="sm"
-              variant={state.autoRotateEnabled ? "default" : "outline"}
-              className="w-full rounded-none"
-              onClick={() => {
-                controls.setAutoRotating(!state.autoRotateEnabled);
-              }}
-            >
-              {state.autoRotateEnabled ? "Stop auto rotate" : "Start auto rotate"}
-            </Button>
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant={state.autoRotateEnabled ? "default" : "outline"}
+                className="w-full rounded-none"
+                onClick={() => {
+                  controls.setAutoRotating(!state.autoRotateEnabled);
+                }}
+              >
+                {state.autoRotateEnabled ? "Stop auto rotate" : "Start auto rotate"}
+              </Button>
+              <LogoRangeControl
+                formatValue={(value) => value.toFixed(1)}
+                label="Rotation speed"
+                max={LOGO_AUTO_ROTATE_SPEED.sliderMax}
+                min={LOGO_AUTO_ROTATE_SPEED.min}
+                normalizeValue={normalizeLogoAutoRotateDegreesPerSecond}
+                onSliderChange={controls.setRotationSpeed}
+                onValueChange={controls.setRotationSpeed}
+                sliderAriaLabel="Rotation speed slider"
+                step={LOGO_AUTO_ROTATE_SPEED.step}
+                value={state.autoRotationDegreesPerSecond}
+                valueAriaLabel="Rotation speed value"
+                valueText={`${state.autoRotationDegreesPerSecond.toFixed(1)}°/s`}
+              />
+            </>
           ) : null}
           <Button
             type="button"

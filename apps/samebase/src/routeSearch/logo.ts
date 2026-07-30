@@ -1,5 +1,9 @@
 import { includes } from "@samebase/dependent";
 import { keys } from "@samebase/dependent/object";
+import {
+  LOGO_AUTO_ROTATE_SPEED,
+  normalizeLogoAutoRotateDegreesPerSecond,
+} from "@samebase/logo-model/auto-rotation";
 import { type LogoRotationAxisMode } from "@samebase/logo-model/rotation";
 import {
   SIERPINSKI_CARPET_HOVER_DEFAULT_DEPTH,
@@ -351,6 +355,22 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
     valueSuggestions: null,
     valueType: "numeric",
   }),
+  rotationSpeed: routeSearchValueParam(
+    routeSearchNormalizedFiniteNumber(normalizeLogoAutoRotateDegreesPerSecond),
+    {
+      numericDefaultValue: LOGO_AUTO_ROTATE_SPEED.defaultValue,
+      numericRange: {
+        minValue: LOGO_AUTO_ROTATE_SPEED.min,
+        rangeType: "min",
+      },
+      numericStepValue: LOGO_AUTO_ROTATE_SPEED.step,
+      access: "access_public",
+      sampleValue: "24",
+      ...logoMotionRouteSearchSuggestion,
+      valueSuggestions: ["0", "6", "12", "24", "36", "60"],
+      valueType: "numeric",
+    },
+  ),
   secondary: RouteSearchSchema_appThemeColor.shape.secondary,
   shuffleMoves: routeSearchValueParam(logoShuffleParallelMovesSearchValue, {
     numericDefaultValue: DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
@@ -610,6 +630,7 @@ function readLogoRouteSearchFields(search: LogoRouteSearchFields) {
     ...readLogoLeftFaceStyleSearch(readLogoLeftFaceStyle(search)),
     ...(typeof search.opacity === "number" ? { opacity: search.opacity } : {}),
     ...(typeof search.rot === "number" ? { rot: search.rot } : {}),
+    ...(typeof search.rotationSpeed === "number" ? { rotationSpeed: search.rotationSpeed } : {}),
     ...(typeof search.shuffleMoves === "number" ? { shuffleMoves: search.shuffleMoves } : {}),
     ...(typeof voxelState === "string" ? { vox: voxelState } : {}),
     ...(typeof search.zoom === "number" ? { zoom: search.zoom } : {}),
@@ -651,6 +672,7 @@ export type LogoMengerHoverRouteSearch = ReturnType<typeof readLogoMengerHoverRo
 
 export type LogoRouteSearchBuildState = {
   autoRotateEnabled: boolean;
+  autoRotationDegreesPerSecond: number;
   autoShuffleEnabled: boolean;
   distanceScale: number;
   elevationDegrees: number;
@@ -692,6 +714,7 @@ export const LOGO_ROUTE_SEARCH_PARAM_ACCESS = readRouteSearchParamAccess(
 );
 
 const PUBLIC_LANDING_LOGO_STATIC_FALLBACK_SAFE_SEARCH_KEYS = [
+  "rotationSpeed",
   "zoom",
 ] as const satisfies readonly (typeof LOGO_ROUTE_SEARCH_KEYS)[number][];
 
@@ -952,6 +975,9 @@ export function buildLogoRouteSearch(
   const distanceScale = normalizeLogoDistanceScale(args.distanceScale);
   const leftFaceStyle = normalizeLogoLeftFaceStyle(args.leftFaceStyle);
   const logoOpacity = normalizeLogoOpacity(args.logoOpacity);
+  const autoRotationDegreesPerSecond = normalizeLogoAutoRotateDegreesPerSecond(
+    args.autoRotationDegreesPerSecond,
+  );
   const shuffleParallelMoves = normalizeLogoShuffleParallelMoves(args.shuffleParallelMoves);
   const zoom = normalizeLogoPreviewZoom(args.zoom);
 
@@ -981,6 +1007,10 @@ export function buildLogoRouteSearch(
     rot:
       args.rotationDegrees !== DEFAULT_ROTATION_DEGREES
         ? Number(args.rotationDegrees.toFixed(1))
+        : undefined,
+    rotationSpeed:
+      autoRotationDegreesPerSecond !== LOGO_AUTO_ROTATE_SPEED.defaultValue
+        ? Number(autoRotationDegreesPerSecond.toFixed(3))
         : undefined,
     shuffleMoves:
       shuffleParallelMoves !== DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES

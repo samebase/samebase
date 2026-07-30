@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { LOGO_AUTO_ROTATE_SPEED } from "@samebase/logo-model/auto-rotation";
 import {
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
   LOGO_ISOMETRIC_CUBE_SIDE_PIXELS,
@@ -65,9 +66,10 @@ describe("logoRouteSearch", () => {
     expect(PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS).toContain("depth");
     expect(PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS).toContain("opacity");
     expect(PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS).toContain("auto-rotate");
+    expect(PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS).not.toContain("rotationSpeed");
     expect(PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS).not.toContain("zoom");
     expect(PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS).toEqual(
-      LOGO_ROUTE_SEARCH_KEYS.filter((key) => key !== "zoom"),
+      LOGO_ROUTE_SEARCH_KEYS.filter((key) => key !== "rotationSpeed" && key !== "zoom"),
     );
     expect(hasPublicLandingLogoStaticFallbackUnsafeSearch({ rot: 180 })).toBe(true);
     expect(hasPublicLandingLogoStaticFallbackUnsafeSearch({ zoom: 0.5 })).toBe(false);
@@ -93,6 +95,7 @@ describe("logoRouteSearch", () => {
         opacity: "0.5",
         primary: "emerald-500",
         rot: "721",
+        rotationSpeed: "-1",
         secondary: "amber-500",
         shuffleMoves: "2",
         stripeA: "120",
@@ -122,6 +125,7 @@ describe("logoRouteSearch", () => {
       opacity: 0.5,
       primary: "emerald-500",
       rot: 1,
+      rotationSpeed: 0,
       secondary: "amber-500",
       shuffleMoves: 2,
       stripeA: 90,
@@ -138,6 +142,7 @@ describe("logoRouteSearch", () => {
   it("clears default logo state when building route search", () => {
     const search = buildLogoRouteSearch({
       autoRotateEnabled: false,
+      autoRotationDegreesPerSecond: LOGO_AUTO_ROTATE_SPEED.defaultValue,
       autoShuffleEnabled: false,
       faceColorAnimationEnabled: false,
       leftFaceStripeAnimationEnabled: false,
@@ -187,6 +192,8 @@ describe("logoRouteSearch", () => {
     expect(search.opacity).toBeUndefined();
     expect("rot" in search).toBe(true);
     expect(search.rot).toBeUndefined();
+    expect("rotationSpeed" in search).toBe(true);
+    expect(search.rotationSpeed).toBeUndefined();
     expect("shuffleMoves" in search).toBe(true);
     expect(search.shuffleMoves).toBeUndefined();
     expect("vox" in search).toBe(true);
@@ -197,6 +204,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         autoRotateEnabled: true,
+        autoRotationDegreesPerSecond: 24,
         autoShuffleEnabled: true,
         faceColorAnimationEnabled: true,
         leftFaceStripeAnimationEnabled: true,
@@ -222,6 +230,7 @@ describe("logoRouteSearch", () => {
       "auto-rotate": true,
       "auto-shuffle": true,
       opacity: 0.46,
+      rotationSpeed: 24,
       shuffleMoves: 2,
     });
   });
@@ -238,6 +247,7 @@ describe("logoRouteSearch", () => {
   it("clears default iso state with tombstones when building iso route search", () => {
     const search = buildLogoIsoRouteSearch({
       autoRotateEnabled: false,
+      autoRotationDegreesPerSecond: LOGO_AUTO_ROTATE_SPEED.defaultValue,
       autoShuffleEnabled: false,
       faceColorAnimationEnabled: false,
       leftFaceStripeAnimationEnabled: false,
@@ -324,6 +334,7 @@ describe("logoRouteSearch", () => {
   it("clears default hover state with tombstones when building hover route search", () => {
     const routeBuildDefaults = {
       autoRotateEnabled: false,
+      autoRotationDegreesPerSecond: LOGO_AUTO_ROTATE_SPEED.defaultValue,
       autoShuffleEnabled: false,
       faceColorAnimationEnabled: false,
       leftFaceStripeAnimationEnabled: false,
@@ -446,6 +457,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         autoRotateEnabled: false,
+        autoRotationDegreesPerSecond: LOGO_AUTO_ROTATE_SPEED.defaultValue,
         autoShuffleEnabled: false,
         faceColorAnimationEnabled: false,
         leftFaceStripeAnimationEnabled: false,
@@ -471,6 +483,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         autoRotateEnabled: false,
+        autoRotationDegreesPerSecond: LOGO_AUTO_ROTATE_SPEED.defaultValue,
         autoShuffleEnabled: false,
         faceColorAnimationEnabled: false,
         leftFaceStripeAnimationEnabled: false,
@@ -579,6 +592,7 @@ describe("logoRouteSearch", () => {
 
     const builtSearch = buildLogoRouteSearch({
       autoRotateEnabled: false,
+      autoRotationDegreesPerSecond: LOGO_AUTO_ROTATE_SPEED.defaultValue,
       autoShuffleEnabled: false,
       faceColorAnimationEnabled: false,
       leftFaceStripeAnimationEnabled: false,
@@ -607,6 +621,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         autoRotateEnabled: false,
+        autoRotationDegreesPerSecond: LOGO_AUTO_ROTATE_SPEED.defaultValue,
         autoShuffleEnabled: false,
         faceColorAnimationEnabled: false,
         leftFaceStripeAnimationEnabled: false,
@@ -633,6 +648,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         autoRotateEnabled: false,
+        autoRotationDegreesPerSecond: LOGO_AUTO_ROTATE_SPEED.defaultValue,
         autoShuffleEnabled: false,
         faceColorAnimationEnabled: false,
         leftFaceStripeAnimationEnabled: false,
@@ -674,6 +690,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         autoRotateEnabled: false,
+        autoRotationDegreesPerSecond: LOGO_AUTO_ROTATE_SPEED.defaultValue,
         autoShuffleEnabled: false,
         faceColorAnimationEnabled: false,
         leftFaceStripeAnimationEnabled: false,
@@ -709,6 +726,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         autoRotateEnabled: false,
+        autoRotationDegreesPerSecond: LOGO_AUTO_ROTATE_SPEED.defaultValue,
         autoShuffleEnabled: false,
         faceColorAnimationEnabled: false,
         leftFaceStripeAnimationEnabled: false,
@@ -743,6 +761,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         autoRotateEnabled: false,
+        autoRotationDegreesPerSecond: LOGO_AUTO_ROTATE_SPEED.defaultValue,
         autoShuffleEnabled: false,
         faceColorAnimationEnabled: false,
         leftFaceStripeAnimationEnabled: false,
@@ -792,6 +811,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         autoRotateEnabled: false,
+        autoRotationDegreesPerSecond: LOGO_AUTO_ROTATE_SPEED.defaultValue,
         autoShuffleEnabled: false,
         faceColorAnimationEnabled: false,
         leftFaceStripeAnimationEnabled: false,
@@ -834,6 +854,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         autoRotateEnabled: false,
+        autoRotationDegreesPerSecond: LOGO_AUTO_ROTATE_SPEED.defaultValue,
         autoShuffleEnabled: false,
         faceColorAnimationEnabled: false,
         leftFaceStripeAnimationEnabled: false,
@@ -882,6 +903,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         autoRotateEnabled: false,
+        autoRotationDegreesPerSecond: LOGO_AUTO_ROTATE_SPEED.defaultValue,
         autoShuffleEnabled: false,
         faceColorAnimationEnabled: false,
         leftFaceStripeAnimationEnabled: false,
@@ -957,6 +979,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         autoRotateEnabled: false,
+        autoRotationDegreesPerSecond: LOGO_AUTO_ROTATE_SPEED.defaultValue,
         autoShuffleEnabled: false,
         faceColorAnimationEnabled: false,
         leftFaceStripeAnimationEnabled: false,

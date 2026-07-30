@@ -467,6 +467,7 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-raster-seam-lab-merge-sweep.png",
   "apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-raster-seam-lab.png",
   "apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-right-sidebar-meta-section.png",
+  "apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-rotation-speed-control.png",
   "apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-striped-left-face-scene.png",
   "apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-view-zoom-controls.png",
   "apps/samebase/e2e/logo-menger-depth-transition-visual.spec.ts",

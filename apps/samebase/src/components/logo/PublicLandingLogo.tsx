@@ -453,11 +453,10 @@ export function PublicLandingLogo({
         setView((currentView) => {
           const nextView = {
             ...currentView,
-            rotationDegrees: advanceLogoAutoRotation(
-              currentView.rotationDegrees,
-              deltaSeconds,
+            rotationDegrees: advanceLogoAutoRotation(currentView.rotationDegrees, deltaSeconds, {
+              degreesPerSecond: routeState.autoRotationDegreesPerSecond,
               speedMultiplier,
-            ),
+            }),
           };
           return nextView;
         });
@@ -472,7 +471,7 @@ export function PublicLandingLogo({
       window.cancelAnimationFrame(animationFrameId);
       lastFrameTimeRef.current = null;
     };
-  }, [isAutoRotating]);
+  }, [isAutoRotating, routeState.autoRotationDegreesPerSecond]);
 
   const activePresentationTiltTarget = prefersReducedMotion
     ? undefined

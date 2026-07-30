@@ -272,11 +272,17 @@ describe("readSuggestions", () => {
     ).toEqual([
       ...Array(6).fill("theme"),
       ...Array(12).fill("logo"),
-      ...Array(6).fill("logo-motion"),
+      ...Array(7).fill("logo-motion"),
       ...Array(5).fill("logo-view"),
     ]);
     expect(logoRows.map((row) => row.value)).toEqual(
-      expect.arrayContaining(["?dark", "?top=sky-500", "?auto-rotate", "?rot=46"]),
+      expect.arrayContaining([
+        "?dark",
+        "?top=sky-500",
+        "?auto-rotate",
+        "?rotationSpeed=24",
+        "?rot=46",
+      ]),
     );
 
     expect(
