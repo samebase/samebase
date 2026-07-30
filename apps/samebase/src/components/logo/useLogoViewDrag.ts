@@ -29,6 +29,7 @@ type UseLogoViewDragOptions<T extends Element> = {
   onPointerCaptureStart?: () => void;
   onPress?: (event: PointerEvent<T>) => void;
   onViewChange: (nextView: LogoViewState) => void;
+  readCurrentView?: () => LogoViewState;
   rotationDegrees: number;
   viewDragConfig?: LogoViewDragConfig;
 };
@@ -41,6 +42,7 @@ export function useLogoViewDrag<T extends Element>({
   onPointerCaptureStart,
   onPress,
   onViewChange,
+  readCurrentView,
   rotationDegrees,
   viewDragConfig,
 }: UseLogoViewDragOptions<T>) {
@@ -84,7 +86,7 @@ export function useLogoViewDrag<T extends Element>({
     }
 
     event.currentTarget.setPointerCapture(event.pointerId);
-    const currentView = { elevationDegrees, rotationDegrees };
+    const currentView = readCurrentView?.() ?? { elevationDegrees, rotationDegrees };
     interactionRef.current = {
       button: 0,
       currentView,

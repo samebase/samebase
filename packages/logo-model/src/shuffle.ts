@@ -42,6 +42,11 @@ export type ShuffleOriginCandidate = {
   fromKey: string;
 };
 
+export type LogoRecursiveShuffleCoordinate = {
+  coordinate: VoxelCoordinate;
+  moveSlot: number | null;
+};
+
 type ShuffleOriginCandidateContext = {
   blockedKeys: Set<string>;
   elevationDegrees: number;
@@ -127,28 +132,41 @@ export function getLogoRecursiveShuffleLayerPlacementCount({
   animatedCoordinateCount,
   movingCoordinateCount,
   prefixDepth,
+  rootCoordinateCount,
 }: {
   animatedCoordinateCount: number;
   movingCoordinateCount: number;
   prefixDepth: number;
+  rootCoordinateCount: number;
 }): number {
-  return movingCoordinateCount * animatedCoordinateCount ** prefixDepth;
+  if (prefixDepth === 0) {
+    return movingCoordinateCount;
+  }
+
+  return rootCoordinateCount * movingCoordinateCount * animatedCoordinateCount ** (prefixDepth - 1);
 }
 
 export function writeLogoRecursiveShuffleLayerCoordinates({
   animatedCoordinates,
   baseGridSize,
   movingCoordinates,
+  moveSlotCount,
   prefixDepth,
-  target,
+  rootCoordinates,
+  targetCoordinates,
+  targetMoveWeights,
 }: {
-  animatedCoordinates: readonly VoxelCoordinate[];
+  animatedCoordinates: readonly LogoRecursiveShuffleCoordinate[];
   baseGridSize: number;
-  movingCoordinates: readonly VoxelCoordinate[];
+  movingCoordinates: readonly LogoRecursiveShuffleCoordinate[];
+  moveSlotCount: number;
   prefixDepth: number;
-  target: Float64Array;
+  rootCoordinates: readonly LogoRecursiveShuffleCoordinate[];
+  targetCoordinates: Float64Array;
+  targetMoveWeights: Float32Array;
 }): number {
-  let targetOffset = 0;
+  const prefixMoveWeights = new Float64Array(moveSlotCount);
+  let placementIndex = 0;
 
   const writePrefix = (
     remainingPrefixDepth: number,
@@ -158,26 +176,62 @@ export function writeLogoRecursiveShuffleLayerCoordinates({
   ) => {
     if (remainingPrefixDepth === 0) {
       for (const movingCoordinate of movingCoordinates) {
-        target[targetOffset] = prefixX * baseGridSize + movingCoordinate[0];
-        target[targetOffset + 1] = prefixY * baseGridSize + movingCoordinate[1];
-        target[targetOffset + 2] = prefixZ * baseGridSize + movingCoordinate[2];
-        targetOffset += 3;
+        const coordinateOffset = placementIndex * 3;
+        targetCoordinates[coordinateOffset] =
+          prefixX * baseGridSize + movingCoordinate.coordinate[0];
+        targetCoordinates[coordinateOffset + 1] =
+          prefixY * baseGridSize + movingCoordinate.coordinate[1];
+        targetCoordinates[coordinateOffset + 2] =
+          prefixZ * baseGridSize + movingCoordinate.coordinate[2];
+
+        const moveWeightOffset = placementIndex * moveSlotCount;
+        for (const [moveSlot, prefixMoveWeight] of prefixMoveWeights.entries()) {
+          targetMoveWeights[moveWeightOffset + moveSlot] =
+            prefixMoveWeight * baseGridSize + (movingCoordinate.moveSlot === moveSlot ? 1 : 0);
+        }
+        placementIndex += 1;
       }
       return;
     }
 
     for (const animatedCoordinate of animatedCoordinates) {
+      for (const [moveSlot, prefixMoveWeight] of prefixMoveWeights.entries()) {
+        prefixMoveWeights[moveSlot] =
+          prefixMoveWeight * baseGridSize + (animatedCoordinate.moveSlot === moveSlot ? 1 : 0);
+      }
       writePrefix(
         remainingPrefixDepth - 1,
-        prefixX * baseGridSize + animatedCoordinate[0],
-        prefixY * baseGridSize + animatedCoordinate[1],
-        prefixZ * baseGridSize + animatedCoordinate[2],
+        prefixX * baseGridSize + animatedCoordinate.coordinate[0],
+        prefixY * baseGridSize + animatedCoordinate.coordinate[1],
+        prefixZ * baseGridSize + animatedCoordinate.coordinate[2],
       );
+      for (const [moveSlot, prefixMoveWeight] of prefixMoveWeights.entries()) {
+        prefixMoveWeights[moveSlot] =
+          (prefixMoveWeight - (animatedCoordinate.moveSlot === moveSlot ? 1 : 0)) / baseGridSize;
+      }
     }
   };
 
-  writePrefix(prefixDepth, 0, 0, 0);
-  return targetOffset / 3;
+  if (prefixDepth === 0) {
+    writePrefix(0, 0, 0, 0);
+    return placementIndex;
+  }
+
+  for (const rootCoordinate of rootCoordinates) {
+    if (rootCoordinate.moveSlot !== null) {
+      prefixMoveWeights[rootCoordinate.moveSlot] = 1;
+    }
+    writePrefix(
+      prefixDepth - 1,
+      rootCoordinate.coordinate[0],
+      rootCoordinate.coordinate[1],
+      rootCoordinate.coordinate[2],
+    );
+    if (rootCoordinate.moveSlot !== null) {
+      prefixMoveWeights[rootCoordinate.moveSlot] = 0;
+    }
+  }
+  return placementIndex;
 }
 
 export function getShuffleOriginCandidates({

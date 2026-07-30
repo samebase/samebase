@@ -332,6 +332,39 @@ test("logo recursive depth renders a rotatable shuffleable Three scene", async (
   });
 });
 
+test("logo rotation speed control keeps degrees per second in the route", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/logo?rotationSpeed=24", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const motionSection = page.getByTestId("logo-preview-motion-section");
+  const speedSlider = motionSection.getByLabel("Rotation speed slider");
+  const speedInput = motionSection.getByLabel("Rotation speed value");
+
+  await expect(speedSlider).toHaveAttribute("max", "60");
+  await expect(speedSlider).toHaveAttribute("min", "0");
+  await expect(speedSlider).toHaveAttribute("step", "1");
+  await expect(speedInput).not.toHaveAttribute("max");
+  await expect(speedInput).toHaveValue("24.0");
+  await expect(motionSection).toHaveScreenshot("logo-rotation-speed-control.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
+
+  await replaceNumberInputValue(speedInput, "72");
+  await expect.poll(() => new URL(page.url()).searchParams.get("rotationSpeed")).toBe("72");
+  await speedInput.press("Enter");
+  await expect(speedInput).toHaveValue("72.0");
+  await expect(speedSlider).toHaveValue("60");
+
+  await replaceNumberInputValue(speedInput, "12");
+  await speedInput.press("Enter");
+  await expect.poll(() => new URL(page.url()).searchParams.has("rotationSpeed")).toBe(false);
+});
+
 test("logo recursive depth keeps opacity visually ordered", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo?depth=2&rot=45", {
@@ -369,6 +402,12 @@ test("logo depth 5 keeps the tiled Three preview responsive", async ({ page }) =
   await expect(controlsSidebar.getByRole("button", { name: "Start shuffle" })).toBeVisible();
   await controlsSidebar.getByRole("button", { name: "Start shuffle" }).click();
   await expect(controlsSidebar.getByRole("button", { name: "Stop shuffle" })).toBeVisible();
+  await controlsSidebar.getByRole("button", { name: "Start auto rotate" }).click();
+  await expect(controlsSidebar.getByRole("button", { name: "Stop auto rotate" })).toBeVisible();
+  await page.waitForTimeout(1000);
+  await expect(page.getByText("Samebase could not finish loading.")).toHaveCount(0);
+  await controlsSidebar.getByRole("button", { name: "Stop auto rotate" }).click();
+  await expect(controlsSidebar.getByRole("button", { name: "Start auto rotate" })).toBeVisible();
 
   await controlsSidebar.getByLabel("Yaw value").fill("90");
   await expect

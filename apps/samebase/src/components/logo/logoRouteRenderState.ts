@@ -6,6 +6,10 @@ import {
   type LogoIsometricStyleId,
 } from "@/components/logo/logoIsometricRenderer";
 import {
+  LOGO_AUTO_ROTATE_SPEED,
+  normalizeLogoAutoRotateDegreesPerSecond,
+} from "@samebase/logo-model/auto-rotation";
+import {
   LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
@@ -95,6 +99,14 @@ function readRouteRotationDegrees(
   }
 
   return normalizeRotationDegrees(routeSearch.rot);
+}
+
+function readRouteAutoRotationDegreesPerSecond(routeSearch: LogoIsoRouteSearch): number {
+  if (typeof routeSearch.rotationSpeed !== "number") {
+    return LOGO_AUTO_ROTATE_SPEED.defaultValue;
+  }
+
+  return normalizeLogoAutoRotateDegreesPerSecond(routeSearch.rotationSpeed);
 }
 
 function isLogoRotationAxisMode(value: string | null) {
@@ -236,6 +248,7 @@ export function readLogoRouteRenderState({
 
   return {
     autoRotateEnabled: routeSearch["auto-rotate"] === true,
+    autoRotationDegreesPerSecond: readRouteAutoRotationDegreesPerSecond(routeSearch),
     autoShuffleEnabled: routeSearch["auto-shuffle"] === true,
     distanceScale: readRouteDistanceScale(routeSearch),
     elevationDegrees: view.elevationDegrees,

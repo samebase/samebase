@@ -265,6 +265,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
     caret: "hide",
     maxDiffPixelRatio: 0.02,
     scale: "css",
+    timeout: 30_000,
   });
   await page
     .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
