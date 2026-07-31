@@ -19,6 +19,7 @@ import {
   MENGER_AUTOMATIC_PROBE_DEFAULT_LOOP_DURATION_SECONDS,
   MENGER_AUTOMATIC_PROBE_DEFAULT_PATH,
   MENGER_AUTOMATIC_PROBE_DEFAULT_REST_DURATION_SECONDS,
+  MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
   MENGER_AUTOMATIC_PROBE_DEFAULT_WIDTH,
   MENGER_AUTOMATIC_PROBE_PATHS,
   readMengerAutomaticProbePoint,
@@ -81,20 +82,6 @@ function formatMengerAutomaticProbeExtentPercent(value: number): string {
   const coefficient = exponential.slice(0, separatorIndex);
   const exponent = Number(exponential.slice(separatorIndex + 1)) + 2;
   return `${coefficient}e${exponent >= 0 ? "+" : ""}${exponent}%`;
-}
-
-/**
- * SSG emits one research-route document without query-derived optional nodes.
- * Wait until hydration completes before the path overlay can add an SVG child.
- */
-function useHasHydrated() {
-  const [hasHydrated, setHasHydrated] = useState(false);
-
-  useEffect(() => {
-    setHasHydrated(true);
-  }, []);
-
-  return hasHydrated;
 }
 
 export function LogoMengerDepthTransitionPage({
@@ -161,8 +148,10 @@ export function LogoMengerDepthTransitionPage({
   const [pointerTiltStrengthScale, setPointerTiltStrengthScale] = useState(
     searchPointerTiltStrengthScale,
   );
-  const [automaticProbeDraft, setAutomaticProbeDraft] = useState(automaticProbe);
-  const hasHydrated = useHasHydrated();
+  // SSG emits the query-free defaults. Apply the browser URL through the layout update below.
+  const [automaticProbeDraft, setAutomaticProbeDraft] = useState<MengerAutomaticProbeSettings>(
+    MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
+  );
   const automaticProbeMotion = useMemo<MengerAutomaticProbeMotionSettings>(
     () => ({
       enabled: automaticProbeDraft.enabled,
@@ -1024,7 +1013,7 @@ export function LogoMengerDepthTransitionPage({
                 rotationDegrees={view.rotationDegrees}
                 viewSnapEnabled={routeState.viewSnapEnabled}
               />
-              {hasHydrated && automaticProbeDraft.showPath ? (
+              {automaticProbeDraft.showPath ? (
                 <svg
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-0 z-10 h-full w-full text-foreground/40"

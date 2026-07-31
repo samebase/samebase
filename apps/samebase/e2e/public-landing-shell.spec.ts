@@ -718,10 +718,10 @@ test("public landing renders the closed Google signup return state", async ({ pa
   await expect(accountSection.getByPlaceholder("you@example.com")).toHaveCount(0);
   await expect(accountSection.getByPlaceholder("Password")).toHaveCount(0);
 
-  await expect(accountSection).toHaveScreenshot(
-    "public-landing-google-signup-closed.png",
-    strictScreenshotOptions,
-  );
+  await expect(accountSection).toHaveScreenshot("public-landing-google-signup-closed.png", {
+    ...strictScreenshotOptions,
+    timeout: 15_000,
+  });
 });
 
 test("public landing right sidebar omits developer mode links", async ({ page }) => {

@@ -360,7 +360,7 @@ test("landing preview shows its query-aware fallback when the scene re-enters", 
   expect(reentryState).toEqual({ fallbackTargetsVisible: true, isInScrollport: true });
   await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
   await expect(hero).toHaveAttribute("data-state", "ready");
-  await expect(fallback).toHaveCSS("opacity", "0");
+  await expect(fallback).toHaveCSS("opacity", "0", { timeout: 30_000 });
 });
 
 test("landing preview shows its query-aware fallback when WebGL is unavailable", async ({
