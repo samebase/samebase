@@ -200,7 +200,9 @@ export function PullRequestsSection({
         className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
       >
         {pullRequests.state === "current" || pullRequests.state === "stale"
-          ? `${pullRequests.openPullRequestCount} open ${pullRequests.openPullRequestCount === 1 ? "pull request" : "pull requests"}`
+          ? pullRequests.openPullRequestCount === 0
+            ? "No open pull requests"
+            : `${pullRequests.openPullRequestCount} open ${pullRequests.openPullRequestCount === 1 ? "pull request" : "pull requests"}`
           : "Open pull requests"}
       </h2>
       <div className="border-t border-border">
@@ -231,9 +233,6 @@ export function PullRequestsSection({
                 vault={vault}
               />
             ))}
-            {pullRequests.allPullRequests.length === 0 ? (
-              <div className="py-4 text-sm text-muted-foreground">No open pull requests.</div>
-            ) : null}
             <VaultPullRequestLoadMore state={pullRequests.loadMore} />
           </>
         )}
