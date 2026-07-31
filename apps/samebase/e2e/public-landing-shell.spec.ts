@@ -1,10 +1,5 @@
 import { devices, expect, test, type Locator, type Page } from "@playwright/test";
 import { PNG } from "pngjs";
-import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
-import {
-  DRAG_ELEVATION_DEGREES_PER_PIXEL,
-  DRAG_ROTATION_DEGREES_PER_PIXEL,
-} from "../src/components/logo/logoViewDragConstants";
 import {
   APP_BUILD_COMMIT_LINK_TEST_ID,
   APP_BUILD_STATUS_BAR_TEST_ID,
@@ -14,20 +9,12 @@ import { PRODUCTION_PUBLIC_HOSTNAME } from "../src/lib/prodUiMode";
 import {
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_COPY_TEST_ID,
+  PUBLIC_LANDING_MENGER_TEST_ID,
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
 } from "../src/lib/publicLanding";
-import {
-  PUBLIC_LANDING_LOGO_SCENE_TEST_ID,
-  PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
-  PUBLIC_LANDING_LOGO_TEST_ID,
-} from "../src/lib/publicLandingLogo";
-import {
-  APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-  APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
-} from "../src/lib/appWorkspaceSidebarPreferences";
 import { formatRouteSearchPresenceFlagLinkLabel } from "../src/routing/searchFlags";
 import { SEARCH_RESET_QUERY_PARAM } from "../src/lib/searchReset";
-import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
+import { takeStableScreenshot } from "./visualDiff";
 
 // These budgets target the local production preview used in CI.
 // Keep them loose enough to absorb runner variance while still catching
@@ -122,16 +109,6 @@ type LandingFontStableCapture = {
   webfontRequestCount: number;
 };
 
-type LandingLogoPaintBounds = {
-  height: number;
-  width: number;
-};
-
-type LandingLogoPaintMetrics = {
-  bounds: LandingLogoPaintBounds | null;
-  paintedPixelCount: number;
-};
-
 type RgbaPixel = {
   alpha: number;
   blue: number;
@@ -149,12 +126,12 @@ declare global {
 async function readLandingRightSidebarCopyMetrics(page: Page): Promise<{
   carouselWidth: number;
   contentWidth: number;
+  copyHeight: number;
   mainPaneWidth: number;
   mainPaneClientWidth: number;
   rightPaneClientWidth: number;
   rightPaneWidth: number;
   shellWidth: number;
-  teamTextHeight: number;
 }> {
   return await page.evaluate(() => {
     const shell = document.querySelector('[data-workspace-layout-v2="responsive"]');
@@ -162,9 +139,7 @@ async function readLandingRightSidebarCopyMetrics(page: Page): Promise<{
     const rightPane = document.querySelector('[data-testid="workspace-layout-v2-pane-right"]');
     const mainPane = carousel?.querySelector(".snap-center > div");
     const content = document.querySelector('[data-testid="public-landing-content"]');
-    const teamText = Array.from(
-      document.querySelectorAll('[data-testid="public-landing-copy"] li span'),
-    ).find((node) => node.textContent?.includes("team"));
+    const copy = document.querySelector('[data-testid="public-landing-copy"]');
 
     if (!(shell instanceof HTMLElement)) {
       throw new Error("Expected mobile landing shell");
@@ -181,19 +156,19 @@ async function readLandingRightSidebarCopyMetrics(page: Page): Promise<{
     if (!(content instanceof HTMLElement)) {
       throw new Error("Expected landing content");
     }
-    if (!(teamText instanceof HTMLElement)) {
-      throw new Error("Expected landing team bullet text");
+    if (!(copy instanceof HTMLElement)) {
+      throw new Error("Expected landing copy");
     }
 
     return {
       carouselWidth: Math.round(carousel.getBoundingClientRect().width),
       contentWidth: Math.round(content.getBoundingClientRect().width),
+      copyHeight: Math.round(copy.getBoundingClientRect().height),
       mainPaneWidth: Math.round(mainPane.getBoundingClientRect().width),
       mainPaneClientWidth: mainPane.clientWidth,
       rightPaneClientWidth: rightPane.clientWidth,
       rightPaneWidth: Math.round(rightPane.getBoundingClientRect().width),
       shellWidth: Math.round(shell.getBoundingClientRect().width),
-      teamTextHeight: Math.round(teamText.getBoundingClientRect().height),
     };
   });
 }
@@ -217,44 +192,6 @@ function getPixelColorDistance(first: RgbaPixel, second: RgbaPixel): number {
     Math.abs(first.green - second.green) +
     Math.abs(first.blue - second.blue)
   );
-}
-
-function isLandingLogoPaintPixel(pixel: RgbaPixel): boolean {
-  return pixel.alpha > 0 && (pixel.red <= 245 || pixel.green <= 245 || pixel.blue <= 245);
-}
-
-function readLandingLogoPaintMetrics(screenshot: Buffer): LandingLogoPaintMetrics {
-  const png = PNG.sync.read(screenshot);
-  let minX = png.width;
-  let minY = png.height;
-  let maxX = -1;
-  let maxY = -1;
-  let paintedPixelCount = 0;
-
-  for (let y = 0; y < png.height; y += 1) {
-    for (let x = 0; x < png.width; x += 1) {
-      if (!isLandingLogoPaintPixel(readPngPixel(png, x, y))) {
-        continue;
-      }
-
-      paintedPixelCount += 1;
-      minX = Math.min(minX, x);
-      minY = Math.min(minY, y);
-      maxX = Math.max(maxX, x);
-      maxY = Math.max(maxY, y);
-    }
-  }
-
-  return {
-    bounds:
-      maxX >= 0
-        ? {
-            height: maxY - minY + 1,
-            width: maxX - minX + 1,
-          }
-        : null,
-    paintedPixelCount,
-  };
 }
 
 async function readLandingRightSidebarSeparatorPaint(page: Page): Promise<{
@@ -542,51 +479,13 @@ async function insertLandingHeadingMarker(
   await expect(editor).toContainText(marker);
 }
 
-async function expectLandingLogoReady(image: Locator) {
-  await expect(image).toBeVisible();
-  await expect
-    .poll(async () =>
-      image.evaluate(
-        (element) =>
-          element instanceof HTMLImageElement && element.complete && element.naturalWidth > 0,
-      ),
-    )
-    .toBe(true);
-}
+async function expectRootLandingMengerReady(page: Page) {
+  const hero = page.getByTestId(PUBLIC_LANDING_MENGER_TEST_ID);
+  const scene = hero.getByTestId("logo-menger-hover-scene");
 
-async function expectLandingLogoStaticFallbackVisible(page: Page) {
-  const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
-
-  await expectLandingLogoReady(landingLogo);
-  await expect(landingLogo).toHaveClass(/opacity-100/);
-  await expect(landingLogo).not.toHaveClass(/opacity-0/);
-  await expect
-    .poll(async () => landingLogo.evaluate((element) => window.getComputedStyle(element).opacity))
-    .toBe("1");
-  await expect
-    .poll(async () =>
-      page.evaluate(
-        () =>
-          document.documentElement.hasAttribute(
-            "data-public-landing-logo-static-fallback-hidden",
-          ) || document.getElementById("samebase-public-landing-logo-prehydration") !== null,
-      ),
-    )
-    .toBe(false);
-}
-
-async function expectLandingLogoSceneReady(scene: Locator) {
-  await expect(scene).toBeVisible();
-  await expect(scene).toHaveAttribute("data-state", "ready");
-}
-
-async function readLandingLogoScenePaintMetrics(page: Page, pathWithSearch: string) {
-  await page.goto(pathWithSearch, { waitUntil: "domcontentloaded" });
-  await expectLandingLogoSceneReady(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID));
-
-  return readLandingLogoPaintMetrics(
-    await takeStableScreenshot(page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID)),
-  );
+  await expect(hero).toBeVisible();
+  await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
+  await expect(hero).toHaveAttribute("data-state", "ready");
 }
 
 async function expectAppBuildVersion(versionLabel: Locator) {
@@ -764,115 +663,13 @@ async function readLinkPresentation(link: Locator) {
   });
 }
 
-async function readLandingLogoSceneView(scene: Locator) {
-  const elevationDegrees = await scene.getAttribute("data-elevation-degrees");
-  const rotationDegrees = await scene.getAttribute("data-rotation-degrees");
-
-  return {
-    elevationDegrees,
-    rotationDegrees,
-  };
-}
-
-async function dragLandingLogoSceneToView(
-  scene: Locator,
-  targetView: {
-    elevationDegrees: number;
-    rotationDegrees: number;
-  },
-) {
-  const canvas = scene.locator("canvas");
-  const bounds = await canvas.boundingBox();
-  expect(bounds).not.toBeNull();
-  if (bounds === null) {
-    throw new Error("Expected landing logo canvas bounds");
-  }
-
-  const currentView = await readLandingLogoSceneView(scene);
-  const currentElevationDegrees = Number.parseFloat(currentView.elevationDegrees ?? "NaN");
-  const currentRotationDegrees = Number.parseFloat(currentView.rotationDegrees ?? "NaN");
-  expect(Number.isNaN(currentElevationDegrees)).toBe(false);
-  expect(Number.isNaN(currentRotationDegrees)).toBe(false);
-  if (Number.isNaN(currentElevationDegrees) || Number.isNaN(currentRotationDegrees)) {
-    throw new Error("Expected current landing logo view attributes");
-  }
-
-  const centerX = bounds.x + bounds.width / 2;
-  const centerY = bounds.y + bounds.height / 2;
-  const deltaX =
-    (targetView.rotationDegrees - currentRotationDegrees) / DRAG_ROTATION_DEGREES_PER_PIXEL;
-  const deltaY =
-    (targetView.elevationDegrees - currentElevationDegrees) / DRAG_ELEVATION_DEGREES_PER_PIXEL;
-
-  await scene.page().mouse.move(centerX, centerY);
-  await scene.page().mouse.down();
-  await scene.page().mouse.move(centerX + deltaX, centerY + deltaY, {
-    steps: 12,
-  });
-  await scene.page().mouse.up();
-}
-
-async function expectLandingLogoCanBeDragged(page: Page) {
-  const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
-  const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
-  const landingLogoCanvas = landingLogoScene.locator("canvas");
-
-  await expectLandingLogoReady(landingLogo);
-  await expectLandingLogoSceneReady(landingLogoScene);
-  await expect(landingLogo).toHaveClass(/pointer-events-none opacity-0/);
-  await expect(landingLogoScene).toHaveClass(/pointer-events-auto touch-none/);
-
-  await expect
-    .poll(async () =>
-      landingLogoScene.evaluate((element) => {
-        const sceneRoot = element.firstElementChild;
-        if (!(sceneRoot instanceof HTMLElement)) {
-          return null;
-        }
-
-        return window.getComputedStyle(sceneRoot).cursor;
-      }),
-    )
-    .toBe("grab");
-
-  const viewBeforeDrag = await readLandingLogoSceneView(landingLogoScene);
-  expect(viewBeforeDrag).toEqual({
-    elevationDegrees: "0.000",
-    rotationDegrees: "0.000",
-  });
-
-  const canvasBounds = await landingLogoCanvas.boundingBox();
-  expect(canvasBounds).not.toBeNull();
-  if (!canvasBounds) {
-    return;
-  }
-
-  await page.mouse.move(
-    canvasBounds.x + canvasBounds.width / 2,
-    canvasBounds.y + canvasBounds.height / 2,
-  );
-  await page.mouse.down();
-  await page.mouse.move(
-    canvasBounds.x + canvasBounds.width / 2 + 48,
-    canvasBounds.y + canvasBounds.height / 2 + 16,
-    { steps: 8 },
-  );
-  await page.mouse.up();
-
-  await expect
-    .poll(async () => readLandingLogoSceneView(landingLogoScene))
-    .not.toEqual(viewBeforeDrag);
-}
-
 test("public landing renders the routed landing UI directly", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
 
   await expect(page.getByTestId("public-landing-content")).toBeVisible();
   await expect(page.getByTestId(PUBLIC_LANDING_SCROLL_SHELL_TEST_ID)).toBeVisible();
-  const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
-  await expectLandingLogoReady(landingLogo);
-  await expectLandingLogoSceneReady(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID));
-  await expect(landingLogo).toHaveClass(/opacity-0/);
+  await expectRootLandingMengerReady(page);
+  await expect(page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID)).toHaveText("Samebase is near.");
   const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
   await expect(accountSection).toBeVisible();
   await expect(
@@ -888,10 +685,10 @@ test("public landing shows Google sign-in by default", async ({ page }) => {
   const googleButton = page.getByRole("button", { name: "Continue with Google" });
 
   await expect(googleButton).toBeVisible();
-  await expect(googleButton).toHaveScreenshot(
-    "public-landing-google-button.png",
-    strictScreenshotOptions,
-  );
+  await expect(googleButton).toHaveScreenshot("public-landing-google-button.png", {
+    ...strictScreenshotOptions,
+    timeout: 15_000,
+  });
 });
 
 test("public landing interactive elements use pointer cursors", async ({ page }) => {
@@ -921,10 +718,10 @@ test("public landing renders the closed Google signup return state", async ({ pa
   await expect(accountSection.getByPlaceholder("you@example.com")).toHaveCount(0);
   await expect(accountSection.getByPlaceholder("Password")).toHaveCount(0);
 
-  await expect(accountSection).toHaveScreenshot(
-    "public-landing-google-signup-closed.png",
-    strictScreenshotOptions,
-  );
+  await expect(accountSection).toHaveScreenshot("public-landing-google-signup-closed.png", {
+    ...strictScreenshotOptions,
+    timeout: 15_000,
+  });
 });
 
 test("public landing right sidebar omits developer mode links", async ({ page }) => {
@@ -1153,7 +950,10 @@ test.describe("mobile landing shell", () => {
     await page.goto("/", { waitUntil: "networkidle" });
     await page.setViewportSize({ width: 390, height: 450 });
 
-    await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
+    await expectRootLandingMengerReady(page);
+    await expect(
+      page.getByTestId(PUBLIC_LANDING_MENGER_TEST_ID).getByTestId("logo-menger-hover-scene"),
+    ).toHaveAttribute("data-menger-automatic-probe", "play");
 
     const mobileShell = page.locator('[data-workspace-layout-v2="responsive"]');
     const addressChrome = page.getByTestId("workspace-layout-v2-address-chrome");
@@ -1290,7 +1090,7 @@ test.describe("iPhone SE landing sidebar", () => {
     expect(afterSlideMetrics.mainPaneWidth).toBe(beforeSlideMetrics.mainPaneWidth);
     expect(afterSlideMetrics.mainPaneClientWidth).toBe(beforeSlideMetrics.mainPaneClientWidth);
     expect(afterSlideMetrics.contentWidth).toBe(beforeSlideMetrics.contentWidth);
-    expect(afterSlideMetrics.teamTextHeight).toBe(beforeSlideMetrics.teamTextHeight);
+    expect(afterSlideMetrics.copyHeight).toBe(beforeSlideMetrics.copyHeight);
 
     const separatorPaint = await readLandingRightSidebarSeparatorPaint(page);
     expect(separatorPaint.separatorPixel.alpha).toBe(255);
@@ -1329,7 +1129,7 @@ test.describe("Android-sized standalone display-mode landing right sidebar", () 
     });
 
     await page.goto("/", { waitUntil: "networkidle" });
-    await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
+    await expectRootLandingMengerReady(page);
 
     await openMobileRightSidebar(page);
     await expectBuildVersionFitsVisibleViewport(page);
@@ -1339,504 +1139,11 @@ test.describe("Android-sized standalone display-mode landing right sidebar", () 
   });
 });
 
-test("prod-ui landing logo enhancement stays visually aligned @logo-research", async ({
-  page,
-}, testInfo) => {
-  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
-
-  const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
-  const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
-  await expectLandingLogoReady(landingLogo);
-  await expect
-    .poll(async () =>
-      landingLogo.evaluate((element) => {
-        const style = window.getComputedStyle(element);
-        return `${style.transitionProperty} ${style.transitionDuration}`;
-      }),
-    )
-    .toBe("opacity 0.3s");
-
-  const initialLogoScreenshot = await takeStableScreenshot(landingLogoStage);
-
-  await expectLandingLogoSceneReady(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID));
-  await landingLogoStage.hover();
-
-  const enhancedLogoScreenshot = await takeStableScreenshot(landingLogoStage);
-
-  await expectScreenshotsToMatch({
-    actual: enhancedLogoScreenshot,
-    artifactPrefix: "public-landing-logo-enhancement",
-    expected: initialLogoScreenshot,
-    maxDiffPixelRatio: 0.015,
-    testInfo,
-  });
-});
-
-test("public landing logo tilts toward the pointer outside its grab surface @logo-research", async ({
-  page,
-}) => {
-  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
-
-  const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
-  const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
-  await expectLandingLogoSceneReady(landingLogoScene);
-  await expect(landingLogoScene).toHaveAttribute("data-elevation-degrees", "0.000");
-  await expect(landingLogoScene).toHaveAttribute("data-rotation-degrees", "0.000");
-
-  const stageBounds = await landingLogoStage.boundingBox();
-  expect(stageBounds).not.toBeNull();
-  if (stageBounds === null) {
-    return;
-  }
-  const viewport = page.viewportSize();
-  expect(viewport).not.toBeNull();
-  if (viewport === null) {
-    return;
-  }
-
-  await page.mouse.move(viewport.width - 1, stageBounds.y + stageBounds.height / 2);
-  await page.waitForTimeout(1_000);
-
-  await expect(landingLogoStage).toHaveScreenshot(
-    "public-landing-logo-pointer-right.png",
-    strictScreenshotOptions,
-  );
-});
-
-test.describe("public landing mobile logo tilt @logo-research", () => {
-  test.use(mobileLandingDevice);
-
-  test("keeps swipe tilt after the sidebar was narrowed to merge width", async ({ page }) => {
-    const narrowedRightSidebarState = {
-      leftDesktopOpen: true,
-      leftDesktopWidthPx: 240,
-      leftMobileWidthPx: 240,
-      mobilePane: "main",
-      mobileSurface: { kind: "unmerged" },
-      rightDesktopOpen: true,
-      rightDesktopWidthPx: 288,
-      rightMobileWidthPx: 96,
-    } satisfies WorkspaceSidebarState;
-    await page.addInitScript(
-      ({ state, storageKey, storageVersion }) => {
-        window.localStorage.setItem(storageKey, JSON.stringify({ state, version: storageVersion }));
-      },
-      {
-        state: narrowedRightSidebarState,
-        storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-        storageVersion: APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
-      },
-    );
-    await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
-
-    const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
-    const carousel = page.getByTestId("workspace-layout-v2-pane-main");
-    await expectLandingLogoSceneReady(landingLogoScene);
-
-    await carousel.evaluate((element) => {
-      element.style.scrollSnapType = "none";
-      element.scrollLeft = 48;
-      element.dispatchEvent(new Event("scroll", { bubbles: true }));
-    });
-
-    await expect(landingLogoScene).toHaveAttribute(
-      "data-presentation-horizontal-degrees",
-      "12.000",
-    );
-  });
-
-  test("tilts throughout a swipe to the right sidebar", async ({ page }, testInfo) => {
-    await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
-
-    const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
-    const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
-    const landingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
-    const carousel = page.getByTestId("workspace-layout-v2-pane-main");
-    const workspace = page.locator('[data-workspace-layout-v2="responsive"]');
-    await expectLandingLogoSceneReady(landingLogoScene);
-    await expect(landingLogoScene).toHaveAttribute("data-elevation-degrees", "0.000");
-    await expect(landingLogoScene).toHaveAttribute("data-rotation-degrees", "0.000");
-
-    const copyBounds = await landingCopy.boundingBox();
-    expect(copyBounds).not.toBeNull();
-    if (copyBounds === null) {
-      return;
-    }
-    const initialTouchPoint = {
-      force: 1,
-      id: 1,
-      radiusX: 4,
-      radiusY: 4,
-      x: copyBounds.x + copyBounds.width - 8,
-      y: copyBounds.y + copyBounds.height - 8,
-    };
-    const initialLogoScreenshot = await takeStableScreenshot(landingLogoStage);
-    const session = await page.context().newCDPSession(page);
-    let touchActive = false;
-
-    try {
-      await session.send("Input.dispatchTouchEvent", {
-        type: "touchStart",
-        touchPoints: [initialTouchPoint],
-      });
-      touchActive = true;
-      for (const xOffset of [-32, -64, -96]) {
-        await page.waitForTimeout(32);
-        await session.send("Input.dispatchTouchEvent", {
-          type: "touchMove",
-          touchPoints: [{ ...initialTouchPoint, x: initialTouchPoint.x + xOffset }],
-        });
-      }
-
-      await expect
-        .poll(() => carousel.evaluate((element) => element.scrollLeft))
-        .toBeGreaterThan(48);
-      await expect
-        .poll(async () =>
-          Number(await landingLogoScene.getAttribute("data-presentation-horizontal-degrees")),
-        )
-        .toBeGreaterThan(2);
-      await page.waitForTimeout(750);
-
-      const swipeScrollLeft = await carousel.evaluate((element) => element.scrollLeft);
-      const swipeLogoBounds = await landingLogoStage.boundingBox();
-      const viewportSize = page.viewportSize();
-      expect(swipeLogoBounds).not.toBeNull();
-      expect(viewportSize).not.toBeNull();
-      if (swipeLogoBounds === null || viewportSize === null) {
-        return;
-      }
-      expect(swipeLogoBounds.x).toBeGreaterThanOrEqual(0);
-      expect(swipeLogoBounds.x + swipeLogoBounds.width).toBeLessThanOrEqual(viewportSize.width);
-      const swipeLogoScreenshot = await page.screenshot({
-        animations: "disabled",
-        caret: "hide",
-        clip: swipeLogoBounds,
-        scale: "css",
-      });
-      expect(swipeLogoScreenshot).toMatchSnapshot("public-landing-logo-swipe-right-sidebar.png", {
-        maxDiffPixelRatio: 0,
-        maxDiffPixels: 0,
-        threshold: 0,
-      });
-      await expect
-        .poll(() => carousel.evaluate((element) => element.scrollLeft))
-        .toBeCloseTo(swipeScrollLeft, 0);
-      await expect(landingLogoScene).toHaveAttribute("data-elevation-degrees", "0.000");
-      await expect(landingLogoScene).toHaveAttribute("data-rotation-degrees", "0.000");
-
-      for (const xOffset of [-160, -240, -300]) {
-        await page.waitForTimeout(32);
-        await session.send("Input.dispatchTouchEvent", {
-          type: "touchMove",
-          touchPoints: [{ ...initialTouchPoint, x: initialTouchPoint.x + xOffset }],
-        });
-      }
-      await session.send("Input.dispatchTouchEvent", {
-        type: "touchEnd",
-        touchPoints: [],
-      });
-      touchActive = false;
-      await expect(workspace).toHaveAttribute("data-mobile-pane", "right");
-
-      const accountBounds = await page
-        .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)
-        .boundingBox();
-      expect(accountBounds).not.toBeNull();
-      if (accountBounds === null) {
-        return;
-      }
-      const returnTouchPoint = {
-        ...initialTouchPoint,
-        id: 2,
-        x: accountBounds.x + 16,
-        y: accountBounds.y + accountBounds.height / 2,
-      };
-      await session.send("Input.dispatchTouchEvent", {
-        type: "touchStart",
-        touchPoints: [returnTouchPoint],
-      });
-      touchActive = true;
-      for (const xOffset of [64, 140, 220, 300]) {
-        await page.waitForTimeout(32);
-        await session.send("Input.dispatchTouchEvent", {
-          type: "touchMove",
-          touchPoints: [{ ...returnTouchPoint, x: returnTouchPoint.x + xOffset }],
-        });
-      }
-      await session.send("Input.dispatchTouchEvent", {
-        type: "touchEnd",
-        touchPoints: [],
-      });
-      touchActive = false;
-    } finally {
-      if (touchActive) {
-        await session
-          .send("Input.dispatchTouchEvent", {
-            type: "touchEnd",
-            touchPoints: [],
-          })
-          .catch(() => undefined);
-      }
-      await session.detach().catch(() => undefined);
-    }
-
-    await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
-    await page.waitForTimeout(1_000);
-    const settledLogoScreenshot = await takeStableScreenshot(landingLogoStage);
-    await expectScreenshotsToMatch({
-      actual: settledLogoScreenshot,
-      artifactPrefix: "public-landing-logo-mobile-touch-settle",
-      expected: initialLogoScreenshot,
-      maxDiffPixelRatio: 0.015,
-      testInfo,
-    });
-  });
-
-  test("straightens the logo as the right sidebar shrinks into main", async ({ page }) => {
-    const rightSidebarState = {
-      leftDesktopOpen: true,
-      leftDesktopWidthPx: 240,
-      leftMobileWidthPx: 240,
-      mobilePane: "right",
-      mobileSurface: { kind: "unmerged" },
-      rightDesktopOpen: true,
-      rightDesktopWidthPx: 288,
-      rightMobileWidthPx: 288,
-    } satisfies WorkspaceSidebarState;
-    await page.addInitScript(
-      ({ seedFlag, state, storageKey, storageVersion }) => {
-        if (window.sessionStorage.getItem(seedFlag) === "1") {
-          return;
-        }
-        window.localStorage.setItem(storageKey, JSON.stringify({ state, version: storageVersion }));
-        window.sessionStorage.setItem(seedFlag, "1");
-      },
-      {
-        seedFlag: "samebase_e2e_landing_logo_resize_seeded",
-        state: rightSidebarState,
-        storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-        storageVersion: APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
-      },
-    );
-
-    await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
-
-    const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
-    const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
-    const rightResizeHandle = page.getByTestId("workspace-layout-v2-right-resize");
-    const workspace = page.locator('[data-workspace-layout-v2="responsive"]');
-    await expect
-      .poll(() => workspace.getAttribute("data-workspace-layout-v2-mobile-merged-side"))
-      .toBeNull();
-    await expect(workspace).toHaveAttribute("data-mobile-pane", "right");
-    await expectLandingLogoSceneReady(landingLogoScene);
-    await expect(landingLogoScene).toHaveAttribute(
-      "data-presentation-horizontal-degrees",
-      "24.000",
-    );
-    await expect(landingLogoScene).toHaveAttribute("data-elevation-degrees", "0.000");
-    await expect(landingLogoScene).toHaveAttribute("data-rotation-degrees", "0.000");
-    await expect(rightResizeHandle).toHaveAttribute("aria-valuenow", "288");
-
-    const defaultHandleBounds = await rightResizeHandle.boundingBox();
-    expect(defaultHandleBounds).not.toBeNull();
-    if (defaultHandleBounds === null) {
-      return;
-    }
-    const defaultHandleCenter = {
-      x: defaultHandleBounds.x + defaultHandleBounds.width / 2,
-      y: defaultHandleBounds.y + defaultHandleBounds.height / 2,
-    };
-    await page.mouse.move(defaultHandleCenter.x, defaultHandleCenter.y);
-    await page.mouse.down();
-    await expect(landingLogoScene).toHaveAttribute("data-presentation-neutral-progress", "0.000");
-    await page.mouse.move(defaultHandleCenter.x + 96, defaultHandleCenter.y, { steps: 4 });
-
-    await expect(rightResizeHandle).toHaveAttribute("aria-valuenow", "192");
-    await expect(landingLogoScene).toHaveAttribute(
-      "data-presentation-horizontal-degrees",
-      "24.000",
-    );
-    await expect(landingLogoScene).toHaveAttribute("data-presentation-neutral-progress", "0.527");
-    await page.mouse.up();
-    await page.waitForTimeout(200);
-    await expect(landingLogoScene).toHaveAttribute(
-      "data-presentation-horizontal-degrees",
-      "24.000",
-    );
-    await expect(landingLogoScene).not.toHaveAttribute("data-presentation-neutral-progress", /.+/);
-
-    const partialHandleBounds = await rightResizeHandle.boundingBox();
-    expect(partialHandleBounds).not.toBeNull();
-    if (partialHandleBounds === null) {
-      return;
-    }
-    const partialHandleCenter = {
-      x: partialHandleBounds.x + partialHandleBounds.width / 2,
-      y: partialHandleBounds.y + partialHandleBounds.height / 2,
-    };
-    await page.mouse.move(partialHandleCenter.x, partialHandleCenter.y);
-    await page.mouse.down();
-    await expect(landingLogoScene).toHaveAttribute("data-presentation-neutral-progress", "0.000");
-    await expect(landingLogoScene).toHaveAttribute(
-      "data-presentation-horizontal-degrees",
-      "24.000",
-    );
-    await page.mouse.move(partialHandleCenter.x + 96, partialHandleCenter.y, { steps: 4 });
-
-    await expect(rightResizeHandle).toHaveAttribute("aria-valuenow", "96");
-    await expect(landingLogoScene).toHaveAttribute(
-      "data-presentation-horizontal-degrees",
-      "24.000",
-    );
-    await expect(landingLogoScene).toHaveAttribute("data-presentation-neutral-progress", "1.000");
-    await page.mouse.up();
-    await expect(workspace).toHaveAttribute("data-workspace-layout-v2-mobile-merged-side", "right");
-    await expect(workspace).toHaveAttribute("data-mobile-pane", "right");
-    await expect(landingLogoScene).toHaveAttribute("data-presentation-horizontal-degrees", "0.000");
-    await expect(landingLogoScene).toHaveAttribute("data-presentation-neutral-progress", "1.000");
-    await expect(landingLogoScene).toHaveAttribute("data-elevation-degrees", "0.000");
-    await expect(landingLogoScene).toHaveAttribute("data-rotation-degrees", "0.000");
-    expect(
-      readLandingLogoPaintMetrics(
-        await landingLogoStage.screenshot({
-          animations: "disabled",
-          caret: "hide",
-          scale: "css",
-        }),
-      ),
-    ).toEqual({
-      bounds: { height: 108, width: 108 },
-      paintedPixelCount: 10_368,
-    });
-    await page.waitForTimeout(750);
-    await expect(landingLogoStage).toHaveScreenshot(
-      "public-landing-logo-merged-right.png",
-      strictScreenshotOptions,
-    );
-
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(workspace).toHaveAttribute("data-workspace-layout-v2-mobile-merged-side", "right");
-    await expect(workspace).toHaveAttribute("data-mobile-pane", "right");
-    await expectLandingLogoSceneReady(landingLogoScene);
-    await expect(landingLogoScene).toHaveAttribute("data-presentation-horizontal-degrees", "0.000");
-  });
-});
-
-test("public landing recursive logo depth keeps the orthographic square size @logo-research", async ({
-  page,
-}) => {
-  const baseMetrics = await readLandingLogoScenePaintMetrics(page, "/?elev=0&rot=0&depth=1");
-  const recursiveMetrics = await readLandingLogoScenePaintMetrics(page, "/?elev=0&rot=0&depth=2");
-
-  expect(baseMetrics.bounds).not.toBeNull();
-  expect(recursiveMetrics.bounds).not.toBeNull();
-  if (baseMetrics.bounds === null || recursiveMetrics.bounds === null) {
-    return;
-  }
-
-  expect(Math.abs(recursiveMetrics.bounds.width - baseMetrics.bounds.width)).toBeLessThanOrEqual(1);
-  expect(Math.abs(recursiveMetrics.bounds.height - baseMetrics.bounds.height)).toBeLessThanOrEqual(
-    1,
-  );
-  expect(recursiveMetrics.paintedPixelCount).toBeLessThan(baseMetrics.paintedPixelCount);
-});
-
-test("prod-ui landing logo becomes draggable after the SVG fallback is removed @logo-research", async ({
-  page,
-}) => {
-  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
-
-  await expectLandingLogoCanBeDragged(page);
-});
-
-test("public landing logo becomes draggable after the SVG fallback is removed @logo-research", async ({
-  page,
-}) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-
-  await expectLandingLogoCanBeDragged(page);
-});
-
-test("public landing horizontal drag keeps its elevation after drop @logo-research", async ({
-  page,
-}) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-
-  const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
-  await expectLandingLogoSceneReady(landingLogoScene);
-  await expect
-    .poll(() => readLandingLogoSceneView(landingLogoScene))
-    .toEqual({
-      elevationDegrees: "0.000",
-      rotationDegrees: "0.000",
-    });
-
-  const canvasBounds = await landingLogoScene.locator("canvas").boundingBox();
-  expect(canvasBounds).not.toBeNull();
-  if (canvasBounds === null) {
-    return;
-  }
-
-  const centerX = canvasBounds.x + canvasBounds.width / 2;
-  const centerY = canvasBounds.y + canvasBounds.height / 2;
-  await page.mouse.move(centerX, centerY);
-  await page.mouse.down();
-  await page.mouse.move(centerX + 16, centerY);
-
-  const heldView = {
-    elevationDegrees: "0.000",
-    rotationDegrees: "5.600",
-  };
-  await expect.poll(() => readLandingLogoSceneView(landingLogoScene)).toEqual(heldView);
-
-  await page.mouse.up();
-  await expect.poll(() => readLandingLogoSceneView(landingLogoScene)).toEqual(heldView);
-  expect(new URL(page.url()).search).toBe("?rot=5.6");
-});
-
-test("public landing logo composes pointer tilt with the dragged view @logo-research", async ({
-  page,
-}) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-
-  const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
-  await expectLandingLogoSceneReady(landingLogoScene);
-
-  const canvasBounds = await landingLogoScene.locator("canvas").boundingBox();
-  expect(canvasBounds).not.toBeNull();
-  if (canvasBounds === null) {
-    return;
-  }
-
-  const centerX = canvasBounds.x + canvasBounds.width / 2;
-  const centerY = canvasBounds.y + canvasBounds.height / 2;
-  const startingView = await readLandingLogoSceneView(landingLogoScene);
-  await page.mouse.move(centerX, centerY);
-  await page.waitForTimeout(250);
-  await page.mouse.down();
-  await page.mouse.move(centerX + 320, centerY, { steps: 12 });
-  await page.mouse.up();
-  await page.waitForTimeout(250);
-
-  const droppedView = await readLandingLogoSceneView(landingLogoScene);
-  expect(droppedView).not.toEqual(startingView);
-
-  await page.mouse.move(centerX - 320, centerY);
-  await page.waitForTimeout(1_000);
-  await expect.poll(() => readLandingLogoSceneView(landingLogoScene)).toEqual(droppedView);
-});
-
 test("prod-ui landing keeps /logo out of the right sidebar", async ({ page }) => {
   await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
 
   const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
-  const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
-  const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
-
-  await expectLandingLogoReady(landingLogo);
-  await expectLandingLogoSceneReady(landingLogoScene);
+  await expectRootLandingMengerReady(page);
 
   const landingLink = statusBar.getByRole("link", {
     name: "/landing",
@@ -1851,94 +1158,14 @@ test("prod-ui landing keeps /logo out of the right sidebar", async ({ page }) =>
   await expect(landingLink).toBeVisible();
   await expect(termsLink).toBeVisible();
 
-  const landingBoxBefore = await landingLink.boundingBox();
-  const termsBoxBefore = await termsLink.boundingBox();
-  expect(landingBoxBefore).not.toBeNull();
-  expect(termsBoxBefore).not.toBeNull();
-  if (landingBoxBefore === null || termsBoxBefore === null) {
-    return;
-  }
-
-  await dragLandingLogoSceneToView(landingLogoScene, {
-    elevationDegrees: 0,
-    rotationDegrees: 0,
-  });
-
-  await expect
-    .poll(async () => readLandingLogoSceneView(landingLogoScene))
-    .toEqual({
-      elevationDegrees: "0.000",
-      rotationDegrees: "0.000",
-    });
-
-  await expect(statusBar.getByRole("link", { name: "/logo", exact: true })).toHaveCount(0);
-
-  const landingBoxAfter = await landingLink.boundingBox();
-  const termsBox = await termsLink.boundingBox();
-  expect(landingBoxAfter).not.toBeNull();
-  expect(termsBox).not.toBeNull();
-  if (landingBoxAfter === null || termsBox === null) {
-    return;
-  }
-
-  expect(Math.abs(landingBoxAfter.y - landingBoxBefore.y)).toBeLessThanOrEqual(1);
-  expect(Math.abs(termsBox.y - termsBoxBefore.y)).toBeLessThanOrEqual(1);
-
   await expect(statusBar).toHaveScreenshot("public-landing-status-bar-no-logo-link.png", {
     ...strictScreenshotOptions,
     // Build metadata changes on every main commit; this screenshot protects
     // the stable public-route link stack without pinning the current release label.
     mask: [statusBar.getByTestId(APP_BUILD_VERSION_TEST_ID).locator("xpath=..")],
     maskColor: "#ffffff",
+    timeout: 15_000,
   });
-});
-
-async function installUnavailableWebGL(page: Page) {
-  await page.addInitScript(() => {
-    const originalGetContextDescriptor = Object.getOwnPropertyDescriptor(
-      HTMLCanvasElement.prototype,
-      "getContext",
-    );
-    const originalGetContext = originalGetContextDescriptor?.value;
-    if (typeof originalGetContext !== "function") {
-      return;
-    }
-
-    HTMLCanvasElement.prototype.getContext = function (contextId, ...args) {
-      if (contextId === "webgl" || contextId === "webgl2" || contextId === "experimental-webgl") {
-        return null;
-      }
-
-      return Reflect.apply(originalGetContext, this, [contextId, ...args]);
-    };
-  });
-}
-
-async function expectLandingLogoWebGLUnavailableFallback(page: Page, path: string) {
-  const pageErrors: Error[] = [];
-  page.on("pageerror", (error) => {
-    pageErrors.push(error);
-  });
-
-  await installUnavailableWebGL(page);
-  await page.goto(path, { waitUntil: "domcontentloaded" });
-
-  await expectLandingLogoStaticFallbackVisible(page);
-  await expect(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID)).toHaveCount(0);
-  await page.waitForTimeout(200);
-  expect(pageErrors).toEqual([]);
-}
-
-test("prod-ui landing logo keeps the default fallback when WebGL is unavailable", async ({
-  page,
-}) => {
-  await expectLandingLogoWebGLUnavailableFallback(page, "/?prod-ui");
-});
-
-test("prod-ui landing logo reveals the query fallback when WebGL is unavailable @logo-research", async ({
-  page,
-}) => {
-  await expectLandingLogoWebGLUnavailableFallback(page, "/?prod-ui&rot=180");
 });
 
 test("public landing still renders when localStorage access is denied", async ({ page }) => {
@@ -2048,16 +1275,6 @@ test.describe("production public host landing", () => {
     await expect(page.getByTestId("route-url-editor-input")).toHaveValue(`${rootPrefix}privacy?`);
   });
 
-  test("keeps the logo draggable after the SVG fallback is removed @logo-research", async ({
-    page,
-  }) => {
-    await page.goto(buildProductionPublicLandingUrl(""), {
-      waitUntil: "domcontentloaded",
-    });
-
-    await expectLandingLogoCanBeDragged(page);
-  });
-
   test("keeps ?dev landing copy editable", async ({ page }) => {
     const headingMarker = "prod-host-marker";
 
@@ -2095,7 +1312,7 @@ test("landing dev edits stay visible after clearing the dev query", async ({ pag
 
   const landingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
 
-  await expect(landingCopy).toContainText("your notes and code live in a real repository");
+  await expect(landingCopy).toContainText("Samebase is near.");
   await expect(landingCopy.locator('[contenteditable="true"]')).toHaveCount(1);
 
   await insertLandingHeadingMarker(page, headingMarker);

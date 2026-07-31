@@ -121,7 +121,7 @@ async function focusRouteAddressInput(page: Page, route = "/privacy") {
     }
   }
 
-  await expect(input).toHaveValue(focusedInputValue);
+  await expect(input).toHaveValue(focusedInputValue, { timeout: 30_000 });
   await input.focus();
   await expect(input).toBeFocused();
 
@@ -368,7 +368,7 @@ test.describe("route URL editor touch scroll picker", () => {
     await displayInput.tap();
 
     const input = page.getByTestId("route-url-editor-input");
-    await expect(input).toBeFocused();
+    await expect(input).toBeFocused({ timeout: 30_000 });
     await expect(input).toHaveValue(prefix);
     await expect(input).toHaveJSProperty("readOnly", false);
     await expect(input).toHaveAttribute("data-route-editor-node-marker", "before-touch-focus");

@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { PNG } from "pngjs";
 import { signInIfNeeded } from "./liveHelpers";
+import { expectLogoMobilePaneEscapeLanes, exposeMobileMainPane } from "./logoMobilePane";
 import { measureScreenshotForegroundBounds } from "./visualDiff";
 
 test.setTimeout(120_000);
@@ -41,7 +42,9 @@ async function openMengerHoverCase(
   page: Page,
   {
     elevationDegrees,
+    extraSearch = "",
     maximumDepth = "4",
+    automaticProbe = false,
     pointerTiltEnabled = false,
     pointerTiltRadiusScale = "1",
     pointerTiltStrengthScale = "1.67",
@@ -49,7 +52,9 @@ async function openMengerHoverCase(
     rotationDegrees,
   }: {
     elevationDegrees: string;
+    extraSearch?: string;
     maximumDepth?: string;
+    automaticProbe?: boolean;
     pointerTiltEnabled?: boolean;
     pointerTiltRadiusScale?: string;
     pointerTiltStrengthScale?: string;
@@ -60,13 +65,16 @@ async function openMengerHoverCase(
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion });
   await page.goto("/", { waitUntil: "domcontentloaded" });
+  const automaticProbeSearch = automaticProbe ? "" : "&probeDisabled";
   await signInIfNeeded(
     page,
     `/logo/hover/menger?elev=${elevationDegrees}&rot=${rotationDegrees}&top=red-400${
       maximumDepth === "4" ? "" : `&depth=${maximumDepth}`
     }${pointerTiltEnabled ? "&tilt" : ""}${
       pointerTiltRadiusScale === "1" ? "" : `&tiltRadius=${pointerTiltRadiusScale}`
-    }${pointerTiltStrengthScale === "1.67" ? "" : `&tiltStrength=${pointerTiltStrengthScale}`}`,
+    }${
+      pointerTiltStrengthScale === "1.67" ? "" : `&tiltStrength=${pointerTiltStrengthScale}`
+    }${automaticProbeSearch}${extraSearch}`,
   );
 
   const hoverPage = page.locator('[data-testid="logo-menger-hover-page"]');
@@ -289,6 +297,301 @@ test("Menger hover controls reveal depth from one through five", async ({ page }
   await expect(page).toHaveURL(/(?:\?|&)depth=2(?:&|$)/);
 });
 
+test("Menger hover keeps automatic-probe controls shareable in route search", async ({ page }) => {
+  await openMengerHoverCase(page, {
+    elevationDegrees: "0",
+    automaticProbe: true,
+    extraSearch: "&probeLoop=60",
+    rotationDegrees: "180",
+  });
+  const controls = page.locator('[data-testid="logo-menger-hover-controls"]');
+  const playCheckbox = controls.getByRole("checkbox", { name: "Play" });
+  const showPathCheckbox = controls.getByRole("checkbox", { name: "Show path" });
+  const pathSelect = controls.getByRole("combobox", { name: "Automatic probe path" });
+  const startEndSlider = controls.getByRole("slider", {
+    name: "Automatic probe start and end point",
+  });
+  const heightSlider = controls.getByRole("slider", { name: "Automatic probe path height" });
+  const offsetSlider = controls.getByRole("slider", {
+    name: "Automatic probe path vertical shift",
+  });
+  const widthSlider = controls.getByRole("slider", { name: "Automatic probe path width" });
+
+  await expect(playCheckbox).toHaveAttribute("aria-checked", "true");
+  await expect(showPathCheckbox).toHaveAttribute("aria-checked", "true");
+  await expect(pathSelect).toContainText("Vertical 8");
+  await expect(startEndSlider).toHaveValue("0.25");
+  await expect(heightSlider).toHaveValue("1.3");
+  await expect(heightSlider).toHaveAttribute("max", "2.5");
+  await expect(offsetSlider).toHaveValue("-0.15");
+  await expect(page.locator('[data-testid="logo-menger-automatic-probe-path"]')).toHaveCount(1);
+
+  await pathSelect.click();
+  await page.getByRole("option", { name: "Orbit" }).click();
+  await expect(pathSelect).toContainText("Orbit");
+  await expect(page).toHaveURL(/(?:\?|&)probePath=orbit(?:&|$)/);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await playCheckbox.click();
+  await expect(page).toHaveURL(/(?:\?|&)probeDisabled(?:&|$)/);
+  await expect(page.getByTestId("logo-menger-hover-scene")).toHaveAttribute(
+    "data-automatic-probe-state",
+    "off",
+  );
+  await playCheckbox.click();
+  await expect(page).not.toHaveURL(/(?:\?|&)probeDisabled(?:&|$)/);
+  await expect(page).toHaveURL(/(?:\?|&)probeLoop=60(?:&|$)/);
+  await expect(page.getByTestId("logo-menger-hover-scene")).toHaveAttribute(
+    "data-automatic-probe-state",
+    "playing",
+  );
+  const progressAfterStarting = await readNumberAttribute(
+    page.getByTestId("logo-menger-hover-scene"),
+    "data-automatic-probe-progress",
+  );
+  await expect
+    .poll(() =>
+      readNumberAttribute(
+        page.getByTestId("logo-menger-hover-scene"),
+        "data-automatic-probe-progress",
+      ),
+    )
+    .not.toBe(progressAfterStarting);
+  const progressBeforeShowingPath = await readNumberAttribute(
+    page.getByTestId("logo-menger-hover-scene"),
+    "data-automatic-probe-progress",
+  );
+
+  await showPathCheckbox.click();
+  await expect(page).toHaveURL(/(?:\?|&)probePathHidden(?:&|$)/);
+  await expect(page.locator('[data-testid="logo-menger-automatic-probe-path"]')).toHaveCount(0);
+  await showPathCheckbox.click();
+  await expect(page).not.toHaveURL(/(?:\?|&)probePathHidden(?:&|$)/);
+  await expect(page.locator('[data-testid="logo-menger-automatic-probe-path"]')).toBeVisible();
+  await expect(page.getByTestId("logo-menger-automatic-probe-start-end")).toBeVisible();
+  expect(
+    await readNumberAttribute(
+      page.getByTestId("logo-menger-hover-scene"),
+      "data-automatic-probe-progress",
+    ),
+  ).toBeGreaterThanOrEqual(progressBeforeShowingPath);
+
+  const urlBeforeStartEndDraft = page.url();
+  await startEndSlider.fill("0.6");
+  expect(page.url()).toBe(urlBeforeStartEndDraft);
+  await startEndSlider.blur();
+  await expect(page).toHaveURL(/(?:\?|&)probeStart=0\.6(?:&|$)/);
+
+  const urlBeforeHeightDraft = page.url();
+  await heightSlider.fill("1.35");
+  expect(page.url()).toBe(urlBeforeHeightDraft);
+  await heightSlider.blur();
+  await expect(page).toHaveURL(/(?:\?|&)probeHeight=1\.35(?:&|$)/);
+
+  const urlBeforeOffsetDraft = page.url();
+  await offsetSlider.fill("-0.4");
+  expect(page.url()).toBe(urlBeforeOffsetDraft);
+  await offsetSlider.blur();
+  await expect(page).toHaveURL(/(?:\?|&)probeOffset=-0\.4(?:&|$)/);
+
+  const urlBeforeWidthDraft = page.url();
+  await widthSlider.fill("0.4");
+  expect(page.url()).toBe(urlBeforeWidthDraft);
+  await widthSlider.blur();
+  await expect(page).toHaveURL(/(?:\?|&)probeWidth=0\.4(?:&|$)/);
+});
+
+test("Menger automatic probe has a deterministic reduced-motion research view", async ({
+  page,
+}) => {
+  const hydrationErrors: string[] = [];
+  page.on("console", (message) => {
+    if (
+      message.type() === "error" &&
+      /hydration|hydrated|Minified React error #418/i.test(message.text())
+    ) {
+      hydrationErrors.push(message.text());
+    }
+  });
+  const scene = await openMengerHoverCase(page, {
+    elevationDegrees: "0",
+    automaticProbe: true,
+    extraSearch:
+      "&probe&probeHeight=1.35&probeLanding&probeOffset=0.25&probePathVisible&probeWidth=0.4",
+    maximumDepth: "3",
+    pointerTiltEnabled: true,
+    reducedMotion: "reduce",
+    rotationDegrees: "180",
+  });
+  const controls = page.locator('[data-testid="logo-menger-hover-controls"]');
+  const frame = page.locator('[data-testid="logo-menger-hover-scene-frame"]');
+  const mainPane = page.locator('[data-testid="logo-menger-hover-page"]');
+  const frameBox = await frame.boundingBox();
+  if (!frameBox) {
+    throw new Error("The landing-size Menger research scene must have a bounding box.");
+  }
+
+  expect(Math.abs(frameBox.width - frameBox.height)).toBeLessThanOrEqual(1);
+  expect(frameBox.width).toBeLessThanOrEqual(352);
+  await expect(scene).toHaveAttribute("data-automatic-probe-state", "reduced-motion");
+  await expect(scene).toHaveAttribute("data-automatic-probe-progress", "0.0000");
+  await expect(scene).toHaveAttribute("data-presentation-horizontal-degrees", "0.000");
+  await expect(scene).toHaveAttribute("data-presentation-vertical-degrees", "0.000");
+  const path = page.locator('[data-testid="logo-menger-automatic-probe-path"]');
+  await expect(path).toBeVisible();
+  const pathPoints = await path.locator("polyline").getAttribute("points");
+  if (pathPoints === null) {
+    throw new Error("The automatic probe path must expose its polyline points.");
+  }
+  const yCoordinates = pathPoints
+    .trim()
+    .split(/\s+/)
+    .map((point) => Number(point.split(",")[1]));
+  expect(Math.max(...yCoordinates)).toBeGreaterThan(1);
+  expect(hydrationErrors).toEqual([]);
+  await expect(controls).toHaveScreenshot(
+    "logo-menger-hover-controls-automatic-probe.png",
+    SCREENSHOT_OPTIONS,
+  );
+  await expect(frame).toHaveScreenshot(
+    "logo-menger-hover-automatic-probe-path.png",
+    SCREENSHOT_OPTIONS,
+  );
+  await expect(mainPane).toHaveScreenshot(
+    "logo-menger-hover-automatic-probe-main-pane.png",
+    SCREENSHOT_OPTIONS,
+  );
+});
+
+test("Menger automatic probe rests at its marked start and end point", async ({ page }) => {
+  const scene = await openMengerHoverCase(page, {
+    elevationDegrees: "0",
+    automaticProbe: true,
+    extraSearch:
+      "&probe&probeLoop=0.1&probePath=orbit&probePathVisible&probeRest=1&probeStart=0.25",
+    maximumDepth: "2",
+    reducedMotion: "no-preference",
+    rotationDegrees: "180",
+  });
+  const marker = page.getByTestId("logo-menger-automatic-probe-start-end");
+  const sceneBox = await scene.boundingBox();
+  if (sceneBox === null) {
+    throw new Error("Expected a visible Menger scene.");
+  }
+
+  await expect(marker).toBeVisible();
+  await expect(scene).toHaveAttribute("data-automatic-probe-state", "resting");
+  await expect(scene).toHaveAttribute("data-automatic-probe-progress", "1.0000");
+  const markerX = Number(await marker.getAttribute("cx"));
+  const markerY = Number(await marker.getAttribute("cy"));
+  expect(await readNumberAttribute(scene, "data-automatic-probe-client-x")).toBeCloseTo(
+    sceneBox.x + markerX * sceneBox.width,
+    0,
+  );
+  expect(await readNumberAttribute(scene, "data-automatic-probe-client-y")).toBeCloseTo(
+    sceneBox.y + markerY * sceneBox.height,
+    0,
+  );
+});
+
+test("Menger automatic probe suspends frames while its scene is offscreen", async ({ page }) => {
+  const scene = await openMengerHoverCase(page, {
+    elevationDegrees: "0",
+    automaticProbe: true,
+    extraSearch: "&probe&probeLoop=1000000",
+    maximumDepth: "2",
+    reducedMotion: "reduce",
+    rotationDegrees: "180",
+  });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing");
+
+  await scene.evaluate((element) => {
+    element.style.display = "none";
+  });
+  await expect(scene).toHaveAttribute("data-automatic-probe-state", "suspended");
+  const renderCount = await readNumberAttribute(scene, "data-hover-render-count");
+
+  await page.mouse.move(20, 20);
+  await page.waitForTimeout(250);
+  await expect(scene).toHaveAttribute("data-hover-render-count", String(renderCount));
+
+  await scene.evaluate((element) => {
+    element.style.display = "";
+  });
+  await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing");
+  await expect(scene).toHaveAttribute("data-automatic-probe-progress", "0.0000");
+});
+
+test("Menger automatic probe does not loop frames at depth one without tilt", async ({ page }) => {
+  const scene = await openMengerHoverCase(page, {
+    elevationDegrees: "0",
+    automaticProbe: true,
+    extraSearch: "&probe",
+    maximumDepth: "1",
+    reducedMotion: "no-preference",
+    rotationDegrees: "180",
+  });
+  await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing");
+  await expect(scene).toHaveAttribute("data-hover-settled", "true");
+  await expect(scene).toHaveAttribute("data-presentation-tilt-settled", "true");
+  await page.waitForTimeout(250);
+  const renderCount = await readNumberAttribute(scene, "data-hover-render-count");
+
+  await page.waitForTimeout(250);
+  await expect(scene).toHaveAttribute("data-hover-render-count", String(renderCount));
+});
+
+test("Menger automatic probe fails closed for overflowed finite route settings", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await signInIfNeeded(
+    page,
+    "/logo/hover/menger?depth=1&elev=0&rot=180&probe&probeHeight=1e308&probePath=orbit",
+  );
+  const scene = page.getByTestId("logo-menger-hover-scene");
+  await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
+  const controls = page.getByTestId("logo-menger-hover-controls");
+  await expect(controls.locator('output[for="menger-hover-automatic-probe-height"]')).toHaveText(
+    "1e+310%",
+  );
+  await expect(controls.locator('output[for="menger-hover-automatic-probe-width"]')).not.toHaveText(
+    /Infinity|NaN/,
+  );
+
+  const expectInvalidProbeToStop = async () => {
+    await expect(scene).toHaveAttribute("data-automatic-probe-state", "invalid");
+    await expect(scene).not.toHaveAttribute("data-automatic-probe-client-x", /.+/);
+    await expect(scene).not.toHaveAttribute("data-automatic-probe-client-y", /.+/);
+    await expect(scene).not.toHaveAttribute("data-automatic-probe-progress", /.+/);
+    const dataAttributeValues = await scene.evaluate((element) =>
+      Array.from(element.attributes)
+        .filter(({ name }) => name.startsWith("data-"))
+        .map(({ value }) => value),
+    );
+    expect(dataAttributeValues.join(" ")).not.toMatch(/Infinity|NaN/);
+    await page.waitForTimeout(250);
+    const renderCount = await readNumberAttribute(scene, "data-hover-render-count");
+    await page.waitForTimeout(250);
+    await expect(scene).toHaveAttribute("data-hover-render-count", String(renderCount));
+  };
+
+  await expectInvalidProbeToStop();
+  await page.goto(
+    "/logo/hover/menger?elev=0&rot=180&probe&probeHeight=3e305&probeLoop=0.1&probeRest=0&probeWidth=3e305&tilt&tiltRadius=0",
+    { waitUntil: "domcontentloaded" },
+  );
+  await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
+  await expectInvalidProbeToStop();
+  await page.goto(
+    "/logo/hover/menger?depth=1&elev=0&rot=180&probe&probeLoop=1e308&probeRest=1e308",
+    { waitUntil: "domcontentloaded" },
+  );
+  await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
+  await expectInvalidProbeToStop();
+});
+
 test("Menger hover composes the optional landing tilt with its stored view", async ({ page }) => {
   const scene = await openMengerHoverCase(page, {
     elevationDegrees: "30",
@@ -475,7 +778,9 @@ test("Menger hover persists its adjustable tilt radius and strength", async ({ p
   await expect(scene).toHaveAttribute("data-menger-pointer-tilt-radius-scale", "1.2");
   await expect(scene).toHaveAttribute("data-menger-pointer-tilt-strength-scale", "1.5");
 
-  await page.goto("/logo/hover/menger?depth=2&elev=0&rot=180&tilt&tiltRadius=3.5&tiltStrength=2.5");
+  await page.goto(
+    "/logo/hover/menger?depth=2&elev=0&rot=180&probeDisabled&tilt&tiltRadius=3.5&tiltStrength=2.5",
+  );
   await expect(scene.locator("canvas")).toBeVisible();
   await expect(radiusSlider).toHaveAttribute("max", "3.5");
   await expect(radiusSlider).toHaveValue("3.5");
@@ -737,7 +1042,7 @@ test("Menger hover keeps depth-two, depth-three, and depth-four openings distinc
     rotationDegrees: "180",
   });
   await movePointerRelativeToScene(page, scene, {
-    expectedProbe: [/-?0\.000/, "0.400", "0.344"],
+    expectedProbe: [/-?0\.000/, "0.403", "0.344"],
     x: 0.42,
     y: 0.55,
   });
@@ -796,7 +1101,7 @@ test("Menger hover keeps depth-two oblique tunnel surfaces exact", async ({ page
     rotationDegrees: "225",
   });
   await movePointerRelativeToScene(page, scene, {
-    expectedProbe: [/^0\.00[0-2]$/, "1.000", "0.057"],
+    expectedProbe: [/^0\.00[0-2]$/, "0.998", "0.055"],
     x: 0.52,
     y: 0.45,
   });
@@ -807,7 +1112,7 @@ test("Menger hover keeps depth-two oblique tunnel surfaces exact", async ({ page
   });
 
   await movePointerRelativeToScene(page, scene, {
-    expectedProbe: ["0.520", "1.000", "0.107"],
+    expectedProbe: ["0.508", "1.000", "0.094"],
     x: 0.35,
     y: 0.35,
   });
@@ -874,10 +1179,191 @@ test("Menger hover keeps the three visible faces and internal tunnels aligned", 
     rotationDegrees: "29.3",
   });
   await movePointerRelativeToScene(page, scene, {
-    expectedProbe: ["0.792", "1.000", "0.708"],
+    expectedProbe: ["0.812", "1.000", "0.720"],
     x: 0.48,
     y: 0.34,
   });
 
   await expect(scene).toHaveScreenshot("logo-menger-hover-three-face-edge.png", SCREENSHOT_OPTIONS);
+});
+
+test.describe("Menger automatic probe on a phone", () => {
+  test.use({
+    deviceScaleFactor: 1,
+    hasTouch: true,
+    isMobile: true,
+    viewport: { height: 844, width: 390 },
+  });
+
+  test("keeps top and bottom pane escape lanes outside the canvas", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await signInIfNeeded(page, "/logo/hover/menger?depth=2&elev=0&rot=180&probeDisabled");
+    await exposeMobileMainPane(page);
+
+    const hoverPage = page.getByTestId("logo-menger-hover-page");
+    const scene = page.getByTestId("logo-menger-hover-scene");
+    await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
+    await expectLogoMobilePaneEscapeLanes(page, hoverPage, scene);
+
+    await expect(page).toHaveScreenshot("logo-menger-hover-phone.png", SCREENSHOT_OPTIONS);
+  });
+
+  test("drives reveal and tilt on a coarse pointer, then pauses for touch drag", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await signInIfNeeded(
+      page,
+      "/logo/hover/menger?depth=2&elev=0&rot=180&probe&probeLanding&probeLoop=10&probeRest=0.75&tilt&tiltRadius=0",
+    );
+    await exposeMobileMainPane(page);
+    const scene = page.locator('[data-testid="logo-menger-hover-scene"]');
+    await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
+    await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing");
+    await expect(scene).toHaveAttribute("data-hover-maximum-openness", /^(?!0\.000000).+/);
+    await expect
+      .poll(async () => {
+        const horizontal = await readNumberAttribute(scene, "data-presentation-horizontal-degrees");
+        const vertical = await readNumberAttribute(scene, "data-presentation-vertical-degrees");
+        return Math.abs(horizontal) + Math.abs(vertical);
+      })
+      .toBeGreaterThan(0.1);
+
+    const sceneBounds = await scene.boundingBox();
+    if (sceneBounds === null) {
+      throw new Error("Expected a visible mobile Menger scene.");
+    }
+    const startX = sceneBounds.x + sceneBounds.width * 0.42;
+    const startY = sceneBounds.y + sceneBounds.height * 0.42;
+    const session = await page.context().newCDPSession(page);
+    const gestureStartTimeMs = Date.now();
+    let touchEnded = false;
+
+    try {
+      const touchPoint = {
+        force: 1,
+        id: 1,
+        radiusX: 4,
+        radiusY: 4,
+        x: startX,
+        y: startY,
+      };
+      await session.send("Input.dispatchTouchEvent", {
+        timestamp: gestureStartTimeMs / 1_000,
+        touchPoints: [touchPoint],
+        type: "touchStart",
+      });
+      await page.waitForTimeout(50);
+      await session.send("Input.dispatchTouchEvent", {
+        timestamp: (gestureStartTimeMs + 50) / 1_000,
+        touchPoints: [{ ...touchPoint, x: startX + 24, y: startY + 12 }],
+        type: "touchMove",
+      });
+      await expect(scene).toHaveAttribute("data-automatic-probe-state", "dragging");
+      const automaticCoordinatesDuringDrag = await Promise.all([
+        scene.getAttribute("data-automatic-probe-client-x"),
+        scene.getAttribute("data-automatic-probe-client-y"),
+        scene.getAttribute("data-automatic-probe-progress"),
+        scene.getAttribute("data-hover-coordinate-x"),
+        scene.getAttribute("data-hover-coordinate-y"),
+        scene.getAttribute("data-hover-coordinate-z"),
+      ]);
+      const opennessDuringDrag = await scene.getAttribute("data-hover-maximum-openness");
+
+      await page.waitForTimeout(100);
+      await session.send("Input.dispatchTouchEvent", {
+        timestamp: (gestureStartTimeMs + 150) / 1_000,
+        touchPoints: [{ ...touchPoint, x: startX + 48, y: startY + 24 }],
+        type: "touchMove",
+      });
+      await page.waitForTimeout(100);
+      await expect(scene).toHaveAttribute("data-automatic-probe-state", "dragging");
+      expect(
+        await Promise.all([
+          scene.getAttribute("data-automatic-probe-client-x"),
+          scene.getAttribute("data-automatic-probe-client-y"),
+          scene.getAttribute("data-automatic-probe-progress"),
+          scene.getAttribute("data-hover-coordinate-x"),
+          scene.getAttribute("data-hover-coordinate-y"),
+          scene.getAttribute("data-hover-coordinate-z"),
+        ]),
+      ).toEqual(automaticCoordinatesDuringDrag);
+      await expect(scene).toHaveAttribute("data-hover-maximum-openness", opennessDuringDrag ?? "");
+
+      await session.send("Input.dispatchTouchEvent", {
+        timestamp: (gestureStartTimeMs + 251) / 1_000,
+        touchPoints: [],
+        type: "touchEnd",
+      });
+      touchEnded = true;
+      await expect(scene).toHaveAttribute("data-automatic-probe-state", "resting");
+      await expect(scene).toHaveAttribute("data-automatic-probe-progress", "1.0000");
+      await expect(scene).toHaveAttribute("data-automatic-probe-client-x", /.+/);
+      await expect(scene).toHaveAttribute("data-automatic-probe-client-y", /.+/);
+      await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing", {
+        timeout: 2_000,
+      });
+    } finally {
+      if (!touchEnded) {
+        await session
+          .send("Input.dispatchTouchEvent", {
+            touchPoints: [],
+            type: "touchEnd",
+          })
+          .catch(() => undefined);
+      }
+      await session.detach().catch(() => undefined);
+    }
+  });
+});
+
+test.describe("Menger hover on a landscape phone", () => {
+  test.use({
+    deviceScaleFactor: 1,
+    hasTouch: true,
+    isMobile: true,
+    viewport: { height: 390, width: 700 },
+  });
+
+  test("keeps both pane escape lanes outside the short canvas", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await signInIfNeeded(page, "/logo/hover/menger?depth=2&elev=0&rot=180&probeDisabled");
+    await exposeMobileMainPane(page);
+
+    const hoverPage = page.getByTestId("logo-menger-hover-page");
+    const scene = page.getByTestId("logo-menger-hover-scene");
+    await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
+    await expectLogoMobilePaneEscapeLanes(page, hoverPage, scene);
+  });
+});
+
+test.describe("Menger hover on a wide landscape touch viewport", () => {
+  test.use({
+    deviceScaleFactor: 1,
+    hasTouch: true,
+    isMobile: true,
+    viewport: { height: 390, width: 844 },
+  });
+
+  test("keeps a usable canvas and both vertical touch lanes", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await signInIfNeeded(page, "/logo/hover/menger?depth=2&elev=0&rot=180&probeDisabled");
+
+    const hoverPage = page.getByTestId("logo-menger-hover-page");
+    const scene = page.getByTestId("logo-menger-hover-scene");
+    await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
+    const pageBounds = await hoverPage.boundingBox();
+    const sceneBounds = await scene.boundingBox();
+    if (pageBounds === null || sceneBounds === null) {
+      throw new Error("Expected the wide landscape Menger page and scene.");
+    }
+
+    const topGap = sceneBounds.y - pageBounds.y;
+    const bottomGap = pageBounds.y + pageBounds.height - sceneBounds.y - sceneBounds.height;
+    expect(sceneBounds.width).toBeGreaterThanOrEqual(192);
+    expect(Math.abs(sceneBounds.width - sceneBounds.height)).toBeLessThanOrEqual(1);
+    expect(topGap).toBeGreaterThan(48);
+    expect(bottomGap).toBeGreaterThan(48);
+  });
 });

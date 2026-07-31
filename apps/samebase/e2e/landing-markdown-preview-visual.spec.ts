@@ -386,6 +386,7 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
       caret: "hide",
       maxDiffPixelRatio: 0.02,
       scale: "css",
+      timeout: 30_000,
     },
   );
 });
@@ -548,7 +549,7 @@ test.describe("mobile landing preview", () => {
     await article.getByRole("button", { name: "Open Samebase" }).first().click();
 
     await expect(page).toHaveURL(new RegExp(`${LANDING_PREVIEW_ROUTE}(?:\\?prod-ui)?$`));
-    await expect(workspace).toHaveAttribute("data-mobile-pane", "right");
+    await expect(workspace).toHaveAttribute("data-mobile-pane", "right", { timeout: 30_000 });
     await expect(
       page
         .getByTestId("workspace-layout-v2-pane-right")

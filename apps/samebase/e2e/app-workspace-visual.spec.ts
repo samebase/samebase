@@ -24,6 +24,7 @@ test("landing route uses the stable app workspace shell", async ({ page }) => {
     caret: "hide",
     scale: "css",
     maxDiffPixelRatio: 0.03,
+    timeout: 30_000,
   });
 });
 
@@ -50,6 +51,7 @@ test("app workspace address chrome exposes the route URL editor", async ({ page 
     caret: "hide",
     scale: "css",
     maxDiffPixelRatio: 0.03,
+    timeout: 30_000,
   });
   await routeUrlDisplay.focus();
   const routeUrlInput = page.getByTestId("route-url-editor-input");

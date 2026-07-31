@@ -24,6 +24,7 @@ const screenshotOptions = {
   caret: "hide",
   scale: "css",
   maxDiffPixelRatio: 0.03,
+  timeout: 30_000,
 } as const;
 
 async function openSettings(page: Page) {

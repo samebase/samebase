@@ -2,6 +2,7 @@ import {
   LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
   LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
 } from "@/components/logo/logoPresentationTilt";
+import { MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS } from "@/components/logo/mengerAutomaticProbe";
 import {
   createLogoRouteVoxelGrid,
   readLogoRouteRenderState,
@@ -10,6 +11,11 @@ import { LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS } from "@/components/logo/l
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import { type LogoViewState } from "@/components/logo/logoViewDrag";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
+import { useCoarsePointer } from "@/hooks/useCoarsePointer";
+import {
+  PUBLIC_LANDING_MENGER_FALLBACK_TEST_ID,
+  PUBLIC_LANDING_MENGER_TEST_ID,
+} from "@/lib/publicLanding";
 import { PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE } from "@/lib/publicLandingLogo";
 import { clearPublicLandingLogoStaticFallbackPrehydration } from "@/lib/publicLandingLogoPrehydration";
 import { MENGER_HOVER_DEFAULT_REVEAL_RADIUS } from "@samebase/logo-model/menger-hover";
@@ -75,8 +81,9 @@ The hero keeps a static Menger mark until the desktop-only slot has size and
 the interactive scene completes its first render. A hidden pane does not own
 a WebGL renderer or page-wide pointer listeners.
 */
-export function LandingHeroMenger() {
+export function LandingHeroMenger({ placement }: { placement: "preview" | "root" }) {
   const navigate = useNavigate();
+  const isCoarsePointer = useCoarsePointer();
   const rootRouteSearch = useRootRouteSearch();
   const routeState = useMemo(
     () =>
@@ -88,6 +95,22 @@ export function LandingHeroMenger() {
       }),
     [rootRouteSearch],
   );
+  const automaticProbe = useMemo(() => {
+    if (placement !== "root") {
+      return {
+        ...MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
+        enabled: false,
+        landingSize: false,
+        showPath: false,
+      };
+    }
+
+    return {
+      ...MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
+      enabled: isCoarsePointer,
+      showPath: false,
+    };
+  }, [isCoarsePointer, placement]);
   const resolvedTheme = useResolvedAppThemeColorState(routeState.themeColors);
   const leftFaceColor = resolvedTheme.faceColors.left;
   const rightFaceColor = resolvedTheme.faceColors.right;
@@ -133,7 +156,6 @@ export function LandingHeroMenger() {
       })}#${resolvedTheme.cacheKey}:${staticFallbackView.elevationDegrees}:${staticFallbackView.rotationDegrees}`,
     [faceColors, resolvedTheme.cacheKey, staticFallbackView],
   );
-
   useLayoutEffect(() => {
     setIsHydratedFallbackVisibilityReady(true);
   }, []);
@@ -294,9 +316,16 @@ export function LandingHeroMenger() {
   return (
     <div
       ref={slotRef}
-      className="relative hidden min-h-0 @3xl:block @3xl:aspect-square"
+      className={
+        placement === "root"
+          ? "relative mx-auto aspect-square min-h-0 w-full"
+          : "relative hidden min-h-0 @3xl:block @3xl:aspect-square"
+      }
       data-state={didSceneFail ? "fallback" : isSceneReady ? "ready" : "loading"}
-      data-testid="landing-preview-hero-menger"
+      data-testid={
+        placement === "root" ? PUBLIC_LANDING_MENGER_TEST_ID : "landing-preview-hero-menger"
+      }
+      style={placement === "root" ? { maxWidth: "min(44rem, calc(100svh - 12rem))" } : undefined}
     >
       <img
         key={isHydratedFallbackVisibilityReady ? "hydrated" : "prehydration"}
@@ -308,7 +337,11 @@ export function LandingHeroMenger() {
             : "pointer-events-none absolute inset-0 z-10 h-full w-full object-contain opacity-100 transition-opacity duration-300 ease-out"
         }
         {...{ [PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE]: "" }}
-        data-testid="landing-preview-hero-menger-fallback"
+        data-testid={
+          placement === "root"
+            ? PUBLIC_LANDING_MENGER_FALLBACK_TEST_ID
+            : "landing-preview-hero-menger-fallback"
+        }
         decoding="async"
         height="360"
         src={staticLogoSvgSrc}
@@ -318,6 +351,7 @@ export function LandingHeroMenger() {
       {isSceneActive && MengerHoverScene !== null ? (
         <div className="absolute inset-0 z-0">
           <MengerHoverScene
+            automaticProbe={automaticProbe}
             cameraFrustumPadding={1}
             elevationDegrees={view.elevationDegrees}
             faceColors={faceColors}

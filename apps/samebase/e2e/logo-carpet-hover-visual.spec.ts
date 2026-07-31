@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { signInIfNeeded } from "./liveHelpers";
+import { expectLogoMobilePaneEscapeLanes, exposeMobileMainPane } from "./logoMobilePane";
 
 test.setTimeout(120_000);
 
@@ -36,14 +37,24 @@ test("carpet holes reveal around the pointer for both mechanics", async ({ page 
 
   await expect(controls).toBeVisible();
   await expect(scene.locator("canvas")).toBeVisible();
-  const layoutMetrics = await carpetPage.evaluate((element) => ({
-    pageHeight: element.clientHeight,
-    sceneHeight:
-      element.querySelector('[data-testid="logo-carpet-hover-scene"]')?.clientHeight ?? 0,
-    viewportHeight: window.innerHeight,
-  }));
+  const layoutMetrics = await carpetPage.evaluate((element) => {
+    const pageBounds = element.getBoundingClientRect();
+    const sceneBounds = element
+      .querySelector('[data-testid="logo-carpet-hover-scene"]')
+      ?.getBoundingClientRect();
+
+    return {
+      bottomGap: sceneBounds ? pageBounds.bottom - sceneBounds.bottom : 0,
+      pageHeight: element.clientHeight,
+      sceneHeight: sceneBounds?.height ?? 0,
+      sceneWidth: sceneBounds?.width ?? 0,
+      topGap: sceneBounds ? sceneBounds.top - pageBounds.top : 0,
+      viewportHeight: window.innerHeight,
+    };
+  });
   expect(layoutMetrics.pageHeight).toBeLessThanOrEqual(layoutMetrics.viewportHeight);
-  expect(layoutMetrics.sceneHeight).toBe(layoutMetrics.pageHeight);
+  expect(Math.abs(layoutMetrics.sceneWidth - layoutMetrics.sceneHeight)).toBeLessThanOrEqual(1);
+  expect(Math.abs(layoutMetrics.topGap - layoutMetrics.bottomGap)).toBeLessThanOrEqual(1);
 
   await expect(carpetPage).toHaveAttribute("data-mechanic", "slide");
   await expect(carpetPage).toHaveAttribute("data-max-depth", "5");
@@ -111,27 +122,7 @@ test.describe("carpet hover on a high-density phone", () => {
     const carpetPage = page.getByTestId("logo-carpet-hover-page");
     const scene = page.getByTestId("logo-carpet-hover-scene");
     const canvas = scene.locator("canvas");
-    const workspaceLayout = page.locator("[data-workspace-layout-v2]");
-
-    // The carousel scroll can race pane detection while the page is still
-    // settling under parallel-suite load, so retry the scroll until the
-    // layout reports the main pane.
-    await expect(async () => {
-      await page.getByTestId("workspace-layout-v2-pane-main").evaluate((carousel) => {
-        const mainPane = carousel.querySelector("[data-workspace-layout-v2-mobile-main-pane]");
-        if (!(mainPane instanceof HTMLElement)) {
-          throw new Error("Expected the mobile main pane.");
-        }
-
-        carousel.style.scrollSnapType = "none";
-        carousel.scrollLeft =
-          mainPane.offsetLeft - Number.parseFloat(window.getComputedStyle(carousel).paddingLeft);
-        carousel.dispatchEvent(new Event("scroll", { bubbles: true }));
-      });
-      await expect(workspaceLayout).toHaveAttribute("data-mobile-pane", "main", {
-        timeout: 1_000,
-      });
-    }).toPass({ timeout: 20_000 });
+    await exposeMobileMainPane(page);
     await expect(canvas).toBeVisible();
     await expect(scene).toHaveAttribute("data-carpet-settled", "true");
     const layoutMetrics = await carpetPage.evaluate((element) => {
@@ -155,8 +146,7 @@ test.describe("carpet hover on a high-density phone", () => {
     expect(layoutMetrics.pageHeight).toBeLessThanOrEqual(layoutMetrics.viewportHeight);
     expect(layoutMetrics.canvasHeight).toBe(layoutMetrics.sceneHeight);
     expect(layoutMetrics.canvasWidth).toBe(layoutMetrics.sceneWidth);
-    expect(layoutMetrics.sceneHeight).toBe(layoutMetrics.pageHeight);
-    expect(layoutMetrics.sceneWidth).toBe(layoutMetrics.pageWidth);
+    await expectLogoMobilePaneEscapeLanes(page, carpetPage, scene);
     await waitForPaint(page);
 
     await expect(page).toHaveScreenshot("logo-carpet-hover-phone.png", SCREENSHOT_OPTIONS);
