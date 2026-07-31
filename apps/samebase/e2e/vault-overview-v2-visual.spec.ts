@@ -173,7 +173,7 @@ test("loads the next pull request page at the scroll end", async ({ page }) => {
   const sentinel = pullRequests.locator("[data-pull-request-load-more-sentinel]");
 
   await expect(
-    pullRequests.getByRole("heading", { name: "Open pull requests (8)", exact: true }),
+    pullRequests.getByRole("heading", { name: "8 open pull requests", exact: true }),
   ).toBeVisible();
   await expect(pullRequests.locator("[data-pull-request-number]")).toHaveCount(6);
   await expect(pullRequests.getByRole("button", { name: "Load more" })).toHaveCount(0);
@@ -600,7 +600,7 @@ test("exposes each raw source separately in developer mode", async ({ page }) =>
   await expect(fixture.getByRole("heading", { name: "Data inspector" })).toBeVisible();
   const sectionHeadings = await fixture.getByRole("heading", { level: 2 }).allTextContents();
   expect(sectionHeadings.indexOf("Data inspector")).toBeLessThan(
-    sectionHeadings.indexOf("Open pull requests (3)"),
+    sectionHeadings.indexOf("3 open pull requests"),
   );
   const vaultContract = fixture.getByText("Vault contract", { exact: true });
   await vaultContract.click();

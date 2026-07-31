@@ -958,7 +958,7 @@ describe("PullRequestsSection", () => {
       });
 
       expect(rootElement.querySelector("#vault-pull-requests-heading")?.textContent).toBe(
-        "Open pull requests (1)",
+        "1 open pull request",
       );
 
       const expandButton = rootElement.querySelector(
