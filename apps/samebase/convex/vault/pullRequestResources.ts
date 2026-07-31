@@ -224,12 +224,6 @@ const providerIssueCommentBodySchema = z.object({
     __typename: z.literal("Bot"),
     id: z.string().min(1),
   }),
-  editor: z
-    .object({
-      __typename: z.string().min(1),
-      id: z.string().min(1).optional(),
-    })
-    .nullable(),
   pullRequest: z.object({
     id: z.string().min(1),
     state: z.literal("OPEN"),
@@ -383,10 +377,6 @@ const PULL_REQUEST_COMMENT_BODIES_QUERY = `
           __typename
           ... on Bot { id }
         }
-        editor {
-          __typename
-          ... on Bot { id }
-        }
         pullRequest {
           id
           state
@@ -517,13 +507,9 @@ export function normalizeGitHubHostingCommentBodyReads(
       continue;
     }
     const comment = providerIssueCommentBodySchema.safeParse(value);
-    const expectedBotNodeId = hostingCommentBotNodeId(expected.provider);
     if (
       !comment.success ||
-      comment.data.author.id !== expectedBotNodeId ||
-      (comment.data.editor !== null &&
-        (comment.data.editor.__typename !== "Bot" ||
-          comment.data.editor.id !== expectedBotNodeId)) ||
+      comment.data.author.id !== hostingCommentBotNodeId(expected.provider) ||
       comment.data.pullRequest.id !== expected.pullRequestId ||
       String(comment.data.pullRequest.repository.databaseId) !== args.ghRepoId
     ) {

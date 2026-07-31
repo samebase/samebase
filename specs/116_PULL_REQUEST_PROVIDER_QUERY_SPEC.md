@@ -103,11 +103,10 @@ request comments without storing provider state. The batched pull request query 
 comment node ids and author types. It follows all metadata pages under the existing GitHub request
 deadline, selects only the exact Cloudflare and Netlify Bot node ids, and then reads bodies only for
 those selected comment ids. Every returned body must still belong to the same open pull request,
-repository, and Bot identity. A comment that GitHub reports as edited is accepted only when the
-editor is the same provider Bot. A failed or changing metadata scan makes comment recovery
-unavailable only for that pull request. Provider body reads and parsers fail independently, so
-malformed Cloudflare output does not hide valid Netlify output, and malformed Netlify output does
-not hide valid Cloudflare output.
+repository, and Bot identity. A failed or changing metadata scan makes comment recovery unavailable
+only for that pull request. Provider body reads and parsers fail independently, so malformed
+Cloudflare output does not hide valid Netlify output, and malformed Netlify output does not hide
+valid Cloudflare output.
 
 Cloudflare Workers recovery reads only Markdown table rows with exact `Status`, `Name`, and
 `Preview URL` columns. An exact `View logs` link identifies the Cloudflare account and Worker. An

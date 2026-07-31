@@ -322,7 +322,6 @@ describe("hosting pull request comment bodies", () => {
       __typename: "Bot",
       id: "MDM6Qm90NzMxMzk0MDI=",
     },
-    editor: null,
     pullRequest: {
       id: "PR_17",
       state: "OPEN",
@@ -438,51 +437,6 @@ describe("hosting pull request comment bodies", () => {
         { ghRepoId: "42", requests: request },
       ),
     ).toEqual([{ state: "unavailable", ...request[0] }]);
-  });
-
-  it("rejects a comment edited by a user or another bot", () => {
-    const request = [
-      { commentId: "IC_1", provider: "cloudflare" as const, pullRequestId: "PR_17" },
-    ];
-
-    for (const editor of [
-      { __typename: "User" },
-      { __typename: "Bot", id: "MDM6Qm90NDAyMDkzMjY=" },
-    ]) {
-      expect(
-        normalizeGitHubHostingCommentBodyReads(
-          { nodes: [{ ...comment, editor }] },
-          { ghRepoId: "42", requests: request },
-        ),
-      ).toEqual([{ state: "unavailable", ...request[0] }]);
-    }
-  });
-
-  it("accepts a comment edited by the same provider bot", () => {
-    expect(
-      normalizeGitHubHostingCommentBodyReads(
-        {
-          nodes: [
-            {
-              ...comment,
-              editor: { __typename: "Bot", id: "MDM6Qm90NzMxMzk0MDI=" },
-            },
-          ],
-        },
-        {
-          ghRepoId: "42",
-          requests: [{ commentId: "IC_1", provider: "cloudflare", pullRequestId: "PR_17" }],
-        },
-      ),
-    ).toEqual([
-      {
-        state: "available",
-        commentId: "IC_1",
-        provider: "cloudflare",
-        pullRequestId: "PR_17",
-        body: "body one",
-      },
-    ]);
   });
 
   it("keeps one provider available when the other provider body query fails", async () => {
