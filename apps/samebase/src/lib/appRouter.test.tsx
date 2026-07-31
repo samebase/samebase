@@ -191,6 +191,7 @@ vi.mock("@/components/logo/LogoMengerDepthTransitionPage", () => ({
       probePath?: string;
       probePathVisible?: true;
       probeRest?: number;
+      probeStart?: number;
       probeWidth?: number;
       rot?: number;
       tilt?: true;
@@ -209,6 +210,7 @@ vi.mock("@/components/logo/LogoMengerDepthTransitionPage", () => ({
       data-probe-path={routeSearch.probePath}
       data-probe-path-visible={routeSearch.probePathVisible ? "true" : "false"}
       data-probe-rest={routeSearch.probeRest}
+      data-probe-start={routeSearch.probeStart}
       data-probe-width={routeSearch.probeWidth}
       data-rotation={routeSearch.rot}
       data-tilt={routeSearch.tilt ? "true" : "false"}
@@ -828,7 +830,7 @@ describe("appRouter", () => {
 
   it("passes shared logo search state to the Menger hover research route", async () => {
     await renderRoute(
-      "/logo/hover/menger?depth=99&elev=0&primary=emerald-500&probe&probeHeight=0.7&probeLanding&probeLoop=7&probePath=orbit&probePathVisible&probeRest=2&probeWidth=0.4&rot=0&tilt&tiltRadius=1.2&tiltStrength=1.5",
+      "/logo/hover/menger?depth=99&elev=0&primary=emerald-500&probe&probeHeight=0.7&probeLanding&probeLoop=7&probePath=orbit&probePathVisible&probeRest=2&probeStart=0.6&probeWidth=0.4&rot=0&tilt&tiltRadius=1.2&tiltStrength=1.5",
     );
 
     const page = rootElement?.querySelector('[data-testid="logo-menger-hover-page"]');
@@ -842,6 +844,7 @@ describe("appRouter", () => {
     expect(page?.getAttribute("data-probe-path")).toBe("orbit");
     expect(page?.getAttribute("data-probe-path-visible")).toBe("true");
     expect(page?.getAttribute("data-probe-rest")).toBe("2");
+    expect(page?.getAttribute("data-probe-start")).toBe("0.6");
     expect(page?.getAttribute("data-probe-width")).toBe("0.4");
     expect(page?.getAttribute("data-rotation")).toBe("0");
     expect(page?.getAttribute("data-tilt")).toBe("true");

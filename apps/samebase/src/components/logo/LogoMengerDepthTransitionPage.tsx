@@ -2,6 +2,7 @@ import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { MengerDepthTransitionScene } from "@/components/logo/MengerDepthTransitionScene";
 import { MengerHoverScene } from "@/components/logo/MengerHoverScene";
+import { LogoSquareTouchSurface } from "@/components/logo/LogoSquareTouchSurface";
 import {
   LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
   LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
@@ -20,6 +21,7 @@ import {
   MENGER_AUTOMATIC_PROBE_DEFAULT_PATH,
   MENGER_AUTOMATIC_PROBE_DEFAULT_REST_DURATION_SECONDS,
   MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
+  MENGER_AUTOMATIC_PROBE_DEFAULT_START_PROGRESS,
   MENGER_AUTOMATIC_PROBE_DEFAULT_WIDTH,
   MENGER_AUTOMATIC_PROBE_PATHS,
   readMengerAutomaticProbePoint,
@@ -121,6 +123,7 @@ export function LogoMengerDepthTransitionPage({
       restDurationSeconds:
         routeSearch.probeRest ?? MENGER_AUTOMATIC_PROBE_DEFAULT_REST_DURATION_SECONDS,
       showPath: routeSearch.probePathVisible === true,
+      startProgress: routeSearch.probeStart ?? MENGER_AUTOMATIC_PROBE_DEFAULT_START_PROGRESS,
       width: routeSearch.probeWidth ?? MENGER_AUTOMATIC_PROBE_DEFAULT_WIDTH,
     }),
     [
@@ -131,6 +134,7 @@ export function LogoMengerDepthTransitionPage({
       routeSearch.probePath,
       routeSearch.probePathVisible,
       routeSearch.probeRest,
+      routeSearch.probeStart,
       routeSearch.probeWidth,
     ],
   );
@@ -159,6 +163,7 @@ export function LogoMengerDepthTransitionPage({
       loopDurationSeconds: automaticProbeDraft.loopDurationSeconds,
       path: automaticProbeDraft.path,
       restDurationSeconds: automaticProbeDraft.restDurationSeconds,
+      startProgress: automaticProbeDraft.startProgress,
       width: automaticProbeDraft.width,
     }),
     [
@@ -167,6 +172,7 @@ export function LogoMengerDepthTransitionPage({
       automaticProbeDraft.loopDurationSeconds,
       automaticProbeDraft.path,
       automaticProbeDraft.restDurationSeconds,
+      automaticProbeDraft.startProgress,
       automaticProbeDraft.width,
     ],
   );
@@ -486,10 +492,32 @@ export function LogoMengerDepthTransitionPage({
           index / 64,
           automaticProbeDraft.width,
           automaticProbeDraft.height,
+          automaticProbeDraft.startProgress,
         );
         return `${point.x},${point.y}`;
       }).join(" "),
-    [automaticProbeDraft.height, automaticProbeDraft.path, automaticProbeDraft.width],
+    [
+      automaticProbeDraft.height,
+      automaticProbeDraft.path,
+      automaticProbeDraft.startProgress,
+      automaticProbeDraft.width,
+    ],
+  );
+  const automaticProbeStartEndPoint = useMemo(
+    () =>
+      readMengerAutomaticProbePoint(
+        automaticProbeDraft.path,
+        0,
+        automaticProbeDraft.width,
+        automaticProbeDraft.height,
+        automaticProbeDraft.startProgress,
+      ),
+    [
+      automaticProbeDraft.height,
+      automaticProbeDraft.path,
+      automaticProbeDraft.startProgress,
+      automaticProbeDraft.width,
+    ],
   );
   const hoverControlsContent = useMemo(
     () => (
@@ -694,6 +722,37 @@ export function LogoMengerDepthTransitionPage({
 
           <div className="grid gap-2">
             <div className="flex items-center justify-between text-xs">
+              <label htmlFor="menger-hover-automatic-probe-start">Start / end point</label>
+              <output
+                className="font-mono text-xs text-muted-foreground"
+                htmlFor="menger-hover-automatic-probe-start"
+              >
+                {formatMengerAutomaticProbeExtentPercent(automaticProbeDraft.startProgress)}
+              </output>
+            </div>
+            <input
+              id="menger-hover-automatic-probe-start"
+              aria-label="Automatic probe start and end point"
+              className="h-2 w-full cursor-pointer accent-foreground"
+              max="1"
+              min="0"
+              onBlur={commitAutomaticProbeDraft}
+              onChange={(event) => {
+                setAutomaticProbeDraft({
+                  ...automaticProbeDraft,
+                  startProgress: Number(event.target.value),
+                });
+              }}
+              onKeyUp={commitAutomaticProbeDraft}
+              onPointerUp={commitAutomaticProbeDraft}
+              step="0.01"
+              type="range"
+              value={automaticProbeDraft.startProgress}
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between text-xs">
               <label htmlFor="menger-hover-automatic-probe-width">Path width</label>
               <output
                 className="font-mono text-xs text-muted-foreground"
@@ -787,7 +846,7 @@ export function LogoMengerDepthTransitionPage({
 
           <div className="grid gap-2">
             <div className="flex items-center justify-between text-xs">
-              <label htmlFor="menger-hover-automatic-probe-rest">Rest duration</label>
+              <label htmlFor="menger-hover-automatic-probe-rest">Rest between loops</label>
               <output
                 className="font-mono text-xs text-muted-foreground"
                 htmlFor="menger-hover-automatic-probe-rest"
@@ -797,7 +856,7 @@ export function LogoMengerDepthTransitionPage({
             </div>
             <input
               id="menger-hover-automatic-probe-rest"
-              aria-label="Automatic probe rest duration"
+              aria-label="Automatic probe rest between loops"
               className="h-2 w-full cursor-pointer accent-foreground"
               max={Math.max(5, automaticProbeDraft.restDurationSeconds)}
               min="0"
@@ -978,73 +1037,67 @@ export function LogoMengerDepthTransitionPage({
         style={{ backgroundColor }}
       >
         {mode === "hover" ? (
-          <div
-            className={
-              automaticProbeDraft.landingSize
-                ? "flex h-full min-h-0 w-full items-center justify-center"
-                : "h-full min-h-0 w-full"
-            }
+          <LogoSquareTouchSurface
+            dataTestId="logo-menger-hover-scene-frame"
+            size={automaticProbeDraft.landingSize ? "landing" : "pane"}
           >
-            <div
-              className={
-                automaticProbeDraft.landingSize
-                  ? "relative aspect-square min-h-0 w-full"
-                  : "relative h-full min-h-0 w-full"
-              }
-              data-testid="logo-menger-hover-scene-frame"
-              style={
-                automaticProbeDraft.landingSize
-                  ? { maxWidth: "min(22rem, calc(100svh - 12rem))" }
-                  : undefined
-              }
-            >
-              <MengerHoverScene
-                automaticProbe={automaticProbeMotion}
-                cameraFrustumPadding={1.12}
-                elevationDegrees={view.elevationDegrees}
-                faceColors={faceColors}
-                maximumDepth={hoverMaximumDepth}
-                onInteractionEnd={commitView}
-                onViewChange={setView}
-                pointerTiltEnabled={pointerTiltEnabled}
-                pointerTiltRadiusScale={pointerTiltRadiusScale}
-                pointerTiltStrengthScale={pointerTiltStrengthScale}
-                revealRadius={hoverRevealRadius}
-                rotationDegrees={view.rotationDegrees}
-                viewSnapEnabled={routeState.viewSnapEnabled}
-              />
-              {automaticProbeDraft.showPath ? (
-                <svg
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 z-10 h-full w-full text-foreground/40"
-                  data-testid="logo-menger-automatic-probe-path"
-                  preserveAspectRatio="none"
-                  viewBox="0 0 1 1"
-                >
-                  <polyline
-                    fill="none"
-                    points={automaticProbePathPoints}
-                    stroke="currentColor"
-                    strokeDasharray="4 4"
-                    strokeLinecap="round"
-                    strokeWidth="1"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                </svg>
-              ) : null}
-            </div>
-          </div>
+            <MengerHoverScene
+              automaticProbe={automaticProbeMotion}
+              cameraFrustumPadding={1.12}
+              elevationDegrees={view.elevationDegrees}
+              faceColors={faceColors}
+              maximumDepth={hoverMaximumDepth}
+              onInteractionEnd={commitView}
+              onViewChange={setView}
+              pointerTiltEnabled={pointerTiltEnabled}
+              pointerTiltRadiusScale={pointerTiltRadiusScale}
+              pointerTiltStrengthScale={pointerTiltStrengthScale}
+              revealRadius={hoverRevealRadius}
+              rotationDegrees={view.rotationDegrees}
+              viewSnapEnabled={routeState.viewSnapEnabled}
+            />
+            {automaticProbeDraft.showPath ? (
+              <svg
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 z-10 h-full w-full text-foreground/40"
+                data-testid="logo-menger-automatic-probe-path"
+                preserveAspectRatio="none"
+                viewBox="0 0 1 1"
+              >
+                <polyline
+                  fill="none"
+                  points={automaticProbePathPoints}
+                  stroke="currentColor"
+                  strokeDasharray="4 4"
+                  strokeLinecap="round"
+                  strokeWidth="1"
+                  vectorEffect="non-scaling-stroke"
+                />
+                <circle
+                  className="fill-background stroke-foreground"
+                  cx={automaticProbeStartEndPoint.x}
+                  cy={automaticProbeStartEndPoint.y}
+                  data-testid="logo-menger-automatic-probe-start-end"
+                  r="0.014"
+                  strokeWidth="1.5"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </svg>
+            ) : null}
+          </LogoSquareTouchSurface>
         ) : (
-          <MengerDepthTransitionScene
-            elevationDegrees={view.elevationDegrees}
-            faceColors={faceColors}
-            model={transitionModel}
-            onInteractionEnd={commitView}
-            onViewChange={setView}
-            progress={progress}
-            rotationDegrees={view.rotationDegrees}
-            viewSnapEnabled={routeState.viewSnapEnabled}
-          />
+          <LogoSquareTouchSurface>
+            <MengerDepthTransitionScene
+              elevationDegrees={view.elevationDegrees}
+              faceColors={faceColors}
+              model={transitionModel}
+              onInteractionEnd={commitView}
+              onViewChange={setView}
+              progress={progress}
+              rotationDegrees={view.rotationDegrees}
+              viewSnapEnabled={routeState.viewSnapEnabled}
+            />
+          </LogoSquareTouchSurface>
         )}
       </div>
     </AppWorkspaceRouteChrome>

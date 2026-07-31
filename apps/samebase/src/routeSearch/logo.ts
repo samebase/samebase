@@ -51,11 +51,13 @@ import {
   MENGER_AUTOMATIC_PROBE_DEFAULT_LOOP_DURATION_SECONDS,
   MENGER_AUTOMATIC_PROBE_DEFAULT_PATH,
   MENGER_AUTOMATIC_PROBE_DEFAULT_REST_DURATION_SECONDS,
+  MENGER_AUTOMATIC_PROBE_DEFAULT_START_PROGRESS,
   MENGER_AUTOMATIC_PROBE_DEFAULT_WIDTH,
   MENGER_AUTOMATIC_PROBE_PATHS,
   normalizeMengerAutomaticProbeExtent,
   normalizeMengerAutomaticProbeLoopDurationSeconds,
   normalizeMengerAutomaticProbeRestDurationSeconds,
+  normalizeMengerAutomaticProbeStartProgress,
   type MengerAutomaticProbeSettings,
 } from "@/components/logo/mengerAutomaticProbe";
 import {
@@ -634,6 +636,23 @@ const RouteSearchSchema_logoMengerHover = defineRouteSearchParams({
       valueType: "numeric",
     },
   ),
+  probeStart: routeSearchValueParam(
+    routeSearchNormalizedFiniteNumber(normalizeMengerAutomaticProbeStartProgress),
+    {
+      numericDefaultValue: MENGER_AUTOMATIC_PROBE_DEFAULT_START_PROGRESS,
+      numericRange: {
+        maxValue: 1,
+        minValue: 0,
+        rangeType: "closed",
+      },
+      numericStepValue: 0.01,
+      access: "access_public",
+      sampleValue: "0.25",
+      ...logoMotionRouteSearchSuggestion,
+      valueSuggestions: ["0", "0.25", "0.5", "0.75", "1"],
+      valueType: "numeric",
+    },
+  ),
   probeWidth: routeSearchValueParam(
     routeSearchNormalizedFiniteNumber(normalizeMengerAutomaticProbeExtent),
     {
@@ -758,6 +777,7 @@ function readLogoMengerHoverRouteSearchFields(search: LogoMengerHoverRouteSearch
     ...(typeof search.probePath === "string" ? { probePath: search.probePath } : {}),
     ...(search.probePathVisible ? { probePathVisible: true as const } : {}),
     ...(typeof search.probeRest === "number" ? { probeRest: search.probeRest } : {}),
+    ...(typeof search.probeStart === "number" ? { probeStart: search.probeStart } : {}),
     ...(typeof search.probeWidth === "number" ? { probeWidth: search.probeWidth } : {}),
     ...(search.tilt ? { tilt: true as const } : {}),
     ...(typeof search.tiltRadius === "number" ? { tiltRadius: search.tiltRadius } : {}),
@@ -1300,6 +1320,10 @@ export function buildLogoMengerHoverRouteSearch(
         ? normalizeMengerAutomaticProbeRestDurationSeconds(
             args.mengerAutomaticProbe.restDurationSeconds,
           )
+        : undefined,
+    probeStart:
+      args.mengerAutomaticProbe.startProgress !== MENGER_AUTOMATIC_PROBE_DEFAULT_START_PROGRESS
+        ? normalizeMengerAutomaticProbeStartProgress(args.mengerAutomaticProbe.startProgress)
         : undefined,
     probeWidth:
       args.mengerAutomaticProbe.width !== MENGER_AUTOMATIC_PROBE_DEFAULT_WIDTH

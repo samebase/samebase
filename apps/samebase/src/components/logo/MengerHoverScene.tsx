@@ -391,9 +391,16 @@ export function MengerHoverScene({
         return false;
       }
 
+      let automaticProbeNeedsFrame = true;
       let progress: number;
       if (reducedMotionQuery.matches) {
-        const point = { x: 0.5, y: 0.5 };
+        const point = readMengerAutomaticProbePoint(
+          settings.path,
+          0,
+          settings.width,
+          settings.height,
+          settings.startProgress,
+        );
         automaticProbeClientPoint = {
           x: bounds.left + point.x * bounds.width,
           y: bounds.top + point.y * bounds.height,
@@ -401,7 +408,7 @@ export function MengerHoverScene({
         container.dataset.automaticProbeState = "reduced-motion";
         container.dataset.automaticProbeClientX = automaticProbeClientPoint.x.toFixed(3);
         container.dataset.automaticProbeClientY = automaticProbeClientPoint.y.toFixed(3);
-        container.dataset.automaticProbeProgress = "center";
+        container.dataset.automaticProbeProgress = "0.0000";
         return false;
       } else {
         if (interactionRef.current.status !== "idle") {
@@ -409,47 +416,55 @@ export function MengerHoverScene({
           return false;
         }
         if (timestampMs < automaticProbeResumeAtMsRef.current) {
-          clearAutomaticProbeClientPoint("resting");
+          progress = 1;
+          automaticProbeNeedsFrame = false;
+          container.dataset.automaticProbeState = "resting";
           scheduleAutomaticProbeResume(automaticProbeResumeAtMsRef.current);
-          return false;
-        }
-        if (automaticProbeCycleStartedAtMsRef.current === 0) {
-          automaticProbeCycleStartedAtMsRef.current = timestampMs;
-        }
+        } else {
+          if (automaticProbeResumeAtMsRef.current > 0) {
+            automaticProbeCycleStartedAtMsRef.current = timestampMs;
+            automaticProbeResumeAtMsRef.current = 0;
+          } else if (automaticProbeCycleStartedAtMsRef.current === 0) {
+            automaticProbeCycleStartedAtMsRef.current = timestampMs;
+          }
 
-        const loopDurationMs = settings.loopDurationSeconds * 1_000;
-        const restDurationMs = settings.restDurationSeconds * 1_000;
-        const cycleDurationMs = loopDurationMs + restDurationMs;
-        if (
-          !Number.isFinite(loopDurationMs) ||
-          loopDurationMs <= 0 ||
-          !Number.isFinite(restDurationMs) ||
-          restDurationMs < 0 ||
-          !Number.isFinite(cycleDurationMs) ||
-          cycleDurationMs <= 0
-        ) {
-          invalidateAutomaticProbe();
-          return false;
+          const loopDurationMs = settings.loopDurationSeconds * 1_000;
+          const restDurationMs = settings.restDurationSeconds * 1_000;
+          const cycleDurationMs = loopDurationMs + restDurationMs;
+          if (
+            !Number.isFinite(loopDurationMs) ||
+            loopDurationMs <= 0 ||
+            !Number.isFinite(restDurationMs) ||
+            restDurationMs < 0 ||
+            !Number.isFinite(cycleDurationMs) ||
+            cycleDurationMs <= 0
+          ) {
+            invalidateAutomaticProbe();
+            return false;
+          }
+          const cycleElapsedMs =
+            (timestampMs - automaticProbeCycleStartedAtMsRef.current) / cycleDurationMs;
+          const cycleProgressMs = (cycleElapsedMs - Math.floor(cycleElapsedMs)) * cycleDurationMs;
+          if (
+            !Number.isFinite(cycleElapsedMs) ||
+            !Number.isFinite(cycleProgressMs) ||
+            cycleProgressMs < 0
+          ) {
+            invalidateAutomaticProbe();
+            return false;
+          }
+          if (cycleProgressMs >= loopDurationMs) {
+            progress = 1;
+            automaticProbeNeedsFrame = false;
+            container.dataset.automaticProbeState = "resting";
+            const resumeAtMs = timestampMs + cycleDurationMs - cycleProgressMs;
+            automaticProbeResumeAtMsRef.current = resumeAtMs;
+            scheduleAutomaticProbeResume(resumeAtMs);
+          } else {
+            progress = cycleProgressMs / loopDurationMs;
+            container.dataset.automaticProbeState = "playing";
+          }
         }
-        const cycleElapsedMs =
-          (timestampMs - automaticProbeCycleStartedAtMsRef.current) / cycleDurationMs;
-        const cycleProgressMs = (cycleElapsedMs - Math.floor(cycleElapsedMs)) * cycleDurationMs;
-        if (
-          !Number.isFinite(cycleElapsedMs) ||
-          !Number.isFinite(cycleProgressMs) ||
-          cycleProgressMs < 0
-        ) {
-          invalidateAutomaticProbe();
-          return false;
-        }
-        if (cycleProgressMs >= loopDurationMs) {
-          clearAutomaticProbeClientPoint("resting");
-          scheduleAutomaticProbeResume(timestampMs + cycleDurationMs - cycleProgressMs);
-          return false;
-        }
-
-        progress = cycleProgressMs / loopDurationMs;
-        container.dataset.automaticProbeState = "playing";
       }
 
       const point = readMengerAutomaticProbePoint(
@@ -457,6 +472,7 @@ export function MengerHoverScene({
         progress,
         settings.width,
         settings.height,
+        settings.startProgress,
       );
       const clientX = bounds.left + point.x * bounds.width;
       const clientY = bounds.top + point.y * bounds.height;
@@ -478,7 +494,7 @@ export function MengerHoverScene({
       container.dataset.automaticProbeClientY = automaticProbeClientPoint.y.toFixed(3);
       container.dataset.automaticProbeProgress = progress.toFixed(4);
 
-      return !depthOneOnly || pointerTiltEnabledRef.current;
+      return automaticProbeNeedsFrame && (!depthOneOnly || pointerTiltEnabledRef.current);
     };
 
     const clearProbe = () => {
@@ -928,8 +944,13 @@ export function MengerHoverScene({
         automaticProbeResumeTimeoutRef.current = 0;
       }
     };
+    const restartAutomaticProbeAtStart = () => {
+      automaticProbeCycleStartedAtMsRef.current = 0;
+      automaticProbeResumeAtMsRef.current = 0;
+    };
     const onDocumentVisibilityChange = () => {
       if (document.visibilityState === "visible") {
+        restartAutomaticProbeAtStart();
         scheduleFrame();
         return;
       }
@@ -941,6 +962,7 @@ export function MengerHoverScene({
       const entry = entries[0];
       sceneIsVisible = entry.isIntersecting;
       if (sceneIsVisible) {
+        restartAutomaticProbeAtStart();
         scheduleFrame();
         return;
       }
@@ -1038,9 +1060,10 @@ export function MengerHoverScene({
       loopDurationSeconds: automaticProbe.loopDurationSeconds,
       path: automaticProbe.path,
       restDurationSeconds: automaticProbe.restDurationSeconds,
+      startProgress: automaticProbe.startProgress,
       width: automaticProbe.width,
     };
-    automaticProbeCycleStartedAtMsRef.current = performance.now();
+    automaticProbeCycleStartedAtMsRef.current = 0;
     automaticProbeResumeAtMsRef.current = 0;
     if (automaticProbeResumeTimeoutRef.current !== 0) {
       window.clearTimeout(automaticProbeResumeTimeoutRef.current);
@@ -1053,6 +1076,7 @@ export function MengerHoverScene({
     automaticProbe.loopDurationSeconds,
     automaticProbe.path,
     automaticProbe.restDurationSeconds,
+    automaticProbe.startProgress,
     automaticProbe.width,
   ]);
 

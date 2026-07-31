@@ -2,6 +2,7 @@ import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { Button } from "@/components/ui/button";
 import { getTailwindColorHex } from "@/components/logo/logoTailwindColors";
 import { readLogoRouteRenderState } from "@/components/logo/logoRouteRenderState";
+import { LogoSquareTouchSurface } from "@/components/logo/LogoSquareTouchSurface";
 import { SierpinskiCarpetHoverScene } from "@/components/logo/SierpinskiCarpetHoverScene";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import {
@@ -249,7 +250,9 @@ export function LogoSierpinskiCarpetHoverPage({
         data-testid="logo-carpet-hover-page"
         style={{ backgroundColor }}
       >
-        <SierpinskiCarpetHoverScene carpetColor={carpetColor} config={config} touchReveal />
+        <LogoSquareTouchSurface>
+          <SierpinskiCarpetHoverScene carpetColor={carpetColor} config={config} touchReveal />
+        </LogoSquareTouchSurface>
       </div>
     </AppWorkspaceRouteChrome>
   );

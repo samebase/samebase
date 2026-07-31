@@ -330,6 +330,7 @@ describe("logoRouteSearch", () => {
         probePath: "orbit",
         probePathVisible: "",
         probeRest: "2",
+        probeStart: "0.6",
         probeWidth: "0.4",
       }),
     ).toEqual({
@@ -340,6 +341,7 @@ describe("logoRouteSearch", () => {
       probePath: "orbit",
       probePathVisible: true,
       probeRest: 2,
+      probeStart: 0.6,
       probeWidth: 0.4,
     });
     expect(validateLogoMengerHoverRouteSearch({ probeHeight: "-1" })).toEqual({
@@ -347,6 +349,9 @@ describe("logoRouteSearch", () => {
     });
     expect(validateLogoMengerHoverRouteSearch({ probeLoop: "0" })).toEqual({
       probeLoop: 0.1,
+    });
+    expect(validateLogoMengerHoverRouteSearch({ probeStart: "2" })).toEqual({
+      probeStart: 1,
     });
     expect(
       validateLogoMengerHoverRouteSearch({
@@ -456,6 +461,8 @@ describe("logoRouteSearch", () => {
     expect(mengerDefaults.probePath).toBeUndefined();
     expect("probePathVisible" in mengerDefaults).toBe(true);
     expect(mengerDefaults.probePathVisible).toBeUndefined();
+    expect("probeStart" in mengerDefaults).toBe(true);
+    expect(mengerDefaults.probeStart).toBeUndefined();
 
     const automaticProbeSearch = buildLogoMengerHoverRouteSearch({
       ...routeBuildDefaults,
@@ -467,6 +474,7 @@ describe("logoRouteSearch", () => {
         path: "orbit",
         restDurationSeconds: 2,
         showPath: true,
+        startProgress: 0.6,
         width: 0.4,
       },
       mengerHoverDepth: MENGER_HOVER_DEFAULT_DEPTH,
@@ -482,6 +490,7 @@ describe("logoRouteSearch", () => {
       probePath: "orbit",
       probePathVisible: true,
       probeRest: 2,
+      probeStart: 0.6,
       probeWidth: 0.4,
     });
     expect(
@@ -495,6 +504,7 @@ describe("logoRouteSearch", () => {
           path: "vertical-8",
           restDurationSeconds: 1e308,
           showPath: false,
+          startProgress: 1,
           width: 1e308,
         },
         mengerHoverDepth: MENGER_HOVER_DEFAULT_DEPTH,
@@ -507,6 +517,7 @@ describe("logoRouteSearch", () => {
       probeHeight: 1e308,
       probeLoop: 1e308,
       probeRest: 1e308,
+      probeStart: 1,
       probeWidth: 1e308,
     });
 

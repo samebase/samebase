@@ -3,6 +3,7 @@ import {
   normalizeMengerAutomaticProbeExtent,
   normalizeMengerAutomaticProbeLoopDurationSeconds,
   normalizeMengerAutomaticProbeRestDurationSeconds,
+  normalizeMengerAutomaticProbeStartProgress,
   readMengerAutomaticProbePoint,
 } from "@/components/logo/mengerAutomaticProbe";
 import { describe, expect, it } from "vite-plus/test";
@@ -23,14 +24,17 @@ describe("Menger automatic probe", () => {
     }
   });
 
-  it("makes the default vertical figure eight taller than it is wide", () => {
-    const top = readMengerAutomaticProbePoint("vertical-8", 0.25, 0.3, 0.55);
-    const right = readMengerAutomaticProbePoint("vertical-8", 0.125, 0.3, 0.55);
+  it("starts and ends the default vertical figure eight at its top point", () => {
+    const start = readMengerAutomaticProbePoint("vertical-8", 0, 0.3, 0.55);
+    const end = readMengerAutomaticProbePoint("vertical-8", 1, 0.3, 0.55);
+    const side = readMengerAutomaticProbePoint("vertical-8", 0.375, 0.3, 0.55);
 
-    expect(top.x).toBeCloseTo(0.5);
-    expect(top.y).toBeCloseTo(0.225);
-    expect(right.x).toBeCloseTo(0.65);
-    expect(right.y).toBeGreaterThan(top.y);
+    expect(start.x).toBeCloseTo(0.5);
+    expect(start.y).toBeCloseTo(0.225);
+    expect(end.x).toBeCloseTo(start.x);
+    expect(end.y).toBeCloseTo(start.y);
+    expect(side.x).toBeCloseTo(0.65);
+    expect(side.y).toBeGreaterThan(start.y);
   });
 
   it("keeps time and size inputs in their valid semantic domains", () => {
@@ -43,5 +47,9 @@ describe("Menger automatic probe", () => {
     expect(normalizeMengerAutomaticProbeRestDurationSeconds(-1)).toBe(0);
     expect(normalizeMengerAutomaticProbeRestDurationSeconds(1e308)).toBe(1e308);
     expect(normalizeMengerAutomaticProbeRestDurationSeconds(Number.POSITIVE_INFINITY)).toBe(0);
+    expect(normalizeMengerAutomaticProbeStartProgress(-1)).toBe(0);
+    expect(normalizeMengerAutomaticProbeStartProgress(0.6)).toBe(0.6);
+    expect(normalizeMengerAutomaticProbeStartProgress(2)).toBe(1);
+    expect(normalizeMengerAutomaticProbeStartProgress(Number.NaN)).toBe(0);
   });
 });

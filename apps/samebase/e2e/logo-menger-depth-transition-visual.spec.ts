@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { signInIfNeeded } from "./liveHelpers";
+import { expectLogoMobilePaneEscapeLanes, exposeMobileMainPane } from "./logoMobilePane";
 
 test.setTimeout(120_000);
 
@@ -28,15 +29,24 @@ test("Menger sponge moves from depth one through depth two to depth three", asyn
   await expect(controls).toBeVisible();
   const canvas = scene.locator("canvas");
   await expect(canvas).toBeVisible();
-  const layoutMetrics = await transitionPage.evaluate((element) => ({
-    pageHeight: element.clientHeight,
-    sceneHeight:
-      element.querySelector('[data-testid="logo-menger-depth-transition-scene"]')?.clientHeight ??
-      0,
-    viewportHeight: window.innerHeight,
-  }));
+  const layoutMetrics = await transitionPage.evaluate((element) => {
+    const pageBounds = element.getBoundingClientRect();
+    const sceneBounds = element
+      .querySelector('[data-testid="logo-menger-depth-transition-scene"]')
+      ?.getBoundingClientRect();
+
+    return {
+      bottomGap: sceneBounds ? pageBounds.bottom - sceneBounds.bottom : 0,
+      pageHeight: element.clientHeight,
+      sceneHeight: sceneBounds?.height ?? 0,
+      sceneWidth: sceneBounds?.width ?? 0,
+      topGap: sceneBounds ? sceneBounds.top - pageBounds.top : 0,
+      viewportHeight: window.innerHeight,
+    };
+  });
   expect(layoutMetrics.pageHeight).toBeLessThanOrEqual(layoutMetrics.viewportHeight);
-  expect(layoutMetrics.sceneHeight).toBe(layoutMetrics.pageHeight);
+  expect(Math.abs(layoutMetrics.sceneWidth - layoutMetrics.sceneHeight)).toBeLessThanOrEqual(1);
+  expect(Math.abs(layoutMetrics.topGap - layoutMetrics.bottomGap)).toBeLessThanOrEqual(1);
   await expect(transitionPage).toHaveAttribute("data-phase", "depth-3", { timeout: 10_000 });
 
   await page.getByRole("button", { name: "Replay transition" }).click();
@@ -136,27 +146,7 @@ test.describe("Menger sponge on a high-density phone", () => {
     const transitionPage = page.getByTestId("logo-menger-depth-transition-page");
     const scene = page.getByTestId("logo-menger-depth-transition-scene");
     const canvas = scene.locator("canvas");
-    const workspaceLayout = page.locator("[data-workspace-layout-v2]");
-
-    // The carousel scroll can race pane detection while the page is still
-    // settling under parallel-suite load, so retry the scroll until the
-    // layout reports the main pane.
-    await expect(async () => {
-      await page.getByTestId("workspace-layout-v2-pane-main").evaluate((carousel) => {
-        const mainPane = carousel.querySelector("[data-workspace-layout-v2-mobile-main-pane]");
-        if (!(mainPane instanceof HTMLElement)) {
-          throw new Error("Expected the mobile main pane.");
-        }
-
-        carousel.style.scrollSnapType = "none";
-        carousel.scrollLeft =
-          mainPane.offsetLeft - Number.parseFloat(window.getComputedStyle(carousel).paddingLeft);
-        carousel.dispatchEvent(new Event("scroll", { bubbles: true }));
-      });
-      await expect(workspaceLayout).toHaveAttribute("data-mobile-pane", "main", {
-        timeout: 1_000,
-      });
-    }).toPass({ timeout: 20_000 });
+    await exposeMobileMainPane(page);
     await expect(canvas).toBeVisible();
     const layoutMetrics = await transitionPage.evaluate((element) => {
       const sceneElement = element.querySelector(
@@ -181,8 +171,7 @@ test.describe("Menger sponge on a high-density phone", () => {
     expect(layoutMetrics.pageHeight).toBeLessThanOrEqual(layoutMetrics.viewportHeight);
     expect(layoutMetrics.canvasHeight).toBe(layoutMetrics.sceneHeight);
     expect(layoutMetrics.canvasWidth).toBe(layoutMetrics.sceneWidth);
-    expect(layoutMetrics.sceneHeight).toBe(layoutMetrics.pageHeight);
-    expect(layoutMetrics.sceneWidth).toBe(layoutMetrics.pageWidth);
+    await expectLogoMobilePaneEscapeLanes(page, transitionPage, scene);
 
     await expect(page).toHaveScreenshot("logo-menger-depth-transition-phone.png", {
       animations: "disabled",
