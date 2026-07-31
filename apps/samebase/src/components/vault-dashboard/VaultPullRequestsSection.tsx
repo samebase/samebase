@@ -15,7 +15,7 @@ import type {
   VaultPullRequestsState,
 } from "@/hooks/useVaultPullRequests";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
-import { buildVaultFileRoute } from "@/lib/vaultRoutes";
+import { buildVaultFileRoute, buildVaultSettingsRoute } from "@/lib/vaultRoutes";
 import { Link } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -167,7 +167,13 @@ function PullRequestRow({
               {samebaseUrl ? <SamebaseChangesLink href={samebaseUrl} /> : null}
             </div>
           ) : null}
-          <PullRequestResources resource={resource} />
+          <PullRequestResources
+            resource={resource}
+            settingsHref={buildVaultSettingsRoute({
+              owner: vault.ghRepoOwner,
+              repoName: vault.ghRepoName,
+            })}
+          />
         </div>
       ) : null}
     </article>

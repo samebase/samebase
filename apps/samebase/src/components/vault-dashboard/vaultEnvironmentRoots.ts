@@ -72,6 +72,21 @@ export type VaultEnvironmentRoot = {
   resources: readonly VaultEnvironmentResource[];
 };
 
+export type VaultOtherPreview = {
+  id: string;
+  destinationLabel: "Branch preview" | "Deploy preview";
+  href: string;
+  name: string;
+  provider: "cloudflare_pages" | "cloudflare_worker" | "netlify";
+  setup: { state: "connect"; href: string } | { state: "none" };
+};
+
+const vaultOtherPreviewProviderOrder = {
+  cloudflare_worker: 0,
+  cloudflare_pages: 1,
+  netlify: 2,
+} as const;
+
 type VaultEnvironmentResourceInput = {
   resource: VaultEnvironmentResource;
   rootDirectory: string;
@@ -316,6 +331,15 @@ export function buildPullRequestEnvironmentRoots({
 }): VaultEnvironmentRoot[] {
   const workers = resources.workers.map((worker) => {
     const rootDirectory = worker.state === "unavailable" ? "Needs attention" : worker.rootDirectory;
+    const destination =
+      worker.cloudflareBranchPreview.state === "available"
+        ? {
+            state: "available" as const,
+            href: worker.cloudflareBranchPreview.url,
+            label: "Branch preview",
+            title: new URL(worker.cloudflareBranchPreview.url).hostname,
+          }
+        : { state: "absent" as const };
     return {
       rootDirectory,
       sortKey: `0:${worker.workerName}:${worker.workerId}`,
@@ -334,21 +358,13 @@ export function buildPullRequestEnvironmentRoots({
                         logsUrl: worker.cloudflareBuild.logsUrl,
                       }
                     : worker.cloudflareBuild,
-                destination:
-                  worker.cloudflareBranchPreview.state === "available"
-                    ? {
-                        state: "available" as const,
-                        href: worker.cloudflareBranchPreview.url,
-                        label: "Branch preview",
-                        title: new URL(worker.cloudflareBranchPreview.url).hostname,
-                      }
-                    : { state: "absent" as const },
+                destination,
                 actions: [],
               }
             : {
                 workerName: worker.workerName,
                 build: { state: "unavailable" as const },
-                destination: { state: "absent" as const },
+                destination,
                 actions: [],
               },
       },
@@ -383,4 +399,50 @@ export function buildPullRequestEnvironmentRoots({
   });
 
   return groupVaultEnvironmentResources([...workers, ...convexDeployments]);
+}
+
+export function buildPullRequestOtherPreviews({
+  resources,
+  settingsHref,
+}: {
+  resources: PullRequestResources;
+  settingsHref: string;
+}): VaultOtherPreview[] {
+  const cloudflare = resources.hostingPreviews.cloudflare;
+  const netlify = resources.hostingPreviews.netlify;
+  return [
+    ...(cloudflare.state === "available"
+      ? cloudflare.previews.map(
+          (preview): VaultOtherPreview => ({
+            id: `cloudflare:${preview.kind}:${preview.name}:${preview.url}`,
+            destinationLabel: "Branch preview",
+            href: preview.url,
+            name: preview.name,
+            provider: preview.kind === "worker" ? "cloudflare_worker" : "cloudflare_pages",
+            setup:
+              preview.kind === "worker"
+                ? { state: "connect", href: settingsHref }
+                : { state: "none" },
+          }),
+        )
+      : []),
+    ...(netlify.state === "available"
+      ? netlify.previews.map(
+          (preview): VaultOtherPreview => ({
+            id: `netlify:${preview.name}:${preview.url}`,
+            destinationLabel: "Deploy preview",
+            href: preview.url,
+            name: preview.name,
+            provider: "netlify",
+            setup: { state: "none" },
+          }),
+        )
+      : []),
+  ].sort(
+    (left, right) =>
+      vaultOtherPreviewProviderOrder[left.provider] -
+        vaultOtherPreviewProviderOrder[right.provider] ||
+      left.name.localeCompare(right.name) ||
+      left.href.localeCompare(right.href),
+  );
 }

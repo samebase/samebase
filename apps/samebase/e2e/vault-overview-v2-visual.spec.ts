@@ -134,6 +134,38 @@ test("opens the production Convex Schema route", async ({ page }) => {
   );
 });
 
+test("shows comment-discovered hosting previews on desktop", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const fixture = await openVaultOverviewV2(page, "vault-overview-v2");
+  const pullRequestRow = fixture.locator('[data-pull-request-number="1260"]');
+
+  await pullRequestRow.getByRole("button", { name: "Show pull request #1260 details" }).click();
+  const otherPreviews = pullRequestRow.getByRole("group", { name: "Other previews" });
+  await expect(otherPreviews).toBeVisible();
+  await expect(
+    otherPreviews.getByRole("link", {
+      name: "Connect Cloudflare Worker unconnected-preview-worker in repository settings",
+    }),
+  ).toHaveAttribute("href", "/vault/samebase/samebase/settings");
+  await expect(
+    otherPreviews.getByRole("link", {
+      name: "Cloudflare Worker unconnected-preview-worker: Branch preview",
+    }),
+  ).toHaveAttribute(
+    "href",
+    "https://codex-live-provider-truth-01-unconnected-preview-worker.samebase.workers.dev",
+  );
+  await expect(
+    otherPreviews.getByRole("link", { name: "Netlify samebase: Deploy preview" }),
+  ).toHaveAttribute("href", "https://deploy-preview-1260--samebase.netlify.app");
+  await expect(pullRequestRow).toHaveScreenshot("vault-overview-v2-other-previews-desktop.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+});
+
 test("loads the next pull request page at the scroll end", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 520 });
   const fixture = await openVaultOverviewV2(page, "vault-overview-v2-auto-pagination");
@@ -176,6 +208,16 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   ).toBeVisible();
   await expect(
     firstPullRequestRow.getByText("May be from an earlier commit", { exact: true }),
+  ).toBeVisible();
+  const otherPreviews = firstPullRequestRow.getByRole("group", { name: "Other previews" });
+  await expect(otherPreviews).toBeVisible();
+  await expect(
+    otherPreviews.getByRole("link", {
+      name: "Connect Cloudflare Worker unconnected-preview-worker in repository settings",
+    }),
+  ).toBeVisible();
+  await expect(
+    otherPreviews.getByRole("link", { name: "Netlify samebase: Deploy preview" }),
   ).toBeVisible();
   await firstPullRequestRow
     .getByRole("button", { name: "Open precise-otter-1260 actions" })
