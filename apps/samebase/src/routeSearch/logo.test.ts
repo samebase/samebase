@@ -356,7 +356,7 @@ describe("logoRouteSearch", () => {
       probeStart: 1,
     });
     expect(validateLogoMengerHoverRouteSearch({ probeOffset: "2" })).toEqual({
-      probeOffset: 1,
+      probeOffset: 2,
     });
     expect(
       validateLogoMengerHoverRouteSearch({
@@ -526,9 +526,9 @@ describe("logoRouteSearch", () => {
       probe: true,
       probeHeight: 1e308,
       probeLoop: 1e308,
+      probeOffset: 1e308,
       probeRest: 1e308,
       probeStart: 1,
-      probeOffset: 1,
       probeWidth: 1e308,
     });
 

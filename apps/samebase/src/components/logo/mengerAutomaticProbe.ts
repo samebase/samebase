@@ -66,7 +66,7 @@ export function normalizeMengerAutomaticProbeStartProgress(value: number): numbe
 }
 
 export function normalizeMengerAutomaticProbeVerticalOffset(value: number): number {
-  return Number.isFinite(value) ? Math.min(Math.max(value, -1), 1) : 0;
+  return Number.isFinite(value) ? value : 0;
 }
 
 export function readMengerAutomaticProbePoint(

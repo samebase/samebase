@@ -837,8 +837,8 @@ export function LogoMengerDepthTransitionPage({
               id="menger-hover-automatic-probe-offset"
               aria-label="Automatic probe path vertical shift"
               className="h-2 w-full cursor-pointer accent-foreground"
-              max="1"
-              min="-1"
+              max={Math.max(1, automaticProbeDraft.verticalOffset)}
+              min={Math.min(-1, automaticProbeDraft.verticalOffset)}
               onBlur={commitAutomaticProbeDraft}
               onChange={(event) => {
                 setAutomaticProbeDraft({

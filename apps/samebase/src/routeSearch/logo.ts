@@ -596,9 +596,8 @@ const RouteSearchSchema_logoMengerHover = defineRouteSearchParams({
     {
       numericDefaultValue: MENGER_AUTOMATIC_PROBE_DEFAULT_VERTICAL_OFFSET,
       numericRange: {
-        maxValue: 1,
-        minValue: -1,
-        rangeType: "closed",
+        minValue: -Number.MAX_VALUE,
+        rangeType: "min",
       },
       numericStepValue: 0.05,
       access: "access_public",

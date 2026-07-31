@@ -66,9 +66,9 @@ describe("Menger automatic probe", () => {
     expect(normalizeMengerAutomaticProbeStartProgress(0.6)).toBe(0.6);
     expect(normalizeMengerAutomaticProbeStartProgress(2)).toBe(1);
     expect(normalizeMengerAutomaticProbeStartProgress(Number.NaN)).toBe(0);
-    expect(normalizeMengerAutomaticProbeVerticalOffset(-2)).toBe(-1);
+    expect(normalizeMengerAutomaticProbeVerticalOffset(-2)).toBe(-2);
     expect(normalizeMengerAutomaticProbeVerticalOffset(0.4)).toBe(0.4);
-    expect(normalizeMengerAutomaticProbeVerticalOffset(2)).toBe(1);
+    expect(normalizeMengerAutomaticProbeVerticalOffset(2)).toBe(2);
     expect(normalizeMengerAutomaticProbeVerticalOffset(Number.NaN)).toBe(0);
   });
 });

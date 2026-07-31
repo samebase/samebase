@@ -410,6 +410,7 @@ test("Menger automatic probe has a deterministic reduced-motion research view", 
   });
   const controls = page.locator('[data-testid="logo-menger-hover-controls"]');
   const frame = page.locator('[data-testid="logo-menger-hover-scene-frame"]');
+  const mainPane = page.locator('[data-testid="logo-menger-hover-page"]');
   const frameBox = await frame.boundingBox();
   if (!frameBox) {
     throw new Error("The landing-size Menger research scene must have a bounding box.");
@@ -421,7 +422,17 @@ test("Menger automatic probe has a deterministic reduced-motion research view", 
   await expect(scene).toHaveAttribute("data-automatic-probe-progress", "0.0000");
   await expect(scene).toHaveAttribute("data-presentation-horizontal-degrees", "0.000");
   await expect(scene).toHaveAttribute("data-presentation-vertical-degrees", "0.000");
-  await expect(page.locator('[data-testid="logo-menger-automatic-probe-path"]')).toBeVisible();
+  const path = page.locator('[data-testid="logo-menger-automatic-probe-path"]');
+  await expect(path).toBeVisible();
+  const pathPoints = await path.locator("polyline").getAttribute("points");
+  if (pathPoints === null) {
+    throw new Error("The automatic probe path must expose its polyline points.");
+  }
+  const yCoordinates = pathPoints
+    .trim()
+    .split(/\s+/)
+    .map((point) => Number(point.split(",")[1]));
+  expect(Math.max(...yCoordinates)).toBeGreaterThan(1);
   expect(hydrationErrors).toEqual([]);
   await expect(controls).toHaveScreenshot(
     "logo-menger-hover-controls-automatic-probe.png",
@@ -429,6 +440,10 @@ test("Menger automatic probe has a deterministic reduced-motion research view", 
   );
   await expect(frame).toHaveScreenshot(
     "logo-menger-hover-automatic-probe-path.png",
+    SCREENSHOT_OPTIONS,
+  );
+  await expect(mainPane).toHaveScreenshot(
+    "logo-menger-hover-automatic-probe-main-pane.png",
     SCREENSHOT_OPTIONS,
   );
 });
