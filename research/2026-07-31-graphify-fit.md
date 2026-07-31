@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Research complete
+- Status: Research and controlled trial complete
 - Date: 2026-07-31
 - Project: [Graphify-Labs/graphify](https://github.com/Graphify-Labs/graphify)
 - Reviewed version: `graphifyy` `0.9.31`, commit
@@ -10,16 +10,19 @@
 
 ## Decision
 
-Graphify is useful enough for one controlled Samebase evaluation. It is not ready for normal
-Samebase use, product integration, or repo-wide installation.
+Graphify `0.9.31` is not useful enough for the Samebase workflow. The controlled trial failed the
+source-recall, ambiguity, file-read reduction, and no-change update checks. It passed only the
+temporary-cost, clean-build repeatability, and no-false-direct-edge checks.
 
-The useful part is the local, code-only AST graph. It can be an optional discovery aid for
-cross-file impact analysis. It must not replace direct source inspection, tests, accepted specs, or
-the Samebase agent-context package.
+The local AST graph found direct imports for one shared contract. It did not map the two flows that
+cross generated Convex handles and string table names. Its shortest paths also joined true import
+edges into paths that were not runtime flows. Direct `rg` searches and source reads were still
+required.
 
-Do not install Graphify's Codex integration, Git hooks, HTTP MCP server, or shared graph output. Do
-not add it to `AGENTS.md`, `pnpm dev`, CI, or the product. Revisit this decision only after a
-network-disabled, temporary evaluation passes the gates in this note.
+Do not install Graphify, create a Samebase Graphify skill, or add it to `AGENTS.md`, `pnpm dev`, CI,
+or the product. Do not use its Codex integration, Git hooks, HTTP MCP server, or shared graph
+output. Reconsider it only after a later release can represent generated Convex handles and table
+strings, report those uncertain links as ambiguous, and keep exclusions stable during updates.
 
 ## Why It Is Relevant
 
@@ -69,8 +72,7 @@ Primary sources:
 - The graph is plain JSON and does not require a graph database.
 - Confidence values separate direct source facts from resolved or uncertain links.
 - The CLI has focused tools for path, impact, and neighborhood questions.
-- Incremental updates, deletion handling, atomic writes, and shrink checks show attention to graph
-  damage.
+- Deletion handling, atomic writes, and shrink checks show attention to graph damage.
 - The test tree has broad language, installer, query, and regression coverage.
 - PyPI publication uses OIDC trusted publishing.
 - The Apache-2.0 license permits internal and commercial use. Old MIT notices must stay with a
@@ -218,7 +220,7 @@ installer or hook. It must not write into the worktree.
 
 Use code-only extraction for production TypeScript. Exclude tests, visual fixtures, snapshots,
 `research/`, `rfcs/`, `archive/`, and generated output. Include only the minimum generated Convex
-type file needed to test handle resolution.
+API files needed to test handle resolution.
 
 Test these three maps:
 
@@ -242,16 +244,95 @@ If the evaluation passes, create a small Samebase-owned research skill that runs
 temporary storage. Keep direct source validation mandatory. Do not adopt the upstream installer,
 hooks, committed graph output, HTTP MCP mode, or product UI.
 
-## Experiment Status
+## Controlled Trial
 
-No Graphify code ran against the Samebase worktree during this research. The planned code-only trial
-was stopped before execution because dependency download access and private repository read access
-would have been active in the same unverified third-party process. The safety boundary was not
-weakened. No Graphify output was created in the repository.
+### Method
+
+The trial used Samebase commit `a96f8b1652c00e1e5d74f346bd81a4fe9b7d1c00`. Three preparation agents
+froze the source maps, adapted the earlier agent-context experiment method, and reviewed the
+harness. Two new blind agents then used Graphify before they saw the source map. The requested Luna
+model was not available in the sub-agent runtime. The trial used Terra Max, the fastest available
+non-Sol option, and did not use Sol.
+
+Graphify dependencies were installed from the reviewed `uv.lock` before the process received any
+Samebase source. The lock SHA-256 was
+`dfe810a15db872f787ce112b50719a8512ac70311cd86acdd7fc6658ba77155d`. The extraction used the reviewed
+`v0.9.31` source commit and the installed command reported version `0.9.31`.
+
+The input was a read-only temporary archive of the tracked Samebase commit. A trial-only
+`.graphifyignore` excluded tests, fixtures, snapshots, generated seed content, `research/`, `rfcs/`,
+and `archive/`. It kept only `api.js` and `api.d.ts` from the generated Convex API directory to test
+the generated-handle boundary. Graphify found 723 code files. The final graph contained nodes from
+712 source files, with no test, visual-fixture, research, RFC, or archive source paths.
+
+The extraction ran with restricted network access, provider keys removed, query logging disabled,
+`--code-only`, `--no-cluster`, and temporary output. The source copy was read-only. Graphify did not
+run an installer, hook, server, product integration, or worktree write. Four AST workers could not
+start in the sandbox, so the documented one-worker mode was used.
+
+### Build Results
+
+| Check                    | Result                                                                        |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| First clean extraction   | 9,819 nodes, 21,630 edges, 11,231,166-byte graph, 17.2 seconds                |
+| Second clean extraction  | Same node and edge counts, 17.3 seconds                                       |
+| Clean graph SHA-256      | Both runs: `3501fc09bf7e53ce9809951f7a2cb6670bc012d22ef49288677922341a861730` |
+| Query time               | 0.91 seconds for a focused contract or schema graph query                     |
+| Confidence values        | 21,358 `EXTRACTED`, 272 `INFERRED`, 0 `AMBIGUOUS` edges                       |
+| Graphify worktree writes | None                                                                          |
+
+The two clean extractions were byte-for-byte equal. The graph was small and fast enough for
+temporary local use.
+
+### Flow Results
+
+The blind agents first used `query`, `path`, and `explain`. They then read only the source files
+that Graphify returned.
+
+| Flow                                 | Graph result                                                                                                                                                             | Source reads                | Result                       |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------- | ---------------------------- |
+| `NewAppPage` to provisioning plan    | Found the required files after 13 graph calls, but missed the generated action, mutation, workflow, and table-write links. The table name had no node.                   | 7 files, 11 read operations | Fail                         |
+| `createRepositoryContract` consumers | One `explain` call found the action, runtime, MCP HTTP, protocol, and catalog importers. All direct import edges were `EXTRACTED`.                                       | 6 files in 2 read commands  | Pass for file discovery only |
+| Schema graph UI to storage           | Found the UI, generated API file, and backend file. It did not find `convexSchemaGraphModel.ts`, the two table nodes, or the hook-to-backend and backend-to-table links. | 2 files, 4 read operations  | Fail for semantic tracing    |
+
+Graphify did not create a false direct `EXTRACTED` edge across a generated Convex handle. However,
+it also did not report these missing links as ambiguous. The graph had no `AMBIGUOUS` edges. Its
+shortest-path command connected true import edges through shared files such as `_generated/api.js`.
+Those paths were structurally valid, but they were not runtime call paths.
+
+The graph reduced direct source inspection only for the schema graph flow. The contract flow still
+required reading all six files, and the provisioning flow required seven files. It did not meet the
+two-of-three reduction gate.
+
+### No-Change Update Result
+
+The stronger protocol from the earlier Samebase tests also ran one no-change `graphify update`. It
+failed repeatability. With the same source and exclusions, the update changed the graph from 9,819
+to 12,237 nodes and from 21,630 to 23,849 edges. It added 219 source paths, including Markdown
+skills, docs, and specs that the code-only clean extraction had skipped. The update graph SHA-256
+changed to `fc8b924c2153c1cd11489552388befd08fdd6e35dbc9698e6d57465a04fa6171`.
+
+This update result makes the upstream instruction to run `graphify update .` after code changes
+unsafe for Samebase. The graph can change scope when the source does not change.
+
+### Gate Score
+
+| Gate                                              | Result                                                       |
+| ------------------------------------------------- | ------------------------------------------------------------ |
+| At least 80 percent source recall for every flow  | Fail: the schema storage flow returned 2 of 3 required files |
+| No false direct `EXTRACTED` generated-handle edge | Pass                                                         |
+| Ambiguous links reported as ambiguous             | Fail: zero `AMBIGUOUS` edges                                 |
+| Fewer direct file reads for at least two flows    | Fail: reduced only 1 of 3                                    |
+| Temporary size and speed                          | Pass                                                         |
+| Same result on a second clean build               | Pass                                                         |
+| Same scope on a no-change update                  | Fail                                                         |
+
+The trial passed three of the six original gates. The added no-change update gate also failed. No
+Samebase Graphify skill was created.
 
 ## Summary
 
-Graphify has a relevant idea and a useful local AST core. Samebase should test that core only as a
-temporary discovery aid. Current TypeScript correctness issues, release churn, concentrated
-maintenance, stale security documentation, and an incompatible Codex installer make normal adoption
-too risky now.
+Graphify has a fast, deterministic clean AST build and useful direct-import discovery. It does not
+model Samebase's generated Convex calls or string table access well enough, and its no-change update
+changed the graph scope. Samebase should not adopt Graphify `0.9.31` or build a wrapper skill for
+it.
