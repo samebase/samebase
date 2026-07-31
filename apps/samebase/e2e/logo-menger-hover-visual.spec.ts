@@ -380,6 +380,15 @@ test("Menger hover keeps automatic-probe controls shareable in route search", as
 test("Menger automatic probe has a deterministic reduced-motion research view", async ({
   page,
 }) => {
+  const hydrationErrors: string[] = [];
+  page.on("console", (message) => {
+    if (
+      message.type() === "error" &&
+      /hydration|hydrated|Minified React error #418/i.test(message.text())
+    ) {
+      hydrationErrors.push(message.text());
+    }
+  });
   const scene = await openMengerHoverCase(page, {
     elevationDegrees: "0",
     extraSearch: "&probe&probeLanding&probePathVisible&probeWidth=0.4",
@@ -402,6 +411,7 @@ test("Menger automatic probe has a deterministic reduced-motion research view", 
   await expect(scene).toHaveAttribute("data-presentation-horizontal-degrees", "0.000");
   await expect(scene).toHaveAttribute("data-presentation-vertical-degrees", "0.000");
   await expect(page.locator('[data-testid="logo-menger-automatic-probe-path"]')).toBeVisible();
+  expect(hydrationErrors).toEqual([]);
   await expect(controls).toHaveScreenshot(
     "logo-menger-hover-controls-automatic-probe.png",
     SCREENSHOT_OPTIONS,

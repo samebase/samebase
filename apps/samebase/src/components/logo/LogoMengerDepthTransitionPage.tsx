@@ -83,6 +83,20 @@ function formatMengerAutomaticProbeExtentPercent(value: number): string {
   return `${coefficient}e${exponent >= 0 ? "+" : ""}${exponent}%`;
 }
 
+/**
+ * SSG emits one research-route document without query-derived optional nodes.
+ * Wait until hydration completes before the path overlay can add an SVG child.
+ */
+function useHasHydrated() {
+  const [hasHydrated, setHasHydrated] = useState(false);
+
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  return hasHydrated;
+}
+
 export function LogoMengerDepthTransitionPage({
   mode = "transition",
   replaceRouteSearch,
@@ -148,6 +162,7 @@ export function LogoMengerDepthTransitionPage({
     searchPointerTiltStrengthScale,
   );
   const [automaticProbeDraft, setAutomaticProbeDraft] = useState(automaticProbe);
+  const hasHydrated = useHasHydrated();
   const automaticProbeMotion = useMemo<MengerAutomaticProbeMotionSettings>(
     () => ({
       enabled: automaticProbeDraft.enabled,
@@ -1009,7 +1024,7 @@ export function LogoMengerDepthTransitionPage({
                 rotationDegrees={view.rotationDegrees}
                 viewSnapEnabled={routeState.viewSnapEnabled}
               />
-              {automaticProbeDraft.showPath ? (
+              {hasHydrated && automaticProbeDraft.showPath ? (
                 <svg
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-0 z-10 h-full w-full text-foreground/40"

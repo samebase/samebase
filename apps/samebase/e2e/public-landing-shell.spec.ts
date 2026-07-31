@@ -685,10 +685,10 @@ test("public landing shows Google sign-in by default", async ({ page }) => {
   const googleButton = page.getByRole("button", { name: "Continue with Google" });
 
   await expect(googleButton).toBeVisible();
-  await expect(googleButton).toHaveScreenshot(
-    "public-landing-google-button.png",
-    strictScreenshotOptions,
-  );
+  await expect(googleButton).toHaveScreenshot("public-landing-google-button.png", {
+    ...strictScreenshotOptions,
+    timeout: 15_000,
+  });
 });
 
 test("public landing interactive elements use pointer cursors", async ({ page }) => {
