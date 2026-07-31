@@ -308,7 +308,7 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
       data-testid={
         placement === "root" ? PUBLIC_LANDING_MENGER_TEST_ID : "landing-preview-hero-menger"
       }
-      style={placement === "root" ? { maxWidth: "min(22rem, calc(100svh - 12rem))" } : undefined}
+      style={placement === "root" ? { maxWidth: "min(44rem, calc(100svh - 12rem))" } : undefined}
     >
       <img
         key={isHydratedFallbackVisibilityReady ? "hydrated" : "prehydration"}

@@ -110,7 +110,11 @@ export function SignInForm({
       <div className="container my-auto px-2">
         <div
           data-testid="public-landing-content"
-          className="max-w-[384px] mx-auto flex flex-col my-auto gap-4"
+          className={
+            logo === "menger"
+              ? "mx-auto my-auto flex max-w-[768px] flex-col gap-4"
+              : "mx-auto my-auto flex max-w-[384px] flex-col gap-4"
+          }
         >
           {topNotice}
           {logo === "menger" ? (
@@ -121,7 +125,10 @@ export function SignInForm({
               rootRouteSearch={rootRouteSearch}
             />
           )}
-          <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
+          <div
+            className={logo === "menger" ? "text-center" : undefined}
+            data-testid={PUBLIC_LANDING_COPY_TEST_ID}
+          >
             <LandingCopy
               className="text-sm"
               editable={landingDevModeEnabled}

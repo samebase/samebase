@@ -98,12 +98,16 @@ test("root landing uses the depth-three Menger logo and follows the pointer", as
   await expect(fallback).toHaveCSS("opacity", "0");
   await expect(scene).toHaveAttribute("data-menger-maximum-depth", "3");
   await expect(scene).toHaveAttribute("data-menger-pointer-tilt", "landing");
-  await expect(page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID)).toHaveText("Samebase is near.");
+  const landingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
+  await expect(landingCopy).toHaveText("Samebase is near.");
+  await expect(landingCopy).toHaveCSS("text-align", "center");
 
   const sceneBox = await scene.boundingBox();
   if (!sceneBox) {
     throw new Error("The root landing Menger scene must have a bounding box.");
   }
+  expect(sceneBox.width).toBe(704);
+  expect(sceneBox.height).toBe(704);
 
   await page.mouse.move(sceneBox.x + sceneBox.width / 2, sceneBox.y + sceneBox.height / 2);
   await expect
