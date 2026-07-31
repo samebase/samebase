@@ -937,7 +937,7 @@ describe("cloudflare resources", () => {
           readCommitHash: async () => "not-a-commit",
         },
       }),
-    ).rejects.toThrow("GitHub default branch ref did not include a valid commit SHA.");
+    ).rejects.toThrow("Initial Workers build did not receive a full commit SHA.");
     expect(requests.some((request) => request.path.endsWith("/builds"))).toBe(false);
   });
 

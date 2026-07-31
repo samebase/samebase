@@ -1582,7 +1582,7 @@ async function triggerInitialBuild(
 ): Promise<void> {
   const commitHash = await args.readCommitHash();
   if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(commitHash)) {
-    throw new Error("GitHub default branch ref did not include a valid commit SHA.");
+    throw new Error("Initial Workers build did not receive a full commit SHA.");
   }
 
   await args.beforeProviderWrite?.();
