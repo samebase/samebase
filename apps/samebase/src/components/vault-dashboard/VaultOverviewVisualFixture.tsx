@@ -46,6 +46,7 @@ export type VaultOverviewVisualMode =
   | "vault-overview-v2-auto-pagination"
   | "vault-overview-v2-dev"
   | "vault-overview-v2-loading"
+  | "vault-overview-v2-folders"
   | "vault-overview-v2-partial-loading"
   | "vault-overview-v2-provider-failed"
   | "vault-overview-v2-provisioning-source"
@@ -70,6 +71,12 @@ const LOADING_CLOUDFLARE_OBSERVATIONS = {
   convexBuildAccess: { state: "loading" },
 } satisfies VaultCloudflareProviderObservationState;
 function fakeVaultId(value = "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a"): Id<"vaults"> {
+  // @ts-expect-error Convex ids are strings at runtime; this fixture only
+  // needs a stable value for static rendering.
+  return value;
+}
+
+function fakeVaultFolderId(value: string): Id<"ui_vaultFolders"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
   return value;
@@ -336,6 +343,83 @@ const FIXTURE_SIDEBAR_SUMMARIES = {
     checks: FIXTURE_DEFAULT_BRANCH_CHECKS.checks,
   })),
 } satisfies VaultSidebarSummariesState;
+
+const FIXTURE_FOLDER_ID = fakeVaultFolderId("vault-folder-fixtures");
+const FIXTURE_ACTIVE_FOLDER_ID = fakeVaultFolderId("vault-folder-active");
+const FOLDER_FIXTURE_VAULTS = [
+  {
+    ...SIDEBAR_LIST_VAULTS[0],
+    ghRepoName: "integration-fixture",
+    repositoryFullName: "samebase/integration-fixture",
+  },
+  {
+    ...SIDEBAR_LIST_VAULTS[1],
+    ghRepoName: "dashboard",
+    repositoryFullName: "samebase/dashboard",
+  },
+  {
+    ...SIDEBAR_LIST_VAULTS[2],
+    ghRepoName: "guestbook",
+    repositoryFullName: "noter/guestbook",
+  },
+] satisfies UserVaultResult[];
+
+const FOLDER_FIXTURE_SUMMARIES = {
+  state: "loaded",
+  summaries: [
+    {
+      vaultId: FOLDER_FIXTURE_VAULTS[0]._id,
+      checks: {
+        ...FIXTURE_NO_CHECKS,
+        failureCount: 1,
+        state: "failure",
+        totalCount: 1,
+      },
+    },
+    {
+      vaultId: FOLDER_FIXTURE_VAULTS[1]._id,
+      checks: FIXTURE_DEFAULT_BRANCH_CHECKS.checks,
+    },
+    {
+      vaultId: FOLDER_FIXTURE_VAULTS[2]._id,
+      checks: FIXTURE_DEFAULT_BRANCH_CHECKS.checks,
+    },
+  ],
+} satisfies VaultSidebarSummariesState;
+
+function VaultOverviewFoldersFixture() {
+  return (
+    <TestRouterProvider initialEntries={["/vault/samebase/dashboard"]}>
+      <WorkspaceLayoutV2FixtureFrame
+        dataTestId="vault-overview-v2-folders"
+        left={{
+          header: <VaultOverviewVaultListHeader />,
+          content: (
+            <VaultOverviewSidebar
+              folderState={{
+                assignments: [
+                  { folderId: FIXTURE_FOLDER_ID, vaultId: FOLDER_FIXTURE_VAULTS[0]._id },
+                  { folderId: FIXTURE_ACTIVE_FOLDER_ID, vaultId: FOLDER_FIXTURE_VAULTS[1]._id },
+                ],
+                folders: [
+                  { _id: FIXTURE_FOLDER_ID, collapsed: true, name: "Fixtures", position: 0 },
+                  { _id: FIXTURE_ACTIVE_FOLDER_ID, collapsed: false, name: "Active", position: 1 },
+                ],
+              }}
+              page="overview"
+              selectedVaultId={FOLDER_FIXTURE_VAULTS[1]._id}
+              sidebarSummaries={FOLDER_FIXTURE_SUMMARIES}
+              vaults={FOLDER_FIXTURE_VAULTS}
+              workspace={null}
+            />
+          ),
+        }}
+        main={{ content: <div /> }}
+        shortcutPaneSide="left"
+      />
+    </TestRouterProvider>
+  );
+}
 
 function fixturePullRequest({
   index,
@@ -1105,6 +1189,8 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
       : "overview";
 
   switch (mode) {
+    case "vault-overview-v2-folders":
+      return <VaultOverviewFoldersFixture />;
     case "vault-overview-v2-cloudflare-builds-repair":
     case "vault-overview-v2-cloudflare-dialog":
     case "vault-overview-v2-cloudflare-dialog-loading":

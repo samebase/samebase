@@ -24,6 +24,7 @@ export function useVaultWorkspaceModel(
   selectedRepositoryFullName: string | undefined,
 ): VaultWorkspaceModel {
   const vaults = useCacheQuery(api.vault.dashboard.getUserVaults);
+  const folderState = useCacheQuery(api.vault.folders.getVaultFolderState);
   const sidebarSummaries = useVaultSidebarSummaries();
   const selectedVault = useMemo(
     () => selectVault(vaults, selectedRepositoryFullName),
@@ -40,13 +41,14 @@ export function useVaultWorkspaceModel(
   const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus);
 
   const model = useMemo<VaultWorkspaceModel>(() => {
-    if (!vaults) {
+    if (!vaults || !folderState) {
       return { state: "loading" };
     }
     if (!selectedRepositoryFullName) {
       return {
         state: "ready",
         sidebarSummaries,
+        folderState,
         selection: { state: "root" },
         vaults,
       };
@@ -55,6 +57,7 @@ export function useVaultWorkspaceModel(
       return {
         state: "ready",
         sidebarSummaries,
+        folderState,
         selection: {
           state: "missing",
           repositoryFullName: selectedRepositoryFullName,
@@ -66,6 +69,7 @@ export function useVaultWorkspaceModel(
     return {
       state: "ready",
       sidebarSummaries,
+      folderState,
       selection: {
         state: "selected",
         workspace: {
@@ -107,6 +111,7 @@ export function useVaultWorkspaceModel(
     selectedRepositoryFullName,
     selectedVault,
     sidebarSummaries,
+    folderState,
     vaults,
     viewerAccess,
   ]);

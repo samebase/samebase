@@ -1,4 +1,14 @@
 import type { VaultOverviewPageKind } from "@/components/vault-dashboard/VaultOverviewPage";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { VaultWorkspaceSelected } from "@/components/vault-dashboard/vaultWorkspaceModel";
 import type {
   VaultSidebarSummariesState,
@@ -7,8 +17,59 @@ import type {
 import { formatRepositoryCheckSummary, type RepositoryCheckSummary } from "@/lib/repositoryChecks";
 import { buildVaultDashboardRoute, buildVaultSettingsRoute } from "@/lib/vaultRoutes";
 import { Link } from "@tanstack/react-router";
-import { Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2, MoreHorizontal } from "lucide-react";
+import { useState } from "react";
+import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
+import { VaultFolderDialog } from "./VaultFolderDialog";
+
+type VaultFolder = {
+  _id: Id<"ui_vaultFolders">;
+  collapsed: boolean;
+  name: string;
+  position: number;
+};
+
+type VaultFolderAssignment = {
+  folderId: Id<"ui_vaultFolders">;
+  vaultId: Id<"vaults">;
+};
+
+export type VaultFolderState = {
+  assignments: readonly VaultFolderAssignment[];
+  folders: readonly VaultFolder[];
+};
+
+export const EMPTY_VAULT_FOLDER_STATE = {
+  assignments: [],
+  folders: [],
+} as const satisfies VaultFolderState;
+
+type VaultFolderCallbacks = {
+  onCreateVaultFolder: (args: { name: string; vaultId: Id<"vaults"> }) => Promise<unknown>;
+  onDeleteVaultFolder: (args: { folderId: Id<"ui_vaultFolders"> }) => Promise<unknown>;
+  onMoveVaultFolder: (args: {
+    direction: "up" | "down";
+    folderId: Id<"ui_vaultFolders">;
+  }) => Promise<unknown>;
+  onMoveVaultToFolder: (args: {
+    folderId: Id<"ui_vaultFolders"> | null;
+    vaultId: Id<"vaults">;
+  }) => Promise<unknown>;
+  onRenameVaultFolder: (args: {
+    folderId: Id<"ui_vaultFolders">;
+    name: string;
+  }) => Promise<unknown>;
+  onSetVaultFolderCollapsed: (args: {
+    collapsed: boolean;
+    folderId: Id<"ui_vaultFolders">;
+  }) => Promise<unknown>;
+};
+
+type FolderDialogState =
+  | { kind: "create"; vault: UserVaultResult }
+  | { folder: VaultFolder; kind: "rename" }
+  | { folder: VaultFolder; kind: "delete"; vaultCount: number };
 
 function repositoryRoute(vault: UserVaultResult, page: VaultOverviewPageKind): string {
   const args = { owner: vault.ghRepoOwner, repoName: vault.ghRepoName };
@@ -97,74 +158,329 @@ function vaultSidebarStatus(args: {
   };
 }
 
+function isVaultFailure(args: Parameters<typeof vaultSidebarStatus>[0]): boolean {
+  if (
+    args.vault.deletion.state === "delete_failed" ||
+    args.vault.sourceSetup.status === "failed" ||
+    args.vault.providerSetup.status === "failed"
+  ) {
+    return true;
+  }
+
+  if (
+    args.selected &&
+    args.workspace &&
+    (args.workspace.pullRequests.state === "current" ||
+      args.workspace.pullRequests.state === "stale") &&
+    args.workspace.pullRequests.defaultBranch
+  ) {
+    return args.workspace.pullRequests.defaultBranch.checks.state === "failure";
+  }
+
+  return args.summary?.checks.state === "failure";
+}
+
+function VaultRow({
+  folderState,
+  onOpenCreateFolder,
+  page,
+  selected,
+  sidebarSummaries,
+  summary,
+  vault,
+  workspace,
+  onMoveVaultToFolder,
+}: {
+  folderState: VaultFolderState;
+  onMoveVaultToFolder: VaultFolderCallbacks["onMoveVaultToFolder"];
+  onOpenCreateFolder: (vault: UserVaultResult) => void;
+  page: VaultOverviewPageKind;
+  selected: boolean;
+  sidebarSummaries: VaultSidebarSummariesState;
+  summary: VaultSidebarSummary | undefined;
+  vault: UserVaultResult;
+  workspace: VaultWorkspaceSelected | null;
+}) {
+  const status = vaultSidebarStatus({ selected, sidebarSummaries, summary, vault, workspace });
+  const rowClassName = selected
+    ? "flex min-w-0 bg-muted @max-[200px]:px-1"
+    : "flex min-w-0 hover:bg-muted/60 @max-[200px]:px-1";
+
+  return (
+    <div className={rowClassName}>
+      <Link
+        aria-current={selected ? "page" : undefined}
+        aria-label={`${vault.repositoryFullName}, ${status.label}`}
+        className="block min-w-0 flex-1 px-3 py-2.5 text-left no-underline hover:no-underline @max-[200px]:px-2 @max-[120px]:px-1"
+        data-vault-status={status.label}
+        title={vault.repositoryFullName}
+        to={repositoryRoute(vault, page)}
+      >
+        <span className="block min-w-0 max-w-full text-sm leading-5">
+          <span className="block min-w-0 truncate text-muted-foreground @max-[120px]:hidden">
+            {vault.ghRepoOwner}/
+          </span>
+          <span className="block min-w-0 line-clamp-2 font-medium text-foreground [overflow-wrap:anywhere]">
+            {vault.ghRepoName}
+          </span>
+        </span>
+        <span className="mt-1 flex min-w-0 items-start gap-1.5 text-xs text-muted-foreground">
+          <span className="mt-1 flex shrink-0">
+            {status.kind === "workflow" ? (
+              <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin text-amber-600" />
+            ) : (
+              <span className={status.dotClassName} />
+            )}
+          </span>
+          <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">{status.label}</span>
+        </span>
+      </Link>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild nativeButton>
+          <Button
+            aria-label={`Actions for ${vault.repositoryFullName}`}
+            className="mt-2 mr-1 shrink-0"
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <MoreHorizontal />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>Move to folder</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {folderState.folders.map((folder) => (
+                <DropdownMenuItem
+                  key={folder._id}
+                  onClick={() =>
+                    void onMoveVaultToFolder({ folderId: folder._id, vaultId: vault._id })
+                  }
+                >
+                  {folder.name}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuItem
+                onClick={() => void onMoveVaultToFolder({ folderId: null, vaultId: vault._id })}
+              >
+                Ungrouped
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+          <DropdownMenuItem onClick={() => onOpenCreateFolder(vault)}>New folder</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 export function VaultOverviewSidebar({
+  folderState = EMPTY_VAULT_FOLDER_STATE,
+  onCreateVaultFolder = async () => {},
+  onDeleteVaultFolder = async () => {},
+  onMoveVaultFolder = async () => {},
+  onMoveVaultToFolder = async () => {},
+  onRenameVaultFolder = async () => {},
+  onSetVaultFolderCollapsed = async () => {},
   page,
   selectedVaultId,
   sidebarSummaries,
   vaults,
   workspace,
 }: {
+  folderState?: VaultFolderState;
   page: VaultOverviewPageKind;
   selectedVaultId: UserVaultResult["_id"] | null;
   sidebarSummaries: VaultSidebarSummariesState;
   vaults: readonly UserVaultResult[];
   workspace: VaultWorkspaceSelected | null;
-}) {
+} & Partial<VaultFolderCallbacks>) {
+  const [dialog, setDialog] = useState<FolderDialogState | null>(null);
   const summaryByVaultId = new Map(
     sidebarSummaries.state === "loaded"
       ? sidebarSummaries.summaries.map((summary) => [summary.vaultId, summary])
       : [],
   );
+  const validFolderIds = new Set(folderState.folders.map((folder) => folder._id));
+  const folderByVaultId = new Map(
+    folderState.assignments
+      .filter((assignment) => validFolderIds.has(assignment.folderId))
+      .map((assignment) => [assignment.vaultId, assignment.folderId]),
+  );
+  const vaultsByFolderId = new Map(
+    folderState.folders.map((folder) => [folder._id, [] as UserVaultResult[]]),
+  );
+  const ungroupedVaults: UserVaultResult[] = [];
+  for (const vault of vaults) {
+    const folderId = folderByVaultId.get(vault._id);
+    const folderVaults = folderId ? vaultsByFolderId.get(folderId) : undefined;
+    if (folderVaults) {
+      folderVaults.push(vault);
+    } else {
+      ungroupedVaults.push(vault);
+    }
+  }
+
+  function renderVault(vault: UserVaultResult) {
+    return (
+      <VaultRow
+        folderState={folderState}
+        key={vault._id}
+        page={page}
+        selected={vault._id === selectedVaultId}
+        sidebarSummaries={sidebarSummaries}
+        summary={summaryByVaultId.get(vault._id)}
+        vault={vault}
+        workspace={workspace}
+        onMoveVaultToFolder={onMoveVaultToFolder}
+        onOpenCreateFolder={(target) => setDialog({ kind: "create", vault: target })}
+      />
+    );
+  }
 
   return (
-    <nav aria-label="Vaults" className="@container min-h-full py-2">
-      {vaults.map((vault) => {
-        const selected = vault._id === selectedVaultId;
-        const summary = summaryByVaultId.get(vault._id);
-        const status = vaultSidebarStatus({
-          selected,
-          sidebarSummaries,
-          summary,
-          vault,
-          workspace,
-        });
+    <>
+      <nav aria-label="Vaults" className="@container min-h-full py-2">
+        {folderState.folders.length === 0
+          ? vaults.map(renderVault)
+          : folderState.folders.map((folder, index) => {
+              const folderVaults = vaultsByFolderId.get(folder._id) ?? [];
+              const isSelectedFolder = folderVaults.some((vault) => vault._id === selectedVaultId);
+              const collapsed = folder.collapsed && !isSelectedFolder;
+              const hasHiddenFailure =
+                collapsed &&
+                folderVaults.some((vault) =>
+                  isVaultFailure({
+                    selected: vault._id === selectedVaultId,
+                    sidebarSummaries,
+                    summary: summaryByVaultId.get(vault._id),
+                    vault,
+                    workspace,
+                  }),
+                );
 
-        return (
-          <Link
-            key={vault._id}
-            aria-current={selected ? "page" : undefined}
-            aria-label={`${vault.repositoryFullName}, ${status.label}`}
-            data-vault-status={status.label}
-            className={
-              selected
-                ? "block min-w-0 bg-muted px-3 py-2.5 text-left no-underline hover:no-underline @max-[200px]:px-2 @max-[120px]:px-1"
-                : "block min-w-0 px-3 py-2.5 text-left no-underline hover:bg-muted/60 hover:no-underline @max-[200px]:px-2 @max-[120px]:px-1"
+              return (
+                <section key={folder._id} aria-label={folder.name}>
+                  <div className="flex min-w-0 items-center px-2 py-1">
+                    <Button
+                      aria-label={`${collapsed ? "Expand" : "Collapse"} ${folder.name}`}
+                      size="icon-sm"
+                      type="button"
+                      variant="ghost"
+                      onClick={() =>
+                        void onSetVaultFolderCollapsed({
+                          collapsed: !folder.collapsed,
+                          folderId: folder._id,
+                        })
+                      }
+                    >
+                      {collapsed ? <ChevronRight /> : <ChevronDown />}
+                    </Button>
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                      {folder.name}
+                    </span>
+                    {collapsed ? (
+                      <span className="px-2 text-xs text-muted-foreground">
+                        {folderVaults.length}
+                      </span>
+                    ) : null}
+                    {hasHiddenFailure ? (
+                      <span
+                        aria-label={`${folder.name} has hidden failures`}
+                        className="h-2 w-2 rounded-full bg-red-500"
+                      />
+                    ) : null}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild nativeButton>
+                        <Button
+                          aria-label={`Actions for folder ${folder.name}`}
+                          size="icon-sm"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <MoreHorizontal />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40">
+                        <DropdownMenuItem onClick={() => setDialog({ folder, kind: "rename" })}>
+                          Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={index === 0}
+                          onClick={() =>
+                            void onMoveVaultFolder({ direction: "up", folderId: folder._id })
+                          }
+                        >
+                          Move up
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={index === folderState.folders.length - 1}
+                          onClick={() =>
+                            void onMoveVaultFolder({ direction: "down", folderId: folder._id })
+                          }
+                        >
+                          Move down
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() =>
+                            setDialog({ folder, kind: "delete", vaultCount: folderVaults.length })
+                          }
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  {collapsed ? null : folderVaults.map(renderVault)}
+                </section>
+              );
+            })}
+        {folderState.folders.length > 0 && ungroupedVaults.length > 0 ? (
+          <section aria-label="Ungrouped">
+            <div className="px-3 py-1 text-sm font-medium">Ungrouped</div>
+            {ungroupedVaults.map(renderVault)}
+          </section>
+        ) : null}
+      </nav>
+      {dialog?.kind === "create" ? (
+        <VaultFolderDialog
+          kind="create"
+          onCreate={(name) => onCreateVaultFolder({ name, vaultId: dialog.vault._id })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDialog(null);
             }
-            title={vault.repositoryFullName}
-            to={repositoryRoute(vault, page)}
-          >
-            <span className="block min-w-0 max-w-full text-sm leading-5">
-              <span className="block min-w-0 truncate text-muted-foreground @max-[120px]:hidden">
-                {vault.ghRepoOwner}/
-              </span>
-              <span className="block min-w-0 line-clamp-2 font-medium text-foreground [overflow-wrap:anywhere]">
-                {vault.ghRepoName}
-              </span>
-            </span>
-            <span className="mt-1 flex min-w-0 items-start gap-1.5 text-xs text-muted-foreground">
-              <span className="mt-1 flex shrink-0">
-                {status.kind === "workflow" ? (
-                  <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin text-amber-600" />
-                ) : (
-                  <span className={status.dotClassName} />
-                )}
-              </span>
-              <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">{status.label}</span>
-            </span>
-          </Link>
-        );
-      })}
-    </nav>
+          }}
+        />
+      ) : null}
+      {dialog?.kind === "rename" ? (
+        <VaultFolderDialog
+          folderName={dialog.folder.name}
+          kind="rename"
+          onOpenChange={(open) => {
+            if (!open) {
+              setDialog(null);
+            }
+          }}
+          onRename={(name) => onRenameVaultFolder({ folderId: dialog.folder._id, name })}
+        />
+      ) : null}
+      {dialog?.kind === "delete" ? (
+        <VaultFolderDialog
+          folderName={dialog.folder.name}
+          kind="delete"
+          vaultCount={dialog.vaultCount}
+          onDelete={() => onDeleteVaultFolder({ folderId: dialog.folder._id })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDialog(null);
+            }
+          }}
+        />
+      ) : null}
+    </>
   );
 }
 

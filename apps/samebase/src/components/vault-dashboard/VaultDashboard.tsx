@@ -6,6 +6,7 @@ import {
   type VaultDashboardQueryDialog,
 } from "@/routeSearch/root";
 import { useLocation, useNavigate } from "@tanstack/react-router";
+import { useMutation } from "convex/react";
 import { useEffect } from "react";
 import { VaultOverviewLoadingPage, type VaultOverviewPageKind } from "./VaultOverviewPage";
 import { VaultOverviewSidebar, VaultOverviewSidebarLoading } from "./VaultOverviewSidebar";
@@ -15,6 +16,7 @@ import {
 } from "./VaultOverviewVaultPickerPane";
 import { VaultSelectedWorkspace } from "./VaultSelectedWorkspace";
 import { useVaultWorkspaceModel } from "./useVaultWorkspaceModel";
+import { api } from "../../../convex/_generated/api";
 
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 
@@ -32,6 +34,12 @@ export function VaultDashboard({
   const rootRouteSearch = useRootRouteSearch();
   const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
   const workspaceModel = useVaultWorkspaceModel(selectedRepositoryFullName);
+  const createVaultFolder = useMutation(api.vault.folders.createVaultFolder);
+  const deleteVaultFolder = useMutation(api.vault.folders.deleteVaultFolder);
+  const moveVaultFolder = useMutation(api.vault.folders.moveVaultFolder);
+  const moveVaultToFolder = useMutation(api.vault.folders.moveVaultToFolder);
+  const renameVaultFolder = useMutation(api.vault.folders.renameVaultFolder);
+  const setVaultFolderCollapsed = useMutation(api.vault.folders.setVaultFolderCollapsed);
   const selectedVaultAvailable =
     workspaceModel.state === "loading" ? null : workspaceModel.selection.state === "selected";
   let unavailableDialog: VaultDashboardQueryDialog | null = null;
@@ -95,10 +103,17 @@ export function VaultDashboard({
     content: (
       <VaultOverviewSidebar
         page={page}
+        folderState={workspaceModel.folderState}
         selectedVaultId={selectedWorkspace?.vault._id ?? null}
         sidebarSummaries={workspaceModel.sidebarSummaries}
         vaults={workspaceModel.vaults}
         workspace={selectedWorkspace}
+        onCreateVaultFolder={createVaultFolder}
+        onDeleteVaultFolder={deleteVaultFolder}
+        onMoveVaultFolder={moveVaultFolder}
+        onMoveVaultToFolder={moveVaultToFolder}
+        onRenameVaultFolder={renameVaultFolder}
+        onSetVaultFolderCollapsed={setVaultFolderCollapsed}
       />
     ),
   };

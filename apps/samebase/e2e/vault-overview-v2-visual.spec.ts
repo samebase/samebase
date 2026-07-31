@@ -16,6 +16,11 @@ const VAULT_OVERVIEW_V2_SIDEBAR_STATE = {
   rightMobileWidthPx: 288,
 } satisfies WorkspaceSidebarState;
 
+const VAULT_OVERVIEW_V2_FOLDERS_MOBILE_SIDEBAR_STATE = {
+  ...VAULT_OVERVIEW_V2_SIDEBAR_STATE,
+  mobilePane: "left",
+} satisfies WorkspaceSidebarState;
+
 type VaultOverviewV2VisualMode = VaultOverviewVisualMode;
 
 async function openVaultOverviewV2(
@@ -81,8 +86,40 @@ test("uses the overview vault rows on the canonical root route", async ({ page }
   expect(linkBounds).not.toBeNull();
   expect(rowBounds).not.toBeNull();
   if (linkBounds && rowBounds) {
-    expect(Math.abs(linkBounds.width - rowBounds.width)).toBeLessThanOrEqual(1);
+    expect(rowBounds.width - linkBounds.width).toBeGreaterThanOrEqual(32);
   }
+});
+
+test("shows shallow vault folders on desktop", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 640 });
+  const fixture = await openVaultOverviewV2(page, "vault-overview-v2-folders");
+  const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
+
+  await expect(vaultNavigation.getByText("Fixtures", { exact: true })).toBeVisible();
+  await expect(vaultNavigation.getByLabel("Fixtures has hidden failures")).toBeVisible();
+  await expect(vaultNavigation.getByText("Ungrouped", { exact: true })).toBeVisible();
+  await expect(fixture).toHaveScreenshot("vault-overview-v2-folders-desktop.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+});
+
+test("shows shallow vault folders on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const fixture = await openVaultOverviewV2(
+    page,
+    "vault-overview-v2-folders",
+    VAULT_OVERVIEW_V2_FOLDERS_MOBILE_SIDEBAR_STATE,
+  );
+
+  await expect(fixture).toHaveScreenshot("vault-overview-v2-folders-mobile.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
 });
 
 test("shows the shared overview model on desktop", async ({ page }) => {
