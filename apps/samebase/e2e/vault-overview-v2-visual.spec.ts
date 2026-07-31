@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import type { VaultOverviewVisualMode } from "../src/components/vault-dashboard/VaultOverviewVisualFixture";
 import { WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX } from "../src/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
@@ -54,6 +54,15 @@ async function openVaultOverviewV2(
   return fixture;
 }
 
+async function expectUngroupedBeforeFolders(vaultNavigation: Locator) {
+  await expect(vaultNavigation.locator('section[aria-label="Ungrouped"]')).toBeVisible();
+  const folderLabels = await vaultNavigation
+    .locator("section")
+    .evaluateAll((sections) => sections.map((section) => section.getAttribute("aria-label")));
+
+  expect(folderLabels).toEqual(["Ungrouped", "Fixtures", "Active"]);
+}
+
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
 });
@@ -97,7 +106,7 @@ test("shows shallow vault folders on desktop", async ({ page }) => {
 
   await expect(vaultNavigation.getByText("Fixtures", { exact: true })).toBeVisible();
   await expect(vaultNavigation.getByLabel("Fixtures has hidden failures")).toBeVisible();
-  await expect(vaultNavigation.getByText("Ungrouped", { exact: true })).toBeVisible();
+  await expectUngroupedBeforeFolders(vaultNavigation);
   await expect(fixture).toHaveScreenshot("vault-overview-v2-folders-desktop.png", {
     animations: "disabled",
     caret: "hide",
@@ -134,6 +143,8 @@ test("shows shallow vault folders on mobile", async ({ page }) => {
     VAULT_OVERVIEW_V2_FOLDERS_MOBILE_SIDEBAR_STATE,
   );
 
+  await expectUngroupedBeforeFolders(fixture.getByRole("navigation", { name: "Vaults" }));
+
   await expect(fixture).toHaveScreenshot("vault-overview-v2-folders-mobile.png", {
     animations: "disabled",
     caret: "hide",
@@ -152,6 +163,7 @@ test("preserves folder identity at the minimum sidebar width", async ({ page }) 
 
   await expect(vaultNavigation.getByText("Fixtures", { exact: true })).toBeVisible();
   await expect(vaultNavigation.getByLabel("Fixtures has hidden failures")).toBeVisible();
+  await expectUngroupedBeforeFolders(vaultNavigation);
   await expect(vaultNavigation).toHaveScreenshot("vault-overview-v2-folders-minimum-sidebar.png", {
     animations: "disabled",
     caret: "hide",

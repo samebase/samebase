@@ -362,9 +362,17 @@ export function VaultOverviewSidebar({
   return (
     <>
       <nav aria-label="Vaults" className="@container min-h-full py-2">
-        {folderState.folders.length === 0
-          ? vaults.map(renderVault)
-          : folderState.folders.map((folder, index) => {
+        {folderState.folders.length === 0 ? (
+          vaults.map(renderVault)
+        ) : (
+          <>
+            {ungroupedVaults.length > 0 ? (
+              <section aria-label="Ungrouped">
+                <div className="px-3 py-1 text-sm font-medium">Ungrouped</div>
+                {ungroupedVaults.map(renderVault)}
+              </section>
+            ) : null}
+            {folderState.folders.map((folder, index) => {
               const folderVaults = vaultsByFolderId.get(folder._id) ?? [];
               const selectedVault = folderVaults.find((vault) => vault._id === selectedVaultId);
               const visibleVaults = folder.collapsed
@@ -480,12 +488,8 @@ export function VaultOverviewSidebar({
                 </section>
               );
             })}
-        {folderState.folders.length > 0 && ungroupedVaults.length > 0 ? (
-          <section aria-label="Ungrouped">
-            <div className="px-3 py-1 text-sm font-medium">Ungrouped</div>
-            {ungroupedVaults.map(renderVault)}
-          </section>
-        ) : null}
+          </>
+        )}
       </nav>
       {dialog?.kind === "create" ? (
         <VaultFolderDialog

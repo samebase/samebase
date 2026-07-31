@@ -18,6 +18,9 @@ move a vault to another folder or Ungrouped, move a folder up or down, and delet
 folders append after existing folders. Folder order is stable. Folder collapse state is saved for
 the user.
 
+When named folders exist, Ungrouped displays before all named folders. Empty Ungrouped stays hidden.
+Without named folders, the sidebar stays a flat vault list.
+
 Deleting a folder deletes only the folder. The vaults remain. They display as Ungrouped until a
 later move replaces or removes their stale assignment.
 
