@@ -18,6 +18,8 @@ import type {
 import { formatRepositoryCheckSummary, type RepositoryCheckSummary } from "@/lib/repositoryChecks";
 import { buildVaultDashboardRoute, buildVaultSettingsRoute } from "@/lib/vaultRoutes";
 import { Link } from "@tanstack/react-router";
+import type { ReactMutation } from "convex/react";
+import type { FunctionReference } from "convex/server";
 import { ChevronDown, ChevronRight, Loader2, MoreHorizontal } from "lucide-react";
 import { useRef, useState } from "react";
 import { api } from "../../../convex/_generated/api";
@@ -28,25 +30,17 @@ import { VaultFolderDialog } from "./VaultFolderDialog";
 export type VaultFolderState = (typeof api.vault.folders.getVaultFolderState)["_returnType"];
 type VaultFolder = VaultFolderState["folders"][number];
 
+type VaultFolderMutation<Mutation extends FunctionReference<"mutation">> = (
+  ...args: Parameters<ReactMutation<Mutation>>
+) => Promise<void | Awaited<ReturnType<ReactMutation<Mutation>>>>;
+
 export type VaultFolderCallbacks = {
-  onCreateVaultFolder: (args: { name: string; vaultId: Id<"vaults"> }) => Promise<unknown>;
-  onDeleteVaultFolder: (args: { folderId: Id<"ui_vaultFolders"> }) => Promise<unknown>;
-  onMoveVaultFolder: (args: {
-    direction: "up" | "down";
-    folderId: Id<"ui_vaultFolders">;
-  }) => Promise<unknown>;
-  onMoveVaultToFolder: (args: {
-    folderId: Id<"ui_vaultFolders"> | null;
-    vaultId: Id<"vaults">;
-  }) => Promise<unknown>;
-  onRenameVaultFolder: (args: {
-    folderId: Id<"ui_vaultFolders">;
-    name: string;
-  }) => Promise<unknown>;
-  onSetVaultFolderCollapsed: (args: {
-    collapsed: boolean;
-    folderId: Id<"ui_vaultFolders">;
-  }) => Promise<unknown>;
+  onCreateVaultFolder: VaultFolderMutation<typeof api.vault.folders.createVaultFolder>;
+  onDeleteVaultFolder: VaultFolderMutation<typeof api.vault.folders.deleteVaultFolder>;
+  onMoveVaultFolder: VaultFolderMutation<typeof api.vault.folders.moveVaultFolder>;
+  onMoveVaultToFolder: VaultFolderMutation<typeof api.vault.folders.moveVaultToFolder>;
+  onRenameVaultFolder: VaultFolderMutation<typeof api.vault.folders.renameVaultFolder>;
+  onSetVaultFolderCollapsed: VaultFolderMutation<typeof api.vault.folders.setVaultFolderCollapsed>;
 };
 
 type FolderDialogState =

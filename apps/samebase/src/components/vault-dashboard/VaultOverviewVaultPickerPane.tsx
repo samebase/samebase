@@ -32,7 +32,7 @@ export function VaultOverviewVaultPickerPane(
       </div>
       {props.vaults === null ? (
         <VaultOverviewSidebarLoading />
-      ) : props.vaults.length === 0 ? (
+      ) : props.vaults.length === 0 && props.folderState.folders.length === 0 ? (
         <div className="p-4 text-sm text-muted-foreground">No vaults</div>
       ) : (
         <VaultOverviewSidebar

@@ -68,6 +68,12 @@ function fakeVaultId(): Id<"vaults"> {
   return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
+function fakeVaultFolderId(): Id<"ui_vaultFolders"> {
+  // @ts-expect-error Convex ids are strings at runtime; this static render
+  // test only needs a stable folder id for the query result.
+  return "ft7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+}
+
 function fakeCloudflareWorkerId(value = "worker-root"): Id<"vaultCloudflareWorkers"> {
   // @ts-expect-error Convex ids are strings at runtime; static rendering only needs stable ids.
   return value;
@@ -1189,7 +1195,7 @@ describe("VaultOverviewVaultPickerPane", () => {
     expect(markup).toContain('aria-label="ada/demo, Setting up"');
   });
 
-  it("renders the new root vault picker loading and empty states", () => {
+  it("renders the root vault picker loading, empty, and empty-folder states", () => {
     const loadingMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane sidebarSummaries={{ state: "loading" }} vaults={null} />
@@ -1205,10 +1211,33 @@ describe("VaultOverviewVaultPickerPane", () => {
         />
       </TestRouterProvider>,
     );
+    const emptyFolderMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault/"]}>
+        <VaultOverviewVaultPickerPane
+          {...FOLDER_CALLBACKS}
+          folderState={{
+            assignments: [],
+            folders: [
+              {
+                _id: fakeVaultFolderId(),
+                collapsed: false,
+                name: "Fixtures",
+                position: 0,
+              },
+            ],
+          }}
+          sidebarSummaries={{ state: "loaded", summaries: [] }}
+          vaults={[]}
+        />
+      </TestRouterProvider>,
+    );
 
     expect(loadingMarkup).toContain('aria-label="Loading vaults"');
     expect(emptyMarkup).toContain("No vaults");
     expect(emptyMarkup).not.toContain("Samebase logo");
+    expect(emptyFolderMarkup).toContain("Fixtures");
+    expect(emptyFolderMarkup).toContain('aria-label="Actions for folder Fixtures"');
+    expect(emptyFolderMarkup).not.toContain("No vaults");
   });
 });
 

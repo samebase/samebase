@@ -88,7 +88,7 @@ function deferred() {
 }
 
 describe("VaultFolderDialog", () => {
-  it("submits create and rename once when Enter submits the form", async () => {
+  it("submits create and rename once when native form submission occurs", async () => {
     const onCreate = vi.fn(async () => {});
     const createContainer = await renderDialog(
       <VaultFolderDialog kind="create" onCreate={onCreate} onOpenChange={() => {}} />,

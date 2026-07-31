@@ -106,6 +106,26 @@ test("shows shallow vault folders on desktop", async ({ page }) => {
   });
 });
 
+test("submits folder create and rename dialogs from Enter", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 640 });
+  const fixture = await openVaultOverviewV2(page, "vault-overview-v2-folders");
+  const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
+
+  await vaultNavigation.getByRole("button", { name: "Actions for samebase/dashboard" }).click();
+  await page.getByRole("menuitem", { name: "New folder" }).click();
+  await expect(page.getByRole("heading", { name: "New folder" })).toBeVisible();
+  await page.getByLabel("Folder name").fill("Projects");
+  await page.getByLabel("Folder name").press("Enter");
+  await expect(page.getByRole("heading", { name: "New folder" })).toHaveCount(0);
+
+  await vaultNavigation.getByRole("button", { name: "Actions for folder Fixtures" }).click();
+  await page.getByRole("menuitem", { name: "Rename" }).click();
+  await expect(page.getByRole("heading", { name: "Rename folder" })).toBeVisible();
+  await page.getByLabel("Folder name").fill("Archive");
+  await page.getByLabel("Folder name").press("Enter");
+  await expect(page.getByRole("heading", { name: "Rename folder" })).toHaveCount(0);
+});
+
 test("shows shallow vault folders on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const fixture = await openVaultOverviewV2(
