@@ -2,10 +2,7 @@ import {
   LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
   LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
 } from "@/components/logo/logoPresentationTilt";
-import {
-  MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
-  readMengerAutomaticProbePoint,
-} from "@/components/logo/mengerAutomaticProbe";
+import { MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS } from "@/components/logo/mengerAutomaticProbe";
 import {
   createLogoRouteVoxelGrid,
   readLogoRouteRenderState,
@@ -14,6 +11,7 @@ import { LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS } from "@/components/logo/l
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import { type LogoViewState } from "@/components/logo/logoViewDrag";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
+import { useCoarsePointer } from "@/hooks/useCoarsePointer";
 import {
   PUBLIC_LANDING_MENGER_FALLBACK_TEST_ID,
   PUBLIC_LANDING_MENGER_TEST_ID,
@@ -85,6 +83,7 @@ a WebGL renderer or page-wide pointer listeners.
 */
 export function LandingHeroMenger({ placement }: { placement: "preview" | "root" }) {
   const navigate = useNavigate();
+  const isCoarsePointer = useCoarsePointer();
   const rootRouteSearch = useRootRouteSearch();
   const routeState = useMemo(
     () =>
@@ -106,8 +105,12 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
       };
     }
 
-    return MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS;
-  }, [placement]);
+    return {
+      ...MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
+      enabled: isCoarsePointer,
+      showPath: false,
+    };
+  }, [isCoarsePointer, placement]);
   const resolvedTheme = useResolvedAppThemeColorState(routeState.themeColors);
   const leftFaceColor = resolvedTheme.faceColors.left;
   const rightFaceColor = resolvedTheme.faceColors.right;
@@ -153,46 +156,6 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
       })}#${resolvedTheme.cacheKey}:${staticFallbackView.elevationDegrees}:${staticFallbackView.rotationDegrees}`,
     [faceColors, resolvedTheme.cacheKey, staticFallbackView],
   );
-  const automaticProbePathPoints = useMemo(
-    () =>
-      Array.from({ length: 65 }, (_, index) => {
-        const point = readMengerAutomaticProbePoint(
-          automaticProbe.path,
-          index / 64,
-          automaticProbe.width,
-          automaticProbe.height,
-          automaticProbe.startProgress,
-          automaticProbe.verticalOffset,
-        );
-        return `${point.x},${point.y}`;
-      }).join(" "),
-    [
-      automaticProbe.height,
-      automaticProbe.path,
-      automaticProbe.startProgress,
-      automaticProbe.verticalOffset,
-      automaticProbe.width,
-    ],
-  );
-  const automaticProbeStartEndPoint = useMemo(
-    () =>
-      readMengerAutomaticProbePoint(
-        automaticProbe.path,
-        0,
-        automaticProbe.width,
-        automaticProbe.height,
-        automaticProbe.startProgress,
-        automaticProbe.verticalOffset,
-      ),
-    [
-      automaticProbe.height,
-      automaticProbe.path,
-      automaticProbe.startProgress,
-      automaticProbe.verticalOffset,
-      automaticProbe.width,
-    ],
-  );
-
   useLayoutEffect(() => {
     setIsHydratedFallbackVisibilityReady(true);
   }, []);
@@ -405,34 +368,6 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
             viewSnapEnabled={routeState.viewSnapEnabled}
           />
         </div>
-      ) : null}
-      {placement === "root" && automaticProbe.showPath ? (
-        <svg
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-20 h-full w-full overflow-visible text-foreground/40"
-          data-testid="public-landing-menger-path"
-          preserveAspectRatio="none"
-          viewBox="0 0 1 1"
-        >
-          <polyline
-            fill="none"
-            points={automaticProbePathPoints}
-            stroke="currentColor"
-            strokeDasharray="4 4"
-            strokeLinecap="round"
-            strokeWidth="1"
-            vectorEffect="non-scaling-stroke"
-          />
-          <circle
-            className="fill-background stroke-foreground"
-            cx={automaticProbeStartEndPoint.x}
-            cy={automaticProbeStartEndPoint.y}
-            data-testid="public-landing-menger-start-end"
-            r="0.014"
-            strokeWidth="1.5"
-            vectorEffect="non-scaling-stroke"
-          />
-        </svg>
       ) : null}
     </div>
   );
