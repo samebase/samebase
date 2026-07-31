@@ -122,6 +122,13 @@ export function VaultDashboard({
       case "root":
         return (
           <VaultOverviewVaultPickerPane
+            folderState={workspaceModel.folderState}
+            onCreateVaultFolder={createVaultFolder}
+            onDeleteVaultFolder={deleteVaultFolder}
+            onMoveVaultFolder={moveVaultFolder}
+            onMoveVaultToFolder={moveVaultToFolder}
+            onRenameVaultFolder={renameVaultFolder}
+            onSetVaultFolderCollapsed={setVaultFolderCollapsed}
             sidebarSummaries={workspaceModel.sidebarSummaries}
             vaults={workspaceModel.vaults}
           />

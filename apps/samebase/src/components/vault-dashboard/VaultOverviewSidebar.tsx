@@ -1,5 +1,6 @@
 import type { VaultOverviewPageKind } from "@/components/vault-dashboard/VaultOverviewPage";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/use-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,34 +19,16 @@ import { formatRepositoryCheckSummary, type RepositoryCheckSummary } from "@/lib
 import { buildVaultDashboardRoute, buildVaultSettingsRoute } from "@/lib/vaultRoutes";
 import { Link } from "@tanstack/react-router";
 import { ChevronDown, ChevronRight, Loader2, MoreHorizontal } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
 import { VaultFolderDialog } from "./VaultFolderDialog";
 
-type VaultFolder = {
-  _id: Id<"ui_vaultFolders">;
-  collapsed: boolean;
-  name: string;
-  position: number;
-};
+export type VaultFolderState = (typeof api.vault.folders.getVaultFolderState)["_returnType"];
+type VaultFolder = VaultFolderState["folders"][number];
 
-type VaultFolderAssignment = {
-  folderId: Id<"ui_vaultFolders">;
-  vaultId: Id<"vaults">;
-};
-
-export type VaultFolderState = {
-  assignments: readonly VaultFolderAssignment[];
-  folders: readonly VaultFolder[];
-};
-
-export const EMPTY_VAULT_FOLDER_STATE = {
-  assignments: [],
-  folders: [],
-} as const satisfies VaultFolderState;
-
-type VaultFolderCallbacks = {
+export type VaultFolderCallbacks = {
   onCreateVaultFolder: (args: { name: string; vaultId: Id<"vaults"> }) => Promise<unknown>;
   onDeleteVaultFolder: (args: { folderId: Id<"ui_vaultFolders"> }) => Promise<unknown>;
   onMoveVaultFolder: (args: {
@@ -182,6 +165,8 @@ function isVaultFailure(args: Parameters<typeof vaultSidebarStatus>[0]): boolean
 
 function VaultRow({
   folderState,
+  pending,
+  onDirectAction,
   onOpenCreateFolder,
   page,
   selected,
@@ -192,6 +177,8 @@ function VaultRow({
   onMoveVaultToFolder,
 }: {
   folderState: VaultFolderState;
+  pending: boolean;
+  onDirectAction: (action: () => Promise<unknown>) => void;
   onMoveVaultToFolder: VaultFolderCallbacks["onMoveVaultToFolder"];
   onOpenCreateFolder: (vault: UserVaultResult) => void;
   page: VaultOverviewPageKind;
@@ -239,8 +226,9 @@ function VaultRow({
         <DropdownMenuTrigger asChild nativeButton>
           <Button
             aria-label={`Actions for ${vault.repositoryFullName}`}
-            className="mt-2 mr-1 shrink-0"
-            size="icon-sm"
+            className="mt-2 mr-1 size-10 shrink-0 @max-[120px]:size-8"
+            disabled={pending}
+            size="icon"
             type="button"
             variant="ghost"
           >
@@ -248,27 +236,39 @@ function VaultRow({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>Move to folder</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              {folderState.folders.map((folder) => (
+          {folderState.folders.length > 0 ? (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger disabled={pending}>Move to folder</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {folderState.folders.map((folder) => (
+                  <DropdownMenuItem
+                    disabled={pending}
+                    key={folder._id}
+                    onClick={() =>
+                      onDirectAction(() =>
+                        onMoveVaultToFolder({ folderId: folder._id, vaultId: vault._id }),
+                      )
+                    }
+                  >
+                    {folder.name}
+                  </DropdownMenuItem>
+                ))}
                 <DropdownMenuItem
-                  key={folder._id}
+                  disabled={pending}
                   onClick={() =>
-                    void onMoveVaultToFolder({ folderId: folder._id, vaultId: vault._id })
+                    onDirectAction(() =>
+                      onMoveVaultToFolder({ folderId: null, vaultId: vault._id }),
+                    )
                   }
                 >
-                  {folder.name}
+                  Ungrouped
                 </DropdownMenuItem>
-              ))}
-              <DropdownMenuItem
-                onClick={() => void onMoveVaultToFolder({ folderId: null, vaultId: vault._id })}
-              >
-                Ungrouped
-              </DropdownMenuItem>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-          <DropdownMenuItem onClick={() => onOpenCreateFolder(vault)}>New folder</DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          ) : null}
+          <DropdownMenuItem disabled={pending} onClick={() => onOpenCreateFolder(vault)}>
+            New folder
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -276,27 +276,29 @@ function VaultRow({
 }
 
 export function VaultOverviewSidebar({
-  folderState = EMPTY_VAULT_FOLDER_STATE,
-  onCreateVaultFolder = async () => {},
-  onDeleteVaultFolder = async () => {},
-  onMoveVaultFolder = async () => {},
-  onMoveVaultToFolder = async () => {},
-  onRenameVaultFolder = async () => {},
-  onSetVaultFolderCollapsed = async () => {},
+  folderState,
+  onCreateVaultFolder,
+  onDeleteVaultFolder,
+  onMoveVaultFolder,
+  onMoveVaultToFolder,
+  onRenameVaultFolder,
+  onSetVaultFolderCollapsed,
   page,
   selectedVaultId,
   sidebarSummaries,
   vaults,
   workspace,
 }: {
-  folderState?: VaultFolderState;
+  folderState: VaultFolderState;
   page: VaultOverviewPageKind;
   selectedVaultId: UserVaultResult["_id"] | null;
   sidebarSummaries: VaultSidebarSummariesState;
   vaults: readonly UserVaultResult[];
   workspace: VaultWorkspaceSelected | null;
-} & Partial<VaultFolderCallbacks>) {
+} & VaultFolderCallbacks) {
   const [dialog, setDialog] = useState<FolderDialogState | null>(null);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const directActionPending = useRef(false);
   const summaryByVaultId = new Map(
     sidebarSummaries.state === "loaded"
       ? sidebarSummaries.summaries.map((summary) => [summary.vaultId, summary])
@@ -308,9 +310,10 @@ export function VaultOverviewSidebar({
       .filter((assignment) => validFolderIds.has(assignment.folderId))
       .map((assignment) => [assignment.vaultId, assignment.folderId]),
   );
-  const vaultsByFolderId = new Map(
-    folderState.folders.map((folder) => [folder._id, [] as UserVaultResult[]]),
-  );
+  const vaultsByFolderId = new Map<Id<"ui_vaultFolders">, UserVaultResult[]>();
+  for (const folder of folderState.folders) {
+    vaultsByFolderId.set(folder._id, []);
+  }
   const ungroupedVaults: UserVaultResult[] = [];
   for (const vault of vaults) {
     const folderId = folderByVaultId.get(vault._id);
@@ -322,11 +325,33 @@ export function VaultOverviewSidebar({
     }
   }
 
+  function runDirectAction(action: () => Promise<unknown>) {
+    if (directActionPending.current) {
+      return;
+    }
+
+    directActionPending.current = true;
+    setPendingAction("updating");
+    void action()
+      .catch((error: unknown) => {
+        toast({
+          description: error instanceof Error ? error.message : "Try again.",
+          title: "Could not update vault folders",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        directActionPending.current = false;
+        setPendingAction(null);
+      });
+  }
+
   function renderVault(vault: UserVaultResult) {
     return (
       <VaultRow
         folderState={folderState}
         key={vault._id}
+        pending={pendingAction !== null}
         page={page}
         selected={vault._id === selectedVaultId}
         sidebarSummaries={sidebarSummaries}
@@ -334,6 +359,7 @@ export function VaultOverviewSidebar({
         vault={vault}
         workspace={workspace}
         onMoveVaultToFolder={onMoveVaultToFolder}
+        onDirectAction={runDirectAction}
         onOpenCreateFolder={(target) => setDialog({ kind: "create", vault: target })}
       />
     );
@@ -346,42 +372,53 @@ export function VaultOverviewSidebar({
           ? vaults.map(renderVault)
           : folderState.folders.map((folder, index) => {
               const folderVaults = vaultsByFolderId.get(folder._id) ?? [];
-              const isSelectedFolder = folderVaults.some((vault) => vault._id === selectedVaultId);
-              const collapsed = folder.collapsed && !isSelectedFolder;
-              const hasHiddenFailure =
-                collapsed &&
-                folderVaults.some((vault) =>
-                  isVaultFailure({
-                    selected: vault._id === selectedVaultId,
-                    sidebarSummaries,
-                    summary: summaryByVaultId.get(vault._id),
-                    vault,
-                    workspace,
-                  }),
-                );
+              const selectedVault = folderVaults.find((vault) => vault._id === selectedVaultId);
+              const visibleVaults = folder.collapsed
+                ? selectedVault
+                  ? [selectedVault]
+                  : []
+                : folderVaults;
+              const hiddenVaults = folder.collapsed
+                ? selectedVault
+                  ? folderVaults.filter((vault) => vault._id !== selectedVault._id)
+                  : folderVaults
+                : [];
+              const hasHiddenFailure = hiddenVaults.some((vault) =>
+                isVaultFailure({
+                  selected: vault._id === selectedVaultId,
+                  sidebarSummaries,
+                  summary: summaryByVaultId.get(vault._id),
+                  vault,
+                  workspace,
+                }),
+              );
 
               return (
                 <section key={folder._id} aria-label={folder.name}>
-                  <div className="flex min-w-0 items-center px-2 py-1">
+                  <div className="flex min-w-0 items-center px-1 py-1">
                     <Button
-                      aria-label={`${collapsed ? "Expand" : "Collapse"} ${folder.name}`}
-                      size="icon-sm"
+                      aria-label={`${folder.collapsed ? "Expand" : "Collapse"} ${folder.name}`}
+                      className="size-10 @max-[120px]:size-8"
+                      disabled={pendingAction !== null}
+                      size="icon"
                       type="button"
                       variant="ghost"
                       onClick={() =>
-                        void onSetVaultFolderCollapsed({
-                          collapsed: !folder.collapsed,
-                          folderId: folder._id,
-                        })
+                        runDirectAction(() =>
+                          onSetVaultFolderCollapsed({
+                            collapsed: !folder.collapsed,
+                            folderId: folder._id,
+                          }),
+                        )
                       }
                     >
-                      {collapsed ? <ChevronRight /> : <ChevronDown />}
+                      {folder.collapsed ? <ChevronRight /> : <ChevronDown />}
                     </Button>
                     <span className="min-w-0 flex-1 truncate text-sm font-medium">
                       {folder.name}
                     </span>
-                    {collapsed ? (
-                      <span className="px-2 text-xs text-muted-foreground">
+                    {folder.collapsed ? (
+                      <span className="px-2 text-xs text-muted-foreground @max-[120px]:hidden">
                         {folderVaults.length}
                       </span>
                     ) : null}
@@ -395,7 +432,9 @@ export function VaultOverviewSidebar({
                       <DropdownMenuTrigger asChild nativeButton>
                         <Button
                           aria-label={`Actions for folder ${folder.name}`}
-                          size="icon-sm"
+                          className="size-10 @max-[120px]:size-8"
+                          disabled={pendingAction !== null}
+                          size="icon"
                           type="button"
                           variant="ghost"
                         >
@@ -403,27 +442,37 @@ export function VaultOverviewSidebar({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-40">
-                        <DropdownMenuItem onClick={() => setDialog({ folder, kind: "rename" })}>
+                        <DropdownMenuItem
+                          disabled={pendingAction !== null}
+                          onClick={() => setDialog({ folder, kind: "rename" })}
+                        >
                           Rename
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          disabled={index === 0}
+                          disabled={index === 0 || pendingAction !== null}
                           onClick={() =>
-                            void onMoveVaultFolder({ direction: "up", folderId: folder._id })
+                            runDirectAction(() =>
+                              onMoveVaultFolder({ direction: "up", folderId: folder._id }),
+                            )
                           }
                         >
                           Move up
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          disabled={index === folderState.folders.length - 1}
+                          disabled={
+                            index === folderState.folders.length - 1 || pendingAction !== null
+                          }
                           onClick={() =>
-                            void onMoveVaultFolder({ direction: "down", folderId: folder._id })
+                            runDirectAction(() =>
+                              onMoveVaultFolder({ direction: "down", folderId: folder._id }),
+                            )
                           }
                         >
                           Move down
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           variant="destructive"
+                          disabled={pendingAction !== null}
                           onClick={() =>
                             setDialog({ folder, kind: "delete", vaultCount: folderVaults.length })
                           }
@@ -433,7 +482,7 @@ export function VaultOverviewSidebar({
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                  {collapsed ? null : folderVaults.map(renderVault)}
+                  {visibleVaults.map(renderVault)}
                 </section>
               );
             })}

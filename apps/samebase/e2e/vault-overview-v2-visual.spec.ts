@@ -122,6 +122,24 @@ test("shows shallow vault folders on mobile", async ({ page }) => {
   });
 });
 
+test("preserves folder identity at the minimum sidebar width", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const fixture = await openVaultOverviewV2(page, "vault-overview-v2-folders", {
+    ...VAULT_OVERVIEW_V2_FOLDERS_MOBILE_SIDEBAR_STATE,
+    leftMobileWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+  });
+  const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
+
+  await expect(vaultNavigation.getByText("Fixtures", { exact: true })).toBeVisible();
+  await expect(vaultNavigation.getByLabel("Fixtures has hidden failures")).toBeVisible();
+  await expect(vaultNavigation).toHaveScreenshot("vault-overview-v2-folders-minimum-sidebar.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+});
+
 test("shows the shared overview model on desktop", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   const fixture = await openVaultOverviewV2(page, "vault-overview-v2");

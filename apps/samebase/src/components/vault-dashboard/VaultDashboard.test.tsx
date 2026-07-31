@@ -11,7 +11,7 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { VaultOverviewVaultPickerPane } from "./VaultOverviewVaultPickerPane";
 import { VaultOverviewPage } from "./VaultOverviewPage";
-import { VaultOverviewSidebar } from "./VaultOverviewSidebar";
+import { type VaultFolderCallbacks, VaultOverviewSidebar } from "./VaultOverviewSidebar";
 import { PullRequestsSection } from "./VaultPullRequestsSection";
 import { RepositorySettings } from "./VaultRepositorySettings";
 import { VaultCloudflareDialogContent } from "./VaultCloudflareDialog";
@@ -50,6 +50,17 @@ vi.mock("@/components/ui/dialog", () => ({
   DialogHeader: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   DialogTitle: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
+
+const FOLDER_CALLBACKS = {
+  onCreateVaultFolder: async () => {},
+  onDeleteVaultFolder: async () => {},
+  onMoveVaultFolder: async () => {},
+  onMoveVaultToFolder: async () => {},
+  onRenameVaultFolder: async () => {},
+  onSetVaultFolderCollapsed: async () => {},
+} satisfies VaultFolderCallbacks;
+
+const EMPTY_FOLDER_STATE = { assignments: [], folders: [] };
 
 function fakeVaultId(): Id<"vaults"> {
   // @ts-expect-error Convex ids are strings at runtime; this static render
@@ -1064,6 +1075,8 @@ describe("VaultOverviewVaultPickerPane", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane
+          {...FOLDER_CALLBACKS}
+          folderState={EMPTY_FOLDER_STATE}
           sidebarSummaries={{
             state: "loaded",
             summaries: [
@@ -1104,6 +1117,8 @@ describe("VaultOverviewVaultPickerPane", () => {
     const settingUpMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane
+          {...FOLDER_CALLBACKS}
+          folderState={EMPTY_FOLDER_STATE}
           sidebarSummaries={{ state: "loading" }}
           vaults={[
             makeRepositorySettingsBuilderVault({
@@ -1121,6 +1136,8 @@ describe("VaultOverviewVaultPickerPane", () => {
     const deletingMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane
+          {...FOLDER_CALLBACKS}
+          folderState={EMPTY_FOLDER_STATE}
           sidebarSummaries={{ state: "loading" }}
           vaults={[
             makeRepositorySettingsBuilderVault({
@@ -1158,6 +1175,8 @@ describe("VaultOverviewVaultPickerPane", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
         <VaultOverviewSidebar
+          {...FOLDER_CALLBACKS}
+          folderState={EMPTY_FOLDER_STATE}
           page="overview"
           selectedVaultId={null}
           sidebarSummaries={{ state: "loading" }}
@@ -1179,6 +1198,8 @@ describe("VaultOverviewVaultPickerPane", () => {
     const emptyMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane
+          {...FOLDER_CALLBACKS}
+          folderState={EMPTY_FOLDER_STATE}
           sidebarSummaries={{ state: "loaded", summaries: [] }}
           vaults={[]}
         />

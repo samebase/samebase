@@ -3,7 +3,20 @@ import { describe, expect, it } from "vite-plus/test";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { VaultOverviewSidebar } from "./VaultOverviewSidebar";
+import {
+  type VaultFolderCallbacks,
+  type VaultFolderState,
+  VaultOverviewSidebar,
+} from "./VaultOverviewSidebar";
+
+const FOLDER_CALLBACKS = {
+  onCreateVaultFolder: async () => {},
+  onDeleteVaultFolder: async () => {},
+  onMoveVaultFolder: async () => {},
+  onMoveVaultToFolder: async () => {},
+  onRenameVaultFolder: async () => {},
+  onSetVaultFolderCollapsed: async () => {},
+} satisfies VaultFolderCallbacks;
 
 function fakeVaultId(value: string): Id<"vaults"> {
   // @ts-expect-error Convex ids are strings at runtime; static rendering only needs stable ids.
@@ -48,10 +61,21 @@ function vault(
   } satisfies UserVaultResult;
 }
 
-function renderSidebar(args: Parameters<typeof VaultOverviewSidebar>[0]) {
+function renderSidebar(
+  args: Omit<
+    Parameters<typeof VaultOverviewSidebar>[0],
+    keyof VaultFolderCallbacks | "folderState"
+  > & {
+    folderState?: VaultFolderState;
+  },
+) {
   return renderToStaticMarkup(
     <TestRouterProvider initialEntries={["/vault/samebase/active"]}>
-      <VaultOverviewSidebar {...args} />
+      <VaultOverviewSidebar
+        {...FOLDER_CALLBACKS}
+        {...args}
+        folderState={args.folderState ?? { assignments: [], folders: [] }}
+      />
     </TestRouterProvider>,
   );
 }
@@ -111,11 +135,21 @@ describe("VaultOverviewSidebar folders", () => {
     expect(markup).toContain("samebase/other, Loading checks");
   });
 
-  it("opens a selected collapsed folder without calling a mutation", () => {
+  it("keeps a collapsed selected folder collapsed and renders only the selected row", () => {
     const active = vault("active", fakeVaultId("vault-active"));
+    const fixture = vault("fixture", fakeVaultId("vault-fixture"), {
+      status: "failed",
+      message: "Failed",
+      runId: fakeRunId("run-fixture"),
+      step: "sync_tree",
+      updatedAt: 1,
+    });
     const markup = renderSidebar({
       folderState: {
-        assignments: [{ folderId: fakeFolderId("folder-active"), vaultId: active._id }],
+        assignments: [
+          { folderId: fakeFolderId("folder-active"), vaultId: active._id },
+          { folderId: fakeFolderId("folder-active"), vaultId: fixture._id },
+        ],
         folders: [
           { _id: fakeFolderId("folder-active"), collapsed: true, name: "Active", position: 0 },
         ],
@@ -123,11 +157,13 @@ describe("VaultOverviewSidebar folders", () => {
       page: "overview",
       selectedVaultId: active._id,
       sidebarSummaries: { state: "loading" },
-      vaults: [active],
+      vaults: [active, fixture],
       workspace: null,
     });
 
-    expect(markup).toContain('aria-label="Collapse Active"');
+    expect(markup).toContain('aria-label="Expand Active"');
+    expect(markup).toContain('aria-label="Active has hidden failures"');
     expect(markup).toContain("samebase/active, Loading checks");
+    expect(markup).not.toContain("samebase/fixture, Needs attention");
   });
 });

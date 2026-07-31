@@ -5,6 +5,7 @@ import {
   VaultOverviewPage,
 } from "@/components/vault-dashboard/VaultOverviewPage";
 import {
+  type VaultFolderCallbacks,
   VaultOverviewSidebar,
   VaultOverviewSidebarLoading,
 } from "@/components/vault-dashboard/VaultOverviewSidebar";
@@ -65,6 +66,15 @@ export type VaultOverviewVisualMode =
   | "vault-overview-v2-settings-loading";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
+const VISUAL_FOLDER_CALLBACKS = {
+  onCreateVaultFolder: async () => {},
+  onDeleteVaultFolder: async () => {},
+  onMoveVaultFolder: async () => {},
+  onMoveVaultToFolder: async () => {},
+  onRenameVaultFolder: async () => {},
+  onSetVaultFolderCollapsed: async () => {},
+} satisfies VaultFolderCallbacks;
+const EMPTY_FOLDER_STATE = { assignments: [], folders: [] };
 const LOADING_CLOUDFLARE_OBSERVATIONS = {
   workers: { state: "loading" },
   builds: { state: "loading" },
@@ -396,6 +406,7 @@ function VaultOverviewFoldersFixture() {
           header: <VaultOverviewVaultListHeader />,
           content: (
             <VaultOverviewSidebar
+              {...VISUAL_FOLDER_CALLBACKS}
               folderState={{
                 assignments: [
                   { folderId: FIXTURE_FOLDER_ID, vaultId: FOLDER_FIXTURE_VAULTS[0]._id },
@@ -1024,6 +1035,8 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
           header: <VaultOverviewVaultListHeader />,
           content: (
             <VaultOverviewSidebar
+              {...VISUAL_FOLDER_CALLBACKS}
+              folderState={EMPTY_FOLDER_STATE}
               page="overview"
               selectedVaultId={vault._id}
               sidebarSummaries={sidebarSummaries}
@@ -1150,6 +1163,8 @@ function VaultOverviewProviderSettingsFixture({
           header: <VaultOverviewVaultListHeader />,
           content: (
             <VaultOverviewSidebar
+              {...VISUAL_FOLDER_CALLBACKS}
+              folderState={EMPTY_FOLDER_STATE}
               page="settings"
               selectedVaultId={vault._id}
               sidebarSummaries={{
@@ -1224,6 +1239,8 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
           main={{
             content: (
               <VaultOverviewVaultPickerPane
+                {...VISUAL_FOLDER_CALLBACKS}
+                folderState={{ assignments: [], folders: [] }}
                 sidebarSummaries={FIXTURE_SIDEBAR_SUMMARIES}
                 vaults={SIDEBAR_LIST_VAULTS}
               />
@@ -1300,6 +1317,8 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
         header: <VaultOverviewVaultListHeader />,
         content: (
           <VaultOverviewSidebar
+            {...VISUAL_FOLDER_CALLBACKS}
+            folderState={EMPTY_FOLDER_STATE}
             page={page}
             selectedVaultId={LIST_SPACING_VAULT_ID}
             sidebarSummaries={FIXTURE_SIDEBAR_SUMMARIES}

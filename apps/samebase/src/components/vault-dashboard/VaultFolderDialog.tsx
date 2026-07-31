@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AppDialogContent } from "@/components/AppDialogContent";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,13 +31,14 @@ type VaultFolderDialogProps =
     };
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "The folder could not be saved.";
+  return error instanceof Error ? error.message : "The folder could not be updated.";
 }
 
 export function VaultFolderDialog(props: VaultFolderDialogProps) {
   const [name, setName] = useState(props.kind === "create" ? "" : props.folderName);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const submitPending = useRef(false);
   const isDelete = props.kind === "delete";
 
   const title =
@@ -48,6 +49,11 @@ export function VaultFolderDialog(props: VaultFolderDialogProps) {
         : "Delete folder";
 
   async function submit() {
+    if (submitPending.current) {
+      return;
+    }
+
+    submitPending.current = true;
     setPending(true);
     setError(null);
 
@@ -63,9 +69,19 @@ export function VaultFolderDialog(props: VaultFolderDialogProps) {
     } catch (caught) {
       setError(errorMessage(caught));
     } finally {
+      submitPending.current = false;
       setPending(false);
     }
   }
+
+  const submitLabel =
+    props.kind === "create"
+      ? pending
+        ? "Creating"
+        : "Create folder"
+      : pending
+        ? "Renaming"
+        : "Rename folder";
 
   return (
     <Dialog
@@ -86,40 +102,66 @@ export function VaultFolderDialog(props: VaultFolderDialogProps) {
             </DialogDescription>
           ) : null}
         </DialogHeader>
-        {isDelete ? null : (
-          <Input
-            aria-label="Folder name"
-            autoFocus
-            disabled={pending}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
+        {isDelete ? (
+          <DialogFooter>
+            <Button
+              disabled={pending}
+              type="button"
+              variant="outline"
+              onClick={() => props.onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={pending}
+              type="button"
+              variant="destructive"
+              onClick={() => void submit()}
+            >
+              {pending ? "Deleting" : "Delete folder"}
+            </Button>
+          </DialogFooter>
+        ) : (
+          <form
+            className="grid gap-6"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submit();
+            }}
+          >
+            <Input
+              aria-invalid={error ? true : undefined}
+              aria-label="Folder name"
+              autoFocus
+              disabled={pending}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+            {error ? (
+              <p className="text-sm text-destructive" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <DialogFooter>
+              <Button
+                disabled={pending}
+                type="button"
+                variant="outline"
+                onClick={() => props.onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button disabled={pending || name.trim().length === 0} type="submit">
+                {submitLabel}
+              </Button>
+            </DialogFooter>
+          </form>
         )}
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        <DialogFooter>
-          <Button
-            disabled={pending}
-            type="button"
-            variant="outline"
-            onClick={() => props.onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-          <Button
-            disabled={pending || (!isDelete && name.trim().length === 0)}
-            type="button"
-            variant={isDelete ? "destructive" : "default"}
-            onClick={() => void submit()}
-          >
-            {pending
-              ? isDelete
-                ? "Deleting"
-                : "Saving"
-              : isDelete
-                ? "Delete folder"
-                : "Save folder"}
-          </Button>
-        </DialogFooter>
+        {isDelete && error ? (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
       </AppDialogContent>
     </Dialog>
   );

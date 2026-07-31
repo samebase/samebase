@@ -10,6 +10,17 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultDashboard } from "./VaultDashboard";
 
 const workspaceModelMock = vi.hoisted(() => vi.fn());
+const vaultPickerMock = vi.hoisted(() => vi.fn(() => null));
+const folderMutationMock = vi.hoisted(() => vi.fn(async () => {}));
+
+vi.mock("convex/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("convex/react")>();
+
+  return {
+    ...actual,
+    useMutation: () => folderMutationMock,
+  };
+});
 
 vi.mock("@/components/AppWorkspaceShell", () => ({
   AppWorkspaceRouteChrome: ({ children }: { children?: ReactNode }) => children ?? null,
@@ -23,7 +34,7 @@ vi.mock("./VaultOverviewSidebar", () => ({
 }));
 vi.mock("./VaultOverviewVaultPickerPane", () => ({
   VaultOverviewVaultListHeader: () => null,
-  VaultOverviewVaultPickerPane: () => null,
+  VaultOverviewVaultPickerPane: vaultPickerMock,
 }));
 vi.mock("./VaultSelectedWorkspace", () => ({
   VaultSelectedWorkspace: () => null,
@@ -49,6 +60,8 @@ describe("VaultDashboard dialog route cleanup", () => {
     rootElement?.remove();
     rootElement = null;
     workspaceModelMock.mockReset();
+    vaultPickerMock.mockReset();
+    folderMutationMock.mockClear();
   });
 
   function LocationProbe() {
@@ -108,6 +121,7 @@ describe("VaultDashboard dialog route cleanup", () => {
         },
   ) {
     workspaceModelMock.mockReturnValue({
+      folderState: { assignments: [], folders: [] },
       state: "ready",
       selection,
       sidebarSummaries: { state: "loaded", summaries: [] },
@@ -133,6 +147,32 @@ describe("VaultDashboard dialog route cleanup", () => {
     expect(readLocationHref()).not.toContain("delete");
     expect(readLocationHref()).toContain("dev");
     expect(readLocationHref()).toContain("#vaults");
+  });
+
+  it("passes folder state and every folder mutation to the root vault picker", async () => {
+    const folderState = { assignments: [], folders: [] };
+    workspaceModelMock.mockReturnValue({
+      folderState,
+      selection: { state: "root" },
+      sidebarSummaries: { state: "loaded", summaries: [] },
+      state: "ready",
+      vaults: [],
+    });
+
+    await renderDashboard("/vault");
+
+    expect(vaultPickerMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        folderState,
+        onCreateVaultFolder: expect.any(Function),
+        onDeleteVaultFolder: expect.any(Function),
+        onMoveVaultFolder: expect.any(Function),
+        onMoveVaultToFolder: expect.any(Function),
+        onRenameVaultFolder: expect.any(Function),
+        onSetVaultFolderCollapsed: expect.any(Function),
+      }),
+      undefined,
+    );
   });
 
   it("clears an unavailable dialog from a missing vault route", async () => {
