@@ -651,11 +651,9 @@ function fixturePullRequests(
               pullRequest.number === 1260
                 ? [
                     {
-                      state: "available" as const,
+                      state: "unavailable" as const,
                       workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
-                      rootDirectory: "apps/samebase",
                       workerName: "samebase-worker",
-                      cloudflareBuild: { state: "unavailable" as const },
                       cloudflareBranchPreview: {
                         state: "available" as const,
                         url: "https://codex-restore-convex-dashboard-links-samebase-worker.samebase.workers.dev",
@@ -707,6 +705,33 @@ function fixturePullRequests(
                     },
                   ]
                 : [],
+            hostingPreviews:
+              pullRequest.number === 1260
+                ? {
+                    cloudflare: {
+                      state: "available" as const,
+                      previews: [
+                        {
+                          kind: "worker" as const,
+                          name: "unconnected-preview-worker",
+                          url: "https://codex-live-provider-truth-01-unconnected-preview-worker.samebase.workers.dev",
+                        },
+                      ],
+                    },
+                    netlify: {
+                      state: "available" as const,
+                      previews: [
+                        {
+                          name: "samebase",
+                          url: "https://deploy-preview-1260--samebase.netlify.app",
+                        },
+                      ],
+                    },
+                  }
+                : {
+                    cloudflare: { state: "available" as const, previews: [] },
+                    netlify: { state: "available" as const, previews: [] },
+                  },
           },
         },
       ]),

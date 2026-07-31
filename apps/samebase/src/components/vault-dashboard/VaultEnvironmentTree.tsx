@@ -8,15 +8,18 @@ import {
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
+  NetlifyProviderLogo,
   SamebaseLogoMark,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { VaultChecksPopover } from "@/components/vault-dashboard/VaultChecksPopover";
 import {
   buildPullRequestEnvironmentRoots,
+  buildPullRequestOtherPreviews,
   type VaultEnvironmentAction,
   type VaultEnvironmentResource,
   type VaultEnvironmentRoot,
   type VaultEnvironmentWorker,
+  type VaultOtherPreview,
 } from "@/components/vault-dashboard/vaultEnvironmentRoots";
 import type { PullRequestResourceState } from "@/hooks/useVaultPullRequests";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
@@ -499,10 +502,96 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
   );
 }
 
+function OtherPreviewProviderLogo({ provider }: { provider: VaultOtherPreview["provider"] }) {
+  switch (provider) {
+    case "cloudflare_pages":
+    case "cloudflare_worker":
+      return <CloudflareProviderLogo />;
+    case "netlify":
+      return <NetlifyProviderLogo />;
+    default:
+      provider satisfies never;
+      return null;
+  }
+}
+
+function otherPreviewProviderLabel(provider: VaultOtherPreview["provider"]): string {
+  switch (provider) {
+    case "cloudflare_pages":
+      return "Cloudflare Pages";
+    case "cloudflare_worker":
+      return "Cloudflare Worker";
+    case "netlify":
+      return "Netlify";
+    default:
+      provider satisfies never;
+      return provider;
+  }
+}
+
+function OtherPreviewRow({ preview }: { preview: VaultOtherPreview }) {
+  const providerLabel = otherPreviewProviderLabel(preview.provider);
+  return (
+    <div className="grid min-w-0 gap-1.5 py-2.5">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className="flex h-4 w-5 shrink-0 items-center justify-center">
+          <OtherPreviewProviderLogo provider={preview.provider} />
+        </span>
+        <span className="min-w-0 truncate text-sm font-medium leading-5 text-foreground">
+          <span className="sr-only">{providerLabel}: </span>
+          {preview.name}
+        </span>
+        {preview.setup.state === "connect" ? (
+          <Link
+            aria-label={`Connect ${providerLabel} ${preview.name} in repository settings`}
+            className="inline-flex min-h-10 shrink-0 items-center text-sm underline decoration-border underline-offset-4 @4xl:min-h-8"
+            to={preview.setup.href}
+          >
+            Connect
+          </Link>
+        ) : null}
+      </div>
+      <div className="ml-[1.875rem] flex min-w-0 items-center text-sm">
+        <a
+          aria-label={`${providerLabel} ${preview.name}: ${preview.destinationLabel}`}
+          className="inline-flex min-h-10 min-w-0 items-center gap-1 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
+          href={preview.href}
+          rel="noreferrer noopener"
+          target="_blank"
+          title={`Open ${providerLabel} ${preview.destinationLabel.toLowerCase()} for ${preview.name}`}
+        >
+          <span className="min-w-0 truncate leading-5">{preview.destinationLabel}</span>
+          <ExternalLink className="h-3 w-3 shrink-0" />
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function OtherPreviews({ previews }: { previews: readonly VaultOtherPreview[] }) {
+  if (previews.length === 0) {
+    return null;
+  }
+  return (
+    <div aria-label="Other previews" className="ml-2.5 pl-5" role="group">
+      <div className="pt-3">
+        <RootDirectoryLabel rootDirectory="Other previews" />
+      </div>
+      <div className="pb-0.5 pl-4">
+        {previews.map((preview) => (
+          <OtherPreviewRow key={preview.id} preview={preview} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function PullRequestResources({
   resource,
+  settingsHref,
 }: {
   resource: PullRequestResourceState | undefined;
+  settingsHref: string;
 }) {
   if (resource?.state === "loading") {
     return (
@@ -518,11 +607,19 @@ export function PullRequestResources({
       </div>
     ) : null;
   }
-  if (resource.resources.workers.length === 0 && resource.resources.convexProjects.length === 0) {
+  const roots = buildPullRequestEnvironmentRoots({ resources: resource.resources });
+  const otherPreviews = buildPullRequestOtherPreviews({
+    resources: resource.resources,
+    settingsHref,
+  });
+  if (roots.length === 0 && otherPreviews.length === 0) {
     return null;
   }
 
-  const roots = buildPullRequestEnvironmentRoots({ resources: resource.resources });
-
-  return <VaultEnvironmentTree roots={roots} />;
+  return (
+    <>
+      <VaultEnvironmentTree roots={roots} />
+      <OtherPreviews previews={otherPreviews} />
+    </>
+  );
 }

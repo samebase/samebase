@@ -1,13 +1,18 @@
+// @vitest-environment jsdom
+
+import { act, type ReactNode } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type { Id } from "../../../convex/_generated/dataModel";
-import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { GitHubRepositoryNameSlashPreview } from "@/components/NewAppPage";
+import type { VaultPullRequest, VaultPullRequestsState } from "@/hooks/useVaultPullRequests";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { VaultOverviewVaultPickerPane } from "./VaultOverviewVaultPickerPane";
 import { VaultOverviewPage } from "./VaultOverviewPage";
 import { VaultOverviewSidebar } from "./VaultOverviewSidebar";
+import { PullRequestsSection } from "./VaultPullRequestsSection";
 import { RepositorySettings } from "./VaultRepositorySettings";
 import { VaultCloudflareDialogContent } from "./VaultCloudflareDialog";
 import { VaultConvexDialogContent } from "./VaultConvexDialog";
@@ -664,6 +669,10 @@ describe("vault environment roots", () => {
               dashboardUrl: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
             },
           ],
+          hostingPreviews: {
+            cloudflare: { state: "available", previews: [] },
+            netlify: { state: "available", previews: [] },
+          },
         },
       }),
     ).toEqual([
@@ -727,11 +736,65 @@ describe("vault environment roots", () => {
             },
           ],
           convexProjects: [],
+          hostingPreviews: {
+            cloudflare: { state: "available", previews: [] },
+            netlify: { state: "available", previews: [] },
+          },
         },
       }),
     ).toEqual([
       {
         rootDirectory: "apps/web",
+        resources: [
+          {
+            kind: "cloudflare_worker",
+            id: workerId,
+            worker: {
+              workerName: "demo-web",
+              build: { state: "unavailable" },
+              destination: {
+                state: "available",
+                href: previewUrl,
+                label: "Branch preview",
+                title: "older-demo-web.example.workers.dev",
+              },
+              actions: [],
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("shows a recovered branch preview when the Worker observation is unavailable", () => {
+    const workerId = fakeCloudflareWorkerId();
+    const previewUrl = "https://older-demo-web.example.workers.dev";
+
+    expect(
+      buildPullRequestEnvironmentRoots({
+        resources: {
+          pullRequestId: "pull-request-1",
+          workers: [
+            {
+              state: "unavailable",
+              workerId,
+              workerName: "demo-web",
+              cloudflareBranchPreview: {
+                state: "available",
+                url: previewUrl,
+              },
+            },
+          ],
+          convexProjects: [],
+          hostingPreviews: {
+            cloudflare: { state: "available", previews: [] },
+            netlify: { state: "available", previews: [] },
+          },
+        },
+      }),
+    ).toEqual([
+      {
+        rootDirectory: "Needs attention",
         resources: [
           {
             kind: "cloudflare_worker",
@@ -775,6 +838,10 @@ describe("vault environment roots", () => {
             },
           ],
           convexProjects: [],
+          hostingPreviews: {
+            cloudflare: { state: "available", previews: [] },
+            netlify: { state: "available", previews: [] },
+          },
         },
       }),
     ).toEqual([
@@ -799,6 +866,137 @@ describe("vault environment roots", () => {
         ],
       },
     ]);
+  });
+});
+
+describe("PullRequestsSection", () => {
+  it("shows rootless hosting previews and only offers setup for Cloudflare Workers", async () => {
+    const pullRequest = {
+      id: "pull-request:41",
+      number: 41,
+      title: "Show previews found in comments",
+      url: "https://github.com/ada/demo/pull/41",
+      isDraft: false,
+      isCrossRepository: false,
+      additions: 3,
+      deletions: 1,
+      changedFiles: 2,
+      updatedAt: "2026-07-31T08:00:00Z",
+      baseRefName: "main",
+      headRefName: "preview-comments",
+      headRefOid: "1111111111111111111111111111111111111111",
+      headRepository: {
+        id: "repository:ada/demo",
+        nameWithOwner: "ada/demo",
+        owner: { login: "ada" },
+      },
+      labels: [],
+      statusCheckRollup: null,
+      checks: {
+        state: "none",
+        totalCount: 0,
+        successCount: 0,
+        failureCount: 0,
+        runningCount: 0,
+        neutralCount: 0,
+        unknownCount: 0,
+      },
+    } satisfies VaultPullRequest;
+    const cloudflareWorkerUrl = "https://preview-comments.demo.workers.dev";
+    const cloudflarePagesUrl = "https://preview-comments.demo.pages.dev";
+    const netlifyUrl = "https://deploy-preview-41--demo.netlify.app";
+    const pullRequests = {
+      state: "current",
+      defaultBranch: null,
+      refreshing: false,
+      allPullRequests: [pullRequest],
+      resourcesStale: false,
+      resourcesByPullRequestId: new Map([
+        [
+          pullRequest.id,
+          {
+            state: "current",
+            resources: {
+              pullRequestId: pullRequest.id,
+              workers: [],
+              convexProjects: [],
+              hostingPreviews: {
+                cloudflare: {
+                  state: "available",
+                  previews: [
+                    { kind: "worker", name: "comment-worker", url: cloudflareWorkerUrl },
+                    { kind: "pages", name: "comment-pages", url: cloudflarePagesUrl },
+                  ],
+                },
+                netlify: {
+                  state: "available",
+                  previews: [{ name: "demo-netlify", url: netlifyUrl }],
+                },
+              },
+            },
+          },
+        ],
+      ]),
+      loadMore: { state: "exhausted" },
+    } satisfies VaultPullRequestsState;
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+
+    try {
+      await act(async () => {
+        root.render(
+          <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
+            <PullRequestsSection
+              filesReadEnabled={false}
+              pullRequests={pullRequests}
+              vault={makeRepositorySettingsBuilderVault({})}
+            />
+          </TestRouterProvider>,
+        );
+      });
+
+      const expandButton = rootElement.querySelector(
+        'button[aria-label="Show pull request #41 details"]',
+      );
+      if (!(expandButton instanceof HTMLButtonElement)) {
+        throw new Error("Expected the pull request details button.");
+      }
+      await act(async () => {
+        expandButton.click();
+      });
+
+      const otherPreviews = rootElement.querySelector(
+        '[role="group"][aria-label="Other previews"]',
+      );
+      expect(otherPreviews).not.toBeNull();
+      expect(otherPreviews?.textContent).toContain("Other previews");
+      const connectWorker = otherPreviews?.querySelector(
+        'a[aria-label="Connect Cloudflare Worker comment-worker in repository settings"]',
+      );
+      expect(connectWorker?.getAttribute("href")).toBe("/vault/ada/demo/settings");
+      expect(
+        otherPreviews?.querySelector(
+          'a[aria-label="Connect comment-pages in repository settings"]',
+        ),
+      ).toBeNull();
+
+      const workerPreview = otherPreviews?.querySelector(`a[href="${cloudflareWorkerUrl}"]`);
+      const pagesPreview = otherPreviews?.querySelector(`a[href="${cloudflarePagesUrl}"]`);
+      const netlifyPreview = otherPreviews?.querySelector(`a[href="${netlifyUrl}"]`);
+      expect(workerPreview?.textContent).toContain("Branch preview");
+      expect(pagesPreview?.textContent).toContain("Branch preview");
+      expect(netlifyPreview?.textContent).toContain("Deploy preview");
+      for (const previewLink of [workerPreview, pagesPreview, netlifyPreview]) {
+        expect(previewLink?.getAttribute("target")).toBe("_blank");
+        expect(previewLink?.getAttribute("rel")).toBe("noreferrer noopener");
+      }
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      rootElement.remove();
+    }
   });
 });
 

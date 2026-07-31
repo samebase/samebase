@@ -128,6 +128,7 @@ import type * as vault_model from "../vault/model.js";
 import type * as vault_providerDashboardUrls from "../vault/providerDashboardUrls.js";
 import type * as vault_providerObservationQueries from "../vault/providerObservationQueries.js";
 import type * as vault_providerObservations from "../vault/providerObservations.js";
+import type * as vault_pullRequestHostingPreviews from "../vault/pullRequestHostingPreviews.js";
 import type * as vault_pullRequestResources from "../vault/pullRequestResources.js";
 import type * as vault_records from "../vault/records.js";
 import type * as vault_state from "../vault/state.js";
@@ -262,6 +263,7 @@ declare const fullApi: ApiFromModules<{
   "vault/providerDashboardUrls": typeof vault_providerDashboardUrls;
   "vault/providerObservationQueries": typeof vault_providerObservationQueries;
   "vault/providerObservations": typeof vault_providerObservations;
+  "vault/pullRequestHostingPreviews": typeof vault_pullRequestHostingPreviews;
   "vault/pullRequestResources": typeof vault_pullRequestResources;
   "vault/records": typeof vault_records;
   "vault/state": typeof vault_state;
