@@ -15,6 +15,7 @@ import {
 } from "../cloudflareResources";
 import { action } from "../functions";
 import { createGitHubRequestDeadlineSignal, fetchGitHubRepoIdentity } from "../githubRepoApi";
+import { isRecord } from "../jsonUtils";
 import { readConvexPreviewDeployments, readConvexProjectResource } from "./convexProjectResources";
 import {
   matchCloudflareWorkerBuildForCommit,
@@ -245,7 +246,7 @@ const PULL_REQUEST_RESOURCE_HEADS_QUERY = `
         headRefName
         headRefOid
         comments(
-          first: 100
+          first: ${GITHUB_PULL_REQUEST_COMMENT_PAGE_SIZE}
           orderBy: { field: UPDATED_AT, direction: ASC }
         ) @include(if: $readCloudflareComments) {
           totalCount
@@ -289,7 +290,7 @@ const PULL_REQUEST_COMMENT_PAGE_QUERY = `
         state
         repository { databaseId }
         comments(
-          first: 100
+          first: ${GITHUB_PULL_REQUEST_COMMENT_PAGE_SIZE}
           after: $after
           orderBy: { field: UPDATED_AT, direction: ASC }
         ) {
@@ -517,7 +518,7 @@ export function normalizeGitHubPullRequestResourceHeadReads(
   });
 }
 
-export function recoverGitHubPullRequestResourceHeadsFromError(error: unknown): unknown {
+export function recoverGitHubPullRequestGraphqlData(error: unknown): unknown {
   const parsed = providerRecoverablePullRequestErrorSchema.safeParse(error);
   if (
     !parsed.success ||
@@ -531,7 +532,34 @@ export function recoverGitHubPullRequestResourceHeadsFromError(error: unknown): 
   ) {
     throw error;
   }
-  return parsed.data.data;
+
+  const commentErrorIndexes = parsed.data.errors.flatMap((providerError) =>
+    providerError.path[0] === "nodes" &&
+    typeof providerError.path[1] === "number" &&
+    providerError.path[2] === "comments"
+      ? [providerError.path[1]]
+      : [],
+  );
+  if (commentErrorIndexes.length === 0) {
+    return parsed.data.data;
+  }
+
+  const response = providerPullRequestResourceHeadsSchema.safeParse(parsed.data.data);
+  if (
+    !response.success ||
+    commentErrorIndexes.some(
+      (index) => !Number.isInteger(index) || index < 0 || index >= response.data.nodes.length,
+    )
+  ) {
+    throw error;
+  }
+
+  const unavailableCommentIndexes = new Set(commentErrorIndexes);
+  return {
+    nodes: response.data.nodes.map((node, index) =>
+      unavailableCommentIndexes.has(index) && isRecord(node) ? { ...node, comments: null } : node,
+    ),
+  };
 }
 
 type StableWorker = VaultProviderObservationContext["cloudflareWorkers"][number];
@@ -1228,7 +1256,7 @@ async function readGitHubCloudflareCommentBodies(args: {
       });
     } catch (error) {
       try {
-        response = recoverGitHubPullRequestResourceHeadsFromError(error);
+        response = recoverGitHubPullRequestGraphqlData(error);
       } catch {
         for (const request of chunk) {
           result.set(request.pullRequestId, { state: "unavailable" });
@@ -1283,7 +1311,7 @@ async function readGitHubPullRequestResourceHeadReads(args: {
       request: { signal: args.signal },
     });
   } catch (error) {
-    response = recoverGitHubPullRequestResourceHeadsFromError(error);
+    response = recoverGitHubPullRequestGraphqlData(error);
   }
   const seedReads = normalizeGitHubPullRequestResourceHeadReads(response, {
     ghRepoId: args.ghRepoId,

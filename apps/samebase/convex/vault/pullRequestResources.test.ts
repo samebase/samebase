@@ -5,7 +5,7 @@ import {
   normalizeGitHubCloudflareCommentBodyReads,
   normalizeGitHubCloudflareCommentPage,
   normalizeGitHubPullRequestResourceHeadReads,
-  recoverGitHubPullRequestResourceHeadsFromError,
+  recoverGitHubPullRequestGraphqlData,
   resolveCloudflareBranchPreviewUrl,
   resolveCloudflareCommentBranchPreviewUrl,
   resolveCloudflareWorkerObservation,
@@ -906,7 +906,7 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
 
   it("recovers valid siblings when GitHub reports only missing nodes", () => {
     const error = pullRequestNodeGraphqlError({ data: { nodes: [providerHead, null] } });
-    const response = recoverGitHubPullRequestResourceHeadsFromError(error);
+    const response = recoverGitHubPullRequestGraphqlData(error);
 
     expect(
       normalizeGitHubPullRequestResourceHeadReads(response, {
@@ -940,20 +940,72 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
     error.errors[0].path = ["nodes", 0, "comments"];
 
     expect(
-      normalizeGitHubPullRequestResourceHeadReads(
-        recoverGitHubPullRequestResourceHeadsFromError(error),
-        {
-          ghRepoId: "42",
-          pullRequestIds: ["PR_17"],
-          readCloudflareComments: true,
-        },
-      ),
+      normalizeGitHubPullRequestResourceHeadReads(recoverGitHubPullRequestGraphqlData(error), {
+        ghRepoId: "42",
+        pullRequestIds: ["PR_17"],
+        readCloudflareComments: true,
+      }),
     ).toEqual([
       {
         state: "available",
         head: {
           ...headBase,
           cloudflareCommentScan: { state: "unavailable" },
+        },
+      },
+    ]);
+  });
+
+  it("isolates a nested comment field error to its pull request scan", () => {
+    const error = pullRequestNodeGraphqlError({
+      data: {
+        nodes: [
+          {
+            ...providerHead,
+            comments: {
+              totalCount: 1,
+              pageInfo: { hasNextPage: false, endCursor: null },
+              nodes: [{ __typename: "IssueComment", id: "IC_cloudflare", author: null }],
+            },
+          },
+          {
+            ...providerHead,
+            id: "PR_18",
+            url: "https://github.com/samebase/samebase/pull/18",
+          },
+        ],
+      },
+      type: "FORBIDDEN",
+    });
+    error.errors[0].path = ["nodes", 0, "comments", "nodes", 0, "author"];
+
+    expect(
+      normalizeGitHubPullRequestResourceHeadReads(recoverGitHubPullRequestGraphqlData(error), {
+        ghRepoId: "42",
+        pullRequestIds: ["PR_17", "PR_18"],
+        readCloudflareComments: true,
+      }),
+    ).toEqual([
+      {
+        state: "available",
+        head: {
+          ...headBase,
+          cloudflareCommentScan: { state: "unavailable" },
+        },
+      },
+      {
+        state: "available",
+        head: {
+          ...headBase,
+          id: "PR_18",
+          url: "https://github.com/samebase/samebase/pull/18",
+          cloudflareCommentScan: {
+            state: "available",
+            allCommentIds: [],
+            cloudflareCommentIds: [],
+            totalCount: 0,
+            after: null,
+          },
         },
       },
     ]);
@@ -969,7 +1021,7 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
       locations: [{ line: 1, column: 34 }],
     });
 
-    expect(() => recoverGitHubPullRequestResourceHeadsFromError(error)).toThrow(
+    expect(() => recoverGitHubPullRequestGraphqlData(error)).toThrow(
       "Request failed due to following response errors",
     );
   });

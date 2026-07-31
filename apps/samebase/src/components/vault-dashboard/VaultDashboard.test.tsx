@@ -752,6 +752,54 @@ describe("vault environment roots", () => {
       },
     ]);
   });
+
+  it("shows no current build and a recovered branch preview independently", () => {
+    const workerId = fakeCloudflareWorkerId();
+    const previewUrl = "https://older-demo-web.example.workers.dev";
+
+    expect(
+      buildPullRequestEnvironmentRoots({
+        resources: {
+          pullRequestId: "pull-request-1",
+          workers: [
+            {
+              state: "available",
+              workerId,
+              rootDirectory: "apps/web",
+              workerName: "demo-web",
+              cloudflareBuild: { state: "absent" },
+              cloudflareBranchPreview: {
+                state: "available",
+                url: previewUrl,
+              },
+            },
+          ],
+          convexProjects: [],
+        },
+      }),
+    ).toEqual([
+      {
+        rootDirectory: "apps/web",
+        resources: [
+          {
+            kind: "cloudflare_worker",
+            id: workerId,
+            worker: {
+              workerName: "demo-web",
+              build: { state: "absent" },
+              destination: {
+                state: "available",
+                href: previewUrl,
+                label: "Branch preview",
+                title: "older-demo-web.example.workers.dev",
+              },
+              actions: [],
+            },
+          },
+        ],
+      },
+    ]);
+  });
 });
 
 describe("VaultOverviewVaultPickerPane", () => {
