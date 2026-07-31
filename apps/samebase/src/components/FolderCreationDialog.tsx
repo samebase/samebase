@@ -14,11 +14,6 @@ interface FileTreeItem {
   size?: number;
 }
 
-interface FilteredFolder extends FileTreeItem {
-  score: number;
-  matches: number[];
-}
-
 interface FolderCreationDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -58,7 +53,7 @@ export function FolderCreationDialog({
       .filter((folder) => folder.type === "tree")
       .map((folder) => {
         const match = fuzzyMatch(query, folder.path);
-        return { ...folder, ...match } as FilteredFolder;
+        return { ...folder, ...match };
       })
       .filter((folder) => folder.score >= 0)
       .sort((a, b) => b.score - a.score)
@@ -75,11 +70,15 @@ export function FolderCreationDialog({
   // Handle clicking outside dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      if (!(event.target instanceof Node)) {
+        return;
+      }
+
       if (
         dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node) &&
+        !dropdownRef.current.contains(event.target) &&
         folderInputRef.current &&
-        !folderInputRef.current.contains(event.target as Node)
+        !folderInputRef.current.contains(event.target)
       ) {
         setShowFolderDropdown(false);
       }

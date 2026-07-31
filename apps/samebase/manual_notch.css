@@ -11,8 +11,7 @@ body {
   background: #f06d06;
   position: relative;
   margin: 20px;
-  box-shadow: /*     var(--p) 0 teal, */ /*     0 var(--p) teal, */ /*     var(--m) 0 teal, */
-  /*     0 var(--m) teal */;
+  box-shadow: /*     var(--p) 0 teal, */ /*     0 var(--p) teal, */ /*     var(--m) 0 teal, */ /*     0 var(--m) teal */;
 }
 
 .corner {

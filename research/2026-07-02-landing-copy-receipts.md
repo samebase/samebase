@@ -13,8 +13,9 @@
 
 - **[confirmed]** Netlify Pro costs ~$20/month and includes ~3,000 credits
   - $20/month, 3,000 credits/month (Pro plan, now with unlimited team seats). Note: at launch
-    (Sept 2025) Pro was $20/member/month with 5,000 credits; the April 14, 2026 update changed it to
-    a flat $20 for 3,000 credits with unlimited seats.
+    (Sept 2025) Pro was $20/member/month
+    with 5,000 credits; the April 14, 2026 update changed it to a flat $20 for 3,000 credits with
+    unlimited seats.
   - Quote: "The Credit Pro plan now includes free unlimited team member seats with a monthly
     subscription ... $20 for 3,000 credits."
   - Source:
@@ -85,16 +86,19 @@
     (as of 2026-07)
 
 Notes: Operator's numbers all check out against the live pricing page
-(https://www.netlify.com/pricing/ shows Pro $20/3,000 credits and 'Production deploys: 15 credits
+(https://www.netlify.com/pricing/ shows Pro
+$20/3,000 credits and 'Production deploys: 15 credits
 each') and Netlify docs. Two nuances for landing copy: (1) the 'under a week' burn assumes every
 commit triggers a successful production deploy — preview/branch deploys, failed deploys, and
 rollbacks are free, so the claim should say 'commits to production' or 'production deploys', not
 just 'commits'; (2) the 3,000-credit Pro figure is current as of the April 14, 2026 repricing — at
-the Sept 2025 launch Pro included 5,000 credits per member. Plans: Free $0/300 credits (hard cap,
-sites pause with 'Site not available' page), Personal $9/1,000 credits, Pro $20/3,000 credits with
-unlimited seats. Other current rates sharing the credit pool: bandwidth 20 credits/GB, compute 10
-credits/GB-hour, web requests 2 credits/10k, forms free, AI inference 180 credits per $1. Overage
-credit price ~$0.0067 (Pro pack 1,500 for $10), so one production deploy is about $0.10 marginal.
+the Sept 2025 launch Pro included 5,000 credits per member. Plans: Free $0/300
+credits (hard cap, sites pause with 'Site not available' page), Personal
+$9/1,000 credits, Pro $20/3,000 credits with unlimited seats. Other current rates sharing the credit
+pool: bandwidth 20 credits/GB, compute 10 credits/GB-hour, web requests 2 credits/10k, forms free,
+AI inference 180 credits per $1. Overage
+credit price ~$0.0067 (Pro pack 1,500 for
+$10), so one production deploy is about $0.10 marginal.
 
 ## Cloudflare And GitHub
 
@@ -119,7 +123,8 @@ credit price ~$0.0067 (Pro pack 1,500 for $10), so one production deploy is abou
     [Pricing · Cloudflare Workers docs](https://developers.cloudflare.com/workers/platform/pricing/)
     (as of 2026-07)
 - **[confirmed]** Workers Builds (CI/CD) is included in the Workers free tier
-  - Free plan: 3,000 build minutes/month, 1 concurrent build. Paid ($5) plan: 6,000 build
+  - Free plan: 3,000 build minutes/month, 1 concurrent build. Paid
+    ($5) plan: 6,000 build
     minutes/month (then +$0.005/min), 6 concurrent builds
   - Quote: "Build minutes ... Free: 3,000 per month ... Paid: 6,000 per month (then, +$0.005 per
     minute); Concurrent builds ... Free: 1 ... Paid: 6"
@@ -132,11 +137,15 @@ credit price ~$0.0067 (Pro pack 1,500 for $10), so one production deploy is abou
   - Source:
     [Limits · Cloudflare Pages docs](https://developers.cloudflare.com/pages/platform/limits/) (as
     of 2026-07)
-- **[confirmed]** Parallel/concurrent builds on Pages require the $20 Pro plan, while Workers gets
-  concurrency on the $5 plan and branch preview deploys even on free
-  - Pages Free = 1 concurrent build; 5 concurrent builds require Pro at $20/mo billed annually
-    ($25/mo billed monthly). Workers Paid ($5/mo) includes 6 concurrent builds; Workers Builds
-    branch preview builds/preview URLs work on the free plan (1 at a time, 3,000 min/month)
+- **[confirmed]** Parallel/concurrent builds on Pages require the
+  $20 Pro plan, while Workers gets
+  concurrency on the $5 plan and branch preview deploys even on
+  free
+  - Pages Free = 1 concurrent build; 5 concurrent builds require Pro at
+    $20/mo billed annually
+    ($25/mo billed monthly). Workers Paid ($5/mo) includes 6 concurrent
+    builds; Workers Builds branch preview builds/preview URLs work on the free plan (1 at a time,
+    3,000 min/month)
   - Quote: "Pro: $20/mo billed annually ... 5 concurrent builds ... 5,000 builds per month; Free: 1
     build at a time ... 500 builds per month"
   - Source:
@@ -175,18 +184,21 @@ credit price ~$0.0067 (Pro pack 1,500 for $10), so one production deploy is abou
     (as of 2026-07)
 
 Notes: All ten sub-claims verified against Cloudflare/GitHub primary sources; none corrected
-outright, but two need precise landing-page wording. (1) Pages Pro price: $20/mo is the
-annually-billed price; month-to-month is $25/mo — say "$20/mo (billed annually)" or just "Pro plan"
+outright, but two need precise landing-page wording. (1) Pages Pro price:
+$20/mo is the
+annually-billed price; month-to-month is $25/mo — say
+"$20/mo (billed annually)" or just "Pro plan"
 if space is tight. (2) Workers concurrency nuance: the Workers FREE plan also has only 1 concurrent
-build (3,000 build-min/month); it is the $5 Workers Paid plan that includes 6 concurrent builds vs
-Pages needing $20 Pro for 5. Branch preview deploys (non-production branch builds + preview URLs +
-PR comments) do work on Workers free — they just queue serially. Pages-vs-Workers direction is an
-explicit official statement in the Apr 2025 Cloudflare blog post (quote included); Pages docs pages
-themselves phrase it more softly (migration guide + 'broader set of features'), so cite the blog for
-the strong claim. OAuth: the June 3, 2026 changelog entry 'Introducing self-managed OAuth clients'
-plus the companion blog post blog.cloudflare.com/oauth-for-all/ ('Unlocking the Cloudflare app
-ecosystem with OAuth for all') are the receipts; apps start account-private and require domain
-verification to go public — relevant if the landing page implies instant public OAuth listing.
+build (3,000 build-min/month); it is the $5
+Workers Paid plan that includes 6 concurrent builds vs Pages needing $20 Pro for 5. Branch preview
+deploys (non-production branch builds + preview URLs + PR comments) do work on Workers free — they
+just queue serially. Pages-vs-Workers direction is an explicit official statement in the Apr 2025
+Cloudflare blog post (quote included); Pages docs pages themselves phrase it more softly (migration
+guide + 'broader set of features'), so cite the blog for the strong claim. OAuth: the June 3, 2026
+changelog entry 'Introducing self-managed OAuth clients' plus the companion blog post
+blog.cloudflare.com/oauth-for-all/ ('Unlocking the Cloudflare app ecosystem with OAuth for all') are
+the receipts; apps start account-private and require domain verification to go public — relevant if
+the landing page implies instant public OAuth listing.
 
 ## Convex
 
@@ -241,8 +253,10 @@ verification to go public — relevant if the landing page implies instant publi
     [Convex Docs — Limits, Database bandwidth row (pricing page shows "1 GB included ($0.22 per additional GB)")](https://docs.convex.dev/production/state/limits)
     (as of 2026-07)
 - **[confirmed]** Convex Pro plan price
-  - Professional plan: $25 per developer/month (includes 25M function calls/mo, 50 GB DB storage, 50
-    GB/mo egress; developers 1-20). Business & Enterprise starts at $2,500 monthly minimum
+  - Professional plan:
+    $25 per developer/month (includes 25M function calls/mo, 50 GB DB storage, 50
+    GB/mo egress; developers 1-20). Business & Enterprise starts at $2,500
+    monthly minimum
   - Quote: "Professional ... For startups moving from prototype to production ... $25 per
     developer/month"
   - Source: [Convex — Choose Your Plan (pricing page)](https://www.convex.dev/pricing) (as of

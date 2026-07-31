@@ -58,8 +58,7 @@ That means width persistence is working and merge ownership persistence is missi
 
 ```ts
 type WorkspaceMobileSurface =
-  | { kind: "unmerged" }
-  | { kind: "merged"; mainWidthPx: number; side: "left" | "right" };
+  { kind: "unmerged" } | { kind: "merged"; mainWidthPx: number; side: "left" | "right" };
 ```
 
 The name may live beside the existing historical sidebar schema for now. Do not rename the whole

@@ -140,7 +140,7 @@ export async function main(argv: string[]) {
 function parseArgs(argv: string[]): ParsedArgs {
   const values: ParsedArgs = {};
 
-  for (let index = 0; index < argv.length; ) {
+  for (let index = 0; index < argv.length;) {
     const key = argv.at(index);
 
     if (key === "--") {

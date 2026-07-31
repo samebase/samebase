@@ -284,7 +284,11 @@ describe("lint config", () => {
       "eslint-plugin-react-refresh": "^0.4.7",
     });
     expect(rootPackage.devDependencies?.["eslint-plugin-samebase-local"]).toBeUndefined();
-    expect(rootPackage.devDependencies?.vitest).toBeUndefined();
+    expect(rootPackage.devDependencies).toMatchObject({
+      vite: "catalog:",
+      "vite-plus": "catalog:",
+      vitest: "catalog:",
+    });
     expect(rootPackage.devDependencies?.oxlint).toBeUndefined();
     expect(rootPackage.devDependencies?.["oxlint-tsgolint"]).toBeUndefined();
     expect(fmtConfig).toMatchObject({
