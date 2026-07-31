@@ -48,6 +48,7 @@ describe("starterSeedManifest", () => {
       starterTemplateManifest.files["tsconfig.node.json"],
     );
     const buildCloudflareScript = starterTemplateManifest.files["scripts/build-cloudflare.ts"];
+    const pnpmWorkspace = starterTemplateManifest.files["pnpm-workspace.yaml"];
 
     expect(starterTemplateManifest.files[".node-version"]).toBe("24\n");
     expect(packageJson).toEqual(
@@ -68,18 +69,18 @@ describe("starterSeedManifest", () => {
             "vp run generate:cloudflare-redirects && git diff --exit-code -- public/_redirects",
         }),
         devDependencies: expect.objectContaining({
-          vite: "npm:@voidzero-dev/vite-plus-core@0.1.24",
-          "vite-plus": "0.1.24",
-          vitest: "npm:@voidzero-dev/vite-plus-test@0.1.24",
+          vite: "catalog:",
+          "vite-plus": "catalog:",
+          vitest: "catalog:",
         }),
         packageManager: "pnpm@11.1.1",
-        pnpm: {
-          overrides: {
-            vite: "npm:@voidzero-dev/vite-plus-core@0.1.24",
-            vitest: "npm:@voidzero-dev/vite-plus-test@0.1.24",
-          },
-        },
       }),
+    );
+    expect(pnpmWorkspace).toContain(
+      'overrides:\n  vite: "catalog:"\n  vitest: "catalog:"\ncatalog:\n  vite: npm:@voidzero-dev/vite-plus-core@0.2.7\n  vitest: 4.1.10\n  vite-plus: 0.2.7',
+    );
+    expect(pnpmWorkspace).toContain(
+      'peerDependencyRules:\n  allowAny:\n    - vite\n    - vitest\n  allowedVersions:\n    vite: "*"\n    vitest: "*"',
     );
     expect(starterTemplateManifest.files["package.json"]).not.toContain('"eslint"');
     expect(starterTemplateManifest.files["package.json"]).not.toContain('"prettier"');
