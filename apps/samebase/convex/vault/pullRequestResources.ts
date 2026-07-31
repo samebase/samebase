@@ -24,11 +24,13 @@ import {
   vCloudflareBuildState,
 } from "./cloudflareBuildMatching";
 import {
+  detectHostingCommentParseFailures,
   resolveCloudflareCommentBranchPreviewUrl,
   resolveCloudflareHostingPreviews,
   resolveNetlifyHostingPreviews,
   type CloudflareHostingPreview,
   type HostingCommentBodies,
+  type HostingCommentParseFailure,
   type HostingPreviewRead,
   type NetlifyHostingPreview,
 } from "./pullRequestHostingPreviews";
@@ -669,6 +671,30 @@ function reportPullRequestProviderFailure(args: {
     ...(args.workerId ? { workerId: args.workerId } : {}),
     ...(args.convexProjectId ? { convexProjectId: args.convexProjectId } : {}),
   });
+}
+
+const PULL_REQUEST_HOSTING_COMMENT_PARSE_LOG_TOPIC = "pull_request_hosting_comment_parse";
+
+export function reportPullRequestHostingCommentParseFailures(
+  failures: readonly HostingCommentParseFailure[],
+): void {
+  const reported = new Set<string>();
+  for (const failure of failures) {
+    const key = `${failure.providerFormat}:${failure.failureKind}`;
+    if (reported.has(key)) {
+      continue;
+    }
+    reported.add(key);
+    console.warn(
+      `${PULL_REQUEST_HOSTING_COMMENT_PARSE_LOG_TOPIC} ${JSON.stringify({
+        topic: PULL_REQUEST_HOSTING_COMMENT_PARSE_LOG_TOPIC,
+        version: 1,
+        outcome: "failed",
+        provider_format: failure.providerFormat,
+        failure_kind: failure.failureKind,
+      })}`,
+    );
+  }
 }
 
 function workerResourceIdentity(worker: StableWorker) {
@@ -1338,7 +1364,8 @@ async function readGitHubPullRequestResourceHeadReads(args: {
     ghRepoId: args.ghRepoId,
     scans,
   });
-  return seedReads.map((read): PullRequestResourceHeadRead => {
+  const parseFailures: HostingCommentParseFailure[] = [];
+  const reads = seedReads.map((read): PullRequestResourceHeadRead => {
     if (read.state === "unavailable") {
       return read;
     }
@@ -1346,6 +1373,19 @@ async function readGitHubPullRequestResourceHeadReads(args: {
     if (!comments) {
       throw new Error("GitHub pull request comments lost requested identity.");
     }
+    const cloudflarePreviews = resolveCloudflareHostingPreviews(comments.cloudflare);
+    const netlifyPreviews = resolveNetlifyHostingPreviews({
+      comments: comments.netlify,
+      pullRequestNumber: read.head.number,
+    });
+    parseFailures.push(
+      ...detectHostingCommentParseFailures({
+        cloudflareComments: comments.cloudflare,
+        cloudflareRead: cloudflarePreviews,
+        netlifyComments: comments.netlify,
+        netlifyRead: netlifyPreviews,
+      }),
+    );
     return {
       state: "available",
       head: {
@@ -1357,15 +1397,14 @@ async function readGitHubPullRequestResourceHeadReads(args: {
         headRefOid: read.head.headRefOid,
         cloudflareChecks: read.head.cloudflareChecks,
         hostingPreviews: {
-          cloudflare: resolveCloudflareHostingPreviews(comments.cloudflare),
-          netlify: resolveNetlifyHostingPreviews({
-            comments: comments.netlify,
-            pullRequestNumber: read.head.number,
-          }),
+          cloudflare: cloudflarePreviews,
+          netlify: netlifyPreviews,
         },
       },
     };
   });
+  reportPullRequestHostingCommentParseFailures(parseFailures);
+  return reads;
 }
 
 export const getPullRequestResources = action({

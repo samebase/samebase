@@ -1,5 +1,5 @@
 import { Octokit } from "@octokit/rest";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import {
@@ -9,6 +9,7 @@ import {
   normalizeGitHubPullRequestResourceHeadReads,
   readGitHubHostingCommentBodies,
   recoverGitHubPullRequestGraphqlData,
+  reportPullRequestHostingCommentParseFailures,
   resolveCloudflareBranchPreviewUrl,
   resolveCloudflareWorkerObservation,
   resolveConvexPreviewDeployment,
@@ -41,6 +42,29 @@ Preview Alias URL: https://feature-live-truth-samebase-worker.samebase.workers.d
     ],
   },
 };
+
+describe("hosting comment parse observability", () => {
+  it("emits privacy-safe structured parse-failure markers", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      reportPullRequestHostingCommentParseFailures([
+        { providerFormat: "cloudflare_workers", failureKind: "format_drift" },
+        { providerFormat: "cloudflare_workers", failureKind: "format_drift" },
+        { providerFormat: "netlify", failureKind: "invalid_or_conflict" },
+      ]);
+      expect(warn.mock.calls).toEqual([
+        [
+          'pull_request_hosting_comment_parse {"topic":"pull_request_hosting_comment_parse","version":1,"outcome":"failed","provider_format":"cloudflare_workers","failure_kind":"format_drift"}',
+        ],
+        [
+          'pull_request_hosting_comment_parse {"topic":"pull_request_hosting_comment_parse","version":1,"outcome":"failed","provider_format":"netlify","failure_kind":"invalid_or_conflict"}',
+        ],
+      ]);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
 const head: PullRequestResourceHead = {
   ...headBase,
   hostingPreviews: {

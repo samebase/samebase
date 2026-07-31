@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  detectHostingCommentParseFailures,
   resolveCloudflareHostingPreviews,
   resolveNetlifyHostingPreviews,
 } from "./pullRequestHostingPreviews";
@@ -48,6 +49,19 @@ function cloudflarePagesComment(args: {
 `;
 }
 
+function cloudflarePagesWithoutPreviewComment(args: { accountId: string; projectName: string }) {
+  return `## Deploying ${args.projectName} with &nbsp;<a href="https://pages.dev"><img alt="Cloudflare Pages" src="https://example.com/pages.png" width="16"></a> &nbsp;Cloudflare Pages
+
+<table><tr><td><strong>Latest commit:</strong> </td><td>
+<code>12ded09</code>
+</td></tr>
+<tr><td><strong>Status:</strong></td><td>🚫&nbsp; Build failed.</td></tr>
+</table>
+
+[View logs](https://dash.cloudflare.com/?to=/${args.accountId}/pages/view/${args.projectName}/deployment-1)
+`;
+}
+
 function netlifyComment(args: {
   deployLogUrl: string;
   previewUrl: string | null;
@@ -65,6 +79,136 @@ function netlifyComment(args: {
 |<span aria-hidden="true">🔨</span> Latest commit | 4037261ee52c2393e9c65b95bb4820074065d607 |
 |<span aria-hidden="true">🔍</span> Latest deploy log | ${args.deployLogUrl} |${previewRow}`;
 }
+
+describe("hosting comment parse diagnostics", () => {
+  it("keeps known comments without ready links out of the failure metric", () => {
+    const cloudflareComments = {
+      state: "available" as const,
+      bodies: [
+        cloudflareWorkerComment({
+          accountId: "account-1",
+          branchPreviewUrl: null,
+          workerName: "samebase-posthog-proxy",
+        }),
+        cloudflarePagesWithoutPreviewComment({
+          accountId: "account-2",
+          projectName: "logto-docs",
+        }),
+      ],
+    };
+    const netlifyComments = {
+      state: "available" as const,
+      bodies: [
+        netlifyComment({
+          deployLogUrl: "https://app.netlify.com/projects/notermd/deploys/deploy-1",
+          previewUrl: null,
+          siteName: "notermd",
+        }),
+      ],
+    };
+    expect(
+      detectHostingCommentParseFailures({
+        cloudflareComments,
+        cloudflareRead: resolveCloudflareHostingPreviews(cloudflareComments),
+        netlifyComments,
+        netlifyRead: resolveNetlifyHostingPreviews({
+          comments: netlifyComments,
+          pullRequestNumber: 201,
+        }),
+      }),
+    ).toEqual([]);
+  });
+
+  it("reports silent provider format drift", () => {
+    const worker = cloudflareWorkerComment({
+      accountId: "account-1",
+      branchPreviewUrl: null,
+      workerName: "samebase",
+    });
+    const readyWorker = cloudflareWorkerComment({
+      accountId: "account-1",
+      branchPreviewUrl: "https://feature-samebase.pfp.workers.dev",
+      workerName: "samebase",
+    });
+    const pages = cloudflarePagesComment({
+      accountId: "account-2",
+      branchPreviewText: "https://feature.logto-docs.pages.dev",
+      branchPreviewUrl: "https://feature.logto-docs.pages.dev",
+      projectName: "logto-docs",
+    });
+    const netlify = netlifyComment({
+      deployLogUrl: "https://app.netlify.com/projects/notermd/deploys/deploy-1",
+      previewUrl: "https://deploy-preview-201--notermd.netlify.app",
+      siteName: "notermd",
+    });
+    const cloudflareComments = {
+      state: "available" as const,
+      bodies: [
+        worker.replace("| Status | Name |", "| Status | Name | Name |"),
+        `${readyWorker}
+| ✅ Deployment successful! <br>[View logs](https://dash.cloudflare.com/?to=/account-1/workers/services/view/samebase/production/builds/build-2) | samebase | 9a0e51e6 | <a href='https://other-samebase.pfp.workers.dev'>Branch URL</a> | Jul 31 2026, 09:19 AM |`,
+        pages.replace("Branch Preview URL:", "Branch URL:"),
+      ],
+    };
+    const netlifyComments = {
+      state: "available" as const,
+      bodies: [netlify.replace("|  Name | Link |", "| Name | URL |")],
+    };
+    expect(
+      detectHostingCommentParseFailures({
+        cloudflareComments,
+        cloudflareRead: resolveCloudflareHostingPreviews(cloudflareComments),
+        netlifyComments,
+        netlifyRead: resolveNetlifyHostingPreviews({
+          comments: netlifyComments,
+          pullRequestNumber: 201,
+        }),
+      }),
+    ).toEqual([
+      { providerFormat: "cloudflare_workers", failureKind: "format_drift" },
+      { providerFormat: "cloudflare_workers", failureKind: "format_drift" },
+      { providerFormat: "cloudflare_pages", failureKind: "format_drift" },
+      { providerFormat: "netlify", failureKind: "format_drift" },
+    ]);
+  });
+
+  it("reports parser rejection and cross-comment conflicts", () => {
+    const cloudflareComments = {
+      state: "available" as const,
+      bodies: [
+        cloudflareWorkerComment({
+          accountId: "account-1",
+          branchPreviewUrl: "https://feature-samebase.pfp.workers.dev/path",
+          workerName: "samebase",
+        }),
+      ],
+    };
+    const netlifyComments = {
+      state: "available" as const,
+      bodies: [
+        netlifyComment({
+          deployLogUrl: "https://app.netlify.com/projects/notermd/deploys/deploy-1",
+          previewUrl: "http://deploy-preview-201--notermd.netlify.app",
+          siteName: "notermd",
+        }),
+      ],
+    };
+    expect(
+      detectHostingCommentParseFailures({
+        cloudflareComments,
+        cloudflareRead: resolveCloudflareHostingPreviews(cloudflareComments),
+        netlifyComments,
+        netlifyRead: resolveNetlifyHostingPreviews({
+          comments: netlifyComments,
+          pullRequestNumber: 201,
+        }),
+      }),
+    ).toEqual([
+      { providerFormat: "cloudflare_unknown", failureKind: "invalid_or_conflict" },
+      { providerFormat: "netlify", failureKind: "invalid_or_conflict" },
+    ]);
+  });
+});
 
 describe("resolveCloudflareHostingPreviews", () => {
   it("parses live Cloudflare Workers and Pages comment formats", () => {
@@ -156,6 +300,29 @@ describe("resolveCloudflareHostingPreviews", () => {
         ],
       }),
     ).toEqual({ state: "unavailable" });
+  });
+
+  it("rejects unsafe Cloudflare Worker preview origins", () => {
+    const validWorker = cloudflareWorkerComment({
+      accountId: "account-1",
+      branchPreviewUrl: "https://feature-samebase.pfp.workers.dev",
+      workerName: "samebase",
+    });
+    for (const previewUrl of [
+      "http://feature-samebase.pfp.workers.dev",
+      "https://user@feature-samebase.pfp.workers.dev",
+      "https://feature-samebase.pfp.workers.dev:8443",
+      "https://feature-samebase.pfp.workers.dev?source=comment",
+      "https://feature-samebase.pfp.workers.dev#preview",
+      "https://feature-samebase.example.com",
+    ]) {
+      expect(
+        resolveCloudflareHostingPreviews({
+          state: "available",
+          bodies: [validWorker.replace("https://feature-samebase.pfp.workers.dev", previewUrl)],
+        }),
+      ).toEqual({ state: "unavailable" });
+    }
   });
 
   it("fails closed when a Pages comment has an extra invalid logs link", () => {

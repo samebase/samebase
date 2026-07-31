@@ -125,6 +125,14 @@ deploy domain is accepted only when its first hostname label is the exact
 are valid and produce no link. Malformed identity or URL output fails the Netlify provider result
 closed.
 
+Known comments without a ready preview do not produce a parse-failure signal. A trusted bot comment
+with format drift, invalid output, or conflicting resource URLs emits a compact
+`pull_request_hosting_comment_parse` marker to the Convex log stream. The marker contains only a
+version, failed outcome, closed provider format, and closed failure kind. It never contains the
+comment body, URL, repository, resource name, or provider account identity. PostHog Logs can count
+these failed parse observations without persisting provider state in the Samebase database. One
+action read emits at most one marker for each provider-format and failure-kind pair.
+
 An attached Cloudflare Worker consumes its matching comment preview through the rooted Worker row.
 The match uses the exact Cloudflare account and Worker name. The Worker row keeps that link when its
 Cloudflare API observation is unavailable, without claiming a repository root. Other parsed

@@ -6,6 +6,11 @@ export type HostingPreviewRead<Preview> =
   | { state: "available"; previews: Preview[] }
   | { state: "unavailable" };
 
+export type HostingCommentParseFailure = {
+  providerFormat: "cloudflare_workers" | "cloudflare_pages" | "cloudflare_unknown" | "netlify";
+  failureKind: "format_drift" | "invalid_or_conflict";
+};
+
 export type CloudflareHostingPreview =
   | {
       kind: "worker";
@@ -282,6 +287,140 @@ function parseCloudflarePagesPreviewFromBody(
           },
         ],
       };
+}
+
+function hasKnownCloudflareWorkerTable(body: string): boolean {
+  const lines = body.split(/\r?\n/);
+  return lines.some((line, index) => {
+    const header = markdownTableCells(line);
+    const separator = markdownTableCells(lines[index + 1] ?? "");
+    if (header === null || separator?.length !== header.length) {
+      return false;
+    }
+    const nameColumns = header.flatMap((cell, column) => (cell === "Name" ? [column] : []));
+    const statusColumns = header.flatMap((cell, column) => (cell === "Status" ? [column] : []));
+    const previewColumns = header.flatMap((cell, column) =>
+      cell === "Preview URL" ? [column] : [],
+    );
+    if (
+      nameColumns.length !== 1 ||
+      statusColumns.length !== 1 ||
+      previewColumns.length > 1 ||
+      !separator.every((cell) => /^:?-+:?$/.test(cell))
+    ) {
+      return false;
+    }
+    if (previewColumns.length === 0) {
+      return markdownTableCells(lines[index + 2] ?? "")?.length === header.length;
+    }
+    let sawRow = false;
+    for (let rowIndex = index + 2; rowIndex < lines.length; rowIndex += 1) {
+      const row = markdownTableCells(lines[rowIndex]);
+      if (row === null) {
+        break;
+      }
+      if (row.length !== header.length) {
+        return false;
+      }
+      sawRow = true;
+      const previewCell = row[previewColumns[0]];
+      const statusCell = row[statusColumns[0]];
+      if (
+        !previewCell.includes("Branch Preview URL") &&
+        previewCell !== "" &&
+        previewCell !== "-" &&
+        statusCell.includes("Deployment successful")
+      ) {
+        return false;
+      }
+    }
+    return sawRow;
+  });
+}
+
+function hasKnownCloudflarePagesEnvelope(body: string): boolean {
+  const headings = [
+    ...body.matchAll(/^## Deploying ([A-Za-z0-9._-]+) with .*Cloudflare Pages\s*$/gm),
+  ];
+  const branchLabels = [...body.matchAll(/<strong>Branch Preview URL:<\/strong>/g)];
+  if (headings.length !== 1) {
+    return false;
+  }
+  if (branchLabels.length > 0) {
+    return true;
+  }
+  const logs = [...body.matchAll(/\[View logs\]\(([^)\s]+)\)/g)];
+  const identity = logs.length === 1 ? parseCloudflarePagesLogsUrl(logs[0][1]) : null;
+  return identity?.projectName === headings[0][1] && !body.includes("Deploy successful!");
+}
+
+function hasKnownNetlifyEnvelope(body: string): boolean {
+  if (
+    /Deploy Preview for .* (?:processing\.|failed[.!]?)/.test(body) &&
+    !body.includes("Deploy Preview |")
+  ) {
+    return true;
+  }
+  if (!body.includes("Deploy Preview |")) {
+    return false;
+  }
+  const lines = body.split(/\r?\n/);
+  return lines.some((line, index) => {
+    const header = markdownTableCells(line);
+    const separator = markdownTableCells(lines[index + 1] ?? "");
+    const firstRow = markdownTableCells(lines[index + 2] ?? "");
+    return (
+      header?.length === 2 &&
+      header[0] === "Name" &&
+      header[1] === "Link" &&
+      separator?.length === header.length &&
+      firstRow?.length === header.length &&
+      separator.every((cell) => /^:?-+:?$/.test(cell))
+    );
+  });
+}
+
+export function detectHostingCommentParseFailures(args: {
+  cloudflareComments: HostingCommentBodies;
+  cloudflareRead: HostingPreviewRead<CloudflareHostingPreview>;
+  netlifyComments: HostingCommentBodies;
+  netlifyRead: HostingPreviewRead<NetlifyHostingPreview>;
+}): HostingCommentParseFailure[] {
+  const failures: HostingCommentParseFailure[] = [];
+  if (args.cloudflareComments.state === "available") {
+    for (const body of args.cloudflareComments.bodies) {
+      if (body.includes("Cloudflare Workers")) {
+        if (!hasKnownCloudflareWorkerTable(body)) {
+          failures.push({ providerFormat: "cloudflare_workers", failureKind: "format_drift" });
+        }
+      } else if (body.includes("Cloudflare Pages")) {
+        if (!hasKnownCloudflarePagesEnvelope(body)) {
+          failures.push({ providerFormat: "cloudflare_pages", failureKind: "format_drift" });
+        }
+      } else {
+        failures.push({ providerFormat: "cloudflare_unknown", failureKind: "format_drift" });
+      }
+    }
+    if (args.cloudflareRead.state === "unavailable" && failures.length === 0) {
+      failures.push({
+        providerFormat: "cloudflare_unknown",
+        failureKind: "invalid_or_conflict",
+      });
+    }
+  }
+
+  const cloudflareFailureCount = failures.length;
+  if (args.netlifyComments.state === "available") {
+    for (const body of args.netlifyComments.bodies) {
+      if (!hasKnownNetlifyEnvelope(body)) {
+        failures.push({ providerFormat: "netlify", failureKind: "format_drift" });
+      }
+    }
+    if (args.netlifyRead.state === "unavailable" && failures.length === cloudflareFailureCount) {
+      failures.push({ providerFormat: "netlify", failureKind: "invalid_or_conflict" });
+    }
+  }
+  return failures;
 }
 
 export function resolveCloudflareHostingPreviews(
