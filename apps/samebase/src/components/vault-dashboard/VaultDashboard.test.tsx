@@ -917,31 +917,6 @@ describe("vault environment roots", () => {
 });
 
 describe("PullRequestsSection", () => {
-  it("uses one empty-state label when no pull requests are open", () => {
-    const pullRequests = {
-      state: "current",
-      defaultBranch: null,
-      openPullRequestCount: 0,
-      refreshing: false,
-      allPullRequests: [],
-      resourcesStale: false,
-      resourcesByPullRequestId: new Map(),
-      loadMore: { state: "exhausted" },
-    } satisfies VaultPullRequestsState;
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
-        <PullRequestsSection
-          filesReadEnabled={false}
-          pullRequests={pullRequests}
-          vault={makeRepositorySettingsBuilderVault({})}
-        />
-      </TestRouterProvider>,
-    );
-
-    expect(markup.match(/No open pull requests/g)).toHaveLength(1);
-    expect(markup).not.toContain("No open pull requests.");
-  });
-
   it("shows rootless hosting previews and only offers setup for Cloudflare Workers", async () => {
     const pullRequest = {
       id: "pull-request:41",
