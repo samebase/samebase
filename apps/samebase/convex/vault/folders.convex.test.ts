@@ -1,0 +1,258 @@
+import { describe, expect, it } from "vite-plus/test";
+
+import { api, internal } from "../_generated/api";
+import { makeConvexTest } from "../test.setup";
+import { cleanupAccountLocalDataBatchForUser } from "../accountDeletion/cleanup";
+
+async function seedUser(t: ReturnType<typeof makeConvexTest>, email: string) {
+  return await t.run(async (ctx) => {
+    return await ctx.db.insert("users", { email, isApproved: true });
+  });
+}
+
+async function seedVault(
+  t: ReturnType<typeof makeConvexTest>,
+  userId: Awaited<ReturnType<typeof seedUser>>,
+) {
+  return await t.run(async (ctx) => {
+    return await ctx.db.insert("vaults", {
+      userId,
+      state: "not_connected",
+      deletion: { state: "not_deleting" },
+    });
+  });
+}
+
+async function seedDashboardVault(
+  t: ReturnType<typeof makeConvexTest>,
+  args: { name: string; userId: Awaited<ReturnType<typeof seedUser>> },
+) {
+  return await t.run(async (ctx) => {
+    const vaultId = await ctx.db.insert("vaults", {
+      userId: args.userId,
+      state: "not_connected",
+      deletion: { state: "not_deleting" },
+    });
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      userId: args.userId,
+      vaultId,
+      repositoryFullName: `ada/${args.name}`,
+      trigger: "connect_existing_repository",
+      state: "failed",
+      currentStep: "run_created",
+      createdAt: 1,
+      updatedAt: 2,
+      lastError: "Test failure.",
+    });
+    await ctx.db.replace(vaultId, {
+      userId: args.userId,
+      state: "failed",
+      githubMode: "connect_existing_repository",
+      runId,
+      failedAt: 3,
+      owner: "ada",
+      name: args.name,
+      deletion: { state: "not_deleting" },
+    });
+    return vaultId;
+  });
+}
+
+function asUser(
+  t: ReturnType<typeof makeConvexTest>,
+  userId: Awaited<ReturnType<typeof seedUser>>,
+) {
+  return t.withIdentity({
+    subject: `${userId}|test-session`,
+    tokenIdentifier: `test:${userId}`,
+  });
+}
+
+describe("vault folders Convex contract", () => {
+  it("normalizes folder names and atomically creates the first assignment", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "ada@example.com");
+    const vaultId = await seedVault(t, userId);
+    const viewer = asUser(t, userId);
+
+    const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "  ＦＯＯ  ",
+      vaultId,
+    });
+
+    await expect(
+      viewer.mutation(api.vault.folders.createVaultFolder, { name: "foo", vaultId }),
+    ).rejects.toThrow("Folder name is already in use.");
+    await t.run(async (ctx) => {
+      const folder = await ctx.db.get(folderId);
+      const assignment = await ctx.db
+        .query("ui_vaultFolderAssignments")
+        .withIndex("by_userId_and_vaultId", (q) => q.eq("userId", userId).eq("vaultId", vaultId))
+        .first();
+
+      expect(folder).toMatchObject({ name: "FOO", nameKey: "foo", userId });
+      expect(assignment).toMatchObject({ folderId, userId, vaultId });
+    });
+  });
+
+  it("denies folder changes for another user's vault and folder", async () => {
+    const t = makeConvexTest();
+    const ownerId = await seedUser(t, "owner@example.com");
+    const otherId = await seedUser(t, "other@example.com");
+    const ownerVaultId = await seedVault(t, ownerId);
+    const otherVaultId = await seedVault(t, otherId);
+    const owner = asUser(t, ownerId);
+    const other = asUser(t, otherId);
+    const folderId = await owner.mutation(api.vault.folders.createVaultFolder, {
+      name: "Owner folder",
+      vaultId: ownerVaultId,
+    });
+
+    await expect(
+      other.mutation(api.vault.folders.renameVaultFolder, { folderId, name: "Changed" }),
+    ).rejects.toThrow("Folder not found");
+    await expect(
+      other.mutation(api.vault.folders.moveVaultToFolder, {
+        folderId,
+        vaultId: otherVaultId,
+      }),
+    ).rejects.toThrow("Folder not found");
+    await expect(
+      other.mutation(api.vault.folders.createVaultFolder, {
+        name: "Not mine",
+        vaultId: ownerVaultId,
+      }),
+    ).rejects.toThrow("Vault not found");
+  });
+
+  it("moves vaults, persists collapse, and orders folders", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "ada@example.com");
+    const firstVaultId = await seedDashboardVault(t, { name: "first", userId });
+    const secondVaultId = await seedDashboardVault(t, { name: "second", userId });
+    const viewer = asUser(t, userId);
+    const firstFolderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "First",
+      vaultId: firstVaultId,
+    });
+    const secondFolderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "Second",
+      vaultId: secondVaultId,
+    });
+
+    await viewer.mutation(api.vault.folders.setVaultFolderCollapsed, {
+      collapsed: true,
+      folderId: firstFolderId,
+    });
+    await viewer.mutation(api.vault.folders.moveVaultToFolder, {
+      folderId: secondFolderId,
+      vaultId: firstVaultId,
+    });
+    await viewer.mutation(api.vault.folders.moveVaultToFolder, {
+      folderId: null,
+      vaultId: firstVaultId,
+    });
+    await viewer.mutation(api.vault.folders.moveVaultFolder, {
+      direction: "up",
+      folderId: secondFolderId,
+    });
+
+    await expect(viewer.query(api.vault.folders.getVaultFolderState)).resolves.toEqual({
+      folders: [
+        { _id: secondFolderId, collapsed: false, name: "Second", position: 0 },
+        { _id: firstFolderId, collapsed: true, name: "First", position: 1 },
+      ],
+      assignments: [{ folderId: secondFolderId, vaultId: secondVaultId }],
+    });
+  });
+
+  it("keeps deleted-folder assignments stale until a later move", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "ada@example.com");
+    const vaultId = await seedVault(t, userId);
+    const viewer = asUser(t, userId);
+    const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "Fixtures",
+      vaultId,
+    });
+
+    await viewer.mutation(api.vault.folders.deleteVaultFolder, { folderId });
+    await expect(viewer.query(api.vault.folders.getVaultFolderState)).resolves.toEqual({
+      folders: [],
+      assignments: [{ folderId, vaultId }],
+    });
+
+    await viewer.mutation(api.vault.folders.moveVaultToFolder, { folderId: null, vaultId });
+    await expect(viewer.query(api.vault.folders.getVaultFolderState)).resolves.toEqual({
+      folders: [],
+      assignments: [],
+    });
+  });
+
+  it("removes a vault assignment during vault deletion", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "ada@example.com");
+    const vaultId = await seedVault(t, userId);
+    const viewer = asUser(t, userId);
+    await viewer.mutation(api.vault.folders.createVaultFolder, { name: "Fixtures", vaultId });
+
+    await expect(
+      t.mutation(internal.vault.deletion.cleanup.deleteVaultLocalDataBatch, { userId, vaultId }),
+    ).resolves.toEqual({
+      rowsChanged: 1,
+      state: "needs_more",
+      table: "ui_vaultFolderAssignments",
+    });
+    await t.run(async (ctx) => {
+      expect(await ctx.db.get(vaultId)).not.toBeNull();
+      expect(
+        await ctx.db
+          .query("ui_vaultFolderAssignments")
+          .withIndex("by_vaultId", (q) => q.eq("vaultId", vaultId))
+          .first(),
+      ).toBeNull();
+    });
+  });
+
+  it("removes folder data during account deletion and leaves MCP vault output complete", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "ada@example.com");
+    const firstVaultId = await seedDashboardVault(t, { name: "first", userId });
+    const secondVaultId = await seedDashboardVault(t, { name: "second", userId });
+    const viewer = asUser(t, userId);
+    await viewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "Current",
+      vaultId: firstVaultId,
+    });
+
+    await expect(
+      t.query(internal.vault.dashboard.getUserVaultsForUser, { userId }),
+    ).resolves.toHaveLength(2);
+
+    let cleanup = await t.run(async (ctx) => {
+      return await cleanupAccountLocalDataBatchForUser(ctx, { userId });
+    });
+    while (cleanup.state !== "done") {
+      cleanup = await t.run(async (ctx) => {
+        return await cleanupAccountLocalDataBatchForUser(ctx, { userId });
+      });
+    }
+
+    await t.run(async (ctx) => {
+      expect(await ctx.db.get(firstVaultId)).toBeNull();
+      expect(await ctx.db.get(secondVaultId)).toBeNull();
+      expect(
+        await ctx.db
+          .query("ui_vaultFolders")
+          .withIndex("by_userId_and_position", (q) => q.eq("userId", userId))
+          .first(),
+      ).toBeNull();
+      expect(
+        await ctx.db
+          .query("ui_vaultFolderAssignments")
+          .withIndex("by_userId_and_vaultId", (q) => q.eq("userId", userId))
+          .first(),
+      ).toBeNull();
+    });
+  });
+});

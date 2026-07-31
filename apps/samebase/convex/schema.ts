@@ -11,6 +11,7 @@ import { vaultBranchTables } from "./vault/branchModel";
 import { vaultConvexSchemaGraphTables } from "./vault/convexSchemaGraphModel";
 import { vaultDashboardTables } from "./vault/dashboardModel";
 import { vaultDeletionTables } from "./vault/deletion/model";
+import { vaultFolderTables } from "./vault/folderModel";
 import { vaultTables } from "./vault/model";
 
 export default defineSchema({
@@ -19,6 +20,7 @@ export default defineSchema({
   ...providerConnectionTables,
   ...userPreferenceTables,
   ...vaultDashboardTables,
+  ...vaultFolderTables,
   ...vaultTables,
   ...vaultBranchTables,
   ...vaultConvexSchemaGraphTables,
