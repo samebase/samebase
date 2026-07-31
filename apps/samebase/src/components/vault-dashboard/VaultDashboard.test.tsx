@@ -642,8 +642,9 @@ describe("vault environment roots", () => {
       rootDirectory: "apps/web",
       workerName: "demo-web",
       cloudflareBuild: {
+        state: "available" as const,
         uuid: "build-1",
-        state: "failure" as const,
+        buildState: "failure" as const,
         logsUrl: "https://dash.cloudflare.com/build-1",
       },
       cloudflareBranchPreview: { state: "absent" as const },
@@ -698,6 +699,54 @@ describe("vault environment roots", () => {
             provider: "convex",
             provenance: "pull_request_branch",
             title: "Open branch Convex deployment calm-swan-123",
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("shows an unavailable current build and a recovered branch preview independently", () => {
+    const workerId = fakeCloudflareWorkerId();
+    const previewUrl = "https://older-demo-web.example.workers.dev";
+
+    expect(
+      buildPullRequestEnvironmentRoots({
+        resources: {
+          pullRequestId: "pull-request-1",
+          workers: [
+            {
+              state: "available",
+              workerId,
+              rootDirectory: "apps/web",
+              workerName: "demo-web",
+              cloudflareBuild: { state: "unavailable" },
+              cloudflareBranchPreview: {
+                state: "available",
+                url: previewUrl,
+              },
+            },
+          ],
+          convexProjects: [],
+        },
+      }),
+    ).toEqual([
+      {
+        rootDirectory: "apps/web",
+        resources: [
+          {
+            kind: "cloudflare_worker",
+            id: workerId,
+            worker: {
+              workerName: "demo-web",
+              build: { state: "unavailable" },
+              destination: {
+                state: "available",
+                href: previewUrl,
+                label: "Branch preview",
+                title: "older-demo-web.example.workers.dev",
+              },
+              actions: [],
+            },
           },
         ],
       },

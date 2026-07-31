@@ -34,9 +34,9 @@ export type VaultEnvironmentWorker = {
 };
 
 type VaultEnvironmentBuildState = Extract<
-  PullRequestWorkerResource,
+  Extract<PullRequestWorkerResource, { state: "available" }>["cloudflareBuild"],
   { state: "available" }
->["cloudflareBuild"]["state"];
+>["buildState"];
 
 type VaultProductionBuildState = Extract<
   Extract<
@@ -326,11 +326,14 @@ export function buildPullRequestEnvironmentRoots({
           worker.state === "available"
             ? {
                 workerName: worker.workerName,
-                build: {
-                  state: "available" as const,
-                  buildState: worker.cloudflareBuild.state,
-                  logsUrl: worker.cloudflareBuild.logsUrl,
-                },
+                build:
+                  worker.cloudflareBuild.state === "available"
+                    ? {
+                        state: "available" as const,
+                        buildState: worker.cloudflareBuild.buildState,
+                        logsUrl: worker.cloudflareBuild.logsUrl,
+                      }
+                    : worker.cloudflareBuild,
                 destination:
                   worker.cloudflareBranchPreview.state === "available"
                     ? {
@@ -344,10 +347,7 @@ export function buildPullRequestEnvironmentRoots({
               }
             : {
                 workerName: worker.workerName,
-                build:
-                  worker.state === "absent"
-                    ? { state: "absent" as const }
-                    : { state: "unavailable" as const },
+                build: { state: "unavailable" as const },
                 destination: { state: "absent" as const },
                 actions: [],
               },
