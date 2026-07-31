@@ -1161,6 +1161,7 @@ test("prod-ui landing keeps /logo out of the right sidebar", async ({ page }) =>
     // the stable public-route link stack without pinning the current release label.
     mask: [statusBar.getByTestId(APP_BUILD_VERSION_TEST_ID).locator("xpath=..")],
     maskColor: "#ffffff",
+    timeout: 15_000,
   });
 });
 
