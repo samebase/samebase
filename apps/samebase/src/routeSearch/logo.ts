@@ -52,12 +52,14 @@ import {
   MENGER_AUTOMATIC_PROBE_DEFAULT_PATH,
   MENGER_AUTOMATIC_PROBE_DEFAULT_REST_DURATION_SECONDS,
   MENGER_AUTOMATIC_PROBE_DEFAULT_START_PROGRESS,
+  MENGER_AUTOMATIC_PROBE_DEFAULT_VERTICAL_OFFSET,
   MENGER_AUTOMATIC_PROBE_DEFAULT_WIDTH,
   MENGER_AUTOMATIC_PROBE_PATHS,
   normalizeMengerAutomaticProbeExtent,
   normalizeMengerAutomaticProbeLoopDurationSeconds,
   normalizeMengerAutomaticProbeRestDurationSeconds,
   normalizeMengerAutomaticProbeStartProgress,
+  normalizeMengerAutomaticProbeVerticalOffset,
   type MengerAutomaticProbeSettings,
 } from "@/components/logo/mengerAutomaticProbe";
 import {
@@ -589,6 +591,23 @@ const RouteSearchSchema_logoMengerHover = defineRouteSearchParams({
       valueType: "numeric",
     },
   ),
+  probeOffset: routeSearchValueParam(
+    routeSearchNormalizedFiniteNumber(normalizeMengerAutomaticProbeVerticalOffset),
+    {
+      numericDefaultValue: MENGER_AUTOMATIC_PROBE_DEFAULT_VERTICAL_OFFSET,
+      numericRange: {
+        maxValue: 1,
+        minValue: -1,
+        rangeType: "closed",
+      },
+      numericStepValue: 0.05,
+      access: "access_public",
+      sampleValue: "0.25",
+      ...logoMotionRouteSearchSuggestion,
+      valueSuggestions: ["-1", "-0.5", "0", "0.5", "1"],
+      valueType: "numeric",
+    },
+  ),
   probeLanding: routeSearchPresenceParam({
     access: "access_public",
     ...logoViewRouteSearchSuggestion,
@@ -776,6 +795,7 @@ function readLogoMengerHoverRouteSearchFields(search: LogoMengerHoverRouteSearch
     ...(typeof search.probeLoop === "number" ? { probeLoop: search.probeLoop } : {}),
     ...(typeof search.probePath === "string" ? { probePath: search.probePath } : {}),
     ...(search.probePathVisible ? { probePathVisible: true as const } : {}),
+    ...(typeof search.probeOffset === "number" ? { probeOffset: search.probeOffset } : {}),
     ...(typeof search.probeRest === "number" ? { probeRest: search.probeRest } : {}),
     ...(typeof search.probeStart === "number" ? { probeStart: search.probeStart } : {}),
     ...(typeof search.probeWidth === "number" ? { probeWidth: search.probeWidth } : {}),
@@ -1314,6 +1334,10 @@ export function buildLogoMengerHoverRouteSearch(
         ? args.mengerAutomaticProbe.path
         : undefined,
     probePathVisible: args.mengerAutomaticProbe.showPath ? true : undefined,
+    probeOffset:
+      args.mengerAutomaticProbe.verticalOffset !== MENGER_AUTOMATIC_PROBE_DEFAULT_VERTICAL_OFFSET
+        ? normalizeMengerAutomaticProbeVerticalOffset(args.mengerAutomaticProbe.verticalOffset)
+        : undefined,
     probeRest:
       args.mengerAutomaticProbe.restDurationSeconds !==
       MENGER_AUTOMATIC_PROBE_DEFAULT_REST_DURATION_SECONDS

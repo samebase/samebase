@@ -329,6 +329,7 @@ describe("logoRouteSearch", () => {
         probeLoop: "7",
         probePath: "orbit",
         probePathVisible: "",
+        probeOffset: "-0.4",
         probeRest: "2",
         probeStart: "0.6",
         probeWidth: "0.4",
@@ -340,6 +341,7 @@ describe("logoRouteSearch", () => {
       probeLoop: 7,
       probePath: "orbit",
       probePathVisible: true,
+      probeOffset: -0.4,
       probeRest: 2,
       probeStart: 0.6,
       probeWidth: 0.4,
@@ -352,6 +354,9 @@ describe("logoRouteSearch", () => {
     });
     expect(validateLogoMengerHoverRouteSearch({ probeStart: "2" })).toEqual({
       probeStart: 1,
+    });
+    expect(validateLogoMengerHoverRouteSearch({ probeOffset: "2" })).toEqual({
+      probeOffset: 1,
     });
     expect(
       validateLogoMengerHoverRouteSearch({
@@ -463,6 +468,8 @@ describe("logoRouteSearch", () => {
     expect(mengerDefaults.probePathVisible).toBeUndefined();
     expect("probeStart" in mengerDefaults).toBe(true);
     expect(mengerDefaults.probeStart).toBeUndefined();
+    expect("probeOffset" in mengerDefaults).toBe(true);
+    expect(mengerDefaults.probeOffset).toBeUndefined();
 
     const automaticProbeSearch = buildLogoMengerHoverRouteSearch({
       ...routeBuildDefaults,
@@ -475,6 +482,7 @@ describe("logoRouteSearch", () => {
         restDurationSeconds: 2,
         showPath: true,
         startProgress: 0.6,
+        verticalOffset: -0.4,
         width: 0.4,
       },
       mengerHoverDepth: MENGER_HOVER_DEFAULT_DEPTH,
@@ -489,6 +497,7 @@ describe("logoRouteSearch", () => {
       probeLoop: 7,
       probePath: "orbit",
       probePathVisible: true,
+      probeOffset: -0.4,
       probeRest: 2,
       probeStart: 0.6,
       probeWidth: 0.4,
@@ -505,6 +514,7 @@ describe("logoRouteSearch", () => {
           restDurationSeconds: 1e308,
           showPath: false,
           startProgress: 1,
+          verticalOffset: 1e308,
           width: 1e308,
         },
         mengerHoverDepth: MENGER_HOVER_DEFAULT_DEPTH,
@@ -518,6 +528,7 @@ describe("logoRouteSearch", () => {
       probeLoop: 1e308,
       probeRest: 1e308,
       probeStart: 1,
+      probeOffset: 1,
       probeWidth: 1e308,
     });
 

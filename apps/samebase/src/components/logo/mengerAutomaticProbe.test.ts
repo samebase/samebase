@@ -4,6 +4,7 @@ import {
   normalizeMengerAutomaticProbeLoopDurationSeconds,
   normalizeMengerAutomaticProbeRestDurationSeconds,
   normalizeMengerAutomaticProbeStartProgress,
+  normalizeMengerAutomaticProbeVerticalOffset,
   readMengerAutomaticProbePoint,
 } from "@/components/logo/mengerAutomaticProbe";
 import { describe, expect, it } from "vite-plus/test";
@@ -37,6 +38,20 @@ describe("Menger automatic probe", () => {
     expect(side.y).toBeGreaterThan(start.y);
   });
 
+  it("supports taller paths and shifts every point by the same vertical offset", () => {
+    const points = Array.from({ length: 65 }, (_, index) =>
+      readMengerAutomaticProbePoint("vertical-8", index / 64, 0.3, 1.375, 0.25, 0.4),
+    );
+    const unshiftedPoints = Array.from({ length: 65 }, (_, index) =>
+      readMengerAutomaticProbePoint("vertical-8", index / 64, 0.3, 1.375, 0.25),
+    );
+
+    expect(Math.min(...points.map((point) => point.y))).toBeCloseTo(0.2125);
+    expect(Math.max(...points.map((point) => point.y))).toBeCloseTo(1.5875);
+    expect(points.every((point, index) => point.x === unshiftedPoints[index]?.x)).toBe(true);
+    expect(points[0]?.y).toBeCloseTo((unshiftedPoints[0]?.y ?? Number.NaN) + 0.4);
+  });
+
   it("keeps time and size inputs in their valid semantic domains", () => {
     expect(normalizeMengerAutomaticProbeExtent(-1)).toBe(0);
     expect(normalizeMengerAutomaticProbeExtent(1e308)).toBe(1e308);
@@ -51,5 +66,9 @@ describe("Menger automatic probe", () => {
     expect(normalizeMengerAutomaticProbeStartProgress(0.6)).toBe(0.6);
     expect(normalizeMengerAutomaticProbeStartProgress(2)).toBe(1);
     expect(normalizeMengerAutomaticProbeStartProgress(Number.NaN)).toBe(0);
+    expect(normalizeMengerAutomaticProbeVerticalOffset(-2)).toBe(-1);
+    expect(normalizeMengerAutomaticProbeVerticalOffset(0.4)).toBe(0.4);
+    expect(normalizeMengerAutomaticProbeVerticalOffset(2)).toBe(1);
+    expect(normalizeMengerAutomaticProbeVerticalOffset(Number.NaN)).toBe(0);
   });
 });

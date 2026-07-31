@@ -22,6 +22,7 @@ import {
   MENGER_AUTOMATIC_PROBE_DEFAULT_REST_DURATION_SECONDS,
   MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
   MENGER_AUTOMATIC_PROBE_DEFAULT_START_PROGRESS,
+  MENGER_AUTOMATIC_PROBE_DEFAULT_VERTICAL_OFFSET,
   MENGER_AUTOMATIC_PROBE_DEFAULT_WIDTH,
   MENGER_AUTOMATIC_PROBE_PATHS,
   readMengerAutomaticProbePoint,
@@ -124,6 +125,7 @@ export function LogoMengerDepthTransitionPage({
         routeSearch.probeRest ?? MENGER_AUTOMATIC_PROBE_DEFAULT_REST_DURATION_SECONDS,
       showPath: routeSearch.probePathVisible === true,
       startProgress: routeSearch.probeStart ?? MENGER_AUTOMATIC_PROBE_DEFAULT_START_PROGRESS,
+      verticalOffset: routeSearch.probeOffset ?? MENGER_AUTOMATIC_PROBE_DEFAULT_VERTICAL_OFFSET,
       width: routeSearch.probeWidth ?? MENGER_AUTOMATIC_PROBE_DEFAULT_WIDTH,
     }),
     [
@@ -135,6 +137,7 @@ export function LogoMengerDepthTransitionPage({
       routeSearch.probePathVisible,
       routeSearch.probeRest,
       routeSearch.probeStart,
+      routeSearch.probeOffset,
       routeSearch.probeWidth,
     ],
   );
@@ -164,6 +167,7 @@ export function LogoMengerDepthTransitionPage({
       path: automaticProbeDraft.path,
       restDurationSeconds: automaticProbeDraft.restDurationSeconds,
       startProgress: automaticProbeDraft.startProgress,
+      verticalOffset: automaticProbeDraft.verticalOffset,
       width: automaticProbeDraft.width,
     }),
     [
@@ -173,6 +177,7 @@ export function LogoMengerDepthTransitionPage({
       automaticProbeDraft.path,
       automaticProbeDraft.restDurationSeconds,
       automaticProbeDraft.startProgress,
+      automaticProbeDraft.verticalOffset,
       automaticProbeDraft.width,
     ],
   );
@@ -493,6 +498,7 @@ export function LogoMengerDepthTransitionPage({
           automaticProbeDraft.width,
           automaticProbeDraft.height,
           automaticProbeDraft.startProgress,
+          automaticProbeDraft.verticalOffset,
         );
         return `${point.x},${point.y}`;
       }).join(" "),
@@ -500,6 +506,7 @@ export function LogoMengerDepthTransitionPage({
       automaticProbeDraft.height,
       automaticProbeDraft.path,
       automaticProbeDraft.startProgress,
+      automaticProbeDraft.verticalOffset,
       automaticProbeDraft.width,
     ],
   );
@@ -511,11 +518,13 @@ export function LogoMengerDepthTransitionPage({
         automaticProbeDraft.width,
         automaticProbeDraft.height,
         automaticProbeDraft.startProgress,
+        automaticProbeDraft.verticalOffset,
       ),
     [
       automaticProbeDraft.height,
       automaticProbeDraft.path,
       automaticProbeDraft.startProgress,
+      automaticProbeDraft.verticalOffset,
       automaticProbeDraft.width,
     ],
   );
@@ -796,7 +805,7 @@ export function LogoMengerDepthTransitionPage({
               id="menger-hover-automatic-probe-height"
               aria-label="Automatic probe path height"
               className="h-2 w-full cursor-pointer accent-foreground"
-              max={Math.max(1, automaticProbeDraft.height)}
+              max={Math.max(2.5, automaticProbeDraft.height)}
               min="0"
               onBlur={commitAutomaticProbeDraft}
               onChange={(event) => {
@@ -810,6 +819,38 @@ export function LogoMengerDepthTransitionPage({
               step="0.05"
               type="range"
               value={automaticProbeDraft.height}
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between text-xs">
+              <label htmlFor="menger-hover-automatic-probe-offset">Path vertical shift</label>
+              <output
+                className="font-mono text-xs text-muted-foreground"
+                htmlFor="menger-hover-automatic-probe-offset"
+              >
+                {automaticProbeDraft.verticalOffset > 0 ? "+" : ""}
+                {formatMengerAutomaticProbeExtentPercent(automaticProbeDraft.verticalOffset)}
+              </output>
+            </div>
+            <input
+              id="menger-hover-automatic-probe-offset"
+              aria-label="Automatic probe path vertical shift"
+              className="h-2 w-full cursor-pointer accent-foreground"
+              max="1"
+              min="-1"
+              onBlur={commitAutomaticProbeDraft}
+              onChange={(event) => {
+                setAutomaticProbeDraft({
+                  ...automaticProbeDraft,
+                  verticalOffset: Number(event.target.value),
+                });
+              }}
+              onKeyUp={commitAutomaticProbeDraft}
+              onPointerUp={commitAutomaticProbeDraft}
+              step="0.05"
+              type="range"
+              value={automaticProbeDraft.verticalOffset}
             />
           </div>
 
@@ -1059,7 +1100,7 @@ export function LogoMengerDepthTransitionPage({
             {automaticProbeDraft.showPath ? (
               <svg
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0 z-10 h-full w-full text-foreground/40"
+                className="pointer-events-none absolute inset-0 z-10 h-full w-full overflow-visible text-foreground/40"
                 data-testid="logo-menger-automatic-probe-path"
                 preserveAspectRatio="none"
                 viewBox="0 0 1 1"

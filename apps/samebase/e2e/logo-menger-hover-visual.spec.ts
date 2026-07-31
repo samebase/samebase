@@ -307,12 +307,19 @@ test("Menger hover keeps automatic-probe controls shareable in route search", as
   const startEndSlider = controls.getByRole("slider", {
     name: "Automatic probe start and end point",
   });
+  const heightSlider = controls.getByRole("slider", { name: "Automatic probe path height" });
+  const offsetSlider = controls.getByRole("slider", {
+    name: "Automatic probe path vertical shift",
+  });
   const widthSlider = controls.getByRole("slider", { name: "Automatic probe path width" });
 
   await expect(playCheckbox).toHaveAttribute("aria-checked", "false");
   await expect(showPathCheckbox).toHaveAttribute("aria-checked", "false");
   await expect(pathSelect).toContainText("Vertical 8");
   await expect(startEndSlider).toHaveValue("0.25");
+  await expect(heightSlider).toHaveValue("0.55");
+  await expect(heightSlider).toHaveAttribute("max", "2.5");
+  await expect(offsetSlider).toHaveValue("0");
   await expect(page.locator('[data-testid="logo-menger-automatic-probe-path"]')).toHaveCount(0);
 
   await pathSelect.click();
@@ -361,6 +368,18 @@ test("Menger hover keeps automatic-probe controls shareable in route search", as
   await startEndSlider.blur();
   await expect(page).toHaveURL(/(?:\?|&)probeStart=0\.6(?:&|$)/);
 
+  const urlBeforeHeightDraft = page.url();
+  await heightSlider.fill("1.35");
+  expect(page.url()).toBe(urlBeforeHeightDraft);
+  await heightSlider.blur();
+  await expect(page).toHaveURL(/(?:\?|&)probeHeight=1\.35(?:&|$)/);
+
+  const urlBeforeOffsetDraft = page.url();
+  await offsetSlider.fill("-0.4");
+  expect(page.url()).toBe(urlBeforeOffsetDraft);
+  await offsetSlider.blur();
+  await expect(page).toHaveURL(/(?:\?|&)probeOffset=-0\.4(?:&|$)/);
+
   const urlBeforeWidthDraft = page.url();
   await widthSlider.fill("0.4");
   expect(page.url()).toBe(urlBeforeWidthDraft);
@@ -382,7 +401,8 @@ test("Menger automatic probe has a deterministic reduced-motion research view", 
   });
   const scene = await openMengerHoverCase(page, {
     elevationDegrees: "0",
-    extraSearch: "&probe&probeLanding&probePathVisible&probeWidth=0.4",
+    extraSearch:
+      "&probe&probeHeight=1.35&probeLanding&probeOffset=0.25&probePathVisible&probeWidth=0.4",
     maximumDepth: "3",
     pointerTiltEnabled: true,
     reducedMotion: "reduce",

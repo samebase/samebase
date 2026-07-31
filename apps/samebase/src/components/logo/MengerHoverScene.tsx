@@ -400,6 +400,7 @@ export function MengerHoverScene({
           settings.width,
           settings.height,
           settings.startProgress,
+          settings.verticalOffset,
         );
         automaticProbeClientPoint = {
           x: bounds.left + point.x * bounds.width,
@@ -473,6 +474,7 @@ export function MengerHoverScene({
         settings.width,
         settings.height,
         settings.startProgress,
+        settings.verticalOffset,
       );
       const clientX = bounds.left + point.x * bounds.width;
       const clientY = bounds.top + point.y * bounds.height;
@@ -1061,6 +1063,7 @@ export function MengerHoverScene({
       path: automaticProbe.path,
       restDurationSeconds: automaticProbe.restDurationSeconds,
       startProgress: automaticProbe.startProgress,
+      verticalOffset: automaticProbe.verticalOffset,
       width: automaticProbe.width,
     };
     automaticProbeCycleStartedAtMsRef.current = 0;
@@ -1077,6 +1080,7 @@ export function MengerHoverScene({
     automaticProbe.path,
     automaticProbe.restDurationSeconds,
     automaticProbe.startProgress,
+    automaticProbe.verticalOffset,
     automaticProbe.width,
   ]);
 
