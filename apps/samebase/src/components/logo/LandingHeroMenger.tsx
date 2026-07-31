@@ -360,7 +360,7 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
             onRenderReady={markSceneReady}
             onRenderUnavailable={markSceneUnavailable}
             onViewChange={setView}
-            pointerTiltEnabled
+            pointerTiltEnabled={!automaticProbe.enabled}
             pointerTiltRadiusScale={LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE}
             pointerTiltStrengthScale={LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE}
             revealRadius={MENGER_HOVER_DEFAULT_REVEAL_RADIUS}

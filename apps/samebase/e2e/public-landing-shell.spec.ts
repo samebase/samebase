@@ -951,9 +951,14 @@ test.describe("mobile landing shell", () => {
     await page.setViewportSize({ width: 390, height: 450 });
 
     await expectRootLandingMengerReady(page);
-    await expect(
-      page.getByTestId(PUBLIC_LANDING_MENGER_TEST_ID).getByTestId("logo-menger-hover-scene"),
-    ).toHaveAttribute("data-menger-automatic-probe", "play");
+    const mengerScene = page
+      .getByTestId(PUBLIC_LANDING_MENGER_TEST_ID)
+      .getByTestId("logo-menger-hover-scene");
+    await expect(mengerScene).toHaveAttribute("data-menger-automatic-probe", "play");
+    await expect(mengerScene).toHaveAttribute("data-automatic-probe-state", "playing");
+    await expect(mengerScene).toHaveAttribute("data-menger-pointer-tilt", "off");
+    await expect(mengerScene).toHaveAttribute("data-presentation-horizontal-degrees", "0.000");
+    await expect(mengerScene).toHaveAttribute("data-presentation-vertical-degrees", "0.000");
 
     const mobileShell = page.locator('[data-workspace-layout-v2="responsive"]');
     const addressChrome = page.getByTestId("workspace-layout-v2-address-chrome");
