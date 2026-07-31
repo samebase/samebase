@@ -487,7 +487,12 @@ test("reproduces the observed new repository provisioning states", async ({ page
   );
   await expect(earlyEmptyFixture.getByRole("status")).toHaveText("Setting up");
   await expect(earlyEmptyFixture.getByText("No default branch commit is available.")).toBeVisible();
-  await expect(earlyEmptyFixture.getByText(/^No open pull requests\.?$/)).toHaveCount(1);
+  await expect(
+    earlyEmptyFixture.getByRole("heading", { name: "No open pull requests", exact: true }),
+  ).toBeVisible();
+  await expect(earlyEmptyFixture.getByText("No open pull requests.", { exact: true })).toHaveCount(
+    0,
+  );
 
   const completeEmptyFixture = await openVaultOverviewV2(
     page,
@@ -497,7 +502,12 @@ test("reproduces the observed new repository provisioning states", async ({ page
   await expect(
     completeEmptyFixture.getByText("No default branch commit is available."),
   ).toBeVisible();
-  await expect(completeEmptyFixture.getByText(/^No open pull requests\.?$/)).toHaveCount(1);
+  await expect(
+    completeEmptyFixture.getByRole("heading", { name: "No open pull requests", exact: true }),
+  ).toBeVisible();
+  await expect(
+    completeEmptyFixture.getByText("No open pull requests.", { exact: true }),
+  ).toHaveCount(0);
 
   const staleEmptyFixture = await openVaultOverviewV2(
     page,
@@ -506,7 +516,12 @@ test("reproduces the observed new repository provisioning states", async ({ page
   await expect(
     staleEmptyFixture.getByText("Some pull request data may be out of date."),
   ).toBeVisible();
-  await expect(staleEmptyFixture.getByText(/^No open pull requests\.?$/)).toHaveCount(1);
+  await expect(
+    staleEmptyFixture.getByRole("heading", { name: "No open pull requests", exact: true }),
+  ).toBeVisible();
+  await expect(staleEmptyFixture.getByText("No open pull requests.", { exact: true })).toHaveCount(
+    0,
+  );
 
   const commitFixture = await openVaultOverviewV2(page, "vault-overview-v2-provisioning-commit");
   await expect(commitFixture.getByText("chore: seed starter template")).toBeVisible();
@@ -520,7 +535,10 @@ test("reproduces the observed new repository provisioning states", async ({ page
 
   const readyFixture = await openVaultOverviewV2(page, "vault-overview-v2-provisioning-ready");
   await expect(readyFixture.getByText("dazzling-pheasant-894")).toBeVisible();
-  await expect(readyFixture.getByText(/^No open pull requests\.?$/)).toHaveCount(1);
+  await expect(
+    readyFixture.getByRole("heading", { name: "No open pull requests", exact: true }),
+  ).toBeVisible();
+  await expect(readyFixture.getByText("No open pull requests.", { exact: true })).toHaveCount(0);
 });
 
 test("shows stable provider setup states in Settings", async ({ page }) => {
