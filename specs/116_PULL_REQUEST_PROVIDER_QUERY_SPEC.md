@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase dashboard and provider boundaries
-- Last updated: 2026-07-26
+- Last updated: 2026-07-31
 - Related work:
   - [PR #1243: Simplify vault provider resource truth](https://github.com/samebase/samebase/pull/1243)
   - [PR #1234: Replace dashboard branch mirrors with live pull requests](https://github.com/samebase/samebase/pull/1234)
@@ -95,8 +95,30 @@ pull request head commit. A Cloudflare branch preview belongs to a build only wh
 check run has an `externalId` equal to the verified Cloudflare build UUID and names the same Worker.
 The row links the `Preview Alias URL` published by that exact check because it remains stable as new
 commits build on the branch. The version-specific `Preview URL` is not the row's navigation target.
-Samebase never downloads general pull request comments or guesses Cloudflare's alias normalization
-from the branch name. Missing, incomplete, malformed, or contradictory check output fails closed.
+Missing, incomplete, malformed, or contradictory exact-check output fails closed.
+
+GitHub can omit that check from a later pull request head when the commit does not build an attached
+Worker. The same resource request can recover the stable branch URL from Cloudflare's pull request
+comment without storing provider state. The batched pull request query reads only comment node ids
+and author types. It follows all metadata pages under the existing GitHub request deadline, selects
+only the exact Cloudflare Bot node id, and then reads bodies only for those selected comment ids.
+Every returned body must still belong to the same open pull request, repository, and Bot identity. A
+failed or changing metadata scan makes comment recovery unavailable only for that pull request. The
+query omits comment metadata and body recovery when the vault has no attached Worker or no usable
+Cloudflare connection.
+
+Comment recovery reads only Cloudflare Workers Markdown table rows with exact `Status`, `Name`, and
+`Preview URL` columns. The row must name one uniquely attached Worker. Its exact `View logs` link
+must identify the attached Cloudflare account and Worker. The row must also contain an exact
+`Branch Preview URL` anchor. The URL must be a strict HTTPS `workers.dev` origin for that Worker. A
+malformed log or preview link fails closed. Equal normalized URLs are one result. Distinct valid
+URLs are ambiguous and fail closed. Samebase does not guess Cloudflare's alias normalization from
+the branch name.
+
+Worker identity, current build, and branch preview are independent results. A verified Worker and
+Builds repository can expose an absent or unavailable current build together with a recovered branch
+preview. The recovered URL is branch navigation only. It does not claim that the latest pull request
+commit was built. An exact current-build check URL has priority over comment recovery.
 
 A Convex branch deployment belongs to a row only when the pull request head is in the vault
 repository, the project is directly attached to the vault, the current Convex credential can read
@@ -173,6 +195,10 @@ Tests must prove:
   is visibly branch-scoped;
 - an exact Cloudflare build exposes its provider logs link;
 - an exact Cloudflare build check exposes its stable branch preview instead of its version preview;
+- comment metadata selects only the exact Cloudflare Bot before any body is read;
+- a recovered Cloudflare branch preview can remain visible without claiming a current build;
+- comment pagination, body identity, malformed URLs, and distinct URL ambiguity fail closed per pull
+  request;
 - an exact branch tree uses the immutable tree SHA returned for that branch commit;
 - no deleted table or action remains in generated Convex bindings, cleanup registries, or tests.
 

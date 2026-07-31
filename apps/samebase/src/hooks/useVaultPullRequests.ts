@@ -95,7 +95,9 @@ function resourcesNeedPolling(resources: PullRequestResources[] | undefined): bo
       pullRequest.workers.some(
         (worker) =>
           worker.state === "available" &&
-          (worker.cloudflareBuild.state === "queued" || worker.cloudflareBuild.state === "running"),
+          worker.cloudflareBuild.state === "available" &&
+          (worker.cloudflareBuild.buildState === "queued" ||
+            worker.cloudflareBuild.buildState === "running"),
       ),
     ) === true
   );

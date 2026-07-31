@@ -2,16 +2,20 @@ import { describe, expect, it } from "vite-plus/test";
 
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import {
+  normalizeGitHubCloudflareCommentBodyReads,
+  normalizeGitHubCloudflareCommentPage,
   normalizeGitHubPullRequestResourceHeadReads,
-  recoverGitHubPullRequestResourceHeadsFromError,
+  recoverGitHubPullRequestGraphqlData,
   resolveCloudflareBranchPreviewUrl,
+  resolveCloudflareCommentBranchPreviewUrl,
+  resolveCloudflareWorkerObservation,
   resolveConvexPreviewDeployment,
   validatePullRequestResourceIds,
   type PullRequestResourceHead,
 } from "./pullRequestResources";
 import { buildCloudflareBuildLogsUrl } from "./providerDashboardUrls";
 
-const head: PullRequestResourceHead = {
+const headBase: Omit<PullRequestResourceHead, "cloudflareComments"> = {
   id: "PR_17",
   url: "https://github.com/samebase/samebase/pull/17",
   isCrossRepository: false,
@@ -34,6 +38,10 @@ Preview Alias URL: https://feature-live-truth-samebase-worker.samebase.workers.d
       },
     ],
   },
+};
+const head: PullRequestResourceHead = {
+  ...headBase,
+  cloudflareComments: { state: "available", bodies: [] },
 };
 
 function previewDeployment(
@@ -70,7 +78,7 @@ function pullRequestNodeGraphqlError(args: { data: unknown; type?: string }) {
       {
         type: args.type ?? "NOT_FOUND",
         message: "Could not resolve to a node.",
-        path: ["nodes"],
+        path: ["nodes", 0],
         extensions: {},
         locations: [{ line: 1, column: 34 }],
       },
@@ -153,6 +161,594 @@ Preview Alias URL: https://other-samebase-worker.samebase.workers.dev`,
         build,
       }),
     ).toEqual({ state: "unavailable", reason: "url_ambiguous" });
+    expect(
+      resolveCloudflareBranchPreviewUrl({
+        checks: {
+          state: "available",
+          runs: [{ ...run, summary: "Preview Alias URL: https://invalid.example.com" }],
+        },
+        workerName: "samebase-worker",
+        build,
+      }),
+    ).toEqual({ state: "unavailable", reason: "url_malformed" });
+  });
+});
+
+describe("Cloudflare pull request comment metadata", () => {
+  const cloudflareAuthor = {
+    __typename: "Bot",
+    id: "MDM6Qm90NzMxMzk0MDI=",
+  };
+
+  it("selects only the exact Cloudflare Bot id", () => {
+    expect(
+      normalizeGitHubCloudflareCommentPage({
+        totalCount: 3,
+        pageInfo: { hasNextPage: false, endCursor: "cursor-3" },
+        nodes: [
+          {
+            __typename: "IssueComment",
+            id: "IC_cloudflare",
+            author: cloudflareAuthor,
+          },
+          {
+            __typename: "IssueComment",
+            id: "IC_spoof",
+            author: {
+              __typename: "User",
+              id: "MDM6Qm90NzMxMzk0MDI=",
+            },
+          },
+          {
+            __typename: "IssueComment",
+            id: "IC_other_bot",
+            author: { __typename: "Bot", id: "BOT_other" },
+          },
+        ],
+      }),
+    ).toEqual({
+      state: "available",
+      allCommentIds: ["IC_cloudflare", "IC_spoof", "IC_other_bot"],
+      cloudflareCommentIds: ["IC_cloudflare"],
+      totalCount: 3,
+      after: null,
+    });
+  });
+
+  it("completes a stable page boundary and keeps selected ids", () => {
+    const first = normalizeGitHubCloudflareCommentPage({
+      totalCount: 2,
+      pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+      nodes: [
+        {
+          __typename: "IssueComment",
+          id: "IC_1",
+          author: cloudflareAuthor,
+        },
+      ],
+    });
+    if (first.state !== "available") {
+      throw new Error("Expected an available first comment page.");
+    }
+
+    expect(
+      normalizeGitHubCloudflareCommentPage(
+        {
+          totalCount: 2,
+          pageInfo: { hasNextPage: false, endCursor: "cursor-2" },
+          nodes: [
+            {
+              __typename: "IssueComment",
+              id: "IC_2",
+              author: { __typename: "User" },
+            },
+          ],
+        },
+        first,
+      ),
+    ).toEqual({
+      state: "available",
+      allCommentIds: ["IC_1", "IC_2"],
+      cloudflareCommentIds: ["IC_1"],
+      totalCount: 2,
+      after: null,
+    });
+  });
+
+  it("fails closed when a page repeats an id, changes the count, or does not advance", () => {
+    const previous = {
+      state: "available" as const,
+      allCommentIds: ["IC_1"],
+      cloudflareCommentIds: ["IC_1"],
+      totalCount: 2,
+      after: "cursor-1",
+    };
+    const page = {
+      totalCount: 2,
+      pageInfo: { hasNextPage: false, endCursor: "cursor-2" },
+      nodes: [
+        {
+          __typename: "IssueComment",
+          id: "IC_1",
+          author: cloudflareAuthor,
+        },
+      ],
+    };
+
+    expect(normalizeGitHubCloudflareCommentPage(page, previous)).toEqual({
+      state: "unavailable",
+    });
+    expect(normalizeGitHubCloudflareCommentPage({ ...page, totalCount: 3 }, previous)).toEqual({
+      state: "unavailable",
+    });
+    expect(
+      normalizeGitHubCloudflareCommentPage(
+        {
+          ...page,
+          pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+          nodes: [
+            {
+              __typename: "IssueComment",
+              id: "IC_2",
+              author: cloudflareAuthor,
+            },
+          ],
+        },
+        previous,
+      ),
+    ).toEqual({ state: "unavailable" });
+  });
+});
+
+describe("Cloudflare pull request comment bodies", () => {
+  const comment = {
+    __typename: "IssueComment",
+    id: "IC_1",
+    body: "body one",
+    author: {
+      __typename: "Bot",
+      id: "MDM6Qm90NzMxMzk0MDI=",
+    },
+    pullRequest: {
+      id: "PR_17",
+      state: "OPEN",
+      repository: { databaseId: 42 },
+    },
+  };
+
+  it("maps bodies by returned id instead of response order", () => {
+    expect(
+      normalizeGitHubCloudflareCommentBodyReads(
+        {
+          nodes: [
+            {
+              ...comment,
+              id: "IC_2",
+              body: "body two",
+              pullRequest: {
+                id: "PR_18",
+                state: "OPEN",
+                repository: { databaseId: 42 },
+              },
+            },
+            comment,
+          ],
+        },
+        {
+          ghRepoId: "42",
+          requests: [
+            { commentId: "IC_1", pullRequestId: "PR_17" },
+            { commentId: "IC_2", pullRequestId: "PR_18" },
+          ],
+        },
+      ),
+    ).toEqual([
+      {
+        state: "available",
+        commentId: "IC_1",
+        pullRequestId: "PR_17",
+        body: "body one",
+      },
+      {
+        state: "available",
+        commentId: "IC_2",
+        pullRequestId: "PR_18",
+        body: "body two",
+      },
+    ]);
+  });
+
+  it("rejects an author spoof or a foreign pull request identity", () => {
+    const request = [{ commentId: "IC_1", pullRequestId: "PR_17" }];
+    expect(
+      normalizeGitHubCloudflareCommentBodyReads(
+        {
+          nodes: [
+            {
+              ...comment,
+              author: {
+                __typename: "Bot",
+                id: "BOT_spoof",
+              },
+            },
+          ],
+        },
+        { ghRepoId: "42", requests: request },
+      ),
+    ).toEqual([{ state: "unavailable", ...request[0] }]);
+    expect(
+      normalizeGitHubCloudflareCommentBodyReads(
+        {
+          nodes: [
+            {
+              ...comment,
+              pullRequest: {
+                id: "PR_other",
+                state: "OPEN",
+                repository: { databaseId: 42 },
+              },
+            },
+          ],
+        },
+        { ghRepoId: "42", requests: request },
+      ),
+    ).toEqual([{ state: "unavailable", ...request[0] }]);
+  });
+
+  it("rejects duplicate, wrong-type, extra, and incomplete nodes", () => {
+    const requests = [
+      { commentId: "IC_1", pullRequestId: "PR_17" },
+      { commentId: "IC_2", pullRequestId: "PR_18" },
+    ];
+    expect(
+      normalizeGitHubCloudflareCommentBodyReads(
+        { nodes: [comment, comment] },
+        { ghRepoId: "42", requests },
+      ),
+    ).toEqual(requests.map((request) => ({ state: "unavailable", ...request })));
+    expect(
+      normalizeGitHubCloudflareCommentBodyReads(
+        {
+          nodes: [
+            { __typename: "PullRequest", id: "IC_1" },
+            {
+              ...comment,
+              id: "IC_2",
+              pullRequest: {
+                id: "PR_18",
+                state: "OPEN",
+                repository: { databaseId: 42 },
+              },
+            },
+          ],
+        },
+        { ghRepoId: "42", requests },
+      ),
+    ).toEqual([
+      { state: "unavailable", ...requests[0] },
+      {
+        state: "available",
+        ...requests[1],
+        body: "body one",
+      },
+    ]);
+    expect(
+      normalizeGitHubCloudflareCommentBodyReads(
+        { nodes: [comment, { ...comment, id: "IC_extra" }] },
+        { ghRepoId: "42", requests },
+      ),
+    ).toEqual(requests.map((request) => ({ state: "unavailable", ...request })));
+    expect(
+      normalizeGitHubCloudflareCommentBodyReads({ nodes: [comment] }, { ghRepoId: "42", requests }),
+    ).toEqual(requests.map((request) => ({ state: "unavailable", ...request })));
+  });
+});
+
+describe("resolveCloudflareCommentBranchPreviewUrl", () => {
+  function workersComment(
+    previewCell: string,
+    workerName = "samebase-worker",
+    logsUrl = `https://dash.cloudflare.com/?to=/account-1/workers/services/view/${workerName}/production/builds/build-1`,
+    statusCell = `[View logs](${logsUrl})`,
+  ) {
+    return `## Cloudflare Workers
+
+| Status | Name | Latest Commit | Preview URL | Updated (UTC) |
+| -|-|-|-|-|
+| ${statusCell} | ${workerName} | abc123 | ${previewCell} | now |`;
+  }
+
+  const branchPreview =
+    "<a href='https://feature-samebase-worker.example.workers.dev'>Branch Preview URL</a>";
+
+  it("binds the exact Workers row to the attached account and canonicalizes equal URLs", () => {
+    expect(
+      resolveCloudflareCommentBranchPreviewUrl({
+        comments: {
+          state: "available",
+          bodies: [
+            workersComment(branchPreview),
+            workersComment(
+              '<a href="https://feature-samebase-worker.example.workers.dev/">Branch Preview URL</a>',
+            ),
+          ],
+        },
+        accountId: "account-1",
+        workerName: "samebase-worker",
+      }),
+    ).toEqual({
+      state: "available",
+      url: "https://feature-samebase-worker.example.workers.dev",
+    });
+  });
+
+  it("fails closed for strict URL failures", () => {
+    expect(
+      resolveCloudflareCommentBranchPreviewUrl({
+        comments: {
+          state: "available",
+          bodies: [
+            workersComment(
+              "<a href='http://feature-samebase-worker.example.workers.dev'>Branch Preview URL</a>",
+            ),
+            workersComment(
+              "<a href='https://feature-samebase-worker.example.workers.dev/path'>Branch Preview URL</a>",
+            ),
+            workersComment(
+              "<a href='https://user@feature-samebase-worker.example.workers.dev'>Branch Preview URL</a>",
+            ),
+            workersComment(
+              "<a href='https://feature-samebase-worker.example.workers.dev:8443'>Branch Preview URL</a>",
+            ),
+            workersComment(
+              "<a href='https://feature-samebase-worker.example.workers.dev?key=value'>Branch Preview URL</a>",
+            ),
+            workersComment(
+              "<a href='https://feature-samebase-worker.example.workers.dev#fragment'>Branch Preview URL</a>",
+            ),
+            workersComment(
+              "<a href='https://feature-samebase-worker.example.com'>Branch Preview URL</a>",
+            ),
+          ],
+        },
+        accountId: "account-1",
+        workerName: "samebase-worker",
+      }),
+    ).toEqual({ state: "unavailable", reason: "url_malformed" });
+  });
+
+  it("ignores another Worker row", () => {
+    expect(
+      resolveCloudflareCommentBranchPreviewUrl({
+        comments: {
+          state: "available",
+          bodies: [
+            workersComment(
+              "<a href='https://feature-other-worker.example.workers.dev'>Branch Preview URL</a>",
+              "other-worker",
+            ),
+          ],
+        },
+        accountId: "account-1",
+        workerName: "samebase-worker",
+      }),
+    ).toEqual({ state: "absent" });
+  });
+
+  it("rejects a same-name Worker from another account", () => {
+    expect(
+      resolveCloudflareCommentBranchPreviewUrl({
+        comments: {
+          state: "available",
+          bodies: [
+            workersComment(
+              branchPreview,
+              "samebase-worker",
+              "https://dash.cloudflare.com/?to=/foreign-account/workers/services/view/samebase-worker/production/builds/build-1",
+            ),
+          ],
+        },
+        accountId: "account-1",
+        workerName: "samebase-worker",
+      }),
+    ).toEqual({ state: "unavailable", reason: "provider_disagreement" });
+  });
+
+  it("rejects ambiguous or encoded dashboard targets", () => {
+    for (const logsUrl of [
+      "https://dash.cloudflare.com/?to=/account-1/workers/services/view/samebase-worker/production/builds/build-1&extra=true",
+      "https://dash.cloudflare.com/?to=/account-1/workers/services/view/samebase-worker/production/builds/build-1&to=/account-1/workers/services/view/samebase-worker/production/builds/build-2",
+      "https://dash.cloudflare.com/?to=%2Faccount-1%2Fworkers%2Fservices%2Fview%2Fsamebase-worker%2Fproduction%2Fbuilds%2Fbuild-1",
+    ]) {
+      expect(
+        resolveCloudflareCommentBranchPreviewUrl({
+          comments: {
+            state: "available",
+            bodies: [workersComment(branchPreview, "samebase-worker", logsUrl)],
+          },
+          accountId: "account-1",
+          workerName: "samebase-worker",
+        }),
+      ).toEqual({ state: "unavailable", reason: "provider_disagreement" });
+    }
+  });
+
+  it("rejects one malformed logs link beside a valid link", () => {
+    const logsUrl =
+      "https://dash.cloudflare.com/?to=/account-1/workers/services/view/samebase-worker/production/builds/build-1";
+    expect(
+      resolveCloudflareCommentBranchPreviewUrl({
+        comments: {
+          state: "available",
+          bodies: [
+            workersComment(
+              branchPreview,
+              "samebase-worker",
+              logsUrl,
+              `[View logs](${logsUrl})<br><a href=${logsUrl}>View logs</a>`,
+            ),
+          ],
+        },
+        accountId: "account-1",
+        workerName: "samebase-worker",
+      }),
+    ).toEqual({ state: "unavailable", reason: "provider_disagreement" });
+  });
+
+  it("rejects one malformed branch anchor beside a valid anchor", () => {
+    expect(
+      resolveCloudflareCommentBranchPreviewUrl({
+        comments: {
+          state: "available",
+          bodies: [
+            workersComment(
+              `${branchPreview}<br><a href=https://other-samebase-worker.example.workers.dev>Branch Preview URL</a>`,
+            ),
+          ],
+        },
+        accountId: "account-1",
+        workerName: "samebase-worker",
+      }),
+    ).toEqual({ state: "unavailable", reason: "url_malformed" });
+  });
+
+  it("fails closed for two distinct valid branch URLs", () => {
+    expect(
+      resolveCloudflareCommentBranchPreviewUrl({
+        comments: {
+          state: "available",
+          bodies: [
+            workersComment(
+              "<a href='https://feature-samebase-worker.example.workers.dev'>Branch Preview URL</a>",
+            ),
+            workersComment(
+              "<a href='https://other-samebase-worker.example.workers.dev'>Branch Preview URL</a>",
+            ),
+          ],
+        },
+        accountId: "account-1",
+        workerName: "samebase-worker",
+      }),
+    ).toEqual({ state: "unavailable", reason: "url_ambiguous" });
+  });
+});
+
+describe("resolveCloudflareWorkerObservation", () => {
+  const recoveredComment = {
+    state: "available" as const,
+    bodies: [
+      `| Status | Name | Preview URL |
+| -|-|-|
+| [View logs](https://dash.cloudflare.com/?to=/account-1/workers/services/view/samebase-worker/production/builds/build-1) | samebase-worker | <a href='https://older-samebase-worker.example.workers.dev'>Branch Preview URL</a> |`,
+    ],
+  };
+
+  it("keeps the exact current check URL when the comment is unavailable", () => {
+    expect(
+      resolveCloudflareWorkerObservation({
+        accountId: "account-1",
+        workerName: "samebase-worker",
+        match: {
+          state: "available",
+          buildUuid: "build-1",
+          buildState: "success",
+          createdAt: 1,
+          finishedAt: 2,
+        },
+        buildsExhausted: true,
+        previewUrlsEnabled: true,
+        checks: head.cloudflareChecks,
+        comments: { state: "unavailable" },
+        commentFallbackHasUniqueWorkerName: true,
+      }),
+    ).toMatchObject({
+      state: "available",
+      cloudflareBuild: { state: "available", buildState: "success" },
+      cloudflareBranchPreview: {
+        state: "available",
+        url: "https://feature-live-truth-samebase-worker.samebase.workers.dev",
+      },
+    });
+  });
+
+  it("returns an unavailable build with an available recovered preview", () => {
+    expect(
+      resolveCloudflareWorkerObservation({
+        accountId: "account-1",
+        workerName: "samebase-worker",
+        match: { state: "absent" },
+        buildsExhausted: false,
+        previewUrlsEnabled: true,
+        checks: head.cloudflareChecks,
+        comments: recoveredComment,
+        commentFallbackHasUniqueWorkerName: true,
+      }),
+    ).toEqual({
+      state: "available",
+      cloudflareBuild: { state: "unavailable" },
+      cloudflareBranchPreview: {
+        state: "available",
+        url: "https://older-samebase-worker.example.workers.dev",
+      },
+    });
+  });
+
+  it("disables comment recovery when attached Worker names are duplicated", () => {
+    expect(
+      resolveCloudflareWorkerObservation({
+        accountId: "account-1",
+        workerName: "samebase-worker",
+        match: { state: "absent" },
+        buildsExhausted: true,
+        previewUrlsEnabled: true,
+        checks: head.cloudflareChecks,
+        comments: recoveredComment,
+        commentFallbackHasUniqueWorkerName: false,
+      }),
+    ).toEqual({
+      state: "available",
+      cloudflareBuild: { state: "absent" },
+      cloudflareBranchPreview: { state: "unavailable" },
+    });
+  });
+
+  it("blocks an older comment when the current alias is malformed", () => {
+    const currentRun =
+      head.cloudflareChecks.state === "available" ? head.cloudflareChecks.runs[0] : null;
+    if (currentRun === null) {
+      throw new Error("Expected available Cloudflare check fixture.");
+    }
+
+    expect(
+      resolveCloudflareWorkerObservation({
+        accountId: "account-1",
+        workerName: "samebase-worker",
+        match: {
+          state: "available",
+          buildUuid: "build-1",
+          buildState: "success",
+          createdAt: 1,
+          finishedAt: 2,
+        },
+        buildsExhausted: true,
+        previewUrlsEnabled: true,
+        checks: {
+          state: "available",
+          runs: [
+            {
+              ...currentRun,
+              summary: "Preview Alias URL: https://invalid.example.com",
+            },
+          ],
+        },
+        comments: recoveredComment,
+        commentFallbackHasUniqueWorkerName: true,
+      }),
+    ).toMatchObject({
+      state: "available",
+      cloudflareBuild: { state: "available" },
+      cloudflareBranchPreview: { state: "unavailable" },
+    });
   });
 });
 
@@ -167,6 +763,11 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
     headRepository: { id: "R_base" },
     headRefName: "feature/live-truth",
     headRefOid: "abc123",
+    comments: {
+      totalCount: 0,
+      pageInfo: { hasNextPage: false, endCursor: null },
+      nodes: [],
+    },
     commits: {
       nodes: [
         {
@@ -194,9 +795,45 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
     expect(
       normalizeGitHubPullRequestResourceHeadReads(
         { nodes: [providerHead] },
-        { ghRepoId: "42", pullRequestIds: ["PR_17"] },
+        { ghRepoId: "42", pullRequestIds: ["PR_17"], readCloudflareComments: true },
       ),
-    ).toEqual([{ state: "available", head }]);
+    ).toEqual([
+      {
+        state: "available",
+        head: {
+          ...headBase,
+          cloudflareCommentScan: {
+            state: "available",
+            allCommentIds: [],
+            cloudflareCommentIds: [],
+            totalCount: 0,
+            after: null,
+          },
+        },
+      },
+    ]);
+  });
+
+  it("does not require comment metadata when comment recovery is disabled", () => {
+    expect(
+      normalizeGitHubPullRequestResourceHeadReads(
+        { nodes: [{ ...providerHead, comments: undefined }] },
+        { ghRepoId: "42", pullRequestIds: ["PR_17"], readCloudflareComments: false },
+      ),
+    ).toMatchObject([
+      {
+        state: "available",
+        head: {
+          cloudflareCommentScan: {
+            state: "available",
+            allCommentIds: [],
+            cloudflareCommentIds: [],
+            totalCount: 0,
+            after: null,
+          },
+        },
+      },
+    ]);
   });
 
   it("marks Cloudflare checks unavailable when GitHub truncates the filtered connection", () => {
@@ -222,12 +859,22 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
             },
           ],
         },
-        { ghRepoId: "42", pullRequestIds: ["PR_17"] },
+        { ghRepoId: "42", pullRequestIds: ["PR_17"], readCloudflareComments: true },
       ),
     ).toEqual([
       {
         state: "available",
-        head: { ...head, cloudflareChecks: { state: "unavailable" } },
+        head: {
+          ...headBase,
+          cloudflareChecks: { state: "unavailable" },
+          cloudflareCommentScan: {
+            state: "available",
+            allCommentIds: [],
+            cloudflareCommentIds: [],
+            totalCount: 0,
+            after: null,
+          },
+        },
       },
     ]);
   });
@@ -236,7 +883,7 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
     expect(() =>
       normalizeGitHubPullRequestResourceHeadReads(
         { nodes: [{ ...providerHead, repository: { databaseId: 99 } }] },
-        { ghRepoId: "42", pullRequestIds: ["PR_17"] },
+        { ghRepoId: "42", pullRequestIds: ["PR_17"], readCloudflareComments: true },
       ),
     ).toThrow("GitHub pull request identity changed.");
   });
@@ -245,7 +892,11 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
     expect(
       normalizeGitHubPullRequestResourceHeadReads(
         { nodes: [{ ...providerHead, state: "MERGED" }, null] },
-        { ghRepoId: "42", pullRequestIds: ["PR_17", "PR_18"] },
+        {
+          ghRepoId: "42",
+          pullRequestIds: ["PR_17", "PR_18"],
+          readCloudflareComments: true,
+        },
       ),
     ).toEqual([
       { state: "unavailable", pullRequestId: "PR_17" },
@@ -255,16 +906,108 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
 
   it("recovers valid siblings when GitHub reports only missing nodes", () => {
     const error = pullRequestNodeGraphqlError({ data: { nodes: [providerHead, null] } });
-    const response = recoverGitHubPullRequestResourceHeadsFromError(error);
+    const response = recoverGitHubPullRequestGraphqlData(error);
 
     expect(
       normalizeGitHubPullRequestResourceHeadReads(response, {
         ghRepoId: "42",
         pullRequestIds: ["PR_17", "PR_18"],
+        readCloudflareComments: true,
       }),
     ).toEqual([
-      { state: "available", head },
+      {
+        state: "available",
+        head: {
+          ...headBase,
+          cloudflareCommentScan: {
+            state: "available",
+            allCommentIds: [],
+            cloudflareCommentIds: [],
+            totalCount: 0,
+            after: null,
+          },
+        },
+      },
       { state: "unavailable", pullRequestId: "PR_18" },
+    ]);
+  });
+
+  it("recovers head data when only the comment connection fails", () => {
+    const error = pullRequestNodeGraphqlError({
+      data: { nodes: [{ ...providerHead, comments: null }] },
+      type: "FORBIDDEN",
+    });
+    error.errors[0].path = ["nodes", 0, "comments"];
+
+    expect(
+      normalizeGitHubPullRequestResourceHeadReads(recoverGitHubPullRequestGraphqlData(error), {
+        ghRepoId: "42",
+        pullRequestIds: ["PR_17"],
+        readCloudflareComments: true,
+      }),
+    ).toEqual([
+      {
+        state: "available",
+        head: {
+          ...headBase,
+          cloudflareCommentScan: { state: "unavailable" },
+        },
+      },
+    ]);
+  });
+
+  it("isolates a nested comment field error to its pull request scan", () => {
+    const error = pullRequestNodeGraphqlError({
+      data: {
+        nodes: [
+          {
+            ...providerHead,
+            comments: {
+              totalCount: 1,
+              pageInfo: { hasNextPage: false, endCursor: null },
+              nodes: [{ __typename: "IssueComment", id: "IC_cloudflare", author: null }],
+            },
+          },
+          {
+            ...providerHead,
+            id: "PR_18",
+            url: "https://github.com/samebase/samebase/pull/18",
+          },
+        ],
+      },
+      type: "FORBIDDEN",
+    });
+    error.errors[0].path = ["nodes", 0, "comments", "nodes", 0, "author"];
+
+    expect(
+      normalizeGitHubPullRequestResourceHeadReads(recoverGitHubPullRequestGraphqlData(error), {
+        ghRepoId: "42",
+        pullRequestIds: ["PR_17", "PR_18"],
+        readCloudflareComments: true,
+      }),
+    ).toEqual([
+      {
+        state: "available",
+        head: {
+          ...headBase,
+          cloudflareCommentScan: { state: "unavailable" },
+        },
+      },
+      {
+        state: "available",
+        head: {
+          ...headBase,
+          id: "PR_18",
+          url: "https://github.com/samebase/samebase/pull/18",
+          cloudflareCommentScan: {
+            state: "available",
+            allCommentIds: [],
+            cloudflareCommentIds: [],
+            totalCount: 0,
+            after: null,
+          },
+        },
+      },
     ]);
   });
 
@@ -278,7 +1021,7 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
       locations: [{ line: 1, column: 34 }],
     });
 
-    expect(() => recoverGitHubPullRequestResourceHeadsFromError(error)).toThrow(
+    expect(() => recoverGitHubPullRequestGraphqlData(error)).toThrow(
       "Request failed due to following response errors",
     );
   });
