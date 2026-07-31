@@ -65,6 +65,7 @@ export type VaultPullRequestLoadMoreState =
 type SettledPullRequests = {
   state: "current" | "stale";
   defaultBranch: VaultDefaultBranchObservation | null;
+  openPullRequestCount: number;
   allPullRequests: VaultPullRequest[];
   refreshing: boolean;
   resourcesStale: boolean;
@@ -215,6 +216,7 @@ export function useVaultPullRequests(args: {
     [uniquePages.pullRequests],
   );
   const defaultBranch = defaultBranchFromPage(pages.at(0));
+  const openPullRequestCount = pages.at(0)?.repository?.pullRequests.totalCount;
   const pullRequestResourceIdentityPages = uniquePages.pullRequestResourceIdentityPages;
 
   const resourceQueries = useQueries({
@@ -285,6 +287,9 @@ export function useVaultPullRequests(args: {
   if (!pullRequestQuery.data) {
     return pullRequestQuery.isError ? { state: "problem", reload } : { state: "loading" };
   }
+  if (openPullRequestCount === undefined) {
+    return { state: "problem", reload };
+  }
 
   const loadMoreState: VaultPullRequestLoadMoreState = pullRequestQuery.isFetchingNextPage
     ? { state: "loading" }
@@ -300,6 +305,7 @@ export function useVaultPullRequests(args: {
         ? "stale"
         : "current",
     defaultBranch,
+    openPullRequestCount,
     allPullRequests,
     refreshing: pullRequestQuery.isFetching || resourceQueries.some((query) => query.isFetching),
     resourcesStale: [...resourcesByPullRequestId.values()].some(

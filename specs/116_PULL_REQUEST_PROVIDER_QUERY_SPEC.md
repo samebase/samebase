@@ -43,6 +43,7 @@ generations, server-side filter scans, or persisted rows.
 The browser owns pagination and presentation:
 
 - the first page loads the six most recently updated open pull requests;
+- the section label shows the provider `totalCount`, including pull requests not loaded yet;
 - later six-item pages load automatically when the scroll sentinel enters view;
 - one TanStack infinite query owns all loaded pages and refreshes them together;
 - every loaded open pull request is shown, including drafts;

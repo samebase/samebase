@@ -279,6 +279,7 @@ describe("useVaultPullRequests", () => {
       after: null,
     });
     expect(settledState().allPullRequests.map((pullRequest) => pullRequest.number)).toEqual([1260]);
+    expect(settledState().openPullRequestCount).toBe(2);
     expect(settledState().allPullRequests[0]?.isDraft).toBe(true);
     expect(settledState().defaultBranch).toMatchObject({
       headCommitOid: "81145b7d2a32186823452c7515b2d5ba2d79b350",
