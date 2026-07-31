@@ -3,25 +3,33 @@
 ## Status
 
 - Application: [nicu-chiciuc/bristol_tsx](https://github.com/nicu-chiciuc/bristol_tsx)
-- Production gate: [Bristol pull request 15](https://github.com/nicu-chiciuc/bristol_tsx/pull/15)
-- State: implementation and preview validation complete, production cutover pending
-- Reviewed head: `c867aa0c3dea87579c1c619a2cc7fbda6d3c0e7c`
+- Production migration:
+  [Bristol pull request 15](https://github.com/nicu-chiciuc/bristol_tsx/pull/15)
+- Cutover record: [Bristol pull request 17](https://github.com/nicu-chiciuc/bristol_tsx/pull/17)
+- State: production cutover and 30-minute observation complete
+- Migration commit: `6fd4997e49f72c96286ea12a7e9426d436942356`
+- Cutover record commit: `e76272784aeb0b9d0679ab2901017761a957d6de`
 - Initial hosting case:
   [Netlify to Cloudflare Workers](../../2026-07-29-bristol-tsx-netlify-to-cloudflare-workers.md)
 
 ## Result
 
-Bristol moved its branch implementation from Next.js and OpenNext to TanStack Start on Cloudflare
+Bristol moved its production application from Next.js and OpenNext to TanStack Start on Cloudflare
 Workers. The result preserves private server rendering, Convex authentication, routes, browser
 behavior, and the Netlify rollback target.
 
-The production pull request is still draft. Its exact head passed the clean provider build,
-application and contract tests, authenticated Worker acceptance, two linked-worktree cycles, and the
-public preview route contract. Preview inspection now reports a complete source-to-Worker-to-Convex
-join.
+The merged migration commit passed the clean provider build, application and contract tests,
+authenticated Worker acceptance, two linked-worktree cycles, and the public preview route contract.
+Preview inspection reported a complete source-to-Worker-to-Convex join.
 
 Bristol leaves `AUTH_LOG_LEVEL` unset in every deployment. Password authentication rejects an
-explicit `DEBUG` value. The cutover still needs operator approval.
+explicit `DEBUG` value.
+
+After the cutover, the production route contract passed through the 30-minute observation window.
+Telemetry covered 106 invocations for the exact Worker version, with no HTTP 5xx responses,
+exceptions, or non-`ok` outcomes. Existing Convex data remained available without exposing its
+contents, no production health data was written, and the frozen Netlify deployment remains available
+for rollback.
 
 ## What The First Process Missed
 
@@ -75,7 +83,7 @@ TypeScript bootstrap, and uses Vite+ after installation.
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Bristol      | Data functions require authentication, sign-out clears private caches, and the TanStack Worker path has synthetic SSR and browser tests.                                                         |
 | Bristol      | Public scripts describe operator actions. Unused aliases and spike scripts were removed after the runtime decision.                                                                              |
-| Bristol      | One draft promotion pull request contains the reviewed stack, so the default branch gets one production cutover.                                                                                 |
+| Bristol      | One promotion pull request contained the reviewed stack, so the default branch received one production cutover.                                                                                  |
 | Samebase app | [samebase/app pull request 23](https://github.com/samebase/app/pull/23) added Node automation type checks to normal checks and the real Cloudflare build.                                        |
 | Samebase     | [Samebase pull request 1317](https://github.com/samebase/samebase/pull/1317) made TypeScript source and the Vite+ and Oxlint toolchain explicit, and moved Remotion checks to the root contract. |
 | Shared       | The manager preflight now covers package manager, source model, scripts, tool ownership, framework, providers, validation, and version pins.                                                     |
@@ -94,8 +102,8 @@ Preview cleanup was a special Samebase need because Samebase provisioning create
 resources. It is not a general adoption requirement. A project needs cleanup only for resources that
 its own workflow creates.
 
-The initial hosting record owns the reusable Cloudflare cutover sequence. The production pull
-request owns Bristol's current commands, exact provider evidence, and release gate.
+The initial hosting record owns the reusable Cloudflare cutover sequence. The merged production pull
+request and cutover record own Bristol's current commands and exact provider evidence.
 
 ## Next Experiment
 
