@@ -908,6 +908,7 @@ describe("PullRequestsSection", () => {
     const pullRequests = {
       state: "current",
       defaultBranch: null,
+      openPullRequestCount: 1,
       refreshing: false,
       allPullRequests: [pullRequest],
       resourcesStale: false,
@@ -955,6 +956,10 @@ describe("PullRequestsSection", () => {
           </TestRouterProvider>,
         );
       });
+
+      expect(rootElement.querySelector("#vault-pull-requests-heading")?.textContent).toBe(
+        "1 open pull request",
+      );
 
       const expandButton = rootElement.querySelector(
         'button[aria-label="Show pull request #41 details"]',

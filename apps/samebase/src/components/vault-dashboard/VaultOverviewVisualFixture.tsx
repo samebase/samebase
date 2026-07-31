@@ -637,6 +637,7 @@ function fixturePullRequests(
   return {
     state: "current",
     defaultBranch,
+    openPullRequestCount: pullRequests.length,
     refreshing: false,
     allPullRequests: [...pullRequests],
     resourcesStale: false,
@@ -1181,6 +1182,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
     mode === "vault-overview-v2-auto-pagination"
       ? {
           ...currentPullRequests,
+          openPullRequestCount: AUTO_PAGINATION_PULL_REQUESTS.length,
           loadMore: nextPullRequestPageLoaded
             ? { state: "exhausted" }
             : {

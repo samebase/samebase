@@ -199,7 +199,9 @@ export function PullRequestsSection({
         id="vault-pull-requests-heading"
         className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
       >
-        Open pull requests
+        {pullRequests.state === "current" || pullRequests.state === "stale"
+          ? `${pullRequests.openPullRequestCount} open ${pullRequests.openPullRequestCount === 1 ? "pull request" : "pull requests"}`
+          : "Open pull requests"}
       </h2>
       <div className="border-t border-border">
         {pullRequests.state === "loading" ? (
