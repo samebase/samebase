@@ -163,13 +163,23 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   await expect(firstPullRequestRow).toContainText("3 files");
 
   await firstPullRequest.click();
-  await expect(fixture.getByRole("link", { name: "Branch preview" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Built" }).first()).toBeVisible();
+  await expect(firstPullRequestRow.getByText("Unavailable", { exact: true })).toBeVisible();
   await expect(
-    fixture.getByRole("link", { name: "precise-otter-1260", exact: true }),
+    firstPullRequestRow.getByRole("link", { name: "Branch preview", exact: true }),
+  ).toHaveAttribute(
+    "href",
+    "https://codex-restore-convex-dashboard-links-samebase-worker.samebase.workers.dev",
+  );
+  await expect(firstPullRequestRow.getByRole("link", { name: "Built", exact: true })).toBeVisible();
+  await expect(
+    firstPullRequestRow.getByRole("link", { name: "precise-otter-1260", exact: true }),
   ).toBeVisible();
-  await expect(fixture.getByText("May be from an earlier commit", { exact: true })).toBeVisible();
-  await fixture.getByRole("button", { name: "Open precise-otter-1260 actions" }).click();
+  await expect(
+    firstPullRequestRow.getByText("May be from an earlier commit", { exact: true }),
+  ).toBeVisible();
+  await firstPullRequestRow
+    .getByRole("button", { name: "Open precise-otter-1260 actions" })
+    .click();
   await expect(page.getByRole("menuitem", { name: "Data" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Schema" })).toHaveCount(0);
   await page.keyboard.press("Escape");

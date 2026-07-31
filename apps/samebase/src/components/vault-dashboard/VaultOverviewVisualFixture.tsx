@@ -655,16 +655,25 @@ function fixturePullRequests(
                       workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
                       rootDirectory: "apps/samebase",
                       workerName: "samebase-worker",
-                      cloudflareBuild: {
-                        uuid: "da8f8183-6ef8-4e92-bc32-34c04f117f6f",
-                        state: "success" as const,
-                        logsUrl:
-                          "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-worker/production/builds/da8f8183-6ef8-4e92-bc32-34c04f117f6f",
-                      },
+                      cloudflareBuild: { state: "unavailable" as const },
                       cloudflareBranchPreview: {
                         state: "available" as const,
                         url: "https://codex-restore-convex-dashboard-links-samebase-worker.samebase.workers.dev",
                       },
+                    },
+                    {
+                      state: "available" as const,
+                      workerId: LIST_SPACING_DOMAIN_WORKER_ID,
+                      rootDirectory: "apps/domain-router",
+                      workerName: "domain-router",
+                      cloudflareBuild: {
+                        state: "available" as const,
+                        uuid: "successful-build-1260",
+                        buildState: "success" as const,
+                        logsUrl:
+                          "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/domain-router/production/builds/successful-build-1260",
+                      },
+                      cloudflareBranchPreview: { state: "absent" as const },
                     },
                   ]
                 : pullRequest.number === 1259
@@ -675,8 +684,9 @@ function fixturePullRequests(
                         rootDirectory: "apps/domain-router",
                         workerName: "domain-router",
                         cloudflareBuild: {
+                          state: "available" as const,
                           uuid: "running-build-1259",
-                          state: "running" as const,
+                          buildState: "running" as const,
                           logsUrl:
                             "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/domain-router/production/builds/running-build-1259",
                         },
