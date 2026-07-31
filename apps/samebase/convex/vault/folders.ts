@@ -65,7 +65,7 @@ async function upsertFolderAssignment(
     .withIndex("by_userId_and_vaultId", (q) =>
       q.eq("userId", args.userId).eq("vaultId", args.vaultId),
     )
-    .first();
+    .unique();
 
   if (assignment) {
     await ctx.db.patch(assignment._id, { folderId: args.folderId });
@@ -119,7 +119,7 @@ export const createVaultFolder = mutation({
     const existing = await ctx.db
       .query("ui_vaultFolders")
       .withIndex("by_userId_and_nameKey", (q) => q.eq("userId", userId).eq("nameKey", nameKey))
-      .first();
+      .unique();
     if (existing) {
       throw new Error("Folder name is already in use.");
     }
@@ -152,7 +152,7 @@ export const renameVaultFolder = mutation({
     const existing = await ctx.db
       .query("ui_vaultFolders")
       .withIndex("by_userId_and_nameKey", (q) => q.eq("userId", userId).eq("nameKey", nameKey))
-      .first();
+      .unique();
     if (existing && existing._id !== folder._id) {
       throw new Error("Folder name is already in use.");
     }
@@ -185,7 +185,7 @@ export const moveVaultToFolder = mutation({
     const assignment = await ctx.db
       .query("ui_vaultFolderAssignments")
       .withIndex("by_userId_and_vaultId", (q) => q.eq("userId", userId).eq("vaultId", args.vaultId))
-      .first();
+      .unique();
 
     if (args.folderId === null) {
       if (assignment) {
