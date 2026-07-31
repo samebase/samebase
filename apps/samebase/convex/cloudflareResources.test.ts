@@ -119,7 +119,10 @@ function buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(): Parameters<
     ghRepoId: "123",
     ghRepoOwnerId: "456",
     defaultBranch: "main",
-    triggerInitialBuild: true,
+    initialBuild: {
+      state: "requested",
+      readCommitHash: async () => "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
     vaultId: "vault-id",
     workerName: "samebase-app",
     workerTag: "worker-tag",
@@ -861,7 +864,7 @@ describe("cloudflare resources", () => {
     expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
   });
 
-  it("wires Workers Builds without patching Convex environment variables", async () => {
+  it("starts the manual initial build at the default-branch commit", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
@@ -883,13 +886,16 @@ describe("cloudflare resources", () => {
       },
     });
     expect(
-      requests.some(
+      requests.find(
         (request) =>
           request.method === "POST" &&
           request.path ===
             "/client/v4/accounts/account-id/builds/triggers/created-trigger-1/builds",
-      ),
-    ).toBe(true);
+      )?.body,
+    ).toEqual({
+      branch: "main",
+      commit_hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    });
     expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
   });
 
@@ -902,7 +908,7 @@ describe("cloudflare resources", () => {
 
     await configureCloudflareWorkerBuildsForGitHub({
       ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
-      triggerInitialBuild: false,
+      initialBuild: { state: "deferred" },
     });
 
     expect(
@@ -914,6 +920,25 @@ describe("cloudflare resources", () => {
     ).toHaveLength(2);
     expect(requests.some((request) => request.path.endsWith("/builds"))).toBe(false);
     expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
+  });
+
+  it("does not request a manual build when the default-branch SHA is invalid", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      triggers: [],
+    });
+
+    await expect(
+      configureCloudflareWorkerBuildsForGitHub({
+        ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+        initialBuild: {
+          state: "requested",
+          readCommitHash: async () => "not-a-commit",
+        },
+      }),
+    ).rejects.toThrow("GitHub default branch ref did not include a valid commit SHA.");
+    expect(requests.some((request) => request.path.endsWith("/builds"))).toBe(false);
   });
 
   it.each([
@@ -950,7 +975,7 @@ describe("cloudflare resources", () => {
     await expect(
       configureCloudflareWorkerBuildsForGitHub({
         ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
-        triggerInitialBuild: false,
+        initialBuild: { state: "deferred" },
       }),
     ).resolves.toMatchObject({
       production: { triggerUuid: "recovered-production-trigger" },
@@ -970,7 +995,7 @@ describe("cloudflare resources", () => {
     await expect(
       configureCloudflareWorkerBuildsForGitHub({
         ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
-        triggerInitialBuild: false,
+        initialBuild: { state: "deferred" },
       }),
     ).rejects.toThrow("Workers Builds trigger creation failed");
 
@@ -1021,6 +1046,7 @@ describe("cloudflare resources", () => {
 
     await rotateConvexDeployKeysForCloudflareWorkerBuilds({
       defaultBranch: "main",
+      readInitialBuildCommitHash: async () => "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       expectedRepoId: "123",
       repositoryFullName: "ada/samebase-app",
       rootDirectory: ".",
@@ -1094,6 +1120,10 @@ describe("cloudflare resources", () => {
     });
     expect(requests[productionPatchIndex]?.body).toEqual(convexEnvVars);
     expect(requests[previewPatchIndex]?.body).toEqual(convexEnvVars);
+    expect(requests[buildIndex]?.body).toEqual({
+      branch: "main",
+      commit_hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    });
   });
 
   it("fails closed when the production trigger does not read back the preview deploy key", async () => {
@@ -1132,6 +1162,7 @@ describe("cloudflare resources", () => {
     await expect(
       rotateConvexDeployKeysForCloudflareWorkerBuilds({
         defaultBranch: "main",
+        readInitialBuildCommitHash: async () => "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         expectedRepoId: "123",
         repositoryFullName: "ada/samebase-app",
         rootDirectory: ".",
@@ -1206,6 +1237,7 @@ describe("cloudflare resources", () => {
     await expect(
       rotateConvexDeployKeysForCloudflareWorkerBuilds({
         defaultBranch: "main",
+        readInitialBuildCommitHash: async () => "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         expectedRepoId: "123",
         repositoryFullName: "ada/samebase-app",
         rootDirectory: ".",
@@ -2376,7 +2408,10 @@ describe("cloudflare resources", () => {
       ghRepoId: "123",
       ghRepoOwnerId: "456",
       defaultBranch: "main",
-      triggerInitialBuild: true,
+      initialBuild: {
+        state: "requested",
+        readCommitHash: async () => "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
       vaultId: "vault-id",
       workerName: "samebase-app",
       workerTag: "worker-tag",

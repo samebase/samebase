@@ -22,7 +22,11 @@ vi.mock("@octokit/rest", () => ({
   },
 }));
 
-import { fetchGitHubConvexCodeLocationDiscovery, fetchGitHubRepoIdentity } from "./githubRepoApi";
+import {
+  fetchGitHubConvexCodeLocationDiscovery,
+  fetchGitHubDefaultBranchHead,
+  fetchGitHubRepoIdentity,
+} from "./githubRepoApi";
 
 describe("GitHub repository API", () => {
   beforeEach(() => {
@@ -51,6 +55,53 @@ describe("GitHub repository API", () => {
       repo: "samebase",
       request: { signal },
     });
+  });
+
+  it("records and reads the current default-branch commit before a manual build", async () => {
+    const signal = new AbortController().signal;
+    const calls: unknown[] = [];
+    octokitMocks.getRef.mockResolvedValue({
+      data: { object: { sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" } },
+    });
+
+    await expect(
+      fetchGitHubDefaultBranchHead({
+        githubAccessToken: "github-token",
+        owner: "samebase",
+        repo: "samebase",
+        expectedRepoId: "123",
+        signal,
+        recordApiCall: async (call) => {
+          calls.push(call);
+        },
+      }),
+    ).resolves.toEqual({
+      defaultBranch: "trunk",
+      commitSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    });
+    expect(octokitMocks.getRef).toHaveBeenCalledWith({
+      owner: "samebase",
+      repo: "samebase",
+      ref: "heads/trunk",
+      request: { signal },
+    });
+    expect(calls).toEqual([
+      expect.objectContaining({ endpoint: "/repos/{owner}/{repo}" }),
+      expect.objectContaining({ endpoint: "/repos/{owner}/{repo}/git/ref/{ref}" }),
+    ]);
+  });
+
+  it("rejects a default-branch ref that is not a full commit SHA", async () => {
+    octokitMocks.getRef.mockResolvedValue({ data: { object: { sha: "short-sha" } } });
+
+    await expect(
+      fetchGitHubDefaultBranchHead({
+        githubAccessToken: "github-token",
+        owner: "samebase",
+        repo: "samebase",
+        expectedRepoId: "123",
+      }),
+    ).rejects.toThrow("GitHub default branch ref did not include a valid commit SHA.");
   });
 
   it("discovers exact regular convex.json blobs from default-branch tree metadata", async () => {

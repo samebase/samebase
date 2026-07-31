@@ -4,6 +4,7 @@ import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
 const accountId = "00000000000000000000000000000001";
+const defaultBranchCommitSha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 function jsonResponse(result: unknown, status = 200): Response {
   return new Response(JSON.stringify(result), {
@@ -201,6 +202,12 @@ function stubExistingWorkersProvider(
     if (url.hostname === "api.github.com" && url.pathname === "/repos/ada/demo") {
       return jsonResponse({ id: 123, default_branch: "main", owner: { id: 456 } });
     }
+    if (
+      url.hostname === "api.github.com" &&
+      decodeURIComponent(url.pathname) === "/repos/ada/demo/git/ref/heads/main"
+    ) {
+      return jsonResponse({ object: { sha: defaultBranchCommitSha } });
+    }
     if (url.pathname === "/client/v4/accounts") {
       return cloudflareResponse([{ id: accountId, name: "Ada Cloudflare", type: "standard" }]);
     }
@@ -243,6 +250,12 @@ function stubConnectWorkerProvider(
     const method = input instanceof Request ? input.method : (init?.method ?? "GET");
     if (url.hostname === "api.github.com" && url.pathname === "/repos/ada/demo") {
       return jsonResponse({ id: 123, default_branch: "main", owner: { id: 456 } });
+    }
+    if (
+      url.hostname === "api.github.com" &&
+      decodeURIComponent(url.pathname) === "/repos/ada/demo/git/ref/heads/main"
+    ) {
+      return jsonResponse({ object: { sha: defaultBranchCommitSha } });
     }
     if (url.pathname === "/client/v4/accounts") {
       return cloudflareResponse([{ id: accountId, name: "Ada Cloudflare", type: "standard" }]);
@@ -399,7 +412,7 @@ describe("vault Cloudflare Worker attachments", () => {
 
   it("records success when a second check confirms the configured Worker", async () => {
     const { asUser, t, vaultId } = await createCloudflareConnectedVault();
-    stubConnectWorkerProvider("verification");
+    const fetchMock = stubConnectWorkerProvider("verification");
 
     await expect(
       asUser.action(api.vault.cloudflare.connectWorker, {
@@ -424,6 +437,15 @@ describe("vault Cloudflare Worker attachments", () => {
     ).resolves.toMatchObject({
       state: "succeeded",
       lastWriteAt: { cloudflare: expect.any(Number) },
+    });
+    const initialBuildRequest = fetchMock.mock.calls.find(([input, init]) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      const method = input instanceof Request ? input.method : init?.method;
+      return method === "POST" && url.pathname.endsWith("/builds");
+    });
+    expect(JSON.parse(String(initialBuildRequest?.[1]?.body))).toEqual({
+      branch: "main",
+      commit_hash: defaultBranchCommitSha,
     });
   });
 

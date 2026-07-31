@@ -1577,8 +1577,14 @@ async function triggerInitialBuild(
     accountId: string;
     triggerUuid: string;
     branch: string;
+    readCommitHash: () => Promise<string>;
   } & CloudflareApiCallOptions,
 ): Promise<void> {
+  const commitHash = await args.readCommitHash();
+  if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(commitHash)) {
+    throw new Error("GitHub default branch ref did not include a valid commit SHA.");
+  }
+
   await args.beforeProviderWrite?.();
   await requestCloudflareApi({
     token: args.token,
@@ -1594,9 +1600,14 @@ async function triggerInitialBuild(
     recordApiCall: args.recordApiCall,
     body: {
       branch: args.branch,
+      commit_hash: commitHash,
     },
   });
 }
+
+type InitialCloudflareWorkersBuild =
+  | { state: "deferred" }
+  | { state: "requested"; readCommitHash: () => Promise<string> };
 
 export type CloudflareWorkersBuilds = {
   rootDirectory: string;
@@ -1649,7 +1660,7 @@ type ConfigureCloudflareWorkerBuildsForGitHubArgs = {
   ghRepoId: string;
   ghRepoOwnerId: string;
   defaultBranch: string;
-  triggerInitialBuild: boolean;
+  initialBuild: InitialCloudflareWorkersBuild;
   vaultId: string;
   workerName: string;
   workerTag: string;
@@ -1664,6 +1675,7 @@ type ConfigureCloudflareWorkerBuildsForGitHubArgs = {
 
 type RotateConvexDeployKeysForCloudflareWorkerBuildsArgs = {
   defaultBranch: string;
+  readInitialBuildCommitHash: () => Promise<string>;
   expectedRepoId: string;
   repositoryFullName: string;
   rootDirectory: string;
@@ -2075,13 +2087,14 @@ export async function configureCloudflareWorkerBuildsForGitHub(
       beforeProviderWrite: args.beforeProviderWrite,
     });
 
-    if (args.triggerInitialBuild) {
+    if (args.initialBuild.state === "requested") {
       step = "trigger_initial_build";
       await triggerInitialBuild({
         token: args.cloudflareToken,
         accountId: args.accountId,
         triggerUuid: build.production.triggerUuid,
         branch: args.defaultBranch,
+        readCommitHash: args.initialBuild.readCommitHash,
         transport,
         recordApiCall: args.recordApiCall,
         beforeProviderWrite: args.beforeProviderWrite,
@@ -2093,7 +2106,7 @@ export async function configureCloudflareWorkerBuildsForGitHub(
       accountId: args.accountId,
       workerName: args.workerName,
       workerTag: args.workerTag,
-      initialBuildTriggered: args.triggerInitialBuild,
+      initialBuildTriggered: args.initialBuild.state === "requested",
     });
 
     return build;
@@ -2220,6 +2233,7 @@ export async function rotateConvexDeployKeysForCloudflareWorkerBuilds(
       accountId: args.accountId,
       triggerUuid: args.build.production.triggerUuid,
       branch: args.defaultBranch,
+      readCommitHash: args.readInitialBuildCommitHash,
       transport,
       recordApiCall: args.recordApiCall,
       beforeProviderWrite: args.beforeProviderWrite,

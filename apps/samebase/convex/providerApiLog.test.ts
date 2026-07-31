@@ -60,6 +60,48 @@ describe("formatProviderApiCallLogMessage", () => {
     ).toContain('"[2 more items redacted]"');
   });
 
+  it("redacts the commit hash in a Cloudflare manual-build request", () => {
+    const commitHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const message = formatProviderApiCallLogMessage({
+      provider: "Cloudflare",
+      method: "POST",
+      endpoint: "/accounts/{account_id}/builds/triggers/{trigger_uuid}/builds",
+      values: {
+        body: {
+          branch: "main",
+          commit_hash: commitHash,
+          rehash_policy: "preserve",
+        },
+      },
+    });
+
+    expect(message).toContain('"commit_hash":"[redacted]"');
+    expect(message).toContain('"rehash_policy":"preserve"');
+    expect(message).not.toContain(commitHash);
+  });
+
+  it("redacts the ref in a GitHub default-branch request without redacting preference", () => {
+    const message = formatProviderApiCallLogMessage({
+      provider: "GitHub",
+      method: "GET",
+      endpoint: "/repos/{owner}/{repo}/git/ref/{ref}",
+      values: {
+        params: {
+          path: {
+            owner: "samebase",
+            repo: "samebase",
+            ref: "heads/main",
+            preference: "merge",
+          },
+        },
+      },
+    });
+
+    expect(message).toContain('"ref":"[redacted]"');
+    expect(message).toContain('"preference":"merge"');
+    expect(message).not.toContain("heads/main");
+  });
+
   it("omits missing request fields instead of showing undefined placeholders", () => {
     const message = formatProviderApiCallLogMessage({
       provider: "Cloudflare",
