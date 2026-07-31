@@ -138,7 +138,7 @@ const providerPullRequestResourceHeadSchema = providerPullRequestResourceIdentit
   headRepository: z.object({ id: z.string().min(1) }).nullable(),
   headRefName: z.string().min(1),
   headRefOid: z.string().min(1),
-  comments: z.unknown(),
+  comments: z.unknown().optional(),
   commits: z.object({
     nodes: z.array(
       z.object({
@@ -228,7 +228,11 @@ type PullRequestResourceHeadSeedRead =
   | { state: "unavailable"; pullRequestId: string };
 
 const PULL_REQUEST_RESOURCE_HEADS_QUERY = `
-  query PullRequestResourceHeads($ids: [ID!]!, $cloudflareAppId: Int!) {
+  query PullRequestResourceHeads(
+    $ids: [ID!]!
+    $cloudflareAppId: Int!
+    $readCloudflareComments: Boolean!
+  ) {
     nodes(ids: $ids) {
       __typename
       ... on PullRequest {
@@ -243,7 +247,7 @@ const PULL_REQUEST_RESOURCE_HEADS_QUERY = `
         comments(
           first: 100
           orderBy: { field: UPDATED_AT, direction: ASC }
-        ) {
+        ) @include(if: $readCloudflareComments) {
           totalCount
           pageInfo { hasNextPage endCursor }
           nodes {
@@ -455,6 +459,7 @@ export function normalizeGitHubPullRequestResourceHeadReads(
   args: {
     ghRepoId: string;
     pullRequestIds: readonly string[];
+    readCloudflareComments: boolean;
   },
 ): PullRequestResourceHeadSeedRead[] {
   const providerHeads = providerPullRequestResourceHeadsSchema.parse(value).nodes;
@@ -498,7 +503,15 @@ export function normalizeGitHubPullRequestResourceHeadReads(
               runs: commit.checkSuites.nodes.flatMap((suite) => suite.checkRuns.nodes),
             }
           : { state: "unavailable" },
-        cloudflareCommentScan: normalizeGitHubCloudflareCommentPage(head.comments),
+        cloudflareCommentScan: args.readCloudflareComments
+          ? normalizeGitHubCloudflareCommentPage(head.comments)
+          : {
+              state: "available",
+              allCommentIds: [],
+              cloudflareCommentIds: [],
+              totalCount: 0,
+              after: null,
+            },
       },
     };
   });
@@ -641,7 +654,12 @@ export function resolveCloudflareBranchPreviewUrl(args: {
   | { state: "absent" }
   | {
       state: "unavailable";
-      reason: "checks_unavailable" | "check_ambiguous" | "provider_disagreement" | "url_ambiguous";
+      reason:
+        | "checks_unavailable"
+        | "check_ambiguous"
+        | "provider_disagreement"
+        | "url_ambiguous"
+        | "url_malformed";
     } {
   if (args.build.buildState !== "success") {
     return { state: "absent" };
@@ -670,15 +688,17 @@ export function resolveCloudflareBranchPreviewUrl(args: {
     .split(/\r?\n/)
     .flatMap((line) =>
       line.startsWith(previewAliasLabel) ? [line.slice(previewAliasLabel.length).trim()] : [],
-    )
-    .filter((url) => normalizeCloudflareBranchPreviewUrl(url, args.workerName) !== null);
+    );
   if (previewUrls.length === 0) {
     return { state: "absent" };
   }
   if (previewUrls.length > 1) {
     return { state: "unavailable", reason: "url_ambiguous" };
   }
-  return { state: "available", url: previewUrls[0] };
+  const previewUrl = normalizeCloudflareBranchPreviewUrl(previewUrls[0], args.workerName);
+  return previewUrl === null
+    ? { state: "unavailable", reason: "url_malformed" }
+    : { state: "available", url: previewUrl };
 }
 
 function markdownTableCells(line: string): string[] | null {
@@ -692,13 +712,61 @@ function markdownTableCells(line: string): string[] | null {
     .map((cell) => cell.trim());
 }
 
+function isCloudflareCommentBuildLogsUrl(
+  url: string,
+  args: { accountId: string; workerName: string },
+): boolean {
+  try {
+    const parsed = new URL(url);
+    if (
+      parsed.protocol !== "https:" ||
+      parsed.hostname !== "dash.cloudflare.com" ||
+      parsed.username !== "" ||
+      parsed.password !== "" ||
+      parsed.port !== "" ||
+      parsed.hash !== ""
+    ) {
+      return false;
+    }
+
+    let target: string;
+    if (parsed.pathname === "/") {
+      const entries = [...parsed.searchParams.entries()];
+      if (
+        entries.length !== 1 ||
+        entries[0][0] !== "to" ||
+        /%(?:2f|5c)/i.test(parsed.search) ||
+        /%(?:2f|5c)/i.test(entries[0][1])
+      ) {
+        return false;
+      }
+      target = entries[0][1];
+    } else {
+      if (parsed.search !== "" || /%(?:2f|5c)/i.test(parsed.pathname)) {
+        return false;
+      }
+      target = parsed.pathname;
+    }
+
+    const buildPrefix = `/${args.accountId}/workers/services/view/${args.workerName}/production/builds/`;
+    const buildId = target.startsWith(buildPrefix) ? target.slice(buildPrefix.length) : "";
+    return /^[A-Za-z0-9-]+$/.test(buildId);
+  } catch {
+    return false;
+  }
+}
+
 export function resolveCloudflareCommentBranchPreviewUrl(args: {
   comments: PullRequestResourceHead["cloudflareComments"];
+  accountId: string;
   workerName: string;
 }):
   | { state: "available"; url: string }
   | { state: "absent" }
-  | { state: "unavailable"; reason: "comments_unavailable" | "url_ambiguous" } {
+  | {
+      state: "unavailable";
+      reason: "comments_unavailable" | "provider_disagreement" | "url_ambiguous" | "url_malformed";
+    } {
   if (args.comments.state === "unavailable") {
     return { state: "unavailable", reason: "comments_unavailable" };
   }
@@ -716,9 +784,11 @@ export function resolveCloudflareCommentBranchPreviewUrl(args: {
       const previewColumns = header.flatMap((cell, index) =>
         cell === "Preview URL" ? [index] : [],
       );
+      const statusColumns = header.flatMap((cell, index) => (cell === "Status" ? [index] : []));
       if (
         nameColumns.length !== 1 ||
         previewColumns.length !== 1 ||
+        statusColumns.length !== 1 ||
         !separator.every((cell) => /^:?-+:?$/.test(cell))
       ) {
         continue;
@@ -733,13 +803,39 @@ export function resolveCloudflareCommentBranchPreviewUrl(args: {
           continue;
         }
         const previewCell = row[previewColumns[0]];
+        if (!previewCell.includes("Branch Preview URL")) {
+          continue;
+        }
+        const logsCell = row[statusColumns[0]];
+        const buildLogsAnchors = [...logsCell.matchAll(/\[([^\]]+)\]\(([^)\s]+)\)/g)];
+        const buildLogsLabelCount = [...logsCell.matchAll(/View logs/g)].length;
+        if (
+          buildLogsAnchors.length !== buildLogsLabelCount ||
+          buildLogsAnchors.length !== 1 ||
+          buildLogsAnchors[0][1] !== "View logs" ||
+          !isCloudflareCommentBuildLogsUrl(buildLogsAnchors[0][2], {
+            accountId: args.accountId,
+            workerName: args.workerName,
+          })
+        ) {
+          return { state: "unavailable", reason: "provider_disagreement" };
+        }
         const branchPreviewAnchor = /<a href=(['"])([^'"]+)\1>Branch Preview URL<\/a>/g;
-        for (const match of previewCell.matchAll(branchPreviewAnchor)) {
+        const branchPreviewAnchors = [...previewCell.matchAll(branchPreviewAnchor)];
+        const branchPreviewLabelCount = [...previewCell.matchAll(/Branch Preview URL/g)].length;
+        if (
+          branchPreviewAnchors.length !== branchPreviewLabelCount ||
+          branchPreviewAnchors.length === 0
+        ) {
+          return { state: "unavailable", reason: "url_malformed" };
+        }
+        for (const match of branchPreviewAnchors) {
           const url = match[2];
           const normalized = normalizeCloudflareBranchPreviewUrl(url, args.workerName);
-          if (normalized) {
-            urls.add(normalized);
+          if (normalized === null) {
+            return { state: "unavailable", reason: "url_malformed" };
           }
+          urls.add(normalized);
         }
       }
     }
@@ -759,17 +855,91 @@ type CloudflareBranchPreviewResolution =
   | { state: "absent" }
   | { state: "unavailable" };
 
-export function resolveCloudflareWorkerBranchPreview(args: {
-  currentCheck: CloudflareBranchPreviewResolution | null;
-  comment: CloudflareBranchPreviewResolution;
-}): CloudflareBranchPreviewResolution {
-  if (args.currentCheck?.state === "available") {
-    return args.currentCheck;
-  }
-  if (args.currentCheck?.state === "unavailable") {
+export function resolveCloudflareWorkerObservation(args: {
+  accountId: string;
+  workerName: string;
+  match: CloudflareBuildMatch;
+  buildsExhausted: boolean;
+  previewUrlsEnabled: boolean | undefined;
+  checks: PullRequestResourceHead["cloudflareChecks"];
+  comments: PullRequestResourceHead["cloudflareComments"];
+  commentFallbackHasUniqueWorkerName: boolean;
+}):
+  | {
+      state: "available";
+      cloudflareBuild: AvailableWorkerResource["cloudflareBuild"];
+      cloudflareBranchPreview: AvailableWorkerResource["cloudflareBranchPreview"];
+    }
+  | { state: "unavailable" } {
+  if (args.match.state === "provider_disagreement") {
     return { state: "unavailable" };
   }
-  return args.comment;
+
+  const cloudflareBuild: AvailableWorkerResource["cloudflareBuild"] =
+    args.match.state === "absent"
+      ? args.buildsExhausted
+        ? { state: "absent" }
+        : { state: "unavailable" }
+      : {
+          state: "available",
+          uuid: args.match.buildUuid,
+          buildState: args.match.buildState,
+          logsUrl: buildCloudflareBuildLogsUrl({
+            accountId: args.accountId,
+            workerName: args.workerName,
+            buildUuid: args.match.buildUuid,
+          }),
+        };
+
+  if (args.previewUrlsEnabled === false) {
+    return {
+      state: "available",
+      cloudflareBuild,
+      cloudflareBranchPreview: { state: "absent" },
+    };
+  }
+
+  let currentCheck: CloudflareBranchPreviewResolution | null = null;
+  if (args.match.state === "available") {
+    const resolved = resolveCloudflareBranchPreviewUrl({
+      checks: args.checks,
+      workerName: args.workerName,
+      build: args.match,
+    });
+    currentCheck =
+      resolved.state === "available"
+        ? { state: "available", url: resolved.url }
+        : resolved.state === "absent"
+          ? { state: "absent" }
+          : { state: "unavailable" };
+  }
+
+  let cloudflareBranchPreview: AvailableWorkerResource["cloudflareBranchPreview"];
+  if (currentCheck?.state === "available") {
+    cloudflareBranchPreview = currentCheck;
+  } else if (currentCheck?.state === "unavailable") {
+    cloudflareBranchPreview = { state: "unavailable" };
+  } else if (!args.commentFallbackHasUniqueWorkerName) {
+    cloudflareBranchPreview = { state: "unavailable" };
+  } else {
+    const comment = resolveCloudflareCommentBranchPreviewUrl({
+      comments: args.comments,
+      accountId: args.accountId,
+      workerName: args.workerName,
+    });
+    cloudflareBranchPreview =
+      comment.state === "available"
+        ? { state: "available", url: comment.url }
+        : comment.state === "absent"
+          ? { state: "absent" }
+          : { state: "unavailable" };
+  }
+
+  return {
+    state: "available",
+    cloudflareBuild,
+    cloudflareBranchPreview,
+  };
 }
 
 function unavailableWorkerResources(args: {
@@ -926,61 +1096,28 @@ async function readWorkerResourcesForHeads(args: {
       ghRepoId: args.context.ghRepoId,
       triggerUuid: connectedBuilds.previewTriggerUuid,
     });
-    if (match.state === "provider_disagreement") {
+    const observation = resolveCloudflareWorkerObservation({
+      accountId: args.worker.accountId,
+      workerName: args.worker.workerName,
+      match,
+      buildsExhausted: exhausted,
+      previewUrlsEnabled: identity.previewUrlsEnabled,
+      checks: head.cloudflareChecks,
+      comments: head.cloudflareComments,
+      commentFallbackHasUniqueWorkerName,
+    });
+    if (observation.state === "unavailable") {
       return {
         state: "unavailable",
         ...workerResourceIdentity(args.worker),
       };
     }
 
-    const cloudflareBuild: AvailableWorkerResource["cloudflareBuild"] =
-      match.state === "absent"
-        ? exhausted
-          ? { state: "absent" }
-          : { state: "unavailable" }
-        : {
-            state: "available",
-            uuid: match.buildUuid,
-            buildState: match.buildState,
-            logsUrl: buildCloudflareBuildLogsUrl({
-              accountId: args.worker.accountId,
-              workerName: args.worker.workerName,
-              buildUuid: match.buildUuid,
-            }),
-          };
-    let currentCheck: CloudflareBranchPreviewResolution | null = null;
-    if (match.state === "available") {
-      const resolved = resolveCloudflareBranchPreviewUrl({
-        checks: head.cloudflareChecks,
-        workerName: args.worker.workerName,
-        build: match,
-      });
-      currentCheck =
-        resolved.state === "available"
-          ? { state: "available", url: resolved.url }
-          : resolved.state === "absent"
-            ? { state: "absent" }
-            : { state: "unavailable" };
-    }
-    const comment = commentFallbackHasUniqueWorkerName
-      ? resolveCloudflareCommentBranchPreviewUrl({
-          comments: head.cloudflareComments,
-          workerName: args.worker.workerName,
-        })
-      : ({ state: "unavailable" } as const);
-    const cloudflareBranchPreview: AvailableWorkerResource["cloudflareBranchPreview"] =
-      identity.previewUrlsEnabled === false
-        ? { state: "absent" }
-        : resolveCloudflareWorkerBranchPreview({
-            currentCheck,
-            comment,
-          });
-
     return {
-      state: "available",
+      state: observation.state,
       ...identityFields,
-      cloudflareBuild,
-      cloudflareBranchPreview,
+      cloudflareBuild: observation.cloudflareBuild,
+      cloudflareBranchPreview: observation.cloudflareBranchPreview,
     };
   });
 }
@@ -1135,12 +1272,14 @@ async function readGitHubPullRequestResourceHeadReads(args: {
   signal: AbortSignal;
   ghRepoId: string;
   pullRequestIds: readonly string[];
+  readCloudflareComments: boolean;
 }): Promise<PullRequestResourceHeadRead[]> {
   let response: unknown;
   try {
     response = await args.octokit.graphql(PULL_REQUEST_RESOURCE_HEADS_QUERY, {
       ids: args.pullRequestIds,
       cloudflareAppId: CLOUDFLARE_GITHUB_APP_DATABASE_ID,
+      readCloudflareComments: args.readCloudflareComments,
       request: { signal: args.signal },
     });
   } catch (error) {
@@ -1149,6 +1288,7 @@ async function readGitHubPullRequestResourceHeadReads(args: {
   const seedReads = normalizeGitHubPullRequestResourceHeadReads(response, {
     ghRepoId: args.ghRepoId,
     pullRequestIds: args.pullRequestIds,
+    readCloudflareComments: args.readCloudflareComments,
   });
   const seeds = seedReads.flatMap((read) => (read.state === "available" ? [read.head] : []));
   const scans = await Promise.all(
@@ -1230,6 +1370,7 @@ export const getPullRequestResources = action({
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub connection unavailable.");
     }
+    const cloudflareToken = cloudflareConnection?.auth.credential.trim() ?? "";
     const octokit = new Octokit({ auth: githubConnection.auth.credential });
     const signal = createGitHubRequestDeadlineSignal();
     const [repository, headReads] = await Promise.all([
@@ -1245,10 +1386,13 @@ export const getPullRequestResources = action({
         signal,
         ghRepoId: context.ghRepoId,
         pullRequestIds: args.pullRequestIds,
+        readCloudflareComments:
+          context.cloudflareWorkers.length > 0 &&
+          cloudflareConnection !== null &&
+          cloudflareToken !== "",
       }),
     ]);
     const heads = headReads.flatMap((read) => (read.state === "available" ? [read.head] : []));
-    const cloudflareToken = cloudflareConnection?.auth.credential.trim() ?? "";
     const convexToken =
       convexConnection?.kind === "convex" ? convexConnection.auth.credential.trim() : "";
     const convexTeamId = convexConnection?.kind === "convex" ? convexConnection.teamId.trim() : "";

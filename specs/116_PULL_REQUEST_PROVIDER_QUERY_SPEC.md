@@ -103,13 +103,17 @@ comment without storing provider state. The batched pull request query reads onl
 and author types. It follows all metadata pages under the existing GitHub request deadline, selects
 only the exact Cloudflare Bot node id, and then reads bodies only for those selected comment ids.
 Every returned body must still belong to the same open pull request, repository, and Bot identity. A
-failed or changing metadata scan makes comment recovery unavailable only for that pull request.
+failed or changing metadata scan makes comment recovery unavailable only for that pull request. The
+query omits comment metadata and body recovery when the vault has no attached Worker or no usable
+Cloudflare connection.
 
-Comment recovery reads only Cloudflare Workers Markdown table rows with exact `Name` and
-`Preview URL` columns. The row must name one uniquely attached Worker and contain an exact
-`Branch Preview URL` anchor. The URL must be a strict HTTPS `workers.dev` origin for that Worker.
-Equal normalized URLs are one result. Distinct valid URLs are ambiguous and fail closed. Samebase
-does not guess Cloudflare's alias normalization from the branch name.
+Comment recovery reads only Cloudflare Workers Markdown table rows with exact `Status`, `Name`, and
+`Preview URL` columns. The row must name one uniquely attached Worker. Its exact `View logs` link
+must identify the attached Cloudflare account and Worker. The row must also contain an exact
+`Branch Preview URL` anchor. The URL must be a strict HTTPS `workers.dev` origin for that Worker. A
+malformed log or preview link fails closed. Equal normalized URLs are one result. Distinct valid
+URLs are ambiguous and fail closed. Samebase does not guess Cloudflare's alias normalization from
+the branch name.
 
 Worker identity, current build, and branch preview are independent results. A verified Worker and
 Builds repository can expose an absent or unavailable current build together with a recovered branch
