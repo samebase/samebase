@@ -97,7 +97,24 @@ test("root landing uses the depth-three Menger logo and follows the pointer", as
   await expect(hero).toHaveAttribute("data-state", "ready");
   await expect(fallback).toHaveCSS("opacity", "0");
   await expect(scene).toHaveAttribute("data-menger-maximum-depth", "3");
+  await expect(scene).toHaveAttribute("data-menger-automatic-probe", "play");
+  await expect(scene).toHaveAttribute("data-menger-automatic-probe-path", "vertical-8");
   await expect(scene).toHaveAttribute("data-menger-pointer-tilt", "landing");
+  const automaticProbePath = hero.getByTestId("public-landing-menger-path");
+  await expect(automaticProbePath).toBeVisible();
+  await expect(hero.getByTestId("public-landing-menger-start-end")).toBeVisible();
+  const automaticProbePathPoints = await automaticProbePath
+    .locator("polyline")
+    .getAttribute("points");
+  if (automaticProbePathPoints === null) {
+    throw new Error("The public landing automatic probe path must expose its polyline points.");
+  }
+  const automaticProbeYCoordinates = automaticProbePathPoints
+    .trim()
+    .split(/\s+/)
+    .map((point) => Number(point.split(",")[1]));
+  expect(Math.min(...automaticProbeYCoordinates)).toBeLessThan(0);
+  expect(Math.max(...automaticProbeYCoordinates)).toBeGreaterThan(0.99);
   const landingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
   await expect(landingCopy).toHaveText("Samebase is near.");
   await expect(landingCopy).toHaveCSS("text-align", "center");

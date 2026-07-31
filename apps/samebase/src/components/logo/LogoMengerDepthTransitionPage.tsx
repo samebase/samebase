@@ -115,26 +115,35 @@ export function LogoMengerDepthTransitionPage({
   );
   const automaticProbe = useMemo<MengerAutomaticProbeSettings>(
     () => ({
-      enabled: routeSearch.probe === true,
+      enabled: routeSearch.probeDisabled
+        ? false
+        : (routeSearch.probe ?? MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS.enabled),
       height: routeSearch.probeHeight ?? MENGER_AUTOMATIC_PROBE_DEFAULT_HEIGHT,
-      landingSize: routeSearch.probeLanding === true,
+      landingSize: routeSearch.probeLandingOff
+        ? false
+        : (routeSearch.probeLanding ?? MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS.landingSize),
       loopDurationSeconds:
         routeSearch.probeLoop ?? MENGER_AUTOMATIC_PROBE_DEFAULT_LOOP_DURATION_SECONDS,
       path: routeSearch.probePath ?? MENGER_AUTOMATIC_PROBE_DEFAULT_PATH,
       restDurationSeconds:
         routeSearch.probeRest ?? MENGER_AUTOMATIC_PROBE_DEFAULT_REST_DURATION_SECONDS,
-      showPath: routeSearch.probePathVisible === true,
+      showPath: routeSearch.probePathHidden
+        ? false
+        : (routeSearch.probePathVisible ?? MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS.showPath),
       startProgress: routeSearch.probeStart ?? MENGER_AUTOMATIC_PROBE_DEFAULT_START_PROGRESS,
       verticalOffset: routeSearch.probeOffset ?? MENGER_AUTOMATIC_PROBE_DEFAULT_VERTICAL_OFFSET,
       width: routeSearch.probeWidth ?? MENGER_AUTOMATIC_PROBE_DEFAULT_WIDTH,
     }),
     [
       routeSearch.probe,
+      routeSearch.probeDisabled,
       routeSearch.probeHeight,
       routeSearch.probeLanding,
+      routeSearch.probeLandingOff,
       routeSearch.probeLoop,
       routeSearch.probePath,
       routeSearch.probePathVisible,
+      routeSearch.probePathHidden,
       routeSearch.probeRest,
       routeSearch.probeStart,
       routeSearch.probeOffset,

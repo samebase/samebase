@@ -324,11 +324,14 @@ describe("logoRouteSearch", () => {
     expect(
       validateLogoMengerHoverRouteSearch({
         probe: "",
+        probeDisabled: "",
         probeHeight: "0.7",
         probeLanding: "",
+        probeLandingOff: "",
         probeLoop: "7",
         probePath: "orbit",
         probePathVisible: "",
+        probePathHidden: "",
         probeOffset: "-0.4",
         probeRest: "2",
         probeStart: "0.6",
@@ -336,11 +339,14 @@ describe("logoRouteSearch", () => {
       }),
     ).toEqual({
       probe: true,
+      probeDisabled: true,
       probeHeight: 0.7,
       probeLanding: true,
+      probeLandingOff: true,
       probeLoop: 7,
       probePath: "orbit",
       probePathVisible: true,
+      probePathHidden: true,
       probeOffset: -0.4,
       probeRest: 2,
       probeStart: 0.6,
@@ -380,6 +386,17 @@ describe("logoRouteSearch", () => {
         probePathVisible: "",
       }),
     ).toEqual({});
+    expect(
+      validateLogoMengerHoverRouteSearch({
+        probeDisabled: "",
+        probeLandingOff: "",
+        probePathHidden: "",
+      }),
+    ).toEqual({
+      probeDisabled: true,
+      probeLandingOff: true,
+      probePathHidden: true,
+    });
   });
 
   it("clamps carpet reveal depth and radius at the model bounds", () => {
@@ -462,10 +479,18 @@ describe("logoRouteSearch", () => {
     expect(mengerDefaults.tiltStrength).toBeUndefined();
     expect("probe" in mengerDefaults).toBe(true);
     expect(mengerDefaults.probe).toBeUndefined();
+    expect("probeDisabled" in mengerDefaults).toBe(true);
+    expect(mengerDefaults.probeDisabled).toBeUndefined();
     expect("probePath" in mengerDefaults).toBe(true);
     expect(mengerDefaults.probePath).toBeUndefined();
+    expect("probeLanding" in mengerDefaults).toBe(true);
+    expect(mengerDefaults.probeLanding).toBeUndefined();
+    expect("probeLandingOff" in mengerDefaults).toBe(true);
+    expect(mengerDefaults.probeLandingOff).toBeUndefined();
     expect("probePathVisible" in mengerDefaults).toBe(true);
     expect(mengerDefaults.probePathVisible).toBeUndefined();
+    expect("probePathHidden" in mengerDefaults).toBe(true);
+    expect(mengerDefaults.probePathHidden).toBeUndefined();
     expect("probeStart" in mengerDefaults).toBe(true);
     expect(mengerDefaults.probeStart).toBeUndefined();
     expect("probeOffset" in mengerDefaults).toBe(true);
@@ -491,16 +516,35 @@ describe("logoRouteSearch", () => {
       mengerHoverTiltStrengthScale: LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
     });
     expect(automaticProbeSearch).toMatchObject({
-      probe: true,
       probeHeight: 0.7,
-      probeLanding: true,
       probeLoop: 7,
       probePath: "orbit",
-      probePathVisible: true,
       probeOffset: -0.4,
       probeRest: 2,
       probeStart: 0.6,
       probeWidth: 0.4,
+    });
+    expect(automaticProbeSearch.probe).toBeUndefined();
+    expect(automaticProbeSearch.probeLanding).toBeUndefined();
+    expect(automaticProbeSearch.probePathVisible).toBeUndefined();
+    expect(
+      buildLogoMengerHoverRouteSearch({
+        ...routeBuildDefaults,
+        mengerAutomaticProbe: {
+          ...MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
+          enabled: false,
+          landingSize: false,
+          showPath: false,
+        },
+        mengerHoverDepth: MENGER_HOVER_DEFAULT_DEPTH,
+        mengerHoverTiltEnabled: false,
+        mengerHoverTiltRadiusScale: LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
+        mengerHoverTiltStrengthScale: LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
+      }),
+    ).toMatchObject({
+      probeDisabled: true,
+      probeLandingOff: true,
+      probePathHidden: true,
     });
     expect(
       buildLogoMengerHoverRouteSearch({
@@ -523,9 +567,10 @@ describe("logoRouteSearch", () => {
         mengerHoverTiltStrengthScale: LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
       }),
     ).toMatchObject({
-      probe: true,
       probeHeight: 1e308,
+      probeLandingOff: true,
       probeLoop: 1e308,
+      probePathHidden: true,
       probeOffset: 1e308,
       probeRest: 1e308,
       probeStart: 1,

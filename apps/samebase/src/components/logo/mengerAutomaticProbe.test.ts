@@ -1,4 +1,5 @@
 import {
+  MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
   MENGER_AUTOMATIC_PROBE_PATHS,
   normalizeMengerAutomaticProbeExtent,
   normalizeMengerAutomaticProbeLoopDurationSeconds,
@@ -10,10 +11,25 @@ import {
 import { describe, expect, it } from "vite-plus/test";
 
 describe("Menger automatic probe", () => {
+  it("uses the shared landing defaults", () => {
+    expect(MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS).toMatchObject({
+      enabled: true,
+      height: 1.3,
+      landingSize: true,
+      loopDurationSeconds: 12,
+      path: "vertical-8",
+      restDurationSeconds: 0,
+      showPath: true,
+      startProgress: 0.25,
+      verticalOffset: -0.15,
+      width: 0.55,
+    });
+  });
+
   it("keeps every path centered and inside its configured extents", () => {
     for (const path of MENGER_AUTOMATIC_PROBE_PATHS) {
       const points = Array.from({ length: 65 }, (_, index) =>
-        readMengerAutomaticProbePoint(path, index / 64, 0.3, 0.55),
+        readMengerAutomaticProbePoint(path, index / 64, 0.3, 0.55, 0.25, 0),
       );
 
       expect(points[0]?.x).toBeCloseTo(points.at(-1)?.x ?? Number.NaN);
@@ -26,9 +42,9 @@ describe("Menger automatic probe", () => {
   });
 
   it("starts and ends the default vertical figure eight at its top point", () => {
-    const start = readMengerAutomaticProbePoint("vertical-8", 0, 0.3, 0.55);
-    const end = readMengerAutomaticProbePoint("vertical-8", 1, 0.3, 0.55);
-    const side = readMengerAutomaticProbePoint("vertical-8", 0.375, 0.3, 0.55);
+    const start = readMengerAutomaticProbePoint("vertical-8", 0, 0.3, 0.55, 0.25, 0);
+    const end = readMengerAutomaticProbePoint("vertical-8", 1, 0.3, 0.55, 0.25, 0);
+    const side = readMengerAutomaticProbePoint("vertical-8", 0.375, 0.3, 0.55, 0.25, 0);
 
     expect(start.x).toBeCloseTo(0.5);
     expect(start.y).toBeCloseTo(0.225);
@@ -43,7 +59,7 @@ describe("Menger automatic probe", () => {
       readMengerAutomaticProbePoint("vertical-8", index / 64, 0.3, 1.375, 0.25, 0.4),
     );
     const unshiftedPoints = Array.from({ length: 65 }, (_, index) =>
-      readMengerAutomaticProbePoint("vertical-8", index / 64, 0.3, 1.375, 0.25),
+      readMengerAutomaticProbePoint("vertical-8", index / 64, 0.3, 1.375, 0.25, 0),
     );
 
     expect(Math.min(...points.map((point) => point.y))).toBeCloseTo(0.2125);

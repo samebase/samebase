@@ -44,6 +44,7 @@ async function openMengerHoverCase(
     elevationDegrees,
     extraSearch = "",
     maximumDepth = "4",
+    automaticProbe = false,
     pointerTiltEnabled = false,
     pointerTiltRadiusScale = "1",
     pointerTiltStrengthScale = "1.67",
@@ -53,6 +54,7 @@ async function openMengerHoverCase(
     elevationDegrees: string;
     extraSearch?: string;
     maximumDepth?: string;
+    automaticProbe?: boolean;
     pointerTiltEnabled?: boolean;
     pointerTiltRadiusScale?: string;
     pointerTiltStrengthScale?: string;
@@ -63,6 +65,7 @@ async function openMengerHoverCase(
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion });
   await page.goto("/", { waitUntil: "domcontentloaded" });
+  const automaticProbeSearch = automaticProbe ? "" : "&probeDisabled";
   await signInIfNeeded(
     page,
     `/logo/hover/menger?elev=${elevationDegrees}&rot=${rotationDegrees}&top=red-400${
@@ -71,7 +74,7 @@ async function openMengerHoverCase(
       pointerTiltRadiusScale === "1" ? "" : `&tiltRadius=${pointerTiltRadiusScale}`
     }${
       pointerTiltStrengthScale === "1.67" ? "" : `&tiltStrength=${pointerTiltStrengthScale}`
-    }${extraSearch}`,
+    }${automaticProbeSearch}${extraSearch}`,
   );
 
   const hoverPage = page.locator('[data-testid="logo-menger-hover-page"]');
@@ -297,6 +300,7 @@ test("Menger hover controls reveal depth from one through five", async ({ page }
 test("Menger hover keeps automatic-probe controls shareable in route search", async ({ page }) => {
   await openMengerHoverCase(page, {
     elevationDegrees: "0",
+    automaticProbe: true,
     extraSearch: "&probeLoop=60",
     rotationDegrees: "180",
   });
@@ -313,14 +317,14 @@ test("Menger hover keeps automatic-probe controls shareable in route search", as
   });
   const widthSlider = controls.getByRole("slider", { name: "Automatic probe path width" });
 
-  await expect(playCheckbox).toHaveAttribute("aria-checked", "false");
-  await expect(showPathCheckbox).toHaveAttribute("aria-checked", "false");
+  await expect(playCheckbox).toHaveAttribute("aria-checked", "true");
+  await expect(showPathCheckbox).toHaveAttribute("aria-checked", "true");
   await expect(pathSelect).toContainText("Vertical 8");
   await expect(startEndSlider).toHaveValue("0.25");
-  await expect(heightSlider).toHaveValue("0.55");
+  await expect(heightSlider).toHaveValue("1.3");
   await expect(heightSlider).toHaveAttribute("max", "2.5");
-  await expect(offsetSlider).toHaveValue("0");
-  await expect(page.locator('[data-testid="logo-menger-automatic-probe-path"]')).toHaveCount(0);
+  await expect(offsetSlider).toHaveValue("-0.15");
+  await expect(page.locator('[data-testid="logo-menger-automatic-probe-path"]')).toHaveCount(1);
 
   await pathSelect.click();
   await page.getByRole("option", { name: "Orbit" }).click();
@@ -328,7 +332,13 @@ test("Menger hover keeps automatic-probe controls shareable in route search", as
   await expect(page).toHaveURL(/(?:\?|&)probePath=orbit(?:&|$)/);
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await playCheckbox.click();
-  await expect(page).toHaveURL(/(?:\?|&)probe(?:&|$)/);
+  await expect(page).toHaveURL(/(?:\?|&)probeDisabled(?:&|$)/);
+  await expect(page.getByTestId("logo-menger-hover-scene")).toHaveAttribute(
+    "data-automatic-probe-state",
+    "off",
+  );
+  await playCheckbox.click();
+  await expect(page).not.toHaveURL(/(?:\?|&)probeDisabled(?:&|$)/);
   await expect(page).toHaveURL(/(?:\?|&)probeLoop=60(?:&|$)/);
   await expect(page.getByTestId("logo-menger-hover-scene")).toHaveAttribute(
     "data-automatic-probe-state",
@@ -352,7 +362,10 @@ test("Menger hover keeps automatic-probe controls shareable in route search", as
   );
 
   await showPathCheckbox.click();
-  await expect(page).toHaveURL(/(?:\?|&)probePathVisible(?:&|$)/);
+  await expect(page).toHaveURL(/(?:\?|&)probePathHidden(?:&|$)/);
+  await expect(page.locator('[data-testid="logo-menger-automatic-probe-path"]')).toHaveCount(0);
+  await showPathCheckbox.click();
+  await expect(page).not.toHaveURL(/(?:\?|&)probePathHidden(?:&|$)/);
   await expect(page.locator('[data-testid="logo-menger-automatic-probe-path"]')).toBeVisible();
   await expect(page.getByTestId("logo-menger-automatic-probe-start-end")).toBeVisible();
   expect(
@@ -401,6 +414,7 @@ test("Menger automatic probe has a deterministic reduced-motion research view", 
   });
   const scene = await openMengerHoverCase(page, {
     elevationDegrees: "0",
+    automaticProbe: true,
     extraSearch:
       "&probe&probeHeight=1.35&probeLanding&probeOffset=0.25&probePathVisible&probeWidth=0.4",
     maximumDepth: "3",
@@ -451,6 +465,7 @@ test("Menger automatic probe has a deterministic reduced-motion research view", 
 test("Menger automatic probe rests at its marked start and end point", async ({ page }) => {
   const scene = await openMengerHoverCase(page, {
     elevationDegrees: "0",
+    automaticProbe: true,
     extraSearch:
       "&probe&probeLoop=0.1&probePath=orbit&probePathVisible&probeRest=1&probeStart=0.25",
     maximumDepth: "2",
@@ -481,6 +496,7 @@ test("Menger automatic probe rests at its marked start and end point", async ({ 
 test("Menger automatic probe suspends frames while its scene is offscreen", async ({ page }) => {
   const scene = await openMengerHoverCase(page, {
     elevationDegrees: "0",
+    automaticProbe: true,
     extraSearch: "&probe&probeLoop=1000000",
     maximumDepth: "2",
     reducedMotion: "reduce",
@@ -509,6 +525,7 @@ test("Menger automatic probe suspends frames while its scene is offscreen", asyn
 test("Menger automatic probe does not loop frames at depth one without tilt", async ({ page }) => {
   const scene = await openMengerHoverCase(page, {
     elevationDegrees: "0",
+    automaticProbe: true,
     extraSearch: "&probe",
     maximumDepth: "1",
     reducedMotion: "no-preference",
@@ -761,7 +778,9 @@ test("Menger hover persists its adjustable tilt radius and strength", async ({ p
   await expect(scene).toHaveAttribute("data-menger-pointer-tilt-radius-scale", "1.2");
   await expect(scene).toHaveAttribute("data-menger-pointer-tilt-strength-scale", "1.5");
 
-  await page.goto("/logo/hover/menger?depth=2&elev=0&rot=180&tilt&tiltRadius=3.5&tiltStrength=2.5");
+  await page.goto(
+    "/logo/hover/menger?depth=2&elev=0&rot=180&probeDisabled&tilt&tiltRadius=3.5&tiltStrength=2.5",
+  );
   await expect(scene.locator("canvas")).toBeVisible();
   await expect(radiusSlider).toHaveAttribute("max", "3.5");
   await expect(radiusSlider).toHaveValue("3.5");
@@ -1178,7 +1197,7 @@ test.describe("Menger automatic probe on a phone", () => {
 
   test("keeps top and bottom pane escape lanes outside the canvas", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await signInIfNeeded(page, "/logo/hover/menger?depth=2&elev=0&rot=180");
+    await signInIfNeeded(page, "/logo/hover/menger?depth=2&elev=0&rot=180&probeDisabled");
     await exposeMobileMainPane(page);
 
     const hoverPage = page.getByTestId("logo-menger-hover-page");
@@ -1309,7 +1328,7 @@ test.describe("Menger hover on a landscape phone", () => {
 
   test("keeps both pane escape lanes outside the short canvas", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await signInIfNeeded(page, "/logo/hover/menger?depth=2&elev=0&rot=180");
+    await signInIfNeeded(page, "/logo/hover/menger?depth=2&elev=0&rot=180&probeDisabled");
     await exposeMobileMainPane(page);
 
     const hoverPage = page.getByTestId("logo-menger-hover-page");
@@ -1329,7 +1348,7 @@ test.describe("Menger hover on a wide landscape touch viewport", () => {
 
   test("keeps a usable canvas and both vertical touch lanes", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await signInIfNeeded(page, "/logo/hover/menger?depth=2&elev=0&rot=180");
+    await signInIfNeeded(page, "/logo/hover/menger?depth=2&elev=0&rot=180&probeDisabled");
 
     const hoverPage = page.getByTestId("logo-menger-hover-page");
     const scene = page.getByTestId("logo-menger-hover-scene");
