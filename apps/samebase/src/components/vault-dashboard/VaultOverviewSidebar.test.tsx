@@ -127,13 +127,47 @@ describe("VaultOverviewSidebar folders", () => {
       workspace: null,
     });
 
-    expect(markup.indexOf("Ungrouped")).toBeLessThan(markup.indexOf("Fixtures"));
-    expect(markup.indexOf("Fixtures")).toBeLessThan(markup.indexOf("Active"));
-    expect(markup.indexOf("Ungrouped")).toBeLessThan(markup.indexOf("Active"));
+    expect(markup).toContain("Ungrouped");
+    expect(markup).toContain("Fixtures");
+    expect(markup).toContain("Active");
+    const ungroupedPosition = markup.indexOf("Ungrouped");
+    const fixturesPosition = markup.indexOf("Fixtures");
+    const activePosition = markup.indexOf("Active");
+    expect(ungroupedPosition).toBeLessThan(fixturesPosition);
+    expect(fixturesPosition).toBeLessThan(activePosition);
+    expect(ungroupedPosition).toBeLessThan(activePosition);
     expect(markup).toContain('aria-label="Fixtures has hidden failures"');
     expect(markup).not.toContain("samebase/fixture, Needs attention");
     expect(markup).toContain("samebase/active, Loading checks");
     expect(markup).toContain("samebase/other, Loading checks");
+  });
+
+  it("does not render Ungrouped when every vault is assigned", () => {
+    const active = vault("active", fakeVaultId("vault-active"));
+    const fixture = vault("fixture", fakeVaultId("vault-fixture"));
+    const activeId = fakeFolderId("folder-active");
+    const fixturesId = fakeFolderId("folder-fixtures");
+    const markup = renderSidebar({
+      folderState: {
+        assignments: [
+          { folderId: activeId, vaultId: active._id },
+          { folderId: fixturesId, vaultId: fixture._id },
+        ],
+        folders: [
+          { _id: activeId, collapsed: false, name: "Active", position: 0 },
+          { _id: fixturesId, collapsed: false, name: "Fixtures", position: 1 },
+        ],
+      },
+      page: "overview",
+      selectedVaultId: active._id,
+      sidebarSummaries: { state: "loading" },
+      vaults: [active, fixture],
+      workspace: null,
+    });
+
+    expect(markup).toContain('aria-label="Active"');
+    expect(markup).toContain('aria-label="Fixtures"');
+    expect(markup).not.toContain('aria-label="Ungrouped"');
   });
 
   it("keeps a collapsed selected folder collapsed and renders only the selected row", () => {
