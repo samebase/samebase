@@ -189,7 +189,7 @@ async function waitFor(predicate: (state: VaultPullRequestsState) => boolean): P
   throw new Error("Timed out waiting for pull requests.");
 }
 
-function installResourceHandler() {
+function installResourceHandler(args: { unavailablePullRequestId?: string } = {}) {
   const handler = vi.fn(async (value: unknown) => {
     if (
       !value ||
@@ -203,7 +203,20 @@ function installResourceHandler() {
       if (typeof pullRequestId !== "string") {
         throw new Error("Pull request id is required.");
       }
-      return { pullRequestId, workers: [] };
+      if (pullRequestId === args.unavailablePullRequestId) {
+        return { state: "unavailable", pullRequestId };
+      }
+      return {
+        state: "available",
+        pullRequestId,
+        cloudflareBuilds: { state: "available" },
+        workers: [],
+        convexProjects: [],
+        hostingPreviews: {
+          cloudflare: { state: "available", previews: [] },
+          netlify: { state: "available", previews: [] },
+        },
+      };
     });
   });
   actionState.handlersByFunctionName.set(
@@ -462,6 +475,26 @@ describe("useVaultPullRequests", () => {
         ],
       }),
     ).toBeDefined();
+  });
+
+  it("marks a disappearing pull request unavailable without Cloudflare resources", async () => {
+    const listHandler = vi.fn(async () => page({ number: 1260, endCursor: null }));
+    actionState.handlersByFunctionName.set(
+      getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
+      listHandler,
+    );
+    installResourceHandler({ unavailablePullRequestId: "pull-request:1260" });
+
+    await renderHarness();
+    await waitFor(
+      (state) =>
+        (state.state === "current" || state.state === "stale") &&
+        state.resourcesByPullRequestId.get("pull-request:1260")?.state === "failed",
+    );
+
+    expect(settledState().resourcesByPullRequestId.get("pull-request:1260")).toEqual({
+      state: "failed",
+    });
   });
 
   it("retains every loaded provider page as stale when a reload fails", async () => {

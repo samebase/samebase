@@ -68,10 +68,9 @@ function classifyCloudflareBuildState(build: CloudflareWorkerBuild): CloudflareB
   }
 }
 
-function matchCloudflareWorkerBuildCandidate(args: {
+export function matchLatestCloudflareWorkerBuildForBranch(args: {
   builds: readonly CloudflareWorkerBuild[];
   branch: string;
-  commitHash: string | null;
   worker: {
     workerTag: string;
     rootDirectory: string;
@@ -80,13 +79,7 @@ function matchCloudflareWorkerBuildCandidate(args: {
   triggerUuid: string;
 }): CloudflareBuildMatch {
   const candidates = args.builds
-    .filter((build) => {
-      const metadata = build.build_trigger_metadata;
-      return (
-        metadata?.branch === args.branch &&
-        (args.commitHash === null || metadata.commit_hash === args.commitHash)
-      );
-    })
+    .filter((build) => build.build_trigger_metadata?.branch === args.branch)
     .map((build) => ({
       build,
       createdAt: providerTimestamp(build.created_on),
@@ -136,31 +129,4 @@ function matchCloudflareWorkerBuildCandidate(args: {
     createdAt,
     finishedAt,
   };
-}
-
-export function matchCloudflareWorkerBuildForCommit(args: {
-  builds: readonly CloudflareWorkerBuild[];
-  branch: string;
-  commitHash: string;
-  worker: {
-    workerTag: string;
-    rootDirectory: string;
-  };
-  ghRepoId: string;
-  triggerUuid: string;
-}): CloudflareBuildMatch {
-  return matchCloudflareWorkerBuildCandidate(args);
-}
-
-export function matchLatestCloudflareWorkerBuildForBranch(args: {
-  builds: readonly CloudflareWorkerBuild[];
-  branch: string;
-  worker: {
-    workerTag: string;
-    rootDirectory: string;
-  };
-  ghRepoId: string;
-  triggerUuid: string;
-}): CloudflareBuildMatch {
-  return matchCloudflareWorkerBuildCandidate({ ...args, commitHash: null });
 }

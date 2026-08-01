@@ -154,6 +154,7 @@ const LOGO_VISUAL_MODES = ["logo-three-reference", "logo-snap-angles"] as const 
 const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-overview-v2",
   "vault-overview-v2-auto-pagination",
+  "vault-overview-v2-cloudflare-build-status-unavailable",
   "vault-overview-v2-cloudflare-builds-repair",
   "vault-overview-v2-cloudflare-dialog",
   "vault-overview-v2-cloudflare-dialog-loading",

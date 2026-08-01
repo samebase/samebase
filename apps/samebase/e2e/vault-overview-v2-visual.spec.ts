@@ -320,6 +320,30 @@ test("shows comment-discovered hosting previews on desktop", async ({ page }) =>
   });
 });
 
+test("shows one Cloudflare build status error for an unreadable comment", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const fixture = await openVaultOverviewV2(
+    page,
+    "vault-overview-v2-cloudflare-build-status-unavailable",
+  );
+  const pullRequestRow = fixture.locator('[data-pull-request-number="1260"]');
+
+  await pullRequestRow.getByRole("button", { name: "Show pull request #1260 details" }).click();
+  await expect(
+    pullRequestRow.getByText("Could not load Cloudflare build status", { exact: true }),
+  ).toBeVisible();
+  await expect(pullRequestRow.getByText("Unavailable", { exact: true })).toHaveCount(0);
+  await expect(pullRequestRow).toHaveScreenshot(
+    "vault-overview-v2-cloudflare-build-status-unavailable-mobile.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    },
+  );
+});
+
 test("loads the next pull request page at the scroll end", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 520 });
   const fixture = await openVaultOverviewV2(page, "vault-overview-v2-auto-pagination");

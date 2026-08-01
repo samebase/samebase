@@ -46,6 +46,7 @@ export type VaultOverviewVisualMode =
   | VaultConvexSchemaGraphVisualMode
   | "vault-overview-v2"
   | "vault-overview-v2-auto-pagination"
+  | "vault-overview-v2-cloudflare-build-status-unavailable"
   | "vault-overview-v2-dev"
   | "vault-overview-v2-loading"
   | "vault-overview-v2-folders"
@@ -738,6 +739,7 @@ const PROVISIONING_CREATED_PROVIDER_PLAN = {
 function fixturePullRequests(
   pullRequests: readonly FixturePullRequest[],
   defaultBranch: VaultDefaultBranchObservation | null,
+  cloudflareBuildStatusUnavailable = false,
 ): Extract<VaultPullRequestsState, { state: "current" | "stale" }> {
   return {
     state: "current",
@@ -753,16 +755,20 @@ function fixturePullRequests(
           state: "current" as const,
           resources: {
             pullRequestId: pullRequest.id,
+            cloudflareBuilds:
+              pullRequest.number === 1260 && cloudflareBuildStatusUnavailable
+                ? { state: "unavailable" as const }
+                : { state: "available" as const },
             workers:
-              pullRequest.number === 1260
+              pullRequest.number === 1260 && !cloudflareBuildStatusUnavailable
                 ? [
                     {
-                      state: "unavailable" as const,
                       workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
                       workerName: "samebase-worker",
                       cloudflareBuild: {
-                        state: "linked" as const,
+                        state: "available" as const,
                         uuid: "comment-build-1260",
+                        buildState: "running" as const,
                         logsUrl:
                           "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-worker/production/builds/comment-build-1260",
                       },
@@ -772,9 +778,7 @@ function fixturePullRequests(
                       },
                     },
                     {
-                      state: "available" as const,
                       workerId: LIST_SPACING_DOMAIN_WORKER_ID,
-                      rootDirectory: "apps/domain-router",
                       workerName: "domain-router",
                       cloudflareBuild: {
                         state: "available" as const,
@@ -789,9 +793,7 @@ function fixturePullRequests(
                 : pullRequest.number === 1259
                   ? [
                       {
-                        state: "available" as const,
                         workerId: LIST_SPACING_DOMAIN_WORKER_ID,
-                        rootDirectory: "apps/domain-router",
                         workerName: "domain-router",
                         cloudflareBuild: {
                           state: "available" as const,
@@ -818,7 +820,7 @@ function fixturePullRequests(
                   ]
                 : [],
             hostingPreviews:
-              pullRequest.number === 1260
+              pullRequest.number === 1260 && !cloudflareBuildStatusUnavailable
                 ? {
                     cloudflare: {
                       state: "available" as const,
@@ -840,10 +842,23 @@ function fixturePullRequests(
                       ],
                     },
                   }
-                : {
-                    cloudflare: { state: "available" as const, previews: [] },
-                    netlify: { state: "available" as const, previews: [] },
-                  },
+                : cloudflareBuildStatusUnavailable && pullRequest.number === 1260
+                  ? {
+                      cloudflare: { state: "unavailable" as const },
+                      netlify: {
+                        state: "available" as const,
+                        previews: [
+                          {
+                            name: "samebase",
+                            url: "https://deploy-preview-1260--samebase.netlify.app",
+                          },
+                        ],
+                      },
+                    }
+                  : {
+                      cloudflare: { state: "available" as const, previews: [] },
+                      netlify: { state: "available" as const, previews: [] },
+                    },
           },
         },
       ]),
@@ -1299,6 +1314,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
   const currentPullRequests = fixturePullRequests(
     sourcePullRequests,
     FIXTURE_DEFAULT_BRANCH_CHECKS,
+    mode === "vault-overview-v2-cloudflare-build-status-unavailable",
   );
   const pullRequests: VaultPullRequestsState =
     mode === "vault-overview-v2-auto-pagination"

@@ -6,7 +6,10 @@ import type {
   RepositoryStatusCheckRollup,
 } from "../../convex/repositoryPullRequests";
 import type { UserVaultResult } from "../../convex/vault/contracts/getUserVaults";
-import type { PullRequestResources } from "../../convex/vault/pullRequestResources";
+import type {
+  PullRequestResourceRead,
+  PullRequestResources,
+} from "../../convex/vault/pullRequestResources";
 import { summarizeRepositoryChecks, type RepositoryCheckSummary } from "@/lib/repositoryChecks";
 import { vaultExternalDataQueryKey } from "@/lib/vaultExternalDataQueryKey";
 import { useInfiniteQuery, useQueries } from "@tanstack/react-query";
@@ -90,16 +93,17 @@ function nextCursor(page: RepositoryPullRequestPage | undefined): string | null 
   return pageInfo?.hasNextPage ? pageInfo.endCursor : null;
 }
 
-function resourcesNeedPolling(resources: PullRequestResources[] | undefined): boolean {
+function resourcesNeedPolling(resources: PullRequestResourceRead[] | undefined): boolean {
   return (
-    resources?.some((pullRequest) =>
-      pullRequest.workers.some(
-        (worker) =>
-          worker.state === "available" &&
-          worker.cloudflareBuild.state === "available" &&
-          (worker.cloudflareBuild.buildState === "queued" ||
-            worker.cloudflareBuild.buildState === "running"),
-      ),
+    resources?.some(
+      (pullRequest) =>
+        pullRequest.state === "available" &&
+        pullRequest.workers.some(
+          (worker) =>
+            worker.cloudflareBuild.state === "available" &&
+            (worker.cloudflareBuild.buildState === "queued" ||
+              worker.cloudflareBuild.buildState === "running"),
+        ),
     ) === true
   );
 }
@@ -244,7 +248,7 @@ export function useVaultPullRequests(args: {
         staleTime: PULL_REQUEST_STALE_MS,
         gcTime: PULL_REQUEST_GC_MS,
         retry: false,
-        refetchInterval: (query: { state: { data: PullRequestResources[] | undefined } }) =>
+        refetchInterval: (query: { state: { data: PullRequestResourceRead[] | undefined } }) =>
           pageIndex === 0 || resourcesNeedPolling(query.state.data) ? PULL_REQUEST_STALE_MS : false,
         refetchIntervalInBackground: false,
       }),
@@ -264,9 +268,19 @@ export function useVaultPullRequests(args: {
           resources.set(pullRequestId, { state: resourceQuery.isError ? "failed" : "loading" });
           continue;
         }
+        if (pullRequestResources.state === "unavailable") {
+          resources.set(pullRequestId, { state: "failed" });
+          continue;
+        }
         resources.set(pullRequestId, {
           state: resourceQuery.isRefetchError ? "stale" : "current",
-          resources: pullRequestResources,
+          resources: {
+            pullRequestId: pullRequestResources.pullRequestId,
+            cloudflareBuilds: pullRequestResources.cloudflareBuilds,
+            workers: pullRequestResources.workers,
+            convexProjects: pullRequestResources.convexProjects,
+            hostingPreviews: pullRequestResources.hostingPreviews,
+          },
         });
       }
     });

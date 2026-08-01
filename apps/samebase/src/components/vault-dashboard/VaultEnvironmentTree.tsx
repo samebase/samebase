@@ -471,17 +471,6 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
             <BuildState state={worker.build.buildState} />
             <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
           </a>
-        ) : worker.build.state === "linked" ? (
-          <a
-            className="inline-flex min-h-10 shrink-0 items-center gap-1 text-sm underline decoration-border underline-offset-4 @4xl:min-h-8"
-            href={worker.build.logsUrl}
-            rel="noreferrer noopener"
-            target="_blank"
-            title={`Open build logs for ${worker.workerName}`}
-          >
-            <BuildState state="running" />
-            <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
-          </a>
         ) : (
           <span className="shrink-0 text-sm text-muted-foreground">
             {worker.build.state === "absent" ? "No build" : "Unavailable"}
@@ -630,12 +619,19 @@ export function PullRequestResources({
     resources: resource.resources,
     settingsHref,
   });
-  if (roots.length === 0 && otherPreviews.length === 0) {
+  const cloudflareBuildStatusUnavailable =
+    resource.resources.cloudflareBuilds.state === "unavailable";
+  if (!cloudflareBuildStatusUnavailable && roots.length === 0 && otherPreviews.length === 0) {
     return null;
   }
 
   return (
     <>
+      {cloudflareBuildStatusUnavailable ? (
+        <div className="ml-2.5 border-l border-border py-2 pl-5 text-xs text-muted-foreground">
+          Could not load Cloudflare build status
+        </div>
+      ) : null}
       <VaultEnvironmentTree roots={roots} />
       <OtherPreviews previews={otherPreviews} />
     </>
