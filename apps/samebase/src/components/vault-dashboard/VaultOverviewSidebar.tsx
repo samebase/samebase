@@ -336,12 +336,7 @@ export function VaultOverviewSidebar({
           vaults.map(renderVault)
         ) : (
           <>
-            {ungroupedVaults.length > 0 ? (
-              <section aria-label="Ungrouped">
-                <div className="px-3 py-1 text-sm font-medium">Ungrouped</div>
-                {ungroupedVaults.map(renderVault)}
-              </section>
-            ) : null}
+            {ungroupedVaults.map(renderVault)}
             {folderState.folders.map((folder, index) => {
               const folderVaults = vaultsByFolderId.get(folder._id) ?? [];
               const selectedVault = folderVaults.find((vault) => vault._id === selectedVaultId);
