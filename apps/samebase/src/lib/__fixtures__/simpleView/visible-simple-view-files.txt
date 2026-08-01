@@ -102,7 +102,6 @@ apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/mcp-consent-sign-in-no-
 apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-google-button.png
 apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-google-signup-closed.png
 apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-mobile-sidebar-toggle.png
-apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-right-sidebar-account-links.png
 apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-status-bar-no-logo-link.png
 apps/samebase/e2e/public-legal-route-shell.spec.ts-snapshots/public-route-right-sidebar-account.png
 apps/samebase/e2e/public-legal-route-shell.spec.ts-snapshots/terms-shell.png

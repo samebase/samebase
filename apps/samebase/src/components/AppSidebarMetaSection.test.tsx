@@ -5,8 +5,8 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { createRoot, hydrateRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vite-plus/test";
+import { APP_BUILD_COMMIT_LINK_TEST_ID } from "@/lib/appBuild";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
 import { AppSidebarMetaSection } from "./AppSidebarMetaSection";
 
 const { act } = React;
@@ -15,7 +15,7 @@ describe("AppSidebarMetaSection", () => {
   let root: Root | null = null;
   let rootElement: HTMLDivElement | null = null;
 
-  afterEach(() => {
+  function unmountSidebarMetaSection() {
     if (root) {
       const mountedRoot = root;
       act(() => {
@@ -26,7 +26,9 @@ describe("AppSidebarMetaSection", () => {
 
     rootElement?.remove();
     rootElement = null;
-  });
+  }
+
+  afterEach(unmountSidebarMetaSection);
 
   function LocationProbe() {
     const location = useLocation();
@@ -114,6 +116,12 @@ describe("AppSidebarMetaSection", () => {
     );
   }
 
+  function readSidebarLinkLabels(container: ParentNode) {
+    return [...container.querySelectorAll<HTMLAnchorElement>("a")]
+      .filter((link) => link.getAttribute("data-testid") !== APP_BUILD_COMMIT_LINK_TEST_ID)
+      .map((link) => link.textContent);
+  }
+
   async function clickLink(link: HTMLAnchorElement) {
     await act(async () => {
       link.dispatchEvent(
@@ -127,54 +135,41 @@ describe("AppSidebarMetaSection", () => {
     });
   }
 
-  it("omits nonessential shortcuts from prerendered markup", () => {
+  it("renders only the allowed public links before and after hydration", async () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/"]}>
         <AppSidebarMetaSection linkAlignment="left" />
       </TestRouterProvider>,
     );
+    const prerenderedElement = document.createElement("div");
+    prerenderedElement.innerHTML = markup;
 
-    expect(markup).not.toContain('id="public-landing-prod-ui-toggle"');
-    expect(markup).not.toContain(">?prod-ui<");
-    expect(markup).not.toContain('id="public-landing-dev-toggle"');
-    expect(markup).not.toContain(">?dev<");
-    expect(markup).not.toContain('id="public-local-storage-route-link"');
-    expect(markup).not.toContain(`>${LOCAL_STORAGE_ROUTE}<`);
-    expect(markup).not.toContain(">/landing-preview<");
-    expect(markup).not.toContain('id="public-landing-theme-light-toggle"');
-    expect(markup).not.toContain('id="public-landing-theme-dark-toggle"');
-  });
+    expect(readSidebarLinkLabels(prerenderedElement)).toEqual(["/terms", "/privacy", "/landing"]);
 
-  it("does not add nonessential shortcuts after local browser load", async () => {
-    await renderSidebarMetaSection();
+    const browserElement = await renderSidebarMetaSection();
 
-    const prodUiShortcut = rootElement?.querySelector("#public-landing-prod-ui-toggle");
-    const devShortcut = rootElement?.querySelector("#public-landing-dev-toggle");
-    const localStorageShortcut = rootElement?.querySelector("#public-local-storage-route-link");
-    const lightThemeShortcut = rootElement?.querySelector("#public-landing-theme-light-toggle");
-    const darkThemeShortcut = rootElement?.querySelector("#public-landing-theme-dark-toggle");
+    expect(readSidebarLinkLabels(browserElement)).toEqual(["/terms", "/privacy", "/landing"]);
+    unmountSidebarMetaSection();
 
-    expect(prodUiShortcut).toBeNull();
-    expect(devShortcut).toBeNull();
-    expect(localStorageShortcut).toBeNull();
-    expect(lightThemeShortcut).toBeNull();
-    expect(darkThemeShortcut).toBeNull();
-    expect(rootElement?.textContent).not.toContain("?prod-ui");
-    expect(rootElement?.textContent).not.toContain("?dev");
-    expect(rootElement?.textContent).not.toContain("?light");
-    expect(rootElement?.textContent).not.toContain("?dark");
-    expect(rootElement?.textContent).not.toContain(LOCAL_STORAGE_ROUTE);
-    expect(rootElement?.textContent).not.toContain("/landing-preview");
-  });
+    for (const clientEntry of ["/?dev", "/?prod-ui"]) {
+      const recoverableErrors = await hydrateSidebarMetaSectionFromServerMarkup({
+        serverEntry: "/",
+        clientEntry,
+      });
 
-  it("hydrates root SSG markup when the browser URL has landing-only query params", async () => {
-    const recoverableErrors = await hydrateSidebarMetaSectionFromServerMarkup({
-      serverEntry: "/",
-      clientEntry: "/?elev=37.5&rot=113.7",
-    });
+      expect(recoverableErrors).toEqual([]);
+      if (!rootElement) {
+        throw new Error("Expected the hydrated sidebar.");
+      }
 
-    expect(recoverableErrors).toEqual([]);
-    expect(rootElement?.querySelector("#public-landing-search-reset")).not.toBeNull();
+      expect(readSidebarLinkLabels(rootElement)).toEqual([
+        "?reset",
+        "/terms",
+        "/privacy",
+        "/landing",
+      ]);
+      unmountSidebarMetaSection();
+    }
   });
 
   it("omits the landing preview path link and language shortcut", async () => {
