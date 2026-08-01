@@ -409,7 +409,7 @@ describe("useVaultPullRequests", () => {
     expect(listHandler).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps resources when a later-page pull request head changes", async () => {
+  it("loads fresh resources when a later-page pull request head changes", async () => {
     const initialHeadRefOid = "1".repeat(40);
     const refreshedHeadRefOid = "2".repeat(40);
     let generation = 0;
@@ -456,9 +456,13 @@ describe("useVaultPullRequests", () => {
       (state) =>
         (state.state === "current" || state.state === "stale") &&
         !state.refreshing &&
-        resourceHandler.mock.calls.length === 2,
+        resourceHandler.mock.calls.length === 3,
     );
 
+    expect(resourceHandler.mock.calls[2]?.[0]).toEqual({
+      vaultId: fakeVaultId(),
+      pullRequestIds: ["pull-request:1259"],
+    });
     expect(
       queryClient.getQueryCache().find({
         exact: true,
@@ -467,7 +471,7 @@ describe("useVaultPullRequests", () => {
           "pull-request-resources",
           [],
           [],
-          ["pull-request:1259"],
+          [["pull-request:1259", refreshedHeadRefOid]],
         ],
       }),
     ).toBeDefined();

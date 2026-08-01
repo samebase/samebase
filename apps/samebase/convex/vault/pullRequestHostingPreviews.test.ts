@@ -517,6 +517,28 @@ describe("resolveCloudflareCommentWorkerBuild", () => {
       }),
     ).toMatchObject({ state: "available", buildState: "failure" });
   });
+
+  it("maps an unrecognized status to unknown", () => {
+    const unknown = resolveCloudflareHostingPreviews({
+      state: "available",
+      bodies: [
+        cloudflareWorkerComment({
+          accountId: "account-1",
+          branchPreviewUrl: null,
+          status: "⏭️ Build skipped.",
+          workerName: "samebase",
+        }),
+      ],
+    });
+
+    expect(
+      resolveCloudflareCommentWorkerBuild({
+        accountId: "account-1",
+        resources: unknown,
+        workerName: "samebase",
+      }),
+    ).toMatchObject({ state: "available", buildState: "unknown" });
+  });
 });
 
 describe("resolveNetlifyHostingPreviews", () => {

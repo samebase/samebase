@@ -37,7 +37,7 @@ type VaultPullRequestTarget = Pick<UserVaultResult, "_id" | "sourceSetup"> & {
   }[];
 };
 
-type PullRequestResourceIdentity = string;
+type PullRequestResourceIdentity = readonly [pullRequestId: string, headRefOid: string];
 
 export type VaultPullRequest = Omit<RepositoryPullRequest, "labels"> & {
   labels: RepositoryPullRequest["labels"]["nodes"];
@@ -148,7 +148,7 @@ function uniquePullRequestsByPage(pages: readonly RepositoryPullRequestPage[]): 
       }
       seen.add(pullRequest.id);
       pullRequests.push(pullRequest);
-      pagePullRequestResourceIdentities.push(pullRequest.id);
+      pagePullRequestResourceIdentities.push([pullRequest.id, pullRequest.headRefOid]);
     }
     if (pagePullRequestResourceIdentities.length > 0) {
       pullRequestResourceIdentityPages.push(pagePullRequestResourceIdentities);
@@ -239,7 +239,9 @@ export function useVaultPullRequests(args: {
           }
           return await getPullRequestResources({
             vaultId,
-            pullRequestIds: pagePullRequestResourceIdentities,
+            pullRequestIds: pagePullRequestResourceIdentities.map(
+              ([pullRequestId]) => pullRequestId,
+            ),
           });
         },
         enabled: Boolean(vaultId),
@@ -260,7 +262,7 @@ export function useVaultPullRequests(args: {
       const byPullRequestId = new Map(
         (resourceQuery.data ?? []).map((pullRequest) => [pullRequest.pullRequestId, pullRequest]),
       );
-      for (const pullRequestId of pagePullRequestResourceIdentities) {
+      for (const [pullRequestId] of pagePullRequestResourceIdentities) {
         const pullRequestResources = byPullRequestId.get(pullRequestId);
         if (!pullRequestResources) {
           resources.set(pullRequestId, { state: resourceQuery.isError ? "failed" : "loading" });
