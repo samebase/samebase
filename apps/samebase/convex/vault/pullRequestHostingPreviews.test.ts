@@ -250,8 +250,10 @@ describe("resolveCloudflareHostingPreviews", () => {
       workerBuilds: [
         {
           accountId: "account-1",
+          buildState: "success",
           buildUuid: "build-1",
-          commitOidPrefix: "9a0e51e5",
+          logsUrl:
+            "https://dash.cloudflare.com/?to=/account-1/workers/services/view/samebase/production/builds/build-1",
           name: "samebase",
         },
       ],
@@ -277,8 +279,10 @@ describe("resolveCloudflareHostingPreviews", () => {
       workerBuilds: [
         {
           accountId: "account-1",
+          buildState: "running",
           buildUuid: "build-1",
-          commitOidPrefix: "9a0e51e5",
+          logsUrl:
+            "https://dash.cloudflare.com/?to=/account-1/workers/services/view/samebase-posthog-proxy/production/builds/build-1",
           name: "samebase-posthog-proxy",
         },
       ],
@@ -384,8 +388,10 @@ describe("resolveCloudflareHostingPreviews", () => {
       workerBuilds: [
         {
           accountId: "account-1",
+          buildState: "success",
           buildUuid: "build-1",
-          commitOidPrefix: "9a0e51e5",
+          logsUrl:
+            "https://dash.cloudflare.com/?to=/account-1/workers/services/view/samebase/production/builds/build-1",
           name: "samebase",
         },
       ],
@@ -457,34 +463,59 @@ describe("resolveCloudflareCommentWorkerBuild", () => {
     ],
   });
 
-  it("matches the exact account, Worker, and current head prefix", () => {
+  it("matches the exact account and Worker row", () => {
     expect(
       resolveCloudflareCommentWorkerBuild({
         accountId: "account-1",
-        headCommitOid: "9a0e51e5fce68b83c91aef3ed06bcb9cbade2791",
         resources,
         workerName: "samebase",
       }),
-    ).toEqual({ state: "available", buildUuid: "build-1" });
+    ).toEqual({
+      state: "available",
+      buildUuid: "build-1",
+      buildState: "running",
+      logsUrl:
+        "https://dash.cloudflare.com/?to=/account-1/workers/services/view/samebase/production/builds/build-1",
+    });
   });
 
-  it("does not return an older build or a build for another account", () => {
+  it("does not return a build for another account or Worker", () => {
     expect(
       resolveCloudflareCommentWorkerBuild({
         accountId: "account-1",
-        headCommitOid: "abc1234567890",
         resources,
-        workerName: "samebase",
+        workerName: "other-worker",
       }),
     ).toEqual({ state: "absent" });
     expect(
       resolveCloudflareCommentWorkerBuild({
         accountId: "account-2",
-        headCommitOid: "9a0e51e5fce68b83c91aef3ed06bcb9cbade2791",
         resources,
         workerName: "samebase",
       }),
     ).toEqual({ state: "absent" });
+  });
+
+  it("keeps a failed status from the comment", () => {
+    const failed = resolveCloudflareHostingPreviews({
+      state: "available",
+      bodies: [
+        cloudflareWorkerComment({
+          accountId: "account-1",
+          branchPreviewUrl: null,
+          status: "🚫 Build failed.",
+          workerName: "samebase",
+        }),
+      ],
+    });
+
+    expect(
+      resolveCloudflareCommentWorkerBuild({
+        accountId: "account-1",
+        resources: failed,
+        workerName: "samebase",
+      }),
+    ).toMatchObject({ state: "available", buildState: "failure" });
   });
 });
 

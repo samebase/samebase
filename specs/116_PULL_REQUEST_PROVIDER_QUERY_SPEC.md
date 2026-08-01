@@ -65,13 +65,13 @@ access-gated Schema links for the production deployment.
 
 ## Visible Provider Resources
 
-For pull requests in the loaded provider pages, the browser may request the attached Worker build
-and Convex preview resources. The browser sends only opaque GitHub pull request node ids. The server
+For pull requests in the loaded provider pages, the browser may request attached Worker build and
+Convex preview resources. The browser sends only opaque GitHub pull request node ids. The server
 re-reads those open pull requests from GitHub, verifies their repository identity against the vault,
-and derives fork, head repository, branch, and commit identity from that response. Client data never
-proves resource ownership.
+and derives fork, head repository, and branch identity from that response. Client data never proves
+resource ownership.
 
-The request joins live GitHub, Cloudflare, and Convex responses against the direct Worker and Convex
+The request joins live GitHub comments and Convex responses against the direct Worker and Convex
 project attachments. It does not persist a pull request resource model. The browser caches one
 resource request for each loaded GitHub page under the common vault-provider observation namespace,
 keyed by the exact attachment coordinates and pull request node ids. Loading another page does not
@@ -82,44 +82,36 @@ invalidate that identity. If one requested pull request closes, merges, or disap
 page read and the resource read, only that row becomes unavailable; the rest of the resource batch
 still resolves.
 
-A Worker build belongs to a row only when Cloudflare agrees on the immutable Worker tag, build UUID,
-GitHub repository id, live normalized Builds root, preview trigger, pull request URL, head SHA,
-branch, and the deploy command reported by both the trigger and build metadata. Samebase does not
-compare that provider-owned command with a locally generated template. If Samebase cannot observe
-the Worker and its Builds repository, the row exposes only stable Worker identity and does not
-invent a root. An available build exposes its state and a direct Cloudflare dashboard link to the
-exact build's logs. That URL is derived from the verified account, Worker, and build identities in
-the same live resource result.
+The pull request Worker row is a direct view of a Cloudflare Bot comment on that pull request.
+Samebase does not read the Cloudflare Worker API, Cloudflare Builds API, GitHub check runs, or the
+pull request head commit to determine that row. Default-branch Cloudflare observations still read
+the Cloudflare APIs.
 
-The resource read asks GitHub for check suites filtered to Cloudflare's stable GitHub App id on the
-pull request head commit. A Cloudflare branch preview belongs to a build only when one filtered
-check run has an `externalId` equal to the verified Cloudflare build UUID and names the same Worker.
-The row links the `Preview Alias URL` published by that exact check because it remains stable as new
-commits build on the branch. The version-specific `Preview URL` is not the row's navigation target.
-Missing, incomplete, malformed, or contradictory exact-check output fails closed.
+The batched pull request query reads only comment node ids and author types. It follows all metadata
+pages under the existing GitHub request deadline, selects only the exact Cloudflare and Netlify Bot
+node ids, and then reads bodies only for those selected comment ids. Every returned body must still
+belong to the same open pull request, repository, and Bot identity.
 
-GitHub can omit that check from a later pull request head when the commit does not build an attached
-Worker. The same resource request can recover stable preview links from hosting-provider pull
-request comments without storing provider state. The batched pull request query always reads only
-comment node ids and author types. It follows all metadata pages under the existing GitHub request
-deadline, selects only the exact Cloudflare and Netlify Bot node ids, and then reads bodies only for
-those selected comment ids. Every returned body must still belong to the same open pull request,
-repository, and Bot identity. A failed or changing metadata scan makes comment recovery unavailable
-only for that pull request. Provider body reads and parsers fail independently, so malformed
-Cloudflare output does not hide valid Netlify output, and malformed Netlify output does not hide
-valid Cloudflare output.
+Cloudflare Workers comments use Markdown table rows with exact `Status`, `Name`, and `Latest Commit`
+columns. A `Preview URL` column can also be present. One exact `View logs` link in the status cell
+must identify the Cloudflare account, Worker, and build UUID. Samebase preserves that exact URL for
+the visible logs link. The status cell maps successful deployment to Built, failed build to Failed,
+and building to Building. An unknown safe status remains Unknown. Samebase validates the comment row
+shape but does not compare its abbreviated commit with the current pull request head.
 
-Cloudflare Workers recovery reads only Markdown table rows with exact `Status`, `Name`, and
-`Latest Commit` columns. A `Preview URL` column can also be present. An exact `View logs` link
-identifies the Cloudflare account, Worker, and build. The exact abbreviated commit must match the
-current pull request head before Samebase exposes that link. This lets a row link to the build while
-Cloudflare is still building and before a branch preview exists. An exact `Branch Preview URL`
-anchor supplies a strict HTTPS `workers.dev` origin for that Worker. Cloudflare Pages recovery reads
-the exact Pages deployment heading, dashboard log target, and `Branch Preview URL` table row. Its
-URL must be a strict HTTPS `pages.dev` origin for that project. A malformed identity, log link, or
-preview link fails the Cloudflare provider result closed. Equal normalized URLs are one result.
-Distinct valid URLs for one provider resource are ambiguous and fail closed. Samebase does not guess
-Cloudflare alias normalization from a branch name.
+An attached Worker uses a comment row only when the Cloudflare account and Worker name exactly match
+its attachment. Its branch preview comes from the exact `Branch Preview URL` anchor in that same
+comment row. The URL must be a strict HTTPS `workers.dev` origin for that Worker. Cloudflare Pages
+reads the exact Pages deployment heading, dashboard log target, and `Branch Preview URL` table row.
+Its URL must be a strict HTTPS `pages.dev` origin for that project. Equal normalized URLs are one
+result. Distinct valid URLs for one provider resource are ambiguous and fail closed. Samebase does
+not guess Cloudflare alias normalization from a branch name.
+
+If GitHub comments are read and parsed successfully but no matching Cloudflare Workers row exists,
+that attached Worker shows `Unavailable`. If the GitHub comment read fails, a Cloudflare comment is
+unsafe to parse, or Cloudflare rows conflict, the pull request shows one message:
+`Could not load Cloudflare build status`. It does not show per-Worker `Unavailable` rows for that
+failure. A Cloudflare failure does not hide valid Convex or Netlify resources.
 
 Netlify recovery reads an exact `Name` and `Link` table. The `Latest deploy log` row must identify
 one Netlify site. The `Deploy Preview` row must contain one strict HTTPS link for the requested pull
@@ -137,15 +129,13 @@ comment body, URL, repository, resource name, or provider account identity. Post
 these failed parse observations without persisting provider state in the Samebase database. One
 action read emits at most one marker for each provider-format and failure-kind pair.
 
-An attached Cloudflare Worker consumes its matching comment preview through the rooted Worker row.
-The match uses the exact Cloudflare account and Worker name. The Worker row keeps that link when its
-Cloudflare API observation is unavailable, without claiming a repository root. Other parsed
-Cloudflare Workers, Cloudflare Pages projects, and Netlify sites have no verified repository root.
-The UI lists them in an `Other previews` group and never invents a root. An unattached Worker row
-links to the repository Settings page with a `Connect` action. Cloudflare Pages and Netlify rows
-have no setup action because Samebase does not support attaching those resources. Each row exposes
-the provider resource name and its branch or deploy preview link. The comment text and provider
-result are not saved in the Samebase database.
+An attached Cloudflare Worker consumes its matching comment row in the `Cloudflare Workers` group.
+Other parsed Cloudflare Workers, Cloudflare Pages projects, and Netlify sites have no verified
+repository root. The UI lists them in an `Other previews` group and never invents a root. An
+unattached Worker row links to the repository Settings page with a `Connect` action. Cloudflare
+Pages and Netlify rows have no setup action because Samebase does not support attaching those
+resources. Each row exposes the provider resource name and its branch or deploy preview link. The
+comment text and provider result are not saved in the Samebase database.
 
 For up to 100 pull requests, the normal GitHub cost is one repository REST request plus one batched
 head and comment-metadata query. Comment discovery adds no request when there are no recognized bot
@@ -154,12 +144,9 @@ that has selected comments, with another query for each additional 100 selected 
 request with more than 100 total comments adds metadata pagination requests until the scan is
 complete. Metadata pagination runs for at most six pull requests at one time.
 
-Worker identity, current build, build navigation, and branch preview are independent results. A
-verified Worker and Builds repository can expose an absent or unavailable current build together
-with a recovered build link or branch preview. A comment build link is navigation only. It does not
-claim a build status or replace the stronger Worker Builds API observation. The recovered preview
-URL is branch navigation only. It does not claim that the latest pull request commit was built. An
-exact Worker Builds API result has priority over comment recovery.
+Worker identity, build state, build navigation, and branch preview use one Cloudflare comment row.
+The comment build link and status are the visible Worker state for an open pull request. No stronger
+pull request Worker API observation exists.
 
 A Convex branch deployment belongs to a row only when the pull request head is in the vault
 repository, the project is directly attached to the vault, the current Convex credential can read
@@ -231,20 +218,21 @@ Tests must prove:
 - same-repository and fork heads stay distinct;
 - resource enrichment derives head identity from a server-side GitHub read, never browser fields;
 - a pull request that leaves the open set during resource enrichment does not fail sibling rows;
-- exact Worker resource state requires exact cross-provider identity;
+- attached Worker resource state uses an exact Cloudflare comment account-and-name match;
 - one attached-project Convex branch deployment remains reachable independently of Worker state and
   is visibly branch-scoped;
-- an exact Cloudflare build exposes its provider logs link;
-- an exact Cloudflare build check exposes its stable branch preview instead of its version preview;
-- a recovered Cloudflare branch preview can remain visible without claiming a current build;
+- a matching Cloudflare comment row exposes its exact provider logs link and its visible status;
+- a matching Cloudflare comment row exposes its branch preview from that same comment;
+- a parsed Cloudflare comment set with no matching Worker row shows only that Worker as unavailable;
+- an unreadable or unsafe Cloudflare comment shows one pull request Cloudflare build status error;
 - comment metadata selects only the exact Cloudflare and Netlify Bots before any body is read;
 - attached Workers consume exact account-and-name matches while other hosting previews remain
   rootless;
 - the `Other previews` group offers setup only for unattached Cloudflare Workers;
 - live Cloudflare Workers, Cloudflare Pages, and Netlify comment formats produce strict preview
   links;
-- provider failures are isolated, while comment pagination, body identity, malformed URLs, and
-  distinct URL ambiguity fail closed;
+- provider failures are isolated, while comment pagination, body identity, malformed URLs, unsafe
+  Cloudflare status rows, and distinct URL ambiguity fail closed;
 - an exact branch tree uses the immutable tree SHA returned for that branch commit;
 - no deleted table or action remains in generated Convex bindings, cleanup registries, or tests.
 

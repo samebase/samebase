@@ -25,7 +25,6 @@ export type VaultEnvironmentWorker = {
   workerName: string;
   build:
     | { state: "available"; buildState: VaultEnvironmentBuildState; logsUrl: string }
-    | { state: "linked"; logsUrl: string }
     | { state: "absent" }
     | { state: "unavailable" };
   destination:
@@ -35,7 +34,7 @@ export type VaultEnvironmentWorker = {
 };
 
 type VaultEnvironmentBuildState = Extract<
-  Extract<PullRequestWorkerResource, { state: "available" }>["cloudflareBuild"],
+  PullRequestWorkerResource["cloudflareBuild"],
   { state: "available" }
 >["buildState"];
 
@@ -331,7 +330,6 @@ export function buildPullRequestEnvironmentRoots({
   resources: PullRequestResources;
 }): VaultEnvironmentRoot[] {
   const workers = resources.workers.map((worker) => {
-    const rootDirectory = worker.state === "unavailable" ? "Needs attention" : worker.rootDirectory;
     const destination =
       worker.cloudflareBranchPreview.state === "available"
         ? {
@@ -342,32 +340,24 @@ export function buildPullRequestEnvironmentRoots({
           }
         : { state: "absent" as const };
     return {
-      rootDirectory,
+      rootDirectory: "Cloudflare Workers",
       sortKey: `0:${worker.workerName}:${worker.workerId}`,
       resource: {
         kind: "cloudflare_worker" as const,
         id: worker.workerId,
-        worker:
-          worker.state === "available"
-            ? {
-                workerName: worker.workerName,
-                build:
-                  worker.cloudflareBuild.state === "available"
-                    ? {
-                        state: "available" as const,
-                        buildState: worker.cloudflareBuild.buildState,
-                        logsUrl: worker.cloudflareBuild.logsUrl,
-                      }
-                    : worker.cloudflareBuild,
-                destination,
-                actions: [],
-              }
-            : {
-                workerName: worker.workerName,
-                build: worker.cloudflareBuild,
-                destination,
-                actions: [],
-              },
+        worker: {
+          workerName: worker.workerName,
+          build:
+            worker.cloudflareBuild.state === "available"
+              ? {
+                  state: "available" as const,
+                  buildState: worker.cloudflareBuild.buildState,
+                  logsUrl: worker.cloudflareBuild.logsUrl,
+                }
+              : worker.cloudflareBuild,
+          destination,
+          actions: [],
+        },
       },
     };
   });

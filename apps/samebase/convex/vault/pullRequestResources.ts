@@ -6,23 +6,13 @@ import { z } from "zod";
 
 import { getConvexCodeRootDirectory } from "../../shared/convexCodeLocation";
 import { internal } from "../_generated/api";
-import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import { allLimited } from "../common";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
-import {
-  readRecentCloudflareWorkerBuilds,
-  readCloudflareWorkerBuildsDiscoveryForIdentity,
-  readCloudflareWorkerIdentity,
-} from "../cloudflareResources";
 import { action } from "../functions";
-import { createGitHubRequestDeadlineSignal, fetchGitHubRepoIdentity } from "../githubRepoApi";
+import { createGitHubRequestDeadlineSignal } from "../githubRepoApi";
 import { isRecord } from "../jsonUtils";
 import { readConvexPreviewDeployments, readConvexProjectResource } from "./convexProjectResources";
-import {
-  matchCloudflareWorkerBuildForCommit,
-  type CloudflareBuildMatch,
-  vCloudflareBuildState,
-} from "./cloudflareBuildMatching";
+import { vCloudflareBuildState } from "./cloudflareBuildMatching";
 import {
   detectHostingCommentParseFailures,
   resolveCloudflareCommentBranchPreviewUrl,
@@ -35,15 +25,11 @@ import {
   type HostingPreviewRead,
   type NetlifyHostingPreview,
 } from "./pullRequestHostingPreviews";
-import {
-  buildCloudflareBuildLogsUrl,
-  buildConvexDeploymentDashboardUrl,
-} from "./providerDashboardUrls";
+import { buildConvexDeploymentDashboardUrl } from "./providerDashboardUrls";
 import type { VaultProviderObservationContext } from "./providerObservationQueries";
 
 const { array, id, literal, object, string, union } = v;
 
-const CLOUDFLARE_GITHUB_APP_DATABASE_ID = 85455;
 const CLOUDFLARE_GITHUB_BOT_NODE_ID = "MDM6Qm90NzMxMzk0MDI=";
 const NETLIFY_GITHUB_BOT_NODE_ID = "MDM6Qm90NDAyMDkzMjY=";
 const GITHUB_PULL_REQUEST_COMMENT_PAGE_SIZE = 100;
@@ -71,7 +57,6 @@ const vPullRequestConvexResource = union(
 const vCloudflareBranchPreview = union(
   object({ state: literal("available"), url: string() }),
   object({ state: literal("absent") }),
-  object({ state: literal("unavailable") }),
 );
 const vCloudflareBuild = union(
   object({
@@ -80,35 +65,20 @@ const vCloudflareBuild = union(
     buildState: vCloudflareBuildState,
     logsUrl: string(),
   }),
-  object({
-    state: literal("linked"),
-    uuid: string(),
-    logsUrl: string(),
-  }),
-  object({ state: literal("absent") }),
   object({ state: literal("unavailable") }),
 );
 const stableWorkerIdentityFields = {
   workerId: id("vaultCloudflareWorkers"),
   workerName: string(),
 };
-const observedWorkerIdentityFields = {
+const vPullRequestWorkerResource = object({
   ...stableWorkerIdentityFields,
-  rootDirectory: string(),
-};
-const vPullRequestWorkerResource = union(
-  object({
-    state: literal("available"),
-    ...observedWorkerIdentityFields,
-    cloudflareBuild: vCloudflareBuild,
-    cloudflareBranchPreview: vCloudflareBranchPreview,
-  }),
-  object({
-    state: literal("unavailable"),
-    ...stableWorkerIdentityFields,
-    cloudflareBuild: vCloudflareBuild,
-    cloudflareBranchPreview: vCloudflareBranchPreview,
-  }),
+  cloudflareBuild: vCloudflareBuild,
+  cloudflareBranchPreview: vCloudflareBranchPreview,
+});
+const vPullRequestCloudflareBuilds = union(
+  object({ state: literal("available") }),
+  object({ state: literal("unavailable") }),
 );
 const vCloudflareHostingPreview = union(
   object({
@@ -146,6 +116,7 @@ const vPullRequestHostingPreviews = object({
 });
 const vPullRequestResources = object({
   pullRequestId: string(),
+  cloudflareBuilds: vPullRequestCloudflareBuilds,
   workers: array(vPullRequestWorkerResource),
   convexProjects: array(vPullRequestConvexResource),
   hostingPreviews: vPullRequestHostingPreviews,
@@ -155,20 +126,12 @@ export type PullRequestWorkerResource = Infer<typeof vPullRequestWorkerResource>
 export type PullRequestConvexResource = Infer<typeof vPullRequestConvexResource>;
 export type PullRequestHostingPreviews = Infer<typeof vPullRequestHostingPreviews>;
 export type PullRequestResources = Infer<typeof vPullRequestResources>;
-type CloudflareBranchPreview = PullRequestWorkerResource["cloudflareBranchPreview"];
 
 const providerPullRequestResourceIdentitySchema = z.object({
   __typename: z.literal("PullRequest"),
   id: z.string().min(1),
   state: z.enum(["OPEN", "CLOSED", "MERGED"]),
   repository: z.object({ databaseId: z.number().int().positive() }),
-});
-const providerCloudflareCheckRunSchema = z.object({
-  name: z.string().min(1),
-  externalId: z.string().min(1).nullable(),
-  status: z.string().min(1),
-  conclusion: z.string().min(1).nullable(),
-  summary: z.string().nullable(),
 });
 const providerPullRequestCommentMetadataSchema = z.object({
   __typename: z.literal("IssueComment"),
@@ -196,28 +159,7 @@ const providerPullRequestResourceHeadSchema = providerPullRequestResourceIdentit
   state: z.literal("OPEN"),
   headRepository: z.object({ id: z.string().min(1) }).nullable(),
   headRefName: z.string().min(1),
-  headRefOid: z.string().min(1),
   comments: z.unknown().optional(),
-  commits: z.object({
-    nodes: z.array(
-      z.object({
-        commit: z.object({
-          oid: z.string().min(1),
-          checkSuites: z.object({
-            totalCount: z.number().int().nonnegative(),
-            nodes: z.array(
-              z.object({
-                checkRuns: z.object({
-                  totalCount: z.number().int().nonnegative(),
-                  nodes: z.array(providerCloudflareCheckRunSchema),
-                }),
-              }),
-            ),
-          }),
-        }),
-      }),
-    ),
-  }),
 });
 const providerPullRequestResourceHeadsSchema = z.object({ nodes: z.array(z.unknown()) });
 const providerPullRequestCommentPageSchema = z.object({ node: z.unknown() });
@@ -254,15 +196,11 @@ const providerRecoverablePullRequestErrorSchema = z.object({
   data: z.unknown(),
 });
 type ProviderPullRequestResourceHead = z.infer<typeof providerPullRequestResourceHeadSchema>;
-type ProviderCloudflareCheckRun = z.infer<typeof providerCloudflareCheckRunSchema>;
 type PullRequestResourceHeadBase = Pick<
   ProviderPullRequestResourceHead,
-  "id" | "number" | "isCrossRepository" | "headRefName" | "headRefOid"
+  "id" | "number" | "isCrossRepository" | "headRefName"
 > & {
   headRepositoryId: string | null;
-  cloudflareChecks:
-    | { state: "available"; runs: ProviderCloudflareCheckRun[] }
-    | { state: "unavailable" };
 };
 type HostingCommentProvider = "cloudflare" | "netlify";
 type HostingCommentReference = {
@@ -295,10 +233,7 @@ type PullRequestResourceHeadSeedRead =
   | { state: "unavailable"; pullRequestId: string };
 
 const PULL_REQUEST_RESOURCE_HEADS_QUERY = `
-  query PullRequestResourceHeads(
-    $ids: [ID!]!
-    $cloudflareAppId: Int!
-  ) {
+  query PullRequestResourceHeads($ids: [ID!]!) {
     nodes(ids: $ids) {
       __typename
       ... on PullRequest {
@@ -309,7 +244,6 @@ const PULL_REQUEST_RESOURCE_HEADS_QUERY = `
         repository { databaseId }
         headRepository { id }
         headRefName
-        headRefOid
         comments(
           first: ${GITHUB_PULL_REQUEST_COMMENT_PAGE_SIZE}
           orderBy: { field: UPDATED_AT, direction: ASC }
@@ -322,22 +256,6 @@ const PULL_REQUEST_RESOURCE_HEADS_QUERY = `
             author {
               __typename
               ... on Bot { id }
-            }
-          }
-        }
-        commits(last: 1) {
-          nodes {
-            commit {
-              oid
-              checkSuites(first: 20, filterBy: { appId: $cloudflareAppId }) {
-                totalCount
-                nodes {
-                  checkRuns(first: 100) {
-                    totalCount
-                    nodes { name externalId status conclusion summary }
-                  }
-                }
-              }
             }
           }
         }
@@ -564,14 +482,6 @@ export function normalizeGitHubPullRequestResourceHeadReads(
       return { state: "unavailable", pullRequestId };
     }
     const head = providerPullRequestResourceHeadSchema.parse(value);
-    const commit = head.commits.nodes.at(0)?.commit;
-    const completeCloudflareChecks =
-      head.commits.nodes.length === 1 &&
-      commit?.oid === head.headRefOid &&
-      commit.checkSuites.totalCount === commit.checkSuites.nodes.length &&
-      commit.checkSuites.nodes.every(
-        (suite) => suite.checkRuns.totalCount === suite.checkRuns.nodes.length,
-      );
     return {
       state: "available",
       head: {
@@ -580,13 +490,6 @@ export function normalizeGitHubPullRequestResourceHeadReads(
         isCrossRepository: head.isCrossRepository,
         headRepositoryId: head.headRepository?.id ?? null,
         headRefName: head.headRefName,
-        headRefOid: head.headRefOid,
-        cloudflareChecks: completeCloudflareChecks
-          ? {
-              state: "available",
-              runs: commit.checkSuites.nodes.flatMap((suite) => suite.checkRuns.nodes),
-            }
-          : { state: "unavailable" },
         hostingCommentScan: normalizeGitHubHostingCommentPage(head.comments),
       },
     };
@@ -639,9 +542,9 @@ export function recoverGitHubPullRequestGraphqlData(error: unknown): unknown {
 
 type StableWorker = VaultProviderObservationContext["cloudflareWorkers"][number];
 type StableConvexProject = VaultProviderObservationContext["convexProjects"][number];
-type AvailableWorkerResource = Extract<PullRequestWorkerResource, { state: "available" }>;
-type CloudflareBuild = PullRequestWorkerResource["cloudflareBuild"];
+type PullRequestCloudflareBuilds = Infer<typeof vPullRequestCloudflareBuilds>;
 type PullRequestResourceAccumulator = {
+  cloudflareBuilds: PullRequestCloudflareBuilds;
   workers: PullRequestWorkerResource[];
   convexProjects: PullRequestConvexResource[];
   hostingPreviews: PullRequestHostingPreviews;
@@ -655,32 +558,6 @@ type ConvexPreviewRead =
     }
   | { state: "missing" }
   | { state: "failed" };
-type PullRequestProviderFailureOperation =
-  | "read_cloudflare_worker_resources"
-  | "read_convex_preview"
-  | "resolve_cloudflare_connection";
-
-function providerFailureKind(error: unknown): "error" | "timeout" | "unknown" {
-  if (!(error instanceof Error)) {
-    return "unknown";
-  }
-  return error.name === "AbortError" || error.name === "TimeoutError" ? "timeout" : "error";
-}
-
-function reportPullRequestProviderFailure(args: {
-  operation: PullRequestProviderFailureOperation;
-  error: unknown;
-  workerId?: StableWorker["workerId"];
-  convexProjectId?: string;
-}): void {
-  console.warn("Pull request resource provider read failed.", {
-    operation: args.operation,
-    failureKind: providerFailureKind(args.error),
-    ...(args.workerId ? { workerId: args.workerId } : {}),
-    ...(args.convexProjectId ? { convexProjectId: args.convexProjectId } : {}),
-  });
-}
-
 const PULL_REQUEST_HOSTING_COMMENT_PARSE_LOG_TOPIC = "pull_request_hosting_comment_parse";
 
 export function reportPullRequestHostingCommentParseFailures(
@@ -709,13 +586,6 @@ function workerResourceIdentity(worker: StableWorker) {
   return {
     workerId: worker.workerId,
     workerName: worker.workerName,
-  };
-}
-
-function observedWorkerResourceIdentity(worker: StableWorker, rootDirectory: string) {
-  return {
-    ...workerResourceIdentity(worker),
-    rootDirectory,
   };
 }
 
@@ -784,242 +654,47 @@ export function resolveConvexPreviewDeployment(args: {
   return { state: "branch", deployment: branchMatches[0] };
 }
 
-function normalizeCloudflareBranchPreviewUrl(url: string, workerName: string): string | null {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "https:" &&
-      parsed.username === "" &&
-      parsed.password === "" &&
-      parsed.port === "" &&
-      parsed.pathname === "/" &&
-      parsed.search === "" &&
-      parsed.hash === "" &&
-      parsed.hostname.endsWith(".workers.dev") &&
-      parsed.hostname.includes(`-${workerName}.`)
-      ? parsed.origin
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-export function resolveCloudflareBranchPreviewUrl(args: {
-  checks: PullRequestResourceHead["cloudflareChecks"];
-  workerName: string;
-  build: Pick<Extract<CloudflareBuildMatch, { state: "available" }>, "buildUuid" | "buildState">;
-}):
-  | { state: "available"; url: string }
-  | { state: "absent" }
-  | {
-      state: "unavailable";
-      reason:
-        | "checks_unavailable"
-        | "check_ambiguous"
-        | "provider_disagreement"
-        | "url_ambiguous"
-        | "url_malformed";
-    } {
-  if (args.build.buildState !== "success") {
-    return { state: "absent" };
-  }
-  if (args.checks.state === "unavailable") {
-    return { state: "unavailable", reason: "checks_unavailable" };
+export function buildPullRequestCloudflareWorkerResources(args: {
+  cloudflare: CloudflareHostingRead;
+  workers: readonly StableWorker[];
+}): { state: "available"; workers: PullRequestWorkerResource[] } | { state: "unavailable" } {
+  if (args.cloudflare.state === "unavailable") {
+    return { state: "unavailable" };
   }
 
-  const checks = args.checks.runs.filter((check) => check.externalId === args.build.buildUuid);
-  if (checks.length === 0) {
-    return { state: "absent" };
-  }
-  if (checks.length > 1) {
-    return { state: "unavailable", reason: "check_ambiguous" };
-  }
-  const check = checks[0];
-  if (check.name !== `Workers Builds: ${args.workerName}`) {
-    return { state: "unavailable", reason: "provider_disagreement" };
-  }
-  if (check.status !== "COMPLETED" || check.conclusion !== "SUCCESS") {
-    return { state: "absent" };
-  }
-
-  const previewAliasLabel = "Preview Alias URL: ";
-  const previewUrls = (check.summary ?? "")
-    .split(/\r?\n/)
-    .flatMap((line) =>
-      line.startsWith(previewAliasLabel) ? [line.slice(previewAliasLabel.length).trim()] : [],
-    );
-  if (previewUrls.length === 0) {
-    return { state: "absent" };
-  }
-  if (previewUrls.length > 1) {
-    return { state: "unavailable", reason: "url_ambiguous" };
-  }
-  const previewUrl = normalizeCloudflareBranchPreviewUrl(previewUrls[0], args.workerName);
-  return previewUrl === null
-    ? { state: "unavailable", reason: "url_malformed" }
-    : { state: "available", url: previewUrl };
-}
-
-type CloudflareBranchPreviewResolution =
-  | { state: "available"; url: string }
-  | { state: "absent" }
-  | { state: "unavailable" };
-
-function resolveCloudflareWorkerCommentPreview(args: {
-  accountId: string;
-  workerName: string;
-  cloudflarePreviews: PullRequestResourceHead["hostingPreviews"]["cloudflare"];
-}): CloudflareBranchPreview {
-  const comment = resolveCloudflareCommentBranchPreviewUrl({
-    previews: args.cloudflarePreviews,
-    accountId: args.accountId,
-    workerName: args.workerName,
-  });
-  return comment.state === "available"
-    ? { state: "available", url: comment.url }
-    : comment.state === "absent"
-      ? { state: "absent" }
-      : { state: "unavailable" };
-}
-
-function resolveCloudflareWorkerCommentBuild(args: {
-  accountId: string;
-  workerName: string;
-  headCommitOid: string;
-  cloudflarePreviews: PullRequestResourceHead["hostingPreviews"]["cloudflare"];
-}): CloudflareBuild {
-  const comment = resolveCloudflareCommentWorkerBuild({
-    accountId: args.accountId,
-    headCommitOid: args.headCommitOid,
-    resources: args.cloudflarePreviews,
-    workerName: args.workerName,
-  });
-  return comment.state === "available"
-    ? {
-        state: "linked",
-        uuid: comment.buildUuid,
-        logsUrl: buildCloudflareBuildLogsUrl({
-          accountId: args.accountId,
-          workerName: args.workerName,
-          buildUuid: comment.buildUuid,
-        }),
-      }
-    : comment;
-}
-
-export function resolveCloudflareWorkerObservation(args: {
-  accountId: string;
-  workerName: string;
-  headCommitOid: string;
-  match: CloudflareBuildMatch;
-  buildsExhausted: boolean;
-  previewUrlsEnabled: boolean | undefined;
-  checks: PullRequestResourceHead["cloudflareChecks"];
-  cloudflarePreviews: PullRequestResourceHead["hostingPreviews"]["cloudflare"];
-}):
-  | {
-      state: "available";
-      cloudflareBuild: AvailableWorkerResource["cloudflareBuild"];
-      cloudflareBranchPreview: AvailableWorkerResource["cloudflareBranchPreview"];
+  const workers: PullRequestWorkerResource[] = [];
+  for (const worker of args.workers) {
+    const build = resolveCloudflareCommentWorkerBuild({
+      accountId: worker.accountId,
+      resources: args.cloudflare,
+      workerName: worker.workerName,
+    });
+    const preview = resolveCloudflareCommentBranchPreviewUrl({
+      accountId: worker.accountId,
+      previews: args.cloudflare,
+      workerName: worker.workerName,
+    });
+    if (build.state === "unavailable" || preview.state === "unavailable") {
+      return { state: "unavailable" };
     }
-  | {
-      state: "unavailable";
-      cloudflareBuild: CloudflareBuild;
-      cloudflareBranchPreview: CloudflareBranchPreview;
-    } {
-  const commentBuild = resolveCloudflareWorkerCommentBuild({
-    accountId: args.accountId,
-    workerName: args.workerName,
-    headCommitOid: args.headCommitOid,
-    cloudflarePreviews: args.cloudflarePreviews,
-  });
-  if (args.match.state === "provider_disagreement") {
-    return {
-      state: "unavailable",
-      cloudflareBuild: commentBuild.state === "linked" ? commentBuild : { state: "unavailable" },
-      cloudflareBranchPreview: resolveCloudflareWorkerCommentPreview(args),
-    };
-  }
-
-  const cloudflareBuild: AvailableWorkerResource["cloudflareBuild"] =
-    args.match.state === "absent"
-      ? commentBuild.state === "linked"
-        ? commentBuild
-        : args.buildsExhausted
-          ? { state: "absent" }
-          : { state: "unavailable" }
-      : {
-          state: "available",
-          uuid: args.match.buildUuid,
-          buildState: args.match.buildState,
-          logsUrl: buildCloudflareBuildLogsUrl({
-            accountId: args.accountId,
-            workerName: args.workerName,
-            buildUuid: args.match.buildUuid,
-          }),
-        };
-
-  if (args.previewUrlsEnabled === false) {
-    return {
-      state: "available",
-      cloudflareBuild,
-      cloudflareBranchPreview: { state: "absent" },
-    };
-  }
-
-  let currentCheck: CloudflareBranchPreviewResolution | null = null;
-  if (args.match.state === "available") {
-    const resolved = resolveCloudflareBranchPreviewUrl({
-      checks: args.checks,
-      workerName: args.workerName,
-      build: args.match,
+    workers.push({
+      ...workerResourceIdentity(worker),
+      cloudflareBuild:
+        build.state === "available"
+          ? {
+              state: "available",
+              uuid: build.buildUuid,
+              buildState: build.buildState,
+              logsUrl: build.logsUrl,
+            }
+          : { state: "unavailable" },
+      cloudflareBranchPreview:
+        preview.state === "available"
+          ? { state: "available", url: preview.url }
+          : { state: "absent" },
     });
-    currentCheck =
-      resolved.state === "available"
-        ? { state: "available", url: resolved.url }
-        : resolved.state === "absent"
-          ? { state: "absent" }
-          : { state: "unavailable" };
   }
-
-  let cloudflareBranchPreview: AvailableWorkerResource["cloudflareBranchPreview"];
-  if (currentCheck?.state === "available") {
-    cloudflareBranchPreview = currentCheck;
-  } else if (currentCheck?.state === "unavailable") {
-    cloudflareBranchPreview = { state: "unavailable" };
-  } else {
-    cloudflareBranchPreview = resolveCloudflareWorkerCommentPreview(args);
-  }
-
-  return {
-    state: "available",
-    cloudflareBuild,
-    cloudflareBranchPreview,
-  };
-}
-
-function unavailableWorkerResources(args: {
-  heads: readonly PullRequestResourceHead[];
-  worker: StableWorker;
-}): PullRequestWorkerResource[] {
-  const identity = workerResourceIdentity(args.worker);
-  return args.heads.map((head) => {
-    const commentBuild = resolveCloudflareWorkerCommentBuild({
-      accountId: args.worker.accountId,
-      workerName: args.worker.workerName,
-      headCommitOid: head.headRefOid,
-      cloudflarePreviews: head.hostingPreviews.cloudflare,
-    });
-    return {
-      state: "unavailable",
-      ...identity,
-      cloudflareBranchPreview: resolveCloudflareWorkerCommentPreview({
-        accountId: args.worker.accountId,
-        workerName: args.worker.workerName,
-        cloudflarePreviews: head.hostingPreviews.cloudflare,
-      }),
-      cloudflareBuild: commentBuild.state === "linked" ? commentBuild : { state: "unavailable" },
-    };
-  });
+  return { state: "available", workers };
 }
 
 async function readConvexPreview(args: {
@@ -1047,10 +722,14 @@ async function readConvexPreview(args: {
       deployments,
     };
   } catch (error) {
-    reportPullRequestProviderFailure({
-      operation: "read_convex_preview",
-      error,
+    console.warn("Pull request Convex preview read failed.", {
       convexProjectId: args.project.convexProjectId,
+      failureKind:
+        error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError")
+          ? "timeout"
+          : error instanceof Error
+            ? "error"
+            : "unknown",
     });
     return { state: "failed" };
   }
@@ -1100,92 +779,6 @@ async function readConvexProjectResourcesForHeads(args: {
         projectSlug: observedPreviews.projectSlug,
         deploymentName: resolved.deployment.name,
       }),
-    };
-  });
-}
-
-async function readWorkerResourcesForHeads(args: {
-  context: VaultProviderObservationContext;
-  worker: StableWorker;
-  heads: readonly PullRequestResourceHead[];
-  defaultBranch: string;
-  cloudflareToken: string;
-  cloudflareTransport: ReturnType<typeof resolveCloudflareApiTransport>;
-}): Promise<PullRequestWorkerResource[]> {
-  const identity = await readCloudflareWorkerIdentity({
-    token: args.cloudflareToken,
-    transport: args.cloudflareTransport,
-    accountId: args.worker.accountId,
-    workerName: args.worker.workerName,
-  });
-  if (!identity || identity.workerTag !== args.worker.workerTag) {
-    return unavailableWorkerResources({
-      heads: args.heads,
-      worker: args.worker,
-    });
-  }
-
-  const discovery = await readCloudflareWorkerBuildsDiscoveryForIdentity({
-    token: args.cloudflareToken,
-    transport: args.cloudflareTransport,
-    accountId: args.worker.accountId,
-    workerTag: args.worker.workerTag,
-    defaultBranch: args.defaultBranch,
-    expectedRepoId: args.context.ghRepoId,
-  });
-  const repository = discovery.repository;
-  const connectedBuilds = discovery.builds;
-  if (repository.state !== "ready" || connectedBuilds.state !== "connected") {
-    return unavailableWorkerResources({
-      heads: args.heads,
-      worker: args.worker,
-    });
-  }
-
-  const { builds, exhausted } = await readRecentCloudflareWorkerBuilds({
-    token: args.cloudflareToken,
-    transport: args.cloudflareTransport,
-    accountId: args.worker.accountId,
-    workerTag: args.worker.workerTag,
-  });
-
-  const identityFields = observedWorkerResourceIdentity(args.worker, repository.rootDirectory);
-  return args.heads.map((head): PullRequestWorkerResource => {
-    const match = matchCloudflareWorkerBuildForCommit({
-      builds,
-      branch: head.headRefName,
-      commitHash: head.headRefOid,
-      worker: {
-        workerTag: args.worker.workerTag,
-        rootDirectory: repository.rootDirectory,
-      },
-      ghRepoId: args.context.ghRepoId,
-      triggerUuid: connectedBuilds.previewTriggerUuid,
-    });
-    const observation = resolveCloudflareWorkerObservation({
-      accountId: args.worker.accountId,
-      workerName: args.worker.workerName,
-      headCommitOid: head.headRefOid,
-      match,
-      buildsExhausted: exhausted,
-      previewUrlsEnabled: identity.previewUrlsEnabled,
-      checks: head.cloudflareChecks,
-      cloudflarePreviews: head.hostingPreviews.cloudflare,
-    });
-    if (observation.state === "unavailable") {
-      return {
-        state: "unavailable",
-        ...workerResourceIdentity(args.worker),
-        cloudflareBuild: observation.cloudflareBuild,
-        cloudflareBranchPreview: observation.cloudflareBranchPreview,
-      };
-    }
-
-    return {
-      state: observation.state,
-      ...identityFields,
-      cloudflareBuild: observation.cloudflareBuild,
-      cloudflareBranchPreview: observation.cloudflareBranchPreview,
     };
   });
 }
@@ -1393,7 +986,6 @@ async function readGitHubPullRequestResourceHeadReads(args: {
   try {
     response = await args.octokit.graphql(PULL_REQUEST_RESOURCE_HEADS_QUERY, {
       ids: args.pullRequestIds,
-      cloudflareAppId: CLOUDFLARE_GITHUB_APP_DATABASE_ID,
       request: { signal: args.signal },
     });
   } catch (error) {
@@ -1436,14 +1028,18 @@ async function readGitHubPullRequestResourceHeadReads(args: {
       comments: comments.netlify,
       pullRequestNumber: read.head.number,
     });
-    parseFailures.push(
-      ...detectHostingCommentParseFailures({
-        cloudflareComments: comments.cloudflare,
-        cloudflareRead: cloudflarePreviews,
-        netlifyComments: comments.netlify,
-        netlifyRead: netlifyPreviews,
-      }),
-    );
+    const commentParseFailures = detectHostingCommentParseFailures({
+      cloudflareComments: comments.cloudflare,
+      cloudflareRead: cloudflarePreviews,
+      netlifyComments: comments.netlify,
+      netlifyRead: netlifyPreviews,
+    });
+    parseFailures.push(...commentParseFailures);
+    const cloudflareRead = commentParseFailures.some((failure) =>
+      failure.providerFormat.startsWith("cloudflare_"),
+    )
+      ? ({ state: "unavailable" } as const)
+      : cloudflarePreviews;
     return {
       state: "available",
       head: {
@@ -1452,10 +1048,8 @@ async function readGitHubPullRequestResourceHeadReads(args: {
         isCrossRepository: read.head.isCrossRepository,
         headRepositoryId: read.head.headRepositoryId,
         headRefName: read.head.headRefName,
-        headRefOid: read.head.headRefOid,
-        cloudflareChecks: read.head.cloudflareChecks,
         hostingPreviews: {
-          cloudflare: cloudflarePreviews,
+          cloudflare: cloudflareRead,
           netlify: netlifyPreviews,
         },
       },
@@ -1475,7 +1069,7 @@ export const getPullRequestResources = action({
   handler: async (ctx, args): Promise<PullRequestResources[]> => {
     validatePullRequestResourceIds(args.pullRequestIds);
 
-    const [context, githubConnection, cloudflareConnection, convexConnection] = await Promise.all([
+    const [context, githubConnection, convexConnection] = await Promise.all([
       ctx.runQuery(internal.vault.providerObservationQueries.readVaultProviderObservationContext, {
         vaultId: args.vaultId,
         userId: ctx.viewer.userId,
@@ -1484,17 +1078,6 @@ export const getPullRequestResources = action({
         userId: ctx.viewer.userId,
         kind: "github",
       }),
-      ctx
-        .runAction(internal.cloudflareOAuth.resolveConnectionForUser, {
-          userId: ctx.viewer.userId,
-        })
-        .catch((error) => {
-          reportPullRequestProviderFailure({
-            operation: "resolve_cloudflare_connection",
-            error,
-          });
-          return null;
-        }),
       ctx.runQuery(internal.providerConnections.getByUserAndKind, {
         userId: ctx.viewer.userId,
         kind: "convex",
@@ -1503,24 +1086,14 @@ export const getPullRequestResources = action({
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub connection unavailable.");
     }
-    const cloudflareToken = cloudflareConnection?.auth.credential.trim() ?? "";
     const octokit = new Octokit({ auth: githubConnection.auth.credential });
     const signal = createGitHubRequestDeadlineSignal();
-    const [repository, headReads] = await Promise.all([
-      fetchGitHubRepoIdentity({
-        githubAccessToken: githubConnection.auth.credential,
-        owner: context.owner,
-        repo: context.name,
-        expectedRepoId: context.ghRepoId,
-        signal,
-      }),
-      readGitHubPullRequestResourceHeadReads({
-        octokit,
-        signal,
-        ghRepoId: context.ghRepoId,
-        pullRequestIds: args.pullRequestIds,
-      }),
-    ]);
+    const headReads = await readGitHubPullRequestResourceHeadReads({
+      octokit,
+      signal,
+      ghRepoId: context.ghRepoId,
+      pullRequestIds: args.pullRequestIds,
+    });
     const heads = headReads.flatMap((read) => (read.state === "available" ? [read.head] : []));
     const convexToken =
       convexConnection?.kind === "convex" ? convexConnection.auth.credential.trim() : "";
@@ -1528,6 +1101,7 @@ export const getPullRequestResources = action({
     const resourcesByPullRequest = new Map<string, PullRequestResourceAccumulator>();
     for (const pullRequestId of args.pullRequestIds) {
       resourcesByPullRequest.set(pullRequestId, {
+        cloudflareBuilds: { state: "unavailable" },
         workers: [],
         convexProjects: [],
         hostingPreviews: {
@@ -1545,6 +1119,12 @@ export const getPullRequestResources = action({
         head,
         configuredWorkers: context.cloudflareWorkers,
       });
+      const cloudflareWorkers = buildPullRequestCloudflareWorkerResources({
+        cloudflare: head.hostingPreviews.cloudflare,
+        workers: context.cloudflareWorkers,
+      });
+      resources.cloudflareBuilds = { state: cloudflareWorkers.state };
+      resources.workers = cloudflareWorkers.state === "available" ? cloudflareWorkers.workers : [];
     }
     for (const read of headReads) {
       if (read.state === "available") {
@@ -1554,75 +1134,12 @@ export const getPullRequestResources = action({
       if (!resources) {
         throw new Error("Pull request resources lost requested identity.");
       }
-      for (const worker of context.cloudflareWorkers) {
-        resources.workers.push({
-          state: "unavailable",
-          ...workerResourceIdentity(worker),
-          cloudflareBuild: { state: "unavailable" },
-          cloudflareBranchPreview: { state: "unavailable" },
-        });
-      }
       for (const project of context.convexProjects) {
         resources.convexProjects.push({
           state: "unavailable",
           ...convexProjectResourceIdentity(project),
         });
       }
-    }
-
-    if (!cloudflareConnection || !cloudflareToken) {
-      for (const worker of context.cloudflareWorkers) {
-        const resources = unavailableWorkerResources({
-          heads,
-          worker,
-        });
-        heads.forEach((head, index) => {
-          const pullRequestResources = resourcesByPullRequest.get(head.id);
-          if (!pullRequestResources) {
-            throw new Error("Pull request resources lost requested identity.");
-          }
-          pullRequestResources.workers.push(resources[index]);
-        });
-      }
-    } else {
-      const cloudflareTransport = resolveCloudflareApiTransport(cloudflareConnection.auth.method);
-      const workerResources = await Promise.all(
-        context.cloudflareWorkers.map(async (worker) => {
-          try {
-            return await readWorkerResourcesForHeads({
-              context,
-              worker,
-              heads,
-              defaultBranch: repository.defaultBranch,
-              cloudflareToken,
-              cloudflareTransport,
-            });
-          } catch (error) {
-            reportPullRequestProviderFailure({
-              operation: "read_cloudflare_worker_resources",
-              error,
-              workerId: worker.workerId,
-            });
-            return unavailableWorkerResources({
-              heads,
-              worker,
-            });
-          }
-        }),
-      );
-      context.cloudflareWorkers.forEach((worker, workerIndex) => {
-        heads.forEach((head, headIndex) => {
-          const resource = workerResources[workerIndex][headIndex];
-          if (resource.workerId !== worker.workerId) {
-            throw new Error("Pull request resources lost stable Worker identity.");
-          }
-          const pullRequestResources = resourcesByPullRequest.get(head.id);
-          if (!pullRequestResources) {
-            throw new Error("Pull request resources lost requested identity.");
-          }
-          pullRequestResources.workers.push(resource);
-        });
-      });
     }
 
     if (!convexToken || !convexTeamId) {

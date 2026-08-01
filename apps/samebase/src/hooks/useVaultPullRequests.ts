@@ -34,7 +34,7 @@ type VaultPullRequestTarget = Pick<UserVaultResult, "_id" | "sourceSetup"> & {
   }[];
 };
 
-type PullRequestResourceIdentity = readonly [pullRequestId: string, headRefOid: string];
+type PullRequestResourceIdentity = string;
 
 export type VaultPullRequest = Omit<RepositoryPullRequest, "labels"> & {
   labels: RepositoryPullRequest["labels"]["nodes"];
@@ -95,7 +95,6 @@ function resourcesNeedPolling(resources: PullRequestResources[] | undefined): bo
     resources?.some((pullRequest) =>
       pullRequest.workers.some(
         (worker) =>
-          worker.state === "available" &&
           worker.cloudflareBuild.state === "available" &&
           (worker.cloudflareBuild.buildState === "queued" ||
             worker.cloudflareBuild.buildState === "running"),
@@ -144,7 +143,7 @@ function uniquePullRequestsByPage(pages: readonly RepositoryPullRequestPage[]): 
       }
       seen.add(pullRequest.id);
       pullRequests.push(pullRequest);
-      pagePullRequestResourceIdentities.push([pullRequest.id, pullRequest.headRefOid]);
+      pagePullRequestResourceIdentities.push(pullRequest.id);
     }
     if (pagePullRequestResourceIdentities.length > 0) {
       pullRequestResourceIdentityPages.push(pagePullRequestResourceIdentities);
@@ -235,9 +234,7 @@ export function useVaultPullRequests(args: {
           }
           return await getPullRequestResources({
             vaultId,
-            pullRequestIds: pagePullRequestResourceIdentities.map(
-              ([pullRequestId]) => pullRequestId,
-            ),
+            pullRequestIds: pagePullRequestResourceIdentities,
           });
         },
         enabled: Boolean(vaultId),
@@ -258,7 +255,7 @@ export function useVaultPullRequests(args: {
       const byPullRequestId = new Map(
         (resourceQuery.data ?? []).map((pullRequest) => [pullRequest.pullRequestId, pullRequest]),
       );
-      for (const [pullRequestId] of pagePullRequestResourceIdentities) {
+      for (const pullRequestId of pagePullRequestResourceIdentities) {
         const pullRequestResources = byPullRequestId.get(pullRequestId);
         if (!pullRequestResources) {
           resources.set(pullRequestId, { state: resourceQuery.isError ? "failed" : "loading" });
