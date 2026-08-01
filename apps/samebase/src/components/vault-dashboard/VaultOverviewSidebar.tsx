@@ -20,7 +20,7 @@ import { buildVaultDashboardRoute, buildVaultSettingsRoute } from "@/lib/vaultRo
 import { Link } from "@tanstack/react-router";
 import type { ReactMutation } from "convex/react";
 import type { FunctionReference } from "convex/server";
-import { ChevronDown, ChevronRight, EllipsisVertical, Loader2, MoreHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight, EllipsisVertical, Loader2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -202,13 +202,13 @@ function VaultRow({
           <DropdownMenuTrigger asChild nativeButton>
             <Button
               aria-label={`Actions for ${vault.repositoryFullName}`}
-              className="mt-2 mr-1 size-10 shrink-0 @max-[120px]:size-8"
+              className="mt-2 mr-1 h-10 w-8 shrink-0 @max-[120px]:h-8 @max-[120px]:w-7"
               disabled={pending}
               size="icon"
               type="button"
               variant="ghost"
             >
-              <MoreHorizontal />
+              <EllipsisVertical />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
