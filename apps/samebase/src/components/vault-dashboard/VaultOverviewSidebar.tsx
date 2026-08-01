@@ -404,11 +404,9 @@ export function VaultOverviewSidebar({
                       <span className="min-w-0 flex-1 truncate text-left text-sm font-medium">
                         {folder.name}
                       </span>
-                      {folder.collapsed ? (
-                        <span className="px-2 text-xs text-muted-foreground @max-[120px]:hidden">
-                          {folderVaults.length}
-                        </span>
-                      ) : null}
+                      <span className="px-2 text-xs text-muted-foreground @max-[120px]:hidden">
+                        {folderVaults.length}
+                      </span>
                       {hasHiddenFailure ? (
                         <span aria-hidden="true" className="h-2 w-2 rounded-full bg-red-500" />
                       ) : null}

@@ -151,6 +151,7 @@ test("shows shallow vault folders on desktop", async ({ page }) => {
     name: "Collapse Fixtures",
   });
   await expect(expandedFixtures).toHaveAttribute("aria-expanded", "true");
+  await expect(expandedFixtures.getByText("1", { exact: true })).toBeVisible();
   await expect(
     vaultNavigation.getByRole("link", {
       name: "samebase/integration-fixture, 1/1 failed",
