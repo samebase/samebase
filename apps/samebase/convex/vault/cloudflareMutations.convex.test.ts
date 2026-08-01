@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
+import {
+  managedBillingResourceOperationKey,
+  manualBillingResourceOperationKey,
+} from "../billingResourceQuotas";
 import { makeConvexTest } from "../test.setup";
 
 async function createGraphFixture() {
@@ -243,9 +247,18 @@ describe("vault Cloudflare Worker attachment mutations", () => {
       accountId: "account-1",
       workerName: "managed-worker",
     });
+    const billingReservationId = await t.mutation(
+      internal.billingResourceQuotas.claimBillingResourceReservation,
+      {
+        userId: ids.userId,
+        kind: "cloudflare_worker",
+        operationKey: managedBillingResourceOperationKey(runId),
+      },
+    );
     const workerId = await t.mutation(
       internal.vault.cloudflareMutations.recordManagedWorkerCreated,
       {
+        billingReservationId,
         vaultId: ids.primaryVaultId,
         userId: ids.userId,
         runId,
@@ -280,6 +293,7 @@ describe("vault Cloudflare Worker attachment mutations", () => {
     await t.run(async (ctx) => await ctx.db.patch(writeLockId, { state: "failed" }));
     await expect(
       t.mutation(internal.vault.cloudflareMutations.recordManagedWorkerCreated, {
+        billingReservationId: null,
         vaultId: ids.primaryVaultId,
         userId: ids.userId,
         runId,
@@ -321,8 +335,21 @@ describe("vault Cloudflare Worker attachment mutations", () => {
       actionId: "create-worker",
       action: "create_cloudflare_worker",
     });
+    const billingReservationId = await t.mutation(
+      internal.billingResourceQuotas.claimBillingResourceReservation,
+      {
+        userId: ids.userId,
+        kind: "cloudflare_worker",
+        operationKey: manualBillingResourceOperationKey({
+          vaultId: ids.secondaryVaultId,
+          providerScopeId: "account-1",
+          resourceName: "created-worker",
+        }),
+      },
+    );
     await expect(
       t.mutation(internal.vault.cloudflareMutations.recordManualWorkerCreated, {
+        billingReservationId,
         vaultId: ids.secondaryVaultId,
         userId: ids.userId,
         actionId: "old-create-worker",
@@ -334,6 +361,7 @@ describe("vault Cloudflare Worker attachment mutations", () => {
     const createdWorkerId = await t.mutation(
       internal.vault.cloudflareMutations.recordManualWorkerCreated,
       {
+        billingReservationId,
         vaultId: ids.secondaryVaultId,
         userId: ids.userId,
         actionId: "create-worker",

@@ -15,7 +15,12 @@ import {
 } from "../../shared/convexCodeLocation";
 import { normalizeConvexConfigPath } from "../../shared/convexConfigPath";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";
-import { requireBillingResourceCapacity } from "../billingResourceQuotas";
+import {
+  consumeBillingResourceReservationForExistingAttachment,
+  managedBillingResourceOperationKey,
+  manualBillingResourceOperationKey,
+  requireBillingResourceCapacity,
+} from "../billingResourceQuotas";
 import { vVaultProviderResourceOrigin, type VaultProviderResourceOrigin } from "./model";
 import {
   requireUserVaultInfrastructureIdle,
@@ -116,6 +121,13 @@ async function readMatchingProject(
 async function insertProject(
   ctx: Pick<MutationCtx, "db">,
   args: {
+    capacity:
+      | { kind: "attachment" }
+      | {
+          kind: "provider_create";
+          operationKey: string;
+          reservationId: Id<"billingResourceReservations"> | null;
+        };
     vaultId: Id<"vaults">;
     userId: Id<"users">;
     teamId: string;
@@ -127,15 +139,34 @@ async function insertProject(
   const codeLocation = normalizeConvexCodeLocation(args.codeLocation);
   const existing = await readMatchingProject(ctx, { ...args, codeLocation });
   if (existing) {
+    if (args.capacity.kind === "provider_create" && args.capacity.reservationId) {
+      await consumeBillingResourceReservationForExistingAttachment(ctx, {
+        kind: "convex_project",
+        operationKey: args.capacity.operationKey,
+        reservationId: args.capacity.reservationId,
+        userId: args.userId,
+      });
+    }
     if (args.origin === "provisioned" && existing.origin !== "provisioned") {
       await ctx.db.patch(existing._id, { origin: "provisioned" });
     }
     return existing._id;
   }
 
+  if (args.capacity.kind === "provider_create" && !args.capacity.reservationId) {
+    throw new Error("Convex project creation requires a billing resource reservation.");
+  }
+
   await requireBillingResourceCapacity(ctx, {
     additionalResources: 1,
     kind: "convex_project",
+    reservation:
+      args.capacity.kind === "provider_create" && args.capacity.reservationId
+        ? {
+            operationKey: args.capacity.operationKey,
+            reservationId: args.capacity.reservationId,
+          }
+        : null,
     userId: args.userId,
   });
 
@@ -270,6 +301,7 @@ export const beginManagedProjectCreate = internalMutation({
 
 export const recordManagedProjectCreated = internalMutation({
   args: {
+    billingReservationId: union(id("billingResourceReservations"), nullValue()),
     vaultId: id("vaults"),
     userId: id("users"),
     runId: id("workflow_vaultProvisioning_runs"),
@@ -289,6 +321,11 @@ export const recordManagedProjectCreated = internalMutation({
       throw new Error("Managed Convex project does not match the provisioning plan.");
     }
     let convexProjectId: Id<"vaultConvexProjects">;
+    const capacity = {
+      kind: "provider_create" as const,
+      operationKey: managedBillingResourceOperationKey(args.runId),
+      reservationId: args.billingReservationId,
+    };
     if (plan.convex.state === "created") {
       if (plan.convex.projectId !== args.projectId) {
         throw new Error("Managed Convex project checkpoint already names another project.");
@@ -298,6 +335,7 @@ export const recordManagedProjectCreated = internalMutation({
       }
       convexProjectId = await insertProject(ctx, {
         ...args,
+        capacity,
         codeLocation: { kind: "config", convexConfigPath },
         origin: "provisioned",
       });
@@ -316,6 +354,7 @@ export const recordManagedProjectCreated = internalMutation({
       });
       convexProjectId = await insertProject(ctx, {
         ...args,
+        capacity,
         codeLocation: { kind: "config", convexConfigPath },
         origin: "provisioned",
       });
@@ -331,9 +370,11 @@ export const recordManagedProjectCreated = internalMutation({
 
 export const recordManualProjectCreated = internalMutation({
   args: {
+    billingReservationId: id("billingResourceReservations"),
     vaultId: id("vaults"),
     userId: id("users"),
     actionId: string(),
+    projectName: string(),
     teamId: string(),
     projectId: string(),
     codeLocation: vConvexCodeLocation,
@@ -345,6 +386,15 @@ export const recordManualProjectCreated = internalMutation({
       actionId: args.actionId,
     });
     return await insertProject(ctx, {
+      capacity: {
+        kind: "provider_create",
+        operationKey: manualBillingResourceOperationKey({
+          vaultId: args.vaultId,
+          providerScopeId: args.teamId,
+          resourceName: args.projectName,
+        }),
+        reservationId: args.billingReservationId,
+      },
       vaultId: args.vaultId,
       userId: args.userId,
       teamId: args.teamId,
@@ -398,6 +448,7 @@ export const attachProjects = internalMutation({
     await requireBillingResourceCapacity(ctx, {
       additionalResources,
       kind: "convex_project",
+      reservation: null,
       userId: args.userId,
     });
 
@@ -405,6 +456,7 @@ export const attachProjects = internalMutation({
     for (const project of projects) {
       projectAttachmentIds.push(
         await insertProject(ctx, {
+          capacity: { kind: "attachment" },
           vaultId: args.vaultId,
           userId: args.userId,
           ...project,

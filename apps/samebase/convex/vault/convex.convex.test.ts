@@ -23,6 +23,7 @@ vi.mock("@octokit/rest", () => ({
 }));
 
 import { api, internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { makeConvexTest } from "../test.setup";
 
 type GitHubConfigFixture = {
@@ -129,6 +130,23 @@ async function createConnectedVault(teamId = "1000") {
     userId,
     vaultId,
   };
+}
+
+async function seedConvexProjectsAtFreeLimit(
+  t: ReturnType<typeof makeConvexTest>,
+  args: { userId: Id<"users">; vaultId: Id<"vaults"> },
+): Promise<void> {
+  await t.run(async (ctx) => {
+    for (let index = 0; index < 5; index += 1) {
+      await ctx.db.insert("vaultConvexProjects", {
+        ...args,
+        teamId: "existing-team",
+        projectId: `existing-project-${index}`,
+        convexConfigPath: `apps/existing-${index}/convex.json`,
+        origin: "selected_existing",
+      });
+    }
+  });
 }
 
 async function createManagedProjectCreatingFixture() {
@@ -355,6 +373,52 @@ describe("vault Convex project attachments", () => {
     );
   });
 
+  it("blocks a manual Convex create before the provider write at the free limit", async () => {
+    setGitHubConfigs([{ path: "convex.json", sha: "root-sha" }]);
+    const fetchMock = vi.fn(async (input: Request) => {
+      if (input.url.includes("/teams/1000/projects?limit=100")) {
+        return jsonResponse({ items: [], pagination: { hasMore: false } });
+      }
+      throw new Error(`Unexpected Convex request: ${input.method} ${input.url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { asUser, t, userId, vaultId } = await createConnectedVault();
+    await seedConvexProjectsAtFreeLimit(t, { userId, vaultId });
+
+    await expect(
+      asUser.action(api.vault.convex.createProject, {
+        vaultId,
+        projectName: "new-project",
+        codeLocation: {
+          kind: "config",
+          convexConfigPath: "convex.json",
+          blobSha: "root-sha",
+        },
+      }),
+    ).rejects.toThrow("Convex project attachment limit reached (5).");
+
+    expect(fetchMock.mock.calls.some(([input]) => input.method === "POST")).toBe(false);
+  });
+
+  it("blocks a managed Convex create before the provider write at the free limit", async () => {
+    const { runId, t, userId, vaultId } = await createManagedProjectCreatingFixture();
+    await seedConvexProjectsAtFreeLimit(t, { userId, vaultId });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      t.action(internal.vault.convex.ensureConvexProjectConnection, {
+        vaultId,
+        runId,
+        userId,
+        convexConfigPath: "convex.json",
+        projectName: "managed-project",
+      }),
+    ).rejects.toThrow("Convex project attachment limit reached (5).");
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("checks the manual deadline immediately before the Convex create request", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(1_000);
@@ -432,7 +496,7 @@ describe("vault Convex project attachments", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     const failureRecordWarning = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { asUser, t, vaultId } = await createConnectedVault();
+    const { asUser, t, userId, vaultId } = await createConnectedVault();
     try {
       await expect(
         asUser.action(api.vault.convex.createProject, {
@@ -461,14 +525,29 @@ describe("vault Convex project attachments", () => {
       }),
     );
     await expect(
-      t.run(
-        async (ctx) =>
-          await ctx.db
-            .query("vaultConvexProjects")
-            .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-            .collect(),
-      ),
-    ).resolves.toEqual([]);
+      t.run(async (ctx) => {
+        const projects = await ctx.db
+          .query("vaultConvexProjects")
+          .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+          .collect();
+        const reservations = await ctx.db
+          .query("billingResourceReservations")
+          .withIndex("by_userId_and_kind_and_expiresAt", (q) =>
+            q.eq("userId", userId).eq("kind", "convex_project"),
+          )
+          .collect();
+        return { projects, reservations };
+      }),
+    ).resolves.toEqual({
+      projects: [],
+      reservations: [
+        expect.objectContaining({
+          kind: "convex_project",
+          state: "provider_created",
+          userId,
+        }),
+      ],
+    });
   });
 
   it("requires dashboard deletion when an interrupted managed create left a project", async () => {

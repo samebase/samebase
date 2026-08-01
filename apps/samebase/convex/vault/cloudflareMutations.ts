@@ -1,7 +1,12 @@
 import { v, type Infer } from "convex/values";
 
 import type { Doc, Id } from "../_generated/dataModel";
-import { requireBillingResourceCapacity } from "../billingResourceQuotas";
+import {
+  consumeBillingResourceReservationForExistingAttachment,
+  managedBillingResourceOperationKey,
+  manualBillingResourceOperationKey,
+  requireBillingResourceCapacity,
+} from "../billingResourceQuotas";
 import {
   internalMutation,
   internalQuery,
@@ -191,6 +196,13 @@ async function readMatchingWorker(
 async function insertWorker(
   ctx: Pick<MutationCtx, "db">,
   args: {
+    capacity:
+      | { kind: "attachment" }
+      | {
+          kind: "provider_create";
+          operationKey: string;
+          reservationId: Id<"billingResourceReservations"> | null;
+        };
     vaultId: Id<"vaults">;
     userId: Id<"users">;
     accountId: string;
@@ -201,15 +213,34 @@ async function insertWorker(
 ): Promise<Id<"vaultCloudflareWorkers">> {
   const existing = await readMatchingWorker(ctx, args);
   if (existing) {
+    if (args.capacity.kind === "provider_create" && args.capacity.reservationId) {
+      await consumeBillingResourceReservationForExistingAttachment(ctx, {
+        kind: "cloudflare_worker",
+        operationKey: args.capacity.operationKey,
+        reservationId: args.capacity.reservationId,
+        userId: args.userId,
+      });
+    }
     if (args.origin === "provisioned" && existing.origin !== "provisioned") {
       await ctx.db.patch(existing._id, { origin: "provisioned" });
     }
     return existing._id;
   }
 
+  if (args.capacity.kind === "provider_create" && !args.capacity.reservationId) {
+    throw new Error("Cloudflare Worker creation requires a billing resource reservation.");
+  }
+
   await requireBillingResourceCapacity(ctx, {
     additionalResources: 1,
     kind: "cloudflare_worker",
+    reservation:
+      args.capacity.kind === "provider_create" && args.capacity.reservationId
+        ? {
+            operationKey: args.capacity.operationKey,
+            reservationId: args.capacity.reservationId,
+          }
+        : null,
     userId: args.userId,
   });
 
@@ -266,6 +297,7 @@ export const attachWorkers = internalMutation({
     await requireBillingResourceCapacity(ctx, {
       additionalResources,
       kind: "cloudflare_worker",
+      reservation: null,
       userId: args.userId,
     });
 
@@ -273,6 +305,7 @@ export const attachWorkers = internalMutation({
     for (const worker of args.workers) {
       workerAttachmentIds.push(
         await insertWorker(ctx, {
+          capacity: { kind: "attachment" },
           vaultId: args.vaultId,
           userId: args.userId,
           ...worker,
@@ -381,6 +414,7 @@ export const beginManagedWorkerCreate = internalMutation({
 
 export const recordManagedWorkerCreated = internalMutation({
   args: {
+    billingReservationId: union(id("billingResourceReservations"), nullValue()),
     vaultId: id("vaults"),
     userId: id("users"),
     runId: id("workflow_vaultProvisioning_runs"),
@@ -398,11 +432,16 @@ export const recordManagedWorkerCreated = internalMutation({
       throw new Error("Managed Cloudflare Worker does not match the provisioning plan.");
     }
     let workerId: Id<"vaultCloudflareWorkers">;
+    const capacity = {
+      kind: "provider_create" as const,
+      operationKey: managedBillingResourceOperationKey(args.runId),
+      reservationId: args.billingReservationId,
+    };
     if (plan.cloudflare.state === "created") {
       if (plan.cloudflare.workerTag !== args.workerTag) {
         throw new Error("Managed Cloudflare Worker checkpoint already names another Worker.");
       }
-      workerId = await insertWorker(ctx, { ...args, origin: "provisioned" });
+      workerId = await insertWorker(ctx, { ...args, capacity, origin: "provisioned" });
     } else {
       if (plan.cloudflare.state !== "creating") {
         throw new Error("Managed Cloudflare Worker creation was not started.");
@@ -417,7 +456,7 @@ export const recordManagedWorkerCreated = internalMutation({
         },
         updatedAt: Date.now(),
       });
-      workerId = await insertWorker(ctx, { ...args, origin: "provisioned" });
+      workerId = await insertWorker(ctx, { ...args, capacity, origin: "provisioned" });
     }
     await recordManagedProviderWrite(ctx, {
       vaultId: args.vaultId,
@@ -444,6 +483,7 @@ export const recordManualConnectedWorker = internalMutation({
       actionId: args.actionId,
     });
     return await insertWorker(ctx, {
+      capacity: { kind: "attachment" },
       vaultId: args.vaultId,
       userId: args.userId,
       accountId: args.accountId,
@@ -456,6 +496,7 @@ export const recordManualConnectedWorker = internalMutation({
 
 export const recordManualWorkerCreated = internalMutation({
   args: {
+    billingReservationId: id("billingResourceReservations"),
     vaultId: id("vaults"),
     userId: id("users"),
     actionId: string(),
@@ -470,6 +511,15 @@ export const recordManualWorkerCreated = internalMutation({
       actionId: args.actionId,
     });
     return await insertWorker(ctx, {
+      capacity: {
+        kind: "provider_create",
+        operationKey: manualBillingResourceOperationKey({
+          vaultId: args.vaultId,
+          providerScopeId: args.accountId,
+          resourceName: args.workerName,
+        }),
+        reservationId: args.billingReservationId,
+      },
       vaultId: args.vaultId,
       userId: args.userId,
       accountId: args.accountId,

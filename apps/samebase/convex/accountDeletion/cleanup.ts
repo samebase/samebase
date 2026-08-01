@@ -37,6 +37,7 @@ const ACCOUNT_DELETION_TABLE_REGISTRY = {
   authVerifiers: "auth_finalization",
   authRateLimits: "auth_finalization",
   users: "user_finalization",
+  billingResourceReservations: "account_local",
   workflow_accountDeletion_runs: "receipt",
   workflow_accountDeletion_events: "receipt",
   providerConnections: "provider_revocation",
@@ -81,6 +82,7 @@ type AccountLocalTableName = {
 
 const accountLocalCleanupTarget = union(
   literal("vaults"),
+  literal("billingResourceReservations"),
   literal("ui_user_settings"),
   literal("ui_workspaceSidebar_layouts"),
   literal("ui_vaultFolders"),
@@ -306,6 +308,20 @@ type AccountLocalCleanupHandler = (
  * must provide the handler that the account deletion workflow executes.
  */
 const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
+  billingResourceReservations: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("billingResourceReservations")
+      .withIndex("by_userId_and_kind_and_operationKey", (q) => q.eq("userId", userId))
+      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
+    return rows.length > 0
+      ? {
+          state: "needs_more",
+          target: "billingResourceReservations",
+          rowsChanged: await deleteRowsById(ctx, rows),
+        }
+      : null;
+  },
   ui_user_settings: async (ctx, userId) => {
     const rows = await ctx.db
       .query("ui_user_settings")
@@ -502,6 +518,7 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
 } satisfies Record<AccountLocalTableName, AccountLocalCleanupHandler>;
 
 const ACCOUNT_LOCAL_CLEANUP_GROUPS = {
+  billingResourceReservations: "appAccessAndTokens",
   ui_user_settings: "preferences",
   ui_workspaceSidebar_layouts: "preferences",
   ui_vaultFolders: "preferences",

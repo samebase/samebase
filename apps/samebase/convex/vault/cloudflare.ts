@@ -5,6 +5,10 @@ import { Infer, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
+import {
+  managedBillingResourceOperationKey,
+  manualBillingResourceOperationKey,
+} from "../billingResourceQuotas";
 import { listCloudflareAccountsForToken } from "../cloudflareAccountDiscovery";
 import {
   resolveCloudflareApiTransport,
@@ -373,6 +377,7 @@ async function createWorkerForManagedWorkflow(
       workerName: validation.value,
     },
   );
+  const billingOperationKey = managedBillingResourceOperationKey(args.runId);
   const connection = await resolveCloudflareConnection(ctx, args.userId);
   const account = await resolveAccount({
     token: connection.token,
@@ -381,59 +386,102 @@ async function createWorkerForManagedWorkflow(
   });
 
   let worker: { workerName: string; workerTag: string };
-  if (checkpoint.state === "created") {
-    const identity = await readCloudflareWorkerIdentity({
-      token: connection.token,
-      transport: connection.transport,
-      accountId: account.accountId,
-      workerName: validation.value,
-    });
-    if (!identity || identity.workerTag !== checkpoint.workerTag) {
-      throw new Error("Managed Cloudflare Worker checkpoint is missing from Cloudflare.");
-    }
-    worker = identity;
-  } else {
-    const existing = await readCloudflareWorkerIdentity({
-      token: connection.token,
-      transport: connection.transport,
-      accountId: account.accountId,
-      workerName: validation.value,
-    });
-    if (existing) {
-      if (checkpoint.state === "creating") {
-        throw new Error(
-          `Cloudflare Worker ${validation.value} exists after an interrupted create. Delete it in the Cloudflare dashboard, then retry.`,
-        );
-      }
-      throw new Error(
-        `Cloudflare Worker name ${validation.value} already exists. Choose another Worker name and try again.`,
-      );
-    }
-    if (checkpoint.state === "planned") {
-      await ctx.runMutation(internal.vault.cloudflareMutations.beginManagedWorkerCreate, {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        userId: args.userId,
+  let providerCreated = false;
+  let billingReservationId: Id<"billingResourceReservations"> | null = null;
+  try {
+    if (checkpoint.state === "created") {
+      const identity = await readCloudflareWorkerIdentity({
+        token: connection.token,
+        transport: connection.transport,
         accountId: account.accountId,
         workerName: validation.value,
       });
+      if (!identity || identity.workerTag !== checkpoint.workerTag) {
+        throw new Error("Managed Cloudflare Worker checkpoint is missing from Cloudflare.");
+      }
+      worker = identity;
+    } else {
+      billingReservationId = await ctx.runMutation(
+        internal.billingResourceQuotas.claimBillingResourceReservation,
+        {
+          userId: args.userId,
+          kind: "cloudflare_worker",
+          operationKey: billingOperationKey,
+        },
+      );
+      const existing = await readCloudflareWorkerIdentity({
+        token: connection.token,
+        transport: connection.transport,
+        accountId: account.accountId,
+        workerName: validation.value,
+      });
+      if (existing) {
+        if (checkpoint.state === "creating") {
+          throw new Error(
+            `Cloudflare Worker ${validation.value} exists after an interrupted create. Delete it in the Cloudflare dashboard, then retry.`,
+          );
+        }
+        throw new Error(
+          `Cloudflare Worker name ${validation.value} already exists. Choose another Worker name and try again.`,
+        );
+      }
+      if (checkpoint.state === "planned") {
+        await ctx.runMutation(internal.vault.cloudflareMutations.beginManagedWorkerCreate, {
+          vaultId: args.vaultId,
+          runId: args.runId,
+          userId: args.userId,
+          accountId: account.accountId,
+          workerName: validation.value,
+        });
+      }
+      worker = await createCloudflareWorker({
+        token: connection.token,
+        transport: connection.transport,
+        accountId: account.accountId,
+        workerName: validation.value,
+      });
+      providerCreated = true;
+      await ctx.runMutation(
+        internal.billingResourceQuotas.markBillingResourceReservationProviderCreated,
+        {
+          reservationId: billingReservationId,
+          userId: args.userId,
+          kind: "cloudflare_worker",
+          operationKey: billingOperationKey,
+        },
+      );
     }
-    worker = await createCloudflareWorker({
-      token: connection.token,
-      transport: connection.transport,
-      accountId: account.accountId,
-      workerName: validation.value,
-    });
-  }
 
-  return await ctx.runMutation(internal.vault.cloudflareMutations.recordManagedWorkerCreated, {
-    vaultId: args.vaultId,
-    runId: args.runId,
-    userId: args.userId,
-    accountId: account.accountId,
-    workerName: worker.workerName,
-    workerTag: worker.workerTag,
-  });
+    return await ctx.runMutation(internal.vault.cloudflareMutations.recordManagedWorkerCreated, {
+      billingReservationId,
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+      accountId: account.accountId,
+      workerName: worker.workerName,
+      workerTag: worker.workerTag,
+    });
+  } catch (error) {
+    if (billingReservationId && !providerCreated) {
+      try {
+        await ctx.runMutation(
+          internal.billingResourceQuotas.releaseUnusedBillingResourceReservation,
+          {
+            reservationId: billingReservationId,
+            userId: args.userId,
+            kind: "cloudflare_worker",
+            operationKey: billingOperationKey,
+          },
+        );
+      } catch (releaseError) {
+        console.warn("billing:cloudflare_worker:reservation_release_failed", {
+          message: toErrorMessage(releaseError),
+          vaultId: args.vaultId,
+        });
+      }
+    }
+    throw error;
+  }
 }
 
 function toCloudflareBuildConfig(rootDirectory: string): CloudflareBuildConfig {
@@ -1161,6 +1209,11 @@ async function createWorkerForUser(
   }
   const buildConfig = toCloudflareBuildConfig(args.rootDirectory);
   const actionId = crypto.randomUUID();
+  const billingOperationKey = manualBillingResourceOperationKey({
+    vaultId: args.vaultId,
+    providerScopeId: accountId,
+    resourceName: validation.value,
+  });
   const claim = await ctx.runMutation(
     internal.vault.infrastructureOperation.claimManualProviderWrite,
     {
@@ -1171,7 +1224,9 @@ async function createWorkerForUser(
     },
   );
   const providerCreate = { started: false };
+  let providerCreated = false;
   let workerRecorded = false;
+  let billingReservationId: Id<"billingResourceReservations"> | null = null;
   try {
     const resolved = await resolveCloudflareRepositoryContext(ctx, { ...args, accountId });
     await rememberDefaultAccount(ctx, {
@@ -1190,6 +1245,14 @@ async function createWorkerForUser(
         `Cloudflare Worker name ${validation.value} already exists. Attach that Worker or choose another name.`,
       );
     }
+    billingReservationId = await ctx.runMutation(
+      internal.billingResourceQuotas.claimBillingResourceReservation,
+      {
+        userId: args.userId,
+        kind: "cloudflare_worker",
+        operationKey: billingOperationKey,
+      },
+    );
     requireManualProviderActionDeadline(claim.deadlineAt);
     const worker = await createCloudflareWorker({
       token: resolved.connection.token,
@@ -1201,9 +1264,20 @@ async function createWorkerForUser(
         providerCreate.started = true;
       },
     });
+    providerCreated = true;
+    await ctx.runMutation(
+      internal.billingResourceQuotas.markBillingResourceReservationProviderCreated,
+      {
+        reservationId: billingReservationId,
+        userId: args.userId,
+        kind: "cloudflare_worker",
+        operationKey: billingOperationKey,
+      },
+    );
     const workerId = await ctx.runMutation(
       internal.vault.cloudflareMutations.recordManualWorkerCreated,
       {
+        billingReservationId,
         vaultId: args.vaultId,
         userId: args.userId,
         actionId,
@@ -1232,6 +1306,24 @@ async function createWorkerForUser(
     });
     return workerId;
   } catch (error) {
+    if (billingReservationId && !providerCreated) {
+      try {
+        await ctx.runMutation(
+          internal.billingResourceQuotas.releaseUnusedBillingResourceReservation,
+          {
+            reservationId: billingReservationId,
+            userId: args.userId,
+            kind: "cloudflare_worker",
+            operationKey: billingOperationKey,
+          },
+        );
+      } catch (releaseError) {
+        console.warn("billing:cloudflare_worker:reservation_release_failed", {
+          message: toErrorMessage(releaseError),
+          vaultId: args.vaultId,
+        });
+      }
+    }
     const reportedError =
       providerCreate.started && !workerRecorded
         ? new Error(

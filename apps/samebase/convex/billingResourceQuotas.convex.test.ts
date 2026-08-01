@@ -2,6 +2,10 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import {
+  managedBillingResourceOperationKey,
+  manualBillingResourceOperationKey,
+} from "./billingResourceQuotas";
 import { makeConvexTest } from "./test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
@@ -156,6 +160,24 @@ function asUser(t: ConvexTest, userId: Id<"users">) {
     subject: `${userId}|test-session`,
     tokenIdentifier: `test:${userId}`,
   });
+}
+
+async function seedProviderCreatedReservation(
+  t: ConvexTest,
+  args: {
+    kind: "cloudflare_worker" | "convex_project";
+    operationKey: string;
+    userId: Id<"users">;
+  },
+): Promise<Id<"billingResourceReservations">> {
+  return await t.run(
+    async (ctx) =>
+      await ctx.db.insert("billingResourceReservations", {
+        ...args,
+        state: "provider_created",
+        expiresAt: Date.now() + 60_000,
+      }),
+  );
 }
 
 async function createManagedProjectCheckpoint(
@@ -415,8 +437,8 @@ describe("billing resource quotas", () => {
     await expect(
       asUser(t, ids.userId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {}),
     ).resolves.toEqual({
-      cloudflareWorkers: { used: 6, limit: 5 },
-      convexProjects: { used: 6, limit: 5 },
+      cloudflareWorkers: { used: { state: "exact", count: 6 }, limit: 5 },
+      convexProjects: { used: { state: "exact", count: 6 }, limit: 5 },
     });
     await expect(
       t.mutation(internal.vault.convexMutations.attachProjects, {
@@ -508,6 +530,157 @@ describe("billing resource quotas", () => {
     });
   });
 
+  it("reports legacy usage above the bounded exact range as 41+", async () => {
+    const { ids, t } = await createQuotaFixture("pro");
+    await Promise.all([
+      seedProjects(t, { ...ids, count: 45 }),
+      seedWorkers(t, { ...ids, count: 45 }),
+    ]);
+
+    await expect(
+      asUser(t, ids.userId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {}),
+    ).resolves.toEqual({
+      cloudflareWorkers: { used: { state: "at_least", count: 41 }, limit: 40 },
+      convexProjects: { used: { state: "at_least", count: 41 }, limit: 40 },
+    });
+  });
+
+  it("serializes concurrent claims for the last available slot", async () => {
+    const { ids, t } = await createQuotaFixture();
+    await seedProjects(t, { ...ids, count: 4 });
+
+    const claims = await Promise.allSettled([
+      t.mutation(internal.billingResourceQuotas.claimBillingResourceReservation, {
+        userId: ids.userId,
+        kind: "convex_project",
+        operationKey: "concurrent-project-a",
+      }),
+      t.mutation(internal.billingResourceQuotas.claimBillingResourceReservation, {
+        userId: ids.userId,
+        kind: "convex_project",
+        operationKey: "concurrent-project-b",
+      }),
+    ]);
+
+    expect(claims.filter((claim) => claim.status === "fulfilled")).toHaveLength(1);
+    expect(claims.filter((claim) => claim.status === "rejected")).toHaveLength(1);
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("billingResourceReservations")
+            .withIndex("by_userId_and_kind_and_operationKey", (q) =>
+              q.eq("userId", ids.userId).eq("kind", "convex_project"),
+            )
+            .take(2),
+      ),
+    ).resolves.toHaveLength(1);
+  });
+
+  it("reuses a stable claim key but rechecks capacity after downgrade", async () => {
+    const { ids, t } = await createQuotaFixture("pro");
+    await seedProjects(t, { ...ids, count: 5 });
+    const operationKey = manualBillingResourceOperationKey({
+      vaultId: ids.vaultId,
+      providerScopeId: "team-1",
+      resourceName: "stable-project",
+    });
+    const first = await t.mutation(internal.billingResourceQuotas.claimBillingResourceReservation, {
+      userId: ids.userId,
+      kind: "convex_project",
+      operationKey,
+    });
+    await expect(
+      t.mutation(internal.billingResourceQuotas.claimBillingResourceReservation, {
+        userId: ids.userId,
+        kind: "convex_project",
+        operationKey,
+      }),
+    ).resolves.toEqual(first);
+
+    await t.run(
+      async (ctx) =>
+        await ctx.db.patch(ids.userId, { billingPlan: "free", billingStatus: "inactive" }),
+    );
+    await expect(
+      t.mutation(internal.billingResourceQuotas.claimBillingResourceReservation, {
+        userId: ids.userId,
+        kind: "convex_project",
+        operationKey,
+      }),
+    ).rejects.toThrow("Convex project attachment limit reached (5).");
+  });
+
+  it("releases provider failures but retains capacity after provider success", async () => {
+    const { ids, t } = await createQuotaFixture();
+    await seedWorkers(t, { ...ids, count: 4 });
+    const operationKey = manualBillingResourceOperationKey({
+      vaultId: ids.vaultId,
+      providerScopeId: "account-1",
+      resourceName: "retry-worker",
+    });
+    const failedClaim = await t.mutation(
+      internal.billingResourceQuotas.claimBillingResourceReservation,
+      {
+        userId: ids.userId,
+        kind: "cloudflare_worker",
+        operationKey,
+      },
+    );
+    await t.mutation(internal.billingResourceQuotas.releaseUnusedBillingResourceReservation, {
+      reservationId: failedClaim,
+      userId: ids.userId,
+      kind: "cloudflare_worker",
+      operationKey,
+    });
+    const retryClaim = await t.mutation(
+      internal.billingResourceQuotas.claimBillingResourceReservation,
+      {
+        userId: ids.userId,
+        kind: "cloudflare_worker",
+        operationKey,
+      },
+    );
+    expect(retryClaim).not.toEqual(failedClaim);
+
+    await t.mutation(internal.billingResourceQuotas.markBillingResourceReservationProviderCreated, {
+      reservationId: retryClaim,
+      userId: ids.userId,
+      kind: "cloudflare_worker",
+      operationKey,
+    });
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.recordManualWorkerCreated, {
+        billingReservationId: retryClaim,
+        ...ids,
+        actionId: "missing-provider-checkpoint",
+        accountId: "account-1",
+        workerName: "retry-worker",
+        workerTag: "retry-worker-tag",
+      }),
+    ).rejects.toThrow("Manual provider action no longer owns the vault write.");
+    await t.mutation(internal.billingResourceQuotas.releaseUnusedBillingResourceReservation, {
+      reservationId: retryClaim,
+      userId: ids.userId,
+      kind: "cloudflare_worker",
+      operationKey,
+    });
+    await expect(t.run(async (ctx) => await ctx.db.get(retryClaim))).resolves.toMatchObject({
+      state: "provider_created",
+      operationKey,
+    });
+
+    await t.run(async (ctx) => await ctx.db.patch(retryClaim, { expiresAt: 0 }));
+    await expect(
+      t.mutation(internal.billingResourceQuotas.claimBillingResourceReservation, {
+        userId: ids.userId,
+        kind: "cloudflare_worker",
+        operationKey: "replacement-worker",
+      }),
+    ).resolves.toBeDefined();
+    await expect(t.run(async (ctx) => await ctx.db.get(retryClaim))).resolves.toBeNull();
+  });
+
   it("enforces manual and managed Convex project attachment paths", async () => {
     {
       const { ids, t } = await createQuotaFixture();
@@ -517,10 +690,21 @@ describe("billing resource quotas", () => {
         actionId: "manual-project",
         action: "create_convex_project",
       });
+      const billingReservationId = await seedProviderCreatedReservation(t, {
+        userId: ids.userId,
+        kind: "convex_project",
+        operationKey: manualBillingResourceOperationKey({
+          vaultId: ids.vaultId,
+          providerScopeId: "team-1",
+          resourceName: "manual-project",
+        }),
+      });
       await expect(
         t.mutation(internal.vault.convexMutations.recordManualProjectCreated, {
           ...ids,
+          billingReservationId,
           actionId: "manual-project",
+          projectName: "manual-project",
           teamId: "team-1",
           projectId: "manual-project",
           codeLocation: { kind: "config", convexConfigPath: "apps/manual/convex.json" },
@@ -532,9 +716,15 @@ describe("billing resource quotas", () => {
       const { ids, t } = await createQuotaFixture();
       await seedProjects(t, { ...ids, count: 5 });
       const { planId, runId } = await createManagedProjectCheckpoint(t, ids);
+      const billingReservationId = await seedProviderCreatedReservation(t, {
+        userId: ids.userId,
+        kind: "convex_project",
+        operationKey: managedBillingResourceOperationKey(runId),
+      });
       await expect(
         t.mutation(internal.vault.convexMutations.recordManagedProjectCreated, {
           ...ids,
+          billingReservationId,
           runId,
           convexConfigPath: "apps/managed/convex.json",
           projectName: "managed-project",
@@ -566,6 +756,7 @@ describe("billing resource quotas", () => {
       await expect(
         t.mutation(internal.vault.convexMutations.recordManagedProjectCreated, {
           ...ids,
+          billingReservationId: null,
           runId,
           convexConfigPath: "apps/managed/convex.json",
           projectName: "managed-project",
@@ -604,9 +795,19 @@ describe("billing resource quotas", () => {
         actionId: "create-worker",
         action: "create_cloudflare_worker",
       });
+      const billingReservationId = await seedProviderCreatedReservation(t, {
+        userId: ids.userId,
+        kind: "cloudflare_worker",
+        operationKey: manualBillingResourceOperationKey({
+          vaultId: ids.vaultId,
+          providerScopeId: "account-1",
+          resourceName: "created-worker",
+        }),
+      });
       await expect(
         t.mutation(internal.vault.cloudflareMutations.recordManualWorkerCreated, {
           ...ids,
+          billingReservationId,
           actionId: "create-worker",
           accountId: "account-1",
           workerName: "created-worker",
@@ -619,9 +820,15 @@ describe("billing resource quotas", () => {
       const { ids, t } = await createQuotaFixture();
       await seedWorkers(t, { ...ids, count: 5 });
       const { planId, runId } = await createManagedWorkerCheckpoint(t, ids);
+      const billingReservationId = await seedProviderCreatedReservation(t, {
+        userId: ids.userId,
+        kind: "cloudflare_worker",
+        operationKey: managedBillingResourceOperationKey(runId),
+      });
       await expect(
         t.mutation(internal.vault.cloudflareMutations.recordManagedWorkerCreated, {
           ...ids,
+          billingReservationId,
           runId,
           accountId: "account-1",
           workerName: "managed-worker",
@@ -652,6 +859,7 @@ describe("billing resource quotas", () => {
       await expect(
         t.mutation(internal.vault.cloudflareMutations.recordManagedWorkerCreated, {
           ...ids,
+          billingReservationId: null,
           runId,
           accountId: "account-1",
           workerName: "managed-worker",

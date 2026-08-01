@@ -5,6 +5,10 @@ import { type Infer, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
+import {
+  managedBillingResourceOperationKey,
+  manualBillingResourceOperationKey,
+} from "../billingResourceQuotas";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import { discoverCloudflareWorkersForRepository } from "../cloudflareResources";
 import {
@@ -412,12 +416,20 @@ async function createProjectForUser(
     },
   );
   let providerCreateStarted = false;
+  let providerCreated = false;
   let projectRecorded = false;
+  let billingReservationId: Id<"billingResourceReservations"> | null = null;
+  let billingOperationKey: string | null = null;
   try {
     const [sourceDiscovery, connection] = await Promise.all([
       discoverConvexCodeLocations(ctx, args),
       resolveConvexConnection(ctx, args.userId),
     ]);
+    billingOperationKey = manualBillingResourceOperationKey({
+      vaultId: args.vaultId,
+      providerScopeId: connection.teamId,
+      resourceName: validation.value,
+    });
     requireVerifiedConvexCodeLocation(sourceDiscovery.source, codeLocation);
     const projects = await listProjectsForConnection(connection);
     if (
@@ -429,6 +441,14 @@ async function createProjectForUser(
         `Convex project name ${validation.value} already exists. Attach that project or choose another name.`,
       );
     }
+    billingReservationId = await ctx.runMutation(
+      internal.billingResourceQuotas.claimBillingResourceReservation,
+      {
+        userId: args.userId,
+        kind: "convex_project",
+        operationKey: billingOperationKey,
+      },
+    );
     requireManualProviderActionDeadline(claim.deadlineAt);
     providerCreateStarted = true;
     const created = await requestConvexManagementApi(
@@ -440,12 +460,24 @@ async function createProjectForUser(
         body: { projectName: validation.value, deploymentType: "prod" },
       },
     );
+    providerCreated = true;
+    await ctx.runMutation(
+      internal.billingResourceQuotas.markBillingResourceReservationProviderCreated,
+      {
+        reservationId: billingReservationId,
+        userId: args.userId,
+        kind: "convex_project",
+        operationKey: billingOperationKey,
+      },
+    );
     const convexProjectId = await ctx.runMutation(
       internal.vault.convexMutations.recordManualProjectCreated,
       {
+        billingReservationId,
         vaultId: args.vaultId,
         userId: args.userId,
         actionId,
+        projectName: validation.value,
         teamId: connection.teamId,
         projectId: created.id,
         codeLocation: removeConvexCodeLocationEvidence(codeLocation),
@@ -469,6 +501,24 @@ async function createProjectForUser(
     });
     return convexProjectId;
   } catch (error) {
+    if (billingReservationId && billingOperationKey && !providerCreated) {
+      try {
+        await ctx.runMutation(
+          internal.billingResourceQuotas.releaseUnusedBillingResourceReservation,
+          {
+            reservationId: billingReservationId,
+            userId: args.userId,
+            kind: "convex_project",
+            operationKey: billingOperationKey,
+          },
+        );
+      } catch (releaseError) {
+        console.warn("billing:convex_project:reservation_release_failed", {
+          message: toErrorMessage(releaseError),
+          vaultId: args.vaultId,
+        });
+      }
+    }
     const reportedError =
       providerCreateStarted && !projectRecorded
         ? new Error(
@@ -498,6 +548,7 @@ async function createProjectForManagedWorkflow(
     throw new Error(validation.message);
   }
   const connection = await resolveConvexConnection(ctx, args.userId);
+  const billingOperationKey = managedBillingResourceOperationKey(args.runId);
   const checkpoint = await ctx.runQuery(
     internal.vault.convexMutations.readManagedProjectCreateCheckpoint,
     {
@@ -509,56 +560,99 @@ async function createProjectForManagedWorkflow(
     },
   );
   let projectId: string;
-  if (checkpoint.state === "created") {
-    projectId = checkpoint.projectId;
-  } else {
-    const projects = await listProjectsForConnection(connection);
-    if (
-      projects.some(
-        (project) => project.name === validation.value || project.slug === validation.value,
-      )
-    ) {
-      if (checkpoint.state === "creating") {
+  let providerCreated = false;
+  let billingReservationId: Id<"billingResourceReservations"> | null = null;
+  try {
+    if (checkpoint.state === "created") {
+      projectId = checkpoint.projectId;
+    } else {
+      billingReservationId = await ctx.runMutation(
+        internal.billingResourceQuotas.claimBillingResourceReservation,
+        {
+          userId: args.userId,
+          kind: "convex_project",
+          operationKey: billingOperationKey,
+        },
+      );
+      const projects = await listProjectsForConnection(connection);
+      if (
+        projects.some(
+          (project) => project.name === validation.value || project.slug === validation.value,
+        )
+      ) {
+        if (checkpoint.state === "creating") {
+          throw new Error(
+            `Convex project ${validation.value} exists after an interrupted create. Delete it in the Convex dashboard, then retry.`,
+          );
+        }
         throw new Error(
-          `Convex project ${validation.value} exists after an interrupted create. Delete it in the Convex dashboard, then retry.`,
+          `Convex project name ${validation.value} already exists. Choose another project name and try again.`,
         );
       }
-      throw new Error(
-        `Convex project name ${validation.value} already exists. Choose another project name and try again.`,
+      if (checkpoint.state === "planned") {
+        await ctx.runMutation(internal.vault.convexMutations.beginManagedProjectCreate, {
+          vaultId: args.vaultId,
+          runId: args.runId,
+          userId: args.userId,
+          projectName: validation.value,
+          teamId: connection.teamId,
+        });
+      }
+      const created = await requestConvexManagementApi(
+        connection.token,
+        "POST",
+        "/teams/{team_id}/create_project",
+        {
+          params: { path: { team_id: connection.teamId } },
+          body: { projectName: validation.value, deploymentType: "prod" },
+        },
       );
+      providerCreated = true;
+      await ctx.runMutation(
+        internal.billingResourceQuotas.markBillingResourceReservationProviderCreated,
+        {
+          reservationId: billingReservationId,
+          userId: args.userId,
+          kind: "convex_project",
+          operationKey: billingOperationKey,
+        },
+      );
+      projectId = created.id;
     }
-    if (checkpoint.state === "planned") {
-      await ctx.runMutation(internal.vault.convexMutations.beginManagedProjectCreate, {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        userId: args.userId,
-        projectName: validation.value,
-        teamId: connection.teamId,
-      });
-    }
-    const created = await requestConvexManagementApi(
-      connection.token,
-      "POST",
-      "/teams/{team_id}/create_project",
-      {
-        params: { path: { team_id: connection.teamId } },
-        body: { projectName: validation.value, deploymentType: "prod" },
-      },
-    );
-    projectId = created.id;
-  }
 
-  const project = await readConvexProject({ connection, projectId });
-  await recordConvexTeamSlug(ctx, { userId: args.userId, connection, project });
-  return await ctx.runMutation(internal.vault.convexMutations.recordManagedProjectCreated, {
-    vaultId: args.vaultId,
-    runId: args.runId,
-    userId: args.userId,
-    convexConfigPath: args.convexConfigPath,
-    projectName: validation.value,
-    teamId: connection.teamId,
-    projectId,
-  });
+    const project = await readConvexProject({ connection, projectId });
+    await recordConvexTeamSlug(ctx, { userId: args.userId, connection, project });
+    return await ctx.runMutation(internal.vault.convexMutations.recordManagedProjectCreated, {
+      billingReservationId,
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+      convexConfigPath: args.convexConfigPath,
+      projectName: validation.value,
+      teamId: connection.teamId,
+      projectId,
+    });
+  } catch (error) {
+    if (billingReservationId && !providerCreated) {
+      try {
+        await ctx.runMutation(
+          internal.billingResourceQuotas.releaseUnusedBillingResourceReservation,
+          {
+            reservationId: billingReservationId,
+            userId: args.userId,
+            kind: "convex_project",
+            operationKey: billingOperationKey,
+          },
+        );
+      } catch (releaseError) {
+        console.warn("billing:convex_project:reservation_release_failed", {
+          message: toErrorMessage(releaseError),
+          vaultId: args.vaultId,
+        });
+      }
+    }
+    throw error;
+  }
 }
 
 export const discoverProjects = action({
