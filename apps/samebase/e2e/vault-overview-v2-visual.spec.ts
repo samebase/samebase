@@ -106,7 +106,12 @@ test("shows shallow vault folders on desktop", async ({ page }) => {
   const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
 
   await expect(vaultNavigation.getByText("Fixtures", { exact: true })).toBeVisible();
-  await expect(vaultNavigation.getByLabel("Fixtures has hidden failures")).toBeVisible();
+  await expect(
+    vaultNavigation.getByRole("button", {
+      exact: true,
+      name: "Expand Fixtures, 1 vault, has hidden failures",
+    }),
+  ).toBeVisible();
   const activeFolder = vaultNavigation.getByRole("region", {
     name: "Active, contains current vault",
   });
@@ -124,7 +129,8 @@ test("shows shallow vault folders on desktop", async ({ page }) => {
   });
 
   const fixturesDisclosure = vaultNavigation.getByRole("button", {
-    name: "Expand Fixtures",
+    exact: true,
+    name: "Expand Fixtures, 1 vault, has hidden failures",
   });
   await expect(fixturesDisclosure).toHaveAttribute("aria-expanded", "false");
   await fixturesDisclosure.getByText("Fixtures", { exact: true }).click();
@@ -194,7 +200,12 @@ test("preserves folder identity at the minimum sidebar width", async ({ page }) 
   const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
 
   await expect(vaultNavigation.getByText("Fixtures", { exact: true })).toBeVisible();
-  await expect(vaultNavigation.getByLabel("Fixtures has hidden failures")).toBeVisible();
+  await expect(
+    vaultNavigation.getByRole("button", {
+      exact: true,
+      name: "Expand Fixtures, 1 vault, has hidden failures",
+    }),
+  ).toBeVisible();
   await expect(fixture.getByRole("button", { name: "New folder", exact: true })).toBeVisible();
   await expectUngroupedBeforeFolders(vaultNavigation);
   await expect(vaultNavigation).toHaveScreenshot("vault-overview-v2-folders-minimum-sidebar.png", {

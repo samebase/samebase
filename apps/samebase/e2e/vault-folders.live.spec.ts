@@ -32,7 +32,7 @@ test.describe("vault folders live flow", () => {
     );
     const initialFolderName = `UI folder ${Date.now()}`;
     const renamedFolderName = `${initialFolderName} renamed`;
-    let cleanupFolderName = initialFolderName;
+    const cleanupFolderNames = [renamedFolderName, initialFolderName];
 
     await page.goto("/vault", { waitUntil: "domcontentloaded" });
     await signInIfNeeded(page, "/vault");
@@ -85,7 +85,10 @@ test.describe("vault folders live flow", () => {
         .getByRole("button", { exact: true, name: `Collapse ${initialFolderName}` })
         .click();
       await expect(
-        page.getByRole("button", { exact: true, name: `Expand ${initialFolderName}` }),
+        page.getByRole("button", {
+          exact: true,
+          name: `Expand ${initialFolderName}, 1 vault`,
+        }),
       ).toBeVisible();
       const selectedFolder = vaultNavigation.getByRole("region", {
         exact: true,
@@ -107,7 +110,6 @@ test.describe("vault folders live flow", () => {
         .fill(renamedFolderName);
       await renameDialog.getByRole("button", { exact: true, name: "Rename folder" }).click();
       await expect(renameDialog).toBeHidden();
-      cleanupFolderName = renamedFolderName;
       await expect(page.getByText(renamedFolderName, { exact: true })).toBeVisible();
       await expect(page).toHaveURL(new RegExp(`${escapeRegExp(selectedPath)}(?:[?#]|$)`));
 
@@ -116,7 +118,9 @@ test.describe("vault folders live flow", () => {
       await expect(vaultNavigation.getByText("Ungrouped", { exact: true })).toBeVisible();
       await expect(page).toHaveURL(new RegExp(`${escapeRegExp(selectedPath)}(?:[?#]|$)`));
     } finally {
-      await deleteFolderIfPresent(page, cleanupFolderName);
+      for (const folderName of cleanupFolderNames) {
+        await deleteFolderIfPresent(page, folderName);
+      }
     }
   });
 });
