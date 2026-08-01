@@ -1,38 +1,34 @@
+import type { CustomerState } from "@polar-sh/sdk/models/components/customerstate";
 import { Infer, v } from "convex/values";
-import { notEmpty } from "@samebase/dependent/main";
-import { internalMutation } from "./_generated/server";
+
 import { internal } from "./_generated/api";
+import { internalMutation } from "./_generated/server";
 import { action, query } from "./functions";
-import { resolveDeploymentProfile } from "./deploymentProfile";
-import { randomToken, readRequiredEnv } from "./oauthUtils";
-import { isRecord, readString, toErrorMessage } from "./jsonUtils";
+import { randomToken } from "./oauthUtils";
+import {
+  createPolarClient,
+  isPolarResourceNotFound,
+  readPolarProMonthlyProductId,
+  resolvePolarServer,
+  type PolarServer,
+} from "./polarClient";
 
-const { literal, object, optional, string, union, number, id, null: nullValue, boolean } = v;
-
-type PolarServer = "sandbox" | "production";
-type BillingCycle = "monthly" | "annual";
-
-const vBillingCycle = union(literal("monthly"), literal("annual"));
+const { boolean, id, literal, null: nullValue, number, object, optional, string, union } = v;
 
 const vBillingPlan = union(literal("free"), literal("pro"));
-export type BillingPlan = Infer<typeof vBillingPlan>;
+type BillingPlan = Infer<typeof vBillingPlan>;
 
-const vBillingStatus = union(
-  literal("inactive"),
-  literal("active"),
-  literal("past_due"),
-  literal("canceled"),
-  literal("unknown"),
-);
-export type BillingStatus = Infer<typeof vBillingStatus>;
+const vBillingStatus = union(literal("inactive"), literal("active"), literal("past_due"));
+type BillingStatus = Infer<typeof vBillingStatus>;
 
 const vViewerBillingStatus = object({
   plan: vBillingPlan,
   status: vBillingStatus,
   currentPeriodEndAt: optional(number()),
+  cancelAtPeriodEnd: optional(boolean()),
   provider: optional(literal("polar")),
 });
-export type ViewerBillingStatus = Infer<typeof vViewerBillingStatus>;
+type ViewerBillingStatus = Infer<typeof vViewerBillingStatus>;
 
 const vPolarCheckoutSession = object({
   url: string(),
@@ -48,46 +44,21 @@ const vPolarCustomerSeed = object({
   email: optional(string()),
 });
 
-const vPolarApplyStateArgs = object({
-  externalCustomerId: string(),
-  plan: vBillingPlan,
-  status: vBillingStatus,
-  currentPeriodEndAt: optional(number()),
-});
-
-function inferPolarServer(): PolarServer {
-  return resolveDeploymentProfile().kind === "production" ? "production" : "sandbox";
-}
-
-function getPolarApiBaseUrl(server: PolarServer): string {
-  return server === "production" ? "https://api.polar.sh/v1" : "https://sandbox-api.polar.sh/v1";
-}
-
-const POLAR_PRODUCTS = {
-  sandbox: {
-    pro: {
-      monthly: "",
-      annual: "",
-    },
-  },
-  production: {
-    pro: {
-      monthly: "",
-      annual: "",
-    },
-  },
-} as const;
-
-const POLAR_API_FETCH_TIMEOUT_MS = 10_000;
-
-function readOptionalProductId(id: string): string | null {
-  const trimmed = id.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function getProProductId(server: PolarServer, cycle: BillingCycle): string | null {
-  return readOptionalProductId(POLAR_PRODUCTS[server].pro[cycle]);
-}
+const vPolarBillingState = union(
+  object({
+    externalCustomerId: string(),
+    plan: literal("free"),
+    status: literal("inactive"),
+  }),
+  object({
+    externalCustomerId: string(),
+    plan: literal("pro"),
+    status: union(literal("active"), literal("past_due")),
+    currentPeriodEndAt: number(),
+    cancelAtPeriodEnd: boolean(),
+  }),
+);
+type PolarBillingState = Infer<typeof vPolarBillingState>;
 
 function validateReturnUrlPair(args: {
   successUrl: string;
@@ -124,58 +95,58 @@ function validateReturnUrlPair(args: {
   return { successUrl: success.toString(), returnUrl: ret.toString() };
 }
 
-async function fetchPolarJson(args: {
-  server: PolarServer;
-  path: string;
-  method: "GET" | "POST";
-  body?: unknown;
-}): Promise<unknown> {
-  const accessToken = readRequiredEnv("POLAR_ACCESS_TOKEN");
-  const baseUrl = getPolarApiBaseUrl(args.server);
-  const url = `${baseUrl}${args.path}`;
+function hasStoredProEntitlement(plan: BillingPlan, status: BillingStatus): boolean {
+  return plan === "pro" && (status === "active" || status === "past_due");
+}
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), POLAR_API_FETCH_TIMEOUT_MS);
+export function deriveBillingFromCustomerState(args: {
+  customerState: CustomerState;
+  productId: string;
+}): PolarBillingState | null {
+  const externalCustomerId = args.customerState.externalId?.trim();
+  if (!externalCustomerId) {
+    return null;
+  }
 
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: args.method,
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        "User-Agent": "samebase-app",
-      },
-      body: args.body ? JSON.stringify(args.body) : undefined,
-      signal: controller.signal,
-    });
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Polar API request timed out.");
+  let selectedSubscription: CustomerState["activeSubscriptions"][number] | null = null;
+  for (const subscription of args.customerState.activeSubscriptions) {
+    if (subscription.productId !== args.productId) {
+      continue;
     }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
+
+    if (
+      selectedSubscription === null ||
+      subscription.currentPeriodEnd.getTime() > selectedSubscription.currentPeriodEnd.getTime() ||
+      (subscription.currentPeriodEnd.getTime() ===
+        selectedSubscription.currentPeriodEnd.getTime() &&
+        subscription.id.localeCompare(selectedSubscription.id) < 0)
+    ) {
+      selectedSubscription = subscription;
+    }
   }
 
-  const payload: unknown = await response.json().catch(() => null);
-  if (!response.ok) {
-    const message =
-      isRecord(payload) && typeof payload.detail === "string"
-        ? payload.detail
-        : `Polar API request failed (${response.status}).`;
-    throw new Error(message);
+  if (selectedSubscription === null) {
+    return {
+      externalCustomerId,
+      plan: "free",
+      status: "inactive",
+    };
   }
 
-  return payload;
+  return {
+    externalCustomerId,
+    plan: "pro",
+    status: selectedSubscription.status === "past_due" ? "past_due" : "active",
+    currentPeriodEndAt: selectedSubscription.currentPeriodEnd.getTime(),
+    cancelAtPeriodEnd: selectedSubscription.cancelAtPeriodEnd,
+  };
 }
 
 export const getViewerBillingStatus = query({
-  access: "access_dashboard",
+  access: "access_user_preferences",
   args: {},
-  returns: union(vViewerBillingStatus, nullValue()),
-  handler: async (ctx): Promise<ViewerBillingStatus | null> => {
+  returns: vViewerBillingStatus,
+  handler: async (ctx): Promise<ViewerBillingStatus> => {
     const user = ctx.viewer.user;
 
     return {
@@ -183,6 +154,7 @@ export const getViewerBillingStatus = query({
       plan: user.billingPlan ?? "free",
       status: user.billingStatus ?? "inactive",
       currentPeriodEndAt: user.billingCurrentPeriodEndAt,
+      cancelAtPeriodEnd: user.billingCancelAtPeriodEnd,
     };
   },
 });
@@ -221,25 +193,41 @@ export const ensurePolarExternalCustomerId = internalMutation({
 });
 
 export const applyPolarCustomerState = internalMutation({
-  args: vPolarApplyStateArgs,
+  args: {
+    state: vPolarBillingState,
+    polarStateChangedAt: optional(number()),
+  },
   returns: nullValue(),
   handler: async (ctx, args) => {
+    const state = args.state;
     const user = await ctx.db
       .query("users")
       .withIndex("by_polar_external_customer_id", (q) =>
-        q.eq("billingPolarExternalCustomerId", args.externalCustomerId),
+        q.eq("billingPolarExternalCustomerId", state.externalCustomerId),
       )
       .unique();
     if (!user) {
       return null;
     }
 
+    if (
+      args.polarStateChangedAt !== undefined &&
+      user.billingPolarStateChangedAt !== undefined &&
+      args.polarStateChangedAt < user.billingPolarStateChangedAt
+    ) {
+      return null;
+    }
+
     await ctx.db.patch(user._id, {
       billingProvider: "polar",
-      billingPlan: args.plan,
-      billingStatus: args.status,
+      billingPlan: state.plan,
+      billingStatus: state.status,
       billingUpdatedAt: Date.now(),
-      billingCurrentPeriodEndAt: args.currentPeriodEndAt,
+      billingCurrentPeriodEndAt: state.plan === "pro" ? state.currentPeriodEndAt : undefined,
+      billingCancelAtPeriodEnd: state.plan === "pro" ? state.cancelAtPeriodEnd : undefined,
+      ...(args.polarStateChangedAt === undefined
+        ? {}
+        : { billingPolarStateChangedAt: args.polarStateChangedAt }),
     });
 
     return null;
@@ -247,9 +235,8 @@ export const applyPolarCustomerState = internalMutation({
 });
 
 export const createPolarCheckoutSession = action({
-  access: "access_dashboard",
+  access: "access_user_preferences",
   args: object({
-    interval: vBillingCycle,
     successUrl: string(),
     returnUrl: string(),
   }),
@@ -261,211 +248,174 @@ export const createPolarCheckoutSession = action({
       throw new Error("User not found.");
     }
 
-    const currentPlan = currentUser.billingPlan ?? "free";
-    const currentStatus = currentUser.billingStatus ?? "inactive";
-    if (currentPlan === "pro" && currentStatus === "active") {
-      throw new Error("You already have an active Pro subscription.");
+    const productId = readPolarProMonthlyProductId();
+    if (!productId) {
+      throw new Error("Pro checkout is not configured yet.");
     }
-
-    const server = inferPolarServer();
+    const polar = createPolarClient();
+    const server = resolvePolarServer();
     const { successUrl, returnUrl } = validateReturnUrlPair({
       successUrl: args.successUrl,
       returnUrl: args.returnUrl,
       server,
     });
 
-    const productId = getProProductId(server, args.interval);
-    if (!productId) {
-      throw new Error("Pro checkout is not configured yet.");
+    const existingExternalCustomerId = currentUser.billingPolarExternalCustomerId?.trim();
+    if (existingExternalCustomerId) {
+      let customerState: CustomerState | null = null;
+      try {
+        customerState = await polar.customers.getStateExternal({
+          externalId: existingExternalCustomerId,
+        });
+      } catch (error) {
+        if (!isPolarResourceNotFound(error)) {
+          throw new Error("Samebase could not verify your current subscription.");
+        }
+      }
+
+      if (customerState) {
+        const derived = deriveBillingFromCustomerState({
+          customerState,
+          productId,
+        });
+        if (!derived) {
+          throw new Error("Samebase could not verify your current subscription.");
+        }
+
+        await ctx.runMutation(internal.billing.applyPolarCustomerState, { state: derived });
+        if (derived.plan === "pro") {
+          throw new Error("You already have a Pro subscription.");
+        }
+      } else if (
+        hasStoredProEntitlement(
+          currentUser.billingPlan ?? "free",
+          currentUser.billingStatus ?? "inactive",
+        )
+      ) {
+        throw new Error("Samebase could not verify your current subscription.");
+      }
+    } else if (
+      hasStoredProEntitlement(
+        currentUser.billingPlan ?? "free",
+        currentUser.billingStatus ?? "inactive",
+      )
+    ) {
+      throw new Error("Samebase could not verify your current subscription.");
     }
 
     const customer = await ctx.runMutation(internal.billing.ensurePolarExternalCustomerId, {
       userId,
     });
 
-    const payload = await fetchPolarJson({
-      server,
-      path: "/checkouts",
-      method: "POST",
-      body: {
+    try {
+      const checkout = await polar.checkouts.create({
         products: [productId],
-        external_customer_id: customer.externalCustomerId,
-        customer_email: customer.email,
-        customer_name: customer.name,
-        success_url: successUrl,
-        return_url: returnUrl,
+        externalCustomerId: customer.externalCustomerId,
+        customerEmail: customer.email,
+        customerName: customer.name,
+        successUrl,
+        returnUrl,
+        allowTrial: false,
         metadata: {
-          source: "pricing_page",
+          source: "samebase_account",
           plan: "pro",
-          interval: args.interval,
         },
-      },
-    });
+      });
 
-    if (!isRecord(payload)) {
-      throw new Error("Polar checkout response is invalid.");
+      return { url: checkout.url };
+    } catch (error) {
+      console.error("billing:polar:checkout_failed", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
+      throw new Error("Polar checkout could not be started.");
     }
-    const url = readString(payload, "url");
-    if (!url) {
-      throw new Error("Polar checkout response is missing URL.");
-    }
-
-    return { url };
   },
 });
 
 export const createPolarCustomerPortalSession = action({
-  access: "access_dashboard",
+  access: "access_user_preferences",
   args: object({
     returnUrl: string(),
   }),
   returns: vPolarPortalSession,
   handler: async (ctx, args): Promise<{ url: string }> => {
     const userId = ctx.viewer.userId;
-    const server = inferPolarServer();
+    const currentUser = await ctx.runQuery(internal.users.getById, { userId });
+    if (!currentUser) {
+      throw new Error("User not found.");
+    }
 
+    const externalCustomerId = currentUser.billingPolarExternalCustomerId?.trim();
+    if (!externalCustomerId) {
+      throw new Error("No billing account exists yet.");
+    }
+
+    const server = resolvePolarServer();
     const { returnUrl } = validateReturnUrlPair({
       successUrl: args.returnUrl,
       returnUrl: args.returnUrl,
       server,
     });
 
-    const customer = await ctx.runMutation(internal.billing.ensurePolarExternalCustomerId, {
-      userId,
-    });
+    try {
+      const session = await createPolarClient().customerSessions.create({
+        externalCustomerId,
+        returnUrl,
+      });
 
-    const payload = await fetchPolarJson({
-      server,
-      path: "/customer-sessions",
-      method: "POST",
-      body: {
-        external_customer_id: customer.externalCustomerId,
-        return_url: returnUrl,
-      },
-    });
-
-    if (!isRecord(payload)) {
-      throw new Error("Polar portal response is invalid.");
+      return { url: session.customerPortalUrl };
+    } catch (error) {
+      console.error("billing:polar:portal_failed", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
+      throw new Error("The billing portal could not be opened.");
     }
-
-    const url = readString(payload, "customer_portal_url");
-    if (!url) {
-      throw new Error("Polar portal response is missing URL.");
-    }
-
-    return { url };
   },
 });
 
-export function deriveBillingFromCustomerState(args: {
-  customerState: unknown;
-  server: PolarServer;
-}): {
-  externalCustomerId: string;
-  plan: BillingPlan;
-  status: BillingStatus;
-  currentPeriodEndAt?: number;
-} | null {
-  if (!isRecord(args.customerState)) {
-    return null;
-  }
-
-  const customer = args.customerState.customer;
-  if (!isRecord(customer)) {
-    return null;
-  }
-
-  const externalCustomerId =
-    readString(args.customerState, "external_id") ?? readString(customer, "external_id");
-  if (!externalCustomerId) {
-    return null;
-  }
-
-  const proMonthly = readOptionalProductId(POLAR_PRODUCTS[args.server].pro.monthly);
-  const proAnnual = readOptionalProductId(POLAR_PRODUCTS[args.server].pro.annual);
-  const proProductIds = [proMonthly, proAnnual].filter(notEmpty);
-
-  const activeSubscriptions = args.customerState.active_subscriptions;
-  if (!Array.isArray(activeSubscriptions)) {
-    return {
-      externalCustomerId,
-      plan: "free",
-      status: "inactive",
-    };
-  }
-
-  for (const subscription of activeSubscriptions) {
-    if (!isRecord(subscription)) {
-      continue;
-    }
-    const productId = readString(subscription, "product_id");
-    if (!productId || !proProductIds.includes(productId)) {
-      continue;
-    }
-
-    const currentPeriodEnd = readString(subscription, "current_period_end");
-    const currentPeriodEndAt =
-      currentPeriodEnd && Number.isFinite(Date.parse(currentPeriodEnd))
-        ? Date.parse(currentPeriodEnd)
-        : undefined;
-
-    return {
-      externalCustomerId,
-      plan: "pro",
-      status: "active",
-      currentPeriodEndAt,
-    };
-  }
-
-  return {
-    externalCustomerId,
-    plan: "free",
-    status: "inactive",
-  };
-}
-
-export const syncViewerBillingFromPolar = action({
-  access: "access_admin",
-  args: object({
-    externalCustomerId: optional(string()),
-  }),
-  returns: union(boolean(), nullValue()),
-  handler: async (ctx, args): Promise<boolean | null> => {
+export const reconcileViewerBillingFromPolar = action({
+  access: "access_user_preferences",
+  args: {},
+  returns: boolean(),
+  handler: async (ctx): Promise<boolean> => {
     const userId = ctx.viewer.userId;
-    const server = inferPolarServer();
-
-    const customer = await ctx.runMutation(internal.billing.ensurePolarExternalCustomerId, {
-      userId,
-    });
-
-    const externalCustomerId = args.externalCustomerId ?? customer.externalCustomerId;
-    const payload = await fetchPolarJson({
-      server,
-      path: `/customers/external/${encodeURIComponent(externalCustomerId)}/state`,
-      method: "GET",
-    });
-
-    const derived = deriveBillingFromCustomerState({
-      customerState: payload,
-      server,
-    });
-    if (!derived) {
-      return null;
+    const currentUser = await ctx.runQuery(internal.users.getById, { userId });
+    const externalCustomerId = currentUser?.billingPolarExternalCustomerId?.trim();
+    const productId = readPolarProMonthlyProductId();
+    if (!externalCustomerId || !productId) {
+      return false;
     }
 
     try {
-      await ctx.runMutation(internal.billing.applyPolarCustomerState, {
-        externalCustomerId: derived.externalCustomerId,
-        plan: derived.plan,
-        status: derived.status,
-        currentPeriodEndAt: derived.currentPeriodEndAt,
+      const customerState = await createPolarClient().customers.getStateExternal({
+        externalId: externalCustomerId,
       });
+      const derived = deriveBillingFromCustomerState({
+        customerState,
+        productId,
+      });
+      if (!derived) {
+        return false;
+      }
+
+      await ctx.runMutation(internal.billing.applyPolarCustomerState, { state: derived });
       return true;
     } catch (error) {
-      console.warn("billing:polar:sync_failed", {
-        message: toErrorMessage(error),
+      if (isPolarResourceNotFound(error)) {
+        await ctx.runMutation(internal.billing.applyPolarCustomerState, {
+          state: {
+            externalCustomerId,
+            plan: "free",
+            status: "inactive",
+          },
+        });
+        return true;
+      }
+
+      console.warn("billing:polar:reconciliation_failed", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
       });
-      return null;
+      return false;
     }
   },
 });

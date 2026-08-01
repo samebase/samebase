@@ -49,18 +49,12 @@ export const identityTables = {
     // Billing (Polar-backed for now).
     billingProvider: optional(literal("polar")),
     billingPlan: optional(union(literal("free"), literal("pro"))),
-    billingStatus: optional(
-      union(
-        literal("inactive"),
-        literal("active"),
-        literal("past_due"),
-        literal("canceled"),
-        literal("unknown"),
-      ),
-    ),
+    billingStatus: optional(union(literal("inactive"), literal("active"), literal("past_due"))),
     billingUpdatedAt: optional(number()),
     billingCurrentPeriodEndAt: optional(number()),
+    billingCancelAtPeriodEnd: optional(boolean()),
     billingPolarExternalCustomerId: optional(string()),
+    billingPolarStateChangedAt: optional(number()),
   })
     .index("email", ["email"])
     .index("phone", ["phone"])
