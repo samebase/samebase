@@ -122,7 +122,14 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
   await expect(settingsPage).toBeVisible();
   await expect(settingsPage.getByRole("button", { name: "Sign out" })).toBeVisible();
   await expect(settingsPage.getByRole("heading", { name: "Profile" })).toBeVisible();
+  await expect(settingsPage.getByRole("heading", { name: "Billing" })).toBeVisible();
   await expect(settingsPage.getByRole("heading", { name: "Account" })).toBeVisible();
+  await expect(
+    settingsPage.getByRole("button", { name: "Upgrade to Pro, $4/month" }),
+  ).toBeVisible();
+  await expect(settingsPage.getByText("Cloudflare Workers", { exact: true })).toBeVisible();
+  await expect(settingsPage.getByText("Convex projects", { exact: true })).toBeVisible();
+  await expect(settingsPage.getByText("0 of 5", { exact: true })).toHaveCount(2);
   await expect(settingsPage.getByLabel("Display name")).toHaveCSS("font-size", "16px");
   await expect(settingsPage).toHaveScreenshot("settings-page-desktop.png", {
     ...screenshotOptions,
@@ -207,6 +214,10 @@ test("Settings link returns the mobile workspace to the main pane", async ({
     const settingsPage = page.getByTestId("user-settings-page");
     await expect(settingsPage).toBeVisible();
     await expect(settingsPage.getByRole("button", { name: "Sign out" })).toBeVisible();
+    await expect(settingsPage.getByRole("heading", { name: "Billing" })).toBeVisible();
+    await expect(
+      settingsPage.getByRole("button", { name: "Upgrade to Pro, $4/month" }),
+    ).toBeVisible();
     await expect(settingsPage).toHaveScreenshot("settings-page-mobile.png", {
       ...screenshotOptions,
       mask: [settingsPage.getByText(email, { exact: true })],

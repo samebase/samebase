@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
+  CHECKOUT_QUERY_PARAM,
   DELETE_ACCOUNT_QUERY_PARAM,
   SETTINGS_ROUTE_SEARCH_STATIC_DATA,
   validateSettingsRouteSearch,
@@ -13,10 +14,24 @@ describe("settings route search", () => {
     expect(validateSettingsRouteSearch({})).toEqual({});
   });
 
-  it("publishes delete-account as an access-controlled settings param", () => {
+  it("accepts only supported checkout return states", () => {
+    expect(validateSettingsRouteSearch({ [CHECKOUT_QUERY_PARAM]: "success" })).toEqual({
+      [CHECKOUT_QUERY_PARAM]: "success",
+    });
+    expect(validateSettingsRouteSearch({ [CHECKOUT_QUERY_PARAM]: "cancel" })).toEqual({
+      [CHECKOUT_QUERY_PARAM]: "cancel",
+    });
+    expect(validateSettingsRouteSearch({ [CHECKOUT_QUERY_PARAM]: "paid" })).toEqual({});
+  });
+
+  it("publishes both access-controlled settings params", () => {
     expect(SETTINGS_ROUTE_SEARCH_STATIC_DATA).toEqual({
-      acceptedSearchKeys: [DELETE_ACCOUNT_QUERY_PARAM],
+      acceptedSearchKeys: [CHECKOUT_QUERY_PARAM, DELETE_ACCOUNT_QUERY_PARAM],
       searchParamAccess: [
+        {
+          access: "access_user_preferences",
+          key: CHECKOUT_QUERY_PARAM,
+        },
         {
           access: "access_user_preferences",
           key: DELETE_ACCOUNT_QUERY_PARAM,
