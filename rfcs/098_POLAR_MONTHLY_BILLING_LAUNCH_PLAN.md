@@ -36,6 +36,8 @@ The first independent quota review failed on 2026-08-02. The follow-up fix is ac
 - [ ] Reserve Worker capacity before a Cloudflare provider create call.
 - [ ] Reserve Convex project capacity before a Convex provider create call.
 - [ ] Keep final transactional attachment checks and safe reservation cleanup.
+- [ ] Match and consume a retained provider-created reservation when the same external resource is
+      attached after local record failure.
 - [ ] Report usage above 41 honestly, either as an exact count or an explicit `41+` value.
 
 The first independent backend review found four required fixes on 2026-08-02:
