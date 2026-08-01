@@ -31,6 +31,13 @@ The repository has an old Polar scaffold, but billing is not ready for a custome
 - [ ] A complete local Polar Sandbox flow has passed.
 - [ ] Production configuration and the first real checkout are complete.
 
+The first independent quota review failed on 2026-08-02. The follow-up fix is active:
+
+- [ ] Reserve Worker capacity before a Cloudflare provider create call.
+- [ ] Reserve Convex project capacity before a Convex provider create call.
+- [ ] Keep final transactional attachment checks and safe reservation cleanup.
+- [ ] Report exact usage above 41 instead of silently capping the displayed count.
+
 Old specs 033 and 034 are historical input. They do not override the accepted contract in spec 118.
 
 ## Decisions
