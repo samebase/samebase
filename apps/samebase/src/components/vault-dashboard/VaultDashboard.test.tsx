@@ -18,6 +18,7 @@ import { VaultCloudflareDialogContent } from "./VaultCloudflareDialog";
 import { VaultConvexDialogContent } from "./VaultConvexDialog";
 import { VaultDeleteDialogContent } from "./VaultDeleteDialog";
 import { VaultDashboardCloudflareAccountDialog } from "./VaultDashboardCloudflareAccountDialog";
+import { VaultEnvironmentTree } from "./VaultEnvironmentTree";
 import {
   buildProductionEnvironmentRoots,
   buildPullRequestEnvironmentRoots,
@@ -779,6 +780,7 @@ describe("vault environment roots", () => {
               state: "unavailable",
               workerId,
               workerName: "demo-web",
+              cloudflareBuild: { state: "unavailable" },
               cloudflareBranchPreview: {
                 state: "available",
                 url: previewUrl,
@@ -814,6 +816,51 @@ describe("vault environment roots", () => {
         ],
       },
     ]);
+  });
+
+  it("links a comment build when the Worker observation is unavailable", () => {
+    const workerId = fakeCloudflareWorkerId();
+    const logsUrl = "https://dash.cloudflare.com/account-1/workers/builds/building-1";
+    const roots = buildPullRequestEnvironmentRoots({
+      resources: {
+        pullRequestId: "pull-request-1",
+        workers: [
+          {
+            state: "unavailable",
+            workerId,
+            workerName: "demo-web",
+            cloudflareBuild: { state: "linked", uuid: "building-1", logsUrl },
+            cloudflareBranchPreview: { state: "absent" },
+          },
+        ],
+        convexProjects: [],
+        hostingPreviews: {
+          cloudflare: { state: "available", previews: [] },
+          netlify: { state: "available", previews: [] },
+        },
+      },
+    });
+
+    expect(roots).toMatchObject([
+      {
+        rootDirectory: "Needs attention",
+        resources: [
+          {
+            kind: "cloudflare_worker",
+            worker: {
+              build: { state: "linked", logsUrl },
+            },
+          },
+        ],
+      },
+    ]);
+
+    const rootElement = document.createElement("div");
+    rootElement.innerHTML = renderToStaticMarkup(<VaultEnvironmentTree roots={roots} />);
+    const buildLink = rootElement.querySelector(`a[href="${logsUrl}"]`);
+    expect(buildLink?.textContent).toContain("Building");
+    expect(buildLink?.getAttribute("target")).toBe("_blank");
+    expect(buildLink?.getAttribute("rel")).toBe("noreferrer noopener");
   });
 
   it("shows no current build and a recovered branch preview independently", () => {

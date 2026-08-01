@@ -25,6 +25,21 @@ export type CloudflareHostingPreview =
       url: string;
     };
 
+export type CloudflareWorkerCommentBuild = {
+  accountId: string;
+  buildUuid: string;
+  commitOidPrefix: string;
+  name: string;
+};
+
+export type CloudflareHostingRead =
+  | {
+      state: "available";
+      previews: CloudflareHostingPreview[];
+      workerBuilds: CloudflareWorkerCommentBuild[];
+    }
+  | { state: "unavailable" };
+
 export type NetlifyHostingPreview = {
   name: string;
   url: string;
@@ -76,7 +91,7 @@ function cloudflareDashboardTarget(url: string): string | null {
 
 function parseCloudflareWorkerBuildLogsUrl(
   url: string,
-): { accountId: string; workerName: string } | null {
+): { accountId: string; buildUuid: string; workerName: string } | null {
   const target = cloudflareDashboardTarget(url);
   if (target === null) {
     return null;
@@ -93,7 +108,7 @@ function parseCloudflareWorkerBuildLogsUrl(
   ) {
     return null;
   }
-  return { accountId: segments[0], workerName: segments[4] };
+  return { accountId: segments[0], buildUuid: segments[7], workerName: segments[4] };
 }
 
 function parseCloudflarePagesLogsUrl(
@@ -154,10 +169,17 @@ function normalizeCloudflarePagesPreviewUrl(url: string, projectName: string): s
   }
 }
 
-function parseCloudflareWorkerPreviewsFromBody(
-  body: string,
-): HostingPreviewRead<Extract<CloudflareHostingPreview, { kind: "worker" }>> {
+type CloudflareWorkerCommentRead =
+  | {
+      state: "available";
+      previews: Extract<CloudflareHostingPreview, { kind: "worker" }>[];
+      workerBuilds: CloudflareWorkerCommentBuild[];
+    }
+  | { state: "unavailable" };
+
+function parseCloudflareWorkerComment(body: string): CloudflareWorkerCommentRead {
   const previews: Extract<CloudflareHostingPreview, { kind: "worker" }>[] = [];
+  const workerBuilds: CloudflareWorkerCommentBuild[] = [];
   const lines = body.split(/\r?\n/);
   for (let headerIndex = 0; headerIndex + 2 < lines.length; headerIndex += 1) {
     const header = markdownTableCells(lines[headerIndex]);
@@ -167,9 +189,13 @@ function parseCloudflareWorkerPreviewsFromBody(
     }
     const nameColumns = header.flatMap((cell, index) => (cell === "Name" ? [index] : []));
     const statusColumns = header.flatMap((cell, index) => (cell === "Status" ? [index] : []));
+    const commitColumns = header.flatMap((cell, index) =>
+      cell === "Latest Commit" ? [index] : [],
+    );
     if (
       nameColumns.length !== 1 ||
       statusColumns.length !== 1 ||
+      commitColumns.length !== 1 ||
       !separator.every((cell) => /^:?-+:?$/.test(cell))
     ) {
       continue;
@@ -178,34 +204,54 @@ function parseCloudflareWorkerPreviewsFromBody(
     if (previewColumns.length > 1) {
       return { state: "unavailable" };
     }
-    if (previewColumns.length === 0) {
-      continue;
-    }
 
     for (let rowIndex = headerIndex + 2; rowIndex < lines.length; rowIndex += 1) {
       const row = markdownTableCells(lines[rowIndex]);
       if (!row || row.length !== header.length) {
         break;
       }
-      const previewCell = row[previewColumns[0]];
-      if (!previewCell.includes("Branch Preview URL")) {
-        continue;
-      }
-
       const workerName = row[nameColumns[0]];
       const logsCell = row[statusColumns[0]];
+      const commitOidPrefix = row[commitColumns[0]];
       const buildLogsAnchors = [...logsCell.matchAll(/\[([^\]]+)\]\(([^)\s]+)\)/g)];
       const buildLogsLabelCount = [...logsCell.matchAll(/View logs/g)].length;
       if (
         workerName.length === 0 ||
         buildLogsAnchors.length !== buildLogsLabelCount ||
-        buildLogsAnchors.length !== 1 ||
-        buildLogsAnchors[0][1] !== "View logs"
+        buildLogsAnchors.length > 1 ||
+        (buildLogsAnchors.length === 1 && buildLogsAnchors[0][1] !== "View logs")
       ) {
         return { state: "unavailable" };
       }
-      const logsIdentity = parseCloudflareWorkerBuildLogsUrl(buildLogsAnchors[0][2]);
-      if (logsIdentity === null || logsIdentity.workerName !== workerName) {
+
+      const logsIdentity =
+        buildLogsAnchors.length === 1
+          ? parseCloudflareWorkerBuildLogsUrl(buildLogsAnchors[0][2])
+          : null;
+      if (buildLogsAnchors.length === 1) {
+        if (
+          logsIdentity === null ||
+          logsIdentity.workerName !== workerName ||
+          !/^[0-9a-f]{7,64}$/.test(commitOidPrefix)
+        ) {
+          return { state: "unavailable" };
+        }
+        workerBuilds.push({
+          accountId: logsIdentity.accountId,
+          buildUuid: logsIdentity.buildUuid,
+          commitOidPrefix,
+          name: workerName,
+        });
+      }
+
+      if (previewColumns.length === 0) {
+        continue;
+      }
+      const previewCell = row[previewColumns[0]];
+      if (!previewCell.includes("Branch Preview URL")) {
+        continue;
+      }
+      if (logsIdentity === null) {
         return { state: "unavailable" };
       }
 
@@ -233,7 +279,7 @@ function parseCloudflareWorkerPreviewsFromBody(
       }
     }
   }
-  return { state: "available", previews };
+  return { state: "available", previews, workerBuilds };
 }
 
 function parseCloudflarePagesPreviewFromBody(
@@ -299,12 +345,16 @@ function hasKnownCloudflareWorkerTable(body: string): boolean {
     }
     const nameColumns = header.flatMap((cell, column) => (cell === "Name" ? [column] : []));
     const statusColumns = header.flatMap((cell, column) => (cell === "Status" ? [column] : []));
+    const commitColumns = header.flatMap((cell, column) =>
+      cell === "Latest Commit" ? [column] : [],
+    );
     const previewColumns = header.flatMap((cell, column) =>
       cell === "Preview URL" ? [column] : [],
     );
     if (
       nameColumns.length !== 1 ||
       statusColumns.length !== 1 ||
+      commitColumns.length !== 1 ||
       previewColumns.length > 1 ||
       !separator.every((cell) => /^:?-+:?$/.test(cell))
     ) {
@@ -382,7 +432,7 @@ function hasKnownNetlifyEnvelope(body: string): boolean {
 
 export function detectHostingCommentParseFailures(args: {
   cloudflareComments: HostingCommentBodies;
-  cloudflareRead: HostingPreviewRead<CloudflareHostingPreview>;
+  cloudflareRead: CloudflareHostingRead;
   netlifyComments: HostingCommentBodies;
   netlifyRead: HostingPreviewRead<NetlifyHostingPreview>;
 }): HostingCommentParseFailure[] {
@@ -425,25 +475,34 @@ export function detectHostingCommentParseFailures(args: {
 
 export function resolveCloudflareHostingPreviews(
   comments: HostingCommentBodies,
-): HostingPreviewRead<CloudflareHostingPreview> {
+): CloudflareHostingRead {
   if (comments.state === "unavailable") {
     return comments;
   }
 
   const byIdentity = new Map<string, CloudflareHostingPreview>();
+  const workerBuildsByIdentity = new Map<string, CloudflareWorkerCommentBuild>();
   for (const body of comments.bodies) {
-    const workerPreviews = parseCloudflareWorkerPreviewsFromBody(body);
+    const workerComment = parseCloudflareWorkerComment(body);
     const pagesPreviews = parseCloudflarePagesPreviewFromBody(body);
-    if (workerPreviews.state === "unavailable" || pagesPreviews.state === "unavailable") {
+    if (workerComment.state === "unavailable" || pagesPreviews.state === "unavailable") {
       return { state: "unavailable" };
     }
-    for (const preview of [...workerPreviews.previews, ...pagesPreviews.previews]) {
+    for (const preview of [...workerComment.previews, ...pagesPreviews.previews]) {
       const identity = `${preview.kind}:${preview.accountId}:${preview.name}`;
       const previous = byIdentity.get(identity);
       if (previous && previous.url !== preview.url) {
         return { state: "unavailable" };
       }
       byIdentity.set(identity, preview);
+    }
+    for (const build of workerComment.workerBuilds) {
+      const identity = `${build.accountId}:${build.name}:${build.buildUuid}`;
+      const previous = workerBuildsByIdentity.get(identity);
+      if (previous && previous.commitOidPrefix !== build.commitOidPrefix) {
+        return { state: "unavailable" };
+      }
+      workerBuildsByIdentity.set(identity, build);
     }
   }
 
@@ -456,11 +515,41 @@ export function resolveCloudflareHostingPreviews(
         left.accountId.localeCompare(right.accountId) ||
         left.url.localeCompare(right.url),
     ),
+    workerBuilds: [...workerBuildsByIdentity.values()].sort(
+      (left, right) =>
+        left.name.localeCompare(right.name) ||
+        left.accountId.localeCompare(right.accountId) ||
+        left.commitOidPrefix.localeCompare(right.commitOidPrefix) ||
+        left.buildUuid.localeCompare(right.buildUuid),
+    ),
   };
 }
 
+export function resolveCloudflareCommentWorkerBuild(args: {
+  accountId: string;
+  headCommitOid: string;
+  resources: CloudflareHostingRead;
+  workerName: string;
+}): { state: "available"; buildUuid: string } | { state: "absent" } | { state: "unavailable" } {
+  if (args.resources.state === "unavailable") {
+    return args.resources;
+  }
+  const matches = args.resources.workerBuilds.filter(
+    (build) =>
+      build.accountId === args.accountId &&
+      build.name === args.workerName &&
+      args.headCommitOid.startsWith(build.commitOidPrefix),
+  );
+  if (matches.length === 0) {
+    return { state: "absent" };
+  }
+  return matches.length === 1
+    ? { state: "available", buildUuid: matches[0].buildUuid }
+    : { state: "unavailable" };
+}
+
 export function resolveCloudflareCommentBranchPreviewUrl(args: {
-  previews: HostingPreviewRead<CloudflareHostingPreview>;
+  previews: CloudflareHostingRead;
   accountId: string;
   workerName: string;
 }): { state: "available"; url: string } | { state: "absent" } | { state: "unavailable" } {

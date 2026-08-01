@@ -418,7 +418,7 @@ function BuildState({ state }: { state: EnvironmentBuildState }) {
       );
     case "running":
       return (
-        <span className="inline-flex items-center gap-1 text-amber-700">
+        <span className="inline-flex items-center gap-1 text-sky-700 dark:text-sky-300">
           <CircleDot className="h-3.5 w-3.5" />
           Building
         </span>
@@ -468,6 +468,17 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
             title={`Open build logs for ${worker.workerName}`}
           >
             <BuildState state={worker.build.buildState} />
+            <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+          </a>
+        ) : worker.build.state === "linked" ? (
+          <a
+            className="inline-flex min-h-10 shrink-0 items-center gap-1 text-sm underline decoration-border underline-offset-4 @4xl:min-h-8"
+            href={worker.build.logsUrl}
+            rel="noreferrer noopener"
+            target="_blank"
+            title={`Open build logs for ${worker.workerName}`}
+          >
+            <BuildState state="running" />
             <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
           </a>
         ) : (

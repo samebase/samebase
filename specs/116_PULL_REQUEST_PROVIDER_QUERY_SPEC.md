@@ -110,13 +110,16 @@ Cloudflare output does not hide valid Netlify output, and malformed Netlify outp
 valid Cloudflare output.
 
 Cloudflare Workers recovery reads only Markdown table rows with exact `Status`, `Name`, and
-`Preview URL` columns. An exact `View logs` link identifies the Cloudflare account and Worker. An
-exact `Branch Preview URL` anchor supplies a strict HTTPS `workers.dev` origin for that Worker.
-Cloudflare Pages recovery reads the exact Pages deployment heading, dashboard log target, and
-`Branch Preview URL` table row. Its URL must be a strict HTTPS `pages.dev` origin for that project.
-A malformed identity, log link, or preview link fails the Cloudflare provider result closed. Equal
-normalized URLs are one result. Distinct valid URLs for one provider resource are ambiguous and fail
-closed. Samebase does not guess Cloudflare alias normalization from a branch name.
+`Latest Commit` columns. A `Preview URL` column can also be present. An exact `View logs` link
+identifies the Cloudflare account, Worker, and build. The exact abbreviated commit must match the
+current pull request head before Samebase exposes that link. This lets a row link to the build while
+Cloudflare is still building and before a branch preview exists. An exact `Branch Preview URL`
+anchor supplies a strict HTTPS `workers.dev` origin for that Worker. Cloudflare Pages recovery reads
+the exact Pages deployment heading, dashboard log target, and `Branch Preview URL` table row. Its
+URL must be a strict HTTPS `pages.dev` origin for that project. A malformed identity, log link, or
+preview link fails the Cloudflare provider result closed. Equal normalized URLs are one result.
+Distinct valid URLs for one provider resource are ambiguous and fail closed. Samebase does not guess
+Cloudflare alias normalization from a branch name.
 
 Netlify recovery reads an exact `Name` and `Link` table. The `Latest deploy log` row must identify
 one Netlify site. The `Deploy Preview` row must contain one strict HTTPS link for the requested pull
@@ -151,10 +154,12 @@ that has selected comments, with another query for each additional 100 selected 
 request with more than 100 total comments adds metadata pagination requests until the scan is
 complete. Metadata pagination runs for at most six pull requests at one time.
 
-Worker identity, current build, and branch preview are independent results. A verified Worker and
-Builds repository can expose an absent or unavailable current build together with a recovered branch
-preview. The recovered URL is branch navigation only. It does not claim that the latest pull request
-commit was built. An exact current-build check URL has priority over comment recovery.
+Worker identity, current build, build navigation, and branch preview are independent results. A
+verified Worker and Builds repository can expose an absent or unavailable current build together
+with a recovered build link or branch preview. A comment build link is navigation only. It does not
+claim a build status or replace the stronger Worker Builds API observation. The recovered preview
+URL is branch navigation only. It does not claim that the latest pull request commit was built. An
+exact Worker Builds API result has priority over comment recovery.
 
 A Convex branch deployment belongs to a row only when the pull request head is in the vault
 repository, the project is directly attached to the vault, the current Convex credential can read

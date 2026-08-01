@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   detectHostingCommentParseFailures,
+  resolveCloudflareCommentWorkerBuild,
   resolveCloudflareHostingPreviews,
   resolveNetlifyHostingPreviews,
 } from "./pullRequestHostingPreviews";
@@ -9,6 +10,7 @@ import {
 function cloudflareWorkerComment(args: {
   accountId: string;
   branchPreviewUrl: string | null;
+  status?: string;
   workerName: string;
 }) {
   const previewColumn = args.branchPreviewUrl === null ? "" : " | Preview URL";
@@ -22,7 +24,7 @@ The latest updates on your project. Learn more about [integrating Git with Worke
 
 | Status | Name | Latest Commit${previewColumn} | Updated (UTC) |
 | -|-|-${previewSeparator}|-|
-| ✅ Deployment successful! <br>[View logs](https://dash.cloudflare.com/?to=/${args.accountId}/workers/services/view/${args.workerName}/production/builds/build-1) | ${args.workerName} | 9a0e51e5${previewCell} | Jul 31 2026, 09:18 AM |`;
+| ${args.status ?? "✅ Deployment successful!"} <br>[View logs](https://dash.cloudflare.com/?to=/${args.accountId}/workers/services/view/${args.workerName}/production/builds/build-1) | ${args.workerName} | 9a0e51e5${previewCell} | Jul 31 2026, 09:18 AM |`;
 }
 
 function cloudflarePagesComment(args: {
@@ -245,10 +247,18 @@ describe("resolveCloudflareHostingPreviews", () => {
           url: "https://feature.logto-docs.pages.dev",
         },
       ],
+      workerBuilds: [
+        {
+          accountId: "account-1",
+          buildUuid: "build-1",
+          commitOidPrefix: "9a0e51e5",
+          name: "samebase",
+        },
+      ],
     });
   });
 
-  it("ignores comments without a branch preview", () => {
+  it("retains the build link while a comment is still building without a preview", () => {
     expect(
       resolveCloudflareHostingPreviews({
         state: "available",
@@ -256,11 +266,23 @@ describe("resolveCloudflareHostingPreviews", () => {
           cloudflareWorkerComment({
             accountId: "account-1",
             branchPreviewUrl: null,
+            status: "⏳ Building...",
             workerName: "samebase-posthog-proxy",
           }),
         ],
       }),
-    ).toEqual({ state: "available", previews: [] });
+    ).toEqual({
+      state: "available",
+      previews: [],
+      workerBuilds: [
+        {
+          accountId: "account-1",
+          buildUuid: "build-1",
+          commitOidPrefix: "9a0e51e5",
+          name: "samebase-posthog-proxy",
+        },
+      ],
+    });
   });
 
   it("fails closed when the resource identity or preview URL disagrees", () => {
@@ -359,6 +381,14 @@ describe("resolveCloudflareHostingPreviews", () => {
           url: "https://feature-samebase.pfp.workers.dev",
         },
       ],
+      workerBuilds: [
+        {
+          accountId: "account-1",
+          buildUuid: "build-1",
+          commitOidPrefix: "9a0e51e5",
+          name: "samebase",
+        },
+      ],
     });
     expect(
       resolveCloudflareHostingPreviews({
@@ -411,6 +441,50 @@ describe("resolveCloudflareHostingPreviews", () => {
     expect(resolveCloudflareHostingPreviews({ state: "unavailable" })).toEqual({
       state: "unavailable",
     });
+  });
+});
+
+describe("resolveCloudflareCommentWorkerBuild", () => {
+  const resources = resolveCloudflareHostingPreviews({
+    state: "available",
+    bodies: [
+      cloudflareWorkerComment({
+        accountId: "account-1",
+        branchPreviewUrl: null,
+        status: "⏳ Building...",
+        workerName: "samebase",
+      }),
+    ],
+  });
+
+  it("matches the exact account, Worker, and current head prefix", () => {
+    expect(
+      resolveCloudflareCommentWorkerBuild({
+        accountId: "account-1",
+        headCommitOid: "9a0e51e5fce68b83c91aef3ed06bcb9cbade2791",
+        resources,
+        workerName: "samebase",
+      }),
+    ).toEqual({ state: "available", buildUuid: "build-1" });
+  });
+
+  it("does not return an older build or a build for another account", () => {
+    expect(
+      resolveCloudflareCommentWorkerBuild({
+        accountId: "account-1",
+        headCommitOid: "abc1234567890",
+        resources,
+        workerName: "samebase",
+      }),
+    ).toEqual({ state: "absent" });
+    expect(
+      resolveCloudflareCommentWorkerBuild({
+        accountId: "account-2",
+        headCommitOid: "9a0e51e5fce68b83c91aef3ed06bcb9cbade2791",
+        resources,
+        workerName: "samebase",
+      }),
+    ).toEqual({ state: "absent" });
   });
 });
 
