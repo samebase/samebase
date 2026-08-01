@@ -20,9 +20,9 @@ The repository has an old Polar scaffold, but billing is not ready for a custome
 - [x] The compaction-safe rollout tracker exists.
 - [ ] Checkout has a configured Sandbox monthly product.
 - [ ] Checkout has the production monthly product ID wired at the final gate.
-- [ ] Webhook field handling matches the installed Polar SDK.
-- [ ] Customer-state parsing matches the current Polar response.
-- [ ] Billing state is safe for duplicate, out-of-order, invalid, and malformed events.
+- [x] Webhook field handling matches the installed Polar SDK.
+- [x] Customer-state parsing matches the current Polar response.
+- [x] Billing state is safe for duplicate, out-of-order, invalid, and malformed events.
 - [ ] The account page shows plan, usage, billing dates, and the correct action.
 - [ ] The public pricing page shows the accepted Free and Pro offer.
 - [x] All Worker and Convex project attachment paths enforce 5 and 40.
@@ -63,16 +63,18 @@ Old specs 033 and 034 are historical input. They do not override the accepted co
 
 ### 2. Polar backend
 
-- [ ] Remove annual and unused billing paths.
-- [ ] Pin and verify the Polar SDK version.
+- [x] Remove annual and unused billing paths.
+- [x] Pin and verify the Polar SDK version.
 - [ ] Add one Sandbox and one production monthly product mapping.
-- [ ] Fix webhook event field handling.
-- [ ] Fix canonical customer-state parsing and active entitlement derivation.
-- [ ] Keep checkout redirects separate from entitlement changes.
-- [ ] Make webhook processing idempotent and safe for provider errors.
-- [ ] Add a trusted reconciliation path for missed events.
-- [ ] Keep account deletion cancellation fail-closed.
-- [ ] Review trusted customer IP forwarding before production checkout.
+- [x] Fix webhook event field handling.
+- [x] Fix canonical customer-state parsing and active entitlement derivation.
+- [x] Keep checkout redirects separate from entitlement changes.
+- [x] Make webhook processing idempotent and safe for provider errors.
+- [x] Add a trusted reconciliation path for missed events.
+- [x] Keep account deletion cancellation fail-closed.
+- [x] Review trusted customer IP forwarding before production checkout. Convex cannot provide a
+      documented trusted buyer IP. The hosted checkout requires the customer to confirm country. A
+      later trusted Cloudflare request boundary can improve country and currency prefill.
 
 ### 3. Resource limits
 
@@ -94,9 +96,9 @@ Old specs 033 and 034 are historical input. They do not override the accepted co
 
 ### 5. Automated validation and review
 
-- [ ] Test successful checkout request construction without calling Polar.
-- [ ] Test signed, duplicate, out-of-order, invalid, and malformed webhooks.
-- [ ] Test active, canceled-at-period-end, payment recovery, and ended entitlement states.
+- [x] Test successful checkout request construction without calling Polar.
+- [x] Test signed, duplicate, out-of-order, invalid, and malformed webhooks.
+- [x] Test active, canceled-at-period-end, payment recovery, and ended entitlement states.
 - [x] Test 5/6 and 40/41 boundaries for both resource types.
 - [x] Test downgrade while above the Free limit.
 - [ ] Test account billing UI states and actions.
@@ -168,3 +170,6 @@ After a context compaction or handoff:
 
 - `089474ac`: accepted monthly billing contract and launch tracker.
 - `6bde3c9c3`: server-side Worker and Convex project quotas, usage query, and quota tests.
+- `43ca553ac`: quota completion recorded in the rollout tracker.
+- `b957830b`: first independent quota review findings recorded.
+- `f0d456d8`: monthly Polar billing core and lifecycle tests.
