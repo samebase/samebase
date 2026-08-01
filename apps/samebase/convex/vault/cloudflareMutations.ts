@@ -1,6 +1,7 @@
 import { v, type Infer } from "convex/values";
 
 import type { Doc, Id } from "../_generated/dataModel";
+import { requireBillingResourceCapacity } from "../billingResourceQuotas";
 import {
   internalMutation,
   internalQuery,
@@ -144,9 +145,15 @@ async function requireConvexProject(
   return project;
 }
 
-async function readWorkerMatches(
+async function readMatchingWorker(
   ctx: WorkerGraphReadCtx,
-  args: { accountId: string; workerName: string; workerTag: string },
+  args: {
+    vaultId: Id<"vaults">;
+    userId: Id<"users">;
+    accountId: string;
+    workerName: string;
+    workerTag: string;
+  },
 ) {
   const [sameName, sameTag] = await Promise.all([
     ctx.db
@@ -165,7 +172,20 @@ async function readWorkerMatches(
   if (sameName && sameTag && sameName._id !== sameTag._id) {
     throw new Error("Cloudflare Worker is already attached.");
   }
-  return sameName ?? sameTag;
+  const existing = sameName ?? sameTag;
+  if (!existing) {
+    return null;
+  }
+  if (
+    existing.vaultId === args.vaultId &&
+    existing.userId === args.userId &&
+    existing.accountId === args.accountId &&
+    existing.workerName === args.workerName &&
+    existing.workerTag === args.workerTag
+  ) {
+    return existing;
+  }
+  throw new Error("Cloudflare Worker is already attached.");
 }
 
 async function insertWorker(
@@ -179,22 +199,20 @@ async function insertWorker(
     origin: "provisioned" | "selected_existing";
   },
 ): Promise<Id<"vaultCloudflareWorkers">> {
-  const existing = await readWorkerMatches(ctx, args);
+  const existing = await readMatchingWorker(ctx, args);
   if (existing) {
-    if (
-      existing.vaultId === args.vaultId &&
-      existing.userId === args.userId &&
-      existing.accountId === args.accountId &&
-      existing.workerName === args.workerName &&
-      existing.workerTag === args.workerTag
-    ) {
-      if (args.origin === "provisioned" && existing.origin !== "provisioned") {
-        await ctx.db.patch(existing._id, { origin: "provisioned" });
-      }
-      return existing._id;
+    if (args.origin === "provisioned" && existing.origin !== "provisioned") {
+      await ctx.db.patch(existing._id, { origin: "provisioned" });
     }
-    throw new Error("Cloudflare Worker is already attached.");
+    return existing._id;
   }
+
+  await requireBillingResourceCapacity(ctx, {
+    additionalResources: 1,
+    kind: "cloudflare_worker",
+    userId: args.userId,
+  });
+
   return await ctx.db.insert("vaultCloudflareWorkers", {
     vaultId: args.vaultId,
     userId: args.userId,
@@ -233,6 +251,23 @@ export const attachWorkers = internalMutation({
       workerNames.add(nameIdentity);
       workerTags.add(tagIdentity);
     }
+
+    let additionalResources = 0;
+    for (const worker of args.workers) {
+      const existing = await readMatchingWorker(ctx, {
+        vaultId: args.vaultId,
+        userId: args.userId,
+        ...worker,
+      });
+      if (!existing) {
+        additionalResources += 1;
+      }
+    }
+    await requireBillingResourceCapacity(ctx, {
+      additionalResources,
+      kind: "cloudflare_worker",
+      userId: args.userId,
+    });
 
     const workerAttachmentIds: Array<Id<"vaultCloudflareWorkers">> = [];
     for (const worker of args.workers) {

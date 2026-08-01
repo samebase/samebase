@@ -179,6 +179,8 @@ export const trackedFilePaths = [
   "apps/samebase/convex/authPassword.convex.test.ts",
   "apps/samebase/convex/billing.convex.test.ts",
   "apps/samebase/convex/billing.ts",
+  "apps/samebase/convex/billingResourceQuotas.convex.test.ts",
+  "apps/samebase/convex/billingResourceQuotas.ts",
   "apps/samebase/convex/cloudflareAccountDiscovery.ts",
   "apps/samebase/convex/cloudflareApi/client.test.ts",
   "apps/samebase/convex/cloudflareApi/client.ts",

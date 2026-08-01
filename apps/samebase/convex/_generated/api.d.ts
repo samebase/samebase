@@ -29,6 +29,7 @@ import type * as appProvisioningWorkflowActions from "../appProvisioningWorkflow
 import type * as auth from "../auth.js";
 import type * as authAdmin from "../authAdmin.js";
 import type * as billing from "../billing.js";
+import type * as billingResourceQuotas from "../billingResourceQuotas.js";
 import type * as cloudflareAccountDiscovery from "../cloudflareAccountDiscovery.js";
 import type * as cloudflareApi_client from "../cloudflareApi/client.js";
 import type * as cloudflareMcp from "../cloudflareMcp.js";
@@ -166,6 +167,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   authAdmin: typeof authAdmin;
   billing: typeof billing;
+  billingResourceQuotas: typeof billingResourceQuotas;
   cloudflareAccountDiscovery: typeof cloudflareAccountDiscovery;
   "cloudflareApi/client": typeof cloudflareApi_client;
   cloudflareMcp: typeof cloudflareMcp;

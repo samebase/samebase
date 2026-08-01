@@ -15,6 +15,7 @@ import {
 } from "../../shared/convexCodeLocation";
 import { normalizeConvexConfigPath } from "../../shared/convexConfigPath";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";
+import { requireBillingResourceCapacity } from "../billingResourceQuotas";
 import { vVaultProviderResourceOrigin, type VaultProviderResourceOrigin } from "./model";
 import {
   requireUserVaultInfrastructureIdle,
@@ -83,11 +84,33 @@ function readPlanConvexConfigPath(plan: Doc<"workflow_vaultProvisioning_plans">)
   return normalizeConvexConfigPath(plan.convexConfigPath);
 }
 
-async function readProjectByProjectId(ctx: ConvexProjectGraphReadCtx, projectId: string) {
-  return await ctx.db
+async function readMatchingProject(
+  ctx: ConvexProjectGraphReadCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    userId: Id<"users">;
+    teamId: string;
+    projectId: string;
+    codeLocation: ConvexCodeLocation;
+  },
+) {
+  const existing = await ctx.db
     .query("vaultConvexProjects")
-    .withIndex("by_project", (q) => q.eq("projectId", projectId))
+    .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
     .unique();
+  if (!existing) {
+    return null;
+  }
+  if (
+    existing.vaultId === args.vaultId &&
+    existing.userId === args.userId &&
+    existing.teamId === args.teamId &&
+    getConvexCodeLocationKey(readConvexCodeLocation(existing)) ===
+      getConvexCodeLocationKey(args.codeLocation)
+  ) {
+    return existing;
+  }
+  throw new Error("Convex project is already attached.");
 }
 
 async function insertProject(
@@ -102,22 +125,19 @@ async function insertProject(
   },
 ): Promise<Id<"vaultConvexProjects">> {
   const codeLocation = normalizeConvexCodeLocation(args.codeLocation);
-  const existing = await readProjectByProjectId(ctx, args.projectId);
+  const existing = await readMatchingProject(ctx, { ...args, codeLocation });
   if (existing) {
-    if (
-      existing.vaultId === args.vaultId &&
-      existing.userId === args.userId &&
-      existing.teamId === args.teamId &&
-      getConvexCodeLocationKey(readConvexCodeLocation(existing)) ===
-        getConvexCodeLocationKey(codeLocation)
-    ) {
-      if (args.origin === "provisioned" && existing.origin !== "provisioned") {
-        await ctx.db.patch(existing._id, { origin: "provisioned" });
-      }
-      return existing._id;
+    if (args.origin === "provisioned" && existing.origin !== "provisioned") {
+      await ctx.db.patch(existing._id, { origin: "provisioned" });
     }
-    throw new Error("Convex project is already attached.");
+    return existing._id;
   }
+
+  await requireBillingResourceCapacity(ctx, {
+    additionalResources: 1,
+    kind: "convex_project",
+    userId: args.userId,
+  });
 
   const commonFields = {
     vaultId: args.vaultId,
@@ -363,6 +383,23 @@ export const attachProjects = internalMutation({
       }
       projectIds.add(project.projectId);
     }
+
+    let additionalResources = 0;
+    for (const project of projects) {
+      const existing = await readMatchingProject(ctx, {
+        vaultId: args.vaultId,
+        userId: args.userId,
+        ...project,
+      });
+      if (!existing) {
+        additionalResources += 1;
+      }
+    }
+    await requireBillingResourceCapacity(ctx, {
+      additionalResources,
+      kind: "convex_project",
+      userId: args.userId,
+    });
 
     const projectAttachmentIds: Array<Id<"vaultConvexProjects">> = [];
     for (const project of projects) {
