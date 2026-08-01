@@ -1026,7 +1026,7 @@ describe("PullRequestsSection", () => {
       const connectWorker = otherPreviews?.querySelector(
         'a[aria-label="Connect Cloudflare Worker comment-worker in repository settings"]',
       );
-      expect(connectWorker?.getAttribute("href")).toBe("/vault/ada/demo/settings");
+      expect(connectWorker?.getAttribute("href")).toBe("/vault/ada/demo/settings?add-cloudflare");
       expect(
         otherPreviews?.querySelector(
           'a[aria-label="Connect comment-pages in repository settings"]',

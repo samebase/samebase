@@ -146,7 +146,10 @@ test("shows comment-discovered hosting previews on desktop", async ({ page }) =>
     otherPreviews.getByRole("link", {
       name: "Connect Cloudflare Worker unconnected-preview-worker in repository settings",
     }),
-  ).toHaveAttribute("href", "/vault/samebase/samebase/settings");
+  ).toHaveAttribute(
+    "href",
+    "/vault/samebase/samebase/settings?mode=vault-overview-v2&add-cloudflare",
+  );
   await expect(
     otherPreviews.getByRole("link", {
       name: "Cloudflare Worker unconnected-preview-worker: Branch preview",

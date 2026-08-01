@@ -7,6 +7,7 @@ import {
   MAX_LOGO_GRID_SIZE,
 } from "@samebase/logo-model/voxel";
 import {
+  applyVaultDashboardProviderAddSearch,
   clearVaultDashboardQueryDialogSearch,
   readCanonicalRouteAddressForRootSearch,
   readRootRouteSearch,
@@ -16,6 +17,23 @@ import {
 } from "./root";
 
 describe("rootRouteSearch", () => {
+  it("opens one provider dialog while keeping independent root search", () => {
+    const currentSearch = {
+      "add-convex": true,
+      delete: true,
+      "prod-ui": true,
+    } satisfies RootRouteSearch;
+
+    expect(applyVaultDashboardProviderAddSearch({ currentSearch, provider: "cloudflare" })).toEqual(
+      {
+        "add-cloudflare": true,
+        "add-convex": undefined,
+        delete: undefined,
+        "prod-ui": true,
+      },
+    );
+  });
+
   it("clears only the selected vault dashboard dialog search", () => {
     const currentSearch = {
       "add-cloudflare": true,
