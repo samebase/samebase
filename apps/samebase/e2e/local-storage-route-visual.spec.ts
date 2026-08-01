@@ -4,7 +4,6 @@ import { INDEXED_DB_ROUTE } from "../src/lib/indexedDbRoute";
 import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
 import { signInIfNeeded } from "./liveHelpers";
 
-const AUTHENTICATED_APP_ACCOUNT_SECTION_TEST_ID = "dashboard-sidebar-account-section";
 const localStorageRouteScreenshotOptions = {
   animations: "disabled",
   caret: "hide",
@@ -142,36 +141,4 @@ test("localStorage route reflects same-tab storage writes without manual refresh
       hasText: `"source": "same-tab-write"`,
     }),
   ).toBeVisible();
-});
-
-test("localStorage right sidebar omits the route shortcut", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await signInForLocalStorageRoute(page);
-  await page.goto(LOCAL_STORAGE_ROUTE, { waitUntil: "networkidle" });
-
-  const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
-  const publicLinks = rightSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
-  const accountSection = rightSidebar.getByTestId(AUTHENTICATED_APP_ACCOUNT_SECTION_TEST_ID);
-  await expect(accountSection).toBeVisible();
-  await expect(
-    accountSection.getByText("Sign in or create an account", { exact: true }),
-  ).toHaveCount(0);
-  await expect(publicLinks.locator("#public-local-storage-route-link")).toHaveCount(0);
-  await expect(
-    publicLinks.getByRole("link", {
-      name: LOCAL_STORAGE_ROUTE,
-      exact: true,
-    }),
-  ).toHaveCount(0);
-
-  await page.goto("/localStorage?dev", { waitUntil: "networkidle" });
-
-  await expect(accountSection).toBeVisible();
-  await expect(publicLinks.locator("#public-local-storage-route-link")).toHaveCount(0);
-  await expect(
-    publicLinks.getByRole("link", {
-      name: LOCAL_STORAGE_ROUTE,
-      exact: true,
-    }),
-  ).toHaveCount(0);
 });

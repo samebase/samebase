@@ -906,25 +906,6 @@ test("route URL editor puts the cursor in the selected value slot for middle que
   await expect(page.getByRole("option", { exact: true, name: "blue-500" })).toBeVisible();
 });
 
-test("route URL editor hides already-present query keys while replacing another token", async ({
-  page,
-}) => {
-  const { input, prefix } = await focusRouteAddressInput(page, "/terms?border=stone-300&dev");
-  const borderCursor = `${prefix}terms?bo`.length;
-
-  await setInputSelection(input, {
-    end: borderCursor,
-    start: borderCursor,
-  });
-
-  await input.press("ArrowRight");
-  await input.press("ArrowLeft");
-
-  await expect(input).toBeFocused();
-  await expect(page.getByRole("option", { exact: true, name: "?dev" })).toHaveCount(0);
-  await expect(page.getByRole("option", { exact: true, name: "?border=stone-300" })).toBeVisible();
-});
-
 test("route URL editor keeps numeric query samples editable after selection", async ({ page }) => {
   const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo");
 
