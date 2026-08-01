@@ -23,8 +23,8 @@ The repository has an old Polar scaffold, but billing is not ready for a custome
 - [x] Webhook field handling matches the installed Polar SDK.
 - [x] Customer-state parsing matches the current Polar response.
 - [x] Billing state is safe for duplicate, out-of-order, invalid, and malformed events.
-- [ ] The account page shows plan, usage, billing dates, and the correct action.
-- [ ] The public pricing page shows the accepted Free and Pro offer.
+- [x] The account page shows plan, usage, billing dates, and the correct action.
+- [x] The public pricing page shows the accepted Free and Pro offer.
 - [x] All Worker and Convex project attachment paths enforce 5 and 40.
 - [ ] Automated tests cover the billing lifecycle and quota boundaries. Quota boundaries are
       complete; billing lifecycle coverage is in progress.
@@ -91,13 +91,13 @@ Old specs 033 and 034 are historical input. They do not override the accepted co
 
 ### 4. Customer UI
 
-- [ ] Replace outdated public pricing copy with Free 5/5 and Pro 40/40 at $4 monthly.
-- [ ] Add the account Billing section.
-- [ ] Show separate current usage and limits.
-- [ ] Add the monthly Upgrade action for Free.
-- [ ] Add the Manage subscription action for Pro and payment recovery.
-- [ ] Show checkout return and pending confirmation states without granting Pro.
-- [ ] Add or update route-level screenshot coverage.
+- [x] Replace outdated public pricing copy with Free 5/5 and Pro 40/40 at $4 monthly.
+- [x] Add the account Billing section.
+- [x] Show separate current usage and limits.
+- [x] Add the monthly Upgrade action for Free.
+- [x] Add the Manage subscription action for Pro and payment recovery.
+- [x] Show checkout return and pending confirmation states without granting Pro.
+- [x] Add or update route-level screenshot coverage.
 
 ### 5. Automated validation and review
 
@@ -106,7 +106,7 @@ Old specs 033 and 034 are historical input. They do not override the accepted co
 - [x] Test active, canceled-at-period-end, payment recovery, and ended entitlement states.
 - [x] Test 5/6 and 40/41 boundaries for both resource types.
 - [x] Test downgrade while above the Free limit.
-- [ ] Test account billing UI states and actions.
+- [x] Test account billing UI states and actions.
 - [ ] Run the repository validation commands required by the changed surfaces.
 - [ ] Complete independent backend, quota, frontend, and security reviews.
 - [ ] Resolve all actionable review findings.
@@ -178,3 +178,6 @@ After a context compaction or handoff:
 - `43ca553ac`: quota completion recorded in the rollout tracker.
 - `b957830b`: first independent quota review findings recorded.
 - `f0d456d8`: monthly Polar billing core and lifecycle tests.
+- `d4babaf9`: billing core completion recorded in the rollout tracker.
+- `fdd859f5`: backend race review findings recorded.
+- `a655c0e5`: pricing and Settings billing UI, tests, and Linux visual baselines.
