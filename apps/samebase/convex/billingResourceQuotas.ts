@@ -3,7 +3,12 @@ import { Infer, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { internalMutation } from "./_generated/server";
-import { type BillingResourceKind, vBillingResourceKind } from "./billingResourceQuotaModel";
+import {
+  type BillingProviderResourceIdentity,
+  type BillingResourceKind,
+  vBillingProviderResourceIdentity,
+  vBillingResourceKind,
+} from "./billingResourceQuotaModel";
 import { query } from "./functions";
 
 const { id, literal, null: nullValue, number, object, string, union } = v;
@@ -23,6 +28,15 @@ type BillingResourceReservationIdentity = {
   operationKey: string;
   reservationId: Id<"billingResourceReservations">;
   userId: Id<"users">;
+};
+
+type BillingResourceReservationReference = {
+  operationKey: string;
+  reservationId: Id<"billingResourceReservations">;
+};
+
+type BillingResourceReservationCapacity = BillingResourceReservationReference & {
+  providerResource: BillingProviderResourceIdentity;
 };
 
 const vResourceAttachmentCount = union(
@@ -122,7 +136,7 @@ async function readLiveReservations(
   return await ctx.db
     .query("billingResourceReservations")
     .withIndex("by_userId_and_kind_and_expiresAt", (q) =>
-      q.eq("userId", args.userId).eq("kind", args.kind).gt("expiresAt", args.now),
+      q.eq("userId", args.userId).eq("resource.kind", args.kind).gt("expiresAt", args.now),
     )
     .take(PRO_RESOURCE_ATTACHMENT_LIMIT + 1);
 }
@@ -135,12 +149,43 @@ async function requireReservationIdentity(
   if (
     !reservation ||
     reservation.userId !== args.userId ||
-    reservation.kind !== args.kind ||
+    reservation.resource.kind !== args.kind ||
     reservation.operationKey !== args.operationKey
   ) {
     throw new Error("Billing resource reservation not found.");
   }
   return reservation;
+}
+
+function requireProviderResourceIdentity(
+  reservation: Doc<"billingResourceReservations">,
+  providerResource: BillingProviderResourceIdentity,
+): void {
+  if (reservation.resource.state !== "provider_created") {
+    throw new Error("Billing reservation does not identify a provider resource.");
+  }
+  switch (reservation.resource.kind) {
+    case "cloudflare_worker":
+      if (
+        providerResource.kind !== "cloudflare_worker" ||
+        reservation.resource.accountId !== providerResource.accountId ||
+        reservation.resource.workerTag !== providerResource.workerTag
+      ) {
+        throw new Error("Billing reservation identifies another Cloudflare Worker.");
+      }
+      return;
+    case "convex_project":
+      if (
+        providerResource.kind !== "convex_project" ||
+        reservation.resource.teamId !== providerResource.teamId ||
+        reservation.resource.projectId !== providerResource.projectId
+      ) {
+        throw new Error("Billing reservation identifies another Convex project.");
+      }
+      return;
+    default:
+      reservation.resource satisfies never;
+  }
 }
 
 async function readLimitForUser(
@@ -160,7 +205,7 @@ async function requireUnreservedCapacity(
     additionalResources: number;
     kind: BillingResourceKind;
     now: number;
-    ownReservationId: Id<"billingResourceReservations"> | null;
+    ownReservationIds: ReadonlySet<Id<"billingResourceReservations">>;
     userId: Id<"users">;
   },
 ): Promise<void> {
@@ -174,7 +219,7 @@ async function requireUnreservedCapacity(
     readLiveReservations(ctx, args),
   ]);
   const reservedByOtherOperations = liveReservations.filter(
-    (reservation) => reservation._id !== args.ownReservationId,
+    (reservation) => !args.ownReservationIds.has(reservation._id),
   ).length;
   if (used + reservedByOtherOperations + args.additionalResources > limit) {
     throwBillingResourceLimit(args.kind, limit);
@@ -193,7 +238,10 @@ export const claimBillingResourceReservation = internalMutation({
     const existing = await ctx.db
       .query("billingResourceReservations")
       .withIndex("by_userId_and_kind_and_operationKey", (q) =>
-        q.eq("userId", args.userId).eq("kind", args.kind).eq("operationKey", args.operationKey),
+        q
+          .eq("userId", args.userId)
+          .eq("resource.kind", args.kind)
+          .eq("operationKey", args.operationKey),
       )
       .unique();
     if (existing && existing.expiresAt > now) {
@@ -201,10 +249,10 @@ export const claimBillingResourceReservation = internalMutation({
         ...args,
         additionalResources: 1,
         now,
-        ownReservationId: existing._id,
+        ownReservationIds: new Set([existing._id]),
       });
       const ttl =
-        existing.state === "provider_created"
+        existing.resource.state === "provider_created"
           ? RESERVATION_PROVIDER_CREATED_TTL_MS
           : RESERVATION_CLAIM_TTL_MS;
       const expiresAt = Math.max(existing.expiresAt, now + ttl);
@@ -220,7 +268,7 @@ export const claimBillingResourceReservation = internalMutation({
     const expired = await ctx.db
       .query("billingResourceReservations")
       .withIndex("by_userId_and_kind_and_expiresAt", (q) =>
-        q.eq("userId", args.userId).eq("kind", args.kind).lte("expiresAt", now),
+        q.eq("userId", args.userId).eq("resource.kind", args.kind).lte("expiresAt", now),
       )
       .take(EXPIRED_RESERVATION_CLEANUP_BATCH_SIZE);
     for (const reservation of expired) {
@@ -231,11 +279,12 @@ export const claimBillingResourceReservation = internalMutation({
       ...args,
       additionalResources: 1,
       now,
-      ownReservationId: null,
+      ownReservationIds: new Set(),
     });
     return await ctx.db.insert("billingResourceReservations", {
-      ...args,
-      state: "claimed",
+      userId: args.userId,
+      operationKey: args.operationKey,
+      resource: { state: "claimed", kind: args.kind },
       expiresAt: now + RESERVATION_CLAIM_TTL_MS,
     });
   },
@@ -245,24 +294,27 @@ export const markBillingResourceReservationProviderCreated = internalMutation({
   args: {
     reservationId: id("billingResourceReservations"),
     userId: id("users"),
-    kind: vBillingResourceKind,
     operationKey: string(),
+    providerResource: vBillingProviderResourceIdentity,
   },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
-    const reservation = await requireReservationIdentity(ctx, args);
+    const reservation = await requireReservationIdentity(ctx, {
+      ...args,
+      kind: args.providerResource.kind,
+    });
     const now = Date.now();
     if (reservation.expiresAt <= now) {
       await requireUnreservedCapacity(ctx, {
         additionalResources: 1,
-        kind: args.kind,
+        kind: args.providerResource.kind,
         now,
-        ownReservationId: null,
+        ownReservationIds: new Set(),
         userId: args.userId,
       });
     }
     await ctx.db.patch(reservation._id, {
-      state: "provider_created",
+      resource: { state: "provider_created", ...args.providerResource },
       expiresAt: now + RESERVATION_PROVIDER_CREATED_TTL_MS,
     });
     return null;
@@ -283,7 +335,7 @@ export const releaseUnusedBillingResourceReservation = internalMutation({
       return null;
     }
     await requireReservationIdentity(ctx, args);
-    if (reservation.state === "claimed") {
+    if (reservation.resource.state === "claimed") {
       await ctx.db.delete(reservation._id);
     }
     return null;
@@ -292,14 +344,61 @@ export const releaseUnusedBillingResourceReservation = internalMutation({
 
 export async function consumeBillingResourceReservationForExistingAttachment(
   ctx: BillingResourceMutationCtx,
-  args: BillingResourceReservationIdentity,
+  args: BillingResourceReservationIdentity & {
+    providerResource: BillingProviderResourceIdentity;
+  },
 ): Promise<void> {
   const reservation = await ctx.db.get(args.reservationId);
   if (!reservation) {
     return;
   }
-  await requireReservationIdentity(ctx, args);
+  const matchingReservation = await requireReservationIdentity(ctx, args);
+  requireProviderResourceIdentity(matchingReservation, args.providerResource);
   await ctx.db.delete(reservation._id);
+}
+
+export async function readMatchingProviderCreatedBillingResourceReservation(
+  ctx: BillingResourceMutationCtx,
+  args: BillingProviderResourceIdentity & { userId: Id<"users"> },
+): Promise<BillingResourceReservationReference | null> {
+  const now = Date.now();
+  const reservations =
+    args.kind === "cloudflare_worker"
+      ? await ctx.db
+          .query("billingResourceReservations")
+          .withIndex("by_userId_and_cloudflare_identity_and_expiresAt", (q) =>
+            q
+              .eq("userId", args.userId)
+              .eq("resource.accountId", args.accountId)
+              .eq("resource.workerTag", args.workerTag)
+              .gt("expiresAt", now),
+          )
+          .take(2)
+      : await ctx.db
+          .query("billingResourceReservations")
+          .withIndex("by_userId_and_convex_identity_and_expiresAt", (q) =>
+            q
+              .eq("userId", args.userId)
+              .eq("resource.teamId", args.teamId)
+              .eq("resource.projectId", args.projectId)
+              .gt("expiresAt", now),
+          )
+          .take(2);
+  if (reservations.length > 1) {
+    throw new Error("Provider resource has more than one billing reservation.");
+  }
+  const reservation = reservations.at(0);
+  if (
+    !reservation ||
+    reservation.resource.state !== "provider_created" ||
+    reservation.resource.kind !== args.kind
+  ) {
+    return null;
+  }
+  return {
+    operationKey: reservation.operationKey,
+    reservationId: reservation._id,
+  };
 }
 
 export async function requireBillingResourceCapacity(
@@ -307,10 +406,7 @@ export async function requireBillingResourceCapacity(
   args: {
     additionalResources: number;
     kind: BillingResourceKind;
-    reservation: {
-      operationKey: string;
-      reservationId: Id<"billingResourceReservations">;
-    } | null;
+    reservation: BillingResourceReservationCapacity | null;
     userId: Id<"users">;
   },
 ): Promise<void> {
@@ -323,11 +419,14 @@ export async function requireBillingResourceCapacity(
         ...args.reservation,
       })
     : null;
+  if (reservation && args.reservation) {
+    requireProviderResourceIdentity(reservation, args.reservation.providerResource);
+  }
   await requireUnreservedCapacity(ctx, {
     additionalResources: args.additionalResources,
     kind: args.kind,
     now: Date.now(),
-    ownReservationId: reservation?._id ?? null,
+    ownReservationIds: new Set(reservation ? [reservation._id] : []),
     userId: args.userId,
   });
   if (reservation) {

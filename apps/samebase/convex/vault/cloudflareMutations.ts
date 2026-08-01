@@ -5,6 +5,7 @@ import {
   consumeBillingResourceReservationForExistingAttachment,
   managedBillingResourceOperationKey,
   manualBillingResourceOperationKey,
+  readMatchingProviderCreatedBillingResourceReservation,
   requireBillingResourceCapacity,
 } from "../billingResourceQuotas";
 import {
@@ -211,14 +212,38 @@ async function insertWorker(
     origin: "provisioned" | "selected_existing";
   },
 ): Promise<Id<"vaultCloudflareWorkers">> {
+  const providerResource = {
+    kind: "cloudflare_worker" as const,
+    accountId: args.accountId,
+    workerName: args.workerName,
+    workerTag: args.workerTag,
+  };
+  const attachmentReservation =
+    args.capacity.kind === "attachment"
+      ? await readMatchingProviderCreatedBillingResourceReservation(ctx, {
+          userId: args.userId,
+          ...providerResource,
+        })
+      : null;
+  const reservation =
+    args.capacity.kind === "provider_create" && args.capacity.reservationId
+      ? {
+          operationKey: args.capacity.operationKey,
+          reservationId: args.capacity.reservationId,
+          providerResource,
+        }
+      : attachmentReservation
+        ? { ...attachmentReservation, providerResource }
+        : null;
   const existing = await readMatchingWorker(ctx, args);
   if (existing) {
-    if (args.capacity.kind === "provider_create" && args.capacity.reservationId) {
+    if (reservation) {
       await consumeBillingResourceReservationForExistingAttachment(ctx, {
         kind: "cloudflare_worker",
-        operationKey: args.capacity.operationKey,
-        reservationId: args.capacity.reservationId,
+        operationKey: reservation.operationKey,
+        reservationId: reservation.reservationId,
         userId: args.userId,
+        providerResource,
       });
     }
     if (args.origin === "provisioned" && existing.origin !== "provisioned") {
@@ -234,13 +259,7 @@ async function insertWorker(
   await requireBillingResourceCapacity(ctx, {
     additionalResources: 1,
     kind: "cloudflare_worker",
-    reservation:
-      args.capacity.kind === "provider_create" && args.capacity.reservationId
-        ? {
-            operationKey: args.capacity.operationKey,
-            reservationId: args.capacity.reservationId,
-          }
-        : null,
+    reservation,
     userId: args.userId,
   });
 
@@ -282,24 +301,6 @@ export const attachWorkers = internalMutation({
       workerNames.add(nameIdentity);
       workerTags.add(tagIdentity);
     }
-
-    let additionalResources = 0;
-    for (const worker of args.workers) {
-      const existing = await readMatchingWorker(ctx, {
-        vaultId: args.vaultId,
-        userId: args.userId,
-        ...worker,
-      });
-      if (!existing) {
-        additionalResources += 1;
-      }
-    }
-    await requireBillingResourceCapacity(ctx, {
-      additionalResources,
-      kind: "cloudflare_worker",
-      reservation: null,
-      userId: args.userId,
-    });
 
     const workerAttachmentIds: Array<Id<"vaultCloudflareWorkers">> = [];
     for (const worker of args.workers) {

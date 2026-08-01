@@ -446,8 +446,13 @@ async function createWorkerForManagedWorkflow(
         {
           reservationId: billingReservationId,
           userId: args.userId,
-          kind: "cloudflare_worker",
           operationKey: billingOperationKey,
+          providerResource: {
+            kind: "cloudflare_worker",
+            accountId: account.accountId,
+            workerName: worker.workerName,
+            workerTag: worker.workerTag,
+          },
         },
       );
     }
@@ -1270,8 +1275,13 @@ async function createWorkerForUser(
       {
         reservationId: billingReservationId,
         userId: args.userId,
-        kind: "cloudflare_worker",
         operationKey: billingOperationKey,
+        providerResource: {
+          kind: "cloudflare_worker",
+          accountId: resolved.account.accountId,
+          workerName: validation.value,
+          workerTag: worker.workerTag,
+        },
       },
     );
     const workerId = await ctx.runMutation(

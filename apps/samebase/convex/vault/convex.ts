@@ -466,8 +466,12 @@ async function createProjectForUser(
       {
         reservationId: billingReservationId,
         userId: args.userId,
-        kind: "convex_project",
         operationKey: billingOperationKey,
+        providerResource: {
+          kind: "convex_project",
+          teamId: connection.teamId,
+          projectId: created.id,
+        },
       },
     );
     const convexProjectId = await ctx.runMutation(
@@ -613,8 +617,12 @@ async function createProjectForManagedWorkflow(
         {
           reservationId: billingReservationId,
           userId: args.userId,
-          kind: "convex_project",
           operationKey: billingOperationKey,
+          providerResource: {
+            kind: "convex_project",
+            teamId: connection.teamId,
+            projectId: created.id,
+          },
         },
       );
       projectId = created.id;

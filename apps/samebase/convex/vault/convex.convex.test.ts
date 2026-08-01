@@ -533,7 +533,7 @@ describe("vault Convex project attachments", () => {
         const reservations = await ctx.db
           .query("billingResourceReservations")
           .withIndex("by_userId_and_kind_and_expiresAt", (q) =>
-            q.eq("userId", userId).eq("kind", "convex_project"),
+            q.eq("userId", userId).eq("resource.kind", "convex_project"),
           )
           .collect();
         return { projects, reservations };
@@ -542,9 +542,13 @@ describe("vault Convex project attachments", () => {
       projects: [],
       reservations: [
         expect.objectContaining({
-          kind: "convex_project",
-          state: "provider_created",
           userId,
+          resource: {
+            state: "provider_created",
+            kind: "convex_project",
+            teamId: "1000",
+            projectId: "1003",
+          },
         }),
       ],
     });

@@ -255,6 +255,17 @@ describe("vault Cloudflare Worker attachment mutations", () => {
         operationKey: managedBillingResourceOperationKey(runId),
       },
     );
+    await t.mutation(internal.billingResourceQuotas.markBillingResourceReservationProviderCreated, {
+      reservationId: billingReservationId,
+      userId: ids.userId,
+      operationKey: managedBillingResourceOperationKey(runId),
+      providerResource: {
+        kind: "cloudflare_worker",
+        accountId: "account-1",
+        workerName: "managed-worker",
+        workerTag: "created-worker-tag",
+      },
+    });
     const workerId = await t.mutation(
       internal.vault.cloudflareMutations.recordManagedWorkerCreated,
       {
@@ -347,6 +358,21 @@ describe("vault Cloudflare Worker attachment mutations", () => {
         }),
       },
     );
+    await t.mutation(internal.billingResourceQuotas.markBillingResourceReservationProviderCreated, {
+      reservationId: billingReservationId,
+      userId: ids.userId,
+      operationKey: manualBillingResourceOperationKey({
+        vaultId: ids.secondaryVaultId,
+        providerScopeId: "account-1",
+        resourceName: "created-worker",
+      }),
+      providerResource: {
+        kind: "cloudflare_worker",
+        accountId: "account-1",
+        workerName: "created-worker",
+        workerTag: "created-tag",
+      },
+    });
     await expect(
       t.mutation(internal.vault.cloudflareMutations.recordManualWorkerCreated, {
         billingReservationId,

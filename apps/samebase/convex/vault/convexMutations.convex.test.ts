@@ -298,6 +298,16 @@ describe("vault Convex project attachment mutations", () => {
         operationKey: managedBillingResourceOperationKey(runId),
       },
     );
+    await t.mutation(internal.billingResourceQuotas.markBillingResourceReservationProviderCreated, {
+      reservationId: billingReservationId,
+      userId: ids.userId,
+      operationKey: managedBillingResourceOperationKey(runId),
+      providerResource: {
+        kind: "convex_project",
+        teamId: "team-1",
+        projectId: "created-project",
+      },
+    });
     await expect(
       t.mutation(internal.vault.convexMutations.recordManagedProjectCreated, {
         billingReservationId,
@@ -381,6 +391,20 @@ describe("vault Convex project attachment mutations", () => {
         }),
       },
     );
+    await t.mutation(internal.billingResourceQuotas.markBillingResourceReservationProviderCreated, {
+      reservationId: billingReservationId,
+      userId: ids.userId,
+      operationKey: manualBillingResourceOperationKey({
+        vaultId: ids.primaryVaultId,
+        providerScopeId: "team-1",
+        resourceName: "manual-project",
+      }),
+      providerResource: {
+        kind: "convex_project",
+        teamId: "team-1",
+        projectId: "project-1",
+      },
+    });
 
     await expect(
       t.mutation(internal.vault.convexMutations.recordManualProjectCreated, {

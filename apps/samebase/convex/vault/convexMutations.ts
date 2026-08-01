@@ -19,6 +19,7 @@ import {
   consumeBillingResourceReservationForExistingAttachment,
   managedBillingResourceOperationKey,
   manualBillingResourceOperationKey,
+  readMatchingProviderCreatedBillingResourceReservation,
   requireBillingResourceCapacity,
 } from "../billingResourceQuotas";
 import { vVaultProviderResourceOrigin, type VaultProviderResourceOrigin } from "./model";
@@ -137,14 +138,37 @@ async function insertProject(
   },
 ): Promise<Id<"vaultConvexProjects">> {
   const codeLocation = normalizeConvexCodeLocation(args.codeLocation);
+  const providerResource = {
+    kind: "convex_project" as const,
+    teamId: args.teamId,
+    projectId: args.projectId,
+  };
+  const attachmentReservation =
+    args.capacity.kind === "attachment"
+      ? await readMatchingProviderCreatedBillingResourceReservation(ctx, {
+          userId: args.userId,
+          ...providerResource,
+        })
+      : null;
+  const reservation =
+    args.capacity.kind === "provider_create" && args.capacity.reservationId
+      ? {
+          operationKey: args.capacity.operationKey,
+          reservationId: args.capacity.reservationId,
+          providerResource,
+        }
+      : attachmentReservation
+        ? { ...attachmentReservation, providerResource }
+        : null;
   const existing = await readMatchingProject(ctx, { ...args, codeLocation });
   if (existing) {
-    if (args.capacity.kind === "provider_create" && args.capacity.reservationId) {
+    if (reservation) {
       await consumeBillingResourceReservationForExistingAttachment(ctx, {
         kind: "convex_project",
-        operationKey: args.capacity.operationKey,
-        reservationId: args.capacity.reservationId,
+        operationKey: reservation.operationKey,
+        reservationId: reservation.reservationId,
         userId: args.userId,
+        providerResource,
       });
     }
     if (args.origin === "provisioned" && existing.origin !== "provisioned") {
@@ -160,13 +184,7 @@ async function insertProject(
   await requireBillingResourceCapacity(ctx, {
     additionalResources: 1,
     kind: "convex_project",
-    reservation:
-      args.capacity.kind === "provider_create" && args.capacity.reservationId
-        ? {
-            operationKey: args.capacity.operationKey,
-            reservationId: args.capacity.reservationId,
-          }
-        : null,
+    reservation,
     userId: args.userId,
   });
 
@@ -433,24 +451,6 @@ export const attachProjects = internalMutation({
       }
       projectIds.add(project.projectId);
     }
-
-    let additionalResources = 0;
-    for (const project of projects) {
-      const existing = await readMatchingProject(ctx, {
-        vaultId: args.vaultId,
-        userId: args.userId,
-        ...project,
-      });
-      if (!existing) {
-        additionalResources += 1;
-      }
-    }
-    await requireBillingResourceCapacity(ctx, {
-      additionalResources,
-      kind: "convex_project",
-      reservation: null,
-      userId: args.userId,
-    });
 
     const projectAttachmentIds: Array<Id<"vaultConvexProjects">> = [];
     for (const project of projects) {

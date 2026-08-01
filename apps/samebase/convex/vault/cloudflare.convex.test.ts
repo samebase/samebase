@@ -651,7 +651,7 @@ describe("vault Cloudflare Worker attachments", () => {
         const reservations = await ctx.db
           .query("billingResourceReservations")
           .withIndex("by_userId_and_kind_and_expiresAt", (q) =>
-            q.eq("userId", userId).eq("kind", "cloudflare_worker"),
+            q.eq("userId", userId).eq("resource.kind", "cloudflare_worker"),
           )
           .collect();
         return { reservations, workers };
@@ -659,9 +659,14 @@ describe("vault Cloudflare Worker attachments", () => {
     ).resolves.toEqual({
       reservations: [
         expect.objectContaining({
-          kind: "cloudflare_worker",
-          state: "provider_created",
           userId,
+          resource: {
+            state: "provider_created",
+            kind: "cloudflare_worker",
+            accountId,
+            workerName: "new-worker",
+            workerTag: "new-worker-tag",
+          },
         }),
       ],
       workers: [],
