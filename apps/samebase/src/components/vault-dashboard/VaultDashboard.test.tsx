@@ -858,7 +858,7 @@ describe("vault environment roots", () => {
     const rootElement = document.createElement("div");
     rootElement.innerHTML = renderToStaticMarkup(<VaultEnvironmentTree roots={roots} />);
     const buildLink = rootElement.querySelector(`a[href="${logsUrl}"]`);
-    expect(buildLink?.textContent).toContain("View build");
+    expect(buildLink?.textContent).toContain("Building");
     expect(buildLink?.getAttribute("target")).toBe("_blank");
     expect(buildLink?.getAttribute("rel")).toBe("noreferrer noopener");
   });
