@@ -169,6 +169,7 @@ function requireProviderResourceIdentity(
       if (
         providerResource.kind !== "cloudflare_worker" ||
         reservation.resource.accountId !== providerResource.accountId ||
+        reservation.resource.workerName !== providerResource.workerName ||
         reservation.resource.workerTag !== providerResource.workerTag
       ) {
         throw new Error("Billing reservation identifies another Cloudflare Worker.");
@@ -370,6 +371,7 @@ export async function readMatchingProviderCreatedBillingResourceReservation(
             q
               .eq("userId", args.userId)
               .eq("resource.accountId", args.accountId)
+              .eq("resource.workerName", args.workerName)
               .eq("resource.workerTag", args.workerTag)
               .gt("expiresAt", now),
           )

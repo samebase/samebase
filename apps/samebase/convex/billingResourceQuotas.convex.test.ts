@@ -824,6 +824,37 @@ describe("billing resource quotas", () => {
     }
   });
 
+  it("does not consume a retained Cloudflare slot when only the Worker name differs", async () => {
+    const { ids, t } = await createQuotaFixture();
+    await seedWorkers(t, { ...ids, count: 4 });
+    await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
+      ...ids,
+      actionId: "recover-renamed-worker",
+      action: "connect_cloudflare_worker",
+    });
+    const reservationId = await seedProviderCreatedReservation(t, {
+      userId: ids.userId,
+      operationKey: "retained-renamed-worker",
+      providerResource: {
+        kind: "cloudflare_worker",
+        accountId: "account-1",
+        workerName: "previous-worker-name",
+        workerTag: "recovery-worker-tag",
+      },
+    });
+
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.recordManualConnectedWorker, {
+        ...ids,
+        actionId: "recover-renamed-worker",
+        accountId: "account-1",
+        workerName: "recovery-worker",
+        workerTag: "recovery-worker-tag",
+      }),
+    ).rejects.toThrow("Cloudflare Worker attachment limit reached (5).");
+    await expect(t.run(async (ctx) => await ctx.db.get(reservationId))).resolves.not.toBeNull();
+  });
+
   it("consumes each retained provider slot once in batch attachment", async () => {
     {
       const { ids, t } = await createQuotaFixture();

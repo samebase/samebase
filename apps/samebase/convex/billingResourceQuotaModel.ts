@@ -53,6 +53,7 @@ export const billingResourceQuotaTables = {
     .index("by_userId_and_cloudflare_identity_and_expiresAt", [
       "userId",
       "resource.accountId",
+      "resource.workerName",
       "resource.workerTag",
       "expiresAt",
     ])
