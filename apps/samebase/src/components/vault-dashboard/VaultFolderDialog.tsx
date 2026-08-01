@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { ConvexError } from "convex/values";
 import { AppDialogContent } from "@/components/AppDialogContent";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,7 +32,9 @@ type VaultFolderDialogProps =
     };
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "The folder could not be updated.";
+  return error instanceof ConvexError && typeof error.data === "string"
+    ? error.data
+    : "The folder could not be updated.";
 }
 
 export function VaultFolderDialog(props: VaultFolderDialogProps) {

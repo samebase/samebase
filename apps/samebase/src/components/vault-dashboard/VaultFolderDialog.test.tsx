@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, type ReactElement, type ReactNode } from "react";
+import { ConvexError } from "convex/values";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -140,13 +141,13 @@ describe("VaultFolderDialog", () => {
     await act(async () => request.resolve());
   });
 
-  it("announces server errors and marks the name input invalid", async () => {
+  it("announces Convex error data and marks the name input invalid", async () => {
     const container = await renderDialog(
       <VaultFolderDialog
         folderName="Fixtures"
         kind="rename"
         onOpenChange={() => {}}
-        onRename={async () => Promise.reject(new Error("Folder name is already in use."))}
+        onRename={async () => Promise.reject(new ConvexError("Folder name is already in use."))}
       />,
     );
     await submitForm(container);
@@ -157,6 +158,22 @@ describe("VaultFolderDialog", () => {
     expect(
       container.querySelector('input[aria-label="Folder name"]')?.getAttribute("aria-invalid"),
     ).toBe("true");
+  });
+
+  it("shows the generic error for a plain Error", async () => {
+    const container = await renderDialog(
+      <VaultFolderDialog
+        folderName="Fixtures"
+        kind="rename"
+        onOpenChange={() => {}}
+        onRename={async () => Promise.reject(new Error("Internal details"))}
+      />,
+    );
+    await submitForm(container);
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+      "The folder could not be updated.",
+    );
   });
 
   it("shows delete pending copy and does not submit it from Enter", async () => {

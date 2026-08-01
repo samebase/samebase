@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
@@ -120,7 +120,7 @@ export const createVaultFolder = mutation({
       .withIndex("by_userId_and_nameKey", (q) => q.eq("userId", userId).eq("nameKey", nameKey))
       .unique();
     if (existing) {
-      throw new Error("Folder name is already in use.");
+      throw new ConvexError("Folder name is already in use.");
     }
 
     const lastFolder = await ctx.db
@@ -152,7 +152,7 @@ export const renameVaultFolder = mutation({
       .withIndex("by_userId_and_nameKey", (q) => q.eq("userId", userId).eq("nameKey", nameKey))
       .unique();
     if (existing && existing._id !== folder._id) {
-      throw new Error("Folder name is already in use.");
+      throw new ConvexError("Folder name is already in use.");
     }
     await ctx.db.patch(folder._id, { name, nameKey });
     return null;

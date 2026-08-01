@@ -78,9 +78,6 @@ describe("vault folders Convex contract", () => {
       name: "  ＦＯＯ  ",
     });
 
-    await expect(
-      viewer.mutation(api.vault.folders.createVaultFolder, { name: "foo" }),
-    ).rejects.toThrow("Folder name is already in use.");
     await t.run(async (ctx) => {
       const folder = await ctx.db.get(folderId);
       const assignment = await ctx.db
@@ -97,27 +94,13 @@ describe("vault folders Convex contract", () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "ada@example.com");
     const viewer = asUser(t, userId);
-    const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+    await viewer.mutation(api.vault.folders.createVaultFolder, {
       name: "Fixtures",
-    });
-
-    await t.run(async (ctx) => {
-      const folder = await ctx.db.get(folderId);
-      if (!folder) {
-        throw new Error("Folder not found");
-      }
-      await ctx.db.insert("ui_vaultFolders", {
-        collapsed: false,
-        name: folder.name,
-        nameKey: folder.nameKey,
-        position: folder.position + 1,
-        userId,
-      });
     });
 
     await expect(
       viewer.mutation(api.vault.folders.createVaultFolder, { name: "fixtures" }),
-    ).rejects.toThrow();
+    ).rejects.toThrow("Folder name is already in use.");
   });
 
   it("rejects a duplicate normalized folder name during rename", async () => {
@@ -127,27 +110,13 @@ describe("vault folders Convex contract", () => {
     const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
       name: "Current",
     });
-    const targetFolderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+    await viewer.mutation(api.vault.folders.createVaultFolder, {
       name: "Fixtures",
-    });
-
-    await t.run(async (ctx) => {
-      const folder = await ctx.db.get(targetFolderId);
-      if (!folder) {
-        throw new Error("Folder not found");
-      }
-      await ctx.db.insert("ui_vaultFolders", {
-        collapsed: false,
-        name: folder.name,
-        nameKey: folder.nameKey,
-        position: folder.position + 1,
-        userId,
-      });
     });
 
     await expect(
       viewer.mutation(api.vault.folders.renameVaultFolder, { folderId, name: "Fixtures" }),
-    ).rejects.toThrow();
+    ).rejects.toThrow("Folder name is already in use.");
   });
 
   it("denies folder changes for another user's vault and folder", async () => {
