@@ -122,6 +122,30 @@ test("shows shallow vault folders on desktop", async ({ page }) => {
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
+
+  const fixturesDisclosure = vaultNavigation.getByRole("button", {
+    name: "Expand Fixtures",
+  });
+  await expect(fixturesDisclosure).toHaveAttribute("aria-expanded", "false");
+  await fixturesDisclosure.getByText("Fixtures", { exact: true }).click();
+  const expandedFixtures = vaultNavigation.getByRole("button", {
+    name: "Collapse Fixtures",
+  });
+  await expect(expandedFixtures).toHaveAttribute("aria-expanded", "true");
+  await expect(
+    vaultNavigation.getByRole("link", {
+      name: "samebase/integration-fixture, 1/1 failed",
+      exact: true,
+    }),
+  ).toBeVisible();
+
+  const folderActions = vaultNavigation.getByRole("button", {
+    name: "Actions for folder Fixtures",
+  });
+  await expect(folderActions).toBeEnabled();
+  await folderActions.click();
+  await expect(page.getByRole("menuitem", { name: "Rename" })).toBeVisible();
+  await expect(expandedFixtures).toHaveAttribute("aria-expanded", "true");
 });
 
 test("submits folder create and rename dialogs from Enter", async ({ page }) => {

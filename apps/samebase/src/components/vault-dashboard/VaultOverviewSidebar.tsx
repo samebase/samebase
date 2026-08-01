@@ -397,10 +397,10 @@ export function VaultOverviewSidebar({
                     }
                   >
                     <Button
+                      aria-expanded={!folder.collapsed}
                       aria-label={`${folder.collapsed ? "Expand" : "Collapse"} ${folder.name}`}
-                      className="size-10 @max-[120px]:size-8"
+                      className="h-10 min-w-0 flex-1 shrink justify-start gap-0 p-0 font-normal whitespace-normal aria-expanded:bg-transparent @max-[120px]:h-8"
                       disabled={pendingAction !== null}
-                      size="icon"
                       type="button"
                       variant="ghost"
                       onClick={() =>
@@ -412,22 +412,24 @@ export function VaultOverviewSidebar({
                         )
                       }
                     >
-                      {folder.collapsed ? <ChevronRight /> : <ChevronDown />}
-                    </Button>
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                      {folder.name}
-                    </span>
-                    {folder.collapsed ? (
-                      <span className="px-2 text-xs text-muted-foreground @max-[120px]:hidden">
-                        {folderVaults.length}
+                      <span className="flex w-10 shrink-0 items-center justify-center @max-[120px]:w-8">
+                        {folder.collapsed ? <ChevronRight /> : <ChevronDown />}
                       </span>
-                    ) : null}
-                    {hasHiddenFailure ? (
-                      <span
-                        aria-label={`${folder.name} has hidden failures`}
-                        className="h-2 w-2 rounded-full bg-red-500"
-                      />
-                    ) : null}
+                      <span className="min-w-0 flex-1 truncate text-left text-sm font-medium">
+                        {folder.name}
+                      </span>
+                      {folder.collapsed ? (
+                        <span className="px-2 text-xs text-muted-foreground @max-[120px]:hidden">
+                          {folderVaults.length}
+                        </span>
+                      ) : null}
+                      {hasHiddenFailure ? (
+                        <span
+                          aria-label={`${folder.name} has hidden failures`}
+                          className="h-2 w-2 rounded-full bg-red-500"
+                        />
+                      ) : null}
+                    </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild nativeButton>
                         <Button

@@ -196,6 +196,7 @@ describe("VaultOverviewSidebar folders", () => {
     });
 
     expect(markup).toContain('aria-label="Expand Active"');
+    expect(markup).toContain('aria-expanded="false"');
     expect(markup).toContain('aria-label="Active, contains current vault"');
     expect(markup).toContain("flex min-w-0 items-center bg-muted px-1 py-1");
     expect(markup).toContain('aria-label="Active has hidden failures"');

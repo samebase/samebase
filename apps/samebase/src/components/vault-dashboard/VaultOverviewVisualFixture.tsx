@@ -399,6 +399,11 @@ const FOLDER_FIXTURE_SUMMARIES = {
 } satisfies VaultSidebarSummariesState;
 
 function VaultOverviewFoldersFixture() {
+  const [folders, setFolders] = useState([
+    { _id: FIXTURE_FOLDER_ID, collapsed: true, name: "Fixtures", position: 0 },
+    { _id: FIXTURE_ACTIVE_FOLDER_ID, collapsed: true, name: "Active", position: 1 },
+  ]);
+
   return (
     <TestRouterProvider initialEntries={["/vault/samebase/dashboard"]}>
       <WorkspaceLayoutV2FixtureFrame
@@ -413,16 +418,20 @@ function VaultOverviewFoldersFixture() {
                   { folderId: FIXTURE_FOLDER_ID, vaultId: FOLDER_FIXTURE_VAULTS[0]._id },
                   { folderId: FIXTURE_ACTIVE_FOLDER_ID, vaultId: FOLDER_FIXTURE_VAULTS[1]._id },
                 ],
-                folders: [
-                  { _id: FIXTURE_FOLDER_ID, collapsed: true, name: "Fixtures", position: 0 },
-                  { _id: FIXTURE_ACTIVE_FOLDER_ID, collapsed: true, name: "Active", position: 1 },
-                ],
+                folders,
               }}
               page="overview"
               selectedVaultId={FOLDER_FIXTURE_VAULTS[1]._id}
               sidebarSummaries={FOLDER_FIXTURE_SUMMARIES}
               vaults={FOLDER_FIXTURE_VAULTS}
               workspace={null}
+              onSetVaultFolderCollapsed={async ({ collapsed, folderId }) =>
+                setFolders((currentFolders) =>
+                  currentFolders.map((folder) =>
+                    folder._id === folderId ? { ...folder, collapsed } : folder,
+                  ),
+                )
+              }
             />
           ),
         }}

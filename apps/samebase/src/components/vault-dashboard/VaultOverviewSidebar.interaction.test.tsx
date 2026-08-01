@@ -133,6 +133,27 @@ async function renderHeader(onCreateVaultFolder: VaultFolderCreate) {
 }
 
 describe("VaultOverviewSidebar direct folder actions", () => {
+  it("toggles the folder when its name is clicked", async () => {
+    const onSetVaultFolderCollapsed = vi.fn(async () => {});
+    const container = await renderSidebar(folderCallbacks(onSetVaultFolderCollapsed));
+    const collapseButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Expand Fixtures"]',
+    );
+    const folderName = [...(collapseButton?.querySelectorAll("span") ?? [])].find(
+      (span) => span.textContent === "Fixtures",
+    );
+    if (!folderName) {
+      throw new Error("Folder name button content not found");
+    }
+
+    await act(async () => folderName.click());
+
+    expect(onSetVaultFolderCollapsed).toHaveBeenCalledWith({
+      collapsed: false,
+      folderId: fakeFolderId("folder-active"),
+    });
+  });
+
   it("locks a collapse action until its request completes", async () => {
     const request = deferred();
     const onSetVaultFolderCollapsed = vi.fn(async () => request.promise);
