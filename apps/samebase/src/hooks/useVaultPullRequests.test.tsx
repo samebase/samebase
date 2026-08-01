@@ -189,7 +189,7 @@ async function waitFor(predicate: (state: VaultPullRequestsState) => boolean): P
   throw new Error("Timed out waiting for pull requests.");
 }
 
-function installResourceHandler() {
+function installResourceHandler(args: { unavailablePullRequestId?: string } = {}) {
   const handler = vi.fn(async (value: unknown) => {
     if (
       !value ||
@@ -203,7 +203,20 @@ function installResourceHandler() {
       if (typeof pullRequestId !== "string") {
         throw new Error("Pull request id is required.");
       }
-      return { pullRequestId, workers: [] };
+      if (pullRequestId === args.unavailablePullRequestId) {
+        return { state: "unavailable", pullRequestId };
+      }
+      return {
+        state: "available",
+        pullRequestId,
+        cloudflareBuilds: { state: "available" },
+        workers: [],
+        convexProjects: [],
+        hostingPreviews: {
+          cloudflare: { state: "available", previews: [] },
+          netlify: { state: "available", previews: [] },
+        },
+      };
     });
   });
   actionState.handlersByFunctionName.set(
@@ -396,7 +409,7 @@ describe("useVaultPullRequests", () => {
     expect(listHandler).toHaveBeenCalledTimes(2);
   });
 
-  it("loads fresh resources when a later-page pull request head changes", async () => {
+  it("keeps resources when a later-page pull request head changes", async () => {
     const initialHeadRefOid = "1".repeat(40);
     const refreshedHeadRefOid = "2".repeat(40);
     let generation = 0;
@@ -443,13 +456,9 @@ describe("useVaultPullRequests", () => {
       (state) =>
         (state.state === "current" || state.state === "stale") &&
         !state.refreshing &&
-        resourceHandler.mock.calls.length === 3,
+        resourceHandler.mock.calls.length === 2,
     );
 
-    expect(resourceHandler.mock.calls[2]?.[0]).toEqual({
-      vaultId: fakeVaultId(),
-      pullRequestIds: ["pull-request:1259"],
-    });
     expect(
       queryClient.getQueryCache().find({
         exact: true,
@@ -458,10 +467,30 @@ describe("useVaultPullRequests", () => {
           "pull-request-resources",
           [],
           [],
-          [["pull-request:1259", refreshedHeadRefOid]],
+          ["pull-request:1259"],
         ],
       }),
     ).toBeDefined();
+  });
+
+  it("marks a disappearing pull request unavailable without Cloudflare resources", async () => {
+    const listHandler = vi.fn(async () => page({ number: 1260, endCursor: null }));
+    actionState.handlersByFunctionName.set(
+      getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
+      listHandler,
+    );
+    installResourceHandler({ unavailablePullRequestId: "pull-request:1260" });
+
+    await renderHarness();
+    await waitFor(
+      (state) =>
+        (state.state === "current" || state.state === "stale") &&
+        state.resourcesByPullRequestId.get("pull-request:1260")?.state === "failed",
+    );
+
+    expect(settledState().resourcesByPullRequestId.get("pull-request:1260")).toEqual({
+      state: "failed",
+    });
   });
 
   it("retains every loaded provider page as stale when a reload fails", async () => {

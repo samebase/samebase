@@ -114,18 +114,29 @@ const vPullRequestHostingPreviews = object({
   cloudflare: vCloudflareHostingPreviewResult,
   netlify: vNetlifyHostingPreviewResult,
 });
-const vPullRequestResources = object({
-  pullRequestId: string(),
-  cloudflareBuilds: vPullRequestCloudflareBuilds,
-  workers: array(vPullRequestWorkerResource),
-  convexProjects: array(vPullRequestConvexResource),
-  hostingPreviews: vPullRequestHostingPreviews,
-});
+const vPullRequestResources = union(
+  object({
+    state: literal("available"),
+    pullRequestId: string(),
+    cloudflareBuilds: vPullRequestCloudflareBuilds,
+    workers: array(vPullRequestWorkerResource),
+    convexProjects: array(vPullRequestConvexResource),
+    hostingPreviews: vPullRequestHostingPreviews,
+  }),
+  object({
+    state: literal("unavailable"),
+    pullRequestId: string(),
+  }),
+);
 
 export type PullRequestWorkerResource = Infer<typeof vPullRequestWorkerResource>;
 export type PullRequestConvexResource = Infer<typeof vPullRequestConvexResource>;
 export type PullRequestHostingPreviews = Infer<typeof vPullRequestHostingPreviews>;
-export type PullRequestResources = Infer<typeof vPullRequestResources>;
+export type PullRequestResourceRead = Infer<typeof vPullRequestResources>;
+export type PullRequestResources = Omit<
+  Extract<PullRequestResourceRead, { state: "available" }>,
+  "state"
+>;
 
 const providerPullRequestResourceIdentitySchema = z.object({
   __typename: z.literal("PullRequest"),
@@ -1066,7 +1077,7 @@ export const getPullRequestResources = action({
     pullRequestIds: array(string()),
   },
   returns: array(vPullRequestResources),
-  handler: async (ctx, args): Promise<PullRequestResources[]> => {
+  handler: async (ctx, args): Promise<PullRequestResourceRead[]> => {
     validatePullRequestResourceIds(args.pullRequestIds);
 
     const [context, githubConnection, convexConnection] = await Promise.all([
@@ -1099,23 +1110,8 @@ export const getPullRequestResources = action({
       convexConnection?.kind === "convex" ? convexConnection.auth.credential.trim() : "";
     const convexTeamId = convexConnection?.kind === "convex" ? convexConnection.teamId.trim() : "";
     const resourcesByPullRequest = new Map<string, PullRequestResourceAccumulator>();
-    for (const pullRequestId of args.pullRequestIds) {
-      resourcesByPullRequest.set(pullRequestId, {
-        cloudflareBuilds: { state: "unavailable" },
-        workers: [],
-        convexProjects: [],
-        hostingPreviews: {
-          cloudflare: { state: "unavailable" },
-          netlify: { state: "unavailable" },
-        },
-      });
-    }
     for (const head of heads) {
-      const resources = resourcesByPullRequest.get(head.id);
-      if (!resources) {
-        throw new Error("Pull request resources lost requested identity.");
-      }
-      resources.hostingPreviews = buildPullRequestHostingPreviews({
+      const hostingPreviews = buildPullRequestHostingPreviews({
         head,
         configuredWorkers: context.cloudflareWorkers,
       });
@@ -1123,23 +1119,12 @@ export const getPullRequestResources = action({
         cloudflare: head.hostingPreviews.cloudflare,
         workers: context.cloudflareWorkers,
       });
-      resources.cloudflareBuilds = { state: cloudflareWorkers.state };
-      resources.workers = cloudflareWorkers.state === "available" ? cloudflareWorkers.workers : [];
-    }
-    for (const read of headReads) {
-      if (read.state === "available") {
-        continue;
-      }
-      const resources = resourcesByPullRequest.get(read.pullRequestId);
-      if (!resources) {
-        throw new Error("Pull request resources lost requested identity.");
-      }
-      for (const project of context.convexProjects) {
-        resources.convexProjects.push({
-          state: "unavailable",
-          ...convexProjectResourceIdentity(project),
-        });
-      }
+      resourcesByPullRequest.set(head.id, {
+        cloudflareBuilds: { state: cloudflareWorkers.state },
+        workers: cloudflareWorkers.state === "available" ? cloudflareWorkers.workers : [],
+        convexProjects: [],
+        hostingPreviews,
+      });
     }
 
     if (!convexToken || !convexTeamId) {
@@ -1179,12 +1164,11 @@ export const getPullRequestResources = action({
       });
     }
 
-    return args.pullRequestIds.map((pullRequestId) => {
+    return args.pullRequestIds.map((pullRequestId): PullRequestResourceRead => {
       const resources = resourcesByPullRequest.get(pullRequestId);
-      if (!resources) {
-        throw new Error("Pull request resources lost requested identity.");
-      }
-      return { pullRequestId, ...resources };
+      return resources
+        ? { state: "available", pullRequestId, ...resources }
+        : { state: "unavailable", pullRequestId };
     });
   },
 });

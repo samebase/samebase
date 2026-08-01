@@ -815,6 +815,20 @@ describe("vault environment roots", () => {
     expect(markup).not.toContain("Unavailable");
   });
 
+  it("keeps an unavailable pull request head out of Cloudflare comment errors", () => {
+    const markup = renderToStaticMarkup(
+      <PullRequestResources
+        resource={{ state: "failed" }}
+        settingsHref="/vault/ada/demo/settings"
+      />,
+    );
+
+    expect(markup).toContain("Deploy status unavailable");
+    expect(markup).not.toContain("Could not load Cloudflare build status");
+    expect(markup).not.toContain("Cloudflare Workers");
+    expect(markup).not.toContain(">Unavailable<");
+  });
+
   it("links a comment build with its direct status", () => {
     const workerId = fakeCloudflareWorkerId();
     const logsUrl = "https://dash.cloudflare.com/account-1/workers/builds/building-1";

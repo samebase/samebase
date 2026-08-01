@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase dashboard and provider boundaries
-- Last updated: 2026-07-31
+- Last updated: 2026-08-01
 - Related work:
   - [PR #1243: Simplify vault provider resource truth](https://github.com/samebase/samebase/pull/1243)
   - [PR #1234: Replace dashboard branch mirrors with live pull requests](https://github.com/samebase/samebase/pull/1234)
@@ -79,8 +79,9 @@ re-read resource data for earlier pages.
 
 The stable GitHub repository id proves repository identity. A repository coordinate rename does not
 invalidate that identity. If one requested pull request closes, merges, or disappears between the
-page read and the resource read, only that row becomes unavailable; the rest of the resource batch
-still resolves.
+page read and the resource read, only that resource row becomes unavailable; the rest of the batch
+still resolves. It has no provider rows, Cloudflare build status error, or per-Worker `Unavailable`
+state.
 
 The pull request Worker row is a direct view of a Cloudflare Bot comment on that pull request.
 Samebase does not read the Cloudflare Worker API, Cloudflare Builds API, GitHub check runs, or the
@@ -137,12 +138,12 @@ Pages and Netlify rows have no setup action because Samebase does not support at
 resources. Each row exposes the provider resource name and its branch or deploy preview link. The
 comment text and provider result are not saved in the Samebase database.
 
-For up to 100 pull requests, the normal GitHub cost is one repository REST request plus one batched
-head and comment-metadata query. Comment discovery adds no request when there are no recognized bot
-comments. If recognized bot comments exist, Samebase adds one batched body query for each provider
-that has selected comments, with another query for each additional 100 selected comments. A pull
-request with more than 100 total comments adds metadata pagination requests until the scan is
-complete. Metadata pagination runs for at most six pull requests at one time.
+For up to 100 pull requests, the normal GitHub cost is one batched GraphQL head and comment-metadata
+query. Comment discovery adds no request when there are no recognized bot comments. If recognized
+bot comments exist, Samebase adds one batched body query for each provider that has selected
+comments, with another query for each additional 100 selected comments. A pull request with more
+than 100 total comments adds metadata pagination queries until the scan is complete. Metadata
+pagination runs for at most six pull requests at one time.
 
 Worker identity, build state, build navigation, and branch preview use one Cloudflare comment row.
 The comment build link and status are the visible Worker state for an open pull request. No stronger
