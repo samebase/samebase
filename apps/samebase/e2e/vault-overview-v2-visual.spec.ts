@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import type { VaultOverviewVisualMode } from "../src/components/vault-dashboard/VaultOverviewVisualFixture";
 import { WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX } from "../src/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
@@ -14,6 +14,11 @@ const VAULT_OVERVIEW_V2_SIDEBAR_STATE = {
   rightDesktopOpen: false,
   rightDesktopWidthPx: 288,
   rightMobileWidthPx: 288,
+} satisfies WorkspaceSidebarState;
+
+const VAULT_OVERVIEW_V2_FOLDERS_MOBILE_SIDEBAR_STATE = {
+  ...VAULT_OVERVIEW_V2_SIDEBAR_STATE,
+  mobilePane: "left",
 } satisfies WorkspaceSidebarState;
 
 type VaultOverviewV2VisualMode = VaultOverviewVisualMode;
@@ -49,6 +54,15 @@ async function openVaultOverviewV2(
   return fixture;
 }
 
+async function expectUngroupedBeforeFolders(vaultNavigation: Locator) {
+  await expect(vaultNavigation.locator('section[aria-label="Ungrouped"]')).toBeVisible();
+  const folderLabels = await vaultNavigation
+    .locator("section")
+    .evaluateAll((sections) => sections.map((section) => section.getAttribute("aria-label")));
+
+  expect(folderLabels).toEqual(["Ungrouped", "Fixtures", "Active, contains current vault"]);
+}
+
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
 });
@@ -69,6 +83,7 @@ test("uses the overview vault rows on the canonical root route", async ({ page }
       exact: true,
     }),
   ).toHaveAttribute("href", "/vault/noter/guestbook");
+  await expect(fixture.getByRole("button", { name: "New folder", exact: true })).toBeVisible();
   await expect(fixture).toHaveScreenshot("vault-overview-v2-root.png", {
     animations: "disabled",
     caret: "hide",
@@ -83,6 +98,122 @@ test("uses the overview vault rows on the canonical root route", async ({ page }
   if (linkBounds && rowBounds) {
     expect(Math.abs(linkBounds.width - rowBounds.width)).toBeLessThanOrEqual(1);
   }
+});
+
+test("shows shallow vault folders on desktop", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 640 });
+  const fixture = await openVaultOverviewV2(page, "vault-overview-v2-folders");
+  const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
+
+  await expect(vaultNavigation.getByText("Fixtures", { exact: true })).toBeVisible();
+  await expect(
+    vaultNavigation.getByRole("button", {
+      exact: true,
+      name: "Expand Fixtures, 1 vault, has hidden failures",
+    }),
+  ).toBeVisible();
+  const activeFolder = vaultNavigation.getByRole("region", {
+    name: "Active, contains current vault",
+  });
+  await expect(activeFolder).toBeVisible();
+  await expect(activeFolder.locator(":scope > div").first()).toHaveClass(/bg-muted/);
+  await expect(
+    vaultNavigation.getByRole("link", { name: "samebase/dashboard, 4/4 passed", exact: true }),
+  ).toHaveCount(0);
+  await expectUngroupedBeforeFolders(vaultNavigation);
+  await expect(fixture).toHaveScreenshot("vault-overview-v2-folders-desktop.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+
+  const fixturesDisclosure = vaultNavigation.getByRole("button", {
+    exact: true,
+    name: "Expand Fixtures, 1 vault, has hidden failures",
+  });
+  await expect(fixturesDisclosure).toHaveAttribute("aria-expanded", "false");
+  await fixturesDisclosure.getByText("Fixtures", { exact: true }).click();
+  const expandedFixtures = vaultNavigation.getByRole("button", {
+    name: "Collapse Fixtures",
+  });
+  await expect(expandedFixtures).toHaveAttribute("aria-expanded", "true");
+  await expect(
+    vaultNavigation.getByRole("link", {
+      name: "samebase/integration-fixture, 1/1 failed",
+      exact: true,
+    }),
+  ).toBeVisible();
+
+  const folderActions = vaultNavigation.getByRole("button", {
+    name: "Actions for folder Fixtures",
+  });
+  await expect(folderActions).toBeEnabled();
+  await folderActions.click();
+  await expect(page.getByRole("menuitem", { name: "Rename" })).toBeVisible();
+  await expect(expandedFixtures).toHaveAttribute("aria-expanded", "true");
+});
+
+test("submits folder create and rename dialogs from Enter", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 640 });
+  const fixture = await openVaultOverviewV2(page, "vault-overview-v2-folders");
+  const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
+
+  await fixture.getByRole("button", { name: "New folder", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "New folder" })).toBeVisible();
+  await page.getByLabel("Folder name").fill("Projects");
+  await page.getByLabel("Folder name").press("Enter");
+  await expect(page.getByRole("heading", { name: "New folder" })).toHaveCount(0);
+
+  await vaultNavigation.getByRole("button", { name: "Actions for folder Fixtures" }).click();
+  await page.getByRole("menuitem", { name: "Rename" }).click();
+  await expect(page.getByRole("heading", { name: "Rename folder" })).toBeVisible();
+  await page.getByLabel("Folder name").fill("Archive");
+  await page.getByLabel("Folder name").press("Enter");
+  await expect(page.getByRole("heading", { name: "Rename folder" })).toHaveCount(0);
+});
+
+test("shows shallow vault folders on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const fixture = await openVaultOverviewV2(
+    page,
+    "vault-overview-v2-folders",
+    VAULT_OVERVIEW_V2_FOLDERS_MOBILE_SIDEBAR_STATE,
+  );
+
+  await expectUngroupedBeforeFolders(fixture.getByRole("navigation", { name: "Vaults" }));
+
+  await expect(fixture).toHaveScreenshot("vault-overview-v2-folders-mobile.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+});
+
+test("preserves folder identity at the minimum sidebar width", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const fixture = await openVaultOverviewV2(page, "vault-overview-v2-folders", {
+    ...VAULT_OVERVIEW_V2_FOLDERS_MOBILE_SIDEBAR_STATE,
+    leftMobileWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+  });
+  const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
+
+  await expect(vaultNavigation.getByText("Fixtures", { exact: true })).toBeVisible();
+  await expect(
+    vaultNavigation.getByRole("button", {
+      exact: true,
+      name: "Expand Fixtures, 1 vault, has hidden failures",
+    }),
+  ).toBeVisible();
+  await expect(fixture.getByRole("button", { name: "New folder", exact: true })).toBeVisible();
+  await expectUngroupedBeforeFolders(vaultNavigation);
+  await expect(vaultNavigation).toHaveScreenshot("vault-overview-v2-folders-minimum-sidebar.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
 });
 
 test("shows the shared overview model on desktop", async ({ page }) => {

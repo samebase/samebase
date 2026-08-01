@@ -5,6 +5,8 @@ import {
   VaultOverviewPage,
 } from "@/components/vault-dashboard/VaultOverviewPage";
 import {
+  type VaultFolderCallbacks,
+  type VaultFolderCreate,
   VaultOverviewSidebar,
   VaultOverviewSidebarLoading,
 } from "@/components/vault-dashboard/VaultOverviewSidebar";
@@ -46,6 +48,7 @@ export type VaultOverviewVisualMode =
   | "vault-overview-v2-auto-pagination"
   | "vault-overview-v2-dev"
   | "vault-overview-v2-loading"
+  | "vault-overview-v2-folders"
   | "vault-overview-v2-partial-loading"
   | "vault-overview-v2-provider-failed"
   | "vault-overview-v2-provisioning-source"
@@ -64,12 +67,27 @@ export type VaultOverviewVisualMode =
   | "vault-overview-v2-settings-loading";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
+const VISUAL_FOLDER_CALLBACKS = {
+  onDeleteVaultFolder: async () => {},
+  onMoveVaultFolder: async () => {},
+  onMoveVaultToFolder: async () => {},
+  onRenameVaultFolder: async () => {},
+  onSetVaultFolderCollapsed: async () => {},
+} satisfies VaultFolderCallbacks;
+const VISUAL_CREATE_VAULT_FOLDER: VaultFolderCreate = async () => {};
+const EMPTY_FOLDER_STATE = { assignments: [], folders: [] };
 const LOADING_CLOUDFLARE_OBSERVATIONS = {
   workers: { state: "loading" },
   builds: { state: "loading" },
   convexBuildAccess: { state: "loading" },
 } satisfies VaultCloudflareProviderObservationState;
 function fakeVaultId(value = "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a"): Id<"vaults"> {
+  // @ts-expect-error Convex ids are strings at runtime; this fixture only
+  // needs a stable value for static rendering.
+  return value;
+}
+
+function fakeVaultFolderId(value: string): Id<"ui_vaultFolders"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
   return value;
@@ -336,6 +354,93 @@ const FIXTURE_SIDEBAR_SUMMARIES = {
     checks: FIXTURE_DEFAULT_BRANCH_CHECKS.checks,
   })),
 } satisfies VaultSidebarSummariesState;
+
+const FIXTURE_FOLDER_ID = fakeVaultFolderId("vault-folder-fixtures");
+const FIXTURE_ACTIVE_FOLDER_ID = fakeVaultFolderId("vault-folder-active");
+const FOLDER_FIXTURE_VAULTS = [
+  {
+    ...SIDEBAR_LIST_VAULTS[0],
+    ghRepoName: "integration-fixture",
+    repositoryFullName: "samebase/integration-fixture",
+  },
+  {
+    ...SIDEBAR_LIST_VAULTS[1],
+    ghRepoName: "dashboard",
+    repositoryFullName: "samebase/dashboard",
+  },
+  {
+    ...SIDEBAR_LIST_VAULTS[2],
+    ghRepoName: "guestbook",
+    repositoryFullName: "noter/guestbook",
+  },
+] satisfies UserVaultResult[];
+
+const FOLDER_FIXTURE_SUMMARIES = {
+  state: "loaded",
+  summaries: [
+    {
+      vaultId: FOLDER_FIXTURE_VAULTS[0]._id,
+      checks: {
+        ...FIXTURE_NO_CHECKS,
+        failureCount: 1,
+        state: "failure",
+        totalCount: 1,
+      },
+    },
+    {
+      vaultId: FOLDER_FIXTURE_VAULTS[1]._id,
+      checks: FIXTURE_DEFAULT_BRANCH_CHECKS.checks,
+    },
+    {
+      vaultId: FOLDER_FIXTURE_VAULTS[2]._id,
+      checks: FIXTURE_DEFAULT_BRANCH_CHECKS.checks,
+    },
+  ],
+} satisfies VaultSidebarSummariesState;
+
+function VaultOverviewFoldersFixture() {
+  const [folders, setFolders] = useState([
+    { _id: FIXTURE_FOLDER_ID, collapsed: true, name: "Fixtures", position: 0 },
+    { _id: FIXTURE_ACTIVE_FOLDER_ID, collapsed: true, name: "Active", position: 1 },
+  ]);
+
+  return (
+    <TestRouterProvider initialEntries={["/vault/samebase/dashboard"]}>
+      <WorkspaceLayoutV2FixtureFrame
+        dataTestId="vault-overview-v2-folders"
+        left={{
+          header: <VaultOverviewVaultListHeader onCreateVaultFolder={VISUAL_CREATE_VAULT_FOLDER} />,
+          content: (
+            <VaultOverviewSidebar
+              {...VISUAL_FOLDER_CALLBACKS}
+              folderState={{
+                assignments: [
+                  { folderId: FIXTURE_FOLDER_ID, vaultId: FOLDER_FIXTURE_VAULTS[0]._id },
+                  { folderId: FIXTURE_ACTIVE_FOLDER_ID, vaultId: FOLDER_FIXTURE_VAULTS[1]._id },
+                ],
+                folders,
+              }}
+              page="overview"
+              selectedVaultId={FOLDER_FIXTURE_VAULTS[1]._id}
+              sidebarSummaries={FOLDER_FIXTURE_SUMMARIES}
+              vaults={FOLDER_FIXTURE_VAULTS}
+              workspace={null}
+              onSetVaultFolderCollapsed={async ({ collapsed, folderId }) =>
+                setFolders((currentFolders) =>
+                  currentFolders.map((folder) =>
+                    folder._id === folderId ? { ...folder, collapsed } : folder,
+                  ),
+                )
+              }
+            />
+          ),
+        }}
+        main={{ content: <div /> }}
+        shortcutPaneSide="left"
+      />
+    </TestRouterProvider>
+  );
+}
 
 function fixturePullRequest({
   index,
@@ -937,9 +1042,11 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
       <WorkspaceLayoutV2FixtureFrame
         dataTestId={mode}
         left={{
-          header: <VaultOverviewVaultListHeader />,
+          header: <VaultOverviewVaultListHeader onCreateVaultFolder={VISUAL_CREATE_VAULT_FOLDER} />,
           content: (
             <VaultOverviewSidebar
+              {...VISUAL_FOLDER_CALLBACKS}
+              folderState={EMPTY_FOLDER_STATE}
               page="overview"
               selectedVaultId={vault._id}
               sidebarSummaries={sidebarSummaries}
@@ -1063,9 +1170,11 @@ function VaultOverviewProviderSettingsFixture({
       <WorkspaceLayoutV2FixtureFrame
         dataTestId={mode}
         left={{
-          header: <VaultOverviewVaultListHeader />,
+          header: <VaultOverviewVaultListHeader onCreateVaultFolder={VISUAL_CREATE_VAULT_FOLDER} />,
           content: (
             <VaultOverviewSidebar
+              {...VISUAL_FOLDER_CALLBACKS}
+              folderState={EMPTY_FOLDER_STATE}
               page="settings"
               selectedVaultId={vault._id}
               sidebarSummaries={{
@@ -1105,6 +1214,8 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
       : "overview";
 
   switch (mode) {
+    case "vault-overview-v2-folders":
+      return <VaultOverviewFoldersFixture />;
     case "vault-overview-v2-cloudflare-builds-repair":
     case "vault-overview-v2-cloudflare-dialog":
     case "vault-overview-v2-cloudflare-dialog-loading":
@@ -1138,6 +1249,9 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
           main={{
             content: (
               <VaultOverviewVaultPickerPane
+                {...VISUAL_FOLDER_CALLBACKS}
+                folderState={{ assignments: [], folders: [] }}
+                onCreateVaultFolder={VISUAL_CREATE_VAULT_FOLDER}
                 sidebarSummaries={FIXTURE_SIDEBAR_SUMMARIES}
                 vaults={SIDEBAR_LIST_VAULTS}
               />
@@ -1155,7 +1269,9 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
         <WorkspaceLayoutV2FixtureFrame
           dataTestId={mode}
           left={{
-            header: <VaultOverviewVaultListHeader />,
+            header: (
+              <VaultOverviewVaultListHeader onCreateVaultFolder={VISUAL_CREATE_VAULT_FOLDER} />
+            ),
             content: <VaultOverviewSidebarLoading />,
           }}
           main={{
@@ -1211,9 +1327,11 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
     <WorkspaceLayoutV2FixtureFrame
       dataTestId={mode}
       left={{
-        header: <VaultOverviewVaultListHeader />,
+        header: <VaultOverviewVaultListHeader onCreateVaultFolder={VISUAL_CREATE_VAULT_FOLDER} />,
         content: (
           <VaultOverviewSidebar
+            {...VISUAL_FOLDER_CALLBACKS}
+            folderState={EMPTY_FOLDER_STATE}
             page={page}
             selectedVaultId={LIST_SPACING_VAULT_ID}
             sidebarSummaries={FIXTURE_SIDEBAR_SUMMARIES}

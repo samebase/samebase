@@ -44,6 +44,8 @@ const ACCOUNT_DELETION_TABLE_REGISTRY = {
   ui_workspaceSidebar_layouts: "account_local",
   ui_vaultPullRequests_filters: "vault_local",
   ui_vaultResourceLinks_settings: "vault_local",
+  ui_vaultFolders: "account_local",
+  ui_vaultFolderAssignments: "vault_local",
   vaults: "vault_local",
   vaultCloudflareWorkers: "vault_local",
   vaultConvexProjects: "vault_local",
@@ -81,6 +83,7 @@ const accountLocalCleanupTarget = union(
   literal("vaults"),
   literal("ui_user_settings"),
   literal("ui_workspaceSidebar_layouts"),
+  literal("ui_vaultFolders"),
   literal("providerOAuthCallbackStates"),
   literal("mcpAuthorizationRequests"),
   literal("mcpAuthorizationCodes"),
@@ -273,6 +276,7 @@ function vaultCleanupPhase(
       return "staged_changes";
     case "ui_vaultPullRequests_filters":
     case "ui_vaultResourceLinks_settings":
+    case "ui_vaultFolderAssignments":
     case "ui_vaultFileTree_folderExpansions":
     case "observations_vaultRepository_branchTrees":
       return "source_data";
@@ -326,6 +330,20 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
       ? {
           state: "needs_more",
           target: "ui_workspaceSidebar_layouts",
+          rowsChanged: await deleteRowsById(ctx, rows),
+        }
+      : null;
+  },
+  ui_vaultFolders: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("ui_vaultFolders")
+      .withIndex("by_userId_and_position", (q) => q.eq("userId", userId))
+      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
+
+    return rows.length > 0
+      ? {
+          state: "needs_more",
+          target: "ui_vaultFolders",
           rowsChanged: await deleteRowsById(ctx, rows),
         }
       : null;
@@ -486,6 +504,7 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
 const ACCOUNT_LOCAL_CLEANUP_GROUPS = {
   ui_user_settings: "preferences",
   ui_workspaceSidebar_layouts: "preferences",
+  ui_vaultFolders: "preferences",
   providerOAuthCallbackStates: "appAccessAndTokens",
   mcpAuthorizationRequests: "appAccessAndTokens",
   mcpAuthorizationCodes: "appAccessAndTokens",

@@ -163,6 +163,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-overview-v2-convex-schema",
   "vault-overview-v2-dev",
   "vault-overview-v2-delete-dialog",
+  "vault-overview-v2-folders",
   "vault-overview-v2-loading",
   "vault-overview-v2-partial-loading",
   "vault-overview-v2-provider-failed",

@@ -6,6 +6,7 @@ import {
   type VaultDashboardQueryDialog,
 } from "@/routeSearch/root";
 import { useLocation, useNavigate } from "@tanstack/react-router";
+import { useMutation } from "convex/react";
 import { useEffect } from "react";
 import { VaultOverviewLoadingPage, type VaultOverviewPageKind } from "./VaultOverviewPage";
 import { VaultOverviewSidebar, VaultOverviewSidebarLoading } from "./VaultOverviewSidebar";
@@ -15,6 +16,7 @@ import {
 } from "./VaultOverviewVaultPickerPane";
 import { VaultSelectedWorkspace } from "./VaultSelectedWorkspace";
 import { useVaultWorkspaceModel } from "./useVaultWorkspaceModel";
+import { api } from "../../../convex/_generated/api";
 
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 
@@ -32,6 +34,12 @@ export function VaultDashboard({
   const rootRouteSearch = useRootRouteSearch();
   const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
   const workspaceModel = useVaultWorkspaceModel(selectedRepositoryFullName);
+  const createVaultFolder = useMutation(api.vault.folders.createVaultFolder);
+  const deleteVaultFolder = useMutation(api.vault.folders.deleteVaultFolder);
+  const moveVaultFolder = useMutation(api.vault.folders.moveVaultFolder);
+  const moveVaultToFolder = useMutation(api.vault.folders.moveVaultToFolder);
+  const renameVaultFolder = useMutation(api.vault.folders.renameVaultFolder);
+  const setVaultFolderCollapsed = useMutation(api.vault.folders.setVaultFolderCollapsed);
   const selectedVaultAvailable =
     workspaceModel.state === "loading" ? null : workspaceModel.selection.state === "selected";
   let unavailableDialog: VaultDashboardQueryDialog | null = null;
@@ -65,7 +73,13 @@ export function VaultDashboard({
 
   if (workspaceModel.state === "loading") {
     if (!selectedRepositoryFullName) {
-      return <VaultOverviewVaultPickerPane sidebarSummaries={{ state: "loading" }} vaults={null} />;
+      return (
+        <VaultOverviewVaultPickerPane
+          onCreateVaultFolder={createVaultFolder}
+          sidebarSummaries={{ state: "loading" }}
+          vaults={null}
+        />
+      );
     }
     const loadingRepository = tryParseRepositoryFullName(selectedRepositoryFullName);
     if (!loadingRepository) {
@@ -74,7 +88,7 @@ export function VaultDashboard({
     return (
       <AppWorkspaceRouteChrome
         left={{
-          header: <VaultOverviewVaultListHeader />,
+          header: <VaultOverviewVaultListHeader onCreateVaultFolder={createVaultFolder} />,
           content: <VaultOverviewSidebarLoading />,
         }}
       >
@@ -91,14 +105,20 @@ export function VaultDashboard({
     workspaceModel.selection.state === "selected" ? workspaceModel.selection.workspace : null;
   const isVaultRootRoute = workspaceModel.selection.state === "root";
   const leftPane = {
-    header: <VaultOverviewVaultListHeader />,
+    header: <VaultOverviewVaultListHeader onCreateVaultFolder={createVaultFolder} />,
     content: (
       <VaultOverviewSidebar
         page={page}
+        folderState={workspaceModel.folderState}
         selectedVaultId={selectedWorkspace?.vault._id ?? null}
         sidebarSummaries={workspaceModel.sidebarSummaries}
         vaults={workspaceModel.vaults}
         workspace={selectedWorkspace}
+        onDeleteVaultFolder={deleteVaultFolder}
+        onMoveVaultFolder={moveVaultFolder}
+        onMoveVaultToFolder={moveVaultToFolder}
+        onRenameVaultFolder={renameVaultFolder}
+        onSetVaultFolderCollapsed={setVaultFolderCollapsed}
       />
     ),
   };
@@ -107,6 +127,13 @@ export function VaultDashboard({
       case "root":
         return (
           <VaultOverviewVaultPickerPane
+            folderState={workspaceModel.folderState}
+            onCreateVaultFolder={createVaultFolder}
+            onDeleteVaultFolder={deleteVaultFolder}
+            onMoveVaultFolder={moveVaultFolder}
+            onMoveVaultToFolder={moveVaultToFolder}
+            onRenameVaultFolder={renameVaultFolder}
+            onSetVaultFolderCollapsed={setVaultFolderCollapsed}
             sidebarSummaries={workspaceModel.sidebarSummaries}
             vaults={workspaceModel.vaults}
           />

@@ -11,7 +11,11 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { VaultOverviewVaultPickerPane } from "./VaultOverviewVaultPickerPane";
 import { VaultOverviewPage } from "./VaultOverviewPage";
-import { VaultOverviewSidebar } from "./VaultOverviewSidebar";
+import {
+  type VaultFolderCallbacks,
+  type VaultFolderCreate,
+  VaultOverviewSidebar,
+} from "./VaultOverviewSidebar";
 import { PullRequestsSection } from "./VaultPullRequestsSection";
 import { RepositorySettings } from "./VaultRepositorySettings";
 import { VaultCloudflareDialogContent } from "./VaultCloudflareDialog";
@@ -51,10 +55,27 @@ vi.mock("@/components/ui/dialog", () => ({
   DialogTitle: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 
+const FOLDER_CALLBACKS = {
+  onDeleteVaultFolder: async () => {},
+  onMoveVaultFolder: async () => {},
+  onMoveVaultToFolder: async () => {},
+  onRenameVaultFolder: async () => {},
+  onSetVaultFolderCollapsed: async () => {},
+} satisfies VaultFolderCallbacks;
+const CREATE_VAULT_FOLDER: VaultFolderCreate = async () => {};
+
+const EMPTY_FOLDER_STATE = { assignments: [], folders: [] };
+
 function fakeVaultId(): Id<"vaults"> {
   // @ts-expect-error Convex ids are strings at runtime; this static render
   // test only needs a stable vault id for the query args.
   return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+}
+
+function fakeVaultFolderId(): Id<"ui_vaultFolders"> {
+  // @ts-expect-error Convex ids are strings at runtime; this static render
+  // test only needs a stable folder id for the query result.
+  return "ft7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
 function fakeCloudflareWorkerId(value = "worker-root"): Id<"vaultCloudflareWorkers"> {
@@ -1064,6 +1085,9 @@ describe("VaultOverviewVaultPickerPane", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane
+          {...FOLDER_CALLBACKS}
+          folderState={EMPTY_FOLDER_STATE}
+          onCreateVaultFolder={CREATE_VAULT_FOLDER}
           sidebarSummaries={{
             state: "loaded",
             summaries: [
@@ -1104,6 +1128,9 @@ describe("VaultOverviewVaultPickerPane", () => {
     const settingUpMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane
+          {...FOLDER_CALLBACKS}
+          folderState={EMPTY_FOLDER_STATE}
+          onCreateVaultFolder={CREATE_VAULT_FOLDER}
           sidebarSummaries={{ state: "loading" }}
           vaults={[
             makeRepositorySettingsBuilderVault({
@@ -1121,6 +1148,9 @@ describe("VaultOverviewVaultPickerPane", () => {
     const deletingMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane
+          {...FOLDER_CALLBACKS}
+          folderState={EMPTY_FOLDER_STATE}
+          onCreateVaultFolder={CREATE_VAULT_FOLDER}
           sidebarSummaries={{ state: "loading" }}
           vaults={[
             makeRepositorySettingsBuilderVault({
@@ -1158,6 +1188,8 @@ describe("VaultOverviewVaultPickerPane", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
         <VaultOverviewSidebar
+          {...FOLDER_CALLBACKS}
+          folderState={EMPTY_FOLDER_STATE}
           page="overview"
           selectedVaultId={null}
           sidebarSummaries={{ state: "loading" }}
@@ -1170,15 +1202,43 @@ describe("VaultOverviewVaultPickerPane", () => {
     expect(markup).toContain('aria-label="ada/demo, Setting up"');
   });
 
-  it("renders the new root vault picker loading and empty states", () => {
+  it("renders the root vault picker loading, empty, and empty-folder states", () => {
     const loadingMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
-        <VaultOverviewVaultPickerPane sidebarSummaries={{ state: "loading" }} vaults={null} />
+        <VaultOverviewVaultPickerPane
+          onCreateVaultFolder={CREATE_VAULT_FOLDER}
+          sidebarSummaries={{ state: "loading" }}
+          vaults={null}
+        />
       </TestRouterProvider>,
     );
     const emptyMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane
+          {...FOLDER_CALLBACKS}
+          folderState={EMPTY_FOLDER_STATE}
+          onCreateVaultFolder={CREATE_VAULT_FOLDER}
+          sidebarSummaries={{ state: "loaded", summaries: [] }}
+          vaults={[]}
+        />
+      </TestRouterProvider>,
+    );
+    const emptyFolderMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault/"]}>
+        <VaultOverviewVaultPickerPane
+          {...FOLDER_CALLBACKS}
+          folderState={{
+            assignments: [],
+            folders: [
+              {
+                _id: fakeVaultFolderId(),
+                collapsed: false,
+                name: "Fixtures",
+                position: 0,
+              },
+            ],
+          }}
+          onCreateVaultFolder={CREATE_VAULT_FOLDER}
           sidebarSummaries={{ state: "loaded", summaries: [] }}
           vaults={[]}
         />
@@ -1188,6 +1248,9 @@ describe("VaultOverviewVaultPickerPane", () => {
     expect(loadingMarkup).toContain('aria-label="Loading vaults"');
     expect(emptyMarkup).toContain("No vaults");
     expect(emptyMarkup).not.toContain("Samebase logo");
+    expect(emptyFolderMarkup).toContain("Fixtures");
+    expect(emptyFolderMarkup).toContain('aria-label="Actions for folder Fixtures"');
+    expect(emptyFolderMarkup).not.toContain("No vaults");
   });
 });
 
