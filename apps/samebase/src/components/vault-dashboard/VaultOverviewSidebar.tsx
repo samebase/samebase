@@ -20,7 +20,7 @@ import { buildVaultDashboardRoute, buildVaultSettingsRoute } from "@/lib/vaultRo
 import { Link } from "@tanstack/react-router";
 import type { ReactMutation } from "convex/react";
 import type { FunctionReference } from "convex/server";
-import { ChevronDown, ChevronRight, Loader2, MoreHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight, EllipsisVertical, Loader2, MoreHorizontal } from "lucide-react";
 import { useRef, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -415,13 +415,13 @@ export function VaultOverviewSidebar({
                       <DropdownMenuTrigger asChild nativeButton>
                         <Button
                           aria-label={`Actions for folder ${folder.name}`}
-                          className="size-10 @max-[120px]:size-8"
+                          className="h-10 w-8 @max-[120px]:h-8 @max-[120px]:w-7"
                           disabled={pendingAction !== null}
                           size="icon"
                           type="button"
                           variant="ghost"
                         >
-                          <MoreHorizontal />
+                          <EllipsisVertical />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-40">
