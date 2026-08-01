@@ -28,6 +28,7 @@ type ConvexDeployPlan =
       deployKeyName: typeof PREVIEW_CONVEX_DEPLOY_KEY;
       routeEnvironment: BuildRouteEnvironment;
       args: readonly string[];
+      seedArgs: readonly string[];
     }
   | {
       kind: "frontendOnly";
@@ -137,17 +138,8 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
         deployKeyName: PREVIEW_CONVEX_DEPLOY_KEY,
       }),
       routeEnvironment: "preview",
-      args: [
-        "exec",
-        "convex",
-        "deploy",
-        "--preview-name",
-        branch,
-        "--preview-run",
-        "devAuth:seedPasswordAccount",
-        "--cmd",
-        WORKERS_BUILD_COMMAND,
-      ],
+      args: ["exec", "convex", "deploy", "--preview-name", branch, "--cmd", WORKERS_BUILD_COMMAND],
+      seedArgs: ["exec", "convex", "run", "devAuth:seedPasswordAccount", "--preview-name", branch],
     };
   }
 
@@ -165,21 +157,21 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
   };
 }
 
-export async function main(env: NodeJS.ProcessEnv = process.env) {
+export async function main(env: NodeJS.ProcessEnv = process.env, runCommand = run) {
   const plan = selectConvexDeployPlan(env);
 
   if (plan.kind === "frontendOnly") {
     console.warn(
       `${CONVEX_DEPLOY_KEY} and ${PREVIEW_CONVEX_DEPLOY_KEY} are not set; building static assets without deploying Convex.`,
     );
-    await run("pnpm", ["run", "build:app"], {
+    await runCommand("pnpm", ["run", "build:app"], {
       ...env,
       [VITE_SAMEBASE_ROUTE_ENVIRONMENT]: plan.routeEnvironment,
     });
     return;
   }
 
-  await run("pnpm", plan.args, {
+  const convexEnv = {
     ...env,
     CONVEX_DEPLOY_KEY: plan.deployKey,
     [VITE_SAMEBASE_ROUTE_ENVIRONMENT]: plan.routeEnvironment,
@@ -193,7 +185,12 @@ export async function main(env: NodeJS.ProcessEnv = process.env) {
         }
       : {}),
     ...(plan.kind === "deploy" ? { SAMEBASE_PRERENDER_ORIGIN: "https://samebase.com" } : {}),
-  });
+  };
+
+  await runCommand("pnpm", plan.args, convexEnv);
+  if (plan.kind === "previewDeploy") {
+    await runCommand("pnpm", plan.seedArgs, convexEnv);
+  }
 }
 
 const entrypoint = process.argv[1];

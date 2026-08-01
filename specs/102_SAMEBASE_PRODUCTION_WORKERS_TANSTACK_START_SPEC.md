@@ -5,7 +5,7 @@
 - Status: Accepted implementation plan
 - Owner: Samebase production hosting
 - Created: 2026-05-16
-- Last updated: 2026-06-16
+- Last updated: 2026-08-01
 - Related:
   - `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
   - `research/2026-05-05-cloudflare-pages-workers-direction.md`
@@ -248,8 +248,10 @@ Samebase production itself.
    deploying Convex.
 3. Keep a Cloudflare build script that:
    - deploys Convex production from `CONVEX_DEPLOY_KEY` when `WORKERS_CI_BRANCH` is `main`
-   - creates a Convex preview deployment from `PREVIEW_CONVEX_DEPLOY_KEY` when `WORKERS_CI_BRANCH`
-     is a non-production branch
+   - creates or reuses a named Convex preview deployment from `PREVIEW_CONVEX_DEPLOY_KEY` when
+     `WORKERS_CI_BRANCH` is a non-production branch
+   - runs the idempotent `devAuth:seedPasswordAccount` action after every successful preview deploy,
+     including preview reuse, without relying on preview creation
    - rejects non-production builds that are missing `PREVIEW_CONVEX_DEPLOY_KEY`, even when
      `CONVEX_DEPLOY_KEY` is present
    - fails before the Convex push when `WORKERS_CI_COMMIT_SHA` is no longer the remote branch head

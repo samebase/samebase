@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { selectConvexDeployPlan } from "./build-cloudflare.js";
+import { main, selectConvexDeployPlan } from "./build-cloudflare.js";
 
 describe("build-cloudflare", () => {
   it("requires the preview key for non-main branches with the production key present", () => {
@@ -112,12 +112,71 @@ describe("build-cloudflare", () => {
         "deploy",
         "--preview-name",
         "feature-branch",
-        "--preview-run",
-        "devAuth:seedPasswordAccount",
         "--cmd",
         "pnpm run build:ci && node ./scripts/verify-current-branch-head.ts",
       ],
+      seedArgs: [
+        "exec",
+        "convex",
+        "run",
+        "devAuth:seedPasswordAccount",
+        "--preview-name",
+        "feature-branch",
+      ],
     });
+  });
+
+  it("seeds after a successful named preview deploy", async () => {
+    const invocations: Array<{
+      operation: string | undefined;
+      deployKey: string | undefined;
+    }> = [];
+    const runCommand = (
+      _command: string,
+      args: readonly string[],
+      env: NodeJS.ProcessEnv | undefined,
+    ) => {
+      invocations.push({
+        operation: args[2] === "deploy" ? "deploy" : args[3],
+        deployKey: env?.CONVEX_DEPLOY_KEY,
+      });
+      return Promise.resolve();
+    };
+    const env = {
+      PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
+      WORKERS_CI: "1",
+      WORKERS_CI_BRANCH: "feature-branch",
+      WORKERS_CI_COMMIT_SHA: "current-commit",
+    };
+
+    await main(env, runCommand);
+
+    expect(invocations).toEqual([
+      { operation: "deploy", deployKey: "preview-key" },
+      { operation: "devAuth:seedPasswordAccount", deployKey: "preview-key" },
+    ]);
+  });
+
+  it("does not seed when the named preview deploy fails", async () => {
+    const invocations: Array<string | undefined> = [];
+    const runCommand = (_command: string, args: readonly string[]) => {
+      invocations.push(args[2]);
+      return Promise.reject(new Error("deploy failed"));
+    };
+
+    await expect(
+      main(
+        {
+          PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
+          WORKERS_CI: "1",
+          WORKERS_CI_BRANCH: "feature-branch",
+          WORKERS_CI_COMMIT_SHA: "current-commit",
+        },
+        runCommand,
+      ),
+    ).rejects.toThrow("deploy failed");
+
+    expect(invocations).toEqual(["deploy"]);
   });
 
   it("requires the preview key for non-main branches", () => {
