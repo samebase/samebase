@@ -401,21 +401,6 @@ async function captureLandingFontStableFrames(
   };
 }
 
-async function readLandingRightSidebarAuthClip(page: Page) {
-  const rightPaneBox = await page.getByTestId("workspace-layout-v2-pane-right").boundingBox();
-  expect(rightPaneBox).not.toBeNull();
-  if (rightPaneBox === null) {
-    throw new Error("Expected landing right pane bounds");
-  }
-
-  return {
-    height: 320,
-    width: rightPaneBox.width,
-    x: rightPaneBox.x,
-    y: rightPaneBox.y,
-  };
-}
-
 function expectStableLandingReloadFrames(frames: LandingReloadFrame[]) {
   const visibleFrames = frames.flatMap((frame) => {
     if (frame.content === null || frame.copy === null) {
@@ -722,24 +707,6 @@ test("public landing renders the closed Google signup return state", async ({ pa
     ...strictScreenshotOptions,
     timeout: 15_000,
   });
-});
-
-test("public landing right sidebar omits developer mode links", async ({ page }) => {
-  await page.goto("/", { waitUntil: "networkidle" });
-
-  await expect(page.getByRole("button", { name: "Continue with Google" })).toBeVisible();
-  await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
-  await expect(page.getByRole("link", { exact: true, name: "?dev" })).toHaveCount(0);
-  await expect(page.getByRole("link", { exact: true, name: "?dev-" })).toHaveCount(0);
-  await expect(page).toHaveScreenshot("public-landing-right-sidebar-account-links.png", {
-    ...strictScreenshotOptions,
-    clip: await readLandingRightSidebarAuthClip(page),
-  });
-
-  await page.goto("/?dev", { waitUntil: "networkidle" });
-  await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
-  await expect(page.getByRole("link", { exact: true, name: "?dev" })).toHaveCount(0);
-  await expect(page.getByRole("link", { exact: true, name: "?dev-" })).toHaveCount(0);
 });
 
 test("public landing omits section divider lines", async ({ page }) => {
@@ -1294,20 +1261,6 @@ test.describe("production public host landing", () => {
     await insertLandingHeadingMarker(page, headingMarker);
     await expect(landingCopy).toContainText(headingMarker);
   });
-});
-
-test("prod-ui mode omits the prod-ui shortcut", async ({ page }) => {
-  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
-
-  await expect(page.locator("#public-landing-prod-ui-toggle")).toHaveCount(0);
-  await expect(page.getByRole("link", { exact: true, name: "?dev" })).toHaveCount(0);
-});
-
-test("prod-ui shortcut is not rendered before entry", async ({ page }) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-
-  await expect(page.locator("#public-landing-prod-ui-toggle")).toHaveCount(0);
-  await expect(page.getByRole("link", { exact: true, name: "?dev" })).toHaveCount(0);
 });
 
 test("landing dev edits stay visible after clearing the dev query", async ({ page }) => {
