@@ -1208,7 +1208,7 @@ test.describe("Menger automatic probe on a phone", () => {
     await expect(page).toHaveScreenshot("logo-menger-hover-phone.png", SCREENSHOT_OPTIONS);
   });
 
-  test("drives reveal and tilt on a coarse pointer, then pauses for touch drag", async ({
+  test("drives reveal and tilt on a coarse pointer while touch drag continues", async ({
     page,
   }) => {
     await page.emulateMedia({ reducedMotion: "no-preference" });
@@ -1260,36 +1260,36 @@ test.describe("Menger automatic probe on a phone", () => {
         touchPoints: [{ ...touchPoint, x: startX + 24, y: startY + 12 }],
         type: "touchMove",
       });
-      await expect(scene).toHaveAttribute("data-automatic-probe-state", "dragging");
-      const automaticCoordinatesDuringDrag = await Promise.all([
-        scene.getAttribute("data-automatic-probe-client-x"),
-        scene.getAttribute("data-automatic-probe-client-y"),
-        scene.getAttribute("data-automatic-probe-progress"),
+      await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing");
+      const progressDuringDrag = await readNumberAttribute(scene, "data-automatic-probe-progress");
+      const hoverCoordinatesDuringDrag = await Promise.all([
         scene.getAttribute("data-hover-coordinate-x"),
         scene.getAttribute("data-hover-coordinate-y"),
         scene.getAttribute("data-hover-coordinate-z"),
       ]);
-      const opennessDuringDrag = await scene.getAttribute("data-hover-maximum-openness");
+      const rotationDuringDrag = await readNumberAttribute(scene, "data-logo-rotation-degrees");
 
-      await page.waitForTimeout(100);
       await session.send("Input.dispatchTouchEvent", {
         timestamp: (gestureStartTimeMs + 150) / 1_000,
         touchPoints: [{ ...touchPoint, x: startX + 48, y: startY + 24 }],
         type: "touchMove",
       });
-      await page.waitForTimeout(100);
-      await expect(scene).toHaveAttribute("data-automatic-probe-state", "dragging");
-      expect(
-        await Promise.all([
-          scene.getAttribute("data-automatic-probe-client-x"),
-          scene.getAttribute("data-automatic-probe-client-y"),
-          scene.getAttribute("data-automatic-probe-progress"),
-          scene.getAttribute("data-hover-coordinate-x"),
-          scene.getAttribute("data-hover-coordinate-y"),
-          scene.getAttribute("data-hover-coordinate-z"),
-        ]),
-      ).toEqual(automaticCoordinatesDuringDrag);
-      await expect(scene).toHaveAttribute("data-hover-maximum-openness", opennessDuringDrag ?? "");
+      await expect
+        .poll(() => readNumberAttribute(scene, "data-logo-rotation-degrees"))
+        .not.toBe(rotationDuringDrag);
+      await expect
+        .poll(() => readNumberAttribute(scene, "data-automatic-probe-progress"))
+        .not.toBe(progressDuringDrag);
+      await expect
+        .poll(() =>
+          Promise.all([
+            scene.getAttribute("data-hover-coordinate-x"),
+            scene.getAttribute("data-hover-coordinate-y"),
+            scene.getAttribute("data-hover-coordinate-z"),
+          ]),
+        )
+        .not.toEqual(hoverCoordinatesDuringDrag);
+      await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing");
 
       await session.send("Input.dispatchTouchEvent", {
         timestamp: (gestureStartTimeMs + 251) / 1_000,
@@ -1297,13 +1297,7 @@ test.describe("Menger automatic probe on a phone", () => {
         type: "touchEnd",
       });
       touchEnded = true;
-      await expect(scene).toHaveAttribute("data-automatic-probe-state", "resting");
-      await expect(scene).toHaveAttribute("data-automatic-probe-progress", "1.0000");
-      await expect(scene).toHaveAttribute("data-automatic-probe-client-x", /.+/);
-      await expect(scene).toHaveAttribute("data-automatic-probe-client-y", /.+/);
-      await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing", {
-        timeout: 2_000,
-      });
+      await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing");
     } finally {
       if (!touchEnded) {
         await session

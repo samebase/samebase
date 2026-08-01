@@ -142,6 +142,93 @@ test("root landing keeps its fractal fallback when WebGL is unavailable", async 
   await expect(hero.getByTestId("logo-menger-hover-scene")).toHaveCount(0);
 });
 
+test.describe("root landing automatic probe on a phone", () => {
+  test.use({
+    deviceScaleFactor: 1,
+    hasTouch: true,
+    isMobile: true,
+    viewport: { height: 844, width: 390 },
+  });
+
+  test("continues the fractal reveal while the cube is dragged", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+
+    const scene = page
+      .getByTestId(PUBLIC_LANDING_MENGER_TEST_ID)
+      .getByTestId("logo-menger-hover-scene");
+    await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
+    await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing");
+    const sceneBox = await scene.boundingBox();
+    if (sceneBox === null) {
+      throw new Error("The root landing Menger scene must have a bounding box on a phone.");
+    }
+
+    const startX = sceneBox.x + sceneBox.width * 0.42;
+    const startY = sceneBox.y + sceneBox.height * 0.42;
+    const touchPoint = {
+      force: 1,
+      id: 1,
+      radiusX: 4,
+      radiusY: 4,
+      x: startX,
+      y: startY,
+    };
+    const session = await page.context().newCDPSession(page);
+    let touchEnded = false;
+
+    try {
+      await session.send("Input.dispatchTouchEvent", {
+        touchPoints: [touchPoint],
+        type: "touchStart",
+      });
+      await page.waitForTimeout(50);
+      await session.send("Input.dispatchTouchEvent", {
+        touchPoints: [{ ...touchPoint, x: startX + 24, y: startY + 12 }],
+        type: "touchMove",
+      });
+      await expect.poll(() => readNumberAttribute(scene, "data-logo-rotation-degrees")).not.toBe(0);
+      await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing");
+      const progressDuringDrag = await readNumberAttribute(scene, "data-automatic-probe-progress");
+      const hoverCoordinatesDuringDrag = await Promise.all([
+        scene.getAttribute("data-hover-coordinate-x"),
+        scene.getAttribute("data-hover-coordinate-y"),
+        scene.getAttribute("data-hover-coordinate-z"),
+      ]);
+
+      await expect
+        .poll(() => readNumberAttribute(scene, "data-automatic-probe-progress"))
+        .not.toBe(progressDuringDrag);
+      await expect
+        .poll(() =>
+          Promise.all([
+            scene.getAttribute("data-hover-coordinate-x"),
+            scene.getAttribute("data-hover-coordinate-y"),
+            scene.getAttribute("data-hover-coordinate-z"),
+          ]),
+        )
+        .not.toEqual(hoverCoordinatesDuringDrag);
+      await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing");
+
+      await session.send("Input.dispatchTouchEvent", {
+        touchPoints: [],
+        type: "touchEnd",
+      });
+      touchEnded = true;
+    } finally {
+      if (!touchEnded) {
+        await session
+          .send("Input.dispatchTouchEvent", {
+            touchPoints: [],
+            type: "touchEnd",
+          })
+          .catch(() => undefined);
+      }
+      await session.detach().catch(() => undefined);
+    }
+  });
+});
+
 test("landing preview uses the depth-three Menger hover scene", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion: "reduce" });
