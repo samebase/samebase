@@ -145,20 +145,6 @@ export function MengerHoverScene({
   } = useLogoViewDrag<HTMLDivElement>({
     elevationDegrees,
     onInteractionEnd,
-    onPointerCaptureEnd: () => {
-      const resumedAtMs = performance.now() + automaticProbeRef.current.restDurationSeconds * 1_000;
-      automaticProbeResumeAtMsRef.current = resumedAtMs;
-      automaticProbeCycleStartedAtMsRef.current = resumedAtMs;
-      renderSceneRef.current();
-    },
-    onPointerCaptureStart: () => {
-      if (automaticProbeResumeTimeoutRef.current !== 0) {
-        window.clearTimeout(automaticProbeResumeTimeoutRef.current);
-        automaticProbeResumeTimeoutRef.current = 0;
-      }
-      automaticProbeResumeAtMsRef.current = Number.POSITIVE_INFINITY;
-      renderSceneRef.current();
-    },
     onViewChange,
     rotationDegrees,
     viewDragConfig: viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined,
@@ -187,7 +173,6 @@ export function MengerHoverScene({
     let lastFrameTime: number | null = null;
     let directionProbe: MengerHoverProbe | null = null;
     let automaticProbeClientPoint: ClientPoint | null = null;
-    let automaticProbeModelPoint: MengerHoverProbe | null = null;
     let renderCount = 0;
     let sceneIsVisible = true;
 
@@ -343,7 +328,6 @@ export function MengerHoverScene({
 
     const clearAutomaticProbeClientPoint = (state: "invalid" | "off" | "resting" | "suspended") => {
       automaticProbeClientPoint = null;
-      automaticProbeModelPoint = null;
       container.dataset.automaticProbeState = state;
       delete container.dataset.automaticProbeClientX;
       delete container.dataset.automaticProbeClientY;
@@ -412,10 +396,6 @@ export function MengerHoverScene({
         container.dataset.automaticProbeProgress = "0.0000";
         return false;
       } else {
-        if (interactionRef.current.status !== "idle") {
-          container.dataset.automaticProbeState = "dragging";
-          return false;
-        }
         if (timestampMs < automaticProbeResumeAtMsRef.current) {
           progress = 1;
           automaticProbeNeedsFrame = false;
@@ -514,10 +494,6 @@ export function MengerHoverScene({
     so the pointer mapping stays continuous inside and outside the canvas.
     */
     const readProbe = (): MengerHoverProbe | null => {
-      if (interactionRef.current.status !== "idle" && automaticProbeModelPoint !== null) {
-        return automaticProbeModelPoint;
-      }
-
       const clientPointer = automaticProbeClientPoint ?? clientPointerRef.current;
       const automaticClientPointer = automaticProbeClientPoint !== null;
       if (clientPointer === null) {
@@ -583,9 +559,6 @@ export function MengerHoverScene({
       container.dataset.hoverFaceAxis = String(projection.axis);
       container.dataset.hoverFaceSign = String(projection.sign);
       container.dataset.hoverVisibleFaceCount = String(projection.visibleFaceCount);
-      if (automaticProbeClientPoint !== null) {
-        automaticProbeModelPoint = probe;
-      }
 
       return probe;
     };
@@ -769,10 +742,7 @@ export function MengerHoverScene({
         if (probe !== null) {
           directionProbe = probe;
         }
-        const automaticProbeInvalid = container.dataset.automaticProbeState === "invalid";
-        const automaticRevealFrozen =
-          interactionRef.current.status !== "idle" && automaticProbeModelPoint !== null;
-        if (automaticProbeInvalid || automaticRevealFrozen) {
+        if (container.dataset.automaticProbeState === "invalid") {
           lastFrameTime = null;
         } else {
           writeMengerHoverState(
