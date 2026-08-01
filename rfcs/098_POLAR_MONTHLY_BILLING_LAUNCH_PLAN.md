@@ -47,6 +47,20 @@ The first independent backend review found four required fixes on 2026-08-02:
 - [ ] Prevent concurrent or repeated open checkout sessions from creating duplicate subscriptions.
 - [ ] Let pending users manage existing billing, but require approved dashboard access to buy Pro.
 
+The second independent backend review found additional hardening work on 2026-08-02:
+
+- [ ] Never issue a second checkout create after an ambiguous provider result without provider
+      idempotency.
+- [ ] Track issued and successfully applied provider observations separately so a failed later read
+      cannot discard a valid earlier result.
+- [ ] Fetch and validate a stored open checkout by provider ID before reuse, and do not store its
+      access URL.
+- [ ] Require exactly one configured Pro product in a recovered checkout.
+- [ ] Coalesce duplicate webhook reconciliation work without losing a change that arrives during a
+      provider read.
+- [ ] Use `canStartCheckout` in Settings so a pending user does not see an action that the server
+      rejects.
+
 Old specs 033 and 034 are historical input. They do not override the accepted contract in spec 118.
 
 ## Decisions
