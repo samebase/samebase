@@ -25,6 +25,7 @@ export type VaultEnvironmentWorker = {
   workerName: string;
   build:
     | { state: "available"; buildState: VaultEnvironmentBuildState; logsUrl: string }
+    | { state: "linked"; logsUrl: string }
     | { state: "absent" }
     | { state: "unavailable" };
   destination:
@@ -363,7 +364,7 @@ export function buildPullRequestEnvironmentRoots({
               }
             : {
                 workerName: worker.workerName,
-                build: { state: "unavailable" as const },
+                build: worker.cloudflareBuild,
                 destination,
                 actions: [],
               },

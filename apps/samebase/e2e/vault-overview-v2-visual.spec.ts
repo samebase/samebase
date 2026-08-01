@@ -198,7 +198,10 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   await expect(firstPullRequestRow).toContainText("3 files");
 
   await firstPullRequest.click();
-  await expect(firstPullRequestRow.getByText("Unavailable", { exact: true })).toBeVisible();
+  await expect(firstPullRequestRow.getByRole("link", { name: "View build" })).toHaveAttribute(
+    "href",
+    "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-worker/production/builds/comment-build-1260",
+  );
   await expect(
     firstPullRequestRow.getByRole("link", { name: "Branch preview", exact: true }),
   ).toHaveAttribute(

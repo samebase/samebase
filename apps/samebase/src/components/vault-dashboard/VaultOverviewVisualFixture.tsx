@@ -655,6 +655,12 @@ function fixturePullRequests(
                       state: "unavailable" as const,
                       workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
                       workerName: "samebase-worker",
+                      cloudflareBuild: {
+                        state: "linked" as const,
+                        uuid: "comment-build-1260",
+                        logsUrl:
+                          "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-worker/production/builds/comment-build-1260",
+                      },
                       cloudflareBranchPreview: {
                         state: "available" as const,
                         url: "https://codex-restore-convex-dashboard-links-samebase-worker.samebase.workers.dev",

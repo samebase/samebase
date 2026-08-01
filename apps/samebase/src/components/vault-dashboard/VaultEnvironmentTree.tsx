@@ -470,6 +470,17 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
             <BuildState state={worker.build.buildState} />
             <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
           </a>
+        ) : worker.build.state === "linked" ? (
+          <a
+            className="inline-flex min-h-10 shrink-0 items-center gap-1 text-sm text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
+            href={worker.build.logsUrl}
+            rel="noreferrer noopener"
+            target="_blank"
+            title={`Open build logs for ${worker.workerName}`}
+          >
+            View build
+            <ExternalLink className="h-3 w-3 shrink-0" />
+          </a>
         ) : (
           <span className="shrink-0 text-sm text-muted-foreground">
             {worker.build.state === "absent" ? "No build" : "Unavailable"}
