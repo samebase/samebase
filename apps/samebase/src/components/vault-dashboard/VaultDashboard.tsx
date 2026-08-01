@@ -73,7 +73,13 @@ export function VaultDashboard({
 
   if (workspaceModel.state === "loading") {
     if (!selectedRepositoryFullName) {
-      return <VaultOverviewVaultPickerPane sidebarSummaries={{ state: "loading" }} vaults={null} />;
+      return (
+        <VaultOverviewVaultPickerPane
+          onCreateVaultFolder={createVaultFolder}
+          sidebarSummaries={{ state: "loading" }}
+          vaults={null}
+        />
+      );
     }
     const loadingRepository = tryParseRepositoryFullName(selectedRepositoryFullName);
     if (!loadingRepository) {
@@ -82,7 +88,7 @@ export function VaultDashboard({
     return (
       <AppWorkspaceRouteChrome
         left={{
-          header: <VaultOverviewVaultListHeader />,
+          header: <VaultOverviewVaultListHeader onCreateVaultFolder={createVaultFolder} />,
           content: <VaultOverviewSidebarLoading />,
         }}
       >
@@ -99,7 +105,7 @@ export function VaultDashboard({
     workspaceModel.selection.state === "selected" ? workspaceModel.selection.workspace : null;
   const isVaultRootRoute = workspaceModel.selection.state === "root";
   const leftPane = {
-    header: <VaultOverviewVaultListHeader />,
+    header: <VaultOverviewVaultListHeader onCreateVaultFolder={createVaultFolder} />,
     content: (
       <VaultOverviewSidebar
         page={page}
@@ -108,7 +114,6 @@ export function VaultDashboard({
         sidebarSummaries={workspaceModel.sidebarSummaries}
         vaults={workspaceModel.vaults}
         workspace={selectedWorkspace}
-        onCreateVaultFolder={createVaultFolder}
         onDeleteVaultFolder={deleteVaultFolder}
         onMoveVaultFolder={moveVaultFolder}
         onMoveVaultToFolder={moveVaultToFolder}

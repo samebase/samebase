@@ -187,4 +187,18 @@ describe("VaultFolderDialog", () => {
 
     await act(async () => request.resolve());
   });
+
+  it("omits vault move copy when the folder is empty", async () => {
+    const container = await renderDialog(
+      <VaultFolderDialog
+        folderName="Fixtures"
+        kind="delete"
+        onDelete={async () => {}}
+        onOpenChange={() => {}}
+        vaultCount={0}
+      />,
+    );
+
+    expect(container.querySelector("p")).toBeNull();
+  });
 });

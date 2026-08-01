@@ -110,11 +110,10 @@ export const getVaultFolderState = query({
 
 export const createVaultFolder = mutation({
   access: "access_dashboard",
-  args: { name: string(), vaultId: id("vaults") },
+  args: { name: string() },
   returns: id("ui_vaultFolders"),
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;
-    await assertOwnedVault(ctx, { userId, vaultId: args.vaultId });
     const { name, nameKey } = normalizeFolderName(args.name);
     const existing = await ctx.db
       .query("ui_vaultFolders")
@@ -136,7 +135,6 @@ export const createVaultFolder = mutation({
       position: (lastFolder?.position ?? -1) + 1,
       collapsed: false,
     });
-    await upsertFolderAssignment(ctx, { folderId, userId, vaultId: args.vaultId });
     return folderId;
   },
 });

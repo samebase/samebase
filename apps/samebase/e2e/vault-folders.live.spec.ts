@@ -22,7 +22,7 @@ async function deleteFolderIfPresent(page: import("@playwright/test").Page, fold
 }
 
 test.describe("vault folders live flow", () => {
-  test("creates, collapses, renames, and deletes a folder without changing the route", async ({
+  test("creates an empty folder, moves the selected vault, and keeps its route while collapsed", async ({
     page,
   }, testInfo) => {
     test.setTimeout(90_000);
@@ -56,18 +56,30 @@ test.describe("vault folders live flow", () => {
       await page.goto(vaultRoute, { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(new RegExp(`${escapeRegExp(selectedPath)}(?:[?#]|$)`));
 
-      await page
-        .getByRole("button", { exact: true, name: `Actions for ${repositoryFullName}` })
-        .click();
-      await page.getByRole("menuitem", { exact: true, name: "New folder" }).click();
+      await page.getByRole("button", { exact: true, name: "New folder" }).click();
       const createDialog = page.getByRole("dialog");
       await createDialog
         .getByRole("textbox", { exact: true, name: "Folder name" })
         .fill(initialFolderName);
       await createDialog.getByRole("button", { exact: true, name: "Create folder" }).click();
       await expect(createDialog).toBeHidden();
-      await expect(page.getByText(initialFolderName, { exact: true })).toBeVisible();
+      const emptyFolder = vaultNavigation.getByRole("region", {
+        exact: true,
+        name: initialFolderName,
+      });
+      await expect(emptyFolder).toBeVisible();
+      await expect(emptyFolder.getByRole("link")).toHaveCount(0);
+      await expect(
+        vaultNavigation.getByRole("link", { exact: true, name: vaultLabel }),
+      ).toBeVisible();
       await expect(page).toHaveURL(new RegExp(`${escapeRegExp(selectedPath)}(?:[?#]|$)`));
+
+      await page
+        .getByRole("button", { exact: true, name: `Actions for ${repositoryFullName}` })
+        .click();
+      await page.getByRole("menuitem", { exact: true, name: "Move to folder" }).hover();
+      await page.getByRole("menuitem", { exact: true, name: initialFolderName }).click();
+      await expect(emptyFolder.getByRole("link", { exact: true, name: vaultLabel })).toBeVisible();
 
       await page
         .getByRole("button", { exact: true, name: `Collapse ${initialFolderName}` })
@@ -75,6 +87,14 @@ test.describe("vault folders live flow", () => {
       await expect(
         page.getByRole("button", { exact: true, name: `Expand ${initialFolderName}` }),
       ).toBeVisible();
+      const selectedFolder = vaultNavigation.getByRole("region", {
+        exact: true,
+        name: `${initialFolderName}, contains current vault`,
+      });
+      await expect(selectedFolder.locator(":scope > div").first()).toHaveClass(/bg-muted/);
+      await expect(
+        vaultNavigation.getByRole("link", { exact: true, name: vaultLabel }),
+      ).toHaveCount(0);
       await expect(page).toHaveURL(new RegExp(`${escapeRegExp(selectedPath)}(?:[?#]|$)`));
 
       await page

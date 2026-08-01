@@ -10,7 +10,6 @@ import {
 } from "./VaultOverviewSidebar";
 
 const FOLDER_CALLBACKS = {
-  onCreateVaultFolder: async () => {},
   onDeleteVaultFolder: async () => {},
   onMoveVaultFolder: async () => {},
   onMoveVaultToFolder: async () => {},
@@ -91,7 +90,7 @@ describe("VaultOverviewSidebar folders", () => {
     });
 
     expect(markup).toContain("samebase/active");
-    expect(markup).toContain('aria-label="Actions for samebase/active"');
+    expect(markup).not.toContain('aria-label="Actions for samebase/active"');
     expect(markup).not.toContain("Ungrouped");
   });
 
@@ -170,7 +169,7 @@ describe("VaultOverviewSidebar folders", () => {
     expect(markup).not.toContain('aria-label="Ungrouped"');
   });
 
-  it("keeps a collapsed selected folder collapsed and renders only the selected row", () => {
+  it("uses the collapsed folder as the selected vault proxy and hides every vault row", () => {
     const active = vault("active", fakeVaultId("vault-active"));
     const fixture = vault("fixture", fakeVaultId("vault-fixture"), {
       status: "failed",
@@ -197,8 +196,11 @@ describe("VaultOverviewSidebar folders", () => {
     });
 
     expect(markup).toContain('aria-label="Expand Active"');
+    expect(markup).toContain('aria-label="Active, contains current vault"');
+    expect(markup).toContain("flex min-w-0 items-center bg-muted px-1 py-1");
     expect(markup).toContain('aria-label="Active has hidden failures"');
-    expect(markup).toContain("samebase/active, Loading checks");
+    expect(markup).not.toContain("samebase/active, Loading checks");
     expect(markup).not.toContain("samebase/fixture, Needs attention");
+    expect(markup).not.toContain('aria-current="page"');
   });
 });

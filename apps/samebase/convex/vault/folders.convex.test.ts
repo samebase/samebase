@@ -69,40 +69,36 @@ function asUser(
 }
 
 describe("vault folders Convex contract", () => {
-  it("normalizes folder names and atomically creates the first assignment", async () => {
+  it("normalizes folder names and creates an empty expanded folder", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "ada@example.com");
-    const vaultId = await seedVault(t, userId);
     const viewer = asUser(t, userId);
 
     const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
       name: "  ＦＯＯ  ",
-      vaultId,
     });
 
     await expect(
-      viewer.mutation(api.vault.folders.createVaultFolder, { name: "foo", vaultId }),
+      viewer.mutation(api.vault.folders.createVaultFolder, { name: "foo" }),
     ).rejects.toThrow("Folder name is already in use.");
     await t.run(async (ctx) => {
       const folder = await ctx.db.get(folderId);
       const assignment = await ctx.db
         .query("ui_vaultFolderAssignments")
-        .withIndex("by_userId_and_vaultId", (q) => q.eq("userId", userId).eq("vaultId", vaultId))
+        .withIndex("by_userId_and_vaultId", (q) => q.eq("userId", userId))
         .first();
 
-      expect(folder).toMatchObject({ name: "FOO", nameKey: "foo", userId });
-      expect(assignment).toMatchObject({ folderId, userId, vaultId });
+      expect(folder).toMatchObject({ collapsed: false, name: "FOO", nameKey: "foo", userId });
+      expect(assignment).toBeNull();
     });
   });
 
   it("rejects a duplicate normalized folder name during creation", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "ada@example.com");
-    const vaultId = await seedVault(t, userId);
     const viewer = asUser(t, userId);
     const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
       name: "Fixtures",
-      vaultId,
     });
 
     await t.run(async (ctx) => {
@@ -120,23 +116,19 @@ describe("vault folders Convex contract", () => {
     });
 
     await expect(
-      viewer.mutation(api.vault.folders.createVaultFolder, { name: "fixtures", vaultId }),
+      viewer.mutation(api.vault.folders.createVaultFolder, { name: "fixtures" }),
     ).rejects.toThrow();
   });
 
   it("rejects a duplicate normalized folder name during rename", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "ada@example.com");
-    const firstVaultId = await seedVault(t, userId);
-    const secondVaultId = await seedVault(t, userId);
     const viewer = asUser(t, userId);
     const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
       name: "Current",
-      vaultId: firstVaultId,
     });
     const targetFolderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
       name: "Fixtures",
-      vaultId: secondVaultId,
     });
 
     await t.run(async (ctx) => {
@@ -162,13 +154,11 @@ describe("vault folders Convex contract", () => {
     const t = makeConvexTest();
     const ownerId = await seedUser(t, "owner@example.com");
     const otherId = await seedUser(t, "other@example.com");
-    const ownerVaultId = await seedVault(t, ownerId);
     const otherVaultId = await seedVault(t, otherId);
     const owner = asUser(t, ownerId);
     const other = asUser(t, otherId);
     const folderId = await owner.mutation(api.vault.folders.createVaultFolder, {
       name: "Owner folder",
-      vaultId: ownerVaultId,
     });
 
     await expect(
@@ -180,12 +170,6 @@ describe("vault folders Convex contract", () => {
         vaultId: otherVaultId,
       }),
     ).rejects.toThrow("Folder not found");
-    await expect(
-      other.mutation(api.vault.folders.createVaultFolder, {
-        name: "Not mine",
-        vaultId: ownerVaultId,
-      }),
-    ).rejects.toThrow("Vault not found");
   });
 
   it("moves vaults, persists collapse, and orders folders", async () => {
@@ -196,13 +180,15 @@ describe("vault folders Convex contract", () => {
     const viewer = asUser(t, userId);
     const firstFolderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
       name: "First",
-      vaultId: firstVaultId,
     });
     const secondFolderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
       name: "Second",
-      vaultId: secondVaultId,
     });
 
+    await viewer.mutation(api.vault.folders.moveVaultToFolder, {
+      folderId: secondFolderId,
+      vaultId: secondVaultId,
+    });
     await viewer.mutation(api.vault.folders.setVaultFolderCollapsed, {
       collapsed: true,
       folderId: firstFolderId,
@@ -229,15 +215,13 @@ describe("vault folders Convex contract", () => {
     });
   });
 
-  it("rejects duplicate assignments during folder creation and vault moves", async () => {
+  it("rejects duplicate assignments during vault moves", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "ada@example.com");
-    const firstVaultId = await seedVault(t, userId);
     const secondVaultId = await seedVault(t, userId);
     const viewer = asUser(t, userId);
     const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
       name: "Fixtures",
-      vaultId: firstVaultId,
     });
 
     await t.run(async (ctx) => {
@@ -254,12 +238,6 @@ describe("vault folders Convex contract", () => {
     });
 
     await expect(
-      viewer.mutation(api.vault.folders.createVaultFolder, {
-        name: "Current",
-        vaultId: secondVaultId,
-      }),
-    ).rejects.toThrow();
-    await expect(
       viewer.mutation(api.vault.folders.moveVaultToFolder, {
         folderId,
         vaultId: secondVaultId,
@@ -274,8 +252,8 @@ describe("vault folders Convex contract", () => {
     const viewer = asUser(t, userId);
     const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
       name: "Fixtures",
-      vaultId,
     });
+    await viewer.mutation(api.vault.folders.moveVaultToFolder, { folderId, vaultId });
 
     await viewer.mutation(api.vault.folders.deleteVaultFolder, { folderId });
     await expect(viewer.query(api.vault.folders.getVaultFolderState)).resolves.toEqual({
@@ -295,7 +273,10 @@ describe("vault folders Convex contract", () => {
     const userId = await seedUser(t, "ada@example.com");
     const vaultId = await seedVault(t, userId);
     const viewer = asUser(t, userId);
-    await viewer.mutation(api.vault.folders.createVaultFolder, { name: "Fixtures", vaultId });
+    const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "Fixtures",
+    });
+    await viewer.mutation(api.vault.folders.moveVaultToFolder, { folderId, vaultId });
 
     await expect(
       t.mutation(internal.vault.deletion.cleanup.deleteVaultLocalDataBatch, { userId, vaultId }),
@@ -321,8 +302,11 @@ describe("vault folders Convex contract", () => {
     const firstVaultId = await seedDashboardVault(t, { name: "first", userId });
     const secondVaultId = await seedDashboardVault(t, { name: "second", userId });
     const viewer = asUser(t, userId);
-    await viewer.mutation(api.vault.folders.createVaultFolder, {
+    const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
       name: "Current",
+    });
+    await viewer.mutation(api.vault.folders.moveVaultToFolder, {
+      folderId,
       vaultId: firstVaultId,
     });
 

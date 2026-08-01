@@ -60,7 +60,7 @@ async function expectUngroupedBeforeFolders(vaultNavigation: Locator) {
     .locator("section")
     .evaluateAll((sections) => sections.map((section) => section.getAttribute("aria-label")));
 
-  expect(folderLabels).toEqual(["Ungrouped", "Fixtures", "Active"]);
+  expect(folderLabels).toEqual(["Ungrouped", "Fixtures", "Active, contains current vault"]);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -83,6 +83,7 @@ test("uses the overview vault rows on the canonical root route", async ({ page }
       exact: true,
     }),
   ).toHaveAttribute("href", "/vault/noter/guestbook");
+  await expect(fixture.getByRole("button", { name: "New folder", exact: true })).toBeVisible();
   await expect(fixture).toHaveScreenshot("vault-overview-v2-root.png", {
     animations: "disabled",
     caret: "hide",
@@ -95,7 +96,7 @@ test("uses the overview vault rows on the canonical root route", async ({ page }
   expect(linkBounds).not.toBeNull();
   expect(rowBounds).not.toBeNull();
   if (linkBounds && rowBounds) {
-    expect(rowBounds.width - linkBounds.width).toBeGreaterThanOrEqual(32);
+    expect(Math.abs(linkBounds.width - rowBounds.width)).toBeLessThanOrEqual(1);
   }
 });
 
@@ -106,6 +107,14 @@ test("shows shallow vault folders on desktop", async ({ page }) => {
 
   await expect(vaultNavigation.getByText("Fixtures", { exact: true })).toBeVisible();
   await expect(vaultNavigation.getByLabel("Fixtures has hidden failures")).toBeVisible();
+  const activeFolder = vaultNavigation.getByRole("region", {
+    name: "Active, contains current vault",
+  });
+  await expect(activeFolder).toBeVisible();
+  await expect(activeFolder.locator(":scope > div").first()).toHaveClass(/bg-muted/);
+  await expect(
+    vaultNavigation.getByRole("link", { name: "samebase/dashboard, 4/4 passed", exact: true }),
+  ).toHaveCount(0);
   await expectUngroupedBeforeFolders(vaultNavigation);
   await expect(fixture).toHaveScreenshot("vault-overview-v2-folders-desktop.png", {
     animations: "disabled",
@@ -120,8 +129,7 @@ test("submits folder create and rename dialogs from Enter", async ({ page }) => 
   const fixture = await openVaultOverviewV2(page, "vault-overview-v2-folders");
   const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
 
-  await vaultNavigation.getByRole("button", { name: "Actions for samebase/dashboard" }).click();
-  await page.getByRole("menuitem", { name: "New folder" }).click();
+  await fixture.getByRole("button", { name: "New folder", exact: true }).click();
   await expect(page.getByRole("heading", { name: "New folder" })).toBeVisible();
   await page.getByLabel("Folder name").fill("Projects");
   await page.getByLabel("Folder name").press("Enter");
@@ -163,6 +171,7 @@ test("preserves folder identity at the minimum sidebar width", async ({ page }) 
 
   await expect(vaultNavigation.getByText("Fixtures", { exact: true })).toBeVisible();
   await expect(vaultNavigation.getByLabel("Fixtures has hidden failures")).toBeVisible();
+  await expect(fixture.getByRole("button", { name: "New folder", exact: true })).toBeVisible();
   await expectUngroupedBeforeFolders(vaultNavigation);
   await expect(vaultNavigation).toHaveScreenshot("vault-overview-v2-folders-minimum-sidebar.png", {
     animations: "disabled",

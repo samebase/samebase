@@ -95,7 +95,7 @@ export function VaultFolderDialog(props: VaultFolderDialogProps) {
       <AppDialogContent showCloseButton={!pending}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          {props.kind === "delete" ? (
+          {props.kind === "delete" && props.vaultCount > 0 ? (
             <DialogDescription>
               {props.vaultCount} {props.vaultCount === 1 ? "vault will" : "vaults will"} move to
               Ungrouped. The vaults will not be deleted.

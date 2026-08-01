@@ -11,7 +11,11 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { VaultOverviewVaultPickerPane } from "./VaultOverviewVaultPickerPane";
 import { VaultOverviewPage } from "./VaultOverviewPage";
-import { type VaultFolderCallbacks, VaultOverviewSidebar } from "./VaultOverviewSidebar";
+import {
+  type VaultFolderCallbacks,
+  type VaultFolderCreate,
+  VaultOverviewSidebar,
+} from "./VaultOverviewSidebar";
 import { PullRequestsSection } from "./VaultPullRequestsSection";
 import { RepositorySettings } from "./VaultRepositorySettings";
 import { VaultCloudflareDialogContent } from "./VaultCloudflareDialog";
@@ -52,13 +56,13 @@ vi.mock("@/components/ui/dialog", () => ({
 }));
 
 const FOLDER_CALLBACKS = {
-  onCreateVaultFolder: async () => {},
   onDeleteVaultFolder: async () => {},
   onMoveVaultFolder: async () => {},
   onMoveVaultToFolder: async () => {},
   onRenameVaultFolder: async () => {},
   onSetVaultFolderCollapsed: async () => {},
 } satisfies VaultFolderCallbacks;
+const CREATE_VAULT_FOLDER: VaultFolderCreate = async () => {};
 
 const EMPTY_FOLDER_STATE = { assignments: [], folders: [] };
 
@@ -1083,6 +1087,7 @@ describe("VaultOverviewVaultPickerPane", () => {
         <VaultOverviewVaultPickerPane
           {...FOLDER_CALLBACKS}
           folderState={EMPTY_FOLDER_STATE}
+          onCreateVaultFolder={CREATE_VAULT_FOLDER}
           sidebarSummaries={{
             state: "loaded",
             summaries: [
@@ -1125,6 +1130,7 @@ describe("VaultOverviewVaultPickerPane", () => {
         <VaultOverviewVaultPickerPane
           {...FOLDER_CALLBACKS}
           folderState={EMPTY_FOLDER_STATE}
+          onCreateVaultFolder={CREATE_VAULT_FOLDER}
           sidebarSummaries={{ state: "loading" }}
           vaults={[
             makeRepositorySettingsBuilderVault({
@@ -1144,6 +1150,7 @@ describe("VaultOverviewVaultPickerPane", () => {
         <VaultOverviewVaultPickerPane
           {...FOLDER_CALLBACKS}
           folderState={EMPTY_FOLDER_STATE}
+          onCreateVaultFolder={CREATE_VAULT_FOLDER}
           sidebarSummaries={{ state: "loading" }}
           vaults={[
             makeRepositorySettingsBuilderVault({
@@ -1198,7 +1205,11 @@ describe("VaultOverviewVaultPickerPane", () => {
   it("renders the root vault picker loading, empty, and empty-folder states", () => {
     const loadingMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
-        <VaultOverviewVaultPickerPane sidebarSummaries={{ state: "loading" }} vaults={null} />
+        <VaultOverviewVaultPickerPane
+          onCreateVaultFolder={CREATE_VAULT_FOLDER}
+          sidebarSummaries={{ state: "loading" }}
+          vaults={null}
+        />
       </TestRouterProvider>,
     );
     const emptyMarkup = renderToStaticMarkup(
@@ -1206,6 +1217,7 @@ describe("VaultOverviewVaultPickerPane", () => {
         <VaultOverviewVaultPickerPane
           {...FOLDER_CALLBACKS}
           folderState={EMPTY_FOLDER_STATE}
+          onCreateVaultFolder={CREATE_VAULT_FOLDER}
           sidebarSummaries={{ state: "loaded", summaries: [] }}
           vaults={[]}
         />
@@ -1226,6 +1238,7 @@ describe("VaultOverviewVaultPickerPane", () => {
               },
             ],
           }}
+          onCreateVaultFolder={CREATE_VAULT_FOLDER}
           sidebarSummaries={{ state: "loaded", summaries: [] }}
           vaults={[]}
         />

@@ -7,11 +7,24 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
-import { type VaultFolderCallbacks, VaultOverviewSidebar } from "./VaultOverviewSidebar";
+import {
+  type VaultFolderCallbacks,
+  type VaultFolderCreate,
+  VaultOverviewSidebar,
+} from "./VaultOverviewSidebar";
+import { VaultOverviewVaultListHeader } from "./VaultOverviewVaultPickerPane";
 
 const toastMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/components/ui/use-toast", () => ({ toast: toastMock }));
+vi.mock("./VaultFolderDialog", () => ({
+  VaultFolderDialog: ({ onCreate }: { onCreate?: (name: string) => Promise<unknown> }) =>
+    onCreate ? (
+      <button type="button" onClick={() => void onCreate("Projects")}>
+        Submit new folder
+      </button>
+    ) : null,
+}));
 
 let root: Root | null = null;
 let rootElement: HTMLDivElement | null = null;
@@ -70,7 +83,6 @@ function folderCallbacks(
   onSetVaultFolderCollapsed: VaultFolderCallbacks["onSetVaultFolderCollapsed"],
 ): VaultFolderCallbacks {
   return {
-    onCreateVaultFolder: async () => {},
     onDeleteVaultFolder: async () => {},
     onMoveVaultFolder: async () => {},
     onMoveVaultToFolder: async () => {},
@@ -103,6 +115,18 @@ async function renderSidebar(callbacks: VaultFolderCallbacks) {
         />
       </TestRouterProvider>,
     );
+  });
+
+  return rootElement;
+}
+
+async function renderHeader(onCreateVaultFolder: VaultFolderCreate) {
+  rootElement = document.createElement("div");
+  document.body.append(rootElement);
+  root = createRoot(rootElement);
+
+  await act(async () => {
+    root?.render(<VaultOverviewVaultListHeader onCreateVaultFolder={onCreateVaultFolder} />);
   });
 
   return rootElement;
@@ -155,5 +179,31 @@ describe("VaultOverviewSidebar direct folder actions", () => {
       title: "Could not update vault folders",
       variant: "destructive",
     });
+  });
+});
+
+describe("VaultOverviewVaultListHeader", () => {
+  it("creates an empty folder from the header action", async () => {
+    const onCreateVaultFolder = vi.fn(async () => {});
+    const container = await renderHeader(onCreateVaultFolder);
+    const newFolderButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="New folder"]',
+    );
+    if (!newFolderButton) {
+      throw new Error("New folder button not found");
+    }
+
+    await act(async () => newFolderButton.click());
+    const submitButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Submit new folder",
+    );
+    if (!submitButton) {
+      throw new Error("New folder dialog not found");
+    }
+
+    await act(async () => submitButton.click());
+
+    expect(onCreateVaultFolder).toHaveBeenCalledTimes(1);
+    expect(onCreateVaultFolder).toHaveBeenCalledWith({ name: "Projects" });
   });
 });

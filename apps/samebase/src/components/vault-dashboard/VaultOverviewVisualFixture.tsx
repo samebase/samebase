@@ -6,6 +6,7 @@ import {
 } from "@/components/vault-dashboard/VaultOverviewPage";
 import {
   type VaultFolderCallbacks,
+  type VaultFolderCreate,
   VaultOverviewSidebar,
   VaultOverviewSidebarLoading,
 } from "@/components/vault-dashboard/VaultOverviewSidebar";
@@ -67,13 +68,13 @@ export type VaultOverviewVisualMode =
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
 const VISUAL_FOLDER_CALLBACKS = {
-  onCreateVaultFolder: async () => {},
   onDeleteVaultFolder: async () => {},
   onMoveVaultFolder: async () => {},
   onMoveVaultToFolder: async () => {},
   onRenameVaultFolder: async () => {},
   onSetVaultFolderCollapsed: async () => {},
 } satisfies VaultFolderCallbacks;
+const VISUAL_CREATE_VAULT_FOLDER: VaultFolderCreate = async () => {};
 const EMPTY_FOLDER_STATE = { assignments: [], folders: [] };
 const LOADING_CLOUDFLARE_OBSERVATIONS = {
   workers: { state: "loading" },
@@ -403,7 +404,7 @@ function VaultOverviewFoldersFixture() {
       <WorkspaceLayoutV2FixtureFrame
         dataTestId="vault-overview-v2-folders"
         left={{
-          header: <VaultOverviewVaultListHeader />,
+          header: <VaultOverviewVaultListHeader onCreateVaultFolder={VISUAL_CREATE_VAULT_FOLDER} />,
           content: (
             <VaultOverviewSidebar
               {...VISUAL_FOLDER_CALLBACKS}
@@ -414,7 +415,7 @@ function VaultOverviewFoldersFixture() {
                 ],
                 folders: [
                   { _id: FIXTURE_FOLDER_ID, collapsed: true, name: "Fixtures", position: 0 },
-                  { _id: FIXTURE_ACTIVE_FOLDER_ID, collapsed: false, name: "Active", position: 1 },
+                  { _id: FIXTURE_ACTIVE_FOLDER_ID, collapsed: true, name: "Active", position: 1 },
                 ],
               }}
               page="overview"
@@ -1032,7 +1033,7 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
       <WorkspaceLayoutV2FixtureFrame
         dataTestId={mode}
         left={{
-          header: <VaultOverviewVaultListHeader />,
+          header: <VaultOverviewVaultListHeader onCreateVaultFolder={VISUAL_CREATE_VAULT_FOLDER} />,
           content: (
             <VaultOverviewSidebar
               {...VISUAL_FOLDER_CALLBACKS}
@@ -1160,7 +1161,7 @@ function VaultOverviewProviderSettingsFixture({
       <WorkspaceLayoutV2FixtureFrame
         dataTestId={mode}
         left={{
-          header: <VaultOverviewVaultListHeader />,
+          header: <VaultOverviewVaultListHeader onCreateVaultFolder={VISUAL_CREATE_VAULT_FOLDER} />,
           content: (
             <VaultOverviewSidebar
               {...VISUAL_FOLDER_CALLBACKS}
@@ -1241,6 +1242,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
               <VaultOverviewVaultPickerPane
                 {...VISUAL_FOLDER_CALLBACKS}
                 folderState={{ assignments: [], folders: [] }}
+                onCreateVaultFolder={VISUAL_CREATE_VAULT_FOLDER}
                 sidebarSummaries={FIXTURE_SIDEBAR_SUMMARIES}
                 vaults={SIDEBAR_LIST_VAULTS}
               />
@@ -1258,7 +1260,9 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
         <WorkspaceLayoutV2FixtureFrame
           dataTestId={mode}
           left={{
-            header: <VaultOverviewVaultListHeader />,
+            header: (
+              <VaultOverviewVaultListHeader onCreateVaultFolder={VISUAL_CREATE_VAULT_FOLDER} />
+            ),
             content: <VaultOverviewSidebarLoading />,
           }}
           main={{
@@ -1314,7 +1318,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
     <WorkspaceLayoutV2FixtureFrame
       dataTestId={mode}
       left={{
-        header: <VaultOverviewVaultListHeader />,
+        header: <VaultOverviewVaultListHeader onCreateVaultFolder={VISUAL_CREATE_VAULT_FOLDER} />,
         content: (
           <VaultOverviewSidebar
             {...VISUAL_FOLDER_CALLBACKS}
