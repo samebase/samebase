@@ -4,6 +4,7 @@ import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
 const accountId = "00000000000000000000000000000001";
+const defaultBranchCommitSha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 function jsonResponse(result: unknown, status = 200): Response {
   return new Response(JSON.stringify(result), {
@@ -201,6 +202,12 @@ function stubExistingWorkersProvider(
     if (url.hostname === "api.github.com" && url.pathname === "/repos/ada/demo") {
       return jsonResponse({ id: 123, default_branch: "main", owner: { id: 456 } });
     }
+    if (
+      url.hostname === "api.github.com" &&
+      decodeURIComponent(url.pathname) === "/repos/ada/demo/git/ref/heads/main"
+    ) {
+      return jsonResponse({ object: { sha: defaultBranchCommitSha } });
+    }
     if (url.pathname === "/client/v4/accounts") {
       return cloudflareResponse([{ id: accountId, name: "Ada Cloudflare", type: "standard" }]);
     }
@@ -234,15 +241,33 @@ function stubExistingWorkersProvider(
 
 function stubConnectWorkerProvider(
   failure: "initial_build" | "preview_trigger" | "production_trigger" | "verification",
+  defaultBranchChangesBeforeInitialBuild = false,
 ): ReturnType<typeof vi.fn> {
   let triggers: ReturnType<typeof buildTriggers> = [];
   let triggerCreateCount = 0;
   let failNextVerification = false;
+  let githubIdentityReadCount = 0;
   const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     const method = input instanceof Request ? input.method : (init?.method ?? "GET");
     if (url.hostname === "api.github.com" && url.pathname === "/repos/ada/demo") {
-      return jsonResponse({ id: 123, default_branch: "main", owner: { id: 456 } });
+      githubIdentityReadCount += 1;
+      return jsonResponse({
+        id: 123,
+        default_branch:
+          defaultBranchChangesBeforeInitialBuild && githubIdentityReadCount === 2
+            ? "trunk"
+            : "main",
+        owner: { id: 456 },
+      });
+    }
+    if (
+      url.hostname === "api.github.com" &&
+      ["/repos/ada/demo/git/ref/heads/main", "/repos/ada/demo/git/ref/heads/trunk"].includes(
+        decodeURIComponent(url.pathname),
+      )
+    ) {
+      return jsonResponse({ object: { sha: defaultBranchCommitSha } });
     }
     if (url.pathname === "/client/v4/accounts") {
       return cloudflareResponse([{ id: accountId, name: "Ada Cloudflare", type: "standard" }]);
@@ -399,7 +424,7 @@ describe("vault Cloudflare Worker attachments", () => {
 
   it("records success when a second check confirms the configured Worker", async () => {
     const { asUser, t, vaultId } = await createCloudflareConnectedVault();
-    stubConnectWorkerProvider("verification");
+    const fetchMock = stubConnectWorkerProvider("verification");
 
     await expect(
       asUser.action(api.vault.cloudflare.connectWorker, {
@@ -425,6 +450,44 @@ describe("vault Cloudflare Worker attachments", () => {
       state: "succeeded",
       lastWriteAt: { cloudflare: expect.any(Number) },
     });
+    const initialBuildRequest = fetchMock.mock.calls.find(([input, init]) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      const method = input instanceof Request ? input.method : init?.method;
+      return method === "POST" && url.pathname.endsWith("/builds");
+    });
+    expect(JSON.parse(String(initialBuildRequest?.[1]?.body))).toEqual({
+      branch: "main",
+      commit_hash: defaultBranchCommitSha,
+    });
+  });
+
+  it("does not start the initial build when the default branch changes", async () => {
+    const { asUser, vaultId } = await createCloudflareConnectedVault();
+    const fetchMock = stubConnectWorkerProvider("verification", true);
+
+    await expect(
+      asUser.action(api.vault.cloudflare.connectWorker, {
+        vaultId,
+        accountId,
+        workerName: "portal",
+        workerTag: "portal-tag",
+        rootDirectory: "apps/portal",
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        state: "added_with_notice",
+        message: expect.stringContaining(
+          "GitHub default branch changed while Samebase configured Workers Builds.",
+        ),
+      }),
+    );
+    expect(
+      fetchMock.mock.calls.some(([input, init]) => {
+        const url = new URL(input instanceof Request ? input.url : String(input));
+        const method = input instanceof Request ? input.method : init?.method;
+        return method === "POST" && url.pathname.endsWith("/builds");
+      }),
+    ).toBe(false);
   });
 
   it("reports that a Worker can exist when its local checkpoint expires", async () => {

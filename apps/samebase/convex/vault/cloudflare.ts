@@ -21,7 +21,7 @@ import {
   type CloudflareBuildConfig,
   type CloudflareConnectedWorkersBuilds,
 } from "../cloudflareResources";
-import { fetchGitHubRepoIdentity } from "../githubRepoApi";
+import { fetchGitHubDefaultBranchHead, fetchGitHubRepoIdentity } from "../githubRepoApi";
 import {
   createConvexDeployKey,
   createConvexPreviewDeployKey,
@@ -232,6 +232,7 @@ async function resolveCloudflareRepositoryContext(
   account: CloudflareAccountResult;
   connection: CloudflareActionConnection;
   context: ProviderAttachmentVaultContext;
+  githubAccessToken: string;
   githubOwnerId: string;
   githubDefaultBranch: string;
 }> {
@@ -262,6 +263,7 @@ async function resolveCloudflareRepositoryContext(
     account,
     connection,
     context,
+    githubAccessToken,
     githubOwnerId: repository.ownerId,
     githubDefaultBranch: repository.defaultBranch,
   };
@@ -457,6 +459,7 @@ async function prepareWorkersBuildsForGitHub(
 ): Promise<{
   connection: CloudflareActionConnection;
   context: WorkerConfigurationContext;
+  githubAccessToken: string;
   githubOwnerId: string;
   githubDefaultBranch: string;
   buildConfig: CloudflareBuildConfig;
@@ -479,16 +482,36 @@ async function prepareWorkersBuildsForGitHub(
   return {
     connection,
     context,
+    githubAccessToken,
     githubOwnerId: repository.ownerId,
     githubDefaultBranch: repository.defaultBranch,
     buildConfig: toCloudflareBuildConfig(args.rootDirectory),
   };
 }
 
+async function readInitialBuildCommitHash(args: {
+  githubAccessToken: string;
+  owner: string;
+  repo: string;
+  expectedRepoId: string;
+  expectedDefaultBranch: string;
+}): Promise<string> {
+  const repository = await fetchGitHubDefaultBranchHead({
+    githubAccessToken: args.githubAccessToken,
+    owner: args.owner,
+    repo: args.repo,
+    expectedRepoId: args.expectedRepoId,
+  });
+  if (repository.defaultBranch !== args.expectedDefaultBranch) {
+    throw new Error("GitHub default branch changed while Samebase configured Workers Builds.");
+  }
+  return repository.commitSha;
+}
+
 async function configurePreparedWorkersBuildsForGitHub(
   args: {
     vaultId: Id<"vaults">;
-    triggerInitialBuild: boolean;
+    initialBuild: "deferred" | "requested";
     existingBuilds: "preserve_repository" | "require_unconnected";
     beforeProviderWrite?: () => void | Promise<void>;
   },
@@ -501,7 +524,20 @@ async function configurePreparedWorkersBuildsForGitHub(
     ghRepoId: context.ghRepoId,
     ghRepoOwnerId: prepared.githubOwnerId,
     defaultBranch: prepared.githubDefaultBranch,
-    triggerInitialBuild: args.triggerInitialBuild,
+    initialBuild:
+      args.initialBuild === "deferred"
+        ? { state: "deferred" }
+        : {
+            state: "requested",
+            readCommitHash: async () =>
+              await readInitialBuildCommitHash({
+                githubAccessToken: prepared.githubAccessToken,
+                owner: context.owner,
+                repo: context.name,
+                expectedRepoId: context.ghRepoId,
+                expectedDefaultBranch: prepared.githubDefaultBranch,
+              }),
+          },
     vaultId: args.vaultId,
     workerName: context.workerName,
     workerTag: context.workerTag,
@@ -519,7 +555,7 @@ async function configureResolvedWorkersBuildsForGitHub(
   args: {
     vaultId: Id<"vaults">;
     rootDirectory: string;
-    triggerInitialBuild: boolean;
+    initialBuild: "deferred" | "requested";
     existingBuilds: "preserve_repository" | "require_unconnected";
     beforeProviderWrite?: () => void | Promise<void>;
   },
@@ -529,7 +565,7 @@ async function configureResolvedWorkersBuildsForGitHub(
   return await configurePreparedWorkersBuildsForGitHub(
     {
       vaultId: args.vaultId,
-      triggerInitialBuild: args.triggerInitialBuild,
+      initialBuild: args.initialBuild,
       existingBuilds: args.existingBuilds,
       beforeProviderWrite: args.beforeProviderWrite,
     },
@@ -541,6 +577,7 @@ async function configureResolvedWorkersBuildsForGitHub(
         workerName: worker.workerName,
         workerTag: worker.workerTag,
       },
+      githubAccessToken: resolved.githubAccessToken,
       githubOwnerId: resolved.githubOwnerId,
       githubDefaultBranch: resolved.githubDefaultBranch,
       buildConfig: toCloudflareBuildConfig(args.rootDirectory),
@@ -562,6 +599,7 @@ async function prepareConvexDeployKeyRotation(
   convexConnection: Awaited<ReturnType<typeof resolveConvexProvisioningConnection>>;
   deployment: NonNullable<Awaited<ReturnType<typeof readConvexProductionDeployment>>>;
   connection: CloudflareActionConnection;
+  githubAccessToken: string;
   repository: Awaited<ReturnType<typeof fetchGitHubRepoIdentity>>;
   build: PreparedCloudflareWorkerBuilds;
   deployKeyNames: ReturnType<typeof buildWorkersBuildsConvexDeployKeyNames>;
@@ -626,6 +664,7 @@ async function prepareConvexDeployKeyRotation(
     convexConnection,
     deployment,
     connection,
+    githubAccessToken,
     repository,
     build,
     deployKeyNames: buildWorkersBuildsConvexDeployKeyNames({
@@ -642,8 +681,16 @@ async function rotatePreparedConvexDeployKeys(
   },
   prepared: Awaited<ReturnType<typeof prepareConvexDeployKeyRotation>>,
 ): Promise<void> {
-  const { context, convexConnection, deployment, connection, repository, build, deployKeyNames } =
-    prepared;
+  const {
+    context,
+    convexConnection,
+    deployment,
+    connection,
+    githubAccessToken,
+    repository,
+    build,
+    deployKeyNames,
+  } = prepared;
   const project = context.convexProject;
   await Promise.all([
     (async () => {
@@ -695,6 +742,14 @@ async function rotatePreparedConvexDeployKeys(
   try {
     await rotateConvexDeployKeysForCloudflareWorkerBuilds({
       defaultBranch: repository.defaultBranch,
+      readInitialBuildCommitHash: async () =>
+        await readInitialBuildCommitHash({
+          githubAccessToken,
+          owner: context.owner,
+          repo: context.name,
+          expectedRepoId: context.ghRepoId,
+          expectedDefaultBranch: repository.defaultBranch,
+        }),
       expectedRepoId: context.ghRepoId,
       repositoryFullName: `${context.owner}/${context.name}`,
       rootDirectory: build.rootDirectory,
@@ -817,7 +872,7 @@ export async function configureWorkersBuildsForGitHubForUser(
     await configurePreparedWorkersBuildsForGitHub(
       {
         vaultId: args.vaultId,
-        triggerInitialBuild: true,
+        initialBuild: "requested",
         existingBuilds: "preserve_repository",
         beforeProviderWrite: () => {
           requireManualProviderActionDeadline(claim.deadlineAt);
@@ -978,7 +1033,7 @@ async function connectWorkerForUser(
       {
         vaultId: args.vaultId,
         rootDirectory: buildConfig.rootDir,
-        triggerInitialBuild: true,
+        initialBuild: "requested",
         existingBuilds: "require_unconnected",
         beforeProviderWrite: () => {
           requireManualProviderActionDeadline(claim.deadlineAt);
@@ -1163,7 +1218,7 @@ async function createWorkerForUser(
       {
         vaultId: args.vaultId,
         rootDirectory: buildConfig.rootDir,
-        triggerInitialBuild: true,
+        initialBuild: "requested",
         existingBuilds: "require_unconnected",
         beforeProviderWrite: () => requireManualProviderActionDeadline(claim.deadlineAt),
       },
@@ -1325,7 +1380,7 @@ export const configureWorkersBuildsForGitHubForWorkflow = internalAction({
     const build = await configurePreparedWorkersBuildsForGitHub(
       {
         vaultId,
-        triggerInitialBuild: false,
+        initialBuild: "deferred",
         existingBuilds: "preserve_repository",
       },
       prepared,

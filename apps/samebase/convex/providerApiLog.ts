@@ -56,6 +56,7 @@ const PII_KEY_MARKERS = [
   "vault",
   "worker",
 ];
+const PII_EXACT_KEYS = ["commithash", "ref"];
 
 function normalizeKey(key: string): string {
   return key.replace(/[^a-z0-9]/gi, "").toLowerCase();
@@ -71,7 +72,8 @@ function isSecretKey(key: string): boolean {
 }
 
 function isPiiKey(key: string): boolean {
-  return keyHasMarker(key, PII_KEY_MARKERS);
+  const normalized = normalizeKey(key);
+  return PII_EXACT_KEYS.includes(normalized) || keyHasMarker(normalized, PII_KEY_MARKERS);
 }
 
 function shouldRedactString(value: string): boolean {
