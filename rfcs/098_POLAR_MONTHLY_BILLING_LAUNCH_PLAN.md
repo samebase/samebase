@@ -25,8 +25,9 @@ The repository has an old Polar scaffold, but billing is not ready for a custome
 - [ ] Billing state is safe for duplicate, out-of-order, invalid, and malformed events.
 - [ ] The account page shows plan, usage, billing dates, and the correct action.
 - [ ] The public pricing page shows the accepted Free and Pro offer.
-- [ ] All Worker and Convex project attachment paths enforce 5 and 40.
-- [ ] Automated tests cover the billing lifecycle and quota boundaries.
+- [x] All Worker and Convex project attachment paths enforce 5 and 40.
+- [ ] Automated tests cover the billing lifecycle and quota boundaries. Quota boundaries are
+      complete; billing lifecycle coverage is in progress.
 - [ ] A complete local Polar Sandbox flow has passed.
 - [ ] Production configuration and the first real checkout are complete.
 
@@ -68,11 +69,11 @@ Old specs 033 and 034 are historical input. They do not override the accepted co
 
 ### 3. Resource limits
 
-- [ ] Count authoritative Worker and Convex project attachments separately.
-- [ ] Enforce the active plan limit in every server attachment path.
-- [ ] Make concurrent attachment attempts safe.
-- [ ] Keep existing over-limit resources usable after downgrade.
-- [ ] Return one clear limit error for the UI.
+- [x] Count authoritative Worker and Convex project attachments separately.
+- [x] Enforce the active plan limit in every server attachment path.
+- [x] Make concurrent and multi-resource attachment attempts transactional.
+- [x] Keep existing over-limit resources usable after downgrade.
+- [x] Return one clear limit error for the UI.
 
 ### 4. Customer UI
 
@@ -89,8 +90,8 @@ Old specs 033 and 034 are historical input. They do not override the accepted co
 - [ ] Test successful checkout request construction without calling Polar.
 - [ ] Test signed, duplicate, out-of-order, invalid, and malformed webhooks.
 - [ ] Test active, canceled-at-period-end, payment recovery, and ended entitlement states.
-- [ ] Test 5/6 and 40/41 boundaries for both resource types.
-- [ ] Test downgrade while above the Free limit.
+- [x] Test 5/6 and 40/41 boundaries for both resource types.
+- [x] Test downgrade while above the Free limit.
 - [ ] Test account billing UI states and actions.
 - [ ] Run the repository validation commands required by the changed surfaces.
 - [ ] Complete independent backend, quota, frontend, and security reviews.
@@ -155,3 +156,8 @@ After a context compaction or handoff:
 7. Leave all production changes until the Production Gate.
 8. Stop for operator input only when access, a secret, production approval, or a new product
    decision is required.
+
+## Integrated Checkpoints
+
+- `089474ac`: accepted monthly billing contract and launch tracker.
+- `6bde3c9c3`: server-side Worker and Convex project quotas, usage query, and quota tests.
