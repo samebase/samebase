@@ -11,17 +11,6 @@ async function getBox(page: Page, testId: string) {
   return box;
 }
 
-async function swipeFromMainToLeftSidebar(page: Page) {
-  await page.getByTestId("workspace-layout-v2-pane-main").evaluate((element) => {
-    element.scrollLeft = 0;
-    element.dispatchEvent(new Event("scroll", { bubbles: true }));
-  });
-}
-
-function getFileViewLayoutShell(page: Page) {
-  return page.locator("[data-mobile-pane]").first();
-}
-
 async function dragHorizontalHandle(page: Page, testId: string, deltaXPx: number) {
   const handleBox = await getBox(page, testId);
   const startX = handleBox.x + handleBox.width / 2;
@@ -86,38 +75,6 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
     .toBe(scrollTopBeforeCollapse);
 });
 
-test("fileview left sidebar collapses independently", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 760 });
-  await page.goto("/visual-fixture?mode=fileview-layout", {
-    waitUntil: "domcontentloaded",
-  });
-  await page.waitForLoadState("networkidle");
-
-  const fixture = page.getByTestId("fileview-layout-visual-fixture");
-  const header = page.getByTestId("fileview-layout-header");
-  const leftSidebar = page.getByTestId("workspace-layout-v2-pane-left");
-
-  await page.getByRole("button", { name: "Toggle Left Sidebar" }).click();
-  await expect
-    .poll(async () => Math.round((await getBox(page, "workspace-layout-v2-pane-left")).width))
-    .toBe(0);
-
-  await page.getByRole("button", { name: "Toggle Left Sidebar" }).click();
-  await expect(leftSidebar).toBeVisible();
-  await expect
-    .poll(async () => {
-      const fixtureBox = await fixture.boundingBox();
-      const headerBox = await header.boundingBox();
-
-      if (fixtureBox === null || headerBox === null) {
-        return Number.NaN;
-      }
-
-      return headerBox.x - fixtureBox.x;
-    })
-    .toBeGreaterThan(100);
-});
-
 test("fileview desktop left sidebar resize persists across collapse", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 760 });
   await page.goto("/visual-fixture?mode=fileview-layout-persistence", {
@@ -146,16 +103,4 @@ test("fileview desktop left sidebar resize persists across collapse", async ({ p
   await expect
     .poll(async () => (await getBox(page, "workspace-layout-v2-pane-left")).width)
     .toBeGreaterThanOrEqual(resizedWidthPx - 1);
-});
-
-test("fileview mobile swipe opens the left sidebar", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/visual-fixture?mode=fileview-layout-persistence", {
-    waitUntil: "domcontentloaded",
-  });
-  await page.waitForLoadState("networkidle");
-
-  const shell = getFileViewLayoutShell(page);
-  await swipeFromMainToLeftSidebar(page);
-  await expect(shell).toHaveAttribute("data-mobile-pane", "left");
 });

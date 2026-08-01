@@ -309,6 +309,17 @@ describe("PasswordAuthForm", () => {
     if (!(autofillButton instanceof HTMLButtonElement)) {
       throw new Error("Autofill button not found");
     }
+    const emailInput = rootElement.querySelector('input[type="email"]');
+    const passwordInput = rootElement.querySelector('input[type="password"]');
+    if (!(emailInput instanceof HTMLInputElement)) {
+      throw new Error("Email input not found");
+    }
+    if (!(passwordInput instanceof HTMLInputElement)) {
+      throw new Error("Password input not found");
+    }
+
+    expect(emailInput.value).toBe("");
+    expect(passwordInput.value).toBe("");
 
     await act(async () => {
       autofillButton.click();
@@ -317,6 +328,8 @@ describe("PasswordAuthForm", () => {
     expect(rootElement.textContent).toContain(
       "Autofill is only available from the worktree dev server. Restart with pnpm dev:worktree and reload.",
     );
+    expect(emailInput.value).toBe("");
+    expect(passwordInput.value).toBe("");
     expect(signInWithPasswordMock).not.toHaveBeenCalled();
   });
 

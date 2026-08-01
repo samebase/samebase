@@ -295,6 +295,9 @@ test("fileview mobile carousel moves between left, main, and right panes", async
 
   await scrollFileViewCarouselToPane(page, "left");
   await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(1);
+  await expect(page.getByTestId("fileview-layout-counter-button")).toBeVisible();
+  await expect(page.getByTestId("fileview-layout-sidebar-scroll")).toBeVisible();
+  await expect(page.getByText("Upload area")).toBeVisible();
 
   await scrollFileViewCarouselToPane(page, "main");
   await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(0);
@@ -340,16 +343,6 @@ test("fileview mobile resize grip waits for the carousel to settle", async ({ pa
 
   await scrollFileViewCarouselToPane(page, "left");
   await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(1);
-});
-
-test("fileview mobile left sidebar exposes file tree controls", async ({ page }) => {
-  await gotoFileViewFixture(page);
-
-  await scrollFileViewCarouselToPane(page, "left");
-
-  await expect(page.getByTestId("fileview-layout-counter-button")).toBeVisible();
-  await expect(page.getByTestId("fileview-layout-sidebar-scroll")).toBeVisible();
-  await expect(page.getByText("Upload area")).toBeVisible();
 });
 
 test("fileview mobile sidebar minimum uses the configured mobile pane width", async ({ page }) => {

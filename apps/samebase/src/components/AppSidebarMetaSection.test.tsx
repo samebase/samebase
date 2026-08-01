@@ -170,6 +170,23 @@ describe("AppSidebarMetaSection", () => {
       ]);
       unmountSidebarMetaSection();
     }
+
+    const recoverableErrors = await hydrateSidebarMetaSectionFromServerMarkup({
+      serverEntry: "/localStorage",
+      clientEntry: "/localStorage?dev",
+    });
+
+    expect(recoverableErrors).toEqual([]);
+    if (!rootElement) {
+      throw new Error("Expected the hydrated sidebar.");
+    }
+
+    expect(readSidebarLinkLabels(rootElement)).toEqual([
+      "?reset",
+      "/terms",
+      "/privacy",
+      "/landing",
+    ]);
   });
 
   it("omits the landing preview path link and language shortcut", async () => {

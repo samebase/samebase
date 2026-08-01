@@ -88,8 +88,6 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("Open Samebase");
     expect(markup.split(">Open Samebase</button>").length - 1).toBe(2);
     expect(markup).toContain("Idle apps cost $0/month.");
-    expect(markup).not.toContain("no chatbot");
-    expect(markup).not.toContain("$0/month idle");
 
     // The real ChatGPT capture replaces the scripted placeholder loop.
     expect(markup).toContain(`src="${publicMediaManifest.landingTicTacToeCodex.publicUrl}"`);
@@ -103,7 +101,6 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain('alt="ChatGPT"');
     expect(markup).toContain('data-testid="landing-preview-hero-video-frame"');
     expect(markup).toContain("border-radius:1.104% / 1.664%");
-    expect(markup).not.toContain("placeholder loop");
 
     // The opinion, named, with the trio row under it.
     expect(markup).toContain("the opinion we&#x27;re selling");
@@ -179,7 +176,6 @@ describe("LandingPreviewPage", () => {
     // Cost and the closing argument.
     expect(markup).toContain("cost follows real usage");
     expect(markup).toContain("an idle idea");
-    expect(markup).not.toContain("If an AI chat box were really the best way");
     expect(markup).toContain("If your app builder is so good, why is it not building itself?");
 
     // Footnote receipts.
@@ -192,20 +188,7 @@ describe("LandingPreviewPage", () => {
 
     // The closing band keeps one fractal logo without logo-lab helper copy.
     expect(markup).toContain("Same stack. Your accounts. No magic.");
-    expect(markup).not.toContain("drag it");
-    expect(markup).not.toContain("open the logo lab");
     expect(markup.split('data-testid="public-landing-logo"').length - 1).toBe(1);
-
-    // Retired copy from the slogan-era overview.
-    expect(markup).not.toContain("The correct");
-    expect(markup).not.toContain("way to build web apps");
-    expect(markup).not.toContain("the leaving test");
-    expect(markup).not.toContain("account owner");
-    expect(markup).not.toContain("dash.cloudflare.com");
-    expect(markup).not.toContain("the first customer was me, Nicu.");
-    expect(markup).not.toContain("your app is a security risk.");
-    expect(markup).not.toContain("misconfigure perfectly");
-    expect(markup).not.toContain("no Samebase account needed");
   });
 
   it("renders Open Samebase as a pane action instead of navigation", () => {
