@@ -137,7 +137,7 @@ describe("VaultOverviewSidebar direct folder actions", () => {
     const onSetVaultFolderCollapsed = vi.fn(async () => {});
     const container = await renderSidebar(folderCallbacks(onSetVaultFolderCollapsed));
     const collapseButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Expand Fixtures"]',
+      'button[aria-label="Expand Fixtures, 1 vault"]',
     );
     const folderName = [...(collapseButton?.querySelectorAll("span") ?? [])].find(
       (span) => span.textContent === "Fixtures",
@@ -159,7 +159,7 @@ describe("VaultOverviewSidebar direct folder actions", () => {
     const onSetVaultFolderCollapsed = vi.fn(async () => request.promise);
     const container = await renderSidebar(folderCallbacks(onSetVaultFolderCollapsed));
     const collapseButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Expand Fixtures"]',
+      'button[aria-label="Expand Fixtures, 1 vault"]',
     );
     if (!collapseButton) {
       throw new Error("Expand folder button not found");
@@ -183,7 +183,7 @@ describe("VaultOverviewSidebar direct folder actions", () => {
     );
     const container = await renderSidebar(folderCallbacks(onSetVaultFolderCollapsed));
     const collapseButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Expand Fixtures"]',
+      'button[aria-label="Expand Fixtures, 1 vault"]',
     );
     if (!collapseButton) {
       throw new Error("Expand folder button not found");

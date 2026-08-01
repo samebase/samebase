@@ -135,7 +135,8 @@ describe("VaultOverviewSidebar folders", () => {
     expect(ungroupedPosition).toBeLessThan(fixturesPosition);
     expect(fixturesPosition).toBeLessThan(activePosition);
     expect(ungroupedPosition).toBeLessThan(activePosition);
-    expect(markup).toContain('aria-label="Fixtures has hidden failures"');
+    expect(markup).toContain('aria-label="Expand Fixtures, 1 vault, has hidden failures"');
+    expect(markup).toContain('aria-hidden="true"');
     expect(markup).not.toContain("samebase/fixture, Needs attention");
     expect(markup).toContain("samebase/active, Loading checks");
     expect(markup).toContain("samebase/other, Loading checks");
@@ -164,8 +165,8 @@ describe("VaultOverviewSidebar folders", () => {
       workspace: null,
     });
 
-    expect(markup).toContain('aria-label="Active"');
-    expect(markup).toContain('aria-label="Fixtures"');
+    expect(markup).toContain('aria-label="Collapse Active"');
+    expect(markup).toContain('aria-label="Collapse Fixtures"');
     expect(markup).not.toContain('aria-label="Ungrouped"');
   });
 
@@ -195,13 +196,53 @@ describe("VaultOverviewSidebar folders", () => {
       workspace: null,
     });
 
-    expect(markup).toContain('aria-label="Expand Active"');
+    expect(markup).toContain('aria-label="Expand Active, 2 vaults, has hidden failures"');
     expect(markup).toContain('aria-expanded="false"');
     expect(markup).toContain('aria-label="Active, contains current vault"');
     expect(markup).toContain("flex min-w-0 items-center bg-muted px-1 py-1");
-    expect(markup).toContain('aria-label="Active has hidden failures"');
     expect(markup).not.toContain("samebase/active, Loading checks");
     expect(markup).not.toContain("samebase/fixture, Needs attention");
     expect(markup).not.toContain('aria-current="page"');
+  });
+
+  it("does not report stale check failure while a collapsed vault setup is running", () => {
+    const settingUp = vault("fixture", fakeVaultId("vault-fixture"), {
+      status: "running",
+      runId: fakeRunId("run-fixture"),
+      step: "sync_tree",
+      updatedAt: 1,
+    });
+    const folderId = fakeFolderId("folder-fixtures");
+    const markup = renderSidebar({
+      folderState: {
+        assignments: [{ folderId, vaultId: settingUp._id }],
+        folders: [{ _id: folderId, collapsed: true, name: "Fixtures", position: 0 }],
+      },
+      page: "overview",
+      selectedVaultId: null,
+      sidebarSummaries: {
+        state: "loaded",
+        summaries: [
+          {
+            vaultId: settingUp._id,
+            checks: {
+              state: "failure",
+              totalCount: 1,
+              successCount: 0,
+              failureCount: 1,
+              runningCount: 0,
+              neutralCount: 0,
+              unknownCount: 0,
+            },
+          },
+        ],
+      },
+      vaults: [settingUp],
+      workspace: null,
+    });
+
+    expect(markup).toContain('aria-label="Expand Fixtures, 1 vault"');
+    expect(markup).not.toContain("has hidden failures");
+    expect(markup).not.toContain("bg-red-500");
   });
 });

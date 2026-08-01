@@ -70,27 +70,17 @@ function checkStateDotClassName(state: RepositoryCheckSummary["state"]): string 
   return "h-2 w-2 rounded-full bg-muted-foreground/60";
 }
 
+type VaultSidebarStatus =
+  | { kind: "dot" | "failure"; dotClassName: string; label: string }
+  | { kind: "workflow"; label: string };
+
 function vaultSidebarStatus(args: {
   sidebarSummaries: VaultSidebarSummariesState;
   summary: VaultSidebarSummary | undefined;
   selected: boolean;
   vault: UserVaultResult;
   workspace: VaultWorkspaceSelected | null;
-}): { kind: "dot"; dotClassName: string; label: string } | { kind: "workflow"; label: string } {
-  if (args.vault.deletion.state === "delete_failed") {
-    return {
-      kind: "dot",
-      dotClassName: "h-2 w-2 rounded-full bg-red-500",
-      label: "Delete failed",
-    };
-  }
-  if (args.vault.sourceSetup.status === "failed" || args.vault.providerSetup.status === "failed") {
-    return {
-      kind: "dot",
-      dotClassName: "h-2 w-2 rounded-full bg-red-500",
-      label: "Needs attention",
-    };
-  }
+}): VaultSidebarStatus {
   if (args.vault.deletion.state === "deleting") {
     return { kind: "workflow", label: "Deleting" };
   }
@@ -100,25 +90,34 @@ function vaultSidebarStatus(args: {
   ) {
     return { kind: "workflow", label: "Setting up" };
   }
-  if (
+  if (args.vault.deletion.state === "delete_failed") {
+    return {
+      kind: "failure",
+      dotClassName: "h-2 w-2 rounded-full bg-red-500",
+      label: "Delete failed",
+    };
+  }
+  if (args.vault.sourceSetup.status === "failed" || args.vault.providerSetup.status === "failed") {
+    return {
+      kind: "failure",
+      dotClassName: "h-2 w-2 rounded-full bg-red-500",
+      label: "Needs attention",
+    };
+  }
+  const checks =
     args.selected &&
     args.workspace &&
     (args.workspace.pullRequests.state === "current" ||
       args.workspace.pullRequests.state === "stale") &&
     args.workspace.pullRequests.defaultBranch
-  ) {
-    const checks = args.workspace.pullRequests.defaultBranch.checks;
+      ? args.workspace.pullRequests.defaultBranch.checks
+      : args.summary?.checks;
+
+  if (checks) {
     return {
-      kind: "dot",
+      kind: checks.state === "failure" ? "failure" : "dot",
       dotClassName: checkStateDotClassName(checks.state),
       label: formatRepositoryCheckSummary(checks),
-    };
-  }
-  if (args.summary) {
-    return {
-      kind: "dot",
-      dotClassName: checkStateDotClassName(args.summary.checks.state),
-      label: formatRepositoryCheckSummary(args.summary.checks),
     };
   }
   if (args.sidebarSummaries.state === "failed" || args.sidebarSummaries.state === "loaded") {
@@ -133,28 +132,6 @@ function vaultSidebarStatus(args: {
     dotClassName: "h-2 w-2 rounded-full bg-muted-foreground/50",
     label: "Loading checks",
   };
-}
-
-function isVaultFailure(args: Parameters<typeof vaultSidebarStatus>[0]): boolean {
-  if (
-    args.vault.deletion.state === "delete_failed" ||
-    args.vault.sourceSetup.status === "failed" ||
-    args.vault.providerSetup.status === "failed"
-  ) {
-    return true;
-  }
-
-  if (
-    args.selected &&
-    args.workspace &&
-    (args.workspace.pullRequests.state === "current" ||
-      args.workspace.pullRequests.state === "stale") &&
-    args.workspace.pullRequests.defaultBranch
-  ) {
-    return args.workspace.pullRequests.defaultBranch.checks.state === "failure";
-  }
-
-  return args.summary?.checks.state === "failure";
 }
 
 function VaultRow({
@@ -369,16 +346,23 @@ export function VaultOverviewSidebar({
               const folderVaults = vaultsByFolderId.get(folder._id) ?? [];
               const selectedVault = folderVaults.find((vault) => vault._id === selectedVaultId);
               const visibleVaults = folder.collapsed ? [] : folderVaults;
-              const hiddenVaults = folder.collapsed ? folderVaults : [];
-              const hasHiddenFailure = hiddenVaults.some((vault) =>
-                isVaultFailure({
-                  selected: vault._id === selectedVaultId,
-                  sidebarSummaries,
-                  summary: summaryByVaultId.get(vault._id),
-                  vault,
-                  workspace,
-                }),
-              );
+              const hasHiddenFailure =
+                folder.collapsed &&
+                folderVaults.some(
+                  (vault) =>
+                    vaultSidebarStatus({
+                      selected: vault._id === selectedVaultId,
+                      sidebarSummaries,
+                      summary: summaryByVaultId.get(vault._id),
+                      vault,
+                      workspace,
+                    }).kind === "failure",
+                );
+              const disclosureLabel = folder.collapsed
+                ? `Expand ${folder.name}, ${folderVaults.length} ${
+                    folderVaults.length === 1 ? "vault" : "vaults"
+                  }${hasHiddenFailure ? ", has hidden failures" : ""}`
+                : `Collapse ${folder.name}`;
 
               return (
                 <section
@@ -398,7 +382,7 @@ export function VaultOverviewSidebar({
                   >
                     <Button
                       aria-expanded={!folder.collapsed}
-                      aria-label={`${folder.collapsed ? "Expand" : "Collapse"} ${folder.name}`}
+                      aria-label={disclosureLabel}
                       className="h-10 min-w-0 flex-1 shrink justify-start gap-0 p-0 font-normal whitespace-normal aria-expanded:bg-transparent @max-[120px]:h-8"
                       disabled={pendingAction !== null}
                       type="button"
@@ -424,10 +408,7 @@ export function VaultOverviewSidebar({
                         </span>
                       ) : null}
                       {hasHiddenFailure ? (
-                        <span
-                          aria-label={`${folder.name} has hidden failures`}
-                          className="h-2 w-2 rounded-full bg-red-500"
-                        />
+                        <span aria-hidden="true" className="h-2 w-2 rounded-full bg-red-500" />
                       ) : null}
                     </Button>
                     <DropdownMenu>
