@@ -20,7 +20,7 @@ import { buildVaultDashboardRoute, buildVaultSettingsRoute } from "@/lib/vaultRo
 import { Link } from "@tanstack/react-router";
 import type { ReactMutation } from "convex/react";
 import type { FunctionReference } from "convex/server";
-import { ChevronDown, ChevronRight, Loader2, MoreHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight, EllipsisVertical, Loader2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -136,6 +136,7 @@ function vaultSidebarStatus(args: {
 
 function VaultRow({
   folderState,
+  inFolder,
   pending,
   onDirectAction,
   page,
@@ -147,6 +148,7 @@ function VaultRow({
   onMoveVaultToFolder,
 }: {
   folderState: VaultFolderState;
+  inFolder: boolean;
   pending: boolean;
   onDirectAction: (action: () => Promise<unknown>) => void;
   onMoveVaultToFolder: VaultFolderCallbacks["onMoveVaultToFolder"];
@@ -167,7 +169,11 @@ function VaultRow({
       <Link
         aria-current={selected ? "page" : undefined}
         aria-label={`${vault.repositoryFullName}, ${status.label}`}
-        className="block min-w-0 flex-1 px-3 py-2.5 text-left no-underline hover:no-underline @max-[200px]:px-2 @max-[120px]:px-1"
+        className={
+          inFolder
+            ? "block min-w-0 flex-1 py-2.5 pr-3 pl-6 text-left no-underline hover:no-underline @max-[200px]:pr-2 @max-[200px]:pl-5 @max-[120px]:pr-1 @max-[120px]:pl-4"
+            : "block min-w-0 flex-1 px-3 py-2.5 text-left no-underline hover:no-underline @max-[200px]:px-2 @max-[120px]:px-1"
+        }
         data-vault-status={status.label}
         title={vault.repositoryFullName}
         to={repositoryRoute(vault, page)}
@@ -196,13 +202,13 @@ function VaultRow({
           <DropdownMenuTrigger asChild nativeButton>
             <Button
               aria-label={`Actions for ${vault.repositoryFullName}`}
-              className="mt-2 mr-1 size-10 shrink-0 @max-[120px]:size-8"
+              className="mt-2 mr-1 h-10 w-8 shrink-0 @max-[120px]:h-8 @max-[120px]:w-7"
               disabled={pending}
               size="icon"
               type="button"
               variant="ghost"
             >
-              <MoreHorizontal />
+              <EllipsisVertical />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
@@ -311,10 +317,11 @@ export function VaultOverviewSidebar({
       });
   }
 
-  function renderVault(vault: UserVaultResult) {
+  function renderVault(vault: UserVaultResult, inFolder: boolean) {
     return (
       <VaultRow
         folderState={folderState}
+        inFolder={inFolder}
         key={vault._id}
         pending={pendingAction !== null}
         page={page}
@@ -333,15 +340,10 @@ export function VaultOverviewSidebar({
     <>
       <nav aria-label="Vaults" className="@container min-h-full py-2">
         {folderState.folders.length === 0 ? (
-          vaults.map(renderVault)
+          vaults.map((vault) => renderVault(vault, false))
         ) : (
           <>
-            {ungroupedVaults.length > 0 ? (
-              <section aria-label="Ungrouped">
-                <div className="px-3 py-1 text-sm font-medium">Ungrouped</div>
-                {ungroupedVaults.map(renderVault)}
-              </section>
-            ) : null}
+            {ungroupedVaults.map((vault) => renderVault(vault, false))}
             {folderState.folders.map((folder, index) => {
               const folderVaults = vaultsByFolderId.get(folder._id) ?? [];
               const selectedVault = folderVaults.find((vault) => vault._id === selectedVaultId);
@@ -396,17 +398,15 @@ export function VaultOverviewSidebar({
                         )
                       }
                     >
-                      <span className="flex w-10 shrink-0 items-center justify-center @max-[120px]:w-8">
+                      <span className="flex w-5 shrink-0 items-center justify-center @max-[120px]:w-4">
                         {folder.collapsed ? <ChevronRight /> : <ChevronDown />}
                       </span>
                       <span className="min-w-0 flex-1 truncate text-left text-sm font-medium">
                         {folder.name}
                       </span>
-                      {folder.collapsed ? (
-                        <span className="px-2 text-xs text-muted-foreground @max-[120px]:hidden">
-                          {folderVaults.length}
-                        </span>
-                      ) : null}
+                      <span className="px-2 text-xs text-muted-foreground @max-[120px]:hidden">
+                        {folderVaults.length}
+                      </span>
                       {hasHiddenFailure ? (
                         <span aria-hidden="true" className="h-2 w-2 rounded-full bg-red-500" />
                       ) : null}
@@ -415,13 +415,13 @@ export function VaultOverviewSidebar({
                       <DropdownMenuTrigger asChild nativeButton>
                         <Button
                           aria-label={`Actions for folder ${folder.name}`}
-                          className="size-10 @max-[120px]:size-8"
+                          className="h-10 w-8 @max-[120px]:h-8 @max-[120px]:w-7"
                           disabled={pendingAction !== null}
                           size="icon"
                           type="button"
                           variant="ghost"
                         >
-                          <MoreHorizontal />
+                          <EllipsisVertical />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-40">
@@ -465,7 +465,7 @@ export function VaultOverviewSidebar({
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                  {visibleVaults.map(renderVault)}
+                  {visibleVaults.map((vault) => renderVault(vault, true))}
                 </section>
               );
             })}

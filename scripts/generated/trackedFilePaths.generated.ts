@@ -560,6 +560,7 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-delete-dialog-mobile.png",
   "apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-desktop.png",
   "apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-folders-desktop.png",
+  "apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-folders-expanded.png",
   "apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-folders-minimum-sidebar.png",
   "apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-folders-mobile.png",
   "apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-loading-mobile.png",

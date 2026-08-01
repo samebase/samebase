@@ -54,13 +54,26 @@ async function openVaultOverviewV2(
   return fixture;
 }
 
-async function expectUngroupedBeforeFolders(vaultNavigation: Locator) {
-  await expect(vaultNavigation.locator('section[aria-label="Ungrouped"]')).toBeVisible();
+async function expectUngroupedVaultsBeforeFolders(vaultNavigation: Locator) {
+  await expect(vaultNavigation.getByText("Ungrouped", { exact: true })).toHaveCount(0);
+  const ungroupedVaultPrecedesFolders = await vaultNavigation.evaluate((navigation) => {
+    const ungroupedVault = navigation.querySelector('a[title="noter/guestbook"]');
+    const firstFolder = navigation.querySelector('section[aria-label="Fixtures"]');
+
+    return (
+      ungroupedVault !== null &&
+      firstFolder !== null &&
+      Boolean(
+        ungroupedVault.compareDocumentPosition(firstFolder) & Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+    );
+  });
   const folderLabels = await vaultNavigation
     .locator("section")
     .evaluateAll((sections) => sections.map((section) => section.getAttribute("aria-label")));
 
-  expect(folderLabels).toEqual(["Ungrouped", "Fixtures", "Active, contains current vault"]);
+  expect(ungroupedVaultPrecedesFolders).toBe(true);
+  expect(folderLabels).toEqual(["Fixtures", "Active, contains current vault"]);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -120,7 +133,7 @@ test("shows shallow vault folders on desktop", async ({ page }) => {
   await expect(
     vaultNavigation.getByRole("link", { name: "samebase/dashboard, 4/4 passed", exact: true }),
   ).toHaveCount(0);
-  await expectUngroupedBeforeFolders(vaultNavigation);
+  await expectUngroupedVaultsBeforeFolders(vaultNavigation);
   await expect(fixture).toHaveScreenshot("vault-overview-v2-folders-desktop.png", {
     animations: "disabled",
     caret: "hide",
@@ -138,12 +151,19 @@ test("shows shallow vault folders on desktop", async ({ page }) => {
     name: "Collapse Fixtures",
   });
   await expect(expandedFixtures).toHaveAttribute("aria-expanded", "true");
+  await expect(expandedFixtures.getByText("1", { exact: true })).toBeVisible();
   await expect(
     vaultNavigation.getByRole("link", {
       name: "samebase/integration-fixture, 1/1 failed",
       exact: true,
     }),
   ).toBeVisible();
+  await expect(vaultNavigation).toHaveScreenshot("vault-overview-v2-folders-expanded.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
 
   const folderActions = vaultNavigation.getByRole("button", {
     name: "Actions for folder Fixtures",
@@ -181,7 +201,7 @@ test("shows shallow vault folders on mobile", async ({ page }) => {
     VAULT_OVERVIEW_V2_FOLDERS_MOBILE_SIDEBAR_STATE,
   );
 
-  await expectUngroupedBeforeFolders(fixture.getByRole("navigation", { name: "Vaults" }));
+  await expectUngroupedVaultsBeforeFolders(fixture.getByRole("navigation", { name: "Vaults" }));
 
   await expect(fixture).toHaveScreenshot("vault-overview-v2-folders-mobile.png", {
     animations: "disabled",
@@ -207,7 +227,7 @@ test("preserves folder identity at the minimum sidebar width", async ({ page }) 
     }),
   ).toBeVisible();
   await expect(fixture.getByRole("button", { name: "New folder", exact: true })).toBeVisible();
-  await expectUngroupedBeforeFolders(vaultNavigation);
+  await expectUngroupedVaultsBeforeFolders(vaultNavigation);
   await expect(vaultNavigation).toHaveScreenshot("vault-overview-v2-folders-minimum-sidebar.png", {
     animations: "disabled",
     caret: "hide",

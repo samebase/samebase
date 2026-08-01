@@ -94,7 +94,7 @@ describe("VaultOverviewSidebar folders", () => {
     expect(markup).not.toContain("Ungrouped");
   });
 
-  it("orders Ungrouped before folders and signals failures hidden by collapse", () => {
+  it("orders ungrouped vaults before folders and signals failures hidden by collapse", () => {
     const fixtureVaults = [
       vault("fixture", fakeVaultId("vault-fixture"), {
         status: "failed",
@@ -126,10 +126,10 @@ describe("VaultOverviewSidebar folders", () => {
       workspace: null,
     });
 
-    expect(markup).toContain("Ungrouped");
+    expect(markup).not.toContain("Ungrouped");
     expect(markup).toContain("Fixtures");
     expect(markup).toContain("Active");
-    const ungroupedPosition = markup.indexOf("Ungrouped");
+    const ungroupedPosition = markup.indexOf("samebase/other");
     const fixturesPosition = markup.indexOf("Fixtures");
     const activePosition = markup.indexOf("Active");
     expect(ungroupedPosition).toBeLessThan(fixturesPosition);
