@@ -25,6 +25,7 @@ import type { PullRequestResourceState } from "@/hooks/useVaultPullRequests";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { buildVaultFileRoute } from "@/lib/vaultRoutes";
+import { applyVaultDashboardProviderAddSearch } from "@/routeSearch/root";
 import { Link } from "@tanstack/react-router";
 import {
   CircleCheck,
@@ -556,6 +557,12 @@ function OtherPreviewRow({ preview }: { preview: VaultOtherPreview }) {
           <Link
             aria-label={`Connect ${providerLabel} ${preview.name} in repository settings`}
             className="inline-flex min-h-10 shrink-0 items-center text-sm underline decoration-border underline-offset-4 @4xl:min-h-8"
+            search={(currentSearch) =>
+              applyVaultDashboardProviderAddSearch({
+                currentSearch,
+                provider: "cloudflare",
+              })
+            }
             to={preview.setup.href}
           >
             Connect

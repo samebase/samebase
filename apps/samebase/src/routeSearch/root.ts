@@ -111,6 +111,20 @@ export function clearVaultDashboardQueryDialogSearch(
   return applySearchPatch(currentSearch, VAULT_DASHBOARD_DIALOG_CLEAR_PATCHES[dialog]);
 }
 
+export function applyVaultDashboardProviderAddSearch({
+  currentSearch,
+  provider,
+}: {
+  currentSearch: RootRouteSearch;
+  provider: "cloudflare" | "convex";
+}): RootRouteSearch {
+  return applySearchPatch(currentSearch, {
+    "add-cloudflare": provider === "cloudflare" ? true : null,
+    "add-convex": provider === "convex" ? true : null,
+    delete: null,
+  });
+}
+
 const rootRouteSearchOwnParamMetadata = readRouteSearchParamMetadata(RouteSearchSchema_root);
 
 const rootLogoRouteSearchParamMetadata = mapEntries(

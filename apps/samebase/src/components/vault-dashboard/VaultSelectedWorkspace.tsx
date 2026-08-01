@@ -6,8 +6,8 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { toast } from "@/components/ui/use-toast";
 import {
+  applyVaultDashboardProviderAddSearch,
   clearVaultDashboardQueryDialogSearch,
-  type RootRouteSearch,
   useRootRouteSearch,
   type VaultDashboardQueryDialog,
 } from "@/routeSearch/root";
@@ -22,20 +22,6 @@ import {
   type VaultRepositorySettingsPendingAction,
 } from "./vaultRepositorySettingsState";
 import type { VaultWorkspaceSelected as VaultWorkspace } from "./vaultWorkspaceModel";
-
-function applyVaultDashboardProviderAddSearch({
-  currentSearch,
-  provider,
-}: {
-  currentSearch: RootRouteSearch;
-  provider: "cloudflare" | "convex";
-}): RootRouteSearch {
-  return applySearchPatch(currentSearch, {
-    "add-cloudflare": provider === "cloudflare" ? true : null,
-    "add-convex": provider === "convex" ? true : null,
-    delete: null,
-  });
-}
 
 export function VaultSelectedWorkspace({
   developerToolsVisible,
