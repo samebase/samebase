@@ -89,7 +89,7 @@ describe("LandingPreviewPage", () => {
     expect(markup.split(">Open Samebase</button>").length - 1).toBe(2);
     expect(markup).toContain("Idle apps cost $0/month.");
 
-    // The real ChatGPT capture.
+    // The real ChatGPT capture replaces the scripted placeholder loop.
     expect(markup).toContain(`src="${publicMediaManifest.landingTicTacToeCodex.publicUrl}"`);
     expect(markup).toContain('poster="/landing-preview/tic-tac-toe-codex-poster.webp"');
     expect(markup).toContain("ChatGPT builds and plays a 4x4x4 tic-tac-toe game with Samebase");
@@ -186,7 +186,7 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("The hosting math.");
     expect(markup).toContain("First customer: me, Nicu.");
 
-    // The closing band keeps one fractal logo.
+    // The closing band keeps one fractal logo without logo-lab helper copy.
     expect(markup).toContain("Same stack. Your accounts. No magic.");
     expect(markup.split('data-testid="public-landing-logo"').length - 1).toBe(1);
   });
