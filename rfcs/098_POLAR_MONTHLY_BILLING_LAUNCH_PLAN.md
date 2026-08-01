@@ -38,10 +38,12 @@ The first independent quota review failed on 2026-08-02. The follow-up fix is ac
 - [ ] Keep final transactional attachment checks and safe reservation cleanup.
 - [ ] Report usage above 41 honestly, either as an exact count or an explicit `41+` value.
 
-The first independent backend review found two required race fixes on 2026-08-02:
+The first independent backend review found four required fixes on 2026-08-02:
 
 - [ ] Fence delayed webhooks against a newer canonical reconciliation result.
+- [ ] Remove equal-millisecond webhook ordering ambiguity.
 - [ ] Prevent concurrent or repeated open checkout sessions from creating duplicate subscriptions.
+- [ ] Let pending users manage existing billing, but require approved dashboard access to buy Pro.
 
 Old specs 033 and 034 are historical input. They do not override the accepted contract in spec 118.
 
@@ -133,6 +135,8 @@ Old specs 033 and 034 are historical input. They do not override the accepted co
 - [ ] Complete checkout with Polar's Sandbox test card.
 - [ ] Confirm that a signed webhook changes Free to Pro without a database edit.
 - [ ] Open the hosted customer portal.
+- [ ] Simulate a failed renewal and confirm that Polar exposes payment recovery as an active
+      entitlement before Samebase relies on the `past_due` mapping.
 - [ ] Cancel and confirm that Pro remains through the paid period.
 - [ ] Confirm that entitlement end changes Pro to Free and applies the downgrade resource rule.
 - [ ] Record the validation result and date in this section.
