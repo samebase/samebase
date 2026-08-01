@@ -136,6 +136,7 @@ function vaultSidebarStatus(args: {
 
 function VaultRow({
   folderState,
+  inFolder,
   pending,
   onDirectAction,
   page,
@@ -147,6 +148,7 @@ function VaultRow({
   onMoveVaultToFolder,
 }: {
   folderState: VaultFolderState;
+  inFolder: boolean;
   pending: boolean;
   onDirectAction: (action: () => Promise<unknown>) => void;
   onMoveVaultToFolder: VaultFolderCallbacks["onMoveVaultToFolder"];
@@ -167,7 +169,11 @@ function VaultRow({
       <Link
         aria-current={selected ? "page" : undefined}
         aria-label={`${vault.repositoryFullName}, ${status.label}`}
-        className="block min-w-0 flex-1 px-3 py-2.5 text-left no-underline hover:no-underline @max-[200px]:px-2 @max-[120px]:px-1"
+        className={
+          inFolder
+            ? "block min-w-0 flex-1 py-2.5 pr-3 pl-6 text-left no-underline hover:no-underline @max-[200px]:pr-2 @max-[200px]:pl-5 @max-[120px]:pr-1 @max-[120px]:pl-4"
+            : "block min-w-0 flex-1 px-3 py-2.5 text-left no-underline hover:no-underline @max-[200px]:px-2 @max-[120px]:px-1"
+        }
         data-vault-status={status.label}
         title={vault.repositoryFullName}
         to={repositoryRoute(vault, page)}
@@ -311,10 +317,11 @@ export function VaultOverviewSidebar({
       });
   }
 
-  function renderVault(vault: UserVaultResult) {
+  function renderVault(vault: UserVaultResult, inFolder: boolean) {
     return (
       <VaultRow
         folderState={folderState}
+        inFolder={inFolder}
         key={vault._id}
         pending={pendingAction !== null}
         page={page}
@@ -333,10 +340,10 @@ export function VaultOverviewSidebar({
     <>
       <nav aria-label="Vaults" className="@container min-h-full py-2">
         {folderState.folders.length === 0 ? (
-          vaults.map(renderVault)
+          vaults.map((vault) => renderVault(vault, false))
         ) : (
           <>
-            {ungroupedVaults.map(renderVault)}
+            {ungroupedVaults.map((vault) => renderVault(vault, false))}
             {folderState.folders.map((folder, index) => {
               const folderVaults = vaultsByFolderId.get(folder._id) ?? [];
               const selectedVault = folderVaults.find((vault) => vault._id === selectedVaultId);
@@ -391,7 +398,7 @@ export function VaultOverviewSidebar({
                         )
                       }
                     >
-                      <span className="flex w-10 shrink-0 items-center justify-center @max-[120px]:w-8">
+                      <span className="flex w-5 shrink-0 items-center justify-center @max-[120px]:w-4">
                         {folder.collapsed ? <ChevronRight /> : <ChevronDown />}
                       </span>
                       <span className="min-w-0 flex-1 truncate text-left text-sm font-medium">
@@ -460,7 +467,7 @@ export function VaultOverviewSidebar({
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                  {visibleVaults.map(renderVault)}
+                  {visibleVaults.map((vault) => renderVault(vault, true))}
                 </section>
               );
             })}

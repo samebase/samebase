@@ -157,6 +157,12 @@ test("shows shallow vault folders on desktop", async ({ page }) => {
       exact: true,
     }),
   ).toBeVisible();
+  await expect(vaultNavigation).toHaveScreenshot("vault-overview-v2-folders-expanded.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
 
   const folderActions = vaultNavigation.getByRole("button", {
     name: "Actions for folder Fixtures",
