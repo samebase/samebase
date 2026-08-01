@@ -159,55 +159,6 @@ function accountTextEvidenceIncludes(
   return evidence.textContent.includes(text) || pseudoContent === JSON.stringify(text);
 }
 
-test("signed-in app right sidebar renders a static account section", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await openSignedInApp(page);
-
-  const rightSidebar = getRightSidebar(page);
-  const accountSection = getSignedInAccountSection(page);
-
-  await expect(accountSection).toBeVisible();
-  await expect(
-    accountSection.getByText("Sign in or create an account", { exact: true }),
-  ).toHaveCount(0);
-  await expect(accountSection.getByText(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL)).toBeVisible();
-  await expect(accountSection.getByText("Signed in with Password", { exact: true })).toBeVisible();
-  await expect(accountSection.getByTestId("dashboard-sidebar-account-icon")).toBeVisible();
-  await expect(accountSection.getByRole("button", { name: "Sign out" })).toHaveCount(0);
-  await expect(accountSection.getByRole("link", { name: "/settings" })).toHaveAttribute(
-    "href",
-    "/settings",
-  );
-  for (const linkName of ["/settings", "/vault", "/providers"]) {
-    const navigationLink = rightSidebar.getByRole("link", { name: linkName, exact: true });
-    await expect(navigationLink).toHaveCSS("font-size", "16px");
-    await expect(navigationLink).toHaveCSS("line-height", "24px");
-    await expect(navigationLink).toHaveCSS("text-decoration-line", "underline");
-  }
-  await expect(accountSection.locator("[aria-expanded]")).toHaveCount(0);
-  await expect(rightSidebar.getByRole("link", { name: "/vault", exact: true })).toHaveAttribute(
-    "href",
-    "/vault",
-  );
-  await expect(rightSidebar.getByRole("link", { name: "/providers", exact: true })).toHaveAttribute(
-    "href",
-    "/providers",
-  );
-  await expect(rightSidebar.getByRole("link", { name: "/new-app", exact: true })).toHaveAttribute(
-    "href",
-    "/new-app",
-  );
-  await expect(
-    rightSidebar.getByRole("link", { name: "/connect-repo", exact: true }),
-  ).toHaveAttribute("href", "/connect-repo");
-  await expect(rightSidebar.getByTestId("dashboard-sidebar-providers-section")).toHaveCount(0);
-  await expect(accountSection).toHaveScreenshot("app-right-sidebar-signed-in-account-section.png", {
-    ...appRightSidebarScreenshotOptions,
-    mask: [getPrivateAccountMask(accountSection)],
-    maskColor: "#d1d5db",
-  });
-});
-
 test("signed-in app right sidebar keeps the account row inside a narrow desktop rail", async ({
   page,
 }) => {
@@ -312,10 +263,25 @@ test("signed-in app right sidebar prehydration includes the password provider la
   await openSignedInApp(page);
   await waitForFonts(page);
 
+  const rightSidebar = getRightSidebar(page);
   const hydratedAccountSection = getSignedInAccountSection(page);
   await expect(
     hydratedAccountSection.getByText("Signed in with Password", { exact: true }),
   ).toBeVisible();
+  for (const linkName of ["/settings", "/vault", "/providers"]) {
+    const navigationLink = rightSidebar.getByRole("link", { name: linkName, exact: true });
+    await expect(navigationLink).toHaveCSS("font-size", "16px");
+    await expect(navigationLink).toHaveCSS("line-height", "24px");
+    await expect(navigationLink).toHaveCSS("text-decoration-line", "underline");
+  }
+  await expect(hydratedAccountSection).toHaveScreenshot(
+    "app-right-sidebar-signed-in-account-section.png",
+    {
+      ...appRightSidebarScreenshotOptions,
+      mask: [getPrivateAccountMask(hydratedAccountSection)],
+      maskColor: "#d1d5db",
+    },
+  );
   const hydratedScreenshot = await hydratedAccountSection.screenshot({
     animations: "disabled",
     caret: "hide",

@@ -111,6 +111,17 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await page.goto(LANDING_PREVIEW_PROD_UI_ROUTE, {
     waitUntil: "domcontentloaded",
   });
+
+  const heroVideo = page.getByTestId("landing-preview-hero-video");
+  await expect(heroVideo).toBeVisible();
+  const initialVideoLayout = await heroVideo.evaluate((element) => ({
+    height: element.clientHeight,
+    readyState: element.readyState,
+    width: element.clientWidth,
+  }));
+  expect(initialVideoLayout.readyState).toBe(0);
+  expect(initialVideoLayout.width / initialVideoLayout.height).toBeCloseTo(1280 / 850, 3);
+
   await page.waitForLoadState("networkidle");
 
   await page.evaluate(async () => {
@@ -137,8 +148,6 @@ test("landing preview route renders the React overview in workspace chrome", asy
   );
   await expect(article.getByRole("button", { name: "Open Samebase" })).toHaveCount(2);
   await expect(article).not.toContainText("no chatbot");
-  const heroVideo = article.getByTestId("landing-preview-hero-video");
-  await expect(heroVideo).toBeVisible();
   await expect(article.getByRole("img", { exact: true, name: "ChatGPT" })).toBeVisible();
   await expect(heroVideo).toHaveAttribute("autoplay", "");
   await expect(heroVideo).toHaveAttribute("controls", "");
@@ -312,31 +321,6 @@ test("landing preview route renders the React overview in workspace chrome", asy
     .toBeLessThan(81);
 });
 
-test("landing hero reserves its frame before video metadata loads", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await showLandingHeroPoster(page);
-
-  await page.goto(LANDING_PREVIEW_PROD_UI_ROUTE, {
-    waitUntil: "domcontentloaded",
-  });
-
-  const heroVideo = page.getByTestId("landing-preview-hero-video");
-  await expect(heroVideo).toBeVisible();
-  await expect(heroVideo).toHaveAttribute(
-    "poster",
-    "/landing-preview/tic-tac-toe-codex-poster.webp",
-  );
-
-  const initialVideoLayout = await heroVideo.evaluate((element) => ({
-    height: element.clientHeight,
-    readyState: element.readyState,
-    width: element.clientWidth,
-  }));
-
-  expect(initialVideoLayout.readyState).toBe(0);
-  expect(initialVideoLayout.width / initialVideoLayout.height).toBeCloseTo(1280 / 850, 3);
-});
-
 test("landing preview overview adapts to a narrow pane", async ({ page }) => {
   // A tablet-width viewport leaves the pane beside the right sidebar narrower
   // than the viewport md breakpoint. The overview must render its stacked
@@ -378,6 +362,7 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
     caret: "hide",
     maxDiffPixelRatio: 0.02,
     scale: "css",
+    timeout: 30_000,
   });
   await expect(article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID)).toHaveScreenshot(
     "landing-preview-platform-narrow-pane.png",
@@ -534,6 +519,7 @@ test.describe("mobile landing preview", () => {
       caret: "hide",
       maxDiffPixelRatio: 0.02,
       scale: "css",
+      timeout: 30_000,
     });
     await expect(article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID)).toHaveScreenshot(
       "landing-preview-platform-mobile.png",

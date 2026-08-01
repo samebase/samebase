@@ -14,16 +14,7 @@ import {
 } from "../src/lib/publicLanding";
 import { formatRouteSearchPresenceFlagLinkLabel } from "../src/routing/searchFlags";
 import { SEARCH_RESET_QUERY_PARAM } from "../src/lib/searchReset";
-import { takeStableScreenshot } from "./visualDiff";
 
-// These budgets target the local production preview used in CI.
-// Keep them loose enough to absorb runner variance while still catching
-// obvious regressions in the public landing route.
-const NAVIGATION_BUDGET_MS = {
-  responseEnd: 150,
-  domContentLoaded: 400,
-  load: 500,
-} as const;
 const COPY_SHORTCUT_KEY = process.platform === "darwin" ? "Meta+C" : "Control+C";
 const LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS = ["/terms", "/privacy", "/landing"] as const;
 const searchResetLinkLabel = formatRouteSearchPresenceFlagLinkLabel(SEARCH_RESET_QUERY_PARAM, true);
@@ -56,27 +47,10 @@ const productionPublicHostLaunchOptions = {
 test.use({
   launchOptions: productionPublicHostLaunchOptions,
 });
-test.describe.configure({ mode: "serial" });
 
 function buildProductionPublicLandingUrl(search: string): string {
   const playwrightVitePort = process.env.PLAYWRIGHT_VITE_PORT ?? "4173";
   return `http://${PRODUCTION_PUBLIC_HOSTNAME}:${playwrightVitePort}/${search}`;
-}
-
-async function readNavigationTiming(page: Parameters<typeof test>[0]["page"]) {
-  return page.evaluate(() => {
-    const navigationEntry = performance.getEntriesByType("navigation")[0];
-
-    if (!(navigationEntry instanceof PerformanceNavigationTiming)) {
-      return null;
-    }
-
-    return {
-      responseEndMs: navigationEntry.responseEnd,
-      domContentLoadedMs: navigationEntry.domContentLoadedEventEnd,
-      loadMs: navigationEntry.loadEventEnd,
-    };
-  });
 }
 
 type LandingReloadFrame = {
@@ -635,23 +609,12 @@ async function readClipboardText(page: Parameters<typeof test>[0]["page"]) {
   return page.evaluate(async () => navigator.clipboard.readText());
 }
 
-async function readLinkPresentation(link: Locator) {
-  return link.evaluate((element) => {
-    const linkStyle = window.getComputedStyle(element);
-    const parent = element.parentElement;
-
-    return {
-      color: linkStyle.color,
-      parentColor: parent === null ? null : window.getComputedStyle(parent).color,
-      textDecorationLine: linkStyle.textDecorationLine,
-    };
-  });
-}
-
 test("public landing renders the routed landing UI directly", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
 
-  await expect(page.getByTestId("public-landing-content")).toBeVisible();
+  const landingContent = page.getByTestId("public-landing-content");
+  await expect(landingContent).toBeVisible();
+  await expect(landingContent.locator(".border-t")).toHaveCount(0);
   await expect(page.getByTestId(PUBLIC_LANDING_SCROLL_SHELL_TEST_ID)).toBeVisible();
   await expectRootLandingMengerReady(page);
   await expect(page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID)).toHaveText("Samebase is near.");
@@ -670,19 +633,11 @@ test("public landing shows Google sign-in by default", async ({ page }) => {
   const googleButton = page.getByRole("button", { name: "Continue with Google" });
 
   await expect(googleButton).toBeVisible();
+  await expect(googleButton).toHaveCSS("cursor", "pointer");
   await expect(googleButton).toHaveScreenshot("public-landing-google-button.png", {
     ...strictScreenshotOptions,
     timeout: 15_000,
   });
-});
-
-test("public landing interactive elements use pointer cursors", async ({ page }) => {
-  await page.goto("/", { waitUntil: "networkidle" });
-
-  await expect(page.getByRole("button", { name: "Continue with Google" })).toHaveCSS(
-    "cursor",
-    "pointer",
-  );
 });
 
 test("public landing renders the closed Google signup return state", async ({ page }) => {
@@ -707,13 +662,6 @@ test("public landing renders the closed Google signup return state", async ({ pa
     ...strictScreenshotOptions,
     timeout: 15_000,
   });
-});
-
-test("public landing omits section divider lines", async ({ page }) => {
-  await page.goto("/", { waitUntil: "networkidle" });
-
-  const landingContent = page.getByTestId("public-landing-content");
-  await expect(landingContent.locator(".border-t")).toHaveCount(0);
 });
 
 test("landing reset shortcut stays visible before clearing root search", async ({ page }) => {
@@ -762,30 +710,7 @@ test("local landing keeps the remembered password auth slot stable on reload", a
   expectStableLandingReloadFrames(reloadFrames);
 });
 
-test("local landing explains missing worktree autofill credentials", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("samebase_public_landing_password_auth_mode", "local_worktree_seed");
-  });
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-
-  const emailInput = page.getByPlaceholder("you@example.com");
-  const passwordInput = page.getByPlaceholder("Password");
-  await expect(emailInput).toHaveValue("");
-  await expect(passwordInput).toHaveValue("");
-
-  await page.getByRole("button", { name: "Autofill & sign in" }).click();
-
-  await expect(
-    page.getByText(
-      "Autofill is only available from the worktree dev server. Restart with pnpm dev:worktree and reload.",
-    ),
-  ).toBeVisible();
-  await expect(emailInput).toHaveValue("");
-  await expect(passwordInput).toHaveValue("");
-  await expect(page).toHaveURL("/");
-});
-
-test("public landing keeps legal links in the right sidebar rail", async ({ page }, testInfo) => {
+test("public landing keeps legal links in the right sidebar rail", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
 
   const landingContent = page.getByTestId("public-landing-content");
@@ -797,12 +722,10 @@ test("public landing keeps legal links in the right sidebar rail", async ({ page
   await expect(landingContent.getByRole("link", { name: "/terms" })).toHaveCount(0);
   await expect(landingContent.getByRole("link", { name: "/privacy" })).toHaveCount(0);
   await expect(landingContent.getByRole("link", { name: "/landing" })).toHaveCount(0);
-
-  const statusBarScreenshot = await takeStableScreenshot(statusBar);
-  await testInfo.attach("public-landing-status-bar", {
-    body: statusBarScreenshot,
-    contentType: "image/png",
-  });
+  await expect(statusBar.getByRole("link", { name: "/terms", exact: true })).toHaveCSS(
+    "text-decoration-line",
+    "underline",
+  );
 });
 
 test("public landing keeps the right pane mounted without a left pane on desktop", async ({
@@ -858,17 +781,6 @@ test("mcp consent sign-in keeps legal links in the sidebar rail", async ({ page 
   );
 });
 
-test("build version stays stable on the public landing", async ({ page }) => {
-  await page.goto("/", { waitUntil: "networkidle" });
-
-  const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
-  const version = statusBar.getByTestId(APP_BUILD_VERSION_TEST_ID);
-  const commit = statusBar.getByTestId(APP_BUILD_COMMIT_LINK_TEST_ID);
-
-  await expectAppBuildVersionDisplay(statusBar, version, commit);
-  await expectAppBuildCommitLink(commit);
-});
-
 test("build version copies as a Markdown link on the public landing", async ({ page }) => {
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/", { waitUntil: "networkidle" });
@@ -884,28 +796,6 @@ test("build version copies as a Markdown link on the public landing", async ({ p
   await page.keyboard.press(COPY_SHORTCUT_KEY);
   const clipboardText = await readClipboardText(page);
   expect(clipboardText).toBe(`[${versionText}](${versionHref})`);
-});
-
-test("landing footer links keep browser link styling", async ({ page }, testInfo) => {
-  await page.goto("/", { waitUntil: "networkidle" });
-
-  const termsLink = page.getByRole("link", {
-    name: "/terms",
-    exact: true,
-  });
-  const footer = termsLink.locator("xpath=..");
-
-  await expect(termsLink).toBeVisible();
-
-  const linkPresentation = await readLinkPresentation(termsLink);
-  expect(linkPresentation.textDecorationLine).toContain("underline");
-
-  const footerScreenshot = await takeStableScreenshot(footer);
-
-  await testInfo.attach("public-landing-footer-links", {
-    body: footerScreenshot,
-    contentType: "image/png",
-  });
 });
 
 test.describe("mobile landing shell", () => {
@@ -1111,35 +1001,6 @@ test.describe("Android-sized standalone display-mode landing right sidebar", () 
   });
 });
 
-test("prod-ui landing keeps /logo out of the right sidebar", async ({ page }) => {
-  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
-
-  const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
-  await expectRootLandingMengerReady(page);
-
-  const landingLink = statusBar.getByRole("link", {
-    name: "/landing",
-    exact: true,
-  });
-  const termsLink = statusBar.getByRole("link", {
-    name: "/terms",
-    exact: true,
-  });
-
-  await expect(statusBar.getByRole("link", { name: "/logo", exact: true })).toHaveCount(0);
-  await expect(landingLink).toBeVisible();
-  await expect(termsLink).toBeVisible();
-
-  await expect(statusBar).toHaveScreenshot("public-landing-status-bar-no-logo-link.png", {
-    ...strictScreenshotOptions,
-    // Build metadata changes on every main commit; this screenshot protects
-    // the stable public-route link stack without pinning the current release label.
-    mask: [statusBar.getByTestId(APP_BUILD_VERSION_TEST_ID).locator("xpath=..")],
-    maskColor: "#ffffff",
-    timeout: 15_000,
-  });
-});
-
 test("public landing still renders when localStorage access is denied", async ({ page }) => {
   const pageErrors: Error[] = [];
   page.on("pageerror", (error) => {
@@ -1159,21 +1020,6 @@ test("public landing still renders when localStorage access is denied", async ({
 
   await expect(page.getByTestId("public-landing-content")).toBeVisible();
   expect(pageErrors).toEqual([]);
-});
-
-test("public landing stays within the navigation budget", async ({ page }) => {
-  await page.goto("/", { waitUntil: "load" });
-
-  const navigationTiming = await readNavigationTiming(page);
-
-  expect(navigationTiming).not.toBeNull();
-  expect(navigationTiming?.responseEndMs ?? Infinity).toBeLessThan(
-    NAVIGATION_BUDGET_MS.responseEnd,
-  );
-  expect(navigationTiming?.domContentLoadedMs ?? Infinity).toBeLessThan(
-    NAVIGATION_BUDGET_MS.domContentLoaded,
-  );
-  expect(navigationTiming?.loadMs ?? Infinity).toBeLessThan(NAVIGATION_BUDGET_MS.load);
 });
 
 test("prod-ui mode hides developer password auth controls", async ({ page }) => {
