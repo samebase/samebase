@@ -149,6 +149,10 @@ Old specs 033 and 034 are historical input. They do not override the accepted co
 
 ## Sandbox
 
+Current gate on 2026-08-02: Chrome reached the separate Polar Sandbox sign-in page. No Sandbox
+product, webhook, token, or secret has been created or changed. The operator must sign in to Polar
+Sandbox in Chrome before this section can continue.
+
 - [ ] Create one private Sandbox product named `Samebase Pro Monthly` at $4 per month.
 - [ ] Record its product ID in the server-side Sandbox mapping.
 - [ ] Set the Sandbox access token on the local Convex deployment.
@@ -222,7 +226,8 @@ After a context compaction or handoff:
 - `f468f6ab`: ambiguous checkout, stored checkout, and webhook coalescing races closed.
 - `c790e079`: account-deletion checkout race closed.
 - `a3a2444c`: checkout eligibility enforced in Settings with updated mobile visual coverage.
-- `5430ca8a`: old Polar specs marked as superseded by the accepted contract and active rollout plan.
+- `9acb190e`: old Polar specs marked as superseded by the accepted contract and active rollout plan.
+- `de1693bb`: Polar spec supersession recorded in the rollout tracker.
 
 Final automated validation on 2026-08-02 passed 44 Convex test files with 363 tests, 36 focused
 Settings tests, and the canonical Linux visual suite with 207 tests and one existing skip.
