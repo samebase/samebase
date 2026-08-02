@@ -103,6 +103,14 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
         return;
       }
 
+      if (result.state === "billing_checkout_pending") {
+        setDeletionError(
+          "Your billing checkout must be resolved before you can delete your account. Contact support.",
+        );
+        setIsRequestingDeletion(false);
+        return;
+      }
+
       writeAccountDeletionBrowserMarker(result.status.completionCapability);
       void router.navigate({ href: ACCOUNT_DELETION_ROUTE, replace: true });
     } catch {

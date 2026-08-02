@@ -1336,6 +1336,27 @@ describe("UserSettingsPage", () => {
     }
   });
 
+  it("explains that a billing checkout blocks account deletion", async () => {
+    mutationState.requestDeletion.mockResolvedValue({ state: "billing_checkout_pending" });
+    const mounted = await mountSettingsPage();
+    try {
+      const { confirmButton, phraseInput } = await openDeleteDialog(mounted);
+      await typeConfirmationPhrase(phraseInput, "delete my account");
+      await act(async () => {
+        confirmButton?.click();
+        await Promise.resolve();
+      });
+
+      expect(document.body.textContent).toContain(
+        "Your billing checkout must be resolved before you can delete your account. Contact support.",
+      );
+      expect(routerState.navigate).not.toHaveBeenCalled();
+      expect(confirmButton?.disabled).toBe(false);
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
   it("persists the completion capability before requesting deletion", async () => {
     const deletion = createDeferred<{
       state: "accepted";
