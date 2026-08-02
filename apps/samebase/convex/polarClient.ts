@@ -1,5 +1,4 @@
 import { Polar } from "@polar-sh/sdk";
-import { ResourceNotFound } from "@polar-sh/sdk/models/errors/resourcenotfound";
 
 import { env } from "./_generated/server";
 import { resolveDeploymentProfile } from "./deploymentProfile";
@@ -32,8 +31,4 @@ export function createPolarClient(): Polar {
     server: resolvePolarServer(),
     timeoutMs: POLAR_API_TIMEOUT_MS,
   });
-}
-
-export function isPolarResourceNotFound(error: unknown): boolean {
-  return error instanceof ResourceNotFound;
 }

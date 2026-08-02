@@ -1,15 +1,11 @@
 import type { Checkout } from "@polar-sh/sdk/models/components/checkout";
-import type { CustomerState } from "@polar-sh/sdk/models/components/customerstate";
 import { Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import { internalMutation } from "./_generated/server";
 import { action, query } from "./functions";
 import { randomToken } from "./oauthUtils";
-import {
-  derivePolarBillingFromCustomerState,
-  readCanonicalPolarBillingState,
-} from "./polarBillingState";
+import { readCanonicalPolarBillingState } from "./polarBillingState";
 import {
   isDefinitivePolarCheckoutFailure,
   isOpenPolarCheckoutForAttempt,
@@ -18,7 +14,6 @@ import {
 } from "./polarCheckout";
 import {
   createPolarClient,
-  isPolarResourceNotFound,
   readPolarProMonthlyProductId,
   resolvePolarServer,
   type PolarServer,
@@ -192,41 +187,23 @@ export const createPolarCheckoutSession = action({
         throw new Error("Samebase could not verify your current subscription.");
       }
 
-      let customerState: CustomerState | null = null;
-      try {
-        customerState = await polar.customers.getStateExternal({
-          externalId: storedExternalCustomerId,
-        });
-      } catch (error) {
-        if (!isPolarResourceNotFound(error)) {
-          throw new Error("Samebase could not verify your current subscription.");
-        }
-      }
-
-      if (customerState) {
-        const derived = derivePolarBillingFromCustomerState({
-          customerState,
-          productId,
-        });
-        if (derived === null || derived.externalCustomerId !== storedExternalCustomerId) {
-          throw new Error("Samebase could not verify your current subscription.");
-        }
-
-        const applied: boolean = await ctx.runMutation(
-          internal.polarBillingState.applyObservation,
-          {
-            state: derived,
-            observationRevision,
-          },
-        );
-        if (!applied) {
-          throw new Error("Samebase could not verify your current subscription.");
-        }
-        if (derived.plan === "pro") {
-          throw new Error("You already have a Pro subscription.");
-        }
-      } else if (hasStoredProEntitlement(storedPlan, storedStatus)) {
+      const state = await readCanonicalPolarBillingState({
+        polar,
+        externalCustomerId: storedExternalCustomerId,
+        productId,
+      }).catch(() => {
         throw new Error("Samebase could not verify your current subscription.");
+      });
+
+      const applied: boolean = await ctx.runMutation(internal.polarBillingState.applyObservation, {
+        state,
+        observationRevision,
+      });
+      if (!applied) {
+        throw new Error("Samebase could not verify your current subscription.");
+      }
+      if (state.plan === "pro") {
+        throw new Error("You already have a Pro subscription.");
       }
     }
 

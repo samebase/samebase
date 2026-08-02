@@ -1,5 +1,4 @@
 import type { Polar } from "@polar-sh/sdk";
-import type { CustomerState } from "@polar-sh/sdk/models/components/customerstate";
 import type { Subscription } from "@polar-sh/sdk/models/components/subscription";
 import { Infer, v } from "convex/values";
 
@@ -25,13 +24,11 @@ const vPolarBillingState = union(
 );
 export type PolarBillingState = Infer<typeof vPolarBillingState>;
 
-type PolarSubscription = CustomerState["activeSubscriptions"][number] | Subscription;
-
 function selectPolarEntitledSubscription(args: {
-  selectedSubscription: PolarSubscription | null;
-  subscription: PolarSubscription;
+  selectedSubscription: Subscription | null;
+  subscription: Subscription;
   productId: string;
-}): PolarSubscription | null {
+}): Subscription | null {
   if (
     args.subscription.productId !== args.productId ||
     (args.subscription.status !== "active" &&
@@ -57,7 +54,7 @@ function selectPolarEntitledSubscription(args: {
 
 function buildPolarBillingState(args: {
   externalCustomerId: string;
-  selectedSubscription: PolarSubscription | null;
+  selectedSubscription: Subscription | null;
 }): PolarBillingState {
   if (args.selectedSubscription === null) {
     return {
@@ -74,30 +71,6 @@ function buildPolarBillingState(args: {
     currentPeriodEndAt: args.selectedSubscription.currentPeriodEnd.getTime(),
     cancelAtPeriodEnd: args.selectedSubscription.cancelAtPeriodEnd,
   };
-}
-
-export function derivePolarBillingFromCustomerState(args: {
-  customerState: CustomerState;
-  productId: string;
-}): PolarBillingState | null {
-  const externalCustomerId = args.customerState.externalId?.trim();
-  if (!externalCustomerId) {
-    return null;
-  }
-
-  let selectedSubscription: PolarSubscription | null = null;
-  for (const subscription of args.customerState.activeSubscriptions) {
-    selectedSubscription = selectPolarEntitledSubscription({
-      selectedSubscription,
-      subscription,
-      productId: args.productId,
-    });
-  }
-
-  return buildPolarBillingState({
-    externalCustomerId,
-    selectedSubscription,
-  });
 }
 
 export async function readCanonicalPolarBillingState(args: {
@@ -121,7 +94,7 @@ export async function readCanonicalPolarBillingState(args: {
     throw new Error("Polar customer has more than 100 entitled subscriptions.");
   }
 
-  let selectedSubscription: PolarSubscription | null = null;
+  let selectedSubscription: Subscription | null = null;
   for (const subscription of page.result.items) {
     selectedSubscription = selectPolarEntitledSubscription({
       selectedSubscription,

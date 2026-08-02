@@ -57,19 +57,6 @@ export const identityTables = {
     billingPolarStateChangedAt: optional(number()),
     billingPolarObservationRevision: optional(number()),
     billingPolarAppliedObservationRevision: optional(number()),
-    billingPolarWebhookReconciliation: optional(
-      union(
-        object({
-          state: literal("queued"),
-          runId: string(),
-        }),
-        object({
-          state: literal("running"),
-          runId: string(),
-          dirty: boolean(),
-        }),
-      ),
-    ),
     billingPolarCheckoutAttempt: optional(
       union(
         object({

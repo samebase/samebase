@@ -1,4 +1,3 @@
-import { CustomerState$inboundSchema } from "@polar-sh/sdk/models/components/customerstate";
 import { ResourceNotFound } from "@polar-sh/sdk/models/errors/resourcenotfound";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -7,7 +6,6 @@ const polarSdkMocks = vi.hoisted(() => ({
   checkoutsCreate: vi.fn(),
   checkoutsGet: vi.fn(),
   customerSessionsCreate: vi.fn(),
-  customersGetStateExternal: vi.fn(),
   subscriptionsList: vi.fn(),
 }));
 
@@ -18,7 +16,6 @@ vi.mock("@polar-sh/sdk", () => ({
       get: polarSdkMocks.checkoutsGet,
     };
     readonly customerSessions = { create: polarSdkMocks.customerSessionsCreate };
-    readonly customers = { getStateExternal: polarSdkMocks.customersGetStateExternal };
     readonly subscriptions = { list: polarSdkMocks.subscriptionsList };
 
     constructor(options: unknown) {
@@ -139,62 +136,6 @@ async function seedMember(t: ConvexTest, isApproved = true) {
   });
 }
 
-function polarCustomerState(args: {
-  externalCustomerId: string;
-  subscription?: {
-    cancelAtPeriodEnd: boolean;
-    productId: string;
-    status: string;
-  };
-}) {
-  return CustomerState$inboundSchema.parse({
-    id: "polar-customer",
-    created_at: "2026-08-01T00:00:00.000Z",
-    modified_at: null,
-    metadata: {},
-    external_id: args.externalCustomerId,
-    email: "ada.member@example.test",
-    email_verified: true,
-    type: "individual",
-    name: "Ada",
-    billing_name: null,
-    billing_address: null,
-    tax_id: null,
-    locale: null,
-    organization_id: "polar-organization",
-    default_payment_method_id: null,
-    deleted_at: null,
-    avatar_url: null,
-    active_subscriptions: args.subscription
-      ? [
-          {
-            id: "polar-subscription",
-            created_at: "2026-08-01T00:00:00.000Z",
-            modified_at: null,
-            metadata: {},
-            status: args.subscription.status,
-            amount: 400,
-            currency: "usd",
-            recurring_interval: "month",
-            current_period_start: "2026-08-01T00:00:00.000Z",
-            current_period_end: currentPeriodEnd,
-            trial_start: null,
-            trial_end: null,
-            cancel_at_period_end: args.subscription.cancelAtPeriodEnd,
-            canceled_at: args.subscription.cancelAtPeriodEnd ? "2026-08-15T00:00:00.000Z" : null,
-            started_at: "2026-08-01T00:00:00.000Z",
-            ends_at: args.subscription.cancelAtPeriodEnd ? currentPeriodEnd : null,
-            product_id: args.subscription.productId,
-            discount_id: null,
-            meters: [],
-          },
-        ]
-      : [],
-    granted_benefits: [],
-    active_meters: [],
-  });
-}
-
 function resourceNotFound() {
   const body = JSON.stringify({ error: "ResourceNotFound", detail: "Not found" });
   return new ResourceNotFound(
@@ -252,9 +193,6 @@ describe("billing access", () => {
       await ctx.db.patch(userId, { billingPolarExternalCustomerId: "pending-customer" });
     });
     configureSandboxBilling();
-    polarSdkMocks.customersGetStateExternal.mockResolvedValue(
-      polarCustomerState({ externalCustomerId: "pending-customer" }),
-    );
     polarSdkMocks.customerSessionsCreate.mockResolvedValue({
       customerPortalUrl: "https://sandbox.polar.sh/portal/pending",
     });
@@ -340,7 +278,6 @@ describe("billing access", () => {
       await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
     });
     configureSandboxBilling();
-    polarSdkMocks.customersGetStateExternal.mockRejectedValue(resourceNotFound());
     polarSdkMocks.checkoutsCreate.mockImplementation((request) => {
       const checkout = polarCheckoutFromCreate(
         request,
@@ -391,7 +328,6 @@ describe("billing access", () => {
       });
     });
     configureSandboxBilling();
-    polarSdkMocks.customersGetStateExternal.mockRejectedValue(resourceNotFound());
     polarSdkMocks.checkoutsGet.mockResolvedValue(
       polarCheckout({
         attemptId,
@@ -425,7 +361,6 @@ describe("billing access", () => {
       });
     });
     configureSandboxBilling();
-    polarSdkMocks.customersGetStateExternal.mockRejectedValue(resourceNotFound());
     polarSdkMocks.checkoutsGet.mockResolvedValue(
       polarCheckout({
         attemptId,
@@ -472,7 +407,6 @@ describe("billing access", () => {
       });
     });
     configureSandboxBilling();
-    polarSdkMocks.customersGetStateExternal.mockRejectedValue(resourceNotFound());
     polarSdkMocks.checkoutsGet.mockResolvedValue(
       polarCheckout({
         attemptId,
@@ -506,7 +440,6 @@ describe("billing access", () => {
       });
     });
     configureSandboxBilling();
-    polarSdkMocks.customersGetStateExternal.mockRejectedValue(resourceNotFound());
     polarSdkMocks.checkoutsGet.mockResolvedValue(
       polarCheckout({
         attemptId,
@@ -547,7 +480,6 @@ describe("billing access", () => {
       });
     });
     configureSandboxBilling();
-    polarSdkMocks.customersGetStateExternal.mockRejectedValue(resourceNotFound());
     polarSdkMocks.checkoutsGet.mockRejectedValue(resourceNotFound());
 
     await expect(
@@ -569,7 +501,6 @@ describe("billing access", () => {
       await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
     });
     configureSandboxBilling();
-    polarSdkMocks.customersGetStateExternal.mockRejectedValue(resourceNotFound());
     const createGate = createDeferred<ReturnType<typeof polarCheckout>>();
     polarSdkMocks.checkoutsCreate.mockReturnValue(createGate.promise);
 
@@ -605,7 +536,6 @@ describe("billing access", () => {
       await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
     });
     configureSandboxBilling();
-    polarSdkMocks.customersGetStateExternal.mockRejectedValue(resourceNotFound());
     polarSdkMocks.checkoutsCreate
       .mockRejectedValueOnce(resourceNotFound())
       .mockImplementationOnce((request) =>
@@ -637,7 +567,6 @@ describe("billing access", () => {
       await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
     });
     configureSandboxBilling();
-    polarSdkMocks.customersGetStateExternal.mockRejectedValue(resourceNotFound());
     polarSdkMocks.checkoutsCreate.mockRejectedValue(
       new Error("Connection closed after request upload"),
     );
@@ -674,7 +603,6 @@ describe("billing access", () => {
       await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
     });
     configureSandboxBilling();
-    polarSdkMocks.customersGetStateExternal.mockRejectedValue(resourceNotFound());
     polarSdkMocks.checkoutsCreate.mockImplementation((request) =>
       polarCheckoutFromCreate(
         { ...request, returnUrl: "http://localhost:5174/settings" },
@@ -738,7 +666,6 @@ describe("billing access", () => {
       await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
     });
     configureSandboxBilling();
-    polarSdkMocks.customersGetStateExternal.mockRejectedValue(resourceNotFound());
     polarSdkMocks.checkoutsCreate.mockImplementation((request) =>
       polarCheckoutFromCreate(
         request,
@@ -758,36 +685,50 @@ describe("billing access", () => {
     );
   });
 
-  it("reconciles Polar before checkout and rejects a duplicate Pro subscription", async () => {
-    const t = makeConvexTest();
-    const userId = await seedMember(t);
-    await t.run(async (ctx) => {
-      await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
-    });
-    configureSandboxBilling();
-    polarSdkMocks.customersGetStateExternal.mockResolvedValue(
-      polarCustomerState({
-        externalCustomerId: "existing-customer",
-        subscription: { cancelAtPeriodEnd: false, productId, status: "active" },
-      }),
-    );
+  it.each([
+    { polarStatus: "active", storedStatus: "active" },
+    { polarStatus: "past_due", storedStatus: "past_due" },
+  ])(
+    "reconciles Polar before checkout and rejects a $polarStatus Pro subscription",
+    async ({ polarStatus, storedStatus }) => {
+      const t = makeConvexTest();
+      const userId = await seedMember(t);
+      await t.run(async (ctx) => {
+        await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
+      });
+      configureSandboxBilling();
+      polarSdkMocks.subscriptionsList.mockResolvedValue(
+        subscriptionPage([
+          polarSubscription({ cancelAtPeriodEnd: false, productId, status: polarStatus }),
+        ]),
+      );
 
-    await expect(
-      asUser(t, userId).action(api.billing.createPolarCheckoutSession, {
-        successUrl: "http://localhost:5174/settings?checkout=success",
-        returnUrl: "http://localhost:5174/settings?checkout=cancel",
-      }),
-    ).rejects.toThrow("You already have a Pro subscription.");
-    expect(polarSdkMocks.checkoutsCreate).not.toHaveBeenCalled();
-    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
-      provider: "polar",
-      plan: "pro",
-      status: "active",
-      currentPeriodEndAt: Date.parse(currentPeriodEnd),
-      cancelAtPeriodEnd: false,
-      canStartCheckout: true,
-    });
-  });
+      await expect(
+        asUser(t, userId).action(api.billing.createPolarCheckoutSession, {
+          successUrl: "http://localhost:5174/settings?checkout=success",
+          returnUrl: "http://localhost:5174/settings?checkout=cancel",
+        }),
+      ).rejects.toThrow("You already have a Pro subscription.");
+      expect(polarSdkMocks.checkoutsCreate).not.toHaveBeenCalled();
+      await expect(
+        asUser(t, userId).query(api.billing.getViewerBillingStatus, {}),
+      ).resolves.toEqual({
+        provider: "polar",
+        plan: "pro",
+        status: storedStatus,
+        currentPeriodEndAt: Date.parse(currentPeriodEnd),
+        cancelAtPeriodEnd: false,
+        canStartCheckout: true,
+      });
+      expect(polarSdkMocks.subscriptionsList).toHaveBeenCalledWith({
+        externalCustomerId: "existing-customer",
+        productId,
+        status: ["active", "trialing", "past_due"],
+        page: 1,
+        limit: 100,
+      });
+    },
+  );
 
   it("opens the hosted portal for an existing Polar customer", async () => {
     const t = makeConvexTest();
