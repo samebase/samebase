@@ -1,7 +1,5 @@
 import { spawn } from "child_process";
-import { createRequire } from "module";
-import { realpathSync } from "fs";
-import path from "path";
+import { fileURLToPath } from "url";
 import {
   clearLocalDevOriginState,
   readConfiguredLocalDevPort,
@@ -9,15 +7,12 @@ import {
   writeLocalDevOriginState,
 } from "./convex-local-utils.ts";
 
-const require = createRequire(import.meta.url);
-
 /**
- * Resolve the real Vite CLI entrypoint so native Windows does not depend on
+ * Resolve the public Vite+ CLI entrypoint so native Windows does not depend on
  * shell-specific `${VITE_PORT:-5173}` expansion to start the frontend.
  */
-function resolveViteCliEntrypoint() {
-  const vitePackageJsonPath = require.resolve("vite/package.json");
-  return realpathSync(path.join(path.dirname(vitePackageJsonPath), "bin", "vite.js"));
+function resolveVitePlusCliEntrypoint() {
+  return fileURLToPath(import.meta.resolve("vite-plus/bin"));
 }
 
 function splitVitePortArgs(args: string[]) {
@@ -60,7 +55,8 @@ const vitePort =
   cliPort ?? readConfiguredLocalDevPort(process.env) ?? resolveLocalDevPort(process.env);
 writeLocalDevOriginState(`http://localhost:${vitePort}`);
 const launchArgs = [
-  resolveViteCliEntrypoint(),
+  resolveVitePlusCliEntrypoint(),
+  "dev",
   "--host",
   "0.0.0.0",
   "--port",
