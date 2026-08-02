@@ -134,7 +134,6 @@ async function insertProject(
   }
 
   await requireBillingResourceCapacity(ctx, {
-    additionalResources: 1,
     kind: "convex_project",
     userId: args.userId,
   });

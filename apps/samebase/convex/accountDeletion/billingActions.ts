@@ -76,7 +76,7 @@ async function listCancelablePolarSubscriptionIds(
 async function revokeCancelablePolarSubscriptions(
   polar: Polar,
   externalCustomerId: string,
-): Promise<boolean> {
+): Promise<void> {
   const activeSubscriptionIds = await listCancelablePolarSubscriptionIds(polar, externalCustomerId);
 
   for (const subscriptionId of activeSubscriptionIds) {
@@ -87,7 +87,9 @@ async function revokeCancelablePolarSubscriptions(
     polar,
     externalCustomerId,
   );
-  return remainingActiveSubscriptionIds.length === 0;
+  if (remainingActiveSubscriptionIds.length > 0) {
+    throw new Error("Polar subscriptions remain after cancellation.");
+  }
 }
 
 export const cancelForAccountDeletion = internalAction({
@@ -136,19 +138,14 @@ export const cancelForAccountDeletion = internalAction({
     }
 
     try {
-      const revoked = await revokeCancelablePolarSubscriptions(
-        createPolarClient(),
-        externalCustomerId,
-      );
-      if (!revoked) {
-        return {
-          state: "failed",
-          safeError: POLAR_CANCELLATION_SAFE_ERROR,
-        };
-      }
+      await revokeCancelablePolarSubscriptions(createPolarClient(), externalCustomerId);
 
       return { state: "succeeded" };
-    } catch {
+    } catch (error) {
+      console.error("billing:polar:account_deletion_cancellation_failed", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        runId: args.runId,
+      });
       return {
         state: "failed",
         safeError: POLAR_CANCELLATION_SAFE_ERROR,

@@ -208,7 +208,6 @@ async function insertWorker(
   }
 
   await requireBillingResourceCapacity(ctx, {
-    additionalResources: 1,
     kind: "cloudflare_worker",
     userId: args.userId,
   });

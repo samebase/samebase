@@ -89,15 +89,10 @@ function throwBillingResourceLimit(kind: BillingResourceKind, limit: number): ne
 export async function requireBillingResourceCapacity(
   ctx: BillingResourceReadCtx,
   args: {
-    additionalResources: number;
     kind: BillingResourceKind;
     userId: Id<"users">;
   },
 ): Promise<void> {
-  if (args.additionalResources === 0) {
-    return;
-  }
-
   const user = await ctx.db.get(args.userId);
   if (!user) {
     throw new Error("User not found.");
@@ -109,7 +104,7 @@ export async function requireBillingResourceCapacity(
     userId: args.userId,
     maximumRows: limit + 1,
   });
-  if (used + args.additionalResources > limit) {
+  if (used >= limit) {
     throwBillingResourceLimit(args.kind, limit);
   }
 }
@@ -121,10 +116,7 @@ export const requireBillingResourceCapacityForProviderCreate = internalQuery({
   },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
-    await requireBillingResourceCapacity(ctx, {
-      ...args,
-      additionalResources: 1,
-    });
+    await requireBillingResourceCapacity(ctx, args);
     return null;
   },
 });

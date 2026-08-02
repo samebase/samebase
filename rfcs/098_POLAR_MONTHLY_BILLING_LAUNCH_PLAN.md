@@ -192,13 +192,23 @@ If any identifier or provider result is uncertain, leave the local state unchang
 
 ### Failed webhook delivery
 
-1. Read the Convex log for `/webhooks/polar` and identify the customer external ID.
-2. Inspect that customer and its `Samebase Pro Monthly` subscription in Polar.
-3. Fix the provider, credential, or data problem that caused the non-2xx response.
-4. Run the internal `polarBillingState:reconcileCustomerFromPolar` action with the exact external
+1. Open the failed delivery in Polar and read the exact customer external ID from its payload.
+2. Read the Convex log for `/webhooks/polar` at the same delivery time and identify the failure.
+3. Inspect that customer and its `Samebase Pro Monthly` subscription in Polar.
+4. Fix the provider, credential, or data problem that caused the non-2xx response.
+5. Run the internal `polarBillingState:reconcileCustomerFromPolar` action with the exact external
    customer ID.
-5. Verify the user billing row and the Settings Billing section.
-6. If Polar disabled the webhook endpoint, re-enable it after the repair.
+6. Verify the user billing row and the Settings Billing section.
+7. If Polar disabled the webhook endpoint, re-enable it after the repair.
+
+### Account deletion billing failure
+
+1. Open the failed run in `/admin/account-deletions` and read its run ID and user ID.
+2. Find `billing:polar:account_deletion_cancellation_failed` in the server log for that run ID.
+3. Read `billingPolarExternalCustomerId` from the exact active user row. Inspect that customer and
+   all of its subscriptions in Polar, then fix the provider, credential, or subscription problem.
+4. Retry the same run from `/admin/account-deletions`.
+5. Verify that the billing outcome succeeds before the run completes.
 
 ### Stuck checkout marker
 

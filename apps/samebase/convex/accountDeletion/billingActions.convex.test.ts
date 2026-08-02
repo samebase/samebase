@@ -29,6 +29,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.useRealTimers();
   vi.unstubAllEnvs();
 });
@@ -350,6 +351,7 @@ describe("account deletion billing actions", () => {
   it("does not expose Polar response details in the failure outcome", async () => {
     const { t, runId } = await seedUser("external-customer-test");
     configurePolar();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     polarSdkMocks.subscriptionsList.mockRejectedValue(new Error("provider-owned-sensitive-marker"));
 
     const result = await t.action(
@@ -361,5 +363,15 @@ describe("account deletion billing actions", () => {
       safeError: "Polar subscription cancellation could not be confirmed.",
     });
     expect(JSON.stringify(result)).not.toContain("provider-owned-sensitive-marker");
+    expect(consoleError).toHaveBeenCalledWith(
+      "billing:polar:account_deletion_cancellation_failed",
+      {
+        errorName: "Error",
+        runId,
+      },
+    );
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
+      "provider-owned-sensitive-marker",
+    );
   });
 });
