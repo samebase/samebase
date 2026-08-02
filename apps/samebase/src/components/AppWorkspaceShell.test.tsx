@@ -419,6 +419,8 @@ describe("AppWorkspaceShell", () => {
   it("server-renders static no-left routes without the default left pane", () => {
     for (const route of [
       "/",
+      "/account-deletion",
+      "/admin/account-deletions",
       "/connect-repo",
       "/logo/raster-seams",
       "/logo/single-cube",
@@ -454,20 +456,6 @@ describe("AppWorkspaceShell", () => {
       expect(markup).toContain("workspace route content");
       expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
     }
-  });
-
-  it("keeps the desktop right pane while Settings constrains only the mobile selection", () => {
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/settings"]}>
-        <AppWorkspaceShell>
-          <div data-testid="workspace-route-content">settings route content</div>
-        </AppWorkspaceShell>
-      </TestRouterProvider>,
-    );
-
-    expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
-    expect(markup).toContain('data-workspace-layout-v2-route-mobile-pane="main"');
-    expect(markup).toContain("settings route content");
   });
 
   it("does not inherit no-left metadata into ordinary child routes", () => {
@@ -774,32 +762,6 @@ describe("AppWorkspaceShell", () => {
         .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
         ?.classList.contains("snap-center"),
     ).toBe(true);
-  });
-
-  it("keeps a route-constrained mobile main pane ahead of persisted right state", () => {
-    window.localStorage.setItem(
-      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      JSON.stringify({
-        state: {
-          ...LOCAL_SIDEBAR_STATE,
-          leftMobileWidthPx: 260,
-          mobilePane: "right",
-          mobileSurface: { kind: "unmerged" },
-          rightMobileWidthPx: 340,
-        },
-        version: 2,
-      }),
-    );
-    const { carousel, layoutRoot, scriptElement } = appendMobilePrehydrationCarousel({});
-    layoutRoot.setAttribute("data-workspace-layout-v2-route-mobile-pane", "main");
-
-    withMobileViewportWidth(390, () => {
-      runAppWorkspaceMobilePanePrehydrationScript(scriptElement);
-    });
-
-    expect(carousel.scrollLeft).toBe(260);
-    expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("main");
-    expect(layoutRoot.hasAttribute("data-workspace-layout-v2-mobile-merged-side")).toBe(false);
   });
 
   it("fits a persisted merged mobile pane to the current viewport before hydration", () => {

@@ -18,7 +18,6 @@ import { useQuery } from "convex/react";
 import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
-import { useWorkspacePaneActions } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 
 type PublicLandingSignedInViewer = NonNullable<
   GetFunctionReferenceReturnType<typeof api.users.viewer>
@@ -88,7 +87,6 @@ function PublicLandingResolvedSignedInAccountSection({
 }) {
   const authProviders = useQuery(api.users.getViewerAuthProviders);
   const [accountOpen, setAccountOpen] = useState(false);
-  const { setMobilePane } = useWorkspacePaneActions();
   const providerLabel = useMemo(() => {
     const provider = authProviders?.primaryProvider ?? authProviders?.providers[0];
     return formatAuthProviderLabel(provider);
@@ -98,7 +96,6 @@ function PublicLandingResolvedSignedInAccountSection({
       accountPresentation={viewer.accountPresentation}
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
       onOpenChange={setAccountOpen}
-      onSettings={() => setMobilePane("main")}
       open={accountOpen}
       providerLabel={providerLabel}
     />
@@ -111,13 +108,11 @@ function PublicLandingPresentedSignedInAccountSection({
   profile: AppAuthPresentationProfile;
 }) {
   const [accountOpen, setAccountOpen] = useState(false);
-  const { setMobilePane } = useWorkspacePaneActions();
   return (
     <VaultDashboardAccountSection
       accountPresentation={profile.accountPresentation}
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
       onOpenChange={setAccountOpen}
-      onSettings={() => setMobilePane("main")}
       open={accountOpen}
       providerLabel={null}
     />

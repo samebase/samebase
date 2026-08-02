@@ -22,11 +22,11 @@ const routeAccessMetadataByPath = {
   },
   "/account-deletion": {
     access: "access_account_deletion",
-    appWorkspaceRouteChrome: { leftPane: "none", mobilePane: "main" },
+    appWorkspaceRouteChrome: { leftPane: "none" },
   },
   "/admin/account-deletions": {
     access: "access_admin",
-    appWorkspaceRouteChrome: { leftPane: "none", mobilePane: "main" },
+    appWorkspaceRouteChrome: { leftPane: "none" },
   },
   "/connect-repo": {
     access: "access_repo_connect",
@@ -100,7 +100,7 @@ const routeAccessMetadataByPath = {
   },
   "/settings": {
     access: "access_user_preferences",
-    appWorkspaceRouteChrome: { leftPane: "none", mobilePane: "main" },
+    appWorkspaceRouteChrome: { leftPane: "none" },
   },
   "/terms": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/test": {

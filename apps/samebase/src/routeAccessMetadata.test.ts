@@ -22,17 +22,4 @@ describe("route access metadata", () => {
       expect(ROUTE_ACCESS_METADATA_BY_PATH[route]).not.toHaveProperty("prerender");
     }
   });
-
-  it("keeps the standard right sidebar on account deletion routes", () => {
-    expect(ROUTE_ACCESS_METADATA_BY_PATH["/account-deletion"].appWorkspaceRouteChrome).toEqual({
-      leftPane: "none",
-      mobilePane: "main",
-    });
-    expect(
-      ROUTE_ACCESS_METADATA_BY_PATH["/admin/account-deletions"].appWorkspaceRouteChrome,
-    ).toEqual({
-      leftPane: "none",
-      mobilePane: "main",
-    });
-  });
 });

@@ -284,7 +284,6 @@ function AppWorkspaceShellFrame({
         left={leftPane}
         leftToggleVisibility={leftToggleVisibility}
         main={mainPane}
-        mobilePaneConstraint={staticRouteChrome?.mobilePane}
         mobileMinResizeBehavior={chrome?.mobileMinResizeBehavior}
         right={rightPane}
         rightToggleVisibility={rightToggleVisibility}

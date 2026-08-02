@@ -31,7 +31,6 @@ const queryState = vi.hoisted<{ index: number; results: unknown[] }>(() => ({
 }));
 const buildLocationMock = vi.hoisted(() => vi.fn());
 const signInWithGoogleMock = vi.hoisted(() => vi.fn());
-const setMobilePane = vi.hoisted(() => vi.fn());
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const PROFILE_JWT = [
   "header",
@@ -97,10 +96,6 @@ vi.mock("@/authClient", () => ({
   useAppSignInActions: () => ({
     signInWithGoogle: signInWithGoogleMock,
   }),
-}));
-
-vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
-  useWorkspacePaneActions: () => ({ setMobilePane }),
 }));
 
 vi.mock("@/routeSearch/root", async (importOriginal) => {
@@ -221,7 +216,6 @@ describe("PublicLandingAccountSection", () => {
     buildLocationMock.mockReset();
     buildLocationMock.mockReturnValue({ href: "/" });
     signInWithGoogleMock.mockReset();
-    setMobilePane.mockClear();
   });
 
   it("uses logged-out account presentation after hydration when auth state loads without local auth material", async () => {

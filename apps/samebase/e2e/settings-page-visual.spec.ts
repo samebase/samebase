@@ -182,9 +182,7 @@ test("full-page Settings checkout return survives auth restoration", async ({ pa
   ).toBeVisible();
 });
 
-test("Settings link returns the mobile workspace to the main pane", async ({
-  browser,
-}, testInfo) => {
+test("Settings link preserves the selected mobile pane", async ({ browser }, testInfo) => {
   const baseURL = testInfo.project.use.baseURL;
   if (typeof baseURL !== "string") {
     throw new Error("Playwright baseURL is required for mobile Settings tests.");
@@ -221,6 +219,20 @@ test("Settings link returns the mobile workspace to the main pane", async ({
     await expect(page).toHaveURL(/\/settings$/u);
     await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
       "data-mobile-pane",
+      "right",
+    );
+    await page.getByTestId("workspace-layout-v2-pane-main").evaluate((element) => {
+      const mainPane = element.querySelector("[data-workspace-layout-v2-mobile-main-pane]");
+      if (!(mainPane instanceof HTMLElement)) {
+        throw new Error("Expected mobile carousel main pane.");
+      }
+      const panePeekPx = Number.parseFloat(window.getComputedStyle(element).paddingLeft);
+
+      element.scrollLeft = mainPane.offsetLeft - panePeekPx;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
+      "data-mobile-pane",
       "main",
     );
 
@@ -250,7 +262,7 @@ test("Settings link returns the mobile workspace to the main pane", async ({
   }
 });
 
-test("prehydrated mobile Settings navigation selects the main route pane", async ({
+test("prehydrated mobile Settings reload preserves the selected sidebar", async ({
   browser,
 }, testInfo) => {
   const baseURL = testInfo.project.use.baseURL;
@@ -284,7 +296,6 @@ test("prehydrated mobile Settings navigation selects the main route pane", async
       "data-mobile-pane",
       "right",
     );
-
     await blockHydrationScripts(page);
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.waitForLoadState("networkidle");
@@ -305,16 +316,24 @@ test("prehydrated mobile Settings navigation selects the main route pane", async
     await expect(page).toHaveURL(/\/settings$/u);
     await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
       "data-mobile-pane",
-      "main",
+      "right",
     );
 
     await page.unroute("**/*");
     await page.reload({ waitUntil: "networkidle" });
     await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
       "data-mobile-pane",
-      "main",
+      "right",
     );
-    await expect(page.getByTestId("user-settings-page")).toBeVisible();
+    const rightResizeGrip = page.getByTestId("workspace-layout-v2-right-resize");
+    await expect(rightResizeGrip).toBeVisible();
+    await expect(
+      rightResizeGrip.locator("[data-workspace-layout-v2-resize-grip-dots]"),
+    ).toBeVisible();
+    await expect(rightResizeGrip).toHaveScreenshot(
+      "settings-sidebar-resize-grip-mobile.png",
+      screenshotOptions,
+    );
   } finally {
     await context.close();
   }

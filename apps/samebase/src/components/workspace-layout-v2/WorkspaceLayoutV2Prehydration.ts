@@ -351,11 +351,10 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
       carouselNode.querySelector('[data-testid="workspace-layout-v2-pane-left"]') !== null;
     const hasRightPane =
       carouselNode.querySelector('[data-testid="workspace-layout-v2-pane-right"]') !== null;
-    const routeMobilePane = layoutRoot.getAttribute("data-workspace-layout-v2-route-mobile-pane");
     const mobilePane = getAvailableMobilePane({
       hasLeftPane,
       hasRightPane,
-      mobilePane: routeMobilePane === "main" ? "main" : state.mobilePane,
+      mobilePane: state.mobilePane,
     });
     const viewportWidthPx = getViewportWidth(carouselNode);
     const defaultMainWidthPx = Math.max(1, viewportWidthPx);
