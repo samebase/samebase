@@ -39,12 +39,13 @@ function createDeferred<Value>() {
   return { promise, resolve: control.resolve };
 }
 
-function subscriptionPages(...pages: Array<readonly unknown[]>) {
-  return (async function* () {
-    for (const items of pages) {
-      yield { result: { items } };
-    }
-  })();
+function subscriptionPage(items: readonly unknown[], totalCount = items.length) {
+  return {
+    result: {
+      items,
+      pagination: { totalCount, maxPage: Math.ceil(totalCount / 100) },
+    },
+  };
 }
 
 function polarSubscription(args: {
@@ -171,7 +172,7 @@ describe("Polar customer.state_changed webhook", () => {
     const userId = await seedApprovedMember(t);
     configureWebhook();
     polarSdkMocks.subscriptionsList.mockResolvedValue(
-      subscriptionPages([polarSubscription({ status: providerStatus })]),
+      subscriptionPage([polarSubscription({ status: providerStatus })]),
     );
 
     const response = await deliver(t, customerStateChangedBody());
@@ -180,6 +181,8 @@ describe("Polar customer.state_changed webhook", () => {
     expect(polarSdkMocks.subscriptionsList).toHaveBeenCalledWith({
       externalCustomerId: "existing-customer",
       productId,
+      status: ["active", "trialing", "past_due"],
+      page: 1,
       limit: 100,
     });
     await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
@@ -192,15 +195,12 @@ describe("Polar customer.state_changed webhook", () => {
     });
   });
 
-  it("reads every subscription page and keeps past-due Pro entitled", async () => {
+  it("keeps past-due Pro entitled from the bounded subscription page", async () => {
     const t = makeConvexTest();
     const userId = await seedApprovedMember(t);
     configureWebhook();
     polarSdkMocks.subscriptionsList.mockResolvedValue(
-      subscriptionPages(
-        [polarSubscription({ status: "unpaid" })],
-        [polarSubscription({ status: "past_due", cancelAtPeriodEnd: true })],
-      ),
+      subscriptionPage([polarSubscription({ status: "past_due", cancelAtPeriodEnd: true })]),
     );
 
     const response = await deliver(t, customerStateChangedBody());
@@ -232,7 +232,7 @@ describe("Polar customer.state_changed webhook", () => {
     });
     configureWebhook();
     polarSdkMocks.subscriptionsList.mockResolvedValue(
-      subscriptionPages(subscriptions === 0 ? [] : [polarSubscription({ status: providerStatus })]),
+      subscriptionPage(subscriptions === 0 ? [] : [polarSubscription({ status: providerStatus })]),
     );
 
     const response = await deliver(t, customerStateChangedBody());
@@ -250,15 +250,15 @@ describe("Polar customer.state_changed webhook", () => {
     const t = makeConvexTest();
     const userId = await seedApprovedMember(t);
     configureWebhook();
-    const firstRead = createDeferred<ReturnType<typeof subscriptionPages>>();
+    const firstRead = createDeferred<ReturnType<typeof subscriptionPage>>();
     polarSdkMocks.subscriptionsList
       .mockReturnValueOnce(firstRead.promise)
-      .mockResolvedValueOnce(subscriptionPages([]));
+      .mockResolvedValueOnce(subscriptionPage([]));
 
     const firstDelivery = deliver(t, customerStateChangedBody());
     await vi.waitFor(() => expect(polarSdkMocks.subscriptionsList).toHaveBeenCalledOnce());
     await expect(deliver(t, customerStateChangedBody())).resolves.toMatchObject({ status: 204 });
-    firstRead.resolve(subscriptionPages([polarSubscription({ status: "active" })]));
+    firstRead.resolve(subscriptionPage([polarSubscription({ status: "active" })]));
     await expect(firstDelivery).resolves.toMatchObject({ status: 204 });
 
     const user = await t.run(async (ctx) => await ctx.db.get(userId));
@@ -297,12 +297,36 @@ describe("Polar customer.state_changed webhook", () => {
     });
   });
 
+  it("returns 503 when Polar reports more than 100 entitled subscriptions", async () => {
+    const t = makeConvexTest();
+    const userId = await seedApprovedMember(t);
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId, {
+        billingProvider: "polar",
+        billingPlan: "pro",
+        billingStatus: "active",
+      });
+    });
+    configureWebhook();
+    polarSdkMocks.subscriptionsList.mockResolvedValue(subscriptionPage([], 101));
+
+    const response = await deliver(t, customerStateChangedBody());
+
+    expect(response.status).toBe(503);
+    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+      provider: "polar",
+      plan: "pro",
+      status: "active",
+      canStartCheckout: true,
+    });
+  });
+
   it("lets an operator reconcile one Polar customer", async () => {
     const t = makeConvexTest();
     const userId = await seedApprovedMember(t);
     configureWebhook();
     polarSdkMocks.subscriptionsList.mockResolvedValue(
-      subscriptionPages([polarSubscription({ status: "past_due", cancelAtPeriodEnd: true })]),
+      subscriptionPage([polarSubscription({ status: "past_due", cancelAtPeriodEnd: true })]),
     );
 
     await expect(

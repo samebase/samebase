@@ -110,21 +110,24 @@ export async function readCanonicalPolarBillingState(args: {
     throw new Error("Polar external customer ID is missing.");
   }
 
-  const pages = await args.polar.subscriptions.list({
+  const page = await args.polar.subscriptions.list({
     externalCustomerId,
     productId: args.productId,
+    status: ["active", "trialing", "past_due"],
+    page: 1,
     limit: 100,
   });
+  if (page.result.pagination.totalCount > 100) {
+    throw new Error("Polar customer has more than 100 entitled subscriptions.");
+  }
 
   let selectedSubscription: PolarSubscription | null = null;
-  for await (const page of pages) {
-    for (const subscription of page.result.items) {
-      selectedSubscription = selectPolarEntitledSubscription({
-        selectedSubscription,
-        subscription,
-        productId: args.productId,
-      });
-    }
+  for (const subscription of page.result.items) {
+    selectedSubscription = selectPolarEntitledSubscription({
+      selectedSubscription,
+      subscription,
+      productId: args.productId,
+    });
   }
 
   return buildPolarBillingState({ externalCustomerId, selectedSubscription });
