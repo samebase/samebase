@@ -24,13 +24,17 @@ vi.mock("@polar-sh/sdk", () => ({
   },
 }));
 
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { makeConvexTest } from "./test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
+type CheckoutAttempt =
+  | { state: "pending"; attemptId: string }
+  | { state: "open"; attemptId: string; checkoutId: string };
 
 const productId = "samebase-pro-monthly";
+const externalCustomerId = "existing-customer";
 const currentPeriodEnd = "2026-09-01T00:00:00.000Z";
 const checkoutExpiresAt = new Date("2026-08-03T12:00:00.000Z");
 
@@ -138,6 +142,23 @@ async function seedMember(t: ConvexTest, isApproved = true) {
   });
 }
 
+async function seedCheckoutAttempt(t: ConvexTest, attempt: CheckoutAttempt) {
+  const userId = await seedMember(t);
+  await t.run(async (ctx) => {
+    await ctx.db.patch(userId, {
+      billingPolarExternalCustomerId: externalCustomerId,
+      billingPolarCheckoutAttempt: attempt,
+    });
+  });
+  return userId;
+}
+
+async function readCheckoutAttempt(t: ConvexTest, userId: Id<"users">) {
+  return await t.run(
+    async (ctx) => (await ctx.db.get(userId))?.billingPolarCheckoutAttempt ?? null,
+  );
+}
+
 function resourceNotFound() {
   const body = JSON.stringify({ error: "ResourceNotFound", detail: "Not found" });
   return new ResourceNotFound(
@@ -211,9 +232,9 @@ describe("billing access", () => {
         returnUrl: "http://localhost:5174/settings",
       }),
     ).resolves.toEqual({ url: "https://sandbox.polar.sh/portal/pending" });
-    await expect(pendingUser.action(api.billing.reconcileViewerBillingFromPolar, {})).resolves.toBe(
-      true,
-    );
+    await expect(
+      pendingUser.action(api.billing.reconcileViewerBillingFromPolar, {}),
+    ).resolves.toEqual({ state: "observed", plan: "free" });
     expect(polarSdkMocks.checkoutsCreate).not.toHaveBeenCalled();
   });
 
@@ -757,6 +778,72 @@ describe("billing access", () => {
   });
 });
 
+describe("checkout attempt resolution", () => {
+  it.each([
+    {
+      attempt: { state: "pending" as const, attemptId: "polar_checkout_clear_pending" },
+      resolution: { state: "clear_pending" as const },
+    },
+    {
+      attempt: {
+        state: "open" as const,
+        attemptId: "polar_checkout_clear_open",
+        checkoutId: "checkout-clear-open",
+      },
+      resolution: { state: "clear_open" as const, checkoutId: "checkout-clear-open" },
+    },
+  ])("clears an exact $attempt.state marker", async ({ attempt, resolution }) => {
+    const t = makeConvexTest();
+    const userId = await seedCheckoutAttempt(t, attempt);
+
+    await expect(
+      t.mutation(internal.polarCheckout.resolveAttemptForOperator, {
+        expectedAttemptId: attempt.attemptId,
+        externalCustomerId,
+        resolution,
+      }),
+    ).resolves.toBe(true);
+    await expect(readCheckoutAttempt(t, userId)).resolves.toBeNull();
+  });
+
+  it("records an exact checkout ID for a pending marker", async () => {
+    const t = makeConvexTest();
+    const attemptId = "polar_checkout_record_open";
+    const userId = await seedCheckoutAttempt(t, { state: "pending", attemptId });
+
+    await expect(
+      t.mutation(internal.polarCheckout.resolveAttemptForOperator, {
+        expectedAttemptId: attemptId,
+        externalCustomerId,
+        resolution: { state: "record_open", checkoutId: "checkout-recorded" },
+      }),
+    ).resolves.toBe(true);
+    await expect(readCheckoutAttempt(t, userId)).resolves.toEqual({
+      state: "open",
+      attemptId,
+      checkoutId: "checkout-recorded",
+    });
+  });
+
+  it("rejects a stale checkout marker change", async () => {
+    const t = makeConvexTest();
+    const attemptId = "polar_checkout_current";
+    const userId = await seedCheckoutAttempt(t, { state: "pending", attemptId });
+
+    await expect(
+      t.mutation(internal.polarCheckout.resolveAttemptForOperator, {
+        expectedAttemptId: "polar_checkout_stale",
+        externalCustomerId,
+        resolution: { state: "clear_pending" },
+      }),
+    ).resolves.toBe(false);
+    await expect(readCheckoutAttempt(t, userId)).resolves.toEqual({
+      state: "pending",
+      attemptId,
+    });
+  });
+});
+
 describe("billing reconciliation", () => {
   it("applies an earlier valid observation when a later observation fails", async () => {
     const t = makeConvexTest();
@@ -773,15 +860,15 @@ describe("billing reconciliation", () => {
 
     const earlierReconciliation = viewer.action(api.billing.reconcileViewerBillingFromPolar, {});
     await vi.waitFor(() => expect(polarSdkMocks.subscriptionsList).toHaveBeenCalledOnce());
-    await expect(viewer.action(api.billing.reconcileViewerBillingFromPolar, {})).resolves.toBe(
-      false,
-    );
+    await expect(viewer.action(api.billing.reconcileViewerBillingFromPolar, {})).resolves.toEqual({
+      state: "unavailable",
+    });
     firstRead.resolve(
       subscriptionPage([
         polarSubscription({ cancelAtPeriodEnd: false, productId, status: "active" }),
       ]),
     );
-    await expect(earlierReconciliation).resolves.toBe(true);
+    await expect(earlierReconciliation).resolves.toEqual({ state: "observed", plan: "pro" });
 
     const user = await t.run(async (ctx) => await ctx.db.get(userId));
     expect(user?.billingPolarObservationRevision).toBe(2);
@@ -811,15 +898,16 @@ describe("billing reconciliation", () => {
 
     const staleReconciliation = viewer.action(api.billing.reconcileViewerBillingFromPolar, {});
     await vi.waitFor(() => expect(polarSdkMocks.subscriptionsList).toHaveBeenCalledOnce());
-    await expect(viewer.action(api.billing.reconcileViewerBillingFromPolar, {})).resolves.toBe(
-      true,
-    );
+    await expect(viewer.action(api.billing.reconcileViewerBillingFromPolar, {})).resolves.toEqual({
+      state: "observed",
+      plan: "free",
+    });
     firstRead.resolve(
       subscriptionPage([
         polarSubscription({ cancelAtPeriodEnd: false, productId, status: "active" }),
       ]),
     );
-    await expect(staleReconciliation).resolves.toBe(false);
+    await expect(staleReconciliation).resolves.toEqual({ state: "unavailable" });
 
     await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
       provider: "polar",
@@ -844,7 +932,7 @@ describe("billing reconciliation", () => {
 
     await expect(
       asUser(t, userId).action(api.billing.reconcileViewerBillingFromPolar, {}),
-    ).resolves.toBe(true);
+    ).resolves.toEqual({ state: "observed", plan: "pro" });
     await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
       provider: "polar",
       plan: "pro",
@@ -873,13 +961,80 @@ describe("billing reconciliation", () => {
 
     await expect(
       asUser(t, userId).action(api.billing.reconcileViewerBillingFromPolar, {}),
-    ).resolves.toBe(true);
+    ).resolves.toEqual({ state: "observed", plan: "free" });
     await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
       provider: "polar",
       plan: "free",
       status: "inactive",
       canStartCheckout: true,
     });
+  });
+
+  it.each([
+    { label: "confirmed Pro", status: "confirmed", plan: "pro", clears: true },
+    { label: "succeeded Pro", status: "succeeded", plan: "pro", clears: true },
+    { label: "expired Free", status: "expired", plan: "free", clears: true },
+    { label: "failed Free", status: "failed", plan: "free", clears: true },
+    { label: "succeeded Free", status: "succeeded", plan: "free", clears: false },
+    { label: "open Pro", status: "open", plan: "pro", clears: false },
+    { label: "mismatch", status: "failed", plan: "free", clears: false },
+    { label: "unknown status", status: "processing", plan: "free", clears: false },
+    { label: "provider error", status: "error", plan: "free", clears: false },
+  ])("resolves a stored open checkout for $label", async ({ clears, label, plan, status }) => {
+    const t = makeConvexTest();
+    const attempt = {
+      state: "open" as const,
+      attemptId: `polar_checkout_viewer_${label.replace(" ", "_")}`,
+      checkoutId: `checkout-viewer-${label.replace(" ", "-")}`,
+    };
+    const userId = await seedCheckoutAttempt(t, attempt);
+    configureSandboxBilling();
+    if (plan === "pro") {
+      polarSdkMocks.subscriptionsList.mockResolvedValue(
+        subscriptionPage([
+          polarSubscription({ cancelAtPeriodEnd: false, productId, status: "active" }),
+        ]),
+      );
+    }
+    if (status === "error") {
+      polarSdkMocks.checkoutsGet.mockRejectedValue(new Error("Polar is unavailable"));
+    } else {
+      polarSdkMocks.checkoutsGet.mockResolvedValue(
+        polarCheckout({
+          attemptId: attempt.attemptId,
+          externalCustomerId: label === "mismatch" ? "other-customer" : externalCustomerId,
+          id: attempt.checkoutId,
+          status,
+        }),
+      );
+    }
+
+    await expect(
+      asUser(t, userId).action(api.billing.reconcileViewerBillingFromPolar, {}),
+    ).resolves.toEqual({ state: "observed", plan });
+    await expect(readCheckoutAttempt(t, userId)).resolves.toEqual(clears ? null : attempt);
+    expect(polarSdkMocks.checkoutsGet).toHaveBeenCalledWith({ id: attempt.checkoutId });
+  });
+
+  it("does not inspect or clear a pending marker during viewer reconciliation", async () => {
+    const t = makeConvexTest();
+    const attempt = {
+      state: "pending" as const,
+      attemptId: "polar_checkout_viewer_pending",
+    };
+    const userId = await seedCheckoutAttempt(t, attempt);
+    configureSandboxBilling();
+    polarSdkMocks.subscriptionsList.mockResolvedValue(
+      subscriptionPage([
+        polarSubscription({ cancelAtPeriodEnd: false, productId, status: "active" }),
+      ]),
+    );
+
+    await expect(
+      asUser(t, userId).action(api.billing.reconcileViewerBillingFromPolar, {}),
+    ).resolves.toEqual({ state: "observed", plan: "pro" });
+    await expect(readCheckoutAttempt(t, userId)).resolves.toEqual(attempt);
+    expect(polarSdkMocks.checkoutsGet).not.toHaveBeenCalled();
   });
 
   it("preserves the stored entitlement when Polar returns malformed data", async () => {
@@ -900,7 +1055,7 @@ describe("billing reconciliation", () => {
 
     await expect(
       asUser(t, userId).action(api.billing.reconcileViewerBillingFromPolar, {}),
-    ).resolves.toBe(false);
+    ).resolves.toEqual({ state: "unavailable" });
     await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
       provider: "polar",
       plan: "pro",

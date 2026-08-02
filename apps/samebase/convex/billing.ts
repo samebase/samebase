@@ -7,6 +7,7 @@ import { action, query } from "./functions";
 import { randomToken } from "./oauthUtils";
 import { readCanonicalPolarBillingState } from "./polarBillingState";
 import {
+  canClearPolarCheckoutAfterObservation,
   isDefinitivePolarCheckoutFailure,
   isOpenPolarCheckoutForAttempt,
   matchesPolarCheckoutAttempt,
@@ -44,6 +45,12 @@ const vPolarCheckoutSession = object({
 const vPolarPortalSession = object({
   url: string(),
 });
+
+const vPolarBillingReconciliationResult = union(
+  object({ state: literal("observed"), plan: vBillingPlan }),
+  object({ state: literal("unavailable") }),
+);
+type PolarBillingReconciliationResult = Infer<typeof vPolarBillingReconciliationResult>;
 
 const vPolarCustomerSeed = object({
   externalCustomerId: string(),
@@ -359,14 +366,14 @@ export const createPolarCustomerPortalSession = action({
 export const reconcileViewerBillingFromPolar = action({
   access: "access_user_preferences",
   args: {},
-  returns: boolean(),
-  handler: async (ctx): Promise<boolean> => {
+  returns: vPolarBillingReconciliationResult,
+  handler: async (ctx): Promise<PolarBillingReconciliationResult> => {
     const userId = ctx.viewer.userId;
     const currentUser = await ctx.runQuery(internal.users.getById, { userId });
     const externalCustomerId = currentUser?.billingPolarExternalCustomerId?.trim();
     const productId = readPolarProMonthlyProductId();
-    if (!externalCustomerId || !productId) {
-      return false;
+    if (!currentUser || !externalCustomerId || !productId) {
+      return { state: "unavailable" };
     }
 
     const observationRevision: number | null = await ctx.runMutation(
@@ -374,24 +381,56 @@ export const reconcileViewerBillingFromPolar = action({
       { externalCustomerId },
     );
     if (observationRevision === null) {
-      return false;
+      return { state: "unavailable" };
     }
 
     try {
+      const polar = createPolarClient();
       const state = await readCanonicalPolarBillingState({
-        polar: createPolarClient(),
+        polar,
         externalCustomerId,
         productId,
       });
-      return await ctx.runMutation(internal.polarBillingState.applyObservation, {
+      const applied: boolean = await ctx.runMutation(internal.polarBillingState.applyObservation, {
         state,
         observationRevision,
       });
+      if (!applied) {
+        return { state: "unavailable" };
+      }
+
+      const attempt = currentUser.billingPolarCheckoutAttempt;
+      if (attempt?.state === "open") {
+        try {
+          const checkout = await polar.checkouts.get({ id: attempt.checkoutId });
+          if (
+            matchesPolarCheckoutAttempt({
+              attemptId: attempt.attemptId,
+              checkout,
+              externalCustomerId,
+              productId,
+            }) &&
+            canClearPolarCheckoutAfterObservation({ checkout, observedPlan: state.plan })
+          ) {
+            await ctx.runMutation(internal.polarCheckout.clearOpen, {
+              userId,
+              attemptId: attempt.attemptId,
+              checkoutId: attempt.checkoutId,
+            });
+          }
+        } catch (error) {
+          console.warn("billing:polar:checkout_reconciliation_failed", {
+            errorName: error instanceof Error ? error.name : "UnknownError",
+          });
+        }
+      }
+
+      return { state: "observed", plan: state.plan };
     } catch (error) {
       console.warn("billing:polar:reconciliation_failed", {
         errorName: error instanceof Error ? error.name : "UnknownError",
       });
-      return false;
+      return { state: "unavailable" };
     }
   },
 });

@@ -324,7 +324,7 @@ describe("UserSettingsPage", () => {
     actionState.createCheckoutSession.mockReset();
     actionState.createCustomerPortalSession.mockReset();
     actionState.reconcileBilling.mockReset();
-    actionState.reconcileBilling.mockResolvedValue(true);
+    actionState.reconcileBilling.mockResolvedValue({ state: "observed", plan: "pro" });
     mutationState.requestDeletion.mockReset();
     mutationState.setDisplayName.mockReset();
     routerState.navigate.mockReset();
@@ -514,7 +514,7 @@ describe("UserSettingsPage", () => {
   it("removes the checkout return value after trusted Pro state arrives", async () => {
     vi.useFakeTimers();
     locationState.search = { checkout: "success" };
-    actionState.reconcileBilling.mockResolvedValue(true);
+    actionState.reconcileBilling.mockResolvedValue({ state: "observed", plan: "pro" });
     const mounted = await mountSettingsPage();
     try {
       await act(async () => {
@@ -546,10 +546,10 @@ describe("UserSettingsPage", () => {
     }
   });
 
-  it("keeps a neutral pending state when reconciliation finishes before the plan updates", async () => {
+  it("shows a neutral delay when trusted reconciliation still reports Free", async () => {
     vi.useFakeTimers();
     locationState.search = { checkout: "success" };
-    actionState.reconcileBilling.mockResolvedValue(true);
+    actionState.reconcileBilling.mockResolvedValue({ state: "observed", plan: "free" });
     const mounted = await mountSettingsPage();
     try {
       await act(async () => {
@@ -557,14 +557,9 @@ describe("UserSettingsPage", () => {
       });
 
       expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
-      expect(mounted.rootElement.textContent).toContain("Checking your payment and plan...");
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(10_000);
-      });
-      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
-      expect(mounted.rootElement.textContent).toContain("Checking your payment and plan...");
-      expect(mounted.rootElement.textContent).not.toContain("Plan confirmation is delayed.");
+      expect(mounted.rootElement.textContent).toContain(
+        "Plan confirmation is delayed. Refresh this page to check again.",
+      );
     } finally {
       await unmount(mounted.root, mounted.rootElement);
     }
@@ -573,7 +568,7 @@ describe("UserSettingsPage", () => {
   it("shows a neutral delay after one failed checkout reconciliation", async () => {
     vi.useFakeTimers();
     locationState.search = { checkout: "success" };
-    actionState.reconcileBilling.mockResolvedValue(false);
+    actionState.reconcileBilling.mockResolvedValue({ state: "unavailable" });
     const mounted = await mountSettingsPage();
     try {
       await act(async () => {

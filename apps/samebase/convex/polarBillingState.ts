@@ -167,8 +167,6 @@ export const applyObservation = internalMutation({
       billingPolarAppliedObservationRevision: args.observationRevision,
       billingCurrentPeriodEndAt: state.plan === "pro" ? state.currentPeriodEndAt : undefined,
       billingCancelAtPeriodEnd: state.plan === "pro" ? state.cancelAtPeriodEnd : undefined,
-      billingPolarCheckoutAttempt:
-        state.plan === "pro" ? undefined : user.billingPolarCheckoutAttempt,
     });
 
     return true;

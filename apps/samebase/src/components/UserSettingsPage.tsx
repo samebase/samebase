@@ -96,7 +96,7 @@ export function UserSettingsPage() {
     const reconcileCheckoutReturn = async () => {
       try {
         const reconciled = await reconcileBilling({});
-        if (active && !reconciled) {
+        if (active && (reconciled.state === "unavailable" || reconciled.plan === "free")) {
           setBillingReconciliationDelayed(true);
         }
       } catch {
