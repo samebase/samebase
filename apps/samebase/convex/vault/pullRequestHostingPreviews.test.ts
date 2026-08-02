@@ -7,25 +7,38 @@ import {
   resolveNetlifyHostingPreviews,
 } from "./pullRequestHostingPreviews";
 
-function cloudflareWorkerComment(args: {
-  accountId: string;
-  branchPreviewUrl: string | null;
-  status?: string;
-  workerName: string;
-}) {
-  const previewColumn = args.branchPreviewUrl === null ? "" : " | Preview URL";
-  const previewSeparator = args.branchPreviewUrl === null ? "" : "|-";
-  const previewCell =
-    args.branchPreviewUrl === null
-      ? ""
-      : ` | <a href='https://d25210e5-${args.workerName}.pfp.workers.dev'>Commit Preview URL</a><br><br><a href='${args.branchPreviewUrl}'>Branch Preview URL</a>`;
-  return `## Deploying with &nbsp;<a href="https://workers.dev"><img alt="Cloudflare Workers" src="https://workers.cloudflare.com/logo.svg" width="16"></a> &nbsp;Cloudflare Workers
+// https://github.com/samebase/samebase/pull/1343#issuecomment-5158532152
+const cloudflareWorkerSuccessWithoutPreviewComment = `## Deploying with &nbsp;<a href="https://workers.dev"><img alt="Cloudflare Workers" src="https://workers.cloudflare.com/logo.svg" width="16"></a> &nbsp;Cloudflare Workers
 The latest updates on your project. Learn more about [integrating Git with Workers](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/).
 
-| Status | Name | Latest Commit${previewColumn} | Updated (UTC) |
-| -|-|-${previewSeparator}|-|
-| ${args.status ?? "✅ Deployment successful!"} <br>[View logs](https://dash.cloudflare.com/?to=/${args.accountId}/workers/services/view/${args.workerName}/production/builds/build-1) | ${args.workerName} | 9a0e51e5${previewCell} | Jul 31 2026, 09:18 AM |`;
-}
+| Status | Name | Latest Commit | Updated (UTC) |
+| -|-|-|-|
+| ✅ Deployment successful! <br>[View logs](https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-posthog-proxy/production/builds/4b9d6a6f-d4d4-4f9d-8c73-da8a5b1525c8) | samebase-posthog-proxy | 0a7c7e5d | Aug 02 2026, 03:12 PM |`;
+
+// https://github.com/samebase/samebase/pull/1343#issuecomment-5158540792
+const cloudflareWorkerSuccessWithPreviewComment = `## Deploying with &nbsp;<a href="https://workers.dev"><img alt="Cloudflare Workers" src="https://workers.cloudflare.com/logo.svg" width="16"></a> &nbsp;Cloudflare Workers
+The latest updates on your project. Learn more about [integrating Git with Workers](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/).
+
+| Status | Name | Latest Commit | Preview URL | Updated (UTC) |
+| -|-|-|-|-|
+| ✅ Deployment successful! <br>[View logs](https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase/production/builds/293779de-52eb-4232-9ddd-52937ac4a575) | samebase | 0a7c7e5d | <a href='https://aa8c36b0-samebase.pfp.workers.dev'>Commit Preview URL</a><br><br><a href='https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev'>Branch Preview URL</a> | Aug 02 2026, 03:13 PM |`;
+
+// Captured from https://github.com/samebase/samebase/pull/1343#issuecomment-5158540792
+// at 2026-08-02 15:10 UTC. The bot replaced this state after the build completed.
+const cloudflareWorkerInProgressComment = `## Deploying with &nbsp;<a href="https://workers.dev"><img alt="Cloudflare Workers" src="https://workers.cloudflare.com/logo.svg" width="16"></a> &nbsp;Cloudflare Workers
+The latest updates on your project. Learn more about [integrating Git with Workers](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/).
+
+| Status | Name | Latest Commit | Updated (UTC) |
+| -|-|-|-|
+| 🔵 In progress <br>[View logs](https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase/production/builds/293779de-52eb-4232-9ddd-52937ac4a575) | samebase | 0a7c7e5d | Aug 02 2026, 03:10 PM |`;
+
+// https://github.com/samebase/samebase/pull/1047#issuecomment-4759266322
+const cloudflareWorkerFailureComment = `## Deploying with &nbsp;<a href="https://workers.dev"><img alt="Cloudflare Workers" src="https://workers.cloudflare.com/logo.svg" width="16"></a> &nbsp;Cloudflare Workers
+The latest updates on your project. Learn more about [integrating Git with Workers](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/).
+
+| Status | Name | Latest Commit | Updated (UTC) |
+| -|-|-|-|
+| ❌ Deployment failed <br>[View logs](https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/noter-worker/production/builds/f990c8d2-41fe-450b-9a36-bc2195198386) | noter-worker | 46049b19 | Jun 20 2026, 05:43 PM |`;
 
 function cloudflarePagesComment(args: {
   accountId: string;
@@ -87,11 +100,7 @@ describe("hosting comment parse diagnostics", () => {
     const cloudflareComments = {
       state: "available" as const,
       bodies: [
-        cloudflareWorkerComment({
-          accountId: "account-1",
-          branchPreviewUrl: null,
-          workerName: "samebase-posthog-proxy",
-        }),
+        cloudflareWorkerSuccessWithoutPreviewComment,
         cloudflarePagesWithoutPreviewComment({
           accountId: "account-2",
           projectName: "logto-docs",
@@ -122,16 +131,8 @@ describe("hosting comment parse diagnostics", () => {
   });
 
   it("reports silent provider format drift", () => {
-    const worker = cloudflareWorkerComment({
-      accountId: "account-1",
-      branchPreviewUrl: null,
-      workerName: "samebase",
-    });
-    const readyWorker = cloudflareWorkerComment({
-      accountId: "account-1",
-      branchPreviewUrl: "https://feature-samebase.pfp.workers.dev",
-      workerName: "samebase",
-    });
+    const worker = cloudflareWorkerSuccessWithoutPreviewComment;
+    const readyWorker = cloudflareWorkerSuccessWithPreviewComment;
     const pages = cloudflarePagesComment({
       accountId: "account-2",
       branchPreviewText: "https://feature.logto-docs.pages.dev",
@@ -178,11 +179,10 @@ describe("hosting comment parse diagnostics", () => {
     const cloudflareComments = {
       state: "available" as const,
       bodies: [
-        cloudflareWorkerComment({
-          accountId: "account-1",
-          branchPreviewUrl: "https://feature-samebase.pfp.workers.dev/path",
-          workerName: "samebase",
-        }),
+        cloudflareWorkerSuccessWithPreviewComment.replace(
+          "https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev",
+          "https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev/path",
+        ),
       ],
     };
     const netlifyComments = {
@@ -218,11 +218,7 @@ describe("resolveCloudflareHostingPreviews", () => {
       resolveCloudflareHostingPreviews({
         state: "available",
         bodies: [
-          cloudflareWorkerComment({
-            accountId: "account-1",
-            branchPreviewUrl: "https://feature-samebase.pfp.workers.dev",
-            workerName: "samebase",
-          }),
+          cloudflareWorkerSuccessWithPreviewComment,
           cloudflarePagesComment({
             accountId: "account-2",
             branchPreviewText: "https://feature.logto-docs.pages.dev",
@@ -236,9 +232,9 @@ describe("resolveCloudflareHostingPreviews", () => {
       previews: [
         {
           kind: "worker",
-          accountId: "account-1",
+          accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
           name: "samebase",
-          url: "https://feature-samebase.pfp.workers.dev",
+          url: "https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev",
         },
         {
           kind: "pages",
@@ -249,11 +245,11 @@ describe("resolveCloudflareHostingPreviews", () => {
       ],
       workerBuilds: [
         {
-          accountId: "account-1",
+          accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
           buildState: "success",
-          buildUuid: "build-1",
+          buildUuid: "293779de-52eb-4232-9ddd-52937ac4a575",
           logsUrl:
-            "https://dash.cloudflare.com/?to=/account-1/workers/services/view/samebase/production/builds/build-1",
+            "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase/production/builds/293779de-52eb-4232-9ddd-52937ac4a575",
           name: "samebase",
         },
       ],
@@ -264,37 +260,26 @@ describe("resolveCloudflareHostingPreviews", () => {
     expect(
       resolveCloudflareHostingPreviews({
         state: "available",
-        bodies: [
-          cloudflareWorkerComment({
-            accountId: "account-1",
-            branchPreviewUrl: null,
-            status: "🔵 In progress",
-            workerName: "samebase-posthog-proxy",
-          }),
-        ],
+        bodies: [cloudflareWorkerInProgressComment],
       }),
     ).toEqual({
       state: "available",
       previews: [],
       workerBuilds: [
         {
-          accountId: "account-1",
+          accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
           buildState: "running",
-          buildUuid: "build-1",
+          buildUuid: "293779de-52eb-4232-9ddd-52937ac4a575",
           logsUrl:
-            "https://dash.cloudflare.com/?to=/account-1/workers/services/view/samebase-posthog-proxy/production/builds/build-1",
-          name: "samebase-posthog-proxy",
+            "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase/production/builds/293779de-52eb-4232-9ddd-52937ac4a575",
+          name: "samebase",
         },
       ],
     });
   });
 
   it("fails closed when the resource identity or preview URL disagrees", () => {
-    const validWorker = cloudflareWorkerComment({
-      accountId: "account-1",
-      branchPreviewUrl: "https://feature-samebase.pfp.workers.dev",
-      workerName: "samebase",
-    });
+    const validWorker = cloudflareWorkerSuccessWithPreviewComment;
     expect(
       resolveCloudflareHostingPreviews({
         state: "available",
@@ -306,8 +291,8 @@ describe("resolveCloudflareHostingPreviews", () => {
         state: "available",
         bodies: [
           validWorker.replace(
-            "https://feature-samebase.pfp.workers.dev",
-            "https://feature-samebase.pfp.workers.dev/path",
+            "https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev",
+            "https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev/path",
           ),
         ],
       }),
@@ -329,23 +314,24 @@ describe("resolveCloudflareHostingPreviews", () => {
   });
 
   it("rejects unsafe Cloudflare Worker preview origins", () => {
-    const validWorker = cloudflareWorkerComment({
-      accountId: "account-1",
-      branchPreviewUrl: "https://feature-samebase.pfp.workers.dev",
-      workerName: "samebase",
-    });
+    const validWorker = cloudflareWorkerSuccessWithPreviewComment;
     for (const previewUrl of [
-      "http://feature-samebase.pfp.workers.dev",
-      "https://user@feature-samebase.pfp.workers.dev",
-      "https://feature-samebase.pfp.workers.dev:8443",
-      "https://feature-samebase.pfp.workers.dev?source=comment",
-      "https://feature-samebase.pfp.workers.dev#preview",
-      "https://feature-samebase.example.com",
+      "http://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev",
+      "https://user@codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev",
+      "https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev:8443",
+      "https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev?source=comment",
+      "https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev#preview",
+      "https://codex-preserve-pr-worker-root-groups-samebase.example.com",
     ]) {
       expect(
         resolveCloudflareHostingPreviews({
           state: "available",
-          bodies: [validWorker.replace("https://feature-samebase.pfp.workers.dev", previewUrl)],
+          bodies: [
+            validWorker.replace(
+              "https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev",
+              previewUrl,
+            ),
+          ],
         }),
       ).toEqual({ state: "unavailable" });
     }
@@ -368,11 +354,7 @@ describe("resolveCloudflareHostingPreviews", () => {
   });
 
   it("deduplicates equal previews and rejects conflicting previews", () => {
-    const first = cloudflareWorkerComment({
-      accountId: "account-1",
-      branchPreviewUrl: "https://feature-samebase.pfp.workers.dev",
-      workerName: "samebase",
-    });
+    const first = cloudflareWorkerSuccessWithPreviewComment;
     expect(
       resolveCloudflareHostingPreviews({ state: "available", bodies: [first, first] }),
     ).toEqual({
@@ -380,18 +362,18 @@ describe("resolveCloudflareHostingPreviews", () => {
       previews: [
         {
           kind: "worker",
-          accountId: "account-1",
+          accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
           name: "samebase",
-          url: "https://feature-samebase.pfp.workers.dev",
+          url: "https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev",
         },
       ],
       workerBuilds: [
         {
-          accountId: "account-1",
+          accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
           buildState: "success",
-          buildUuid: "build-1",
+          buildUuid: "293779de-52eb-4232-9ddd-52937ac4a575",
           logsUrl:
-            "https://dash.cloudflare.com/?to=/account-1/workers/services/view/samebase/production/builds/build-1",
+            "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase/production/builds/293779de-52eb-4232-9ddd-52937ac4a575",
           name: "samebase",
         },
       ],
@@ -401,11 +383,10 @@ describe("resolveCloudflareHostingPreviews", () => {
         state: "available",
         bodies: [
           first,
-          cloudflareWorkerComment({
-            accountId: "account-1",
-            branchPreviewUrl: "https://other-samebase.pfp.workers.dev",
-            workerName: "samebase",
-          }),
+          cloudflareWorkerSuccessWithPreviewComment.replace(
+            "https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev",
+            "https://other-samebase.pfp.workers.dev",
+          ),
         ],
       }),
     ).toEqual({ state: "unavailable" });
@@ -421,16 +402,12 @@ describe("resolveCloudflareHostingPreviews", () => {
           branchPreviewUrl: "https://feature.beta.pages.dev",
           projectName: "beta",
         }),
-        cloudflareWorkerComment({
-          accountId: "account-1",
-          branchPreviewUrl: "https://feature-zeta.pfp.workers.dev",
-          workerName: "zeta",
-        }),
-        cloudflareWorkerComment({
-          accountId: "account-2",
-          branchPreviewUrl: "https://feature-alpha.pfp.workers.dev",
-          workerName: "alpha",
-        }),
+        cloudflareWorkerSuccessWithPreviewComment
+          .replace(/samebase/g, "zeta")
+          .replace("fe57d01d7ab41f60d00ba1aade20eb33", "account-1"),
+        cloudflareWorkerSuccessWithPreviewComment
+          .replace(/samebase/g, "alpha")
+          .replace("fe57d01d7ab41f60d00ba1aade20eb33", "account-2"),
       ],
     });
     expect(result.state).toBe("available");
@@ -453,36 +430,29 @@ describe("resolveCloudflareHostingPreviews", () => {
 describe("resolveCloudflareCommentWorkerBuild", () => {
   const resources = resolveCloudflareHostingPreviews({
     state: "available",
-    bodies: [
-      cloudflareWorkerComment({
-        accountId: "account-1",
-        branchPreviewUrl: null,
-        status: "🔵 In progress",
-        workerName: "samebase",
-      }),
-    ],
+    bodies: [cloudflareWorkerInProgressComment],
   });
 
   it("matches the exact account and Worker row", () => {
     expect(
       resolveCloudflareCommentWorkerBuild({
-        accountId: "account-1",
+        accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
         resources,
         workerName: "samebase",
       }),
     ).toEqual({
       state: "available",
-      buildUuid: "build-1",
+      buildUuid: "293779de-52eb-4232-9ddd-52937ac4a575",
       buildState: "running",
       logsUrl:
-        "https://dash.cloudflare.com/?to=/account-1/workers/services/view/samebase/production/builds/build-1",
+        "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase/production/builds/293779de-52eb-4232-9ddd-52937ac4a575",
     });
   });
 
   it("does not return a build for another account or Worker", () => {
     expect(
       resolveCloudflareCommentWorkerBuild({
-        accountId: "account-1",
+        accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
         resources,
         workerName: "other-worker",
       }),
@@ -499,21 +469,14 @@ describe("resolveCloudflareCommentWorkerBuild", () => {
   it("keeps a failed status from the comment", () => {
     const failed = resolveCloudflareHostingPreviews({
       state: "available",
-      bodies: [
-        cloudflareWorkerComment({
-          accountId: "account-1",
-          branchPreviewUrl: null,
-          status: "❌ Deployment failed",
-          workerName: "samebase",
-        }),
-      ],
+      bodies: [cloudflareWorkerFailureComment],
     });
 
     expect(
       resolveCloudflareCommentWorkerBuild({
-        accountId: "account-1",
+        accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
         resources: failed,
-        workerName: "samebase",
+        workerName: "noter-worker",
       }),
     ).toMatchObject({ state: "available", buildState: "failure" });
   });
@@ -522,20 +485,18 @@ describe("resolveCloudflareCommentWorkerBuild", () => {
     const unknown = resolveCloudflareHostingPreviews({
       state: "available",
       bodies: [
-        cloudflareWorkerComment({
-          accountId: "account-1",
-          branchPreviewUrl: null,
-          status: "⏭️ Build skipped.",
-          workerName: "samebase",
-        }),
+        cloudflareWorkerSuccessWithoutPreviewComment.replace(
+          "✅ Deployment successful!",
+          "⏭️ Build skipped.",
+        ),
       ],
     });
 
     expect(
       resolveCloudflareCommentWorkerBuild({
-        accountId: "account-1",
+        accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
         resources: unknown,
-        workerName: "samebase",
+        workerName: "samebase-posthog-proxy",
       }),
     ).toMatchObject({ state: "available", buildState: "unknown" });
   });
