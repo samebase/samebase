@@ -2,7 +2,6 @@ import { defineSchema } from "convex/server";
 
 import { accountDeletionTables } from "./accountDeletion/model";
 import { vaultProvisioningTables } from "./appProvisioningModel";
-import { billingResourceQuotaTables } from "./billingResourceQuotaModel";
 import { vaultEditorTables } from "./editorModel";
 import { identityTables } from "./identityModel";
 import { mcpTables } from "./mcp/model";
@@ -18,7 +17,6 @@ import { vaultTables } from "./vault/model";
 export default defineSchema({
   ...identityTables,
   ...accountDeletionTables,
-  ...billingResourceQuotaTables,
   ...providerConnectionTables,
   ...userPreferenceTables,
   ...vaultDashboardTables,

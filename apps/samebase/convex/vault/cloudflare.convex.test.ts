@@ -612,7 +612,7 @@ describe("vault Cloudflare Worker attachments", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     const failureRecordWarning = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { asUser, t, userId, vaultId } = await createCloudflareConnectedVault();
+    const { asUser, t, vaultId } = await createCloudflareConnectedVault();
     try {
       await expect(
         asUser.action(api.vault.cloudflare.createWorker, {
@@ -643,34 +643,14 @@ describe("vault Cloudflare Worker attachments", () => {
       }),
     );
     await expect(
-      t.run(async (ctx) => {
-        const workers = await ctx.db
-          .query("vaultCloudflareWorkers")
-          .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-          .collect();
-        const reservations = await ctx.db
-          .query("billingResourceReservations")
-          .withIndex("by_userId_and_kind_and_expiresAt", (q) =>
-            q.eq("userId", userId).eq("resource.kind", "cloudflare_worker"),
-          )
-          .collect();
-        return { reservations, workers };
-      }),
-    ).resolves.toEqual({
-      reservations: [
-        expect.objectContaining({
-          userId,
-          resource: {
-            state: "provider_created",
-            kind: "cloudflare_worker",
-            accountId,
-            workerName: "new-worker",
-            workerTag: "new-worker-tag",
-          },
-        }),
-      ],
-      workers: [],
-    });
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("vaultCloudflareWorkers")
+            .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+            .collect(),
+      ),
+    ).resolves.toEqual([]);
   });
 
   it("uses one backend conflict rule for browser and MCP configuration writes", async () => {

@@ -496,7 +496,7 @@ describe("vault Convex project attachments", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     const failureRecordWarning = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { asUser, t, userId, vaultId } = await createConnectedVault();
+    const { asUser, t, vaultId } = await createConnectedVault();
     try {
       await expect(
         asUser.action(api.vault.convex.createProject, {
@@ -525,33 +525,14 @@ describe("vault Convex project attachments", () => {
       }),
     );
     await expect(
-      t.run(async (ctx) => {
-        const projects = await ctx.db
-          .query("vaultConvexProjects")
-          .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
-          .collect();
-        const reservations = await ctx.db
-          .query("billingResourceReservations")
-          .withIndex("by_userId_and_kind_and_expiresAt", (q) =>
-            q.eq("userId", userId).eq("resource.kind", "convex_project"),
-          )
-          .collect();
-        return { projects, reservations };
-      }),
-    ).resolves.toEqual({
-      projects: [],
-      reservations: [
-        expect.objectContaining({
-          userId,
-          resource: {
-            state: "provider_created",
-            kind: "convex_project",
-            teamId: "1000",
-            projectId: "1003",
-          },
-        }),
-      ],
-    });
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("vaultConvexProjects")
+            .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+            .collect(),
+      ),
+    ).resolves.toEqual([]);
   });
 
   it("requires dashboard deletion when an interrupted managed create left a project", async () => {

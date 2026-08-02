@@ -2,10 +2,6 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import {
-  managedBillingResourceOperationKey,
-  manualBillingResourceOperationKey,
-} from "./billingResourceQuotas";
 import { makeConvexTest } from "./test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
@@ -160,32 +156,6 @@ function asUser(t: ConvexTest, userId: Id<"users">) {
     subject: `${userId}|test-session`,
     tokenIdentifier: `test:${userId}`,
   });
-}
-
-async function seedProviderCreatedReservation(
-  t: ConvexTest,
-  args: {
-    operationKey: string;
-    providerResource:
-      | {
-          kind: "cloudflare_worker";
-          accountId: string;
-          workerName: string;
-          workerTag: string;
-        }
-      | { kind: "convex_project"; teamId: string; projectId: string };
-    userId: Id<"users">;
-  },
-): Promise<Id<"billingResourceReservations">> {
-  return await t.run(
-    async (ctx) =>
-      await ctx.db.insert("billingResourceReservations", {
-        userId: args.userId,
-        operationKey: args.operationKey,
-        resource: { state: "provider_created", ...args.providerResource },
-        expiresAt: Date.now() + 60_000,
-      }),
-  );
 }
 
 async function createManagedProjectCheckpoint(
@@ -553,373 +523,44 @@ describe("billing resource quotas", () => {
     });
   });
 
-  it("serializes concurrent claims for the last available slot", async () => {
+  it("serializes concurrent final writes for each last available slot", async () => {
     const { ids, t } = await createQuotaFixture();
-    await seedProjects(t, { ...ids, count: 4 });
-
-    const claims = await Promise.allSettled([
-      t.mutation(internal.billingResourceQuotas.claimBillingResourceReservation, {
-        userId: ids.userId,
-        kind: "convex_project",
-        operationKey: "concurrent-project-a",
-      }),
-      t.mutation(internal.billingResourceQuotas.claimBillingResourceReservation, {
-        userId: ids.userId,
-        kind: "convex_project",
-        operationKey: "concurrent-project-b",
-      }),
+    await Promise.all([
+      seedProjects(t, { ...ids, count: 4 }),
+      seedWorkers(t, { ...ids, count: 4 }),
     ]);
 
-    expect(claims.filter((claim) => claim.status === "fulfilled")).toHaveLength(1);
-    expect(claims.filter((claim) => claim.status === "rejected")).toHaveLength(1);
-    await expect(
-      t.run(
-        async (ctx) =>
-          await ctx.db
-            .query("billingResourceReservations")
-            .withIndex("by_userId_and_kind_and_operationKey", (q) =>
-              q.eq("userId", ids.userId).eq("resource.kind", "convex_project"),
-            )
-            .take(2),
-      ),
-    ).resolves.toHaveLength(1);
-  });
-
-  it("reuses a stable claim key but rechecks capacity after downgrade", async () => {
-    const { ids, t } = await createQuotaFixture("pro");
-    await seedProjects(t, { ...ids, count: 5 });
-    const operationKey = manualBillingResourceOperationKey({
-      vaultId: ids.vaultId,
-      providerScopeId: "team-1",
-      resourceName: "stable-project",
-    });
-    const first = await t.mutation(internal.billingResourceQuotas.claimBillingResourceReservation, {
-      userId: ids.userId,
-      kind: "convex_project",
-      operationKey,
-    });
-    await expect(
-      t.mutation(internal.billingResourceQuotas.claimBillingResourceReservation, {
-        userId: ids.userId,
-        kind: "convex_project",
-        operationKey,
-      }),
-    ).resolves.toEqual(first);
-
-    await t.run(
-      async (ctx) =>
-        await ctx.db.patch(ids.userId, { billingPlan: "free", billingStatus: "inactive" }),
-    );
-    await expect(
-      t.mutation(internal.billingResourceQuotas.claimBillingResourceReservation, {
-        userId: ids.userId,
-        kind: "convex_project",
-        operationKey,
-      }),
-    ).rejects.toThrow("Convex project attachment limit reached (5).");
-  });
-
-  it("releases provider failures but retains capacity after provider success", async () => {
-    const { ids, t } = await createQuotaFixture();
-    await seedWorkers(t, { ...ids, count: 4 });
-    const operationKey = manualBillingResourceOperationKey({
-      vaultId: ids.vaultId,
-      providerScopeId: "account-1",
-      resourceName: "retry-worker",
-    });
-    const failedClaim = await t.mutation(
-      internal.billingResourceQuotas.claimBillingResourceReservation,
-      {
-        userId: ids.userId,
-        kind: "cloudflare_worker",
-        operationKey,
-      },
-    );
-    await t.mutation(internal.billingResourceQuotas.releaseUnusedBillingResourceReservation, {
-      reservationId: failedClaim,
-      userId: ids.userId,
-      kind: "cloudflare_worker",
-      operationKey,
-    });
-    const retryClaim = await t.mutation(
-      internal.billingResourceQuotas.claimBillingResourceReservation,
-      {
-        userId: ids.userId,
-        kind: "cloudflare_worker",
-        operationKey,
-      },
-    );
-    expect(retryClaim).not.toEqual(failedClaim);
-
-    await t.mutation(internal.billingResourceQuotas.markBillingResourceReservationProviderCreated, {
-      reservationId: retryClaim,
-      userId: ids.userId,
-      operationKey,
-      providerResource: {
-        kind: "cloudflare_worker",
-        accountId: "account-1",
-        workerName: "retry-worker",
-        workerTag: "retry-worker-tag",
-      },
-    });
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.recordManualWorkerCreated, {
-        billingReservationId: retryClaim,
-        ...ids,
-        actionId: "missing-provider-checkpoint",
-        accountId: "account-1",
-        workerName: "retry-worker",
-        workerTag: "retry-worker-tag",
-      }),
-    ).rejects.toThrow("Manual provider action no longer owns the vault write.");
-    await t.mutation(internal.billingResourceQuotas.releaseUnusedBillingResourceReservation, {
-      reservationId: retryClaim,
-      userId: ids.userId,
-      kind: "cloudflare_worker",
-      operationKey,
-    });
-    await expect(t.run(async (ctx) => await ctx.db.get(retryClaim))).resolves.toMatchObject({
-      operationKey,
-      resource: {
-        state: "provider_created",
-        kind: "cloudflare_worker",
-        accountId: "account-1",
-        workerName: "retry-worker",
-        workerTag: "retry-worker-tag",
-      },
-    });
-
-    await t.run(async (ctx) => await ctx.db.patch(retryClaim, { expiresAt: 0 }));
-    await expect(
-      t.mutation(internal.billingResourceQuotas.claimBillingResourceReservation, {
-        userId: ids.userId,
-        kind: "cloudflare_worker",
-        operationKey: "replacement-worker",
-      }),
-    ).resolves.toBeDefined();
-    await expect(t.run(async (ctx) => await ctx.db.get(retryClaim))).resolves.toBeNull();
-  });
-
-  it("uses an exact retained Convex slot for ordinary recovery attachment", async () => {
-    {
-      const { ids, t } = await createQuotaFixture();
-      await seedProjects(t, { ...ids, count: 4 });
-      const recoveryProject = projectInput(1, "recovery-project");
-      const reservationId = await seedProviderCreatedReservation(t, {
-        userId: ids.userId,
-        operationKey: "retained-convex-recovery",
-        providerResource: {
-          kind: "convex_project",
-          teamId: recoveryProject.teamId,
-          projectId: recoveryProject.projectId,
-        },
-      });
-
-      await expect(
+    const [projectWrites, workerWrites] = await Promise.all([
+      Promise.allSettled([
         t.mutation(internal.vault.convexMutations.attachProjects, {
           ...ids,
-          projects: [recoveryProject],
+          projects: [projectInput(4, "concurrent-project-a")],
         }),
-      ).resolves.toHaveLength(1);
-      await expect(readAttachmentCounts(t, ids.userId)).resolves.toMatchObject({
-        convexProjects: 5,
-      });
-      await expect(t.run(async (ctx) => await ctx.db.get(reservationId))).resolves.toBeNull();
-    }
-
-    {
-      const { ids, t } = await createQuotaFixture();
-      await seedProjects(t, { ...ids, count: 4 });
-      const recoveryProject = projectInput(1, "recovery-project");
-      const reservationId = await seedProviderCreatedReservation(t, {
-        userId: ids.userId,
-        operationKey: "retained-other-convex-project",
-        providerResource: {
-          kind: "convex_project",
-          teamId: recoveryProject.teamId,
-          projectId: "another-project",
-        },
-      });
-
-      await expect(
         t.mutation(internal.vault.convexMutations.attachProjects, {
           ...ids,
-          projects: [recoveryProject],
+          projects: [projectInput(4, "concurrent-project-b")],
         }),
-      ).rejects.toThrow("Convex project attachment limit reached (5).");
-      await expect(readAttachmentCounts(t, ids.userId)).resolves.toMatchObject({
-        convexProjects: 4,
-      });
-      await expect(t.run(async (ctx) => await ctx.db.get(reservationId))).resolves.not.toBeNull();
-    }
-  });
-
-  it("uses an exact retained Cloudflare slot for connect recovery", async () => {
-    {
-      const { ids, t } = await createQuotaFixture();
-      await seedWorkers(t, { ...ids, count: 4 });
-      await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
-        ...ids,
-        actionId: "recover-worker",
-        action: "connect_cloudflare_worker",
-      });
-      const reservationId = await seedProviderCreatedReservation(t, {
-        userId: ids.userId,
-        operationKey: "retained-worker-recovery",
-        providerResource: {
-          kind: "cloudflare_worker",
-          accountId: "account-1",
-          workerName: "recovery-worker",
-          workerTag: "recovery-worker-tag",
-        },
-      });
-
-      await expect(
-        t.mutation(internal.vault.cloudflareMutations.recordManualConnectedWorker, {
-          ...ids,
-          actionId: "recover-worker",
-          accountId: "account-1",
-          workerName: "recovery-worker",
-          workerTag: "recovery-worker-tag",
-        }),
-      ).resolves.toBeDefined();
-      await expect(readAttachmentCounts(t, ids.userId)).resolves.toMatchObject({
-        cloudflareWorkers: 5,
-      });
-      await expect(t.run(async (ctx) => await ctx.db.get(reservationId))).resolves.toBeNull();
-    }
-
-    {
-      const { ids, t } = await createQuotaFixture();
-      await seedWorkers(t, { ...ids, count: 4 });
-      await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
-        ...ids,
-        actionId: "recover-worker",
-        action: "connect_cloudflare_worker",
-      });
-      const reservationId = await seedProviderCreatedReservation(t, {
-        userId: ids.userId,
-        operationKey: "retained-other-worker",
-        providerResource: {
-          kind: "cloudflare_worker",
-          accountId: "account-1",
-          workerName: "another-worker",
-          workerTag: "another-worker-tag",
-        },
-      });
-
-      await expect(
-        t.mutation(internal.vault.cloudflareMutations.recordManualConnectedWorker, {
-          ...ids,
-          actionId: "recover-worker",
-          accountId: "account-1",
-          workerName: "recovery-worker",
-          workerTag: "recovery-worker-tag",
-        }),
-      ).rejects.toThrow("Cloudflare Worker attachment limit reached (5).");
-      await expect(readAttachmentCounts(t, ids.userId)).resolves.toMatchObject({
-        cloudflareWorkers: 4,
-      });
-      await expect(t.run(async (ctx) => await ctx.db.get(reservationId))).resolves.not.toBeNull();
-    }
-  });
-
-  it("does not consume a retained Cloudflare slot when only the Worker name differs", async () => {
-    const { ids, t } = await createQuotaFixture();
-    await seedWorkers(t, { ...ids, count: 4 });
-    await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
-      ...ids,
-      actionId: "recover-renamed-worker",
-      action: "connect_cloudflare_worker",
-    });
-    const reservationId = await seedProviderCreatedReservation(t, {
-      userId: ids.userId,
-      operationKey: "retained-renamed-worker",
-      providerResource: {
-        kind: "cloudflare_worker",
-        accountId: "account-1",
-        workerName: "previous-worker-name",
-        workerTag: "recovery-worker-tag",
-      },
-    });
-
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.recordManualConnectedWorker, {
-        ...ids,
-        actionId: "recover-renamed-worker",
-        accountId: "account-1",
-        workerName: "recovery-worker",
-        workerTag: "recovery-worker-tag",
-      }),
-    ).rejects.toThrow("Cloudflare Worker attachment limit reached (5).");
-    await expect(t.run(async (ctx) => await ctx.db.get(reservationId))).resolves.not.toBeNull();
-  });
-
-  it("consumes each retained provider slot once in batch attachment", async () => {
-    {
-      const { ids, t } = await createQuotaFixture();
-      await seedProjects(t, { ...ids, count: 3 });
-      const projects = [projectInput(1, "batch-recovery-a"), projectInput(2, "batch-recovery-b")];
-      const reservationIds = await Promise.all(
-        projects.map(
-          async (project) =>
-            await seedProviderCreatedReservation(t, {
-              userId: ids.userId,
-              operationKey: `retained-${project.projectId}`,
-              providerResource: {
-                kind: "convex_project",
-                teamId: project.teamId,
-                projectId: project.projectId,
-              },
-            }),
-        ),
-      );
-
-      await expect(
-        t.mutation(internal.vault.convexMutations.attachProjects, {
-          ...ids,
-          projects,
-        }),
-      ).resolves.toHaveLength(2);
-      await expect(
-        t.run(
-          async (ctx) => await Promise.all(reservationIds.map(async (id) => await ctx.db.get(id))),
-        ),
-      ).resolves.toEqual([null, null]);
-    }
-
-    {
-      const { ids, t } = await createQuotaFixture();
-      await seedWorkers(t, { ...ids, count: 3 });
-      const workers = [workerInput(1, "batch-recovery-a"), workerInput(2, "batch-recovery-b")];
-      const reservationIds = await Promise.all(
-        workers.map(
-          async (worker) =>
-            await seedProviderCreatedReservation(t, {
-              userId: ids.userId,
-              operationKey: `retained-${worker.workerTag}`,
-              providerResource: {
-                kind: "cloudflare_worker",
-                accountId: worker.accountId,
-                workerName: worker.workerName,
-                workerTag: worker.workerTag,
-              },
-            }),
-        ),
-      );
-
-      await expect(
+      ]),
+      Promise.allSettled([
         t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
           ...ids,
-          workers,
+          workers: [workerInput(4, "concurrent-worker-a")],
         }),
-      ).resolves.toHaveLength(2);
-      await expect(
-        t.run(
-          async (ctx) => await Promise.all(reservationIds.map(async (id) => await ctx.db.get(id))),
-        ),
-      ).resolves.toEqual([null, null]);
-    }
+        t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
+          ...ids,
+          workers: [workerInput(4, "concurrent-worker-b")],
+        }),
+      ]),
+    ]);
+
+    expect(projectWrites.filter((write) => write.status === "fulfilled")).toHaveLength(1);
+    expect(projectWrites.filter((write) => write.status === "rejected")).toHaveLength(1);
+    expect(workerWrites.filter((write) => write.status === "fulfilled")).toHaveLength(1);
+    expect(workerWrites.filter((write) => write.status === "rejected")).toHaveLength(1);
+    await expect(readAttachmentCounts(t, ids.userId)).resolves.toEqual({
+      cloudflareWorkers: 5,
+      convexProjects: 5,
+    });
   });
 
   it("enforces manual and managed Convex project attachment paths", async () => {
@@ -931,25 +572,10 @@ describe("billing resource quotas", () => {
         actionId: "manual-project",
         action: "create_convex_project",
       });
-      const billingReservationId = await seedProviderCreatedReservation(t, {
-        userId: ids.userId,
-        operationKey: manualBillingResourceOperationKey({
-          vaultId: ids.vaultId,
-          providerScopeId: "team-1",
-          resourceName: "manual-project",
-        }),
-        providerResource: {
-          kind: "convex_project",
-          teamId: "team-1",
-          projectId: "manual-project",
-        },
-      });
       await expect(
         t.mutation(internal.vault.convexMutations.recordManualProjectCreated, {
           ...ids,
-          billingReservationId,
           actionId: "manual-project",
-          projectName: "manual-project",
           teamId: "team-1",
           projectId: "manual-project",
           codeLocation: { kind: "config", convexConfigPath: "apps/manual/convex.json" },
@@ -961,19 +587,9 @@ describe("billing resource quotas", () => {
       const { ids, t } = await createQuotaFixture();
       await seedProjects(t, { ...ids, count: 5 });
       const { planId, runId } = await createManagedProjectCheckpoint(t, ids);
-      const billingReservationId = await seedProviderCreatedReservation(t, {
-        userId: ids.userId,
-        operationKey: managedBillingResourceOperationKey(runId),
-        providerResource: {
-          kind: "convex_project",
-          teamId: "team-1",
-          projectId: "managed-project",
-        },
-      });
       await expect(
         t.mutation(internal.vault.convexMutations.recordManagedProjectCreated, {
           ...ids,
-          billingReservationId,
           runId,
           convexConfigPath: "apps/managed/convex.json",
           projectName: "managed-project",
@@ -1005,7 +621,6 @@ describe("billing resource quotas", () => {
       await expect(
         t.mutation(internal.vault.convexMutations.recordManagedProjectCreated, {
           ...ids,
-          billingReservationId: null,
           runId,
           convexConfigPath: "apps/managed/convex.json",
           projectName: "managed-project",
@@ -1044,24 +659,9 @@ describe("billing resource quotas", () => {
         actionId: "create-worker",
         action: "create_cloudflare_worker",
       });
-      const billingReservationId = await seedProviderCreatedReservation(t, {
-        userId: ids.userId,
-        operationKey: manualBillingResourceOperationKey({
-          vaultId: ids.vaultId,
-          providerScopeId: "account-1",
-          resourceName: "created-worker",
-        }),
-        providerResource: {
-          kind: "cloudflare_worker",
-          accountId: "account-1",
-          workerName: "created-worker",
-          workerTag: "created-worker-tag",
-        },
-      });
       await expect(
         t.mutation(internal.vault.cloudflareMutations.recordManualWorkerCreated, {
           ...ids,
-          billingReservationId,
           actionId: "create-worker",
           accountId: "account-1",
           workerName: "created-worker",
@@ -1074,20 +674,9 @@ describe("billing resource quotas", () => {
       const { ids, t } = await createQuotaFixture();
       await seedWorkers(t, { ...ids, count: 5 });
       const { planId, runId } = await createManagedWorkerCheckpoint(t, ids);
-      const billingReservationId = await seedProviderCreatedReservation(t, {
-        userId: ids.userId,
-        operationKey: managedBillingResourceOperationKey(runId),
-        providerResource: {
-          kind: "cloudflare_worker",
-          accountId: "account-1",
-          workerName: "managed-worker",
-          workerTag: "managed-worker-tag",
-        },
-      });
       await expect(
         t.mutation(internal.vault.cloudflareMutations.recordManagedWorkerCreated, {
           ...ids,
-          billingReservationId,
           runId,
           accountId: "account-1",
           workerName: "managed-worker",
@@ -1118,7 +707,6 @@ describe("billing resource quotas", () => {
       await expect(
         t.mutation(internal.vault.cloudflareMutations.recordManagedWorkerCreated, {
           ...ids,
-          billingReservationId: null,
           runId,
           accountId: "account-1",
           workerName: "managed-worker",
