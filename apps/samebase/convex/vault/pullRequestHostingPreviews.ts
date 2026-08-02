@@ -189,9 +189,9 @@ function parseCloudflareWorkerBuildState(statusCell: string): CloudflareBuildSta
   switch (match[1].trim()) {
     case "✅ Deployment successful!":
       return "success";
-    case "🚫 Build failed.":
+    case "❌ Deployment failed":
       return "failure";
-    case "⏳ Building...":
+    case "🔵 In progress":
       return "running";
     default:
       return "unknown";

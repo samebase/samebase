@@ -282,6 +282,14 @@ declaring one.
   companion schemas, translate validator issues, or walk unknown keys the validator already handles.
   After replacing one validation approach with another, run the same reduction pass on the new code;
   do not preserve the old approach's helper shape or naming out of inertia.
+- Provider-specific parsing must start from observed provider output. Before adding a status label,
+  field shape, compatibility branch, or fixture, find a real payload in provider comments, logs, or
+  official documentation. Create a controlled pull request when existing evidence does not cover the
+  required state. Keep the full payload as the positive fixture when it is safe, with a source URL
+  and a capture time when the provider can edit it. Synthetic provider data is only for explicit
+  mutations of a real fixture in negative tests. Existing generated fixtures and intuition are not
+  evidence of provider behavior. If no real evidence is available, preserve `unknown` or
+  `unavailable` and record the missing case instead of guessing.
 - Treat generated validation glue as a carrying cost, not a default win, but do not replace broad
   OpenAPI-derived coverage with hand-written schemas just to reduce generated files. Keep the
   generator path when it protects a broad current API surface or prevents real drift from a
