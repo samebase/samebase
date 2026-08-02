@@ -113,6 +113,18 @@ test("uses the overview vault rows on the canonical root route", async ({ page }
   }
 });
 
+test("centers the root vault list in a wide main pane", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 640 });
+  const fixture = await openVaultOverviewV2(page, "vault-overview-v2-root");
+
+  await expect(fixture).toHaveScreenshot("vault-overview-v2-root-wide.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+});
+
 test("shows shallow vault folders on desktop", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 640 });
   const fixture = await openVaultOverviewV2(page, "vault-overview-v2-folders");

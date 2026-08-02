@@ -67,7 +67,7 @@ export function VaultOverviewVaultPickerPane(
   props: VaultOverviewVaultPickerPaneLoadingProps | VaultOverviewVaultPickerPaneLoadedProps,
 ) {
   return (
-    <div className="min-h-full">
+    <div className="mx-auto min-h-full w-full max-w-[1100px]">
       <div className="@container border-b px-4 py-1.5">
         <VaultOverviewVaultListHeader onCreateVaultFolder={props.onCreateVaultFolder} />
       </div>
