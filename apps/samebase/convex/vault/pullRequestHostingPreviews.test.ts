@@ -23,14 +23,14 @@ The latest updates on your project. Learn more about [integrating Git with Worke
 | -|-|-|-|-|
 | ✅ Deployment successful! <br>[View logs](https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase/production/builds/293779de-52eb-4232-9ddd-52937ac4a575) | samebase | 0a7c7e5d | <a href='https://aa8c36b0-samebase.pfp.workers.dev'>Commit Preview URL</a><br><br><a href='https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev'>Branch Preview URL</a> | Aug 02 2026, 03:13 PM |`;
 
-// Captured from https://github.com/samebase/samebase/pull/1343#issuecomment-5158540792
-// at 2026-08-02 15:10 UTC. The bot replaced this state after the build completed.
+// Captured from https://github.com/samebase/samebase/pull/1344#issuecomment-5158901210
+// at 2026-08-02 16:16 UTC. The bot replaces this state after the build completes.
 const cloudflareWorkerInProgressComment = `## Deploying with &nbsp;<a href="https://workers.dev"><img alt="Cloudflare Workers" src="https://workers.cloudflare.com/logo.svg" width="16"></a> &nbsp;Cloudflare Workers
 The latest updates on your project. Learn more about [integrating Git with Workers](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/).
 
 | Status | Name | Latest Commit | Updated (UTC) |
 | -|-|-|-|
-| 🔵 In progress <br>[View logs](https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase/production/builds/293779de-52eb-4232-9ddd-52937ac4a575) | samebase | 0a7c7e5d | Aug 02 2026, 03:10 PM |`;
+| 🔵 In progress <br>[View logs](https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase/production/builds/24a3b9fa-0d08-47e9-9615-c96b08c8e70b) | samebase | 42f130ce | Aug 02 2026, 04:16 PM |`;
 
 // https://github.com/samebase/samebase/pull/1047#issuecomment-4759266322
 const cloudflareWorkerFailureComment = `## Deploying with &nbsp;<a href="https://workers.dev"><img alt="Cloudflare Workers" src="https://workers.cloudflare.com/logo.svg" width="16"></a> &nbsp;Cloudflare Workers
@@ -269,9 +269,9 @@ describe("resolveCloudflareHostingPreviews", () => {
         {
           accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
           buildState: "running",
-          buildUuid: "293779de-52eb-4232-9ddd-52937ac4a575",
+          buildUuid: "24a3b9fa-0d08-47e9-9615-c96b08c8e70b",
           logsUrl:
-            "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase/production/builds/293779de-52eb-4232-9ddd-52937ac4a575",
+            "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase/production/builds/24a3b9fa-0d08-47e9-9615-c96b08c8e70b",
           name: "samebase",
         },
       ],
@@ -442,10 +442,10 @@ describe("resolveCloudflareCommentWorkerBuild", () => {
       }),
     ).toEqual({
       state: "available",
-      buildUuid: "293779de-52eb-4232-9ddd-52937ac4a575",
+      buildUuid: "24a3b9fa-0d08-47e9-9615-c96b08c8e70b",
       buildState: "running",
       logsUrl:
-        "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase/production/builds/293779de-52eb-4232-9ddd-52937ac4a575",
+        "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase/production/builds/24a3b9fa-0d08-47e9-9615-c96b08c8e70b",
     });
   });
 
