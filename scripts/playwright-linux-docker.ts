@@ -22,7 +22,7 @@ const shellPlaywrightConfigArgs = "${playwright_config_args[@]}";
 const CONTAINER_SCRIPT = String.raw`set -euo pipefail
 
 corepack enable
-corepack prepare pnpm@11.1.1 --activate >/dev/null
+corepack prepare pnpm@11.18.0 --activate >/dev/null
 
 rm -rf /work
 mkdir -p /work
