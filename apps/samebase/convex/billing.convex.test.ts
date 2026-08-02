@@ -61,7 +61,9 @@ function polarCheckout(args: {
   expiresAt?: Date;
   id?: string;
   products?: Array<{ id: string }>;
+  returnUrl?: string;
   status?: string;
+  successUrl?: string;
   url?: string;
 }) {
   return {
@@ -70,6 +72,8 @@ function polarCheckout(args: {
     status: args.status ?? "open",
     url: args.url ?? "https://sandbox.polar.sh/checkout/recovered",
     expiresAt: args.expiresAt ?? checkoutExpiresAt,
+    successUrl: args.successUrl ?? "http://localhost:5174/settings?checkout=success",
+    returnUrl: args.returnUrl ?? "http://localhost:5174/settings?checkout=cancel",
     externalCustomerId: args.externalCustomerId,
     products: args.products ?? [{ id: productId }],
     metadata: {
@@ -85,6 +89,8 @@ function polarCheckoutFromCreate(
     externalCustomerId: string;
     metadata: { samebase_checkout_attempt_id: string };
     products: string[];
+    returnUrl: string;
+    successUrl: string;
   },
   id: string,
   url: string,
@@ -94,6 +100,8 @@ function polarCheckoutFromCreate(
     externalCustomerId: request.externalCustomerId,
     id,
     products: [{ id: request.products[0] ?? "" }],
+    returnUrl: request.returnUrl,
+    successUrl: request.successUrl,
     url,
   });
 }
@@ -452,6 +460,54 @@ describe("billing access", () => {
     expect(polarSdkMocks.checkoutsCreate).not.toHaveBeenCalled();
   });
 
+  it.each([
+    {
+      label: "success URL",
+      checkoutUrls: {
+        successUrl: "http://localhost:5174/settings",
+      },
+    },
+    {
+      label: "return URL",
+      checkoutUrls: {
+        returnUrl: "http://localhost:5174/settings",
+      },
+    },
+  ])("fails closed when the stored checkout has another $label", async ({ checkoutUrls }) => {
+    const t = makeConvexTest();
+    const userId = await seedMember(t);
+    const attemptId = "polar_checkout_stored_redirect";
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId, {
+        billingPolarExternalCustomerId: "existing-customer",
+        billingPolarCheckoutAttempt: {
+          state: "open",
+          attemptId,
+          checkoutId: "checkout-stored-redirect",
+          expiresAt: checkoutExpiresAt.getTime(),
+        },
+      });
+    });
+    configureSandboxBilling();
+    polarSdkMocks.customersGetStateExternal.mockRejectedValue(resourceNotFound());
+    polarSdkMocks.checkoutsGet.mockResolvedValue(
+      polarCheckout({
+        attemptId,
+        externalCustomerId: "existing-customer",
+        id: "checkout-stored-redirect",
+        ...checkoutUrls,
+      }),
+    );
+
+    await expect(
+      asUser(t, userId).action(api.billing.createPolarCheckoutSession, {
+        successUrl: "http://localhost:5174/settings?checkout=success",
+        returnUrl: "http://localhost:5174/settings?checkout=cancel",
+      }),
+    ).rejects.toThrow("Samebase could not verify your open checkout.");
+    expect(polarSdkMocks.checkoutsCreate).not.toHaveBeenCalled();
+  });
+
   it("replaces a stored checkout only after Polar reports it unavailable", async () => {
     const t = makeConvexTest();
     const userId = await seedMember(t);
@@ -594,6 +650,43 @@ describe("billing access", () => {
       checkoutId: "checkout-recovered",
       expiresAt: checkoutExpiresAt.getTime(),
     });
+  });
+
+  it("does not recover a checkout with a stale bare return URL", async () => {
+    const t = makeConvexTest();
+    const userId = await seedMember(t);
+    const attemptId = "polar_checkout_stale_return_url";
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId, {
+        billingPolarExternalCustomerId: "existing-customer",
+        billingPolarCheckoutAttempt: {
+          state: "recovering",
+          attemptId,
+          recoverUntilAt: Date.now() + 24 * 60 * 60 * 1_000,
+        },
+      });
+    });
+    configureSandboxBilling();
+    polarSdkMocks.customersGetStateExternal.mockRejectedValue(resourceNotFound());
+    polarSdkMocks.checkoutsList.mockImplementation(() =>
+      Promise.resolve(
+        checkoutPages([
+          polarCheckout({
+            attemptId,
+            externalCustomerId: "existing-customer",
+            returnUrl: "http://localhost:5174/settings",
+          }),
+        ]),
+      ),
+    );
+
+    await expect(
+      asUser(t, userId).action(api.billing.createPolarCheckoutSession, {
+        successUrl: "http://localhost:5174/settings?checkout=success",
+        returnUrl: "http://localhost:5174/settings?checkout=cancel",
+      }),
+    ).rejects.toThrow("Samebase could not verify your open checkout.");
+    expect(polarSdkMocks.checkoutsCreate).not.toHaveBeenCalled();
   });
 
   it("does not recover a checkout that contains more than the configured product", async () => {

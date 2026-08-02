@@ -59,9 +59,13 @@ export function isOpenPolarCheckoutForAttempt(args: {
   checkout: Checkout;
   externalCustomerId: string;
   productId: string;
+  returnUrl: string;
+  successUrl: string;
 }): boolean {
   return (
     matchesPolarCheckoutAttempt(args) &&
+    args.checkout.successUrl === args.successUrl &&
+    args.checkout.returnUrl === args.returnUrl &&
     args.checkout.status === "open" &&
     args.checkout.expiresAt.getTime() > Date.now()
   );

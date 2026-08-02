@@ -257,6 +257,8 @@ export const createPolarCheckoutSession = action({
             checkout: storedCheckout,
             externalCustomerId: customer.externalCustomerId,
             productId,
+            returnUrl,
+            successUrl,
           })
         ) {
           return { url: storedCheckout.url };
@@ -307,6 +309,8 @@ export const createPolarCheckoutSession = action({
           checkout: recoveredCheckout,
           externalCustomerId: customer.externalCustomerId,
           productId,
+          returnUrl,
+          successUrl,
         })
       ) {
         const recorded: boolean = await ctx.runMutation(internal.polarCheckout.recordOpen, {
@@ -396,6 +400,8 @@ export const createPolarCheckoutSession = action({
         checkout,
         externalCustomerId: customer.externalCustomerId,
         productId,
+        returnUrl,
+        successUrl,
       })
     ) {
       throw new Error("Samebase could not verify your open checkout.");
