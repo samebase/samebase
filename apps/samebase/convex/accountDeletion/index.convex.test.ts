@@ -1,4 +1,12 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
+
+vi.mock("./workflow", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./workflow")>();
+  return {
+    ...actual,
+    startAccountDeletionWorkflow: vi.fn(async () => "account-deletion-test-workflow"),
+  };
+});
 
 import { api } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
