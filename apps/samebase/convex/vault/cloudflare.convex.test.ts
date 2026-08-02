@@ -560,6 +560,17 @@ describe("vault Cloudflare Worker attachments", () => {
       if (url.pathname === "/client/v4/accounts") {
         return cloudflareResponse([{ id: accountId, name: "Ada Cloudflare", type: "standard" }]);
       }
+      if (method === "GET" && url.pathname.endsWith("/workers/workers/managed-worker")) {
+        return jsonResponse(
+          {
+            success: false,
+            errors: [{ code: 10007, message: "Worker not found" }],
+            messages: [],
+            result: null,
+          },
+          404,
+        );
+      }
       throw new Error(`Unexpected provider request: ${method} ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -723,6 +734,7 @@ describe("vault Cloudflare Worker attachments", () => {
 
   it("requires dashboard deletion when an interrupted managed create left a Worker", async () => {
     const { runId, t, userId, vaultId } = await createManagedWorkerCreatingFixture();
+    await seedCloudflareWorkersAtFreeLimit(t, { userId, vaultId });
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
       const method = input instanceof Request ? input.method : (init?.method ?? "GET");
@@ -751,8 +763,16 @@ describe("vault Cloudflare Worker attachments", () => {
       ),
     ).toBe(false);
     await expect(
-      t.run(async (ctx) => await ctx.db.query("vaultCloudflareWorkers").collect()),
-    ).resolves.toEqual([]);
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("vaultCloudflareWorkers")
+            .withIndex("by_account_and_worker", (q) =>
+              q.eq("accountId", accountId).eq("workerName", "managed-worker"),
+            )
+            .unique(),
+      ),
+    ).resolves.toBeNull();
   });
 
   it("names the saved account when the current credential cannot access it", async () => {

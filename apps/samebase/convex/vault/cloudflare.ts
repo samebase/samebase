@@ -393,13 +393,6 @@ async function createWorkerForManagedWorkflow(
     }
     worker = identity;
   } else {
-    await ctx.runQuery(
-      internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate,
-      {
-        userId: args.userId,
-        kind: "cloudflare_worker",
-      },
-    );
     const existing = await readCloudflareWorkerIdentity({
       token: connection.token,
       transport: connection.transport,
@@ -416,6 +409,13 @@ async function createWorkerForManagedWorkflow(
         `Cloudflare Worker name ${validation.value} already exists. Choose another Worker name and try again.`,
       );
     }
+    await ctx.runQuery(
+      internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate,
+      {
+        userId: args.userId,
+        kind: "cloudflare_worker",
+      },
+    );
     if (checkpoint.state === "planned") {
       await ctx.runMutation(internal.vault.cloudflareMutations.beginManagedWorkerCreate, {
         vaultId: args.vaultId,

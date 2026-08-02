@@ -403,7 +403,12 @@ describe("vault Convex project attachments", () => {
   it("blocks a managed Convex create before the provider write at the free limit", async () => {
     const { runId, t, userId, vaultId } = await createManagedProjectCreatingFixture();
     await seedConvexProjectsAtFreeLimit(t, { userId, vaultId });
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn(async (input: Request) => {
+      if (input.url.includes("/teams/1000/projects?limit=100")) {
+        return jsonResponse({ items: [], pagination: { hasMore: false } });
+      }
+      throw new Error(`Unexpected Convex request: ${input.method} ${input.url}`);
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
@@ -416,7 +421,7 @@ describe("vault Convex project attachments", () => {
       }),
     ).rejects.toThrow("Convex project attachment limit reached (5).");
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls.some(([input]) => input.method === "POST")).toBe(false);
   });
 
   it("checks the manual deadline immediately before the Convex create request", async () => {
@@ -537,6 +542,7 @@ describe("vault Convex project attachments", () => {
 
   it("requires dashboard deletion when an interrupted managed create left a project", async () => {
     const { runId, t, userId, vaultId } = await createManagedProjectCreatingFixture();
+    await seedConvexProjectsAtFreeLimit(t, { userId, vaultId });
     const fetchMock = vi.fn(async (input: Request) => {
       if (input.url.includes("/teams/1000/projects?limit=100")) {
         return jsonResponse({
@@ -568,8 +574,14 @@ describe("vault Convex project attachments", () => {
     ).rejects.toThrow("Delete it in the Convex dashboard, then retry.");
     expect(fetchMock.mock.calls.some(([input]) => input.method === "POST")).toBe(false);
     await expect(
-      t.run(async (ctx) => await ctx.db.query("vaultConvexProjects").collect()),
-    ).resolves.toEqual([]);
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("vaultConvexProjects")
+            .withIndex("by_project", (q) => q.eq("projectId", "1003"))
+            .unique(),
+      ),
+    ).resolves.toBeNull();
   });
 
   it("retries an interrupted managed create after the project was deleted", async () => {

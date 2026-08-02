@@ -519,13 +519,6 @@ async function createProjectForManagedWorkflow(
   if (checkpoint.state === "created") {
     projectId = checkpoint.projectId;
   } else {
-    await ctx.runQuery(
-      internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate,
-      {
-        userId: args.userId,
-        kind: "convex_project",
-      },
-    );
     const projects = await listProjectsForConnection(connection);
     if (
       projects.some(
@@ -541,6 +534,13 @@ async function createProjectForManagedWorkflow(
         `Convex project name ${validation.value} already exists. Choose another project name and try again.`,
       );
     }
+    await ctx.runQuery(
+      internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate,
+      {
+        userId: args.userId,
+        kind: "convex_project",
+      },
+    );
     if (checkpoint.state === "planned") {
       await ctx.runMutation(internal.vault.convexMutations.beginManagedProjectCreate, {
         vaultId: args.vaultId,
