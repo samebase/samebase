@@ -267,6 +267,8 @@ test("prehydrated mobile Settings navigation selects the main route pane", async
   const email = `settings-prehydration-${testInfo.workerIndex}-${Date.now()}@example.test`;
   await page.addInitScript(
     ({ state, storageKey, version }) => {
+      if (window.localStorage.getItem(storageKey) !== null) return;
+
       window.localStorage.setItem(storageKey, JSON.stringify({ state, version }));
     },
     {
@@ -315,6 +317,53 @@ test("prehydrated mobile Settings navigation selects the main route pane", async
       "main",
     );
     await expect(page.getByTestId("user-settings-page")).toBeVisible();
+
+    await page.getByTestId("workspace-layout-v2-pane-main").evaluate(
+      (element, { state, storageKey, version }) => {
+        if (!(element instanceof HTMLElement)) {
+          throw new Error("Expected the mobile workspace carousel.");
+        }
+
+        element.scrollLeft = element.scrollWidth - element.clientWidth;
+        element.dispatchEvent(new Event("scroll", { bubbles: true }));
+        window.localStorage.setItem(storageKey, JSON.stringify({ state, version }));
+      },
+      {
+        state: MOBILE_RIGHT_SIDEBAR_STATE,
+        storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+        version: STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION,
+      },
+    );
+    await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
+      "data-mobile-pane",
+      "right",
+    );
+    const rightResizeHandle = page.getByTestId("workspace-layout-v2-right-resize");
+    await expect(rightResizeHandle).toHaveCount(1);
+    await expect(
+      rightResizeHandle.locator("[data-workspace-layout-v2-resize-grip-dots]"),
+    ).toHaveCount(1);
+
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
+      "data-mobile-pane",
+      "right",
+    );
+    await expect(page.getByTestId("workspace-layout-v2-right-resize")).toHaveCount(1);
+    await expect(
+      page
+        .getByTestId("workspace-layout-v2-right-resize")
+        .locator("[data-workspace-layout-v2-resize-grip-dots]"),
+    ).toHaveCount(1);
+    await expect(page).toHaveScreenshot("settings-page-mobile-sidebar-open.png", {
+      ...screenshotOptions,
+      mask: [
+        page
+          .getByTestId(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID)
+          .getByText(email, { exact: true }),
+      ],
+      maskColor: "#d1d5db",
+    });
   } finally {
     await context.close();
   }

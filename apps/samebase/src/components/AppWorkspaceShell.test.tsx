@@ -229,6 +229,7 @@ describe("AppWorkspaceShell", () => {
     const frameworkScriptElement = document.createElement("script");
     const scriptElement = document.createElement("script");
     carousel.className = "workspace-layout-v2-responsive-viewport";
+    carousel.setAttribute("data-testid", "workspace-layout-v2-pane-main");
     layoutRoot.setAttribute("data-mobile-pane", "main");
     layoutRoot.setAttribute("data-workspace-layout-v2", "responsive");
 
@@ -456,7 +457,7 @@ describe("AppWorkspaceShell", () => {
     }
   });
 
-  it("keeps the desktop right pane while Settings constrains only the mobile selection", () => {
+  it("keeps the desktop right pane without constraining Settings mobile selection", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/settings"]}>
         <AppWorkspaceShell>
@@ -466,7 +467,7 @@ describe("AppWorkspaceShell", () => {
     );
 
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
-    expect(markup).toContain('data-workspace-layout-v2-route-mobile-pane="main"');
+    expect(markup).not.toContain('data-workspace-layout-v2-route-mobile-pane="main"');
     expect(markup).toContain("settings route content");
   });
 
@@ -774,6 +775,43 @@ describe("AppWorkspaceShell", () => {
         .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
         ?.classList.contains("snap-center"),
     ).toBe(true);
+  });
+
+  it("moves and persists a prehydrated Settings navigation to the main pane", () => {
+    window.localStorage.setItem(
+      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          ...LOCAL_SIDEBAR_STATE,
+          mobilePane: "right",
+          mobileSurface: { kind: "unmerged" },
+        },
+        version: 2,
+      }),
+    );
+    const { container, carousel, layoutRoot, scriptElement } = appendMobilePrehydrationCarousel({});
+    const settingsLink = document.createElement("a");
+    const mainPane = carousel.querySelector<HTMLElement>(
+      "[data-workspace-layout-v2-mobile-main-pane]",
+    );
+    if (mainPane === null) {
+      throw new Error("Expected the mobile main pane.");
+    }
+    Object.defineProperty(mainPane, "offsetLeft", { configurable: true, value: 260 });
+    settingsLink.setAttribute("data-workspace-layout-v2-main-pane-link", "");
+    container.append(settingsLink);
+
+    withMobileViewportWidth(390, () => {
+      runAppWorkspaceMobilePanePrehydrationScript(scriptElement);
+    });
+
+    settingsLink.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(carousel.scrollLeft).toBe(260);
+    expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("main");
+    expect(window.localStorage.getItem(APP_WORKSPACE_SIDEBAR_STORAGE_KEY)).toContain(
+      '"mobilePane":"main"',
+    );
   });
 
   it("keeps a route-constrained mobile main pane ahead of persisted right state", () => {

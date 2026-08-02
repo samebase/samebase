@@ -19,6 +19,100 @@ const appWorkspaceSidebarPrehydrationArgs = {
   storageVersion: APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
 } satisfies WorkspaceLayoutV2PrehydrationArgs;
 
+type AppWorkspaceSidebarPrehydrationStateReader = (
+  value: unknown,
+) => WorkspaceLayoutV2PrehydrationState | null;
+
+function InlineScript_prehydrateAppWorkspaceSettingsNavigation(
+  args: Pick<WorkspaceLayoutV2PrehydrationArgs, "storageKey" | "storageVersion">,
+  readWorkspaceSidebarState: AppWorkspaceSidebarPrehydrationStateReader,
+) {
+  if (window.innerWidth >= 768) return;
+
+  function readStoredWorkspaceSidebarState() {
+    const storedValue = window.localStorage.getItem(args.storageKey);
+    if (storedValue === null) return null;
+
+    const stored: unknown = JSON.parse(storedValue);
+    if (stored === null || typeof stored !== "object") return null;
+    if (!("version" in stored) || stored.version !== args.storageVersion) return null;
+    if (!("state" in stored)) return null;
+
+    return readWorkspaceSidebarState(stored.state);
+  }
+
+  function moveWorkspaceToMainPane() {
+    const carouselNode = document.querySelector('[data-testid="workspace-layout-v2-pane-main"]');
+    if (!(carouselNode instanceof window.HTMLElement)) return;
+
+    const mainPane = carouselNode.querySelector("[data-workspace-layout-v2-mobile-main-pane]");
+    if (!(mainPane instanceof window.HTMLElement)) return;
+
+    const layoutRoot = carouselNode.closest('[data-workspace-layout-v2="responsive"]');
+    if (layoutRoot instanceof window.HTMLElement) {
+      layoutRoot.setAttribute("data-mobile-pane", "main");
+      layoutRoot.removeAttribute("data-workspace-layout-v2-mobile-merged-side");
+    }
+
+    const panePeekPx = Number.parseFloat(window.getComputedStyle(carouselNode).paddingLeft);
+    carouselNode.scrollLeft = mainPane.offsetLeft - (Number.isFinite(panePeekPx) ? panePeekPx : 0);
+    carouselNode.dispatchEvent(new window.Event("scroll", { bubbles: true }));
+  }
+
+  function handleSettingsNavigation() {
+    try {
+      const state = readStoredWorkspaceSidebarState();
+      if (state !== null) {
+        window.localStorage.setItem(
+          args.storageKey,
+          JSON.stringify({
+            state: {
+              ...state,
+              mobilePane: "main",
+              mobileSurface: { kind: "unmerged" },
+            },
+            version: args.storageVersion,
+          }),
+        );
+      }
+    } catch {}
+
+    moveWorkspaceToMainPane();
+  }
+
+  try {
+    document.addEventListener(
+      "click",
+      (event) => {
+        if (
+          !(event instanceof window.MouseEvent) ||
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        ) {
+          return;
+        }
+
+        const target = event.target;
+        if (!(target instanceof window.Element)) return;
+        if (target.closest("[data-workspace-layout-v2-main-pane-link]") === null) return;
+
+        handleSettingsNavigation();
+      },
+      true,
+    );
+  } catch {}
+}
+
+const appWorkspaceSettingsNavigationPrehydrationScript = `(${InlineScript_prehydrateAppWorkspaceSettingsNavigation.toString()})(${JSON.stringify(
+  {
+    storageKey: appWorkspaceSidebarPrehydrationArgs.storageKey,
+    storageVersion: appWorkspaceSidebarPrehydrationArgs.storageVersion,
+  },
+)}, ${getWorkspaceSidebarState.toString()});`;
+
 function getWorkspaceSidebarState(value: unknown): WorkspaceLayoutV2PrehydrationState | null {
   function getMobilePane(value: unknown): WorkspaceLayoutV2PrehydrationState["mobilePane"] | null {
     if (value === "left" || value === "main" || value === "right") {
@@ -99,11 +193,10 @@ export const appWorkspaceSidebarPrehydrationScript =
     appWorkspaceSidebarPrehydrationArgs,
     getWorkspaceSidebarState,
   );
-export const appWorkspaceMobilePanePrehydrationScript =
-  buildWorkspaceLayoutV2MobilePanePrehydrationScript(
-    appWorkspaceSidebarPrehydrationArgs,
-    getWorkspaceSidebarState,
-  );
+export const appWorkspaceMobilePanePrehydrationScript = `${buildWorkspaceLayoutV2MobilePanePrehydrationScript(
+  appWorkspaceSidebarPrehydrationArgs,
+  getWorkspaceSidebarState,
+)}\n${appWorkspaceSettingsNavigationPrehydrationScript}`;
 
 export function clearAppWorkspaceSidebarDesktopPrehydrationStyle() {
   clearWorkspaceLayoutV2DesktopPrehydrationStyle(appWorkspaceSidebarPrehydrationArgs);

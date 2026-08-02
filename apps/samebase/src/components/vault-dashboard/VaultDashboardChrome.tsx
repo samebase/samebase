@@ -158,7 +158,10 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
               />
             </div>
           </div>
-          <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+          <div
+            data-workspace-layout-v2-main-pane-link=""
+            className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start"
+          >
             <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={SETTINGS_ROUTE}>
               /settings
             </Link>
@@ -217,7 +220,10 @@ export function VaultDashboardAccountSection({
             </div>
           </div>
         ) : null}
-        <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+        <div
+          data-workspace-layout-v2-main-pane-link=""
+          className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start"
+        >
           <Link
             className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
             to={SETTINGS_ROUTE}
@@ -267,7 +273,10 @@ export function VaultDashboardStaticAccountSection({
             ) : null}
           </div>
         </div>
-        <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+        <div
+          data-workspace-layout-v2-main-pane-link=""
+          className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start"
+        >
           <Link
             className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
             to={SETTINGS_ROUTE}

@@ -384,6 +384,7 @@ describe("AppRightSidebarContent", () => {
     expect(markup).toContain("dashboard-sidebar-account-icon");
     expect(markup).toContain("data-app-auth-prehydration-provider");
     expect(markup).toContain("/settings");
+    expect(markup).toContain("data-workspace-layout-v2-main-pane-link");
     expect(markup).not.toContain("Sign out");
     expect(hydratedMarkup).toContain("Nicu");
     expect(hydratedMarkup).toContain("/settings");
