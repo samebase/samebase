@@ -169,6 +169,19 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
   await expect(deleteDialog).toBeHidden();
 });
 
+test("full-page Settings checkout return survives auth restoration", async ({ page }) => {
+  await openSettings(page);
+
+  await page.goto("/settings?checkout=cancel", { waitUntil: "domcontentloaded" });
+
+  await expect(page).toHaveURL(/\/settings\?checkout=cancel$/u);
+  await expect(
+    page
+      .getByTestId("user-settings-page")
+      .getByText("Checkout canceled. Your plan did not change.", { exact: true }),
+  ).toBeVisible();
+});
+
 test("Settings link returns the mobile workspace to the main pane", async ({
   browser,
 }, testInfo) => {

@@ -4,7 +4,11 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import type { RouteAccess, RouteSearchParamSuggestion } from "@/routing/permissions";
+import type {
+  RouteAccess,
+  RouteSearchParamAccess,
+  RouteSearchParamSuggestion,
+} from "@/routing/permissions";
 import { RouteAccessOutlet } from "./RouteAccessOutlet";
 
 const routeMatchState = vi.hoisted(
@@ -12,6 +16,7 @@ const routeMatchState = vi.hoisted(
     matches: Array<{
       staticData: {
         access: RouteAccess;
+        searchParamAccess?: RouteSearchParamAccess[];
         searchParamSuggestions?: RouteSearchParamSuggestion[];
       };
     }>;
@@ -34,6 +39,8 @@ const viewerAccessState = vi.hoisted(
     result: { accessKeys: ["access_public"] },
   }),
 );
+
+const authState = vi.hoisted(() => ({ isLoading: false }));
 
 const locationState = vi.hoisted(
   (): {
@@ -74,9 +81,10 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 
 vi.mock("convex/react", () => ({
-  useQuery: (..._args: unknown[]) => {
+  useConvexAuth: () => authState,
+  useQuery: (_reference: unknown, args?: unknown) => {
     viewerAccessState.queryCalls += 1;
-    return viewerAccessState.result;
+    return args === "skip" ? undefined : viewerAccessState.result;
   },
 }));
 
@@ -108,6 +116,7 @@ describe("RouteAccessOutlet", () => {
     locationState.pathname = "/";
     locationState.searchStr = "";
     routerState.navigateCalls = [];
+    authState.isLoading = false;
     viewerAccessState.queryCalls = 0;
     viewerAccessState.result = { accessKeys: ["access_public"] };
   });
@@ -212,6 +221,72 @@ describe("RouteAccessOutlet", () => {
     expect(markup).toContain("Route outlet");
     expect(markup).not.toContain("not-found-route");
     expect(viewerAccessState.queryCalls).toBe(1);
+  });
+
+  it("keeps the Settings checkout return while persisted auth restores", async () => {
+    routeMatchState.matches = [
+      { staticData: { access: "access_public" } },
+      {
+        staticData: {
+          access: "access_user_preferences",
+          searchParamAccess: [{ access: "access_user_preferences", key: "checkout" }],
+        },
+      },
+    ];
+    locationState.pathname = "/settings";
+    locationState.searchStr = "?checkout=success";
+    authState.isLoading = true;
+    viewerAccessState.result = {
+      accessKeys: ["access_public"],
+      role: "role_anonymous",
+    };
+
+    const loadingMarkup = await renderRouteAccessOutletAfterEffects();
+
+    expect(loadingMarkup).toBe("");
+    expect(routerState.navigateCalls).toEqual([]);
+
+    authState.isLoading = false;
+    viewerAccessState.result = {
+      accessKeys: ["access_public", "access_user_preferences"],
+      role: "role_member",
+    };
+
+    const restoredMarkup = await renderRouteAccessOutletAfterEffects();
+
+    expect(restoredMarkup).toContain("Route outlet");
+    expect(routerState.navigateCalls).toEqual([]);
+  });
+
+  it("removes the Settings checkout return after auth restores an anonymous viewer", async () => {
+    routeMatchState.matches = [
+      { staticData: { access: "access_public" } },
+      {
+        staticData: {
+          access: "access_user_preferences",
+          searchParamAccess: [{ access: "access_user_preferences", key: "checkout" }],
+        },
+      },
+    ];
+    locationState.pathname = "/settings";
+    locationState.searchStr = "?checkout=success";
+    authState.isLoading = true;
+
+    const loadingMarkup = await renderRouteAccessOutletAfterEffects();
+
+    expect(loadingMarkup).toBe("");
+    expect(routerState.navigateCalls).toEqual([]);
+
+    authState.isLoading = false;
+    viewerAccessState.result = {
+      accessKeys: ["access_public"],
+      role: "role_anonymous",
+    };
+
+    const anonymousMarkup = await renderRouteAccessOutletAfterEffects();
+
+    expect(anonymousMarkup).toBe("");
+    expect(routerState.navigateCalls).toEqual([{ href: "/settings", replace: true }]);
   });
 
   it("renders not found directly for denied non-public routes", () => {

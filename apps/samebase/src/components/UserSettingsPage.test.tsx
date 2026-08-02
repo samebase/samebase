@@ -2,7 +2,7 @@
 
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { type AccountPresentation } from "../../shared/accountPresentation";
 import type { BillingResourceUsage } from "../../convex/billingResourceQuotas";
 import { UserSettingsPage } from "./UserSettingsPage";
@@ -314,13 +314,17 @@ async function typeConfirmationPhrase(input: HTMLInputElement, phrase: string) {
 }
 
 describe("UserSettingsPage", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     authState.fetchAccessToken.mockReset();
     appAuthState.signOut.mockReset();
     actionState.createCheckoutSession.mockReset();
     actionState.createCustomerPortalSession.mockReset();
     actionState.reconcileBilling.mockReset();
-    actionState.reconcileBilling.mockResolvedValue(null);
+    actionState.reconcileBilling.mockResolvedValue(true);
     mutationState.requestDeletion.mockReset();
     mutationState.setDisplayName.mockReset();
     routerState.navigate.mockReset();
@@ -487,15 +491,119 @@ describe("UserSettingsPage", () => {
     }
   });
 
-  it("reconciles a successful checkout without trusting the return URL as plan state", async () => {
+  it("keeps Free while trusted checkout reconciliation is pending", async () => {
+    vi.useFakeTimers();
     locationState.search = { checkout: "success" };
+    actionState.reconcileBilling.mockReturnValue(new Promise(() => {}));
     const mounted = await mountSettingsPage();
     try {
-      expect(actionState.reconcileBilling).toHaveBeenCalledWith({});
-      await mounted.render();
-      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
       expect(mounted.rootElement.textContent).toContain("Current planFree");
       expect(mounted.rootElement.textContent).toContain("Payment received. Checking your plan...");
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(actionState.reconcileBilling).toHaveBeenCalledWith({});
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("retries one false checkout reconciliation and accepts trusted Pro state", async () => {
+    vi.useFakeTimers();
+    locationState.search = { checkout: "success" };
+    actionState.reconcileBilling.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const mounted = await mountSettingsPage();
+    try {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(999);
+      });
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(2);
+
+      queryState.billing = {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        currentPeriodEndAt: Date.UTC(2026, 7, 31, 12),
+        cancelAtPeriodEnd: false,
+        canStartCheckout: true,
+      };
+      await mounted.render();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1_000);
+      });
+
+      expect(mounted.rootElement.textContent).toContain("Current planPro");
+      expect(mounted.rootElement.textContent).toContain("Your Pro plan is active.");
+      expect(mounted.rootElement.textContent).not.toContain("We could not confirm the payment.");
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("shows a terminal error when reconciliation succeeds but the plan stays Free", async () => {
+    vi.useFakeTimers();
+    locationState.search = { checkout: "success" };
+    actionState.reconcileBilling.mockResolvedValue(true);
+    const mounted = await mountSettingsPage();
+    try {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+      expect(mounted.rootElement.textContent).toContain("Payment received. Checking your plan...");
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(999);
+      });
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+      expect(mounted.rootElement.textContent).toContain("Payment received. Checking your plan...");
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+      expect(mounted.rootElement.textContent).toContain(
+        "We could not confirm the payment. Refresh this page to try again.",
+      );
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("stops after two false checkout reconciliations with a terminal error", async () => {
+    vi.useFakeTimers();
+    locationState.search = { checkout: "success" };
+    actionState.reconcileBilling.mockResolvedValue(false);
+    const mounted = await mountSettingsPage();
+    try {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1_000);
+      });
+
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(2);
+      expect(mounted.rootElement.textContent).toContain("Current planFree");
+      expect(mounted.rootElement.textContent).toContain(
+        "We could not confirm the payment. Refresh this page to try again.",
+      );
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(2);
     } finally {
       await unmount(mounted.root, mounted.rootElement);
     }

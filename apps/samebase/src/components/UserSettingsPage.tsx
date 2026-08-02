@@ -32,6 +32,9 @@ type SessionRefreshState =
 
 type BillingRequestState = "idle" | "checkout" | "portal";
 
+const BILLING_RECONCILIATION_MAX_ATTEMPTS = 2;
+const BILLING_RECONCILIATION_RETRY_DELAY_MS = 1_000;
+
 const billingDateFormatter = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
 });
@@ -68,7 +71,8 @@ export function UserSettingsPage() {
   });
   const [billingRequestState, setBillingRequestState] = useState<BillingRequestState>("idle");
   const [billingReconciliationFailed, setBillingReconciliationFailed] = useState(false);
-  const checkoutReturnReconciliationStarted = useRef(false);
+  const billingPlanRef = useRef(billingStatus?.plan);
+  billingPlanRef.current = billingStatus?.plan;
   const isDeleteDialogOpen = search[DELETE_ACCOUNT_QUERY_PARAM];
   const checkoutReturnState = search[CHECKOUT_QUERY_PARAM];
   const billingActionsAvailable = readBrowserRouteEnvironment() !== "preview";
@@ -76,19 +80,59 @@ export function UserSettingsPage() {
   // A successful return starts trusted provider reconciliation. The URL alone never grants Pro.
   useEffect(() => {
     if (checkoutReturnState !== "success" || !billingActionsAvailable) {
-      checkoutReturnReconciliationStarted.current = false;
       setBillingReconciliationFailed(false);
       return;
     }
-    if (checkoutReturnReconciliationStarted.current) {
+    if (billingPlanRef.current === "pro") {
+      setBillingReconciliationFailed(false);
       return;
     }
 
-    checkoutReturnReconciliationStarted.current = true;
+    let active = true;
+    let attempt = 0;
+    let retryTimeout: number | null = null;
     setBillingReconciliationFailed(false);
-    void reconcileBilling({}).catch(() => {
+
+    const reconcileCheckoutReturn = async () => {
+      attempt += 1;
+      let reconciled = false;
+      try {
+        reconciled = await reconcileBilling({});
+      } catch {
+        reconciled = false;
+      }
+
+      if (!active || billingPlanRef.current === "pro") {
+        return;
+      }
+      if (reconciled) {
+        retryTimeout = window.setTimeout(() => {
+          if (active && billingPlanRef.current !== "pro") {
+            setBillingReconciliationFailed(true);
+          }
+        }, BILLING_RECONCILIATION_RETRY_DELAY_MS);
+        return;
+      }
+      if (attempt < BILLING_RECONCILIATION_MAX_ATTEMPTS) {
+        retryTimeout = window.setTimeout(() => {
+          void reconcileCheckoutReturn();
+        }, BILLING_RECONCILIATION_RETRY_DELAY_MS);
+        return;
+      }
+
       setBillingReconciliationFailed(true);
-    });
+    };
+
+    retryTimeout = window.setTimeout(() => {
+      void reconcileCheckoutReturn();
+    }, 0);
+
+    return () => {
+      active = false;
+      if (retryTimeout !== null) {
+        window.clearTimeout(retryTimeout);
+      }
+    };
   }, [billingActionsAvailable, checkoutReturnState, reconcileBilling]);
 
   if (settings === undefined) {
@@ -411,17 +455,23 @@ export function UserSettingsPage() {
               Checkout canceled. Your plan did not change.
             </p>
           ) : checkoutReturnState === "success" ? (
-            billingReconciliationFailed ? (
-              <p className="mt-4 text-sm text-destructive" role="alert">
-                We could not confirm the payment. Refresh this page to try again.
-              </p>
+            billingActionsAvailable ? (
+              billingStatus.plan === "pro" ? (
+                <p className="mt-4 text-sm text-muted-foreground" role="status">
+                  Your Pro plan is active.
+                </p>
+              ) : billingReconciliationFailed ? (
+                <p className="mt-4 text-sm text-destructive" role="alert">
+                  We could not confirm the payment. Refresh this page to try again.
+                </p>
+              ) : (
+                <p className="mt-4 text-sm text-muted-foreground" role="status">
+                  Payment received. Checking your plan...
+                </p>
+              )
             ) : (
               <p className="mt-4 text-sm text-muted-foreground" role="status">
-                {billingActionsAvailable
-                  ? billingStatus.plan === "pro"
-                    ? "Your Pro plan is active."
-                    : "Payment received. Checking your plan..."
-                  : "Checkout confirmation is disabled in this preview."}
+                Checkout confirmation is disabled in this preview.
               </p>
             )
           ) : null}
