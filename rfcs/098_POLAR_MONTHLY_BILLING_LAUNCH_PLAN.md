@@ -48,17 +48,23 @@ The first independent backend review found four required fixes on 2026-08-02:
 
 The second independent backend review found additional hardening work on 2026-08-02:
 
-- [ ] Never issue a second checkout create after an ambiguous provider result without provider
+- [x] Never issue a second checkout create after an ambiguous provider result without provider
       idempotency.
-- [ ] Track issued and successfully applied provider observations separately so a failed later read
+- [x] Track issued and successfully applied provider observations separately so a failed later read
       cannot discard a valid earlier result.
-- [ ] Fetch and validate a stored open checkout by provider ID before reuse, and do not store its
+- [x] Fetch and validate a stored open checkout by provider ID before reuse, and do not store its
       access URL.
-- [ ] Require exactly one configured Pro product in a recovered checkout.
-- [ ] Coalesce duplicate webhook reconciliation work without losing a change that arrives during a
+- [x] Require exactly one configured Pro product in a recovered checkout.
+- [x] Coalesce duplicate webhook reconciliation work without losing a change that arrives during a
       provider read.
 - [ ] Use `canStartCheckout` in Settings so a pending user does not see an action that the server
       rejects.
+
+The independent security review found one account-deletion race. The completed fix is:
+
+- [x] Stop checkout reservation and provider creation after account deletion starts.
+- [x] Keep account deletion fail-closed while an open or ambiguous checkout can still be paid.
+- [x] Pass the follow-up security review across checkout, webhook, entitlement, and deletion flows.
 
 - [ ] Remove `billingPolarStateChangedAt` only after production rows are verified or migrated. It
       remains an optional compatibility field until that check is complete.
@@ -203,6 +209,15 @@ After a context compaction or handoff:
 - `d4babaf9`: billing core completion recorded in the rollout tracker.
 - `fdd859f5`: backend race review findings recorded.
 - `a655c0e5`: pricing and Settings billing UI, tests, and Linux visual baselines.
+- `a39682e2`: billing UI progress recorded in the rollout tracker.
+- `0028b8ae`: expanded backend hardening checklist recorded.
+- `844c0ee6`: quota reservation recovery review finding recorded.
+- `1225cab3`: second backend hardening review findings recorded.
 - `fd8c6fb5`: provider-create quota reservations, concurrency checks, and bounded usage state.
 - `d983a78d`: exact provider-resource recovery consumes retained quota reservations.
 - `b08651e4`: complete Cloudflare reservation identity matching and regression coverage.
+- `dfbb094e`: typed bounded usage state connected to the billing UI.
+- `207a800f`: quota hardening completion recorded in the rollout tracker.
+- `5ad48bdc`: Polar observation fencing and checkout recovery state introduced.
+- `f468f6ab`: ambiguous checkout, stored checkout, and webhook coalescing races closed.
+- `c790e079`: account-deletion checkout race closed.
