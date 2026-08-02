@@ -1,6 +1,6 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import type { BillingResourceUsage } from "../../convex/billingResourceQuotas";
@@ -31,9 +31,6 @@ type SessionRefreshState =
   | { kind: "stale"; expectedPresentation: AccountPresentation; message: string };
 
 type BillingRequestState = "idle" | "checkout" | "portal";
-
-const BILLING_RECONCILIATION_MAX_ATTEMPTS = 2;
-const BILLING_RECONCILIATION_RETRY_DELAY_MS = 1_000;
 
 const billingDateFormatter = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
@@ -70,9 +67,7 @@ export function UserSettingsPage() {
     kind: "current",
   });
   const [billingRequestState, setBillingRequestState] = useState<BillingRequestState>("idle");
-  const [billingReconciliationFailed, setBillingReconciliationFailed] = useState(false);
-  const billingPlanRef = useRef(billingStatus?.plan);
-  billingPlanRef.current = billingStatus?.plan;
+  const [billingReconciliationDelayed, setBillingReconciliationDelayed] = useState(false);
   const isDeleteDialogOpen = search[DELETE_ACCOUNT_QUERY_PARAM];
   const checkoutReturnState = search[CHECKOUT_QUERY_PARAM];
   const billingActionsAvailable = readBrowserRouteEnvironment() !== "preview";
@@ -80,60 +75,52 @@ export function UserSettingsPage() {
   // A successful return starts trusted provider reconciliation. The URL alone never grants Pro.
   useEffect(() => {
     if (checkoutReturnState !== "success" || !billingActionsAvailable) {
-      setBillingReconciliationFailed(false);
+      setBillingReconciliationDelayed(false);
       return;
     }
-    if (billingPlanRef.current === "pro") {
-      setBillingReconciliationFailed(false);
+    if (billingStatus?.plan === "pro") {
+      setBillingReconciliationDelayed(false);
+      void navigate({
+        replace: true,
+        resetScroll: false,
+        search: (currentSearch) =>
+          applySearchPatch(currentSearch, { [CHECKOUT_QUERY_PARAM]: null }),
+        to: ".",
+      });
       return;
     }
 
     let active = true;
-    let attempt = 0;
-    let retryTimeout: number | null = null;
-    setBillingReconciliationFailed(false);
+    setBillingReconciliationDelayed(false);
 
     const reconcileCheckoutReturn = async () => {
-      attempt += 1;
-      let reconciled = false;
       try {
-        reconciled = await reconcileBilling({});
+        const reconciled = await reconcileBilling({});
+        if (active && !reconciled) {
+          setBillingReconciliationDelayed(true);
+        }
       } catch {
-        reconciled = false;
+        if (active) {
+          setBillingReconciliationDelayed(true);
+        }
       }
-
-      if (!active || billingPlanRef.current === "pro") {
-        return;
-      }
-      if (reconciled) {
-        retryTimeout = window.setTimeout(() => {
-          if (active && billingPlanRef.current !== "pro") {
-            setBillingReconciliationFailed(true);
-          }
-        }, BILLING_RECONCILIATION_RETRY_DELAY_MS);
-        return;
-      }
-      if (attempt < BILLING_RECONCILIATION_MAX_ATTEMPTS) {
-        retryTimeout = window.setTimeout(() => {
-          void reconcileCheckoutReturn();
-        }, BILLING_RECONCILIATION_RETRY_DELAY_MS);
-        return;
-      }
-
-      setBillingReconciliationFailed(true);
     };
 
-    retryTimeout = window.setTimeout(() => {
+    const reconciliationTimeout = window.setTimeout(() => {
       void reconcileCheckoutReturn();
     }, 0);
 
     return () => {
       active = false;
-      if (retryTimeout !== null) {
-        window.clearTimeout(retryTimeout);
-      }
+      window.clearTimeout(reconciliationTimeout);
     };
-  }, [billingActionsAvailable, checkoutReturnState, reconcileBilling]);
+  }, [
+    billingActionsAvailable,
+    billingStatus?.plan,
+    checkoutReturnState,
+    navigate,
+    reconcileBilling,
+  ]);
 
   if (settings === undefined) {
     return null;
@@ -460,13 +447,13 @@ export function UserSettingsPage() {
                 <p className="mt-4 text-sm text-muted-foreground" role="status">
                   Your Pro plan is active.
                 </p>
-              ) : billingReconciliationFailed ? (
-                <p className="mt-4 text-sm text-destructive" role="alert">
-                  We could not confirm the payment. Refresh this page to try again.
+              ) : billingReconciliationDelayed ? (
+                <p className="mt-4 text-sm text-muted-foreground" role="status">
+                  Plan confirmation is delayed. Refresh this page to check again.
                 </p>
               ) : (
                 <p className="mt-4 text-sm text-muted-foreground" role="status">
-                  Payment received. Checking your plan...
+                  Checking your payment and plan...
                 </p>
               )
             ) : (

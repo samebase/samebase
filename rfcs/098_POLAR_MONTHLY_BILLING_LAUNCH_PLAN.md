@@ -5,7 +5,7 @@
 - Status: Active implementation tracker
 - Owner: Samebase platform
 - Last updated: 2026-08-02
-- Accepted contract: `specs/118_POLAR_MONTHLY_BILLING_SPEC.md`
+- Accepted contract: `specs/119_POLAR_MONTHLY_BILLING_SPEC.md`
 - Integration branch: `codex-polar-monthly-billing`
 - Lifecycle: Update this file during the rollout. Archive it after production launch.
 
@@ -73,7 +73,7 @@ The independent security review found one account-deletion race. The completed f
 - [ ] Remove `billingPolarStateChangedAt` only after production rows are verified or migrated. It
       remains an optional compatibility field until that check is complete.
 
-Old specs 033 and 034 are historical input. They do not override the accepted contract in spec 118.
+Old specs 033 and 034 are historical input. They do not override the accepted contract in spec 119.
 
 ## Decisions
 
@@ -220,13 +220,13 @@ operator must approve the exact production changes before work starts.
 - [ ] Confirm Polar account approval, tax handling, and payouts are ready.
 - [ ] Complete a controlled production smoke check without changing a customer record manually.
 - [ ] Monitor the first real customer checkout, webhook, entitlement, and portal access.
-- [ ] Reduce spec 118 to shipped contract details if necessary, then archive this tracker.
+- [ ] Reduce spec 119 to shipped contract details if necessary, then archive this tracker.
 
 ## Continuation Protocol
 
 After a context compaction or handoff:
 
-1. Read `specs/118_POLAR_MONTHLY_BILLING_SPEC.md` and this tracker first.
+1. Read `specs/119_POLAR_MONTHLY_BILLING_SPEC.md` and this tracker first.
 2. Check the integration branch, open pull request, active agents, commits, and working trees.
 3. Continue the first incomplete workstream that is not blocked.
 4. Keep the main task on coordination and acceptance. Delegate implementation, research, tests, and

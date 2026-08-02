@@ -498,7 +498,7 @@ describe("UserSettingsPage", () => {
     const mounted = await mountSettingsPage();
     try {
       expect(mounted.rootElement.textContent).toContain("Current planFree");
-      expect(mounted.rootElement.textContent).toContain("Payment received. Checking your plan...");
+      expect(mounted.rootElement.textContent).toContain("Checking your payment and plan...");
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0);
@@ -511,26 +511,16 @@ describe("UserSettingsPage", () => {
     }
   });
 
-  it("retries one false checkout reconciliation and accepts trusted Pro state", async () => {
+  it("removes the checkout return value after trusted Pro state arrives", async () => {
     vi.useFakeTimers();
     locationState.search = { checkout: "success" };
-    actionState.reconcileBilling.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    actionState.reconcileBilling.mockResolvedValue(true);
     const mounted = await mountSettingsPage();
     try {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0);
       });
       expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(999);
-      });
-      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(1);
-      });
-      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(2);
 
       queryState.billing = {
         provider: "polar",
@@ -541,19 +531,22 @@ describe("UserSettingsPage", () => {
         canStartCheckout: true,
       };
       await mounted.render();
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(1_000);
-      });
 
       expect(mounted.rootElement.textContent).toContain("Current planPro");
       expect(mounted.rootElement.textContent).toContain("Your Pro plan is active.");
-      expect(mounted.rootElement.textContent).not.toContain("We could not confirm the payment.");
+      expect(mounted.rootElement.textContent).not.toContain("Plan confirmation is delayed.");
+      expect(routerState.navigate).toHaveBeenCalledWith({
+        replace: true,
+        resetScroll: false,
+        search: expect.any(Function),
+        to: ".",
+      });
     } finally {
       await unmount(mounted.root, mounted.rootElement);
     }
   });
 
-  it("shows a terminal error when reconciliation succeeds but the plan stays Free", async () => {
+  it("keeps a neutral pending state when reconciliation finishes before the plan updates", async () => {
     vi.useFakeTimers();
     locationState.search = { checkout: "success" };
     actionState.reconcileBilling.mockResolvedValue(true);
@@ -564,46 +557,39 @@ describe("UserSettingsPage", () => {
       });
 
       expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
-      expect(mounted.rootElement.textContent).toContain("Payment received. Checking your plan...");
+      expect(mounted.rootElement.textContent).toContain("Checking your payment and plan...");
 
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(999);
+        await vi.advanceTimersByTimeAsync(10_000);
       });
       expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
-      expect(mounted.rootElement.textContent).toContain("Payment received. Checking your plan...");
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(1);
-      });
-      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
-      expect(mounted.rootElement.textContent).toContain(
-        "We could not confirm the payment. Refresh this page to try again.",
-      );
+      expect(mounted.rootElement.textContent).toContain("Checking your payment and plan...");
+      expect(mounted.rootElement.textContent).not.toContain("Plan confirmation is delayed.");
     } finally {
       await unmount(mounted.root, mounted.rootElement);
     }
   });
 
-  it("stops after two false checkout reconciliations with a terminal error", async () => {
+  it("shows a neutral delay after one failed checkout reconciliation", async () => {
     vi.useFakeTimers();
     locationState.search = { checkout: "success" };
     actionState.reconcileBilling.mockResolvedValue(false);
     const mounted = await mountSettingsPage();
     try {
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(1_000);
+        await vi.advanceTimersByTimeAsync(0);
       });
 
-      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(2);
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
       expect(mounted.rootElement.textContent).toContain("Current planFree");
       expect(mounted.rootElement.textContent).toContain(
-        "We could not confirm the payment. Refresh this page to try again.",
+        "Plan confirmation is delayed. Refresh this page to check again.",
       );
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(10_000);
       });
-      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(2);
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
     } finally {
       await unmount(mounted.root, mounted.rootElement);
     }
