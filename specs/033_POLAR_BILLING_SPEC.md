@@ -1,6 +1,18 @@
 # 033 Polar Billing Spec
 
-## Current Status
+## Document Control
+
+- Status: Superseded
+- Owner: Samebase platform
+- Last updated: 2026-08-02
+- Accepted replacement: `specs/118_POLAR_MONTHLY_BILLING_SPEC.md`
+- Active rollout plan: `rfcs/098_POLAR_MONTHLY_BILLING_LAUNCH_PLAN.md`
+
+Do not use this document for current product or implementation decisions. Use spec 118 for the
+accepted billing contract and RFC 098 for active rollout work. The remaining content is historical
+context.
+
+## Historical Status
 
 This spec records experimental Polar plumbing that exists in the app. It is not an enforceable
 product billing decision. Until a future accepted billing spec says otherwise, billing fields,
