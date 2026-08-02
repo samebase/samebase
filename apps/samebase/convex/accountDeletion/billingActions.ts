@@ -4,6 +4,7 @@ import type { Polar } from "@polar-sh/sdk";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
 import { createPolarClient } from "../polarClient";
+import { POLAR_CHECKOUT_EXPIRY_SAFETY_MARGIN_MS } from "../polarCheckout";
 
 const { id, literal, object, string, union } = v;
 
@@ -87,6 +88,20 @@ export const cancelForAccountDeletion = internalAction({
     const user = await ctx.runQuery(internal.users.getById, { userId: identity.userId });
 
     if (!user) {
+      return {
+        state: "failed",
+        safeError: POLAR_CANCELLATION_SAFE_ERROR,
+      };
+    }
+
+    const checkoutAttempt = user.billingPolarCheckoutAttempt;
+    const now = Date.now();
+    if (
+      user.accountDeletion?.runId !== args.runId ||
+      (checkoutAttempt?.state === "recovering" && checkoutAttempt.recoverUntilAt > now) ||
+      (checkoutAttempt?.state === "open" &&
+        checkoutAttempt.expiresAt + POLAR_CHECKOUT_EXPIRY_SAFETY_MARGIN_MS > now)
+    ) {
       return {
         state: "failed",
         safeError: POLAR_CANCELLATION_SAFE_ERROR,

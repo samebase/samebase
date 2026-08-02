@@ -27,7 +27,7 @@ vi.mock("@polar-sh/sdk", () => ({
   },
 }));
 
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { makeConvexTest } from "./test.setup";
 
@@ -111,6 +111,34 @@ async function seedMember(t: ConvexTest, isApproved = true) {
       name: "Ada",
       email: "ada.member@example.test",
       isApproved,
+    });
+  });
+}
+
+async function markAccountDeleting(t: ConvexTest, userId: Id<"users">): Promise<void> {
+  await t.run(async (ctx) => {
+    const initiatingSessionId = await ctx.db.insert("authSessions", {
+      userId,
+      expirationTime: 2_000_000_000_000,
+    });
+    const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
+      identity: { state: "active", userId, email: "ada.member@example.test" },
+      completionCapability: "billing-checkout-race-test",
+      state: "running",
+      workflow: { state: "started", workflowId: "billing-checkout-race", attempt: 1 },
+      currentStep: "request_accepted",
+      requestedAt: Date.now(),
+      updatedAt: Date.now(),
+      initiatingSessionId,
+      retryCount: 0,
+      outcomes: {
+        billing: { state: "not_started" },
+        providerRevocation: { state: "not_started" },
+        completionEmail: { state: "not_started" },
+      },
+    });
+    await ctx.db.patch(userId, {
+      accountDeletion: { state: "deleting", runId, requestedAt: Date.now() },
     });
   });
 }
@@ -500,6 +528,34 @@ describe("billing access", () => {
       url: "https://sandbox.polar.sh/checkout/concurrent",
     });
     expect(polarSdkMocks.checkoutsCreate).toHaveBeenCalledOnce();
+  });
+
+  it("does not cross an account deletion marker before provider create", async () => {
+    const t = makeConvexTest();
+    const userId = await seedMember(t);
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
+    });
+    configureSandboxBilling();
+    polarSdkMocks.customersGetStateExternal.mockRejectedValue(resourceNotFound());
+    const checkoutList = createDeferred<ReturnType<typeof checkoutPages>>();
+    polarSdkMocks.checkoutsList.mockReturnValue(checkoutList.promise);
+
+    const checkoutRequest = asUser(t, userId).action(api.billing.createPolarCheckoutSession, {
+      successUrl: "http://localhost:5174/settings?checkout=success",
+      returnUrl: "http://localhost:5174/settings?checkout=cancel",
+    });
+    await vi.waitFor(() => expect(polarSdkMocks.checkoutsList).toHaveBeenCalledOnce());
+    await markAccountDeleting(t, userId);
+    checkoutList.resolve(checkoutPages([]));
+
+    await expect(checkoutRequest).rejects.toThrow(
+      "Checkout is already being prepared. Please try again.",
+    );
+    await expect(t.mutation(internal.polarCheckout.reserveAttempt, { userId })).rejects.toThrow(
+      "Checkout is unavailable.",
+    );
+    expect(polarSdkMocks.checkoutsCreate).not.toHaveBeenCalled();
   });
 
   it("recovers a Polar checkout created before the local result was stored", async () => {

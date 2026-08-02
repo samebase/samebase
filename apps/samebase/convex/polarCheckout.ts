@@ -31,10 +31,12 @@ export type PolarCheckoutReservation = Infer<typeof vPolarCheckoutReservation>;
 
 const POLAR_CHECKOUT_CREATION_LEASE_MS = 60_000;
 const POLAR_CHECKOUT_MAX_LIST_PAGES = 10;
+export const POLAR_CHECKOUT_EXPIRY_SAFETY_MARGIN_MS = 60_000;
 
 // Polar checkouts expire after 24 hours. The extra minute covers a request that reaches Polar at
-// the end of the local request timeout.
-const POLAR_CHECKOUT_RECOVERY_WINDOW_MS = 24 * 60 * 60 * 1_000 + 60_000;
+// the end of the local request timeout and provider clock skew during account deletion.
+const POLAR_CHECKOUT_RECOVERY_WINDOW_MS =
+  24 * 60 * 60 * 1_000 + POLAR_CHECKOUT_EXPIRY_SAFETY_MARGIN_MS;
 
 export function matchesPolarCheckoutAttempt(args: {
   attemptId: string;
@@ -134,6 +136,9 @@ export const reserveAttempt = internalMutation({
     if (!user) {
       throw new Error("User not found.");
     }
+    if (user.accountDeletion !== undefined) {
+      throw new Error("Checkout is unavailable.");
+    }
 
     const now = Date.now();
     const existing = user.billingPolarCheckoutAttempt;
@@ -176,7 +181,7 @@ export const beginRecovery = internalMutation({
   returns: boolean(),
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
-    if (!user) {
+    if (!user || user.accountDeletion !== undefined) {
       return false;
     }
     const attempt = user.billingPolarCheckoutAttempt;

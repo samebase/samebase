@@ -29,6 +29,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllEnvs();
 });
 
@@ -59,6 +60,9 @@ async function seedUser(billingPolarExternalCustomerId?: string) {
         providerRevocation: { state: "not_started" },
         completionEmail: { state: "not_started" },
       },
+    });
+    await ctx.db.patch(userId, {
+      accountDeletion: { state: "deleting", runId, requestedAt: 1 },
     });
     return { runId, userId };
   });
@@ -152,6 +156,89 @@ describe("account deletion billing actions", () => {
       state: "failed",
       safeError: "Polar subscription cancellation could not be confirmed.",
     });
+    expect(polarSdkMocks.constructorOptions).not.toHaveBeenCalled();
+  });
+
+  it("fails closed while an ambiguous checkout can still be open", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2030-01-01T00:00:00.000Z"));
+    const { t, runId, userId } = await seedUser();
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId, {
+        billingPolarCheckoutAttempt: {
+          state: "recovering",
+          attemptId: "polar_checkout_deletion_recovery",
+          recoverUntilAt: Date.now() + 60_000,
+        },
+      });
+    });
+
+    await expect(
+      t.action(internal.accountDeletion.billingActions.cancelForAccountDeletion, {
+        runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({
+      state: "failed",
+      safeError: "Polar subscription cancellation could not be confirmed.",
+    });
+    expect(polarSdkMocks.constructorOptions).not.toHaveBeenCalled();
+  });
+
+  it("fails closed until an open checkout passes its post-expiry safety margin", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2030-01-01T00:00:00.000Z"));
+    const { t, runId, userId } = await seedUser();
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId, {
+        billingPolarCheckoutAttempt: {
+          state: "open",
+          attemptId: "polar_checkout_deletion_open",
+          checkoutId: "checkout-deletion-open",
+          expiresAt: Date.now() - 30_000,
+        },
+      });
+    });
+
+    await expect(
+      t.action(internal.accountDeletion.billingActions.cancelForAccountDeletion, {
+        runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({
+      state: "failed",
+      safeError: "Polar subscription cancellation could not be confirmed.",
+    });
+
+    vi.advanceTimersByTime(30_001);
+    await expect(
+      t.action(internal.accountDeletion.billingActions.cancelForAccountDeletion, {
+        runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({ state: "not_applicable" });
+    expect(polarSdkMocks.constructorOptions).not.toHaveBeenCalled();
+  });
+
+  it("allows cancellation checks for a creating checkout after deletion starts", async () => {
+    const { t, runId, userId } = await seedUser();
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId, {
+        billingPolarCheckoutAttempt: {
+          state: "creating",
+          attemptId: "polar_checkout_deletion_creating",
+          leaseId: "checkout-deletion-lease",
+          leaseExpiresAt: Date.now() + 60_000,
+        },
+      });
+    });
+
+    await expect(
+      t.action(internal.accountDeletion.billingActions.cancelForAccountDeletion, {
+        runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({ state: "not_applicable" });
     expect(polarSdkMocks.constructorOptions).not.toHaveBeenCalled();
   });
 
