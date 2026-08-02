@@ -83,10 +83,10 @@ page read and the resource read, only that resource row becomes unavailable; the
 still resolves. It has no provider rows, Cloudflare build status error, or per-Worker `Unavailable`
 state.
 
-The pull request Worker row is a direct view of a Cloudflare Bot comment on that pull request.
-Samebase does not read the Cloudflare Worker API, Cloudflare Builds API, GitHub check runs, or the
-pull request head commit to determine that row. Default-branch Cloudflare observations still read
-the Cloudflare APIs.
+The pull request Worker status and links are a direct view of a Cloudflare Bot comment on that pull
+request. Samebase does not read the Cloudflare Worker API, Cloudflare Builds API, GitHub check runs,
+or the pull request head commit to determine those facts. The browser uses the separate vault-level
+Cloudflare Builds observation only to place an attached Worker under its repository root.
 
 The batched pull request query reads only comment node ids and author types. It follows all metadata
 pages under the existing GitHub request deadline, selects only the exact Cloudflare and Netlify Bot
@@ -130,13 +130,16 @@ comment body, URL, repository, resource name, or provider account identity. Post
 these failed parse observations without persisting provider state in the Samebase database. One
 action read emits at most one marker for each provider-format and failure-kind pair.
 
-An attached Cloudflare Worker consumes its matching comment row in the `Cloudflare Workers` group.
-Other parsed Cloudflare Workers, Cloudflare Pages projects, and Netlify sites have no verified
-repository root. The UI lists them in an `Other previews` group and never invents a root. An
-unattached Worker row links to the repository Settings page with a `Connect` action. Cloudflare
-Pages and Netlify rows have no setup action because Samebase does not support attaching those
-resources. Each row exposes the provider resource name and its branch or deploy preview link. The
-comment text and provider result are not saved in the Samebase database.
+An attached Cloudflare Worker consumes its matching comment row for build status and links. The UI
+independently groups that Worker by the `root_directory` from its available Cloudflare Builds
+repository observation. The root observation does not validate or replace the comment status. If
+that root cannot be read, only that Worker uses the `Cloudflare Workers` group. Other parsed
+Cloudflare Workers, Cloudflare Pages projects, and Netlify sites have no verified repository root.
+The UI lists them in an `Other previews` group and never invents a root. An unattached Worker row
+links to the repository Settings page with a `Connect` action. Cloudflare Pages and Netlify rows
+have no setup action because Samebase does not support attaching those resources. Each row exposes
+the provider resource name and its branch or deploy preview link. The comment text and provider
+result are not saved in the Samebase database.
 
 For up to 100 pull requests, the normal GitHub cost is one batched GraphQL head and comment-metadata
 query. Comment discovery adds no request when there are no recognized bot comments. If recognized
@@ -227,6 +230,10 @@ Tests must prove:
 - a parsed Cloudflare comment set with no matching Worker row shows only that Worker as unavailable;
 - an unreadable or unsafe Cloudflare comment shows one pull request Cloudflare build status error;
 - comment metadata selects only the exact Cloudflare and Netlify Bots before any body is read;
+- attached Workers with available Builds roots stay grouped by those roots independently of their
+  comment build states;
+- an attached Worker without an available Builds root remains visible in the `Cloudflare Workers`
+  group;
 - attached Workers consume exact account-and-name matches while other hosting previews remain
   rootless;
 - the `Other previews` group offers setup only for unattached Cloudflare Workers;

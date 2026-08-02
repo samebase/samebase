@@ -291,6 +291,9 @@ test("shows comment-discovered hosting previews on desktop", async ({ page }) =>
   const pullRequestRow = fixture.locator('[data-pull-request-number="1260"]');
 
   await pullRequestRow.getByRole("button", { name: "Show pull request #1260 details" }).click();
+  await expect(pullRequestRow.getByText("apps/domain-router", { exact: true })).toBeVisible();
+  await expect(pullRequestRow.getByText("apps/samebase", { exact: true })).toBeVisible();
+  await expect(pullRequestRow.getByText("Cloudflare Workers", { exact: true })).toHaveCount(0);
   const otherPreviews = pullRequestRow.getByRole("group", { name: "Other previews" });
   await expect(otherPreviews).toBeVisible();
   await expect(
@@ -376,6 +379,9 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   await expect(firstPullRequestRow).toContainText("3 files");
 
   await firstPullRequest.click();
+  await expect(firstPullRequestRow.getByText("apps/domain-router", { exact: true })).toBeVisible();
+  await expect(firstPullRequestRow.getByText("apps/samebase", { exact: true })).toBeVisible();
+  await expect(firstPullRequestRow.getByText("Cloudflare Workers", { exact: true })).toHaveCount(0);
   await expect(firstPullRequestRow.getByRole("link", { name: "Building" })).toHaveAttribute(
     "href",
     "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-worker/production/builds/comment-build-1260",

@@ -20,6 +20,7 @@ import { Link } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
+import type { VaultCloudflareProviderObservationState } from "./useVaultProviderObservations";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
@@ -39,11 +40,13 @@ function SamebaseChangesLink({ href }: { href: string }) {
 }
 
 function PullRequestRow({
+  cloudflareBuildsObservations,
   filesReadEnabled,
   pullRequest,
   resource,
   vault,
 }: {
+  cloudflareBuildsObservations: VaultCloudflareProviderObservationState["builds"];
   filesReadEnabled: boolean;
   pullRequest: VaultPullRequest;
   resource: PullRequestResourceState | undefined;
@@ -168,6 +171,7 @@ function PullRequestRow({
             </div>
           ) : null}
           <PullRequestResources
+            cloudflareBuildsObservations={cloudflareBuildsObservations}
             resource={resource}
             settingsHref={buildVaultSettingsRoute({
               owner: vault.ghRepoOwner,
@@ -181,10 +185,12 @@ function PullRequestRow({
 }
 
 export function PullRequestsSection({
+  cloudflareBuildsObservations,
   filesReadEnabled,
   pullRequests,
   vault,
 }: {
+  cloudflareBuildsObservations: VaultCloudflareProviderObservationState["builds"];
   filesReadEnabled: boolean;
   pullRequests: VaultPullRequestsState;
   vault: UserVaultResult;
@@ -226,6 +232,7 @@ export function PullRequestsSection({
             ) : null}
             {pullRequests.allPullRequests.map((pullRequest) => (
               <PullRequestRow
+                cloudflareBuildsObservations={cloudflareBuildsObservations}
                 filesReadEnabled={filesReadEnabled}
                 key={pullRequest.id}
                 pullRequest={pullRequest}
