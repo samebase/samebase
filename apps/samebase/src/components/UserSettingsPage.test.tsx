@@ -546,6 +546,42 @@ describe("UserSettingsPage", () => {
     }
   });
 
+  it("reconciles an initial Pro view before removing the checkout return value", async () => {
+    locationState.search = { checkout: "success" };
+    queryState.billing = {
+      provider: "polar",
+      plan: "pro",
+      status: "active",
+      currentPeriodEndAt: Date.UTC(2026, 7, 31, 12),
+      cancelAtPeriodEnd: false,
+      canStartCheckout: true,
+    };
+    const reconciliation = createDeferred<{ state: "observed"; plan: "pro" }>();
+    actionState.reconcileBilling.mockReturnValue(reconciliation.promise);
+    const mounted = await mountSettingsPage();
+    try {
+      expect(mounted.rootElement.textContent).toContain("Current planPro");
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+      expect(routerState.navigate).not.toHaveBeenCalled();
+
+      await act(async () => {
+        reconciliation.resolve({ state: "observed", plan: "pro" });
+        await reconciliation.promise;
+      });
+
+      expect(routerState.navigate).toHaveBeenCalledWith({
+        replace: true,
+        resetScroll: false,
+        search: expect.any(Function),
+        to: ".",
+      });
+      await mounted.render();
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
   it("shows a neutral delay when trusted reconciliation still reports Free", async () => {
     vi.useFakeTimers();
     locationState.search = { checkout: "success" };

@@ -78,17 +78,6 @@ export function UserSettingsPage() {
       setBillingReconciliationDelayed(false);
       return;
     }
-    if (billingStatus?.plan === "pro") {
-      setBillingReconciliationDelayed(false);
-      void navigate({
-        replace: true,
-        resetScroll: false,
-        search: (currentSearch) =>
-          applySearchPatch(currentSearch, { [CHECKOUT_QUERY_PARAM]: null }),
-        to: ".",
-      });
-      return;
-    }
 
     let active = true;
     setBillingReconciliationDelayed(false);
@@ -96,7 +85,18 @@ export function UserSettingsPage() {
     const reconcileCheckoutReturn = async () => {
       try {
         const reconciled = await reconcileBilling({});
-        if (active && (reconciled.state === "unavailable" || reconciled.plan === "free")) {
+        if (!active) {
+          return;
+        }
+        if (reconciled.state === "observed" && reconciled.plan === "pro") {
+          void navigate({
+            replace: true,
+            resetScroll: false,
+            search: (currentSearch) =>
+              applySearchPatch(currentSearch, { [CHECKOUT_QUERY_PARAM]: null }),
+            to: ".",
+          });
+        } else {
           setBillingReconciliationDelayed(true);
         }
       } catch {
@@ -106,21 +106,12 @@ export function UserSettingsPage() {
       }
     };
 
-    const reconciliationTimeout = window.setTimeout(() => {
-      void reconcileCheckoutReturn();
-    }, 0);
+    void reconcileCheckoutReturn();
 
     return () => {
       active = false;
-      window.clearTimeout(reconciliationTimeout);
     };
-  }, [
-    billingActionsAvailable,
-    billingStatus?.plan,
-    checkoutReturnState,
-    navigate,
-    reconcileBilling,
-  ]);
+  }, [billingActionsAvailable, checkoutReturnState, navigate, reconcileBilling]);
 
   if (settings === undefined) {
     return null;
