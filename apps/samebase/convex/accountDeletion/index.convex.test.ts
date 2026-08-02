@@ -8,6 +8,7 @@ import {
   buildAccountDeletionConfirmationPhrase,
   serializeAccountDeletionConfirmationStakes,
 } from "../../shared/accountDeletionPhrase";
+import { INITIAL_ACCOUNT_DELETION_DATA_PROGRESS } from "./model";
 
 const now = 1_700_000_000_000;
 const completionCapability = "a".repeat(64);
@@ -137,14 +138,6 @@ describe("account deletion foundation", () => {
     const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
 
     const first = await requestAccepted(asUser);
-    await t.run(async (ctx) => {
-      await ctx.db.patch(ids.userId, {
-        billingPolarCheckoutAttempt: {
-          state: "pending",
-          attemptId: "polar_checkout_after_deletion_started",
-        },
-      });
-    });
     const second = await requestAccepted(asUser);
 
     expect(second).toEqual(first);
@@ -188,6 +181,57 @@ describe("account deletion foundation", () => {
     await expect(
       asUser.mutation(api.dashboardSettings.setAccountPanelOpen, { isOpen: true }),
     ).rejects.toThrow("Access denied");
+  });
+
+  it("reuses the active deletion run when a checkout is pending", async () => {
+    const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
+    // Seed the committed state directly so this assertion does not start a background workflow.
+    const runId = await t.run(async (ctx) => {
+      const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
+        identity: { state: "active", userId: ids.userId, email: "ada@example.com" },
+        completionCapability: "account-deletion-reuse-test",
+        state: "running",
+        workflow: { state: "started", workflowId: "account-deletion-reuse-test", attempt: 1 },
+        currentStep: "request_accepted",
+        requestedAt: now,
+        updatedAt: now,
+        initiatingSessionId: ids.sessionId,
+        retryCount: 0,
+        outcomes: notStartedOutcomes,
+        dataDeletion: INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
+      });
+      await ctx.db.patch(ids.userId, {
+        accountDeletion: { state: "deleting", runId, requestedAt: now },
+        billingPolarCheckoutAttempt: {
+          state: "pending",
+          attemptId: "polar_checkout_after_deletion_started",
+        },
+      });
+      return runId;
+    });
+
+    const result = await requestAccepted(asUser);
+
+    expect(result).toMatchObject({
+      runId,
+      completionCapability: "account-deletion-reuse-test",
+      state: "running",
+      currentStep: "request_accepted",
+      dataDeletion: INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
+    });
+    const stored = await t.run(async (ctx) => ({
+      user: await ctx.db.get(ids.userId),
+      runs: await ctx.db.query("workflow_accountDeletion_runs").take(2),
+    }));
+    expect(stored.user).toMatchObject({
+      accountDeletion: { state: "deleting", runId },
+      billingPolarCheckoutAttempt: {
+        state: "pending",
+        attemptId: "polar_checkout_after_deletion_started",
+      },
+    });
+    expect(stored.runs).toHaveLength(1);
+    expect(stored.runs[0]).toMatchObject({ _id: runId, state: "running" });
   });
 
   it("rejects account deletion while a manual provider change is active", async () => {
