@@ -149,12 +149,14 @@ Old specs 033 and 034 are historical input. They do not override the accepted co
 
 ## Sandbox
 
-Current gate on 2026-08-02: Chrome reached the separate Polar Sandbox sign-in page. No Sandbox
-product, webhook, token, or secret has been created or changed. The operator must sign in to Polar
-Sandbox in Chrome before this section can continue.
+Current state on 2026-08-02: The Polar Sandbox organization is `Samebase`, with slug `samebasecom`.
+It has one private product named `Samebase Pro Monthly` at $4 USD per month. The product ID is
+`cfe54f3c-2e34-48b9-9a32-6b6a8a3ea0bd`. The product has no trial, benefits, or metadata. No Sandbox
+access token, webhook, or webhook secret has been created or set.
 
-- [ ] Create one private Sandbox product named `Samebase Pro Monthly` at $4 per month.
-- [ ] Record its product ID in the server-side Sandbox mapping.
+- [x] Create the Sandbox organization `Samebase` with slug `samebasecom`.
+- [x] Create one private Sandbox product named `Samebase Pro Monthly` at $4 per month.
+- [ ] Set product ID `cfe54f3c-2e34-48b9-9a32-6b6a8a3ea0bd` in the server-side Sandbox mapping.
 - [ ] Set the Sandbox access token on the local Convex deployment.
 - [ ] Start Samebase with `pnpm dev`.
 - [ ] Forward Sandbox webhooks with Polar CLI to the printed local Convex site URL at
