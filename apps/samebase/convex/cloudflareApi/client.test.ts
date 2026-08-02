@@ -111,6 +111,49 @@ describe("Cloudflare API response validators", () => {
     ).toBe(true);
   });
 
+  it("accepts an observed completed Worker build", () => {
+    const validate =
+      cloudflareApiResponseValidators.GET[
+        "/accounts/{account_id}/builds/workers/{external_script_id}/builds"
+      ];
+
+    // Captured from this endpoint on 2026-08-03. Fields unrelated to build
+    // matching, including environment variables, are omitted.
+    expect(
+      validate({
+        success: true,
+        errors: [],
+        messages: [],
+        result: [
+          {
+            build_uuid: "f9e12f48-dd63-4e28-aef7-ece63d11539d",
+            status: "stopped",
+            build_outcome: "success",
+            initializing_on: "2026-08-02T21:45:39.750Z",
+            running_on: "2026-08-02T21:45:41.791Z",
+            stopped_on: "2026-08-02T21:47:46.612Z",
+            created_on: "2026-08-02T21:45:39.403Z",
+            modified_on: "2026-08-02T21:47:46.612Z",
+            build_trigger_metadata: {
+              branch: "main",
+              build_trigger_source: "push_event",
+              commit_hash: "6d09686de7d285f174770eb3f0c8a5ff60f17376",
+              deploy_command: "pnpm run deploy",
+              root_directory: "apps/samebase",
+            },
+            trigger: {
+              deploy_command: "pnpm run deploy",
+              external_script_id: "470db9109dce4196af330cdd7be89518",
+              repo_connection: { repo_id: "1021726325" },
+              root_directory: "apps/samebase",
+              trigger_uuid: "b595a215-7b9b-4a04-a55d-578f39ca4335",
+            },
+          },
+        ],
+      }),
+    ).toBe(true);
+  });
+
   it("accepts successful Worker version lists with null message fields", () => {
     const validate =
       cloudflareApiResponseValidators.GET[
