@@ -187,6 +187,9 @@ export default defineConfig({
       "vp check --fix",
   },
   test: {
+    // The edge-runtime project clears `process`; Vitest fork teardown then
+    // crashes while restoring `process.exit`. Threads avoid that teardown path.
+    pool: "threads",
     globals: true,
     exclude: ["**/node_modules/**", "dist", "dev-dist"],
     projects: [

@@ -9,6 +9,6 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Tooling used in this monorepo.
-RUN npm install -g pnpm@11.1.1
+RUN npm install -g pnpm@11.18.0
 
 USER node

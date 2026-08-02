@@ -81,8 +81,7 @@ shared, exhaustive contract whose type is derived from its validator:
 
 ```ts
 type AccountPresentation =
-  | { kind: "displayName"; label: DisplayName }
-  | { kind: "email"; label: AccountEmail };
+  { kind: "displayName"; label: DisplayName } | { kind: "email"; label: AccountEmail };
 
 function resolveAccountPresentation(input: {
   displayName?: string;

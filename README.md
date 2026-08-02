@@ -55,8 +55,8 @@ TanStack Start/Vite on the frontend and Convex on the backend.
 
 ### Prerequisites
 
-- Node.js 24+ (`.nvmrc`)
-- PNPM 11.1.1
+- Node.js 24.11+ (`.nvmrc`)
+- PNPM 11.18.0
 - Git
 
 ### Windows (Outside WSL)
@@ -69,11 +69,11 @@ Native Windows setup works, but it is a little different from the repo's macOS/L
 winget install --id OpenJS.NodeJS.LTS -e
 ```
 
-2. Install PNPM 11.1.1. If `corepack` is not available on your PATH after installing Node, install
+2. Install PNPM 11.18.0. If `corepack` is not available on your PATH after installing Node, install
    PNPM directly:
 
 ```powershell
-npm install -g pnpm@11.1.1
+npm install -g pnpm@11.18.0
 ```
 
 3. Verify the toolchain from the repo root:

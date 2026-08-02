@@ -500,7 +500,7 @@ describe("vault deletion workflow", () => {
         sourceCleanupBatches += 1;
       }
 
-      for (; cleanupResult.state === "needs_more"; ) {
+      for (; cleanupResult.state === "needs_more";) {
         cleanupResult = await t.mutation(
           internal.vault.deletion.cleanup.cleanupVaultLocalDataStepBatch,
           {
