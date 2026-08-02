@@ -250,7 +250,7 @@ test("Settings link returns the mobile workspace to the main pane", async ({
   }
 });
 
-test("prehydrated mobile Settings navigation selects the main route pane", async ({
+test("prehydrated mobile Settings reload preserves the selected sidebar", async ({
   browser,
 }, testInfo) => {
   const baseURL = testInfo.project.use.baseURL;
@@ -305,16 +305,24 @@ test("prehydrated mobile Settings navigation selects the main route pane", async
     await expect(page).toHaveURL(/\/settings$/u);
     await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
       "data-mobile-pane",
-      "main",
+      "right",
     );
 
     await page.unroute("**/*");
     await page.reload({ waitUntil: "networkidle" });
     await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
       "data-mobile-pane",
-      "main",
+      "right",
     );
-    await expect(page.getByTestId("user-settings-page")).toBeVisible();
+    const rightResizeGrip = page.getByTestId("workspace-layout-v2-right-resize");
+    await expect(rightResizeGrip).toBeVisible();
+    await expect(
+      rightResizeGrip.locator("[data-workspace-layout-v2-resize-grip-dots]"),
+    ).toBeVisible();
+    await expect(rightResizeGrip).toHaveScreenshot(
+      "settings-sidebar-resize-grip-mobile.png",
+      screenshotOptions,
+    );
   } finally {
     await context.close();
   }

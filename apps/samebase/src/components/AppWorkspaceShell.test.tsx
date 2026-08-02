@@ -456,7 +456,7 @@ describe("AppWorkspaceShell", () => {
     }
   });
 
-  it("keeps the desktop right pane while Settings constrains only the mobile selection", () => {
+  it("keeps the right pane available without constraining the Settings mobile selection", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/settings"]}>
         <AppWorkspaceShell>
@@ -466,7 +466,7 @@ describe("AppWorkspaceShell", () => {
     );
 
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
-    expect(markup).toContain('data-workspace-layout-v2-route-mobile-pane="main"');
+    expect(markup).not.toContain('data-workspace-layout-v2-route-mobile-pane="main"');
     expect(markup).toContain("settings route content");
   });
 
