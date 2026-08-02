@@ -182,9 +182,7 @@ test("full-page Settings checkout return survives auth restoration", async ({ pa
   ).toBeVisible();
 });
 
-test("Settings link returns the mobile workspace to the main pane", async ({
-  browser,
-}, testInfo) => {
+test("Settings link preserves the selected mobile pane", async ({ browser }, testInfo) => {
   const baseURL = testInfo.project.use.baseURL;
   if (typeof baseURL !== "string") {
     throw new Error("Playwright baseURL is required for mobile Settings tests.");
@@ -219,6 +217,20 @@ test("Settings link returns the mobile workspace to the main pane", async ({
 
     await page.getByRole("link", { name: "/settings", exact: true }).click();
     await expect(page).toHaveURL(/\/settings$/u);
+    await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
+      "data-mobile-pane",
+      "right",
+    );
+    await page.getByTestId("workspace-layout-v2-pane-main").evaluate((element) => {
+      const mainPane = element.querySelector("[data-workspace-layout-v2-mobile-main-pane]");
+      if (!(mainPane instanceof HTMLElement)) {
+        throw new Error("Expected mobile carousel main pane.");
+      }
+      const panePeekPx = Number.parseFloat(window.getComputedStyle(element).paddingLeft);
+
+      element.scrollLeft = mainPane.offsetLeft - panePeekPx;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
     await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
       "data-mobile-pane",
       "main",
@@ -284,7 +296,6 @@ test("prehydrated mobile Settings reload preserves the selected sidebar", async 
       "data-mobile-pane",
       "right",
     );
-
     await blockHydrationScripts(page);
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.waitForLoadState("networkidle");

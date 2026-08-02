@@ -22,7 +22,6 @@ import { cn } from "@/lib/utils";
 import { Link } from "@tanstack/react-router";
 import { useQuery as useConvexQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useWorkspacePaneActions } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 
 type AppRightSidebarAuthProviders = (typeof api.users.getViewerAuthProviders)["_returnType"];
 type AppRightSidebarViewerAccess = (typeof api.users.currentViewerAccess)["_returnType"];
@@ -61,7 +60,6 @@ function AppRightSidebarSignedInAccountSection({
   profile: AppAuthPresentationProfile | null;
   user?: AppRightSidebarViewer | null;
 }) {
-  const { setMobilePane } = useWorkspacePaneActions();
   const accountPresentation = user?.accountPresentation ?? profile?.accountPresentation;
   const accountProvider = authProviders?.primaryProvider ?? profile?.authProvider;
   const accountProviderLabel = accountProvider ? formatAuthProviderLabel(accountProvider) : null;
@@ -74,7 +72,6 @@ function AppRightSidebarSignedInAccountSection({
     <VaultDashboardStaticAccountSection
       accountPresentation={accountPresentation}
       dataTestId={APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}
-      onSettings={() => setMobilePane("main")}
       providerLabel={accountProviderLabel}
     />
   );

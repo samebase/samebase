@@ -27,7 +27,6 @@ export type VaultDashboardAccountSectionProps = {
   accountPresentation: AccountPresentation;
   dataTestId?: string;
   onOpenChange: (isOpen: boolean) => void;
-  onSettings: () => void;
   open: boolean;
   providerLabel: string | null;
 };
@@ -35,7 +34,6 @@ export type VaultDashboardAccountSectionProps = {
 export type VaultDashboardStaticAccountSectionProps = {
   accountPresentation: AccountPresentation;
   dataTestId?: string;
-  onSettings: () => void;
   providerLabel: string | null;
 };
 
@@ -177,7 +175,6 @@ export function VaultDashboardAccountSection({
   accountPresentation,
   dataTestId,
   onOpenChange,
-  onSettings,
   open,
   providerLabel,
 }: VaultDashboardAccountSectionProps) {
@@ -218,11 +215,7 @@ export function VaultDashboardAccountSection({
           </div>
         ) : null}
         <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
-          <Link
-            className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
-            to={SETTINGS_ROUTE}
-            onClick={onSettings}
-          >
+          <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={SETTINGS_ROUTE}>
             /settings
           </Link>
         </div>
@@ -234,7 +227,6 @@ export function VaultDashboardAccountSection({
 export function VaultDashboardStaticAccountSection({
   accountPresentation,
   dataTestId,
-  onSettings,
   providerLabel,
 }: VaultDashboardStaticAccountSectionProps) {
   return (
@@ -268,11 +260,7 @@ export function VaultDashboardStaticAccountSection({
           </div>
         </div>
         <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
-          <Link
-            className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
-            to={SETTINGS_ROUTE}
-            onClick={onSettings}
-          >
+          <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={SETTINGS_ROUTE}>
             /settings
           </Link>
         </div>
