@@ -21,7 +21,7 @@ The repository has an old Polar scaffold, but billing is not ready for a custome
 - [x] Checkout has a configured Sandbox monthly product.
 - [ ] Checkout has the production monthly product ID wired at the final gate.
 - [x] Webhook field handling matches the installed Polar SDK.
-- [x] Customer-state parsing matches the current Polar response.
+- [x] Canonical subscription-list parsing matches the current Polar response.
 - [x] Billing state is safe for duplicate, out-of-order, invalid, and malformed events.
 - [x] The account page shows plan, usage, billing dates, and the correct action.
 - [x] The public pricing page shows the accepted Free and Pro offer.
@@ -34,41 +34,20 @@ The Sandbox lifecycle is complete for checkout, signed webhooks, portal access, 
 entitlement end. The Polar `past_due` provider simulation is still unresolved. All production
 configuration stays pending until the operator gives explicit approval.
 
-The first independent quota review failed on 2026-08-02. The completed follow-up is:
+The final simplicity pass uses one rule: prefer a visible failure and a short operator procedure to
+a complex automatic recovery system.
 
-- [x] Reserve Worker capacity before a Cloudflare provider create call.
-- [x] Reserve Convex project capacity before a Convex provider create call.
-- [x] Keep final transactional attachment checks and safe reservation cleanup.
-- [x] Match and consume a retained provider-created reservation when the same external resource is
-      attached after local record failure.
-- [x] Report usage above 41 honestly as an explicit `41+` value.
-
-The first independent backend review found four required fixes on 2026-08-02:
-
-- [x] Fence delayed webhooks against a newer canonical reconciliation result.
-- [x] Remove equal-millisecond webhook ordering ambiguity.
-- [x] Prevent concurrent or repeated open checkout sessions from creating duplicate subscriptions.
-- [x] Let pending users manage existing billing, but require approved dashboard access to buy Pro.
-
-The second independent backend review found additional hardening work on 2026-08-02:
-
-- [x] Never issue a second checkout create after an ambiguous provider result without provider
-      idempotency.
-- [x] Track issued and successfully applied provider observations separately so a failed later read
-      cannot discard a valid earlier result.
-- [x] Fetch and validate a stored open checkout by provider ID before reuse, and do not store its
-      access URL.
-- [x] Require exactly one configured Pro product in a recovered checkout.
-- [x] Coalesce duplicate webhook reconciliation work without losing a change that arrives during a
-      provider read.
-- [x] Use `canStartCheckout` in Settings so a pending user does not see an action that the server
-      rejects.
-
-The independent security review found one account-deletion race. The completed fix is:
-
-- [x] Stop checkout reservation and provider creation after account deletion starts.
-- [x] Keep account deletion fail-closed while an open or ambiguous checkout can still be paid.
-- [x] Pass the follow-up security review across checkout, webhook, entitlement, and deletion flows.
+- [x] Process signed webhooks directly, return an error on provider or write failure, and rely on
+      Polar delivery retries.
+- [x] Keep only issued and applied observation revisions to reject stale provider reads.
+- [x] Remove the webhook coordinator, local retry ladder, leases, watchdogs, and period-based
+      downgrade jobs.
+- [x] Keep only `pending` and `open` checkout markers. Do not clear ambiguous provider work by time.
+- [x] Remove resource-capacity reservations and recovery jobs. Keep bounded preflight checks and
+      final transactional attachment checks.
+- [ ] Finish the provider-verified checkout repair action and clear terminal checkout handling.
+- [ ] Preserve quota and provider-orphan cleanup instructions through managed provisioning.
+- [ ] Complete the final cross-review after these small fixes.
 
 - [ ] Remove `billingPolarStateChangedAt` only after production rows are verified or migrated. It
       remains an optional compatibility field until that check is complete.
@@ -84,6 +63,7 @@ Old specs 033 and 034 are historical input. They do not override the accepted co
 - Entitlement end changes the plan to Free.
 - A downgrade never removes existing resources. It blocks new attachments above the Free limit.
 - Checkout return state is informational. Verified Polar state controls entitlement.
+- Visible failures and manual repair are preferred to automatic recovery coordinators.
 - Local development uses Polar Sandbox and CLI webhook forwarding.
 - Pull request previews do not use real Polar checkout or webhooks.
 - Production work stays last and requires operator approval.
@@ -103,10 +83,11 @@ Old specs 033 and 034 are historical input. They do not override the accepted co
 - [x] Add the Sandbox monthly product mapping.
 - [ ] Add the production monthly product mapping only after operator approval.
 - [x] Fix webhook event field handling.
-- [x] Fix canonical customer-state parsing and active entitlement derivation.
+- [x] Fix canonical subscription-list parsing and active entitlement derivation.
 - [x] Keep checkout redirects separate from entitlement changes.
 - [x] Make webhook processing idempotent and safe for provider errors.
 - [x] Add a trusted reconciliation path for missed events.
+- [ ] Add one provider-verified operator action for a stuck checkout marker.
 - [x] Keep account deletion cancellation fail-closed.
 - [x] Review trusted customer IP forwarding before production checkout. Convex cannot provide a
       documented trusted buyer IP. The hosted checkout requires the customer to confirm country. A
@@ -116,7 +97,7 @@ Old specs 033 and 034 are historical input. They do not override the accepted co
 
 - [x] Count authoritative Worker and Convex project attachments separately.
 - [x] Enforce the active plan limit in every server attachment path.
-- [x] Make concurrent and multi-resource attachment attempts transactional.
+- [x] Keep the final local attachment count and insert in one transaction.
 - [x] Keep existing over-limit resources usable after downgrade.
 - [x] Return one clear limit error for the UI.
 
@@ -140,7 +121,7 @@ Old specs 033 and 034 are historical input. They do not override the accepted co
 - [x] Test account billing UI states and actions.
 - [x] Run the repository validation commands required by the changed surfaces.
 - [x] Complete independent backend, quota, frontend, and security reviews.
-- [x] Resolve all actionable review findings.
+- [ ] Resolve the final actionable review findings.
 
 ## Validation Matrix
 

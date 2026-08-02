@@ -66,6 +66,21 @@ receipts, and cancellation controls through its hosted checkout and customer por
 - Production uses the stable Samebase origin, the production Polar product, and a stable production
   webhook. Production configuration is the final rollout stage and needs operator approval.
 
+### Operational Simplicity
+
+Samebase prefers a visible failure and a short operator procedure to an automatic recovery system.
+
+- A failed webhook returns an error so Polar can retry it. Samebase does not run a local retry
+  coordinator, watchdog, lease, or period-end downgrade job.
+- A canonical Polar read is the only input that changes paid entitlement. A stored billing date does
+  not remove Pro by itself.
+- An ambiguous checkout stays blocked until one provider-verified operator action resolves it.
+- Resource creation uses a bounded preflight check and a final transactional attachment check. A
+  rare concurrent last-slot race can create a provider resource that Samebase does not attach. The
+  operator removes that unused provider resource manually.
+- Failures keep the existing entitlement and data unless Polar or the local transaction proves the
+  requested change.
+
 ## Non-Goals
 
 - Real Polar checkout in pull request previews
