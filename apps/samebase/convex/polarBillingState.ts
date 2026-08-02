@@ -4,6 +4,7 @@ import { Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import { internalAction, internalMutation } from "./_generated/server";
+import { randomToken } from "./oauthUtils";
 import {
   createPolarClient,
   isPolarResourceNotFound,
@@ -120,7 +121,11 @@ export const beginObservation = internalMutation({
       return null;
     }
 
-    const revision = (user.billingPolarObservationRevision ?? 0) + 1;
+    const revision =
+      Math.max(
+        user.billingPolarObservationRevision ?? 0,
+        user.billingPolarAppliedObservationRevision ?? 0,
+      ) + 1;
     await ctx.db.patch(user._id, { billingPolarObservationRevision: revision });
     return revision;
   },
@@ -140,7 +145,7 @@ export const applyObservation = internalMutation({
         q.eq("billingPolarExternalCustomerId", state.externalCustomerId),
       )
       .unique();
-    if (!user || user.billingPolarObservationRevision !== args.observationRevision) {
+    if (!user || args.observationRevision <= (user.billingPolarAppliedObservationRevision ?? 0)) {
       return false;
     }
 
@@ -149,6 +154,7 @@ export const applyObservation = internalMutation({
       billingPlan: state.plan,
       billingStatus: state.status,
       billingUpdatedAt: Date.now(),
+      billingPolarAppliedObservationRevision: args.observationRevision,
       billingCurrentPeriodEndAt: state.plan === "pro" ? state.currentPeriodEndAt : undefined,
       billingCancelAtPeriodEnd: state.plan === "pro" ? state.cancelAtPeriodEnd : undefined,
       billingPolarCheckoutAttempt:
@@ -159,19 +165,146 @@ export const applyObservation = internalMutation({
   },
 });
 
+export const requestWebhookReconciliation = internalMutation({
+  args: {
+    externalCustomerId: string(),
+  },
+  returns: boolean(),
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_polar_external_customer_id", (q) =>
+        q.eq("billingPolarExternalCustomerId", args.externalCustomerId),
+      )
+      .unique();
+    if (!user) {
+      return false;
+    }
+
+    const reconciliation = user.billingPolarWebhookReconciliation;
+    if (reconciliation?.state === "queued") {
+      return false;
+    }
+    if (reconciliation?.state === "running") {
+      if (!reconciliation.dirty) {
+        await ctx.db.patch(user._id, {
+          billingPolarWebhookReconciliation: { ...reconciliation, dirty: true },
+        });
+      }
+      return false;
+    }
+
+    const runId = randomToken(18);
+    await ctx.db.patch(user._id, {
+      billingPolarWebhookReconciliation: { state: "queued", runId },
+    });
+    await ctx.scheduler.runAfter(0, internal.polarBillingState.reconcileForWebhook, {
+      externalCustomerId: args.externalCustomerId,
+      runId,
+      attempt: 0,
+    });
+    return true;
+  },
+});
+
+export const claimWebhookReconciliation = internalMutation({
+  args: {
+    externalCustomerId: string(),
+    runId: string(),
+    attempt: number(),
+  },
+  returns: boolean(),
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_polar_external_customer_id", (q) =>
+        q.eq("billingPolarExternalCustomerId", args.externalCustomerId),
+      )
+      .unique();
+    const reconciliation = user?.billingPolarWebhookReconciliation;
+    if (!user || !reconciliation || reconciliation.runId !== args.runId) {
+      return false;
+    }
+
+    if (reconciliation.state === "queued") {
+      if (args.attempt !== 0) {
+        return false;
+      }
+      await ctx.db.patch(user._id, {
+        billingPolarWebhookReconciliation: {
+          state: "running",
+          runId: args.runId,
+          dirty: false,
+        },
+      });
+      return true;
+    }
+
+    return args.attempt > 0;
+  },
+});
+
+export const finishWebhookReconciliation = internalMutation({
+  args: {
+    externalCustomerId: string(),
+    runId: string(),
+  },
+  returns: boolean(),
+  handler: async (ctx, args): Promise<boolean> => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_polar_external_customer_id", (q) =>
+        q.eq("billingPolarExternalCustomerId", args.externalCustomerId),
+      )
+      .unique();
+    const reconciliation = user?.billingPolarWebhookReconciliation;
+    if (!user || reconciliation?.state !== "running" || reconciliation.runId !== args.runId) {
+      return false;
+    }
+
+    if (!reconciliation.dirty) {
+      await ctx.db.patch(user._id, { billingPolarWebhookReconciliation: undefined });
+      return false;
+    }
+
+    await ctx.db.patch(user._id, {
+      billingPolarWebhookReconciliation: { state: "queued", runId: args.runId },
+    });
+    await ctx.scheduler.runAfter(0, internal.polarBillingState.reconcileForWebhook, {
+      externalCustomerId: args.externalCustomerId,
+      runId: args.runId,
+      attempt: 0,
+    });
+    return true;
+  },
+});
+
 export const reconcileForWebhook = internalAction({
   args: {
     externalCustomerId: string(),
+    runId: string(),
     attempt: number(),
   },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
+    const claimed: boolean = await ctx.runMutation(
+      internal.polarBillingState.claimWebhookReconciliation,
+      args,
+    );
+    if (!claimed) {
+      return null;
+    }
+
     const productId = readPolarProMonthlyProductId();
     const observationRevision: number | null = await ctx.runMutation(
       internal.polarBillingState.beginObservation,
       { externalCustomerId: args.externalCustomerId },
     );
     if (observationRevision === null) {
+      await ctx.runMutation(internal.polarBillingState.finishWebhookReconciliation, {
+        externalCustomerId: args.externalCustomerId,
+        runId: args.runId,
+      });
       return null;
     }
 
@@ -188,6 +321,10 @@ export const reconcileForWebhook = internalAction({
         state,
         observationRevision,
       });
+      await ctx.runMutation(internal.polarBillingState.finishWebhookReconciliation, {
+        externalCustomerId: args.externalCustomerId,
+        runId: args.runId,
+      });
     } catch (error) {
       const retryDelay = POLAR_WEBHOOK_RETRY_DELAYS_MS.at(args.attempt);
       if (retryDelay !== undefined) {
@@ -197,12 +334,17 @@ export const reconcileForWebhook = internalAction({
         });
         await ctx.scheduler.runAfter(retryDelay, internal.polarBillingState.reconcileForWebhook, {
           externalCustomerId: args.externalCustomerId,
+          runId: args.runId,
           attempt: args.attempt + 1,
         });
       } else {
         console.error("billing:polar:webhook_reconciliation_exhausted", {
           attempts: args.attempt + 1,
           errorName: error instanceof Error ? error.name : "UnknownError",
+        });
+        await ctx.runMutation(internal.polarBillingState.finishWebhookReconciliation, {
+          externalCustomerId: args.externalCustomerId,
+          runId: args.runId,
         });
       }
     }

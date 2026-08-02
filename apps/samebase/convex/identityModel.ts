@@ -56,6 +56,20 @@ export const identityTables = {
     billingPolarExternalCustomerId: optional(string()),
     billingPolarStateChangedAt: optional(number()),
     billingPolarObservationRevision: optional(number()),
+    billingPolarAppliedObservationRevision: optional(number()),
+    billingPolarWebhookReconciliation: optional(
+      union(
+        object({
+          state: literal("queued"),
+          runId: string(),
+        }),
+        object({
+          state: literal("running"),
+          runId: string(),
+          dirty: boolean(),
+        }),
+      ),
+    ),
     billingPolarCheckoutAttempt: optional(
       union(
         object({
@@ -65,10 +79,14 @@ export const identityTables = {
           leaseExpiresAt: number(),
         }),
         object({
+          state: literal("recovering"),
+          attemptId: string(),
+          recoverUntilAt: number(),
+        }),
+        object({
           state: literal("open"),
           attemptId: string(),
           checkoutId: string(),
-          url: string(),
           expiresAt: number(),
         }),
       ),

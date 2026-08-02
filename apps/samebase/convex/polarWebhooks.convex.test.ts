@@ -27,6 +27,18 @@ const productId = "samebase-pro-monthly";
 const webhookSecret = "polar-webhook-secret";
 const currentPeriodEnd = "2026-09-01T00:00:00.000Z";
 
+function createDeferred<Value>() {
+  const control: { resolve: (value: Value) => void } = {
+    resolve: () => {
+      throw new Error("Deferred promise was not initialized.");
+    },
+  };
+  const promise = new Promise<Value>((resolve) => {
+    control.resolve = resolve;
+  });
+  return { promise, resolve: control.resolve };
+}
+
 function asUser(t: ConvexTest, userId: Id<"users">) {
   return t.withIdentity({
     subject: `${userId}|test-session`,
@@ -319,7 +331,7 @@ describe("Polar customer.state_changed webhook", () => {
       status: "inactive",
       canStartCheckout: true,
     });
-    expect(polarSdkMocks.customersGetStateExternal).toHaveBeenCalledTimes(3);
+    expect(polarSdkMocks.customersGetStateExternal).toHaveBeenCalledTimes(2);
   });
 
   it("resolves conflicting events with the same timestamp from canonical Polar state", async () => {
@@ -348,7 +360,39 @@ describe("Polar customer.state_changed webhook", () => {
       cancelAtPeriodEnd: false,
       canStartCheckout: true,
     });
+    expect(polarSdkMocks.customersGetStateExternal).toHaveBeenCalledOnce();
+  });
+
+  it("reruns once when a webhook arrives during an active canonical read", async () => {
+    const t = makeConvexTest();
+    const userId = await seedApprovedMember(t);
+    configureWebhook();
+    const firstRead = createDeferred<ReturnType<typeof polarCustomerState>>();
+    polarSdkMocks.customersGetStateExternal
+      .mockReturnValueOnce(firstRead.promise)
+      .mockResolvedValueOnce(polarCustomerState());
+    const firstBody = customerStateChangedBody({
+      eventAt: Date.now() - 1_000,
+      subscription: { cancelAtPeriodEnd: false, productId, status: "active" },
+    });
+    const secondBody = customerStateChangedBody({ eventAt: Date.now() });
+
+    expect((await deliver(t, firstBody)).status).toBe(202);
+    const scheduledRun = t.finishAllScheduledFunctions(() => vi.runAllTimers());
+    await vi.waitFor(() => expect(polarSdkMocks.customersGetStateExternal).toHaveBeenCalledOnce());
+    expect((await deliver(t, secondBody)).status).toBe(202);
+    firstRead.resolve(
+      polarCustomerState({ cancelAtPeriodEnd: false, productId, status: "active" }),
+    );
+    await scheduledRun;
+
     expect(polarSdkMocks.customersGetStateExternal).toHaveBeenCalledTimes(2);
+    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+      provider: "polar",
+      plan: "free",
+      status: "inactive",
+      canStartCheckout: true,
+    });
   });
 
   it("retries a failed canonical read and applies the recovered state", async () => {

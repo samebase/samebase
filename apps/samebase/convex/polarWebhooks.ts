@@ -44,9 +44,8 @@ export const handlePolarWebhook = httpAction(async (ctx, request) => {
     return new Response(null, { status: 204 });
   }
 
-  await ctx.scheduler.runAfter(0, internal.polarBillingState.reconcileForWebhook, {
+  await ctx.runMutation(internal.polarBillingState.requestWebhookReconciliation, {
     externalCustomerId,
-    attempt: 0,
   });
   return new Response(null, { status: 202 });
 });
