@@ -31,14 +31,14 @@ The repository has an old Polar scaffold, but billing is not ready for a custome
 - [ ] A complete local Polar Sandbox flow has passed.
 - [ ] Production configuration and the first real checkout are complete.
 
-The first independent quota review failed on 2026-08-02. The follow-up fix is active:
+The first independent quota review failed on 2026-08-02. The completed follow-up is:
 
-- [ ] Reserve Worker capacity before a Cloudflare provider create call.
-- [ ] Reserve Convex project capacity before a Convex provider create call.
-- [ ] Keep final transactional attachment checks and safe reservation cleanup.
-- [ ] Match and consume a retained provider-created reservation when the same external resource is
+- [x] Reserve Worker capacity before a Cloudflare provider create call.
+- [x] Reserve Convex project capacity before a Convex provider create call.
+- [x] Keep final transactional attachment checks and safe reservation cleanup.
+- [x] Match and consume a retained provider-created reservation when the same external resource is
       attached after local record failure.
-- [ ] Report usage above 41 honestly, either as an exact count or an explicit `41+` value.
+- [x] Report usage above 41 honestly as an explicit `41+` value.
 
 The first independent backend review found four required fixes on 2026-08-02:
 
@@ -201,3 +201,6 @@ After a context compaction or handoff:
 - `d4babaf9`: billing core completion recorded in the rollout tracker.
 - `fdd859f5`: backend race review findings recorded.
 - `a655c0e5`: pricing and Settings billing UI, tests, and Linux visual baselines.
+- `fd8c6fb5`: provider-create quota reservations, concurrency checks, and bounded usage state.
+- `d983a78d`: exact provider-resource recovery consumes retained quota reservations.
+- `b08651e4`: complete Cloudflare reservation identity matching and regression coverage.
