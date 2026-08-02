@@ -284,8 +284,9 @@ Types and validation:
   `@ts-expect-error` with a concrete reason. Never `@ts-nocheck`.
 - No `globalThis` in app or test code; use the typed host (`window`, `global`) and add declarations
   for new globals first.
-- Write real runtime guards/validators when narrowing `unknown` or provider data; never recommend
-  assertion-based examples.
+- Validate unknown or provider data at runtime; never narrow it with assertions.
+- Provider parsers use sourced real payloads; synthetic fixtures only mutate them for negative
+  tests.
 - Prefer inference; do not restate types the expression already proves.
 - For generic function members on object types, prefer `fn: <T>(...) => R` over `fn<T>(...): R`
   unless method semantics are required; this avoids VS Code TextMate tokenization bugs.
