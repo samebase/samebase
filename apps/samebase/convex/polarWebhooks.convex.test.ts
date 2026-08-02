@@ -19,6 +19,7 @@ vi.mock("@polar-sh/sdk", () => ({
 import { bytesToBase64 } from "../shared/base64";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { verifyPolarWebhookEvent } from "./polarWebhooks";
 import { makeConvexTest } from "./test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
@@ -181,6 +182,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 
 describe("Polar customer.state_changed webhook", () => {
@@ -208,6 +210,27 @@ describe("Polar customer.state_changed webhook", () => {
       cancelAtPeriodEnd: false,
       canStartCheckout: true,
     });
+  });
+
+  it("verifies a signed event in the Buffer-free Convex runtime", async () => {
+    configureWebhook();
+    const body = customerStateChangedBody({
+      eventAt: Date.now(),
+      subscription: { cancelAtPeriodEnd: false, productId, status: "active" },
+    });
+    const headers: Record<string, string> = {};
+    (await signedHeaders(body)).forEach((value, key) => {
+      headers[key] = value;
+    });
+    vi.stubGlobal("Buffer", undefined);
+
+    const event = verifyPolarWebhookEvent({
+      secret: webhookSecret,
+      headers,
+      body,
+    });
+
+    expect(event).toMatchObject({ type: "customer.state_changed" });
   });
 
   it("keeps recoverable past-due and end-of-period cancellation entitled", async () => {
