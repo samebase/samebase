@@ -57,7 +57,7 @@ The second independent backend review found additional hardening work on 2026-08
 - [x] Require exactly one configured Pro product in a recovered checkout.
 - [x] Coalesce duplicate webhook reconciliation work without losing a change that arrives during a
       provider read.
-- [ ] Use `canStartCheckout` in Settings so a pending user does not see an action that the server
+- [x] Use `canStartCheckout` in Settings so a pending user does not see an action that the server
       rejects.
 
 The independent security review found one account-deletion race. The completed fix is:
@@ -133,9 +133,9 @@ Old specs 033 and 034 are historical input. They do not override the accepted co
 - [x] Test 5/6 and 40/41 boundaries for both resource types.
 - [x] Test downgrade while above the Free limit.
 - [x] Test account billing UI states and actions.
-- [ ] Run the repository validation commands required by the changed surfaces.
-- [ ] Complete independent backend, quota, frontend, and security reviews.
-- [ ] Resolve all actionable review findings.
+- [x] Run the repository validation commands required by the changed surfaces.
+- [x] Complete independent backend, quota, frontend, and security reviews.
+- [x] Resolve all actionable review findings.
 
 ## Validation Matrix
 
@@ -221,3 +221,7 @@ After a context compaction or handoff:
 - `5ad48bdc`: Polar observation fencing and checkout recovery state introduced.
 - `f468f6ab`: ambiguous checkout, stored checkout, and webhook coalescing races closed.
 - `c790e079`: account-deletion checkout race closed.
+- `a3a2444c`: checkout eligibility enforced in Settings with updated mobile visual coverage.
+
+Final automated validation on 2026-08-02 passed 44 Convex test files with 363 tests, 36 focused
+Settings tests, and the canonical Linux visual suite with 207 tests and one existing skip.
