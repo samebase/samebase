@@ -1177,6 +1177,8 @@ export const trackedFilePaths = [
   "apps/samebase/src/lib/pageLeaveGuard.ts",
   "apps/samebase/src/lib/pageMetadata.test.ts",
   "apps/samebase/src/lib/pageMetadata.ts",
+  "apps/samebase/src/lib/polarCheckoutReturnPrehydration.test.ts",
+  "apps/samebase/src/lib/polarCheckoutReturnPrehydration.ts",
   "apps/samebase/src/lib/posthogClient.test.ts",
   "apps/samebase/src/lib/posthogClient.ts",
   "apps/samebase/src/lib/prodUiMode.test.ts",

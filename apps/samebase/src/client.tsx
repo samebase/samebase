@@ -7,8 +7,10 @@ import { hydrateRoot } from "react-dom/client";
 import "./index.css";
 import { stripAgentBrowserHandoffFragmentBeforeHydration } from "@/lib/agentBrowserHandoffPrehydration";
 import { initializeAppBootRecovery } from "@/lib/appBootRecovery";
+import { stripPolarCustomerSessionTokenBeforeHydration } from "@/lib/polarCheckoutReturnPrehydration";
 
 function hydrateApp() {
+  stripPolarCustomerSessionTokenBeforeHydration();
   stripAgentBrowserHandoffFragmentBeforeHydration();
   initializeAppBootRecovery();
 
