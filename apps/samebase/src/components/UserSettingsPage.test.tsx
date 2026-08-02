@@ -4,6 +4,7 @@ import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { type AccountPresentation } from "../../shared/accountPresentation";
+import type { BillingResourceUsage } from "../../convex/billingResourceQuotas";
 import { UserSettingsPage } from "./UserSettingsPage";
 
 const CURRENT_NAME_PRESENTATION = {
@@ -88,10 +89,7 @@ const queryState = vi.hoisted<{
     currentPeriodEndAt?: number;
     cancelAtPeriodEnd?: boolean;
   };
-  billingUsage: {
-    cloudflareWorkers: { used: number; limit: number };
-    convexProjects: { used: number; limit: number };
-  };
+  billingUsage: BillingResourceUsage;
   settings: { displayName?: string; hasActiveSubscription: boolean; signInEmail: string };
   stakes: AccountDeletionStakes | undefined;
   viewerAccess: { accessKeys: string[]; role: "role_member" | "role_staff" };
@@ -101,8 +99,8 @@ const queryState = vi.hoisted<{
     status: "inactive",
   },
   billingUsage: {
-    cloudflareWorkers: { used: 1, limit: 5 },
-    convexProjects: { used: 2, limit: 5 },
+    cloudflareWorkers: { used: { state: "exact", count: 1 }, limit: 5 },
+    convexProjects: { used: { state: "exact", count: 2 }, limit: 5 },
   },
   settings: {
     displayName: "Current name",
@@ -367,8 +365,8 @@ describe("UserSettingsPage", () => {
       status: "inactive",
     };
     queryState.billingUsage = {
-      cloudflareWorkers: { used: 1, limit: 5 },
-      convexProjects: { used: 2, limit: 5 },
+      cloudflareWorkers: { used: { state: "exact", count: 1 }, limit: 5 },
+      convexProjects: { used: { state: "exact", count: 2 }, limit: 5 },
     };
     queryState.stakes = EMPTY_ACCOUNT_DELETION_STAKES;
   });
@@ -390,7 +388,7 @@ describe("UserSettingsPage", () => {
     }
   });
 
-  it("labels the capped resource count as a lower bound", async () => {
+  it("labels an at-least resource count as a lower bound", async () => {
     queryState.billing = {
       provider: "polar",
       plan: "pro",
@@ -399,8 +397,8 @@ describe("UserSettingsPage", () => {
       cancelAtPeriodEnd: false,
     };
     queryState.billingUsage = {
-      cloudflareWorkers: { used: 41, limit: 40 },
-      convexProjects: { used: 40, limit: 40 },
+      cloudflareWorkers: { used: { state: "at_least", count: 41 }, limit: 40 },
+      convexProjects: { used: { state: "exact", count: 40 }, limit: 40 },
     };
     const mounted = await mountSettingsPage();
     try {
@@ -420,8 +418,8 @@ describe("UserSettingsPage", () => {
       cancelAtPeriodEnd: false,
     };
     queryState.billingUsage = {
-      cloudflareWorkers: { used: 8, limit: 40 },
-      convexProjects: { used: 6, limit: 40 },
+      cloudflareWorkers: { used: { state: "exact", count: 8 }, limit: 40 },
+      convexProjects: { used: { state: "exact", count: 6 }, limit: 40 },
     };
     const mounted = await mountSettingsPage();
     try {

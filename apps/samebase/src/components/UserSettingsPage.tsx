@@ -3,6 +3,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
+import type { BillingResourceUsage } from "../../convex/billingResourceQuotas";
 import { type AccountPresentation } from "../../shared/accountPresentation";
 import { useAppAuthActions } from "@/authClient";
 import { AccountDeletionDialog } from "@/components/AccountDeletionDialog";
@@ -31,8 +32,6 @@ type SessionRefreshState =
 
 type BillingRequestState = "idle" | "checkout" | "portal";
 
-const CAPPED_BILLING_RESOURCE_USAGE = 41;
-
 const billingDateFormatter = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
 });
@@ -41,8 +40,8 @@ function readErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-function formatBillingResourceUsage(usage: { used: number; limit: number }) {
-  const used = usage.used >= CAPPED_BILLING_RESOURCE_USAGE ? `${usage.used}+` : usage.used;
+function formatBillingResourceUsage(usage: BillingResourceUsage["cloudflareWorkers"]) {
+  const used = usage.used.state === "at_least" ? `${usage.used.count}+` : usage.used.count;
   return `${used} of ${usage.limit}`;
 }
 
