@@ -90,7 +90,7 @@ Old specs 033 and 034 are historical input. They do not override the accepted co
 
 - [x] Record the accepted monthly plan and lifecycle rules.
 - [x] Create this active tracker.
-- [ ] Archive or clearly supersede old Polar specs and update direct references.
+- [x] Archive or clearly supersede old Polar specs and update direct references.
 
 ### 2. Polar backend
 
@@ -222,6 +222,7 @@ After a context compaction or handoff:
 - `f468f6ab`: ambiguous checkout, stored checkout, and webhook coalescing races closed.
 - `c790e079`: account-deletion checkout race closed.
 - `a3a2444c`: checkout eligibility enforced in Settings with updated mobile visual coverage.
+- `5430ca8a`: old Polar specs marked as superseded by the accepted contract and active rollout plan.
 
 Final automated validation on 2026-08-02 passed 44 Convex test files with 363 tests, 36 focused
 Settings tests, and the canonical Linux visual suite with 207 tests and one existing skip.
