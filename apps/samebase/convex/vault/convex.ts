@@ -1,6 +1,6 @@
 "use node";
 
-import { type Infer, v } from "convex/values";
+import { ConvexError, type Infer, v } from "convex/values";
 
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -429,6 +429,13 @@ async function createProjectForUser(
         `Convex project name ${validation.value} already exists. Attach that project or choose another name.`,
       );
     }
+    await ctx.runQuery(
+      internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate,
+      {
+        userId: args.userId,
+        kind: "convex_project",
+      },
+    );
     requireManualProviderActionDeadline(claim.deadlineAt);
     providerCreateStarted = true;
     const created = await requestConvexManagementApi(
@@ -471,8 +478,8 @@ async function createProjectForUser(
   } catch (error) {
     const reportedError =
       providerCreateStarted && !projectRecorded
-        ? new Error(
-            `The Convex project ${validation.value} can exist, but Samebase could not attach it. Check the project in Convex. If it exists, attach it to this app. Reason: ${toErrorMessage(error)}`,
+        ? new ConvexError(
+            `The Convex project ${validation.value} can exist, but Samebase could not attach it. If it exists, delete it in the Convex dashboard, then retry.`,
           )
         : error;
     await attemptManualProviderWriteFailureRecord(ctx, {
@@ -509,6 +516,7 @@ async function createProjectForManagedWorkflow(
     },
   );
   let projectId: string;
+  let projectCreated = false;
   if (checkpoint.state === "created") {
     projectId = checkpoint.projectId;
   } else {
@@ -527,6 +535,13 @@ async function createProjectForManagedWorkflow(
         `Convex project name ${validation.value} already exists. Choose another project name and try again.`,
       );
     }
+    await ctx.runQuery(
+      internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate,
+      {
+        userId: args.userId,
+        kind: "convex_project",
+      },
+    );
     if (checkpoint.state === "planned") {
       await ctx.runMutation(internal.vault.convexMutations.beginManagedProjectCreate, {
         vaultId: args.vaultId,
@@ -546,19 +561,32 @@ async function createProjectForManagedWorkflow(
       },
     );
     projectId = created.id;
+    projectCreated = true;
   }
 
   const project = await readConvexProject({ connection, projectId });
   await recordConvexTeamSlug(ctx, { userId: args.userId, connection, project });
-  return await ctx.runMutation(internal.vault.convexMutations.recordManagedProjectCreated, {
-    vaultId: args.vaultId,
-    runId: args.runId,
-    userId: args.userId,
-    convexConfigPath: args.convexConfigPath,
-    projectName: validation.value,
-    teamId: connection.teamId,
-    projectId,
-  });
+  try {
+    return await ctx.runMutation(internal.vault.convexMutations.recordManagedProjectCreated, {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+      convexConfigPath: args.convexConfigPath,
+      projectName: validation.value,
+      teamId: connection.teamId,
+      projectId,
+    });
+  } catch (error) {
+    if (
+      !projectCreated ||
+      !toErrorMessage(error).includes("Convex project attachment limit reached")
+    ) {
+      throw error;
+    }
+    throw new Error(
+      `Convex project attachment limit reached after project ${validation.value} was created. Delete it in the Convex dashboard, then retry.`,
+    );
+  }
 }
 
 export const discoverProjects = action({

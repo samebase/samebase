@@ -1,6 +1,6 @@
 "use node";
 
-import { Infer, v } from "convex/values";
+import { ConvexError, Infer, v } from "convex/values";
 
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -381,6 +381,7 @@ async function createWorkerForManagedWorkflow(
   });
 
   let worker: { workerName: string; workerTag: string };
+  let workerCreated = false;
   if (checkpoint.state === "created") {
     const identity = await readCloudflareWorkerIdentity({
       token: connection.token,
@@ -409,6 +410,13 @@ async function createWorkerForManagedWorkflow(
         `Cloudflare Worker name ${validation.value} already exists. Choose another Worker name and try again.`,
       );
     }
+    await ctx.runQuery(
+      internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate,
+      {
+        userId: args.userId,
+        kind: "cloudflare_worker",
+      },
+    );
     if (checkpoint.state === "planned") {
       await ctx.runMutation(internal.vault.cloudflareMutations.beginManagedWorkerCreate, {
         vaultId: args.vaultId,
@@ -424,16 +432,29 @@ async function createWorkerForManagedWorkflow(
       accountId: account.accountId,
       workerName: validation.value,
     });
+    workerCreated = true;
   }
 
-  return await ctx.runMutation(internal.vault.cloudflareMutations.recordManagedWorkerCreated, {
-    vaultId: args.vaultId,
-    runId: args.runId,
-    userId: args.userId,
-    accountId: account.accountId,
-    workerName: worker.workerName,
-    workerTag: worker.workerTag,
-  });
+  try {
+    return await ctx.runMutation(internal.vault.cloudflareMutations.recordManagedWorkerCreated, {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+      accountId: account.accountId,
+      workerName: worker.workerName,
+      workerTag: worker.workerTag,
+    });
+  } catch (error) {
+    if (
+      !workerCreated ||
+      !toErrorMessage(error).includes("Cloudflare Worker attachment limit reached")
+    ) {
+      throw error;
+    }
+    throw new Error(
+      `Cloudflare Worker attachment limit reached after Worker ${validation.value} was created. Delete it in the Cloudflare dashboard, then retry.`,
+    );
+  }
 }
 
 function toCloudflareBuildConfig(rootDirectory: string): CloudflareBuildConfig {
@@ -1190,6 +1211,13 @@ async function createWorkerForUser(
         `Cloudflare Worker name ${validation.value} already exists. Attach that Worker or choose another name.`,
       );
     }
+    await ctx.runQuery(
+      internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate,
+      {
+        userId: args.userId,
+        kind: "cloudflare_worker",
+      },
+    );
     requireManualProviderActionDeadline(claim.deadlineAt);
     const worker = await createCloudflareWorker({
       token: resolved.connection.token,
@@ -1234,8 +1262,8 @@ async function createWorkerForUser(
   } catch (error) {
     const reportedError =
       providerCreate.started && !workerRecorded
-        ? new Error(
-            `The Cloudflare Worker ${validation.value} can exist, but Samebase could not record it. Check the Worker in Cloudflare. If it exists, attach it to this app. Reason: ${toErrorMessage(error)}`,
+        ? new ConvexError(
+            `The Cloudflare Worker ${validation.value} can exist, but Samebase could not record it. If it exists, delete it in the Cloudflare dashboard, then retry.`,
           )
         : error;
     await attemptManualProviderWriteFailureRecord(ctx, {

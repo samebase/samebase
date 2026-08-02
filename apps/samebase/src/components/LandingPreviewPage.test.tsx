@@ -245,8 +245,14 @@ describe("LandingPreviewPage", () => {
   it("renders the pricing page separately", () => {
     const markup = renderToStaticMarkup(<DocsPricingPage />);
 
-    expect(markup).toContain("Creating an app is free, and the free tier is permanent");
-    expect(markup).toContain("What will cost money");
-    expect(markup).toContain("no tiers, no placeholder numbers");
+    expect(markup).toContain(
+      "Start free. Upgrade only when you need to connect more infrastructure.",
+    );
+    expect(markup).toContain("Monthly price");
+    expect(markup).toContain("$4");
+    expect(markup).toContain("Up to 5");
+    expect(markup).toContain("Up to 40");
+    expect(markup).toContain("Samebase does not disconnect or delete existing resources.");
+    expect(markup).not.toContain("FileView");
   });
 });

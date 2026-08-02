@@ -81,6 +81,7 @@ const vAccountDeletionStakes = object(accountDeletionStakesFields);
 
 const vAccountDeletionRequestResult = union(
   object({ state: literal("accepted"), status: vAccountDeletionStatus }),
+  object({ state: literal("billing_checkout_pending") }),
   object({ state: literal("stakes_changed") }),
 );
 
@@ -298,6 +299,10 @@ export const request = mutation({
       // The run is already committed; re-requests stay idempotent and do not
       // recheck the phrase against counts the running deletion is changing.
       return { state: "accepted" as const, status: projectStatus(existingRun) };
+    }
+
+    if (ctx.viewer.user.billingPolarCheckoutAttempt) {
+      return { state: "billing_checkout_pending" as const };
     }
 
     const initiatingSessionId = await getAuthSessionId(ctx);

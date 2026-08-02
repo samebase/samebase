@@ -6,7 +6,7 @@ import {
   routeSearchNeedsViewerAccess,
 } from "@/routing/searchAccess";
 import { Outlet, useLocation, useMatches, useRouter } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect } from "react";
 import { api } from "../../convex/_generated/api";
 
@@ -25,7 +25,8 @@ function AuthenticatedRouteAccessOutlet({
   };
   matches: ReturnType<typeof useMatches>;
 }) {
-  const viewerAccess = useQuery(api.users.currentViewerAccess);
+  const { isLoading: authIsLoading } = useConvexAuth();
+  const viewerAccess = useQuery(api.users.currentViewerAccess, authIsLoading ? "skip" : {});
   const router = useRouter();
   const routeAccessAllowed =
     viewerAccess !== undefined && canAccessRouteMatchesAccess(matches, viewerAccess);
@@ -33,7 +34,7 @@ function AuthenticatedRouteAccessOutlet({
   // a denied-route 404 while its navigation to /account-deletion is pending.
   const deletionRedirectPending = viewerAccess?.role === "role_deleting" && !routeAccessAllowed;
   const canonicalRouteAddress =
-    viewerAccess === undefined || deletionRedirectPending
+    authIsLoading || viewerAccess === undefined || deletionRedirectPending
       ? null
       : readRouteSearchAccessCanonicalRouteAddress({
           location,
@@ -55,7 +56,12 @@ function AuthenticatedRouteAccessOutlet({
     });
   }, [canonicalRouteAddress, router]);
 
-  if (viewerAccess === undefined || deletionRedirectPending || canonicalRouteAddress !== null) {
+  if (
+    authIsLoading ||
+    viewerAccess === undefined ||
+    deletionRedirectPending ||
+    canonicalRouteAddress !== null
+  ) {
     return null;
   }
 

@@ -29,6 +29,7 @@ import type * as appProvisioningWorkflowActions from "../appProvisioningWorkflow
 import type * as auth from "../auth.js";
 import type * as authAdmin from "../authAdmin.js";
 import type * as billing from "../billing.js";
+import type * as billingResourceQuotas from "../billingResourceQuotas.js";
 import type * as cloudflareAccountDiscovery from "../cloudflareAccountDiscovery.js";
 import type * as cloudflareApi_client from "../cloudflareApi/client.js";
 import type * as cloudflareMcp from "../cloudflareMcp.js";
@@ -74,6 +75,9 @@ import type * as mcpTokenHealth from "../mcpTokenHealth.js";
 import type * as newUserNotification from "../newUserNotification.js";
 import type * as oauthState from "../oauthState.js";
 import type * as oauthUtils from "../oauthUtils.js";
+import type * as polarBillingState from "../polarBillingState.js";
+import type * as polarCheckout from "../polarCheckout.js";
+import type * as polarClient from "../polarClient.js";
 import type * as polarWebhooks from "../polarWebhooks.js";
 import type * as providerApiLog from "../providerApiLog.js";
 import type * as providerConnectionModel from "../providerConnectionModel.js";
@@ -166,6 +170,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   authAdmin: typeof authAdmin;
   billing: typeof billing;
+  billingResourceQuotas: typeof billingResourceQuotas;
   cloudflareAccountDiscovery: typeof cloudflareAccountDiscovery;
   "cloudflareApi/client": typeof cloudflareApi_client;
   cloudflareMcp: typeof cloudflareMcp;
@@ -211,6 +216,9 @@ declare const fullApi: ApiFromModules<{
   newUserNotification: typeof newUserNotification;
   oauthState: typeof oauthState;
   oauthUtils: typeof oauthUtils;
+  polarBillingState: typeof polarBillingState;
+  polarCheckout: typeof polarCheckout;
+  polarClient: typeof polarClient;
   polarWebhooks: typeof polarWebhooks;
   providerApiLog: typeof providerApiLog;
   providerConnectionModel: typeof providerConnectionModel;

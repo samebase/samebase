@@ -2,8 +2,10 @@
 
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { ConvexError } from "convex/values";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { type AccountPresentation } from "../../shared/accountPresentation";
+import type { BillingResourceUsage } from "../../convex/billingResourceQuotas";
 import { UserSettingsPage } from "./UserSettingsPage";
 
 const CURRENT_NAME_PRESENTATION = {
@@ -37,6 +39,7 @@ const appAuthState = vi.hoisted(() => ({
 }));
 const routerState = vi.hoisted(() => ({
   back: vi.fn(),
+  buildLocation: vi.fn(),
   canGoBack: vi.fn(),
   navigate: vi.fn(),
 }));
@@ -47,6 +50,17 @@ const locationState = vi.hoisted<{
 const mutationState = vi.hoisted(() => ({
   requestDeletion: vi.fn(),
   setDisplayName: vi.fn(),
+}));
+const actionState = vi.hoisted(() => ({
+  createCheckoutSession: vi.fn(),
+  createCustomerPortalSession: vi.fn(),
+  reconcileBilling: vi.fn(),
+}));
+const toastState = vi.hoisted(() => ({
+  toast: vi.fn(),
+}));
+const routeEnvironmentState = vi.hoisted<{ value: "local" | "preview" | "production" }>(() => ({
+  value: "local",
 }));
 type AccountDeletionStakes = {
   vaultCount: number;
@@ -72,10 +86,28 @@ const EMPTY_ACCOUNT_DELETION_STAKES = {
   affectedVaults: { state: "complete", vaults: [] },
 } satisfies AccountDeletionStakes;
 const queryState = vi.hoisted<{
+  billing: {
+    provider?: "polar";
+    plan: "free" | "pro";
+    status: "inactive" | "active" | "past_due";
+    currentPeriodEndAt?: number;
+    cancelAtPeriodEnd?: boolean;
+    canStartCheckout: boolean;
+  };
+  billingUsage: BillingResourceUsage;
   settings: { displayName?: string; hasActiveSubscription: boolean; signInEmail: string };
   stakes: AccountDeletionStakes | undefined;
   viewerAccess: { accessKeys: string[]; role: "role_member" | "role_staff" };
 }>(() => ({
+  billing: {
+    plan: "free",
+    status: "inactive",
+    canStartCheckout: true,
+  },
+  billingUsage: {
+    cloudflareWorkers: { used: { state: "exact", count: 1 }, limit: 5 },
+    convexProjects: { used: { state: "exact", count: 2 }, limit: 5 },
+  },
   settings: {
     displayName: "Current name",
     hasActiveSubscription: false,
@@ -100,6 +132,18 @@ vi.mock("@convex-dev/auth/react", () => ({
 vi.mock("@/authClient", () => ({
   useAppAuthActions: () => appAuthState,
 }));
+
+vi.mock("@/components/ui/use-toast", () => ({
+  toast: toastState.toast,
+}));
+
+vi.mock("@/routing/availability", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/routing/availability")>();
+  return {
+    ...actual,
+    readBrowserRouteEnvironment: () => routeEnvironmentState.value,
+  };
+});
 
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
@@ -130,6 +174,7 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
       select: (location: { state: { settingsDeleteAccountDialog?: true } }) => unknown;
     }) => select({ state: locationState.state }),
     useRouter: () => ({
+      buildLocation: routerState.buildLocation,
       history: {
         back: routerState.back,
         canGoBack: routerState.canGoBack,
@@ -144,6 +189,18 @@ vi.mock("convex/react", async (importOriginal) => {
   const { getFunctionName } = await import("convex/server");
   return {
     ...actual,
+    useAction: (reference: Parameters<typeof getFunctionName>[0]) => {
+      switch (getFunctionName(reference)) {
+        case "billing:createPolarCheckoutSession":
+          return actionState.createCheckoutSession;
+        case "billing:createPolarCustomerPortalSession":
+          return actionState.createCustomerPortalSession;
+        case "billing:reconcileViewerBillingFromPolar":
+          return actionState.reconcileBilling;
+        default:
+          throw new Error(`Unexpected action: ${getFunctionName(reference)}`);
+      }
+    },
     useMutation: (reference: Parameters<typeof getFunctionName>[0]) =>
       getFunctionName(reference) === "accountDeletion/index:request"
         ? mutationState.requestDeletion
@@ -154,6 +211,12 @@ vi.mock("convex/react", async (importOriginal) => {
       }
       if (getFunctionName(reference) === "users:currentViewerAccess") {
         return queryState.viewerAccess;
+      }
+      if (getFunctionName(reference) === "billing:getViewerBillingStatus") {
+        return queryState.billing;
+      }
+      if (getFunctionName(reference) === "billingResourceQuotas:getViewerBillingResourceUsage") {
+        return queryState.billingUsage;
       }
       return queryState.settings;
     },
@@ -259,18 +322,50 @@ async function typeConfirmationPhrase(input: HTMLInputElement, phrase: string) {
 }
 
 describe("UserSettingsPage", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     authState.fetchAccessToken.mockReset();
     appAuthState.signOut.mockReset();
+    actionState.createCheckoutSession.mockReset();
+    actionState.createCustomerPortalSession.mockReset();
+    actionState.reconcileBilling.mockReset();
+    toastState.toast.mockReset();
+    actionState.reconcileBilling.mockResolvedValue({ state: "observed", plan: "pro" });
     mutationState.requestDeletion.mockReset();
     mutationState.setDisplayName.mockReset();
     routerState.navigate.mockReset();
     routerState.navigate.mockResolvedValue(undefined);
+    routerState.buildLocation.mockReset();
+    routerState.buildLocation.mockImplementation(
+      (args: {
+        search?:
+          | Record<string, unknown>
+          | ((currentSearch: Record<string, unknown>) => Record<string, unknown>);
+        to: string;
+      }) => {
+        const nextSearch =
+          typeof args.search === "function" ? args.search(locationState.search) : args.search;
+        const params = new window.URLSearchParams();
+        for (const [key, value] of Object.entries(nextSearch ?? {})) {
+          if (value === true) {
+            params.set(key, "");
+          } else if (typeof value === "string") {
+            params.set(key, value);
+          }
+        }
+        const searchSuffix = params.size === 0 ? "" : `?${params.toString()}`;
+        return { href: `${args.to}${searchSuffix}` };
+      },
+    );
     routerState.back.mockReset();
     routerState.canGoBack.mockReset();
     routerState.canGoBack.mockReturnValue(true);
     locationState.search = {};
     locationState.state = {};
+    routeEnvironmentState.value = "local";
     Object.defineProperty(window, "localStorage", {
       configurable: true,
       value: createTestStorage(),
@@ -280,7 +375,370 @@ describe("UserSettingsPage", () => {
       hasActiveSubscription: false,
       signInEmail: "nicu@samebase.com",
     };
+    queryState.billing = {
+      plan: "free",
+      status: "inactive",
+      canStartCheckout: true,
+    };
+    queryState.billingUsage = {
+      cloudflareWorkers: { used: { state: "exact", count: 1 }, limit: 5 },
+      convexProjects: { used: { state: "exact", count: 2 }, limit: 5 },
+    };
     queryState.stakes = EMPTY_ACCOUNT_DELETION_STAKES;
+  });
+
+  it("shows the Free plan and separate resource usage", async () => {
+    const mounted = await mountSettingsPage();
+    try {
+      expect(mounted.rootElement.textContent).toContain("Billing");
+      expect(mounted.rootElement.textContent).toContain("Current planFree");
+      expect(mounted.rootElement.textContent).toContain("Cloudflare Workers1 of 5");
+      expect(mounted.rootElement.textContent).toContain("Convex projects2 of 5");
+      const upgrade = Array.from(mounted.rootElement.querySelectorAll("button")).find(
+        (button) => button.textContent === "Upgrade to Pro, $4/month",
+      );
+      expect(upgrade?.disabled).toBe(false);
+      expect(mounted.rootElement.textContent).not.toContain("Manage subscription");
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("hides checkout from a pending Free account", async () => {
+    queryState.billing = {
+      plan: "free",
+      status: "inactive",
+      canStartCheckout: false,
+    };
+    const mounted = await mountSettingsPage();
+    try {
+      expect(mounted.rootElement.textContent).toContain("Current planFree");
+      expect(mounted.rootElement.textContent).not.toContain("Upgrade to Pro");
+      expect(mounted.rootElement.textContent).not.toContain("Manage subscription");
+      expect(actionState.createCheckoutSession).not.toHaveBeenCalled();
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("labels an at-least resource count as a lower bound", async () => {
+    queryState.billing = {
+      provider: "polar",
+      plan: "pro",
+      status: "active",
+      currentPeriodEndAt: Date.UTC(2026, 7, 31, 12),
+      cancelAtPeriodEnd: false,
+      canStartCheckout: true,
+    };
+    queryState.billingUsage = {
+      cloudflareWorkers: { used: { state: "at_least", count: 41 }, limit: 40 },
+      convexProjects: { used: { state: "exact", count: 40 }, limit: 40 },
+    };
+    const mounted = await mountSettingsPage();
+    try {
+      expect(mounted.rootElement.textContent).toContain("Cloudflare Workers41+ of 40");
+      expect(mounted.rootElement.textContent).toContain("Convex projects40 of 40");
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("keeps payment recovery available for a pending Pro account", async () => {
+    queryState.billing = {
+      provider: "polar",
+      plan: "pro",
+      status: "past_due",
+      currentPeriodEndAt: Date.UTC(2026, 7, 31, 12),
+      cancelAtPeriodEnd: false,
+      canStartCheckout: false,
+    };
+    queryState.billingUsage = {
+      cloudflareWorkers: { used: { state: "exact", count: 8 }, limit: 40 },
+      convexProjects: { used: { state: "exact", count: 6 }, limit: 40 },
+    };
+    actionState.createCustomerPortalSession.mockReturnValue(new Promise(() => {}));
+    const mounted = await mountSettingsPage();
+    try {
+      expect(mounted.rootElement.textContent).toContain("Current planPro");
+      expect(mounted.rootElement.textContent).toContain("Cloudflare Workers8 of 40");
+      expect(mounted.rootElement.textContent).toContain("Convex projects6 of 40");
+      expect(mounted.rootElement.textContent).toContain("Billing period endAug 31, 2026");
+      expect(mounted.rootElement.textContent).toContain("Payment needs attention.");
+      expect(mounted.rootElement.textContent).toContain("Manage subscription");
+      expect(mounted.rootElement.textContent).not.toContain("Upgrade to Pro");
+      await act(async () => {
+        Array.from(mounted.rootElement.querySelectorAll("button"))
+          .find((button) => button.textContent === "Manage subscription")
+          ?.click();
+        await Promise.resolve();
+      });
+      expect(actionState.createCustomerPortalSession).toHaveBeenCalledWith({
+        returnUrl: `${window.location.origin}/settings`,
+      });
+      expect(actionState.createCheckoutSession).not.toHaveBeenCalled();
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("keeps cancellation access until the shown end date", async () => {
+    queryState.billing = {
+      provider: "polar",
+      plan: "pro",
+      status: "active",
+      currentPeriodEndAt: Date.UTC(2026, 8, 4, 12),
+      cancelAtPeriodEnd: true,
+      canStartCheckout: true,
+    };
+    const mounted = await mountSettingsPage();
+    try {
+      expect(mounted.rootElement.textContent).toContain("Current planPro");
+      expect(mounted.rootElement.textContent).toContain("Access endsSep 4, 2026");
+      expect(mounted.rootElement.textContent).toContain("Manage subscription");
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("keeps Free while trusted checkout reconciliation is pending", async () => {
+    vi.useFakeTimers();
+    locationState.search = { checkout: "success" };
+    actionState.reconcileBilling.mockReturnValue(new Promise(() => {}));
+    const mounted = await mountSettingsPage();
+    try {
+      expect(mounted.rootElement.textContent).toContain("Current planFree");
+      expect(mounted.rootElement.textContent).toContain("Checking your payment and plan...");
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(actionState.reconcileBilling).toHaveBeenCalledWith({});
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("removes the checkout return value after trusted Pro state arrives", async () => {
+    vi.useFakeTimers();
+    locationState.search = { checkout: "success" };
+    actionState.reconcileBilling.mockResolvedValue({ state: "observed", plan: "pro" });
+    const mounted = await mountSettingsPage();
+    try {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+
+      queryState.billing = {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        currentPeriodEndAt: Date.UTC(2026, 7, 31, 12),
+        cancelAtPeriodEnd: false,
+        canStartCheckout: true,
+      };
+      await mounted.render();
+
+      expect(mounted.rootElement.textContent).toContain("Current planPro");
+      expect(mounted.rootElement.textContent).toContain("Your Pro plan is active.");
+      expect(mounted.rootElement.textContent).not.toContain("Plan confirmation is delayed.");
+      expect(routerState.navigate).toHaveBeenCalledWith({
+        replace: true,
+        resetScroll: false,
+        search: expect.any(Function),
+        to: ".",
+      });
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("reconciles an initial Pro view before removing the checkout return value", async () => {
+    locationState.search = { checkout: "success" };
+    queryState.billing = {
+      provider: "polar",
+      plan: "pro",
+      status: "active",
+      currentPeriodEndAt: Date.UTC(2026, 7, 31, 12),
+      cancelAtPeriodEnd: false,
+      canStartCheckout: true,
+    };
+    const reconciliation = createDeferred<{ state: "observed"; plan: "pro" }>();
+    actionState.reconcileBilling.mockReturnValue(reconciliation.promise);
+    const mounted = await mountSettingsPage();
+    try {
+      expect(mounted.rootElement.textContent).toContain("Current planPro");
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+      expect(routerState.navigate).not.toHaveBeenCalled();
+
+      await act(async () => {
+        reconciliation.resolve({ state: "observed", plan: "pro" });
+        await reconciliation.promise;
+      });
+
+      expect(routerState.navigate).toHaveBeenCalledWith({
+        replace: true,
+        resetScroll: false,
+        search: expect.any(Function),
+        to: ".",
+      });
+      await mounted.render();
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("shows a neutral delay when trusted reconciliation still reports Free", async () => {
+    vi.useFakeTimers();
+    locationState.search = { checkout: "success" };
+    actionState.reconcileBilling.mockResolvedValue({ state: "observed", plan: "free" });
+    const mounted = await mountSettingsPage();
+    try {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+      expect(mounted.rootElement.textContent).toContain(
+        "Plan confirmation is delayed. Refresh this page to check again.",
+      );
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("shows a neutral delay after one failed checkout reconciliation", async () => {
+    vi.useFakeTimers();
+    locationState.search = { checkout: "success" };
+    actionState.reconcileBilling.mockResolvedValue({ state: "unavailable" });
+    const mounted = await mountSettingsPage();
+    try {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+      expect(mounted.rootElement.textContent).toContain("Current planFree");
+      expect(mounted.rootElement.textContent).toContain(
+        "Plan confirmation is delayed. Refresh this page to check again.",
+      );
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("does not reconcile a canceled checkout", async () => {
+    locationState.search = { checkout: "cancel" };
+    const mounted = await mountSettingsPage();
+    try {
+      expect(actionState.reconcileBilling).not.toHaveBeenCalled();
+      expect(mounted.rootElement.textContent).toContain(
+        "Checkout canceled. Your plan did not change.",
+      );
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("disables Polar actions and reconciliation in a preview", async () => {
+    routeEnvironmentState.value = "preview";
+    locationState.search = { checkout: "success" };
+    const mounted = await mountSettingsPage();
+    try {
+      const upgrade = Array.from(mounted.rootElement.querySelectorAll("button")).find(
+        (button) => button.textContent === "Upgrade to Pro, $4/month",
+      );
+      expect(upgrade?.disabled).toBe(true);
+      upgrade?.click();
+      expect(actionState.createCheckoutSession).not.toHaveBeenCalled();
+      expect(actionState.reconcileBilling).not.toHaveBeenCalled();
+      expect(mounted.rootElement.textContent).toContain(
+        "Checkout confirmation is disabled in this preview.",
+      );
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("starts checkout with typed success and cancel return URLs", async () => {
+    locationState.search = { devtools: true };
+    actionState.createCheckoutSession.mockReturnValue(new Promise(() => {}));
+    const mounted = await mountSettingsPage();
+    try {
+      await act(async () => {
+        Array.from(mounted.rootElement.querySelectorAll("button"))
+          .find((button) => button.textContent === "Upgrade to Pro, $4/month")
+          ?.click();
+        await Promise.resolve();
+      });
+
+      expect(actionState.createCheckoutSession).toHaveBeenCalledWith({
+        returnUrl: `${window.location.origin}/settings?devtools=&checkout=cancel`,
+        successUrl: `${window.location.origin}/settings?devtools=&checkout=success`,
+      });
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("shows safe checkout guidance from a Convex error", async () => {
+    actionState.createCheckoutSession.mockRejectedValue(
+      new ConvexError("Samebase could not verify your current subscription."),
+    );
+    const mounted = await mountSettingsPage();
+    try {
+      await act(async () => {
+        Array.from(mounted.rootElement.querySelectorAll("button"))
+          .find((button) => button.textContent === "Upgrade to Pro, $4/month")
+          ?.click();
+        await Promise.resolve();
+      });
+
+      expect(toastState.toast).toHaveBeenCalledWith({
+        description: "Samebase could not verify your current subscription.",
+        title: "Could not open checkout",
+        variant: "destructive",
+      });
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("opens the customer portal for the current Pro account", async () => {
+    locationState.search = { devtools: true };
+    queryState.billing = {
+      provider: "polar",
+      plan: "pro",
+      status: "active",
+      currentPeriodEndAt: Date.UTC(2026, 7, 31, 12),
+      cancelAtPeriodEnd: false,
+      canStartCheckout: true,
+    };
+    actionState.createCustomerPortalSession.mockReturnValue(new Promise(() => {}));
+    const mounted = await mountSettingsPage();
+    try {
+      await act(async () => {
+        Array.from(mounted.rootElement.querySelectorAll("button"))
+          .find((button) => button.textContent === "Manage subscription")
+          ?.click();
+        await Promise.resolve();
+      });
+
+      expect(actionState.createCustomerPortalSession).toHaveBeenCalledWith({
+        returnUrl: `${window.location.origin}/settings?devtools=`,
+      });
+      expect(actionState.createCheckoutSession).not.toHaveBeenCalled();
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
   });
 
   it("keeps Sign out prominent in the page header and pending until completion", async () => {
@@ -936,6 +1394,115 @@ describe("UserSettingsPage", () => {
         "The account data changed. Review and confirm again.",
       );
       expect(confirmButton?.disabled).toBe(true);
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("reconciles a pending checkout and retries the deletion request once", async () => {
+    const reconciliation = createDeferred<{ state: "observed"; plan: "free" }>();
+    const retry = createDeferred<{
+      state: "accepted";
+      status: { completionCapability: string; runId: string };
+    }>();
+    actionState.reconcileBilling.mockReturnValue(reconciliation.promise);
+    mutationState.requestDeletion
+      .mockResolvedValueOnce({ state: "billing_checkout_pending" })
+      .mockReturnValueOnce(retry.promise);
+    const mounted = await mountSettingsPage();
+    try {
+      const { confirmButton, phraseInput } = await openDeleteDialog(mounted);
+      await typeConfirmationPhrase(phraseInput, "delete my account");
+      await act(async () => {
+        confirmButton?.click();
+        await Promise.resolve();
+      });
+
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+      expect(mutationState.requestDeletion).toHaveBeenCalledTimes(1);
+      expect(routerState.navigate).not.toHaveBeenCalled();
+      expect(confirmButton?.disabled).toBe(true);
+
+      await act(async () => {
+        reconciliation.resolve({ state: "observed", plan: "free" });
+        await reconciliation.promise;
+      });
+
+      expect(mutationState.requestDeletion).toHaveBeenCalledTimes(2);
+      expect(mutationState.requestDeletion.mock.calls[1]?.[0]).toEqual(
+        mutationState.requestDeletion.mock.calls[0]?.[0],
+      );
+      expect(routerState.navigate).not.toHaveBeenCalled();
+
+      await act(async () => {
+        retry.resolve({
+          state: "accepted",
+          status: {
+            completionCapability:
+              mutationState.requestDeletion.mock.calls[1]?.[0]?.completionCapability ?? "",
+            runId: "run-1",
+          },
+        });
+        await retry.promise;
+      });
+
+      expect(routerState.navigate).toHaveBeenCalledWith({
+        href: "/account-deletion",
+        replace: true,
+      });
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("shows support after one retry still finds a pending checkout", async () => {
+    const reconciliation = createDeferred<void>();
+    const retry = createDeferred<{ state: "billing_checkout_pending" }>();
+    actionState.reconcileBilling.mockImplementation(async () => {
+      await reconciliation.promise;
+      throw new Error("Deletion already started in another tab.");
+    });
+    mutationState.requestDeletion
+      .mockResolvedValueOnce({ state: "billing_checkout_pending" })
+      .mockReturnValueOnce(retry.promise);
+    const mounted = await mountSettingsPage();
+    try {
+      const { confirmButton, phraseInput } = await openDeleteDialog(mounted);
+      await typeConfirmationPhrase(phraseInput, "delete my account");
+      await act(async () => {
+        confirmButton?.click();
+        await Promise.resolve();
+      });
+
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+      expect(mutationState.requestDeletion).toHaveBeenCalledTimes(1);
+      expect(document.body.textContent).not.toContain(
+        "Your billing checkout must be resolved before you can delete your account. Contact support.",
+      );
+
+      await act(async () => {
+        reconciliation.resolve();
+        await reconciliation.promise;
+      });
+
+      expect(mutationState.requestDeletion).toHaveBeenCalledTimes(2);
+      expect(mutationState.requestDeletion.mock.calls[1]?.[0]).toEqual(
+        mutationState.requestDeletion.mock.calls[0]?.[0],
+      );
+      expect(document.body.textContent).not.toContain(
+        "Your billing checkout must be resolved before you can delete your account. Contact support.",
+      );
+
+      await act(async () => {
+        retry.resolve({ state: "billing_checkout_pending" });
+        await retry.promise;
+      });
+
+      expect(document.body.textContent).toContain(
+        "Your billing checkout must be resolved before you can delete your account. Contact support.",
+      );
+      expect(routerState.navigate).not.toHaveBeenCalled();
+      expect(confirmButton?.disabled).toBe(false);
     } finally {
       await unmount(mounted.root, mounted.rootElement);
     }

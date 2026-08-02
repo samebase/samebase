@@ -8,6 +8,9 @@ const app = defineApp({
     CLOUDFLARE_EMAIL_API_TOKEN: v.optional(v.string()),
     OPENAI_APPS_CHALLENGE_TOKEN: v.optional(v.string()),
     PASSWORD_AUTH_ENABLED: v.optional(v.string()),
+    POLAR_ACCESS_TOKEN: v.optional(v.string()),
+    POLAR_PRO_MONTHLY_PRODUCT_ID: v.optional(v.string()),
+    POLAR_WEBHOOK_SECRET: v.optional(v.string()),
   },
 });
 

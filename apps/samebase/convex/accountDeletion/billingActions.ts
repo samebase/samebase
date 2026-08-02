@@ -1,11 +1,9 @@
 import { Infer, v } from "convex/values";
+import type { Polar } from "@polar-sh/sdk";
 
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
-import { resolveDeploymentProfile } from "../deploymentProfile";
-import { isRecord, readNumber, readString } from "../jsonUtils";
-import { readRequiredEnv } from "../oauthUtils";
-import { createUrlSearchParams } from "../../shared/urlSearchParams";
+import { createPolarClient } from "../polarClient";
 
 const { id, literal, object, string, union } = v;
 
@@ -16,80 +14,48 @@ const vCancelBillingResult = union(
 );
 type CancelBillingResult = Infer<typeof vCancelBillingResult>;
 
-const POLAR_API_FETCH_TIMEOUT_MS = 10_000;
-const POLAR_SUBSCRIPTION_PAGE_SIZE = 100;
 const POLAR_MAX_SUBSCRIPTION_PAGES = 100;
 const POLAR_CANCELLATION_SAFE_ERROR = "Polar subscription cancellation could not be confirmed.";
 
-async function requestPolar(args: { path: string; method: "GET" | "DELETE" }): Promise<unknown> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), POLAR_API_FETCH_TIMEOUT_MS);
-
-  try {
-    const apiBaseUrl =
-      resolveDeploymentProfile().kind === "production"
-        ? "https://api.polar.sh/v1"
-        : "https://sandbox-api.polar.sh/v1";
-    const response = await fetch(`${apiBaseUrl}${args.path}`, {
-      method: args.method,
-      headers: {
-        Authorization: `Bearer ${readRequiredEnv("POLAR_ACCESS_TOKEN")}`,
-        Accept: "application/json",
-        "User-Agent": "samebase-app",
-      },
-      signal: controller.signal,
-    });
-    const payload: unknown = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      throw new Error(`Polar subscription request failed (${response.status}).`);
-    }
-
-    return payload;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function listCancelablePolarSubscriptionIds(externalCustomerId: string): Promise<string[]> {
+async function listCancelablePolarSubscriptionIds(
+  polar: Polar,
+  externalCustomerId: string,
+): Promise<string[]> {
   const subscriptionIds: string[] = [];
-  let page = 1;
+  const pages = await polar.subscriptions.list({
+    externalCustomerId,
+    limit: 100,
+  });
+  let pageCount = 0;
+  let listedItemCount = 0;
+  let expectedItemCount: number | null = null;
 
-  while (page <= POLAR_MAX_SUBSCRIPTION_PAGES) {
-    const searchParams = createUrlSearchParams({
-      external_customer_id: externalCustomerId,
-      page: String(page),
-      limit: String(POLAR_SUBSCRIPTION_PAGE_SIZE),
-    });
-
-    const payload = await requestPolar({
-      path: `/subscriptions/?${searchParams.toString()}`,
-      method: "GET",
-    });
-
-    if (!isRecord(payload) || !Array.isArray(payload.items) || !isRecord(payload.pagination)) {
-      throw new Error("Polar subscription list response is invalid.");
+  for await (const page of pages) {
+    pageCount += 1;
+    if (pageCount > POLAR_MAX_SUBSCRIPTION_PAGES) {
+      throw new Error("Polar subscription pagination exceeded the supported bound.");
     }
 
-    for (const item of payload.items) {
-      if (!isRecord(item)) {
-        throw new Error("Polar subscription list response is invalid.");
+    const totalCount = page.result.pagination.totalCount;
+    if (expectedItemCount !== null && expectedItemCount !== totalCount) {
+      throw new Error("Polar subscription pagination count changed during the list pass.");
+    }
+    expectedItemCount = totalCount;
+    listedItemCount += page.result.items.length;
+
+    for (const subscription of page.result.items) {
+      if (subscription.customer.externalId !== externalCustomerId) {
+        throw new Error("Polar subscription customer does not match the requested customer.");
       }
 
-      const subscriptionId = readString(item, "id");
-      const status = readString(item, "status");
-
-      if (!subscriptionId || !status) {
-        throw new Error("Polar subscription list response is invalid.");
-      }
-
-      switch (status) {
+      switch (subscription.status) {
         case "incomplete":
         case "trialing":
         case "active":
         case "past_due":
         case "unpaid":
-          subscriptionIds.push(subscriptionId);
+        case "paused":
+          subscriptionIds.push(subscription.id);
           break;
         case "incomplete_expired":
         case "canceled":
@@ -98,26 +64,32 @@ async function listCancelablePolarSubscriptionIds(externalCustomerId: string): P
           throw new Error("Polar subscription status is invalid.");
       }
     }
-
-    const maxPage = readNumber(payload.pagination, "max_page");
-    if (
-      maxPage === undefined ||
-      !Number.isInteger(maxPage) ||
-      maxPage < 0 ||
-      maxPage > POLAR_MAX_SUBSCRIPTION_PAGES ||
-      (maxPage === 0 && payload.items.length > 0)
-    ) {
-      throw new Error("Polar subscription pagination response is invalid.");
-    }
-
-    if (page >= maxPage) {
-      return subscriptionIds;
-    }
-
-    page += 1;
   }
 
-  throw new Error("Polar subscription pagination exceeded the supported bound.");
+  if (expectedItemCount !== listedItemCount) {
+    throw new Error("Polar subscription pagination item count is inconsistent.");
+  }
+
+  return subscriptionIds;
+}
+
+async function revokeCancelablePolarSubscriptions(
+  polar: Polar,
+  externalCustomerId: string,
+): Promise<void> {
+  const activeSubscriptionIds = await listCancelablePolarSubscriptionIds(polar, externalCustomerId);
+
+  for (const subscriptionId of activeSubscriptionIds) {
+    await polar.subscriptions.revoke({ id: subscriptionId });
+  }
+
+  const remainingActiveSubscriptionIds = await listCancelablePolarSubscriptionIds(
+    polar,
+    externalCustomerId,
+  );
+  if (remainingActiveSubscriptionIds.length > 0) {
+    throw new Error("Polar subscriptions remain after cancellation.");
+  }
 }
 
 export const cancelForAccountDeletion = internalAction({
@@ -140,6 +112,13 @@ export const cancelForAccountDeletion = internalAction({
       };
     }
 
+    if (user.accountDeletion?.runId !== args.runId || user.billingPolarCheckoutAttempt) {
+      return {
+        state: "failed",
+        safeError: POLAR_CANCELLATION_SAFE_ERROR,
+      };
+    }
+
     const externalCustomerId = user.billingPolarExternalCustomerId?.trim();
 
     if (!externalCustomerId) {
@@ -147,8 +126,7 @@ export const cancelForAccountDeletion = internalAction({
         user.billingProvider === "polar" ||
         user.billingPlan === "pro" ||
         user.billingStatus === "active" ||
-        user.billingStatus === "past_due" ||
-        user.billingStatus === "unknown"
+        user.billingStatus === "past_due"
       ) {
         return {
           state: "failed",
@@ -160,27 +138,14 @@ export const cancelForAccountDeletion = internalAction({
     }
 
     try {
-      const activeSubscriptionIds = await listCancelablePolarSubscriptionIds(externalCustomerId);
-
-      for (const subscriptionId of activeSubscriptionIds) {
-        await requestPolar({
-          path: `/subscriptions/${encodeURIComponent(subscriptionId)}`,
-          method: "DELETE",
-        });
-      }
-
-      const remainingActiveSubscriptionIds =
-        await listCancelablePolarSubscriptionIds(externalCustomerId);
-
-      if (remainingActiveSubscriptionIds.length > 0) {
-        return {
-          state: "failed",
-          safeError: POLAR_CANCELLATION_SAFE_ERROR,
-        };
-      }
+      await revokeCancelablePolarSubscriptions(createPolarClient(), externalCustomerId);
 
       return { state: "succeeded" };
-    } catch {
+    } catch (error) {
+      console.error("billing:polar:account_deletion_cancellation_failed", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        runId: args.runId,
+      });
       return {
         state: "failed",
         safeError: POLAR_CANCELLATION_SAFE_ERROR,

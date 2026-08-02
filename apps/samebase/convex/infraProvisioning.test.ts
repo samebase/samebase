@@ -157,6 +157,49 @@ describe("markWorkflowProvisioningFailed", () => {
     });
   });
 
+  it.each([
+    ["cloudflare-quota", "attach_worker", "Cloudflare Worker attachment limit reached (5)."],
+    [
+      "cloudflare-interrupted-create",
+      "attach_worker",
+      "Cloudflare Worker managed-worker exists after an interrupted create. Delete it in the Cloudflare dashboard, then retry.",
+    ],
+    ["convex-quota", "attach_convex", "Convex project attachment limit reached (5)."],
+    [
+      "convex-interrupted-create",
+      "attach_convex",
+      "Convex project managed-project exists after an interrupted create. Delete it in the Convex dashboard, then retry.",
+    ],
+  ] as const)("keeps %s errors visible", async (repoName, currentStep, message) => {
+    const t = makeConvexTest();
+    const ids = await seedRun(t, {
+      repoName,
+      trigger: "retry",
+      currentStep,
+      workflowId: `workflow-${repoName}`,
+      vaultState: "connected",
+      activeOwnership: true,
+    });
+
+    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+      runId: ids.runId,
+      workflowId: `workflow-${repoName}`,
+      message: `Error: ${message}`,
+    });
+
+    const result = await t.run(async (ctx) => ({
+      run: await ctx.db.get(ids.runId),
+      event: await ctx.db
+        .query("workflow_vaultProvisioning_events")
+        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
+        .first(),
+    }));
+    expect(result).toMatchObject({
+      run: { state: "failed", lastError: message },
+      event: { level: "error", message },
+    });
+  });
+
   it("records GitHub repository validation errors before infrastructure starts", async () => {
     const t = makeConvexTest();
     const ids = await seedRun(t, {

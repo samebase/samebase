@@ -6,11 +6,21 @@ import {
   readRouteSearchPresenceKeys,
   readRouteSearchStaticData,
   routeSearchPresenceParam,
+  routeSearchStringValue,
+  routeSearchValueParam,
 } from "@/routing/searchParamMetadata";
 
+export const CHECKOUT_QUERY_PARAM = "checkout";
 export const DELETE_ACCOUNT_QUERY_PARAM = "delete-account";
 
 const RouteSearchSchema_settings = defineRouteSearchParams({
+  [CHECKOUT_QUERY_PARAM]: routeSearchValueParam(routeSearchStringValue(["success", "cancel"]), {
+    access: "access_user_preferences",
+    sampleValue: "success",
+    suggestion: "hidden",
+    valueSuggestions: ["success", "cancel"],
+    valueType: "options",
+  }),
   [DELETE_ACCOUNT_QUERY_PARAM]: routeSearchPresenceParam({
     access: "access_user_preferences",
     suggestion: "route",

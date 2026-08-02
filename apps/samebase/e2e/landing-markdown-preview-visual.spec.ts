@@ -628,8 +628,17 @@ test("pricing route renders the public pricing page", async ({ page }) => {
   await expect(sidebar).toBeVisible();
   await expectSidebarFiles(sidebar);
   await expect(article.getByRole("heading", { exact: true, name: "Pricing" })).toBeVisible();
-  await expect(article).toContainText("Creating an app is free, and the free tier is permanent.");
-  await expect(article).toContainText("no tiers, no placeholder numbers");
+  await expect(article).toContainText(
+    "Start free. Upgrade only when you need to connect more infrastructure.",
+  );
+  await expect(article.getByRole("row", { name: "Monthly price $0 $4" })).toBeVisible();
+  await expect(
+    article.getByRole("row", { name: "Connected Cloudflare Workers Up to 5 Up to 40" }),
+  ).toBeVisible();
+  await expect(
+    article.getByRole("row", { name: "Connected Convex projects Up to 5 Up to 40" }),
+  ).toBeVisible();
+  await expect(article).not.toContainText("FileView");
 
   await expect(page).toHaveScreenshot("docs-pricing-desktop.png", {
     animations: "disabled",

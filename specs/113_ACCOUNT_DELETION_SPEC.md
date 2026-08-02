@@ -42,6 +42,10 @@ finish. A manual provider change rejects after the request marks the user as del
 start checks prevent account deletion and a provider change from owning the same account at the same
 time.
 
+If a deletion request reports a pending billing checkout, the dialog attempts one Polar
+reconciliation and repeats the same request once, even if reconciliation fails, before it shows the
+support message.
+
 The deletion page is a direct projection of persisted backend progress. It shows these groups:
 
 - Vaults and staged changes, including the number of deleted vaults and current cleanup phase.

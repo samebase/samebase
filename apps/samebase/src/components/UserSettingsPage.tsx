@@ -1,8 +1,10 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
-import { useMutation, useQuery } from "convex/react";
-import { useState, type FormEvent } from "react";
+import { useAction, useMutation, useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
+import { useEffect, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
+import type { BillingResourceUsage } from "../../convex/billingResourceQuotas";
 import { type AccountPresentation } from "../../shared/accountPresentation";
 import { useAppAuthActions } from "@/authClient";
 import { AccountDeletionDialog } from "@/components/AccountDeletionDialog";
@@ -12,7 +14,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { readCurrentAuthTokenProfileClaims } from "@/lib/authTokenProfileJwt";
 import { getRouteApi, useLocation, useRouter } from "@tanstack/react-router";
-import { DELETE_ACCOUNT_QUERY_PARAM } from "@/routeSearch/settings";
+import { CHECKOUT_QUERY_PARAM, DELETE_ACCOUNT_QUERY_PARAM } from "@/routeSearch/settings";
+import { readBrowserRouteEnvironment } from "@/routing/availability";
 import { applySearchPatch } from "@/routing/searchFlags";
 
 const settingsRouteApi = getRouteApi("/settings");
@@ -28,8 +31,22 @@ type SessionRefreshState =
   | { kind: "refreshing" }
   | { kind: "stale"; expectedPresentation: AccountPresentation; message: string };
 
+type BillingRequestState = "idle" | "checkout" | "portal";
+
+const billingDateFormatter = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+});
+
 function readErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof ConvexError && typeof error.data === "string") {
+    return error.data;
+  }
   return error instanceof Error ? error.message : fallback;
+}
+
+function formatBillingResourceUsage(usage: BillingResourceUsage["cloudflareWorkers"]) {
+  const used = usage.used.state === "at_least" ? `${usage.used.count}+` : usage.used.count;
+  return `${used} of ${usage.limit}`;
 }
 
 export function UserSettingsPage() {
@@ -40,7 +57,12 @@ export function UserSettingsPage() {
     select: (location) => location.state.settingsDeleteAccountDialog,
   });
   const settings = useQuery(api.users.getUserSettings);
+  const billingStatus = useQuery(api.billing.getViewerBillingStatus);
+  const billingUsage = useQuery(api.billingResourceQuotas.getViewerBillingResourceUsage);
   const setDisplayName = useMutation(api.users.setDisplayName);
+  const createCheckoutSession = useAction(api.billing.createPolarCheckoutSession);
+  const createCustomerPortalSession = useAction(api.billing.createPolarCustomerPortalSession);
+  const reconcileBilling = useAction(api.billing.reconcileViewerBillingFromPolar);
   const { signOut } = useAppAuthActions();
   const { fetchAccessToken } = useConvexAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -48,7 +70,52 @@ export function UserSettingsPage() {
   const [sessionRefreshState, setSessionRefreshState] = useState<SessionRefreshState>({
     kind: "current",
   });
+  const [billingRequestState, setBillingRequestState] = useState<BillingRequestState>("idle");
+  const [billingReconciliationDelayed, setBillingReconciliationDelayed] = useState(false);
   const isDeleteDialogOpen = search[DELETE_ACCOUNT_QUERY_PARAM];
+  const checkoutReturnState = search[CHECKOUT_QUERY_PARAM];
+  const billingActionsAvailable = readBrowserRouteEnvironment() !== "preview";
+
+  // A successful return starts trusted provider reconciliation. The URL alone never grants Pro.
+  useEffect(() => {
+    if (checkoutReturnState !== "success" || !billingActionsAvailable) {
+      setBillingReconciliationDelayed(false);
+      return;
+    }
+
+    let active = true;
+    setBillingReconciliationDelayed(false);
+
+    const reconcileCheckoutReturn = async () => {
+      try {
+        const reconciled = await reconcileBilling({});
+        if (!active) {
+          return;
+        }
+        if (reconciled.state === "observed" && reconciled.plan === "pro") {
+          void navigate({
+            replace: true,
+            resetScroll: false,
+            search: (currentSearch) =>
+              applySearchPatch(currentSearch, { [CHECKOUT_QUERY_PARAM]: null }),
+            to: ".",
+          });
+        } else {
+          setBillingReconciliationDelayed(true);
+        }
+      } catch {
+        if (active) {
+          setBillingReconciliationDelayed(true);
+        }
+      }
+    };
+
+    void reconcileCheckoutReturn();
+
+    return () => {
+      active = false;
+    };
+  }, [billingActionsAvailable, checkoutReturnState, navigate, reconcileBilling]);
 
   if (settings === undefined) {
     return null;
@@ -138,6 +205,58 @@ export function UserSettingsPage() {
   };
 
   const pending = saveState.kind === "saving" || sessionRefreshState.kind === "refreshing";
+
+  const buildSettingsBillingUrl = (checkout: "success" | "cancel" | null) => {
+    const location = router.buildLocation({
+      search: (currentSearch) =>
+        applySearchPatch(currentSearch, { [CHECKOUT_QUERY_PARAM]: checkout }),
+      to: "/settings",
+    });
+    return new URL(location.href, window.location.origin).toString();
+  };
+
+  const handleUpgrade = async () => {
+    if (!billingActionsAvailable || billingRequestState !== "idle") {
+      return;
+    }
+
+    setBillingRequestState("checkout");
+    try {
+      const session = await createCheckoutSession({
+        returnUrl: buildSettingsBillingUrl("cancel"),
+        successUrl: buildSettingsBillingUrl("success"),
+      });
+      window.location.assign(session.url);
+    } catch (error) {
+      toast({
+        description: readErrorMessage(error, "Please try again."),
+        title: "Could not open checkout",
+        variant: "destructive",
+      });
+      setBillingRequestState("idle");
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    if (!billingActionsAvailable || billingRequestState !== "idle") {
+      return;
+    }
+
+    setBillingRequestState("portal");
+    try {
+      const session = await createCustomerPortalSession({
+        returnUrl: buildSettingsBillingUrl(null),
+      });
+      window.location.assign(session.url);
+    } catch (error) {
+      toast({
+        description: readErrorMessage(error, "Please try again."),
+        title: "Could not open subscription settings",
+        variant: "destructive",
+      });
+      setBillingRequestState("idle");
+    }
+  };
 
   const handleSignOut = () => {
     if (isSigningOut) {
@@ -266,6 +385,116 @@ export function UserSettingsPage() {
           ) : null}
         </form>
       </section>
+
+      {billingStatus !== undefined && billingUsage !== undefined ? (
+        <section className="mt-8 border-t pt-6" aria-labelledby="settings-billing-heading">
+          <h2 id="settings-billing-heading" className="text-base font-semibold">
+            Billing
+          </h2>
+          <dl className="mt-4 space-y-3">
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-sm font-medium">Current plan</dt>
+              <dd className="text-sm text-muted-foreground">
+                {billingStatus.plan === "pro" ? "Pro" : "Free"}
+              </dd>
+            </div>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-sm font-medium">Cloudflare Workers</dt>
+              <dd className="text-sm text-muted-foreground">
+                {formatBillingResourceUsage(billingUsage.cloudflareWorkers)}
+              </dd>
+            </div>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-sm font-medium">Convex projects</dt>
+              <dd className="text-sm text-muted-foreground">
+                {formatBillingResourceUsage(billingUsage.convexProjects)}
+              </dd>
+            </div>
+            {billingStatus.plan === "pro" && billingStatus.currentPeriodEndAt !== undefined ? (
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="text-sm font-medium">
+                  {billingStatus.cancelAtPeriodEnd
+                    ? "Access ends"
+                    : billingStatus.status === "past_due"
+                      ? "Billing period end"
+                      : "Next billing date"}
+                </dt>
+                <dd className="text-sm text-muted-foreground">
+                  <time dateTime={new Date(billingStatus.currentPeriodEndAt).toISOString()}>
+                    {billingDateFormatter.format(billingStatus.currentPeriodEndAt)}
+                  </time>
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+
+          {billingStatus.status === "past_due" ? (
+            <p className="mt-4 text-sm text-destructive" role="alert">
+              Payment needs attention. Manage your subscription to update the payment method.
+            </p>
+          ) : checkoutReturnState === "cancel" ? (
+            <p className="mt-4 text-sm text-muted-foreground" role="status">
+              Checkout canceled. Your plan did not change.
+            </p>
+          ) : checkoutReturnState === "success" ? (
+            billingActionsAvailable ? (
+              billingStatus.plan === "pro" ? (
+                <p className="mt-4 text-sm text-muted-foreground" role="status">
+                  Your Pro plan is active.
+                </p>
+              ) : billingReconciliationDelayed ? (
+                <p className="mt-4 text-sm text-muted-foreground" role="status">
+                  Plan confirmation is delayed. Refresh this page to check again.
+                </p>
+              ) : (
+                <p className="mt-4 text-sm text-muted-foreground" role="status">
+                  Checking your payment and plan...
+                </p>
+              )
+            ) : (
+              <p className="mt-4 text-sm text-muted-foreground" role="status">
+                Checkout confirmation is disabled in this preview.
+              </p>
+            )
+          ) : null}
+
+          {billingStatus.plan === "pro" || billingStatus.canStartCheckout ? (
+            <div className="mt-6">
+              {billingStatus.plan === "pro" ? (
+                <Button
+                  type="button"
+                  disabled={!billingActionsAvailable || billingRequestState !== "idle"}
+                  onClick={() => void handleManageSubscription()}
+                >
+                  {billingRequestState === "portal" ? (
+                    <>
+                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                      Opening...
+                    </>
+                  ) : (
+                    "Manage subscription"
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  disabled={!billingActionsAvailable || billingRequestState !== "idle"}
+                  onClick={() => void handleUpgrade()}
+                >
+                  {billingRequestState === "checkout" ? (
+                    <>
+                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                      Opening...
+                    </>
+                  ) : (
+                    "Upgrade to Pro, $4/month"
+                  )}
+                </Button>
+              )}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="mt-8 border-t pt-6" aria-labelledby="settings-account-heading">
         <h2 id="settings-account-heading" className="text-base font-semibold">

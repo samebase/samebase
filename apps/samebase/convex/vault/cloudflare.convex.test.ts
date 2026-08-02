@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api, internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { makeConvexTest } from "../test.setup";
 
 const accountId = "00000000000000000000000000000001";
@@ -141,6 +142,24 @@ async function createCloudflareConnectedVault() {
     }),
     t,
   };
+}
+
+async function seedCloudflareWorkers(
+  t: ReturnType<typeof makeConvexTest>,
+  args: { userId: Id<"users">; vaultId: Id<"vaults"> },
+  count = 5,
+): Promise<void> {
+  await t.run(async (ctx) => {
+    for (let index = 0; index < count; index += 1) {
+      await ctx.db.insert("vaultCloudflareWorkers", {
+        ...args,
+        accountId: "existing-account",
+        workerName: `existing-worker-${index}`,
+        workerTag: `existing-worker-tag-${index}`,
+        origin: "selected_existing",
+      });
+    }
+  });
 }
 
 async function createManagedWorkerCreatingFixture() {
@@ -490,7 +509,159 @@ describe("vault Cloudflare Worker attachments", () => {
     ).toBe(false);
   });
 
-  it("reports that a Worker can exist when its local checkpoint expires", async () => {
+  it("blocks a manual Cloudflare create before the provider write at the free limit", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      const method = input instanceof Request ? input.method : (init?.method ?? "GET");
+      if (url.hostname === "api.github.com" && url.pathname === "/repos/ada/demo") {
+        return jsonResponse({ id: 123, default_branch: "main", owner: { id: 456 } });
+      }
+      if (url.pathname === "/client/v4/accounts") {
+        return cloudflareResponse([{ id: accountId, name: "Ada Cloudflare", type: "standard" }]);
+      }
+      if (method === "GET" && url.pathname.endsWith("/workers/workers/new-worker")) {
+        return jsonResponse(
+          {
+            success: false,
+            errors: [{ code: 10007, message: "Worker not found" }],
+            messages: [],
+            result: null,
+          },
+          404,
+        );
+      }
+      throw new Error(`Unexpected provider request: ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { asUser, t, userId, vaultId } = await createCloudflareConnectedVault();
+    await seedCloudflareWorkers(t, { userId, vaultId });
+
+    await expect(
+      asUser.action(api.vault.cloudflare.createWorker, {
+        vaultId,
+        accountId,
+        workerName: "new-worker",
+        rootDirectory: "/",
+      }),
+    ).rejects.toThrow("Cloudflare Worker attachment limit reached (5).");
+
+    expect(
+      fetchMock.mock.calls.some(
+        ([input, init]) => (input instanceof Request ? input.method : init?.method) === "POST",
+      ),
+    ).toBe(false);
+  });
+
+  it("blocks a managed Cloudflare create before the provider write at the free limit", async () => {
+    const { runId, t, userId, vaultId } = await createManagedWorkerCreatingFixture();
+    await seedCloudflareWorkers(t, { userId, vaultId });
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      const method = input instanceof Request ? input.method : (init?.method ?? "GET");
+      if (url.pathname === "/client/v4/accounts") {
+        return cloudflareResponse([{ id: accountId, name: "Ada Cloudflare", type: "standard" }]);
+      }
+      if (method === "GET" && url.pathname.endsWith("/workers/workers/managed-worker")) {
+        return jsonResponse(
+          {
+            success: false,
+            errors: [{ code: 10007, message: "Worker not found" }],
+            messages: [],
+            result: null,
+          },
+          404,
+        );
+      }
+      throw new Error(`Unexpected provider request: ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      t.action(internal.vault.cloudflare.ensureCloudflareWorkerConnection, {
+        vaultId,
+        runId,
+        userId,
+        accountId,
+        workerName: "managed-worker",
+      }),
+    ).rejects.toThrow("Cloudflare Worker attachment limit reached (5).");
+
+    expect(
+      fetchMock.mock.calls.some(
+        ([input, init]) => (input instanceof Request ? input.method : init?.method) === "POST",
+      ),
+    ).toBe(false);
+  });
+
+  it("names the created managed Cloudflare Worker when another attachment takes the last slot", async () => {
+    const { runId, t, userId, vaultId } = await createManagedWorkerCreatingFixture();
+    await seedCloudflareWorkers(t, { userId, vaultId }, 4);
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      const method = input instanceof Request ? input.method : (init?.method ?? "GET");
+      if (url.pathname === "/client/v4/accounts") {
+        return cloudflareResponse([{ id: accountId, name: "Ada Cloudflare", type: "standard" }]);
+      }
+      if (method === "GET" && url.pathname.endsWith("/workers/workers/managed-worker")) {
+        return jsonResponse(
+          {
+            success: false,
+            errors: [{ code: 10007, message: "Worker not found" }],
+            messages: [],
+            result: null,
+          },
+          404,
+        );
+      }
+      if (method === "POST" && url.pathname.endsWith("/workers/workers")) {
+        await t.run(
+          async (ctx) =>
+            await ctx.db.insert("vaultCloudflareWorkers", {
+              vaultId,
+              userId,
+              accountId: "last-slot-account",
+              workerName: "last-slot-worker",
+              workerTag: "last-slot-worker-tag",
+              origin: "selected_existing",
+            }),
+        );
+        return cloudflareResponse(workerDetails("managed-worker", "managed-worker-tag"));
+      }
+      throw new Error(`Unexpected provider request: ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      t.action(internal.vault.cloudflare.ensureCloudflareWorkerConnection, {
+        vaultId,
+        runId,
+        userId,
+        accountId,
+        workerName: "managed-worker",
+      }),
+    ).rejects.toThrow(
+      "Cloudflare Worker attachment limit reached after Worker managed-worker was created. Delete it in the Cloudflare dashboard, then retry.",
+    );
+
+    expect(
+      fetchMock.mock.calls.filter(
+        ([input, init]) => (input instanceof Request ? input.method : init?.method) === "POST",
+      ),
+    ).toHaveLength(1);
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("vaultCloudflareWorkers")
+            .withIndex("by_account_and_worker", (q) =>
+              q.eq("accountId", accountId).eq("workerName", "managed-worker"),
+            )
+            .unique(),
+      ),
+    ).resolves.toBeNull();
+  });
+
+  it("requires cleanup when a Worker can exist after its local checkpoint expires", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(1_000);
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -530,9 +701,10 @@ describe("vault Cloudflare Worker attachments", () => {
           workerName: "new-worker",
           rootDirectory: "/",
         }),
-      ).rejects.toThrow(
-        "The Cloudflare Worker new-worker can exist, but Samebase could not record it.",
-      );
+      ).rejects.toMatchObject({
+        name: "ConvexError",
+        data: "The Cloudflare Worker new-worker can exist, but Samebase could not record it. If it exists, delete it in the Cloudflare dashboard, then retry.",
+      });
     } finally {
       vi.useRealTimers();
     }
@@ -632,6 +804,7 @@ describe("vault Cloudflare Worker attachments", () => {
 
   it("requires dashboard deletion when an interrupted managed create left a Worker", async () => {
     const { runId, t, userId, vaultId } = await createManagedWorkerCreatingFixture();
+    await seedCloudflareWorkers(t, { userId, vaultId });
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
       const method = input instanceof Request ? input.method : (init?.method ?? "GET");
@@ -660,8 +833,16 @@ describe("vault Cloudflare Worker attachments", () => {
       ),
     ).toBe(false);
     await expect(
-      t.run(async (ctx) => await ctx.db.query("vaultCloudflareWorkers").collect()),
-    ).resolves.toEqual([]);
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("vaultCloudflareWorkers")
+            .withIndex("by_account_and_worker", (q) =>
+              q.eq("accountId", accountId).eq("workerName", "managed-worker"),
+            )
+            .unique(),
+      ),
+    ).resolves.toBeNull();
   });
 
   it("names the saved account when the current credential cannot access it", async () => {
