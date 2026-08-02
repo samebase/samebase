@@ -17153,7 +17153,8 @@
       "builds_BuildOutcome": {
         "type": "string",
         "example": "success",
-        "enum": ["success", "fail", "skipped", "cancelled", "terminated"]
+        "enum": ["success", "fail", "skipped", "cancelled", "terminated", null],
+        "nullable": true
       },
       "builds_BuildTriggerMetadataResponse": {
         "type": "object",

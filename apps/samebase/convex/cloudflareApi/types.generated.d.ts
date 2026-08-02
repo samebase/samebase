@@ -2262,9 +2262,9 @@ export interface components {
     };
     /**
      * @example success
-     * @enum {string}
+     * @enum {string|null}
      */
-    builds_BuildOutcome: "success" | "fail" | "skipped" | "cancelled" | "terminated";
+    builds_BuildOutcome: "success" | "fail" | "skipped" | "cancelled" | "terminated" | null;
     builds_BuildTriggerMetadataResponse: {
       /** @example developer@cloudflare.com */
       author?: string;
