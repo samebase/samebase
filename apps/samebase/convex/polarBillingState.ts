@@ -178,7 +178,7 @@ type PolarReconciliationCtx = Pick<ActionCtx, "runMutation">;
 export async function reconcilePolarCustomerBilling(
   ctx: PolarReconciliationCtx,
   args: { externalCustomerId: string; polar: Polar },
-): Promise<boolean> {
+): Promise<PolarBillingState | null> {
   const externalCustomerId = args.externalCustomerId.trim();
   if (!externalCustomerId) {
     throw new Error("Polar external customer ID is missing.");
@@ -194,7 +194,7 @@ export async function reconcilePolarCustomerBilling(
     { externalCustomerId },
   );
   if (observationRevision === null) {
-    return false;
+    return null;
   }
 
   const state = await readCanonicalPolarBillingState({
@@ -202,10 +202,11 @@ export async function reconcilePolarCustomerBilling(
     externalCustomerId,
     productId,
   });
-  return await ctx.runMutation(internal.polarBillingState.applyObservation, {
+  const applied: boolean = await ctx.runMutation(internal.polarBillingState.applyObservation, {
     state,
     observationRevision,
   });
+  return applied ? state : null;
 }
 
 export const reconcileCustomerFromPolar = internalAction({
@@ -213,9 +214,11 @@ export const reconcileCustomerFromPolar = internalAction({
     externalCustomerId: string(),
   },
   returns: boolean(),
-  handler: async (ctx, args): Promise<boolean> =>
-    await reconcilePolarCustomerBilling(ctx, {
+  handler: async (ctx, args): Promise<boolean> => {
+    const state = await reconcilePolarCustomerBilling(ctx, {
       ...args,
       polar: createPolarClient(),
-    }),
+    });
+    return state !== null;
+  },
 });

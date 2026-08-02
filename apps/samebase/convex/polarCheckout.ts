@@ -21,12 +21,6 @@ const vPolarCheckoutReservation = union(
 );
 export type PolarCheckoutReservation = Infer<typeof vPolarCheckoutReservation>;
 
-const vPolarCheckoutOperatorResolution = union(
-  object({ state: literal("clear_pending") }),
-  object({ state: literal("record_open"), checkoutId: string() }),
-  object({ state: literal("clear_open"), checkoutId: string() }),
-);
-
 export function matchesPolarCheckoutAttempt(args: {
   attemptId: string;
   checkout: Checkout;
@@ -181,61 +175,6 @@ export const clearOpen = internalMutation({
       return false;
     }
 
-    await ctx.db.patch(user._id, { billingPolarCheckoutAttempt: undefined });
-    return true;
-  },
-});
-
-/**
- * Apply one checkout marker change after an operator verifies the exact Polar checkout.
- */
-export const resolveAttemptForOperator = internalMutation({
-  args: {
-    externalCustomerId: string(),
-    expectedAttemptId: string(),
-    resolution: vPolarCheckoutOperatorResolution,
-  },
-  returns: boolean(),
-  handler: async (ctx, args) => {
-    const externalCustomerId = args.externalCustomerId.trim();
-    if (!externalCustomerId) {
-      return false;
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_polar_external_customer_id", (q) =>
-        q.eq("billingPolarExternalCustomerId", externalCustomerId),
-      )
-      .unique();
-    const attempt = user?.billingPolarCheckoutAttempt;
-    if (!user || attempt?.attemptId !== args.expectedAttemptId) {
-      return false;
-    }
-
-    if (args.resolution.state === "clear_pending") {
-      if (attempt.state !== "pending") {
-        return false;
-      }
-      await ctx.db.patch(user._id, { billingPolarCheckoutAttempt: undefined });
-      return true;
-    }
-    if (args.resolution.state === "record_open") {
-      if (attempt.state !== "pending" || !args.resolution.checkoutId.trim()) {
-        return false;
-      }
-      await ctx.db.patch(user._id, {
-        billingPolarCheckoutAttempt: {
-          state: "open",
-          attemptId: args.expectedAttemptId,
-          checkoutId: args.resolution.checkoutId,
-        },
-      });
-      return true;
-    }
-    if (attempt.state !== "open" || attempt.checkoutId !== args.resolution.checkoutId) {
-      return false;
-    }
     await ctx.db.patch(user._id, { billingPolarCheckoutAttempt: undefined });
     return true;
   },

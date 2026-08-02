@@ -5,7 +5,7 @@ import { internal } from "./_generated/api";
 import { internalMutation } from "./_generated/server";
 import { action, query } from "./functions";
 import { randomToken } from "./oauthUtils";
-import { readCanonicalPolarBillingState } from "./polarBillingState";
+import { reconcilePolarCustomerBilling } from "./polarBillingState";
 import {
   canClearPolarCheckoutAfterObservation,
   isDefinitivePolarCheckoutFailure,
@@ -186,27 +186,13 @@ export const createPolarCheckoutSession = action({
     });
 
     if (storedExternalCustomerId) {
-      const observationRevision: number | null = await ctx.runMutation(
-        internal.polarBillingState.beginObservation,
-        { externalCustomerId: storedExternalCustomerId },
-      );
-      if (observationRevision === null) {
-        throw new Error("Samebase could not verify your current subscription.");
-      }
-
-      const state = await readCanonicalPolarBillingState({
+      const state = await reconcilePolarCustomerBilling(ctx, {
         polar,
         externalCustomerId: storedExternalCustomerId,
-        productId,
       }).catch(() => {
         throw new Error("Samebase could not verify your current subscription.");
       });
-
-      const applied: boolean = await ctx.runMutation(internal.polarBillingState.applyObservation, {
-        state,
-        observationRevision,
-      });
-      if (!applied) {
+      if (state === null) {
         throw new Error("Samebase could not verify your current subscription.");
       }
       if (state.plan === "pro") {
@@ -376,26 +362,13 @@ export const reconcileViewerBillingFromPolar = action({
       return { state: "unavailable" };
     }
 
-    const observationRevision: number | null = await ctx.runMutation(
-      internal.polarBillingState.beginObservation,
-      { externalCustomerId },
-    );
-    if (observationRevision === null) {
-      return { state: "unavailable" };
-    }
-
     try {
       const polar = createPolarClient();
-      const state = await readCanonicalPolarBillingState({
+      const state = await reconcilePolarCustomerBilling(ctx, {
         polar,
         externalCustomerId,
-        productId,
       });
-      const applied: boolean = await ctx.runMutation(internal.polarBillingState.applyObservation, {
-        state,
-        observationRevision,
-      });
-      if (!applied) {
+      if (state === null) {
         return { state: "unavailable" };
       }
 

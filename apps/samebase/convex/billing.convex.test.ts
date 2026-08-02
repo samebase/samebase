@@ -24,7 +24,7 @@ vi.mock("@polar-sh/sdk", () => ({
   },
 }));
 
-import { api, internal } from "./_generated/api";
+import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { makeConvexTest } from "./test.setup";
 
@@ -774,72 +774,6 @@ describe("billing access", () => {
     expect(polarSdkMocks.customerSessionsCreate).toHaveBeenCalledWith({
       externalCustomerId: "existing-customer",
       returnUrl: "http://localhost:5174/settings",
-    });
-  });
-});
-
-describe("checkout attempt resolution", () => {
-  it.each([
-    {
-      attempt: { state: "pending" as const, attemptId: "polar_checkout_clear_pending" },
-      resolution: { state: "clear_pending" as const },
-    },
-    {
-      attempt: {
-        state: "open" as const,
-        attemptId: "polar_checkout_clear_open",
-        checkoutId: "checkout-clear-open",
-      },
-      resolution: { state: "clear_open" as const, checkoutId: "checkout-clear-open" },
-    },
-  ])("clears an exact $attempt.state marker", async ({ attempt, resolution }) => {
-    const t = makeConvexTest();
-    const userId = await seedCheckoutAttempt(t, attempt);
-
-    await expect(
-      t.mutation(internal.polarCheckout.resolveAttemptForOperator, {
-        expectedAttemptId: attempt.attemptId,
-        externalCustomerId,
-        resolution,
-      }),
-    ).resolves.toBe(true);
-    await expect(readCheckoutAttempt(t, userId)).resolves.toBeNull();
-  });
-
-  it("records an exact checkout ID for a pending marker", async () => {
-    const t = makeConvexTest();
-    const attemptId = "polar_checkout_record_open";
-    const userId = await seedCheckoutAttempt(t, { state: "pending", attemptId });
-
-    await expect(
-      t.mutation(internal.polarCheckout.resolveAttemptForOperator, {
-        expectedAttemptId: attemptId,
-        externalCustomerId,
-        resolution: { state: "record_open", checkoutId: "checkout-recorded" },
-      }),
-    ).resolves.toBe(true);
-    await expect(readCheckoutAttempt(t, userId)).resolves.toEqual({
-      state: "open",
-      attemptId,
-      checkoutId: "checkout-recorded",
-    });
-  });
-
-  it("rejects a stale checkout marker change", async () => {
-    const t = makeConvexTest();
-    const attemptId = "polar_checkout_current";
-    const userId = await seedCheckoutAttempt(t, { state: "pending", attemptId });
-
-    await expect(
-      t.mutation(internal.polarCheckout.resolveAttemptForOperator, {
-        expectedAttemptId: "polar_checkout_stale",
-        externalCustomerId,
-        resolution: { state: "clear_pending" },
-      }),
-    ).resolves.toBe(false);
-    await expect(readCheckoutAttempt(t, userId)).resolves.toEqual({
-      state: "pending",
-      attemptId,
     });
   });
 });

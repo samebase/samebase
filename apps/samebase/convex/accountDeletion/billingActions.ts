@@ -44,6 +44,10 @@ async function listCancelablePolarSubscriptionIds(
     listedItemCount += page.result.items.length;
 
     for (const subscription of page.result.items) {
+      if (subscription.customer.externalId !== externalCustomerId) {
+        throw new Error("Polar subscription customer does not match the requested customer.");
+      }
+
       switch (subscription.status) {
         case "incomplete":
         case "trialing":

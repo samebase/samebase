@@ -70,14 +70,17 @@ async function seedUser(billingPolarExternalCustomerId?: string) {
 }
 
 function subscriptionPages(
-  items: Array<{ id: string; status: string }>,
+  items: Array<{ id: string; status: string; customerExternalId?: string }>,
   totalCount = items.length,
 ) {
   return {
     [Symbol.asyncIterator]: async function* () {
       yield {
         result: {
-          items,
+          items: items.map(({ customerExternalId = "external-customer-test", ...item }) => ({
+            ...item,
+            customer: { externalId: customerExternalId },
+          })),
           pagination: {
             totalCount,
             maxPage: Math.ceil(totalCount / 100),
@@ -283,6 +286,32 @@ describe("account deletion billing actions", () => {
     const { t, runId } = await seedUser("external-customer-test");
     configurePolar();
     polarSdkMocks.subscriptionsList.mockResolvedValue(subscriptionPages([], 1));
+
+    await expect(
+      t.action(internal.accountDeletion.billingActions.cancelForAccountDeletion, {
+        runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({
+      state: "failed",
+      safeError: "Polar subscription cancellation could not be confirmed.",
+    });
+    expect(polarSdkMocks.subscriptionsRevoke).not.toHaveBeenCalled();
+    expect(polarSdkMocks.subscriptionsList).toHaveBeenCalledOnce();
+  });
+
+  it("does not revoke a subscription that belongs to another Polar customer", async () => {
+    const { t, runId } = await seedUser("external-customer-test");
+    configurePolar();
+    polarSdkMocks.subscriptionsList.mockResolvedValue(
+      subscriptionPages([
+        {
+          id: "subscription-other-customer",
+          status: "active",
+          customerExternalId: "other-customer",
+        },
+      ]),
+    );
 
     await expect(
       t.action(internal.accountDeletion.billingActions.cancelForAccountDeletion, {
