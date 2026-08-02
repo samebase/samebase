@@ -45,9 +45,9 @@ a complex automatic recovery system.
 - [x] Keep only `pending` and `open` checkout markers. Do not clear ambiguous provider work by time.
 - [x] Remove resource-capacity reservations and recovery jobs. Keep bounded preflight checks and
       final transactional attachment checks.
-- [ ] Finish the provider-verified checkout repair action and clear terminal checkout handling.
-- [ ] Preserve quota and provider-orphan cleanup instructions through managed provisioning.
-- [ ] Complete the final cross-review after these small fixes.
+- [x] Finish the checkout marker repair mutations and clear verified terminal checkouts.
+- [x] Preserve quota and provider-orphan cleanup instructions through managed provisioning.
+- [x] Complete the final cross-review after these small fixes.
 
 - [ ] Remove `billingPolarStateChangedAt` only after production rows are verified or migrated. It
       remains an optional compatibility field until that check is complete.
@@ -87,7 +87,8 @@ Old specs 033 and 034 are historical input. They do not override the accepted co
 - [x] Keep checkout redirects separate from entitlement changes.
 - [x] Make webhook processing idempotent and safe for provider errors.
 - [x] Add a trusted reconciliation path for missed events.
-- [ ] Add one provider-verified operator action for a stuck checkout marker.
+- [x] Use the existing compare-and-swap marker mutations for a stuck checkout after manual Polar
+      inspection.
 - [x] Keep account deletion cancellation fail-closed.
 - [x] Review trusted customer IP forwarding before production checkout. Convex cannot provide a
       documented trusted buyer IP. The hosted checkout requires the customer to confirm country. A
@@ -121,7 +122,7 @@ Old specs 033 and 034 are historical input. They do not override the accepted co
 - [x] Test account billing UI states and actions.
 - [x] Run the repository validation commands required by the changed surfaces.
 - [x] Complete independent backend, quota, frontend, and security reviews.
-- [ ] Resolve the final actionable review findings.
+- [x] Resolve the final actionable review findings.
 
 ## Validation Matrix
 
@@ -183,6 +184,48 @@ Sandbox runbook notes:
   on the current local Convex deployment before the next webhook test.
 
 Never store an access token or webhook secret in this file, a commit, test output, or screenshot.
+
+## Operator Repair
+
+Use these procedures only after the normal provider call or Polar retry did not resolve the state.
+If any identifier or provider result is uncertain, leave the local state unchanged.
+
+### Failed webhook delivery
+
+1. Read the Convex log for `/webhooks/polar` and identify the customer external ID.
+2. Inspect that customer and its `Samebase Pro Monthly` subscription in Polar.
+3. Fix the provider, credential, or data problem that caused the non-2xx response.
+4. Run the internal `polarBillingState:reconcileCustomerFromPolar` action with the exact external
+   customer ID.
+5. Verify the user billing row and the Settings Billing section.
+6. If Polar disabled the webhook endpoint, re-enable it after the repair.
+
+### Stuck checkout marker
+
+1. Read the user ID, `billingPolarExternalCustomerId`, and `billingPolarCheckoutAttempt` from the
+   exact user row.
+2. Inspect the same customer in Polar. Match the product ID and the checkout metadata fields
+   `source`, `plan`, and `samebase_checkout_attempt_id`.
+3. Run one internal compare-and-swap mutation with the exact current identifiers:
+   - Run `polarCheckout:clearPending` with the user ID and attempt ID only when Polar has no open,
+     confirmed, or succeeded matching checkout.
+   - Run `polarCheckout:recordOpen` with the user ID, attempt ID, and exact checkout ID when Polar
+     has one open, confirmed, or succeeded matching checkout.
+   - Run `polarCheckout:clearOpen` with the user ID, attempt ID, and exact checkout ID only when the
+     checkout failed or expired.
+4. For a confirmed or succeeded checkout, first run the canonical Polar reconciliation and verify
+   that the user is Pro. The normal checkout reconciliation then clears the matching marker. If it
+   does not, use `polarCheckout:clearOpen` only after that Pro check.
+
+Each mutation returns `false` and makes no change when the current marker does not match the
+expected attempt or checkout ID.
+
+### Unattached provider resource
+
+1. Read the Samebase error to identify the unused Worker or Convex project.
+2. Verify that Samebase did not attach that exact provider resource.
+3. Delete the unused resource in the provider dashboard.
+4. Retry the Samebase operation after usage is below the plan limit.
 
 ## Production Gate
 
@@ -247,6 +290,21 @@ After a context compaction or handoff:
 - `f0e599ea`: Convex V8-compatible Polar webhook signature verification.
 - `a96b0b82`: recovered checkout return and success URL validation.
 - `11673376`: checkout return authentication readiness and reconciliation.
+- `feb8a81d`: one checkout return reconciliation with accurate pending copy.
+- `6b4f95c1`: resource reservations and their recovery jobs removed.
+- `7c90e1b6`: checkout state reduced to persistent `pending` and `open` markers.
+- `f5bb8776`: signed webhook processing reduced to direct canonical reconciliation.
+- `9959f26b`: canonical Polar subscription reads bounded to one complete page.
+- `ca5a3411`: checkout eligibility uses canonical Polar subscription state.
+- `9ac30915`: account deletion explains the checkout marker block.
+- `651981f7`: the visible-failure and manual-repair rule recorded.
+- `5f316ce3`: quota and provider-orphan guidance preserved through managed provisioning.
+- `b0586150`: webhook timeout and Polar page integrity checks hardened.
+- `c2f0278d`: exact checkout marker verification and terminal checkout clearing.
+- `ea2dda8f`: successful checkout returns reconcile before URL cleanup.
+- `0106d166`: billing reconciliation deduplicated and deletion customer ownership checked.
+- `5d3c293f`: first-failure quota errors identify the exact unused provider resource.
 
-Final automated validation on 2026-08-02 passed 44 Convex test files with 363 tests, 36 focused
-Settings tests, and the canonical Linux visual suite with 207 tests and one existing skip.
+Final automated validation on 2026-08-02 passed 44 Convex test files with 378 tests, 288 repository
+test files with 2,226 tests and one skip, 41 focused Settings tests, and the canonical Linux browser
+suite with 208 tests and one existing skip. `pnpm check` also passed with existing warnings.

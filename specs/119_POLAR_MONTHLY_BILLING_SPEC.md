@@ -74,7 +74,8 @@ Samebase prefers a visible failure and a short operator procedure to an automati
   coordinator, watchdog, lease, or period-end downgrade job.
 - A canonical Polar read is the only input that changes paid entitlement. A stored billing date does
   not remove Pro by itself.
-- An ambiguous checkout stays blocked until one provider-verified operator action resolves it.
+- An ambiguous checkout stays blocked until the operator inspects Polar and applies one matching
+  compare-and-swap marker change.
 - Resource creation uses a bounded preflight check and a final transactional attachment check. A
   rare concurrent last-slot race can create a provider resource that Samebase does not attach. The
   operator removes that unused provider resource manually.
