@@ -260,7 +260,7 @@ describe("resolveCloudflareHostingPreviews", () => {
     });
   });
 
-  it("retains the build link while a comment is still building without a preview", () => {
+  it("retains the build link while a comment is in progress without a preview", () => {
     expect(
       resolveCloudflareHostingPreviews({
         state: "available",
@@ -268,7 +268,7 @@ describe("resolveCloudflareHostingPreviews", () => {
           cloudflareWorkerComment({
             accountId: "account-1",
             branchPreviewUrl: null,
-            status: "⏳ Building...",
+            status: "🔵 In progress",
             workerName: "samebase-posthog-proxy",
           }),
         ],
@@ -457,7 +457,7 @@ describe("resolveCloudflareCommentWorkerBuild", () => {
       cloudflareWorkerComment({
         accountId: "account-1",
         branchPreviewUrl: null,
-        status: "⏳ Building...",
+        status: "🔵 In progress",
         workerName: "samebase",
       }),
     ],
@@ -503,7 +503,7 @@ describe("resolveCloudflareCommentWorkerBuild", () => {
         cloudflareWorkerComment({
           accountId: "account-1",
           branchPreviewUrl: null,
-          status: "🚫 Build failed.",
+          status: "❌ Deployment failed",
           workerName: "samebase",
         }),
       ],
