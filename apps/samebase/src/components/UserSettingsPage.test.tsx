@@ -6,6 +6,7 @@ import { ConvexError } from "convex/values";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { type AccountPresentation } from "../../shared/accountPresentation";
 import type { BillingResourceUsage } from "../../convex/billingResourceQuotas";
+import { POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM } from "@/routeSearch/settings";
 import { UserSettingsPage } from "./UserSettingsPage";
 
 const CURRENT_NAME_PRESENTATION = {
@@ -520,9 +521,13 @@ describe("UserSettingsPage", () => {
     }
   });
 
-  it("removes the checkout return value after trusted Pro state arrives", async () => {
+  it("removes both Polar return values after trusted Pro state arrives", async () => {
     vi.useFakeTimers();
-    locationState.search = { checkout: "success" };
+    locationState.search = {
+      checkout: "success",
+      devtools: true,
+      [POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM]: true,
+    };
     actionState.reconcileBilling.mockResolvedValue({ state: "observed", plan: "pro" });
     const mounted = await mountSettingsPage();
     try {
@@ -550,6 +555,12 @@ describe("UserSettingsPage", () => {
         search: expect.any(Function),
         to: ".",
       });
+
+      const searchUpdater = routerState.navigate.mock.calls[0]?.[0]?.search;
+      if (typeof searchUpdater !== "function") {
+        throw new Error("The checkout cleanup search update is missing.");
+      }
+      expect(searchUpdater(locationState.search)).toEqual({ devtools: true });
     } finally {
       await unmount(mounted.root, mounted.rootElement);
     }

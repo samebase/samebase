@@ -14,7 +14,11 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { readCurrentAuthTokenProfileClaims } from "@/lib/authTokenProfileJwt";
 import { getRouteApi, useLocation, useRouter } from "@tanstack/react-router";
-import { CHECKOUT_QUERY_PARAM, DELETE_ACCOUNT_QUERY_PARAM } from "@/routeSearch/settings";
+import {
+  CHECKOUT_QUERY_PARAM,
+  DELETE_ACCOUNT_QUERY_PARAM,
+  POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM,
+} from "@/routeSearch/settings";
 import { readBrowserRouteEnvironment } from "@/routing/availability";
 import { applySearchPatch } from "@/routing/searchFlags";
 
@@ -97,7 +101,10 @@ export function UserSettingsPage() {
             replace: true,
             resetScroll: false,
             search: (currentSearch) =>
-              applySearchPatch(currentSearch, { [CHECKOUT_QUERY_PARAM]: null }),
+              applySearchPatch(currentSearch, {
+                [CHECKOUT_QUERY_PARAM]: null,
+                [POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM]: null,
+              }),
             to: ".",
           });
         } else {

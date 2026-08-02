@@ -811,22 +811,6 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("removes Polar's customer session token before the settings route loads", async () => {
-    const router = await renderRoute(
-      "/settings?checkout=success&customer_session_token=private-value&devtools#billing",
-    );
-
-    expect(router.state.location.pathname).toBe("/settings");
-    expect(router.state.location.search).toEqual({
-      checkout: "success",
-      devtools: "",
-    });
-    expect(router.state.location.hash).toBe("billing");
-    expect(rootElement?.querySelector('[data-testid="settings-page"]')?.textContent).toBe(
-      "Settings page",
-    );
-  });
-
   it("renders landing preview through an explicit route", async () => {
     await renderRoute("/landing-preview");
 
