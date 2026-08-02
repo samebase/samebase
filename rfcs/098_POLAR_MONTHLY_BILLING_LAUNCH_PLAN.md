@@ -316,5 +316,8 @@ After a context compaction or handoff:
 - `5d3c293f`: first-failure quota errors identify the exact unused provider resource.
 
 Final automated validation on 2026-08-02 passed 44 Convex test files with 378 tests, 288 repository
-test files with 2,226 tests and one skip, 41 focused Settings tests, and the canonical Linux browser
-suite with 208 tests and one existing skip. `pnpm check` also passed with existing warnings.
+test files with 2,226 tests and one skip, and 41 focused Settings tests. `pnpm check` also passed
+with existing warnings. The canonical Linux browser suite passed with 208 tests and one existing
+skip before the latest `main` merge. After the merge, two complete runs had unrelated timing
+failures in three mobile editor or WebGL tests. Each exact failed test passed in an isolated Linux
+rerun. The billing Settings browser tests passed in both complete post-merge runs.
