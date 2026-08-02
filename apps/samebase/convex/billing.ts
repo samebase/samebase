@@ -1,5 +1,5 @@
 import type { Checkout } from "@polar-sh/sdk/models/components/checkout";
-import { Infer, v } from "convex/values";
+import { ConvexError, Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import { internalMutation } from "./_generated/server";
@@ -69,24 +69,24 @@ function validateReturnUrlPair(args: {
     success = new URL(args.successUrl);
     ret = new URL(args.returnUrl);
   } catch {
-    throw new Error("Invalid checkout return URL.");
+    throw new ConvexError("Invalid checkout return URL.");
   }
 
   if (success.origin !== ret.origin) {
-    throw new Error("Checkout return URLs must share the same origin.");
+    throw new ConvexError("Checkout return URLs must share the same origin.");
   }
 
   if (args.server === "production") {
     if (success.origin !== "https://samebase.com") {
-      throw new Error("Checkout return URL origin is not allowed.");
+      throw new ConvexError("Checkout return URL origin is not allowed.");
     }
   } else {
     const hostname = success.hostname;
     if (success.protocol !== "http:") {
-      throw new Error("Checkout return URL must be http in local development.");
+      throw new ConvexError("Checkout return URL must be http in local development.");
     }
     if (hostname !== "localhost" && hostname !== "127.0.0.1") {
-      throw new Error("Checkout return URL host is not allowed.");
+      throw new ConvexError("Checkout return URL host is not allowed.");
     }
   }
 
@@ -164,7 +164,7 @@ export const createPolarCheckoutSession = action({
 
     const productId = readPolarProMonthlyProductId();
     if (!productId) {
-      throw new Error("Pro checkout is not configured yet.");
+      throw new ConvexError("Pro checkout is not configured yet.");
     }
     const polar = createPolarClient();
     const server = resolvePolarServer();
@@ -178,7 +178,7 @@ export const createPolarCheckoutSession = action({
     const storedStatus = currentUser.billingStatus ?? "inactive";
     const storedExternalCustomerId = currentUser.billingPolarExternalCustomerId?.trim();
     if (!storedExternalCustomerId && hasStoredProEntitlement(storedPlan, storedStatus)) {
-      throw new Error("Samebase could not verify your current subscription.");
+      throw new ConvexError("Samebase could not verify your current subscription.");
     }
 
     const customer = await ctx.runMutation(internal.billing.ensurePolarExternalCustomerId, {
@@ -189,14 +189,17 @@ export const createPolarCheckoutSession = action({
       const state = await reconcilePolarCustomerBilling(ctx, {
         polar,
         externalCustomerId: storedExternalCustomerId,
-      }).catch(() => {
-        throw new Error("Samebase could not verify your current subscription.");
+      }).catch((error: unknown) => {
+        console.warn("billing:polar:subscription_reconciliation_failed", {
+          errorName: error instanceof Error ? error.name : "UnknownError",
+        });
+        throw new ConvexError("Samebase could not verify your current subscription.");
       });
       if (state === null) {
-        throw new Error("Samebase could not verify your current subscription.");
+        throw new ConvexError("Samebase could not verify your current subscription.");
       }
       if (state.plan === "pro") {
-        throw new Error("You already have a Pro subscription.");
+        throw new ConvexError("You already have a Pro subscription.");
       }
     }
 
@@ -212,7 +215,7 @@ export const createPolarCheckoutSession = action({
         console.error("billing:polar:checkout_refresh_failed", {
           errorName: error instanceof Error ? error.name : "UnknownError",
         });
-        throw new Error("Samebase could not verify your open checkout.");
+        throw new ConvexError("Samebase could not verify your open checkout.");
       }
 
       if (
@@ -236,7 +239,7 @@ export const createPolarCheckoutSession = action({
         }) ||
         (storedCheckout.status !== "expired" && storedCheckout.status !== "failed")
       ) {
-        throw new Error("Samebase could not verify your open checkout.");
+        throw new ConvexError("Samebase could not verify your open checkout.");
       }
 
       const cleared: boolean = await ctx.runMutation(internal.polarCheckout.clearOpen, {
@@ -245,13 +248,15 @@ export const createPolarCheckoutSession = action({
         checkoutId: reservation.checkoutId,
       });
       if (!cleared) {
-        throw new Error("Samebase could not verify your open checkout.");
+        throw new ConvexError("Samebase could not verify your open checkout.");
       }
       reservation = await ctx.runMutation(internal.polarCheckout.reserveAttempt, { userId });
     }
 
     if (reservation.state !== "pending" || !reservation.canCreate) {
-      throw new Error("The previous checkout result must be inspected before another can start.");
+      throw new ConvexError(
+        "The previous checkout result must be inspected before another can start.",
+      );
     }
 
     let checkout: Checkout;
@@ -280,7 +285,7 @@ export const createPolarCheckoutSession = action({
       console.error("billing:polar:checkout_failed", {
         errorName: error instanceof Error ? error.name : "UnknownError",
       });
-      throw new Error("Polar checkout could not be started.");
+      throw new ConvexError("Polar checkout could not be started.");
     }
 
     if (
@@ -293,7 +298,7 @@ export const createPolarCheckoutSession = action({
         successUrl,
       })
     ) {
-      throw new Error("Samebase could not verify your open checkout.");
+      throw new ConvexError("Samebase could not verify your open checkout.");
     }
 
     const recorded: boolean = await ctx.runMutation(internal.polarCheckout.recordOpen, {
@@ -302,7 +307,7 @@ export const createPolarCheckoutSession = action({
       checkoutId: checkout.id,
     });
     if (!recorded) {
-      throw new Error("Polar checkout could not be started.");
+      throw new ConvexError("Polar checkout could not be started.");
     }
     return { url: checkout.url };
   },
@@ -323,7 +328,7 @@ export const createPolarCustomerPortalSession = action({
 
     const externalCustomerId = currentUser.billingPolarExternalCustomerId?.trim();
     if (!externalCustomerId) {
-      throw new Error("No billing account exists yet.");
+      throw new ConvexError("No billing account exists yet.");
     }
 
     const server = resolvePolarServer();
@@ -344,7 +349,7 @@ export const createPolarCustomerPortalSession = action({
       console.error("billing:polar:portal_failed", {
         errorName: error instanceof Error ? error.name : "UnknownError",
       });
-      throw new Error("The billing portal could not be opened.");
+      throw new ConvexError("The billing portal could not be opened.");
     }
   },
 });

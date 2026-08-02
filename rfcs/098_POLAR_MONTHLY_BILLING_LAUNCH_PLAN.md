@@ -248,6 +248,8 @@ operator must approve the exact production changes before work starts.
 - [ ] Ask the operator to approve the exact production changes.
 - [ ] Use the existing private production product `Samebase Pro Monthly` at $4 per month.
 - [ ] Verify production product ID `efa4a7a9-ff34-4871-ac04-0c8a9355b751`.
+- [ ] Verify that no production user has the old `billingStatus` value `canceled` or `unknown`
+      before the narrower schema deploys. Migrate only if such a row exists.
 - [ ] Set production Polar credentials only on the production Convex deployment.
 - [ ] Register the stable production webhook endpoint and verify its signing secret.
 - [ ] Verify the stable Samebase checkout and portal return URLs.

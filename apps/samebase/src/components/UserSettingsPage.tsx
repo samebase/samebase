@@ -1,5 +1,6 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { useAction, useMutation, useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
 import { useEffect, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
@@ -37,6 +38,9 @@ const billingDateFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 function readErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof ConvexError && typeof error.data === "string") {
+    return error.data;
+  }
   return error instanceof Error ? error.message : fallback;
 }
 

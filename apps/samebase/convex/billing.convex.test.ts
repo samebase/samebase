@@ -250,7 +250,10 @@ describe("billing access", () => {
         successUrl: "https://preview.example.test/settings?checkout=success",
         returnUrl: "https://preview.example.test/settings?checkout=cancel",
       }),
-    ).rejects.toThrow("Pro checkout is not configured yet.");
+    ).rejects.toMatchObject({
+      name: "ConvexError",
+      data: "Pro checkout is not configured yet.",
+    });
     expect(polarSdkMocks.constructorOptions).not.toHaveBeenCalled();
   });
 
@@ -910,7 +913,7 @@ describe("billing reconciliation", () => {
     { label: "expired Free", status: "expired", plan: "free", clears: true },
     { label: "failed Free", status: "failed", plan: "free", clears: true },
     { label: "succeeded Free", status: "succeeded", plan: "free", clears: false },
-    { label: "open Pro", status: "open", plan: "pro", clears: false },
+    { label: "open Pro", status: "open", plan: "pro", clears: true },
     { label: "mismatch", status: "failed", plan: "free", clears: false },
     { label: "unknown status", status: "processing", plan: "free", clears: false },
     { label: "provider error", status: "error", plan: "free", clears: false },

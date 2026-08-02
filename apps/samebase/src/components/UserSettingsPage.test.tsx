@@ -2,6 +2,7 @@
 
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { ConvexError } from "convex/values";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { type AccountPresentation } from "../../shared/accountPresentation";
 import type { BillingResourceUsage } from "../../convex/billingResourceQuotas";
@@ -54,6 +55,9 @@ const actionState = vi.hoisted(() => ({
   createCheckoutSession: vi.fn(),
   createCustomerPortalSession: vi.fn(),
   reconcileBilling: vi.fn(),
+}));
+const toastState = vi.hoisted(() => ({
+  toast: vi.fn(),
 }));
 const routeEnvironmentState = vi.hoisted<{ value: "local" | "preview" | "production" }>(() => ({
   value: "local",
@@ -127,6 +131,10 @@ vi.mock("@convex-dev/auth/react", () => ({
 
 vi.mock("@/authClient", () => ({
   useAppAuthActions: () => appAuthState,
+}));
+
+vi.mock("@/components/ui/use-toast", () => ({
+  toast: toastState.toast,
 }));
 
 vi.mock("@/routing/availability", async (importOriginal) => {
@@ -324,6 +332,7 @@ describe("UserSettingsPage", () => {
     actionState.createCheckoutSession.mockReset();
     actionState.createCustomerPortalSession.mockReset();
     actionState.reconcileBilling.mockReset();
+    toastState.toast.mockReset();
     actionState.reconcileBilling.mockResolvedValue({ state: "observed", plan: "pro" });
     mutationState.requestDeletion.mockReset();
     mutationState.setDisplayName.mockReset();
@@ -674,6 +683,29 @@ describe("UserSettingsPage", () => {
       expect(actionState.createCheckoutSession).toHaveBeenCalledWith({
         returnUrl: `${window.location.origin}/settings?devtools=&checkout=cancel`,
         successUrl: `${window.location.origin}/settings?devtools=&checkout=success`,
+      });
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("shows safe checkout guidance from a Convex error", async () => {
+    actionState.createCheckoutSession.mockRejectedValue(
+      new ConvexError("Samebase could not verify your current subscription."),
+    );
+    const mounted = await mountSettingsPage();
+    try {
+      await act(async () => {
+        Array.from(mounted.rootElement.querySelectorAll("button"))
+          .find((button) => button.textContent === "Upgrade to Pro, $4/month")
+          ?.click();
+        await Promise.resolve();
+      });
+
+      expect(toastState.toast).toHaveBeenCalledWith({
+        description: "Samebase could not verify your current subscription.",
+        title: "Could not open checkout",
+        variant: "destructive",
       });
     } finally {
       await unmount(mounted.root, mounted.rootElement);
