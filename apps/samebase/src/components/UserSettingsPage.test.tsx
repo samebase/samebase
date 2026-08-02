@@ -6,6 +6,7 @@ import { ConvexError } from "convex/values";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { type AccountPresentation } from "../../shared/accountPresentation";
 import type { BillingResourceUsage } from "../../convex/billingResourceQuotas";
+import { POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM } from "@/routeSearch/settings";
 import { UserSettingsPage } from "./UserSettingsPage";
 
 const CURRENT_NAME_PRESENTATION = {
@@ -520,9 +521,13 @@ describe("UserSettingsPage", () => {
     }
   });
 
-  it("removes the checkout return value after trusted Pro state arrives", async () => {
+  it("removes both Polar return values after trusted Pro state arrives", async () => {
     vi.useFakeTimers();
-    locationState.search = { checkout: "success" };
+    locationState.search = {
+      checkout: "success",
+      devtools: true,
+      [POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM]: true,
+    };
     actionState.reconcileBilling.mockResolvedValue({ state: "observed", plan: "pro" });
     const mounted = await mountSettingsPage();
     try {
@@ -550,13 +555,22 @@ describe("UserSettingsPage", () => {
         search: expect.any(Function),
         to: ".",
       });
+
+      const searchUpdater = routerState.navigate.mock.calls[0]?.[0]?.search;
+      if (typeof searchUpdater !== "function") {
+        throw new Error("The checkout cleanup search update is missing.");
+      }
+      expect(searchUpdater(locationState.search)).toEqual({ devtools: true });
     } finally {
       await unmount(mounted.root, mounted.rootElement);
     }
   });
 
-  it("reconciles an initial Pro view before removing the checkout return value", async () => {
-    locationState.search = { checkout: "success" };
+  it("removes Polar return values from an initial trusted Pro view", async () => {
+    locationState.search = {
+      checkout: "success",
+      [POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM]: true,
+    };
     queryState.billing = {
       provider: "polar",
       plan: "pro",
@@ -565,27 +579,59 @@ describe("UserSettingsPage", () => {
       cancelAtPeriodEnd: false,
       canStartCheckout: true,
     };
-    const reconciliation = createDeferred<{ state: "observed"; plan: "pro" }>();
-    actionState.reconcileBilling.mockReturnValue(reconciliation.promise);
     const mounted = await mountSettingsPage();
     try {
       expect(mounted.rootElement.textContent).toContain("Current planPro");
-      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
-      expect(routerState.navigate).not.toHaveBeenCalled();
-
-      await act(async () => {
-        reconciliation.resolve({ state: "observed", plan: "pro" });
-        await reconciliation.promise;
-      });
-
+      expect(actionState.reconcileBilling).not.toHaveBeenCalled();
       expect(routerState.navigate).toHaveBeenCalledWith({
         replace: true,
         resetScroll: false,
         search: expect.any(Function),
         to: ".",
       });
-      await mounted.render();
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("removes Polar return values when the trusted live plan becomes Pro", async () => {
+    vi.useFakeTimers();
+    locationState.search = {
+      checkout: "success",
+      devtools: true,
+      [POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM]: true,
+    };
+    actionState.reconcileBilling.mockResolvedValue({ state: "observed", plan: "free" });
+    const mounted = await mountSettingsPage();
+    try {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
       expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+      expect(routerState.navigate).not.toHaveBeenCalled();
+
+      queryState.billing = {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        currentPeriodEndAt: Date.UTC(2026, 7, 31, 12),
+        cancelAtPeriodEnd: false,
+        canStartCheckout: true,
+      };
+      await mounted.render();
+
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+      expect(routerState.navigate).toHaveBeenCalledWith({
+        replace: true,
+        resetScroll: false,
+        search: expect.any(Function),
+        to: ".",
+      });
+      const searchUpdater = routerState.navigate.mock.calls[0]?.[0]?.search;
+      if (typeof searchUpdater !== "function") {
+        throw new Error("The checkout cleanup search update is missing.");
+      }
+      expect(searchUpdater(locationState.search)).toEqual({ devtools: true });
     } finally {
       await unmount(mounted.root, mounted.rootElement);
     }

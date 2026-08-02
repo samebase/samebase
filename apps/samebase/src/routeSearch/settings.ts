@@ -12,6 +12,7 @@ import {
 
 export const CHECKOUT_QUERY_PARAM = "checkout";
 export const DELETE_ACCOUNT_QUERY_PARAM = "delete-account";
+export const POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM = "customer_session_token";
 
 const RouteSearchSchema_settings = defineRouteSearchParams({
   [CHECKOUT_QUERY_PARAM]: routeSearchValueParam(routeSearchStringValue(["success", "cancel"]), {
@@ -20,6 +21,10 @@ const RouteSearchSchema_settings = defineRouteSearchParams({
     suggestion: "hidden",
     valueSuggestions: ["success", "cancel"],
     valueType: "options",
+  }),
+  [POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM]: routeSearchPresenceParam({
+    access: "access_user_preferences",
+    suggestion: "hidden",
   }),
   [DELETE_ACCOUNT_QUERY_PARAM]: routeSearchPresenceParam({
     access: "access_user_preferences",

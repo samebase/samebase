@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   CHECKOUT_QUERY_PARAM,
   DELETE_ACCOUNT_QUERY_PARAM,
+  POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM,
   SETTINGS_ROUTE_SEARCH_STATIC_DATA,
   validateSettingsRouteSearch,
 } from "@/routeSearch/settings";
@@ -24,13 +25,29 @@ describe("settings route search", () => {
     expect(validateSettingsRouteSearch({ [CHECKOUT_QUERY_PARAM]: "paid" })).toEqual({});
   });
 
-  it("publishes both access-controlled settings params", () => {
+  it("retains only the presence of Polar's customer session token", () => {
+    expect(
+      validateSettingsRouteSearch({
+        [POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM]: "private-value",
+      }),
+    ).toEqual({ [POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM]: true });
+  });
+
+  it("publishes the access-controlled settings params", () => {
     expect(SETTINGS_ROUTE_SEARCH_STATIC_DATA).toEqual({
-      acceptedSearchKeys: [CHECKOUT_QUERY_PARAM, DELETE_ACCOUNT_QUERY_PARAM],
+      acceptedSearchKeys: [
+        CHECKOUT_QUERY_PARAM,
+        POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM,
+        DELETE_ACCOUNT_QUERY_PARAM,
+      ],
       searchParamAccess: [
         {
           access: "access_user_preferences",
           key: CHECKOUT_QUERY_PARAM,
+        },
+        {
+          access: "access_user_preferences",
+          key: POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM,
         },
         {
           access: "access_user_preferences",
