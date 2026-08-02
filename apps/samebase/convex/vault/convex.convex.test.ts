@@ -132,12 +132,13 @@ async function createConnectedVault(teamId = "1000") {
   };
 }
 
-async function seedConvexProjectsAtFreeLimit(
+async function seedConvexProjects(
   t: ReturnType<typeof makeConvexTest>,
   args: { userId: Id<"users">; vaultId: Id<"vaults"> },
+  count = 5,
 ): Promise<void> {
   await t.run(async (ctx) => {
-    for (let index = 0; index < 5; index += 1) {
+    for (let index = 0; index < count; index += 1) {
       await ctx.db.insert("vaultConvexProjects", {
         ...args,
         teamId: "existing-team",
@@ -383,7 +384,7 @@ describe("vault Convex project attachments", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     const { asUser, t, userId, vaultId } = await createConnectedVault();
-    await seedConvexProjectsAtFreeLimit(t, { userId, vaultId });
+    await seedConvexProjects(t, { userId, vaultId });
 
     await expect(
       asUser.action(api.vault.convex.createProject, {
@@ -402,7 +403,7 @@ describe("vault Convex project attachments", () => {
 
   it("blocks a managed Convex create before the provider write at the free limit", async () => {
     const { runId, t, userId, vaultId } = await createManagedProjectCreatingFixture();
-    await seedConvexProjectsAtFreeLimit(t, { userId, vaultId });
+    await seedConvexProjects(t, { userId, vaultId });
     const fetchMock = vi.fn(async (input: Request) => {
       if (input.url.includes("/teams/1000/projects?limit=100")) {
         return jsonResponse({ items: [], pagination: { hasMore: false } });
@@ -422,6 +423,58 @@ describe("vault Convex project attachments", () => {
     ).rejects.toThrow("Convex project attachment limit reached (5).");
 
     expect(fetchMock.mock.calls.some(([input]) => input.method === "POST")).toBe(false);
+  });
+
+  it("names the created managed Convex project when another attachment takes the last slot", async () => {
+    const { runId, t, userId, vaultId } = await createManagedProjectCreatingFixture();
+    await seedConvexProjects(t, { userId, vaultId }, 4);
+    const fetchMock = vi.fn(async (input: Request) => {
+      if (input.url.includes("/teams/1000/projects?limit=100")) {
+        return jsonResponse({ items: [], pagination: { hasMore: false } });
+      }
+      if (input.url.endsWith("/teams/1000/create_project")) {
+        await t.run(
+          async (ctx) =>
+            await ctx.db.insert("vaultConvexProjects", {
+              vaultId,
+              userId,
+              teamId: "last-slot-team",
+              projectId: "last-slot-project",
+              convexConfigPath: "last-slot/convex.json",
+              origin: "selected_existing",
+            }),
+        );
+        return jsonResponse({ id: 1003, projectId: 1003, slug: "managed-project" });
+      }
+      if (input.url.endsWith("/projects/1003")) {
+        return convexProjectResponse("1003", "1000");
+      }
+      throw new Error(`Unexpected Convex request: ${input.method} ${input.url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      t.action(internal.vault.convex.ensureConvexProjectConnection, {
+        vaultId,
+        runId,
+        userId,
+        convexConfigPath: "convex.json",
+        projectName: "managed-project",
+      }),
+    ).rejects.toThrow(
+      "Convex project attachment limit reached after project managed-project was created. Delete it in the Convex dashboard, then retry.",
+    );
+
+    expect(fetchMock.mock.calls.filter(([input]) => input.method === "POST")).toHaveLength(1);
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("vaultConvexProjects")
+            .withIndex("by_project", (q) => q.eq("projectId", "1003"))
+            .unique(),
+      ),
+    ).resolves.toBeNull();
   });
 
   it("checks the manual deadline immediately before the Convex create request", async () => {
@@ -542,7 +595,7 @@ describe("vault Convex project attachments", () => {
 
   it("requires dashboard deletion when an interrupted managed create left a project", async () => {
     const { runId, t, userId, vaultId } = await createManagedProjectCreatingFixture();
-    await seedConvexProjectsAtFreeLimit(t, { userId, vaultId });
+    await seedConvexProjects(t, { userId, vaultId });
     const fetchMock = vi.fn(async (input: Request) => {
       if (input.url.includes("/teams/1000/projects?limit=100")) {
         return jsonResponse({

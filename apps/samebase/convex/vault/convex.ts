@@ -516,6 +516,7 @@ async function createProjectForManagedWorkflow(
     },
   );
   let projectId: string;
+  let projectCreated = false;
   if (checkpoint.state === "created") {
     projectId = checkpoint.projectId;
   } else {
@@ -560,19 +561,32 @@ async function createProjectForManagedWorkflow(
       },
     );
     projectId = created.id;
+    projectCreated = true;
   }
 
   const project = await readConvexProject({ connection, projectId });
   await recordConvexTeamSlug(ctx, { userId: args.userId, connection, project });
-  return await ctx.runMutation(internal.vault.convexMutations.recordManagedProjectCreated, {
-    vaultId: args.vaultId,
-    runId: args.runId,
-    userId: args.userId,
-    convexConfigPath: args.convexConfigPath,
-    projectName: validation.value,
-    teamId: connection.teamId,
-    projectId,
-  });
+  try {
+    return await ctx.runMutation(internal.vault.convexMutations.recordManagedProjectCreated, {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+      convexConfigPath: args.convexConfigPath,
+      projectName: validation.value,
+      teamId: connection.teamId,
+      projectId,
+    });
+  } catch (error) {
+    if (
+      !projectCreated ||
+      !toErrorMessage(error).includes("Convex project attachment limit reached")
+    ) {
+      throw error;
+    }
+    throw new Error(
+      `Convex project attachment limit reached after project ${validation.value} was created. Delete it in the Convex dashboard, then retry.`,
+    );
+  }
 }
 
 export const discoverProjects = action({

@@ -381,6 +381,7 @@ async function createWorkerForManagedWorkflow(
   });
 
   let worker: { workerName: string; workerTag: string };
+  let workerCreated = false;
   if (checkpoint.state === "created") {
     const identity = await readCloudflareWorkerIdentity({
       token: connection.token,
@@ -431,16 +432,29 @@ async function createWorkerForManagedWorkflow(
       accountId: account.accountId,
       workerName: validation.value,
     });
+    workerCreated = true;
   }
 
-  return await ctx.runMutation(internal.vault.cloudflareMutations.recordManagedWorkerCreated, {
-    vaultId: args.vaultId,
-    runId: args.runId,
-    userId: args.userId,
-    accountId: account.accountId,
-    workerName: worker.workerName,
-    workerTag: worker.workerTag,
-  });
+  try {
+    return await ctx.runMutation(internal.vault.cloudflareMutations.recordManagedWorkerCreated, {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+      accountId: account.accountId,
+      workerName: worker.workerName,
+      workerTag: worker.workerTag,
+    });
+  } catch (error) {
+    if (
+      !workerCreated ||
+      !toErrorMessage(error).includes("Cloudflare Worker attachment limit reached")
+    ) {
+      throw error;
+    }
+    throw new Error(
+      `Cloudflare Worker attachment limit reached after Worker ${validation.value} was created. Delete it in the Cloudflare dashboard, then retry.`,
+    );
+  }
 }
 
 function toCloudflareBuildConfig(rootDirectory: string): CloudflareBuildConfig {
