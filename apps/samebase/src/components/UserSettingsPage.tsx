@@ -79,6 +79,7 @@ export function UserSettingsPage() {
   const isDeleteDialogOpen = search[DELETE_ACCOUNT_QUERY_PARAM];
   const checkoutReturnState = search[CHECKOUT_QUERY_PARAM];
   const billingActionsAvailable = readBrowserRouteEnvironment() !== "preview";
+  const hasTrustedProBilling = billingStatus?.plan === "pro";
 
   // A successful return starts trusted provider reconciliation. The URL alone never grants Pro.
   useEffect(() => {
@@ -87,9 +88,27 @@ export function UserSettingsPage() {
       return;
     }
 
-    let active = true;
     setBillingReconciliationDelayed(false);
 
+    const clearCheckoutReturn = () => {
+      void navigate({
+        replace: true,
+        resetScroll: false,
+        search: (currentSearch) =>
+          applySearchPatch(currentSearch, {
+            [CHECKOUT_QUERY_PARAM]: null,
+            [POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM]: null,
+          }),
+        to: ".",
+      });
+    };
+
+    if (hasTrustedProBilling) {
+      clearCheckoutReturn();
+      return;
+    }
+
+    let active = true;
     const reconcileCheckoutReturn = async () => {
       try {
         const reconciled = await reconcileBilling({});
@@ -97,16 +116,7 @@ export function UserSettingsPage() {
           return;
         }
         if (reconciled.state === "observed" && reconciled.plan === "pro") {
-          void navigate({
-            replace: true,
-            resetScroll: false,
-            search: (currentSearch) =>
-              applySearchPatch(currentSearch, {
-                [CHECKOUT_QUERY_PARAM]: null,
-                [POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM]: null,
-              }),
-            to: ".",
-          });
+          clearCheckoutReturn();
         } else {
           setBillingReconciliationDelayed(true);
         }
@@ -122,7 +132,13 @@ export function UserSettingsPage() {
     return () => {
       active = false;
     };
-  }, [billingActionsAvailable, checkoutReturnState, navigate, reconcileBilling]);
+  }, [
+    billingActionsAvailable,
+    checkoutReturnState,
+    hasTrustedProBilling,
+    navigate,
+    reconcileBilling,
+  ]);
 
   if (settings === undefined) {
     return null;
