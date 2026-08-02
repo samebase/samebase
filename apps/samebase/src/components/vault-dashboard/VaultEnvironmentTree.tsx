@@ -36,6 +36,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { useState } from "react";
+import type { VaultCloudflareProviderObservationState } from "./useVaultProviderObservations";
 import type { VaultWorkspaceSelected } from "./vaultWorkspaceModel";
 
 type EnvironmentBuildState = Extract<
@@ -594,9 +595,11 @@ function OtherPreviews({ previews }: { previews: readonly VaultOtherPreview[] })
 }
 
 export function PullRequestResources({
+  cloudflareBuildsObservations,
   resource,
   settingsHref,
 }: {
+  cloudflareBuildsObservations: VaultCloudflareProviderObservationState["builds"];
   resource: PullRequestResourceState | undefined;
   settingsHref: string;
 }) {
@@ -614,7 +617,10 @@ export function PullRequestResources({
       </div>
     ) : null;
   }
-  const roots = buildPullRequestEnvironmentRoots({ resources: resource.resources });
+  const roots = buildPullRequestEnvironmentRoots({
+    cloudflareBuildsObservations,
+    resources: resource.resources,
+  });
   const otherPreviews = buildPullRequestOtherPreviews({
     resources: resource.resources,
     settingsHref,

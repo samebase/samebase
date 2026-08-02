@@ -262,6 +262,7 @@ export function VaultOverviewPage({
               <DefaultBranchSection filesReadEnabled={filesReadEnabled} workspace={workspace} />
               {developerToolsVisible ? <VaultWorkspaceDataInspector workspace={workspace} /> : null}
               <PullRequestsSection
+                cloudflareBuildsObservations={workspace.cloudflareObservations.builds}
                 filesReadEnabled={filesReadEnabled}
                 pullRequests={workspace.pullRequests}
                 vault={workspace.vault}
