@@ -27,12 +27,21 @@ async function listCancelablePolarSubscriptionIds(
     limit: 100,
   });
   let pageCount = 0;
+  let listedItemCount = 0;
+  let expectedItemCount: number | null = null;
 
   for await (const page of pages) {
     pageCount += 1;
     if (pageCount > POLAR_MAX_SUBSCRIPTION_PAGES) {
       throw new Error("Polar subscription pagination exceeded the supported bound.");
     }
+
+    const totalCount = page.result.pagination.totalCount;
+    if (expectedItemCount !== null && expectedItemCount !== totalCount) {
+      throw new Error("Polar subscription pagination count changed during the list pass.");
+    }
+    expectedItemCount = totalCount;
+    listedItemCount += page.result.items.length;
 
     for (const subscription of page.result.items) {
       switch (subscription.status) {
@@ -51,6 +60,10 @@ async function listCancelablePolarSubscriptionIds(
           throw new Error("Polar subscription status is invalid.");
       }
     }
+  }
+
+  if (expectedItemCount !== listedItemCount) {
+    throw new Error("Polar subscription pagination item count is inconsistent.");
   }
 
   return subscriptionIds;

@@ -20,7 +20,7 @@ export function readPolarProMonthlyProductId(): string | null {
   return readConfiguredValue(env.POLAR_PRO_MONTHLY_PRODUCT_ID);
 }
 
-export function createPolarClient(): Polar {
+export function createPolarClient(timeoutMs = POLAR_API_TIMEOUT_MS): Polar {
   const accessToken = readConfiguredValue(env.POLAR_ACCESS_TOKEN);
   if (!accessToken) {
     throw new Error("Polar billing is not configured.");
@@ -29,6 +29,6 @@ export function createPolarClient(): Polar {
   return new Polar({
     accessToken,
     server: resolvePolarServer(),
-    timeoutMs: POLAR_API_TIMEOUT_MS,
+    timeoutMs,
   });
 }

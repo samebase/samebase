@@ -3,6 +3,9 @@ import { Webhook, WebhookVerificationError } from "standardwebhooks";
 
 import { env, httpAction } from "./_generated/server";
 import { reconcilePolarCustomerBilling } from "./polarBillingState";
+import { createPolarClient } from "./polarClient";
+
+const POLAR_WEBHOOK_API_TIMEOUT_MS = 1_500;
 
 /**
  * Polar's SDK verifier converts this secret with Node `Buffer`. Use its Standard Webhooks
@@ -77,7 +80,10 @@ export const handlePolarWebhook = httpAction(async (ctx, request) => {
   }
 
   try {
-    await reconcilePolarCustomerBilling(ctx, { externalCustomerId });
+    await reconcilePolarCustomerBilling(ctx, {
+      externalCustomerId,
+      polar: createPolarClient(POLAR_WEBHOOK_API_TIMEOUT_MS),
+    });
     return new Response(null, { status: 204 });
   } catch (error) {
     console.error("billing:polar:webhook:reconciliation_failed", {

@@ -27,15 +27,17 @@ export type PolarBillingState = Infer<typeof vPolarBillingState>;
 function selectPolarEntitledSubscription(args: {
   selectedSubscription: Subscription | null;
   subscription: Subscription;
+  externalCustomerId: string;
   productId: string;
 }): Subscription | null {
   if (
+    args.subscription.customer.externalId !== args.externalCustomerId ||
     args.subscription.productId !== args.productId ||
     (args.subscription.status !== "active" &&
       args.subscription.status !== "trialing" &&
       args.subscription.status !== "past_due")
   ) {
-    return args.selectedSubscription;
+    throw new Error("Polar entitled subscription does not match the requested filters.");
   }
 
   if (
@@ -90,15 +92,22 @@ export async function readCanonicalPolarBillingState(args: {
     page: 1,
     limit: 100,
   });
-  if (page.result.pagination.totalCount > 100) {
-    throw new Error("Polar customer has more than 100 entitled subscriptions.");
+  const items = page.result.items;
+  const pagination = page.result.pagination;
+  if (
+    pagination.totalCount > 100 ||
+    pagination.totalCount !== items.length ||
+    pagination.maxPage !== Math.ceil(pagination.totalCount / 100)
+  ) {
+    throw new Error("Polar entitled subscription page is inconsistent.");
   }
 
   let selectedSubscription: Subscription | null = null;
-  for (const subscription of page.result.items) {
+  for (const subscription of items) {
     selectedSubscription = selectPolarEntitledSubscription({
       selectedSubscription,
       subscription,
+      externalCustomerId,
       productId: args.productId,
     });
   }
@@ -170,7 +179,7 @@ type PolarReconciliationCtx = Pick<ActionCtx, "runMutation">;
 
 export async function reconcilePolarCustomerBilling(
   ctx: PolarReconciliationCtx,
-  args: { externalCustomerId: string },
+  args: { externalCustomerId: string; polar: Polar },
 ): Promise<boolean> {
   const externalCustomerId = args.externalCustomerId.trim();
   if (!externalCustomerId) {
@@ -191,7 +200,7 @@ export async function reconcilePolarCustomerBilling(
   }
 
   const state = await readCanonicalPolarBillingState({
-    polar: createPolarClient(),
+    polar: args.polar,
     externalCustomerId,
     productId,
   });
@@ -206,5 +215,9 @@ export const reconcileCustomerFromPolar = internalAction({
     externalCustomerId: string(),
   },
   returns: boolean(),
-  handler: async (ctx, args): Promise<boolean> => await reconcilePolarCustomerBilling(ctx, args),
+  handler: async (ctx, args): Promise<boolean> =>
+    await reconcilePolarCustomerBilling(ctx, {
+      ...args,
+      polar: createPolarClient(),
+    }),
 });

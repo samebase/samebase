@@ -69,15 +69,18 @@ async function seedUser(billingPolarExternalCustomerId?: string) {
   return { t, ...ids };
 }
 
-function subscriptionPages(items: Array<{ id: string; status: string }>) {
+function subscriptionPages(
+  items: Array<{ id: string; status: string }>,
+  totalCount = items.length,
+) {
   return {
     [Symbol.asyncIterator]: async function* () {
       yield {
         result: {
           items,
           pagination: {
-            totalCount: items.length,
-            maxPage: 1,
+            totalCount,
+            maxPage: Math.ceil(totalCount / 100),
           },
         },
       };
@@ -274,6 +277,45 @@ describe("account deletion billing actions", () => {
       state: "failed",
       safeError: "Polar subscription cancellation could not be confirmed.",
     });
+  });
+
+  it("fails closed when the first subscription-list pass omits reported items", async () => {
+    const { t, runId } = await seedUser("external-customer-test");
+    configurePolar();
+    polarSdkMocks.subscriptionsList.mockResolvedValue(subscriptionPages([], 1));
+
+    await expect(
+      t.action(internal.accountDeletion.billingActions.cancelForAccountDeletion, {
+        runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({
+      state: "failed",
+      safeError: "Polar subscription cancellation could not be confirmed.",
+    });
+    expect(polarSdkMocks.subscriptionsRevoke).not.toHaveBeenCalled();
+    expect(polarSdkMocks.subscriptionsList).toHaveBeenCalledOnce();
+  });
+
+  it("fails closed when the verification subscription-list pass omits reported items", async () => {
+    const { t, runId } = await seedUser("external-customer-test");
+    configurePolar();
+    polarSdkMocks.subscriptionsList
+      .mockResolvedValueOnce(subscriptionPages([{ id: "subscription-a", status: "active" }]))
+      .mockResolvedValueOnce(subscriptionPages([], 1));
+    polarSdkMocks.subscriptionsRevoke.mockResolvedValue({});
+
+    await expect(
+      t.action(internal.accountDeletion.billingActions.cancelForAccountDeletion, {
+        runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({
+      state: "failed",
+      safeError: "Polar subscription cancellation could not be confirmed.",
+    });
+    expect(polarSdkMocks.subscriptionsRevoke).toHaveBeenCalledWith({ id: "subscription-a" });
+    expect(polarSdkMocks.subscriptionsList).toHaveBeenCalledTimes(2);
   });
 
   it("does not expose Polar response details in the failure outcome", async () => {

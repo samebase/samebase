@@ -57,11 +57,13 @@ function subscriptionPage(items: readonly unknown[], totalCount = items.length) 
 
 function polarSubscription(args: {
   cancelAtPeriodEnd?: boolean;
+  externalCustomerId?: string;
   productId?: string;
   status: string;
 }) {
   return {
     id: "polar-subscription",
+    customer: { externalId: args.externalCustomerId ?? "existing-customer" },
     productId: args.productId ?? productId,
     status: args.status,
     currentPeriodEnd: new Date(currentPeriodEnd),
