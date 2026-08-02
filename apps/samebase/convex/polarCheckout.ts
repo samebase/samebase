@@ -1,4 +1,3 @@
-import type { Polar } from "@polar-sh/sdk";
 import type { Checkout } from "@polar-sh/sdk/models/components/checkout";
 import { PolarError } from "@polar-sh/sdk/models/errors/polarerror";
 import { Infer, v } from "convex/values";
@@ -6,37 +5,21 @@ import { Infer, v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { randomToken } from "./oauthUtils";
 
-const { boolean, id, literal, null: nullValue, number, object, string, union } = v;
+const { boolean, id, literal, object, string, union } = v;
 
 const vPolarCheckoutReservation = union(
   object({
-    state: literal("creating"),
+    state: literal("pending"),
     attemptId: string(),
-    leaseId: string(),
     canCreate: boolean(),
-  }),
-  object({
-    state: literal("recovering"),
-    attemptId: string(),
-    recoverUntilAt: number(),
   }),
   object({
     state: literal("open"),
     attemptId: string(),
     checkoutId: string(),
-    expiresAt: number(),
   }),
 );
 export type PolarCheckoutReservation = Infer<typeof vPolarCheckoutReservation>;
-
-const POLAR_CHECKOUT_CREATION_LEASE_MS = 60_000;
-const POLAR_CHECKOUT_MAX_LIST_PAGES = 10;
-export const POLAR_CHECKOUT_EXPIRY_SAFETY_MARGIN_MS = 60_000;
-
-// Polar checkouts expire after 24 hours. The extra minute covers a request that reaches Polar at
-// the end of the local request timeout and provider clock skew during account deletion.
-const POLAR_CHECKOUT_RECOVERY_WINDOW_MS =
-  24 * 60 * 60 * 1_000 + POLAR_CHECKOUT_EXPIRY_SAFETY_MARGIN_MS;
 
 export function matchesPolarCheckoutAttempt(args: {
   attemptId: string;
@@ -71,61 +54,6 @@ export function isOpenPolarCheckoutForAttempt(args: {
   );
 }
 
-export function isPolarCheckoutUnavailable(checkout: Checkout): boolean {
-  return (
-    checkout.status === "expired" ||
-    checkout.status === "failed" ||
-    (checkout.status === "open" && checkout.expiresAt.getTime() <= Date.now())
-  );
-}
-
-export async function findPolarCheckoutForAttempt(args: {
-  polar: Polar;
-  attemptId: string;
-  externalCustomerId: string;
-  productId: string;
-}): Promise<Checkout | null> {
-  const pages = await args.polar.checkouts.list({
-    externalCustomerId: args.externalCustomerId,
-    productId: args.productId,
-    sorting: ["-created_at"],
-    limit: 100,
-  });
-  let pageCount = 0;
-  let selected: Checkout | null = null;
-
-  for await (const page of pages) {
-    pageCount += 1;
-    if (pageCount > POLAR_CHECKOUT_MAX_LIST_PAGES) {
-      throw new Error("Polar checkout pagination exceeded the supported bound.");
-    }
-
-    for (const checkout of page.result.items) {
-      if (
-        !matchesPolarCheckoutAttempt({
-          attemptId: args.attemptId,
-          checkout,
-          externalCustomerId: args.externalCustomerId,
-          productId: args.productId,
-        })
-      ) {
-        continue;
-      }
-
-      if (
-        selected === null ||
-        checkout.createdAt.getTime() > selected.createdAt.getTime() ||
-        (checkout.createdAt.getTime() === selected.createdAt.getTime() &&
-          checkout.id.localeCompare(selected.id) < 0)
-      ) {
-        selected = checkout;
-      }
-    }
-  }
-
-  return selected;
-}
-
 export function isDefinitivePolarCheckoutFailure(error: unknown): boolean {
   return error instanceof PolarError && error.statusCode >= 400 && error.statusCode < 500;
 }
@@ -144,68 +72,43 @@ export const reserveAttempt = internalMutation({
       throw new Error("Checkout is unavailable.");
     }
 
-    const now = Date.now();
     const existing = user.billingPolarCheckoutAttempt;
     if (existing?.state === "open") {
       return existing;
     }
-    if (existing?.state === "recovering") {
-      return existing;
-    }
-    if (existing?.state === "creating" && existing.leaseExpiresAt > now) {
+    if (existing?.state === "pending") {
       return {
-        state: "creating",
+        state: "pending",
         attemptId: existing.attemptId,
-        leaseId: existing.leaseId,
         canCreate: false,
       };
     }
 
-    const attemptId =
-      existing?.state === "creating" ? existing.attemptId : `polar_checkout_${randomToken(18)}`;
-    const leaseId = randomToken(18);
+    const attemptId = `polar_checkout_${randomToken(18)}`;
     await ctx.db.patch(args.userId, {
       billingPolarCheckoutAttempt: {
-        state: "creating",
+        state: "pending",
         attemptId,
-        leaseId,
-        leaseExpiresAt: now + POLAR_CHECKOUT_CREATION_LEASE_MS,
       },
     });
-    return { state: "creating", attemptId, leaseId, canCreate: true };
+    return { state: "pending", attemptId, canCreate: true };
   },
 });
 
-export const beginRecovery = internalMutation({
+export const clearPending = internalMutation({
   args: {
     userId: id("users"),
     attemptId: string(),
-    leaseId: string(),
   },
   returns: boolean(),
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
-    if (!user || user.accountDeletion !== undefined) {
-      return false;
-    }
-    const attempt = user.billingPolarCheckoutAttempt;
-    const now = Date.now();
-    if (
-      attempt?.state !== "creating" ||
-      attempt.attemptId !== args.attemptId ||
-      attempt.leaseId !== args.leaseId ||
-      attempt.leaseExpiresAt <= now
-    ) {
+    const attempt = user?.billingPolarCheckoutAttempt;
+    if (!user || attempt?.state !== "pending" || attempt.attemptId !== args.attemptId) {
       return false;
     }
 
-    await ctx.db.patch(user._id, {
-      billingPolarCheckoutAttempt: {
-        state: "recovering",
-        attemptId: args.attemptId,
-        recoverUntilAt: now + POLAR_CHECKOUT_RECOVERY_WINDOW_MS,
-      },
-    });
+    await ctx.db.patch(user._id, { billingPolarCheckoutAttempt: undefined });
     return true;
   },
 });
@@ -215,7 +118,6 @@ export const recordOpen = internalMutation({
     userId: id("users"),
     attemptId: string(),
     checkoutId: string(),
-    expiresAt: number(),
   },
   returns: boolean(),
   handler: async (ctx, args) => {
@@ -224,10 +126,10 @@ export const recordOpen = internalMutation({
       return false;
     }
     const attempt = user.billingPolarCheckoutAttempt;
-    if (attempt?.attemptId !== args.attemptId) {
-      return false;
-    }
-    if (attempt.state === "open" && attempt.checkoutId !== args.checkoutId) {
+    if (
+      attempt?.attemptId !== args.attemptId ||
+      (attempt.state === "open" && attempt.checkoutId !== args.checkoutId)
+    ) {
       return false;
     }
 
@@ -236,50 +138,8 @@ export const recordOpen = internalMutation({
         state: "open",
         attemptId: args.attemptId,
         checkoutId: args.checkoutId,
-        expiresAt: args.expiresAt,
       },
     });
-    return true;
-  },
-});
-
-export const releaseRecovery = internalMutation({
-  args: {
-    userId: id("users"),
-    attemptId: string(),
-  },
-  returns: nullValue(),
-  handler: async (ctx, args) => {
-    const user = await ctx.db.get(args.userId);
-    if (
-      user?.billingPolarCheckoutAttempt?.state === "recovering" &&
-      user.billingPolarCheckoutAttempt.attemptId === args.attemptId
-    ) {
-      await ctx.db.patch(user._id, { billingPolarCheckoutAttempt: undefined });
-    }
-    return null;
-  },
-});
-
-export const expireRecovery = internalMutation({
-  args: {
-    userId: id("users"),
-    attemptId: string(),
-  },
-  returns: boolean(),
-  handler: async (ctx, args) => {
-    const user = await ctx.db.get(args.userId);
-    const attempt = user?.billingPolarCheckoutAttempt;
-    if (
-      !user ||
-      attempt?.state !== "recovering" ||
-      attempt.attemptId !== args.attemptId ||
-      attempt.recoverUntilAt > Date.now()
-    ) {
-      return false;
-    }
-
-    await ctx.db.patch(user._id, { billingPolarCheckoutAttempt: undefined });
     return true;
   },
 });

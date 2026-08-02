@@ -11,10 +11,8 @@ import {
   readCanonicalPolarBillingState,
 } from "./polarBillingState";
 import {
-  findPolarCheckoutForAttempt,
   isDefinitivePolarCheckoutFailure,
   isOpenPolarCheckoutForAttempt,
-  isPolarCheckoutUnavailable,
   matchesPolarCheckoutAttempt,
   type PolarCheckoutReservation,
 } from "./polarCheckout";
@@ -237,43 +235,38 @@ export const createPolarCheckoutSession = action({
       { userId },
     );
     if (reservation.state === "open") {
-      let storedCheckout: Checkout | null;
+      let storedCheckout: Checkout;
       try {
         storedCheckout = await polar.checkouts.get({ id: reservation.checkoutId });
       } catch (error) {
-        if (!isPolarResourceNotFound(error)) {
-          console.error("billing:polar:checkout_refresh_failed", {
-            errorName: error instanceof Error ? error.name : "UnknownError",
-          });
-          throw new Error("Samebase could not verify your open checkout.");
-        }
-        storedCheckout = null;
+        console.error("billing:polar:checkout_refresh_failed", {
+          errorName: error instanceof Error ? error.name : "UnknownError",
+        });
+        throw new Error("Samebase could not verify your open checkout.");
       }
 
-      if (storedCheckout !== null) {
-        if (
-          isOpenPolarCheckoutForAttempt({
-            attemptId: reservation.attemptId,
-            checkout: storedCheckout,
-            externalCustomerId: customer.externalCustomerId,
-            productId,
-            returnUrl,
-            successUrl,
-          })
-        ) {
-          return { url: storedCheckout.url };
-        }
-        if (
-          !matchesPolarCheckoutAttempt({
-            attemptId: reservation.attemptId,
-            checkout: storedCheckout,
-            externalCustomerId: customer.externalCustomerId,
-            productId,
-          }) ||
-          !isPolarCheckoutUnavailable(storedCheckout)
-        ) {
-          throw new Error("Samebase could not verify your open checkout.");
-        }
+      if (
+        isOpenPolarCheckoutForAttempt({
+          attemptId: reservation.attemptId,
+          checkout: storedCheckout,
+          externalCustomerId: customer.externalCustomerId,
+          productId,
+          returnUrl,
+          successUrl,
+        })
+      ) {
+        return { url: storedCheckout.url };
+      }
+      if (
+        !matchesPolarCheckoutAttempt({
+          attemptId: reservation.attemptId,
+          checkout: storedCheckout,
+          externalCustomerId: customer.externalCustomerId,
+          productId,
+        }) ||
+        (storedCheckout.status !== "expired" && storedCheckout.status !== "failed")
+      ) {
+        throw new Error("Samebase could not verify your open checkout.");
       }
 
       const cleared: boolean = await ctx.runMutation(internal.polarCheckout.clearOpen, {
@@ -287,82 +280,8 @@ export const createPolarCheckoutSession = action({
       reservation = await ctx.runMutation(internal.polarCheckout.reserveAttempt, { userId });
     }
 
-    let recoveredCheckout: Checkout | null;
-    try {
-      recoveredCheckout = await findPolarCheckoutForAttempt({
-        polar,
-        attemptId: reservation.attemptId,
-        externalCustomerId: customer.externalCustomerId,
-        productId,
-      });
-    } catch (error) {
-      console.error("billing:polar:checkout_recovery_failed", {
-        errorName: error instanceof Error ? error.name : "UnknownError",
-      });
-      throw new Error("Samebase could not verify your open checkout.");
-    }
-
-    if (recoveredCheckout !== null) {
-      if (
-        isOpenPolarCheckoutForAttempt({
-          attemptId: reservation.attemptId,
-          checkout: recoveredCheckout,
-          externalCustomerId: customer.externalCustomerId,
-          productId,
-          returnUrl,
-          successUrl,
-        })
-      ) {
-        const recorded: boolean = await ctx.runMutation(internal.polarCheckout.recordOpen, {
-          userId,
-          attemptId: reservation.attemptId,
-          checkoutId: recoveredCheckout.id,
-          expiresAt: recoveredCheckout.expiresAt.getTime(),
-        });
-        if (!recorded) {
-          throw new Error("Samebase could not recover your open checkout.");
-        }
-        return { url: recoveredCheckout.url };
-      }
-      if (reservation.state !== "recovering" || !isPolarCheckoutUnavailable(recoveredCheckout)) {
-        throw new Error("Samebase could not verify your open checkout.");
-      }
-
-      await ctx.runMutation(internal.polarCheckout.releaseRecovery, {
-        userId,
-        attemptId: reservation.attemptId,
-      });
-      reservation = await ctx.runMutation(internal.polarCheckout.reserveAttempt, { userId });
-    }
-
-    if (reservation.state === "recovering") {
-      if (reservation.recoverUntilAt > Date.now()) {
-        throw new Error("Checkout result is still being recovered. Please try again later.");
-      }
-      const expired: boolean = await ctx.runMutation(internal.polarCheckout.expireRecovery, {
-        userId,
-        attemptId: reservation.attemptId,
-      });
-      if (!expired) {
-        throw new Error("Checkout result is still being recovered. Please try again later.");
-      }
-      reservation = await ctx.runMutation(internal.polarCheckout.reserveAttempt, { userId });
-    }
-
-    if (reservation.state !== "creating") {
-      throw new Error("Checkout is already being prepared. Please try again.");
-    }
-    if (!reservation.canCreate) {
-      throw new Error("Checkout is already being prepared. Please try again.");
-    }
-
-    const recovering: boolean = await ctx.runMutation(internal.polarCheckout.beginRecovery, {
-      userId,
-      attemptId: reservation.attemptId,
-      leaseId: reservation.leaseId,
-    });
-    if (!recovering) {
-      throw new Error("Checkout is already being prepared. Please try again.");
+    if (reservation.state !== "pending" || !reservation.canCreate) {
+      throw new Error("The previous checkout result must be inspected before another can start.");
     }
 
     let checkout: Checkout;
@@ -383,7 +302,7 @@ export const createPolarCheckoutSession = action({
       });
     } catch (error) {
       if (isDefinitivePolarCheckoutFailure(error)) {
-        await ctx.runMutation(internal.polarCheckout.releaseRecovery, {
+        await ctx.runMutation(internal.polarCheckout.clearPending, {
           userId,
           attemptId: reservation.attemptId,
         });
@@ -411,7 +330,6 @@ export const createPolarCheckoutSession = action({
       userId,
       attemptId: reservation.attemptId,
       checkoutId: checkout.id,
-      expiresAt: checkout.expiresAt.getTime(),
     });
     if (!recorded) {
       throw new Error("Polar checkout could not be started.");

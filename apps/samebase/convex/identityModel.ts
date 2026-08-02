@@ -73,21 +73,13 @@ export const identityTables = {
     billingPolarCheckoutAttempt: optional(
       union(
         object({
-          state: literal("creating"),
+          state: literal("pending"),
           attemptId: string(),
-          leaseId: string(),
-          leaseExpiresAt: number(),
-        }),
-        object({
-          state: literal("recovering"),
-          attemptId: string(),
-          recoverUntilAt: number(),
         }),
         object({
           state: literal("open"),
           attemptId: string(),
           checkoutId: string(),
-          expiresAt: number(),
         }),
       ),
     ),

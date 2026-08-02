@@ -6,7 +6,6 @@ const polarSdkMocks = vi.hoisted(() => ({
   constructorOptions: vi.fn(),
   checkoutsCreate: vi.fn(),
   checkoutsGet: vi.fn(),
-  checkoutsList: vi.fn(),
   customerSessionsCreate: vi.fn(),
   customersGetStateExternal: vi.fn(),
 }));
@@ -16,7 +15,6 @@ vi.mock("@polar-sh/sdk", () => ({
     readonly checkouts = {
       create: polarSdkMocks.checkoutsCreate,
       get: polarSdkMocks.checkoutsGet,
-      list: polarSdkMocks.checkoutsList,
     };
     readonly customerSessions = { create: polarSdkMocks.customerSessionsCreate };
     readonly customers = { getStateExternal: polarSdkMocks.customersGetStateExternal };
@@ -27,7 +25,7 @@ vi.mock("@polar-sh/sdk", () => ({
   },
 }));
 
-import { api, internal } from "./_generated/api";
+import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { makeConvexTest } from "./test.setup";
 
@@ -47,12 +45,6 @@ function createDeferred<Value>() {
     control.resolve = resolve;
   });
   return { promise, resolve: control.resolve };
-}
-
-function checkoutPages(items: readonly unknown[]) {
-  return (async function* () {
-    yield { result: { items } };
-  })();
 }
 
 function polarCheckout(args: {
@@ -119,34 +111,6 @@ async function seedMember(t: ConvexTest, isApproved = true) {
       name: "Ada",
       email: "ada.member@example.test",
       isApproved,
-    });
-  });
-}
-
-async function markAccountDeleting(t: ConvexTest, userId: Id<"users">): Promise<void> {
-  await t.run(async (ctx) => {
-    const initiatingSessionId = await ctx.db.insert("authSessions", {
-      userId,
-      expirationTime: 2_000_000_000_000,
-    });
-    const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
-      identity: { state: "active", userId, email: "ada.member@example.test" },
-      completionCapability: "billing-checkout-race-test",
-      state: "running",
-      workflow: { state: "started", workflowId: "billing-checkout-race", attempt: 1 },
-      currentStep: "request_accepted",
-      requestedAt: Date.now(),
-      updatedAt: Date.now(),
-      initiatingSessionId,
-      retryCount: 0,
-      outcomes: {
-        billing: { state: "not_started" },
-        providerRevocation: { state: "not_started" },
-        completionEmail: { state: "not_started" },
-      },
-    });
-    await ctx.db.patch(userId, {
-      accountDeletion: { state: "deleting", runId, requestedAt: Date.now() },
     });
   });
 }
@@ -227,7 +191,6 @@ function configureSandboxBilling(): void {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  polarSdkMocks.checkoutsList.mockImplementation(() => Promise.resolve(checkoutPages([])));
 });
 
 afterEach(() => {
@@ -379,14 +342,12 @@ describe("billing access", () => {
     });
 
     expect(polarSdkMocks.checkoutsCreate).toHaveBeenCalledOnce();
-    expect(polarSdkMocks.checkoutsList).toHaveBeenCalledOnce();
     expect(polarSdkMocks.checkoutsGet).toHaveBeenCalledWith({ id: "checkout-reused" });
     const user = await t.run(async (ctx) => await ctx.db.get(userId));
     expect(user?.billingPolarCheckoutAttempt).toEqual({
       state: "open",
       attemptId: expect.stringMatching(/^polar_checkout_/),
       checkoutId: "checkout-reused",
-      expiresAt: checkoutExpiresAt.getTime(),
     });
   });
 
@@ -401,7 +362,6 @@ describe("billing access", () => {
           state: "open",
           attemptId,
           checkoutId: "checkout-stored-customer",
-          expiresAt: checkoutExpiresAt.getTime(),
         },
       });
     });
@@ -436,7 +396,6 @@ describe("billing access", () => {
           state: "open",
           attemptId,
           checkoutId: "checkout-stored-product",
-          expiresAt: checkoutExpiresAt.getTime(),
         },
       });
     });
@@ -484,7 +443,6 @@ describe("billing access", () => {
           state: "open",
           attemptId,
           checkoutId: "checkout-stored-redirect",
-          expiresAt: checkoutExpiresAt.getTime(),
         },
       });
     });
@@ -519,7 +477,6 @@ describe("billing access", () => {
           state: "open",
           attemptId,
           checkoutId: "checkout-stored-expired",
-          expiresAt: checkoutExpiresAt.getTime(),
         },
       });
     });
@@ -550,6 +507,36 @@ describe("billing access", () => {
     expect(polarSdkMocks.checkoutsCreate).toHaveBeenCalledOnce();
   });
 
+  it("keeps a stored open checkout when Polar cannot prove its status", async () => {
+    const t = makeConvexTest();
+    const userId = await seedMember(t);
+    const checkoutAttempt = {
+      state: "open" as const,
+      attemptId: "polar_checkout_unknown_status",
+      checkoutId: "checkout-unknown-status",
+    };
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId, {
+        billingPolarExternalCustomerId: "existing-customer",
+        billingPolarCheckoutAttempt: checkoutAttempt,
+      });
+    });
+    configureSandboxBilling();
+    polarSdkMocks.customersGetStateExternal.mockRejectedValue(resourceNotFound());
+    polarSdkMocks.checkoutsGet.mockRejectedValue(resourceNotFound());
+
+    await expect(
+      asUser(t, userId).action(api.billing.createPolarCheckoutSession, {
+        successUrl: "http://localhost:5174/settings?checkout=success",
+        returnUrl: "http://localhost:5174/settings?checkout=cancel",
+      }),
+    ).rejects.toThrow("Samebase could not verify your open checkout.");
+    await expect(
+      t.run(async (ctx) => (await ctx.db.get(userId))?.billingPolarCheckoutAttempt),
+    ).resolves.toEqual(checkoutAttempt);
+    expect(polarSdkMocks.checkoutsCreate).not.toHaveBeenCalled();
+  });
+
   it("allows only one concurrent checkout creation", async () => {
     const t = makeConvexTest();
     const userId = await seedMember(t);
@@ -570,7 +557,7 @@ describe("billing access", () => {
     await vi.waitFor(() => expect(polarSdkMocks.checkoutsCreate).toHaveBeenCalledOnce());
 
     await expect(viewer.action(api.billing.createPolarCheckoutSession, args)).rejects.toThrow(
-      "Checkout result is still being recovered. Please try again later.",
+      "The previous checkout result must be inspected before another can start.",
     );
     const createRequest = polarSdkMocks.checkoutsCreate.mock.calls[0]?.[0];
     createGate.resolve(
@@ -586,147 +573,7 @@ describe("billing access", () => {
     expect(polarSdkMocks.checkoutsCreate).toHaveBeenCalledOnce();
   });
 
-  it("does not cross an account deletion marker before provider create", async () => {
-    const t = makeConvexTest();
-    const userId = await seedMember(t);
-    await t.run(async (ctx) => {
-      await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
-    });
-    configureSandboxBilling();
-    polarSdkMocks.customersGetStateExternal.mockRejectedValue(resourceNotFound());
-    const checkoutList = createDeferred<ReturnType<typeof checkoutPages>>();
-    polarSdkMocks.checkoutsList.mockReturnValue(checkoutList.promise);
-
-    const checkoutRequest = asUser(t, userId).action(api.billing.createPolarCheckoutSession, {
-      successUrl: "http://localhost:5174/settings?checkout=success",
-      returnUrl: "http://localhost:5174/settings?checkout=cancel",
-    });
-    await vi.waitFor(() => expect(polarSdkMocks.checkoutsList).toHaveBeenCalledOnce());
-    await markAccountDeleting(t, userId);
-    checkoutList.resolve(checkoutPages([]));
-
-    await expect(checkoutRequest).rejects.toThrow(
-      "Checkout is already being prepared. Please try again.",
-    );
-    await expect(t.mutation(internal.polarCheckout.reserveAttempt, { userId })).rejects.toThrow(
-      "Checkout is unavailable.",
-    );
-    expect(polarSdkMocks.checkoutsCreate).not.toHaveBeenCalled();
-  });
-
-  it("recovers a Polar checkout created before the local result was stored", async () => {
-    const t = makeConvexTest();
-    const userId = await seedMember(t);
-    const attemptId = "polar_checkout_recovery";
-    await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        billingPolarExternalCustomerId: "existing-customer",
-        billingPolarCheckoutAttempt: {
-          state: "recovering",
-          attemptId,
-          recoverUntilAt: Date.now() + 24 * 60 * 60 * 1_000,
-        },
-      });
-    });
-    configureSandboxBilling();
-    polarSdkMocks.customersGetStateExternal.mockRejectedValue(resourceNotFound());
-    polarSdkMocks.checkoutsList.mockImplementation(() =>
-      Promise.resolve(
-        checkoutPages([polarCheckout({ attemptId, externalCustomerId: "existing-customer" })]),
-      ),
-    );
-
-    await expect(
-      asUser(t, userId).action(api.billing.createPolarCheckoutSession, {
-        successUrl: "http://localhost:5174/settings?checkout=success",
-        returnUrl: "http://localhost:5174/settings?checkout=cancel",
-      }),
-    ).resolves.toEqual({ url: "https://sandbox.polar.sh/checkout/recovered" });
-    expect(polarSdkMocks.checkoutsCreate).not.toHaveBeenCalled();
-    const user = await t.run(async (ctx) => await ctx.db.get(userId));
-    expect(user?.billingPolarCheckoutAttempt).toEqual({
-      state: "open",
-      attemptId,
-      checkoutId: "checkout-recovered",
-      expiresAt: checkoutExpiresAt.getTime(),
-    });
-  });
-
-  it("does not recover a checkout with a stale bare return URL", async () => {
-    const t = makeConvexTest();
-    const userId = await seedMember(t);
-    const attemptId = "polar_checkout_stale_return_url";
-    await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        billingPolarExternalCustomerId: "existing-customer",
-        billingPolarCheckoutAttempt: {
-          state: "recovering",
-          attemptId,
-          recoverUntilAt: Date.now() + 24 * 60 * 60 * 1_000,
-        },
-      });
-    });
-    configureSandboxBilling();
-    polarSdkMocks.customersGetStateExternal.mockRejectedValue(resourceNotFound());
-    polarSdkMocks.checkoutsList.mockImplementation(() =>
-      Promise.resolve(
-        checkoutPages([
-          polarCheckout({
-            attemptId,
-            externalCustomerId: "existing-customer",
-            returnUrl: "http://localhost:5174/settings",
-          }),
-        ]),
-      ),
-    );
-
-    await expect(
-      asUser(t, userId).action(api.billing.createPolarCheckoutSession, {
-        successUrl: "http://localhost:5174/settings?checkout=success",
-        returnUrl: "http://localhost:5174/settings?checkout=cancel",
-      }),
-    ).rejects.toThrow("Samebase could not verify your open checkout.");
-    expect(polarSdkMocks.checkoutsCreate).not.toHaveBeenCalled();
-  });
-
-  it("does not recover a checkout that contains more than the configured product", async () => {
-    const t = makeConvexTest();
-    const userId = await seedMember(t);
-    const attemptId = "polar_checkout_multiple_products";
-    await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        billingPolarExternalCustomerId: "existing-customer",
-        billingPolarCheckoutAttempt: {
-          state: "recovering",
-          attemptId,
-          recoverUntilAt: Date.now() + 24 * 60 * 60 * 1_000,
-        },
-      });
-    });
-    configureSandboxBilling();
-    polarSdkMocks.customersGetStateExternal.mockRejectedValue(resourceNotFound());
-    polarSdkMocks.checkoutsList.mockImplementation(() =>
-      Promise.resolve(
-        checkoutPages([
-          polarCheckout({
-            attemptId,
-            externalCustomerId: "existing-customer",
-            products: [{ id: productId }, { id: "another-product" }],
-          }),
-        ]),
-      ),
-    );
-
-    await expect(
-      asUser(t, userId).action(api.billing.createPolarCheckoutSession, {
-        successUrl: "http://localhost:5174/settings?checkout=success",
-        returnUrl: "http://localhost:5174/settings?checkout=cancel",
-      }),
-    ).rejects.toThrow("Checkout result is still being recovered. Please try again later.");
-    expect(polarSdkMocks.checkoutsCreate).not.toHaveBeenCalled();
-  });
-
-  it("releases the creation lease after a definitive Polar rejection", async () => {
+  it("clears pending after a definitive Polar rejection", async () => {
     const t = makeConvexTest();
     const userId = await seedMember(t);
     await t.run(async (ctx) => {
@@ -758,7 +605,7 @@ describe("billing access", () => {
     expect(polarSdkMocks.checkoutsCreate).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps an ambiguous attempt in recovery and never creates it twice", async () => {
+  it("keeps an ambiguous create result pending and never creates it twice", async () => {
     const t = makeConvexTest();
     const userId = await seedMember(t);
     await t.run(async (ctx) => {
@@ -781,33 +628,21 @@ describe("billing access", () => {
     const firstAttempt = await t.run(
       async (ctx) => (await ctx.db.get(userId))?.billingPolarCheckoutAttempt,
     );
-    expect(firstAttempt?.state).toBe("recovering");
-    if (firstAttempt?.state !== "recovering") {
-      throw new Error("Expected a checkout recovery attempt.");
-    }
+    expect(firstAttempt).toEqual({
+      state: "pending",
+      attemptId: expect.stringMatching(/^polar_checkout_/),
+    });
 
     await expect(viewer.action(api.billing.createPolarCheckoutSession, args)).rejects.toThrow(
-      "Checkout result is still being recovered. Please try again later.",
+      "The previous checkout result must be inspected before another can start.",
     );
-    polarSdkMocks.checkoutsList.mockImplementation(() =>
-      Promise.resolve(
-        checkoutPages([
-          polarCheckout({
-            attemptId: firstAttempt.attemptId,
-            externalCustomerId: "existing-customer",
-            id: "checkout-after-timeout",
-            url: "https://sandbox.polar.sh/checkout/recovered-timeout",
-          }),
-        ]),
-      ),
-    );
-    await expect(viewer.action(api.billing.createPolarCheckoutSession, args)).resolves.toEqual({
-      url: "https://sandbox.polar.sh/checkout/recovered-timeout",
-    });
+    await expect(
+      t.run(async (ctx) => (await ctx.db.get(userId))?.billingPolarCheckoutAttempt),
+    ).resolves.toEqual(firstAttempt);
     expect(polarSdkMocks.checkoutsCreate).toHaveBeenCalledOnce();
   });
 
-  it("allows a new attempt only after an ambiguous checkout can no longer be open", async () => {
+  it("keeps pending when Polar returns an unverified checkout", async () => {
     const t = makeConvexTest();
     const userId = await seedMember(t);
     await t.run(async (ctx) => {
@@ -815,9 +650,13 @@ describe("billing access", () => {
     });
     configureSandboxBilling();
     polarSdkMocks.customersGetStateExternal.mockRejectedValue(resourceNotFound());
-    polarSdkMocks.checkoutsCreate
-      .mockRejectedValueOnce(new Error("Connection closed after request upload"))
-      .mockRejectedValueOnce(resourceNotFound());
+    polarSdkMocks.checkoutsCreate.mockImplementation((request) =>
+      polarCheckoutFromCreate(
+        { ...request, returnUrl: "http://localhost:5174/settings" },
+        "checkout-unverified",
+        "https://sandbox.polar.sh/checkout/unverified",
+      ),
+    );
     const viewer = asUser(t, userId);
     const args = {
       successUrl: "http://localhost:5174/settings?checkout=success",
@@ -825,29 +664,19 @@ describe("billing access", () => {
     };
 
     await expect(viewer.action(api.billing.createPolarCheckoutSession, args)).rejects.toThrow(
-      "Polar checkout could not be started.",
+      "Samebase could not verify your open checkout.",
     );
-    const firstAttempt = await t.run(
+    const attempt = await t.run(
       async (ctx) => (await ctx.db.get(userId))?.billingPolarCheckoutAttempt,
     );
-    if (firstAttempt?.state !== "recovering") {
-      throw new Error("Expected a checkout recovery attempt.");
-    }
-    await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        billingPolarCheckoutAttempt: { ...firstAttempt, recoverUntilAt: Date.now() - 1 },
-      });
+    expect(attempt).toEqual({
+      state: "pending",
+      attemptId: expect.stringMatching(/^polar_checkout_/),
     });
-
     await expect(viewer.action(api.billing.createPolarCheckoutSession, args)).rejects.toThrow(
-      "Polar checkout could not be started.",
+      "The previous checkout result must be inspected before another can start.",
     );
-    const firstCreate = polarSdkMocks.checkoutsCreate.mock.calls[0]?.[0];
-    const secondCreate = polarSdkMocks.checkoutsCreate.mock.calls[1]?.[0];
-    expect(polarSdkMocks.checkoutsCreate).toHaveBeenCalledTimes(2);
-    expect(secondCreate.metadata.samebase_checkout_attempt_id).not.toBe(
-      firstCreate.metadata.samebase_checkout_attempt_id,
-    );
+    expect(polarSdkMocks.checkoutsCreate).toHaveBeenCalledOnce();
   });
 
   it("uses the production Polar server only for the production deployment", async () => {

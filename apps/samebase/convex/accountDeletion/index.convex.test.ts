@@ -137,6 +137,14 @@ describe("account deletion foundation", () => {
     const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
 
     const first = await requestAccepted(asUser);
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ids.userId, {
+        billingPolarCheckoutAttempt: {
+          state: "pending",
+          attemptId: "polar_checkout_after_deletion_started",
+        },
+      });
+    });
     const second = await requestAccepted(asUser);
 
     expect(second).toEqual(first);
@@ -213,6 +221,44 @@ describe("account deletion foundation", () => {
     await expect(t.run(async (ctx) => await ctx.db.get(ids.userId))).resolves.not.toHaveProperty(
       "accountDeletion",
     );
+  });
+
+  it.each([
+    {
+      label: "pending",
+      attempt: {
+        state: "pending" as const,
+        attemptId: "polar_checkout_deletion_pending",
+      },
+    },
+    {
+      label: "open",
+      attempt: {
+        state: "open" as const,
+        attemptId: "polar_checkout_deletion_open",
+        checkoutId: "checkout-deletion-open",
+      },
+    },
+  ])("reports a $label checkout before account deletion starts", async ({ attempt }) => {
+    const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ids.userId, { billingPolarCheckoutAttempt: attempt });
+    });
+    const confirmationStakes = await asUser.query(api.accountDeletion.index.stakes);
+
+    await expect(
+      asUser.mutation(api.accountDeletion.index.request, {
+        completionCapability,
+        confirmationPhrase: buildAccountDeletionConfirmationPhrase(confirmationStakes),
+        confirmationStakesSnapshot: serializeAccountDeletionConfirmationStakes(confirmationStakes),
+      }),
+    ).resolves.toEqual({ state: "billing_checkout_pending" });
+    const stored = await t.run(async (ctx) => ({
+      user: await ctx.db.get(ids.userId),
+      runs: await ctx.db.query("workflow_accountDeletion_runs").collect(),
+    }));
+    expect(stored.user?.accountDeletion).toBeUndefined();
+    expect(stored.runs).toEqual([]);
   });
 
   it("rejects staff self-deletion without removing staff access", async () => {
