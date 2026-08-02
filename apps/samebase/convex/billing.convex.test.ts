@@ -8,6 +8,7 @@ const polarSdkMocks = vi.hoisted(() => ({
   checkoutsGet: vi.fn(),
   customerSessionsCreate: vi.fn(),
   customersGetStateExternal: vi.fn(),
+  subscriptionsList: vi.fn(),
 }));
 
 vi.mock("@polar-sh/sdk", () => ({
@@ -18,6 +19,7 @@ vi.mock("@polar-sh/sdk", () => ({
     };
     readonly customerSessions = { create: polarSdkMocks.customerSessionsCreate };
     readonly customers = { getStateExternal: polarSdkMocks.customersGetStateExternal };
+    readonly subscriptions = { list: polarSdkMocks.subscriptionsList };
 
     constructor(options: unknown) {
       polarSdkMocks.constructorOptions(options);
@@ -47,6 +49,25 @@ function createDeferred<Value>() {
   return { promise, resolve: control.resolve };
 }
 
+function subscriptionPages(items: readonly unknown[]) {
+  return (async function* () {
+    yield { result: { items } };
+  })();
+}
+
+function polarSubscription(args: {
+  cancelAtPeriodEnd?: boolean;
+  productId?: string;
+  status: string;
+}) {
+  return {
+    id: "polar-subscription",
+    productId: args.productId ?? productId,
+    status: args.status,
+    currentPeriodEnd: new Date(currentPeriodEnd),
+    cancelAtPeriodEnd: args.cancelAtPeriodEnd ?? false,
+  };
+}
 function polarCheckout(args: {
   attemptId: string;
   externalCustomerId: string;
@@ -191,6 +212,7 @@ function configureSandboxBilling(): void {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  polarSdkMocks.subscriptionsList.mockImplementation(() => Promise.resolve(subscriptionPages([])));
 });
 
 afterEach(() => {
@@ -797,22 +819,21 @@ describe("billing reconciliation", () => {
       await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
     });
     configureSandboxBilling();
-    const firstRead = createDeferred<ReturnType<typeof polarCustomerState>>();
-    polarSdkMocks.customersGetStateExternal
+    const firstRead = createDeferred<ReturnType<typeof subscriptionPages>>();
+    polarSdkMocks.subscriptionsList
       .mockReturnValueOnce(firstRead.promise)
       .mockRejectedValueOnce(new Error("Later Polar read failed"));
     const viewer = asUser(t, userId);
 
     const earlierReconciliation = viewer.action(api.billing.reconcileViewerBillingFromPolar, {});
-    await vi.waitFor(() => expect(polarSdkMocks.customersGetStateExternal).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(polarSdkMocks.subscriptionsList).toHaveBeenCalledOnce());
     await expect(viewer.action(api.billing.reconcileViewerBillingFromPolar, {})).resolves.toBe(
       false,
     );
     firstRead.resolve(
-      polarCustomerState({
-        externalCustomerId: "existing-customer",
-        subscription: { cancelAtPeriodEnd: false, productId, status: "active" },
-      }),
+      subscriptionPages([
+        polarSubscription({ cancelAtPeriodEnd: false, productId, status: "active" }),
+      ]),
     );
     await expect(earlierReconciliation).resolves.toBe(true);
 
@@ -836,22 +857,21 @@ describe("billing reconciliation", () => {
       await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
     });
     configureSandboxBilling();
-    const firstRead = createDeferred<ReturnType<typeof polarCustomerState>>();
-    polarSdkMocks.customersGetStateExternal
+    const firstRead = createDeferred<ReturnType<typeof subscriptionPages>>();
+    polarSdkMocks.subscriptionsList
       .mockReturnValueOnce(firstRead.promise)
-      .mockResolvedValueOnce(polarCustomerState({ externalCustomerId: "existing-customer" }));
+      .mockResolvedValueOnce(subscriptionPages([]));
     const viewer = asUser(t, userId);
 
     const staleReconciliation = viewer.action(api.billing.reconcileViewerBillingFromPolar, {});
-    await vi.waitFor(() => expect(polarSdkMocks.customersGetStateExternal).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(polarSdkMocks.subscriptionsList).toHaveBeenCalledOnce());
     await expect(viewer.action(api.billing.reconcileViewerBillingFromPolar, {})).resolves.toBe(
       true,
     );
     firstRead.resolve(
-      polarCustomerState({
-        externalCustomerId: "existing-customer",
-        subscription: { cancelAtPeriodEnd: false, productId, status: "active" },
-      }),
+      subscriptionPages([
+        polarSubscription({ cancelAtPeriodEnd: false, productId, status: "active" }),
+      ]),
     );
     await expect(staleReconciliation).resolves.toBe(false);
 
@@ -870,11 +890,10 @@ describe("billing reconciliation", () => {
       await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
     });
     configureSandboxBilling();
-    polarSdkMocks.customersGetStateExternal.mockResolvedValue(
-      polarCustomerState({
-        externalCustomerId: "existing-customer",
-        subscription: { cancelAtPeriodEnd: true, productId, status: "past_due" },
-      }),
+    polarSdkMocks.subscriptionsList.mockResolvedValue(
+      subscriptionPages([
+        polarSubscription({ cancelAtPeriodEnd: true, productId, status: "past_due" }),
+      ]),
     );
 
     await expect(
@@ -904,9 +923,7 @@ describe("billing reconciliation", () => {
       });
     });
     configureSandboxBilling();
-    polarSdkMocks.customersGetStateExternal.mockResolvedValue(
-      polarCustomerState({ externalCustomerId: "existing-customer" }),
-    );
+    polarSdkMocks.subscriptionsList.mockResolvedValue(subscriptionPages([]));
 
     await expect(
       asUser(t, userId).action(api.billing.reconcileViewerBillingFromPolar, {}),
@@ -933,9 +950,7 @@ describe("billing reconciliation", () => {
       });
     });
     configureSandboxBilling();
-    polarSdkMocks.customersGetStateExternal.mockRejectedValue(
-      new Error("SDK response validation failed"),
-    );
+    polarSdkMocks.subscriptionsList.mockRejectedValue(new Error("SDK response validation failed"));
 
     await expect(
       asUser(t, userId).action(api.billing.reconcileViewerBillingFromPolar, {}),

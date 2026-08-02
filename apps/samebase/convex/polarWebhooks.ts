@@ -1,9 +1,8 @@
 import { WebhookCustomerStateChangedPayload$inboundSchema } from "@polar-sh/sdk/models/components/webhookcustomerstatechangedpayload";
 import { Webhook, WebhookVerificationError } from "standardwebhooks";
 
-import { internal } from "./_generated/api";
 import { env, httpAction } from "./_generated/server";
-import { readPolarProMonthlyProductId } from "./polarClient";
+import { reconcilePolarCustomerBilling } from "./polarBillingState";
 
 /**
  * Polar's SDK verifier converts this secret with Node `Buffer`. Use its Standard Webhooks
@@ -72,18 +71,18 @@ export const handlePolarWebhook = httpAction(async (ctx, request) => {
     return new Response("Invalid webhook payload", { status: 500 });
   }
 
-  const productId = readPolarProMonthlyProductId();
-  if (!productId) {
-    return new Response("Billing product is not configured", { status: 503 });
-  }
-
   const externalCustomerId = event.data.externalId?.trim();
   if (!externalCustomerId) {
     return new Response(null, { status: 204 });
   }
 
-  await ctx.runMutation(internal.polarBillingState.requestWebhookReconciliation, {
-    externalCustomerId,
-  });
-  return new Response(null, { status: 202 });
+  try {
+    await reconcilePolarCustomerBilling(ctx, { externalCustomerId });
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    console.error("billing:polar:webhook:reconciliation_failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+    return new Response("Webhook processing failed", { status: 503 });
+  }
 });
