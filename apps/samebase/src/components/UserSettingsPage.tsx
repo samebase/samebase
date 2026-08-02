@@ -426,39 +426,41 @@ export function UserSettingsPage() {
             )
           ) : null}
 
-          <div className="mt-6">
-            {billingStatus.plan === "pro" ? (
-              <Button
-                type="button"
-                disabled={!billingActionsAvailable || billingRequestState !== "idle"}
-                onClick={() => void handleManageSubscription()}
-              >
-                {billingRequestState === "portal" ? (
-                  <>
-                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                    Opening...
-                  </>
-                ) : (
-                  "Manage subscription"
-                )}
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                disabled={!billingActionsAvailable || billingRequestState !== "idle"}
-                onClick={() => void handleUpgrade()}
-              >
-                {billingRequestState === "checkout" ? (
-                  <>
-                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                    Opening...
-                  </>
-                ) : (
-                  "Upgrade to Pro, $4/month"
-                )}
-              </Button>
-            )}
-          </div>
+          {billingStatus.plan === "pro" || billingStatus.canStartCheckout ? (
+            <div className="mt-6">
+              {billingStatus.plan === "pro" ? (
+                <Button
+                  type="button"
+                  disabled={!billingActionsAvailable || billingRequestState !== "idle"}
+                  onClick={() => void handleManageSubscription()}
+                >
+                  {billingRequestState === "portal" ? (
+                    <>
+                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                      Opening...
+                    </>
+                  ) : (
+                    "Manage subscription"
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  disabled={!billingActionsAvailable || billingRequestState !== "idle"}
+                  onClick={() => void handleUpgrade()}
+                >
+                  {billingRequestState === "checkout" ? (
+                    <>
+                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                      Opening...
+                    </>
+                  ) : (
+                    "Upgrade to Pro, $4/month"
+                  )}
+                </Button>
+              )}
+            </div>
+          ) : null}
         </section>
       ) : null}
 

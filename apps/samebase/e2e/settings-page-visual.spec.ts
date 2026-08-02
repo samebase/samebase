@@ -217,7 +217,7 @@ test("Settings link returns the mobile workspace to the main pane", async ({
     await expect(settingsPage.getByRole("heading", { name: "Billing" })).toBeVisible();
     await expect(
       settingsPage.getByRole("button", { name: "Upgrade to Pro, $4/month" }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(settingsPage).toHaveScreenshot("settings-page-mobile.png", {
       ...screenshotOptions,
       mask: [settingsPage.getByText(email, { exact: true })],

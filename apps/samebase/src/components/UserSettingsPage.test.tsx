@@ -88,6 +88,7 @@ const queryState = vi.hoisted<{
     status: "inactive" | "active" | "past_due";
     currentPeriodEndAt?: number;
     cancelAtPeriodEnd?: boolean;
+    canStartCheckout: boolean;
   };
   billingUsage: BillingResourceUsage;
   settings: { displayName?: string; hasActiveSubscription: boolean; signInEmail: string };
@@ -97,6 +98,7 @@ const queryState = vi.hoisted<{
   billing: {
     plan: "free",
     status: "inactive",
+    canStartCheckout: true,
   },
   billingUsage: {
     cloudflareWorkers: { used: { state: "exact", count: 1 }, limit: 5 },
@@ -363,6 +365,7 @@ describe("UserSettingsPage", () => {
     queryState.billing = {
       plan: "free",
       status: "inactive",
+      canStartCheckout: true,
     };
     queryState.billingUsage = {
       cloudflareWorkers: { used: { state: "exact", count: 1 }, limit: 5 },
@@ -388,6 +391,23 @@ describe("UserSettingsPage", () => {
     }
   });
 
+  it("hides checkout from a pending Free account", async () => {
+    queryState.billing = {
+      plan: "free",
+      status: "inactive",
+      canStartCheckout: false,
+    };
+    const mounted = await mountSettingsPage();
+    try {
+      expect(mounted.rootElement.textContent).toContain("Current planFree");
+      expect(mounted.rootElement.textContent).not.toContain("Upgrade to Pro");
+      expect(mounted.rootElement.textContent).not.toContain("Manage subscription");
+      expect(actionState.createCheckoutSession).not.toHaveBeenCalled();
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
   it("labels an at-least resource count as a lower bound", async () => {
     queryState.billing = {
       provider: "polar",
@@ -395,6 +415,7 @@ describe("UserSettingsPage", () => {
       status: "active",
       currentPeriodEndAt: Date.UTC(2026, 7, 31, 12),
       cancelAtPeriodEnd: false,
+      canStartCheckout: true,
     };
     queryState.billingUsage = {
       cloudflareWorkers: { used: { state: "at_least", count: 41 }, limit: 40 },
@@ -409,18 +430,20 @@ describe("UserSettingsPage", () => {
     }
   });
 
-  it("shows payment recovery and the one Pro billing action", async () => {
+  it("keeps payment recovery available for a pending Pro account", async () => {
     queryState.billing = {
       provider: "polar",
       plan: "pro",
       status: "past_due",
       currentPeriodEndAt: Date.UTC(2026, 7, 31, 12),
       cancelAtPeriodEnd: false,
+      canStartCheckout: false,
     };
     queryState.billingUsage = {
       cloudflareWorkers: { used: { state: "exact", count: 8 }, limit: 40 },
       convexProjects: { used: { state: "exact", count: 6 }, limit: 40 },
     };
+    actionState.createCustomerPortalSession.mockReturnValue(new Promise(() => {}));
     const mounted = await mountSettingsPage();
     try {
       expect(mounted.rootElement.textContent).toContain("Current planPro");
@@ -430,6 +453,16 @@ describe("UserSettingsPage", () => {
       expect(mounted.rootElement.textContent).toContain("Payment needs attention.");
       expect(mounted.rootElement.textContent).toContain("Manage subscription");
       expect(mounted.rootElement.textContent).not.toContain("Upgrade to Pro");
+      await act(async () => {
+        Array.from(mounted.rootElement.querySelectorAll("button"))
+          .find((button) => button.textContent === "Manage subscription")
+          ?.click();
+        await Promise.resolve();
+      });
+      expect(actionState.createCustomerPortalSession).toHaveBeenCalledWith({
+        returnUrl: `${window.location.origin}/settings`,
+      });
+      expect(actionState.createCheckoutSession).not.toHaveBeenCalled();
     } finally {
       await unmount(mounted.root, mounted.rootElement);
     }
@@ -442,6 +475,7 @@ describe("UserSettingsPage", () => {
       status: "active",
       currentPeriodEndAt: Date.UTC(2026, 8, 4, 12),
       cancelAtPeriodEnd: true,
+      canStartCheckout: true,
     };
     const mounted = await mountSettingsPage();
     try {
@@ -529,6 +563,7 @@ describe("UserSettingsPage", () => {
       status: "active",
       currentPeriodEndAt: Date.UTC(2026, 7, 31, 12),
       cancelAtPeriodEnd: false,
+      canStartCheckout: true,
     };
     actionState.createCustomerPortalSession.mockReturnValue(new Promise(() => {}));
     const mounted = await mountSettingsPage();
