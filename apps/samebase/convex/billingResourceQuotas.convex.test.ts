@@ -320,13 +320,19 @@ describe("billing resource quotas", () => {
         ...ids,
         projects: [projectInput(5)],
       }),
-    ).rejects.toThrow("Convex project attachment limit reached (5).");
+    ).rejects.toMatchObject({
+      name: "ConvexError",
+      data: "Convex project attachment limit reached (5).",
+    });
     await expect(
       t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
         ...ids,
         workers: [workerInput(5)],
       }),
-    ).rejects.toThrow("Cloudflare Worker attachment limit reached (5).");
+    ).rejects.toMatchObject({
+      name: "ConvexError",
+      data: "Cloudflare Worker attachment limit reached (5).",
+    });
     await expect(readAttachmentCounts(t, ids.userId)).resolves.toEqual({
       cloudflareWorkers: 5,
       convexProjects: 5,

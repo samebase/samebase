@@ -661,7 +661,7 @@ describe("vault Cloudflare Worker attachments", () => {
     ).resolves.toBeNull();
   });
 
-  it("reports that a Worker can exist when its local checkpoint expires", async () => {
+  it("requires cleanup when a Worker can exist after its local checkpoint expires", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(1_000);
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -701,9 +701,10 @@ describe("vault Cloudflare Worker attachments", () => {
           workerName: "new-worker",
           rootDirectory: "/",
         }),
-      ).rejects.toThrow(
-        "The Cloudflare Worker new-worker can exist, but Samebase could not record it.",
-      );
+      ).rejects.toMatchObject({
+        name: "ConvexError",
+        data: "The Cloudflare Worker new-worker can exist, but Samebase could not record it. If it exists, delete it in the Cloudflare dashboard, then retry.",
+      });
     } finally {
       vi.useRealTimers();
     }

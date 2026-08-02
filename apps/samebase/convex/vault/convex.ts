@@ -1,6 +1,6 @@
 "use node";
 
-import { type Infer, v } from "convex/values";
+import { ConvexError, type Infer, v } from "convex/values";
 
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -478,8 +478,8 @@ async function createProjectForUser(
   } catch (error) {
     const reportedError =
       providerCreateStarted && !projectRecorded
-        ? new Error(
-            `The Convex project ${validation.value} can exist, but Samebase could not attach it. Check the project in Convex. If it exists, attach it to this app. Reason: ${toErrorMessage(error)}`,
+        ? new ConvexError(
+            `The Convex project ${validation.value} can exist, but Samebase could not attach it. If it exists, delete it in the Convex dashboard, then retry.`,
           )
         : error;
     await attemptManualProviderWriteFailureRecord(ctx, {

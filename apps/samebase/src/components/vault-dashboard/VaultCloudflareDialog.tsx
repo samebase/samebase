@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useAction, useQuery as useConvexQuery } from "convex/react";
+import { ConvexError } from "convex/values";
 import { Loader2 } from "lucide-react";
 
 import { api } from "../../../convex/_generated/api";
@@ -554,7 +555,13 @@ export function VaultCloudflareDialog({
       }
       onClose();
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Could not add Cloudflare Workers.");
+      setSubmitError(
+        error instanceof ConvexError && typeof error.data === "string"
+          ? error.data
+          : error instanceof Error
+            ? error.message
+            : "Could not add Cloudflare Workers.",
+      );
       setIsSubmitting(false);
     }
   };

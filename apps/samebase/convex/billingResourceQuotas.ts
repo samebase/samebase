@@ -1,4 +1,4 @@
-import { Infer, v } from "convex/values";
+import { ConvexError, Infer, v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalQuery, type QueryCtx } from "./_generated/server";
@@ -77,9 +77,9 @@ async function readResourceAttachmentCount(
 function throwBillingResourceLimit(kind: BillingResourceKind, limit: number): never {
   switch (kind) {
     case "cloudflare_worker":
-      throw new Error(`Cloudflare Worker attachment limit reached (${limit}).`);
+      throw new ConvexError(`Cloudflare Worker attachment limit reached (${limit}).`);
     case "convex_project":
-      throw new Error(`Convex project attachment limit reached (${limit}).`);
+      throw new ConvexError(`Convex project attachment limit reached (${limit}).`);
     default:
       kind satisfies never;
       throw new Error("Unsupported billing resource kind.");

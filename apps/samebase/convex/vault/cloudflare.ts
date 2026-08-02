@@ -1,6 +1,6 @@
 "use node";
 
-import { Infer, v } from "convex/values";
+import { ConvexError, Infer, v } from "convex/values";
 
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -1262,8 +1262,8 @@ async function createWorkerForUser(
   } catch (error) {
     const reportedError =
       providerCreate.started && !workerRecorded
-        ? new Error(
-            `The Cloudflare Worker ${validation.value} can exist, but Samebase could not record it. Check the Worker in Cloudflare. If it exists, attach it to this app. Reason: ${toErrorMessage(error)}`,
+        ? new ConvexError(
+            `The Cloudflare Worker ${validation.value} can exist, but Samebase could not record it. If it exists, delete it in the Cloudflare dashboard, then retry.`,
           )
         : error;
     await attemptManualProviderWriteFailureRecord(ctx, {

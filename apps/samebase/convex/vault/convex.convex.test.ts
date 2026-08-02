@@ -538,7 +538,7 @@ describe("vault Convex project attachments", () => {
     });
   });
 
-  it("reports that a project can exist when its local checkpoint expires", async () => {
+  it("requires cleanup when a project can exist after its local checkpoint expires", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(1_000);
     setGitHubConfigs([{ path: "convex.json", sha: "root-sha" }]);
@@ -566,9 +566,10 @@ describe("vault Convex project attachments", () => {
             blobSha: "root-sha",
           },
         }),
-      ).rejects.toThrow(
-        "The Convex project new-project can exist, but Samebase could not attach it.",
-      );
+      ).rejects.toMatchObject({
+        name: "ConvexError",
+        data: "The Convex project new-project can exist, but Samebase could not attach it. If it exists, delete it in the Convex dashboard, then retry.",
+      });
     } finally {
       vi.useRealTimers();
     }

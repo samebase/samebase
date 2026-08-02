@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAction } from "convex/react";
+import { ConvexError } from "convex/values";
 import { Loader2 } from "lucide-react";
 
 import { api } from "../../../convex/_generated/api";
@@ -471,7 +472,13 @@ export function VaultConvexDialog({
       }
       onSaved();
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Could not add Convex projects.");
+      setSubmitError(
+        error instanceof ConvexError && typeof error.data === "string"
+          ? error.data
+          : error instanceof Error
+            ? error.message
+            : "Could not add Convex projects.",
+      );
       setIsSubmitting(false);
     }
   };
