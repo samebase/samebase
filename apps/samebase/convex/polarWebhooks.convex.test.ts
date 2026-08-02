@@ -1,4 +1,20 @@
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { CustomerState$inboundSchema } from "@polar-sh/sdk/models/components/customerstate";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+
+const polarSdkMocks = vi.hoisted(() => ({
+  constructorOptions: vi.fn(),
+  customersGetStateExternal: vi.fn(),
+}));
+
+vi.mock("@polar-sh/sdk", () => ({
+  Polar: class {
+    readonly customers = { getStateExternal: polarSdkMocks.customersGetStateExternal };
+
+    constructor(options: unknown) {
+      polarSdkMocks.constructorOptions(options);
+    }
+  },
+}));
 
 import { bytesToBase64 } from "../shared/base64";
 import { api } from "./_generated/api";
@@ -82,6 +98,14 @@ function customerStatePayload(subscription?: {
   };
 }
 
+function polarCustomerState(subscription?: {
+  cancelAtPeriodEnd: boolean;
+  productId: string;
+  status: string;
+}) {
+  return CustomerState$inboundSchema.parse(customerStatePayload(subscription));
+}
+
 function customerStateChangedBody(args: {
   eventAt: number;
   subscription?: {
@@ -133,9 +157,14 @@ function configureWebhook(): void {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-08-02T12:00:00.000Z"));
   vi.stubEnv("CONVEX_AGENT_MODE", "anonymous");
+  vi.stubEnv("POLAR_ACCESS_TOKEN", "sandbox-token");
   vi.stubEnv("POLAR_PRO_MONTHLY_PRODUCT_ID", productId);
   vi.stubEnv("POLAR_WEBHOOK_SECRET", webhookSecret);
 }
+
+beforeEach(() => {
+  vi.resetAllMocks();
+});
 
 afterEach(() => {
   vi.useRealTimers();
@@ -151,9 +180,13 @@ describe("Polar customer.state_changed webhook", () => {
       eventAt: Date.now(),
       subscription: { cancelAtPeriodEnd: false, productId, status: "active" },
     });
+    polarSdkMocks.customersGetStateExternal.mockResolvedValue(
+      polarCustomerState({ cancelAtPeriodEnd: false, productId, status: "active" }),
+    );
 
     const response = await deliver(t, body);
     expect(response.status).toBe(202);
+    expect(polarSdkMocks.customersGetStateExternal).not.toHaveBeenCalled();
     await t.finishAllScheduledFunctions(() => vi.runAllTimers());
     await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
       provider: "polar",
@@ -161,6 +194,7 @@ describe("Polar customer.state_changed webhook", () => {
       status: "active",
       currentPeriodEndAt: Date.parse(currentPeriodEnd),
       cancelAtPeriodEnd: false,
+      canStartCheckout: true,
     });
   });
 
@@ -172,6 +206,9 @@ describe("Polar customer.state_changed webhook", () => {
       eventAt: Date.now(),
       subscription: { cancelAtPeriodEnd: true, productId, status: "past_due" },
     });
+    polarSdkMocks.customersGetStateExternal.mockResolvedValue(
+      polarCustomerState({ cancelAtPeriodEnd: true, productId, status: "past_due" }),
+    );
 
     const response = await deliver(t, body);
     expect(response.status).toBe(202);
@@ -182,6 +219,7 @@ describe("Polar customer.state_changed webhook", () => {
       status: "past_due",
       currentPeriodEndAt: Date.parse(currentPeriodEnd),
       cancelAtPeriodEnd: true,
+      canStartCheckout: true,
     });
   });
 
@@ -195,18 +233,23 @@ describe("Polar customer.state_changed webhook", () => {
     });
     const freeBody = customerStateChangedBody({ eventAt: Date.now() });
 
+    polarSdkMocks.customersGetStateExternal.mockResolvedValue(
+      polarCustomerState({ cancelAtPeriodEnd: true, productId, status: "active" }),
+    );
     expect((await deliver(t, activeBody)).status).toBe(202);
     await t.finishAllScheduledFunctions(() => vi.runAllTimers());
+    polarSdkMocks.customersGetStateExternal.mockResolvedValue(polarCustomerState());
     expect((await deliver(t, freeBody)).status).toBe(202);
     await t.finishAllScheduledFunctions(() => vi.runAllTimers());
     await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
       provider: "polar",
       plan: "free",
       status: "inactive",
+      canStartCheckout: true,
     });
   });
 
-  it("makes duplicate delivery harmless and ignores an older state event", async () => {
+  it("converges duplicate and older event snapshots to current Polar state", async () => {
     const t = makeConvexTest();
     const userId = await seedApprovedMember(t);
     configureWebhook();
@@ -215,6 +258,9 @@ describe("Polar customer.state_changed webhook", () => {
       subscription: { cancelAtPeriodEnd: false, productId, status: "active" },
     });
     const olderFreeBody = customerStateChangedBody({ eventAt: Date.now() - 10_000 });
+    polarSdkMocks.customersGetStateExternal.mockResolvedValue(
+      polarCustomerState({ cancelAtPeriodEnd: false, productId, status: "active" }),
+    );
 
     expect((await deliver(t, activeBody)).status).toBe(202);
     await t.finishAllScheduledFunctions(() => vi.runAllTimers());
@@ -229,6 +275,128 @@ describe("Polar customer.state_changed webhook", () => {
       status: "active",
       currentPeriodEndAt: Date.parse(currentPeriodEnd),
       cancelAtPeriodEnd: false,
+      canStartCheckout: true,
+    });
+  });
+
+  it("does not let delayed webhooks revert a newer canonical reconciliation", async () => {
+    const t = makeConvexTest();
+    const userId = await seedApprovedMember(t);
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId, {
+        billingProvider: "polar",
+        billingPlan: "pro",
+        billingStatus: "active",
+      });
+    });
+    configureWebhook();
+    const firstWebhook = customerStateChangedBody({
+      eventAt: Date.now() - 2_000,
+      subscription: { cancelAtPeriodEnd: false, productId, status: "active" },
+    });
+    const delayedWebhook = customerStateChangedBody({
+      eventAt: Date.now() - 1_000,
+      subscription: { cancelAtPeriodEnd: false, productId, status: "active" },
+    });
+    polarSdkMocks.customersGetStateExternal.mockResolvedValue(polarCustomerState());
+
+    expect((await deliver(t, firstWebhook)).status).toBe(202);
+    await expect(
+      asUser(t, userId).action(api.billing.reconcileViewerBillingFromPolar, {}),
+    ).resolves.toBe(true);
+    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+      provider: "polar",
+      plan: "free",
+      status: "inactive",
+      canStartCheckout: true,
+    });
+
+    expect((await deliver(t, delayedWebhook)).status).toBe(202);
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers());
+    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+      provider: "polar",
+      plan: "free",
+      status: "inactive",
+      canStartCheckout: true,
+    });
+    expect(polarSdkMocks.customersGetStateExternal).toHaveBeenCalledTimes(3);
+  });
+
+  it("resolves conflicting events with the same timestamp from canonical Polar state", async () => {
+    const t = makeConvexTest();
+    const userId = await seedApprovedMember(t);
+    configureWebhook();
+    const eventAt = Date.now();
+    const activeBody = customerStateChangedBody({
+      eventAt,
+      subscription: { cancelAtPeriodEnd: false, productId, status: "active" },
+    });
+    const freeBody = customerStateChangedBody({ eventAt });
+    polarSdkMocks.customersGetStateExternal.mockResolvedValue(
+      polarCustomerState({ cancelAtPeriodEnd: false, productId, status: "active" }),
+    );
+
+    expect((await deliver(t, activeBody)).status).toBe(202);
+    expect((await deliver(t, freeBody)).status).toBe(202);
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers());
+
+    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+      provider: "polar",
+      plan: "pro",
+      status: "active",
+      currentPeriodEndAt: Date.parse(currentPeriodEnd),
+      cancelAtPeriodEnd: false,
+      canStartCheckout: true,
+    });
+    expect(polarSdkMocks.customersGetStateExternal).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries a failed canonical read and applies the recovered state", async () => {
+    const t = makeConvexTest();
+    const userId = await seedApprovedMember(t);
+    configureWebhook();
+    polarSdkMocks.customersGetStateExternal
+      .mockRejectedValueOnce(new Error("Temporary Polar failure"))
+      .mockResolvedValueOnce(
+        polarCustomerState({ cancelAtPeriodEnd: false, productId, status: "active" }),
+      );
+
+    expect((await deliver(t, customerStateChangedBody({ eventAt: Date.now() }))).status).toBe(202);
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers());
+
+    expect(polarSdkMocks.customersGetStateExternal).toHaveBeenCalledTimes(2);
+    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+      provider: "polar",
+      plan: "pro",
+      status: "active",
+      currentPeriodEndAt: Date.parse(currentPeriodEnd),
+      cancelAtPeriodEnd: false,
+      canStartCheckout: true,
+    });
+  });
+
+  it("stops retrying after the bounded limit and preserves stored entitlement", async () => {
+    const t = makeConvexTest();
+    const userId = await seedApprovedMember(t);
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId, {
+        billingProvider: "polar",
+        billingPlan: "pro",
+        billingStatus: "active",
+      });
+    });
+    configureWebhook();
+    polarSdkMocks.customersGetStateExternal.mockRejectedValue(new Error("Polar unavailable"));
+
+    expect((await deliver(t, customerStateChangedBody({ eventAt: Date.now() }))).status).toBe(202);
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers());
+
+    expect(polarSdkMocks.customersGetStateExternal).toHaveBeenCalledTimes(5);
+    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+      provider: "polar",
+      plan: "pro",
+      status: "active",
+      canStartCheckout: true,
     });
   });
 
@@ -255,6 +423,7 @@ describe("Polar customer.state_changed webhook", () => {
       provider: "polar",
       plan: "pro",
       status: "active",
+      canStartCheckout: true,
     });
   });
 

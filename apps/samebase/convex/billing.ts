@@ -1,3 +1,4 @@
+import type { Checkout } from "@polar-sh/sdk/models/components/checkout";
 import type { CustomerState } from "@polar-sh/sdk/models/components/customerstate";
 import { Infer, v } from "convex/values";
 
@@ -6,6 +7,15 @@ import { internalMutation } from "./_generated/server";
 import { action, query } from "./functions";
 import { randomToken } from "./oauthUtils";
 import {
+  derivePolarBillingFromCustomerState,
+  readCanonicalPolarBillingState,
+} from "./polarBillingState";
+import {
+  findReusablePolarCheckout,
+  isDefinitivePolarCheckoutFailure,
+  type PolarCheckoutReservation,
+} from "./polarCheckout";
+import {
   createPolarClient,
   isPolarResourceNotFound,
   readPolarProMonthlyProductId,
@@ -13,7 +23,7 @@ import {
   type PolarServer,
 } from "./polarClient";
 
-const { boolean, id, literal, null: nullValue, number, object, optional, string, union } = v;
+const { boolean, id, literal, number, object, optional, string, union } = v;
 
 const vBillingPlan = union(literal("free"), literal("pro"));
 type BillingPlan = Infer<typeof vBillingPlan>;
@@ -26,6 +36,7 @@ const vViewerBillingStatus = object({
   status: vBillingStatus,
   currentPeriodEndAt: optional(number()),
   cancelAtPeriodEnd: optional(boolean()),
+  canStartCheckout: boolean(),
   provider: optional(literal("polar")),
 });
 type ViewerBillingStatus = Infer<typeof vViewerBillingStatus>;
@@ -43,22 +54,6 @@ const vPolarCustomerSeed = object({
   name: optional(string()),
   email: optional(string()),
 });
-
-const vPolarBillingState = union(
-  object({
-    externalCustomerId: string(),
-    plan: literal("free"),
-    status: literal("inactive"),
-  }),
-  object({
-    externalCustomerId: string(),
-    plan: literal("pro"),
-    status: union(literal("active"), literal("past_due")),
-    currentPeriodEndAt: number(),
-    cancelAtPeriodEnd: boolean(),
-  }),
-);
-type PolarBillingState = Infer<typeof vPolarBillingState>;
 
 function validateReturnUrlPair(args: {
   successUrl: string;
@@ -99,49 +94,6 @@ function hasStoredProEntitlement(plan: BillingPlan, status: BillingStatus): bool
   return plan === "pro" && (status === "active" || status === "past_due");
 }
 
-export function deriveBillingFromCustomerState(args: {
-  customerState: CustomerState;
-  productId: string;
-}): PolarBillingState | null {
-  const externalCustomerId = args.customerState.externalId?.trim();
-  if (!externalCustomerId) {
-    return null;
-  }
-
-  let selectedSubscription: CustomerState["activeSubscriptions"][number] | null = null;
-  for (const subscription of args.customerState.activeSubscriptions) {
-    if (subscription.productId !== args.productId) {
-      continue;
-    }
-
-    if (
-      selectedSubscription === null ||
-      subscription.currentPeriodEnd.getTime() > selectedSubscription.currentPeriodEnd.getTime() ||
-      (subscription.currentPeriodEnd.getTime() ===
-        selectedSubscription.currentPeriodEnd.getTime() &&
-        subscription.id.localeCompare(selectedSubscription.id) < 0)
-    ) {
-      selectedSubscription = subscription;
-    }
-  }
-
-  if (selectedSubscription === null) {
-    return {
-      externalCustomerId,
-      plan: "free",
-      status: "inactive",
-    };
-  }
-
-  return {
-    externalCustomerId,
-    plan: "pro",
-    status: selectedSubscription.status === "past_due" ? "past_due" : "active",
-    currentPeriodEndAt: selectedSubscription.currentPeriodEnd.getTime(),
-    cancelAtPeriodEnd: selectedSubscription.cancelAtPeriodEnd,
-  };
-}
-
 export const getViewerBillingStatus = query({
   access: "access_user_preferences",
   args: {},
@@ -155,6 +107,7 @@ export const getViewerBillingStatus = query({
       status: user.billingStatus ?? "inactive",
       currentPeriodEndAt: user.billingCurrentPeriodEndAt,
       cancelAtPeriodEnd: user.billingCancelAtPeriodEnd,
+      canStartCheckout: ctx.viewer.accessKeys.includes("access_dashboard"),
     };
   },
 });
@@ -192,50 +145,8 @@ export const ensurePolarExternalCustomerId = internalMutation({
   },
 });
 
-export const applyPolarCustomerState = internalMutation({
-  args: {
-    state: vPolarBillingState,
-    polarStateChangedAt: optional(number()),
-  },
-  returns: nullValue(),
-  handler: async (ctx, args) => {
-    const state = args.state;
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_polar_external_customer_id", (q) =>
-        q.eq("billingPolarExternalCustomerId", state.externalCustomerId),
-      )
-      .unique();
-    if (!user) {
-      return null;
-    }
-
-    if (
-      args.polarStateChangedAt !== undefined &&
-      user.billingPolarStateChangedAt !== undefined &&
-      args.polarStateChangedAt < user.billingPolarStateChangedAt
-    ) {
-      return null;
-    }
-
-    await ctx.db.patch(user._id, {
-      billingProvider: "polar",
-      billingPlan: state.plan,
-      billingStatus: state.status,
-      billingUpdatedAt: Date.now(),
-      billingCurrentPeriodEndAt: state.plan === "pro" ? state.currentPeriodEndAt : undefined,
-      billingCancelAtPeriodEnd: state.plan === "pro" ? state.cancelAtPeriodEnd : undefined,
-      ...(args.polarStateChangedAt === undefined
-        ? {}
-        : { billingPolarStateChangedAt: args.polarStateChangedAt }),
-    });
-
-    return null;
-  },
-});
-
 export const createPolarCheckoutSession = action({
-  access: "access_user_preferences",
+  access: "access_dashboard",
   args: object({
     successUrl: string(),
     returnUrl: string(),
@@ -260,12 +171,30 @@ export const createPolarCheckoutSession = action({
       server,
     });
 
-    const existingExternalCustomerId = currentUser.billingPolarExternalCustomerId?.trim();
-    if (existingExternalCustomerId) {
+    const storedPlan = currentUser.billingPlan ?? "free";
+    const storedStatus = currentUser.billingStatus ?? "inactive";
+    const storedExternalCustomerId = currentUser.billingPolarExternalCustomerId?.trim();
+    if (!storedExternalCustomerId && hasStoredProEntitlement(storedPlan, storedStatus)) {
+      throw new Error("Samebase could not verify your current subscription.");
+    }
+
+    const customer = await ctx.runMutation(internal.billing.ensurePolarExternalCustomerId, {
+      userId,
+    });
+
+    if (storedExternalCustomerId) {
+      const observationRevision: number | null = await ctx.runMutation(
+        internal.polarBillingState.beginObservation,
+        { externalCustomerId: storedExternalCustomerId },
+      );
+      if (observationRevision === null) {
+        throw new Error("Samebase could not verify your current subscription.");
+      }
+
       let customerState: CustomerState | null = null;
       try {
         customerState = await polar.customers.getStateExternal({
-          externalId: existingExternalCustomerId,
+          externalId: storedExternalCustomerId,
         });
       } catch (error) {
         if (!isPolarResourceNotFound(error)) {
@@ -274,41 +203,89 @@ export const createPolarCheckoutSession = action({
       }
 
       if (customerState) {
-        const derived = deriveBillingFromCustomerState({
+        const derived = derivePolarBillingFromCustomerState({
           customerState,
           productId,
         });
-        if (!derived) {
+        if (derived === null || derived.externalCustomerId !== storedExternalCustomerId) {
           throw new Error("Samebase could not verify your current subscription.");
         }
 
-        await ctx.runMutation(internal.billing.applyPolarCustomerState, { state: derived });
+        const applied: boolean = await ctx.runMutation(
+          internal.polarBillingState.applyObservation,
+          {
+            state: derived,
+            observationRevision,
+          },
+        );
+        if (!applied) {
+          throw new Error("Samebase could not verify your current subscription.");
+        }
         if (derived.plan === "pro") {
           throw new Error("You already have a Pro subscription.");
         }
-      } else if (
-        hasStoredProEntitlement(
-          currentUser.billingPlan ?? "free",
-          currentUser.billingStatus ?? "inactive",
-        )
-      ) {
+      } else if (hasStoredProEntitlement(storedPlan, storedStatus)) {
         throw new Error("Samebase could not verify your current subscription.");
       }
-    } else if (
-      hasStoredProEntitlement(
-        currentUser.billingPlan ?? "free",
-        currentUser.billingStatus ?? "inactive",
-      )
-    ) {
-      throw new Error("Samebase could not verify your current subscription.");
     }
 
-    const customer = await ctx.runMutation(internal.billing.ensurePolarExternalCustomerId, {
-      userId,
-    });
+    const reservation: PolarCheckoutReservation = await ctx.runMutation(
+      internal.polarCheckout.reserveAttempt,
+      { userId },
+    );
+    if (reservation.state === "open") {
+      return { url: reservation.url };
+    }
 
+    let reusableCheckout: Checkout | null;
     try {
-      const checkout = await polar.checkouts.create({
+      reusableCheckout = await findReusablePolarCheckout({
+        polar,
+        attemptId: reservation.attemptId,
+        externalCustomerId: customer.externalCustomerId,
+        productId,
+      });
+    } catch (error) {
+      console.error("billing:polar:checkout_recovery_failed", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
+      throw new Error("Samebase could not verify your open checkout.");
+    }
+
+    if (reusableCheckout !== null) {
+      const recorded: boolean = await ctx.runMutation(internal.polarCheckout.recordOpen, {
+        userId,
+        attemptId: reservation.attemptId,
+        leaseId: reservation.leaseId,
+        checkoutId: reusableCheckout.id,
+        url: reusableCheckout.url,
+        expiresAt: reusableCheckout.expiresAt.getTime(),
+      });
+      if (!recorded) {
+        throw new Error("Samebase could not recover your open checkout.");
+      }
+      return { url: reusableCheckout.url };
+    }
+
+    if (!reservation.canCreate) {
+      throw new Error("Checkout is already being prepared. Please try again.");
+    }
+
+    const ownsCreationLease: boolean = await ctx.runMutation(
+      internal.polarCheckout.confirmCreationLease,
+      {
+        userId,
+        attemptId: reservation.attemptId,
+        leaseId: reservation.leaseId,
+      },
+    );
+    if (!ownsCreationLease) {
+      throw new Error("Checkout is already being prepared. Please try again.");
+    }
+
+    let checkout: Checkout;
+    try {
+      checkout = await polar.checkouts.create({
         products: [productId],
         externalCustomerId: customer.externalCustomerId,
         customerEmail: customer.email,
@@ -319,16 +296,35 @@ export const createPolarCheckoutSession = action({
         metadata: {
           source: "samebase_account",
           plan: "pro",
+          samebase_checkout_attempt_id: reservation.attemptId,
         },
       });
-
-      return { url: checkout.url };
     } catch (error) {
+      if (isDefinitivePolarCheckoutFailure(error)) {
+        await ctx.runMutation(internal.polarCheckout.releaseCreationLease, {
+          userId,
+          attemptId: reservation.attemptId,
+          leaseId: reservation.leaseId,
+        });
+      }
       console.error("billing:polar:checkout_failed", {
         errorName: error instanceof Error ? error.name : "UnknownError",
       });
       throw new Error("Polar checkout could not be started.");
     }
+
+    const recorded: boolean = await ctx.runMutation(internal.polarCheckout.recordOpen, {
+      userId,
+      attemptId: reservation.attemptId,
+      leaseId: reservation.leaseId,
+      checkoutId: checkout.id,
+      url: checkout.url,
+      expiresAt: checkout.expiresAt.getTime(),
+    });
+    if (!recorded) {
+      throw new Error("Polar checkout could not be started.");
+    }
+    return { url: checkout.url };
   },
 });
 
@@ -386,32 +382,25 @@ export const reconcileViewerBillingFromPolar = action({
       return false;
     }
 
+    const observationRevision: number | null = await ctx.runMutation(
+      internal.polarBillingState.beginObservation,
+      { externalCustomerId },
+    );
+    if (observationRevision === null) {
+      return false;
+    }
+
     try {
-      const customerState = await createPolarClient().customers.getStateExternal({
-        externalId: externalCustomerId,
-      });
-      const derived = deriveBillingFromCustomerState({
-        customerState,
+      const state = await readCanonicalPolarBillingState({
+        polar: createPolarClient(),
+        externalCustomerId,
         productId,
       });
-      if (!derived) {
-        return false;
-      }
-
-      await ctx.runMutation(internal.billing.applyPolarCustomerState, { state: derived });
-      return true;
+      return await ctx.runMutation(internal.polarBillingState.applyObservation, {
+        state,
+        observationRevision,
+      });
     } catch (error) {
-      if (isPolarResourceNotFound(error)) {
-        await ctx.runMutation(internal.billing.applyPolarCustomerState, {
-          state: {
-            externalCustomerId,
-            plan: "free",
-            status: "inactive",
-          },
-        });
-        return true;
-      }
-
       console.warn("billing:polar:reconciliation_failed", {
         errorName: error instanceof Error ? error.name : "UnknownError",
       });

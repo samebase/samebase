@@ -76,6 +76,8 @@ import type * as mcpTokenHealth from "../mcpTokenHealth.js";
 import type * as newUserNotification from "../newUserNotification.js";
 import type * as oauthState from "../oauthState.js";
 import type * as oauthUtils from "../oauthUtils.js";
+import type * as polarBillingState from "../polarBillingState.js";
+import type * as polarCheckout from "../polarCheckout.js";
 import type * as polarClient from "../polarClient.js";
 import type * as polarWebhooks from "../polarWebhooks.js";
 import type * as providerApiLog from "../providerApiLog.js";
@@ -216,6 +218,8 @@ declare const fullApi: ApiFromModules<{
   newUserNotification: typeof newUserNotification;
   oauthState: typeof oauthState;
   oauthUtils: typeof oauthUtils;
+  polarBillingState: typeof polarBillingState;
+  polarCheckout: typeof polarCheckout;
   polarClient: typeof polarClient;
   polarWebhooks: typeof polarWebhooks;
   providerApiLog: typeof providerApiLog;

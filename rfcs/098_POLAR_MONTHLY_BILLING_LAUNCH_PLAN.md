@@ -26,8 +26,7 @@ The repository has an old Polar scaffold, but billing is not ready for a custome
 - [x] The account page shows plan, usage, billing dates, and the correct action.
 - [x] The public pricing page shows the accepted Free and Pro offer.
 - [x] All Worker and Convex project attachment paths enforce 5 and 40.
-- [ ] Automated tests cover the billing lifecycle and quota boundaries. Quota boundaries are
-      complete; billing lifecycle coverage is in progress.
+- [x] Automated tests cover the billing lifecycle and quota boundaries.
 - [ ] A complete local Polar Sandbox flow has passed.
 - [ ] Production configuration and the first real checkout are complete.
 
@@ -42,10 +41,10 @@ The first independent quota review failed on 2026-08-02. The completed follow-up
 
 The first independent backend review found four required fixes on 2026-08-02:
 
-- [ ] Fence delayed webhooks against a newer canonical reconciliation result.
-- [ ] Remove equal-millisecond webhook ordering ambiguity.
-- [ ] Prevent concurrent or repeated open checkout sessions from creating duplicate subscriptions.
-- [ ] Let pending users manage existing billing, but require approved dashboard access to buy Pro.
+- [x] Fence delayed webhooks against a newer canonical reconciliation result.
+- [x] Remove equal-millisecond webhook ordering ambiguity.
+- [x] Prevent concurrent or repeated open checkout sessions from creating duplicate subscriptions.
+- [x] Let pending users manage existing billing, but require approved dashboard access to buy Pro.
 
 The second independent backend review found additional hardening work on 2026-08-02:
 
@@ -60,6 +59,9 @@ The second independent backend review found additional hardening work on 2026-08
       provider read.
 - [ ] Use `canStartCheckout` in Settings so a pending user does not see an action that the server
       rejects.
+
+- [ ] Remove `billingPolarStateChangedAt` only after production rows are verified or migrated. It
+      remains an optional compatibility field until that check is complete.
 
 Old specs 033 and 034 are historical input. They do not override the accepted contract in spec 118.
 

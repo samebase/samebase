@@ -2,7 +2,6 @@ import { validateEvent, WebhookVerificationError } from "@polar-sh/sdk/webhooks"
 
 import { internal } from "./_generated/api";
 import { env, httpAction } from "./_generated/server";
-import { deriveBillingFromCustomerState } from "./billing";
 import { readPolarProMonthlyProductId } from "./polarClient";
 
 export const handlePolarWebhook = httpAction(async (ctx, request) => {
@@ -40,17 +39,14 @@ export const handlePolarWebhook = httpAction(async (ctx, request) => {
     return new Response("Billing product is not configured", { status: 503 });
   }
 
-  const derived = deriveBillingFromCustomerState({
-    customerState: event.data,
-    productId,
-  });
-  if (!derived) {
+  const externalCustomerId = event.data.externalId?.trim();
+  if (!externalCustomerId) {
     return new Response(null, { status: 204 });
   }
 
-  await ctx.scheduler.runAfter(0, internal.billing.applyPolarCustomerState, {
-    state: derived,
-    polarStateChangedAt: event.timestamp.getTime(),
+  await ctx.scheduler.runAfter(0, internal.polarBillingState.reconcileForWebhook, {
+    externalCustomerId,
+    attempt: 0,
   });
   return new Response(null, { status: 202 });
 });

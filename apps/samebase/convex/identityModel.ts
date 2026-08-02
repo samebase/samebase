@@ -55,6 +55,24 @@ export const identityTables = {
     billingCancelAtPeriodEnd: optional(boolean()),
     billingPolarExternalCustomerId: optional(string()),
     billingPolarStateChangedAt: optional(number()),
+    billingPolarObservationRevision: optional(number()),
+    billingPolarCheckoutAttempt: optional(
+      union(
+        object({
+          state: literal("creating"),
+          attemptId: string(),
+          leaseId: string(),
+          leaseExpiresAt: number(),
+        }),
+        object({
+          state: literal("open"),
+          attemptId: string(),
+          checkoutId: string(),
+          url: string(),
+          expiresAt: number(),
+        }),
+      ),
+    ),
   })
     .index("email", ["email"])
     .index("phone", ["phone"])
