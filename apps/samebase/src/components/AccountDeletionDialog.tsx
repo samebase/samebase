@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { getRouteApi, Link, useRouter } from "@tanstack/react-router";
 import { api } from "../../convex/_generated/api";
@@ -58,6 +58,7 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const search = settingsRouteApi.useSearch();
   const requestAccountDeletion = useMutation(api.accountDeletion.index.request);
+  const reconcileViewerBilling = useAction(api.billing.reconcileViewerBillingFromPolar);
   const deletionStakes = useQuery(api.accountDeletion.index.stakes, {});
   const viewerAccess = useQuery(api.users.currentViewerAccess, {});
   const [isRequestingDeletion, setIsRequestingDeletion] = useState(false);
@@ -90,11 +91,21 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
     }
 
     try {
-      const result = await requestAccountDeletion({
+      const request = {
         completionCapability,
         confirmationPhrase: confirmationInput,
         confirmationStakesSnapshot,
-      });
+      };
+      let result = await requestAccountDeletion(request);
+
+      if (result.state === "billing_checkout_pending") {
+        try {
+          await reconcileViewerBilling({});
+        } catch {
+          // The retry stays valid if another tab starts deletion and removes billing access.
+        }
+        result = await requestAccountDeletion(request);
+      }
 
       if (result.state === "stakes_changed") {
         setConfirmationInput("");

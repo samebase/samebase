@@ -1399,8 +1399,16 @@ describe("UserSettingsPage", () => {
     }
   });
 
-  it("explains that a billing checkout blocks account deletion", async () => {
-    mutationState.requestDeletion.mockResolvedValue({ state: "billing_checkout_pending" });
+  it("reconciles a pending checkout and retries the deletion request once", async () => {
+    const reconciliation = createDeferred<{ state: "observed"; plan: "free" }>();
+    const retry = createDeferred<{
+      state: "accepted";
+      status: { completionCapability: string; runId: string };
+    }>();
+    actionState.reconcileBilling.mockReturnValue(reconciliation.promise);
+    mutationState.requestDeletion
+      .mockResolvedValueOnce({ state: "billing_checkout_pending" })
+      .mockReturnValueOnce(retry.promise);
     const mounted = await mountSettingsPage();
     try {
       const { confirmButton, phraseInput } = await openDeleteDialog(mounted);
@@ -1408,6 +1416,86 @@ describe("UserSettingsPage", () => {
       await act(async () => {
         confirmButton?.click();
         await Promise.resolve();
+      });
+
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+      expect(mutationState.requestDeletion).toHaveBeenCalledTimes(1);
+      expect(routerState.navigate).not.toHaveBeenCalled();
+      expect(confirmButton?.disabled).toBe(true);
+
+      await act(async () => {
+        reconciliation.resolve({ state: "observed", plan: "free" });
+        await reconciliation.promise;
+      });
+
+      expect(mutationState.requestDeletion).toHaveBeenCalledTimes(2);
+      expect(mutationState.requestDeletion.mock.calls[1]?.[0]).toEqual(
+        mutationState.requestDeletion.mock.calls[0]?.[0],
+      );
+      expect(routerState.navigate).not.toHaveBeenCalled();
+
+      await act(async () => {
+        retry.resolve({
+          state: "accepted",
+          status: {
+            completionCapability:
+              mutationState.requestDeletion.mock.calls[1]?.[0]?.completionCapability ?? "",
+            runId: "run-1",
+          },
+        });
+        await retry.promise;
+      });
+
+      expect(routerState.navigate).toHaveBeenCalledWith({
+        href: "/account-deletion",
+        replace: true,
+      });
+    } finally {
+      await unmount(mounted.root, mounted.rootElement);
+    }
+  });
+
+  it("shows support after one retry still finds a pending checkout", async () => {
+    const reconciliation = createDeferred<void>();
+    const retry = createDeferred<{ state: "billing_checkout_pending" }>();
+    actionState.reconcileBilling.mockImplementation(async () => {
+      await reconciliation.promise;
+      throw new Error("Deletion already started in another tab.");
+    });
+    mutationState.requestDeletion
+      .mockResolvedValueOnce({ state: "billing_checkout_pending" })
+      .mockReturnValueOnce(retry.promise);
+    const mounted = await mountSettingsPage();
+    try {
+      const { confirmButton, phraseInput } = await openDeleteDialog(mounted);
+      await typeConfirmationPhrase(phraseInput, "delete my account");
+      await act(async () => {
+        confirmButton?.click();
+        await Promise.resolve();
+      });
+
+      expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
+      expect(mutationState.requestDeletion).toHaveBeenCalledTimes(1);
+      expect(document.body.textContent).not.toContain(
+        "Your billing checkout must be resolved before you can delete your account. Contact support.",
+      );
+
+      await act(async () => {
+        reconciliation.resolve();
+        await reconciliation.promise;
+      });
+
+      expect(mutationState.requestDeletion).toHaveBeenCalledTimes(2);
+      expect(mutationState.requestDeletion.mock.calls[1]?.[0]).toEqual(
+        mutationState.requestDeletion.mock.calls[0]?.[0],
+      );
+      expect(document.body.textContent).not.toContain(
+        "Your billing checkout must be resolved before you can delete your account. Contact support.",
+      );
+
+      await act(async () => {
+        retry.resolve({ state: "billing_checkout_pending" });
+        await retry.promise;
       });
 
       expect(document.body.textContent).toContain(
