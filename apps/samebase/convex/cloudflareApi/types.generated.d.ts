@@ -3691,6 +3691,7 @@ export interface components {
       | components["schemas"]["workers_binding_kind_ai"]
       | components["schemas"]["workers_binding_kind_ai_search"]
       | components["schemas"]["workers_binding_kind_ai_search_namespace"]
+      | components["schemas"]["workers_binding_kind_messaging"]
       | components["schemas"]["workers_binding_kind_analytics_engine"]
       | components["schemas"]["workers_binding_kind_assets"]
       | components["schemas"]["workers_binding_kind_browser"]
@@ -3766,6 +3767,19 @@ export interface components {
        * @enum {string}
        */
       type: "ai_search_namespace";
+    };
+    workers_binding_kind_messaging: {
+      name: components["schemas"]["workers_binding_name"];
+      /**
+       * @description The Messaging namespace to bind to.
+       * @example production
+       */
+      namespace: string;
+      /**
+       * @description The kind of resource that the binding provides. (enum property replaced by openapi-typescript)
+       * @enum {string}
+       */
+      type: "messaging";
     };
     workers_binding_kind_analytics_engine: {
       /**
@@ -6898,6 +6912,7 @@ export type WorkersBindingName = components["schemas"]["workers_binding_name"];
 export type WorkersBindingKindAiSearch = components["schemas"]["workers_binding_kind_ai_search"];
 export type WorkersBindingKindAiSearchNamespace =
   components["schemas"]["workers_binding_kind_ai_search_namespace"];
+export type WorkersBindingKindMessaging = components["schemas"]["workers_binding_kind_messaging"];
 export type WorkersBindingKindAnalyticsEngine =
   components["schemas"]["workers_binding_kind_analytics_engine"];
 export type WorkersBindingKindAssets = components["schemas"]["workers_binding_kind_assets"];
