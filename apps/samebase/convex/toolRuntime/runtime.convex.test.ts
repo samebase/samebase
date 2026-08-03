@@ -1,7 +1,14 @@
-import { describe, expect, it } from "vite-plus/test";
+import type { FunctionReturnType } from "convex/server";
+import type { Infer } from "convex/values";
+import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
+import { cloudflareCreateWorkerContract } from "../vault/contracts/cloudflareAttachments";
+
+type CloudflareCreateWorkerToolResult = FunctionReturnType<
+  typeof internal.toolRuntime.runtime.cloudflareCreateWorkerTool
+>;
 
 async function seedToolRuntimeOwner() {
   const t = makeConvexTest();
@@ -22,6 +29,21 @@ async function seedToolRuntimeOwner() {
 }
 
 describe("MCP tool runtime boundaries", () => {
+  it("keeps the exact result type through the generic runtime factory", () => {
+    expectTypeOf<CloudflareCreateWorkerToolResult>().not.toBeAny();
+    expectTypeOf<CloudflareCreateWorkerToolResult>().toEqualTypeOf<
+      | {
+          status: "ok";
+          text: string;
+          structuredContent: Infer<typeof cloudflareCreateWorkerContract.structuredContent>;
+        }
+      | {
+          status: "error" | "blocked";
+          text: string;
+        }
+    >();
+  });
+
   it("blocks a generic runtime tool before its product helper runs", async () => {
     const { t, userId, vaultId } = await seedToolRuntimeOwner();
 

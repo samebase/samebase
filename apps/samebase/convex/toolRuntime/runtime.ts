@@ -1,6 +1,7 @@
 "use node";
 
 import { v, type Infer, type ObjectType, type PropertyValidators } from "convex/values";
+import type { ReturnValueForOptionalValidator } from "convex/server";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
 import { createRepositoryContract } from "../vault/contracts/createRepository";
@@ -74,26 +75,33 @@ function defineMcpTool<
   const SuccessFields extends PropertyValidators,
 >(config: {
   contract: McpToolContract<Args>;
-  successFields: SuccessFields & { status?: never; text?: never };
+  successFields: SuccessFields;
   run: (
     ctx: ActionCtx,
     args: McpToolArgs<Args>,
   ) => Promise<ObjectType<SuccessFields> & { text: string }>;
 }) {
   const vToolSuccess = object({
+    ...config.successFields,
     status: literal("ok"),
     text: string(),
-    ...config.successFields,
   });
   const vToolResult = union(vToolSuccess, vToolFailure);
+  const vToolArgs = object({
+    ...config.contract.args,
+    ...vToolInvocationArgs,
+  });
+  type ToolReturn = ReturnValueForOptionalValidator<typeof vToolResult>;
 
-  return internalAction({
-    args: object({
-      ...config.contract.args,
-      ...vToolInvocationArgs,
-    }),
+  return internalAction<
+    typeof vToolArgs,
+    typeof vToolResult,
+    ToolReturn,
+    [Infer<typeof vToolArgs>]
+  >({
+    args: vToolArgs,
     returns: vToolResult,
-    // @ts-expect-error vToolResult validates this generic success/failure union at runtime.
+    // @ts-expect-error vToolArgs validates these contract and trusted fields before the handler.
     handler: async (ctx, args: RegisteredMcpToolArgs<Args>) => {
       const { grantedScopes, ...toolArgs } = args;
       if (!mcpScopeAllowsAccess(config.contract.access, grantedScopes)) {
@@ -105,8 +113,8 @@ function defineMcpTool<
 
       try {
         return {
-          status: "ok",
           ...(await config.run(ctx, toolArgs)),
+          status: "ok",
         };
       } catch (error) {
         const message = error instanceof Error ? error.message : "Tool execution failed.";

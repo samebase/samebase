@@ -148,11 +148,6 @@ describe("MCP tool listing access", () => {
     });
     expect(tools.find((tool) => tool.name === "vault_cloudflare_createWorker")).toMatchObject({
       title: "Create Cloudflare Worker",
-      annotations: {
-        readOnlyHint: false,
-        openWorldHint: true,
-        destructiveHint: false,
-      },
       outputSchema: {
         type: "object",
         properties: {
@@ -168,17 +163,36 @@ describe("MCP tool listing access", () => {
     expect(configureWorkersBuildsTool).not.toHaveProperty("outputSchema");
     expect(configureWorkersBuildsTool).toMatchObject({
       description: expect.stringContaining("start a production build"),
-      annotations: {
-        readOnlyHint: false,
-        openWorldHint: true,
-        destructiveHint: true,
-      },
     });
     expect(
       tools.find((tool) => tool.name === "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds"),
     ).toMatchObject({
       description: expect.stringContaining("start a production build"),
     });
+  });
+
+  it("pins high-risk tool safety annotations", () => {
+    const tools = listMcpToolsForAccess({
+      grantedScopes: [...ACCESS_KEYS],
+      currentAccessKeys: [...ACCESS_KEYS],
+    });
+    const expectedSafety = [
+      ["vault_actions_createRepository", false],
+      ["vault_cloudflare_createWorker", false],
+      ["vault_cloudflare_configureWorkersBuildsForGitHub", true],
+      ["vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds", true],
+      ["vault_actions_retryInfrastructureProvisioning", true],
+    ] as const;
+
+    for (const [name, destructiveHint] of expectedSafety) {
+      expect(tools.find((tool) => tool.name === name)).toMatchObject({
+        annotations: {
+          readOnlyHint: false,
+          openWorldHint: true,
+          destructiveHint,
+        },
+      });
+    }
   });
 });
 
