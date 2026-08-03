@@ -243,6 +243,160 @@ describe("MCP OAuth refresh token replay", () => {
   });
 });
 
+describe("MCP OAuth authorization request boundaries", () => {
+  it("returns only the client fields used by the HTTP OAuth boundary", async () => {
+    const t = makeConvexTest();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("mcpOauthClients", {
+        clientId: "mcpc_http_boundary",
+        clientName: "HTTP boundary client",
+        redirectUris: ["https://example.test/callback"],
+        grantTypes: ["authorization_code", "refresh_token"],
+        responseTypes: ["code"],
+        tokenEndpointAuthMethod: "none",
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "dynamic_registration",
+        registrationStatus: "provisional",
+        provisionalExpiresAt: now + 60_000,
+        metadataJson: '{"private":"not returned"}',
+      });
+    });
+
+    await expect(
+      t.query(internal.mcp.oauth.getClientByClientId, {
+        clientId: "mcpc_http_boundary",
+      }),
+    ).resolves.toEqual({
+      redirectUris: ["https://example.test/callback"],
+      registrationStatus: "provisional",
+      provisionalExpiresAt: now + 60_000,
+    });
+  });
+
+  it("applies the same pending request checks before approval and denial", async () => {
+    const t = makeConvexTest();
+    const { otherUserId, ownerUserId } = await t.run(async (ctx) => {
+      const ownerUserId = await ctx.db.insert("users", {
+        email: "authorization-owner@example.test",
+        isApproved: true,
+      });
+      const otherUserId = await ctx.db.insert("users", {
+        email: "authorization-other@example.test",
+        isApproved: true,
+      });
+
+      for (const operation of ["issue", "deny"] as const) {
+        const sharedRequest = {
+          clientId,
+          redirectUri: "https://example.test/callback",
+          resource,
+          scope,
+          codeChallenge: "unused-code-challenge",
+          codeChallengeMethod: "S256" as const,
+          userId: ownerUserId,
+          createdAt: now,
+        };
+        await ctx.db.insert("mcpAuthorizationRequests", {
+          ...sharedRequest,
+          requestId: `${operation}_not_pending`,
+          status: "approved",
+          expiresAt: now + 60_000,
+        });
+        await ctx.db.insert("mcpAuthorizationRequests", {
+          ...sharedRequest,
+          requestId: `${operation}_expired`,
+          status: "pending",
+          expiresAt: now,
+        });
+        await ctx.db.insert("mcpAuthorizationRequests", {
+          ...sharedRequest,
+          requestId: `${operation}_foreign_user`,
+          status: "pending",
+          expiresAt: now + 60_000,
+        });
+      }
+
+      return { otherUserId, ownerUserId };
+    });
+
+    const issue = async (requestId: string, userId: Id<"users">, invokedAt: number) => {
+      return await t.mutation(internal.mcp.oauth.issueAuthorizationCodeForAuthRequest, {
+        requestId,
+        userId,
+        codeHash: `${requestId}_code_hash`,
+        codeExpiresAt: invokedAt + 60_000,
+        now: invokedAt,
+      });
+    };
+    const deny = async (requestId: string, userId: Id<"users">, invokedAt: number) => {
+      return await t.mutation(internal.mcp.oauth.denyAuthorizationRequest, {
+        requestId,
+        userId,
+        now: invokedAt,
+      });
+    };
+    const unknownError = {
+      ok: false,
+      status: 400,
+      error: "invalid_request",
+      errorDescription: "Unknown authorization request.",
+    };
+    const notPendingError = {
+      ok: false,
+      status: 400,
+      error: "invalid_request",
+      errorDescription: "Authorization request is no longer pending.",
+    };
+    const expiredError = {
+      ok: false,
+      status: 400,
+      error: "invalid_request",
+      errorDescription: "Authorization request expired.",
+    };
+    const differentUserError = {
+      ok: false,
+      status: 403,
+      error: "invalid_request",
+      errorDescription: "Authorization request belongs to a different user.",
+    };
+
+    for (const { invoke, operation } of [
+      { operation: "issue", invoke: issue },
+      { operation: "deny", invoke: deny },
+    ]) {
+      await expect(invoke(`${operation}_unknown`, ownerUserId, now + 1)).resolves.toEqual(
+        unknownError,
+      );
+      await expect(invoke(`${operation}_not_pending`, ownerUserId, now + 1)).resolves.toEqual(
+        notPendingError,
+      );
+      await expect(invoke(`${operation}_expired`, ownerUserId, now + 1)).resolves.toEqual(
+        expiredError,
+      );
+      await expect(invoke(`${operation}_foreign_user`, otherUserId, now + 1)).resolves.toEqual(
+        differentUserError,
+      );
+    }
+
+    await expect(
+      t.run(async (ctx) => {
+        const requests = await ctx.db.query("mcpAuthorizationRequests").collect();
+        return requests
+          .map((request) => ({ requestId: request.requestId, status: request.status }))
+          .sort((left, right) => left.requestId.localeCompare(right.requestId));
+      }),
+    ).resolves.toEqual([
+      { requestId: "deny_expired", status: "expired" },
+      { requestId: "deny_foreign_user", status: "pending" },
+      { requestId: "deny_not_pending", status: "approved" },
+      { requestId: "issue_expired", status: "expired" },
+      { requestId: "issue_foreign_user", status: "pending" },
+      { requestId: "issue_not_pending", status: "approved" },
+    ]);
+  });
+});
+
 describe("MCP OAuth account deletion access", () => {
   it("does not create authenticated authorization requests for deleting or missing users", async () => {
     const t = makeConvexTest();

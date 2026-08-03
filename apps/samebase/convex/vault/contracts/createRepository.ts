@@ -42,7 +42,7 @@ export const createRepositoryContract = {
       description: "Optional GitHub repository description.",
       private: "Whether to create a private GitHub repository. Defaults to true.",
     },
-  } satisfies AppFunctionMcpMetadata,
+  } as const satisfies AppFunctionMcpMetadata,
   doc: `Creates a complete Samebase app in one action: a GitHub repository under the caller's
 connected owner, seeded with the starter template, a Convex project and dev/prod deployments, a
 Cloudflare Worker, Workers Builds configured for the repository (push to the default branch deploys,

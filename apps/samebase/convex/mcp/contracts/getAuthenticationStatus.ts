@@ -47,7 +47,7 @@ export const getAuthenticationStatusContract = {
       destructiveHint: false,
     },
     inputDescriptions: {},
-  } satisfies AppFunctionMcpMetadata,
+  } as const satisfies AppFunctionMcpMetadata,
   doc: `Returns the current MCP caller's Samebase authentication state for the bearer token used
 on the request: whether it still resolves to an active Samebase account, the account identity,
 the current Samebase role and access keys, and the OAuth scopes granted to this MCP token.

@@ -65,6 +65,14 @@ export const toolJustifications = {
       "Reads the Cloudflare API; it does not change Cloudflare or public internet state.",
     destructive_justification: noDestructiveActions,
   },
+  vault_cloudflare_createWorker: {
+    read_only_justification:
+      "Creates one Cloudflare Worker, records it as a vault attachment, configures its Workers Builds triggers, and requests an initial production build.",
+    open_world_justification:
+      "Creates and configures a Worker in the caller's Cloudflare account and starts a build for the caller's GitHub repository.",
+    destructive_justification:
+      "Rejects existing Worker names and existing Workers Builds connections. It does not overwrite or delete a Worker, trigger, repository, deployment, or user data.",
+  },
   vault_cloudflare_discoverWorkers: {
     read_only_justification:
       "Lists Workers and their live repository roots, and may refresh private Samebase connection bookkeeping while reading Cloudflare.",
