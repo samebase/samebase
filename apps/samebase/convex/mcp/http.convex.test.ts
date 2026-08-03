@@ -27,7 +27,9 @@ describe("MCP HTTP tool invocation args", () => {
         email: "argument@example.com",
         isApproved: true,
       });
-      return { argumentUserId, tokenUserId };
+      const tokenOrganizationId = await ctx.db.insert("organizations", {});
+      const argumentOrganizationId = await ctx.db.insert("organizations", {});
+      return { argumentOrganizationId, argumentUserId, tokenOrganizationId, tokenUserId };
     });
     const viewer = await t.query(internal.functions.resolveViewerForUserId, {
       userId: ids.tokenUserId,
@@ -43,8 +45,10 @@ describe("MCP HTTP tool invocation args", () => {
         grantedScopes: ["access_app_create"],
         grantId: "raw_grant",
         clientId: "raw_client",
+        organizationId: ids.argumentOrganizationId,
       },
       userId: ids.tokenUserId,
+      organizationId: ids.tokenOrganizationId,
       grantedScopes: [],
       grantId: "trusted_grant",
       clientId: "trusted_client",
@@ -57,6 +61,7 @@ describe("MCP HTTP tool invocation args", () => {
       convexProjectName: "test-app",
       cloudflareWorkerName: "test-app",
       userId: ids.tokenUserId,
+      organizationId: ids.tokenOrganizationId,
       grantedScopes: [],
     });
     expect(isRecord(toolArgs) && "grantId" in toolArgs).toBe(false);
@@ -246,11 +251,16 @@ describe("MCP tools/call access enforcement", () => {
     const tokenHash = await sha256Hex(accessToken);
     const now = Date.now();
     const scope = (args.scopes ?? ["access_dashboard", "access_app_create"]).join(" ");
-    const userId = await t.run(async (ctx) => {
+    const ids = await t.run(async (ctx) => {
       const seededUserId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
         isApproved: args.isApproved,
+      });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: seededUserId,
       });
       await ctx.db.insert("mcpOauthClients", {
         clientId: "client_test",
@@ -267,6 +277,7 @@ describe("MCP tools/call access enforcement", () => {
       await ctx.db.insert("mcpGrants", {
         grantId: "grant_test",
         userId: seededUserId,
+        organizationId,
         clientId: "client_test",
         resource,
         scope,
@@ -284,7 +295,7 @@ describe("MCP tools/call access enforcement", () => {
         createdAt: now,
         expiresAt: now + 60 * 60 * 1000,
       });
-      return seededUserId;
+      return { organizationId, userId: seededUserId };
     });
 
     const callTool = async (name: string, toolArguments: Record<string, unknown> = {}) => {
@@ -304,7 +315,7 @@ describe("MCP tools/call access enforcement", () => {
       return await response.json();
     };
 
-    return { accessToken, callTool, t, userId };
+    return { accessToken, callTool, t, ...ids };
   }
 
   it("returns cross-tool workflow instructions during initialization", async () => {
@@ -412,26 +423,17 @@ describe("MCP tools/call access enforcement", () => {
   });
 
   it("executes the tool when scopes and current access both allow it", async () => {
-    const { callTool, t, userId } = await seedMcpBearer({ isApproved: true });
+    const { callTool, organizationId, t, userId } = await seedMcpBearer({ isApproved: true });
     await t.run(async (ctx) => {
-      const organizationId = await ctx.db.insert("organizations", {});
-      await ctx.db.insert("organizationMemberships", { organizationId, userId });
       await ctx.db.insert("organizationBillingAccounts", {
         organizationId,
         plan: "free",
         status: "inactive",
       });
-      const grant = await ctx.db
-        .query("mcpGrants")
-        .withIndex("by_grant_id", (query) => query.eq("grantId", "grant_test"))
-        .unique();
-      if (grant === null) {
-        throw new Error("Expected the MCP grant fixture.");
-      }
-      await ctx.db.patch(grant._id, { organizationId });
     });
     await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
       userId,
+      organizationId,
       ghRepoOwner: "ada",
       ghRepoName: "existing-app",
     });
@@ -557,26 +559,16 @@ describe("MCP tools/call access enforcement", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const { callTool, t, userId } = await seedMcpBearer({
+    const { callTool, organizationId, t, userId } = await seedMcpBearer({
       isApproved: true,
       scopes: ["access_dashboard", "access_provider_connections"],
     });
     const vaultId = await t.run(async (ctx) => {
-      const organizationId = await ctx.db.insert("organizations", {});
-      await ctx.db.insert("organizationMemberships", { organizationId, userId });
       await ctx.db.insert("organizationBillingAccounts", {
         organizationId,
         plan: "free",
         status: "inactive",
       });
-      const grant = await ctx.db
-        .query("mcpGrants")
-        .withIndex("by_grant_id", (query) => query.eq("grantId", "grant_test"))
-        .unique();
-      if (grant === null) {
-        throw new Error("Expected the MCP grant fixture.");
-      }
-      await ctx.db.patch(grant._id, { organizationId });
       await Promise.all([
         ctx.db.insert("providerConnections", {
           kind: "cloudflare",
@@ -601,13 +593,12 @@ describe("MCP tools/call access enforcement", () => {
         }),
       ]);
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
         organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/demo",
         trigger: "connect_existing_repository",
@@ -618,7 +609,6 @@ describe("MCP tools/call access enforcement", () => {
         completedAt: 2,
       });
       await ctx.db.replace(vaultId, {
-        userId,
         organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",

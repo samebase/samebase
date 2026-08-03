@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { api, internal } from "./_generated/api";
+import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { makeConvexTest } from "./test.setup";
 
@@ -13,38 +13,42 @@ function asIdentity(t: ConvexTest, userId: Id<"users">) {
   });
 }
 
-async function seedOwnedResources() {
+async function seedOrganizationVault() {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
-    const now = Date.now();
     const ownerId = await ctx.db.insert("users", {
       name: "Owner",
       email: "nicu@samebase.com",
       isApproved: true,
     });
-    const otherUserId = await ctx.db.insert("users", {
-      name: "Other",
+    const teammateId = await ctx.db.insert("users", {
+      name: "Teammate",
       email: "nicuchiciuc@gmail.com",
       isApproved: true,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
-    await ctx.db.insert("organizationMemberships", { organizationId, userId: ownerId });
-    await ctx.db.insert("organizationMemberships", { organizationId, userId: otherUserId });
-    await ctx.db.insert("organizationBillingAccounts", {
-      organizationId,
-      plan: "free",
-      status: "inactive",
+    const outsiderId = await ctx.db.insert("users", {
+      name: "Outsider",
+      email: "nicu@samebase.com",
+      isApproved: true,
     });
+    const organizationId = await ctx.db.insert("organizations", {});
+    const outsiderOrganizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId: ownerId });
+    await ctx.db.insert("organizationMemberships", { organizationId, userId: teammateId });
+    await ctx.db.insert("organizationMemberships", {
+      organizationId: outsiderOrganizationId,
+      userId: outsiderId,
+    });
+
     const vaultId = await ctx.db.insert("vaults", {
-      userId: ownerId,
       organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId: ownerId,
+      requestedByUserId: ownerId,
       vaultId,
-      repositoryFullName: "owner/secure",
+      repositoryFullName: "owner/shared",
       trigger: "connect_existing_repository",
       state: "succeeded",
       currentStep: "finish",
@@ -53,7 +57,6 @@ async function seedOwnedResources() {
       completedAt: 3,
     });
     await ctx.db.replace(vaultId, {
-      userId: ownerId,
       organizationId,
       deletion: { state: "not_deleting" },
       state: "connected",
@@ -61,7 +64,7 @@ async function seedOwnedResources() {
       runId,
       ghRepoId: "123",
       owner: "owner",
-      name: "secure",
+      name: "shared",
       defaultBranch: "main",
       visibility: "private",
       connectedAt: 4,
@@ -75,478 +78,107 @@ async function seedOwnedResources() {
         truncated: false,
         tree: [],
       },
-      lastTreeRefreshAt: 6,
+      lastTreeRefreshAt: 5,
     });
     const stagingId = await ctx.db.insert("vaultStagedFiles", {
-      ownerId,
       vaultId,
       fileDeleted: false,
+      kind: "text",
       filePath: "notes/plan.md",
       initialFilePath: "notes/plan.md",
-      content: "owner content",
+      content: "shared content",
       initialContent: "initial content",
       parentCommitSha: "abc123",
-      lastEditTime: 10,
-      lastEditUserId: ownerId,
+      lastEditTime: 6,
+      lastEditUserId: outsiderId,
       branch: "main",
       version: 3,
     });
-    const folderExpansionId = await ctx.db.insert("ui_vaultFileTree_folderExpansions", {
+    await ctx.db.insert("ui_vaultFileTree_folderExpansions", {
       userId: ownerId,
       vaultId,
       folderPath: "notes",
       isExpanded: true,
     });
-    await ctx.db.insert("vaultStagedFileUpdates", {
-      vaultId,
-      branch: "main",
-      filePath: "notes/plan.md",
-      version: 4,
-      clientId: "owner-client",
-      changes: "[]",
-      userId: ownerId,
-      editUserId: ownerId,
-      timestamp: now,
-    });
-    const deletionRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
-      userId: ownerId,
-      vaultId,
-      repositoryFullName: "owner/secure",
-      createdAt: 30,
-      updatedAt: 31,
-      attempt: { kind: "initial" },
-      state: "succeeded",
-      workflow: { state: "started", workflowId: "workflow-owner-delete" },
-      currentStep: "finish",
-      snapshot: { state: "scrubbed_after_success" },
-      completedAt: 32,
-    });
-    const deletionEventId = await ctx.db.insert("workflow_vaultDeletion_events", {
-      userId: ownerId,
-      vaultId,
-      repositoryFullName: "owner/secure",
-      runId: deletionRunId,
-      step: "finish",
-      level: "info",
-      message: "Owner deletion event.",
-      createdAt: 33,
-    });
-    return {
-      deletionEventId,
-      deletionRunId,
-      folderExpansionId,
-      organizationId,
-      otherUserId,
-      ownerId,
-      stagingId,
-      vaultId,
-    };
+
+    return { organizationId, outsiderId, ownerId, stagingId, teammateId, vaultId };
   });
+
   return { ids, t };
 }
 
-describe("public Convex route ownership checks", () => {
-  it("hides owner-scoped vault read gateways from another same-organization user", async () => {
-    const { ids, t } = await seedOwnedResources();
-    const asOther = asIdentity(t, ids.otherUserId);
-    const asOwner = asIdentity(t, ids.ownerId);
+describe("organization resource access", () => {
+  it("gives each organization member access to the shared vault draft", async () => {
+    const { ids, t } = await seedOrganizationVault();
+    const asTeammate = asIdentity(t, ids.teammateId);
 
     await expect(
-      asOther.query(api.vault.records.getVaultByRepository, {
-        repositoryFullName: "owner/secure",
+      asTeammate.query(api.vault.records.getVaultByRepository, {
+        repositoryFullName: "owner/shared",
       }),
-    ).resolves.toBeNull();
+    ).resolves.toMatchObject({ _id: ids.vaultId });
     await expect(
-      asOther.query(api.vault.deletion.events.listForVault, { vaultId: ids.vaultId }),
-    ).resolves.toEqual([]);
+      asTeammate.query(api.collaborative.getDocument, {
+        vaultId: ids.vaultId,
+        branch: "main",
+        filePath: "notes/plan.md",
+      }),
+    ).resolves.toEqual({ content: "shared content", exists: true, version: 3 });
 
-    await expect(
-      asOwner.query(api.vault.records.getVaultByRepository, {
-        repositoryFullName: "owner/secure",
-      }),
-    ).resolves.toMatchObject({
-      _id: ids.vaultId,
-      repositoryFullName: "owner/secure",
-      resolvedBranch: "main",
+    await asTeammate.mutation(api.fileStaging.updateStagedFileContent, {
+      stagingId: ids.stagingId,
+      content: "teammate content",
+      expectedVersion: 3,
     });
-    await expect(
-      asOwner.query(api.vault.deletion.events.listForVault, { vaultId: ids.vaultId }),
-    ).resolves.toEqual([
-      {
-        _id: ids.deletionEventId,
-        createdAt: 33,
-        level: "info",
-        message: "Owner deletion event.",
-        repositoryFullName: "owner/secure",
-        runId: ids.deletionRunId,
-        step: "finish",
-      },
-    ]);
+
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.stagingId))).resolves.toMatchObject({
+      content: "teammate content",
+      lastEditUserId: ids.teammateId,
+      version: 4,
+    });
   });
 
-  it("hides owner-scoped folder and collaborative reads from another same-organization user", async () => {
-    const { ids, t } = await seedOwnedResources();
-    const asOther = asIdentity(t, ids.otherUserId);
+  it("keeps personal folder state separate between organization members", async () => {
+    const { ids, t } = await seedOrganizationVault();
     const asOwner = asIdentity(t, ids.ownerId);
-
-    await expect(
-      asOther.query(api.folderExpansion.getFolderExpansionStates, { vaultId: ids.vaultId }),
-    ).resolves.toEqual([]);
-    await expect(
-      asOther.query(api.collaborative.getDocument, {
-        vaultId: ids.vaultId,
-        branch: "main",
-        filePath: "notes/plan.md",
-      }),
-    ).resolves.toEqual({
-      version: 0,
-      content: "",
-      exists: false,
-    });
-    await expect(
-      asOther.query(api.collaborative.getActiveEditors, {
-        vaultId: ids.vaultId,
-        branch: "main",
-        filePath: "notes/plan.md",
-      }),
-    ).resolves.toEqual([]);
+    const asTeammate = asIdentity(t, ids.teammateId);
 
     await expect(
       asOwner.query(api.folderExpansion.getFolderExpansionStates, { vaultId: ids.vaultId }),
     ).resolves.toEqual([{ folderPath: "notes", isExpanded: true }]);
     await expect(
-      asOwner.query(api.collaborative.getDocument, {
-        vaultId: ids.vaultId,
-        branch: "main",
-        filePath: "notes/plan.md",
-      }),
-    ).resolves.toEqual({
-      version: 3,
-      content: "owner content",
-      exists: true,
-    });
-  });
-
-  it("blocks another staff user from changing owner-scoped folder rows", async () => {
-    const { ids, t } = await seedOwnedResources();
-    const asOther = asIdentity(t, ids.otherUserId);
-
-    await expect(
-      asOther.mutation(api.folderExpansion.setFolderExpansionState, {
-        vaultId: ids.vaultId,
-        folderPath: "notes",
-        isExpanded: false,
-      }),
-    ).rejects.toThrow("Unauthorized");
-    await expect(
-      asOther.mutation(api.folderExpansion.clearFolderExpansionStates, {
-        vaultId: ids.vaultId,
-      }),
-    ).rejects.toThrow("Unauthorized");
-
-    await expect(
-      t.run(async (ctx) => {
-        return ctx.db.get(ids.folderExpansionId);
-      }),
-    ).resolves.toMatchObject({
-      userId: ids.ownerId,
-      folderPath: "notes",
-      isExpanded: true,
-    });
-  });
-
-  it("blocks another staff user from mutating owner-scoped staging rows", async () => {
-    const { ids, t } = await seedOwnedResources();
-    const asOther = asIdentity(t, ids.otherUserId);
-
-    await expect(
-      asOther.query(api.fileStaging.listStagedFilesBranchSummaries, {
-        vaultId: ids.vaultId,
-      }),
+      asTeammate.query(api.folderExpansion.getFolderExpansionStates, { vaultId: ids.vaultId }),
     ).resolves.toEqual([]);
+
+    await asTeammate.mutation(api.folderExpansion.setFolderExpansionState, {
+      vaultId: ids.vaultId,
+      folderPath: "notes",
+      isExpanded: false,
+    });
+
     await expect(
-      asOther.mutation(api.fileStaging.clearAllStaging, {
-        vaultId: ids.vaultId,
-        branch: "main",
-        skipTreeUpdate: true,
+      asOwner.query(api.folderExpansion.getFolderExpansionStates, { vaultId: ids.vaultId }),
+    ).resolves.toEqual([{ folderPath: "notes", isExpanded: true }]);
+    await expect(
+      asTeammate.query(api.folderExpansion.getFolderExpansionStates, { vaultId: ids.vaultId }),
+    ).resolves.toEqual([{ folderPath: "notes", isExpanded: false }]);
+  });
+
+  it("rejects a different organization even when its user is the recorded edit actor", async () => {
+    const { ids, t } = await seedOrganizationVault();
+    const asOutsider = asIdentity(t, ids.outsiderId);
+
+    await expect(
+      asOutsider.query(api.vault.records.getVaultByRepository, {
+        repositoryFullName: "owner/shared",
       }),
-    ).rejects.toThrow("Unauthorized");
+    ).resolves.toBeNull();
     await expect(
-      asOther.mutation(api.fileStaging.markFileForDeletion, {
-        vaultId: ids.vaultId,
-        branch: "main",
-        filePath: "notes/plan.md",
-        parentCommitSha: "abc123",
-      }),
-    ).rejects.toThrow("Unauthorized");
-    await expect(
-      asOther.mutation(api.fileStaging.createFileInStaging, {
-        vaultId: ids.vaultId,
-        branch: "main",
-        filePath: "notes/other.md",
-        content: "other content",
-      }),
-    ).rejects.toThrow("Unauthorized");
-    await expect(
-      asOther.mutation(api.fileStaging.updateStagedFileContent, {
+      asOutsider.mutation(api.fileStaging.updateStagedFileContent, {
         stagingId: ids.stagingId,
-        content: "other content",
+        content: "outsider content",
         expectedVersion: 3,
       }),
     ).rejects.toThrow("Unauthorized");
-
-    await expect(
-      t.run(async (ctx) => {
-        return await ctx.db
-          .query("vaultStagedFiles")
-          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-          .collect();
-      }),
-    ).resolves.toMatchObject([
-      {
-        _id: ids.stagingId,
-        ownerId: ids.ownerId,
-        fileDeleted: false,
-        filePath: "notes/plan.md",
-        content: "owner content",
-        version: 3,
-      },
-    ]);
-  });
-
-  it("summarizes prepared and legacy owned vaults but not a teammate vault", async () => {
-    const { ids, t } = await seedOwnedResources();
-    const extraVaultIds = await t.run(async (ctx) => {
-      const insertConnectedVault = async (args: {
-        organizationId?: Id<"organizations">;
-        owner: string;
-        userId: Id<"users">;
-      }) => {
-        const vaultId = await ctx.db.insert("vaults", {
-          userId: args.userId,
-          ...(args.organizationId ? { organizationId: args.organizationId } : {}),
-          deletion: { state: "not_deleting" },
-          state: "not_connected",
-        });
-        const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-          userId: args.userId,
-          vaultId,
-          repositoryFullName: `${args.owner}/staged`,
-          trigger: "connect_existing_repository",
-          state: "succeeded",
-          currentStep: "finish",
-          createdAt: 1,
-          updatedAt: 2,
-          completedAt: 3,
-        });
-        await ctx.db.replace(vaultId, {
-          userId: args.userId,
-          ...(args.organizationId ? { organizationId: args.organizationId } : {}),
-          deletion: { state: "not_deleting" },
-          state: "connected",
-          githubMode: "connect_existing_repository",
-          runId,
-          ghRepoId: `${args.owner}-repo`,
-          owner: args.owner,
-          name: "staged",
-          defaultBranch: "main",
-          visibility: "private",
-          connectedAt: 4,
-        });
-        await ctx.db.insert("vaultStagedFiles", {
-          ownerId: args.userId,
-          vaultId,
-          fileDeleted: false,
-          filePath: "new.md",
-          initialFilePath: "new.md",
-          content: "new",
-          initialContent: "",
-          parentCommitSha: null,
-          lastEditTime: 5,
-          lastEditUserId: args.userId,
-          branch: "main",
-          version: 1,
-        });
-        return vaultId;
-      };
-
-      return {
-        legacyVaultId: await insertConnectedVault({
-          owner: "legacy-owner",
-          userId: ids.ownerId,
-        }),
-        teammateVaultId: await insertConnectedVault({
-          organizationId: ids.organizationId,
-          owner: "teammate-owner",
-          userId: ids.otherUserId,
-        }),
-      };
-    });
-    const asOwner = asIdentity(t, ids.ownerId);
-
-    const summaries = await asOwner.query(api.fileStaging.listStagedFilesBranchSummariesByVault, {
-      vaultIds: [
-        ids.vaultId,
-        extraVaultIds.legacyVaultId,
-        extraVaultIds.teammateVaultId,
-        ids.vaultId,
-      ],
-    });
-
-    expect(summaries.map((summary) => summary.vaultId)).toEqual([
-      ids.vaultId,
-      extraVaultIds.legacyVaultId,
-    ]);
-    expect(summaries[1]?.branchSummaries).toEqual([
-      {
-        branch: "main",
-        counts: {
-          modified: 0,
-          deleted: 0,
-          new: 1,
-          renamed: 0,
-          renamedAndModified: 0,
-          total: 1,
-        },
-      },
-    ]);
-
-    const dashboardVaults = await asOwner.query(api.vault.dashboard.getUserVaults);
-    expect(dashboardVaults.map((vault) => vault._id)).toEqual([
-      ids.vaultId,
-      extraVaultIds.legacyVaultId,
-    ]);
-  });
-
-  it("blocks internal staging mutations from writing with another user's id", async () => {
-    const { ids, t } = await seedOwnedResources();
-
-    await expect(
-      t.mutation(internal.fileStaging.saveToStaging, {
-        vaultId: ids.vaultId,
-        initialFilePath: "notes/internal.md",
-        content: "other content",
-        initialContent: "initial content",
-        parentCommitSha: "abc123",
-        branch: "main",
-        userId: ids.otherUserId,
-      }),
-    ).rejects.toThrow("Unauthorized");
-    await expect(
-      t.mutation(internal.fileStaging.rename, {
-        vaultId: ids.vaultId,
-        initialFilePath: "notes/plan.md",
-        branch: "main",
-        newPath: "notes/other.md",
-        userId: ids.otherUserId,
-      }),
-    ).rejects.toThrow("Unauthorized");
-    await expect(
-      t.mutation(internal.fileStaging.duplicateBranchStaging, {
-        vaultId: ids.vaultId,
-        sourceBranch: "main",
-        targetBranch: "draft",
-        stagedFiles: [],
-        userId: ids.otherUserId,
-      }),
-    ).rejects.toThrow("Unauthorized");
-    await expect(
-      t.mutation(internal.fileStaging.reconcileStagingWithTree, {
-        vaultId: ids.vaultId,
-        instructions: [],
-        userId: ids.otherUserId,
-      }),
-    ).rejects.toThrow("Unauthorized");
-
-    await expect(
-      t.run(async (ctx) => {
-        return await ctx.db
-          .query("vaultStagedFiles")
-          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-          .collect();
-      }),
-    ).resolves.toMatchObject([
-      {
-        _id: ids.stagingId,
-        ownerId: ids.ownerId,
-        filePath: "notes/plan.md",
-        content: "owner content",
-      },
-    ]);
-  });
-
-  it("blocks another staff user from pulling or pushing collaborative updates", async () => {
-    const { ids, t } = await seedOwnedResources();
-    const asOther = asIdentity(t, ids.otherUserId);
-
-    await expect(
-      asOther.query(api.collaborative.pullUpdates, {
-        repositoryFullName: "owner/secure",
-        branch: "main",
-        filePath: "notes/plan.md",
-        version: 0,
-      }),
-    ).rejects.toThrow("Vault not found");
-    await expect(
-      asOther.mutation(api.collaborative.pushUpdates, {
-        repositoryFullName: "owner/secure",
-        branch: "main",
-        filePath: "notes/plan.md",
-        version: 3,
-        updates: [{ clientId: "other-client", changes: "[]" }],
-      }),
-    ).rejects.toThrow("Vault not found");
-
-    await expect(
-      t.run(async (ctx) => {
-        const staging = await ctx.db.get(ids.stagingId);
-        const updates = await ctx.db
-          .query("vaultStagedFileUpdates")
-          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-          .collect();
-        return { staging, updates };
-      }),
-    ).resolves.toMatchObject({
-      staging: {
-        content: "owner content",
-        version: 3,
-        lastEditUserId: ids.ownerId,
-      },
-      updates: [
-        {
-          clientId: "owner-client",
-          editUserId: ids.ownerId,
-          userId: ids.ownerId,
-        },
-      ],
-    });
-  });
-
-  it("records the edit actor for a successful collaborative update", async () => {
-    const { ids, t } = await seedOwnedResources();
-    const asOwner = asIdentity(t, ids.ownerId);
-
-    await expect(
-      asOwner.mutation(api.collaborative.pushUpdates, {
-        repositoryFullName: "owner/secure",
-        branch: "main",
-        filePath: "notes/plan.md",
-        version: 3,
-        updates: [{ clientId: "owner-new-client", changes: '[13,[0,"!"]]' }],
-      }),
-    ).resolves.toEqual({ success: true, newVersion: 4 });
-
-    await expect(
-      t.run(async (ctx) => {
-        const updates = await ctx.db
-          .query("vaultStagedFileUpdates")
-          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-          .collect();
-        return updates.find((update) => update.clientId === "owner-new-client");
-      }),
-    ).resolves.toMatchObject({
-      editUserId: ids.ownerId,
-      userId: ids.ownerId,
-    });
   });
 });

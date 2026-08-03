@@ -13,13 +13,15 @@ describe("vault deletion workflow", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/delete-me",
         trigger: "create",
@@ -30,7 +32,7 @@ describe("vault deletion workflow", () => {
         completedAt: 3,
       });
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -54,7 +56,7 @@ describe("vault deletion workflow", () => {
         lastTreeRefreshAt: 5,
       });
 
-      return { userId, vaultId };
+      return { organizationId, userId, vaultId };
     });
 
     return { ids, t };
@@ -68,13 +70,15 @@ describe("vault deletion workflow", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/delete-me",
         trigger: "create",
@@ -85,7 +89,7 @@ describe("vault deletion workflow", () => {
         completedAt: 3,
       });
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -196,6 +200,8 @@ describe("vault deletion workflow", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
       await ctx.db.insert("providerConnections", {
         kind: "cloudflare",
         userId,
@@ -212,12 +218,12 @@ describe("vault deletion workflow", () => {
         updatedAt: 2,
       });
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/existing-repo",
         trigger: "connect_existing_repository",
@@ -228,7 +234,7 @@ describe("vault deletion workflow", () => {
         completedAt: 5,
       });
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "connect_existing_repository",
@@ -242,7 +248,7 @@ describe("vault deletion workflow", () => {
       });
       await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId,
-        userId,
+        organizationId,
         accountId: "cloudflare-account",
         workerName: "existing-repo-worker",
         workerTag: "worker-tag",
@@ -250,7 +256,7 @@ describe("vault deletion workflow", () => {
       });
       await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId,
-        userId,
+        organizationId,
         accountId: "cloudflare-account",
         workerName: "existing-repo-selected-worker",
         workerTag: "selected-worker-tag",
@@ -292,7 +298,7 @@ describe("vault deletion workflow", () => {
     await t.run(async (ctx) => {
       await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId: ids.vaultId,
-        userId: ids.userId,
+        organizationId: ids.organizationId,
         accountId: "cloudflare-account",
         workerName: "unchecked-worker",
         workerTag: "unchecked-worker-tag",
@@ -383,6 +389,7 @@ describe("vault deletion workflow", () => {
 
     const claim = await t.mutation(internal.vault.branches.claimTreeRefresh, {
       vaultId: ids.vaultId,
+      userId: ids.userId,
     });
 
     expect(claim).toEqual({ claimed: false, reason: "unavailable" });
@@ -390,7 +397,7 @@ describe("vault deletion workflow", () => {
 
   it("returns the dashboard delete disabled reason while source setup runs", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
+    const { organizationId, userId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
@@ -403,10 +410,11 @@ describe("vault deletion workflow", () => {
         plan: "free",
         status: "inactive",
       });
-      return userId;
+      return { organizationId, userId };
     });
     await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
       userId,
+      organizationId,
       ghRepoOwner: "ada",
       ghRepoName: "existing-app",
     });
@@ -438,13 +446,15 @@ describe("vault deletion workflow", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/delete-me",
         trigger: "create",
@@ -455,7 +465,7 @@ describe("vault deletion workflow", () => {
         completedAt: 3,
       });
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -482,7 +492,7 @@ describe("vault deletion workflow", () => {
       }
       await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId,
-        userId,
+        organizationId,
         accountId: "cloudflare-account",
         workerName: "delete-me-worker",
         workerTag: "worker-tag",
@@ -627,13 +637,15 @@ describe("vault deletion workflow", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/provisioning",
         trigger: "create",
@@ -643,7 +655,7 @@ describe("vault deletion workflow", () => {
         updatedAt: 2,
       });
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "provisioning",
         githubMode: "create_repository",
@@ -689,13 +701,15 @@ describe("vault deletion workflow", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/existing",
         trigger: "connect_existing_repository",
@@ -706,7 +720,7 @@ describe("vault deletion workflow", () => {
         completedAt: 3,
       });
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "connect_existing_repository",
@@ -743,6 +757,8 @@ describe("vault deletion workflow", () => {
         email: "nicu@samebase.com",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
       await ctx.db.insert("providerConnections", {
         kind: "github",
         userId,
@@ -755,12 +771,12 @@ describe("vault deletion workflow", () => {
         updatedAt: 2,
       });
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const setupRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/retry-me",
         trigger: "create",
@@ -771,7 +787,7 @@ describe("vault deletion workflow", () => {
         completedAt: 3,
       });
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -853,6 +869,8 @@ describe("vault deletion workflow", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
       const githubConnectionId = await ctx.db.insert("providerConnections", {
         kind: "github",
         userId,
@@ -865,12 +883,12 @@ describe("vault deletion workflow", () => {
         updatedAt: 2,
       });
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const setupRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/retry-missing-provider",
         trigger: "create",
@@ -881,7 +899,7 @@ describe("vault deletion workflow", () => {
         completedAt: 5,
       });
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",

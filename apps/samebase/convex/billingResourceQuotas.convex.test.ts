@@ -39,13 +39,12 @@ async function createQuotaFixture(entitlement: "free" | "pro" = "free") {
       status: entitlement === "pro" ? "active" : "inactive",
     });
     const vaultId = await ctx.db.insert("vaults", {
-      userId,
       organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId,
+      requestedByUserId: userId,
       vaultId,
       repositoryFullName: "member/repository",
       trigger: "connect_existing_repository",
@@ -56,7 +55,6 @@ async function createQuotaFixture(entitlement: "free" | "pro" = "free") {
       completedAt: 2,
     });
     await ctx.db.replace(vaultId, {
-      userId,
       organizationId,
       deletion: { state: "not_deleting" },
       state: "connected",
@@ -69,10 +67,10 @@ async function createQuotaFixture(entitlement: "free" | "pro" = "free") {
       defaultBranch: "main",
       connectedAt: 3,
     });
-    return { billingAccountId, userId, vaultId };
+    return { billingAccountId, organizationId, userId, vaultId };
   });
-  const { billingAccountId, ...resourceIds } = ids;
-  return { billingAccountId, ids: resourceIds, t };
+  const { billingAccountId, organizationId, userId, vaultId } = ids;
+  return { billingAccountId, organizationId, ids: { userId, vaultId }, t };
 }
 
 async function createOrganizationQuotaFixture() {
@@ -81,8 +79,6 @@ async function createOrganizationQuotaFixture() {
     const firstUserId = await ctx.db.insert("users", {
       email: "first-member@example.com",
       isApproved: true,
-      billingPlan: "pro",
-      billingStatus: "active",
     });
     const secondUserId = await ctx.db.insert("users", {
       email: "second-member@example.com",
@@ -99,13 +95,11 @@ async function createOrganizationQuotaFixture() {
       status: "inactive",
     });
     const firstVaultId = await ctx.db.insert("vaults", {
-      userId: firstUserId,
       organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
     const secondVaultId = await ctx.db.insert("vaults", {
-      userId: secondUserId,
       organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
@@ -125,21 +119,22 @@ async function seedProjects(
   t: ConvexTest,
   args: {
     count: number;
-    organizationId?: Id<"organizations">;
-    userId: Id<"users">;
     vaultId: Id<"vaults">;
     prefix?: string;
   },
 ): Promise<Array<Id<"vaultConvexProjects">>> {
   return await t.run(async (ctx) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (vault === null) {
+      throw new Error("Expected an organization-owned vault.");
+    }
     const projectIds: Array<Id<"vaultConvexProjects">> = [];
     for (let index = 0; index < args.count; index += 1) {
       const project = projectInput(index, args.prefix);
       projectIds.push(
         await ctx.db.insert("vaultConvexProjects", {
           vaultId: args.vaultId,
-          userId: args.userId,
-          ...(args.organizationId ? { organizationId: args.organizationId } : {}),
+          organizationId: vault.organizationId,
           teamId: project.teamId,
           projectId: project.projectId,
           convexConfigPath: project.codeLocation.convexConfigPath,
@@ -155,21 +150,22 @@ async function seedWorkers(
   t: ConvexTest,
   args: {
     count: number;
-    organizationId?: Id<"organizations">;
-    userId: Id<"users">;
     vaultId: Id<"vaults">;
     prefix?: string;
   },
 ): Promise<Array<Id<"vaultCloudflareWorkers">>> {
   return await t.run(async (ctx) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (vault === null) {
+      throw new Error("Expected an organization-owned vault.");
+    }
     const workerIds: Array<Id<"vaultCloudflareWorkers">> = [];
     for (let index = 0; index < args.count; index += 1) {
       const worker = workerInput(index, args.prefix);
       workerIds.push(
         await ctx.db.insert("vaultCloudflareWorkers", {
           vaultId: args.vaultId,
-          userId: args.userId,
-          ...(args.organizationId ? { organizationId: args.organizationId } : {}),
+          organizationId: vault.organizationId,
           accountId: worker.accountId,
           workerName: worker.workerName,
           workerTag: worker.workerTag,
@@ -183,17 +179,17 @@ async function seedWorkers(
 
 async function readAttachmentCounts(
   t: ConvexTest,
-  userId: Id<"users">,
+  vaultId: Id<"vaults">,
 ): Promise<{ cloudflareWorkers: number; convexProjects: number }> {
   return await t.run(async (ctx) => {
     const [cloudflareWorkers, convexProjects] = await Promise.all([
       ctx.db
         .query("vaultCloudflareWorkers")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
         .take(50),
       ctx.db
         .query("vaultConvexProjects")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
         .take(50),
     ]);
     return {
@@ -220,7 +216,7 @@ async function createManagedProjectCheckpoint(
 ) {
   return await t.run(async (ctx) => {
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId: args.userId,
+      requestedByUserId: args.userId,
       vaultId: args.vaultId,
       repositoryFullName: "member/repository",
       trigger: "retry",
@@ -239,7 +235,6 @@ async function createManagedProjectCheckpoint(
     const planId = args.projectId
       ? await ctx.db.insert("workflow_vaultProvisioning_plans", {
           vaultId: args.vaultId,
-          userId: args.userId,
           convexConfigPath: "apps/managed/convex.json",
           convex: {
             state: "created",
@@ -258,7 +253,6 @@ async function createManagedProjectCheckpoint(
         })
       : await ctx.db.insert("workflow_vaultProvisioning_plans", {
           vaultId: args.vaultId,
-          userId: args.userId,
           convexConfigPath: "apps/managed/convex.json",
           convex: {
             state: "creating",
@@ -288,7 +282,7 @@ async function createManagedWorkerCheckpoint(
 ) {
   return await t.run(async (ctx) => {
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId: args.userId,
+      requestedByUserId: args.userId,
       vaultId: args.vaultId,
       repositoryFullName: "member/repository",
       trigger: "retry",
@@ -307,7 +301,6 @@ async function createManagedWorkerCheckpoint(
     const planId = args.workerTag
       ? await ctx.db.insert("workflow_vaultProvisioning_plans", {
           vaultId: args.vaultId,
-          userId: args.userId,
           convexConfigPath: "apps/managed/convex.json",
           convex: {
             state: "planned",
@@ -326,7 +319,6 @@ async function createManagedWorkerCheckpoint(
         })
       : await ctx.db.insert("workflow_vaultProvisioning_plans", {
           vaultId: args.vaultId,
-          userId: args.userId,
           convexConfigPath: "apps/managed/convex.json",
           convex: {
             state: "planned",
@@ -347,88 +339,78 @@ async function createManagedWorkerCheckpoint(
 }
 
 describe("billing resource quotas", () => {
-  it("uses legacy user billing before organization membership backfill", async () => {
+  it("fails clearly when organization membership is missing", async () => {
     const t = makeConvexTest();
-    const ids = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        email: "legacy-member@example.com",
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        email: "missing-membership@example.com",
         isApproved: true,
-        billingPlan: "pro",
-        billingStatus: "active",
       });
-      const vaultId = await ctx.db.insert("vaults", {
-        userId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      return { userId, vaultId };
     });
-    await Promise.all([
-      seedProjects(t, { ...ids, count: 2 }),
-      seedWorkers(t, { ...ids, count: 2 }),
-    ]);
 
     await expect(
-      asUser(t, ids.userId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {}),
-    ).resolves.toEqual({
-      cloudflareWorkers: { used: { state: "exact", count: 2 }, limit: 40 },
-      convexProjects: { used: { state: "exact", count: 2 }, limit: 40 },
-    });
+      asUser(t, userId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {}),
+    ).rejects.toThrow("Organization membership is required.");
   });
 
-  it("combines backfilled and legacy attachment usage for two organization members", async () => {
+  it("fails clearly when organization billing is missing", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "missing-billing@example.com",
+        isApproved: true,
+      });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      return userId;
+    });
+
+    await expect(
+      asUser(t, userId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {}),
+    ).rejects.toThrow("Organization billing account is required.");
+  });
+
+  it("counts organization attachments across all members", async () => {
     const { ids, t } = await createOrganizationQuotaFixture();
     await Promise.all([
       seedProjects(t, {
         count: 1,
-        organizationId: ids.organizationId,
-        prefix: "first-backfilled-project",
-        userId: ids.firstUserId,
+        prefix: "first-project-a",
         vaultId: ids.firstVaultId,
       }),
       seedProjects(t, {
         count: 1,
-        prefix: "first-legacy-project",
-        userId: ids.firstUserId,
+        prefix: "first-project-b",
         vaultId: ids.firstVaultId,
       }),
       seedProjects(t, {
         count: 1,
-        organizationId: ids.organizationId,
-        prefix: "second-backfilled-project",
-        userId: ids.secondUserId,
+        prefix: "second-project-a",
         vaultId: ids.secondVaultId,
       }),
       seedProjects(t, {
         count: 1,
-        prefix: "second-legacy-project",
-        userId: ids.secondUserId,
+        prefix: "second-project-b",
         vaultId: ids.secondVaultId,
       }),
       seedWorkers(t, {
         count: 1,
-        organizationId: ids.organizationId,
-        prefix: "first-backfilled-worker",
-        userId: ids.firstUserId,
+        prefix: "first-worker-a",
         vaultId: ids.firstVaultId,
       }),
       seedWorkers(t, {
         count: 1,
-        prefix: "first-legacy-worker",
-        userId: ids.firstUserId,
+        prefix: "first-worker-b",
         vaultId: ids.firstVaultId,
       }),
       seedWorkers(t, {
         count: 1,
-        organizationId: ids.organizationId,
-        prefix: "second-backfilled-worker",
-        userId: ids.secondUserId,
+        prefix: "second-worker-a",
         vaultId: ids.secondVaultId,
       }),
       seedWorkers(t, {
         count: 1,
-        prefix: "second-legacy-worker",
-        userId: ids.secondUserId,
+        prefix: "second-worker-b",
         vaultId: ids.secondVaultId,
       }),
     ]);
@@ -456,16 +438,12 @@ describe("billing resource quotas", () => {
     await Promise.all([
       seedProjects(t, {
         count: 1,
-        organizationId: ids.organizationId,
         prefix: "fifth-project",
-        userId: ids.firstUserId,
         vaultId: ids.firstVaultId,
       }),
       seedWorkers(t, {
         count: 1,
-        organizationId: ids.organizationId,
         prefix: "fifth-worker",
-        userId: ids.firstUserId,
         vaultId: ids.firstVaultId,
       }),
     ]);
@@ -484,7 +462,7 @@ describe("billing resource quotas", () => {
     ).rejects.toThrow("Cloudflare Worker attachment limit reached (5).");
   });
 
-  it("fails clearly above the Phase 1 mixed-state membership bound", async () => {
+  it("supports more than two organization members", async () => {
     const { ids, t } = await createOrganizationQuotaFixture();
     await t.run(async (ctx) => {
       const thirdUserId = await ctx.db.insert("users", {
@@ -499,16 +477,17 @@ describe("billing resource quotas", () => {
 
     await expect(
       asUser(t, ids.firstUserId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {}),
-    ).rejects.toThrow(
-      "Phase 1 mixed-state quota fallback supports at most two organization members.",
-    );
+    ).resolves.toEqual({
+      cloudflareWorkers: { used: { state: "exact", count: 0 }, limit: 5 },
+      convexProjects: { used: { state: "exact", count: 0 }, limit: 5 },
+    });
   });
 
   it("permits resource 5 and blocks resource 6 for a free account", async () => {
     const { ids, t } = await createQuotaFixture();
     await Promise.all([
-      seedProjects(t, { ...ids, count: 4 }),
-      seedWorkers(t, { ...ids, count: 4 }),
+      seedProjects(t, { count: 4, vaultId: ids.vaultId }),
+      seedWorkers(t, { count: 4, vaultId: ids.vaultId }),
     ]);
 
     await expect(
@@ -542,7 +521,7 @@ describe("billing resource quotas", () => {
       name: "ConvexError",
       data: "Cloudflare Worker attachment limit reached (5).",
     });
-    await expect(readAttachmentCounts(t, ids.userId)).resolves.toEqual({
+    await expect(readAttachmentCounts(t, ids.vaultId)).resolves.toEqual({
       cloudflareWorkers: 5,
       convexProjects: 5,
     });
@@ -551,8 +530,8 @@ describe("billing resource quotas", () => {
   it("permits resource 40 and blocks resource 41 for an entitled Pro account", async () => {
     const { billingAccountId, ids, t } = await createQuotaFixture("pro");
     await Promise.all([
-      seedProjects(t, { ...ids, count: 39 }),
-      seedWorkers(t, { ...ids, count: 39 }),
+      seedProjects(t, { count: 39, vaultId: ids.vaultId }),
+      seedWorkers(t, { count: 39, vaultId: ids.vaultId }),
     ]);
 
     await expect(
@@ -583,7 +562,7 @@ describe("billing resource quotas", () => {
         workers: [workerInput(40)],
       }),
     ).rejects.toThrow("Cloudflare Worker attachment limit reached (40).");
-    await expect(readAttachmentCounts(t, ids.userId)).resolves.toEqual({
+    await expect(readAttachmentCounts(t, ids.vaultId)).resolves.toEqual({
       cloudflareWorkers: 40,
       convexProjects: 40,
     });
@@ -592,8 +571,8 @@ describe("billing resource quotas", () => {
   it("rejects over-limit batches without retaining an earlier insertion", async () => {
     const { ids, t } = await createQuotaFixture();
     await Promise.all([
-      seedProjects(t, { ...ids, count: 4 }),
-      seedWorkers(t, { ...ids, count: 4 }),
+      seedProjects(t, { count: 4, vaultId: ids.vaultId }),
+      seedWorkers(t, { count: 4, vaultId: ids.vaultId }),
     ]);
 
     await expect(
@@ -608,7 +587,7 @@ describe("billing resource quotas", () => {
         workers: [workerInput(4), workerInput(5)],
       }),
     ).rejects.toThrow("Cloudflare Worker attachment limit reached (5).");
-    await expect(readAttachmentCounts(t, ids.userId)).resolves.toEqual({
+    await expect(readAttachmentCounts(t, ids.vaultId)).resolves.toEqual({
       cloudflareWorkers: 4,
       convexProjects: 4,
     });
@@ -617,8 +596,8 @@ describe("billing resource quotas", () => {
   it("keeps downgraded attachments usable until a new final count fits", async () => {
     const { billingAccountId, ids, t } = await createQuotaFixture("pro");
     const [projectIds, workerIds] = await Promise.all([
-      seedProjects(t, { ...ids, count: 6 }),
-      seedWorkers(t, { ...ids, count: 6 }),
+      seedProjects(t, { count: 6, vaultId: ids.vaultId }),
+      seedWorkers(t, { count: 6, vaultId: ids.vaultId }),
     ]);
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountId, {
@@ -717,17 +696,17 @@ describe("billing resource quotas", () => {
         workers: [workerInput(6)],
       }),
     ).resolves.toHaveLength(1);
-    await expect(readAttachmentCounts(t, ids.userId)).resolves.toEqual({
+    await expect(readAttachmentCounts(t, ids.vaultId)).resolves.toEqual({
       cloudflareWorkers: 5,
       convexProjects: 5,
     });
   });
 
-  it("reports legacy usage above the bounded exact range as 41+", async () => {
+  it("reports organization usage above the bounded exact range as 41+", async () => {
     const { ids, t } = await createQuotaFixture("pro");
     await Promise.all([
-      seedProjects(t, { ...ids, count: 45 }),
-      seedWorkers(t, { ...ids, count: 45 }),
+      seedProjects(t, { count: 45, vaultId: ids.vaultId }),
+      seedWorkers(t, { count: 45, vaultId: ids.vaultId }),
     ]);
 
     await expect(
@@ -741,8 +720,8 @@ describe("billing resource quotas", () => {
   it("serializes concurrent final writes for each last available slot", async () => {
     const { ids, t } = await createQuotaFixture();
     await Promise.all([
-      seedProjects(t, { ...ids, count: 4 }),
-      seedWorkers(t, { ...ids, count: 4 }),
+      seedProjects(t, { count: 4, vaultId: ids.vaultId }),
+      seedWorkers(t, { count: 4, vaultId: ids.vaultId }),
     ]);
 
     const [projectWrites, workerWrites] = await Promise.all([
@@ -772,7 +751,7 @@ describe("billing resource quotas", () => {
     expect(projectWrites.filter((write) => write.status === "rejected")).toHaveLength(1);
     expect(workerWrites.filter((write) => write.status === "fulfilled")).toHaveLength(1);
     expect(workerWrites.filter((write) => write.status === "rejected")).toHaveLength(1);
-    await expect(readAttachmentCounts(t, ids.userId)).resolves.toEqual({
+    await expect(readAttachmentCounts(t, ids.vaultId)).resolves.toEqual({
       cloudflareWorkers: 5,
       convexProjects: 5,
     });
@@ -781,7 +760,7 @@ describe("billing resource quotas", () => {
   it("enforces manual and managed Convex project attachment paths", async () => {
     {
       const { ids, t } = await createQuotaFixture();
-      await seedProjects(t, { ...ids, count: 5 });
+      await seedProjects(t, { count: 5, vaultId: ids.vaultId });
       await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
         ...ids,
         actionId: "manual-project",
@@ -800,7 +779,7 @@ describe("billing resource quotas", () => {
 
     {
       const { ids, t } = await createQuotaFixture();
-      await seedProjects(t, { ...ids, count: 5 });
+      await seedProjects(t, { count: 5, vaultId: ids.vaultId });
       const { planId, runId } = await createManagedProjectCheckpoint(t, ids);
       await expect(
         t.mutation(internal.vault.convexMutations.recordManagedProjectCreated, {
@@ -818,11 +797,12 @@ describe("billing resource quotas", () => {
     }
 
     {
-      const { ids, t } = await createQuotaFixture();
-      await seedProjects(t, { ...ids, count: 4 });
+      const { ids, organizationId, t } = await createQuotaFixture();
+      await seedProjects(t, { count: 4, vaultId: ids.vaultId });
       const existingId = await t.run(async (ctx) =>
         ctx.db.insert("vaultConvexProjects", {
-          ...ids,
+          organizationId,
+          vaultId: ids.vaultId,
           teamId: "team-1",
           projectId: "managed-project",
           convexConfigPath: "apps/managed/convex.json",
@@ -849,7 +829,7 @@ describe("billing resource quotas", () => {
   it("enforces all manual and managed Cloudflare Worker attachment paths", async () => {
     {
       const { ids, t } = await createQuotaFixture();
-      await seedWorkers(t, { ...ids, count: 5 });
+      await seedWorkers(t, { count: 5, vaultId: ids.vaultId });
       await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
         ...ids,
         actionId: "connect-worker",
@@ -868,7 +848,7 @@ describe("billing resource quotas", () => {
 
     {
       const { ids, t } = await createQuotaFixture();
-      await seedWorkers(t, { ...ids, count: 5 });
+      await seedWorkers(t, { count: 5, vaultId: ids.vaultId });
       await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
         ...ids,
         actionId: "create-worker",
@@ -887,7 +867,7 @@ describe("billing resource quotas", () => {
 
     {
       const { ids, t } = await createQuotaFixture();
-      await seedWorkers(t, { ...ids, count: 5 });
+      await seedWorkers(t, { count: 5, vaultId: ids.vaultId });
       const { planId, runId } = await createManagedWorkerCheckpoint(t, ids);
       await expect(
         t.mutation(internal.vault.cloudflareMutations.recordManagedWorkerCreated, {
@@ -904,11 +884,12 @@ describe("billing resource quotas", () => {
     }
 
     {
-      const { ids, t } = await createQuotaFixture();
-      await seedWorkers(t, { ...ids, count: 4 });
+      const { ids, organizationId, t } = await createQuotaFixture();
+      await seedWorkers(t, { count: 4, vaultId: ids.vaultId });
       const existingId = await t.run(async (ctx) =>
         ctx.db.insert("vaultCloudflareWorkers", {
-          ...ids,
+          organizationId,
+          vaultId: ids.vaultId,
           accountId: "account-1",
           workerName: "managed-worker",
           workerTag: "managed-worker-tag",

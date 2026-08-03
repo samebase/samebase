@@ -11,6 +11,7 @@ function makeStagedFile(
   overrides: Partial<StagedFileForCommitPreview> = {},
 ): StagedFileForCommitPreview {
   return {
+    kind: "text",
     filePath: "README.md",
     initialFilePath: "README.md",
     content: "updated",
@@ -177,6 +178,7 @@ describe("buildRebaseConflictPreviewFromStagedFiles", () => {
       branch: "main",
       conflicts: [
         {
+          kind: "text",
           filePath: "TODO.md",
           initialFilePath: "TODO.md",
           content: ["alpha", "ours", ""].join("\n"),
@@ -209,6 +211,7 @@ describe("buildRebaseConflictPreviewFromStagedFiles", () => {
       branch: "main",
       conflicts: [
         {
+          kind: "text",
           filePath: "TODO.md",
           initialFilePath: "TODO.md",
           content: "ours\n",
@@ -232,6 +235,7 @@ describe("buildRebaseConflictPreviewFromStagedFiles", () => {
       branch: "main",
       conflicts: [
         {
+          kind: "text",
           filePath: "docs/TODO.md",
           initialFilePath: "TODO.md",
           content: ["alpha", "ours", ""].join("\n"),

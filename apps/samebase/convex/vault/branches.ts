@@ -2,6 +2,7 @@ import { v, type Infer } from "convex/values";
 
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
+import { findOrganizationAccessContext, hasOrganizationAccess } from "../organizationAccess";
 import {
   doesTreeRefreshClaimMatch,
   shouldPreserveTreeRefreshCooldownAfterSuccess,
@@ -108,7 +109,7 @@ export const upsertClaimedVaultBranchTree = internalMutation({
       !isLiveConnectedVault(vault) ||
       !doesTreeRefreshClaimMatch({
         claimedStartedAt: args.startedAt,
-        treeRefreshStartedAt: vault.treeRefreshStartedAt,
+        treeRefreshStartedAt: vault.treeRefreshLock?.startedAt,
       })
     ) {
       return { written: false };
@@ -150,11 +151,16 @@ function getLaterCooldownUntil(
 export const claimTreeRefresh = internalMutation({
   args: {
     vaultId: id("vaults"),
+    userId: id("users"),
   },
   returns: vTreeRefreshClaim,
   handler: async (ctx, args): Promise<TreeRefreshClaim> => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault)) {
+    const [vault, user] = await Promise.all([ctx.db.get(args.vaultId), ctx.db.get(args.userId)]);
+    if (!isLiveConnectedVault(vault) || user === null || user.accountDeletion !== undefined) {
+      return { claimed: false, reason: "unavailable" };
+    }
+    const access = await findOrganizationAccessContext(ctx.db, args.userId);
+    if (access === null || !hasOrganizationAccess(access, vault)) {
       return { claimed: false, reason: "unavailable" };
     }
 
@@ -166,11 +172,13 @@ export const claimTreeRefresh = internalMutation({
       return { claimed: false, reason: "cooldown" };
     }
 
-    if (vault.treeRefreshStartedAt && now - vault.treeRefreshStartedAt < STALE_LOCK_MS) {
+    if (vault.treeRefreshLock && now - vault.treeRefreshLock.startedAt < STALE_LOCK_MS) {
       return { claimed: false, reason: "in_progress" };
     }
 
-    await ctx.db.patch(args.vaultId, { treeRefreshStartedAt: now });
+    await ctx.db.patch(args.vaultId, {
+      treeRefreshLock: { requestedByUserId: args.userId, startedAt: now },
+    });
     return { claimed: true, startedAt: now };
   },
 });
@@ -196,7 +204,7 @@ export const releaseTreeRefresh = internalMutation({
     if (
       !doesTreeRefreshClaimMatch({
         claimedStartedAt: args.startedAt,
-        treeRefreshStartedAt: vault.treeRefreshStartedAt,
+        treeRefreshStartedAt: vault.treeRefreshLock?.startedAt,
       })
     ) {
       return { released: false };
@@ -216,14 +224,14 @@ export const releaseTreeRefresh = internalMutation({
       args.vaultId,
       !args.markRefreshed
         ? {
-            treeRefreshStartedAt: undefined,
+            treeRefreshLock: undefined,
             lastTreeRefreshFailedAt: now,
             treeRefreshFailureKind: args.failureKind ?? "failed",
             treeRefreshFailureMessage: args.failureMessage,
             treeRefreshCooldownUntil: cooldownUntil,
           }
         : {
-            treeRefreshStartedAt: undefined,
+            treeRefreshLock: undefined,
             lastTreeRefreshFailedAt: shouldPreserveCooldownState
               ? vault.lastTreeRefreshFailedAt
               : undefined,
@@ -258,7 +266,7 @@ export const recordTreeRefreshFailure = internalMutation({
       typeof args.startedAt === "number" &&
       !doesTreeRefreshClaimMatch({
         claimedStartedAt: args.startedAt,
-        treeRefreshStartedAt: vault.treeRefreshStartedAt,
+        treeRefreshStartedAt: vault.treeRefreshLock?.startedAt,
       })
     ) {
       return null;

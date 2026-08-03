@@ -11,13 +11,15 @@ async function createComposedVault() {
       email: "ada@example.com",
       isApproved: true,
     });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
     const vaultId = await ctx.db.insert("vaults", {
-      userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId,
+      requestedByUserId: userId,
       vaultId,
       repositoryFullName: "ada/composed-app",
       trigger: "create",
@@ -34,7 +36,7 @@ async function createComposedVault() {
       updatedAt: 20,
     });
     await ctx.db.replace(vaultId, {
-      userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "create_repository",
@@ -48,7 +50,6 @@ async function createComposedVault() {
     });
     const planId = await ctx.db.insert("workflow_vaultProvisioning_plans", {
       vaultId,
-      userId,
       convexConfigPath: "convex.json",
       convex: {
         state: "planned",
@@ -64,7 +65,7 @@ async function createComposedVault() {
       createdAt: 30,
       updatedAt: 30,
     });
-    return { planId, runId, userId, vaultId };
+    return { organizationId, planId, runId, userId, vaultId };
   });
   return { ids, t };
 }
@@ -95,7 +96,7 @@ async function attachComposedResources({
     });
     const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
       vaultId: ids.vaultId,
-      userId: ids.userId,
+      organizationId: ids.organizationId,
       teamId: "convex-team",
       projectId: "convex-project",
       convexConfigPath: "convex.json",
@@ -103,7 +104,7 @@ async function attachComposedResources({
     });
     const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
       vaultId: ids.vaultId,
-      userId: ids.userId,
+      organizationId: ids.organizationId,
       accountId: "cloudflare-account",
       workerName: "composed-app",
       workerTag: "composed-worker-tag",
@@ -204,7 +205,7 @@ describe("app provisioning workflow composition", () => {
     const { ids, t } = await createComposedVault();
     const newerRunId = await t.run(async (ctx) => {
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId: ids.userId,
+        requestedByUserId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/composed-app",
         trigger: "retry",
@@ -303,7 +304,7 @@ describe("app provisioning workflow composition", () => {
     const { ids, t } = await createComposedVault();
     const retryRunId = await t.run(async (ctx) => {
       return await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId: ids.userId,
+        requestedByUserId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/composed-app",
         trigger: "retry",

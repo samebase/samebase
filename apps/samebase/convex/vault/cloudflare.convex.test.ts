@@ -111,13 +111,12 @@ async function createCloudflareConnectedVault() {
       }),
     ]);
     const vaultId = await ctx.db.insert("vaults", {
-      userId,
       organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId,
+      requestedByUserId: userId,
       vaultId,
       repositoryFullName: "ada/demo",
       trigger: "connect_existing_repository",
@@ -128,7 +127,6 @@ async function createCloudflareConnectedVault() {
       completedAt: 2,
     });
     await ctx.db.replace(vaultId, {
-      userId,
       organizationId,
       deletion: { state: "not_deleting" },
       state: "connected",
@@ -155,18 +153,13 @@ async function createCloudflareConnectedVault() {
 
 async function seedCloudflareWorkers(
   t: ReturnType<typeof makeConvexTest>,
-  args: { userId: Id<"users">; vaultId: Id<"vaults"> },
+  args: { organizationId: Id<"organizations">; vaultId: Id<"vaults"> },
   count = 5,
 ): Promise<void> {
   await t.run(async (ctx) => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (vault === null || vault.organizationId === undefined) {
-      throw new Error("Expected an organization-owned vault fixture.");
-    }
     for (let index = 0; index < count; index += 1) {
       await ctx.db.insert("vaultCloudflareWorkers", {
         ...args,
-        organizationId: vault.organizationId,
         accountId: "existing-account",
         workerName: `existing-worker-${index}`,
         workerTag: `existing-worker-tag-${index}`,
@@ -180,7 +173,7 @@ async function createManagedWorkerCreatingFixture() {
   const fixture = await createCloudflareConnectedVault();
   const runId = await fixture.t.run(async (ctx) => {
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId: fixture.userId,
+      requestedByUserId: fixture.userId,
       vaultId: fixture.vaultId,
       repositoryFullName: "ada/demo",
       trigger: "retry",
@@ -198,7 +191,6 @@ async function createManagedWorkerCreatingFixture() {
     });
     await ctx.db.insert("workflow_vaultProvisioning_plans", {
       vaultId: fixture.vaultId,
-      userId: fixture.userId,
       convexConfigPath: "convex.json",
       convex: {
         state: "planned",
@@ -359,7 +351,7 @@ describe("vault Cloudflare Worker attachments", () => {
   });
 
   it("re-verifies and atomically attaches several existing Workers", async () => {
-    const { asUser, t, userId, vaultId } = await createCloudflareConnectedVault();
+    const { asUser, organizationId, t, vaultId } = await createCloudflareConnectedVault();
     stubExistingWorkersProvider({ api: "apps/api", web: "apps/web" });
 
     const workerIds = await asUser.action(api.vault.cloudflare.attachWorkers, {
@@ -382,8 +374,8 @@ describe("vault Cloudflare Worker attachments", () => {
       ),
     ).resolves.toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ userId, workerName: "web", workerTag: "web-tag" }),
-        expect.objectContaining({ userId, workerName: "api", workerTag: "api-tag" }),
+        expect.objectContaining({ organizationId, workerName: "web", workerTag: "web-tag" }),
+        expect.objectContaining({ organizationId, workerName: "api", workerTag: "api-tag" }),
       ]),
     );
   });
@@ -409,7 +401,7 @@ describe("vault Cloudflare Worker attachments", () => {
   ])(
     "keeps an existing Worker attached after a $failure failure and reports the observed result",
     async ({ failure, expectedMessage, expectedWriteState }) => {
-      const { asUser, t, userId, vaultId } = await createCloudflareConnectedVault();
+      const { asUser, organizationId, t, vaultId } = await createCloudflareConnectedVault();
       stubConnectWorkerProvider(failure);
 
       await expect(
@@ -441,7 +433,7 @@ describe("vault Cloudflare Worker attachments", () => {
       ).resolves.toEqual(
         expect.objectContaining({
           worker: expect.objectContaining({
-            userId,
+            organizationId,
             workerName: "portal",
             workerTag: "portal-tag",
             origin: "selected_existing",
@@ -547,8 +539,8 @@ describe("vault Cloudflare Worker attachments", () => {
       throw new Error(`Unexpected provider request: ${method} ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
-    const { asUser, t, userId, vaultId } = await createCloudflareConnectedVault();
-    await seedCloudflareWorkers(t, { userId, vaultId });
+    const { asUser, organizationId, t, vaultId } = await createCloudflareConnectedVault();
+    await seedCloudflareWorkers(t, { organizationId, vaultId });
 
     await expect(
       asUser.action(api.vault.cloudflare.createWorker, {
@@ -567,8 +559,9 @@ describe("vault Cloudflare Worker attachments", () => {
   });
 
   it("blocks a managed Cloudflare create before the provider write at the free limit", async () => {
-    const { runId, t, userId, vaultId } = await createManagedWorkerCreatingFixture();
-    await seedCloudflareWorkers(t, { userId, vaultId });
+    const { organizationId, runId, t, userId, vaultId } =
+      await createManagedWorkerCreatingFixture();
+    await seedCloudflareWorkers(t, { organizationId, vaultId });
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
       const method = input instanceof Request ? input.method : (init?.method ?? "GET");
@@ -610,7 +603,7 @@ describe("vault Cloudflare Worker attachments", () => {
   it("names the created managed Cloudflare Worker when another attachment takes the last slot", async () => {
     const { organizationId, runId, t, userId, vaultId } =
       await createManagedWorkerCreatingFixture();
-    await seedCloudflareWorkers(t, { userId, vaultId }, 4);
+    await seedCloudflareWorkers(t, { organizationId, vaultId }, 4);
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
       const method = input instanceof Request ? input.method : (init?.method ?? "GET");
@@ -633,7 +626,6 @@ describe("vault Cloudflare Worker attachments", () => {
           async (ctx) =>
             await ctx.db.insert("vaultCloudflareWorkers", {
               vaultId,
-              userId,
               organizationId,
               accountId: "last-slot-account",
               workerName: "last-slot-worker",
@@ -756,7 +748,6 @@ describe("vault Cloudflare Worker attachments", () => {
       async (ctx) =>
         await ctx.db.insert("vaultCloudflareWorkers", {
           vaultId,
-          userId,
           organizationId,
           accountId,
           workerName: "portal",
@@ -782,6 +773,7 @@ describe("vault Cloudflare Worker attachments", () => {
     await expect(
       t.action(internal.toolRuntime.runtime.cloudflareConfigureWorkersBuildsForGitHubTool, {
         userId,
+        organizationId,
         grantedScopes: ["access_provider_connections"],
         vaultId,
         workerId,
@@ -820,8 +812,9 @@ describe("vault Cloudflare Worker attachments", () => {
   });
 
   it("requires dashboard deletion when an interrupted managed create left a Worker", async () => {
-    const { runId, t, userId, vaultId } = await createManagedWorkerCreatingFixture();
-    await seedCloudflareWorkers(t, { userId, vaultId });
+    const { organizationId, runId, t, userId, vaultId } =
+      await createManagedWorkerCreatingFixture();
+    await seedCloudflareWorkers(t, { organizationId, vaultId });
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
       const method = input instanceof Request ? input.method : (init?.method ?? "GET");
@@ -924,7 +917,8 @@ describe("vault Cloudflare Worker attachments", () => {
   });
 
   it("retries an interrupted managed create after the Worker was deleted", async () => {
-    const { runId, t, userId, vaultId } = await createManagedWorkerCreatingFixture();
+    const { organizationId, runId, t, userId, vaultId } =
+      await createManagedWorkerCreatingFixture();
     await t.run(async (ctx) => {
       const connection = await ctx.db
         .query("providerConnections")
@@ -975,7 +969,7 @@ describe("vault Cloudflare Worker attachments", () => {
 
     await expect(t.run(async (ctx) => await ctx.db.get(workerId))).resolves.toMatchObject({
       vaultId,
-      userId,
+      organizationId,
       accountId,
       workerName: "managed-worker",
       workerTag: "managed-worker-tag",
@@ -1004,12 +998,11 @@ describe("vault Cloudflare Worker attachments", () => {
   });
 
   it("detaches explicitly without using provider absence as authority", async () => {
-    const { asUser, organizationId, t, userId, vaultId } = await createCloudflareConnectedVault();
+    const { asUser, organizationId, t, vaultId } = await createCloudflareConnectedVault();
     const workerId = await t.run(
       async (ctx) =>
         await ctx.db.insert("vaultCloudflareWorkers", {
           vaultId,
-          userId,
           organizationId,
           accountId,
           workerName: "still-live",
@@ -1032,7 +1025,6 @@ describe("vault Cloudflare Worker attachments", () => {
     const { managedRunId, workerId } = await t.run(async (ctx) => {
       const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId,
-        userId,
         organizationId,
         accountId,
         workerName: "managed",
@@ -1040,7 +1032,7 @@ describe("vault Cloudflare Worker attachments", () => {
         origin: "provisioned",
       });
       const managedRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/demo",
         trigger: "retry",
@@ -1058,7 +1050,6 @@ describe("vault Cloudflare Worker attachments", () => {
       });
       await ctx.db.insert("workflow_vaultProvisioning_plans", {
         vaultId,
-        userId,
         convexConfigPath: "convex.json",
         convex: { state: "planned", projectName: "demo", teamId: "convex-team" },
         cloudflare: {

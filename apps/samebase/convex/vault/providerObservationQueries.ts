@@ -3,7 +3,7 @@ import { v, type Infer } from "convex/values";
 import { internalQuery } from "../_generated/server";
 import { getConvexCodeLocationKey, readConvexCodeLocation } from "../../shared/convexCodeLocation";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";
-import { hasPhaseOneUserOwnership, readPhaseOneOwnershipContext } from "../phaseOneOwnership";
+import { hasOrganizationAccess, requireOrganizationAccessContext } from "../organizationAccess";
 import { isLiveConnectedVault } from "./state";
 
 const { array, id, object, string } = v;
@@ -48,8 +48,8 @@ export const readProviderAttachmentVaultContext = internalQuery({
     if (!isLiveConnectedVault(vault)) {
       throw new Error("Vault not found.");
     }
-    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-    if (!hasPhaseOneUserOwnership(ownership, vault)) {
+    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found.");
     }
     return {
@@ -72,8 +72,8 @@ export const readVaultProviderObservationContext = internalQuery({
     if (!isLiveConnectedVault(vault)) {
       throw new Error("Vault not found.");
     }
-    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-    if (!hasPhaseOneUserOwnership(ownership, vault)) {
+    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found.");
     }
     const [workers, projects] = await Promise.all([
@@ -87,8 +87,8 @@ export const readVaultProviderObservationContext = internalQuery({
         .collect(),
     ]);
     if (
-      workers.some((worker) => !hasPhaseOneUserOwnership(ownership, worker)) ||
-      projects.some((project) => !hasPhaseOneUserOwnership(ownership, project))
+      workers.some((worker) => !hasOrganizationAccess(ownership, worker)) ||
+      projects.some((project) => !hasOrganizationAccess(ownership, project))
     ) {
       throw new Error("Vault provider attachment not found.");
     }

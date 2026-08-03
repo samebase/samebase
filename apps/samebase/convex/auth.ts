@@ -283,9 +283,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       if (isAuthSessionUser(user) && isDeletingAccountMarker(user.accountDeletion)) {
         return;
       }
-      if (args.existingUserId === null) {
-        await ensureOrganizationForUser(ctx.db, args.userId);
-      }
+      await ensureOrganizationForUser(ctx.db, args.userId);
       await applyAutoSeedProviderKeys(ctx.db, args.userId);
       const passwordAuthMode = resolvePasswordAuthMode(resolveDeploymentProfile());
       // Dashboard-created accounts must work before email delivery is configured.

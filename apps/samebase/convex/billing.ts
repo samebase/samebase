@@ -76,17 +76,8 @@ const vOrganizationBillingAccountDoc = schema.tables.organizationBillingAccounts
 });
 
 const vUserBillingAccount = object({
+  account: vOrganizationBillingAccountDoc,
   user: vUserDoc,
-  target: union(
-    object({
-      kind: literal("organization"),
-      account: vOrganizationBillingAccountDoc,
-    }),
-    object({
-      kind: literal("legacy_user"),
-      account: vUserDoc,
-    }),
-  ),
 });
 
 function validateReturnUrlPair(args: {
@@ -134,7 +125,7 @@ export const getViewerBillingStatus = query({
   returns: vViewerBillingStatus,
   handler: async (ctx): Promise<ViewerBillingStatus> => {
     const billing = await requireBillingAccountForUser(ctx.db, ctx.viewer.userId);
-    const state = readBillingAccountState(billing.target);
+    const state = readBillingAccountState(billing.account);
 
     return {
       provider: state.provider,
@@ -162,7 +153,7 @@ export const ensurePolarExternalCustomerId = internalMutation({
   returns: vPolarCustomerSeed,
   handler: async (ctx, args) => {
     const billing = await requireBillingAccountForUser(ctx.db, args.userId);
-    const state = readBillingAccountState(billing.target);
+    const state = readBillingAccountState(billing.account);
     const user = billing.user;
 
     const existing = state.polarExternalCustomerId?.trim() ?? "";
@@ -175,7 +166,7 @@ export const ensurePolarExternalCustomerId = internalMutation({
     }
 
     const externalCustomerId = `samebase_${randomToken(24)}`;
-    await patchBillingAccount(ctx.db, billing.target, {
+    await patchBillingAccount(ctx.db, billing.account, {
       polarExternalCustomerId: externalCustomerId,
     });
 
@@ -202,7 +193,7 @@ export const createPolarCheckoutSession = action({
     if (!currentBilling) {
       throw new Error("User not found.");
     }
-    const storedBilling = readBillingAccountState(currentBilling.target);
+    const storedBilling = readBillingAccountState(currentBilling.account);
 
     const productId = readPolarProMonthlyProductId();
     if (!productId) {
@@ -371,7 +362,7 @@ export const createPolarCustomerPortalSession = action({
     }
 
     const externalCustomerId = readBillingAccountState(
-      currentBilling.target,
+      currentBilling.account,
     ).polarExternalCustomerId?.trim();
     if (!externalCustomerId) {
       throw new ConvexError("No billing account exists yet.");
@@ -409,7 +400,7 @@ export const reconcileViewerBillingFromPolar = action({
     const currentBilling = await ctx.runQuery(internal.billing.getBillingAccountForUser, {
       userId,
     });
-    const storedBilling = currentBilling ? readBillingAccountState(currentBilling.target) : null;
+    const storedBilling = currentBilling ? readBillingAccountState(currentBilling.account) : null;
     const externalCustomerId = storedBilling?.polarExternalCustomerId?.trim();
     const productId = readPolarProMonthlyProductId();
     if (storedBilling === null || !externalCustomerId || !productId) {

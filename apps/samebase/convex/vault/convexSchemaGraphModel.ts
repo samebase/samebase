@@ -86,6 +86,7 @@ export const vaultConvexSchemaGraphTables = {
     updatedAt: number(),
   })
     .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
     .index("by_user_vault_project", ["userId", "vaultId", "convexProjectId"])
     .index("by_user_vault_project_node", ["userId", "vaultId", "convexProjectId", "nodeId"]),
 };

@@ -40,13 +40,12 @@ async function createGraphFixture() {
       suffix: string,
     ) => {
       const vaultId = await ctx.db.insert("vaults", {
-        userId: ownerId,
         organizationId: vaultOrganizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId: ownerId,
+        requestedByUserId: ownerId,
         vaultId,
         repositoryFullName: `${suffix}/repository`,
         trigger: "connect_existing_repository",
@@ -57,7 +56,6 @@ async function createGraphFixture() {
         completedAt: 2,
       });
       await ctx.db.replace(vaultId, {
-        userId: ownerId,
         organizationId: vaultOrganizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
@@ -133,28 +131,6 @@ describe("vault Cloudflare Worker attachment mutations", () => {
       ids.organizationId,
       ids.organizationId,
     ]);
-  });
-
-  it("rejects a new Worker attachment when the parent vault has no organization key", async () => {
-    const { ids, t } = await createGraphFixture();
-    await t.run(async (ctx) => {
-      await ctx.db.patch(ids.primaryVaultId, { organizationId: undefined });
-    });
-
-    await expect(
-      t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
-        vaultId: ids.primaryVaultId,
-        userId: ids.userId,
-        workers: [
-          {
-            accountId: "account-1",
-            workerName: "missing-organization-worker",
-            workerTag: "missing-organization-tag",
-            origin: "selected_existing",
-          },
-        ],
-      }),
-    ).rejects.toThrow("Vault organization is required.");
   });
 
   it("rejects provider identity conflicts before writing any batch member", async () => {
@@ -249,7 +225,7 @@ describe("vault Cloudflare Worker attachment mutations", () => {
     const { ids, t } = await createGraphFixture();
     const { planId, runId, writeLockId } = await t.run(async (ctx) => {
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId: ids.userId,
+        requestedByUserId: ids.userId,
         vaultId: ids.primaryVaultId,
         repositoryFullName: "ada/repository",
         trigger: "retry",
@@ -267,7 +243,6 @@ describe("vault Cloudflare Worker attachment mutations", () => {
       });
       const planId = await ctx.db.insert("workflow_vaultProvisioning_plans", {
         vaultId: ids.primaryVaultId,
-        userId: ids.userId,
         convexConfigPath: "convex.json",
         convex: {
           state: "planned",

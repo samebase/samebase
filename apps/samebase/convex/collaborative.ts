@@ -5,7 +5,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { mutation, query } from "./functions";
-import { hasPhaseOneUserOwnership, readPhaseOneOwnershipContext } from "./phaseOneOwnership";
+import { hasOrganizationAccess, requireOrganizationAccessContext } from "./organizationAccess";
 import { assertConnectedVault, isLiveConnectedVault } from "./vault/state";
 import {
   STALE_BASE_VERSION_ERROR_CODE,
@@ -43,8 +43,8 @@ async function getLiveCollaborativeVault(
   if (!isLiveConnectedVault(vault)) {
     return null;
   }
-  const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-  if (!hasPhaseOneUserOwnership(ownership, vault)) {
+  const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+  if (!hasOrganizationAccess(ownership, vault)) {
     return null;
   }
   return vault;
@@ -55,8 +55,8 @@ async function assertVaultAllowsCollaborativeWrites(
   args: { userId: Id<"users">; vaultId: Id<"vaults"> },
 ): Promise<void> {
   const vault = assertConnectedVault(await ctx.db.get(args.vaultId));
-  const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-  if (!hasPhaseOneUserOwnership(ownership, vault)) {
+  const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+  if (!hasOrganizationAccess(ownership, vault)) {
     throw new Error("Unauthorized");
   }
 }
@@ -157,7 +157,7 @@ export const pullUpdates = query({
       clientID: update.clientId,
       changes: update.changes,
       version: update.version,
-      userId: update.userId,
+      userId: update.editUserId,
     }));
   },
 });
@@ -230,7 +230,6 @@ export const pushUpdates = mutation({
         version: currentVersion,
         clientId: update.clientId,
         changes: update.changes,
-        userId: ctx.viewer.userId,
         editUserId: ctx.viewer.userId,
         timestamp,
       });
@@ -337,7 +336,6 @@ export const pushContentUpdate = internalMutation({
       version: newVersion,
       clientId: "agent",
       changes: JSON.stringify(changeSet.toJSON()),
-      userId: args.userId,
       editUserId: args.userId,
       timestamp,
     });
@@ -427,7 +425,6 @@ export const pushSerializedChangeSetUpdate = internalMutation({
       version: newVersion,
       clientId: "agent",
       changes: args.serializedChangeSet,
-      userId: args.userId,
       editUserId: args.userId,
       timestamp,
     });
@@ -536,9 +533,9 @@ export const getActiveEditors = query({
     const userActivity = new Map<Id<"users">, number>();
     for (const update of recentUpdates) {
       if (update.timestamp < recentTimestamp) break;
-      const currentLatest = userActivity.get(update.userId) ?? 0;
+      const currentLatest = userActivity.get(update.editUserId) ?? 0;
       if (update.timestamp > currentLatest) {
-        userActivity.set(update.userId, update.timestamp);
+        userActivity.set(update.editUserId, update.timestamp);
       }
     }
 

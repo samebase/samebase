@@ -29,6 +29,16 @@ async function seedGrants() {
       isApproved: true,
       name: "Other",
     });
+    const ownerOrganizationId = await ctx.db.insert("organizations", {});
+    const otherOrganizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", {
+      organizationId: ownerOrganizationId,
+      userId: ownerId,
+    });
+    await ctx.db.insert("organizationMemberships", {
+      organizationId: otherOrganizationId,
+      userId: otherUserId,
+    });
     await ctx.db.insert("mcpOauthClients", {
       clientId: "mcpc_named",
       clientName: "Codex",
@@ -60,6 +70,7 @@ async function seedGrants() {
       createdAt: now,
       grantId: "mcpg_older",
       lastUsedAt: now + 5,
+      organizationId: ownerOrganizationId,
       resource,
       scope: "access_dashboard access_browser_login_handoff",
       status: "active",
@@ -70,6 +81,7 @@ async function seedGrants() {
       clientId: "mcpc_unnamed",
       createdAt: now + 1,
       grantId: "mcpg_newer",
+      organizationId: ownerOrganizationId,
       resource,
       scope: "access_dashboard",
       status: "active",
@@ -80,6 +92,7 @@ async function seedGrants() {
       clientId: "mcpc_named",
       createdAt: now + 2,
       grantId: "mcpg_revoked",
+      organizationId: ownerOrganizationId,
       resource,
       scope: "access_dashboard",
       status: "revoked",
@@ -90,6 +103,7 @@ async function seedGrants() {
       clientId: "mcpc_named",
       createdAt: now + 3,
       grantId: "mcpg_other",
+      organizationId: otherOrganizationId,
       resource,
       scope: "access_dashboard",
       status: "active",
@@ -97,7 +111,7 @@ async function seedGrants() {
       userId: otherUserId,
     });
 
-    return { otherUserId, ownerId };
+    return { otherOrganizationId, otherUserId, ownerId, ownerOrganizationId };
   });
   return { ids, t };
 }
@@ -181,16 +195,6 @@ describe("MCP grant management", () => {
     const { ids, t } = await seedGrants();
     const owner = asUser(t, ids.ownerId);
     await t.run(async (ctx) => {
-      const organizationId = await ctx.db.insert("organizations", {});
-      const otherOrganizationId = await ctx.db.insert("organizations", {});
-      await ctx.db.insert("organizationMemberships", {
-        organizationId,
-        userId: ids.ownerId,
-      });
-      await ctx.db.insert("organizationMemberships", {
-        organizationId,
-        userId: ids.otherUserId,
-      });
       const newerGrant = await ctx.db
         .query("mcpGrants")
         .withIndex("by_grant_id", (query) => query.eq("grantId", "mcpg_newer"))
@@ -202,8 +206,8 @@ describe("MCP grant management", () => {
       if (!newerGrant || !otherUserGrant) {
         throw new Error("Expected seeded grants.");
       }
-      await ctx.db.patch(newerGrant._id, { organizationId: otherOrganizationId });
-      await ctx.db.patch(otherUserGrant._id, { organizationId });
+      await ctx.db.patch(newerGrant._id, { organizationId: ids.otherOrganizationId });
+      await ctx.db.patch(otherUserGrant._id, { organizationId: ids.ownerOrganizationId });
     });
 
     const grants = await owner.query(api.mcp.grants.listCurrentUserGrants, {

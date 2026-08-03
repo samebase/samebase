@@ -8,6 +8,7 @@ import type { Id } from "../_generated/dataModel";
 import schema from "../schema";
 import { makeConvexTest } from "../test.setup";
 import { serializeAccountDeletionConfirmationStakes } from "../../shared/accountDeletionPhrase";
+import { INITIAL_ACCOUNT_DELETION_DATA_PROGRESS } from "./model";
 
 const workflowId = "account-deletion-workflow-1";
 const now = 1_700_000_000_000;
@@ -32,6 +33,13 @@ async function seedRunningDeletion() {
       email: "deleting@example.com",
       isApproved: true,
     });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      plan: "free",
+      status: "inactive",
+    });
     const initiatingSessionId = await ctx.db.insert("authSessions", {
       userId,
       expirationTime: now + 60_000,
@@ -51,6 +59,7 @@ async function seedRunningDeletion() {
         providerRevocation: { state: "not_started" },
         completionEmail: { state: "not_started" },
       },
+      dataDeletion: INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
     });
     await ctx.db.patch(userId, {
       accountDeletion: { state: "deleting", runId, requestedAt: now },
@@ -74,6 +83,13 @@ describe("account deletion workflow ownership and outcomes", () => {
       const userId = await ctx.db.insert("users", {
         email: "deleting@example.com",
         isApproved: true,
+      });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
       });
       const sessionId = await ctx.db.insert("authSessions", {
         userId,
@@ -117,16 +133,6 @@ describe("account deletion workflow ownership and outcomes", () => {
         workflowId: "stale-workflow",
       }),
     ).rejects.toThrow("Account deletion workflow ownership changed.");
-  });
-
-  it("keeps the generic cleanup path available for active legacy runs", async () => {
-    const { ids, t } = await seedRunningDeletion();
-    await expect(
-      t.mutation(internal.accountDeletion.cleanup.cleanupAccountLocalDataBatch, {
-        runId: ids.runId,
-        workflowId,
-      }),
-    ).resolves.toEqual({ state: "done" });
   });
 
   it("rejects provider errors outside the fixed safe outcome set", async () => {

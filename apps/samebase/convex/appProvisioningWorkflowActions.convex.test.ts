@@ -6,7 +6,7 @@ import { makeConvexTest } from "./test.setup";
 describe("app provisioning workflow actions", () => {
   it("allows free approved members to validate app creation when providers are connected", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
+    const { organizationId, userId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
@@ -57,12 +57,13 @@ describe("app provisioning workflow actions", () => {
         createdAt: 1,
         updatedAt: 1,
       });
-      return userId;
+      return { organizationId, userId };
     });
     const { vaultId, runId } = await t.mutation(
       internal.vault.records.createInitializingSamebaseManagedVaultForUser,
       {
         userId,
+        organizationId,
         ghRepoOwner: "ada",
         ghRepoName: "demo",
         visibility: "private",

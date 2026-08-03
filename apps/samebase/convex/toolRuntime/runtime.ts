@@ -48,6 +48,7 @@ import { mcpScopeAllowsAccess } from "./mcpScopes";
 const { array, id, literal, object, string, union } = v;
 const vToolInvocationArgs = {
   userId: id("users"),
+  organizationId: id("organizations"),
   grantedScopes: array(string()),
 };
 const vToolFailure = object({
@@ -63,6 +64,7 @@ type McpToolContract<Args extends PropertyValidators> = {
 
 type RegisteredMcpToolArgs<Args extends PropertyValidators> = ObjectType<Args> & {
   userId: Id<"users">;
+  organizationId: Id<"organizations">;
   grantedScopes: string[];
 };
 type McpToolArgs<Args extends PropertyValidators> = Omit<
@@ -127,6 +129,22 @@ function defineMcpTool<
   });
 }
 
+async function requireInvocationOrganizationVault(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    organizationId: Id<"organizations">;
+    vaultId: Id<"vaults">;
+  },
+) {
+  const vault = await ctx.runQuery(internal.vault.records.getByIdForOrganization, {
+    organizationId: args.organizationId,
+    vaultId: args.vaultId,
+  });
+  if (vault === null) {
+    throw new Error("Vault not found");
+  }
+}
+
 export const createRepositoryTool = defineMcpTool({
   contract: createRepositoryContract,
   successFields: {
@@ -148,8 +166,9 @@ export const getUserVaultsTool = defineMcpTool({
   },
   run: async (ctx, args) => {
     const vaults: Infer<typeof getUserVaultsContract.structuredContent>["vaults"] =
-      await ctx.runQuery(internal.vault.dashboard.getUserVaultsForUser, {
+      await ctx.runQuery(internal.vault.dashboard.getOrganizationVaultsForUser, {
         userId: args.userId,
+        organizationId: args.organizationId,
       });
     return {
       text: `Found ${vaults.length} ${vaults.length === 1 ? "vault" : "vaults"}.`,
@@ -178,6 +197,7 @@ export const convexDiscoverProjectsTool = defineMcpTool({
     structuredContent: convexDiscoverProjectsContract.structuredContent,
   },
   run: async (ctx, args) => {
+    await requireInvocationOrganizationVault(ctx, args);
     const structuredContent = await discoverProjectsForUser(ctx, args);
     return {
       text: `Found ${structuredContent.projects.length} ${structuredContent.projects.length === 1 ? "project" : "projects"} and ${structuredContent.source.locations.length} code ${structuredContent.source.locations.length === 1 ? "location" : "locations"}.`,
@@ -206,6 +226,7 @@ export const cloudflareCreateWorkerTool = defineMcpTool({
     structuredContent: cloudflareCreateWorkerContract.structuredContent,
   },
   run: async (ctx, args) => {
+    await requireInvocationOrganizationVault(ctx, args);
     const workerId = await createWorkerForUser(ctx, args);
     return {
       text: `Created and attached Cloudflare Worker ${args.workerName}.`,
@@ -220,6 +241,7 @@ export const cloudflareDiscoverWorkersTool = defineMcpTool({
     structuredContent: cloudflareDiscoverWorkersContract.structuredContent,
   },
   run: async (ctx, args) => {
+    await requireInvocationOrganizationVault(ctx, args);
     const structuredContent = await discoverCloudflareWorkersForUser(ctx, args);
     return {
       text: `Found ${structuredContent.workers.length} ${structuredContent.workers.length === 1 ? "worker" : "workers"} in a ${structuredContent.inventoryState} inventory.`,
@@ -234,6 +256,7 @@ export const convexAttachProjectsTool = defineMcpTool({
     structuredContent: convexAttachProjectsContract.structuredContent,
   },
   run: async (ctx, args) => {
+    await requireInvocationOrganizationVault(ctx, args);
     const convexProjectIds = await attachExistingProjectsForUser(ctx, args);
     return {
       text: `Attached ${convexProjectIds.length} Convex ${convexProjectIds.length === 1 ? "project" : "projects"}.`,
@@ -248,6 +271,7 @@ export const cloudflareAttachWorkersTool = defineMcpTool({
     structuredContent: cloudflareAttachWorkersContract.structuredContent,
   },
   run: async (ctx, args) => {
+    await requireInvocationOrganizationVault(ctx, args);
     const workerIds = await attachExistingCloudflareWorkersForUser(ctx, args);
     return {
       text: `Attached ${workerIds.length} Cloudflare ${workerIds.length === 1 ? "Worker" : "Workers"}.`,
@@ -260,6 +284,7 @@ export const cloudflareConfigureWorkersBuildsForGitHubTool = defineMcpTool({
   contract: cloudflareConfigureWorkersBuildsForGitHubContract,
   successFields: {},
   run: async (ctx, args) => {
+    await requireInvocationOrganizationVault(ctx, args);
     await configureWorkersBuildsForGitHubForUser(ctx, args);
     return { text: "Configured Workers Builds for GitHub." };
   },
@@ -269,6 +294,7 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsTool = defineMcpToo
   contract: cloudflareRotateConvexDeployKeysForWorkersBuildsContract,
   successFields: {},
   run: async (ctx, args) => {
+    await requireInvocationOrganizationVault(ctx, args);
     await rotateConvexDeployKeysForWorkersBuildsForUser(ctx, args);
     return { text: "Rotated Convex deploy keys for Workers Builds." };
   },
@@ -280,6 +306,7 @@ export const retryInfrastructureProvisioningTool = defineMcpTool({
   contract: retryInfrastructureProvisioningContract,
   successFields: {},
   run: async (ctx, args) => {
+    await requireInvocationOrganizationVault(ctx, args);
     await retryInfrastructureProvisioningForUser(ctx, args);
     return { text: "Started retry_infrastructure_provisioning run." };
   },
@@ -298,6 +325,7 @@ type CreateBrowserHandoffToolResult = Infer<typeof vCreateBrowserHandoffToolResu
 export const createBrowserHandoffTool = internalAction({
   args: object({
     userId: id("users"),
+    organizationId: id("organizations"),
     grantId: string(),
     clientId: string(),
     grantedScopes: array(string()),
@@ -342,6 +370,7 @@ export const createBrowserHandoffTool = internalAction({
     const result = await ctx.runMutation(internal.agentBrowserHandoff.createForMcp, {
       tokenHash,
       userId: args.userId,
+      organizationId: args.organizationId,
       grantId: args.grantId,
       clientId: args.clientId,
       createdAt: now,

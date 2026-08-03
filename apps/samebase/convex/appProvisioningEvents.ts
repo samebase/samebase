@@ -2,7 +2,7 @@ import { v, type Infer } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { query } from "./functions";
 import { vAppProvisioningEventLevel, vAppProvisioningStep } from "./appProvisioningModel";
-import { hasPhaseOneUserOwnership, readPhaseOneOwnershipContext } from "./phaseOneOwnership";
+import { hasOrganizationAccess, requireOrganizationAccessContext } from "./organizationAccess";
 
 const { array, id, number, object, string } = v;
 const MAX_PROVISIONING_EVENTS = 80;
@@ -27,7 +27,6 @@ function normalizeProvisioningMessage(message: string): string {
 
 export const append = internalMutation({
   args: {
-    userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
     runId: id("workflow_vaultProvisioning_runs"),
@@ -42,16 +41,11 @@ export const append = internalMutation({
     if (!run) {
       throw new Error("Provisioning run not found for event.");
     }
-    if (
-      run.userId !== args.userId ||
-      run.vaultId !== args.vaultId ||
-      run.repositoryFullName !== args.repositoryFullName
-    ) {
+    if (run.vaultId !== args.vaultId || run.repositoryFullName !== args.repositoryFullName) {
       throw new Error("Provisioning event does not match its run.");
     }
 
     await ctx.db.insert("workflow_vaultProvisioning_events", {
-      userId: args.userId,
       vaultId: args.vaultId,
       repositoryFullName: args.repositoryFullName,
       runId: args.runId,
@@ -75,8 +69,8 @@ export const listForVault = query({
     if (!vault) {
       return [];
     }
-    const ownership = await readPhaseOneOwnershipContext(ctx.db, ctx.viewer.userId);
-    if (!hasPhaseOneUserOwnership(ownership, vault)) {
+    const ownership = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
+    if (!hasOrganizationAccess(ownership, vault)) {
       return [];
     }
 

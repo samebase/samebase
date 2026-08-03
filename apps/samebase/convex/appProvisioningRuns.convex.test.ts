@@ -25,13 +25,15 @@ async function createRetryFixture(blocker: RetryBlocker, t = makeConvexTest()) {
       email: "ada@example.com",
       isApproved: true,
     });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
     const vaultId = await ctx.db.insert("vaults", {
-      userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
     const failedRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId,
+      requestedByUserId: userId,
       vaultId,
       repositoryFullName: "ada/retry-guard",
       trigger: "create",
@@ -43,7 +45,7 @@ async function createRetryFixture(blocker: RetryBlocker, t = makeConvexTest()) {
       completedAt: 2,
     });
     await ctx.db.replace(vaultId, {
-      userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "create_repository",
@@ -80,6 +82,7 @@ async function createRetryFixture(blocker: RetryBlocker, t = makeConvexTest()) {
           vaultId,
           owner: {
             kind: "manual_provider_write",
+            requestedByUserId: userId,
             actionId: "manual-action",
             action: "create_convex_project",
             expiresAt: 20,
@@ -92,7 +95,7 @@ async function createRetryFixture(blocker: RetryBlocker, t = makeConvexTest()) {
       case "deletion": {
         const deletionRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
           state: "queued",
-          userId,
+          requestedByUserId: userId,
           vaultId,
           repositoryFullName: "ada/retry-guard",
           createdAt: 10,
@@ -129,7 +132,7 @@ async function createRetryFixture(blocker: RetryBlocker, t = makeConvexTest()) {
         blocker satisfies never;
     }
 
-    return { failedRunId, userId, vaultId };
+    return { failedRunId, organizationId, userId, vaultId };
   });
 
   return { ids, t };
@@ -182,7 +185,6 @@ describe("app provisioning retry admission", () => {
     expect(admitted.queuedRuns).toHaveLength(1);
     expect(admitted.queuedRuns[0]).toMatchObject({
       requestedByUserId: ids.userId,
-      userId: ids.userId,
       workflowId: expect.any(String),
     });
     expect(admitted.writeLock).toMatchObject({
@@ -191,19 +193,18 @@ describe("app provisioning retry admission", () => {
     });
   });
 
-  it("uses vault ownership instead of the failed run actor", async () => {
+  it("uses organization access instead of the failed run actor", async () => {
     const { ids, t } = await createRetryFixture("none");
     await t.run(async (ctx) => {
       const otherUserId = await ctx.db.insert("users", {
         email: "other@example.com",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
-      await ctx.db.insert("organizationMemberships", { organizationId, userId: ids.userId });
-      await ctx.db.insert("organizationMemberships", { organizationId, userId: otherUserId });
-      await ctx.db.patch(ids.vaultId, { organizationId });
-      await ctx.db.patch(ids.failedRunId, {
+      await ctx.db.insert("organizationMemberships", {
+        organizationId: ids.organizationId,
         userId: otherUserId,
+      });
+      await ctx.db.patch(ids.failedRunId, {
         requestedByUserId: otherUserId,
       });
     });
@@ -214,7 +215,6 @@ describe("app provisioning retry admission", () => {
     });
     await expect(t.run(async (ctx) => ctx.db.get(retryRunId))).resolves.toMatchObject({
       requestedByUserId: ids.userId,
-      userId: ids.userId,
     });
 
     const blocked = await createRetryFixture("none");
@@ -226,13 +226,8 @@ describe("app provisioning retry admission", () => {
       const organizationId = await ctx.db.insert("organizations", {});
       await ctx.db.insert("organizationMemberships", {
         organizationId,
-        userId: blocked.ids.userId,
-      });
-      await ctx.db.insert("organizationMemberships", {
-        organizationId,
         userId: blockedOtherUserId,
       });
-      await ctx.db.patch(blocked.ids.vaultId, { organizationId });
       return blockedOtherUserId;
     });
     await expect(

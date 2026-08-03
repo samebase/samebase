@@ -102,6 +102,7 @@ export type McpToolInvocation = {
   grantId: string;
   input: JsonRecord;
   userId: Id<"users">;
+  organizationId: Id<"organizations">;
   grantedScopes: string[];
   viewer: McpResolvedViewer;
 };
@@ -112,9 +113,11 @@ export function buildMcpToolInvocationArgs(invocation: McpToolInvocation) {
   delete input.grantedScopes;
   delete input.grantId;
   delete input.clientId;
+  delete input.organizationId;
   return {
     ...input,
     userId: invocation.userId,
+    organizationId: invocation.organizationId,
     grantedScopes: invocation.grantedScopes,
   };
 }
@@ -1004,6 +1007,7 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
         grantId: tokenValidation.grantId,
         input,
         userId: tokenValidation.userId,
+        organizationId: tokenValidation.organizationId,
         grantedScopes,
         viewer: currentViewer,
       });

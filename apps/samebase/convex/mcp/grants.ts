@@ -4,7 +4,10 @@ import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../functions";
-import { readPhaseOneOwnershipContext, type PhaseOneOwnershipContext } from "../phaseOneOwnership";
+import {
+  requireOrganizationAccessContext,
+  type OrganizationAccessContext,
+} from "../organizationAccess";
 import { parseScopeTokens } from "./scopes";
 
 const { array, boolean, number, object, optional, string } = v;
@@ -19,18 +22,12 @@ const grantListItemValidator = object({
   scopes: array(string()),
 });
 
-/**
- * MCP grants stay bound to their exact delegated subject. Phase 1 also accepts
- * a legacy grant without an organization key until backfill is complete.
- */
-export function hasPhaseOneMcpGrantSubject(
-  ownership: PhaseOneOwnershipContext,
+/** MCP grants stay bound to their exact delegated subject. */
+export function hasMcpGrantSubject(
+  access: OrganizationAccessContext,
   grant: Pick<Doc<"mcpGrants">, "organizationId" | "userId">,
 ): boolean {
-  return (
-    grant.userId === ownership.userId &&
-    (grant.organizationId === undefined || grant.organizationId === ownership.organizationId)
-  );
+  return grant.userId === access.userId && grant.organizationId === access.organizationId;
 }
 
 export async function revokeActiveMcpGrant(
@@ -75,10 +72,10 @@ export const listCurrentUserGrants = query({
       )
       .order("desc")
       .paginate(args.paginationOpts);
-    const ownership = await readPhaseOneOwnershipContext(ctx.db, ctx.viewer.userId);
+    const access = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
     const page = [];
     for (const grant of grants.page) {
-      if (!hasPhaseOneMcpGrantSubject(ownership, grant)) {
+      if (!hasMcpGrantSubject(access, grant)) {
         continue;
       }
       const client = await ctx.db
@@ -114,8 +111,8 @@ export const revokeCurrentUserGrant = mutation({
       .query("mcpGrants")
       .withIndex("by_grant_id", (q) => q.eq("grantId", args.grantId))
       .unique();
-    const ownership = await readPhaseOneOwnershipContext(ctx.db, ctx.viewer.userId);
-    if (!grant || !hasPhaseOneMcpGrantSubject(ownership, grant)) {
+    const access = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
+    if (!grant || !hasMcpGrantSubject(access, grant)) {
       throw new Error("MCP client connection was not found.");
     }
 

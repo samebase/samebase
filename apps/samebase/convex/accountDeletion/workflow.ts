@@ -80,7 +80,7 @@ export async function startAccountDeletionWorkflow(
   return workflow.start(
     ctx,
     internal.accountDeletion.workflow.deleteAccountWorkflow,
-    run.dataDeletion === undefined ? { runId } : { runId, dataDeletionProgress: true },
+    { runId },
     {
       startAsync: true,
       onComplete: internal.accountDeletion.workflow.handleWorkflowComplete,
@@ -255,9 +255,6 @@ export const markFinalizing = internalMutation({
 export const deleteAccountWorkflow = workflow.define({
   args: {
     runId: id("workflow_accountDeletion_runs"),
-    // Persisted workflow input selects the journal shape without inserting a
-    // compatibility-breaking discovery step into older runs.
-    dataDeletionProgress: v.optional(literal(true)),
   },
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
@@ -414,38 +411,20 @@ export const deleteAccountWorkflow = workflow.define({
       },
       { name: "start_samebase_data_cleanup" },
     );
-    if (args.dataDeletionProgress) {
-      await step.runMutation(internal.accountDeletion.cleanup.startVaultDataDeletion, ownedArgs, {
-        name: "start_vault_data_cleanup",
-      });
-      await step.runAction(internal.accountDeletion.cleanupActions.cleanupVaultData, ownedArgs, {
-        name: "delete_vault_data",
-        retry: true,
-      });
+    await step.runMutation(internal.accountDeletion.cleanup.startVaultDataDeletion, ownedArgs, {
+      name: "start_vault_data_cleanup",
+    });
+    await step.runAction(internal.accountDeletion.cleanupActions.cleanupVaultData, ownedArgs, {
+      name: "delete_vault_data",
+      retry: true,
+    });
 
-      for (const [group, name] of entries(DATA_DELETION_GROUP_ACTION_NAMES)) {
-        await step.runAction(
-          internal.accountDeletion.cleanupActions.cleanupDataDeletionGroup,
-          { ...ownedArgs, group },
-          { name, retry: true },
-        );
-      }
-    } else {
-      for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
-        const result = await step.runMutation(
-          internal.accountDeletion.cleanup.cleanupAccountLocalDataBatch,
-          ownedArgs,
-          { name: `delete_samebase_data_${batch}` },
-        );
-
-        if (result.state === "done") {
-          break;
-        }
-
-        if (result.state === "blocked" || batch === MAX_BATCH_STEPS - 1) {
-          throw new Error(SAFE_WORKFLOW_ERROR);
-        }
-      }
+    for (const [group, name] of entries(DATA_DELETION_GROUP_ACTION_NAMES)) {
+      await step.runAction(
+        internal.accountDeletion.cleanupActions.cleanupDataDeletionGroup,
+        { ...ownedArgs, group },
+        { name, retry: true },
+      );
     }
 
     const finalBilling = await step.runAction(

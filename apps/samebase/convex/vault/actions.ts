@@ -661,7 +661,11 @@ export type ConnectRepositoryResult = Infer<typeof connectRepositoryContract.ret
 
 export async function connectRepositoryForUser(
   ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
-  args: { userId: Id<"users">; repositoryFullName: string },
+  args: {
+    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+    repositoryFullName: string;
+  },
 ): Promise<ConnectRepositoryResult> {
   const userId = args.userId;
   const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
@@ -677,6 +681,7 @@ export async function connectRepositoryForUser(
     internal.vault.records.createInitializingExistingRepositoryVaultForUser,
     {
       userId,
+      organizationId: args.organizationId,
       ghRepoOwner: owner,
       ghRepoName: name,
     },
@@ -698,16 +703,24 @@ export const connectRepository = action({
   returns: connectRepositoryContract.returns,
   mcp: connectRepositoryContract.mcp,
   handler: async (ctx, args): Promise<ConnectRepositoryResult> => {
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.getOrganizationIdForUser,
+      { userId: ctx.viewer.userId },
+    );
     return await connectRepositoryForUser(ctx, {
       ...args,
       userId: ctx.viewer.userId,
+      organizationId,
     });
   },
 });
 
 export async function createAppForUser(
   ctx: Pick<ActionCtx, "runAction" | "runQuery" | "runMutation">,
-  args: CreateRepositoryArgs & { userId: Id<"users"> },
+  args: CreateRepositoryArgs & {
+    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+  },
 ): Promise<CreateRepositoryResult> {
   const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, {
     userId: args.userId,
@@ -791,6 +804,7 @@ export async function createAppForUser(
     internal.vault.records.createInitializingSamebaseManagedVaultForUser,
     {
       userId: args.userId,
+      organizationId: args.organizationId,
       ghRepoOwner,
       ghRepoName: repoName,
       visibility,
@@ -812,9 +826,14 @@ export const createRepository = action({
   returns: createRepositoryContract.returns,
   mcp: createRepositoryContract.mcp,
   handler: async (ctx, args): Promise<CreateRepositoryResult> => {
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.getOrganizationIdForUser,
+      { userId: ctx.viewer.userId },
+    );
     return await createAppForUser(ctx, {
       ...args,
       userId: ctx.viewer.userId,
+      organizationId,
     });
   },
 });
@@ -846,12 +865,16 @@ export const checkCreateRepositoryResourceNames = action({
 
 export async function retryInfrastructureProvisioningForUser(
   ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
-  args: { userId: Id<"users">; vaultId: Id<"vaults"> },
+  args: {
+    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+    vaultId: Id<"vaults">;
+  },
 ): Promise<null> {
   const userId = args.userId;
-  const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+  const vault = await ctx.runQuery(internal.vault.records.getByIdForOrganization, {
     vaultId: args.vaultId,
-    userId,
+    organizationId: args.organizationId,
   });
   if (!vault) {
     throw new Error("Vault not found");
@@ -873,9 +896,14 @@ export const retryInfrastructureProvisioning = action({
   returns: retryInfrastructureProvisioningContract.returns,
   mcp: retryInfrastructureProvisioningContract.mcp,
   handler: async (ctx, args): Promise<null> => {
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.getOrganizationIdForUser,
+      { userId: ctx.viewer.userId },
+    );
     return await retryInfrastructureProvisioningForUser(ctx, {
       ...args,
       userId: ctx.viewer.userId,
+      organizationId,
     });
   },
 });

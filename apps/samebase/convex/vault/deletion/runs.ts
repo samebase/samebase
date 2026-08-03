@@ -14,10 +14,10 @@ import { readVaultDeletionEligibility } from "./eligibility";
 import { isConnectedVault } from "../state";
 import { readVaultDeletionState } from "./state";
 import {
-  hasPhaseOneUserOwnership,
-  readPhaseOneOwnershipContext,
-  type PhaseOneOwnershipContext,
-} from "../../phaseOneOwnership";
+  hasOrganizationAccess,
+  requireOrganizationAccessContext,
+  type OrganizationAccessContext,
+} from "../../organizationAccess";
 
 const { boolean, id, literal, object, string, union } = v;
 
@@ -147,7 +147,7 @@ async function buildConvexPlan(
     vault: Doc<"vaults">;
     convexProjects: Doc<"vaultConvexProjects">[];
     options: DeletionRequestOptions;
-    ownership: PhaseOneOwnershipContext;
+    ownership: OrganizationAccessContext;
   },
 ): Promise<VaultDeletionPlan["convex"]> {
   const { vault, convexProjects, options } = args;
@@ -161,7 +161,7 @@ async function buildConvexPlan(
   const createdProjects: Array<{ teamId: string; projectId: string }> = [];
 
   for (const project of convexProjects) {
-    if (!hasPhaseOneUserOwnership(args.ownership, project)) {
+    if (!hasOrganizationAccess(args.ownership, project)) {
       throw new Error("Convex project attachment not found.");
     }
     if (project.origin === "provisioned") {
@@ -190,7 +190,7 @@ async function buildCloudflarePlan(
   args: {
     vault: Doc<"vaults">;
     options: DeletionRequestOptions;
-    ownership: PhaseOneOwnershipContext;
+    ownership: OrganizationAccessContext;
   },
 ): Promise<VaultDeletionPlan["cloudflare"]> {
   const { vault, options } = args;
@@ -205,7 +205,7 @@ async function buildCloudflarePlan(
     .query("vaultCloudflareWorkers")
     .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
     .collect();
-  if (workers.some((worker) => !hasPhaseOneUserOwnership(args.ownership, worker))) {
+  if (workers.some((worker) => !hasOrganizationAccess(args.ownership, worker))) {
     throw new Error("Cloudflare Worker attachment not found.");
   }
   const provisionedWorkers = workers
@@ -249,7 +249,7 @@ async function buildDeletionPlan(
     vault: Exclude<Doc<"vaults">, { state: "not_connected" | "provisioning" }>;
     convexProjects: Doc<"vaultConvexProjects">[];
     options: DeletionRequestOptions;
-    ownership: PhaseOneOwnershipContext;
+    ownership: OrganizationAccessContext;
   },
 ): Promise<VaultDeletionPlan> {
   const convex = await buildConvexPlan(ctx, args);
@@ -383,7 +383,6 @@ async function appendDeletionEvent(
   },
 ): Promise<void> {
   await ctx.runMutation(internal.vault.deletion.events.append, {
-    userId: args.run.userId,
     vaultId: args.run.vaultId,
     repositoryFullName: args.run.repositoryFullName,
     runId: args.run._id,
@@ -421,8 +420,8 @@ export const createInitialRun = internalMutation({
     if (!vault) {
       throw new Error("Vault not found");
     }
-    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-    if (!hasPhaseOneUserOwnership(ownership, vault)) {
+    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found");
     }
     await assertVaultIsQuiescentForDeletion(ctx, vault);
@@ -439,7 +438,6 @@ export const createInitialRun = internalMutation({
     });
     const now = Date.now();
     const deletionRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
-      userId: args.userId,
       requestedByUserId: args.userId,
       vaultId: args.vaultId,
       repositoryFullName: plan.target.repositoryFullName,
@@ -503,8 +501,8 @@ export const createRetryRun = internalMutation({
     if (!vault) {
       throw new Error("Vault not found");
     }
-    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-    if (!hasPhaseOneUserOwnership(ownership, vault)) {
+    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found");
     }
     const deletion = readVaultDeletionState(vault);
@@ -520,7 +518,6 @@ export const createRetryRun = internalMutation({
 
     const now = Date.now();
     const deletionRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
-      userId: args.userId,
       requestedByUserId: args.userId,
       vaultId: failedRun.vaultId,
       repositoryFullName: failedRun.repositoryFullName,
@@ -646,13 +643,13 @@ export const claimWorkflowRun = internalMutation({
     if (!run) {
       throw new Error("Deletion run not found.");
     }
-    if (run.userId !== args.userId || run.vaultId !== args.vaultId) {
+    if (run.requestedByUserId !== args.userId || run.vaultId !== args.vaultId) {
       throw new Error("Deletion run does not match vault.");
     }
 
     const vault = await ctx.db.get(args.vaultId);
-    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-    if (!vault || !hasPhaseOneUserOwnership(ownership, vault)) {
+    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    if (!vault || !hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found");
     }
     const deletion = readVaultDeletionState(vault);

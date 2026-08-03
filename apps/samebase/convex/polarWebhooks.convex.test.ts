@@ -22,6 +22,28 @@ import { verifyPolarWebhookEvent } from "./polarWebhooks";
 import { makeConvexTest } from "./test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
+const billingAccountsByTest = new WeakMap<
+  ConvexTest,
+  Map<Id<"users">, Id<"organizationBillingAccounts">>
+>();
+
+function rememberBillingAccount(
+  t: ConvexTest,
+  userId: Id<"users">,
+  billingAccountId: Id<"organizationBillingAccounts">,
+): void {
+  const accounts = billingAccountsByTest.get(t) ?? new Map();
+  accounts.set(userId, billingAccountId);
+  billingAccountsByTest.set(t, accounts);
+}
+
+function billingAccountIdFor(t: ConvexTest, userId: Id<"users">) {
+  const billingAccountId = billingAccountsByTest.get(t)?.get(userId);
+  if (billingAccountId === undefined) {
+    throw new Error("Expected an organization billing account.");
+  }
+  return billingAccountId;
+}
 
 const productId = "samebase-pro-monthly";
 const webhookSecret = "polar-webhook-secret";
@@ -78,25 +100,32 @@ function asUser(t: ConvexTest, userId: Id<"users">) {
 }
 
 async function seedApprovedMember(t: ConvexTest) {
-  return await t.run(async (ctx) => {
-    return await ctx.db.insert("users", {
+  const ids = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", {
       name: "Ada",
       email: "ada.member@example.test",
       isApproved: true,
-      billingPolarExternalCustomerId: "existing-customer",
     });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    const billingAccountId = await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      plan: "free",
+      status: "inactive",
+      polarExternalCustomerId: "existing-customer",
+    });
+    return { billingAccountId, userId };
   });
+  rememberBillingAccount(t, ids.userId, ids.billingAccountId);
+  return ids.userId;
 }
 
 async function seedOrganizationMembers(t: ConvexTest, organizationExternalCustomerId: string) {
-  return await t.run(async (ctx) => {
+  const ids = await t.run(async (ctx) => {
     const firstUserId = await ctx.db.insert("users", {
       name: "Ada",
       email: "ada.organization@example.test",
       isApproved: true,
-      billingPolarExternalCustomerId: "existing-customer",
-      billingPlan: "free",
-      billingStatus: "inactive",
     });
     const secondUserId = await ctx.db.insert("users", {
       name: "Grace",
@@ -116,6 +145,9 @@ async function seedOrganizationMembers(t: ConvexTest, organizationExternalCustom
     });
     return { billingAccountId, firstUserId, secondUserId };
   });
+  rememberBillingAccount(t, ids.firstUserId, ids.billingAccountId);
+  rememberBillingAccount(t, ids.secondUserId, ids.billingAccountId);
+  return ids;
 }
 
 function customerStatePayload() {
@@ -229,25 +261,22 @@ describe("Polar customer.state_changed webhook", () => {
       asUser(t, secondUserId).query(api.billing.getViewerBillingStatus, {}),
     ).resolves.toEqual(expectedBilling);
 
-    const stored = await t.run(async (ctx) => ({
-      billingAccount: await ctx.db.get(billingAccountId),
-      firstUser: await ctx.db.get(firstUserId),
-      secondUser: await ctx.db.get(secondUserId),
-    }));
-    expect(stored.billingAccount).toMatchObject({
+    const billingAccount = await t.run(async (ctx) => await ctx.db.get(billingAccountId));
+    expect(billingAccount).toMatchObject({
       provider: "polar",
       plan: "pro",
       status: "active",
       polarAppliedObservationRevision: 1,
       polarObservationRevision: 1,
     });
-    expect(stored.firstUser).toMatchObject({ billingPlan: "free", billingStatus: "inactive" });
-    expect(stored.secondUser?.billingPlan).toBeUndefined();
   });
 
-  it("does not reconcile a legacy customer ID after organization membership exists", async () => {
+  it("does not reconcile an unknown organization customer ID", async () => {
     const t = makeConvexTest();
-    const { firstUserId } = await seedOrganizationMembers(t, "organization-customer");
+    const { billingAccountId, firstUserId } = await seedOrganizationMembers(
+      t,
+      "organization-customer",
+    );
     configureWebhook();
 
     const response = await deliver(t, customerStateChangedBody());
@@ -261,13 +290,13 @@ describe("Polar customer.state_changed webhook", () => {
       status: "inactive",
       canStartCheckout: true,
     });
-    const user = await t.run(async (ctx) => await ctx.db.get(firstUserId));
-    expect(user).toMatchObject({
-      billingPlan: "free",
-      billingStatus: "inactive",
-      billingPolarExternalCustomerId: "existing-customer",
+    const billingAccount = await t.run(async (ctx) => await ctx.db.get(billingAccountId));
+    expect(billingAccount).toMatchObject({
+      plan: "free",
+      status: "inactive",
+      polarExternalCustomerId: "organization-customer",
     });
-    expect(user?.billingPolarObservationRevision).toBeUndefined();
+    expect(billingAccount?.polarObservationRevision).toBeUndefined();
   });
 
   it.each([
@@ -326,10 +355,10 @@ describe("Polar customer.state_changed webhook", () => {
     const t = makeConvexTest();
     const userId = await seedApprovedMember(t);
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        billingProvider: "polar",
-        billingPlan: "pro",
-        billingStatus: "active",
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
       });
     });
     configureWebhook();
@@ -361,9 +390,9 @@ describe("Polar customer.state_changed webhook", () => {
     firstRead.resolve(subscriptionPage([polarSubscription({ status: "active" })]));
     await expect(firstDelivery).resolves.toMatchObject({ status: 204 });
 
-    const user = await t.run(async (ctx) => await ctx.db.get(userId));
-    expect(user?.billingPolarObservationRevision).toBe(2);
-    expect(user?.billingPolarAppliedObservationRevision).toBe(2);
+    const user = await t.run(async (ctx) => await ctx.db.get(billingAccountIdFor(t, userId)));
+    expect(user?.polarObservationRevision).toBe(2);
+    expect(user?.polarAppliedObservationRevision).toBe(2);
     await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
       provider: "polar",
       plan: "free",
@@ -376,10 +405,10 @@ describe("Polar customer.state_changed webhook", () => {
     const t = makeConvexTest();
     const userId = await seedApprovedMember(t);
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        billingProvider: "polar",
-        billingPlan: "pro",
-        billingStatus: "active",
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
       });
     });
     configureWebhook();
@@ -406,10 +435,10 @@ describe("Polar customer.state_changed webhook", () => {
     const t = makeConvexTest();
     const userId = await seedApprovedMember(t);
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        billingProvider: "polar",
-        billingPlan: "pro",
-        billingStatus: "active",
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
       });
     });
     configureWebhook();
@@ -448,10 +477,10 @@ describe("Polar customer.state_changed webhook", () => {
     const t = makeConvexTest();
     const userId = await seedApprovedMember(t);
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        billingProvider: "polar",
-        billingPlan: "pro",
-        billingStatus: "active",
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
       });
     });
     configureWebhook();
@@ -528,10 +557,10 @@ describe("Polar customer.state_changed webhook", () => {
     const t = makeConvexTest();
     const userId = await seedApprovedMember(t);
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        billingProvider: "polar",
-        billingPlan: "pro",
-        billingStatus: "active",
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
       });
     });
     configureWebhook();

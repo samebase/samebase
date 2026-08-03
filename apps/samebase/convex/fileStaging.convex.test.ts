@@ -17,15 +17,18 @@ async function seedVaultWithStagedFile() {
       email: "nicuchiciuc@gmail.com",
       isApproved: true,
     });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId: ownerId });
+    await ctx.db.insert("organizationMemberships", { organizationId, userId: otherUserId });
     const vaultId = await ctx.db.insert("vaults", {
-      userId: ownerId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
     await ctx.db.insert("vaultStagedFiles", {
-      ownerId,
       vaultId,
       fileDeleted: false,
+      kind: "text",
       filePath: "notes/todo.md",
       initialFilePath: "notes/todo.md",
       content: "updated content",
@@ -60,7 +63,7 @@ describe("fileStaging.listStagedFiles access control", () => {
     ).rejects.toThrowError("Access denied");
   });
 
-  it("returns an empty list to staff non-owners", async () => {
+  it("returns staged files to another organization member", async () => {
     const { ids, t } = await seedVaultWithStagedFile();
 
     const asOther = asIdentity(t, ids.otherUserId);
@@ -69,7 +72,13 @@ describe("fileStaging.listStagedFiles access control", () => {
         vaultId: ids.vaultId,
         branch: "main",
       }),
-    ).resolves.toEqual([]);
+    ).resolves.toMatchObject([
+      {
+        vaultId: ids.vaultId,
+        filePath: "notes/todo.md",
+        branch: "main",
+      },
+    ]);
   });
 
   it("returns staged files to the vault owner", async () => {
@@ -92,7 +101,7 @@ describe("fileStaging.listStagedFiles access control", () => {
 });
 
 describe("fileStaging.getByNewPath access control", () => {
-  it("returns null to staff non-owners", async () => {
+  it("returns the staged file to another organization member", async () => {
     const { ids, t } = await seedVaultWithStagedFile();
 
     const asOther = asIdentity(t, ids.otherUserId);
@@ -102,7 +111,11 @@ describe("fileStaging.getByNewPath access control", () => {
         branch: "main",
         newPath: "notes/todo.md",
       }),
-    ).resolves.toBeNull();
+    ).resolves.toMatchObject({
+      vaultId: ids.vaultId,
+      filePath: "notes/todo.md",
+      branch: "main",
+    });
   });
 
   it("returns the staged file to the vault owner", async () => {

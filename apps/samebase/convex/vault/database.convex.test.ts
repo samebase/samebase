@@ -38,6 +38,8 @@ async function seedDatabaseEditorVault(
       email: "ada@example.com",
       isApproved: true,
     });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
     await ctx.db.insert("providerConnections", {
       kind: "convex",
       userId,
@@ -48,12 +50,12 @@ async function seedDatabaseEditorVault(
       updatedAt: 2,
     });
     const vaultId = await ctx.db.insert("vaults", {
-      userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId,
+      requestedByUserId: userId,
       vaultId,
       repositoryFullName: "ada/demo",
       trigger: "connect_existing_repository",
@@ -64,7 +66,7 @@ async function seedDatabaseEditorVault(
       completedAt: 20,
     });
     await ctx.db.replace(vaultId, {
-      userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "connect_existing_repository",
@@ -78,7 +80,7 @@ async function seedDatabaseEditorVault(
     });
     const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
       vaultId,
-      userId,
+      organizationId,
       teamId: "1000",
       projectId: "1001",
       convexConfigPath: "convex.json",
@@ -284,7 +286,7 @@ describe("revokeEmbeddedDashboardCredentials", () => {
 });
 
 describe("embedded dashboard project ownership", () => {
-  it("derives access from the parent vault and rejects attachment organization conflicts", async () => {
+  it("allows same-organization vaults and rejects attachment organization conflicts", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", { email: "user@example.com" });
@@ -292,15 +294,15 @@ describe("embedded dashboard project ownership", () => {
       const organizationId = await ctx.db.insert("organizations", {});
       const otherOrganizationId = await ctx.db.insert("organizations", {});
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      await ctx.db.insert("organizationMemberships", { organizationId, userId: otherUserId });
       const insertConnectedVault = async (ownerId: Id<"users">, name: string) => {
         const vaultId = await ctx.db.insert("vaults", {
-          userId: ownerId,
           organizationId,
           deletion: { state: "not_deleting" },
           state: "not_connected",
         });
         const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-          userId: ownerId,
+          requestedByUserId: ownerId,
           vaultId,
           repositoryFullName: `ada/${name}`,
           trigger: "connect_existing_repository",
@@ -311,7 +313,6 @@ describe("embedded dashboard project ownership", () => {
           completedAt: 2,
         });
         await ctx.db.replace(vaultId, {
-          userId: ownerId,
           organizationId,
           deletion: { state: "not_deleting" },
           state: "connected",
@@ -331,7 +332,6 @@ describe("embedded dashboard project ownership", () => {
       const matchingVaultId = await insertConnectedVault(userId, "matching");
       const projectForOtherVaultId = await ctx.db.insert("vaultConvexProjects", {
         vaultId: otherVaultId,
-        userId,
         organizationId,
         teamId: "team",
         projectId: "other-parent",
@@ -340,7 +340,6 @@ describe("embedded dashboard project ownership", () => {
       });
       const mismatchedProjectId = await ctx.db.insert("vaultConvexProjects", {
         vaultId: matchingVaultId,
-        userId,
         organizationId: otherOrganizationId,
         teamId: "team",
         projectId: "wrong-organization",
@@ -362,7 +361,7 @@ describe("embedded dashboard project ownership", () => {
         vaultId: ids.otherVaultId,
         convexProjectId: ids.projectForOtherVaultId,
       }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual({ projectId: "other-parent", teamId: "team" });
     await expect(
       t.query(internal.vault.database.readEmbeddedDashboardProject, {
         userId: ids.userId,

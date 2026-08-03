@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 import { assertAuthSessionUserCanSignIn } from "../auth";
+import { INITIAL_ACCOUNT_DELETION_DATA_PROGRESS } from "./model";
 
 const workflowId = "account-deletion-workflow-1";
 const notStartedOutcomes = {
@@ -22,6 +23,16 @@ async function seedRunningDeletion() {
       userId,
       expirationTime: Date.now() + 60_000,
     });
+    const organizationId = await ctx.db.insert("organizations", {});
+    const membershipId = await ctx.db.insert("organizationMemberships", {
+      organizationId,
+      userId,
+    });
+    const billingAccountId = await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      plan: "free",
+      status: "inactive",
+    });
     const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
       identity: { state: "active", userId, email: "deleting@example.com" },
       completionCapability: "auth-cleanup-test",
@@ -33,11 +44,19 @@ async function seedRunningDeletion() {
       initiatingSessionId,
       retryCount: 0,
       outcomes: notStartedOutcomes,
+      dataDeletion: INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
     });
     await ctx.db.patch(userId, {
       accountDeletion: { state: "deleting", runId, requestedAt: Date.now() },
     });
-    return { initiatingSessionId, runId, userId };
+    return {
+      billingAccountId,
+      initiatingSessionId,
+      membershipId,
+      organizationId,
+      runId,
+      userId,
+    };
   });
   return { ids, t };
 }
@@ -245,30 +264,23 @@ describe("account deletion auth cleanup", () => {
         email: "remaining@example.com",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
-      const deletingMembershipId = await ctx.db.insert("organizationMemberships", {
-        organizationId,
-        userId: ids.userId,
-      });
       const remainingMembershipId = await ctx.db.insert("organizationMemberships", {
-        organizationId,
+        organizationId: ids.organizationId,
         userId: remainingUserId,
       });
-      const billingAccountId = await ctx.db.insert("organizationBillingAccounts", {
-        organizationId,
+      await ctx.db.patch(ids.billingAccountId, {
         provider: "polar",
         plan: "pro",
         status: "active",
         polarExternalCustomerId: "shared-customer",
       });
       const vaultId = await ctx.db.insert("vaults", {
-        userId: remainingUserId,
-        organizationId,
+        organizationId: ids.organizationId,
         state: "not_connected",
         deletion: { state: "not_deleting" },
       });
       const provisioningRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId: remainingUserId,
+        requestedByUserId: remainingUserId,
         vaultId,
         repositoryFullName: "owner/shared-repository",
         trigger: "connect_existing_repository",
@@ -279,7 +291,6 @@ describe("account deletion auth cleanup", () => {
         completedAt: 2,
       });
       const failedRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
-        userId: ids.userId,
         requestedByUserId: ids.userId,
         vaultId,
         repositoryFullName: "owner/shared-repository",
@@ -308,7 +319,6 @@ describe("account deletion auth cleanup", () => {
         completedAt: 4,
       });
       const failedEventId = await ctx.db.insert("workflow_vaultDeletion_events", {
-        userId: ids.userId,
         vaultId,
         repositoryFullName: "owner/shared-repository",
         runId: failedRunId,
@@ -318,8 +328,7 @@ describe("account deletion auth cleanup", () => {
         createdAt: 4,
       });
       await ctx.db.replace(vaultId, {
-        userId: remainingUserId,
-        organizationId,
+        organizationId: ids.organizationId,
         state: "connected",
         githubMode: "connect_existing_repository",
         deletion: { state: "delete_failed", runId: failedRunId, failedAt: 4 },
@@ -344,11 +353,11 @@ describe("account deletion auth cleanup", () => {
         },
       });
       return {
-        billingAccountId,
-        deletingMembershipId,
+        billingAccountId: ids.billingAccountId,
+        deletingMembershipId: ids.membershipId,
         failedEventId,
         failedRunId,
-        organizationId,
+        organizationId: ids.organizationId,
         remainingMembershipId,
         remainingUserId,
         vaultId,
@@ -383,10 +392,9 @@ describe("account deletion auth cleanup", () => {
     expect(stored.vault).not.toBeNull();
     expect(stored.failedRun).toMatchObject({
       requestedByUserId: ids.userId,
-      userId: ids.userId,
       state: "failed",
     });
-    expect(stored.failedEvent).toMatchObject({ userId: ids.userId });
+    expect(stored.failedEvent).not.toBeNull();
 
     const retry = await t.mutation(internal.vault.deletion.runs.createRetryRun, {
       userId: retained.remainingUserId,
@@ -396,24 +404,13 @@ describe("account deletion auth cleanup", () => {
       t.run(async (ctx) => await ctx.db.get(retry.deletionRunId)),
     ).resolves.toMatchObject({
       requestedByUserId: retained.remainingUserId,
-      userId: retained.remainingUserId,
       attempt: { kind: "retry", retryOf: retained.failedRunId },
     });
   });
 
   it("deletes sole-member organization billing and the empty organization at finalization", async () => {
     const { ids, t } = await seedRunningDeletion();
-    const organization = await t.run(async (ctx) => {
-      const organizationId = await ctx.db.insert("organizations", {});
-      const membershipId = await ctx.db.insert("organizationMemberships", {
-        organizationId,
-        userId: ids.userId,
-      });
-      const billingAccountId = await ctx.db.insert("organizationBillingAccounts", {
-        organizationId,
-        plan: "free",
-        status: "inactive",
-      });
+    await t.run(async (ctx) => {
       await ctx.db.patch(ids.runId, {
         outcomes: {
           billing: { state: "not_applicable" },
@@ -426,7 +423,6 @@ describe("account deletion auth cleanup", () => {
           completionEmail: { state: "sent" },
         },
       });
-      return { billingAccountId, membershipId, organizationId };
     });
     const args = { runId: ids.runId, workflowId };
 
@@ -434,7 +430,7 @@ describe("account deletion auth cleanup", () => {
       t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
     ).resolves.toBeNull();
     await expect(
-      t.run(async (ctx) => await ctx.db.get(organization.billingAccountId)),
+      t.run(async (ctx) => await ctx.db.get(ids.billingAccountId)),
     ).resolves.not.toBeNull();
     await expect(
       t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, args),
@@ -442,9 +438,9 @@ describe("account deletion auth cleanup", () => {
 
     await expect(
       t.run(async (ctx) => ({
-        billing: await ctx.db.get(organization.billingAccountId),
-        membership: await ctx.db.get(organization.membershipId),
-        organization: await ctx.db.get(organization.organizationId),
+        billing: await ctx.db.get(ids.billingAccountId),
+        membership: await ctx.db.get(ids.membershipId),
+        organization: await ctx.db.get(ids.organizationId),
         user: await ctx.db.get(ids.userId),
       })),
     ).resolves.toEqual({ billing: null, membership: null, organization: null, user: null });
@@ -453,13 +449,7 @@ describe("account deletion auth cleanup", () => {
   it("requires confirmed billing cancellation before active sole-member billing is deleted", async () => {
     const { ids, t } = await seedRunningDeletion();
     await t.run(async (ctx) => {
-      const organizationId = await ctx.db.insert("organizations", {});
-      await ctx.db.insert("organizationMemberships", {
-        organizationId,
-        userId: ids.userId,
-      });
-      await ctx.db.insert("organizationBillingAccounts", {
-        organizationId,
+      await ctx.db.patch(ids.billingAccountId, {
         provider: "polar",
         plan: "pro",
         status: "active",

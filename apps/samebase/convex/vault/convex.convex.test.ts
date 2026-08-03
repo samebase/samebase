@@ -98,13 +98,12 @@ async function createConnectedVault(teamId = "1000") {
       }),
     ]);
     const vaultId = await ctx.db.insert("vaults", {
-      userId,
       organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId,
+      requestedByUserId: userId,
       vaultId,
       repositoryFullName: "ada/demo",
       trigger: "connect_existing_repository",
@@ -115,7 +114,6 @@ async function createConnectedVault(teamId = "1000") {
       completedAt: 2,
     });
     await ctx.db.replace(vaultId, {
-      userId,
       organizationId,
       deletion: { state: "not_deleting" },
       state: "connected",
@@ -144,18 +142,13 @@ async function createConnectedVault(teamId = "1000") {
 
 async function seedConvexProjects(
   t: ReturnType<typeof makeConvexTest>,
-  args: { userId: Id<"users">; vaultId: Id<"vaults"> },
+  args: { organizationId: Id<"organizations">; vaultId: Id<"vaults"> },
   count = 5,
 ): Promise<void> {
   await t.run(async (ctx) => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (vault === null || vault.organizationId === undefined) {
-      throw new Error("Expected an organization-owned vault fixture.");
-    }
     for (let index = 0; index < count; index += 1) {
       await ctx.db.insert("vaultConvexProjects", {
         ...args,
-        organizationId: vault.organizationId,
         teamId: "existing-team",
         projectId: `existing-project-${index}`,
         convexConfigPath: `apps/existing-${index}/convex.json`,
@@ -169,7 +162,7 @@ async function createManagedProjectCreatingFixture() {
   const fixture = await createConnectedVault();
   const runId = await fixture.t.run(async (ctx) => {
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId: fixture.userId,
+      requestedByUserId: fixture.userId,
       vaultId: fixture.vaultId,
       repositoryFullName: "ada/demo",
       trigger: "retry",
@@ -187,7 +180,6 @@ async function createManagedProjectCreatingFixture() {
     });
     await ctx.db.insert("workflow_vaultProvisioning_plans", {
       vaultId: fixture.vaultId,
-      userId: fixture.userId,
       convexConfigPath: "convex.json",
       convex: {
         state: "planned",
@@ -398,8 +390,8 @@ describe("vault Convex project attachments", () => {
       throw new Error(`Unexpected Convex request: ${input.method} ${input.url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
-    const { asUser, t, userId, vaultId } = await createConnectedVault();
-    await seedConvexProjects(t, { userId, vaultId });
+    const { asUser, organizationId, t, vaultId } = await createConnectedVault();
+    await seedConvexProjects(t, { organizationId, vaultId });
 
     await expect(
       asUser.action(api.vault.convex.createProject, {
@@ -417,8 +409,9 @@ describe("vault Convex project attachments", () => {
   });
 
   it("blocks a managed Convex create before the provider write at the free limit", async () => {
-    const { runId, t, userId, vaultId } = await createManagedProjectCreatingFixture();
-    await seedConvexProjects(t, { userId, vaultId });
+    const { organizationId, runId, t, userId, vaultId } =
+      await createManagedProjectCreatingFixture();
+    await seedConvexProjects(t, { organizationId, vaultId });
     const fetchMock = vi.fn(async (input: Request) => {
       if (input.url.includes("/teams/1000/projects?limit=100")) {
         return jsonResponse({ items: [], pagination: { hasMore: false } });
@@ -443,7 +436,7 @@ describe("vault Convex project attachments", () => {
   it("names the created managed Convex project when another attachment takes the last slot", async () => {
     const { organizationId, runId, t, userId, vaultId } =
       await createManagedProjectCreatingFixture();
-    await seedConvexProjects(t, { userId, vaultId }, 4);
+    await seedConvexProjects(t, { organizationId, vaultId }, 4);
     const fetchMock = vi.fn(async (input: Request) => {
       if (input.url.includes("/teams/1000/projects?limit=100")) {
         return jsonResponse({ items: [], pagination: { hasMore: false } });
@@ -453,7 +446,6 @@ describe("vault Convex project attachments", () => {
           async (ctx) =>
             await ctx.db.insert("vaultConvexProjects", {
               vaultId,
-              userId,
               organizationId,
               teamId: "last-slot-team",
               projectId: "last-slot-project",
@@ -612,8 +604,9 @@ describe("vault Convex project attachments", () => {
   });
 
   it("requires dashboard deletion when an interrupted managed create left a project", async () => {
-    const { runId, t, userId, vaultId } = await createManagedProjectCreatingFixture();
-    await seedConvexProjects(t, { userId, vaultId });
+    const { organizationId, runId, t, userId, vaultId } =
+      await createManagedProjectCreatingFixture();
+    await seedConvexProjects(t, { organizationId, vaultId });
     const fetchMock = vi.fn(async (input: Request) => {
       if (input.url.includes("/teams/1000/projects?limit=100")) {
         return jsonResponse({
@@ -656,7 +649,8 @@ describe("vault Convex project attachments", () => {
   });
 
   it("retries an interrupted managed create after the project was deleted", async () => {
-    const { runId, t, userId, vaultId } = await createManagedProjectCreatingFixture();
+    const { organizationId, runId, t, userId, vaultId } =
+      await createManagedProjectCreatingFixture();
     const fetchMock = vi.fn(async (input: Request) => {
       if (input.url.includes("/teams/1000/projects?limit=100")) {
         return jsonResponse({ items: [], pagination: { hasMore: false } });
@@ -681,7 +675,7 @@ describe("vault Convex project attachments", () => {
 
     await expect(t.run(async (ctx) => await ctx.db.get(convexProjectId))).resolves.toMatchObject({
       vaultId,
-      userId,
+      organizationId,
       teamId: "1000",
       projectId: "1003",
       convexConfigPath: "convex.json",

@@ -104,6 +104,7 @@ const vaultProviderWriteBase = {
 
 const manualProviderWriteOwner = {
   kind: literal("manual_provider_write"),
+  requestedByUserId: id("users"),
   actionId: string(),
   action: vManualProviderWriteAction,
   expiresAt: number(),
@@ -120,7 +121,6 @@ export const vaultProvisioningTables = {
    */
   workflow_vaultProvisioning_plans: defineTable({
     vaultId: id("vaults"),
-    userId: id("users"),
     convexConfigPath: string(),
     convex: union(
       object({
@@ -195,8 +195,7 @@ export const vaultProvisioningTables = {
    * create runs.
    */
   workflow_vaultProvisioning_runs: defineTable({
-    userId: id("users"),
-    requestedByUserId: optional(id("users")),
+    requestedByUserId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
     workflowId: optional(string()),
@@ -210,13 +209,11 @@ export const vaultProvisioningTables = {
   })
     .index("by_vault_and_updated_at", ["vaultId", "updatedAt"])
     .index("by_vault_and_state", ["vaultId", "state"])
-    .index("by_user_and_updated_at", ["userId", "updatedAt"])
-    .index("by_user_and_state_and_updated_at", ["userId", "state", "updatedAt"])
+    .index("by_requester_and_state_and_updated_at", ["requestedByUserId", "state", "updatedAt"])
     .index("by_workflow_id", ["workflowId"]),
 
   /** Ordered user-visible progress messages for one vault provisioning run. */
   workflow_vaultProvisioning_events: defineTable({
-    userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
     runId: id("workflow_vaultProvisioning_runs"),

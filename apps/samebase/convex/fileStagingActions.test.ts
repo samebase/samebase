@@ -339,7 +339,6 @@ describe("draft pull request helpers", () => {
     const record = {
       _id: "file-staging-1",
       _creationTime: 1_712_345_678_901,
-      ownerId: "user-1",
       vaultId: "vault-1",
       fileDeleted: false,
       kind: "binary" as const,
@@ -360,7 +359,6 @@ describe("draft pull request helpers", () => {
 
     expect(stripCreationTimeFromStagingRecord(record)).toEqual({
       _id: "file-staging-1",
-      ownerId: "user-1",
       vaultId: "vault-1",
       fileDeleted: false,
       kind: "binary",
@@ -437,6 +435,7 @@ describe("buildComparedCommitPreviewFileFromStagedFile", () => {
     expect(
       buildComparedCommitPreviewFileFromStagedFile({
         stagedFile: {
+          kind: "text",
           filePath: "src/new.ts",
           initialFilePath: "src/new.ts",
           content: "console.log('new');\n",
@@ -460,6 +459,7 @@ describe("buildComparedCommitPreviewFileFromStagedFile", () => {
     expect(
       buildComparedCommitPreviewFileFromStagedFile({
         stagedFile: {
+          kind: "text",
           filePath: "src/better-name.ts",
           initialFilePath: "src/new.ts",
           content: "console.log('new');\n",
@@ -489,6 +489,7 @@ describe("buildComparedCommitPreviewFileFromStagedFile", () => {
     expect(
       buildComparedCommitPreviewFileFromStagedFile({
         stagedFile: {
+          kind: "text",
           filePath: "docs/guide.md",
           initialFilePath: "docs/guide.md",
           content: "# Guide\n",
@@ -512,6 +513,7 @@ describe("buildComparedCommitPreviewFileFromStagedFile", () => {
     expect(
       buildComparedCommitPreviewFileFromStagedFile({
         stagedFile: {
+          kind: "text",
           filePath: "src/file-new.ts",
           initialFilePath: "src/file-new.ts",
           content: "export const value = 2;\n",
@@ -542,6 +544,7 @@ describe("buildComparedCommitPreviewFileFromStagedFile", () => {
     expect(
       buildComparedCommitPreviewFileFromStagedFile({
         stagedFile: {
+          kind: "text",
           filePath: "src/file.ts",
           initialFilePath: "src/file.ts",
           content: "export const value = 2;\n",
@@ -572,6 +575,7 @@ describe("buildComparedCommitPreviewFileFromStagedFile", () => {
     expect(
       buildComparedCommitPreviewFileFromStagedFile({
         stagedFile: {
+          kind: "text",
           filePath: "src/file-new.ts",
           initialFilePath: "src/file-new.ts",
           content: "export const value = 1;\n",
@@ -607,6 +611,7 @@ describe("buildCommitPreviewFromStagedFiles", () => {
       includePatch: true,
       stagedFiles: [
         {
+          kind: "text",
           filePath: "src/file.ts",
           initialFilePath: "src/file.ts",
           content: "export const value = 2;\n",
@@ -870,6 +875,7 @@ describe("createCommitWithMultipleFiles", () => {
       repo: "test-repo",
       stagedFiles: [
         {
+          kind: "text",
           filePath: "src/file.ts",
           content: "new content",
           fileDeleted: false,
@@ -957,6 +963,7 @@ describe("createCommitWithMultipleFiles", () => {
       repo: "test-repo",
       stagedFiles: [
         {
+          kind: "text",
           filePath: "TODO.md",
           content: stagedContent,
           fileDeleted: false,
@@ -1024,6 +1031,7 @@ describe("createCommitWithMultipleFiles", () => {
       repo: "test-repo",
       stagedFiles: [
         {
+          kind: "text",
           filePath: "TODO.md",
           content: ["alpha-updated", "beta", "gamma", ""].join("\n"),
           fileDeleted: false,
@@ -1064,6 +1072,7 @@ describe("createCommitWithMultipleFiles", () => {
       branch: "main",
       stagedFiles: [
         {
+          kind: "text",
           filePath: "TODO.md",
           content: ["alpha", "ours", ""].join("\n"),
           fileDeleted: false,
@@ -1102,6 +1111,7 @@ describe("createCommitWithMultipleFiles", () => {
       branch: "main",
       stagedFiles: [
         {
+          kind: "text",
           filePath: "TODO.md",
           content: "",
           fileDeleted: true,
@@ -1136,6 +1146,7 @@ describe("createCommitWithMultipleFiles", () => {
       branch: "main",
       stagedFiles: [
         {
+          kind: "text",
           filePath: "TODO.md",
           content: "ours\n",
           fileDeleted: false,
@@ -1170,6 +1181,7 @@ describe("createCommitWithMultipleFiles", () => {
       branch: "main",
       stagedFiles: [
         {
+          kind: "text",
           filePath: "docs/TODO.md",
           content: ["alpha", "ours", ""].join("\n"),
           fileDeleted: false,
@@ -1210,6 +1222,7 @@ describe("createCommitWithMultipleFiles", () => {
       repo: "test-repo",
       stagedFiles: [
         {
+          kind: "text",
           filePath: "src/file.ts",
           content: "new content",
           fileDeleted: false,
@@ -1258,6 +1271,7 @@ describe("createCommitWithMultipleFiles", () => {
       repo: "test-repo",
       stagedFiles: [
         {
+          kind: "text",
           filePath: "src/deleted.ts",
           content: "",
           fileDeleted: true,
@@ -1302,6 +1316,7 @@ describe("createCommitWithMultipleFiles", () => {
       repo: "test-repo",
       stagedFiles: [
         {
+          kind: "text",
           filePath: "src/new-name.ts",
           content: "file content",
           fileDeleted: false,
@@ -1357,6 +1372,7 @@ describe("createCommitWithMultipleFiles", () => {
       repo: "test-repo",
       stagedFiles: [
         {
+          kind: "text",
           filePath: "src/edit1.ts",
           content: "new content 1",
           fileDeleted: false,
@@ -1365,6 +1381,7 @@ describe("createCommitWithMultipleFiles", () => {
           parentCommitSha: "parent1",
         },
         {
+          kind: "text",
           filePath: "src/edit2.ts",
           content: "new content 2",
           fileDeleted: false,
@@ -1373,6 +1390,7 @@ describe("createCommitWithMultipleFiles", () => {
           parentCommitSha: "parent2",
         },
         {
+          kind: "text",
           filePath: "src/deleted.ts",
           content: "",
           fileDeleted: true,
@@ -1381,6 +1399,7 @@ describe("createCommitWithMultipleFiles", () => {
           parentCommitSha: "parent3",
         },
         {
+          kind: "text",
           filePath: "src/renamed-new.ts",
           content: "renamed content",
           fileDeleted: false,
@@ -1450,6 +1469,7 @@ describe("createCommitWithMultipleFiles", () => {
       repo: "test-repo",
       stagedFiles: [
         {
+          kind: "text",
           filePath: "src/file.ts",
           content: "new content",
           fileDeleted: false,
@@ -1498,6 +1518,7 @@ describe("createCommitWithMultipleFiles", () => {
         repo: "test-repo",
         stagedFiles: [
           {
+            kind: "text",
             filePath: "src/file.ts",
             content: "new content",
             fileDeleted: false,
@@ -1540,6 +1561,7 @@ describe("createCommitWithMultipleFiles", () => {
       repo: "test-repo",
       stagedFiles: [
         {
+          kind: "text",
           filePath: "src/new-file.ts",
           content: "",
           fileDeleted: true,
@@ -1582,6 +1604,7 @@ describe("createCommitWithMultipleFiles", () => {
       repo: "test-repo",
       stagedFiles: [
         {
+          kind: "text",
           filePath: "src/renamed-new.ts",
           content: "file content",
           fileDeleted: false,
@@ -1629,6 +1652,7 @@ describe("createCommitWithMultipleFiles", () => {
       repo: "test-repo",
       stagedFiles: [
         {
+          kind: "text",
           filePath: "src/file1.ts",
           content: "content 1",
           fileDeleted: false,
@@ -1637,6 +1661,7 @@ describe("createCommitWithMultipleFiles", () => {
           parentCommitSha: "parent1",
         },
         {
+          kind: "text",
           filePath: "src/file2.ts",
           content: "content 2",
           fileDeleted: false,
@@ -1645,6 +1670,7 @@ describe("createCommitWithMultipleFiles", () => {
           parentCommitSha: "parent2",
         },
         {
+          kind: "text",
           filePath: "src/file3.ts",
           content: "content 3",
           fileDeleted: false,

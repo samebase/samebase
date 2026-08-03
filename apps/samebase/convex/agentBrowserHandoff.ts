@@ -7,10 +7,10 @@ import {
   canAccess,
   readAccessKeysForRole,
 } from "../shared/accessModel";
-import { hasPhaseOneMcpGrantSubject } from "./mcp/grants";
+import { hasMcpGrantSubject } from "./mcp/grants";
 import { isMcpOauthClientInactive } from "./mcp/client";
 import { parseScopeTokens } from "./mcp/scopes";
-import { readPhaseOneOwnershipContext } from "./phaseOneOwnership";
+import { findOrganizationAccessContextForOrganization } from "./organizationAccess";
 import { readViewerRoleForUser } from "./viewerRole";
 
 const { id, literal, number, object, optional, string, union } = v;
@@ -21,6 +21,7 @@ const AGENT_BROWSER_HANDOFF_CREATE_RATE_LIMIT_MAX = 10;
 const createForMcpArgsValidator = object({
   tokenHash: string(),
   userId: id("users"),
+  organizationId: id("organizations"),
   grantId: string(),
   clientId: string(),
   createdAt: number(),
@@ -107,8 +108,11 @@ export const createForMcp = internalMutation({
     if (!grant || grant.status !== "active") {
       return error("grant_inactive");
     }
-    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-    if (!hasPhaseOneMcpGrantSubject(ownership, grant) || grant.clientId !== args.clientId) {
+    const access = await findOrganizationAccessContextForOrganization(ctx.db, {
+      userId: args.userId,
+      organizationId: args.organizationId,
+    });
+    if (!access || !hasMcpGrantSubject(access, grant) || grant.clientId !== args.clientId) {
       return error("grant_mismatch");
     }
     if (!parseScopeTokens(grant.scope).includes(ACCESS_BROWSER_LOGIN_HANDOFF)) {
@@ -140,7 +144,14 @@ export const createForMcp = internalMutation({
       return error("rate_limited");
     }
 
-    const handoffId = await ctx.db.insert("mcpBrowserLoginTokens", args);
+    const handoffId = await ctx.db.insert("mcpBrowserLoginTokens", {
+      tokenHash: args.tokenHash,
+      userId: args.userId,
+      grantId: args.grantId,
+      clientId: args.clientId,
+      createdAt: args.createdAt,
+      expiresAt: args.expiresAt,
+    });
     await ctx.scheduler.runAfter(
       Math.max(0, args.expiresAt - args.createdAt),
       internal.agentBrowserHandoff.deleteExpired,
@@ -218,11 +229,16 @@ export const redeemForAuth = internalMutation({
       .query("mcpOauthClients")
       .withIndex("by_client_id", (q) => q.eq("clientId", handoff.clientId))
       .first();
-    const ownership = await readPhaseOneOwnershipContext(ctx.db, handoff.userId);
+    const access = grant
+      ? await findOrganizationAccessContextForOrganization(ctx.db, {
+          userId: handoff.userId,
+          organizationId: grant.organizationId,
+        })
+      : null;
     const invalidReason =
       !grant || grant.status !== "active"
         ? "grant_inactive"
-        : !hasPhaseOneMcpGrantSubject(ownership, grant) || grant.clientId !== handoff.clientId
+        : !access || !hasMcpGrantSubject(access, grant) || grant.clientId !== handoff.clientId
           ? "grant_mismatch"
           : !parseScopeTokens(grant.scope).includes(ACCESS_BROWSER_LOGIN_HANDOFF)
             ? "scope_missing"

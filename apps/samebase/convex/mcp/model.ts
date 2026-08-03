@@ -80,7 +80,7 @@ export const mcpTables = {
   mcpGrants: defineTable({
     grantId: string(),
     userId: id("users"),
-    organizationId: optional(id("organizations")),
+    organizationId: id("organizations"),
     clientId: string(),
     resource: string(),
     scope: string(),
@@ -149,8 +149,6 @@ export const mcpTables = {
     userId: id("users"),
     grantId: string(),
     clientId: string(),
-    // Deprecated rollout field. New tokens never write it; legacy rows expire after five minutes.
-    returnToPath: optional(string()),
     createdAt: number(),
     expiresAt: number(),
     consumedAt: optional(number()),

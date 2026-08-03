@@ -181,9 +181,7 @@ export const accountDeletionTables = {
         initiatingSessionId: id("authSessions"),
         retryCount: number(),
         outcomes: vAccountDeletionOutcomeSummary,
-        // Active runs created before durable data progress shipped remain readable
-        // and finish through the legacy cleanup path.
-        dataDeletion: v.optional(vAccountDeletionDataProgress),
+        dataDeletion: vAccountDeletionDataProgress,
         workflow: object({
           state: literal("not_started"),
         }),
@@ -202,7 +200,7 @@ export const accountDeletionTables = {
         initiatingSessionId: id("authSessions"),
         retryCount: number(),
         outcomes: vAccountDeletionOutcomeSummary,
-        dataDeletion: v.optional(vAccountDeletionDataProgress),
+        dataDeletion: vAccountDeletionDataProgress,
         workflow: object({
           state: literal("started"),
           workflowId: string(),
@@ -223,7 +221,7 @@ export const accountDeletionTables = {
         initiatingSessionId: id("authSessions"),
         retryCount: number(),
         outcomes: vAccountDeletionOutcomeSummary,
-        dataDeletion: v.optional(vAccountDeletionDataProgress),
+        dataDeletion: vAccountDeletionDataProgress,
         workflow: object({
           state: literal("started"),
           workflowId: string(),
@@ -242,9 +240,7 @@ export const accountDeletionTables = {
         retryCount: number(),
         completedAt: number(),
         outcomes: vAccountDeletionOutcomeSummary,
-        // Receipts completed before public completion tracking shipped cannot be
-        // backfilled because their browser-only capability was never created.
-        completionCapability: v.optional(string()),
+        completionCapability: string(),
       }),
     ),
   )

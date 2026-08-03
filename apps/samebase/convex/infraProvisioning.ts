@@ -560,7 +560,6 @@ async function recordWorkflowRunFailure(
     completedAt: args.now,
   });
   await ctx.runMutation(internal.appProvisioningEvents.append, {
-    userId: args.run.userId,
     vaultId: args.run.vaultId,
     repositoryFullName: args.run.repositoryFullName,
     runId: args.run._id,

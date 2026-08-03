@@ -193,7 +193,6 @@ const DELETED_STAGED_FILES_FIXTURE = [
   {
     _id: "fixture-deleted-agents",
     _creationTime: 0,
-    ownerId: "fixture-user",
     vaultId: "fixture-vault",
     fileDeleted: true,
     filePath: "AGENTS.md",
@@ -209,7 +208,6 @@ const DELETED_STAGED_FILES_FIXTURE = [
   {
     _id: "fixture-deleted-components",
     _creationTime: 0,
-    ownerId: "fixture-user",
     vaultId: "fixture-vault",
     fileDeleted: true,
     filePath: "components.json",

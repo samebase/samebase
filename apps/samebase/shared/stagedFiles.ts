@@ -3,7 +3,7 @@ export type StagedFileKind = "text" | "binary";
 export type StagedFileStatus = "added" | "modified" | "renamed" | "deleted";
 
 type StagedFileKindLike = {
-  kind?: StagedFileKind;
+  kind: StagedFileKind;
 };
 
 type StagedFileBinaryStateLike = StagedFileKindLike & {
@@ -19,20 +19,16 @@ export type StagedFileChangeCandidate = StagedFileBinaryStateLike & {
   initialContent: string;
 };
 
-export function readStagedFileKind(kind?: StagedFileKind): StagedFileKind {
-  return kind ?? "text";
-}
-
 export function hasStagedBinaryContentChange(file: StagedFileBinaryStateLike): boolean {
   return (
-    readStagedFileKind(file.kind) === "binary" &&
+    file.kind === "binary" &&
     typeof file.stagedBlobSha === "string" &&
     file.stagedBlobSha !== file.parentCommitSha
   );
 }
 
 export function hasStagedFileContentChange(file: StagedFileChangeCandidate): boolean {
-  if (readStagedFileKind(file.kind) === "binary") {
+  if (file.kind === "binary") {
     return hasStagedBinaryContentChange(file);
   }
 

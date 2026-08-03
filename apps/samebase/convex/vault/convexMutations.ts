@@ -17,10 +17,10 @@ import { normalizeConvexConfigPath } from "../../shared/convexConfigPath";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import { requireBillingResourceCapacity } from "../billingResourceQuotas";
 import {
-  hasPhaseOneUserOwnership,
-  readPhaseOneOwnershipContext,
-  type PhaseOneOwnershipContext,
-} from "../phaseOneOwnership";
+  hasOrganizationAccess,
+  requireOrganizationAccessContext,
+  type OrganizationAccessContext,
+} from "../organizationAccess";
 import { vVaultProviderResourceOrigin, type VaultProviderResourceOrigin } from "./model";
 import {
   requireUserVaultInfrastructureIdle,
@@ -37,15 +37,15 @@ async function requireConnectedVault(
   ctx: ConvexProjectGraphReadCtx,
   args: { vaultId: Id<"vaults">; userId: Id<"users"> },
 ): Promise<{
-  ownership: PhaseOneOwnershipContext;
+  ownership: OrganizationAccessContext;
   vault: Extract<Doc<"vaults">, { state: "connected" }>;
 }> {
   const vault = await ctx.db.get(args.vaultId);
   if (!isLiveConnectedVault(vault)) {
     throw new Error("Vault not found.");
   }
-  const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-  if (!hasPhaseOneUserOwnership(ownership, vault)) {
+  const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+  if (!hasOrganizationAccess(ownership, vault)) {
     throw new Error("Vault not found.");
   }
   return { ownership, vault };
@@ -73,7 +73,7 @@ async function requireActiveManagedProvisioning(
   if (
     !run ||
     run.vaultId !== args.vaultId ||
-    run.userId !== args.userId ||
+    run.requestedByUserId !== args.userId ||
     (run.trigger !== "create" && run.trigger !== "retry")
   ) {
     throw new Error("Managed provisioning run does not match vault.");
@@ -86,7 +86,7 @@ async function requireActiveManagedProvisioning(
   ) {
     throw new Error("Managed provisioning run no longer holds the write lock.");
   }
-  if (!plan || plan.userId !== args.userId) {
+  if (!plan) {
     throw new Error("Infrastructure provisioning plan not found for vault.");
   }
   return plan;
@@ -104,7 +104,7 @@ async function readMatchingProject(
     teamId: string;
     projectId: string;
     codeLocation: ConvexCodeLocation;
-    ownership: PhaseOneOwnershipContext;
+    ownership: OrganizationAccessContext;
   },
 ) {
   const existing = await ctx.db
@@ -116,7 +116,7 @@ async function readMatchingProject(
   }
   if (
     existing.vaultId === args.vaultId &&
-    hasPhaseOneUserOwnership(args.ownership, existing) &&
+    hasOrganizationAccess(args.ownership, existing) &&
     existing.teamId === args.teamId &&
     getConvexCodeLocationKey(readConvexCodeLocation(existing)) ===
       getConvexCodeLocationKey(args.codeLocation)
@@ -129,7 +129,7 @@ async function readMatchingProject(
 async function insertProject(
   ctx: Pick<MutationCtx, "db">,
   access: {
-    ownership: PhaseOneOwnershipContext;
+    ownership: OrganizationAccessContext;
     vault: Extract<Doc<"vaults">, { state: "connected" }>;
   },
   args: {
@@ -142,9 +142,6 @@ async function insertProject(
   },
 ): Promise<Id<"vaultConvexProjects">> {
   const organizationId = access.vault.organizationId;
-  if (!organizationId) {
-    throw new Error("Vault organization is required.");
-  }
   const codeLocation = normalizeConvexCodeLocation(args.codeLocation);
   const existing = await readMatchingProject(ctx, {
     ...args,
@@ -152,13 +149,11 @@ async function insertProject(
     ownership: access.ownership,
   });
   if (existing) {
-    if (existing.organizationId && existing.organizationId !== organizationId) {
+    if (existing.organizationId !== organizationId) {
       throw new Error("Convex project organization does not match its vault.");
     }
     if (args.origin === "provisioned" && existing.origin !== "provisioned") {
-      await ctx.db.patch(existing._id, { organizationId, origin: "provisioned" });
-    } else if (!existing.organizationId) {
-      await ctx.db.patch(existing._id, { organizationId });
+      await ctx.db.patch(existing._id, { origin: "provisioned" });
     }
     return existing._id;
   }
@@ -170,7 +165,6 @@ async function insertProject(
 
   const commonFields = {
     vaultId: args.vaultId,
-    userId: args.userId,
     organizationId,
     teamId: args.teamId,
     projectId: args.projectId,
@@ -222,7 +216,7 @@ export const readProjectAttachmentContext = internalQuery({
     if (
       !project ||
       project.vaultId !== args.vaultId ||
-      !hasPhaseOneUserOwnership(ownership, project)
+      !hasOrganizationAccess(ownership, project)
     ) {
       throw new Error("Convex project attachment not found.");
     }
@@ -450,7 +444,7 @@ export const reconcileProjectTeam = internalMutation({
     if (
       !project ||
       project.vaultId !== args.vaultId ||
-      !hasPhaseOneUserOwnership(ownership, project) ||
+      !hasOrganizationAccess(ownership, project) ||
       project.projectId !== args.projectId ||
       project.teamId !== args.expectedTeamId
     ) {
@@ -479,7 +473,7 @@ export const reconcileProjectCodeLocation = internalMutation({
     if (
       !project ||
       project.vaultId !== args.vaultId ||
-      !hasPhaseOneUserOwnership(ownership, project) ||
+      !hasOrganizationAccess(ownership, project) ||
       project.projectId !== args.projectId ||
       getConvexCodeLocationKey(readConvexCodeLocation(project)) !==
         getConvexCodeLocationKey(expectedCodeLocation)
@@ -488,8 +482,7 @@ export const reconcileProjectCodeLocation = internalMutation({
     }
     const commonFields = {
       vaultId: project.vaultId,
-      userId: project.userId,
-      ...(project.organizationId ? { organizationId: project.organizationId } : {}),
+      organizationId: project.organizationId,
       teamId: project.teamId,
       projectId: project.projectId,
       origin: project.origin,
@@ -531,7 +524,7 @@ export const detachProject = internalMutation({
     if (
       !project ||
       project.vaultId !== args.vaultId ||
-      !hasPhaseOneUserOwnership(ownership, project)
+      !hasOrganizationAccess(ownership, project)
     ) {
       throw new Error("Convex project attachment not found.");
     }

@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
+import type { DatabaseWriter } from "../_generated/server";
 import { makeConvexTest } from "../test.setup";
 import { VAULT_LOCAL_CLEANUP_BATCH_SIZE } from "./deletion/cleanup";
+
+async function seedOrganization(db: DatabaseWriter, userId: Id<"users">) {
+  const organizationId = await db.insert("organizations", {});
+  await db.insert("organizationMemberships", { organizationId, userId });
+  return organizationId;
+}
 
 async function seedApprovedOrganizationUser(t: ReturnType<typeof makeConvexTest>) {
   return await t.run(async (ctx) => {
@@ -11,8 +19,7 @@ async function seedApprovedOrganizationUser(t: ReturnType<typeof makeConvexTest>
       email: "ada@example.com",
       isApproved: true,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
-    await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    const organizationId = await seedOrganization(ctx.db, userId);
     await ctx.db.insert("organizationBillingAccounts", {
       organizationId,
       plan: "free",
@@ -25,12 +32,13 @@ async function seedApprovedOrganizationUser(t: ReturnType<typeof makeConvexTest>
 describe("vault dashboard Convex contract", () => {
   it("records initializing existing repository connection before external GitHub work", async () => {
     const t = makeConvexTest();
-    const { userId } = await seedApprovedOrganizationUser(t);
+    const { organizationId, userId } = await seedApprovedOrganizationUser(t);
 
     const ids = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
+        organizationId,
         ghRepoOwner: "Ada",
         ghRepoName: "Existing-App",
       },
@@ -76,13 +84,13 @@ describe("vault dashboard Convex contract", () => {
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
+        organizationId,
         ghRepoOwner: "ada",
         ghRepoName: "existing-app",
       },
     );
     await t.run(async (ctx) => {
       await ctx.db.replace(ids.vaultId, {
-        userId,
         organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
@@ -126,11 +134,12 @@ describe("vault dashboard Convex contract", () => {
 
   it("exposes initializing existing repository source setup", async () => {
     const t = makeConvexTest();
-    const { userId } = await seedApprovedOrganizationUser(t);
+    const { organizationId, userId } = await seedApprovedOrganizationUser(t);
     const ids = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
+        organizationId,
         ghRepoOwner: "ada",
         ghRepoName: "existing-app",
       },
@@ -159,17 +168,19 @@ describe("vault dashboard Convex contract", () => {
 
   it("exposes user vaults through the MCP user bridge", async () => {
     const t = makeConvexTest();
-    const { userId } = await seedApprovedOrganizationUser(t);
+    const { organizationId, userId } = await seedApprovedOrganizationUser(t);
     const ids = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
+        organizationId,
         ghRepoOwner: "ada",
         ghRepoName: "existing-app",
       },
     );
 
-    const vaults = await t.query(internal.vault.dashboard.getUserVaultsForUser, {
+    const vaults = await t.query(internal.vault.dashboard.getOrganizationVaultsForUser, {
+      organizationId,
       userId,
     });
 
@@ -182,16 +193,19 @@ describe("vault dashboard Convex contract", () => {
 
   it("blocks the MCP user bridge for users without dashboard access", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
+    const { organizationId, userId } = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
         isApproved: false,
       });
+      const organizationId = await seedOrganization(ctx.db, userId);
+      return { organizationId, userId };
     });
 
     await expect(
-      t.query(internal.vault.dashboard.getUserVaultsForUser, {
+      t.query(internal.vault.dashboard.getOrganizationVaultsForUser, {
+        organizationId,
         userId,
       }),
     ).rejects.toThrow("Access denied");
@@ -205,8 +219,9 @@ describe("vault dashboard Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await seedOrganization(ctx.db, userId);
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
@@ -257,13 +272,14 @@ describe("vault dashboard Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await seedOrganization(ctx.db, userId);
       const firstVaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const secondVaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
@@ -295,10 +311,11 @@ describe("vault dashboard Convex contract", () => {
 
   it("rejects duplicate existing repository targets before GitHub fetch", async () => {
     const t = makeConvexTest();
-    const { userId } = await seedApprovedOrganizationUser(t);
+    const { organizationId, userId } = await seedApprovedOrganizationUser(t);
 
     await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
       userId,
+      organizationId,
       ghRepoOwner: "Ada",
       ghRepoName: "Existing-App",
     });
@@ -306,6 +323,7 @@ describe("vault dashboard Convex contract", () => {
     await expect(
       t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
         userId,
+        organizationId,
         ghRepoOwner: "ada",
         ghRepoName: "existing-app",
       }),
@@ -314,11 +332,12 @@ describe("vault dashboard Convex contract", () => {
 
   it("connects existing repository vaults with run provenance and no providers", async () => {
     const t = makeConvexTest();
-    const { userId } = await seedApprovedOrganizationUser(t);
+    const { organizationId, userId } = await seedApprovedOrganizationUser(t);
     const ids = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
+        organizationId,
         ghRepoOwner: "ada",
         ghRepoName: "existing-app",
       },
@@ -353,11 +372,12 @@ describe("vault dashboard Convex contract", () => {
 
   it("blocks deletion during connected repository sync without reporting a provider write", async () => {
     const t = makeConvexTest();
-    const { userId } = await seedApprovedOrganizationUser(t);
+    const { organizationId, userId } = await seedApprovedOrganizationUser(t);
     const ids = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
+        organizationId,
         ghRepoOwner: "ada",
         ghRepoName: "existing-app",
       },
@@ -411,11 +431,12 @@ describe("vault dashboard Convex contract", () => {
 
   it("marks existing repository setup failed before GitHub connects", async () => {
     const t = makeConvexTest();
-    const { userId } = await seedApprovedOrganizationUser(t);
+    const { organizationId, userId } = await seedApprovedOrganizationUser(t);
     const ids = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
+        organizationId,
         ghRepoOwner: "ada",
         ghRepoName: "missing-repo",
       },
@@ -446,13 +467,14 @@ describe("vault dashboard Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await seedOrganization(ctx.db, userId);
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/imported",
         workflowId: "workflow-1",
@@ -464,7 +486,7 @@ describe("vault dashboard Convex contract", () => {
       });
 
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "connect_existing_repository",
@@ -538,12 +560,13 @@ describe("vault dashboard Convex contract", () => {
 
   it("records initializing vault creation before external GitHub work", async () => {
     const t = makeConvexTest();
-    const { userId } = await seedApprovedOrganizationUser(t);
+    const { organizationId, userId } = await seedApprovedOrganizationUser(t);
 
     const ids = await t.mutation(
       internal.vault.records.createInitializingSamebaseManagedVaultForUser,
       {
         userId,
+        organizationId,
         ghRepoOwner: "ada",
         ghRepoName: "early-vault",
         visibility: "private",
@@ -601,13 +624,14 @@ describe("vault dashboard Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await seedOrganization(ctx.db, userId);
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/source-setup-failed",
         trigger: "create",
@@ -620,7 +644,7 @@ describe("vault dashboard Convex contract", () => {
       });
 
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -633,7 +657,6 @@ describe("vault dashboard Convex contract", () => {
         connectedAt: 20,
       });
       await ctx.db.insert("workflow_vaultProvisioning_events", {
-        userId,
         vaultId,
         repositoryFullName: "ada/source-setup-failed",
         runId,
@@ -676,13 +699,14 @@ describe("vault dashboard Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await seedOrganization(ctx.db, userId);
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/missing-run",
         trigger: "create",
@@ -693,7 +717,7 @@ describe("vault dashboard Convex contract", () => {
       });
 
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -738,13 +762,14 @@ describe("vault dashboard Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await seedOrganization(ctx.db, userId);
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/provider-state",
         trigger: "create",
@@ -755,7 +780,7 @@ describe("vault dashboard Convex contract", () => {
       });
 
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -780,7 +805,7 @@ describe("vault dashboard Convex contract", () => {
       });
       await ctx.db.insert("vaultConvexProjects", {
         vaultId,
-        userId,
+        organizationId,
         convexConfigPath: "convex.json",
         teamId: "provider-state-team-id",
         projectId: "convex-project",
@@ -788,7 +813,6 @@ describe("vault dashboard Convex contract", () => {
       });
       await ctx.db.insert("workflow_vaultProvisioning_plans", {
         vaultId,
-        userId,
         convexConfigPath: "convex.json",
         convex: {
           state: "created",
@@ -867,13 +891,14 @@ describe("vault dashboard Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await seedOrganization(ctx.db, userId);
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const createRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/cloudflare-retry",
         trigger: "create",
@@ -884,7 +909,7 @@ describe("vault dashboard Convex contract", () => {
         completedAt: 30,
       });
       const retryRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/cloudflare-retry",
         trigger: "retry",
@@ -895,7 +920,7 @@ describe("vault dashboard Convex contract", () => {
       });
 
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -909,7 +934,7 @@ describe("vault dashboard Convex contract", () => {
       });
       await ctx.db.insert("vaultConvexProjects", {
         vaultId,
-        userId,
+        organizationId,
         convexConfigPath: "convex.json",
         teamId: "cloudflare-retry-team-id",
         projectId: "convex-project",
@@ -966,13 +991,14 @@ describe("vault dashboard Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await seedOrganization(ctx.db, userId);
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const createRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/cloudflare-retry",
         trigger: "create",
@@ -983,7 +1009,7 @@ describe("vault dashboard Convex contract", () => {
         completedAt: 30,
       });
       const retryRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/cloudflare-retry",
         trigger: "retry",
@@ -996,7 +1022,7 @@ describe("vault dashboard Convex contract", () => {
       });
 
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -1010,7 +1036,7 @@ describe("vault dashboard Convex contract", () => {
       });
       await ctx.db.insert("vaultConvexProjects", {
         vaultId,
-        userId,
+        organizationId,
         convexConfigPath: "convex.json",
         teamId: "cloudflare-retry-team-id",
         projectId: "convex-project",
@@ -1035,7 +1061,6 @@ describe("vault dashboard Convex contract", () => {
         updatedAt: 44,
       });
       await ctx.db.insert("workflow_vaultProvisioning_events", {
-        userId,
         vaultId,
         repositoryFullName: "ada/cloudflare-retry",
         runId: retryRunId,
@@ -1115,13 +1140,14 @@ describe("vault dashboard Convex contract", () => {
           email: "ada@example.com",
           isApproved: true,
         });
+        const organizationId = await seedOrganization(ctx.db, userId);
         const vaultId = await ctx.db.insert("vaults", {
-          userId,
+          organizationId,
           deletion: { state: "not_deleting" },
           state: "not_connected",
         });
         const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-          userId,
+          requestedByUserId: userId,
           vaultId,
           repositoryFullName: `ada/provider-${testCase.label}`,
           trigger: "retry",
@@ -1134,7 +1160,7 @@ describe("vault dashboard Convex contract", () => {
         });
 
         await ctx.db.replace(vaultId, {
-          userId,
+          organizationId,
           deletion: { state: "not_deleting" },
           state: "connected",
           githubMode: "create_repository",
@@ -1148,7 +1174,7 @@ describe("vault dashboard Convex contract", () => {
         });
         await ctx.db.insert("vaultConvexProjects", {
           vaultId,
-          userId,
+          organizationId,
           convexConfigPath: "convex.json",
           teamId: `provider-${testCase.label}-team-id`,
           projectId: "convex-project",
@@ -1156,7 +1182,7 @@ describe("vault dashboard Convex contract", () => {
         });
         await ctx.db.insert("vaultCloudflareWorkers", {
           vaultId,
-          userId,
+          organizationId,
           accountId: "cloudflare-account",
           workerName: `provider-${testCase.label}-worker`,
           workerTag: `provider-${testCase.label}-worker-tag`,
@@ -1208,13 +1234,14 @@ describe("vault dashboard Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await seedOrganization(ctx.db, userId);
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/provider-handoff",
         trigger: "create",
@@ -1225,7 +1252,7 @@ describe("vault dashboard Convex contract", () => {
       });
 
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -1250,7 +1277,6 @@ describe("vault dashboard Convex contract", () => {
       });
       await ctx.db.insert("workflow_vaultProvisioning_plans", {
         vaultId,
-        userId,
         convexConfigPath: "convex.json",
         convex: {
           state: "planned",
@@ -1327,13 +1353,14 @@ describe("vault dashboard Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await seedOrganization(ctx.db, userId);
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/completed-provider-run",
         trigger: "retry",
@@ -1345,7 +1372,7 @@ describe("vault dashboard Convex contract", () => {
       });
 
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -1395,13 +1422,14 @@ describe("vault dashboard Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await seedOrganization(ctx.db, userId);
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/manual-cloudflare-write",
         trigger: "connect_existing_repository",
@@ -1412,7 +1440,7 @@ describe("vault dashboard Convex contract", () => {
         completedAt: 20,
       });
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "connect_existing_repository",
@@ -1428,6 +1456,7 @@ describe("vault dashboard Convex contract", () => {
         vaultId,
         owner: {
           kind: "manual_provider_write",
+          requestedByUserId: userId,
           actionId: "cloudflare-action",
           action: "create_cloudflare_worker",
           expiresAt: 300,
@@ -1468,13 +1497,14 @@ describe("vault dashboard Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await seedOrganization(ctx.db, userId);
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const createRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/manual-supersession",
         trigger: "create",
@@ -1485,7 +1515,7 @@ describe("vault dashboard Convex contract", () => {
         completedAt: 20,
       });
       const retryRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/manual-supersession",
         trigger: "retry",
@@ -1497,7 +1527,7 @@ describe("vault dashboard Convex contract", () => {
         completedAt: 30,
       });
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -1511,7 +1541,6 @@ describe("vault dashboard Convex contract", () => {
       });
       await ctx.db.insert("workflow_vaultProvisioning_plans", {
         vaultId,
-        userId,
         convexConfigPath: "convex.json",
         convex: {
           state: "planned",
@@ -1574,13 +1603,14 @@ describe("vault dashboard Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await seedOrganization(ctx.db, userId);
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const provisioningRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/delete-retry",
         trigger: "create",
@@ -1591,7 +1621,7 @@ describe("vault dashboard Convex contract", () => {
         completedAt: 2,
       });
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -1605,7 +1635,7 @@ describe("vault dashboard Convex contract", () => {
       });
       await ctx.db.insert("vaultConvexProjects", {
         vaultId,
-        userId,
+        organizationId,
         convexConfigPath: "convex.json",
         teamId: "team-id",
         projectId: "project-id",
@@ -1613,7 +1643,7 @@ describe("vault dashboard Convex contract", () => {
       });
       const deletionRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
         state: "failed",
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/delete-retry",
         createdAt: 4,
@@ -1674,8 +1704,9 @@ describe("vault dashboard Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await seedOrganization(ctx.db, userId);
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
@@ -1747,13 +1778,15 @@ describe("vault dashboard Convex contract", () => {
         email: "grace@example.com",
         isApproved: true,
       });
+      const organizationId = await seedOrganization(ctx.db, userId);
+      await ctx.db.insert("organizationMemberships", { organizationId, userId: collaboratorId });
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/delete-me",
         trigger: "create",
@@ -1787,7 +1820,6 @@ describe("vault dashboard Convex contract", () => {
         updatedAt: 4,
       });
       await ctx.db.insert("vaultStagedFiles", {
-        ownerId: userId,
         vaultId,
         fileDeleted: false,
         kind: "text",
@@ -1802,7 +1834,6 @@ describe("vault dashboard Convex contract", () => {
         version: 1,
       });
       await ctx.db.insert("vaultStagedFiles", {
-        ownerId: userId,
         vaultId,
         fileDeleted: false,
         kind: "binary",
@@ -1827,7 +1858,7 @@ describe("vault dashboard Convex contract", () => {
         version: 1,
         clientId: "client-1",
         changes: "[]",
-        userId,
+        editUserId: userId,
         timestamp: 6,
       });
       await ctx.db.insert("observations_vaultFiles_blobs", {
@@ -1857,7 +1888,7 @@ describe("vault dashboard Convex contract", () => {
       });
       await ctx.db.insert("vaultConvexProjects", {
         vaultId,
-        userId,
+        organizationId,
         convexConfigPath: "convex.json",
         teamId: "delete-team-id",
         projectId: "delete-convex-project",
@@ -1871,7 +1902,6 @@ describe("vault dashboard Convex contract", () => {
         updatedAt: 9,
       });
       await ctx.db.insert("workflow_vaultProvisioning_events", {
-        userId,
         vaultId,
         repositoryFullName: "ada/delete-me",
         runId,

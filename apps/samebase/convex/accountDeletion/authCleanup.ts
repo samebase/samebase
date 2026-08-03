@@ -18,18 +18,15 @@ type RunningAccountDeletionRun = Extract<
   { state: "running" }
 >;
 
-type OrganizationFinalization =
-  | { kind: "legacy_user" }
-  | {
-      kind: "organization";
-      billingAccount: Doc<"organizationBillingAccounts">;
-      membershipId: Id<"organizationMemberships">;
-      organizationId: Id<"organizations">;
-      membershipState: "sole" | "shared";
-    };
+type OrganizationFinalization = {
+  billingAccount: Doc<"organizationBillingAccounts">;
+  membershipId: Id<"organizationMemberships">;
+  organizationId: Id<"organizations">;
+  membershipState: "sole" | "shared";
+};
 
 function billingStateRequiresCancellation(account: Doc<"organizationBillingAccounts">): boolean {
-  const state = readBillingAccountState({ kind: "organization", account });
+  const state = readBillingAccountState(account);
   const externalCustomerId = state.polarExternalCustomerId?.trim();
 
   return (
@@ -47,10 +44,6 @@ async function readOrganizationFinalization(
   run: RunningAccountDeletionRun,
 ): Promise<OrganizationFinalization> {
   const organization = await readAccountDeletionOrganization(ctx.db, run.identity.userId);
-
-  if (organization.kind === "legacy_user") {
-    return organization;
-  }
 
   const [organizationRow, billingAccount] = await Promise.all([
     ctx.db.get(organization.organizationId),
@@ -81,10 +74,6 @@ async function finalizeOrganizationMembership(
   ctx: MutationCtx,
   organization: OrganizationFinalization,
 ): Promise<void> {
-  if (organization.kind === "legacy_user") {
-    return;
-  }
-
   if (organization.membershipState === "shared") {
     await ctx.db.delete(organization.membershipId);
     return;

@@ -24,7 +24,6 @@ const branchTree = [
 function createClearAllStagingTestContext(args: {
   targetVaultId: string;
   vault: {
-    userId: string;
     state: "connected";
     deletion: { state: "not_deleting" };
     owner: string;
@@ -111,7 +110,6 @@ function createClearMatchingStagingSnapshotTestContext(args: {
   stagedFiles: Array<{
     _id: string;
     _creationTime: number;
-    ownerId: string;
     vaultId: string;
     fileDeleted: boolean;
     filePath: string;
@@ -186,6 +184,7 @@ describe("summarizeStagedFilesByBranch", () => {
     const summaries = summarizeStagedFilesByBranch([
       {
         branch: "feature/login",
+        kind: "text",
         fileDeleted: false,
         parentCommitSha: "abc123",
         filePath: "src/app.ts",
@@ -195,6 +194,7 @@ describe("summarizeStagedFilesByBranch", () => {
       },
       {
         branch: "feature/login",
+        kind: "text",
         fileDeleted: false,
         parentCommitSha: "abc123",
         filePath: "src/new-name.ts",
@@ -204,6 +204,7 @@ describe("summarizeStagedFilesByBranch", () => {
       },
       {
         branch: "feature/login",
+        kind: "text",
         fileDeleted: false,
         parentCommitSha: "abc123",
         filePath: "src/new-login.ts",
@@ -213,6 +214,7 @@ describe("summarizeStagedFilesByBranch", () => {
       },
       {
         branch: "main",
+        kind: "text",
         fileDeleted: true,
         parentCommitSha: "abc123",
         filePath: "README.md",
@@ -222,6 +224,7 @@ describe("summarizeStagedFilesByBranch", () => {
       },
       {
         branch: "main",
+        kind: "text",
         fileDeleted: false,
         parentCommitSha: null,
         filePath: "src/new.ts",
@@ -231,6 +234,7 @@ describe("summarizeStagedFilesByBranch", () => {
       },
       {
         branch: "main",
+        kind: "text",
         fileDeleted: false,
         parentCommitSha: "abc123",
         filePath: "src/unchanged.ts",
@@ -240,6 +244,7 @@ describe("summarizeStagedFilesByBranch", () => {
       },
       {
         branch: "main",
+        kind: "text",
         fileDeleted: true,
         parentCommitSha: null,
         filePath: "src/tmp.ts",
@@ -280,6 +285,7 @@ describe("buildDeletedFileRestoreCandidate", () => {
   it("clears the deleted flag while preserving rename and content changes", () => {
     expect(
       buildDeletedFileRestoreCandidate({
+        kind: "text",
         fileDeleted: true,
         parentCommitSha: "abc123",
         filePath: "src/new-name.ts",
@@ -288,6 +294,7 @@ describe("buildDeletedFileRestoreCandidate", () => {
         initialContent: "original",
       }),
     ).toEqual({
+      kind: "text",
       fileDeleted: false,
       parentCommitSha: "abc123",
       filePath: "src/new-name.ts",
@@ -300,6 +307,7 @@ describe("buildDeletedFileRestoreCandidate", () => {
   it("restores an existing file back to an unchanged candidate", () => {
     expect(
       buildDeletedFileRestoreCandidate({
+        kind: "text",
         fileDeleted: true,
         parentCommitSha: "abc123",
         filePath: "README.md",
@@ -308,6 +316,7 @@ describe("buildDeletedFileRestoreCandidate", () => {
         initialContent: "# Readme",
       }),
     ).toEqual({
+      kind: "text",
       fileDeleted: false,
       parentCommitSha: "abc123",
       filePath: "README.md",
@@ -320,6 +329,7 @@ describe("buildDeletedFileRestoreCandidate", () => {
   it("restores a newly created file back to a new-file candidate", () => {
     expect(
       buildDeletedFileRestoreCandidate({
+        kind: "text",
         fileDeleted: true,
         parentCommitSha: null,
         filePath: "src/new.ts",
@@ -328,6 +338,7 @@ describe("buildDeletedFileRestoreCandidate", () => {
         initialContent: "",
       }),
     ).toEqual({
+      kind: "text",
       fileDeleted: false,
       parentCommitSha: null,
       filePath: "src/new.ts",
@@ -343,10 +354,10 @@ describe("buildClearAllStagingPlan", () => {
     expect(
       buildClearAllStagingPlan({
         vaultId: "vault-1",
+        userId: "users:owner",
         branch: "feature/login",
         cleanupCutoffTimestamp: 123,
         vault: {
-          userId: "users:owner",
           owner: "octo",
           name: "repo",
           defaultBranch: "main",
@@ -376,9 +387,9 @@ describe("buildClearAllStagingPlan", () => {
     expect(
       buildClearAllStagingPlan({
         vaultId: "vault-1",
+        userId: "users:owner",
         cleanupCutoffTimestamp: 456,
         vault: {
-          userId: "users:owner",
           owner: "octo",
           name: "repo",
           defaultBranch: "main",
@@ -407,6 +418,7 @@ describe("buildClearAllStagingPlan", () => {
     expect(
       buildClearAllStagingPlan({
         vaultId: "vault-1",
+        userId: "users:owner",
         branch: "feature/login",
         cleanupCutoffTimestamp: 789,
         vault: null,
@@ -432,7 +444,6 @@ describe("buildClearAllStagingPlan", () => {
     const context = createClearAllStagingTestContext({
       targetVaultId,
       vault: {
-        userId: "users:owner",
         state: "connected",
         deletion: { state: "not_deleting" },
         owner: "octo",
@@ -450,6 +461,7 @@ describe("buildClearAllStagingPlan", () => {
     // @ts-expect-error Regression test uses a minimal MutationCtx stub that only includes accessed fields.
     await clearAllStagingImpl(context.ctx, {
       vaultId: targetVaultId,
+      userId: "users:owner",
       branch: targetBranch,
     });
 
@@ -495,7 +507,6 @@ describe("clearMatchingStagingSnapshotImpl", () => {
         {
           _id: "matching-1",
           _creationTime: 1,
-          ownerId: "users:owner",
           vaultId: "vault-1",
           fileDeleted: false,
           filePath: "src/new-name.ts",
@@ -511,7 +522,6 @@ describe("clearMatchingStagingSnapshotImpl", () => {
         {
           _id: "changed-1",
           _creationTime: 2,
-          ownerId: "users:owner",
           vaultId: "vault-1",
           fileDeleted: false,
           filePath: "src/keep.ts",
@@ -534,7 +544,6 @@ describe("clearMatchingStagingSnapshotImpl", () => {
       stagedFiles: [
         {
           _id: "matching-1",
-          ownerId: "users:owner",
           vaultId: "vault-1",
           fileDeleted: false,
           filePath: "src/new-name.ts",
@@ -549,7 +558,6 @@ describe("clearMatchingStagingSnapshotImpl", () => {
         },
         {
           _id: "changed-1",
-          ownerId: "users:owner",
           vaultId: "vault-1",
           fileDeleted: false,
           filePath: "src/keep.ts",

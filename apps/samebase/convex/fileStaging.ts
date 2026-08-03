@@ -9,15 +9,14 @@ import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./functions";
 import {
-  hasPhaseOneUserOwnership,
-  readPhaseOneOwnershipContext,
-  type PhaseOneOwnershipContext,
-} from "./phaseOneOwnership";
+  hasOrganizationAccess,
+  requireOrganizationAccessContext,
+  type OrganizationAccessContext,
+} from "./organizationAccess";
 import type { GithubTree } from "./vault/model";
 import {
   hasStagedFileChanges,
   hasStagedFileContentChange,
-  readStagedFileKind,
   type StagedFileChangeCandidate,
 } from "./stagingChanges";
 import { assertConnectedVault, isLiveConnectedVault } from "./vault/state";
@@ -39,10 +38,9 @@ const nullResultValidator = nullValue();
 const stagedFileValidator = object({
   _id: fileStagingIdValidator,
   _creationTime: number(),
-  ownerId: userIdValidator,
   vaultId: vaultIdValidator,
   fileDeleted: boolean(),
-  kind: optional(stagedFileKindValidator),
+  kind: stagedFileKindValidator,
   filePath: filePathValidator,
   initialFilePath: filePathValidator,
   content: contentValidator,
@@ -60,10 +58,9 @@ const stagedFileValidator = object({
 type StagedFile = Infer<typeof stagedFileValidator>;
 const stagedFileSnapshotValidator = object({
   _id: fileStagingIdValidator,
-  ownerId: userIdValidator,
   vaultId: vaultIdValidator,
   fileDeleted: boolean(),
-  kind: optional(stagedFileKindValidator),
+  kind: stagedFileKindValidator,
   filePath: filePathValidator,
   initialFilePath: filePathValidator,
   content: contentValidator,
@@ -201,14 +198,6 @@ type StagedFilesCategory = Exclude<keyof StagedFilesCategoryCounts, "total">;
 type StagedFileSummaryInput = StagedFileChangeCandidate & Pick<StagedFile, "branch">;
 type StagingAccessCtx = Pick<QueryCtx | MutationCtx, "db">;
 
-/** Phase 1 staged rows stay private to their exact legacy owner. */
-function hasPhaseOneStagingOwner(
-  stagedFile: Pick<Doc<"vaultStagedFiles">, "ownerId">,
-  userId: Infer<typeof userIdValidator>,
-): boolean {
-  return stagedFile.ownerId === userId;
-}
-
 function emptyStagedFilesCategoryCounts(): StagedFilesCategoryCounts {
   return {
     modified: 0,
@@ -239,7 +228,7 @@ function classifyStagedFile(file: StagedFileSummaryInput): StagedFilesCategory |
 async function getVaultForStagingAccessWithContext(
   ctx: StagingAccessCtx,
   args: {
-    ownership: PhaseOneOwnershipContext;
+    ownership: OrganizationAccessContext;
     vaultId: Infer<typeof vaultIdValidator>;
   },
 ): Promise<Doc<"vaults"> | null> {
@@ -247,7 +236,7 @@ async function getVaultForStagingAccessWithContext(
   if (!vault) {
     return null;
   }
-  if (!hasPhaseOneUserOwnership(args.ownership, vault)) {
+  if (!hasOrganizationAccess(args.ownership, vault)) {
     return null;
   }
   return vault;
@@ -260,7 +249,7 @@ async function getVaultForStagingAccess(
     userId: Infer<typeof userIdValidator>;
   },
 ): Promise<Doc<"vaults"> | null> {
-  const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+  const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
   return await getVaultForStagingAccessWithContext(ctx, {
     ownership,
     vaultId: args.vaultId,
@@ -392,7 +381,7 @@ export function buildDeletionSnapshotSeed(args: {
 
 export function shouldDeleteSupersededStagedBinaryUpload(args: {
   existingStaging: {
-    kind?: "text" | "binary";
+    kind: "text" | "binary";
     storageId?: string | null;
     stagedBlobSha?: string | null;
     parentCommitSha: string | null;
@@ -400,7 +389,7 @@ export function shouldDeleteSupersededStagedBinaryUpload(args: {
   nextStorageId: string;
   storageReferenceCount: number;
 }): boolean {
-  if (readStagedFileKind(args.existingStaging.kind) !== "binary") {
+  if (args.existingStaging.kind !== "binary") {
     return false;
   }
 
@@ -583,7 +572,7 @@ export const listStagedFilesBranchSummariesByVault = query({
   handler: async (ctx, args) => {
     const summariesByVault: Infer<typeof stagedFilesBranchSummariesByVaultListValidator> = [];
     const uniqueVaultIds = new Set(args.vaultIds);
-    const ownership = await readPhaseOneOwnershipContext(ctx.db, ctx.viewer.userId);
+    const ownership = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
 
     for (const vaultId of uniqueVaultIds) {
       const vault = await getVaultForStagingAccessWithContext(ctx, {
@@ -667,7 +656,6 @@ export const duplicateBranchStaging = internalMutation({
       }
 
       await ctx.db.insert("vaultStagedFiles", {
-        ownerId: file.ownerId,
         vaultId: file.vaultId,
         fileDeleted: file.fileDeleted,
         kind: file.kind,
@@ -697,7 +685,6 @@ function matchesStagedFileSnapshot(args: {
 }): boolean {
   return (
     args.current._id === args.snapshot._id &&
-    args.current.ownerId === args.snapshot.ownerId &&
     args.current.vaultId === args.snapshot.vaultId &&
     args.current.fileDeleted === args.snapshot.fileDeleted &&
     args.current.kind === args.snapshot.kind &&
@@ -808,10 +795,10 @@ type ClearAllStagingPlan<VaultId extends string = string, UserId extends string 
 
 export function buildClearAllStagingPlan<VaultId extends string, UserId extends string>(args: {
   vaultId: VaultId;
+  userId: UserId;
   branch?: string;
   cleanupCutoffTimestamp: number;
   vault: {
-    userId: UserId;
     owner: string;
     name: string;
     defaultBranch: string;
@@ -836,7 +823,7 @@ export function buildClearAllStagingPlan<VaultId extends string, UserId extends 
     },
     treeRefreshArgs: args.vault
       ? {
-          userId: args.vault.userId,
+          userId: args.userId,
           owner: args.vault.owner,
           repo: args.vault.name,
           branch: args.branch ?? args.vault.defaultBranch,
@@ -847,6 +834,7 @@ export function buildClearAllStagingPlan<VaultId extends string, UserId extends 
 
 type ClearAllStagingArgs = {
   vaultId: Infer<typeof vaultIdValidator>;
+  userId: Infer<typeof userIdValidator>;
   branch?: string;
   skipTreeUpdate?: boolean;
 };
@@ -857,12 +845,12 @@ export async function clearAllStagingImpl(ctx: MutationCtx, args: ClearAllStagin
   const cleanupCutoffTimestamp = Date.now() + 1;
   const plan = buildClearAllStagingPlan({
     vaultId: args.vaultId,
+    userId: args.userId,
     branch: args.branch,
     cleanupCutoffTimestamp,
     vault:
       vault && isLiveConnectedVault(vault)
         ? {
-            userId: vault.userId,
             owner: vault.owner,
             name: vault.name,
             defaultBranch: vault.defaultBranch,
@@ -922,7 +910,10 @@ export const clearAllStaging = mutation({
       userId: ctx.viewer.userId,
     });
 
-    return await clearAllStagingImpl(ctx, args);
+    return await clearAllStagingImpl(ctx, {
+      ...args,
+      userId: ctx.viewer.userId,
+    });
   },
 });
 
@@ -1065,7 +1056,6 @@ export const markFileForDeletion = mutation({
 
       // Create new staging record for deletion
       await ctx.db.insert("vaultStagedFiles", {
-        ownerId: ctx.viewer.userId,
         vaultId: args.vaultId,
         filePath: args.filePath,
         initialFilePath: args.filePath,
@@ -1141,7 +1131,6 @@ export const createFileInStaging = mutation({
 
     // Create new staging record for a new file (parentCommitSha is null)
     await ctx.db.insert("vaultStagedFiles", {
-      ownerId: ctx.viewer.userId,
       vaultId: args.vaultId,
       filePath: args.filePath,
       initialFilePath: args.filePath,
@@ -1181,10 +1170,6 @@ export const revertDeletedFileInStaging = mutation({
       throw new Error("Deleted staged file not found");
     }
 
-    if (!hasPhaseOneStagingOwner(existingStaging, ctx.viewer.userId)) {
-      throw new Error("Unauthorized");
-    }
-
     if (!existingStaging.fileDeleted) {
       throw new Error("Staged file is not deleted");
     }
@@ -1216,9 +1201,6 @@ export const updateStagedFileContent = mutation({
       throw new Error("Staged file not found");
     }
 
-    if (!hasPhaseOneStagingOwner(existingStaging, ctx.viewer.userId)) {
-      throw new Error("Unauthorized");
-    }
     await assertConnectedVaultForStagingWrite(ctx, {
       vaultId: existingStaging.vaultId,
       userId: ctx.viewer.userId,
@@ -1228,7 +1210,7 @@ export const updateStagedFileContent = mutation({
       throw new Error("Cannot update content for a deleted staged file.");
     }
 
-    if (readStagedFileKind(existingStaging.kind) === "binary") {
+    if (existingStaging.kind === "binary") {
       throw new Error("Cannot edit binary staged content as text.");
     }
 
@@ -1281,7 +1263,7 @@ export const saveToStaging = internalMutation({
     const currentTimestamp = Date.now();
 
     if (existingStaging) {
-      if (readStagedFileKind(existingStaging.kind) === "binary") {
+      if (existingStaging.kind === "binary") {
         throw new Error("Cannot overwrite binary staged content as text.");
       }
 
@@ -1301,7 +1283,6 @@ export const saveToStaging = internalMutation({
     } else {
       // Create new staging record
       await ctx.db.insert("vaultStagedFiles", {
-        ownerId: args.userId,
         vaultId: args.vaultId,
         filePath: args.initialFilePath,
         initialFilePath: args.initialFilePath,
@@ -1414,7 +1395,6 @@ export const saveBinaryUploadToStaging = internalMutation({
       const preservedParentCommitSha = parentCommitSha ?? existingStaging.parentCommitSha;
 
       await ctx.db.patch(existingStaging._id, {
-        ownerId: args.userId,
         fileDeleted: false,
         kind: "binary",
         filePath: args.filePath,
@@ -1454,7 +1434,6 @@ export const saveBinaryUploadToStaging = internalMutation({
     }
 
     const insertedId = await ctx.db.insert("vaultStagedFiles", {
-      ownerId: args.userId,
       vaultId: args.vaultId,
       fileDeleted: false,
       kind: "binary",
@@ -1504,10 +1483,6 @@ export const rename = internalMutation({
     if (!file) {
       throw new Error("File not found");
     }
-    if (!hasPhaseOneStagingOwner(file, args.userId)) {
-      throw new Error("Unauthorized");
-    }
-
     if (file.filePath === args.newPath) {
       return file;
     }

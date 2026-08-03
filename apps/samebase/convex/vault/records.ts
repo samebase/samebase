@@ -9,12 +9,12 @@ import {
 } from "../_generated/server";
 import { query } from "../functions";
 import { startCreateAppProvisioningWorkflow } from "../appProvisioningWorkflow";
-import { requireSingleOrganizationIdForUser } from "../organizations";
 import {
-  hasPhaseOneUserOwnership,
-  readPhaseOneOwnershipContext,
-  type PhaseOneOwnershipContext,
-} from "../phaseOneOwnership";
+  findOrganizationAccessContextForOrganization,
+  hasOrganizationAccess,
+  requireOrganizationAccessContext,
+  type OrganizationAccessContext,
+} from "../organizationAccess";
 import {
   parseRepositoryFullName,
   vGitHubRepositoryVisibility,
@@ -25,39 +25,18 @@ import { isConnectedVault, isLiveConnectedVault, isSamebaseManagedVault } from "
 import { isVaultDeletingOrDeleteFailed } from "./deletion/state";
 
 const nullValidator = v.null();
-const { array, boolean, id, object, optional, string, union } = v;
+const { array, id, object, optional, string, union } = v;
 
 type ProvisioningVault = Extract<Doc<"vaults">, { state: "provisioning" }>;
 
-export async function listPhaseOneUserVaults(
+export async function listOrganizationVaults(
   db: DatabaseReader,
-  ownership: PhaseOneOwnershipContext,
+  access: OrganizationAccessContext,
 ): Promise<Array<Doc<"vaults">>> {
-  const candidates = new Map<Id<"vaults">, Doc<"vaults">>();
-  if (ownership.organizationId) {
-    for await (const vault of db
-      .query("vaults")
-      .withIndex("by_organization", (query) =>
-        query.eq("organizationId", ownership.organizationId),
-      )) {
-      candidates.set(vault._id, vault);
-    }
-    for await (const vault of db
-      .query("vaults")
-      .withIndex("by_user_and_organization", (query) =>
-        query.eq("userId", ownership.userId).eq("organizationId", undefined),
-      )) {
-      candidates.set(vault._id, vault);
-    }
-  } else {
-    for await (const vault of db
-      .query("vaults")
-      .withIndex("by_userId", (query) => query.eq("userId", ownership.userId))) {
-      candidates.set(vault._id, vault);
-    }
-  }
-
-  return [...candidates.values()].filter((vault) => hasPhaseOneUserOwnership(ownership, vault));
+  return await db
+    .query("vaults")
+    .withIndex("by_organization", (query) => query.eq("organizationId", access.organizationId))
+    .collect();
 }
 
 // Get a specific vault by repository full name for a user
@@ -88,11 +67,22 @@ export const getByIdForUser = internalQuery({
     if (!vault) {
       return null;
     }
-    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-    if (!hasPhaseOneUserOwnership(ownership, vault)) {
+    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    if (!hasOrganizationAccess(ownership, vault)) {
       return null;
     }
     return vault;
+  },
+});
+
+export const getByIdForOrganization = internalQuery({
+  args: {
+    vaultId: id("vaults"),
+    organizationId: id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    return vault?.organizationId === args.organizationId ? vault : null;
   },
 });
 
@@ -102,9 +92,9 @@ export const listConnectedRepositoriesForUser = internalQuery({
   },
   returns: array(vVaultConnectedRepositoryTarget),
   handler: async (ctx, args) => {
-    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
     const repositories = [];
-    for (const vault of await listPhaseOneUserVaults(ctx.db, ownership)) {
+    for (const vault of await listOrganizationVaults(ctx.db, ownership)) {
       if (!isLiveConnectedVault(vault)) {
         continue;
       }
@@ -130,20 +120,6 @@ function normalizeGitHubRepositoryCoordinate(value: string): string {
   return value.trim().toLowerCase();
 }
 
-async function listPhaseOneOrganizationMemberUserIds(
-  ctx: Pick<MutationCtx, "db">,
-  organizationId: Id<"organizations">,
-): Promise<Array<Id<"users">>> {
-  const memberships = await ctx.db
-    .query("organizationMemberships")
-    .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
-    .take(3);
-  if (memberships.length > 2) {
-    throw new Error("Phase 1 repository uniqueness supports at most two organization members.");
-  }
-  return memberships.map((membership) => membership.userId);
-}
-
 async function assertOrganizationHasNoVaultForRepository(
   ctx: Pick<MutationCtx, "db">,
   args: {
@@ -167,25 +143,6 @@ async function assertOrganizationHasNoVaultForRepository(
       throw new Error("Vault already exists for this repository.");
     }
   }
-
-  const memberUserIds = await listPhaseOneOrganizationMemberUserIds(ctx, args.organizationId);
-  for (const userId of memberUserIds) {
-    for await (const vault of ctx.db
-      .query("vaults")
-      .withIndex("by_user_and_organization", (q) =>
-        q.eq("userId", userId).eq("organizationId", undefined),
-      )) {
-      if (vault.state === "not_connected") {
-        continue;
-      }
-      if (
-        normalizeGitHubRepositoryCoordinate(vault.owner) === normalizedOwner &&
-        normalizeGitHubRepositoryCoordinate(vault.name) === normalizedName
-      ) {
-        throw new Error("Vault already exists for this repository.");
-      }
-    }
-  }
 }
 
 async function assertOrganizationHasNoOtherVaultForGitHubRepository(
@@ -205,29 +162,11 @@ async function assertOrganizationHasNoOtherVaultForGitHubRepository(
       throw new Error("Vault already exists for this GitHub repository.");
     }
   }
-
-  const memberUserIds = await listPhaseOneOrganizationMemberUserIds(ctx, args.organizationId);
-  for (const userId of memberUserIds) {
-    for await (const vault of ctx.db
-      .query("vaults")
-      .withIndex("by_user_and_organization", (q) =>
-        q.eq("userId", userId).eq("organizationId", undefined),
-      )) {
-      if (
-        isConnectedVault(vault) &&
-        vault.ghRepoId === args.ghRepoId &&
-        vault._id !== args.excludeVaultId
-      ) {
-        throw new Error("Vault already exists for this GitHub repository.");
-      }
-    }
-  }
 }
 
 function pickProvisioningVaultCoreFields(vault: ProvisioningVault) {
   return {
-    userId: vault.userId,
-    ...(vault.organizationId ? { organizationId: vault.organizationId } : {}),
+    organizationId: vault.organizationId,
     deletion: vault.deletion,
   };
 }
@@ -251,6 +190,7 @@ async function insertDefaultVaultResourceLinksState(
 export const createInitializingExistingRepositoryVaultForUser = internalMutation({
   args: {
     userId: id("users"),
+    organizationId: id("organizations"),
     ghRepoOwner: string(),
     ghRepoName: string(),
   },
@@ -277,17 +217,22 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
     if (!owner || !name) {
       throw new Error("Invalid repository full name");
     }
-    const organizationId = await requireSingleOrganizationIdForUser(ctx.db, args.userId);
+    const access = await findOrganizationAccessContextForOrganization(ctx.db, {
+      userId: args.userId,
+      organizationId: args.organizationId,
+    });
+    if (access === null) {
+      throw new Error("Organization membership is required.");
+    }
     await assertOrganizationHasNoVaultForRepository(ctx, {
-      organizationId,
+      organizationId: access.organizationId,
       owner,
       name,
     });
 
     const now = Date.now();
     const vaultId = await ctx.db.insert("vaults", {
-      userId: args.userId,
-      organizationId,
+      organizationId: access.organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
@@ -298,7 +243,6 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
     });
     const repositoryFullName = `${owner}/${name}`;
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId: args.userId,
       requestedByUserId: args.userId,
       vaultId,
       repositoryFullName,
@@ -319,7 +263,6 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
       name,
     });
     await ctx.db.insert("workflow_vaultProvisioning_events", {
-      userId: args.userId,
       vaultId,
       repositoryFullName,
       runId,
@@ -350,17 +293,14 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
     if (!vault) {
       throw new Error("Vault not found");
     }
-    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-    if (!hasPhaseOneUserOwnership(ownership, vault)) {
+    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found");
     }
     if (isVaultDeletingOrDeleteFailed(vault)) {
       return null;
     }
     const organizationId = vault.organizationId;
-    if (!organizationId) {
-      throw new Error("Vault organization is required.");
-    }
 
     // GitHub repository id stays stable across owner/name renames.
     await assertOrganizationHasNoOtherVaultForGitHubRepository(ctx, {
@@ -387,7 +327,6 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
     }
 
     await ctx.db.replace(args.vaultId, {
-      userId: vault.userId,
       organizationId,
       deletion: vault.deletion,
       state: "connected",
@@ -408,6 +347,7 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
 export const createInitializingSamebaseManagedVaultForUser = internalMutation({
   args: {
     userId: id("users"),
+    organizationId: id("organizations"),
     ghRepoOwner: string(),
     ghRepoName: string(),
     visibility: vGitHubRepositoryVisibility,
@@ -441,17 +381,22 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     if (!owner || !name) {
       throw new Error("Invalid repository full name");
     }
-    const organizationId = await requireSingleOrganizationIdForUser(ctx.db, args.userId);
+    const access = await findOrganizationAccessContextForOrganization(ctx.db, {
+      userId: args.userId,
+      organizationId: args.organizationId,
+    });
+    if (access === null) {
+      throw new Error("Organization membership is required.");
+    }
     await assertOrganizationHasNoVaultForRepository(ctx, {
-      organizationId,
+      organizationId: access.organizationId,
       owner,
       name,
     });
 
     const now = Date.now();
     const vaultId = await ctx.db.insert("vaults", {
-      userId: args.userId,
-      organizationId,
+      organizationId: access.organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
@@ -462,7 +407,6 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     });
     const repositoryFullName = `${owner}/${name}`;
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId: args.userId,
       requestedByUserId: args.userId,
       vaultId,
       repositoryFullName,
@@ -494,7 +438,6 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       visibility: args.visibility,
     });
     await ctx.db.insert("workflow_vaultProvisioning_events", {
-      userId: args.userId,
       vaultId,
       repositoryFullName,
       runId,
@@ -505,7 +448,6 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     });
     await ctx.db.insert("workflow_vaultProvisioning_plans", {
       vaultId,
-      userId: args.userId,
       convexConfigPath: "convex.json",
       convex: {
         state: "planned",
@@ -537,7 +479,6 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       updatedAt: queuedAt,
     });
     await ctx.db.insert("workflow_vaultProvisioning_events", {
-      userId: args.userId,
       vaultId,
       repositoryFullName,
       runId,
@@ -567,17 +508,14 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
     if (!vault) {
       throw new Error("Vault not found");
     }
-    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-    if (!hasPhaseOneUserOwnership(ownership, vault)) {
+    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found");
     }
     if (isVaultDeletingOrDeleteFailed(vault)) {
       return null;
     }
     const organizationId = vault.organizationId;
-    if (!organizationId) {
-      throw new Error("Vault organization is required.");
-    }
     await assertOrganizationHasNoOtherVaultForGitHubRepository(ctx, {
       organizationId,
       ghRepoId: args.ghRepoId,
@@ -601,7 +539,6 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
     }
 
     await ctx.db.replace(args.vaultId, {
-      userId: vault.userId,
       organizationId,
       deletion: vault.deletion,
       state: "connected",
@@ -666,25 +603,6 @@ export const markGithubProvisioningFailed = internalMutation({
   },
 });
 
-export const hasOtherVaultsForRepository = internalQuery({
-  args: {
-    owner: string(),
-    repo: string(),
-    excludeVaultId: id("vaults"),
-  },
-  returns: boolean(),
-  handler: async (ctx, args) => {
-    for await (const vault of ctx.db
-      .query("vaults")
-      .withIndex("by_owner_and_name", (q) => q.eq("owner", args.owner).eq("name", args.repo))) {
-      if (isConnectedVault(vault) && vault._id !== args.excludeVaultId) {
-        return true;
-      }
-    }
-    return false;
-  },
-});
-
 async function getVaultByRepositoryHelper(
   ctx: QueryCtx,
   args: {
@@ -694,37 +612,15 @@ async function getVaultByRepositoryHelper(
   },
 ) {
   const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
-  const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-  const candidates = new Map<Id<"vaults">, Doc<"vaults">>();
-  if (ownership.organizationId) {
-    for await (const vault of ctx.db
+  const access = await requireOrganizationAccessContext(ctx.db, args.userId);
+  const vault = (
+    await ctx.db
       .query("vaults")
       .withIndex("by_organization_and_owner_and_name", (query) =>
-        query.eq("organizationId", ownership.organizationId).eq("owner", owner).eq("name", name),
-      )) {
-      candidates.set(vault._id, vault);
-    }
-    for await (const vault of ctx.db
-      .query("vaults")
-      .withIndex("by_user_and_organization", (query) =>
-        query.eq("userId", args.userId).eq("organizationId", undefined),
-      )) {
-      if (isConnectedVault(vault) && vault.owner === owner && vault.name === name) {
-        candidates.set(vault._id, vault);
-      }
-    }
-  } else {
-    for await (const vault of ctx.db
-      .query("vaults")
-      .withIndex("by_userId_and_owner_and_name", (query) =>
-        query.eq("userId", args.userId).eq("owner", owner).eq("name", name),
-      )) {
-      candidates.set(vault._id, vault);
-    }
-  }
-
-  const vault = [...candidates.values()]
-    .filter((candidate) => hasPhaseOneUserOwnership(ownership, candidate))
+        query.eq("organizationId", access.organizationId).eq("owner", owner).eq("name", name),
+      )
+      .collect()
+  )
     .sort((left, right) => left._id.localeCompare(right._id))
     .find(isLiveConnectedVault);
 
@@ -758,7 +654,7 @@ async function getVaultByRepositoryHelper(
     treeSHA: branchTree?.treeData.sha,
     commitSHA: branchTree?.commitSHA,
     treeData: branchTree?.treeData,
-    treeRefreshStartedAt: vault.treeRefreshStartedAt,
+    treeRefreshStartedAt: vault.treeRefreshLock?.startedAt,
     lastTreeRefreshAt: branchTree?.lastTreeRefreshAt,
     lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
     treeRefreshFailureKind: vault.treeRefreshFailureKind,

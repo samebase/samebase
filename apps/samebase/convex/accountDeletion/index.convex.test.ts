@@ -40,7 +40,14 @@ async function seedUser(args: {
       userId,
       expirationTime: now + 60_000,
     });
-    return { userId, sessionId };
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    const billingAccountId = await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      plan: "free",
+      status: "inactive",
+    });
+    return { billingAccountId, organizationId, sessionId, userId };
   });
   const asUser = t.withIdentity({
     subject: `${ids.userId}|${ids.sessionId}`,
@@ -71,13 +78,20 @@ async function seedVault(
   name = "test-vault",
 ) {
   return await t.run(async (ctx) => {
+    const membership = await ctx.db
+      .query("organizationMemberships")
+      .withIndex("by_user", (query) => query.eq("userId", userId))
+      .unique();
+    if (membership === null) {
+      throw new Error("Expected organization membership.");
+    }
     const vaultId = await ctx.db.insert("vaults", {
-      userId,
+      organizationId: membership.organizationId,
       state: "not_connected",
       deletion: { state: "not_deleting" },
     });
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId,
+      requestedByUserId: userId,
       vaultId,
       repositoryFullName: `ada/${name}`,
       trigger: "create",
@@ -89,7 +103,7 @@ async function seedVault(
     });
 
     await ctx.db.replace(vaultId, {
-      userId,
+      organizationId: membership.organizationId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "create_repository",
@@ -118,7 +132,6 @@ async function seedStagedFile(
 ) {
   return await t.run(async (ctx) => {
     return await ctx.db.insert("vaultStagedFiles", {
-      ownerId: args.userId,
       vaultId: args.vaultId,
       fileDeleted: false,
       kind: "text",
@@ -210,7 +223,9 @@ describe("account deletion foundation", () => {
       });
       await ctx.db.patch(ids.userId, {
         accountDeletion: { state: "deleting", runId, requestedAt: now },
-        billingPolarCheckoutAttempt: {
+      });
+      await ctx.db.patch(ids.billingAccountId, {
+        polarCheckoutAttempt: {
           state: "pending",
           attemptId: "polar_checkout_after_deletion_started",
         },
@@ -233,7 +248,11 @@ describe("account deletion foundation", () => {
     }));
     expect(stored.user).toMatchObject({
       accountDeletion: { state: "deleting", runId },
-      billingPolarCheckoutAttempt: {
+    });
+    await expect(
+      t.run(async (ctx) => await ctx.db.get(ids.billingAccountId)),
+    ).resolves.toMatchObject({
+      polarCheckoutAttempt: {
         state: "pending",
         attemptId: "polar_checkout_after_deletion_started",
       },
@@ -250,6 +269,7 @@ describe("account deletion foundation", () => {
         vaultId,
         owner: {
           kind: "manual_provider_write",
+          requestedByUserId: ids.userId,
           actionId: "active-provider-write",
           action: "create_convex_project",
           expiresAt: now + 60_000,
@@ -275,6 +295,78 @@ describe("account deletion foundation", () => {
     );
   });
 
+  it("rejects shared account deletion during the deleting member's provider change", async () => {
+    const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
+    const vaultId = await seedVault(t, ids.userId);
+    await t.run(async (ctx) => {
+      const remainingUserId = await ctx.db.insert("users", {
+        email: "grace@example.com",
+        isApproved: true,
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId: ids.organizationId,
+        userId: remainingUserId,
+      });
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+        vaultId,
+        owner: {
+          kind: "manual_provider_write",
+          requestedByUserId: ids.userId,
+          actionId: "deleting-user-provider-write",
+          action: "create_convex_project",
+          expiresAt: now + 60_000,
+        },
+        state: "active",
+        lastWriteAt: {},
+        updatedAt: now,
+      });
+    });
+    const confirmationStakes = await asUser.query(api.accountDeletion.index.stakes);
+
+    await expect(
+      asUser.mutation(api.accountDeletion.index.request, {
+        completionCapability,
+        confirmationPhrase: buildAccountDeletionConfirmationPhrase(confirmationStakes),
+        confirmationStakesSnapshot: serializeAccountDeletionConfirmationStakes(confirmationStakes),
+      }),
+    ).rejects.toThrow(
+      "A provider change is active. Wait for it to finish before you delete the account.",
+    );
+  });
+
+  it("allows shared account deletion during a remaining member's provider change", async () => {
+    const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
+    const vaultId = await seedVault(t, ids.userId);
+    await t.run(async (ctx) => {
+      const remainingUserId = await ctx.db.insert("users", {
+        email: "grace@example.com",
+        isApproved: true,
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId: ids.organizationId,
+        userId: remainingUserId,
+      });
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+        vaultId,
+        owner: {
+          kind: "manual_provider_write",
+          requestedByUserId: remainingUserId,
+          actionId: "remaining-user-provider-write",
+          action: "create_convex_project",
+          expiresAt: now + 60_000,
+        },
+        state: "active",
+        lastWriteAt: {},
+        updatedAt: now,
+      });
+    });
+
+    await expect(requestAccepted(asUser)).resolves.toMatchObject({
+      state: "running",
+      currentStep: "request_accepted",
+    });
+  });
+
   it.each([
     {
       label: "pending",
@@ -294,7 +386,7 @@ describe("account deletion foundation", () => {
   ])("reports a $label checkout before account deletion starts", async ({ attempt }) => {
     const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
     await t.run(async (ctx) => {
-      await ctx.db.patch(ids.userId, { billingPolarCheckoutAttempt: attempt });
+      await ctx.db.patch(ids.billingAccountId, { polarCheckoutAttempt: attempt });
     });
     const confirmationStakes = await asUser.query(api.accountDeletion.index.stakes);
 
@@ -337,18 +429,6 @@ describe("account deletion foundation", () => {
 
     await expect(owner.asUser.query(api.accountDeletion.index.status)).resolves.toEqual(status);
     await expect(other.asUser.query(api.accountDeletion.index.status)).resolves.toBeNull();
-  });
-
-  it("does not fabricate detailed progress for active legacy runs", async () => {
-    const owner = await seedUser({ email: "ada@example.com" });
-    const requested = await requestAccepted(owner.asUser);
-    await owner.t.run(async (ctx) => {
-      await ctx.db.patch(requested.runId, { dataDeletion: undefined });
-    });
-
-    await expect(owner.asUser.query(api.accountDeletion.index.status)).resolves.toMatchObject({
-      dataDeletion: { state: "legacy_unavailable" },
-    });
   });
 
   it("keeps deletion status readable while the user marker is finalizing", async () => {
@@ -575,44 +655,6 @@ describe("account deletion foundation", () => {
     ).rejects.toThrow();
   });
 
-  it("keeps legacy scrubbed receipts deployable without making them publicly discoverable", async () => {
-    const staff = await seedUser({ email: "nicu@samebase.com" });
-    const legacyOutcomes = {
-      billing: { state: "not_applicable" as const },
-      providerRevocation: {
-        state: "completed" as const,
-        github: { state: "not_connected" as const },
-        cloudflare: { state: "not_connected" as const },
-        convex: { state: "not_connected" as const },
-      },
-      completionEmail: { state: "sent" as const },
-    };
-    const legacyRunId = await staff.t.run(async (ctx) => {
-      return await ctx.db.insert("workflow_accountDeletion_runs", {
-        identity: { state: "scrubbed" },
-        state: "succeeded",
-        currentStep: "finish",
-        requestedAt: now,
-        updatedAt: now + 1,
-        retryCount: 0,
-        completedAt: now + 1,
-        outcomes: legacyOutcomes,
-      });
-    });
-
-    const detail = await staff.asUser.query(api.accountDeletion.index.detailForAdmin, {
-      runId: legacyRunId,
-    });
-    expect(detail?.run).toMatchObject({
-      state: "succeeded",
-      completedAt: now + 1,
-      dataDeletion: { state: "receipt_scrubbed" },
-    });
-    await expect(
-      staff.t.query(api.accountDeletion.index.completion, { completionCapability }),
-    ).resolves.toBeNull();
-  });
-
   it("rejects active runs without a completion capability", async () => {
     const { ids, t } = await seedUser({ email: "ada@example.com" });
 
@@ -638,19 +680,16 @@ describe("account deletion foundation", () => {
 describe("account deletion stakes and typed confirmation", () => {
   it("counts organization billing only when the deleting user is the sole member", async () => {
     const owner = await seedUser({ email: "ada@example.com" });
-    const remaining = await seedUser({ email: "grace@example.com", t: owner.t });
     const membershipIds = await owner.t.run(async (ctx) => {
-      const organizationId = await ctx.db.insert("organizations", {});
-      await ctx.db.insert("organizationMemberships", {
-        organizationId,
-        userId: owner.ids.userId,
+      const remainingUserId = await ctx.db.insert("users", {
+        email: "grace@example.com",
+        isApproved: true,
       });
       const remainingMembershipId = await ctx.db.insert("organizationMemberships", {
-        organizationId,
-        userId: remaining.ids.userId,
+        organizationId: owner.ids.organizationId,
+        userId: remainingUserId,
       });
-      await ctx.db.insert("organizationBillingAccounts", {
-        organizationId,
+      await ctx.db.patch(owner.ids.billingAccountId, {
         provider: "polar",
         plan: "pro",
         status: "active",
@@ -670,7 +709,7 @@ describe("account deletion stakes and typed confirmation", () => {
     });
   });
 
-  it("counts only the viewer's vaults and real staged changes", async () => {
+  it("counts sole-member organization vaults and real staged changes", async () => {
     const owner = await seedUser({ email: "ada@example.com" });
     const other = await seedUser({ email: "grace@example.com", t: owner.t });
     const firstVaultId = await seedVault(owner.t, owner.ids.userId, "zeta");
@@ -757,7 +796,7 @@ describe("account deletion stakes and typed confirmation", () => {
     const connectedVaultId = await seedVault(t, ids.userId);
     const disconnectedVaultId = await t.run(async (ctx) => {
       return await ctx.db.insert("vaults", {
-        userId: ids.userId,
+        organizationId: ids.organizationId,
         state: "not_connected",
         deletion: { state: "not_deleting" },
       });
@@ -789,7 +828,6 @@ describe("account deletion stakes and typed confirmation", () => {
     await t.run(async (ctx) => {
       for (let index = 0; index < ACCOUNT_DELETION_UNCOMMITTED_FILE_CHANGE_COUNT_CAP; index += 1) {
         await ctx.db.insert("vaultStagedFiles", {
-          ownerId: ids.userId,
           vaultId,
           fileDeleted: false,
           kind: "text",
@@ -954,7 +992,11 @@ describe("account deletion stakes and typed confirmation", () => {
     const staleStakes = await asUser.query(api.accountDeletion.index.stakes);
 
     await t.run(async (ctx) => {
-      await ctx.db.patch(ids.userId, { billingStatus: "active" });
+      await ctx.db.patch(ids.billingAccountId, {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+      });
     });
 
     const result = await asUser.mutation(api.accountDeletion.index.request, {

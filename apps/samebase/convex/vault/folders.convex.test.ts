@@ -6,7 +6,10 @@ import { cleanupAccountLocalDataBatchForUser } from "../accountDeletion/cleanup"
 
 async function seedUser(t: ReturnType<typeof makeConvexTest>, email: string) {
   return await t.run(async (ctx) => {
-    return await ctx.db.insert("users", { email, isApproved: true });
+    const userId = await ctx.db.insert("users", { email, isApproved: true });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    return userId;
   });
 }
 
@@ -15,8 +18,15 @@ async function seedVault(
   userId: Awaited<ReturnType<typeof seedUser>>,
 ) {
   return await t.run(async (ctx) => {
+    const membership = await ctx.db
+      .query("organizationMemberships")
+      .withIndex("by_user", (query) => query.eq("userId", userId))
+      .unique();
+    if (!membership) {
+      throw new Error("Organization membership not found");
+    }
     return await ctx.db.insert("vaults", {
-      userId,
+      organizationId: membership.organizationId,
       state: "not_connected",
       deletion: { state: "not_deleting" },
     });
@@ -28,13 +38,20 @@ async function seedDashboardVault(
   args: { name: string; userId: Awaited<ReturnType<typeof seedUser>> },
 ) {
   return await t.run(async (ctx) => {
+    const membership = await ctx.db
+      .query("organizationMemberships")
+      .withIndex("by_user", (query) => query.eq("userId", args.userId))
+      .unique();
+    if (!membership) {
+      throw new Error("Organization membership not found");
+    }
     const vaultId = await ctx.db.insert("vaults", {
-      userId: args.userId,
+      organizationId: membership.organizationId,
       state: "not_connected",
       deletion: { state: "not_deleting" },
     });
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId: args.userId,
+      requestedByUserId: args.userId,
       vaultId,
       repositoryFullName: `ada/${args.name}`,
       trigger: "connect_existing_repository",
@@ -45,7 +62,7 @@ async function seedDashboardVault(
       lastError: "Test failure.",
     });
     await ctx.db.replace(vaultId, {
-      userId: args.userId,
+      organizationId: membership.organizationId,
       state: "failed",
       githubMode: "connect_existing_repository",
       runId,
@@ -325,9 +342,19 @@ describe("vault folders Convex contract", () => {
       folderId,
       vaultId: firstVaultId,
     });
+    const organizationId = await t.run(async (ctx) => {
+      const vault = await ctx.db.get(firstVaultId);
+      if (vault === null) {
+        throw new Error("Vault not found");
+      }
+      return vault.organizationId;
+    });
 
     await expect(
-      t.query(internal.vault.dashboard.getUserVaultsForUser, { userId }),
+      t.query(internal.vault.dashboard.getOrganizationVaultsForUser, {
+        organizationId,
+        userId,
+      }),
     ).resolves.toHaveLength(2);
 
     let cleanup = await t.run(async (ctx) => {

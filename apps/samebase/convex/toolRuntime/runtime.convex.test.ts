@@ -12,20 +12,22 @@ type CloudflareCreateWorkerToolResult = FunctionReturnType<
 
 async function seedToolRuntimeOwner() {
   const t = makeConvexTest();
-  const { userId, vaultId } = await t.run(async (ctx) => {
+  const { organizationId, userId, vaultId } = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       name: "Ada",
       email: "ada@example.com",
       isApproved: true,
     });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
     const vaultId = await ctx.db.insert("vaults", {
-      userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    return { userId, vaultId };
+    return { organizationId, userId, vaultId };
   });
-  return { t, userId, vaultId };
+  return { organizationId, t, userId, vaultId };
 }
 
 describe("MCP tool runtime boundaries", () => {
@@ -45,10 +47,11 @@ describe("MCP tool runtime boundaries", () => {
   });
 
   it("blocks a generic runtime tool before its product helper runs", async () => {
-    const { t, userId, vaultId } = await seedToolRuntimeOwner();
+    const { organizationId, t, userId, vaultId } = await seedToolRuntimeOwner();
 
     const result = await t.action(internal.toolRuntime.runtime.cloudflareCreateWorkerTool, {
       userId,
+      organizationId,
       grantedScopes: [],
       vaultId,
       accountId: "account_1",
@@ -63,10 +66,11 @@ describe("MCP tool runtime boundaries", () => {
   });
 
   it("converts a product helper error into a tool error without a provider write", async () => {
-    const { t, userId, vaultId } = await seedToolRuntimeOwner();
+    const { organizationId, t, userId, vaultId } = await seedToolRuntimeOwner();
 
     const result = await t.action(internal.toolRuntime.runtime.cloudflareCreateWorkerTool, {
       userId,
+      organizationId,
       grantedScopes: ["access_provider_connections"],
       vaultId,
       accountId: "account_1",
@@ -82,10 +86,11 @@ describe("MCP tool runtime boundaries", () => {
   });
 
   it("keeps browser handoff behind its dedicated trusted scope", async () => {
-    const { t, userId } = await seedToolRuntimeOwner();
+    const { organizationId, t, userId } = await seedToolRuntimeOwner();
 
     const result = await t.action(internal.toolRuntime.runtime.createBrowserHandoffTool, {
       userId,
+      organizationId,
       grantId: "grant_1",
       clientId: "client_1",
       grantedScopes: [],

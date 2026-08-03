@@ -14,10 +14,10 @@ import {
 } from "../appProvisioningModel";
 import { toErrorMessage } from "../jsonUtils";
 import {
-  hasPhaseOneUserOwnership,
-  readPhaseOneOwnershipContext,
-  type PhaseOneOwnershipContext,
-} from "../phaseOneOwnership";
+  hasOrganizationAccess,
+  requireOrganizationAccessContext,
+  type OrganizationAccessContext,
+} from "../organizationAccess";
 import { assertConnectedVault, isLiveConnectedVault } from "./state";
 
 type InfrastructureOperationReadCtx = Pick<QueryCtx, "db">;
@@ -120,15 +120,15 @@ export async function requireUserVaultInfrastructureIdle(
   ctx: InfrastructureOperationReadCtx,
   args: { vaultId: Id<"vaults">; userId: Id<"users"> },
 ): Promise<{
-  ownership: PhaseOneOwnershipContext;
+  ownership: OrganizationAccessContext;
   vault: Extract<Doc<"vaults">, { state: "connected" }>;
 }> {
   const vault = await ctx.db.get(args.vaultId);
   if (!vault || vault.state !== "connected") {
     throw new Error("Vault not found.");
   }
-  const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-  if (!hasPhaseOneUserOwnership(ownership, vault)) {
+  const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+  if (!hasOrganizationAccess(ownership, vault)) {
     throw new Error("Vault not found.");
   }
   const connectedVault = assertConnectedVault(vault);
@@ -249,8 +249,8 @@ export const claimManualProviderWrite = internalMutation({
     if (!vault || vault.state !== "connected") {
       throw new Error("Vault not found.");
     }
-    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-    if (!hasPhaseOneUserOwnership(ownership, vault)) {
+    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found.");
     }
     const connectedVault = assertConnectedVault(vault);
@@ -267,6 +267,7 @@ export const claimManualProviderWrite = internalMutation({
     const expiresAt = now + MANUAL_PROVIDER_WRITE_EXPIRY_MS;
     const owner = {
       kind: "manual_provider_write" as const,
+      requestedByUserId: args.userId,
       actionId: args.actionId,
       action: args.action,
       expiresAt,

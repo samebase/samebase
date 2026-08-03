@@ -14,7 +14,6 @@ import {
   isSvgRepositoryMediaPath,
 } from "../shared/repositoryMedia";
 import { TREE_REFRESH_DEBOUNCE_MS, TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
-import { readStagedFileKind } from "./stagingChanges";
 import type { GithubTreeData } from "./vault/model";
 
 const {
@@ -588,7 +587,7 @@ type RepositoryMediaUnavailableAsset = Extract<
 >;
 type StagedRepositoryMediaAssetCandidate = {
   fileDeleted: boolean;
-  kind?: "text" | "binary";
+  kind: "text" | "binary";
   storageId?: string | null;
   stagedBlobSha?: string | null;
   mime?: string;
@@ -732,7 +731,7 @@ export async function resolveStagedRepositoryMediaAsset(args: {
     return { found: false, reason: "missing" };
   }
 
-  const stagedKind = readStagedFileKind(args.stagedFile.kind);
+  const stagedKind = args.stagedFile.kind;
   const directAsset = await resolveCachedRepositoryMediaAsset(
     { storage: args.storage },
     {
@@ -951,7 +950,7 @@ export const getRepositoryMediaAsset = action({
         if (
           !stagedAsset.found &&
           stagedAsset.reason === "unavailable" &&
-          readStagedFileKind(stagedFile.kind) === "binary"
+          stagedFile.kind === "binary"
         ) {
           console.warn("Staged binary media preview is missing storage data", {
             vaultId: vault._id,
@@ -1125,6 +1124,7 @@ async function refreshExactRepositoryBranchForUser(
 
   const claim = await ctx.runMutation(internal.vault.branches.claimTreeRefresh, {
     vaultId: args.vaultId,
+    userId: args.userId,
   });
   if (!claim.claimed) {
     switch (claim.reason) {

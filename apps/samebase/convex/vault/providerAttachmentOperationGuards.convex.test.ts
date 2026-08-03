@@ -13,13 +13,15 @@ async function createGuardedAttachmentFixture(operation: ActiveOperation) {
       email: "ada@example.com",
       isApproved: true,
     });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
     const vaultId = await ctx.db.insert("vaults", {
-      userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
     const completedRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId,
+      requestedByUserId: userId,
       vaultId,
       repositoryFullName: "ada/guarded-attachments",
       trigger: "connect_existing_repository",
@@ -30,7 +32,7 @@ async function createGuardedAttachmentFixture(operation: ActiveOperation) {
       completedAt: 2,
     });
     await ctx.db.replace(vaultId, {
-      userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "connect_existing_repository",
@@ -44,7 +46,7 @@ async function createGuardedAttachmentFixture(operation: ActiveOperation) {
     });
     const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
       vaultId,
-      userId,
+      organizationId,
       teamId: "team-1",
       projectId: "project-1",
       convexConfigPath: "convex.json",
@@ -52,7 +54,7 @@ async function createGuardedAttachmentFixture(operation: ActiveOperation) {
     });
     const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
       vaultId,
-      userId,
+      organizationId,
       accountId: "account-1",
       workerName: "worker-1",
       workerTag: "worker-tag-1",
@@ -63,7 +65,7 @@ async function createGuardedAttachmentFixture(operation: ActiveOperation) {
       case "active_managed_lock":
         {
           const managedRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-            userId,
+            requestedByUserId: userId,
             vaultId,
             repositoryFullName: "ada/guarded-attachments",
             trigger: "retry",
@@ -84,7 +86,7 @@ async function createGuardedAttachmentFixture(operation: ActiveOperation) {
       case "deletion": {
         const deletionRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
           state: "queued",
-          userId,
+          requestedByUserId: userId,
           vaultId,
           repositoryFullName: "ada/guarded-attachments",
           createdAt: 10,

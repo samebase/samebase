@@ -3,7 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { mutation, query } from "../functions";
-import { hasPhaseOneUserOwnership, readPhaseOneOwnershipContext } from "../phaseOneOwnership";
+import { hasOrganizationAccess, requireOrganizationAccessContext } from "../organizationAccess";
 import { vVaultFolder, vVaultFolderAssignment } from "./folderModel";
 
 const { array, boolean, id, literal, null: vNull, object, string, union } = v;
@@ -32,8 +32,8 @@ async function assertOwnedVault(
   if (!vault) {
     throw new Error("Vault not found");
   }
-  const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-  if (!hasPhaseOneUserOwnership(ownership, vault)) {
+  const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+  if (!hasOrganizationAccess(ownership, vault)) {
     throw new Error("Vault not found");
   }
   return vault;

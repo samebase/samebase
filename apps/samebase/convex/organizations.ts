@@ -1,21 +1,5 @@
 import type { Id } from "./_generated/dataModel";
-import type { DatabaseReader, DatabaseWriter } from "./_generated/server";
-
-/** Return the organization ID from the user's one required membership. */
-export async function requireSingleOrganizationIdForUser(
-  db: DatabaseReader,
-  userId: Id<"users">,
-): Promise<Id<"organizations">> {
-  const membership = await db
-    .query("organizationMemberships")
-    .withIndex("by_user", (query) => query.eq("userId", userId))
-    .unique();
-  if (membership === null) {
-    throw new Error("Organization membership is required.");
-  }
-
-  return membership.organizationId;
-}
+import type { DatabaseWriter } from "./_generated/server";
 
 /**
  * Give one user one organization membership and its billing account. Repeated

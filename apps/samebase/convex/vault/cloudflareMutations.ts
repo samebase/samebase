@@ -3,10 +3,10 @@ import { v, type Infer } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { requireBillingResourceCapacity } from "../billingResourceQuotas";
 import {
-  hasPhaseOneUserOwnership,
-  readPhaseOneOwnershipContext,
-  type PhaseOneOwnershipContext,
-} from "../phaseOneOwnership";
+  hasOrganizationAccess,
+  requireOrganizationAccessContext,
+  type OrganizationAccessContext,
+} from "../organizationAccess";
 import {
   internalMutation,
   internalQuery,
@@ -72,15 +72,15 @@ async function requireConnectedVault(
   ctx: WorkerGraphReadCtx,
   args: { vaultId: Id<"vaults">; userId: Id<"users"> },
 ): Promise<{
-  ownership: PhaseOneOwnershipContext;
+  ownership: OrganizationAccessContext;
   vault: Extract<Doc<"vaults">, { state: "connected" }>;
 }> {
   const vault = await ctx.db.get(args.vaultId);
   if (!isLiveConnectedVault(vault)) {
     throw new Error("Vault not found.");
   }
-  const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-  if (!hasPhaseOneUserOwnership(ownership, vault)) {
+  const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+  if (!hasOrganizationAccess(ownership, vault)) {
     throw new Error("Vault not found.");
   }
   return { ownership, vault };
@@ -108,7 +108,7 @@ async function requireActiveManagedProvisioning(
   if (
     !run ||
     run.vaultId !== args.vaultId ||
-    run.userId !== args.userId ||
+    run.requestedByUserId !== args.userId ||
     (run.trigger !== "create" && run.trigger !== "retry")
   ) {
     throw new Error("Managed provisioning run does not match vault.");
@@ -121,7 +121,7 @@ async function requireActiveManagedProvisioning(
   ) {
     throw new Error("Managed provisioning run no longer holds the write lock.");
   }
-  if (!plan || plan.userId !== args.userId) {
+  if (!plan) {
     throw new Error("Infrastructure provisioning plan not found for vault.");
   }
   return plan;
@@ -129,7 +129,7 @@ async function requireActiveManagedProvisioning(
 
 async function requireWorker(
   ctx: WorkerGraphReadCtx,
-  ownership: PhaseOneOwnershipContext,
+  ownership: OrganizationAccessContext,
   args: {
     vaultId: Id<"vaults">;
     userId: Id<"users">;
@@ -137,7 +137,7 @@ async function requireWorker(
   },
 ) {
   const worker = await ctx.db.get(args.workerId);
-  if (!worker || worker.vaultId !== args.vaultId || !hasPhaseOneUserOwnership(ownership, worker)) {
+  if (!worker || worker.vaultId !== args.vaultId || !hasOrganizationAccess(ownership, worker)) {
     throw new Error("Cloudflare Worker attachment not found.");
   }
   return worker;
@@ -145,7 +145,7 @@ async function requireWorker(
 
 async function requireConvexProject(
   ctx: WorkerGraphReadCtx,
-  ownership: PhaseOneOwnershipContext,
+  ownership: OrganizationAccessContext,
   args: {
     vaultId: Id<"vaults">;
     userId: Id<"users">;
@@ -153,11 +153,7 @@ async function requireConvexProject(
   },
 ) {
   const project = await ctx.db.get(args.convexProjectId);
-  if (
-    !project ||
-    project.vaultId !== args.vaultId ||
-    !hasPhaseOneUserOwnership(ownership, project)
-  ) {
+  if (!project || project.vaultId !== args.vaultId || !hasOrganizationAccess(ownership, project)) {
     throw new Error("Convex project attachment not found.");
   }
   return project;
@@ -171,7 +167,7 @@ async function readMatchingWorker(
     accountId: string;
     workerName: string;
     workerTag: string;
-    ownership: PhaseOneOwnershipContext;
+    ownership: OrganizationAccessContext;
   },
 ) {
   const [sameName, sameTag] = await Promise.all([
@@ -197,7 +193,7 @@ async function readMatchingWorker(
   }
   if (
     existing.vaultId === args.vaultId &&
-    hasPhaseOneUserOwnership(args.ownership, existing) &&
+    hasOrganizationAccess(args.ownership, existing) &&
     existing.accountId === args.accountId &&
     existing.workerName === args.workerName &&
     existing.workerTag === args.workerTag
@@ -210,7 +206,7 @@ async function readMatchingWorker(
 async function insertWorker(
   ctx: Pick<MutationCtx, "db">,
   access: {
-    ownership: PhaseOneOwnershipContext;
+    ownership: OrganizationAccessContext;
     vault: Extract<Doc<"vaults">, { state: "connected" }>;
   },
   args: {
@@ -223,18 +219,13 @@ async function insertWorker(
   },
 ): Promise<Id<"vaultCloudflareWorkers">> {
   const organizationId = access.vault.organizationId;
-  if (!organizationId) {
-    throw new Error("Vault organization is required.");
-  }
   const existing = await readMatchingWorker(ctx, { ...args, ownership: access.ownership });
   if (existing) {
-    if (existing.organizationId && existing.organizationId !== organizationId) {
+    if (existing.organizationId !== organizationId) {
       throw new Error("Cloudflare Worker organization does not match its vault.");
     }
     if (args.origin === "provisioned" && existing.origin !== "provisioned") {
-      await ctx.db.patch(existing._id, { organizationId, origin: "provisioned" });
-    } else if (!existing.organizationId) {
-      await ctx.db.patch(existing._id, { organizationId });
+      await ctx.db.patch(existing._id, { origin: "provisioned" });
     }
     return existing._id;
   }
@@ -246,7 +237,6 @@ async function insertWorker(
 
   return await ctx.db.insert("vaultCloudflareWorkers", {
     vaultId: args.vaultId,
-    userId: args.userId,
     organizationId,
     accountId: args.accountId,
     workerName: args.workerName,

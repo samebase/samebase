@@ -88,7 +88,7 @@ export const reserveAttempt = internalMutation({
       throw new Error("Checkout is unavailable.");
     }
 
-    const existing = readBillingAccountState(billing.target).polarCheckoutAttempt;
+    const existing = readBillingAccountState(billing.account).polarCheckoutAttempt;
     if (existing?.state === "open") {
       return existing;
     }
@@ -101,7 +101,7 @@ export const reserveAttempt = internalMutation({
     }
 
     const attemptId = `polar_checkout_${randomToken(18)}`;
-    await patchBillingAccount(ctx.db, billing.target, {
+    await patchBillingAccount(ctx.db, billing.account, {
       polarCheckoutAttempt: {
         state: "pending",
         attemptId,
@@ -120,13 +120,13 @@ export const clearPending = internalMutation({
   handler: async (ctx, args) => {
     const billing = await findBillingAccountForUser(ctx.db, args.userId);
     const attempt = billing
-      ? readBillingAccountState(billing.target).polarCheckoutAttempt
+      ? readBillingAccountState(billing.account).polarCheckoutAttempt
       : undefined;
     if (!billing || attempt?.state !== "pending" || attempt.attemptId !== args.attemptId) {
       return false;
     }
 
-    await patchBillingAccount(ctx.db, billing.target, { polarCheckoutAttempt: undefined });
+    await patchBillingAccount(ctx.db, billing.account, { polarCheckoutAttempt: undefined });
     return true;
   },
 });
@@ -143,7 +143,7 @@ export const recordOpen = internalMutation({
     if (!billing) {
       return false;
     }
-    const attempt = readBillingAccountState(billing.target).polarCheckoutAttempt;
+    const attempt = readBillingAccountState(billing.account).polarCheckoutAttempt;
     if (
       attempt?.attemptId !== args.attemptId ||
       (attempt.state === "open" && attempt.checkoutId !== args.checkoutId)
@@ -151,7 +151,7 @@ export const recordOpen = internalMutation({
       return false;
     }
 
-    await patchBillingAccount(ctx.db, billing.target, {
+    await patchBillingAccount(ctx.db, billing.account, {
       polarCheckoutAttempt: {
         state: "open",
         attemptId: args.attemptId,
@@ -172,7 +172,7 @@ export const clearOpen = internalMutation({
   handler: async (ctx, args) => {
     const billing = await findBillingAccountForUser(ctx.db, args.userId);
     const attempt = billing
-      ? readBillingAccountState(billing.target).polarCheckoutAttempt
+      ? readBillingAccountState(billing.account).polarCheckoutAttempt
       : undefined;
     if (
       !billing ||
@@ -183,7 +183,7 @@ export const clearOpen = internalMutation({
       return false;
     }
 
-    await patchBillingAccount(ctx.db, billing.target, { polarCheckoutAttempt: undefined });
+    await patchBillingAccount(ctx.db, billing.account, { polarCheckoutAttempt: undefined });
     return true;
   },
 });

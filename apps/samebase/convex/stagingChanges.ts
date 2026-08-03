@@ -3,7 +3,6 @@ export {
   hasStagedBinaryContentChange,
   hasStagedFileChanges,
   hasStagedFileContentChange,
-  readStagedFileKind,
   type StagedFileChangeCandidate,
   type StagedFileKind,
   type StagedFileStatus,

@@ -21,6 +21,7 @@ vi.mock("@polar-sh/sdk", () => ({
 
 import { internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
+import { INITIAL_ACCOUNT_DELETION_DATA_PROGRESS } from "./model";
 
 const workflowId = "account-deletion-workflow-1";
 
@@ -34,13 +35,25 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-async function seedUser(billingPolarExternalCustomerId?: string) {
+async function seedUser(polarExternalCustomerId?: string) {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       email: "test@example.invalid",
       isApproved: true,
-      billingPolarExternalCustomerId,
+    });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    const billingAccountId = await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      ...(polarExternalCustomerId === undefined
+        ? { plan: "free" as const, status: "inactive" as const }
+        : {
+            provider: "polar" as const,
+            plan: "pro" as const,
+            status: "active" as const,
+            polarExternalCustomerId,
+          }),
     });
     const initiatingSessionId = await ctx.db.insert("authSessions", {
       userId,
@@ -61,11 +74,12 @@ async function seedUser(billingPolarExternalCustomerId?: string) {
         providerRevocation: { state: "not_started" },
         completionEmail: { state: "not_started" },
       },
+      dataDeletion: INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
     });
     await ctx.db.patch(userId, {
       accountDeletion: { state: "deleting", runId, requestedAt: 1 },
     });
-    return { runId, userId };
+    return { billingAccountId, organizationId, runId, userId };
   });
   return { t, ...ids };
 }
@@ -145,12 +159,12 @@ describe("account deletion billing actions", () => {
   });
 
   it("fails closed when billing is active without a Polar customer identifier", async () => {
-    const { t, runId, userId } = await seedUser();
+    const { t, billingAccountId, runId } = await seedUser();
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        billingProvider: "polar",
-        billingPlan: "pro",
-        billingStatus: "active",
+      await ctx.db.patch(billingAccountId, {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
       });
     });
 
@@ -167,10 +181,10 @@ describe("account deletion billing actions", () => {
   });
 
   it("fails closed while a checkout is pending", async () => {
-    const { t, runId, userId } = await seedUser();
+    const { t, billingAccountId, runId } = await seedUser();
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        billingPolarCheckoutAttempt: {
+      await ctx.db.patch(billingAccountId, {
+        polarCheckoutAttempt: {
           state: "pending",
           attemptId: "polar_checkout_deletion_pending",
         },
@@ -192,10 +206,10 @@ describe("account deletion billing actions", () => {
   it("fails closed for an open checkout regardless of elapsed time", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2030-01-01T00:00:00.000Z"));
-    const { t, runId, userId } = await seedUser();
+    const { t, billingAccountId, runId } = await seedUser();
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        billingPolarCheckoutAttempt: {
+      await ctx.db.patch(billingAccountId, {
+        polarCheckoutAttempt: {
           state: "open",
           attemptId: "polar_checkout_deletion_open",
           checkoutId: "checkout-deletion-open",
@@ -227,24 +241,17 @@ describe("account deletion billing actions", () => {
   });
 
   it("preserves billing when another organization member remains", async () => {
-    const { t, runId, userId } = await seedUser("legacy-customer");
-    const billingAccountId = await t.run(async (ctx) => {
+    const { t, billingAccountId, organizationId, runId } = await seedUser("shared-customer");
+    await t.run(async (ctx) => {
       const remainingUserId = await ctx.db.insert("users", {
         email: "remaining@example.invalid",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
-      await ctx.db.insert("organizationMemberships", { organizationId, userId });
       await ctx.db.insert("organizationMemberships", {
         organizationId,
         userId: remainingUserId,
       });
-      return await ctx.db.insert("organizationBillingAccounts", {
-        organizationId,
-        provider: "polar",
-        plan: "pro",
-        status: "active",
-        polarExternalCustomerId: "shared-customer",
+      await ctx.db.patch(billingAccountId, {
         polarCheckoutAttempt: {
           state: "pending",
           attemptId: "shared-checkout",
@@ -262,19 +269,8 @@ describe("account deletion billing actions", () => {
     await expect(t.run(async (ctx) => await ctx.db.get(billingAccountId))).resolves.not.toBeNull();
   });
 
-  it("uses sole-member organization billing instead of legacy user billing", async () => {
-    const { t, runId, userId } = await seedUser("legacy-customer");
-    await t.run(async (ctx) => {
-      const organizationId = await ctx.db.insert("organizations", {});
-      await ctx.db.insert("organizationMemberships", { organizationId, userId });
-      await ctx.db.insert("organizationBillingAccounts", {
-        organizationId,
-        provider: "polar",
-        plan: "pro",
-        status: "active",
-        polarExternalCustomerId: "external-customer-test",
-      });
-    });
+  it("uses sole-member organization billing", async () => {
+    const { t, runId } = await seedUser("external-customer-test");
     configurePolar();
     polarSdkMocks.subscriptionsList.mockResolvedValue(subscriptionPages([]));
 
@@ -288,13 +284,9 @@ describe("account deletion billing actions", () => {
       externalCustomerId: "external-customer-test",
       limit: 100,
     });
-    expect(polarSdkMocks.subscriptionsList).not.toHaveBeenCalledWith({
-      externalCustomerId: "legacy-customer",
-      limit: 100,
-    });
   });
 
-  it("uses legacy user billing before membership backfill and revokes every subscription", async () => {
+  it("revokes every organization subscription", async () => {
     const { t, runId } = await seedUser("external-customer-test");
     configurePolar();
     polarSdkMocks.subscriptionsList

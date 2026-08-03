@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { makeConvexTest } from "../test.setup";
+import { INITIAL_ACCOUNT_DELETION_DATA_PROGRESS } from "./model";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 const workflowId = "account-deletion-workflow-1";
@@ -39,6 +40,7 @@ async function seedUser(
         providerRevocation: { state: "not_started" },
         completionEmail: { state: "not_started" },
       },
+      dataDeletion: INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
     });
     return { runId, userId };
   });

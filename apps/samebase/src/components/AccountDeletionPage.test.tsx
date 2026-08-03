@@ -16,6 +16,13 @@ const queryState = vi.hoisted<{
   status: null | AccountDeletionStatus;
 }>(() => ({ status: null }));
 
+const dataDeletionNotStarted = {
+  vaultsAndStagedChanges: { state: "not_started" },
+  preferences: { state: "not_started" },
+  appAccessAndTokens: { state: "not_started" },
+  accessRequestsAndHistory: { state: "not_started" },
+} as const satisfies AccountDeletionStatus["dataDeletion"];
+
 const dataDeletionInProgress = {
   vaultsAndStagedChanges: {
     state: "in_progress",
@@ -90,7 +97,7 @@ describe("AccountDeletionPage", () => {
     });
     queryState.status = {
       currentStep: "revoke_access",
-      dataDeletion: { state: "legacy_unavailable" },
+      dataDeletion: dataDeletionNotStarted,
       latestProgressAt: Date.UTC(2026, 6, 12, 12),
       state: "running",
     };
@@ -203,27 +210,6 @@ describe("AccountDeletionPage", () => {
       expect(vaults?.textContent).toContain("Stopped while deleting staged changes");
       expect(vaults?.querySelector(".animate-spin")).toBeNull();
       expect(vaults?.querySelector(".text-destructive")).not.toBeNull();
-    } finally {
-      await act(async () => mounted.root.unmount());
-      mounted.rootElement.remove();
-    }
-  });
-
-  it("keeps legacy data deletion on the coarse workflow step", async () => {
-    queryState.status = {
-      currentStep: "delete_samebase_data",
-      dataDeletion: { state: "legacy_unavailable" },
-      latestProgressAt: Date.UTC(2026, 6, 12, 12, 2),
-      state: "running",
-    };
-    const mounted = await renderPage();
-    try {
-      expect(mounted.rootElement.querySelector("[data-account-deletion-data-group]")).toBeNull();
-      expect(
-        mounted.rootElement
-          .querySelector('[data-account-deletion-step="delete_samebase_data"]')
-          ?.getAttribute("data-step-state"),
-      ).toBe("current");
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.rootElement.remove();

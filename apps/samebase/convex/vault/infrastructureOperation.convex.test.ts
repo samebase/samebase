@@ -22,13 +22,15 @@ async function createConnectedVault() {
       email: "ada@example.com",
       isApproved: true,
     });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
     const vaultId = await ctx.db.insert("vaults", {
-      userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId,
+      requestedByUserId: userId,
       vaultId,
       repositoryFullName: "ada/manual-provider-write",
       trigger: "connect_existing_repository",
@@ -39,7 +41,7 @@ async function createConnectedVault() {
       completedAt: 20,
     });
     await ctx.db.replace(vaultId, {
-      userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "connect_existing_repository",
@@ -149,6 +151,7 @@ describe("manual provider write ownership", () => {
       await expect(readProviderWrite(t, ids.vaultId)).resolves.toMatchObject({
         owner: {
           kind: "manual_provider_write",
+          requestedByUserId: ids.userId,
           actionId: "first-action",
           action: "create_convex_project",
           expiresAt: 1_000 + MANUAL_PROVIDER_WRITE_EXPIRY_MS,

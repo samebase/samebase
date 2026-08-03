@@ -2,7 +2,7 @@ import { v, type Infer } from "convex/values";
 import { internal } from "../../_generated/api";
 import { internalMutation, type MutationCtx } from "../../_generated/server";
 import type { Id } from "../../_generated/dataModel";
-import { hasPhaseOneUserOwnership, readPhaseOneOwnershipContext } from "../../phaseOneOwnership";
+import { hasOrganizationAccess, requireOrganizationAccessContext } from "../../organizationAccess";
 import { vVaultDeletionCleanupStep, type VaultDeletionCleanupStep } from "./model";
 
 const { id, literal, number, object, union } = v;
@@ -77,7 +77,6 @@ export const VAULT_LOCAL_CLEANUP_BATCH_SIZE = 50;
 type VaultLocalCleanupCtx = Pick<MutationCtx, "db" | "storage">;
 type VaultLocalCleanupArgs = {
   vaultId: Id<"vaults">;
-  userId: Id<"users">;
 };
 type VaultLocalCleanupHandler = (
   ctx: VaultLocalCleanupCtx,
@@ -346,16 +345,15 @@ export async function deleteVaultLifecycleDataBatchForVault(
   };
 }
 
-export async function deleteVaultLocalDataBatchForUser(
+export async function deleteVaultLocalDataBatchForOrganization(
   ctx: VaultLocalCleanupCtx,
-  args: VaultLocalCleanupArgs,
+  args: { organizationId: Id<"organizations">; vaultId: Id<"vaults"> },
 ): Promise<VaultLocalCleanupBatchResult> {
   const vault = await ctx.db.get(args.vaultId);
   if (!vault) {
     return { state: "deleted" };
   }
-  const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-  if (!hasPhaseOneUserOwnership(ownership, vault)) {
+  if (vault.organizationId !== args.organizationId) {
     throw new Error("Vault not found");
   }
 
@@ -383,6 +381,17 @@ export async function deleteVaultLocalDataBatchForUser(
   return { state: "deleted" };
 }
 
+export async function deleteVaultLocalDataBatchForUser(
+  ctx: VaultLocalCleanupCtx,
+  args: { userId: Id<"users">; vaultId: Id<"vaults"> },
+): Promise<VaultLocalCleanupBatchResult> {
+  const access = await requireOrganizationAccessContext(ctx.db, args.userId);
+  return await deleteVaultLocalDataBatchForOrganization(ctx, {
+    organizationId: access.organizationId,
+    vaultId: args.vaultId,
+  });
+}
+
 export const deleteVaultLocalDataBatch = internalMutation({
   args: {
     vaultId: id("vaults"),
@@ -406,8 +415,8 @@ export const cleanupVaultLocalDataStepBatch = internalMutation({
       return { state: "done" };
     }
 
-    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-    if (!hasPhaseOneUserOwnership(ownership, vault)) {
+    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found");
     }
 
@@ -444,8 +453,8 @@ export const deleteVaultRow = internalMutation({
     if (!vault) {
       return null;
     }
-    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-    if (!hasPhaseOneUserOwnership(ownership, vault)) {
+    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found");
     }
 

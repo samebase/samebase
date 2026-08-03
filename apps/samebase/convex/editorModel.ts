@@ -9,10 +9,9 @@ export const vaultEditorTables = {
    * including edits, renames, deletions, and binary uploads.
    */
   vaultStagedFiles: defineTable({
-    ownerId: id("users"),
     vaultId: id("vaults"),
     fileDeleted: boolean(),
-    kind: optional(union(literal("text"), literal("binary"))),
+    kind: union(literal("text"), literal("binary")),
     filePath: string(),
     initialFilePath: string(),
     content: string(),
@@ -28,15 +27,12 @@ export const vaultEditorTables = {
     branch: string(),
     version: number(),
   })
-    .index("by_vault_and_path", ["vaultId", "filePath"])
     .index("by_vault_and_branch_and_path", ["vaultId", "branch", "filePath"])
-    .index("by_vault_and_initial_path", ["vaultId", "initialFilePath"])
     .index("by_vault_and_branch", ["vaultId", "branch"])
     .index("by_vault_and_branch_and_initial_path", ["vaultId", "branch", "initialFilePath"])
     .index("by_vault", ["vaultId"])
     .index("by_vault_and_storageId", ["vaultId", "storageId"])
-    .index("by_storageId", ["storageId"])
-    .index("by_user", ["lastEditUserId"]),
+    .index("by_storageId", ["storageId"]),
 
   /** Git blob contents observed by SHA and cached inline or in Convex storage. */
   observations_vaultFiles_blobs: defineTable({
@@ -61,28 +57,24 @@ export const vaultEditorTables = {
     isExpanded: boolean(),
   })
     .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
     .index("by_user_and_vault", ["userId", "vaultId"])
     .index("by_user_vault_and_path", ["userId", "vaultId", "folderPath"]),
 
   /** Versioned file edits that other clients pull to synchronize one staged document. */
   vaultStagedFileUpdates: defineTable({
     vaultId: id("vaults"),
-    branch: optional(string()),
+    branch: string(),
     filePath: string(),
     version: number(),
     clientId: string(),
     changes: string(),
-    userId: id("users"),
-    editUserId: optional(id("users")),
+    editUserId: id("users"),
     timestamp: number(),
   })
     .index("by_vault", ["vaultId"])
     .index("by_vault_and_timestamp", ["vaultId", "timestamp"])
-    .index("by_file", ["vaultId", "filePath"])
-    .index("by_file_and_version", ["vaultId", "filePath", "version"])
-    .index("by_vaultId_and_branch", ["vaultId", "branch"])
     .index("by_vaultId_and_branch_and_timestamp", ["vaultId", "branch", "timestamp"])
-    .index("by_vaultId_and_branch_and_filePath", ["vaultId", "branch", "filePath"])
     .index("by_vaultId_and_branch_and_filePath_and_version", [
       "vaultId",
       "branch",

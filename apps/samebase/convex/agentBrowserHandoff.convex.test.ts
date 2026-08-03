@@ -20,6 +20,8 @@ async function seedGrant(args?: { approved?: boolean; scope?: string }) {
       isApproved: args?.approved ?? true,
       name: "Handoff User",
     });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
     await ctx.db.insert("mcpOauthClients", {
       clientId,
       clientName: "Test MCP client",
@@ -36,6 +38,7 @@ async function seedGrant(args?: { approved?: boolean; scope?: string }) {
     await ctx.db.insert("mcpGrants", {
       grantId,
       userId,
+      organizationId,
       clientId,
       resource,
       scope: args?.scope ?? ACCESS_BROWSER_LOGIN_HANDOFF,
@@ -43,15 +46,16 @@ async function seedGrant(args?: { approved?: boolean; scope?: string }) {
       createdAt: now,
       updatedAt: now,
     });
-    return { userId };
+    return { organizationId, userId };
   });
   return { t, ids };
 }
 
-async function createHandoff(userId: Id<"users">) {
+async function createHandoff(ids: { userId: Id<"users">; organizationId: Id<"organizations"> }) {
   return {
     tokenHash: await sha256Hex(token),
-    userId,
+    userId: ids.userId,
+    organizationId: ids.organizationId,
     grantId,
     clientId,
     createdAt: now,
@@ -62,7 +66,7 @@ async function createHandoff(userId: Id<"users">) {
 describe("agent browser handoff lifecycle", () => {
   it("creates and consumes a one-time handoff for the MCP grant user", async () => {
     const { ids, t } = await seedGrant();
-    const createArgs = await createHandoff(ids.userId);
+    const createArgs = await createHandoff(ids);
 
     await expect(
       t.mutation(internal.agentBrowserHandoff.createForMcp, createArgs),
@@ -106,7 +110,6 @@ describe("agent browser handoff lifecycle", () => {
     });
 
     expect(snapshot.handoff?.consumedAt).toBe(now + 1);
-    expect(snapshot.handoff).not.toHaveProperty("returnToPath");
     const creationAudit = snapshot.audits.find(
       (audit) => audit.action === "agent_browser_handoff_created",
     );
@@ -121,7 +124,7 @@ describe("agent browser handoff lifecycle", () => {
     const { ids, t } = await seedGrant({ scope: "access_dashboard" });
 
     await expect(
-      t.mutation(internal.agentBrowserHandoff.createForMcp, await createHandoff(ids.userId)),
+      t.mutation(internal.agentBrowserHandoff.createForMcp, await createHandoff(ids)),
     ).resolves.toEqual({
       ok: false,
       reason: "scope_missing",
@@ -131,17 +134,15 @@ describe("agent browser handoff lifecycle", () => {
   it("keeps handoffs bound to the exact grant user and prepared organization", async () => {
     const { ids, t } = await seedGrant();
     const prepared = await t.run(async (ctx) => {
-      const organizationId = await ctx.db.insert("organizations", {});
       const otherOrganizationId = await ctx.db.insert("organizations", {});
       const otherUserId = await ctx.db.insert("users", {
         email: "other-handoff-user@example.test",
         isApproved: true,
       });
       await ctx.db.insert("organizationMemberships", {
-        organizationId,
-        userId: ids.userId,
+        organizationId: ids.organizationId,
+        userId: otherUserId,
       });
-      await ctx.db.insert("organizationMemberships", { organizationId, userId: otherUserId });
       const grant = await ctx.db
         .query("mcpGrants")
         .withIndex("by_grant_id", (query) => query.eq("grantId", grantId))
@@ -149,13 +150,13 @@ describe("agent browser handoff lifecycle", () => {
       if (!grant) {
         throw new Error("Expected seeded grant.");
       }
-      return { grantId: grant._id, organizationId, otherOrganizationId, otherUserId };
+      return { grantId: grant._id, otherOrganizationId, otherUserId };
     });
 
     await expect(
       t.mutation(internal.agentBrowserHandoff.createForMcp, {
-        ...(await createHandoff(ids.userId)),
-        tokenHash: "legacy_grant_handoff_hash",
+        ...(await createHandoff(ids)),
+        tokenHash: "organization_grant_handoff_hash",
       }),
     ).resolves.toEqual({ ok: true });
 
@@ -164,15 +165,19 @@ describe("agent browser handoff lifecycle", () => {
     });
     await expect(
       t.mutation(internal.agentBrowserHandoff.createForMcp, {
-        ...(await createHandoff(ids.userId)),
+        ...(await createHandoff(ids)),
         tokenHash: "wrong_organization_handoff_hash",
       }),
     ).resolves.toEqual({ ok: false, reason: "grant_mismatch" });
 
     await t.run(async (ctx) => {
       await ctx.db.insert("mcpBrowserLoginTokens", {
-        ...(await createHandoff(ids.userId)),
         tokenHash: "wrong_organization_redeem_hash",
+        userId: ids.userId,
+        grantId,
+        clientId,
+        createdAt: now,
+        expiresAt: now + 60_000,
       });
     });
     await expect(
@@ -183,12 +188,15 @@ describe("agent browser handoff lifecycle", () => {
     ).resolves.toEqual({ ok: false, reason: "grant_mismatch" });
 
     await t.run(async (ctx) => {
-      await ctx.db.patch(prepared.grantId, { organizationId: prepared.organizationId });
+      await ctx.db.patch(prepared.grantId, { organizationId: ids.organizationId });
     });
     await expect(
       t.mutation(
         internal.agentBrowserHandoff.createForMcp,
-        await createHandoff(prepared.otherUserId),
+        await createHandoff({
+          userId: prepared.otherUserId,
+          organizationId: ids.organizationId,
+        }),
       ),
     ).resolves.toEqual({ ok: false, reason: "grant_mismatch" });
   });
@@ -199,7 +207,7 @@ describe("agent browser handoff lifecycle", () => {
     for (let index = 0; index < 10; index += 1) {
       await expect(
         t.mutation(internal.agentBrowserHandoff.createForMcp, {
-          ...(await createHandoff(ids.userId)),
+          ...(await createHandoff(ids)),
           tokenHash: `handoff_hash_${index}`,
         }),
       ).resolves.toEqual({ ok: true });
@@ -207,7 +215,7 @@ describe("agent browser handoff lifecycle", () => {
 
     await expect(
       t.mutation(internal.agentBrowserHandoff.createForMcp, {
-        ...(await createHandoff(ids.userId)),
+        ...(await createHandoff(ids)),
         tokenHash: "handoff_hash_rate_limited",
       }),
     ).resolves.toEqual({
@@ -217,7 +225,7 @@ describe("agent browser handoff lifecycle", () => {
 
     await expect(
       t.mutation(internal.agentBrowserHandoff.createForMcp, {
-        ...(await createHandoff(ids.userId)),
+        ...(await createHandoff(ids)),
         tokenHash: "handoff_hash_next_window",
         createdAt: now + 5 * 60_000,
         expiresAt: now + 6 * 60_000,
@@ -245,7 +253,7 @@ describe("agent browser handoff lifecycle", () => {
 
   it("rejects an expired handoff token", async () => {
     const { ids, t } = await seedGrant();
-    const createArgs = await createHandoff(ids.userId);
+    const createArgs = await createHandoff(ids);
 
     await expect(
       t.mutation(internal.agentBrowserHandoff.createForMcp, createArgs),
@@ -285,7 +293,7 @@ describe("agent browser handoff lifecycle", () => {
 
   it("deletes an expired handoff when its cleanup job runs", async () => {
     const { ids, t } = await seedGrant();
-    const createArgs = await createHandoff(ids.userId);
+    const createArgs = await createHandoff(ids);
 
     await expect(
       t.mutation(internal.agentBrowserHandoff.createForMcp, createArgs),
@@ -326,7 +334,7 @@ describe("agent browser handoff lifecycle", () => {
         isApproved: true,
       });
     });
-    const createArgs = await createHandoff(ids.userId);
+    const createArgs = await createHandoff(ids);
 
     await expect(
       t.mutation(internal.agentBrowserHandoff.createForMcp, createArgs),
@@ -362,7 +370,7 @@ describe("agent browser handoff lifecycle", () => {
         expirationTime: now + 60_000,
       });
     });
-    const createArgs = await createHandoff(ids.userId);
+    const createArgs = await createHandoff(ids);
 
     await expect(
       t.mutation(internal.agentBrowserHandoff.createForMcp, createArgs),

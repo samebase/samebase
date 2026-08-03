@@ -16,18 +16,24 @@ type RunningAccountDeletionRun = Extract<
   { state: "running" }
 >;
 
-export type AccountDeletionOrganization =
-  | { kind: "legacy_user" }
-  | {
-      kind: "organization";
-      membershipId: Id<"organizationMemberships">;
-      organizationId: Id<"organizations">;
-      membershipState: "sole" | "shared";
-    };
+export type AccountDeletionOrganization = {
+  membershipId: Id<"organizationMemberships">;
+  organizationId: Id<"organizations">;
+  membershipState: "sole" | "shared";
+};
 
 export type AccountDeletionBilling =
-  | { kind: "preserve_organization"; user: Doc<"users"> }
-  | { kind: "cancel"; state: BillingAccountState; user: Doc<"users"> };
+  | {
+      kind: "preserve_organization";
+      organizationId: Id<"organizations">;
+      user: Doc<"users">;
+    }
+  | {
+      kind: "cancel";
+      organizationId: Id<"organizations">;
+      state: BillingAccountState;
+      user: Doc<"users">;
+    };
 
 export async function readAccountDeletionOrganization(
   db: DatabaseReader,
@@ -39,12 +45,14 @@ export async function readAccountDeletionOrganization(
     .unique();
 
   if (membership === null) {
-    return { kind: "legacy_user" };
+    throw new Error("Organization membership is required.");
   }
 
   const memberships = await db
     .query("organizationMemberships")
-    .withIndex("by_organization", (query) => query.eq("organizationId", membership.organizationId))
+    .withIndex("by_organization_and_user", (query) =>
+      query.eq("organizationId", membership.organizationId),
+    )
     .take(2);
 
   if (memberships.length === 0) {
@@ -56,7 +64,6 @@ export async function readAccountDeletionOrganization(
   }
 
   return {
-    kind: "organization",
     membershipId: membership._id,
     organizationId: membership.organizationId,
     membershipState: memberships.length === 1 ? "sole" : "shared",
@@ -74,20 +81,22 @@ export async function readAccountDeletionBilling(
     return null;
   }
 
-  if (
-    (organization.kind === "legacy_user" && billing.target.kind !== "legacy_user") ||
-    (organization.kind === "organization" && billing.target.kind !== "organization")
-  ) {
+  if (billing.account.organizationId !== organization.organizationId) {
     throw new Error("Account deletion billing ownership is inconsistent.");
   }
 
-  if (organization.kind === "organization" && organization.membershipState === "shared") {
-    return { kind: "preserve_organization", user: billing.user };
+  if (organization.membershipState === "shared") {
+    return {
+      kind: "preserve_organization",
+      organizationId: organization.organizationId,
+      user: billing.user,
+    };
   }
 
   return {
     kind: "cancel",
-    state: readBillingAccountState(billing.target),
+    organizationId: organization.organizationId,
+    state: readBillingAccountState(billing.account),
     user: billing.user,
   };
 }

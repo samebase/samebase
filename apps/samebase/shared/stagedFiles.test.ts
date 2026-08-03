@@ -4,6 +4,7 @@ import { hasStagedFileChanges } from "./stagedFiles";
 
 describe("hasStagedFileChanges", () => {
   const unchanged = {
+    kind: "text" as const,
     fileDeleted: false,
     parentCommitSha: "sha-1",
     filePath: "src/app.ts",

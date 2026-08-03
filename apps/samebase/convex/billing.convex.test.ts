@@ -29,6 +29,28 @@ import type { Id } from "./_generated/dataModel";
 import { makeConvexTest } from "./test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
+const billingAccountsByTest = new WeakMap<
+  ConvexTest,
+  Map<Id<"users">, Id<"organizationBillingAccounts">>
+>();
+
+function rememberBillingAccount(
+  t: ConvexTest,
+  userId: Id<"users">,
+  billingAccountId: Id<"organizationBillingAccounts">,
+): void {
+  const accounts = billingAccountsByTest.get(t) ?? new Map();
+  accounts.set(userId, billingAccountId);
+  billingAccountsByTest.set(t, accounts);
+}
+
+function billingAccountIdFor(t: ConvexTest, userId: Id<"users">) {
+  const billingAccountId = billingAccountsByTest.get(t)?.get(userId);
+  if (billingAccountId === undefined) {
+    throw new Error("Expected an organization billing account.");
+  }
+  return billingAccountId;
+}
 type CheckoutAttempt =
   | { state: "pending"; attemptId: string }
   | { state: "open"; attemptId: string; checkoutId: string };
@@ -134,17 +156,27 @@ function asUser(t: ConvexTest, userId: Id<"users">) {
 }
 
 async function seedMember(t: ConvexTest, isApproved = true) {
-  return await t.run(async (ctx) => {
-    return await ctx.db.insert("users", {
+  const ids = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", {
       name: "Ada",
       email: "ada.member@example.test",
       isApproved,
     });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    const billingAccountId = await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      plan: "free",
+      status: "inactive",
+    });
+    return { billingAccountId, userId };
   });
+  rememberBillingAccount(t, ids.userId, ids.billingAccountId);
+  return ids.userId;
 }
 
 async function seedOrganizationMembers(t: ConvexTest) {
-  return await t.run(async (ctx) => {
+  const ids = await t.run(async (ctx) => {
     const firstUserId = await ctx.db.insert("users", {
       name: "Ada",
       email: "ada.organization@example.test",
@@ -167,14 +199,17 @@ async function seedOrganizationMembers(t: ConvexTest) {
     });
     return { billingAccountId, firstUserId, organizationId, secondUserId };
   });
+  rememberBillingAccount(t, ids.firstUserId, ids.billingAccountId);
+  rememberBillingAccount(t, ids.secondUserId, ids.billingAccountId);
+  return ids;
 }
 
 async function seedCheckoutAttempt(t: ConvexTest, attempt: CheckoutAttempt) {
   const userId = await seedMember(t);
   await t.run(async (ctx) => {
-    await ctx.db.patch(userId, {
-      billingPolarExternalCustomerId: externalCustomerId,
-      billingPolarCheckoutAttempt: attempt,
+    await ctx.db.patch(billingAccountIdFor(t, userId), {
+      polarExternalCustomerId: externalCustomerId,
+      polarCheckoutAttempt: attempt,
     });
   });
   return userId;
@@ -182,7 +217,7 @@ async function seedCheckoutAttempt(t: ConvexTest, attempt: CheckoutAttempt) {
 
 async function readCheckoutAttempt(t: ConvexTest, userId: Id<"users">) {
   return await t.run(
-    async (ctx) => (await ctx.db.get(userId))?.billingPolarCheckoutAttempt ?? null,
+    async (ctx) => (await ctx.db.get(billingAccountIdFor(t, userId)))?.polarCheckoutAttempt ?? null,
   );
 }
 
@@ -241,13 +276,6 @@ describe("billing access", () => {
   it("uses one organization billing account for every member", async () => {
     const t = makeConvexTest();
     const { billingAccountId, firstUserId, secondUserId } = await seedOrganizationMembers(t);
-    await t.run(async (ctx) => {
-      await ctx.db.patch(firstUserId, {
-        billingProvider: "polar",
-        billingPlan: "pro",
-        billingStatus: "active",
-      });
-    });
 
     const freeBilling = {
       plan: "free",
@@ -280,22 +308,19 @@ describe("billing access", () => {
     await expect(
       asUser(t, secondUserId).query(api.billing.getViewerBillingStatus, {}),
     ).resolves.toEqual(proBilling);
-
-    const firstUser = await t.run(async (ctx) => await ctx.db.get(firstUserId));
-    expect(firstUser).toMatchObject({ billingPlan: "pro", billingStatus: "active" });
   });
 
-  it("does not use legacy billing after organization membership exists", async () => {
+  it("fails clearly when organization billing is missing", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
-    await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        billingProvider: "polar",
-        billingPlan: "pro",
-        billingStatus: "active",
+    const userId = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada.missing-billing@example.test",
+        isApproved: true,
       });
       const organizationId = await ctx.db.insert("organizations", {});
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      return userId;
     });
 
     await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).rejects.toThrow(
@@ -332,28 +357,22 @@ describe("billing access", () => {
     ).resolves.toEqual({ url: "https://sandbox.polar.sh/checkout/organization-current" });
 
     expect(polarSdkMocks.checkoutsCreate).toHaveBeenCalledOnce();
-    const stored = await t.run(async (ctx) => ({
-      billingAccount: await ctx.db.get(billingAccountId),
-      firstUser: await ctx.db.get(firstUserId),
-      secondUser: await ctx.db.get(secondUserId),
-    }));
-    expect(stored.billingAccount?.polarExternalCustomerId).toMatch(/^samebase_/);
-    expect(stored.billingAccount?.polarCheckoutAttempt).toEqual({
+    const billingAccount = await t.run(async (ctx) => await ctx.db.get(billingAccountId));
+    expect(billingAccount?.polarExternalCustomerId).toMatch(/^samebase_/);
+    expect(billingAccount?.polarCheckoutAttempt).toEqual({
       state: "open",
       attemptId: expect.stringMatching(/^polar_checkout_/),
       checkoutId: "checkout-organization",
     });
-    expect(stored.firstUser?.billingPolarExternalCustomerId).toBeUndefined();
-    expect(stored.firstUser?.billingPolarCheckoutAttempt).toBeUndefined();
-    expect(stored.secondUser?.billingPolarExternalCustomerId).toBeUndefined();
-    expect(stored.secondUser?.billingPolarCheckoutAttempt).toBeUndefined();
   });
 
   it("blocks pending members from checkout but lets them manage existing billing", async () => {
     const t = makeConvexTest();
     const userId = await seedMember(t, false);
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, { billingPolarExternalCustomerId: "pending-customer" });
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        polarExternalCustomerId: "pending-customer",
+      });
     });
     configureSandboxBilling();
     polarSdkMocks.customerSessionsCreate.mockResolvedValue({
@@ -433,15 +452,17 @@ describe("billing access", () => {
       },
     });
 
-    const user = await t.run(async (ctx) => await ctx.db.get(userId));
-    expect(user?.billingPolarExternalCustomerId).toMatch(/^samebase_/);
+    const user = await t.run(async (ctx) => await ctx.db.get(billingAccountIdFor(t, userId)));
+    expect(user?.polarExternalCustomerId).toMatch(/^samebase_/);
   });
 
   it("reuses the stored open checkout for repeated requests", async () => {
     const t = makeConvexTest();
     const userId = await seedMember(t);
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        polarExternalCustomerId: "existing-customer",
+      });
     });
     configureSandboxBilling();
     polarSdkMocks.checkoutsCreate.mockImplementation((request) => {
@@ -471,8 +492,8 @@ describe("billing access", () => {
 
     expect(polarSdkMocks.checkoutsCreate).toHaveBeenCalledOnce();
     expect(polarSdkMocks.checkoutsGet).toHaveBeenCalledWith({ id: "checkout-reused" });
-    const user = await t.run(async (ctx) => await ctx.db.get(userId));
-    expect(user?.billingPolarCheckoutAttempt).toEqual({
+    const user = await t.run(async (ctx) => await ctx.db.get(billingAccountIdFor(t, userId)));
+    expect(user?.polarCheckoutAttempt).toEqual({
       state: "open",
       attemptId: expect.stringMatching(/^polar_checkout_/),
       checkoutId: "checkout-reused",
@@ -484,9 +505,9 @@ describe("billing access", () => {
     const userId = await seedMember(t);
     const attemptId = "polar_checkout_stored_customer";
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        billingPolarExternalCustomerId: "existing-customer",
-        billingPolarCheckoutAttempt: {
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        polarExternalCustomerId: "existing-customer",
+        polarCheckoutAttempt: {
           state: "open",
           attemptId,
           checkoutId: "checkout-stored-customer",
@@ -517,9 +538,9 @@ describe("billing access", () => {
     const userId = await seedMember(t);
     const attemptId = "polar_checkout_stored_product";
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        billingPolarExternalCustomerId: "existing-customer",
-        billingPolarCheckoutAttempt: {
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        polarExternalCustomerId: "existing-customer",
+        polarCheckoutAttempt: {
           state: "open",
           attemptId,
           checkoutId: "checkout-stored-product",
@@ -563,9 +584,9 @@ describe("billing access", () => {
     const userId = await seedMember(t);
     const attemptId = "polar_checkout_stored_redirect";
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        billingPolarExternalCustomerId: "existing-customer",
-        billingPolarCheckoutAttempt: {
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        polarExternalCustomerId: "existing-customer",
+        polarCheckoutAttempt: {
           state: "open",
           attemptId,
           checkoutId: "checkout-stored-redirect",
@@ -596,9 +617,9 @@ describe("billing access", () => {
     const userId = await seedMember(t);
     const attemptId = "polar_checkout_stored_expired";
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        billingPolarExternalCustomerId: "existing-customer",
-        billingPolarCheckoutAttempt: {
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        polarExternalCustomerId: "existing-customer",
+        polarCheckoutAttempt: {
           state: "open",
           attemptId,
           checkoutId: "checkout-stored-expired",
@@ -640,9 +661,9 @@ describe("billing access", () => {
       checkoutId: "checkout-unknown-status",
     };
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        billingPolarExternalCustomerId: "existing-customer",
-        billingPolarCheckoutAttempt: checkoutAttempt,
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        polarExternalCustomerId: "existing-customer",
+        polarCheckoutAttempt: checkoutAttempt,
       });
     });
     configureSandboxBilling();
@@ -655,7 +676,9 @@ describe("billing access", () => {
       }),
     ).rejects.toThrow("Samebase could not verify your open checkout.");
     await expect(
-      t.run(async (ctx) => (await ctx.db.get(userId))?.billingPolarCheckoutAttempt),
+      t.run(
+        async (ctx) => (await ctx.db.get(billingAccountIdFor(t, userId)))?.polarCheckoutAttempt,
+      ),
     ).resolves.toEqual(checkoutAttempt);
     expect(polarSdkMocks.checkoutsCreate).not.toHaveBeenCalled();
   });
@@ -664,7 +687,9 @@ describe("billing access", () => {
     const t = makeConvexTest();
     const userId = await seedMember(t);
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        polarExternalCustomerId: "existing-customer",
+      });
     });
     configureSandboxBilling();
     const createGate = createDeferred<ReturnType<typeof polarCheckout>>();
@@ -699,7 +724,9 @@ describe("billing access", () => {
     const t = makeConvexTest();
     const userId = await seedMember(t);
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        polarExternalCustomerId: "existing-customer",
+      });
     });
     configureSandboxBilling();
     polarSdkMocks.checkoutsCreate
@@ -730,7 +757,9 @@ describe("billing access", () => {
     const t = makeConvexTest();
     const userId = await seedMember(t);
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        polarExternalCustomerId: "existing-customer",
+      });
     });
     configureSandboxBilling();
     polarSdkMocks.checkoutsCreate.mockRejectedValue(
@@ -746,7 +775,7 @@ describe("billing access", () => {
       "Polar checkout could not be started.",
     );
     const firstAttempt = await t.run(
-      async (ctx) => (await ctx.db.get(userId))?.billingPolarCheckoutAttempt,
+      async (ctx) => (await ctx.db.get(billingAccountIdFor(t, userId)))?.polarCheckoutAttempt,
     );
     expect(firstAttempt).toEqual({
       state: "pending",
@@ -757,7 +786,9 @@ describe("billing access", () => {
       "The previous checkout result must be inspected before another can start.",
     );
     await expect(
-      t.run(async (ctx) => (await ctx.db.get(userId))?.billingPolarCheckoutAttempt),
+      t.run(
+        async (ctx) => (await ctx.db.get(billingAccountIdFor(t, userId)))?.polarCheckoutAttempt,
+      ),
     ).resolves.toEqual(firstAttempt);
     expect(polarSdkMocks.checkoutsCreate).toHaveBeenCalledOnce();
   });
@@ -766,7 +797,9 @@ describe("billing access", () => {
     const t = makeConvexTest();
     const userId = await seedMember(t);
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        polarExternalCustomerId: "existing-customer",
+      });
     });
     configureSandboxBilling();
     polarSdkMocks.checkoutsCreate.mockImplementation((request) =>
@@ -786,7 +819,7 @@ describe("billing access", () => {
       "Samebase could not verify your open checkout.",
     );
     const attempt = await t.run(
-      async (ctx) => (await ctx.db.get(userId))?.billingPolarCheckoutAttempt,
+      async (ctx) => (await ctx.db.get(billingAccountIdFor(t, userId)))?.polarCheckoutAttempt,
     );
     expect(attempt).toEqual({
       state: "pending",
@@ -829,7 +862,9 @@ describe("billing access", () => {
     const t = makeConvexTest();
     const userId = await seedMember(t);
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        polarExternalCustomerId: "existing-customer",
+      });
     });
     configureSandboxBilling();
     polarSdkMocks.checkoutsCreate.mockImplementation((request) =>
@@ -860,7 +895,9 @@ describe("billing access", () => {
       const t = makeConvexTest();
       const userId = await seedMember(t);
       await t.run(async (ctx) => {
-        await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
+        await ctx.db.patch(billingAccountIdFor(t, userId), {
+          polarExternalCustomerId: "existing-customer",
+        });
       });
       configureSandboxBilling();
       polarSdkMocks.subscriptionsList.mockResolvedValue(
@@ -900,7 +937,9 @@ describe("billing access", () => {
     const t = makeConvexTest();
     const userId = await seedMember(t);
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        polarExternalCustomerId: "existing-customer",
+      });
     });
     configureSandboxBilling();
     polarSdkMocks.customerSessionsCreate.mockResolvedValue({
@@ -926,7 +965,9 @@ describe("billing reconciliation", () => {
     const t = makeConvexTest();
     const userId = await seedMember(t);
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        polarExternalCustomerId: "existing-customer",
+      });
     });
     configureSandboxBilling();
     const firstRead = createDeferred<ReturnType<typeof subscriptionPage>>();
@@ -947,9 +988,9 @@ describe("billing reconciliation", () => {
     );
     await expect(earlierReconciliation).resolves.toEqual({ state: "observed", plan: "pro" });
 
-    const user = await t.run(async (ctx) => await ctx.db.get(userId));
-    expect(user?.billingPolarObservationRevision).toBe(2);
-    expect(user?.billingPolarAppliedObservationRevision).toBe(1);
+    const user = await t.run(async (ctx) => await ctx.db.get(billingAccountIdFor(t, userId)));
+    expect(user?.polarObservationRevision).toBe(2);
+    expect(user?.polarAppliedObservationRevision).toBe(1);
     await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
       provider: "polar",
       plan: "pro",
@@ -964,7 +1005,9 @@ describe("billing reconciliation", () => {
     const t = makeConvexTest();
     const userId = await seedMember(t);
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        polarExternalCustomerId: "existing-customer",
+      });
     });
     configureSandboxBilling();
     const firstRead = createDeferred<ReturnType<typeof subscriptionPage>>();
@@ -998,7 +1041,9 @@ describe("billing reconciliation", () => {
     const t = makeConvexTest();
     const userId = await seedMember(t);
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, { billingPolarExternalCustomerId: "existing-customer" });
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        polarExternalCustomerId: "existing-customer",
+      });
     });
     configureSandboxBilling();
     polarSdkMocks.subscriptionsList.mockResolvedValue(
@@ -1024,13 +1069,13 @@ describe("billing reconciliation", () => {
     const t = makeConvexTest();
     const userId = await seedMember(t);
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        billingProvider: "polar",
-        billingPlan: "pro",
-        billingStatus: "active",
-        billingCurrentPeriodEndAt: Date.parse(currentPeriodEnd),
-        billingCancelAtPeriodEnd: true,
-        billingPolarExternalCustomerId: "existing-customer",
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        currentPeriodEndAt: Date.parse(currentPeriodEnd),
+        cancelAtPeriodEnd: true,
+        polarExternalCustomerId: "existing-customer",
       });
     });
     configureSandboxBilling();
@@ -1118,13 +1163,13 @@ describe("billing reconciliation", () => {
     const t = makeConvexTest();
     const userId = await seedMember(t);
     await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        billingProvider: "polar",
-        billingPlan: "pro",
-        billingStatus: "active",
-        billingCurrentPeriodEndAt: Date.parse(currentPeriodEnd),
-        billingCancelAtPeriodEnd: false,
-        billingPolarExternalCustomerId: "existing-customer",
+      await ctx.db.patch(billingAccountIdFor(t, userId), {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        currentPeriodEndAt: Date.parse(currentPeriodEnd),
+        cancelAtPeriodEnd: false,
+        polarExternalCustomerId: "existing-customer",
       });
     });
     configureSandboxBilling();

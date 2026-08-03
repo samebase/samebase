@@ -11,7 +11,7 @@ import {
 import { readVaultInfrastructureState } from "./vault/infrastructureOperation";
 import { assertConnectedVault } from "./vault/state";
 import { startVaultInfrastructureProvisioningWorkflow } from "./appProvisioningWorkflow";
-import { hasPhaseOneUserOwnership, readPhaseOneOwnershipContext } from "./phaseOneOwnership";
+import { hasOrganizationAccess, requireOrganizationAccessContext } from "./organizationAccess";
 
 const { id, literal, string, union } = v;
 const MAX_EVENTS_TO_LINK_TO_VAULT = 20;
@@ -67,8 +67,8 @@ export const createRetryForVault = internalMutation({
     if (!vault) {
       throw new Error("Vault not found for provisioning run.");
     }
-    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
-    if (!hasPhaseOneUserOwnership(ownership, vault)) {
+    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found for provisioning run.");
     }
     const user = await ctx.db.get(args.userId);
@@ -103,7 +103,6 @@ export const createRetryForVault = internalMutation({
     const now = Date.now();
     const repositoryFullName = `${connectedVault.owner}/${connectedVault.name}`;
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId: args.userId,
       requestedByUserId: args.userId,
       vaultId: args.vaultId,
       repositoryFullName,
@@ -134,7 +133,6 @@ export const createRetryForVault = internalMutation({
       updatedAt: queuedAt,
     });
     await ctx.db.insert("workflow_vaultProvisioning_events", {
-      userId: args.userId,
       vaultId: args.vaultId,
       repositoryFullName,
       runId,
@@ -182,7 +180,6 @@ export const appendRunEvent = internalMutation({
 
     const now = Date.now();
     await ctx.runMutation(internal.appProvisioningEvents.append, {
-      userId: run.userId,
       vaultId: run.vaultId,
       repositoryFullName: run.repositoryFullName,
       runId: args.runId,

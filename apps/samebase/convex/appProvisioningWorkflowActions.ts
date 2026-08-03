@@ -167,7 +167,11 @@ async function assertCreateRun(
   },
 ): Promise<Doc<"workflow_vaultProvisioning_runs">> {
   const run = await getProvisioningRun(ctx, args.runId);
-  if (run.userId !== args.userId || run.trigger !== "create" || run.vaultId !== args.vaultId) {
+  if (
+    run.requestedByUserId !== args.userId ||
+    run.trigger !== "create" ||
+    run.vaultId !== args.vaultId
+  ) {
     throw new Error("Provisioning run does not match create workflow.");
   }
   return run;
@@ -183,7 +187,7 @@ async function assertConnectExistingRepositoryRun(
 ): Promise<Doc<"workflow_vaultProvisioning_runs">> {
   const run = await getProvisioningRun(ctx, args.runId);
   if (
-    run.userId !== args.userId ||
+    run.requestedByUserId !== args.userId ||
     run.trigger !== "connect_existing_repository" ||
     run.vaultId !== args.vaultId
   ) {
@@ -202,7 +206,7 @@ async function assertSourceSetupRun(
 ): Promise<Doc<"workflow_vaultProvisioning_runs">> {
   const run = await getProvisioningRun(ctx, args.runId);
   if (
-    run.userId !== args.userId ||
+    run.requestedByUserId !== args.userId ||
     run.vaultId !== args.vaultId ||
     (run.trigger !== "create" && run.trigger !== "connect_existing_repository")
   ) {

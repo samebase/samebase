@@ -28,6 +28,8 @@ async function createGitHubDeletionFixture() {
       email: "ada@example.com",
       isApproved: true,
     });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
     await ctx.db.insert("providerConnections", {
       kind: "github",
       userId,
@@ -40,12 +42,12 @@ async function createGitHubDeletionFixture() {
       updatedAt: 1,
     });
     const vaultId = await ctx.db.insert("vaults", {
-      userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
     const runId = await ctx.db.insert("workflow_vaultDeletion_runs", {
-      userId,
+      requestedByUserId: userId,
       vaultId,
       repositoryFullName: "ada/demo",
       createdAt: 2,
@@ -115,6 +117,8 @@ describe("vault deletion Convex provider actions", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
       await ctx.db.insert("providerConnections", {
         kind: "convex",
         userId,
@@ -128,12 +132,12 @@ describe("vault deletion Convex provider actions", () => {
         updatedAt: 1,
       });
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultDeletion_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/demo",
         createdAt: 2,
@@ -186,6 +190,8 @@ describe("vault deletion Convex provider actions", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
       await ctx.db.insert("providerConnections", {
         kind: "convex",
         userId,
@@ -196,12 +202,12 @@ describe("vault deletion Convex provider actions", () => {
         updatedAt: 1,
       });
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultDeletion_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/demo",
         createdAt: 2,
@@ -243,6 +249,8 @@ describe("vault deletion Convex provider actions", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
       await ctx.db.insert("providerConnections", {
         kind: "cloudflare",
         userId,
@@ -259,12 +267,12 @@ describe("vault deletion Convex provider actions", () => {
         updatedAt: 1,
       });
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultDeletion_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/demo",
         createdAt: 2,

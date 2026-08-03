@@ -12,13 +12,15 @@ describe("vault branch mutations", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "ada/claimed-tree",
         trigger: "create",
@@ -29,7 +31,7 @@ describe("vault branch mutations", () => {
         completedAt: 3,
       });
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -40,9 +42,9 @@ describe("vault branch mutations", () => {
         defaultBranch: "main",
         visibility: "private",
         connectedAt: 4,
-        treeRefreshStartedAt: 200,
+        treeRefreshLock: { requestedByUserId: userId, startedAt: 200 },
       });
-      return { vaultId };
+      return { userId, vaultId };
     });
     const treeData = {
       sha: "feature-tree",
@@ -93,6 +95,16 @@ describe("vault branch mutations", () => {
       branch: "feature/pr",
       commitSHA: "feature-commit",
       treeData,
+    });
+
+    await expect(
+      t.mutation(internal.vault.branches.claimTreeRefresh, {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toMatchObject({ claimed: true });
+    await expect(t.run(async (ctx) => ctx.db.get(ids.vaultId))).resolves.toMatchObject({
+      treeRefreshLock: { requestedByUserId: ids.userId },
     });
 
     await expect(

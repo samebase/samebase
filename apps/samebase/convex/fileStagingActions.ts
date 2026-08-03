@@ -17,7 +17,6 @@ import { selectRepositoryTreeForBranch } from "./fileStaging";
 import {
   hasStagedFileChanges,
   hasStagedFileContentChange,
-  readStagedFileKind,
   type StagedFileKind,
 } from "./stagingChanges";
 import { sanitizeSlug } from "./slugUtils";
@@ -748,7 +747,7 @@ type RebaseConflictPreviewFile = Infer<typeof rebaseConflictPreviewFile>;
 type RebaseConflictPreviewResult = Infer<typeof rebaseConflictPreviewResult>;
 
 type StagedFileForCommit = {
-  kind?: StagedFileKind;
+  kind: StagedFileKind;
   filePath: string;
   initialFilePath: string;
   content: string;
@@ -764,7 +763,6 @@ type StagedFileForCommit = {
 type DraftSourceStagingSnapshot = Omit<StagedFileForCommit, "branch"> & {
   branch: string;
   _id: Id<"vaultStagedFiles">;
-  ownerId: Id<"users">;
   vaultId: Id<"vaults">;
   lastEditTime: number;
   lastEditUserId: Id<"users">;
@@ -790,7 +788,7 @@ type GitHubCompareFileCandidate = {
 };
 
 function isBinaryStagedFile(file: Pick<StagedFileForCommit, "kind">): boolean {
-  return readStagedFileKind(file.kind) === "binary";
+  return file.kind === "binary";
 }
 
 export function shouldAdvanceBinaryPullParentCommit(args: {
@@ -2610,7 +2608,7 @@ export const pullFromGitHubInternal = internalAction({
           parentCommitSha: null,
         });
       } else if (newSha !== staged.parentCommitSha) {
-        if (readStagedFileKind(staged.kind) === "binary") {
+        if (staged.kind === "binary") {
           if (
             shouldAdvanceBinaryPullParentCommit({
               stagedBlobSha: staged.stagedBlobSha,

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import { INITIAL_ACCOUNT_DELETION_DATA_PROGRESS } from "../accountDeletion/model";
 import { createCodeChallenge } from "../oauthUtils";
 import { makeConvexTest } from "../test.setup";
 
@@ -46,6 +47,8 @@ async function seedRefreshTokenFamily() {
       isApproved: true,
       name: "Refresh Replay User",
     });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId: seededUserId });
     await ctx.db.insert("mcpOauthClients", {
       clientId,
       clientName: "Refresh replay client",
@@ -62,6 +65,7 @@ async function seedRefreshTokenFamily() {
     await ctx.db.insert("mcpGrants", {
       grantId,
       userId: seededUserId,
+      organizationId,
       clientId,
       resource,
       scope,
@@ -403,7 +407,7 @@ describe("MCP OAuth organization binding", () => {
     requestId: string;
     grants: Array<{
       grantId: string;
-      organization: "current" | "legacy" | "other";
+      organization: "current" | "other";
     }>;
   }) {
     const t = makeConvexTest();
@@ -450,12 +454,7 @@ describe("MCP OAuth organization binding", () => {
         await ctx.db.insert("mcpGrants", {
           grantId: grant.grantId,
           userId,
-          ...(grant.organization === "legacy"
-            ? {}
-            : {
-                organizationId:
-                  grant.organization === "current" ? organizationId : otherOrganizationId,
-              }),
+          organizationId: grant.organization === "current" ? organizationId : otherOrganizationId,
           clientId,
           resource,
           scope,
@@ -468,6 +467,73 @@ describe("MCP OAuth organization binding", () => {
     });
     return { ids, t };
   }
+
+  it("returns the grant organization as the tool authorization snapshot", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "organization-snapshot@example.test",
+        isApproved: true,
+      });
+      const organizationId = await ctx.db.insert("organizations", {});
+      const otherOrganizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId: otherOrganizationId,
+        userId,
+      });
+      await ctx.db.insert("mcpOauthClients", {
+        clientId,
+        clientName: "Organization snapshot client",
+        redirectUris: ["http://127.0.0.1/callback"],
+        grantTypes: ["authorization_code", "refresh_token"],
+        responseTypes: ["code"],
+        tokenEndpointAuthMethod: "none",
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "dynamic_registration",
+        registrationStatus: "active",
+        metadataJson: "{}",
+      });
+      await ctx.db.insert("mcpGrants", {
+        grantId,
+        userId,
+        organizationId,
+        clientId,
+        resource,
+        scope,
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      });
+      await ctx.db.insert("mcpAccessTokens", {
+        tokenHash: "organization_snapshot_access_hash",
+        grantId,
+        clientId,
+        userId,
+        resource,
+        scope,
+        createdAt: now,
+        expiresAt: now + 60_000,
+      });
+      return { organizationId, userId };
+    });
+
+    await expect(
+      t.mutation(internal.mcp.oauth.validateAccessToken, {
+        tokenHash: "organization_snapshot_access_hash",
+        now: now + 1,
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      grantId,
+      userId: ids.userId,
+      organizationId: ids.organizationId,
+      clientId,
+      scope,
+      resource,
+    });
+  });
 
   it("binds a created and reused grant to the user's exact organization", async () => {
     const t = makeConvexTest();
@@ -587,67 +653,6 @@ describe("MCP OAuth organization binding", () => {
       grants: [
         {
           grantId: currentGrantId,
-          organizationId: ids.organizationId,
-          updatedAt: now + 10,
-        },
-        {
-          grantId: oldGrantId,
-          organizationId: ids.otherOrganizationId,
-          updatedAt: now,
-        },
-      ],
-    });
-  });
-
-  it("reuses the Phase 1 legacy grant when no current organization grant exists", async () => {
-    const requestId = "mcpar_legacy_organization_candidate";
-    const legacyGrantId = "mcpg_legacy_organization_candidate";
-    const oldGrantId = "mcpg_old_candidate_before_legacy";
-    const { ids, t } = await seedOrganizationGrantCandidates({
-      email: "legacy-organization-candidate@example.test",
-      requestId,
-      grants: [
-        { grantId: oldGrantId, organization: "other" },
-        { grantId: legacyGrantId, organization: "legacy" },
-      ],
-    });
-
-    await expect(
-      t.mutation(internal.mcp.oauth.issueAuthorizationCodeForAuthRequest, {
-        requestId,
-        userId: ids.userId,
-        codeHash: "legacy_organization_candidate_code_hash",
-        codeExpiresAt: now + 60_000,
-        allowLoopbackHttpRedirectUris: true,
-        now: now + 10,
-      }),
-    ).resolves.toMatchObject({ ok: true });
-
-    await expect(
-      t.run(async (ctx) => {
-        const code = await ctx.db
-          .query("mcpAuthorizationCodes")
-          .withIndex("by_code_hash", (query) =>
-            query.eq("codeHash", "legacy_organization_candidate_code_hash"),
-          )
-          .unique();
-        const grants = await ctx.db.query("mcpGrants").collect();
-        return {
-          codeGrantId: code?.grantId,
-          grants: grants
-            .map((grant) => ({
-              grantId: grant.grantId,
-              organizationId: grant.organizationId,
-              updatedAt: grant.updatedAt,
-            }))
-            .sort((left, right) => left.grantId.localeCompare(right.grantId)),
-        };
-      }),
-    ).resolves.toEqual({
-      codeGrantId: legacyGrantId,
-      grants: [
-        {
-          grantId: legacyGrantId,
           organizationId: ids.organizationId,
           updatedAt: now + 10,
         },
@@ -869,6 +874,7 @@ describe("MCP OAuth account deletion access", () => {
           providerRevocation: { state: "not_started" },
           completionEmail: { state: "not_started" },
         },
+        dataDeletion: INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
       });
       await ctx.db.patch(deletingUserId, {
         accountDeletion: { state: "deleting", runId, requestedAt: now },
@@ -945,6 +951,7 @@ describe("MCP OAuth account deletion access", () => {
           providerRevocation: { state: "not_started" },
           completionEmail: { state: "not_started" },
         },
+        dataDeletion: INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
       });
       await ctx.db.patch(deletingUserId, {
         accountDeletion: { state: "deleting", runId, requestedAt: now },
@@ -1021,6 +1028,8 @@ describe("MCP OAuth account deletion access", () => {
         email: "deleting-mcp@example.test",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
       const initiatingSessionId = await ctx.db.insert("authSessions", {
         userId,
         expirationTime: now + 60_000,
@@ -1040,6 +1049,7 @@ describe("MCP OAuth account deletion access", () => {
           providerRevocation: { state: "not_started" },
           completionEmail: { state: "not_started" },
         },
+        dataDeletion: INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
       });
       await ctx.db.patch(userId, {
         accountDeletion: { state: "deleting", runId, requestedAt: now },
@@ -1075,6 +1085,7 @@ describe("MCP OAuth account deletion access", () => {
       await ctx.db.insert("mcpGrants", {
         grantId,
         userId,
+        organizationId,
         clientId,
         resource,
         scope,

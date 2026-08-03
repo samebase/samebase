@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { internal } from "./_generated/api";
-import { ensureOrganizationForUser, requireSingleOrganizationIdForUser } from "./organizations";
+import { ensureOrganizationForUser } from "./organizations";
 import { makeConvexTest } from "./test.setup";
 
 describe("organization provisioning", () => {
@@ -78,19 +78,6 @@ describe("organization provisioning", () => {
     expect(snapshot.billingAccounts).toHaveLength(1);
   });
 
-  it("requires one membership when resolving a user's organization", async () => {
-    const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
-        email: "missing-membership@example.com",
-      });
-    });
-
-    await expect(
-      t.run(async (ctx) => await requireSingleOrganizationIdForUser(ctx.db, userId)),
-    ).rejects.toThrowError("Organization membership is required.");
-  });
-
   it("provisions a new admin-created user through the auth callback", async () => {
     const t = makeConvexTest();
 
@@ -136,7 +123,7 @@ describe("organization provisioning", () => {
     });
   });
 
-  it("leaves an existing linked user for the explicit backfill", async () => {
+  it("enforces the organization graph when an existing account is updated", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -161,8 +148,13 @@ describe("organization provisioning", () => {
       };
     });
 
-    expect(snapshot.membership).toBeNull();
-    expect(snapshot.organizations).toEqual([]);
-    expect(snapshot.billingAccounts).toEqual([]);
+    expect(snapshot.membership).toMatchObject({ userId });
+    expect(snapshot.organizations).toHaveLength(1);
+    expect(snapshot.billingAccounts).toEqual([
+      expect.objectContaining({
+        plan: "free",
+        status: "inactive",
+      }),
+    ]);
   });
 });

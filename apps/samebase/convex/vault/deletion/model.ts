@@ -1,7 +1,7 @@
 import { defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 
-const { array, id, literal, number, object, optional, string, union } = v;
+const { array, id, literal, number, object, string, union } = v;
 
 export const vVaultDeletionNotDeleting = object({
   state: literal("not_deleting"),
@@ -182,8 +182,7 @@ export const vaultDeletionTables = {
     union(
       object({
         state: literal("queued"),
-        userId: id("users"),
-        requestedByUserId: optional(id("users")),
+        requestedByUserId: id("users"),
         vaultId: id("vaults"),
         repositoryFullName: string(),
         createdAt: number(),
@@ -205,8 +204,7 @@ export const vaultDeletionTables = {
       }),
       object({
         state: literal("running"),
-        userId: id("users"),
-        requestedByUserId: optional(id("users")),
+        requestedByUserId: id("users"),
         vaultId: id("vaults"),
         repositoryFullName: string(),
         createdAt: number(),
@@ -229,8 +227,7 @@ export const vaultDeletionTables = {
       }),
       object({
         state: literal("failed"),
-        userId: id("users"),
-        requestedByUserId: optional(id("users")),
+        requestedByUserId: id("users"),
         vaultId: id("vaults"),
         repositoryFullName: string(),
         createdAt: number(),
@@ -260,8 +257,7 @@ export const vaultDeletionTables = {
       }),
       object({
         state: literal("succeeded"),
-        userId: id("users"),
-        requestedByUserId: optional(id("users")),
+        requestedByUserId: id("users"),
         vaultId: id("vaults"),
         repositoryFullName: string(),
         createdAt: number(),
@@ -288,18 +284,15 @@ export const vaultDeletionTables = {
     ),
   )
     .index("by_vault_and_updated_at", ["vaultId", "updatedAt"])
-    .index("by_user_and_updated_at", ["userId", "updatedAt"])
-    .index("by_user_and_state_and_updated_at", ["userId", "state", "updatedAt"])
+    .index("by_requester_and_state_and_updated_at", ["requestedByUserId", "state", "updatedAt"])
     .index("by_workflow_id", ["workflow.workflowId"])
     .index("by_retry_of", ["attempt.retryOf"]),
 
   /**
    * Ordered user-visible progress messages for one vault-deletion run, without
-   * provider payloads or credentials. The copied user ID is historical
-   * provenance only while the parent vault exists.
+   * provider payloads or credentials. The parent run records the requester.
    */
   workflow_vaultDeletion_events: defineTable({
-    userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
     runId: id("workflow_vaultDeletion_runs"),

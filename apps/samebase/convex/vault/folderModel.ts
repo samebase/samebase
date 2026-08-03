@@ -21,6 +21,7 @@ export const vaultFolderTables = {
     vaultId: id("vaults"),
     folderId: id("ui_vaultFolders"),
   })
+    .index("by_user", ["userId"])
     .index("by_userId_and_vaultId", ["userId", "vaultId"])
     .index("by_vaultId", ["vaultId"]),
 };

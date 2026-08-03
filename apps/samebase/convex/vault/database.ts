@@ -4,7 +4,10 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalQuery, type ActionCtx } from "../_generated/server";
 import { action } from "../functions";
 import type { AuthenticatedAppViewer } from "../functions";
-import { hasPhaseOneVaultChildOwnership, readPhaseOneOwnershipContext } from "../phaseOneOwnership";
+import {
+  hasVaultChildOrganizationAccess,
+  requireOrganizationAccessContext,
+} from "../organizationAccess";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import {
   createConvexDeploymentDeployKey,
@@ -79,11 +82,11 @@ export const readEmbeddedDashboardProject = internalQuery({
       ctx.db.get(args.vaultId),
       ctx.db.get(args.convexProjectId),
     ]);
-    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
     if (
       !isLiveConnectedVault(vault) ||
       !project ||
-      !hasPhaseOneVaultChildOwnership(ownership, vault, project)
+      !hasVaultChildOrganizationAccess(ownership, vault, project)
     ) {
       return null;
     }
