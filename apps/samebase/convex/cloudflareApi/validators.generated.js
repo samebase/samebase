@@ -16295,6 +16295,7 @@ const schema274 = {
       json: "#/components/schemas/workers_binding_kind_json",
       kv_namespace: "#/components/schemas/workers_binding_kind_kv_namespace",
       media: "#/components/schemas/workers_binding_kind_media",
+      messaging: "#/components/schemas/workers_binding_kind_messaging",
       mtls_certificate: "#/components/schemas/workers_binding_kind_mtls_certificate",
       pipelines: "#/components/schemas/workers_binding_kind_pipelines",
       plain_text: "#/components/schemas/workers_binding_kind_plain_text",
@@ -16320,6 +16321,7 @@ const schema274 = {
     { $ref: "#/components/schemas/workers_binding_kind_ai" },
     { $ref: "#/components/schemas/workers_binding_kind_ai_search" },
     { $ref: "#/components/schemas/workers_binding_kind_ai_search_namespace" },
+    { $ref: "#/components/schemas/workers_binding_kind_messaging" },
     { $ref: "#/components/schemas/workers_binding_kind_analytics_engine" },
     { $ref: "#/components/schemas/workers_binding_kind_assets" },
     { $ref: "#/components/schemas/workers_binding_kind_browser" },
@@ -16354,7 +16356,7 @@ const schema274 = {
     { $ref: "#/components/schemas/workers_binding_kind_vpc_network" },
   ],
 };
-const schema298 = {
+const schema300 = {
   type: "object",
   properties: {
     name: {
@@ -16888,6 +16890,174 @@ validate272.evaluated = {
 const schema281 = {
   type: "object",
   properties: {
+    name: { $ref: "#/components/schemas/workers_binding_name" },
+    namespace: {
+      description: "The Messaging namespace to bind to.",
+      type: "string",
+      example: "production",
+      "x-auditable": true,
+    },
+    type: {
+      description: "The kind of resource that the binding provides.",
+      type: "string",
+      enum: ["messaging"],
+      "x-auditable": true,
+    },
+  },
+  required: ["name", "type", "namespace"],
+};
+function validate274(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate274.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.name === undefined) {
+      const err0 = {
+        instancePath,
+        schemaPath: "#/required",
+        keyword: "required",
+        params: { missingProperty: "name" },
+        message: "must have required property '" + "name" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.type === undefined) {
+      const err1 = {
+        instancePath,
+        schemaPath: "#/required",
+        keyword: "required",
+        params: { missingProperty: "type" },
+        message: "must have required property '" + "type" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err1];
+      } else {
+        vErrors.push(err1);
+      }
+      errors++;
+    }
+    if (data.namespace === undefined) {
+      const err2 = {
+        instancePath,
+        schemaPath: "#/required",
+        keyword: "required",
+        params: { missingProperty: "namespace" },
+        message: "must have required property '" + "namespace" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err2];
+      } else {
+        vErrors.push(err2);
+      }
+      errors++;
+    }
+    if (data.name !== undefined) {
+      if (typeof data.name !== "string") {
+        const err3 = {
+          instancePath: instancePath + "/name",
+          schemaPath: "#/components/schemas/workers_binding_name/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err3];
+        } else {
+          vErrors.push(err3);
+        }
+        errors++;
+      }
+    }
+    if (data.namespace !== undefined) {
+      if (typeof data.namespace !== "string") {
+        const err4 = {
+          instancePath: instancePath + "/namespace",
+          schemaPath: "#/properties/namespace/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err4];
+        } else {
+          vErrors.push(err4);
+        }
+        errors++;
+      }
+    }
+    if (data.type !== undefined) {
+      let data2 = data.type;
+      if (typeof data2 !== "string") {
+        const err5 = {
+          instancePath: instancePath + "/type",
+          schemaPath: "#/properties/type/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err5];
+        } else {
+          vErrors.push(err5);
+        }
+        errors++;
+      }
+      if (!(data2 === "messaging")) {
+        const err6 = {
+          instancePath: instancePath + "/type",
+          schemaPath: "#/properties/type/enum",
+          keyword: "enum",
+          params: { allowedValues: schema281.properties.type.enum },
+          message: "must be equal to one of the allowed values",
+        };
+        if (vErrors === null) {
+          vErrors = [err6];
+        } else {
+          vErrors.push(err6);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err7 = {
+      instancePath,
+      schemaPath: "#/type",
+      keyword: "type",
+      params: { type: "object" },
+      message: "must be object",
+    };
+    if (vErrors === null) {
+      vErrors = [err7];
+    } else {
+      vErrors.push(err7);
+    }
+    errors++;
+  }
+  validate274.errors = vErrors;
+  return errors === 0;
+}
+validate274.evaluated = {
+  props: { name: true, namespace: true, type: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+const schema283 = {
+  type: "object",
+  properties: {
     dataset: {
       description: "The name of the dataset to bind to.",
       type: "string",
@@ -16904,13 +17074,13 @@ const schema281 = {
   },
   required: ["name", "type", "dataset"],
 };
-function validate274(
+function validate276(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate274.evaluated;
+  const evaluated0 = validate276.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -17019,7 +17189,7 @@ function validate274(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema281.properties.type.enum },
+          params: { allowedValues: schema283.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -17045,141 +17215,11 @@ function validate274(
     }
     errors++;
   }
-  validate274.errors = vErrors;
-  return errors === 0;
-}
-validate274.evaluated = {
-  props: { dataset: true, name: true, type: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-const schema283 = {
-  type: "object",
-  properties: {
-    name: { $ref: "#/components/schemas/workers_binding_name" },
-    type: {
-      description: "The kind of resource that the binding provides.",
-      type: "string",
-      enum: ["assets"],
-      "x-auditable": true,
-    },
-  },
-  required: ["name", "type"],
-};
-function validate276(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate276.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.name === undefined) {
-      const err0 = {
-        instancePath,
-        schemaPath: "#/required",
-        keyword: "required",
-        params: { missingProperty: "name" },
-        message: "must have required property '" + "name" + "'",
-      };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.type === undefined) {
-      const err1 = {
-        instancePath,
-        schemaPath: "#/required",
-        keyword: "required",
-        params: { missingProperty: "type" },
-        message: "must have required property '" + "type" + "'",
-      };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.name !== undefined) {
-      if (typeof data.name !== "string") {
-        const err2 = {
-          instancePath: instancePath + "/name",
-          schemaPath: "#/components/schemas/workers_binding_name/type",
-          keyword: "type",
-          params: { type: "string" },
-          message: "must be string",
-        };
-        if (vErrors === null) {
-          vErrors = [err2];
-        } else {
-          vErrors.push(err2);
-        }
-        errors++;
-      }
-    }
-    if (data.type !== undefined) {
-      let data1 = data.type;
-      if (typeof data1 !== "string") {
-        const err3 = {
-          instancePath: instancePath + "/type",
-          schemaPath: "#/properties/type/type",
-          keyword: "type",
-          params: { type: "string" },
-          message: "must be string",
-        };
-        if (vErrors === null) {
-          vErrors = [err3];
-        } else {
-          vErrors.push(err3);
-        }
-        errors++;
-      }
-      if (!(data1 === "assets")) {
-        const err4 = {
-          instancePath: instancePath + "/type",
-          schemaPath: "#/properties/type/enum",
-          keyword: "enum",
-          params: { allowedValues: schema283.properties.type.enum },
-          message: "must be equal to one of the allowed values",
-        };
-        if (vErrors === null) {
-          vErrors = [err4];
-        } else {
-          vErrors.push(err4);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err5 = {
-      instancePath,
-      schemaPath: "#/type",
-      keyword: "type",
-      params: { type: "object" },
-      message: "must be object",
-    };
-    if (vErrors === null) {
-      vErrors = [err5];
-    } else {
-      vErrors.push(err5);
-    }
-    errors++;
-  }
   validate276.errors = vErrors;
   return errors === 0;
 }
 validate276.evaluated = {
-  props: { name: true, type: true },
+  props: { dataset: true, name: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
@@ -17190,7 +17230,7 @@ const schema285 = {
     type: {
       description: "The kind of resource that the binding provides.",
       type: "string",
-      enum: ["browser"],
+      enum: ["assets"],
       "x-auditable": true,
     },
   },
@@ -17274,7 +17314,7 @@ function validate278(
         }
         errors++;
       }
-      if (!(data1 === "browser")) {
+      if (!(data1 === "assets")) {
         const err4 = {
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
@@ -17316,6 +17356,136 @@ validate278.evaluated = {
 const schema287 = {
   type: "object",
   properties: {
+    name: { $ref: "#/components/schemas/workers_binding_name" },
+    type: {
+      description: "The kind of resource that the binding provides.",
+      type: "string",
+      enum: ["browser"],
+      "x-auditable": true,
+    },
+  },
+  required: ["name", "type"],
+};
+function validate280(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate280.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.name === undefined) {
+      const err0 = {
+        instancePath,
+        schemaPath: "#/required",
+        keyword: "required",
+        params: { missingProperty: "name" },
+        message: "must have required property '" + "name" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.type === undefined) {
+      const err1 = {
+        instancePath,
+        schemaPath: "#/required",
+        keyword: "required",
+        params: { missingProperty: "type" },
+        message: "must have required property '" + "type" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err1];
+      } else {
+        vErrors.push(err1);
+      }
+      errors++;
+    }
+    if (data.name !== undefined) {
+      if (typeof data.name !== "string") {
+        const err2 = {
+          instancePath: instancePath + "/name",
+          schemaPath: "#/components/schemas/workers_binding_name/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err2];
+        } else {
+          vErrors.push(err2);
+        }
+        errors++;
+      }
+    }
+    if (data.type !== undefined) {
+      let data1 = data.type;
+      if (typeof data1 !== "string") {
+        const err3 = {
+          instancePath: instancePath + "/type",
+          schemaPath: "#/properties/type/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err3];
+        } else {
+          vErrors.push(err3);
+        }
+        errors++;
+      }
+      if (!(data1 === "browser")) {
+        const err4 = {
+          instancePath: instancePath + "/type",
+          schemaPath: "#/properties/type/enum",
+          keyword: "enum",
+          params: { allowedValues: schema287.properties.type.enum },
+          message: "must be equal to one of the allowed values",
+        };
+        if (vErrors === null) {
+          vErrors = [err4];
+        } else {
+          vErrors.push(err4);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err5 = {
+      instancePath,
+      schemaPath: "#/type",
+      keyword: "type",
+      params: { type: "object" },
+      message: "must be object",
+    };
+    if (vErrors === null) {
+      vErrors = [err5];
+    } else {
+      vErrors.push(err5);
+    }
+    errors++;
+  }
+  validate280.errors = vErrors;
+  return errors === 0;
+}
+validate280.evaluated = {
+  props: { name: true, type: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+const schema289 = {
+  type: "object",
+  properties: {
     database_id: {
       description: "Identifier of the D1 database to bind to.",
       type: "string",
@@ -17340,13 +17510,13 @@ const schema287 = {
   },
   required: ["name", "type", "database_id"],
 };
-function validate280(
+function validate282(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate280.evaluated;
+  const evaluated0 = validate282.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -17472,7 +17642,7 @@ function validate280(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema287.properties.type.enum },
+          params: { allowedValues: schema289.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -17498,15 +17668,15 @@ function validate280(
     }
     errors++;
   }
-  validate280.errors = vErrors;
+  validate282.errors = vErrors;
   return errors === 0;
 }
-validate280.evaluated = {
+validate282.evaluated = {
   props: { database_id: true, id: true, name: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema289 = {
+const schema291 = {
   type: "object",
   properties: {
     name: { $ref: "#/components/schemas/workers_binding_name" },
@@ -17527,13 +17697,13 @@ const schema289 = {
   },
   required: ["name", "type", "part"],
 };
-function validate282(
+function validate284(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate282.evaluated;
+  const evaluated0 = validate284.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -17642,7 +17812,7 @@ function validate282(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema289.properties.type.enum },
+          params: { allowedValues: schema291.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -17668,15 +17838,15 @@ function validate282(
     }
     errors++;
   }
-  validate282.errors = vErrors;
+  validate284.errors = vErrors;
   return errors === 0;
 }
-validate282.evaluated = {
+validate284.evaluated = {
   props: { name: true, part: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema291 = {
+const schema293 = {
   type: "object",
   properties: {
     name: { $ref: "#/components/schemas/workers_binding_name" },
@@ -17739,13 +17909,13 @@ const schema291 = {
   },
   required: ["name", "type", "namespace"],
 };
-function validate284(
+function validate286(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate284.evaluated;
+  const evaluated0 = validate286.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -18015,7 +18185,7 @@ function validate284(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema291.properties.type.enum },
+          params: { allowedValues: schema293.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -18041,15 +18211,15 @@ function validate284(
     }
     errors++;
   }
-  validate284.errors = vErrors;
+  validate286.errors = vErrors;
   return errors === 0;
 }
-validate284.evaluated = {
+validate286.evaluated = {
   props: { name: true, namespace: true, outbound: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema293 = {
+const schema295 = {
   type: "object",
   properties: {
     class_name: {
@@ -18099,20 +18269,20 @@ const schema293 = {
   },
   required: ["name", "type"],
 };
-const schema295 = {
+const schema297 = {
   description: "Namespace identifier tag.",
   type: "string",
   example: "0f2ac74b498b48028cb68387c421e279",
   maxLength: 32,
   "x-auditable": true,
 };
-function validate286(
+function validate288(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate286.evaluated;
+  const evaluated0 = validate288.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -18306,7 +18476,7 @@ function validate286(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema293.properties.type.enum },
+          params: { allowedValues: schema295.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -18332,10 +18502,10 @@ function validate286(
     }
     errors++;
   }
-  validate286.errors = vErrors;
+  validate288.errors = vErrors;
   return errors === 0;
 }
-validate286.evaluated = {
+validate288.evaluated = {
   props: {
     class_name: true,
     dispatch_namespace: true,
@@ -18348,7 +18518,7 @@ validate286.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema296 = {
+const schema298 = {
   type: "object",
   properties: {
     id: {
@@ -18367,13 +18537,13 @@ const schema296 = {
   },
   required: ["name", "type", "id"],
 };
-function validate288(
+function validate290(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate288.evaluated;
+  const evaluated0 = validate290.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -18482,7 +18652,7 @@ function validate288(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema296.properties.type.enum },
+          params: { allowedValues: schema298.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -18508,15 +18678,15 @@ function validate288(
     }
     errors++;
   }
-  validate288.errors = vErrors;
+  validate290.errors = vErrors;
   return errors === 0;
 }
-validate288.evaluated = {
+validate290.evaluated = {
   props: { id: true, name: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema299 = {
+const schema301 = {
   type: "object",
   properties: {
     name: { $ref: "#/components/schemas/workers_binding_name" },
@@ -18529,13 +18699,13 @@ const schema299 = {
   },
   required: ["name", "type"],
 };
-function validate290(
+function validate292(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate290.evaluated;
+  const evaluated0 = validate292.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -18612,7 +18782,7 @@ function validate290(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema299.properties.type.enum },
+          params: { allowedValues: schema301.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -18638,15 +18808,15 @@ function validate290(
     }
     errors++;
   }
-  validate290.errors = vErrors;
+  validate292.errors = vErrors;
   return errors === 0;
 }
-validate290.evaluated = {
+validate292.evaluated = {
   props: { name: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema301 = {
+const schema303 = {
   type: "object",
   properties: {
     json: { description: "JSON data to use.", type: "object", "x-stainless-any": true },
@@ -18660,13 +18830,13 @@ const schema301 = {
   },
   required: ["name", "type", "json"],
 };
-function validate292(
+function validate294(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate292.evaluated;
+  const evaluated0 = validate294.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -18776,7 +18946,7 @@ function validate292(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema301.properties.type.enum },
+          params: { allowedValues: schema303.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -18802,15 +18972,15 @@ function validate292(
     }
     errors++;
   }
-  validate292.errors = vErrors;
+  validate294.errors = vErrors;
   return errors === 0;
 }
-validate292.evaluated = {
+validate294.evaluated = {
   props: { json: true, name: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema303 = {
+const schema305 = {
   type: "object",
   properties: {
     name: { $ref: "#/components/schemas/workers_binding_name" },
@@ -18824,13 +18994,13 @@ const schema303 = {
   },
   required: ["name", "type", "namespace_id"],
 };
-function validate294(
+function validate296(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate294.evaluated;
+  const evaluated0 = validate296.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -18956,7 +19126,7 @@ function validate294(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema303.properties.type.enum },
+          params: { allowedValues: schema305.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -18982,15 +19152,15 @@ function validate294(
     }
     errors++;
   }
-  validate294.errors = vErrors;
+  validate296.errors = vErrors;
   return errors === 0;
 }
-validate294.evaluated = {
+validate296.evaluated = {
   props: { name: true, namespace_id: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema306 = {
+const schema308 = {
   type: "object",
   properties: {
     name: { $ref: "#/components/schemas/workers_binding_name" },
@@ -19003,13 +19173,13 @@ const schema306 = {
   },
   required: ["name", "type"],
 };
-function validate296(
+function validate298(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate296.evaluated;
+  const evaluated0 = validate298.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -19086,7 +19256,7 @@ function validate296(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema306.properties.type.enum },
+          params: { allowedValues: schema308.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -19112,15 +19282,15 @@ function validate296(
     }
     errors++;
   }
-  validate296.errors = vErrors;
+  validate298.errors = vErrors;
   return errors === 0;
 }
-validate296.evaluated = {
+validate298.evaluated = {
   props: { name: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema308 = {
+const schema310 = {
   type: "object",
   properties: {
     certificate_id: {
@@ -19139,13 +19309,13 @@ const schema308 = {
   },
   required: ["name", "type", "certificate_id"],
 };
-function validate298(
+function validate300(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate298.evaluated;
+  const evaluated0 = validate300.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -19254,7 +19424,7 @@ function validate298(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema308.properties.type.enum },
+          params: { allowedValues: schema310.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -19280,15 +19450,15 @@ function validate298(
     }
     errors++;
   }
-  validate298.errors = vErrors;
+  validate300.errors = vErrors;
   return errors === 0;
 }
-validate298.evaluated = {
+validate300.evaluated = {
   props: { certificate_id: true, name: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema310 = {
+const schema312 = {
   type: "object",
   properties: {
     name: { $ref: "#/components/schemas/workers_binding_name" },
@@ -19307,13 +19477,13 @@ const schema310 = {
   },
   required: ["name", "type", "text"],
 };
-function validate300(
+function validate302(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate300.evaluated;
+  const evaluated0 = validate302.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -19422,7 +19592,7 @@ function validate300(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema310.properties.type.enum },
+          params: { allowedValues: schema312.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -19448,15 +19618,15 @@ function validate300(
     }
     errors++;
   }
-  validate300.errors = vErrors;
+  validate302.errors = vErrors;
   return errors === 0;
 }
-validate300.evaluated = {
+validate302.evaluated = {
   props: { name: true, text: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema312 = {
+const schema314 = {
   type: "object",
   properties: {
     name: { $ref: "#/components/schemas/workers_binding_name" },
@@ -19475,13 +19645,13 @@ const schema312 = {
   },
   required: ["name", "type", "pipeline"],
 };
-function validate302(
+function validate304(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate302.evaluated;
+  const evaluated0 = validate304.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -19590,7 +19760,7 @@ function validate302(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema312.properties.type.enum },
+          params: { allowedValues: schema314.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -19616,15 +19786,15 @@ function validate302(
     }
     errors++;
   }
-  validate302.errors = vErrors;
+  validate304.errors = vErrors;
   return errors === 0;
 }
-validate302.evaluated = {
+validate304.evaluated = {
   props: { name: true, pipeline: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema314 = {
+const schema316 = {
   type: "object",
   properties: {
     name: { $ref: "#/components/schemas/workers_binding_name" },
@@ -19642,13 +19812,13 @@ const schema314 = {
   },
   required: ["name", "type", "queue_name"],
 };
-function validate304(
+function validate306(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate304.evaluated;
+  const evaluated0 = validate306.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -19757,7 +19927,7 @@ function validate304(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema314.properties.type.enum },
+          params: { allowedValues: schema316.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -19783,15 +19953,15 @@ function validate304(
     }
     errors++;
   }
-  validate304.errors = vErrors;
+  validate306.errors = vErrors;
   return errors === 0;
 }
-validate304.evaluated = {
+validate306.evaluated = {
   props: { name: true, queue_name: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema316 = {
+const schema318 = {
   type: "object",
   properties: {
     name: { $ref: "#/components/schemas/workers_binding_name" },
@@ -19836,13 +20006,13 @@ const schema316 = {
   },
   required: ["name", "type", "namespace_id", "simple"],
 };
-function validate306(
+function validate308(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate306.evaluated;
+  const evaluated0 = validate308.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -20068,7 +20238,7 @@ function validate306(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema316.properties.type.enum },
+          params: { allowedValues: schema318.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -20094,15 +20264,15 @@ function validate306(
     }
     errors++;
   }
-  validate306.errors = vErrors;
+  validate308.errors = vErrors;
   return errors === 0;
 }
-validate306.evaluated = {
+validate308.evaluated = {
   props: { name: true, namespace_id: true, simple: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema318 = {
+const schema320 = {
   type: "object",
   properties: {
     bucket_name: {
@@ -20129,13 +20299,13 @@ const schema318 = {
   },
   required: ["name", "type", "bucket_name"],
 };
-function validate308(
+function validate310(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate308.evaluated;
+  const evaluated0 = validate310.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -20227,7 +20397,7 @@ function validate308(
           instancePath: instancePath + "/jurisdiction",
           schemaPath: "#/properties/jurisdiction/enum",
           keyword: "enum",
-          params: { allowedValues: schema318.properties.jurisdiction.enum },
+          params: { allowedValues: schema320.properties.jurisdiction.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -20277,7 +20447,7 @@ function validate308(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema318.properties.type.enum },
+          params: { allowedValues: schema320.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -20303,15 +20473,15 @@ function validate308(
     }
     errors++;
   }
-  validate308.errors = vErrors;
+  validate310.errors = vErrors;
   return errors === 0;
 }
-validate308.evaluated = {
+validate310.evaluated = {
   props: { bucket_name: true, jurisdiction: true, name: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema320 = {
+const schema322 = {
   type: "object",
   properties: {
     name: { $ref: "#/components/schemas/workers_binding_name" },
@@ -20331,13 +20501,13 @@ const schema320 = {
   },
   required: ["name", "type", "text"],
 };
-function validate310(
+function validate312(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate310.evaluated;
+  const evaluated0 = validate312.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -20446,7 +20616,7 @@ function validate310(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema320.properties.type.enum },
+          params: { allowedValues: schema322.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -20472,15 +20642,15 @@ function validate310(
     }
     errors++;
   }
-  validate310.errors = vErrors;
+  validate312.errors = vErrors;
   return errors === 0;
 }
-validate310.evaluated = {
+validate312.evaluated = {
   props: { name: true, text: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema322 = {
+const schema324 = {
   type: "object",
   properties: {
     allowed_destination_addresses: {
@@ -20514,13 +20684,13 @@ const schema322 = {
   },
   required: ["name", "type"],
 };
-function validate312(
+function validate314(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate312.evaluated;
+  const evaluated0 = validate314.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -20688,7 +20858,7 @@ function validate312(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema322.properties.type.enum },
+          params: { allowedValues: schema324.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -20714,10 +20884,10 @@ function validate312(
     }
     errors++;
   }
-  validate312.errors = vErrors;
+  validate314.errors = vErrors;
   return errors === 0;
 }
-validate312.evaluated = {
+validate314.evaluated = {
   props: {
     allowed_destination_addresses: true,
     allowed_sender_addresses: true,
@@ -20728,7 +20898,7 @@ validate312.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema324 = {
+const schema326 = {
   type: "object",
   properties: {
     entrypoint: {
@@ -20760,13 +20930,13 @@ const schema324 = {
   },
   required: ["name", "type", "service"],
 };
-function validate314(
+function validate316(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate314.evaluated;
+  const evaluated0 = validate316.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -20909,7 +21079,7 @@ function validate314(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema324.properties.type.enum },
+          params: { allowedValues: schema326.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -20935,15 +21105,15 @@ function validate314(
     }
     errors++;
   }
-  validate314.errors = vErrors;
+  validate316.errors = vErrors;
   return errors === 0;
 }
-validate314.evaluated = {
+validate316.evaluated = {
   props: { entrypoint: true, environment: true, name: true, service: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema326 = {
+const schema328 = {
   type: "object",
   properties: {
     name: { $ref: "#/components/schemas/workers_binding_name" },
@@ -20964,13 +21134,13 @@ const schema326 = {
   },
   required: ["name", "type", "part"],
 };
-function validate316(
+function validate318(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate316.evaluated;
+  const evaluated0 = validate318.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -21079,7 +21249,7 @@ function validate316(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema326.properties.type.enum },
+          params: { allowedValues: schema328.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -21105,15 +21275,15 @@ function validate316(
     }
     errors++;
   }
-  validate316.errors = vErrors;
+  validate318.errors = vErrors;
   return errors === 0;
 }
-validate316.evaluated = {
+validate318.evaluated = {
   props: { name: true, part: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema328 = {
+const schema330 = {
   type: "object",
   properties: {
     index_name: {
@@ -21132,13 +21302,13 @@ const schema328 = {
   },
   required: ["name", "type", "index_name"],
 };
-function validate318(
+function validate320(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate318.evaluated;
+  const evaluated0 = validate320.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -21247,7 +21417,7 @@ function validate318(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema328.properties.type.enum },
+          params: { allowedValues: schema330.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -21273,15 +21443,15 @@ function validate318(
     }
     errors++;
   }
-  validate318.errors = vErrors;
+  validate320.errors = vErrors;
   return errors === 0;
 }
-validate318.evaluated = {
+validate320.evaluated = {
   props: { index_name: true, name: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema330 = {
+const schema332 = {
   type: "object",
   properties: {
     name: { $ref: "#/components/schemas/workers_binding_name" },
@@ -21294,13 +21464,13 @@ const schema330 = {
   },
   required: ["name", "type"],
 };
-function validate320(
+function validate322(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate320.evaluated;
+  const evaluated0 = validate322.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -21377,7 +21547,7 @@ function validate320(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema330.properties.type.enum },
+          params: { allowedValues: schema332.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -21403,15 +21573,15 @@ function validate320(
     }
     errors++;
   }
-  validate320.errors = vErrors;
+  validate322.errors = vErrors;
   return errors === 0;
 }
-validate320.evaluated = {
+validate322.evaluated = {
   props: { name: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema332 = {
+const schema334 = {
   type: "object",
   properties: {
     name: { $ref: "#/components/schemas/workers_binding_name" },
@@ -21436,13 +21606,13 @@ const schema332 = {
   },
   required: ["name", "type", "store_id", "secret_name"],
 };
-function validate322(
+function validate324(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate322.evaluated;
+  const evaluated0 = validate324.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -21583,7 +21753,7 @@ function validate322(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema332.properties.type.enum },
+          params: { allowedValues: schema334.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -21609,15 +21779,15 @@ function validate322(
     }
     errors++;
   }
-  validate322.errors = vErrors;
+  validate324.errors = vErrors;
   return errors === 0;
 }
-validate322.evaluated = {
+validate324.evaluated = {
   props: { name: true, secret_name: true, store_id: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema334 = {
+const schema336 = {
   type: "object",
   properties: {
     app_id: {
@@ -21637,13 +21807,13 @@ const schema334 = {
   },
   required: ["name", "type", "app_id"],
 };
-function validate324(
+function validate326(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate324.evaluated;
+  const evaluated0 = validate326.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -21769,7 +21939,7 @@ function validate324(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema334.properties.type.enum },
+          params: { allowedValues: schema336.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -21795,15 +21965,15 @@ function validate324(
     }
     errors++;
   }
-  validate324.errors = vErrors;
+  validate326.errors = vErrors;
   return errors === 0;
 }
-validate324.evaluated = {
+validate326.evaluated = {
   props: { app_id: true, name: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema336 = {
+const schema338 = {
   type: "object",
   properties: {
     algorithm: {
@@ -21864,13 +22034,13 @@ const schema336 = {
   },
   required: ["name", "type", "format", "algorithm", "usages"],
 };
-function validate326(
+function validate328(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate326.evaluated;
+  const evaluated0 = validate328.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -21993,7 +22163,7 @@ function validate326(
           instancePath: instancePath + "/format",
           schemaPath: "#/properties/format/enum",
           keyword: "enum",
-          params: { allowedValues: schema336.properties.format.enum },
+          params: { allowedValues: schema338.properties.format.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -22078,7 +22248,7 @@ function validate326(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema336.properties.type.enum },
+          params: { allowedValues: schema338.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -22126,7 +22296,7 @@ function validate326(
               instancePath: instancePath + "/usages/" + i0,
               schemaPath: "#/properties/usages/items/enum",
               keyword: "enum",
-              params: { allowedValues: schema336.properties.usages.items.enum },
+              params: { allowedValues: schema338.properties.usages.items.enum },
               message: "must be equal to one of the allowed values",
             };
             if (vErrors === null) {
@@ -22168,10 +22338,10 @@ function validate326(
     }
     errors++;
   }
-  validate326.errors = vErrors;
+  validate328.errors = vErrors;
   return errors === 0;
 }
-validate326.evaluated = {
+validate328.evaluated = {
   props: {
     algorithm: true,
     format: true,
@@ -22184,7 +22354,7 @@ validate326.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema338 = {
+const schema340 = {
   type: "object",
   properties: {
     class_name: {
@@ -22214,13 +22384,13 @@ const schema338 = {
   },
   required: ["name", "type", "workflow_name"],
 };
-function validate328(
+function validate330(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate328.evaluated;
+  const evaluated0 = validate330.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -22346,7 +22516,7 @@ function validate328(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema338.properties.type.enum },
+          params: { allowedValues: schema340.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -22389,15 +22559,15 @@ function validate328(
     }
     errors++;
   }
-  validate328.errors = vErrors;
+  validate330.errors = vErrors;
   return errors === 0;
 }
-validate328.evaluated = {
+validate330.evaluated = {
   props: { class_name: true, name: true, script_name: true, type: true, workflow_name: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema340 = {
+const schema342 = {
   type: "object",
   properties: {
     name: { $ref: "#/components/schemas/workers_binding_name" },
@@ -22418,13 +22588,13 @@ const schema340 = {
   },
   required: ["name", "type", "part"],
 };
-function validate330(
+function validate332(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate330.evaluated;
+  const evaluated0 = validate332.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -22533,7 +22703,7 @@ function validate330(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema340.properties.type.enum },
+          params: { allowedValues: schema342.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -22559,15 +22729,15 @@ function validate330(
     }
     errors++;
   }
-  validate330.errors = vErrors;
+  validate332.errors = vErrors;
   return errors === 0;
 }
-validate330.evaluated = {
+validate332.evaluated = {
   props: { name: true, part: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema342 = {
+const schema344 = {
   type: "object",
   properties: {
     name: { $ref: "#/components/schemas/workers_binding_name" },
@@ -22586,13 +22756,13 @@ const schema342 = {
   },
   required: ["name", "type", "service_id"],
 };
-function validate332(
+function validate334(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate332.evaluated;
+  const evaluated0 = validate334.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -22701,7 +22871,7 @@ function validate332(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema342.properties.type.enum },
+          params: { allowedValues: schema344.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -22727,15 +22897,15 @@ function validate332(
     }
     errors++;
   }
-  validate332.errors = vErrors;
+  validate334.errors = vErrors;
   return errors === 0;
 }
-validate332.evaluated = {
+validate334.evaluated = {
   props: { name: true, service_id: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema344 = {
+const schema346 = {
   type: "object",
   properties: {
     name: { $ref: "#/components/schemas/workers_binding_name" },
@@ -22762,13 +22932,13 @@ const schema344 = {
   },
   required: ["name", "type"],
 };
-function validate334(
+function validate336(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate334.evaluated;
+  const evaluated0 = validate336.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -22879,7 +23049,7 @@ function validate334(
           instancePath: instancePath + "/type",
           schemaPath: "#/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema344.properties.type.enum },
+          params: { allowedValues: schema346.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -22905,10 +23075,10 @@ function validate334(
     }
     errors++;
   }
-  validate334.errors = vErrors;
+  validate336.errors = vErrors;
   return errors === 0;
 }
-validate334.evaluated = {
+validate336.evaluated = {
   props: { name: true, network_id: true, tunnel_id: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
@@ -23027,8 +23197,8 @@ function validate267(
           passing0 = 3;
           if (props0 !== true) {
             props0 = props0 || {};
-            props0.dataset = true;
             props0.name = true;
+            props0.namespace = true;
             props0.type = true;
           }
         }
@@ -23055,6 +23225,7 @@ function validate267(
             passing0 = 4;
             if (props0 !== true) {
               props0 = props0 || {};
+              props0.dataset = true;
               props0.name = true;
               props0.type = true;
             }
@@ -23109,8 +23280,6 @@ function validate267(
                 passing0 = 6;
                 if (props0 !== true) {
                   props0 = props0 || {};
-                  props0.database_id = true;
-                  props0.id = true;
                   props0.name = true;
                   props0.type = true;
                 }
@@ -23139,8 +23308,9 @@ function validate267(
                   passing0 = 7;
                   if (props0 !== true) {
                     props0 = props0 || {};
+                    props0.database_id = true;
+                    props0.id = true;
                     props0.name = true;
-                    props0.part = true;
                     props0.type = true;
                   }
                 }
@@ -23169,8 +23339,7 @@ function validate267(
                     if (props0 !== true) {
                       props0 = props0 || {};
                       props0.name = true;
-                      props0.namespace = true;
-                      props0.outbound = true;
+                      props0.part = true;
                       props0.type = true;
                     }
                   }
@@ -23198,12 +23367,9 @@ function validate267(
                       passing0 = 9;
                       if (props0 !== true) {
                         props0 = props0 || {};
-                        props0.class_name = true;
-                        props0.dispatch_namespace = true;
-                        props0.environment = true;
                         props0.name = true;
-                        props0.namespace_id = true;
-                        props0.script_name = true;
+                        props0.namespace = true;
+                        props0.outbound = true;
                         props0.type = true;
                       }
                     }
@@ -23231,148 +23397,30 @@ function validate267(
                         passing0 = 10;
                         if (props0 !== true) {
                           props0 = props0 || {};
-                          props0.id = true;
+                          props0.class_name = true;
+                          props0.dispatch_namespace = true;
+                          props0.environment = true;
                           props0.name = true;
+                          props0.namespace_id = true;
+                          props0.script_name = true;
                           props0.type = true;
                         }
                       }
                       const _errs13 = errors;
-                      if (data && typeof data == "object" && !Array.isArray(data)) {
-                        if (data.name === undefined) {
-                          const err1 = {
-                            instancePath,
-                            schemaPath:
-                              "#/components/schemas/workers_binding_kind_inherit/required",
-                            keyword: "required",
-                            params: { missingProperty: "name" },
-                            message: "must have required property '" + "name" + "'",
-                          };
-                          if (vErrors === null) {
-                            vErrors = [err1];
-                          } else {
-                            vErrors.push(err1);
-                          }
-                          errors++;
-                        }
-                        if (data.type === undefined) {
-                          const err2 = {
-                            instancePath,
-                            schemaPath:
-                              "#/components/schemas/workers_binding_kind_inherit/required",
-                            keyword: "required",
-                            params: { missingProperty: "type" },
-                            message: "must have required property '" + "type" + "'",
-                          };
-                          if (vErrors === null) {
-                            vErrors = [err2];
-                          } else {
-                            vErrors.push(err2);
-                          }
-                          errors++;
-                        }
-                        if (data.name !== undefined) {
-                          if (typeof data.name !== "string") {
-                            const err3 = {
-                              instancePath: instancePath + "/name",
-                              schemaPath:
-                                "#/components/schemas/workers_binding_kind_inherit/properties/name/type",
-                              keyword: "type",
-                              params: { type: "string" },
-                              message: "must be string",
-                            };
-                            if (vErrors === null) {
-                              vErrors = [err3];
-                            } else {
-                              vErrors.push(err3);
-                            }
-                            errors++;
-                          }
-                        }
-                        if (data.old_name !== undefined) {
-                          if (typeof data.old_name !== "string") {
-                            const err4 = {
-                              instancePath: instancePath + "/old_name",
-                              schemaPath:
-                                "#/components/schemas/workers_binding_kind_inherit/properties/old_name/type",
-                              keyword: "type",
-                              params: { type: "string" },
-                              message: "must be string",
-                            };
-                            if (vErrors === null) {
-                              vErrors = [err4];
-                            } else {
-                              vErrors.push(err4);
-                            }
-                            errors++;
-                          }
-                        }
-                        if (data.type !== undefined) {
-                          let data2 = data.type;
-                          if (typeof data2 !== "string") {
-                            const err5 = {
-                              instancePath: instancePath + "/type",
-                              schemaPath:
-                                "#/components/schemas/workers_binding_kind_inherit/properties/type/type",
-                              keyword: "type",
-                              params: { type: "string" },
-                              message: "must be string",
-                            };
-                            if (vErrors === null) {
-                              vErrors = [err5];
-                            } else {
-                              vErrors.push(err5);
-                            }
-                            errors++;
-                          }
-                          if (!(data2 === "inherit")) {
-                            const err6 = {
-                              instancePath: instancePath + "/type",
-                              schemaPath:
-                                "#/components/schemas/workers_binding_kind_inherit/properties/type/enum",
-                              keyword: "enum",
-                              params: { allowedValues: schema298.properties.type.enum },
-                              message: "must be equal to one of the allowed values",
-                            };
-                            if (vErrors === null) {
-                              vErrors = [err6];
-                            } else {
-                              vErrors.push(err6);
-                            }
-                            errors++;
-                          }
-                        }
-                        if (data.version_id !== undefined) {
-                          if (typeof data.version_id !== "string") {
-                            const err7 = {
-                              instancePath: instancePath + "/version_id",
-                              schemaPath:
-                                "#/components/schemas/workers_binding_kind_inherit/properties/version_id/type",
-                              keyword: "type",
-                              params: { type: "string" },
-                              message: "must be string",
-                            };
-                            if (vErrors === null) {
-                              vErrors = [err7];
-                            } else {
-                              vErrors.push(err7);
-                            }
-                            errors++;
-                          }
-                        }
-                      } else {
-                        const err8 = {
+                      if (
+                        !validate290(data, {
                           instancePath,
-                          schemaPath: "#/components/schemas/workers_binding_kind_inherit/type",
-                          keyword: "type",
-                          params: { type: "object" },
-                          message: "must be object",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err8];
-                        } else {
-                          vErrors.push(err8);
-                        }
-                        errors++;
+                          parentData,
+                          parentDataProperty,
+                          rootData,
+                          dynamicAnchors,
+                        })
+                      ) {
+                        vErrors =
+                          vErrors === null
+                            ? validate290.errors
+                            : vErrors.concat(validate290.errors);
+                        errors = vErrors.length;
                       }
                       var _valid0 = _errs13 === errors;
                       if (_valid0 && valid0) {
@@ -23384,29 +23432,150 @@ function validate267(
                           passing0 = 11;
                           if (props0 !== true) {
                             props0 = props0 || {};
+                            props0.id = true;
                             props0.name = true;
-                            props0.old_name = true;
                             props0.type = true;
-                            props0.version_id = true;
                           }
                         }
-                        const _errs24 = errors;
-                        if (
-                          !validate290(data, {
+                        const _errs14 = errors;
+                        if (data && typeof data == "object" && !Array.isArray(data)) {
+                          if (data.name === undefined) {
+                            const err1 = {
+                              instancePath,
+                              schemaPath:
+                                "#/components/schemas/workers_binding_kind_inherit/required",
+                              keyword: "required",
+                              params: { missingProperty: "name" },
+                              message: "must have required property '" + "name" + "'",
+                            };
+                            if (vErrors === null) {
+                              vErrors = [err1];
+                            } else {
+                              vErrors.push(err1);
+                            }
+                            errors++;
+                          }
+                          if (data.type === undefined) {
+                            const err2 = {
+                              instancePath,
+                              schemaPath:
+                                "#/components/schemas/workers_binding_kind_inherit/required",
+                              keyword: "required",
+                              params: { missingProperty: "type" },
+                              message: "must have required property '" + "type" + "'",
+                            };
+                            if (vErrors === null) {
+                              vErrors = [err2];
+                            } else {
+                              vErrors.push(err2);
+                            }
+                            errors++;
+                          }
+                          if (data.name !== undefined) {
+                            if (typeof data.name !== "string") {
+                              const err3 = {
+                                instancePath: instancePath + "/name",
+                                schemaPath:
+                                  "#/components/schemas/workers_binding_kind_inherit/properties/name/type",
+                                keyword: "type",
+                                params: { type: "string" },
+                                message: "must be string",
+                              };
+                              if (vErrors === null) {
+                                vErrors = [err3];
+                              } else {
+                                vErrors.push(err3);
+                              }
+                              errors++;
+                            }
+                          }
+                          if (data.old_name !== undefined) {
+                            if (typeof data.old_name !== "string") {
+                              const err4 = {
+                                instancePath: instancePath + "/old_name",
+                                schemaPath:
+                                  "#/components/schemas/workers_binding_kind_inherit/properties/old_name/type",
+                                keyword: "type",
+                                params: { type: "string" },
+                                message: "must be string",
+                              };
+                              if (vErrors === null) {
+                                vErrors = [err4];
+                              } else {
+                                vErrors.push(err4);
+                              }
+                              errors++;
+                            }
+                          }
+                          if (data.type !== undefined) {
+                            let data2 = data.type;
+                            if (typeof data2 !== "string") {
+                              const err5 = {
+                                instancePath: instancePath + "/type",
+                                schemaPath:
+                                  "#/components/schemas/workers_binding_kind_inherit/properties/type/type",
+                                keyword: "type",
+                                params: { type: "string" },
+                                message: "must be string",
+                              };
+                              if (vErrors === null) {
+                                vErrors = [err5];
+                              } else {
+                                vErrors.push(err5);
+                              }
+                              errors++;
+                            }
+                            if (!(data2 === "inherit")) {
+                              const err6 = {
+                                instancePath: instancePath + "/type",
+                                schemaPath:
+                                  "#/components/schemas/workers_binding_kind_inherit/properties/type/enum",
+                                keyword: "enum",
+                                params: { allowedValues: schema300.properties.type.enum },
+                                message: "must be equal to one of the allowed values",
+                              };
+                              if (vErrors === null) {
+                                vErrors = [err6];
+                              } else {
+                                vErrors.push(err6);
+                              }
+                              errors++;
+                            }
+                          }
+                          if (data.version_id !== undefined) {
+                            if (typeof data.version_id !== "string") {
+                              const err7 = {
+                                instancePath: instancePath + "/version_id",
+                                schemaPath:
+                                  "#/components/schemas/workers_binding_kind_inherit/properties/version_id/type",
+                                keyword: "type",
+                                params: { type: "string" },
+                                message: "must be string",
+                              };
+                              if (vErrors === null) {
+                                vErrors = [err7];
+                              } else {
+                                vErrors.push(err7);
+                              }
+                              errors++;
+                            }
+                          }
+                        } else {
+                          const err8 = {
                             instancePath,
-                            parentData,
-                            parentDataProperty,
-                            rootData,
-                            dynamicAnchors,
-                          })
-                        ) {
-                          vErrors =
-                            vErrors === null
-                              ? validate290.errors
-                              : vErrors.concat(validate290.errors);
-                          errors = vErrors.length;
+                            schemaPath: "#/components/schemas/workers_binding_kind_inherit/type",
+                            keyword: "type",
+                            params: { type: "object" },
+                            message: "must be object",
+                          };
+                          if (vErrors === null) {
+                            vErrors = [err8];
+                          } else {
+                            vErrors.push(err8);
+                          }
+                          errors++;
                         }
-                        var _valid0 = _errs24 === errors;
+                        var _valid0 = _errs14 === errors;
                         if (_valid0 && valid0) {
                           valid0 = false;
                           passing0 = [passing0, 12];
@@ -23417,7 +23586,9 @@ function validate267(
                             if (props0 !== true) {
                               props0 = props0 || {};
                               props0.name = true;
+                              props0.old_name = true;
                               props0.type = true;
+                              props0.version_id = true;
                             }
                           }
                           const _errs25 = errors;
@@ -23446,7 +23617,6 @@ function validate267(
                               passing0 = 13;
                               if (props0 !== true) {
                                 props0 = props0 || {};
-                                props0.json = true;
                                 props0.name = true;
                                 props0.type = true;
                               }
@@ -23477,8 +23647,8 @@ function validate267(
                                 passing0 = 14;
                                 if (props0 !== true) {
                                   props0 = props0 || {};
+                                  props0.json = true;
                                   props0.name = true;
-                                  props0.namespace_id = true;
                                   props0.type = true;
                                 }
                               }
@@ -23509,6 +23679,7 @@ function validate267(
                                   if (props0 !== true) {
                                     props0 = props0 || {};
                                     props0.name = true;
+                                    props0.namespace_id = true;
                                     props0.type = true;
                                   }
                                 }
@@ -23538,7 +23709,6 @@ function validate267(
                                     passing0 = 16;
                                     if (props0 !== true) {
                                       props0 = props0 || {};
-                                      props0.certificate_id = true;
                                       props0.name = true;
                                       props0.type = true;
                                     }
@@ -23569,8 +23739,8 @@ function validate267(
                                       passing0 = 17;
                                       if (props0 !== true) {
                                         props0 = props0 || {};
+                                        props0.certificate_id = true;
                                         props0.name = true;
-                                        props0.text = true;
                                         props0.type = true;
                                       }
                                     }
@@ -23601,7 +23771,7 @@ function validate267(
                                         if (props0 !== true) {
                                           props0 = props0 || {};
                                           props0.name = true;
-                                          props0.pipeline = true;
+                                          props0.text = true;
                                           props0.type = true;
                                         }
                                       }
@@ -23632,7 +23802,7 @@ function validate267(
                                           if (props0 !== true) {
                                             props0 = props0 || {};
                                             props0.name = true;
-                                            props0.queue_name = true;
+                                            props0.pipeline = true;
                                             props0.type = true;
                                           }
                                         }
@@ -23663,8 +23833,7 @@ function validate267(
                                             if (props0 !== true) {
                                               props0 = props0 || {};
                                               props0.name = true;
-                                              props0.namespace_id = true;
-                                              props0.simple = true;
+                                              props0.queue_name = true;
                                               props0.type = true;
                                             }
                                           }
@@ -23694,9 +23863,9 @@ function validate267(
                                               passing0 = 21;
                                               if (props0 !== true) {
                                                 props0 = props0 || {};
-                                                props0.bucket_name = true;
-                                                props0.jurisdiction = true;
                                                 props0.name = true;
+                                                props0.namespace_id = true;
+                                                props0.simple = true;
                                                 props0.type = true;
                                               }
                                             }
@@ -23726,8 +23895,9 @@ function validate267(
                                                 passing0 = 22;
                                                 if (props0 !== true) {
                                                   props0 = props0 || {};
+                                                  props0.bucket_name = true;
+                                                  props0.jurisdiction = true;
                                                   props0.name = true;
-                                                  props0.text = true;
                                                   props0.type = true;
                                                 }
                                               }
@@ -23757,10 +23927,8 @@ function validate267(
                                                   passing0 = 23;
                                                   if (props0 !== true) {
                                                     props0 = props0 || {};
-                                                    props0.allowed_destination_addresses = true;
-                                                    props0.allowed_sender_addresses = true;
-                                                    props0.destination_address = true;
                                                     props0.name = true;
+                                                    props0.text = true;
                                                     props0.type = true;
                                                   }
                                                 }
@@ -23790,10 +23958,10 @@ function validate267(
                                                     passing0 = 24;
                                                     if (props0 !== true) {
                                                       props0 = props0 || {};
-                                                      props0.entrypoint = true;
-                                                      props0.environment = true;
+                                                      props0.allowed_destination_addresses = true;
+                                                      props0.allowed_sender_addresses = true;
+                                                      props0.destination_address = true;
                                                       props0.name = true;
-                                                      props0.service = true;
                                                       props0.type = true;
                                                     }
                                                   }
@@ -23823,8 +23991,10 @@ function validate267(
                                                       passing0 = 25;
                                                       if (props0 !== true) {
                                                         props0 = props0 || {};
+                                                        props0.entrypoint = true;
+                                                        props0.environment = true;
                                                         props0.name = true;
-                                                        props0.part = true;
+                                                        props0.service = true;
                                                         props0.type = true;
                                                       }
                                                     }
@@ -23854,8 +24024,8 @@ function validate267(
                                                         passing0 = 26;
                                                         if (props0 !== true) {
                                                           props0 = props0 || {};
-                                                          props0.index_name = true;
                                                           props0.name = true;
+                                                          props0.part = true;
                                                           props0.type = true;
                                                         }
                                                       }
@@ -23885,6 +24055,7 @@ function validate267(
                                                           passing0 = 27;
                                                           if (props0 !== true) {
                                                             props0 = props0 || {};
+                                                            props0.index_name = true;
                                                             props0.name = true;
                                                             props0.type = true;
                                                           }
@@ -23916,8 +24087,6 @@ function validate267(
                                                             if (props0 !== true) {
                                                               props0 = props0 || {};
                                                               props0.name = true;
-                                                              props0.secret_name = true;
-                                                              props0.store_id = true;
                                                               props0.type = true;
                                                             }
                                                           }
@@ -23949,8 +24118,9 @@ function validate267(
                                                               passing0 = 29;
                                                               if (props0 !== true) {
                                                                 props0 = props0 || {};
-                                                                props0.app_id = true;
                                                                 props0.name = true;
+                                                                props0.secret_name = true;
+                                                                props0.store_id = true;
                                                                 props0.type = true;
                                                               }
                                                             }
@@ -23982,13 +24152,9 @@ function validate267(
                                                                 passing0 = 30;
                                                                 if (props0 !== true) {
                                                                   props0 = props0 || {};
-                                                                  props0.algorithm = true;
-                                                                  props0.format = true;
-                                                                  props0.key_base64 = true;
-                                                                  props0.key_jwk = true;
+                                                                  props0.app_id = true;
                                                                   props0.name = true;
                                                                   props0.type = true;
-                                                                  props0.usages = true;
                                                                 }
                                                               }
                                                               const _errs43 = errors;
@@ -24019,11 +24185,13 @@ function validate267(
                                                                   passing0 = 31;
                                                                   if (props0 !== true) {
                                                                     props0 = props0 || {};
-                                                                    props0.class_name = true;
+                                                                    props0.algorithm = true;
+                                                                    props0.format = true;
+                                                                    props0.key_base64 = true;
+                                                                    props0.key_jwk = true;
                                                                     props0.name = true;
-                                                                    props0.script_name = true;
                                                                     props0.type = true;
-                                                                    props0.workflow_name = true;
+                                                                    props0.usages = true;
                                                                   }
                                                                 }
                                                                 const _errs44 = errors;
@@ -24054,9 +24222,11 @@ function validate267(
                                                                     passing0 = 32;
                                                                     if (props0 !== true) {
                                                                       props0 = props0 || {};
+                                                                      props0.class_name = true;
                                                                       props0.name = true;
-                                                                      props0.part = true;
+                                                                      props0.script_name = true;
                                                                       props0.type = true;
+                                                                      props0.workflow_name = true;
                                                                     }
                                                                   }
                                                                   const _errs45 = errors;
@@ -24088,7 +24258,7 @@ function validate267(
                                                                       if (props0 !== true) {
                                                                         props0 = props0 || {};
                                                                         props0.name = true;
-                                                                        props0.service_id = true;
+                                                                        props0.part = true;
                                                                         props0.type = true;
                                                                       }
                                                                     }
@@ -24122,9 +24292,44 @@ function validate267(
                                                                         if (props0 !== true) {
                                                                           props0 = props0 || {};
                                                                           props0.name = true;
-                                                                          props0.network_id = true;
-                                                                          props0.tunnel_id = true;
+                                                                          props0.service_id = true;
                                                                           props0.type = true;
+                                                                        }
+                                                                      }
+                                                                      const _errs47 = errors;
+                                                                      if (
+                                                                        !validate336(data, {
+                                                                          instancePath,
+                                                                          parentData,
+                                                                          parentDataProperty,
+                                                                          rootData,
+                                                                          dynamicAnchors,
+                                                                        })
+                                                                      ) {
+                                                                        vErrors =
+                                                                          vErrors === null
+                                                                            ? validate336.errors
+                                                                            : vErrors.concat(
+                                                                                validate336.errors,
+                                                                              );
+                                                                        errors = vErrors.length;
+                                                                      }
+                                                                      var _valid0 =
+                                                                        _errs47 === errors;
+                                                                      if (_valid0 && valid0) {
+                                                                        valid0 = false;
+                                                                        passing0 = [passing0, 35];
+                                                                      } else {
+                                                                        if (_valid0) {
+                                                                          valid0 = true;
+                                                                          passing0 = 35;
+                                                                          if (props0 !== true) {
+                                                                            props0 = props0 || {};
+                                                                            props0.name = true;
+                                                                            props0.network_id = true;
+                                                                            props0.tunnel_id = true;
+                                                                            props0.type = true;
+                                                                          }
                                                                         }
                                                                       }
                                                                     }
@@ -24337,11 +24542,11 @@ validate263.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvNamespaceWorkerPutScriptContentResponse = validate339;
-const schema346 = {
+export const ajvNamespaceWorkerPutScriptContentResponse = validate341;
+const schema348 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1content/put/responses/200/content/application~1json/schema",
 };
-const schema347 = {
+const schema349 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-single" },
     {
@@ -24365,17 +24570,17 @@ const schema347 = {
     },
   ],
 };
-const schema348 = {
+const schema350 = {
   type: "object",
   allOf: [{ $ref: "#/components/schemas/workers_api-response-common" }],
 };
-function validate341(
+function validate343(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate341.evaluated;
+  const evaluated0 = validate343.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -24403,21 +24608,21 @@ function validate341(
     vErrors = vErrors === null ? validate175.errors : vErrors.concat(validate175.errors);
     errors = vErrors.length;
   }
-  validate341.errors = vErrors;
+  validate343.errors = vErrors;
   return errors === 0;
 }
-validate341.evaluated = {
+validate343.evaluated = {
   props: { errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate340(
+function validate342(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate340.evaluated;
+  const evaluated0 = validate342.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -24425,9 +24630,9 @@ function validate340(
     evaluated0.items = undefined;
   }
   if (
-    !validate341(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate343(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate341.errors : vErrors.concat(validate341.errors);
+    vErrors = vErrors === null ? validate343.errors : vErrors.concat(validate343.errors);
     errors = vErrors.length;
   }
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -24475,21 +24680,21 @@ function validate340(
     }
     errors++;
   }
-  validate340.errors = vErrors;
+  validate342.errors = vErrors;
   return errors === 0;
 }
-validate340.evaluated = {
+validate342.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate339(
+function validate341(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate339.evaluated;
+  const evaluated0 = validate341.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -24497,24 +24702,24 @@ function validate339(
     evaluated0.items = undefined;
   }
   if (
-    !validate340(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate342(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate340.errors : vErrors.concat(validate340.errors);
+    vErrors = vErrors === null ? validate342.errors : vErrors.concat(validate342.errors);
     errors = vErrors.length;
   }
-  validate339.errors = vErrors;
+  validate341.errors = vErrors;
   return errors === 0;
 }
-validate339.evaluated = {
+validate341.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvNamespaceWorkerListScriptSecretsResponse = validate346;
-const schema349 = {
+export const ajvNamespaceWorkerListScriptSecretsResponse = validate348;
+const schema351 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1secrets/get/responses/200/content/application~1json/schema",
 };
-const schema350 = {
+const schema352 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -24526,7 +24731,7 @@ const schema350 = {
     },
   ],
 };
-const schema351 = {
+const schema353 = {
   description: "A secret value accessible through a binding.",
   type: "object",
   discriminator: {
@@ -24541,13 +24746,13 @@ const schema351 = {
     { $ref: "#/components/schemas/workers_binding_kind_secret_key" },
   ],
 };
-function validate349(
+function validate351(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate349.evaluated;
+  const evaluated0 = validate351.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -24574,9 +24779,9 @@ function validate349(
   let passing0 = null;
   const _errs2 = errors;
   if (
-    !validate310(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate312(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate310.errors : vErrors.concat(validate310.errors);
+    vErrors = vErrors === null ? validate312.errors : vErrors.concat(validate312.errors);
     errors = vErrors.length;
   }
   var _valid0 = _errs2 === errors;
@@ -24590,9 +24795,9 @@ function validate349(
   }
   const _errs3 = errors;
   if (
-    !validate326(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate328(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate326.errors : vErrors.concat(validate326.errors);
+    vErrors = vErrors === null ? validate328.errors : vErrors.concat(validate328.errors);
     errors = vErrors.length;
   }
   var _valid0 = _errs3 === errors;
@@ -24639,18 +24844,18 @@ function validate349(
       }
     }
   }
-  validate349.errors = vErrors;
+  validate351.errors = vErrors;
   evaluated0.props = props0;
   return errors === 0;
 }
-validate349.evaluated = { dynamicProps: true, dynamicItems: false };
-function validate347(
+validate351.evaluated = { dynamicProps: true, dynamicItems: false };
+function validate349(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate347.evaluated;
+  const evaluated0 = validate349.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -24685,7 +24890,7 @@ function validate347(
         const len0 = data0.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (
-            !validate349(data0[i0], {
+            !validate351(data0[i0], {
               instancePath: instancePath + "/result/" + i0,
               parentData: data0,
               parentDataProperty: i0,
@@ -24693,7 +24898,7 @@ function validate347(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate349.errors : vErrors.concat(validate349.errors);
+            vErrors = vErrors === null ? validate351.errors : vErrors.concat(validate351.errors);
             errors = vErrors.length;
           }
         }
@@ -24728,21 +24933,21 @@ function validate347(
     }
     errors++;
   }
-  validate347.errors = vErrors;
+  validate349.errors = vErrors;
   return errors === 0;
 }
-validate347.evaluated = {
+validate349.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate346(
+function validate348(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate346.evaluated;
+  const evaluated0 = validate348.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -24750,24 +24955,24 @@ function validate346(
     evaluated0.items = undefined;
   }
   if (
-    !validate347(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate349(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate347.errors : vErrors.concat(validate347.errors);
+    vErrors = vErrors === null ? validate349.errors : vErrors.concat(validate349.errors);
     errors = vErrors.length;
   }
-  validate346.errors = vErrors;
+  validate348.errors = vErrors;
   return errors === 0;
 }
-validate346.evaluated = {
+validate348.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvNamespaceWorkerPutScriptSecretsResponse = validate354;
-const schema352 = {
+export const ajvNamespaceWorkerPutScriptSecretsResponse = validate356;
+const schema354 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1secrets/put/responses/200/content/application~1json/schema",
 };
-const schema353 = {
+const schema355 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -24777,13 +24982,13 @@ const schema353 = {
     },
   ],
 };
-function validate355(
+function validate357(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate355.evaluated;
+  const evaluated0 = validate357.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -24814,7 +25019,7 @@ function validate355(
     }
     if (data.result !== undefined) {
       if (
-        !validate349(data.result, {
+        !validate351(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -24822,7 +25027,7 @@ function validate355(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate349.errors : vErrors.concat(validate349.errors);
+        vErrors = vErrors === null ? validate351.errors : vErrors.concat(validate351.errors);
         errors = vErrors.length;
       }
     }
@@ -24841,21 +25046,21 @@ function validate355(
     }
     errors++;
   }
-  validate355.errors = vErrors;
+  validate357.errors = vErrors;
   return errors === 0;
 }
-validate355.evaluated = {
+validate357.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate354(
+function validate356(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate354.evaluated;
+  const evaluated0 = validate356.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -24863,24 +25068,24 @@ function validate354(
     evaluated0.items = undefined;
   }
   if (
-    !validate355(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate357(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate355.errors : vErrors.concat(validate355.errors);
+    vErrors = vErrors === null ? validate357.errors : vErrors.concat(validate357.errors);
     errors = vErrors.length;
   }
-  validate354.errors = vErrors;
+  validate356.errors = vErrors;
   return errors === 0;
 }
-validate354.evaluated = {
+validate356.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvNamespaceWorkerPatchScriptSecretsBulkResponse = validate359;
-const schema354 = {
+export const ajvNamespaceWorkerPatchScriptSecretsBulkResponse = validate361;
+const schema356 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1secrets-bulk/patch/responses/200/content/application~1json/schema",
 };
-const schema355 = {
+const schema357 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -24890,18 +25095,18 @@ const schema355 = {
     },
   ],
 };
-const schema356 = {
+const schema358 = {
   description: "Map of secret names to secret metadata for resulting secrets.",
   type: "object",
   additionalProperties: { $ref: "#/components/schemas/workers_secret" },
 };
-function validate362(
+function validate364(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate362.evaluated;
+  const evaluated0 = validate364.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -24911,7 +25116,7 @@ function validate362(
   if (data && typeof data == "object" && !Array.isArray(data)) {
     for (const key0 in data) {
       if (
-        !validate349(data[key0], {
+        !validate351(data[key0], {
           instancePath: instancePath + "/" + key0.replace(/~/g, "~0").replace(/\//g, "~1"),
           parentData: data,
           parentDataProperty: key0,
@@ -24919,7 +25124,7 @@ function validate362(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate349.errors : vErrors.concat(validate349.errors);
+        vErrors = vErrors === null ? validate351.errors : vErrors.concat(validate351.errors);
         errors = vErrors.length;
       }
     }
@@ -24938,17 +25143,17 @@ function validate362(
     }
     errors++;
   }
-  validate362.errors = vErrors;
+  validate364.errors = vErrors;
   return errors === 0;
 }
-validate362.evaluated = { props: true, dynamicProps: false, dynamicItems: false };
-function validate360(
+validate364.evaluated = { props: true, dynamicProps: false, dynamicItems: false };
+function validate362(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate360.evaluated;
+  const evaluated0 = validate362.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -24979,7 +25184,7 @@ function validate360(
     }
     if (data.result !== undefined) {
       if (
-        !validate362(data.result, {
+        !validate364(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -24987,7 +25192,7 @@ function validate360(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate362.errors : vErrors.concat(validate362.errors);
+        vErrors = vErrors === null ? validate364.errors : vErrors.concat(validate364.errors);
         errors = vErrors.length;
       }
     }
@@ -25006,21 +25211,21 @@ function validate360(
     }
     errors++;
   }
-  validate360.errors = vErrors;
+  validate362.errors = vErrors;
   return errors === 0;
 }
-validate360.evaluated = {
+validate362.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate359(
+function validate361(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate359.evaluated;
+  const evaluated0 = validate361.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -25028,30 +25233,30 @@ function validate359(
     evaluated0.items = undefined;
   }
   if (
-    !validate360(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate362(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate360.errors : vErrors.concat(validate360.errors);
+    vErrors = vErrors === null ? validate362.errors : vErrors.concat(validate362.errors);
     errors = vErrors.length;
   }
-  validate359.errors = vErrors;
+  validate361.errors = vErrors;
   return errors === 0;
 }
-validate359.evaluated = {
+validate361.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvNamespaceWorkerDeleteScriptSecretResponse = validate366;
-const schema357 = {
+export const ajvNamespaceWorkerDeleteScriptSecretResponse = validate368;
+const schema359 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1secrets~1{secret_name}/delete/responses/200/content/application~1json/schema",
 };
-function validate367(
+function validate369(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate367.evaluated;
+  const evaluated0 = validate369.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -25113,21 +25318,21 @@ function validate367(
     }
     errors++;
   }
-  validate367.errors = vErrors;
+  validate369.errors = vErrors;
   return errors === 0;
 }
-validate367.evaluated = {
+validate369.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate366(
+function validate368(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate366.evaluated;
+  const evaluated0 = validate368.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -25135,24 +25340,24 @@ function validate366(
     evaluated0.items = undefined;
   }
   if (
-    !validate367(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate369(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate367.errors : vErrors.concat(validate367.errors);
+    vErrors = vErrors === null ? validate369.errors : vErrors.concat(validate369.errors);
     errors = vErrors.length;
   }
-  validate366.errors = vErrors;
+  validate368.errors = vErrors;
   return errors === 0;
 }
-validate366.evaluated = {
+validate368.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvNamespaceWorkerGetScriptSecretsResponse = validate370;
-const schema359 = {
+export const ajvNamespaceWorkerGetScriptSecretsResponse = validate372;
+const schema361 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1secrets~1{secret_name}/get/responses/200/content/application~1json/schema",
 };
-const schema360 = {
+const schema362 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -25162,13 +25367,13 @@ const schema360 = {
     },
   ],
 };
-function validate371(
+function validate373(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate371.evaluated;
+  const evaluated0 = validate373.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -25199,7 +25404,7 @@ function validate371(
     }
     if (data.result !== undefined) {
       if (
-        !validate349(data.result, {
+        !validate351(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -25207,7 +25412,7 @@ function validate371(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate349.errors : vErrors.concat(validate349.errors);
+        vErrors = vErrors === null ? validate351.errors : vErrors.concat(validate351.errors);
         errors = vErrors.length;
       }
     }
@@ -25226,21 +25431,21 @@ function validate371(
     }
     errors++;
   }
-  validate371.errors = vErrors;
+  validate373.errors = vErrors;
   return errors === 0;
 }
-validate371.evaluated = {
+validate373.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate370(
+function validate372(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate370.evaluated;
+  const evaluated0 = validate372.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -25248,24 +25453,24 @@ function validate370(
     evaluated0.items = undefined;
   }
   if (
-    !validate371(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate373(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate371.errors : vErrors.concat(validate371.errors);
+    vErrors = vErrors === null ? validate373.errors : vErrors.concat(validate373.errors);
     errors = vErrors.length;
   }
-  validate370.errors = vErrors;
+  validate372.errors = vErrors;
   return errors === 0;
 }
-validate370.evaluated = {
+validate372.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvNamespaceWorkerGetScriptSettingsResponse = validate375;
-const schema361 = {
+export const ajvNamespaceWorkerGetScriptSettingsResponse = validate377;
+const schema363 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1settings/get/responses/200/content/application~1json/schema",
 };
-const schema362 = {
+const schema364 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -25276,7 +25481,7 @@ const schema362 = {
     },
   ],
 };
-const schema363 = {
+const schema365 = {
   description:
     "Script and version settings for Workers for Platforms namespace scripts. Same as script-and-version-settings-item but without annotations, which are not supported for namespace scripts.\n",
   type: "object",
@@ -25362,7 +25567,7 @@ const schema363 = {
     usage_model: { $ref: "#/components/schemas/workers_usage_model" },
   },
 };
-const schema374 = {
+const schema376 = {
   description: "Limits to apply for this Worker.",
   type: "object",
   properties: {
@@ -25380,7 +25585,7 @@ const schema374 = {
     },
   },
 };
-const schema366 = {
+const schema368 = {
   description:
     'Summary of what the declarative exports reconciliation did on this\nupload. Present only on uploads that included an `exports` block.\nReconciliation acts on Durable Object entries; `type: worker`\nentries in the same map do not participate. Every array is always\npresent (possibly empty) so clients can iterate unconditionally.\nClients should surface `warnings` prominently, render `info` at\nlower visibility, and use `removable_entries` as the "safe to\ndelete from your config" hint.\n',
   type: "object",
@@ -25446,7 +25651,7 @@ const schema366 = {
     "removable_entries",
   ],
 };
-const schema369 = {
+const schema371 = {
   description: "A single applied `renamed` tombstone.",
   type: "object",
   properties: {
@@ -25455,7 +25660,7 @@ const schema369 = {
   },
   required: ["from", "to"],
 };
-const schema370 = {
+const schema372 = {
   description:
     "A single phase-1 transfer hint recorded on the target side (a live\n`expecting-transfer` entry).\n",
   type: "object",
@@ -25468,7 +25673,7 @@ const schema370 = {
   },
   required: ["class", "from"],
 };
-const schema371 = {
+const schema373 = {
   description: "A single committed `transferred` tombstone (phase-2 commit).",
   type: "object",
   properties: {
@@ -25483,7 +25688,7 @@ const schema371 = {
   },
   required: ["class", "to", "phase"],
 };
-const schema367 = {
+const schema369 = {
   description:
     "A non-blocking reconciliation info entry. Emitted for stale\ntombstones (a no-op on this deploy) and for tombstones applied\nwith the source class still in code (the supported zero-downtime\nrollout pattern).\n",
   type: "object",
@@ -25505,7 +25710,7 @@ const schema367 = {
   },
   required: ["class", "scenario", "message"],
 };
-const schema368 = {
+const schema370 = {
   description:
     "Stable, machine-readable tag identifying which reconciliation\nscenario produced an error, warning, or info entry. Clients may\nbranch on this value instead of parsing `message`.\n",
   type: "string",
@@ -25545,13 +25750,13 @@ const schema368 = {
     "transfer_receive_cleanup_complete",
   ],
 };
-function validate384(
+function validate386(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate384.evaluated;
+  const evaluated0 = validate386.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -25750,7 +25955,7 @@ function validate384(
           instancePath: instancePath + "/scenario",
           schemaPath: "#/components/schemas/workers_exports_reconciliation_scenario/enum",
           keyword: "enum",
-          params: { allowedValues: schema368.enum },
+          params: { allowedValues: schema370.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -25776,10 +25981,10 @@ function validate384(
     }
     errors++;
   }
-  validate384.errors = vErrors;
+  validate386.errors = vErrors;
   return errors === 0;
 }
-validate384.evaluated = {
+validate386.evaluated = {
   props: {
     class: true,
     message: true,
@@ -25790,7 +25995,7 @@ validate384.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema372 = {
+const schema374 = {
   description:
     "A non-blocking reconciliation warning. Reserved: no scenario\npopulates this array today (`code_class_not_in_exports` is\nsurfaced as info and `provisioned_class_missing_from_config` is a\nhard error). Clients should still surface any entries that appear.\n",
   type: "object",
@@ -25806,13 +26011,13 @@ const schema372 = {
   },
   required: ["class", "scenario", "message"],
 };
-function validate386(
+function validate388(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate386.evaluated;
+  const evaluated0 = validate388.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -25974,7 +26179,7 @@ function validate386(
           instancePath: instancePath + "/scenario",
           schemaPath: "#/components/schemas/workers_exports_reconciliation_scenario/enum",
           keyword: "enum",
-          params: { allowedValues: schema368.enum },
+          params: { allowedValues: schema370.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -26000,21 +26205,21 @@ function validate386(
     }
     errors++;
   }
-  validate386.errors = vErrors;
+  validate388.errors = vErrors;
   return errors === 0;
 }
-validate386.evaluated = {
+validate388.evaluated = {
   props: { class: true, message: true, namespace_id: true, scenario: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate383(
+function validate385(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate383.evaluated;
+  const evaluated0 = validate385.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -26237,7 +26442,7 @@ function validate383(
         const len2 = data4.length;
         for (let i2 = 0; i2 < len2; i2++) {
           if (
-            !validate384(data4[i2], {
+            !validate386(data4[i2], {
               instancePath: instancePath + "/info/" + i2,
               parentData: data4,
               parentDataProperty: i2,
@@ -26245,7 +26450,7 @@ function validate383(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate384.errors : vErrors.concat(validate384.errors);
+            vErrors = vErrors === null ? validate386.errors : vErrors.concat(validate386.errors);
             errors = vErrors.length;
           }
         }
@@ -26609,7 +26814,7 @@ function validate383(
                   schemaPath:
                     "#/components/schemas/workers_exports_reconciliation_transfer/properties/phase/enum",
                   keyword: "enum",
-                  params: { allowedValues: schema371.properties.phase.enum },
+                  params: { allowedValues: schema373.properties.phase.enum },
                   message: "must be equal to one of the allowed values",
                 };
                 if (vErrors === null) {
@@ -26713,7 +26918,7 @@ function validate383(
         const len8 = data23.length;
         for (let i8 = 0; i8 < len8; i8++) {
           if (
-            !validate386(data23[i8], {
+            !validate388(data23[i8], {
               instancePath: instancePath + "/warnings/" + i8,
               parentData: data23,
               parentDataProperty: i8,
@@ -26721,7 +26926,7 @@ function validate383(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate386.errors : vErrors.concat(validate386.errors);
+            vErrors = vErrors === null ? validate388.errors : vErrors.concat(validate388.errors);
             errors = vErrors.length;
           }
         }
@@ -26756,10 +26961,10 @@ function validate383(
     }
     errors++;
   }
-  validate383.errors = vErrors;
+  validate385.errors = vErrors;
   return errors === 0;
 }
-validate383.evaluated = {
+validate385.evaluated = {
   props: {
     created: true,
     deleted: true,
@@ -26774,14 +26979,14 @@ validate383.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema376 = {
+const schema378 = {
   description: "A single set of migrations to apply.",
   allOf: [
     { $ref: "#/components/schemas/workers_migration_tag_conditions" },
     { $ref: "#/components/schemas/workers_migration_step" },
   ],
 };
-const schema377 = {
+const schema379 = {
   type: "object",
   properties: {
     new_tag: {
@@ -26801,7 +27006,7 @@ const schema377 = {
     },
   },
 };
-const schema378 = {
+const schema380 = {
   type: "object",
   properties: {
     deleted_classes: {
@@ -26850,13 +27055,13 @@ const schema378 = {
     },
   },
 };
-function validate389(
+function validate391(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate389.evaluated;
+  const evaluated0 = validate391.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -27217,10 +27422,10 @@ function validate389(
     }
     errors++;
   }
-  validate389.errors = vErrors;
+  validate391.errors = vErrors;
   return errors === 0;
 }
-validate389.evaluated = {
+validate391.evaluated = {
   props: {
     deleted_classes: true,
     new_classes: true,
@@ -27233,7 +27438,7 @@ validate389.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema379 = {
+const schema381 = {
   allOf: [
     { $ref: "#/components/schemas/workers_migration_tag_conditions" },
     {
@@ -27249,13 +27454,13 @@ const schema379 = {
     },
   ],
 };
-function validate391(
+function validate393(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate391.evaluated;
+  const evaluated0 = validate393.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -27668,15 +27873,15 @@ function validate391(
     }
     errors++;
   }
-  validate391.errors = vErrors;
+  validate393.errors = vErrors;
   return errors === 0;
 }
-validate391.evaluated = {
+validate393.evaluated = {
   props: { steps: true, new_tag: true, old_tag: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-const schema383 = {
+const schema385 = {
   description:
     "Configuration for [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement). Specify mode='smart' for Smart Placement, or one of region/hostname/host.",
   type: "object",
@@ -27814,13 +28019,13 @@ const schema383 = {
     },
   ],
 };
-function validate393(
+function validate395(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate393.evaluated;
+  const evaluated0 = validate395.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -27901,7 +28106,7 @@ function validate393(
           instancePath: instancePath + "/mode",
           schemaPath: "#/oneOf/0/properties/mode/enum",
           keyword: "enum",
-          params: { allowedValues: schema383.oneOf[0].properties.mode.enum },
+          params: { allowedValues: schema385.oneOf[0].properties.mode.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -28238,7 +28443,7 @@ function validate393(
                 instancePath: instancePath + "/mode",
                 schemaPath: "#/oneOf/4/properties/mode/enum",
                 keyword: "enum",
-                params: { allowedValues: schema383.oneOf[4].properties.mode.enum },
+                params: { allowedValues: schema385.oneOf[4].properties.mode.enum },
                 message: "must be equal to one of the allowed values",
               };
               if (vErrors === null) {
@@ -28381,7 +28586,7 @@ function validate393(
                   instancePath: instancePath + "/mode",
                   schemaPath: "#/oneOf/5/properties/mode/enum",
                   keyword: "enum",
-                  params: { allowedValues: schema383.oneOf[5].properties.mode.enum },
+                  params: { allowedValues: schema385.oneOf[5].properties.mode.enum },
                   message: "must be equal to one of the allowed values",
                 };
                 if (vErrors === null) {
@@ -28507,7 +28712,7 @@ function validate393(
                     instancePath: instancePath + "/mode",
                     schemaPath: "#/oneOf/6/properties/mode/enum",
                     keyword: "enum",
-                    params: { allowedValues: schema383.oneOf[6].properties.mode.enum },
+                    params: { allowedValues: schema385.oneOf[6].properties.mode.enum },
                     message: "must be equal to one of the allowed values",
                   };
                   if (vErrors === null) {
@@ -28616,7 +28821,7 @@ function validate393(
                       instancePath: instancePath + "/mode",
                       schemaPath: "#/oneOf/7/properties/mode/enum",
                       keyword: "enum",
-                      params: { allowedValues: schema383.oneOf[7].properties.mode.enum },
+                      params: { allowedValues: schema385.oneOf[7].properties.mode.enum },
                       message: "must be equal to one of the allowed values",
                     };
                     if (vErrors === null) {
@@ -29020,18 +29225,18 @@ function validate393(
       }
     }
   }
-  validate393.errors = vErrors;
+  validate395.errors = vErrors;
   evaluated0.props = props0;
   return errors === 0;
 }
-validate393.evaluated = { dynamicProps: true, dynamicItems: false };
-function validate378(
+validate395.evaluated = { dynamicProps: true, dynamicItems: false };
+function validate380(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate378.evaluated;
+  const evaluated0 = validate380.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -29269,7 +29474,7 @@ function validate378(
     }
     if (data.exports_reconciliation !== undefined) {
       if (
-        !validate383(data.exports_reconciliation, {
+        !validate385(data.exports_reconciliation, {
           instancePath: instancePath + "/exports_reconciliation",
           parentData: data,
           parentDataProperty: "exports_reconciliation",
@@ -29277,7 +29482,7 @@ function validate378(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate383.errors : vErrors.concat(validate383.errors);
+        vErrors = vErrors === null ? validate385.errors : vErrors.concat(validate385.errors);
         errors = vErrors.length;
       }
     }
@@ -29360,7 +29565,7 @@ function validate378(
       let passing0 = null;
       const _errs42 = errors;
       if (
-        !validate389(data14, {
+        !validate391(data14, {
           instancePath: instancePath + "/migrations",
           parentData: data,
           parentDataProperty: "migrations",
@@ -29368,7 +29573,7 @@ function validate378(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate389.errors : vErrors.concat(validate389.errors);
+        vErrors = vErrors === null ? validate391.errors : vErrors.concat(validate391.errors);
         errors = vErrors.length;
       }
       var _valid0 = _errs42 === errors;
@@ -29386,7 +29591,7 @@ function validate378(
       }
       const _errs43 = errors;
       if (
-        !validate391(data14, {
+        !validate393(data14, {
           instancePath: instancePath + "/migrations",
           parentData: data,
           parentDataProperty: "migrations",
@@ -29394,7 +29599,7 @@ function validate378(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate391.errors : vErrors.concat(validate391.errors);
+        vErrors = vErrors === null ? validate393.errors : vErrors.concat(validate393.errors);
         errors = vErrors.length;
       }
       var _valid0 = _errs43 === errors;
@@ -29824,7 +30029,7 @@ function validate378(
     if (data.placement !== undefined) {
       let data32 = data.placement;
       if (
-        !validate393(data32, {
+        !validate395(data32, {
           instancePath: instancePath + "/placement",
           parentData: data,
           parentDataProperty: "placement",
@@ -29832,7 +30037,7 @@ function validate378(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate393.errors : vErrors.concat(validate393.errors);
+        vErrors = vErrors === null ? validate395.errors : vErrors.concat(validate395.errors);
         errors = vErrors.length;
       }
       if (!(data32 && typeof data32 == "object" && !Array.isArray(data32))) {
@@ -30068,10 +30273,10 @@ function validate378(
     }
     errors++;
   }
-  validate378.errors = vErrors;
+  validate380.errors = vErrors;
   return errors === 0;
 }
-validate378.evaluated = {
+validate380.evaluated = {
   props: {
     bindings: true,
     cache_options: true,
@@ -30091,13 +30296,13 @@ validate378.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate376(
+function validate378(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate376.evaluated;
+  const evaluated0 = validate378.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -30113,7 +30318,7 @@ function validate376(
   if (data && typeof data == "object" && !Array.isArray(data)) {
     if (data.result !== undefined) {
       if (
-        !validate378(data.result, {
+        !validate380(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -30121,7 +30326,7 @@ function validate376(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate378.errors : vErrors.concat(validate378.errors);
+        vErrors = vErrors === null ? validate380.errors : vErrors.concat(validate380.errors);
         errors = vErrors.length;
       }
     }
@@ -30140,21 +30345,21 @@ function validate376(
     }
     errors++;
   }
-  validate376.errors = vErrors;
+  validate378.errors = vErrors;
   return errors === 0;
 }
-validate376.evaluated = {
+validate378.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate375(
+function validate377(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate375.evaluated;
+  const evaluated0 = validate377.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -30162,24 +30367,24 @@ function validate375(
     evaluated0.items = undefined;
   }
   if (
-    !validate376(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate378(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate376.errors : vErrors.concat(validate376.errors);
+    vErrors = vErrors === null ? validate378.errors : vErrors.concat(validate378.errors);
     errors = vErrors.length;
   }
-  validate375.errors = vErrors;
+  validate377.errors = vErrors;
   return errors === 0;
 }
-validate375.evaluated = {
+validate377.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvNamespaceWorkerPatchScriptSettingsResponse = validate399;
-const schema387 = {
+export const ajvNamespaceWorkerPatchScriptSettingsResponse = validate401;
+const schema389 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1settings/patch/responses/200/content/application~1json/schema",
 };
-const schema388 = {
+const schema390 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -30190,13 +30395,13 @@ const schema388 = {
     },
   ],
 };
-function validate400(
+function validate402(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate400.evaluated;
+  const evaluated0 = validate402.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -30212,7 +30417,7 @@ function validate400(
   if (data && typeof data == "object" && !Array.isArray(data)) {
     if (data.result !== undefined) {
       if (
-        !validate378(data.result, {
+        !validate380(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -30220,7 +30425,7 @@ function validate400(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate378.errors : vErrors.concat(validate378.errors);
+        vErrors = vErrors === null ? validate380.errors : vErrors.concat(validate380.errors);
         errors = vErrors.length;
       }
     }
@@ -30239,21 +30444,21 @@ function validate400(
     }
     errors++;
   }
-  validate400.errors = vErrors;
+  validate402.errors = vErrors;
   return errors === 0;
 }
-validate400.evaluated = {
+validate402.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate399(
+function validate401(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate399.evaluated;
+  const evaluated0 = validate401.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -30261,24 +30466,24 @@ function validate399(
     evaluated0.items = undefined;
   }
   if (
-    !validate400(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate402(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate400.errors : vErrors.concat(validate400.errors);
+    vErrors = vErrors === null ? validate402.errors : vErrors.concat(validate402.errors);
     errors = vErrors.length;
   }
-  validate399.errors = vErrors;
+  validate401.errors = vErrors;
   return errors === 0;
 }
-validate399.evaluated = {
+validate401.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvNamespaceWorkerGetScriptTagsResponse = validate404;
-const schema389 = {
+export const ajvNamespaceWorkerGetScriptTagsResponse = validate406;
+const schema391 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1tags/get/responses/200/content/application~1json/schema",
 };
-const schema390 = {
+const schema392 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -30293,13 +30498,13 @@ const schema390 = {
     },
   ],
 };
-function validate405(
+function validate407(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate405.evaluated;
+  const evaluated0 = validate407.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -30397,21 +30602,21 @@ function validate405(
     }
     errors++;
   }
-  validate405.errors = vErrors;
+  validate407.errors = vErrors;
   return errors === 0;
 }
-validate405.evaluated = {
+validate407.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate404(
+function validate406(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate404.evaluated;
+  const evaluated0 = validate406.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -30419,24 +30624,24 @@ function validate404(
     evaluated0.items = undefined;
   }
   if (
-    !validate405(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate407(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate405.errors : vErrors.concat(validate405.errors);
+    vErrors = vErrors === null ? validate407.errors : vErrors.concat(validate407.errors);
     errors = vErrors.length;
   }
-  validate404.errors = vErrors;
+  validate406.errors = vErrors;
   return errors === 0;
 }
-validate404.evaluated = {
+validate406.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvNamespaceWorkerPutScriptTagsResponse = validate408;
-const schema392 = {
+export const ajvNamespaceWorkerPutScriptTagsResponse = validate410;
+const schema394 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1tags/put/responses/200/content/application~1json/schema",
 };
-const schema393 = {
+const schema395 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -30452,13 +30657,13 @@ const schema393 = {
     },
   ],
 };
-function validate409(
+function validate411(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate409.evaluated;
+  const evaluated0 = validate411.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -30571,21 +30776,21 @@ function validate409(
     }
     errors++;
   }
-  validate409.errors = vErrors;
+  validate411.errors = vErrors;
   return errors === 0;
 }
-validate409.evaluated = {
+validate411.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate408(
+function validate410(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate408.evaluated;
+  const evaluated0 = validate410.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -30593,30 +30798,30 @@ function validate408(
     evaluated0.items = undefined;
   }
   if (
-    !validate409(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate411(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate409.errors : vErrors.concat(validate409.errors);
+    vErrors = vErrors === null ? validate411.errors : vErrors.concat(validate411.errors);
     errors = vErrors.length;
   }
-  validate408.errors = vErrors;
+  validate410.errors = vErrors;
   return errors === 0;
 }
-validate408.evaluated = {
+validate410.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvNamespaceWorkerDeleteScriptTagResponse = validate412;
-const schema395 = {
+export const ajvNamespaceWorkerDeleteScriptTagResponse = validate414;
+const schema397 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1tags~1{tag}/delete/responses/200/content/application~1json/schema",
 };
-function validate413(
+function validate415(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate413.evaluated;
+  const evaluated0 = validate415.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -30678,21 +30883,21 @@ function validate413(
     }
     errors++;
   }
-  validate413.errors = vErrors;
+  validate415.errors = vErrors;
   return errors === 0;
 }
-validate413.evaluated = {
+validate415.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate412(
+function validate414(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate412.evaluated;
+  const evaluated0 = validate414.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -30700,30 +30905,30 @@ function validate412(
     evaluated0.items = undefined;
   }
   if (
-    !validate413(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate415(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate413.errors : vErrors.concat(validate413.errors);
+    vErrors = vErrors === null ? validate415.errors : vErrors.concat(validate415.errors);
     errors = vErrors.length;
   }
-  validate412.errors = vErrors;
+  validate414.errors = vErrors;
   return errors === 0;
 }
-validate412.evaluated = {
+validate414.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvNamespaceWorkerPutScriptTagResponse = validate416;
-const schema397 = {
+export const ajvNamespaceWorkerPutScriptTagResponse = validate418;
+const schema399 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1tags~1{tag}/put/responses/200/content/application~1json/schema",
 };
-function validate417(
+function validate419(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate417.evaluated;
+  const evaluated0 = validate419.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -30785,21 +30990,21 @@ function validate417(
     }
     errors++;
   }
-  validate417.errors = vErrors;
+  validate419.errors = vErrors;
   return errors === 0;
 }
-validate417.evaluated = {
+validate419.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate416(
+function validate418(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate416.evaluated;
+  const evaluated0 = validate418.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -30807,24 +31012,24 @@ function validate416(
     evaluated0.items = undefined;
   }
   if (
-    !validate417(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate419(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate417.errors : vErrors.concat(validate417.errors);
+    vErrors = vErrors === null ? validate419.errors : vErrors.concat(validate419.errors);
     errors = vErrors.length;
   }
-  validate416.errors = vErrors;
+  validate418.errors = vErrors;
   return errors === 0;
 }
-validate416.evaluated = {
+validate418.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkersDomainsListResponse = validate420;
-const schema399 = {
+export const ajvWorkersDomainsListResponse = validate422;
+const schema401 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1domains/get/responses/200/content/application~1json/schema",
 };
-const schema400 = {
+const schema402 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-collection" },
     {
@@ -30836,7 +31041,7 @@ const schema400 = {
     },
   ],
 };
-const schema402 = {
+const schema404 = {
   type: "object",
   properties: {
     cert_id: {
@@ -30893,7 +31098,7 @@ const schema402 = {
   },
   required: ["id", "cert_id", "zone_id", "zone_name", "hostname", "service"],
 };
-const schema401 = {
+const schema403 = {
   type: "object",
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
@@ -30934,13 +31139,13 @@ const schema401 = {
     },
   ],
 };
-function validate422(
+function validate424(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate422.evaluated;
+  const evaluated0 = validate424.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -31088,21 +31293,21 @@ function validate422(
     }
     errors++;
   }
-  validate422.errors = vErrors;
+  validate424.errors = vErrors;
   return errors === 0;
 }
-validate422.evaluated = {
+validate424.evaluated = {
   props: { result_info: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate421(
+function validate423(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate421.evaluated;
+  const evaluated0 = validate423.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -31110,9 +31315,9 @@ function validate421(
     evaluated0.items = undefined;
   }
   if (
-    !validate422(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate424(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate422.errors : vErrors.concat(validate422.errors);
+    vErrors = vErrors === null ? validate424.errors : vErrors.concat(validate424.errors);
     errors = vErrors.length;
   }
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -31394,21 +31599,21 @@ function validate421(
     }
     errors++;
   }
-  validate421.errors = vErrors;
+  validate423.errors = vErrors;
   return errors === 0;
 }
-validate421.evaluated = {
+validate423.evaluated = {
   props: { result: true, result_info: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate420(
+function validate422(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate420.evaluated;
+  const evaluated0 = validate422.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -31416,24 +31621,24 @@ function validate420(
     evaluated0.items = undefined;
   }
   if (
-    !validate421(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate423(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate421.errors : vErrors.concat(validate421.errors);
+    vErrors = vErrors === null ? validate423.errors : vErrors.concat(validate423.errors);
     errors = vErrors.length;
   }
-  validate420.errors = vErrors;
+  validate422.errors = vErrors;
   return errors === 0;
 }
-validate420.evaluated = {
+validate422.evaluated = {
   props: { result: true, result_info: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkersDomainsUpdateResponse = validate426;
-const schema403 = {
+export const ajvWorkersDomainsUpdateResponse = validate428;
+const schema405 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1domains/put/responses/200/content/application~1json/schema",
 };
-const schema404 = {
+const schema406 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -31443,13 +31648,13 @@ const schema404 = {
     },
   ],
 };
-function validate427(
+function validate429(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate427.evaluated;
+  const evaluated0 = validate429.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -31721,21 +31926,21 @@ function validate427(
     }
     errors++;
   }
-  validate427.errors = vErrors;
+  validate429.errors = vErrors;
   return errors === 0;
 }
-validate427.evaluated = {
+validate429.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate426(
+function validate428(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate426.evaluated;
+  const evaluated0 = validate428.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -31743,30 +31948,30 @@ function validate426(
     evaluated0.items = undefined;
   }
   if (
-    !validate427(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate429(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate427.errors : vErrors.concat(validate427.errors);
+    vErrors = vErrors === null ? validate429.errors : vErrors.concat(validate429.errors);
     errors = vErrors.length;
   }
-  validate426.errors = vErrors;
+  validate428.errors = vErrors;
   return errors === 0;
 }
-validate426.evaluated = {
+validate428.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkersDomainsDeleteResponse = validate430;
-const schema406 = {
+export const ajvWorkersDomainsDeleteResponse = validate432;
+const schema408 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1domains~1{domain_id}/delete/responses/200/content/application~1json/schema",
 };
-function validate431(
+function validate433(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate431.evaluated;
+  const evaluated0 = validate433.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -32285,21 +32490,21 @@ function validate431(
     }
     errors++;
   }
-  validate431.errors = vErrors;
+  validate433.errors = vErrors;
   return errors === 0;
 }
-validate431.evaluated = {
+validate433.evaluated = {
   props: { errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate430(
+function validate432(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate430.evaluated;
+  const evaluated0 = validate432.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -32307,24 +32512,24 @@ function validate430(
     evaluated0.items = undefined;
   }
   if (
-    !validate431(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate433(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate431.errors : vErrors.concat(validate431.errors);
+    vErrors = vErrors === null ? validate433.errors : vErrors.concat(validate433.errors);
     errors = vErrors.length;
   }
-  validate430.errors = vErrors;
+  validate432.errors = vErrors;
   return errors === 0;
 }
-validate430.evaluated = {
+validate432.evaluated = {
   props: { errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkersDomainsGetResponse = validate433;
-const schema410 = {
+export const ajvWorkersDomainsGetResponse = validate435;
+const schema412 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1domains~1{domain_id}/get/responses/200/content/application~1json/schema",
 };
-const schema411 = {
+const schema413 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -32334,13 +32539,13 @@ const schema411 = {
     },
   ],
 };
-function validate434(
+function validate436(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate434.evaluated;
+  const evaluated0 = validate436.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -32612,21 +32817,21 @@ function validate434(
     }
     errors++;
   }
-  validate434.errors = vErrors;
+  validate436.errors = vErrors;
   return errors === 0;
 }
-validate434.evaluated = {
+validate436.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate433(
+function validate435(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate433.evaluated;
+  const evaluated0 = validate435.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -32634,24 +32839,24 @@ function validate433(
     evaluated0.items = undefined;
   }
   if (
-    !validate434(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate436(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate434.errors : vErrors.concat(validate434.errors);
+    vErrors = vErrors === null ? validate436.errors : vErrors.concat(validate436.errors);
     errors = vErrors.length;
   }
-  validate433.errors = vErrors;
+  validate435.errors = vErrors;
   return errors === 0;
 }
-validate433.evaluated = {
+validate435.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvDurableObjectsNamespaceListNamespacesResponse = validate437;
-const schema413 = {
+export const ajvDurableObjectsNamespaceListNamespacesResponse = validate439;
+const schema415 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1durable_objects~1namespaces/get/responses/200/content/application~1json/schema",
 };
-const schema414 = {
+const schema416 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-collection" },
     {
@@ -32662,7 +32867,7 @@ const schema414 = {
     },
   ],
 };
-const schema415 = {
+const schema417 = {
   type: "object",
   properties: {
     class: { type: "string" },
@@ -32672,13 +32877,13 @@ const schema415 = {
     use_sqlite: { type: "boolean" },
   },
 };
-function validate438(
+function validate440(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate438.evaluated;
+  const evaluated0 = validate440.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -32686,9 +32891,9 @@ function validate438(
     evaluated0.items = undefined;
   }
   if (
-    !validate422(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate424(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate422.errors : vErrors.concat(validate422.errors);
+    vErrors = vErrors === null ? validate424.errors : vErrors.concat(validate424.errors);
     errors = vErrors.length;
   }
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -32831,21 +33036,21 @@ function validate438(
     }
     errors++;
   }
-  validate438.errors = vErrors;
+  validate440.errors = vErrors;
   return errors === 0;
 }
-validate438.evaluated = {
+validate440.evaluated = {
   props: { result: true, result_info: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate437(
+function validate439(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate437.evaluated;
+  const evaluated0 = validate439.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -32853,24 +33058,24 @@ function validate437(
     evaluated0.items = undefined;
   }
   if (
-    !validate438(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate440(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate438.errors : vErrors.concat(validate438.errors);
+    vErrors = vErrors === null ? validate440.errors : vErrors.concat(validate440.errors);
     errors = vErrors.length;
   }
-  validate437.errors = vErrors;
+  validate439.errors = vErrors;
   return errors === 0;
 }
-validate437.evaluated = {
+validate439.evaluated = {
   props: { result: true, result_info: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvDurableObjectsNamespaceListObjectsResponse = validate441;
-const schema416 = {
+export const ajvDurableObjectsNamespaceListObjectsResponse = validate443;
+const schema418 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1durable_objects~1namespaces~1{id}~1objects/get/responses/200/content/application~1json/schema",
 };
-const schema417 = {
+const schema419 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-collection" },
     {
@@ -32892,7 +33097,7 @@ const schema417 = {
     },
   ],
 };
-const schema418 = {
+const schema420 = {
   type: "object",
   properties: {
     hasStoredData: {
@@ -32909,20 +33114,20 @@ const schema418 = {
     },
   },
 };
-const schema419 = {
+const schema421 = {
   description:
     "Opaque token indicating the position from which to continue when requesting the next set of records. A valid value for the cursor can be obtained from the cursors object in the result_info structure.",
   type: "string",
   example:
     "AAAAANuhDN7SjacTnSVsDu3WW1Lvst6dxJGTjRY5BhxPXdf6L6uTcpd_NVtjhn11OUYRsVEykxoUwF-JQU4dn6QylZSKTOJuG0indrdn_MlHpMRtsxgXjs-RPdHYIVm3odE_uvEQ_dTQGFm8oikZMohns34DLBgrQpc",
 };
-function validate442(
+function validate444(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate442.evaluated;
+  const evaluated0 = validate444.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -32930,9 +33135,9 @@ function validate442(
     evaluated0.items = undefined;
   }
   if (
-    !validate422(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate424(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate422.errors : vErrors.concat(validate422.errors);
+    vErrors = vErrors === null ? validate424.errors : vErrors.concat(validate424.errors);
     errors = vErrors.length;
   }
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -33077,21 +33282,21 @@ function validate442(
     }
     errors++;
   }
-  validate442.errors = vErrors;
+  validate444.errors = vErrors;
   return errors === 0;
 }
-validate442.evaluated = {
+validate444.evaluated = {
   props: { result: true, result_info: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate441(
+function validate443(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate441.evaluated;
+  const evaluated0 = validate443.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -33099,24 +33304,24 @@ function validate441(
     evaluated0.items = undefined;
   }
   if (
-    !validate442(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate444(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate442.errors : vErrors.concat(validate442.errors);
+    vErrors = vErrors === null ? validate444.errors : vErrors.concat(validate444.errors);
     errors = vErrors.length;
   }
-  validate441.errors = vErrors;
+  validate443.errors = vErrors;
   return errors === 0;
 }
-validate441.evaluated = {
+validate443.evaluated = {
   props: { result: true, result_info: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvDestinationListResponse = validate445;
-const schema420 = {
+export const ajvDestinationListResponse = validate447;
+const schema422 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema",
 };
-const schema421 = {
+const schema423 = {
   type: "object",
   properties: {
     errors: {
@@ -33175,13 +33380,13 @@ const schema421 = {
   required: ["messages", "success", "errors", "result"],
 };
 const pattern5 = new RegExp("^[a-z0-9][a-z0-9-]*[a-z0-9]$", "u");
-function validate445(
+function validate447(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate445.evaluated;
+  const evaluated0 = validate447.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -33376,7 +33581,7 @@ function validate445(
                     "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
-                    allowedValues: schema421.properties.messages.items.properties.message.enum,
+                    allowedValues: schema423.properties.messages.items.properties.message.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -33832,7 +34037,7 @@ function validate445(
                       keyword: "enum",
                       params: {
                         allowedValues:
-                          schema421.properties.result.items.properties.configuration.properties
+                          schema423.properties.result.items.properties.configuration.properties
                             .logpushDataset.anyOf[0].enum,
                       },
                       message: "must be equal to one of the allowed values",
@@ -33873,7 +34078,7 @@ function validate445(
                       keyword: "enum",
                       params: {
                         allowedValues:
-                          schema421.properties.result.items.properties.configuration.properties
+                          schema423.properties.result.items.properties.configuration.properties
                             .logpushDataset.anyOf[1].enum,
                       },
                       message: "must be equal to one of the allowed values",
@@ -33914,7 +34119,7 @@ function validate445(
                       keyword: "enum",
                       params: {
                         allowedValues:
-                          schema421.properties.result.items.properties.configuration.properties
+                          schema423.properties.result.items.properties.configuration.properties
                             .logpushDataset.anyOf[2].enum,
                       },
                       message: "must be equal to one of the allowed values",
@@ -33981,7 +34186,7 @@ function validate445(
                       keyword: "enum",
                       params: {
                         allowedValues:
-                          schema421.properties.result.items.properties.configuration.properties.type
+                          schema423.properties.result.items.properties.configuration.properties.type
                             .enum,
                       },
                       message: "must be equal to one of the allowed values",
@@ -34198,7 +34403,7 @@ function validate445(
           schemaPath:
             "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
-          params: { allowedValues: schema421.properties.success.enum },
+          params: { allowedValues: schema423.properties.success.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -34225,19 +34430,19 @@ function validate445(
     }
     errors++;
   }
-  validate445.errors = vErrors;
+  validate447.errors = vErrors;
   return errors === 0;
 }
-validate445.evaluated = {
+validate447.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvDestinationCreateResponse = validate446;
-const schema422 = {
+export const ajvDestinationCreateResponse = validate448;
+const schema424 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema",
 };
-const schema423 = {
+const schema425 = {
   type: "object",
   properties: {
     errors: {
@@ -34283,13 +34488,13 @@ const schema423 = {
   },
   required: ["messages", "success", "errors", "result"],
 };
-function validate446(
+function validate448(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate446.evaluated;
+  const evaluated0 = validate448.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -34484,7 +34689,7 @@ function validate446(
                     "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
-                    allowedValues: schema423.properties.messages.items.properties.message.enum,
+                    allowedValues: schema425.properties.messages.items.properties.message.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -34743,7 +34948,7 @@ function validate446(
                   keyword: "enum",
                   params: {
                     allowedValues:
-                      schema423.properties.result.properties.configuration.properties.logpushDataset
+                      schema425.properties.result.properties.configuration.properties.logpushDataset
                         .anyOf[0].enum,
                   },
                   message: "must be equal to one of the allowed values",
@@ -34782,7 +34987,7 @@ function validate446(
                   keyword: "enum",
                   params: {
                     allowedValues:
-                      schema423.properties.result.properties.configuration.properties.logpushDataset
+                      schema425.properties.result.properties.configuration.properties.logpushDataset
                         .anyOf[1].enum,
                   },
                   message: "must be equal to one of the allowed values",
@@ -34821,7 +35026,7 @@ function validate446(
                   keyword: "enum",
                   params: {
                     allowedValues:
-                      schema423.properties.result.properties.configuration.properties.logpushDataset
+                      schema425.properties.result.properties.configuration.properties.logpushDataset
                         .anyOf[2].enum,
                   },
                   message: "must be equal to one of the allowed values",
@@ -34905,7 +35110,7 @@ function validate446(
                   keyword: "enum",
                   params: {
                     allowedValues:
-                      schema423.properties.result.properties.configuration.properties.type.enum,
+                      schema425.properties.result.properties.configuration.properties.type.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -35104,7 +35309,7 @@ function validate446(
           schemaPath:
             "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
-          params: { allowedValues: schema423.properties.success.enum },
+          params: { allowedValues: schema425.properties.success.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -35131,19 +35336,19 @@ function validate446(
     }
     errors++;
   }
-  validate446.errors = vErrors;
+  validate448.errors = vErrors;
   return errors === 0;
 }
-validate446.evaluated = {
+validate448.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvDestinationsDeleteResponse = validate447;
-const schema424 = {
+export const ajvDestinationsDeleteResponse = validate449;
+const schema426 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema",
 };
-const schema425 = {
+const schema427 = {
   type: "object",
   properties: {
     errors: {
@@ -35189,13 +35394,13 @@ const schema425 = {
   },
   required: ["messages", "success", "errors"],
 };
-function validate447(
+function validate449(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate447.evaluated;
+  const evaluated0 = validate449.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -35374,7 +35579,7 @@ function validate447(
                     "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
-                    allowedValues: schema425.properties.messages.items.properties.message.enum,
+                    allowedValues: schema427.properties.messages.items.properties.message.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -35633,7 +35838,7 @@ function validate447(
                   keyword: "enum",
                   params: {
                     allowedValues:
-                      schema425.properties.result.properties.configuration.properties.logpushDataset
+                      schema427.properties.result.properties.configuration.properties.logpushDataset
                         .anyOf[0].enum,
                   },
                   message: "must be equal to one of the allowed values",
@@ -35672,7 +35877,7 @@ function validate447(
                   keyword: "enum",
                   params: {
                     allowedValues:
-                      schema425.properties.result.properties.configuration.properties.logpushDataset
+                      schema427.properties.result.properties.configuration.properties.logpushDataset
                         .anyOf[1].enum,
                   },
                   message: "must be equal to one of the allowed values",
@@ -35711,7 +35916,7 @@ function validate447(
                   keyword: "enum",
                   params: {
                     allowedValues:
-                      schema425.properties.result.properties.configuration.properties.logpushDataset
+                      schema427.properties.result.properties.configuration.properties.logpushDataset
                         .anyOf[2].enum,
                   },
                   message: "must be equal to one of the allowed values",
@@ -35795,7 +36000,7 @@ function validate447(
                   keyword: "enum",
                   params: {
                     allowedValues:
-                      schema425.properties.result.properties.configuration.properties.type.enum,
+                      schema427.properties.result.properties.configuration.properties.type.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -35994,7 +36199,7 @@ function validate447(
           schemaPath:
             "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
-          params: { allowedValues: schema425.properties.success.enum },
+          params: { allowedValues: schema427.properties.success.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -36021,19 +36226,19 @@ function validate447(
     }
     errors++;
   }
-  validate447.errors = vErrors;
+  validate449.errors = vErrors;
   return errors === 0;
 }
-validate447.evaluated = {
+validate449.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvDestinationUpdateResponse = validate448;
-const schema426 = {
+export const ajvDestinationUpdateResponse = validate450;
+const schema428 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema",
 };
-const schema427 = {
+const schema429 = {
   type: "object",
   properties: {
     errors: {
@@ -36079,13 +36284,13 @@ const schema427 = {
   },
   required: ["messages", "success", "errors", "result"],
 };
-function validate448(
+function validate450(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate448.evaluated;
+  const evaluated0 = validate450.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -36280,7 +36485,7 @@ function validate448(
                     "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
-                    allowedValues: schema427.properties.messages.items.properties.message.enum,
+                    allowedValues: schema429.properties.messages.items.properties.message.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -36539,7 +36744,7 @@ function validate448(
                   keyword: "enum",
                   params: {
                     allowedValues:
-                      schema427.properties.result.properties.configuration.properties.logpushDataset
+                      schema429.properties.result.properties.configuration.properties.logpushDataset
                         .anyOf[0].enum,
                   },
                   message: "must be equal to one of the allowed values",
@@ -36578,7 +36783,7 @@ function validate448(
                   keyword: "enum",
                   params: {
                     allowedValues:
-                      schema427.properties.result.properties.configuration.properties.logpushDataset
+                      schema429.properties.result.properties.configuration.properties.logpushDataset
                         .anyOf[1].enum,
                   },
                   message: "must be equal to one of the allowed values",
@@ -36617,7 +36822,7 @@ function validate448(
                   keyword: "enum",
                   params: {
                     allowedValues:
-                      schema427.properties.result.properties.configuration.properties.logpushDataset
+                      schema429.properties.result.properties.configuration.properties.logpushDataset
                         .anyOf[2].enum,
                   },
                   message: "must be equal to one of the allowed values",
@@ -36701,7 +36906,7 @@ function validate448(
                   keyword: "enum",
                   params: {
                     allowedValues:
-                      schema427.properties.result.properties.configuration.properties.type.enum,
+                      schema429.properties.result.properties.configuration.properties.type.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -36900,7 +37105,7 @@ function validate448(
           schemaPath:
             "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
-          params: { allowedValues: schema427.properties.success.enum },
+          params: { allowedValues: schema429.properties.success.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -36927,19 +37132,19 @@ function validate448(
     }
     errors++;
   }
-  validate448.errors = vErrors;
+  validate450.errors = vErrors;
   return errors === 0;
 }
-validate448.evaluated = {
+validate450.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvMetricsExportDeleteResponse = validate449;
-const schema428 = {
+export const ajvMetricsExportDeleteResponse = validate451;
+const schema430 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1metricsexport/delete/responses/200/content/application~1json/schema",
 };
-const schema429 = {
+const schema431 = {
   type: "object",
   properties: {
     errors: {
@@ -36959,13 +37164,13 @@ const schema429 = {
   },
   required: ["messages", "success", "errors", "result"],
 };
-function validate449(
+function validate451(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate449.evaluated;
+  const evaluated0 = validate451.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -37160,7 +37365,7 @@ function validate449(
                     "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1metricsexport/delete/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
-                    allowedValues: schema429.properties.messages.items.properties.message.enum,
+                    allowedValues: schema431.properties.messages.items.properties.message.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -37284,7 +37489,7 @@ function validate449(
           schemaPath:
             "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1metricsexport/delete/responses/200/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
-          params: { allowedValues: schema429.properties.success.enum },
+          params: { allowedValues: schema431.properties.success.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -37311,19 +37516,19 @@ function validate449(
     }
     errors++;
   }
-  validate449.errors = vErrors;
+  validate451.errors = vErrors;
   return errors === 0;
 }
-validate449.evaluated = {
+validate451.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvMetricsExportListResponse = validate450;
-const schema430 = {
+export const ajvMetricsExportListResponse = validate452;
+const schema432 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1metricsexport/get/responses/200/content/application~1json/schema",
 };
-const schema431 = {
+const schema433 = {
   type: "object",
   properties: {
     errors: {
@@ -37357,13 +37562,13 @@ const schema431 = {
   },
   required: ["messages", "success", "errors", "result"],
 };
-function validate450(
+function validate452(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate450.evaluated;
+  const evaluated0 = validate452.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -37558,7 +37763,7 @@ function validate450(
                     "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1metricsexport/get/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
-                    allowedValues: schema431.properties.messages.items.properties.message.enum,
+                    allowedValues: schema433.properties.messages.items.properties.message.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -37966,7 +38171,7 @@ function validate450(
           schemaPath:
             "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1metricsexport/get/responses/200/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
-          params: { allowedValues: schema431.properties.success.enum },
+          params: { allowedValues: schema433.properties.success.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -37993,19 +38198,19 @@ function validate450(
     }
     errors++;
   }
-  validate450.errors = vErrors;
+  validate452.errors = vErrors;
   return errors === 0;
 }
-validate450.evaluated = {
+validate452.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvMetricsExportUpsertResponse = validate451;
-const schema432 = {
+export const ajvMetricsExportUpsertResponse = validate453;
+const schema434 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1metricsexport/post/responses/201/content/application~1json/schema",
 };
-const schema433 = {
+const schema435 = {
   type: "object",
   properties: {
     errors: {
@@ -38039,13 +38244,13 @@ const schema433 = {
   },
   required: ["messages", "success", "errors", "result"],
 };
-function validate451(
+function validate453(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate451.evaluated;
+  const evaluated0 = validate453.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -38240,7 +38445,7 @@ function validate451(
                     "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1metricsexport/post/responses/201/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
-                    allowedValues: schema433.properties.messages.items.properties.message.enum,
+                    allowedValues: schema435.properties.messages.items.properties.message.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -38648,7 +38853,7 @@ function validate451(
           schemaPath:
             "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1metricsexport/post/responses/201/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
-          params: { allowedValues: schema433.properties.success.enum },
+          params: { allowedValues: schema435.properties.success.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -38675,19 +38880,19 @@ function validate451(
     }
     errors++;
   }
-  validate451.errors = vErrors;
+  validate453.errors = vErrors;
   return errors === 0;
 }
-validate451.evaluated = {
+validate453.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvQueriesListResponse = validate452;
-const schema434 = {
+export const ajvQueriesListResponse = validate454;
+const schema436 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1queries/get/responses/200/content/application~1json/schema",
 };
-const schema435 = {
+const schema437 = {
   type: "object",
   properties: {
     errors: {
@@ -38707,7 +38912,7 @@ const schema435 = {
   },
   required: ["messages", "success", "errors", "result"],
 };
-const schema436 = {
+const schema438 = {
   type: "object",
   properties: {
     adhoc: { description: "If the query wasn't explcitly saved", type: "boolean" },
@@ -38872,7 +39077,7 @@ const schema436 = {
     "updatedBy",
   ],
 };
-const schema437 = {
+const schema439 = {
   description: "Supports nested groups via kind: 'group'.",
   type: "object",
   anyOf: [
@@ -38892,7 +39097,7 @@ const schema437 = {
     { $ref: "#/components/schemas/workers-observability_filter_leaf" },
   ],
 };
-const schema438 = {
+const schema440 = {
   description:
     "A filter condition applied to query results. Use the keys and values endpoints to discover available fields and their values before constructing filters.",
   type: "object",
@@ -38959,14 +39164,14 @@ const schema438 = {
   },
   required: ["key", "operation", "type"],
 };
-const wrapper0 = { validate: validate455 };
-function validate455(
+const wrapper0 = { validate: validate457 };
+function validate457(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate455.evaluated;
+  const evaluated0 = validate457.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -39059,7 +39264,7 @@ function validate455(
           instancePath: instancePath + "/filterCombination",
           schemaPath: "#/anyOf/0/properties/filterCombination/enum",
           keyword: "enum",
-          params: { allowedValues: schema437.anyOf[0].properties.filterCombination.enum },
+          params: { allowedValues: schema439.anyOf[0].properties.filterCombination.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -39144,7 +39349,7 @@ function validate455(
           instancePath: instancePath + "/kind",
           schemaPath: "#/anyOf/0/properties/kind/enum",
           keyword: "enum",
-          params: { allowedValues: schema437.anyOf[0].properties.kind.enum },
+          params: { allowedValues: schema439.anyOf[0].properties.kind.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -39264,7 +39469,7 @@ function validate455(
           instancePath: instancePath + "/kind",
           schemaPath: "#/components/schemas/workers-observability_filter_leaf/properties/kind/enum",
           keyword: "enum",
-          params: { allowedValues: schema438.properties.kind.enum },
+          params: { allowedValues: schema440.properties.kind.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -39332,7 +39537,7 @@ function validate455(
           schemaPath:
             "#/components/schemas/workers-observability_filter_leaf/properties/operation/enum",
           keyword: "enum",
-          params: { allowedValues: schema438.properties.operation.enum },
+          params: { allowedValues: schema440.properties.operation.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -39365,7 +39570,7 @@ function validate455(
           instancePath: instancePath + "/type",
           schemaPath: "#/components/schemas/workers-observability_filter_leaf/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema438.properties.type.enum },
+          params: { allowedValues: schema440.properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -39514,18 +39719,18 @@ function validate455(
       }
     }
   }
-  validate455.errors = vErrors;
+  validate457.errors = vErrors;
   evaluated0.props = props1;
   return errors === 0;
 }
-validate455.evaluated = { dynamicProps: true, dynamicItems: false };
-function validate454(
+validate457.evaluated = { dynamicProps: true, dynamicItems: false };
+function validate456(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate454.evaluated;
+  const evaluated0 = validate456.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -39907,7 +40112,7 @@ function validate454(
                       keyword: "enum",
                       params: {
                         allowedValues:
-                          schema436.properties.parameters.properties.calculations.items.properties
+                          schema438.properties.parameters.properties.calculations.items.properties
                             .keyType.enum,
                       },
                       message: "must be equal to one of the allowed values",
@@ -39987,7 +40192,7 @@ function validate454(
                       keyword: "enum",
                       params: {
                         allowedValues:
-                          schema436.properties.parameters.properties.calculations.items.properties
+                          schema438.properties.parameters.properties.calculations.items.properties
                             .operator.enum,
                       },
                       message: "must be equal to one of the allowed values",
@@ -40092,7 +40297,7 @@ function validate454(
               schemaPath: "#/properties/parameters/properties/filterCombination/enum",
               keyword: "enum",
               params: {
-                allowedValues: schema436.properties.parameters.properties.filterCombination.enum,
+                allowedValues: schema438.properties.parameters.properties.filterCombination.enum,
               },
               message: "must be equal to one of the allowed values",
             };
@@ -40110,7 +40315,7 @@ function validate454(
             const len2 = data16.length;
             for (let i2 = 0; i2 < len2; i2++) {
               if (
-                !validate455(data16[i2], {
+                !validate457(data16[i2], {
                   instancePath: instancePath + "/parameters/filters/" + i2,
                   parentData: data16,
                   parentDataProperty: i2,
@@ -40119,7 +40324,7 @@ function validate454(
                 })
               ) {
                 vErrors =
-                  vErrors === null ? validate455.errors : vErrors.concat(validate455.errors);
+                  vErrors === null ? validate457.errors : vErrors.concat(validate457.errors);
                 errors = vErrors.length;
               }
             }
@@ -40202,7 +40407,7 @@ function validate454(
                       keyword: "enum",
                       params: {
                         allowedValues:
-                          schema436.properties.parameters.properties.groupBys.items.properties.type
+                          schema438.properties.parameters.properties.groupBys.items.properties.type
                             .enum,
                       },
                       message: "must be equal to one of the allowed values",
@@ -40370,7 +40575,7 @@ function validate454(
                       keyword: "enum",
                       params: {
                         allowedValues:
-                          schema436.properties.parameters.properties.havings.items.properties
+                          schema438.properties.parameters.properties.havings.items.properties
                             .operation.enum,
                       },
                       message: "must be equal to one of the allowed values",
@@ -40713,7 +40918,7 @@ function validate454(
                   keyword: "enum",
                   params: {
                     allowedValues:
-                      schema436.properties.parameters.properties.orderBy.properties.order.enum,
+                      schema438.properties.parameters.properties.orderBy.properties.order.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -40823,10 +41028,10 @@ function validate454(
     }
     errors++;
   }
-  validate454.errors = vErrors;
+  validate456.errors = vErrors;
   return errors === 0;
 }
-validate454.evaluated = {
+validate456.evaluated = {
   props: {
     adhoc: true,
     created: true,
@@ -40841,13 +41046,13 @@ validate454.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate453(
+function validate455(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate453.evaluated;
+  const evaluated0 = validate455.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -41031,7 +41236,7 @@ function validate453(
                   schemaPath: "#/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
-                    allowedValues: schema435.properties.messages.items.properties.message.enum,
+                    allowedValues: schema437.properties.messages.items.properties.message.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -41081,7 +41286,7 @@ function validate453(
         const len2 = data6.length;
         for (let i2 = 0; i2 < len2; i2++) {
           if (
-            !validate454(data6[i2], {
+            !validate456(data6[i2], {
               instancePath: instancePath + "/result/" + i2,
               parentData: data6,
               parentDataProperty: i2,
@@ -41089,7 +41294,7 @@ function validate453(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate454.errors : vErrors.concat(validate454.errors);
+            vErrors = vErrors === null ? validate456.errors : vErrors.concat(validate456.errors);
             errors = vErrors.length;
           }
         }
@@ -41131,7 +41336,7 @@ function validate453(
           instancePath: instancePath + "/success",
           schemaPath: "#/properties/success/enum",
           keyword: "enum",
-          params: { allowedValues: schema435.properties.success.enum },
+          params: { allowedValues: schema437.properties.success.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -41157,21 +41362,21 @@ function validate453(
     }
     errors++;
   }
-  validate453.errors = vErrors;
+  validate455.errors = vErrors;
   return errors === 0;
 }
-validate453.evaluated = {
+validate455.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate452(
+function validate454(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate452.evaluated;
+  const evaluated0 = validate454.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -41179,377 +41384,22 @@ function validate452(
     evaluated0.items = undefined;
   }
   if (
-    !validate453(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate455(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate453.errors : vErrors.concat(validate453.errors);
+    vErrors = vErrors === null ? validate455.errors : vErrors.concat(validate455.errors);
     errors = vErrors.length;
   }
-  validate452.errors = vErrors;
+  validate454.errors = vErrors;
   return errors === 0;
 }
-validate452.evaluated = {
+validate454.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvQueriesPostResponse = validate459;
-const schema439 = {
-  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1queries/post/responses/200/content/application~1json/schema",
-};
-const schema440 = {
-  type: "object",
-  properties: {
-    errors: {
-      type: "array",
-      items: { properties: { message: { type: "string" } }, required: ["message"], type: "object" },
-    },
-    messages: {
-      type: "array",
-      items: {
-        properties: { message: { type: "string", enum: ["Successful request"] } },
-        required: ["message"],
-        type: "object",
-      },
-    },
-    result: { $ref: "#/components/schemas/workers-observability_query" },
-    success: { type: "boolean", enum: [true] },
-  },
-  required: ["messages", "success", "errors", "result"],
-};
-function validate460(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate460.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.messages === undefined) {
-      const err0 = {
-        instancePath,
-        schemaPath: "#/required",
-        keyword: "required",
-        params: { missingProperty: "messages" },
-        message: "must have required property '" + "messages" + "'",
-      };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.success === undefined) {
-      const err1 = {
-        instancePath,
-        schemaPath: "#/required",
-        keyword: "required",
-        params: { missingProperty: "success" },
-        message: "must have required property '" + "success" + "'",
-      };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.errors === undefined) {
-      const err2 = {
-        instancePath,
-        schemaPath: "#/required",
-        keyword: "required",
-        params: { missingProperty: "errors" },
-        message: "must have required property '" + "errors" + "'",
-      };
-      if (vErrors === null) {
-        vErrors = [err2];
-      } else {
-        vErrors.push(err2);
-      }
-      errors++;
-    }
-    if (data.result === undefined) {
-      const err3 = {
-        instancePath,
-        schemaPath: "#/required",
-        keyword: "required",
-        params: { missingProperty: "result" },
-        message: "must have required property '" + "result" + "'",
-      };
-      if (vErrors === null) {
-        vErrors = [err3];
-      } else {
-        vErrors.push(err3);
-      }
-      errors++;
-    }
-    if (data.errors !== undefined) {
-      let data0 = data.errors;
-      if (Array.isArray(data0)) {
-        const len0 = data0.length;
-        for (let i0 = 0; i0 < len0; i0++) {
-          let data1 = data0[i0];
-          if (data1 && typeof data1 == "object" && !Array.isArray(data1)) {
-            if (data1.message === undefined) {
-              const err4 = {
-                instancePath: instancePath + "/errors/" + i0,
-                schemaPath: "#/properties/errors/items/required",
-                keyword: "required",
-                params: { missingProperty: "message" },
-                message: "must have required property '" + "message" + "'",
-              };
-              if (vErrors === null) {
-                vErrors = [err4];
-              } else {
-                vErrors.push(err4);
-              }
-              errors++;
-            }
-            if (data1.message !== undefined) {
-              if (typeof data1.message !== "string") {
-                const err5 = {
-                  instancePath: instancePath + "/errors/" + i0 + "/message",
-                  schemaPath: "#/properties/errors/items/properties/message/type",
-                  keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
-                };
-                if (vErrors === null) {
-                  vErrors = [err5];
-                } else {
-                  vErrors.push(err5);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err6 = {
-              instancePath: instancePath + "/errors/" + i0,
-              schemaPath: "#/properties/errors/items/type",
-              keyword: "type",
-              params: { type: "object" },
-              message: "must be object",
-            };
-            if (vErrors === null) {
-              vErrors = [err6];
-            } else {
-              vErrors.push(err6);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err7 = {
-          instancePath: instancePath + "/errors",
-          schemaPath: "#/properties/errors/type",
-          keyword: "type",
-          params: { type: "array" },
-          message: "must be array",
-        };
-        if (vErrors === null) {
-          vErrors = [err7];
-        } else {
-          vErrors.push(err7);
-        }
-        errors++;
-      }
-    }
-    if (data.messages !== undefined) {
-      let data3 = data.messages;
-      if (Array.isArray(data3)) {
-        const len1 = data3.length;
-        for (let i1 = 0; i1 < len1; i1++) {
-          let data4 = data3[i1];
-          if (data4 && typeof data4 == "object" && !Array.isArray(data4)) {
-            if (data4.message === undefined) {
-              const err8 = {
-                instancePath: instancePath + "/messages/" + i1,
-                schemaPath: "#/properties/messages/items/required",
-                keyword: "required",
-                params: { missingProperty: "message" },
-                message: "must have required property '" + "message" + "'",
-              };
-              if (vErrors === null) {
-                vErrors = [err8];
-              } else {
-                vErrors.push(err8);
-              }
-              errors++;
-            }
-            if (data4.message !== undefined) {
-              let data5 = data4.message;
-              if (typeof data5 !== "string") {
-                const err9 = {
-                  instancePath: instancePath + "/messages/" + i1 + "/message",
-                  schemaPath: "#/properties/messages/items/properties/message/type",
-                  keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
-                };
-                if (vErrors === null) {
-                  vErrors = [err9];
-                } else {
-                  vErrors.push(err9);
-                }
-                errors++;
-              }
-              if (!(data5 === "Successful request")) {
-                const err10 = {
-                  instancePath: instancePath + "/messages/" + i1 + "/message",
-                  schemaPath: "#/properties/messages/items/properties/message/enum",
-                  keyword: "enum",
-                  params: {
-                    allowedValues: schema440.properties.messages.items.properties.message.enum,
-                  },
-                  message: "must be equal to one of the allowed values",
-                };
-                if (vErrors === null) {
-                  vErrors = [err10];
-                } else {
-                  vErrors.push(err10);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err11 = {
-              instancePath: instancePath + "/messages/" + i1,
-              schemaPath: "#/properties/messages/items/type",
-              keyword: "type",
-              params: { type: "object" },
-              message: "must be object",
-            };
-            if (vErrors === null) {
-              vErrors = [err11];
-            } else {
-              vErrors.push(err11);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err12 = {
-          instancePath: instancePath + "/messages",
-          schemaPath: "#/properties/messages/type",
-          keyword: "type",
-          params: { type: "array" },
-          message: "must be array",
-        };
-        if (vErrors === null) {
-          vErrors = [err12];
-        } else {
-          vErrors.push(err12);
-        }
-        errors++;
-      }
-    }
-    if (data.result !== undefined) {
-      if (
-        !validate454(data.result, {
-          instancePath: instancePath + "/result",
-          parentData: data,
-          parentDataProperty: "result",
-          rootData,
-          dynamicAnchors,
-        })
-      ) {
-        vErrors = vErrors === null ? validate454.errors : vErrors.concat(validate454.errors);
-        errors = vErrors.length;
-      }
-    }
-    if (data.success !== undefined) {
-      let data7 = data.success;
-      if (typeof data7 !== "boolean") {
-        const err13 = {
-          instancePath: instancePath + "/success",
-          schemaPath: "#/properties/success/type",
-          keyword: "type",
-          params: { type: "boolean" },
-          message: "must be boolean",
-        };
-        if (vErrors === null) {
-          vErrors = [err13];
-        } else {
-          vErrors.push(err13);
-        }
-        errors++;
-      }
-      if (!(data7 === true)) {
-        const err14 = {
-          instancePath: instancePath + "/success",
-          schemaPath: "#/properties/success/enum",
-          keyword: "enum",
-          params: { allowedValues: schema440.properties.success.enum },
-          message: "must be equal to one of the allowed values",
-        };
-        if (vErrors === null) {
-          vErrors = [err14];
-        } else {
-          vErrors.push(err14);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err15 = {
-      instancePath,
-      schemaPath: "#/type",
-      keyword: "type",
-      params: { type: "object" },
-      message: "must be object",
-    };
-    if (vErrors === null) {
-      vErrors = [err15];
-    } else {
-      vErrors.push(err15);
-    }
-    errors++;
-  }
-  validate460.errors = vErrors;
-  return errors === 0;
-}
-validate460.evaluated = {
-  props: { errors: true, messages: true, result: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-function validate459(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate459.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate460(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate460.errors : vErrors.concat(validate460.errors);
-    errors = vErrors.length;
-  }
-  validate459.errors = vErrors;
-  return errors === 0;
-}
-validate459.evaluated = {
-  props: { errors: true, messages: true, result: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvQueriesDeleteResponse = validate463;
+export const ajvQueriesPostResponse = validate461;
 const schema441 = {
-  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1queries~1{queryId}/delete/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1queries/post/responses/200/content/application~1json/schema",
 };
 const schema442 = {
   type: "object",
@@ -41571,13 +41421,13 @@ const schema442 = {
   },
   required: ["messages", "success", "errors", "result"],
 };
-function validate464(
+function validate462(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate464.evaluated;
+  const evaluated0 = validate462.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -41807,7 +41657,7 @@ function validate464(
     }
     if (data.result !== undefined) {
       if (
-        !validate454(data.result, {
+        !validate456(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -41815,7 +41665,7 @@ function validate464(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate454.errors : vErrors.concat(validate454.errors);
+        vErrors = vErrors === null ? validate456.errors : vErrors.concat(validate456.errors);
         errors = vErrors.length;
       }
     }
@@ -41867,21 +41717,21 @@ function validate464(
     }
     errors++;
   }
-  validate464.errors = vErrors;
+  validate462.errors = vErrors;
   return errors === 0;
 }
-validate464.evaluated = {
+validate462.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate463(
+function validate461(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate463.evaluated;
+  const evaluated0 = validate461.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -41889,22 +41739,22 @@ function validate463(
     evaluated0.items = undefined;
   }
   if (
-    !validate464(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate462(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate464.errors : vErrors.concat(validate464.errors);
+    vErrors = vErrors === null ? validate462.errors : vErrors.concat(validate462.errors);
     errors = vErrors.length;
   }
-  validate463.errors = vErrors;
+  validate461.errors = vErrors;
   return errors === 0;
 }
-validate463.evaluated = {
+validate461.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvQueriesGetResponse = validate467;
+export const ajvQueriesDeleteResponse = validate465;
 const schema443 = {
-  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1queries~1{queryId}/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1queries~1{queryId}/delete/responses/200/content/application~1json/schema",
 };
 const schema444 = {
   type: "object",
@@ -41926,13 +41776,13 @@ const schema444 = {
   },
   required: ["messages", "success", "errors", "result"],
 };
-function validate468(
+function validate466(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate468.evaluated;
+  const evaluated0 = validate466.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -42162,7 +42012,7 @@ function validate468(
     }
     if (data.result !== undefined) {
       if (
-        !validate454(data.result, {
+        !validate456(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -42170,7 +42020,7 @@ function validate468(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate454.errors : vErrors.concat(validate454.errors);
+        vErrors = vErrors === null ? validate456.errors : vErrors.concat(validate456.errors);
         errors = vErrors.length;
       }
     }
@@ -42222,21 +42072,21 @@ function validate468(
     }
     errors++;
   }
-  validate468.errors = vErrors;
+  validate466.errors = vErrors;
   return errors === 0;
 }
-validate468.evaluated = {
+validate466.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate467(
+function validate465(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate467.evaluated;
+  const evaluated0 = validate465.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -42244,22 +42094,22 @@ function validate467(
     evaluated0.items = undefined;
   }
   if (
-    !validate468(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate466(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate468.errors : vErrors.concat(validate468.errors);
+    vErrors = vErrors === null ? validate466.errors : vErrors.concat(validate466.errors);
     errors = vErrors.length;
   }
-  validate467.errors = vErrors;
+  validate465.errors = vErrors;
   return errors === 0;
 }
-validate467.evaluated = {
+validate465.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvQueriesPatchResponse = validate471;
+export const ajvQueriesGetResponse = validate469;
 const schema445 = {
-  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1queries~1{queryId}/patch/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1queries~1{queryId}/get/responses/200/content/application~1json/schema",
 };
 const schema446 = {
   type: "object",
@@ -42281,13 +42131,13 @@ const schema446 = {
   },
   required: ["messages", "success", "errors", "result"],
 };
-function validate472(
+function validate470(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate472.evaluated;
+  const evaluated0 = validate470.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -42517,7 +42367,7 @@ function validate472(
     }
     if (data.result !== undefined) {
       if (
-        !validate454(data.result, {
+        !validate456(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -42525,7 +42375,7 @@ function validate472(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate454.errors : vErrors.concat(validate454.errors);
+        vErrors = vErrors === null ? validate456.errors : vErrors.concat(validate456.errors);
         errors = vErrors.length;
       }
     }
@@ -42577,21 +42427,21 @@ function validate472(
     }
     errors++;
   }
-  validate472.errors = vErrors;
+  validate470.errors = vErrors;
   return errors === 0;
 }
-validate472.evaluated = {
+validate470.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate471(
+function validate469(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate471.evaluated;
+  const evaluated0 = validate469.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -42599,24 +42449,379 @@ function validate471(
     evaluated0.items = undefined;
   }
   if (
-    !validate472(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate470(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate472.errors : vErrors.concat(validate472.errors);
+    vErrors = vErrors === null ? validate470.errors : vErrors.concat(validate470.errors);
     errors = vErrors.length;
   }
-  validate471.errors = vErrors;
+  validate469.errors = vErrors;
   return errors === 0;
 }
-validate471.evaluated = {
+validate469.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvSharedQueryPostResponse = validate475;
+export const ajvQueriesPatchResponse = validate473;
 const schema447 = {
-  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1queries~1{queryId}/patch/responses/200/content/application~1json/schema",
 };
 const schema448 = {
+  type: "object",
+  properties: {
+    errors: {
+      type: "array",
+      items: { properties: { message: { type: "string" } }, required: ["message"], type: "object" },
+    },
+    messages: {
+      type: "array",
+      items: {
+        properties: { message: { type: "string", enum: ["Successful request"] } },
+        required: ["message"],
+        type: "object",
+      },
+    },
+    result: { $ref: "#/components/schemas/workers-observability_query" },
+    success: { type: "boolean", enum: [true] },
+  },
+  required: ["messages", "success", "errors", "result"],
+};
+function validate474(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate474.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.messages === undefined) {
+      const err0 = {
+        instancePath,
+        schemaPath: "#/required",
+        keyword: "required",
+        params: { missingProperty: "messages" },
+        message: "must have required property '" + "messages" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.success === undefined) {
+      const err1 = {
+        instancePath,
+        schemaPath: "#/required",
+        keyword: "required",
+        params: { missingProperty: "success" },
+        message: "must have required property '" + "success" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err1];
+      } else {
+        vErrors.push(err1);
+      }
+      errors++;
+    }
+    if (data.errors === undefined) {
+      const err2 = {
+        instancePath,
+        schemaPath: "#/required",
+        keyword: "required",
+        params: { missingProperty: "errors" },
+        message: "must have required property '" + "errors" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err2];
+      } else {
+        vErrors.push(err2);
+      }
+      errors++;
+    }
+    if (data.result === undefined) {
+      const err3 = {
+        instancePath,
+        schemaPath: "#/required",
+        keyword: "required",
+        params: { missingProperty: "result" },
+        message: "must have required property '" + "result" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err3];
+      } else {
+        vErrors.push(err3);
+      }
+      errors++;
+    }
+    if (data.errors !== undefined) {
+      let data0 = data.errors;
+      if (Array.isArray(data0)) {
+        const len0 = data0.length;
+        for (let i0 = 0; i0 < len0; i0++) {
+          let data1 = data0[i0];
+          if (data1 && typeof data1 == "object" && !Array.isArray(data1)) {
+            if (data1.message === undefined) {
+              const err4 = {
+                instancePath: instancePath + "/errors/" + i0,
+                schemaPath: "#/properties/errors/items/required",
+                keyword: "required",
+                params: { missingProperty: "message" },
+                message: "must have required property '" + "message" + "'",
+              };
+              if (vErrors === null) {
+                vErrors = [err4];
+              } else {
+                vErrors.push(err4);
+              }
+              errors++;
+            }
+            if (data1.message !== undefined) {
+              if (typeof data1.message !== "string") {
+                const err5 = {
+                  instancePath: instancePath + "/errors/" + i0 + "/message",
+                  schemaPath: "#/properties/errors/items/properties/message/type",
+                  keyword: "type",
+                  params: { type: "string" },
+                  message: "must be string",
+                };
+                if (vErrors === null) {
+                  vErrors = [err5];
+                } else {
+                  vErrors.push(err5);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err6 = {
+              instancePath: instancePath + "/errors/" + i0,
+              schemaPath: "#/properties/errors/items/type",
+              keyword: "type",
+              params: { type: "object" },
+              message: "must be object",
+            };
+            if (vErrors === null) {
+              vErrors = [err6];
+            } else {
+              vErrors.push(err6);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err7 = {
+          instancePath: instancePath + "/errors",
+          schemaPath: "#/properties/errors/type",
+          keyword: "type",
+          params: { type: "array" },
+          message: "must be array",
+        };
+        if (vErrors === null) {
+          vErrors = [err7];
+        } else {
+          vErrors.push(err7);
+        }
+        errors++;
+      }
+    }
+    if (data.messages !== undefined) {
+      let data3 = data.messages;
+      if (Array.isArray(data3)) {
+        const len1 = data3.length;
+        for (let i1 = 0; i1 < len1; i1++) {
+          let data4 = data3[i1];
+          if (data4 && typeof data4 == "object" && !Array.isArray(data4)) {
+            if (data4.message === undefined) {
+              const err8 = {
+                instancePath: instancePath + "/messages/" + i1,
+                schemaPath: "#/properties/messages/items/required",
+                keyword: "required",
+                params: { missingProperty: "message" },
+                message: "must have required property '" + "message" + "'",
+              };
+              if (vErrors === null) {
+                vErrors = [err8];
+              } else {
+                vErrors.push(err8);
+              }
+              errors++;
+            }
+            if (data4.message !== undefined) {
+              let data5 = data4.message;
+              if (typeof data5 !== "string") {
+                const err9 = {
+                  instancePath: instancePath + "/messages/" + i1 + "/message",
+                  schemaPath: "#/properties/messages/items/properties/message/type",
+                  keyword: "type",
+                  params: { type: "string" },
+                  message: "must be string",
+                };
+                if (vErrors === null) {
+                  vErrors = [err9];
+                } else {
+                  vErrors.push(err9);
+                }
+                errors++;
+              }
+              if (!(data5 === "Successful request")) {
+                const err10 = {
+                  instancePath: instancePath + "/messages/" + i1 + "/message",
+                  schemaPath: "#/properties/messages/items/properties/message/enum",
+                  keyword: "enum",
+                  params: {
+                    allowedValues: schema448.properties.messages.items.properties.message.enum,
+                  },
+                  message: "must be equal to one of the allowed values",
+                };
+                if (vErrors === null) {
+                  vErrors = [err10];
+                } else {
+                  vErrors.push(err10);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err11 = {
+              instancePath: instancePath + "/messages/" + i1,
+              schemaPath: "#/properties/messages/items/type",
+              keyword: "type",
+              params: { type: "object" },
+              message: "must be object",
+            };
+            if (vErrors === null) {
+              vErrors = [err11];
+            } else {
+              vErrors.push(err11);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err12 = {
+          instancePath: instancePath + "/messages",
+          schemaPath: "#/properties/messages/type",
+          keyword: "type",
+          params: { type: "array" },
+          message: "must be array",
+        };
+        if (vErrors === null) {
+          vErrors = [err12];
+        } else {
+          vErrors.push(err12);
+        }
+        errors++;
+      }
+    }
+    if (data.result !== undefined) {
+      if (
+        !validate456(data.result, {
+          instancePath: instancePath + "/result",
+          parentData: data,
+          parentDataProperty: "result",
+          rootData,
+          dynamicAnchors,
+        })
+      ) {
+        vErrors = vErrors === null ? validate456.errors : vErrors.concat(validate456.errors);
+        errors = vErrors.length;
+      }
+    }
+    if (data.success !== undefined) {
+      let data7 = data.success;
+      if (typeof data7 !== "boolean") {
+        const err13 = {
+          instancePath: instancePath + "/success",
+          schemaPath: "#/properties/success/type",
+          keyword: "type",
+          params: { type: "boolean" },
+          message: "must be boolean",
+        };
+        if (vErrors === null) {
+          vErrors = [err13];
+        } else {
+          vErrors.push(err13);
+        }
+        errors++;
+      }
+      if (!(data7 === true)) {
+        const err14 = {
+          instancePath: instancePath + "/success",
+          schemaPath: "#/properties/success/enum",
+          keyword: "enum",
+          params: { allowedValues: schema448.properties.success.enum },
+          message: "must be equal to one of the allowed values",
+        };
+        if (vErrors === null) {
+          vErrors = [err14];
+        } else {
+          vErrors.push(err14);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err15 = {
+      instancePath,
+      schemaPath: "#/type",
+      keyword: "type",
+      params: { type: "object" },
+      message: "must be object",
+    };
+    if (vErrors === null) {
+      vErrors = [err15];
+    } else {
+      vErrors.push(err15);
+    }
+    errors++;
+  }
+  validate474.errors = vErrors;
+  return errors === 0;
+}
+validate474.evaluated = {
+  props: { errors: true, messages: true, result: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate473(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate473.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate474(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate474.errors : vErrors.concat(validate474.errors);
+    errors = vErrors.length;
+  }
+  validate473.errors = vErrors;
+  return errors === 0;
+}
+validate473.evaluated = {
+  props: { errors: true, messages: true, result: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+export const ajvSharedQueryPostResponse = validate477;
+const schema449 = {
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema",
+};
+const schema450 = {
   type: "object",
   properties: {
     errors: {
@@ -42640,13 +42845,13 @@ const schema448 = {
   },
   required: ["messages", "success", "errors", "result"],
 };
-function validate475(
+function validate477(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate475.evaluated;
+  const evaluated0 = validate477.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -42841,7 +43046,7 @@ function validate475(
                     "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
-                    allowedValues: schema448.properties.messages.items.properties.message.enum,
+                    allowedValues: schema450.properties.messages.items.properties.message.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -42965,7 +43170,7 @@ function validate475(
           schemaPath:
             "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
-          params: { allowedValues: schema448.properties.success.enum },
+          params: { allowedValues: schema450.properties.success.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -42992,19 +43197,19 @@ function validate475(
     }
     errors++;
   }
-  validate475.errors = vErrors;
+  validate477.errors = vErrors;
   return errors === 0;
 }
-validate475.evaluated = {
+validate477.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvSharedQueryGetResponse = validate476;
-const schema449 = {
+export const ajvSharedQueryGetResponse = validate478;
+const schema451 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query~1{id}/get/responses/200/content/application~1json/schema",
 };
-const schema450 = {
+const schema452 = {
   type: "object",
   properties: {
     errors: {
@@ -43024,7 +43229,7 @@ const schema450 = {
   },
   required: ["messages", "success", "errors", "result"],
 };
-const schema451 = {
+const schema453 = {
   description:
     "Complete results of a query run. The populated fields depend on the requested view type (events, calculations, invocations, traces, or agents).",
   type: "object",
@@ -43411,7 +43616,7 @@ const schema451 = {
   },
   required: ["run", "statistics"],
 };
-const schema452 = {
+const schema454 = {
   description:
     "Bucketed 2D histogram of a numeric field over time. Present when chartType is 'distribution'.",
   type: "object",
@@ -43447,7 +43652,7 @@ const schema452 = {
   },
   required: ["bins", "buckets", "matrix", "bucketBoundaries", "bucketMode"],
 };
-const schema453 = {
+const schema455 = {
   description:
     "A single telemetry event representing a log line, span, or metric data point emitted by a Worker.",
   type: "object",
@@ -43713,7 +43918,7 @@ const schema453 = {
   additionalProperties: false,
   required: ["dataset", "timestamp", "source", "$metadata"],
 };
-const schema456 = {
+const schema458 = {
   description:
     "Query performance statistics from the database. Includes execution time, rows scanned, and bytes read. Does not include network latency.",
   type: "object",
@@ -43732,7 +43937,7 @@ const schema456 = {
   },
   required: ["elapsed", "rows_read", "bytes_read"],
 };
-const schema455 = {
+const schema457 = {
   description:
     "Represents a single execution of a query against Workers Observability data, including the query definition, execution status, and performance statistics.",
   type: "object",
@@ -43807,13 +44012,13 @@ const schema455 = {
   },
   required: ["id", "query", "accountId", "timeframe", "userId", "status", "granularity", "dry"],
 };
-function validate479(
+function validate481(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate479.evaluated;
+  const evaluated0 = validate481.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -44029,7 +44234,7 @@ function validate479(
     if (data.query !== undefined) {
       let data5 = data.query;
       if (
-        !validate454(data5, {
+        !validate456(data5, {
           instancePath: instancePath + "/query",
           parentData: data,
           parentDataProperty: "query",
@@ -44037,7 +44242,7 @@ function validate479(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate454.errors : vErrors.concat(validate454.errors);
+        vErrors = vErrors === null ? validate456.errors : vErrors.concat(validate456.errors);
         errors = vErrors.length;
       }
       if (data5 && typeof data5 == "object" && !Array.isArray(data5)) {
@@ -44341,7 +44546,7 @@ function validate479(
           instancePath: instancePath + "/status",
           schemaPath: "#/properties/status/enum",
           keyword: "enum",
-          params: { allowedValues: schema455.properties.status.enum },
+          params: { allowedValues: schema457.properties.status.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -44484,10 +44689,10 @@ function validate479(
     }
     errors++;
   }
-  validate479.errors = vErrors;
+  validate481.errors = vErrors;
   return errors === 0;
 }
-validate479.evaluated = {
+validate481.evaluated = {
   props: {
     accountId: true,
     created: true,
@@ -44504,13 +44709,13 @@ validate479.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate478(
+function validate480(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate478.evaluated;
+  const evaluated0 = validate480.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -45010,7 +45215,7 @@ function validate478(
                   schemaPath: "#/properties/agents/items/properties/status/enum",
                   keyword: "enum",
                   params: {
-                    allowedValues: schema451.properties.agents.items.properties.status.enum,
+                    allowedValues: schema453.properties.agents.items.properties.status.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -47698,7 +47903,7 @@ function validate478(
               schemaPath:
                 "#/components/schemas/workers-observability_distribution_result/properties/bucketMode/enum",
               keyword: "enum",
-              params: { allowedValues: schema452.properties.bucketMode.enum },
+              params: { allowedValues: schema454.properties.bucketMode.enum },
               message: "must be equal to one of the allowed values",
             };
             if (vErrors === null) {
@@ -48894,7 +49099,7 @@ function validate478(
                           keyword: "enum",
                           params: {
                             allowedValues:
-                              schema453.properties.$workers.anyOf[0].properties.eventType.enum,
+                              schema455.properties.$workers.anyOf[0].properties.eventType.enum,
                           },
                           message: "must be equal to one of the allowed values",
                         };
@@ -48934,7 +49139,7 @@ function validate478(
                           keyword: "enum",
                           params: {
                             allowedValues:
-                              schema453.properties.$workers.anyOf[0].properties.executionModel.enum,
+                              schema455.properties.$workers.anyOf[0].properties.executionModel.enum,
                           },
                           message: "must be equal to one of the allowed values",
                         };
@@ -49680,7 +49885,7 @@ function validate478(
                           keyword: "enum",
                           params: {
                             allowedValues:
-                              schema453.properties.$workers.anyOf[1].properties.eventType.enum,
+                              schema455.properties.$workers.anyOf[1].properties.eventType.enum,
                           },
                           message: "must be equal to one of the allowed values",
                         };
@@ -49720,7 +49925,7 @@ function validate478(
                           keyword: "enum",
                           params: {
                             allowedValues:
-                              schema453.properties.$workers.anyOf[1].properties.executionModel.enum,
+                              schema455.properties.$workers.anyOf[1].properties.executionModel.enum,
                           },
                           message: "must be equal to one of the allowed values",
                         };
@@ -52371,7 +52576,7 @@ function validate478(
                           keyword: "enum",
                           params: {
                             allowedValues:
-                              schema453.properties.$workers.anyOf[0].properties.eventType.enum,
+                              schema455.properties.$workers.anyOf[0].properties.eventType.enum,
                           },
                           message: "must be equal to one of the allowed values",
                         };
@@ -52421,7 +52626,7 @@ function validate478(
                           keyword: "enum",
                           params: {
                             allowedValues:
-                              schema453.properties.$workers.anyOf[0].properties.executionModel.enum,
+                              schema455.properties.$workers.anyOf[0].properties.executionModel.enum,
                           },
                           message: "must be equal to one of the allowed values",
                         };
@@ -53323,7 +53528,7 @@ function validate478(
                           keyword: "enum",
                           params: {
                             allowedValues:
-                              schema453.properties.$workers.anyOf[1].properties.eventType.enum,
+                              schema455.properties.$workers.anyOf[1].properties.eventType.enum,
                           },
                           message: "must be equal to one of the allowed values",
                         };
@@ -53373,7 +53578,7 @@ function validate478(
                           keyword: "enum",
                           params: {
                             allowedValues:
-                              schema453.properties.$workers.anyOf[1].properties.executionModel.enum,
+                              schema455.properties.$workers.anyOf[1].properties.executionModel.enum,
                           },
                           message: "must be equal to one of the allowed values",
                         };
@@ -54043,7 +54248,7 @@ function validate478(
     }
     if (data.run !== undefined) {
       if (
-        !validate479(data.run, {
+        !validate481(data.run, {
           instancePath: instancePath + "/run",
           parentData: data,
           parentDataProperty: "run",
@@ -54051,7 +54256,7 @@ function validate478(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate479.errors : vErrors.concat(validate479.errors);
+        vErrors = vErrors === null ? validate481.errors : vErrors.concat(validate481.errors);
         errors = vErrors.length;
       }
     }
@@ -54561,10 +54766,10 @@ function validate478(
     }
     errors++;
   }
-  validate478.errors = vErrors;
+  validate480.errors = vErrors;
   return errors === 0;
 }
-validate478.evaluated = {
+validate480.evaluated = {
   props: {
     agents: true,
     calculations: true,
@@ -54579,13 +54784,13 @@ validate478.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate477(
+function validate479(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate477.evaluated;
+  const evaluated0 = validate479.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -54769,7 +54974,7 @@ function validate477(
                   schemaPath: "#/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
-                    allowedValues: schema450.properties.messages.items.properties.message.enum,
+                    allowedValues: schema452.properties.messages.items.properties.message.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -54815,7 +55020,7 @@ function validate477(
     }
     if (data.result !== undefined) {
       if (
-        !validate478(data.result, {
+        !validate480(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -54823,7 +55028,7 @@ function validate477(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate478.errors : vErrors.concat(validate478.errors);
+        vErrors = vErrors === null ? validate480.errors : vErrors.concat(validate480.errors);
         errors = vErrors.length;
       }
     }
@@ -54849,7 +55054,7 @@ function validate477(
           instancePath: instancePath + "/success",
           schemaPath: "#/properties/success/enum",
           keyword: "enum",
-          params: { allowedValues: schema450.properties.success.enum },
+          params: { allowedValues: schema452.properties.success.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -54875,21 +55080,21 @@ function validate477(
     }
     errors++;
   }
-  validate477.errors = vErrors;
+  validate479.errors = vErrors;
   return errors === 0;
 }
-validate477.evaluated = {
+validate479.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate476(
+function validate478(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate476.evaluated;
+  const evaluated0 = validate478.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -54897,24 +55102,24 @@ function validate476(
     evaluated0.items = undefined;
   }
   if (
-    !validate477(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate479(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate477.errors : vErrors.concat(validate477.errors);
+    vErrors = vErrors === null ? validate479.errors : vErrors.concat(validate479.errors);
     errors = vErrors.length;
   }
-  validate476.errors = vErrors;
+  validate478.errors = vErrors;
   return errors === 0;
 }
-validate476.evaluated = {
+validate478.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvTelemetryKeysListResponse = validate484;
-const schema457 = {
+export const ajvTelemetryKeysListResponse = validate486;
+const schema459 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema",
 };
-const schema458 = {
+const schema460 = {
   type: "object",
   properties: {
     errors: {
@@ -54945,13 +55150,13 @@ const schema458 = {
   },
   required: ["messages", "success", "errors", "result"],
 };
-function validate484(
+function validate486(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate484.evaluated;
+  const evaluated0 = validate486.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -55146,7 +55351,7 @@ function validate484(
                     "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
-                    allowedValues: schema458.properties.messages.items.properties.message.enum,
+                    allowedValues: schema460.properties.messages.items.properties.message.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -55307,7 +55512,7 @@ function validate484(
                   schemaPath:
                     "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/result/items/properties/type/enum",
                   keyword: "enum",
-                  params: { allowedValues: schema458.properties.result.items.properties.type.enum },
+                  params: { allowedValues: schema460.properties.result.items.properties.type.enum },
                   message: "must be equal to one of the allowed values",
                 };
                 if (vErrors === null) {
@@ -55376,7 +55581,7 @@ function validate484(
           schemaPath:
             "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
-          params: { allowedValues: schema458.properties.success.enum },
+          params: { allowedValues: schema460.properties.success.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -55403,19 +55608,19 @@ function validate484(
     }
     errors++;
   }
-  validate484.errors = vErrors;
+  validate486.errors = vErrors;
   return errors === 0;
 }
-validate484.evaluated = {
+validate486.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvTelemetryLiveTailPostResponse = validate485;
-const schema459 = {
+export const ajvTelemetryLiveTailPostResponse = validate487;
+const schema461 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema",
 };
-const schema460 = {
+const schema462 = {
   type: "object",
   properties: {
     errors: {
@@ -55445,13 +55650,13 @@ const schema460 = {
   },
   required: ["messages", "success", "errors", "result"],
 };
-function validate485(
+function validate487(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate485.evaluated;
+  const evaluated0 = validate487.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -55646,7 +55851,7 @@ function validate485(
                     "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
-                    allowedValues: schema460.properties.messages.items.properties.message.enum,
+                    allowedValues: schema462.properties.messages.items.properties.message.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -55770,7 +55975,7 @@ function validate485(
           schemaPath:
             "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
-          params: { allowedValues: schema460.properties.success.enum },
+          params: { allowedValues: schema462.properties.success.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -55797,19 +56002,19 @@ function validate485(
     }
     errors++;
   }
-  validate485.errors = vErrors;
+  validate487.errors = vErrors;
   return errors === 0;
 }
-validate485.evaluated = {
+validate487.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvTelemetryLiveTailHeartbeatGetResponse = validate486;
-const schema461 = {
+export const ajvTelemetryLiveTailHeartbeatGetResponse = validate488;
+const schema463 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema",
 };
-const schema462 = {
+const schema464 = {
   type: "object",
   properties: {
     errors: {
@@ -55829,13 +56034,13 @@ const schema462 = {
   },
   required: ["messages", "success", "errors", "result"],
 };
-function validate486(
+function validate488(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate486.evaluated;
+  const evaluated0 = validate488.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -56030,7 +56235,7 @@ function validate486(
                     "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
-                    allowedValues: schema462.properties.messages.items.properties.message.enum,
+                    allowedValues: schema464.properties.messages.items.properties.message.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -56119,7 +56324,7 @@ function validate486(
           schemaPath:
             "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
-          params: { allowedValues: schema462.properties.success.enum },
+          params: { allowedValues: schema464.properties.success.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -56146,19 +56351,19 @@ function validate486(
     }
     errors++;
   }
-  validate486.errors = vErrors;
+  validate488.errors = vErrors;
   return errors === 0;
 }
-validate486.evaluated = {
+validate488.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvTelemetryQueryResponse = validate487;
-const schema463 = {
+export const ajvTelemetryQueryResponse = validate489;
+const schema465 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1query/post/responses/200/content/application~1json/schema",
 };
-const schema464 = {
+const schema466 = {
   type: "object",
   properties: {
     errors: {
@@ -56178,13 +56383,13 @@ const schema464 = {
   },
   required: ["messages", "success", "errors", "result"],
 };
-function validate488(
+function validate490(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate488.evaluated;
+  const evaluated0 = validate490.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -56368,7 +56573,7 @@ function validate488(
                   schemaPath: "#/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
-                    allowedValues: schema464.properties.messages.items.properties.message.enum,
+                    allowedValues: schema466.properties.messages.items.properties.message.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -56414,7 +56619,7 @@ function validate488(
     }
     if (data.result !== undefined) {
       if (
-        !validate478(data.result, {
+        !validate480(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -56422,7 +56627,7 @@ function validate488(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate478.errors : vErrors.concat(validate478.errors);
+        vErrors = vErrors === null ? validate480.errors : vErrors.concat(validate480.errors);
         errors = vErrors.length;
       }
     }
@@ -56448,7 +56653,7 @@ function validate488(
           instancePath: instancePath + "/success",
           schemaPath: "#/properties/success/enum",
           keyword: "enum",
-          params: { allowedValues: schema464.properties.success.enum },
+          params: { allowedValues: schema466.properties.success.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -56474,21 +56679,21 @@ function validate488(
     }
     errors++;
   }
-  validate488.errors = vErrors;
+  validate490.errors = vErrors;
   return errors === 0;
 }
-validate488.evaluated = {
+validate490.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate487(
+function validate489(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate487.evaluated;
+  const evaluated0 = validate489.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -56496,24 +56701,24 @@ function validate487(
     evaluated0.items = undefined;
   }
   if (
-    !validate488(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate490(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate488.errors : vErrors.concat(validate488.errors);
+    vErrors = vErrors === null ? validate490.errors : vErrors.concat(validate490.errors);
     errors = vErrors.length;
   }
-  validate487.errors = vErrors;
+  validate489.errors = vErrors;
   return errors === 0;
 }
-validate487.evaluated = {
+validate489.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvTelemetryValuesListResponse = validate491;
-const schema465 = {
+export const ajvTelemetryValuesListResponse = validate493;
+const schema467 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema",
 };
-const schema466 = {
+const schema468 = {
   type: "object",
   properties: {
     errors: {
@@ -56545,13 +56750,13 @@ const schema466 = {
   },
   required: ["messages", "success", "errors", "result"],
 };
-function validate491(
+function validate493(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate491.evaluated;
+  const evaluated0 = validate493.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -56746,7 +56951,7 @@ function validate491(
                     "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
-                    allowedValues: schema466.properties.messages.items.properties.message.enum,
+                    allowedValues: schema468.properties.messages.items.properties.message.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -56923,7 +57128,7 @@ function validate491(
                   schemaPath:
                     "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/properties/type/enum",
                   keyword: "enum",
-                  params: { allowedValues: schema466.properties.result.items.properties.type.enum },
+                  params: { allowedValues: schema468.properties.result.items.properties.type.enum },
                   message: "must be equal to one of the allowed values",
                 };
                 if (vErrors === null) {
@@ -57079,7 +57284,7 @@ function validate491(
           schemaPath:
             "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
-          params: { allowedValues: schema466.properties.success.enum },
+          params: { allowedValues: schema468.properties.success.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -57106,19 +57311,19 @@ function validate491(
     }
     errors++;
   }
-  validate491.errors = vErrors;
+  validate493.errors = vErrors;
   return errors === 0;
 }
-validate491.evaluated = {
+validate493.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvUsageGetResponse = validate492;
-const schema467 = {
+export const ajvUsageGetResponse = validate494;
+const schema469 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema",
 };
-const schema468 = {
+const schema470 = {
   type: "object",
   properties: {
     errors: {
@@ -57167,13 +57372,13 @@ const schema468 = {
   },
   required: ["messages", "success", "errors", "result"],
 };
-function validate492(
+function validate494(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate492.evaluated;
+  const evaluated0 = validate494.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -57368,7 +57573,7 @@ function validate492(
                     "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
-                    allowedValues: schema468.properties.messages.items.properties.message.enum,
+                    allowedValues: schema470.properties.messages.items.properties.message.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -57685,7 +57890,7 @@ function validate492(
           schemaPath:
             "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
-          params: { allowedValues: schema468.properties.success.enum },
+          params: { allowedValues: schema470.properties.success.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -57712,19 +57917,19 @@ function validate492(
     }
     errors++;
   }
-  validate492.errors = vErrors;
+  validate494.errors = vErrors;
   return errors === 0;
 }
-validate492.evaluated = {
+validate494.evaluated = {
   props: { errors: true, messages: true, result: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerPlacementListRegionsResponse = validate493;
-const schema469 = {
+export const ajvWorkerPlacementListRegionsResponse = validate495;
+const schema471 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1placement~1regions/get/responses/200/content/application~1json/schema",
 };
-const schema470 = {
+const schema472 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -57734,7 +57939,7 @@ const schema470 = {
     },
   ],
 };
-const schema471 = {
+const schema473 = {
   type: "object",
   properties: {
     providers: {
@@ -57745,7 +57950,7 @@ const schema471 = {
   },
   required: ["providers"],
 };
-const schema472 = {
+const schema474 = {
   type: "object",
   properties: {
     id: { description: "The cloud provider identifier.", type: "string", example: "aws" },
@@ -57757,20 +57962,20 @@ const schema472 = {
   },
   required: ["id", "regions"],
 };
-const schema473 = {
+const schema475 = {
   type: "object",
   properties: {
     id: { description: "The region identifier.", type: "string", example: "us-east-1" },
   },
   required: ["id"],
 };
-function validate497(
+function validate499(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate497.evaluated;
+  const evaluated0 = validate499.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -57911,21 +58116,21 @@ function validate497(
     }
     errors++;
   }
-  validate497.errors = vErrors;
+  validate499.errors = vErrors;
   return errors === 0;
 }
-validate497.evaluated = {
+validate499.evaluated = {
   props: { id: true, regions: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate496(
+function validate498(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate496.evaluated;
+  const evaluated0 = validate498.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -57954,7 +58159,7 @@ function validate496(
         const len0 = data0.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (
-            !validate497(data0[i0], {
+            !validate499(data0[i0], {
               instancePath: instancePath + "/providers/" + i0,
               parentData: data0,
               parentDataProperty: i0,
@@ -57962,7 +58167,7 @@ function validate496(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate497.errors : vErrors.concat(validate497.errors);
+            vErrors = vErrors === null ? validate499.errors : vErrors.concat(validate499.errors);
             errors = vErrors.length;
           }
         }
@@ -57997,17 +58202,17 @@ function validate496(
     }
     errors++;
   }
-  validate496.errors = vErrors;
+  validate498.errors = vErrors;
   return errors === 0;
 }
-validate496.evaluated = { props: { providers: true }, dynamicProps: false, dynamicItems: false };
-function validate494(
+validate498.evaluated = { props: { providers: true }, dynamicProps: false, dynamicItems: false };
+function validate496(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate494.evaluated;
+  const evaluated0 = validate496.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -58038,7 +58243,7 @@ function validate494(
     }
     if (data.result !== undefined) {
       if (
-        !validate496(data.result, {
+        !validate498(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -58046,7 +58251,7 @@ function validate494(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate496.errors : vErrors.concat(validate496.errors);
+        vErrors = vErrors === null ? validate498.errors : vErrors.concat(validate498.errors);
         errors = vErrors.length;
       }
     }
@@ -58065,21 +58270,21 @@ function validate494(
     }
     errors++;
   }
-  validate494.errors = vErrors;
+  validate496.errors = vErrors;
   return errors === 0;
 }
-validate494.evaluated = {
+validate496.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate493(
+function validate495(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate493.evaluated;
+  const evaluated0 = validate495.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -58087,24 +58292,24 @@ function validate493(
     evaluated0.items = undefined;
   }
   if (
-    !validate494(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate496(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate494.errors : vErrors.concat(validate494.errors);
+    vErrors = vErrors === null ? validate496.errors : vErrors.concat(validate496.errors);
     errors = vErrors.length;
   }
-  validate493.errors = vErrors;
+  validate495.errors = vErrors;
   return errors === 0;
 }
-validate493.evaluated = {
+validate495.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerScriptListWorkersResponse = validate501;
-const schema474 = {
+export const ajvWorkerScriptListWorkersResponse = validate503;
+const schema476 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts/get/responses/200/content/application~1json/schema",
 };
-const schema475 = {
+const schema477 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -58134,7 +58339,7 @@ const schema475 = {
     },
   ],
 };
-const schema476 = {
+const schema478 = {
   type: "object",
   properties: {
     id: { allOf: [{ $ref: "#/components/schemas/workers_identifier" }], readOnly: true },
@@ -58154,13 +58359,13 @@ const schema476 = {
   },
   required: ["id", "pattern"],
 };
-function validate505(
+function validate507(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate505.evaluated;
+  const evaluated0 = validate507.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -58281,21 +58486,21 @@ function validate505(
     }
     errors++;
   }
-  validate505.errors = vErrors;
+  validate507.errors = vErrors;
   return errors === 0;
 }
-validate505.evaluated = {
+validate507.evaluated = {
   props: { id: true, pattern: true, script: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate502(
+function validate504(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate502.evaluated;
+  const evaluated0 = validate504.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -58364,7 +58569,7 @@ function validate502(
                 const len1 = data2.length;
                 for (let i1 = 0; i1 < len1; i1++) {
                   if (
-                    !validate505(data2[i1], {
+                    !validate507(data2[i1], {
                       instancePath: instancePath + "/result/" + i0 + "/routes/" + i1,
                       parentData: data2,
                       parentDataProperty: i1,
@@ -58373,7 +58578,7 @@ function validate502(
                     })
                   ) {
                     vErrors =
-                      vErrors === null ? validate505.errors : vErrors.concat(validate505.errors);
+                      vErrors === null ? validate507.errors : vErrors.concat(validate507.errors);
                     errors = vErrors.length;
                   }
                 }
@@ -58426,21 +58631,21 @@ function validate502(
     }
     errors++;
   }
-  validate502.errors = vErrors;
+  validate504.errors = vErrors;
   return errors === 0;
 }
-validate502.evaluated = {
+validate504.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate501(
+function validate503(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate501.evaluated;
+  const evaluated0 = validate503.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -58448,24 +58653,24 @@ function validate501(
     evaluated0.items = undefined;
   }
   if (
-    !validate502(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate504(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate502.errors : vErrors.concat(validate502.errors);
+    vErrors = vErrors === null ? validate504.errors : vErrors.concat(validate504.errors);
     errors = vErrors.length;
   }
-  validate501.errors = vErrors;
+  validate503.errors = vErrors;
   return errors === 0;
 }
-validate501.evaluated = {
+validate503.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerScriptSearchWorkersResponse = validate508;
-const schema478 = {
+export const ajvWorkerScriptSearchWorkersResponse = validate510;
+const schema480 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts-search/get/responses/200/content/application~1json/schema",
 };
-const schema479 = {
+const schema481 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-collection" },
     {
@@ -58504,7 +58709,7 @@ const schema479 = {
     },
   ],
 };
-const schema483 = {
+const schema485 = {
   description: "Name of the script, used in URLs and route configuration.",
   type: "string",
   example: "this-is_my_script-01",
@@ -58512,13 +58717,13 @@ const schema483 = {
   "x-auditable": true,
 };
 const pattern9 = new RegExp("^[a-z0-9_][a-z0-9-_]*$", "u");
-function validate509(
+function validate511(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate509.evaluated;
+  const evaluated0 = validate511.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -58526,9 +58731,9 @@ function validate509(
     evaluated0.items = undefined;
   }
   if (
-    !validate422(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate424(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate422.errors : vErrors.concat(validate422.errors);
+    vErrors = vErrors === null ? validate424.errors : vErrors.concat(validate424.errors);
     errors = vErrors.length;
   }
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -58815,21 +59020,21 @@ function validate509(
     }
     errors++;
   }
-  validate509.errors = vErrors;
+  validate511.errors = vErrors;
   return errors === 0;
 }
-validate509.evaluated = {
+validate511.evaluated = {
   props: { result: true, result_info: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate508(
+function validate510(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate508.evaluated;
+  const evaluated0 = validate510.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -58837,30 +59042,30 @@ function validate508(
     evaluated0.items = undefined;
   }
   if (
-    !validate509(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate511(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate509.errors : vErrors.concat(validate509.errors);
+    vErrors = vErrors === null ? validate511.errors : vErrors.concat(validate511.errors);
     errors = vErrors.length;
   }
-  validate508.errors = vErrors;
+  validate510.errors = vErrors;
   return errors === 0;
 }
-validate508.evaluated = {
+validate510.evaluated = {
   props: { result: true, result_info: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerScriptDeleteWorkerResponse = validate512;
-const schema484 = {
+export const ajvWorkerScriptDeleteWorkerResponse = validate514;
+const schema486 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}/delete/responses/200/content/application~1json/schema",
 };
-function validate513(
+function validate515(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate513.evaluated;
+  const evaluated0 = validate515.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -58922,21 +59127,21 @@ function validate513(
     }
     errors++;
   }
-  validate513.errors = vErrors;
+  validate515.errors = vErrors;
   return errors === 0;
 }
-validate513.evaluated = {
+validate515.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate512(
+function validate514(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate512.evaluated;
+  const evaluated0 = validate514.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -58944,24 +59149,24 @@ function validate512(
     evaluated0.items = undefined;
   }
   if (
-    !validate513(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate515(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate513.errors : vErrors.concat(validate513.errors);
+    vErrors = vErrors === null ? validate515.errors : vErrors.concat(validate515.errors);
     errors = vErrors.length;
   }
-  validate512.errors = vErrors;
+  validate514.errors = vErrors;
   return errors === 0;
 }
-validate512.evaluated = {
+validate514.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerScriptUploadWorkerModuleResponse = validate516;
-const schema486 = {
+export const ajvWorkerScriptUploadWorkerModuleResponse = validate518;
+const schema488 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}/put/responses/200/content/application~1json/schema",
 };
-const schema487 = {
+const schema489 = {
   allOf: [
     { $ref: "#/components/schemas/workers_script-response-upload-single" },
     {
@@ -58986,7 +59191,7 @@ const schema487 = {
     },
   ],
 };
-const schema488 = {
+const schema490 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -59010,7 +59215,7 @@ const schema488 = {
     },
   ],
 };
-const schema489 = {
+const schema491 = {
   allOf: [
     { $ref: "#/components/schemas/workers_script-response" },
     {
@@ -59028,13 +59233,13 @@ const schema489 = {
     },
   ],
 };
-function validate520(
+function validate522(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate520.evaluated;
+  const evaluated0 = validate522.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -59113,10 +59318,10 @@ function validate520(
     }
     errors++;
   }
-  validate520.errors = vErrors;
+  validate522.errors = vErrors;
   return errors === 0;
 }
-validate520.evaluated = {
+validate522.evaluated = {
   props: {
     entry_point: true,
     startup_time_ms: true,
@@ -59147,13 +59352,13 @@ validate520.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate518(
+function validate520(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate518.evaluated;
+  const evaluated0 = validate520.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -59184,7 +59389,7 @@ function validate518(
     }
     if (data.result !== undefined) {
       if (
-        !validate520(data.result, {
+        !validate522(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -59192,7 +59397,7 @@ function validate518(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate520.errors : vErrors.concat(validate520.errors);
+        vErrors = vErrors === null ? validate522.errors : vErrors.concat(validate522.errors);
         errors = vErrors.length;
       }
     }
@@ -59211,21 +59416,21 @@ function validate518(
     }
     errors++;
   }
-  validate518.errors = vErrors;
+  validate520.errors = vErrors;
   return errors === 0;
 }
-validate518.evaluated = {
+validate520.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate517(
+function validate519(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate517.evaluated;
+  const evaluated0 = validate519.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -59233,9 +59438,9 @@ function validate517(
     evaluated0.items = undefined;
   }
   if (
-    !validate518(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate520(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate518.errors : vErrors.concat(validate518.errors);
+    vErrors = vErrors === null ? validate520.errors : vErrors.concat(validate520.errors);
     errors = vErrors.length;
   }
   if (!(data && typeof data == "object" && !Array.isArray(data))) {
@@ -59253,21 +59458,21 @@ function validate517(
     }
     errors++;
   }
-  validate517.errors = vErrors;
+  validate519.errors = vErrors;
   return errors === 0;
 }
-validate517.evaluated = {
+validate519.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate516(
+function validate518(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate516.evaluated;
+  const evaluated0 = validate518.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -59275,30 +59480,30 @@ function validate516(
     evaluated0.items = undefined;
   }
   if (
-    !validate517(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate519(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate517.errors : vErrors.concat(validate517.errors);
+    vErrors = vErrors === null ? validate519.errors : vErrors.concat(validate519.errors);
     errors = vErrors.length;
   }
-  validate516.errors = vErrors;
+  validate518.errors = vErrors;
   return errors === 0;
 }
-validate516.evaluated = {
+validate518.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerScriptUpdateCreateAssetsUploadSessionResponse = validate525;
-const schema490 = {
+export const ajvWorkerScriptUpdateCreateAssetsUploadSessionResponse = validate527;
+const schema492 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1assets-upload-session/post/responses/200/content/application~1json/schema",
 };
-function validate526(
+function validate528(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate526.evaluated;
+  const evaluated0 = validate528.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -59420,21 +59625,21 @@ function validate526(
     }
     errors++;
   }
-  validate526.errors = vErrors;
+  validate528.errors = vErrors;
   return errors === 0;
 }
-validate526.evaluated = {
+validate528.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate525(
+function validate527(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate525.evaluated;
+  const evaluated0 = validate527.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -59442,30 +59647,30 @@ function validate525(
     evaluated0.items = undefined;
   }
   if (
-    !validate526(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate528(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate526.errors : vErrors.concat(validate526.errors);
+    vErrors = vErrors === null ? validate528.errors : vErrors.concat(validate528.errors);
     errors = vErrors.length;
   }
-  validate525.errors = vErrors;
+  validate527.errors = vErrors;
   return errors === 0;
 }
-validate525.evaluated = {
+validate527.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerScriptPutContentResponse = validate529;
-const schema492 = {
+export const ajvWorkerScriptPutContentResponse = validate531;
+const schema494 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1content/put/responses/200/content/application~1json/schema",
 };
-function validate530(
+function validate532(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate530.evaluated;
+  const evaluated0 = validate532.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -59473,9 +59678,9 @@ function validate530(
     evaluated0.items = undefined;
   }
   if (
-    !validate341(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate343(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate341.errors : vErrors.concat(validate341.errors);
+    vErrors = vErrors === null ? validate343.errors : vErrors.concat(validate343.errors);
     errors = vErrors.length;
   }
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -59523,21 +59728,21 @@ function validate530(
     }
     errors++;
   }
-  validate530.errors = vErrors;
+  validate532.errors = vErrors;
   return errors === 0;
 }
-validate530.evaluated = {
+validate532.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate529(
+function validate531(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate529.evaluated;
+  const evaluated0 = validate531.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -59545,24 +59750,24 @@ function validate529(
     evaluated0.items = undefined;
   }
   if (
-    !validate530(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate532(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate530.errors : vErrors.concat(validate530.errors);
+    vErrors = vErrors === null ? validate532.errors : vErrors.concat(validate532.errors);
     errors = vErrors.length;
   }
-  validate529.errors = vErrors;
+  validate531.errors = vErrors;
   return errors === 0;
 }
-validate529.evaluated = {
+validate531.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerDeploymentsListDeploymentsResponse = validate534;
-const schema494 = {
+export const ajvWorkerDeploymentsListDeploymentsResponse = validate536;
+const schema496 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1deployments/get/responses/200/content/application~1json/schema",
 };
-const schema495 = {
+const schema497 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -59583,7 +59788,7 @@ const schema495 = {
     },
   ],
 };
-const schema496 = {
+const schema498 = {
   type: "object",
   properties: {
     annotations: {
@@ -59631,13 +59836,13 @@ const schema496 = {
   },
   required: ["id", "source", "strategy", "versions", "created_on"],
 };
-function validate535(
+function validate537(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate535.evaluated;
+  const evaluated0 = validate537.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -59946,7 +60151,7 @@ function validate535(
                       schemaPath:
                         "#/components/schemas/workers_deployment/properties/strategy/enum",
                       keyword: "enum",
-                      params: { allowedValues: schema496.properties.strategy.enum },
+                      params: { allowedValues: schema498.properties.strategy.enum },
                       message: "must be equal to one of the allowed values",
                     };
                     if (vErrors === null) {
@@ -60190,21 +60395,21 @@ function validate535(
     }
     errors++;
   }
-  validate535.errors = vErrors;
+  validate537.errors = vErrors;
   return errors === 0;
 }
-validate535.evaluated = {
+validate537.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate534(
+function validate536(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate534.evaluated;
+  const evaluated0 = validate536.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -60212,24 +60417,24 @@ function validate534(
     evaluated0.items = undefined;
   }
   if (
-    !validate535(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate537(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate535.errors : vErrors.concat(validate535.errors);
+    vErrors = vErrors === null ? validate537.errors : vErrors.concat(validate537.errors);
     errors = vErrors.length;
   }
-  validate534.errors = vErrors;
+  validate536.errors = vErrors;
   return errors === 0;
 }
-validate534.evaluated = {
+validate536.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerDeploymentsCreateDeploymentResponse = validate538;
-const schema497 = {
+export const ajvWorkerDeploymentsCreateDeploymentResponse = validate540;
+const schema499 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1deployments/post/responses/200/content/application~1json/schema",
 };
-const schema498 = {
+const schema500 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -60239,13 +60444,13 @@ const schema498 = {
     },
   ],
 };
-function validate539(
+function validate541(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate539.evaluated;
+  const evaluated0 = validate541.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -60515,7 +60720,7 @@ function validate539(
               instancePath: instancePath + "/result/strategy",
               schemaPath: "#/components/schemas/workers_deployment/properties/strategy/enum",
               keyword: "enum",
-              params: { allowedValues: schema496.properties.strategy.enum },
+              params: { allowedValues: schema498.properties.strategy.enum },
               message: "must be equal to one of the allowed values",
             };
             if (vErrors === null) {
@@ -60699,21 +60904,21 @@ function validate539(
     }
     errors++;
   }
-  validate539.errors = vErrors;
+  validate541.errors = vErrors;
   return errors === 0;
 }
-validate539.evaluated = {
+validate541.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate538(
+function validate540(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate538.evaluated;
+  const evaluated0 = validate540.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -60721,30 +60926,30 @@ function validate538(
     evaluated0.items = undefined;
   }
   if (
-    !validate539(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate541(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate539.errors : vErrors.concat(validate539.errors);
+    vErrors = vErrors === null ? validate541.errors : vErrors.concat(validate541.errors);
     errors = vErrors.length;
   }
-  validate538.errors = vErrors;
+  validate540.errors = vErrors;
   return errors === 0;
 }
-validate538.evaluated = {
+validate540.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerDeploymentsDeleteDeploymentResponse = validate542;
-const schema500 = {
+export const ajvWorkerDeploymentsDeleteDeploymentResponse = validate544;
+const schema502 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1deployments~1{deployment_id}/delete/responses/200/content/application~1json/schema",
 };
-function validate543(
+function validate545(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate543.evaluated;
+  const evaluated0 = validate545.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -61263,21 +61468,21 @@ function validate543(
     }
     errors++;
   }
-  validate543.errors = vErrors;
+  validate545.errors = vErrors;
   return errors === 0;
 }
-validate543.evaluated = {
+validate545.evaluated = {
   props: { errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate542(
+function validate544(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate542.evaluated;
+  const evaluated0 = validate544.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -61285,24 +61490,24 @@ function validate542(
     evaluated0.items = undefined;
   }
   if (
-    !validate543(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate545(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate543.errors : vErrors.concat(validate543.errors);
+    vErrors = vErrors === null ? validate545.errors : vErrors.concat(validate545.errors);
     errors = vErrors.length;
   }
-  validate542.errors = vErrors;
+  validate544.errors = vErrors;
   return errors === 0;
 }
-validate542.evaluated = {
+validate544.evaluated = {
   props: { errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerDeploymentsGetDeploymentResponse = validate545;
-const schema504 = {
+export const ajvWorkerDeploymentsGetDeploymentResponse = validate547;
+const schema506 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1deployments~1{deployment_id}/get/responses/200/content/application~1json/schema",
 };
-const schema505 = {
+const schema507 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -61312,13 +61517,13 @@ const schema505 = {
     },
   ],
 };
-function validate546(
+function validate548(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate546.evaluated;
+  const evaluated0 = validate548.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -61588,7 +61793,7 @@ function validate546(
               instancePath: instancePath + "/result/strategy",
               schemaPath: "#/components/schemas/workers_deployment/properties/strategy/enum",
               keyword: "enum",
-              params: { allowedValues: schema496.properties.strategy.enum },
+              params: { allowedValues: schema498.properties.strategy.enum },
               message: "must be equal to one of the allowed values",
             };
             if (vErrors === null) {
@@ -61772,21 +61977,21 @@ function validate546(
     }
     errors++;
   }
-  validate546.errors = vErrors;
+  validate548.errors = vErrors;
   return errors === 0;
 }
-validate546.evaluated = {
+validate548.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate545(
+function validate547(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate545.evaluated;
+  const evaluated0 = validate547.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -61794,24 +61999,24 @@ function validate545(
     evaluated0.items = undefined;
   }
   if (
-    !validate546(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate548(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate546.errors : vErrors.concat(validate546.errors);
+    vErrors = vErrors === null ? validate548.errors : vErrors.concat(validate548.errors);
     errors = vErrors.length;
   }
-  validate545.errors = vErrors;
+  validate547.errors = vErrors;
   return errors === 0;
 }
-validate545.evaluated = {
+validate547.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerCronTriggerGetCronTriggersResponse = validate549;
-const schema507 = {
+export const ajvWorkerCronTriggerGetCronTriggersResponse = validate551;
+const schema509 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1schedules/get/responses/200/content/application~1json/schema",
 };
-const schema508 = {
+const schema510 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -61829,7 +62034,7 @@ const schema508 = {
     },
   ],
 };
-const schema509 = {
+const schema511 = {
   type: "object",
   properties: {
     created_on: { type: "string", readOnly: true, "x-auditable": true },
@@ -61838,13 +62043,13 @@ const schema509 = {
   },
   required: ["cron"],
 };
-function validate550(
+function validate552(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate550.evaluated;
+  const evaluated0 = validate552.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -62029,21 +62234,21 @@ function validate550(
     }
     errors++;
   }
-  validate550.errors = vErrors;
+  validate552.errors = vErrors;
   return errors === 0;
 }
-validate550.evaluated = {
+validate552.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate549(
+function validate551(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate549.evaluated;
+  const evaluated0 = validate551.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -62051,24 +62256,24 @@ function validate549(
     evaluated0.items = undefined;
   }
   if (
-    !validate550(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate552(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate550.errors : vErrors.concat(validate550.errors);
+    vErrors = vErrors === null ? validate552.errors : vErrors.concat(validate552.errors);
     errors = vErrors.length;
   }
-  validate549.errors = vErrors;
+  validate551.errors = vErrors;
   return errors === 0;
 }
-validate549.evaluated = {
+validate551.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerCronTriggerUpdateCronTriggersResponse = validate553;
-const schema510 = {
+export const ajvWorkerCronTriggerUpdateCronTriggersResponse = validate555;
+const schema512 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1schedules/put/responses/200/content/application~1json/schema",
 };
-const schema511 = {
+const schema513 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -62086,13 +62291,13 @@ const schema511 = {
     },
   ],
 };
-function validate554(
+function validate556(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate554.evaluated;
+  const evaluated0 = validate556.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -62277,21 +62482,21 @@ function validate554(
     }
     errors++;
   }
-  validate554.errors = vErrors;
+  validate556.errors = vErrors;
   return errors === 0;
 }
-validate554.evaluated = {
+validate556.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate553(
+function validate555(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate553.evaluated;
+  const evaluated0 = validate555.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -62299,24 +62504,24 @@ function validate553(
     evaluated0.items = undefined;
   }
   if (
-    !validate554(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate556(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate554.errors : vErrors.concat(validate554.errors);
+    vErrors = vErrors === null ? validate556.errors : vErrors.concat(validate556.errors);
     errors = vErrors.length;
   }
-  validate553.errors = vErrors;
+  validate555.errors = vErrors;
   return errors === 0;
 }
-validate553.evaluated = {
+validate555.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerScriptSettingsGetSettingsResponse = validate557;
-const schema513 = {
+export const ajvWorkerScriptSettingsGetSettingsResponse = validate559;
+const schema515 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1script-settings/get/responses/200/content/application~1json/schema",
 };
-const schema514 = {
+const schema516 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -62326,7 +62531,7 @@ const schema514 = {
     },
   ],
 };
-const schema515 = {
+const schema517 = {
   type: "object",
   properties: {
     logpush: { $ref: "#/components/schemas/workers_logpush" },
@@ -62356,13 +62561,13 @@ const schema515 = {
     },
   },
 };
-function validate560(
+function validate562(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate560.evaluated;
+  const evaluated0 = validate562.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -62991,21 +63196,21 @@ function validate560(
     }
     errors++;
   }
-  validate560.errors = vErrors;
+  validate562.errors = vErrors;
   return errors === 0;
 }
-validate560.evaluated = {
+validate562.evaluated = {
   props: { logpush: true, observability: true, tags: true, tail_consumers: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate558(
+function validate560(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate558.evaluated;
+  const evaluated0 = validate560.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -63036,7 +63241,7 @@ function validate558(
     }
     if (data.result !== undefined) {
       if (
-        !validate560(data.result, {
+        !validate562(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -63044,7 +63249,7 @@ function validate558(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate560.errors : vErrors.concat(validate560.errors);
+        vErrors = vErrors === null ? validate562.errors : vErrors.concat(validate562.errors);
         errors = vErrors.length;
       }
     }
@@ -63063,21 +63268,21 @@ function validate558(
     }
     errors++;
   }
-  validate558.errors = vErrors;
+  validate560.errors = vErrors;
   return errors === 0;
 }
-validate558.evaluated = {
+validate560.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate557(
+function validate559(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate557.evaluated;
+  const evaluated0 = validate559.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -63085,30 +63290,30 @@ function validate557(
     evaluated0.items = undefined;
   }
   if (
-    !validate558(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate560(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate558.errors : vErrors.concat(validate558.errors);
+    vErrors = vErrors === null ? validate560.errors : vErrors.concat(validate560.errors);
     errors = vErrors.length;
   }
-  validate557.errors = vErrors;
+  validate559.errors = vErrors;
   return errors === 0;
 }
-validate557.evaluated = {
+validate559.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerScriptSettingsPatchSettingsResponse = validate564;
-const schema520 = {
+export const ajvWorkerScriptSettingsPatchSettingsResponse = validate566;
+const schema522 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1script-settings/patch/responses/200/content/application~1json/schema",
 };
-function validate565(
+function validate567(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate565.evaluated;
+  const evaluated0 = validate567.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -63139,7 +63344,7 @@ function validate565(
     }
     if (data.result !== undefined) {
       if (
-        !validate560(data.result, {
+        !validate562(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -63147,7 +63352,7 @@ function validate565(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate560.errors : vErrors.concat(validate560.errors);
+        vErrors = vErrors === null ? validate562.errors : vErrors.concat(validate562.errors);
         errors = vErrors.length;
       }
     }
@@ -63166,21 +63371,21 @@ function validate565(
     }
     errors++;
   }
-  validate565.errors = vErrors;
+  validate567.errors = vErrors;
   return errors === 0;
 }
-validate565.evaluated = {
+validate567.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate564(
+function validate566(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate564.evaluated;
+  const evaluated0 = validate566.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -63188,24 +63393,24 @@ function validate564(
     evaluated0.items = undefined;
   }
   if (
-    !validate565(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate567(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate565.errors : vErrors.concat(validate565.errors);
+    vErrors = vErrors === null ? validate567.errors : vErrors.concat(validate567.errors);
     errors = vErrors.length;
   }
-  validate564.errors = vErrors;
+  validate566.errors = vErrors;
   return errors === 0;
 }
-validate564.evaluated = {
+validate566.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerListScriptSecretsResponse = validate569;
-const schema522 = {
+export const ajvWorkerListScriptSecretsResponse = validate571;
+const schema524 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1secrets/get/responses/200/content/application~1json/schema",
 };
-const schema523 = {
+const schema525 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -63216,13 +63421,13 @@ const schema523 = {
     },
   ],
 };
-function validate570(
+function validate572(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate570.evaluated;
+  const evaluated0 = validate572.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -63242,7 +63447,7 @@ function validate570(
         const len0 = data0.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (
-            !validate349(data0[i0], {
+            !validate351(data0[i0], {
               instancePath: instancePath + "/result/" + i0,
               parentData: data0,
               parentDataProperty: i0,
@@ -63250,7 +63455,7 @@ function validate570(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate349.errors : vErrors.concat(validate349.errors);
+            vErrors = vErrors === null ? validate351.errors : vErrors.concat(validate351.errors);
             errors = vErrors.length;
           }
         }
@@ -63285,21 +63490,21 @@ function validate570(
     }
     errors++;
   }
-  validate570.errors = vErrors;
+  validate572.errors = vErrors;
   return errors === 0;
 }
-validate570.evaluated = {
+validate572.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate569(
+function validate571(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate569.evaluated;
+  const evaluated0 = validate571.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -63307,36 +63512,36 @@ function validate569(
     evaluated0.items = undefined;
   }
   if (
-    !validate570(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate572(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate570.errors : vErrors.concat(validate570.errors);
+    vErrors = vErrors === null ? validate572.errors : vErrors.concat(validate572.errors);
     errors = vErrors.length;
   }
-  validate569.errors = vErrors;
+  validate571.errors = vErrors;
   return errors === 0;
 }
-validate569.evaluated = {
+validate571.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerPutScriptSecretResponse = validate574;
-const schema524 = {
+export const ajvWorkerPutScriptSecretResponse = validate576;
+const schema526 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1secrets/put/responses/200/content/application~1json/schema",
 };
-const schema525 = {
+const schema527 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     { properties: { result: { $ref: "#/components/schemas/workers_secret" } }, type: "object" },
   ],
 };
-function validate575(
+function validate577(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate575.evaluated;
+  const evaluated0 = validate577.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -63352,7 +63557,7 @@ function validate575(
   if (data && typeof data == "object" && !Array.isArray(data)) {
     if (data.result !== undefined) {
       if (
-        !validate349(data.result, {
+        !validate351(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -63360,7 +63565,7 @@ function validate575(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate349.errors : vErrors.concat(validate349.errors);
+        vErrors = vErrors === null ? validate351.errors : vErrors.concat(validate351.errors);
         errors = vErrors.length;
       }
     }
@@ -63379,21 +63584,21 @@ function validate575(
     }
     errors++;
   }
-  validate575.errors = vErrors;
+  validate577.errors = vErrors;
   return errors === 0;
 }
-validate575.evaluated = {
+validate577.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate574(
+function validate576(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate574.evaluated;
+  const evaluated0 = validate576.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -63401,24 +63606,24 @@ function validate574(
     evaluated0.items = undefined;
   }
   if (
-    !validate575(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate577(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate575.errors : vErrors.concat(validate575.errors);
+    vErrors = vErrors === null ? validate577.errors : vErrors.concat(validate577.errors);
     errors = vErrors.length;
   }
-  validate574.errors = vErrors;
+  validate576.errors = vErrors;
   return errors === 0;
 }
-validate574.evaluated = {
+validate576.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerPatchScriptSecretsBulkResponse = validate579;
-const schema526 = {
+export const ajvWorkerPatchScriptSecretsBulkResponse = validate581;
+const schema528 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1secrets-bulk/patch/responses/200/content/application~1json/schema",
 };
-const schema527 = {
+const schema529 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -63427,13 +63632,13 @@ const schema527 = {
     },
   ],
 };
-function validate580(
+function validate582(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate580.evaluated;
+  const evaluated0 = validate582.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -63449,7 +63654,7 @@ function validate580(
   if (data && typeof data == "object" && !Array.isArray(data)) {
     if (data.result !== undefined) {
       if (
-        !validate362(data.result, {
+        !validate364(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -63457,7 +63662,7 @@ function validate580(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate362.errors : vErrors.concat(validate362.errors);
+        vErrors = vErrors === null ? validate364.errors : vErrors.concat(validate364.errors);
         errors = vErrors.length;
       }
     }
@@ -63476,21 +63681,21 @@ function validate580(
     }
     errors++;
   }
-  validate580.errors = vErrors;
+  validate582.errors = vErrors;
   return errors === 0;
 }
-validate580.evaluated = {
+validate582.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate579(
+function validate581(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate579.evaluated;
+  const evaluated0 = validate581.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -63498,30 +63703,30 @@ function validate579(
     evaluated0.items = undefined;
   }
   if (
-    !validate580(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate582(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate580.errors : vErrors.concat(validate580.errors);
+    vErrors = vErrors === null ? validate582.errors : vErrors.concat(validate582.errors);
     errors = vErrors.length;
   }
-  validate579.errors = vErrors;
+  validate581.errors = vErrors;
   return errors === 0;
 }
-validate579.evaluated = {
+validate581.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerDeleteScriptSecretResponse = validate584;
-const schema528 = {
+export const ajvWorkerDeleteScriptSecretResponse = validate586;
+const schema530 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1secrets~1{secret_name}/delete/responses/200/content/application~1json/schema",
 };
-function validate585(
+function validate587(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate585.evaluated;
+  const evaluated0 = validate587.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -63583,21 +63788,21 @@ function validate585(
     }
     errors++;
   }
-  validate585.errors = vErrors;
+  validate587.errors = vErrors;
   return errors === 0;
 }
-validate585.evaluated = {
+validate587.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate584(
+function validate586(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate584.evaluated;
+  const evaluated0 = validate586.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -63605,36 +63810,36 @@ function validate584(
     evaluated0.items = undefined;
   }
   if (
-    !validate585(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate587(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate585.errors : vErrors.concat(validate585.errors);
+    vErrors = vErrors === null ? validate587.errors : vErrors.concat(validate587.errors);
     errors = vErrors.length;
   }
-  validate584.errors = vErrors;
+  validate586.errors = vErrors;
   return errors === 0;
 }
-validate584.evaluated = {
+validate586.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerGetScriptSecretResponse = validate588;
-const schema530 = {
+export const ajvWorkerGetScriptSecretResponse = validate590;
+const schema532 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1secrets~1{secret_name}/get/responses/200/content/application~1json/schema",
 };
-const schema531 = {
+const schema533 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     { properties: { result: { $ref: "#/components/schemas/workers_secret" } }, type: "object" },
   ],
 };
-function validate589(
+function validate591(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate589.evaluated;
+  const evaluated0 = validate591.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -63650,7 +63855,7 @@ function validate589(
   if (data && typeof data == "object" && !Array.isArray(data)) {
     if (data.result !== undefined) {
       if (
-        !validate349(data.result, {
+        !validate351(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -63658,7 +63863,7 @@ function validate589(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate349.errors : vErrors.concat(validate349.errors);
+        vErrors = vErrors === null ? validate351.errors : vErrors.concat(validate351.errors);
         errors = vErrors.length;
       }
     }
@@ -63677,21 +63882,21 @@ function validate589(
     }
     errors++;
   }
-  validate589.errors = vErrors;
+  validate591.errors = vErrors;
   return errors === 0;
 }
-validate589.evaluated = {
+validate591.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate588(
+function validate590(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate588.evaluated;
+  const evaluated0 = validate590.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -63699,24 +63904,24 @@ function validate588(
     evaluated0.items = undefined;
   }
   if (
-    !validate589(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate591(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate589.errors : vErrors.concat(validate589.errors);
+    vErrors = vErrors === null ? validate591.errors : vErrors.concat(validate591.errors);
     errors = vErrors.length;
   }
-  validate588.errors = vErrors;
+  validate590.errors = vErrors;
   return errors === 0;
 }
-validate588.evaluated = {
+validate590.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerScriptGetSettingsResponse = validate593;
-const schema532 = {
+export const ajvWorkerScriptGetSettingsResponse = validate595;
+const schema534 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1settings/get/responses/200/content/application~1json/schema",
 };
-const schema533 = {
+const schema535 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -63728,7 +63933,7 @@ const schema533 = {
     },
   ],
 };
-const schema534 = {
+const schema536 = {
   type: "object",
   properties: {
     annotations: {
@@ -63839,13 +64044,13 @@ const schema534 = {
     usage_model: { $ref: "#/components/schemas/workers_usage_model" },
   },
 };
-function validate596(
+function validate598(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate596.evaluated;
+  const evaluated0 = validate598.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -64187,7 +64392,7 @@ function validate596(
     }
     if (data.exports_reconciliation !== undefined) {
       if (
-        !validate383(data.exports_reconciliation, {
+        !validate385(data.exports_reconciliation, {
           instancePath: instancePath + "/exports_reconciliation",
           parentData: data,
           parentDataProperty: "exports_reconciliation",
@@ -64195,7 +64400,7 @@ function validate596(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate383.errors : vErrors.concat(validate383.errors);
+        vErrors = vErrors === null ? validate385.errors : vErrors.concat(validate385.errors);
         errors = vErrors.length;
       }
     }
@@ -64278,7 +64483,7 @@ function validate596(
       let passing0 = null;
       const _errs50 = errors;
       if (
-        !validate389(data18, {
+        !validate391(data18, {
           instancePath: instancePath + "/migrations",
           parentData: data,
           parentDataProperty: "migrations",
@@ -64286,7 +64491,7 @@ function validate596(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate389.errors : vErrors.concat(validate389.errors);
+        vErrors = vErrors === null ? validate391.errors : vErrors.concat(validate391.errors);
         errors = vErrors.length;
       }
       var _valid0 = _errs50 === errors;
@@ -64304,7 +64509,7 @@ function validate596(
       }
       const _errs51 = errors;
       if (
-        !validate391(data18, {
+        !validate393(data18, {
           instancePath: instancePath + "/migrations",
           parentData: data,
           parentDataProperty: "migrations",
@@ -64312,7 +64517,7 @@ function validate596(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate391.errors : vErrors.concat(validate391.errors);
+        vErrors = vErrors === null ? validate393.errors : vErrors.concat(validate393.errors);
         errors = vErrors.length;
       }
       var _valid0 = _errs51 === errors;
@@ -64742,7 +64947,7 @@ function validate596(
     if (data.placement !== undefined) {
       let data36 = data.placement;
       if (
-        !validate393(data36, {
+        !validate395(data36, {
           instancePath: instancePath + "/placement",
           parentData: data,
           parentDataProperty: "placement",
@@ -64750,7 +64955,7 @@ function validate596(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate393.errors : vErrors.concat(validate393.errors);
+        vErrors = vErrors === null ? validate395.errors : vErrors.concat(validate395.errors);
         errors = vErrors.length;
       }
       if (!(data36 && typeof data36 == "object" && !Array.isArray(data36))) {
@@ -64986,10 +65191,10 @@ function validate596(
     }
     errors++;
   }
-  validate596.errors = vErrors;
+  validate598.errors = vErrors;
   return errors === 0;
 }
-validate596.evaluated = {
+validate598.evaluated = {
   props: {
     annotations: true,
     bindings: true,
@@ -65010,13 +65215,13 @@ validate596.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate594(
+function validate596(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate594.evaluated;
+  const evaluated0 = validate596.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -65047,7 +65252,7 @@ function validate594(
     }
     if (data.result !== undefined) {
       if (
-        !validate596(data.result, {
+        !validate598(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -65055,7 +65260,7 @@ function validate594(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate596.errors : vErrors.concat(validate596.errors);
+        vErrors = vErrors === null ? validate598.errors : vErrors.concat(validate598.errors);
         errors = vErrors.length;
       }
     }
@@ -65074,21 +65279,21 @@ function validate594(
     }
     errors++;
   }
-  validate594.errors = vErrors;
+  validate596.errors = vErrors;
   return errors === 0;
 }
-validate594.evaluated = {
+validate596.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate593(
+function validate595(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate593.evaluated;
+  const evaluated0 = validate595.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -65096,30 +65301,30 @@ function validate593(
     evaluated0.items = undefined;
   }
   if (
-    !validate594(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate596(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate594.errors : vErrors.concat(validate594.errors);
+    vErrors = vErrors === null ? validate596.errors : vErrors.concat(validate596.errors);
     errors = vErrors.length;
   }
-  validate593.errors = vErrors;
+  validate595.errors = vErrors;
   return errors === 0;
 }
-validate593.evaluated = {
+validate595.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerScriptPatchSettingsResponse = validate609;
-const schema542 = {
+export const ajvWorkerScriptPatchSettingsResponse = validate611;
+const schema544 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1settings/patch/responses/200/content/application~1json/schema",
 };
-function validate610(
+function validate612(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate610.evaluated;
+  const evaluated0 = validate612.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -65150,7 +65355,7 @@ function validate610(
     }
     if (data.result !== undefined) {
       if (
-        !validate596(data.result, {
+        !validate598(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -65158,7 +65363,7 @@ function validate610(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate596.errors : vErrors.concat(validate596.errors);
+        vErrors = vErrors === null ? validate598.errors : vErrors.concat(validate598.errors);
         errors = vErrors.length;
       }
     }
@@ -65177,21 +65382,21 @@ function validate610(
     }
     errors++;
   }
-  validate610.errors = vErrors;
+  validate612.errors = vErrors;
   return errors === 0;
 }
-validate610.evaluated = {
+validate612.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate609(
+function validate611(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate609.evaluated;
+  const evaluated0 = validate611.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -65199,24 +65404,24 @@ function validate609(
     evaluated0.items = undefined;
   }
   if (
-    !validate610(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate612(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate610.errors : vErrors.concat(validate610.errors);
+    vErrors = vErrors === null ? validate612.errors : vErrors.concat(validate612.errors);
     errors = vErrors.length;
   }
-  validate609.errors = vErrors;
+  validate611.errors = vErrors;
   return errors === 0;
 }
-validate609.evaluated = {
+validate611.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerScriptDeleteSubdomainResponse = validate614;
-const schema544 = {
+export const ajvWorkerScriptDeleteSubdomainResponse = validate616;
+const schema546 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1subdomain/delete/responses/200/content/application~1json/schema",
 };
-const schema545 = {
+const schema547 = {
   type: "object",
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
@@ -65227,7 +65432,7 @@ const schema545 = {
     },
   ],
 };
-const schema546 = {
+const schema548 = {
   type: "object",
   properties: {
     enabled: {
@@ -65247,13 +65452,13 @@ const schema546 = {
   },
   required: ["enabled", "previews_enabled"],
 };
-function validate615(
+function validate617(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate615.evaluated;
+  const evaluated0 = validate617.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -65395,21 +65600,21 @@ function validate615(
     }
     errors++;
   }
-  validate615.errors = vErrors;
+  validate617.errors = vErrors;
   return errors === 0;
 }
-validate615.evaluated = {
+validate617.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate614(
+function validate616(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate614.evaluated;
+  const evaluated0 = validate616.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -65417,24 +65622,24 @@ function validate614(
     evaluated0.items = undefined;
   }
   if (
-    !validate615(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate617(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate615.errors : vErrors.concat(validate615.errors);
+    vErrors = vErrors === null ? validate617.errors : vErrors.concat(validate617.errors);
     errors = vErrors.length;
   }
-  validate614.errors = vErrors;
+  validate616.errors = vErrors;
   return errors === 0;
 }
-validate614.evaluated = {
+validate616.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerScriptGetSubdomainResponse = validate618;
-const schema547 = {
+export const ajvWorkerScriptGetSubdomainResponse = validate620;
+const schema549 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1subdomain/get/responses/200/content/application~1json/schema",
 };
-const schema548 = {
+const schema550 = {
   type: "object",
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
@@ -65445,13 +65650,13 @@ const schema548 = {
     },
   ],
 };
-function validate619(
+function validate621(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate619.evaluated;
+  const evaluated0 = validate621.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -65593,21 +65798,21 @@ function validate619(
     }
     errors++;
   }
-  validate619.errors = vErrors;
+  validate621.errors = vErrors;
   return errors === 0;
 }
-validate619.evaluated = {
+validate621.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate618(
+function validate620(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate618.evaluated;
+  const evaluated0 = validate620.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -65615,24 +65820,24 @@ function validate618(
     evaluated0.items = undefined;
   }
   if (
-    !validate619(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate621(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate619.errors : vErrors.concat(validate619.errors);
+    vErrors = vErrors === null ? validate621.errors : vErrors.concat(validate621.errors);
     errors = vErrors.length;
   }
-  validate618.errors = vErrors;
+  validate620.errors = vErrors;
   return errors === 0;
 }
-validate618.evaluated = {
+validate620.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerScriptPostSubdomainResponse = validate622;
-const schema550 = {
+export const ajvWorkerScriptPostSubdomainResponse = validate624;
+const schema552 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1subdomain/post/responses/200/content/application~1json/schema",
 };
-const schema551 = {
+const schema553 = {
   type: "object",
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
@@ -65643,13 +65848,13 @@ const schema551 = {
     },
   ],
 };
-function validate623(
+function validate625(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate623.evaluated;
+  const evaluated0 = validate625.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -65791,21 +65996,21 @@ function validate623(
     }
     errors++;
   }
-  validate623.errors = vErrors;
+  validate625.errors = vErrors;
   return errors === 0;
 }
-validate623.evaluated = {
+validate625.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate622(
+function validate624(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate622.evaluated;
+  const evaluated0 = validate624.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -65813,24 +66018,24 @@ function validate622(
     evaluated0.items = undefined;
   }
   if (
-    !validate623(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate625(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate623.errors : vErrors.concat(validate623.errors);
+    vErrors = vErrors === null ? validate625.errors : vErrors.concat(validate625.errors);
     errors = vErrors.length;
   }
-  validate622.errors = vErrors;
+  validate624.errors = vErrors;
   return errors === 0;
 }
-validate622.evaluated = {
+validate624.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerTailLogsListTailsResponse = validate626;
-const schema553 = {
+export const ajvWorkerTailLogsListTailsResponse = validate628;
+const schema555 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1tails/get/responses/200/content/application~1json/schema",
 };
-const schema554 = {
+const schema556 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -65840,7 +66045,7 @@ const schema554 = {
     },
   ],
 };
-const schema555 = {
+const schema557 = {
   type: "object",
   properties: {
     expires_at: { type: "string", readOnly: true, "x-auditable": true },
@@ -65849,13 +66054,13 @@ const schema555 = {
   },
   required: ["id", "url", "expires_at"],
 };
-function validate629(
+function validate631(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate629.evaluated;
+  const evaluated0 = validate631.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -65991,21 +66196,21 @@ function validate629(
     }
     errors++;
   }
-  validate629.errors = vErrors;
+  validate631.errors = vErrors;
   return errors === 0;
 }
-validate629.evaluated = {
+validate631.evaluated = {
   props: { expires_at: true, id: true, url: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate627(
+function validate629(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate627.evaluated;
+  const evaluated0 = validate629.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -66036,7 +66241,7 @@ function validate627(
     }
     if (data.result !== undefined) {
       if (
-        !validate629(data.result, {
+        !validate631(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -66044,7 +66249,7 @@ function validate627(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate629.errors : vErrors.concat(validate629.errors);
+        vErrors = vErrors === null ? validate631.errors : vErrors.concat(validate631.errors);
         errors = vErrors.length;
       }
     }
@@ -66063,21 +66268,21 @@ function validate627(
     }
     errors++;
   }
-  validate627.errors = vErrors;
+  validate629.errors = vErrors;
   return errors === 0;
 }
-validate627.evaluated = {
+validate629.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate626(
+function validate628(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate626.evaluated;
+  const evaluated0 = validate628.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -66085,24 +66290,24 @@ function validate626(
     evaluated0.items = undefined;
   }
   if (
-    !validate627(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate629(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate627.errors : vErrors.concat(validate627.errors);
+    vErrors = vErrors === null ? validate629.errors : vErrors.concat(validate629.errors);
     errors = vErrors.length;
   }
-  validate626.errors = vErrors;
+  validate628.errors = vErrors;
   return errors === 0;
 }
-validate626.evaluated = {
+validate628.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerTailLogsStartTailResponse = validate632;
-const schema557 = {
+export const ajvWorkerTailLogsStartTailResponse = validate634;
+const schema559 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1tails/post/responses/200/content/application~1json/schema",
 };
-const schema558 = {
+const schema560 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -66112,13 +66317,13 @@ const schema558 = {
     },
   ],
 };
-function validate633(
+function validate635(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate633.evaluated;
+  const evaluated0 = validate635.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -66149,7 +66354,7 @@ function validate633(
     }
     if (data.result !== undefined) {
       if (
-        !validate629(data.result, {
+        !validate631(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -66157,7 +66362,7 @@ function validate633(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate629.errors : vErrors.concat(validate629.errors);
+        vErrors = vErrors === null ? validate631.errors : vErrors.concat(validate631.errors);
         errors = vErrors.length;
       }
     }
@@ -66176,21 +66381,21 @@ function validate633(
     }
     errors++;
   }
-  validate633.errors = vErrors;
+  validate635.errors = vErrors;
   return errors === 0;
 }
-validate633.evaluated = {
+validate635.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate632(
+function validate634(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate632.evaluated;
+  const evaluated0 = validate634.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -66198,30 +66403,30 @@ function validate632(
     evaluated0.items = undefined;
   }
   if (
-    !validate633(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate635(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate633.errors : vErrors.concat(validate633.errors);
+    vErrors = vErrors === null ? validate635.errors : vErrors.concat(validate635.errors);
     errors = vErrors.length;
   }
-  validate632.errors = vErrors;
+  validate634.errors = vErrors;
   return errors === 0;
 }
-validate632.evaluated = {
+validate634.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerTailLogsDeleteTailResponse = validate637;
-const schema559 = {
+export const ajvWorkerTailLogsDeleteTailResponse = validate639;
+const schema561 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1tails~1{id}/delete/responses/200/content/application~1json/schema",
 };
-function validate638(
+function validate640(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate638.evaluated;
+  const evaluated0 = validate640.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -66740,21 +66945,21 @@ function validate638(
     }
     errors++;
   }
-  validate638.errors = vErrors;
+  validate640.errors = vErrors;
   return errors === 0;
 }
-validate638.evaluated = {
+validate640.evaluated = {
   props: { errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate637(
+function validate639(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate637.evaluated;
+  const evaluated0 = validate639.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -66762,24 +66967,24 @@ function validate637(
     evaluated0.items = undefined;
   }
   if (
-    !validate638(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate640(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate638.errors : vErrors.concat(validate638.errors);
+    vErrors = vErrors === null ? validate640.errors : vErrors.concat(validate640.errors);
     errors = vErrors.length;
   }
-  validate637.errors = vErrors;
+  validate639.errors = vErrors;
   return errors === 0;
 }
-validate637.evaluated = {
+validate639.evaluated = {
   props: { errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerScriptFetchUsageModelResponse = validate640;
-const schema563 = {
+export const ajvWorkerScriptFetchUsageModelResponse = validate642;
+const schema565 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1usage-model/get/responses/200/content/application~1json/schema",
 };
-const schema564 = {
+const schema566 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -66797,7 +67002,7 @@ const schema564 = {
     },
   ],
 };
-const schema566 = {
+const schema568 = {
   description: "User-defined resource limits for Workers with standard usage model.",
   type: "object",
   properties: {
@@ -66810,13 +67015,13 @@ const schema566 = {
   },
   nullable: true,
 };
-function validate641(
+function validate643(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate641.evaluated;
+  const evaluated0 = validate643.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -66950,21 +67155,21 @@ function validate641(
     }
     errors++;
   }
-  validate641.errors = vErrors;
+  validate643.errors = vErrors;
   return errors === 0;
 }
-validate641.evaluated = {
+validate643.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate640(
+function validate642(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate640.evaluated;
+  const evaluated0 = validate642.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -66972,30 +67177,30 @@ function validate640(
     evaluated0.items = undefined;
   }
   if (
-    !validate641(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate643(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate641.errors : vErrors.concat(validate641.errors);
+    vErrors = vErrors === null ? validate643.errors : vErrors.concat(validate643.errors);
     errors = vErrors.length;
   }
-  validate640.errors = vErrors;
+  validate642.errors = vErrors;
   return errors === 0;
 }
-validate640.evaluated = {
+validate642.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerScriptUpdateUsageModelResponse = validate644;
-const schema567 = {
+export const ajvWorkerScriptUpdateUsageModelResponse = validate646;
+const schema569 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1usage-model/put/responses/200/content/application~1json/schema",
 };
-function validate645(
+function validate647(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate645.evaluated;
+  const evaluated0 = validate647.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -67129,21 +67334,21 @@ function validate645(
     }
     errors++;
   }
-  validate645.errors = vErrors;
+  validate647.errors = vErrors;
   return errors === 0;
 }
-validate645.evaluated = {
+validate647.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate644(
+function validate646(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate644.evaluated;
+  const evaluated0 = validate646.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -67151,24 +67356,24 @@ function validate644(
     evaluated0.items = undefined;
   }
   if (
-    !validate645(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate647(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate645.errors : vErrors.concat(validate645.errors);
+    vErrors = vErrors === null ? validate647.errors : vErrors.concat(validate647.errors);
     errors = vErrors.length;
   }
-  validate644.errors = vErrors;
+  validate646.errors = vErrors;
   return errors === 0;
 }
-validate644.evaluated = {
+validate646.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerVersionsListVersionsResponse = validate648;
-const schema571 = {
+export const ajvWorkerVersionsListVersionsResponse = validate650;
+const schema573 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1versions/get/responses/200/content/application~1json/schema",
 };
-const schema572 = {
+const schema574 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -67188,7 +67393,7 @@ const schema572 = {
     },
   ],
 };
-const schema573 = {
+const schema575 = {
   type: "object",
   properties: {
     id: {
@@ -67273,13 +67478,13 @@ const schema573 = {
     },
   },
 };
-function validate649(
+function validate651(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate649.evaluated;
+  const evaluated0 = validate651.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -67473,7 +67678,7 @@ function validate649(
                             "#/components/schemas/workers_version-item-short/properties/metadata/properties/source/enum",
                           keyword: "enum",
                           params: {
-                            allowedValues: schema573.properties.metadata.properties.source.enum,
+                            allowedValues: schema575.properties.metadata.properties.source.enum,
                           },
                           message: "must be equal to one of the allowed values",
                         };
@@ -67583,21 +67788,21 @@ function validate649(
     }
     errors++;
   }
-  validate649.errors = vErrors;
+  validate651.errors = vErrors;
   return errors === 0;
 }
-validate649.evaluated = {
+validate651.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate648(
+function validate650(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate648.evaluated;
+  const evaluated0 = validate650.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -67605,24 +67810,24 @@ function validate648(
     evaluated0.items = undefined;
   }
   if (
-    !validate649(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate651(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate649.errors : vErrors.concat(validate649.errors);
+    vErrors = vErrors === null ? validate651.errors : vErrors.concat(validate651.errors);
     errors = vErrors.length;
   }
-  validate648.errors = vErrors;
+  validate650.errors = vErrors;
   return errors === 0;
 }
-validate648.evaluated = {
+validate650.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerVersionsUploadVersionResponse = validate652;
-const schema574 = {
+export const ajvWorkerVersionsUploadVersionResponse = validate654;
+const schema576 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1versions/post/responses/200/content/application~1json/schema",
 };
-const schema575 = {
+const schema577 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -67632,7 +67837,7 @@ const schema575 = {
     },
   ],
 };
-const schema576 = {
+const schema578 = {
   allOf: [
     { $ref: "#/components/schemas/workers_version-item-full" },
     {
@@ -67654,7 +67859,7 @@ const schema576 = {
     },
   ],
 };
-const schema577 = {
+const schema579 = {
   allOf: [
     { $ref: "#/components/schemas/workers_version-item-short" },
     {
@@ -67805,13 +68010,13 @@ const schema577 = {
     },
   ],
 };
-function validate656(
+function validate658(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate656.evaluated;
+  const evaluated0 = validate658.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -67967,7 +68172,7 @@ function validate656(
               schemaPath:
                 "#/components/schemas/workers_version-item-short/properties/metadata/properties/source/enum",
               keyword: "enum",
-              params: { allowedValues: schema573.properties.metadata.properties.source.enum },
+              params: { allowedValues: schema575.properties.metadata.properties.source.enum },
               message: "must be equal to one of the allowed values",
             };
             if (vErrors === null) {
@@ -68417,7 +68622,7 @@ function validate656(
                   keyword: "enum",
                   params: {
                     allowedValues:
-                      schema577.allOf[1].properties.resources.properties.script_runtime.properties
+                      schema579.allOf[1].properties.resources.properties.script_runtime.properties
                         .usage_model.enum,
                   },
                   message: "must be equal to one of the allowed values",
@@ -68477,21 +68682,21 @@ function validate656(
     }
     errors++;
   }
-  validate656.errors = vErrors;
+  validate658.errors = vErrors;
   return errors === 0;
 }
-validate656.evaluated = {
+validate658.evaluated = {
   props: { resources: true, id: true, metadata: true, number: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate655(
+function validate657(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate655.evaluated;
+  const evaluated0 = validate657.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -68499,9 +68704,9 @@ function validate655(
     evaluated0.items = undefined;
   }
   if (
-    !validate656(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate658(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate656.errors : vErrors.concat(validate656.errors);
+    vErrors = vErrors === null ? validate658.errors : vErrors.concat(validate658.errors);
     errors = vErrors.length;
   }
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -68522,7 +68727,7 @@ function validate655(
     }
     if (data.exports_reconciliation !== undefined) {
       if (
-        !validate383(data.exports_reconciliation, {
+        !validate385(data.exports_reconciliation, {
           instancePath: instancePath + "/exports_reconciliation",
           parentData: data,
           parentDataProperty: "exports_reconciliation",
@@ -68530,7 +68735,7 @@ function validate655(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate383.errors : vErrors.concat(validate383.errors);
+        vErrors = vErrors === null ? validate385.errors : vErrors.concat(validate385.errors);
         errors = vErrors.length;
       }
     }
@@ -68567,10 +68772,10 @@ function validate655(
     }
     errors++;
   }
-  validate655.errors = vErrors;
+  validate657.errors = vErrors;
   return errors === 0;
 }
-validate655.evaluated = {
+validate657.evaluated = {
   props: {
     exports_reconciliation: true,
     startup_time_ms: true,
@@ -68582,13 +68787,13 @@ validate655.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate653(
+function validate655(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate653.evaluated;
+  const evaluated0 = validate655.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -68619,7 +68824,7 @@ function validate653(
     }
     if (data.result !== undefined) {
       if (
-        !validate655(data.result, {
+        !validate657(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -68627,7 +68832,7 @@ function validate653(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate655.errors : vErrors.concat(validate655.errors);
+        vErrors = vErrors === null ? validate657.errors : vErrors.concat(validate657.errors);
         errors = vErrors.length;
       }
     }
@@ -68646,21 +68851,21 @@ function validate653(
     }
     errors++;
   }
-  validate653.errors = vErrors;
+  validate655.errors = vErrors;
   return errors === 0;
 }
-validate653.evaluated = {
+validate655.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate652(
+function validate654(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate652.evaluated;
+  const evaluated0 = validate654.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -68668,24 +68873,24 @@ function validate652(
     evaluated0.items = undefined;
   }
   if (
-    !validate653(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate655(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate653.errors : vErrors.concat(validate653.errors);
+    vErrors = vErrors === null ? validate655.errors : vErrors.concat(validate655.errors);
     errors = vErrors.length;
   }
-  validate652.errors = vErrors;
+  validate654.errors = vErrors;
   return errors === 0;
 }
-validate652.evaluated = {
+validate654.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerVersionsGetVersionDetailResponse = validate663;
-const schema579 = {
+export const ajvWorkerVersionsGetVersionDetailResponse = validate665;
+const schema581 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1versions~1{version_id}/get/responses/200/content/application~1json/schema",
 };
-const schema580 = {
+const schema582 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -68695,13 +68900,13 @@ const schema580 = {
     },
   ],
 };
-function validate664(
+function validate666(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate664.evaluated;
+  const evaluated0 = validate666.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -68732,7 +68937,7 @@ function validate664(
     }
     if (data.result !== undefined) {
       if (
-        !validate656(data.result, {
+        !validate658(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -68740,7 +68945,7 @@ function validate664(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate656.errors : vErrors.concat(validate656.errors);
+        vErrors = vErrors === null ? validate658.errors : vErrors.concat(validate658.errors);
         errors = vErrors.length;
       }
     }
@@ -68759,21 +68964,21 @@ function validate664(
     }
     errors++;
   }
-  validate664.errors = vErrors;
+  validate666.errors = vErrors;
   return errors === 0;
 }
-validate664.evaluated = {
+validate666.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate663(
+function validate665(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate663.evaluated;
+  const evaluated0 = validate665.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -68781,30 +68986,30 @@ function validate663(
     evaluated0.items = undefined;
   }
   if (
-    !validate664(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate666(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate664.errors : vErrors.concat(validate664.errors);
+    vErrors = vErrors === null ? validate666.errors : vErrors.concat(validate666.errors);
     errors = vErrors.length;
   }
-  validate663.errors = vErrors;
+  validate665.errors = vErrors;
   return errors === 0;
 }
-validate663.evaluated = {
+validate665.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerEnvironmentPutScriptContentResponse = validate668;
-const schema581 = {
+export const ajvWorkerEnvironmentPutScriptContentResponse = validate670;
+const schema583 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1services~1{service_name}~1environments~1{environment_name}~1content/put/responses/200/content/application~1json/schema",
 };
-function validate669(
+function validate671(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate669.evaluated;
+  const evaluated0 = validate671.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -68812,9 +69017,9 @@ function validate669(
     evaluated0.items = undefined;
   }
   if (
-    !validate341(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate343(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate341.errors : vErrors.concat(validate341.errors);
+    vErrors = vErrors === null ? validate343.errors : vErrors.concat(validate343.errors);
     errors = vErrors.length;
   }
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -68862,21 +69067,21 @@ function validate669(
     }
     errors++;
   }
-  validate669.errors = vErrors;
+  validate671.errors = vErrors;
   return errors === 0;
 }
-validate669.evaluated = {
+validate671.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate668(
+function validate670(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate668.evaluated;
+  const evaluated0 = validate670.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -68884,30 +69089,30 @@ function validate668(
     evaluated0.items = undefined;
   }
   if (
-    !validate669(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate671(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate669.errors : vErrors.concat(validate669.errors);
+    vErrors = vErrors === null ? validate671.errors : vErrors.concat(validate671.errors);
     errors = vErrors.length;
   }
-  validate668.errors = vErrors;
+  validate670.errors = vErrors;
   return errors === 0;
 }
-validate668.evaluated = {
+validate670.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerScriptEnvironmentGetSettingsResponse = validate673;
-const schema583 = {
+export const ajvWorkerScriptEnvironmentGetSettingsResponse = validate675;
+const schema585 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1services~1{service_name}~1environments~1{environment_name}~1settings/get/responses/200/content/application~1json/schema",
 };
-function validate674(
+function validate676(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate674.evaluated;
+  const evaluated0 = validate676.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -68938,7 +69143,7 @@ function validate674(
     }
     if (data.result !== undefined) {
       if (
-        !validate560(data.result, {
+        !validate562(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -68946,7 +69151,7 @@ function validate674(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate560.errors : vErrors.concat(validate560.errors);
+        vErrors = vErrors === null ? validate562.errors : vErrors.concat(validate562.errors);
         errors = vErrors.length;
       }
     }
@@ -68965,21 +69170,21 @@ function validate674(
     }
     errors++;
   }
-  validate674.errors = vErrors;
+  validate676.errors = vErrors;
   return errors === 0;
 }
-validate674.evaluated = {
+validate676.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate673(
+function validate675(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate673.evaluated;
+  const evaluated0 = validate675.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -68987,30 +69192,30 @@ function validate673(
     evaluated0.items = undefined;
   }
   if (
-    !validate674(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate676(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate674.errors : vErrors.concat(validate674.errors);
+    vErrors = vErrors === null ? validate676.errors : vErrors.concat(validate676.errors);
     errors = vErrors.length;
   }
-  validate673.errors = vErrors;
+  validate675.errors = vErrors;
   return errors === 0;
 }
-validate673.evaluated = {
+validate675.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerScriptEnvironmentPatchSettingsResponse = validate678;
-const schema585 = {
+export const ajvWorkerScriptEnvironmentPatchSettingsResponse = validate680;
+const schema587 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1services~1{service_name}~1environments~1{environment_name}~1settings/patch/responses/200/content/application~1json/schema",
 };
-function validate679(
+function validate681(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate679.evaluated;
+  const evaluated0 = validate681.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -69041,7 +69246,7 @@ function validate679(
     }
     if (data.result !== undefined) {
       if (
-        !validate560(data.result, {
+        !validate562(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -69049,7 +69254,7 @@ function validate679(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate560.errors : vErrors.concat(validate560.errors);
+        vErrors = vErrors === null ? validate562.errors : vErrors.concat(validate562.errors);
         errors = vErrors.length;
       }
     }
@@ -69068,21 +69273,21 @@ function validate679(
     }
     errors++;
   }
-  validate679.errors = vErrors;
+  validate681.errors = vErrors;
   return errors === 0;
 }
-validate679.evaluated = {
+validate681.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate678(
+function validate680(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate678.evaluated;
+  const evaluated0 = validate680.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -69090,24 +69295,24 @@ function validate678(
     evaluated0.items = undefined;
   }
   if (
-    !validate679(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate681(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate679.errors : vErrors.concat(validate679.errors);
+    vErrors = vErrors === null ? validate681.errors : vErrors.concat(validate681.errors);
     errors = vErrors.length;
   }
-  validate678.errors = vErrors;
+  validate680.errors = vErrors;
   return errors === 0;
 }
-validate678.evaluated = {
+validate680.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerSubdomainGetSubdomainResponse = validate683;
-const schema587 = {
+export const ajvWorkerSubdomainGetSubdomainResponse = validate685;
+const schema589 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1subdomain/get/responses/200/content/application~1json/schema",
 };
-const schema588 = {
+const schema590 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -69117,18 +69322,18 @@ const schema588 = {
     },
   ],
 };
-const schema589 = {
+const schema591 = {
   type: "object",
   properties: { subdomain: { type: "string", example: "my-subdomain", "x-auditable": true } },
   required: ["subdomain"],
 };
-function validate684(
+function validate686(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate684.evaluated;
+  const evaluated0 = validate686.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -69223,21 +69428,21 @@ function validate684(
     }
     errors++;
   }
-  validate684.errors = vErrors;
+  validate686.errors = vErrors;
   return errors === 0;
 }
-validate684.evaluated = {
+validate686.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate683(
+function validate685(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate683.evaluated;
+  const evaluated0 = validate685.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -69245,24 +69450,24 @@ function validate683(
     evaluated0.items = undefined;
   }
   if (
-    !validate684(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate686(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate684.errors : vErrors.concat(validate684.errors);
+    vErrors = vErrors === null ? validate686.errors : vErrors.concat(validate686.errors);
     errors = vErrors.length;
   }
-  validate683.errors = vErrors;
+  validate685.errors = vErrors;
   return errors === 0;
 }
-validate683.evaluated = {
+validate685.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerSubdomainCreateSubdomainResponse = validate687;
-const schema590 = {
+export const ajvWorkerSubdomainCreateSubdomainResponse = validate689;
+const schema592 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1subdomain/put/responses/200/content/application~1json/schema",
 };
-const schema591 = {
+const schema593 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -69272,13 +69477,13 @@ const schema591 = {
     },
   ],
 };
-function validate688(
+function validate690(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate688.evaluated;
+  const evaluated0 = validate690.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -69373,21 +69578,21 @@ function validate688(
     }
     errors++;
   }
-  validate688.errors = vErrors;
+  validate690.errors = vErrors;
   return errors === 0;
 }
-validate688.evaluated = {
+validate690.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate687(
+function validate689(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate687.evaluated;
+  const evaluated0 = validate689.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -69395,24 +69600,24 @@ function validate687(
     evaluated0.items = undefined;
   }
   if (
-    !validate688(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate690(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate688.errors : vErrors.concat(validate688.errors);
+    vErrors = vErrors === null ? validate690.errors : vErrors.concat(validate690.errors);
     errors = vErrors.length;
   }
-  validate687.errors = vErrors;
+  validate689.errors = vErrors;
   return errors === 0;
 }
-validate687.evaluated = {
+validate689.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvListWorkersResponse = validate691;
-const schema593 = {
+export const ajvListWorkersResponse = validate693;
+const schema595 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers/get/responses/200/content/application~1json/schema",
 };
-const schema594 = {
+const schema596 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-collection" },
     {
@@ -69424,7 +69629,7 @@ const schema594 = {
     },
   ],
 };
-const schema595 = {
+const schema597 = {
   type: "object",
   properties: {
     created_on: {
@@ -69777,13 +69982,13 @@ const schema595 = {
     "references",
   ],
 };
-function validate692(
+function validate694(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate692.evaluated;
+  const evaluated0 = validate694.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -69791,9 +69996,9 @@ function validate692(
     evaluated0.items = undefined;
   }
   if (
-    !validate422(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate424(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate422.errors : vErrors.concat(validate422.errors);
+    vErrors = vErrors === null ? validate424.errors : vErrors.concat(validate424.errors);
     errors = vErrors.length;
   }
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -70398,7 +70603,7 @@ function validate692(
                           keyword: "enum",
                           params: {
                             allowedValues:
-                              schema595.properties.observability.properties.traces.properties
+                              schema597.properties.observability.properties.traces.properties
                                 .propagation_policy.enum,
                           },
                           message: "must be equal to one of the allowed values",
@@ -71774,21 +71979,21 @@ function validate692(
     }
     errors++;
   }
-  validate692.errors = vErrors;
+  validate694.errors = vErrors;
   return errors === 0;
 }
-validate692.evaluated = {
+validate694.evaluated = {
   props: { result: true, result_info: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate691(
+function validate693(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate691.evaluated;
+  const evaluated0 = validate693.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -71796,24 +72001,24 @@ function validate691(
     evaluated0.items = undefined;
   }
   if (
-    !validate692(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate694(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate692.errors : vErrors.concat(validate692.errors);
+    vErrors = vErrors === null ? validate694.errors : vErrors.concat(validate694.errors);
     errors = vErrors.length;
   }
-  validate691.errors = vErrors;
+  validate693.errors = vErrors;
   return errors === 0;
 }
-validate691.evaluated = {
+validate693.evaluated = {
   props: { result: true, result_info: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvCreateWorkerResponse = validate695;
-const schema596 = {
+export const ajvCreateWorkerResponse = validate697;
+const schema598 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers/post/responses/200/content/application~1json/schema",
 };
-const schema597 = {
+const schema599 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -71823,13 +72028,13 @@ const schema597 = {
     },
   ],
 };
-function validate696(
+function validate698(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate696.evaluated;
+  const evaluated0 = validate698.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -72411,7 +72616,7 @@ function validate696(
                       keyword: "enum",
                       params: {
                         allowedValues:
-                          schema595.properties.observability.properties.traces.properties
+                          schema597.properties.observability.properties.traces.properties
                             .propagation_policy.enum,
                       },
                       message: "must be equal to one of the allowed values",
@@ -73658,21 +73863,21 @@ function validate696(
     }
     errors++;
   }
-  validate696.errors = vErrors;
+  validate698.errors = vErrors;
   return errors === 0;
 }
-validate696.evaluated = {
+validate698.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate695(
+function validate697(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate695.evaluated;
+  const evaluated0 = validate697.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -73680,30 +73885,30 @@ function validate695(
     evaluated0.items = undefined;
   }
   if (
-    !validate696(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate698(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate696.errors : vErrors.concat(validate696.errors);
+    vErrors = vErrors === null ? validate698.errors : vErrors.concat(validate698.errors);
     errors = vErrors.length;
   }
-  validate695.errors = vErrors;
+  validate697.errors = vErrors;
   return errors === 0;
 }
-validate695.evaluated = {
+validate697.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvDeleteWorkerResponse = validate699;
-const schema599 = {
+export const ajvDeleteWorkerResponse = validate701;
+const schema601 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}/delete/responses/200/content/application~1json/schema",
 };
-function validate700(
+function validate702(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate700.evaluated;
+  const evaluated0 = validate702.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -74222,1930 +74427,1930 @@ function validate700(
     }
     errors++;
   }
-  validate700.errors = vErrors;
-  return errors === 0;
-}
-validate700.evaluated = {
-  props: { errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-function validate699(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate699.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate700(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate700.errors : vErrors.concat(validate700.errors);
-    errors = vErrors.length;
-  }
-  validate699.errors = vErrors;
-  return errors === 0;
-}
-validate699.evaluated = {
-  props: { errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvGetWorkerResponse = validate702;
-const schema603 = {
-  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}/get/responses/200/content/application~1json/schema",
-};
-const schema604 = {
-  allOf: [
-    { $ref: "#/components/schemas/workers_api-response-common" },
-    {
-      properties: { result: { $ref: "#/components/schemas/workers_Worker" } },
-      required: ["result"],
-      type: "object",
-    },
-  ],
-};
-function validate703(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate703.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate175(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate175.errors : vErrors.concat(validate175.errors);
-    errors = vErrors.length;
-  }
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.result === undefined) {
-      const err0 = {
-        instancePath,
-        schemaPath: "#/allOf/1/required",
-        keyword: "required",
-        params: { missingProperty: "result" },
-        message: "must have required property '" + "result" + "'",
-      };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.result !== undefined) {
-      let data0 = data.result;
-      if (data0 && typeof data0 == "object" && !Array.isArray(data0)) {
-        if (data0.id === undefined) {
-          const err1 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Worker/required",
-            keyword: "required",
-            params: { missingProperty: "id" },
-            message: "must have required property '" + "id" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err1];
-          } else {
-            vErrors.push(err1);
-          }
-          errors++;
-        }
-        if (data0.name === undefined) {
-          const err2 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Worker/required",
-            keyword: "required",
-            params: { missingProperty: "name" },
-            message: "must have required property '" + "name" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err2];
-          } else {
-            vErrors.push(err2);
-          }
-          errors++;
-        }
-        if (data0.tags === undefined) {
-          const err3 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Worker/required",
-            keyword: "required",
-            params: { missingProperty: "tags" },
-            message: "must have required property '" + "tags" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err3];
-          } else {
-            vErrors.push(err3);
-          }
-          errors++;
-        }
-        if (data0.subdomain === undefined) {
-          const err4 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Worker/required",
-            keyword: "required",
-            params: { missingProperty: "subdomain" },
-            message: "must have required property '" + "subdomain" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err4];
-          } else {
-            vErrors.push(err4);
-          }
-          errors++;
-        }
-        if (data0.observability === undefined) {
-          const err5 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Worker/required",
-            keyword: "required",
-            params: { missingProperty: "observability" },
-            message: "must have required property '" + "observability" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err5];
-          } else {
-            vErrors.push(err5);
-          }
-          errors++;
-        }
-        if (data0.logpush === undefined) {
-          const err6 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Worker/required",
-            keyword: "required",
-            params: { missingProperty: "logpush" },
-            message: "must have required property '" + "logpush" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err6];
-          } else {
-            vErrors.push(err6);
-          }
-          errors++;
-        }
-        if (data0.tail_consumers === undefined) {
-          const err7 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Worker/required",
-            keyword: "required",
-            params: { missingProperty: "tail_consumers" },
-            message: "must have required property '" + "tail_consumers" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err7];
-          } else {
-            vErrors.push(err7);
-          }
-          errors++;
-        }
-        if (data0.created_on === undefined) {
-          const err8 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Worker/required",
-            keyword: "required",
-            params: { missingProperty: "created_on" },
-            message: "must have required property '" + "created_on" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err8];
-          } else {
-            vErrors.push(err8);
-          }
-          errors++;
-        }
-        if (data0.updated_on === undefined) {
-          const err9 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Worker/required",
-            keyword: "required",
-            params: { missingProperty: "updated_on" },
-            message: "must have required property '" + "updated_on" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err9];
-          } else {
-            vErrors.push(err9);
-          }
-          errors++;
-        }
-        if (data0.references === undefined) {
-          const err10 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Worker/required",
-            keyword: "required",
-            params: { missingProperty: "references" },
-            message: "must have required property '" + "references" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err10];
-          } else {
-            vErrors.push(err10);
-          }
-          errors++;
-        }
-        if (data0.created_on !== undefined) {
-          if (!(typeof data0.created_on === "string")) {
-            const err11 = {
-              instancePath: instancePath + "/result/created_on",
-              schemaPath: "#/components/schemas/workers_Worker/properties/created_on/type",
-              keyword: "type",
-              params: { type: "string" },
-              message: "must be string",
-            };
-            if (vErrors === null) {
-              vErrors = [err11];
-            } else {
-              vErrors.push(err11);
-            }
-            errors++;
-          }
-        }
-        if (data0.deployed_on !== undefined) {
-          let data2 = data0.deployed_on;
-          if (typeof data2 !== "string" && data2 !== null) {
-            const err12 = {
-              instancePath: instancePath + "/result/deployed_on",
-              schemaPath: "#/components/schemas/workers_Worker/properties/deployed_on/type",
-              keyword: "type",
-              params: { type: "string" },
-              message: "must be string",
-            };
-            if (vErrors === null) {
-              vErrors = [err12];
-            } else {
-              vErrors.push(err12);
-            }
-            errors++;
-          }
-        }
-        if (data0.id !== undefined) {
-          if (typeof data0.id !== "string") {
-            const err13 = {
-              instancePath: instancePath + "/result/id",
-              schemaPath: "#/components/schemas/workers_Worker/properties/id/type",
-              keyword: "type",
-              params: { type: "string" },
-              message: "must be string",
-            };
-            if (vErrors === null) {
-              vErrors = [err13];
-            } else {
-              vErrors.push(err13);
-            }
-            errors++;
-          }
-        }
-        if (data0.logpush !== undefined) {
-          if (typeof data0.logpush !== "boolean") {
-            const err14 = {
-              instancePath: instancePath + "/result/logpush",
-              schemaPath: "#/components/schemas/workers_Worker/properties/logpush/type",
-              keyword: "type",
-              params: { type: "boolean" },
-              message: "must be boolean",
-            };
-            if (vErrors === null) {
-              vErrors = [err14];
-            } else {
-              vErrors.push(err14);
-            }
-            errors++;
-          }
-        }
-        if (data0.name !== undefined) {
-          let data5 = data0.name;
-          if (typeof data5 === "string") {
-            if (!pattern9.test(data5)) {
-              const err15 = {
-                instancePath: instancePath + "/result/name",
-                schemaPath: "#/components/schemas/workers_Worker/properties/name/pattern",
-                keyword: "pattern",
-                params: { pattern: "^[a-z0-9_][a-z0-9-_]*$" },
-                message: 'must match pattern "' + "^[a-z0-9_][a-z0-9-_]*$" + '"',
-              };
-              if (vErrors === null) {
-                vErrors = [err15];
-              } else {
-                vErrors.push(err15);
-              }
-              errors++;
-            }
-          } else {
-            const err16 = {
-              instancePath: instancePath + "/result/name",
-              schemaPath: "#/components/schemas/workers_Worker/properties/name/type",
-              keyword: "type",
-              params: { type: "string" },
-              message: "must be string",
-            };
-            if (vErrors === null) {
-              vErrors = [err16];
-            } else {
-              vErrors.push(err16);
-            }
-            errors++;
-          }
-        }
-        if (data0.observability !== undefined) {
-          let data6 = data0.observability;
-          if (data6 && typeof data6 == "object" && !Array.isArray(data6)) {
-            if (data6.enabled !== undefined) {
-              if (typeof data6.enabled !== "boolean") {
-                const err17 = {
-                  instancePath: instancePath + "/result/observability/enabled",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/observability/properties/enabled/type",
-                  keyword: "type",
-                  params: { type: "boolean" },
-                  message: "must be boolean",
-                };
-                if (vErrors === null) {
-                  vErrors = [err17];
-                } else {
-                  vErrors.push(err17);
-                }
-                errors++;
-              }
-            }
-            if (data6.head_sampling_rate !== undefined) {
-              if (!(typeof data6.head_sampling_rate == "number")) {
-                const err18 = {
-                  instancePath: instancePath + "/result/observability/head_sampling_rate",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/observability/properties/head_sampling_rate/type",
-                  keyword: "type",
-                  params: { type: "number" },
-                  message: "must be number",
-                };
-                if (vErrors === null) {
-                  vErrors = [err18];
-                } else {
-                  vErrors.push(err18);
-                }
-                errors++;
-              }
-            }
-            if (data6.logs !== undefined) {
-              let data9 = data6.logs;
-              if (data9 && typeof data9 == "object" && !Array.isArray(data9)) {
-                if (data9.destinations !== undefined) {
-                  let data10 = data9.destinations;
-                  if (Array.isArray(data10)) {
-                    const len0 = data10.length;
-                    for (let i0 = 0; i0 < len0; i0++) {
-                      if (typeof data10[i0] !== "string") {
-                        const err19 = {
-                          instancePath:
-                            instancePath + "/result/observability/logs/destinations/" + i0,
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/destinations/items/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err19];
-                        } else {
-                          vErrors.push(err19);
-                        }
-                        errors++;
-                      }
-                    }
-                  } else {
-                    const err20 = {
-                      instancePath: instancePath + "/result/observability/logs/destinations",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/destinations/type",
-                      keyword: "type",
-                      params: { type: "array" },
-                      message: "must be array",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err20];
-                    } else {
-                      vErrors.push(err20);
-                    }
-                    errors++;
-                  }
-                }
-                if (data9.enabled !== undefined) {
-                  if (typeof data9.enabled !== "boolean") {
-                    const err21 = {
-                      instancePath: instancePath + "/result/observability/logs/enabled",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/enabled/type",
-                      keyword: "type",
-                      params: { type: "boolean" },
-                      message: "must be boolean",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err21];
-                    } else {
-                      vErrors.push(err21);
-                    }
-                    errors++;
-                  }
-                }
-                if (data9.head_sampling_rate !== undefined) {
-                  if (!(typeof data9.head_sampling_rate == "number")) {
-                    const err22 = {
-                      instancePath: instancePath + "/result/observability/logs/head_sampling_rate",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/head_sampling_rate/type",
-                      keyword: "type",
-                      params: { type: "number" },
-                      message: "must be number",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err22];
-                    } else {
-                      vErrors.push(err22);
-                    }
-                    errors++;
-                  }
-                }
-                if (data9.invocation_logs !== undefined) {
-                  if (typeof data9.invocation_logs !== "boolean") {
-                    const err23 = {
-                      instancePath: instancePath + "/result/observability/logs/invocation_logs",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/invocation_logs/type",
-                      keyword: "type",
-                      params: { type: "boolean" },
-                      message: "must be boolean",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err23];
-                    } else {
-                      vErrors.push(err23);
-                    }
-                    errors++;
-                  }
-                }
-                if (data9.persist !== undefined) {
-                  if (typeof data9.persist !== "boolean") {
-                    const err24 = {
-                      instancePath: instancePath + "/result/observability/logs/persist",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/persist/type",
-                      keyword: "type",
-                      params: { type: "boolean" },
-                      message: "must be boolean",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err24];
-                    } else {
-                      vErrors.push(err24);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err25 = {
-                  instancePath: instancePath + "/result/observability/logs",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/observability/properties/logs/type",
-                  keyword: "type",
-                  params: { type: "object" },
-                  message: "must be object",
-                };
-                if (vErrors === null) {
-                  vErrors = [err25];
-                } else {
-                  vErrors.push(err25);
-                }
-                errors++;
-              }
-            }
-            if (data6.traces !== undefined) {
-              let data16 = data6.traces;
-              if (data16 && typeof data16 == "object" && !Array.isArray(data16)) {
-                if (data16.destinations !== undefined) {
-                  let data17 = data16.destinations;
-                  if (Array.isArray(data17)) {
-                    const len1 = data17.length;
-                    for (let i1 = 0; i1 < len1; i1++) {
-                      if (typeof data17[i1] !== "string") {
-                        const err26 = {
-                          instancePath:
-                            instancePath + "/result/observability/traces/destinations/" + i1,
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/destinations/items/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err26];
-                        } else {
-                          vErrors.push(err26);
-                        }
-                        errors++;
-                      }
-                    }
-                  } else {
-                    const err27 = {
-                      instancePath: instancePath + "/result/observability/traces/destinations",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/destinations/type",
-                      keyword: "type",
-                      params: { type: "array" },
-                      message: "must be array",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err27];
-                    } else {
-                      vErrors.push(err27);
-                    }
-                    errors++;
-                  }
-                }
-                if (data16.enabled !== undefined) {
-                  if (typeof data16.enabled !== "boolean") {
-                    const err28 = {
-                      instancePath: instancePath + "/result/observability/traces/enabled",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/enabled/type",
-                      keyword: "type",
-                      params: { type: "boolean" },
-                      message: "must be boolean",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err28];
-                    } else {
-                      vErrors.push(err28);
-                    }
-                    errors++;
-                  }
-                }
-                if (data16.head_sampling_rate !== undefined) {
-                  if (!(typeof data16.head_sampling_rate == "number")) {
-                    const err29 = {
-                      instancePath:
-                        instancePath + "/result/observability/traces/head_sampling_rate",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/head_sampling_rate/type",
-                      keyword: "type",
-                      params: { type: "number" },
-                      message: "must be number",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err29];
-                    } else {
-                      vErrors.push(err29);
-                    }
-                    errors++;
-                  }
-                }
-                if (data16.persist !== undefined) {
-                  if (typeof data16.persist !== "boolean") {
-                    const err30 = {
-                      instancePath: instancePath + "/result/observability/traces/persist",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/persist/type",
-                      keyword: "type",
-                      params: { type: "boolean" },
-                      message: "must be boolean",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err30];
-                    } else {
-                      vErrors.push(err30);
-                    }
-                    errors++;
-                  }
-                }
-                if (data16.propagation_policy !== undefined) {
-                  let data22 = data16.propagation_policy;
-                  if (typeof data22 !== "string") {
-                    const err31 = {
-                      instancePath:
-                        instancePath + "/result/observability/traces/propagation_policy",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/propagation_policy/type",
-                      keyword: "type",
-                      params: { type: "string" },
-                      message: "must be string",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err31];
-                    } else {
-                      vErrors.push(err31);
-                    }
-                    errors++;
-                  }
-                  if (!(data22 === "authenticated" || data22 === "accept")) {
-                    const err32 = {
-                      instancePath:
-                        instancePath + "/result/observability/traces/propagation_policy",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/propagation_policy/enum",
-                      keyword: "enum",
-                      params: {
-                        allowedValues:
-                          schema595.properties.observability.properties.traces.properties
-                            .propagation_policy.enum,
-                      },
-                      message: "must be equal to one of the allowed values",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err32];
-                    } else {
-                      vErrors.push(err32);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err33 = {
-                  instancePath: instancePath + "/result/observability/traces",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/observability/properties/traces/type",
-                  keyword: "type",
-                  params: { type: "object" },
-                  message: "must be object",
-                };
-                if (vErrors === null) {
-                  vErrors = [err33];
-                } else {
-                  vErrors.push(err33);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err34 = {
-              instancePath: instancePath + "/result/observability",
-              schemaPath: "#/components/schemas/workers_Worker/properties/observability/type",
-              keyword: "type",
-              params: { type: "object" },
-              message: "must be object",
-            };
-            if (vErrors === null) {
-              vErrors = [err34];
-            } else {
-              vErrors.push(err34);
-            }
-            errors++;
-          }
-        }
-        if (data0.references !== undefined) {
-          let data23 = data0.references;
-          if (data23 && typeof data23 == "object" && !Array.isArray(data23)) {
-            if (data23.workers === undefined) {
-              const err35 = {
-                instancePath: instancePath + "/result/references",
-                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
-                keyword: "required",
-                params: { missingProperty: "workers" },
-                message: "must have required property '" + "workers" + "'",
-              };
-              if (vErrors === null) {
-                vErrors = [err35];
-              } else {
-                vErrors.push(err35);
-              }
-              errors++;
-            }
-            if (data23.domains === undefined) {
-              const err36 = {
-                instancePath: instancePath + "/result/references",
-                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
-                keyword: "required",
-                params: { missingProperty: "domains" },
-                message: "must have required property '" + "domains" + "'",
-              };
-              if (vErrors === null) {
-                vErrors = [err36];
-              } else {
-                vErrors.push(err36);
-              }
-              errors++;
-            }
-            if (data23.dispatch_namespace_outbounds === undefined) {
-              const err37 = {
-                instancePath: instancePath + "/result/references",
-                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
-                keyword: "required",
-                params: { missingProperty: "dispatch_namespace_outbounds" },
-                message: "must have required property '" + "dispatch_namespace_outbounds" + "'",
-              };
-              if (vErrors === null) {
-                vErrors = [err37];
-              } else {
-                vErrors.push(err37);
-              }
-              errors++;
-            }
-            if (data23.durable_objects === undefined) {
-              const err38 = {
-                instancePath: instancePath + "/result/references",
-                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
-                keyword: "required",
-                params: { missingProperty: "durable_objects" },
-                message: "must have required property '" + "durable_objects" + "'",
-              };
-              if (vErrors === null) {
-                vErrors = [err38];
-              } else {
-                vErrors.push(err38);
-              }
-              errors++;
-            }
-            if (data23.queues === undefined) {
-              const err39 = {
-                instancePath: instancePath + "/result/references",
-                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
-                keyword: "required",
-                params: { missingProperty: "queues" },
-                message: "must have required property '" + "queues" + "'",
-              };
-              if (vErrors === null) {
-                vErrors = [err39];
-              } else {
-                vErrors.push(err39);
-              }
-              errors++;
-            }
-            if (data23.dispatch_namespace_outbounds !== undefined) {
-              let data24 = data23.dispatch_namespace_outbounds;
-              if (Array.isArray(data24)) {
-                const len2 = data24.length;
-                for (let i2 = 0; i2 < len2; i2++) {
-                  let data25 = data24[i2];
-                  if (data25 && typeof data25 == "object" && !Array.isArray(data25)) {
-                    if (data25.worker_id === undefined) {
-                      const err40 = {
-                        instancePath:
-                          instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "worker_id" },
-                        message: "must have required property '" + "worker_id" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err40];
-                      } else {
-                        vErrors.push(err40);
-                      }
-                      errors++;
-                    }
-                    if (data25.worker_name === undefined) {
-                      const err41 = {
-                        instancePath:
-                          instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "worker_name" },
-                        message: "must have required property '" + "worker_name" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err41];
-                      } else {
-                        vErrors.push(err41);
-                      }
-                      errors++;
-                    }
-                    if (data25.namespace_id === undefined) {
-                      const err42 = {
-                        instancePath:
-                          instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "namespace_id" },
-                        message: "must have required property '" + "namespace_id" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err42];
-                      } else {
-                        vErrors.push(err42);
-                      }
-                      errors++;
-                    }
-                    if (data25.namespace_name === undefined) {
-                      const err43 = {
-                        instancePath:
-                          instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "namespace_name" },
-                        message: "must have required property '" + "namespace_name" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err43];
-                      } else {
-                        vErrors.push(err43);
-                      }
-                      errors++;
-                    }
-                    if (data25.namespace_id !== undefined) {
-                      if (typeof data25.namespace_id !== "string") {
-                        const err44 = {
-                          instancePath:
-                            instancePath +
-                            "/result/references/dispatch_namespace_outbounds/" +
-                            i2 +
-                            "/namespace_id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/properties/namespace_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err44];
-                        } else {
-                          vErrors.push(err44);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data25.namespace_name !== undefined) {
-                      if (typeof data25.namespace_name !== "string") {
-                        const err45 = {
-                          instancePath:
-                            instancePath +
-                            "/result/references/dispatch_namespace_outbounds/" +
-                            i2 +
-                            "/namespace_name",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/properties/namespace_name/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err45];
-                        } else {
-                          vErrors.push(err45);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data25.worker_id !== undefined) {
-                      if (typeof data25.worker_id !== "string") {
-                        const err46 = {
-                          instancePath:
-                            instancePath +
-                            "/result/references/dispatch_namespace_outbounds/" +
-                            i2 +
-                            "/worker_id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/properties/worker_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err46];
-                        } else {
-                          vErrors.push(err46);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data25.worker_name !== undefined) {
-                      if (typeof data25.worker_name !== "string") {
-                        const err47 = {
-                          instancePath:
-                            instancePath +
-                            "/result/references/dispatch_namespace_outbounds/" +
-                            i2 +
-                            "/worker_name",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/properties/worker_name/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err47];
-                        } else {
-                          vErrors.push(err47);
-                        }
-                        errors++;
-                      }
-                    }
-                  } else {
-                    const err48 = {
-                      instancePath:
-                        instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/type",
-                      keyword: "type",
-                      params: { type: "object" },
-                      message: "must be object",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err48];
-                    } else {
-                      vErrors.push(err48);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err49 = {
-                  instancePath: instancePath + "/result/references/dispatch_namespace_outbounds",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/type",
-                  keyword: "type",
-                  params: { type: "array" },
-                  message: "must be array",
-                };
-                if (vErrors === null) {
-                  vErrors = [err49];
-                } else {
-                  vErrors.push(err49);
-                }
-                errors++;
-              }
-            }
-            if (data23.domains !== undefined) {
-              let data30 = data23.domains;
-              if (Array.isArray(data30)) {
-                const len3 = data30.length;
-                for (let i3 = 0; i3 < len3; i3++) {
-                  let data31 = data30[i3];
-                  if (data31 && typeof data31 == "object" && !Array.isArray(data31)) {
-                    if (data31.id === undefined) {
-                      const err50 = {
-                        instancePath: instancePath + "/result/references/domains/" + i3,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "id" },
-                        message: "must have required property '" + "id" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err50];
-                      } else {
-                        vErrors.push(err50);
-                      }
-                      errors++;
-                    }
-                    if (data31.hostname === undefined) {
-                      const err51 = {
-                        instancePath: instancePath + "/result/references/domains/" + i3,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "hostname" },
-                        message: "must have required property '" + "hostname" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err51];
-                      } else {
-                        vErrors.push(err51);
-                      }
-                      errors++;
-                    }
-                    if (data31.zone_id === undefined) {
-                      const err52 = {
-                        instancePath: instancePath + "/result/references/domains/" + i3,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "zone_id" },
-                        message: "must have required property '" + "zone_id" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err52];
-                      } else {
-                        vErrors.push(err52);
-                      }
-                      errors++;
-                    }
-                    if (data31.zone_name === undefined) {
-                      const err53 = {
-                        instancePath: instancePath + "/result/references/domains/" + i3,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "zone_name" },
-                        message: "must have required property '" + "zone_name" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err53];
-                      } else {
-                        vErrors.push(err53);
-                      }
-                      errors++;
-                    }
-                    if (data31.certificate_id !== undefined) {
-                      if (typeof data31.certificate_id !== "string") {
-                        const err54 = {
-                          instancePath:
-                            instancePath + "/result/references/domains/" + i3 + "/certificate_id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/certificate_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err54];
-                        } else {
-                          vErrors.push(err54);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data31.hostname !== undefined) {
-                      if (typeof data31.hostname !== "string") {
-                        const err55 = {
-                          instancePath:
-                            instancePath + "/result/references/domains/" + i3 + "/hostname",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/hostname/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err55];
-                        } else {
-                          vErrors.push(err55);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data31.id !== undefined) {
-                      if (typeof data31.id !== "string") {
-                        const err56 = {
-                          instancePath: instancePath + "/result/references/domains/" + i3 + "/id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err56];
-                        } else {
-                          vErrors.push(err56);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data31.zone_id !== undefined) {
-                      if (typeof data31.zone_id !== "string") {
-                        const err57 = {
-                          instancePath:
-                            instancePath + "/result/references/domains/" + i3 + "/zone_id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err57];
-                        } else {
-                          vErrors.push(err57);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data31.zone_name !== undefined) {
-                      if (typeof data31.zone_name !== "string") {
-                        const err58 = {
-                          instancePath:
-                            instancePath + "/result/references/domains/" + i3 + "/zone_name",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_name/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err58];
-                        } else {
-                          vErrors.push(err58);
-                        }
-                        errors++;
-                      }
-                    }
-                  } else {
-                    const err59 = {
-                      instancePath: instancePath + "/result/references/domains/" + i3,
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/references/properties/domains/items/type",
-                      keyword: "type",
-                      params: { type: "object" },
-                      message: "must be object",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err59];
-                    } else {
-                      vErrors.push(err59);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err60 = {
-                  instancePath: instancePath + "/result/references/domains",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/references/properties/domains/type",
-                  keyword: "type",
-                  params: { type: "array" },
-                  message: "must be array",
-                };
-                if (vErrors === null) {
-                  vErrors = [err60];
-                } else {
-                  vErrors.push(err60);
-                }
-                errors++;
-              }
-            }
-            if (data23.durable_objects !== undefined) {
-              let data37 = data23.durable_objects;
-              if (Array.isArray(data37)) {
-                const len4 = data37.length;
-                for (let i4 = 0; i4 < len4; i4++) {
-                  let data38 = data37[i4];
-                  if (data38 && typeof data38 == "object" && !Array.isArray(data38)) {
-                    if (data38.worker_id === undefined) {
-                      const err61 = {
-                        instancePath: instancePath + "/result/references/durable_objects/" + i4,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "worker_id" },
-                        message: "must have required property '" + "worker_id" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err61];
-                      } else {
-                        vErrors.push(err61);
-                      }
-                      errors++;
-                    }
-                    if (data38.worker_name === undefined) {
-                      const err62 = {
-                        instancePath: instancePath + "/result/references/durable_objects/" + i4,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "worker_name" },
-                        message: "must have required property '" + "worker_name" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err62];
-                      } else {
-                        vErrors.push(err62);
-                      }
-                      errors++;
-                    }
-                    if (data38.namespace_id === undefined) {
-                      const err63 = {
-                        instancePath: instancePath + "/result/references/durable_objects/" + i4,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "namespace_id" },
-                        message: "must have required property '" + "namespace_id" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err63];
-                      } else {
-                        vErrors.push(err63);
-                      }
-                      errors++;
-                    }
-                    if (data38.namespace_name === undefined) {
-                      const err64 = {
-                        instancePath: instancePath + "/result/references/durable_objects/" + i4,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "namespace_name" },
-                        message: "must have required property '" + "namespace_name" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err64];
-                      } else {
-                        vErrors.push(err64);
-                      }
-                      errors++;
-                    }
-                    if (data38.namespace_id !== undefined) {
-                      if (typeof data38.namespace_id !== "string") {
-                        const err65 = {
-                          instancePath:
-                            instancePath +
-                            "/result/references/durable_objects/" +
-                            i4 +
-                            "/namespace_id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/properties/namespace_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err65];
-                        } else {
-                          vErrors.push(err65);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data38.namespace_name !== undefined) {
-                      if (typeof data38.namespace_name !== "string") {
-                        const err66 = {
-                          instancePath:
-                            instancePath +
-                            "/result/references/durable_objects/" +
-                            i4 +
-                            "/namespace_name",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/properties/namespace_name/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err66];
-                        } else {
-                          vErrors.push(err66);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data38.worker_id !== undefined) {
-                      if (typeof data38.worker_id !== "string") {
-                        const err67 = {
-                          instancePath:
-                            instancePath +
-                            "/result/references/durable_objects/" +
-                            i4 +
-                            "/worker_id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/properties/worker_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err67];
-                        } else {
-                          vErrors.push(err67);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data38.worker_name !== undefined) {
-                      if (typeof data38.worker_name !== "string") {
-                        const err68 = {
-                          instancePath:
-                            instancePath +
-                            "/result/references/durable_objects/" +
-                            i4 +
-                            "/worker_name",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/properties/worker_name/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err68];
-                        } else {
-                          vErrors.push(err68);
-                        }
-                        errors++;
-                      }
-                    }
-                  } else {
-                    const err69 = {
-                      instancePath: instancePath + "/result/references/durable_objects/" + i4,
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/type",
-                      keyword: "type",
-                      params: { type: "object" },
-                      message: "must be object",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err69];
-                    } else {
-                      vErrors.push(err69);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err70 = {
-                  instancePath: instancePath + "/result/references/durable_objects",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/type",
-                  keyword: "type",
-                  params: { type: "array" },
-                  message: "must be array",
-                };
-                if (vErrors === null) {
-                  vErrors = [err70];
-                } else {
-                  vErrors.push(err70);
-                }
-                errors++;
-              }
-            }
-            if (data23.queues !== undefined) {
-              let data43 = data23.queues;
-              if (Array.isArray(data43)) {
-                const len5 = data43.length;
-                for (let i5 = 0; i5 < len5; i5++) {
-                  let data44 = data43[i5];
-                  if (data44 && typeof data44 == "object" && !Array.isArray(data44)) {
-                    if (data44.queue_id === undefined) {
-                      const err71 = {
-                        instancePath: instancePath + "/result/references/queues/" + i5,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "queue_id" },
-                        message: "must have required property '" + "queue_id" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err71];
-                      } else {
-                        vErrors.push(err71);
-                      }
-                      errors++;
-                    }
-                    if (data44.queue_name === undefined) {
-                      const err72 = {
-                        instancePath: instancePath + "/result/references/queues/" + i5,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "queue_name" },
-                        message: "must have required property '" + "queue_name" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err72];
-                      } else {
-                        vErrors.push(err72);
-                      }
-                      errors++;
-                    }
-                    if (data44.queue_consumer_id === undefined) {
-                      const err73 = {
-                        instancePath: instancePath + "/result/references/queues/" + i5,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "queue_consumer_id" },
-                        message: "must have required property '" + "queue_consumer_id" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err73];
-                      } else {
-                        vErrors.push(err73);
-                      }
-                      errors++;
-                    }
-                    if (data44.queue_consumer_id !== undefined) {
-                      if (typeof data44.queue_consumer_id !== "string") {
-                        const err74 = {
-                          instancePath:
-                            instancePath + "/result/references/queues/" + i5 + "/queue_consumer_id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_consumer_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err74];
-                        } else {
-                          vErrors.push(err74);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data44.queue_id !== undefined) {
-                      if (typeof data44.queue_id !== "string") {
-                        const err75 = {
-                          instancePath:
-                            instancePath + "/result/references/queues/" + i5 + "/queue_id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err75];
-                        } else {
-                          vErrors.push(err75);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data44.queue_name !== undefined) {
-                      if (typeof data44.queue_name !== "string") {
-                        const err76 = {
-                          instancePath:
-                            instancePath + "/result/references/queues/" + i5 + "/queue_name",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_name/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err76];
-                        } else {
-                          vErrors.push(err76);
-                        }
-                        errors++;
-                      }
-                    }
-                  } else {
-                    const err77 = {
-                      instancePath: instancePath + "/result/references/queues/" + i5,
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/references/properties/queues/items/type",
-                      keyword: "type",
-                      params: { type: "object" },
-                      message: "must be object",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err77];
-                    } else {
-                      vErrors.push(err77);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err78 = {
-                  instancePath: instancePath + "/result/references/queues",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/references/properties/queues/type",
-                  keyword: "type",
-                  params: { type: "array" },
-                  message: "must be array",
-                };
-                if (vErrors === null) {
-                  vErrors = [err78];
-                } else {
-                  vErrors.push(err78);
-                }
-                errors++;
-              }
-            }
-            if (data23.workers !== undefined) {
-              let data48 = data23.workers;
-              if (Array.isArray(data48)) {
-                const len6 = data48.length;
-                for (let i6 = 0; i6 < len6; i6++) {
-                  let data49 = data48[i6];
-                  if (data49 && typeof data49 == "object" && !Array.isArray(data49)) {
-                    if (data49.id === undefined) {
-                      const err79 = {
-                        instancePath: instancePath + "/result/references/workers/" + i6,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/workers/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "id" },
-                        message: "must have required property '" + "id" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err79];
-                      } else {
-                        vErrors.push(err79);
-                      }
-                      errors++;
-                    }
-                    if (data49.name === undefined) {
-                      const err80 = {
-                        instancePath: instancePath + "/result/references/workers/" + i6,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/workers/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "name" },
-                        message: "must have required property '" + "name" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err80];
-                      } else {
-                        vErrors.push(err80);
-                      }
-                      errors++;
-                    }
-                    if (data49.id !== undefined) {
-                      if (typeof data49.id !== "string") {
-                        const err81 = {
-                          instancePath: instancePath + "/result/references/workers/" + i6 + "/id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/workers/items/properties/id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err81];
-                        } else {
-                          vErrors.push(err81);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data49.name !== undefined) {
-                      if (typeof data49.name !== "string") {
-                        const err82 = {
-                          instancePath: instancePath + "/result/references/workers/" + i6 + "/name",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/workers/items/properties/name/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err82];
-                        } else {
-                          vErrors.push(err82);
-                        }
-                        errors++;
-                      }
-                    }
-                  } else {
-                    const err83 = {
-                      instancePath: instancePath + "/result/references/workers/" + i6,
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/references/properties/workers/items/type",
-                      keyword: "type",
-                      params: { type: "object" },
-                      message: "must be object",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err83];
-                    } else {
-                      vErrors.push(err83);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err84 = {
-                  instancePath: instancePath + "/result/references/workers",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/references/properties/workers/type",
-                  keyword: "type",
-                  params: { type: "array" },
-                  message: "must be array",
-                };
-                if (vErrors === null) {
-                  vErrors = [err84];
-                } else {
-                  vErrors.push(err84);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err85 = {
-              instancePath: instancePath + "/result/references",
-              schemaPath: "#/components/schemas/workers_Worker/properties/references/type",
-              keyword: "type",
-              params: { type: "object" },
-              message: "must be object",
-            };
-            if (vErrors === null) {
-              vErrors = [err85];
-            } else {
-              vErrors.push(err85);
-            }
-            errors++;
-          }
-        }
-        if (data0.subdomain !== undefined) {
-          let data52 = data0.subdomain;
-          if (data52 && typeof data52 == "object" && !Array.isArray(data52)) {
-            if (data52.enabled !== undefined) {
-              if (typeof data52.enabled !== "boolean") {
-                const err86 = {
-                  instancePath: instancePath + "/result/subdomain/enabled",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/subdomain/properties/enabled/type",
-                  keyword: "type",
-                  params: { type: "boolean" },
-                  message: "must be boolean",
-                };
-                if (vErrors === null) {
-                  vErrors = [err86];
-                } else {
-                  vErrors.push(err86);
-                }
-                errors++;
-              }
-            }
-            if (data52.previews_enabled !== undefined) {
-              if (typeof data52.previews_enabled !== "boolean") {
-                const err87 = {
-                  instancePath: instancePath + "/result/subdomain/previews_enabled",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/subdomain/properties/previews_enabled/type",
-                  keyword: "type",
-                  params: { type: "boolean" },
-                  message: "must be boolean",
-                };
-                if (vErrors === null) {
-                  vErrors = [err87];
-                } else {
-                  vErrors.push(err87);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err88 = {
-              instancePath: instancePath + "/result/subdomain",
-              schemaPath: "#/components/schemas/workers_Worker/properties/subdomain/type",
-              keyword: "type",
-              params: { type: "object" },
-              message: "must be object",
-            };
-            if (vErrors === null) {
-              vErrors = [err88];
-            } else {
-              vErrors.push(err88);
-            }
-            errors++;
-          }
-        }
-        if (data0.tags !== undefined) {
-          let data55 = data0.tags;
-          if (Array.isArray(data55)) {
-            if (data55.length > 8) {
-              const err89 = {
-                instancePath: instancePath + "/result/tags",
-                schemaPath: "#/components/schemas/workers_Worker/properties/tags/maxItems",
-                keyword: "maxItems",
-                params: { limit: 8 },
-                message: "must NOT have more than 8 items",
-              };
-              if (vErrors === null) {
-                vErrors = [err89];
-              } else {
-                vErrors.push(err89);
-              }
-              errors++;
-            }
-            const len7 = data55.length;
-            for (let i7 = 0; i7 < len7; i7++) {
-              let data56 = data55[i7];
-              if (typeof data56 === "string") {
-                if (func2(data56) > 1024) {
-                  const err90 = {
-                    instancePath: instancePath + "/result/tags/" + i7,
-                    schemaPath:
-                      "#/components/schemas/workers_Worker/properties/tags/items/maxLength",
-                    keyword: "maxLength",
-                    params: { limit: 1024 },
-                    message: "must NOT have more than 1024 characters",
-                  };
-                  if (vErrors === null) {
-                    vErrors = [err90];
-                  } else {
-                    vErrors.push(err90);
-                  }
-                  errors++;
-                }
-                if (!pattern2.test(data56)) {
-                  const err91 = {
-                    instancePath: instancePath + "/result/tags/" + i7,
-                    schemaPath: "#/components/schemas/workers_Worker/properties/tags/items/pattern",
-                    keyword: "pattern",
-                    params: { pattern: "^[^,&]*$" },
-                    message: 'must match pattern "' + "^[^,&]*$" + '"',
-                  };
-                  if (vErrors === null) {
-                    vErrors = [err91];
-                  } else {
-                    vErrors.push(err91);
-                  }
-                  errors++;
-                }
-              } else {
-                const err92 = {
-                  instancePath: instancePath + "/result/tags/" + i7,
-                  schemaPath: "#/components/schemas/workers_Worker/properties/tags/items/type",
-                  keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
-                };
-                if (vErrors === null) {
-                  vErrors = [err92];
-                } else {
-                  vErrors.push(err92);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err93 = {
-              instancePath: instancePath + "/result/tags",
-              schemaPath: "#/components/schemas/workers_Worker/properties/tags/type",
-              keyword: "type",
-              params: { type: "array" },
-              message: "must be array",
-            };
-            if (vErrors === null) {
-              vErrors = [err93];
-            } else {
-              vErrors.push(err93);
-            }
-            errors++;
-          }
-        }
-        if (data0.tail_consumers !== undefined) {
-          let data57 = data0.tail_consumers;
-          if (Array.isArray(data57)) {
-            const len8 = data57.length;
-            for (let i8 = 0; i8 < len8; i8++) {
-              let data58 = data57[i8];
-              if (data58 && typeof data58 == "object" && !Array.isArray(data58)) {
-                if (data58.name === undefined) {
-                  const err94 = {
-                    instancePath: instancePath + "/result/tail_consumers/" + i8,
-                    schemaPath:
-                      "#/components/schemas/workers_Worker/properties/tail_consumers/items/required",
-                    keyword: "required",
-                    params: { missingProperty: "name" },
-                    message: "must have required property '" + "name" + "'",
-                  };
-                  if (vErrors === null) {
-                    vErrors = [err94];
-                  } else {
-                    vErrors.push(err94);
-                  }
-                  errors++;
-                }
-                if (data58.name !== undefined) {
-                  if (typeof data58.name !== "string") {
-                    const err95 = {
-                      instancePath: instancePath + "/result/tail_consumers/" + i8 + "/name",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/tail_consumers/items/properties/name/type",
-                      keyword: "type",
-                      params: { type: "string" },
-                      message: "must be string",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err95];
-                    } else {
-                      vErrors.push(err95);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err96 = {
-                  instancePath: instancePath + "/result/tail_consumers/" + i8,
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/tail_consumers/items/type",
-                  keyword: "type",
-                  params: { type: "object" },
-                  message: "must be object",
-                };
-                if (vErrors === null) {
-                  vErrors = [err96];
-                } else {
-                  vErrors.push(err96);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err97 = {
-              instancePath: instancePath + "/result/tail_consumers",
-              schemaPath: "#/components/schemas/workers_Worker/properties/tail_consumers/type",
-              keyword: "type",
-              params: { type: "array" },
-              message: "must be array",
-            };
-            if (vErrors === null) {
-              vErrors = [err97];
-            } else {
-              vErrors.push(err97);
-            }
-            errors++;
-          }
-        }
-        if (data0.updated_on !== undefined) {
-          if (!(typeof data0.updated_on === "string")) {
-            const err98 = {
-              instancePath: instancePath + "/result/updated_on",
-              schemaPath: "#/components/schemas/workers_Worker/properties/updated_on/type",
-              keyword: "type",
-              params: { type: "string" },
-              message: "must be string",
-            };
-            if (vErrors === null) {
-              vErrors = [err98];
-            } else {
-              vErrors.push(err98);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err99 = {
-          instancePath: instancePath + "/result",
-          schemaPath: "#/components/schemas/workers_Worker/type",
-          keyword: "type",
-          params: { type: "object" },
-          message: "must be object",
-        };
-        if (vErrors === null) {
-          vErrors = [err99];
-        } else {
-          vErrors.push(err99);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err100 = {
-      instancePath,
-      schemaPath: "#/allOf/1/type",
-      keyword: "type",
-      params: { type: "object" },
-      message: "must be object",
-    };
-    if (vErrors === null) {
-      vErrors = [err100];
-    } else {
-      vErrors.push(err100);
-    }
-    errors++;
-  }
-  validate703.errors = vErrors;
-  return errors === 0;
-}
-validate703.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-function validate702(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate702.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate703(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate703.errors : vErrors.concat(validate703.errors);
-    errors = vErrors.length;
-  }
   validate702.errors = vErrors;
   return errors === 0;
 }
 validate702.evaluated = {
+  props: { errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate701(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate701.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate702(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate702.errors : vErrors.concat(validate702.errors);
+    errors = vErrors.length;
+  }
+  validate701.errors = vErrors;
+  return errors === 0;
+}
+validate701.evaluated = {
+  props: { errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+export const ajvGetWorkerResponse = validate704;
+const schema605 = {
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}/get/responses/200/content/application~1json/schema",
+};
+const schema606 = {
+  allOf: [
+    { $ref: "#/components/schemas/workers_api-response-common" },
+    {
+      properties: { result: { $ref: "#/components/schemas/workers_Worker" } },
+      required: ["result"],
+      type: "object",
+    },
+  ],
+};
+function validate705(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate705.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate175(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate175.errors : vErrors.concat(validate175.errors);
+    errors = vErrors.length;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.result === undefined) {
+      const err0 = {
+        instancePath,
+        schemaPath: "#/allOf/1/required",
+        keyword: "required",
+        params: { missingProperty: "result" },
+        message: "must have required property '" + "result" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.result !== undefined) {
+      let data0 = data.result;
+      if (data0 && typeof data0 == "object" && !Array.isArray(data0)) {
+        if (data0.id === undefined) {
+          const err1 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_Worker/required",
+            keyword: "required",
+            params: { missingProperty: "id" },
+            message: "must have required property '" + "id" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err1];
+          } else {
+            vErrors.push(err1);
+          }
+          errors++;
+        }
+        if (data0.name === undefined) {
+          const err2 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_Worker/required",
+            keyword: "required",
+            params: { missingProperty: "name" },
+            message: "must have required property '" + "name" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err2];
+          } else {
+            vErrors.push(err2);
+          }
+          errors++;
+        }
+        if (data0.tags === undefined) {
+          const err3 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_Worker/required",
+            keyword: "required",
+            params: { missingProperty: "tags" },
+            message: "must have required property '" + "tags" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err3];
+          } else {
+            vErrors.push(err3);
+          }
+          errors++;
+        }
+        if (data0.subdomain === undefined) {
+          const err4 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_Worker/required",
+            keyword: "required",
+            params: { missingProperty: "subdomain" },
+            message: "must have required property '" + "subdomain" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err4];
+          } else {
+            vErrors.push(err4);
+          }
+          errors++;
+        }
+        if (data0.observability === undefined) {
+          const err5 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_Worker/required",
+            keyword: "required",
+            params: { missingProperty: "observability" },
+            message: "must have required property '" + "observability" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err5];
+          } else {
+            vErrors.push(err5);
+          }
+          errors++;
+        }
+        if (data0.logpush === undefined) {
+          const err6 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_Worker/required",
+            keyword: "required",
+            params: { missingProperty: "logpush" },
+            message: "must have required property '" + "logpush" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err6];
+          } else {
+            vErrors.push(err6);
+          }
+          errors++;
+        }
+        if (data0.tail_consumers === undefined) {
+          const err7 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_Worker/required",
+            keyword: "required",
+            params: { missingProperty: "tail_consumers" },
+            message: "must have required property '" + "tail_consumers" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err7];
+          } else {
+            vErrors.push(err7);
+          }
+          errors++;
+        }
+        if (data0.created_on === undefined) {
+          const err8 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_Worker/required",
+            keyword: "required",
+            params: { missingProperty: "created_on" },
+            message: "must have required property '" + "created_on" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err8];
+          } else {
+            vErrors.push(err8);
+          }
+          errors++;
+        }
+        if (data0.updated_on === undefined) {
+          const err9 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_Worker/required",
+            keyword: "required",
+            params: { missingProperty: "updated_on" },
+            message: "must have required property '" + "updated_on" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err9];
+          } else {
+            vErrors.push(err9);
+          }
+          errors++;
+        }
+        if (data0.references === undefined) {
+          const err10 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_Worker/required",
+            keyword: "required",
+            params: { missingProperty: "references" },
+            message: "must have required property '" + "references" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err10];
+          } else {
+            vErrors.push(err10);
+          }
+          errors++;
+        }
+        if (data0.created_on !== undefined) {
+          if (!(typeof data0.created_on === "string")) {
+            const err11 = {
+              instancePath: instancePath + "/result/created_on",
+              schemaPath: "#/components/schemas/workers_Worker/properties/created_on/type",
+              keyword: "type",
+              params: { type: "string" },
+              message: "must be string",
+            };
+            if (vErrors === null) {
+              vErrors = [err11];
+            } else {
+              vErrors.push(err11);
+            }
+            errors++;
+          }
+        }
+        if (data0.deployed_on !== undefined) {
+          let data2 = data0.deployed_on;
+          if (typeof data2 !== "string" && data2 !== null) {
+            const err12 = {
+              instancePath: instancePath + "/result/deployed_on",
+              schemaPath: "#/components/schemas/workers_Worker/properties/deployed_on/type",
+              keyword: "type",
+              params: { type: "string" },
+              message: "must be string",
+            };
+            if (vErrors === null) {
+              vErrors = [err12];
+            } else {
+              vErrors.push(err12);
+            }
+            errors++;
+          }
+        }
+        if (data0.id !== undefined) {
+          if (typeof data0.id !== "string") {
+            const err13 = {
+              instancePath: instancePath + "/result/id",
+              schemaPath: "#/components/schemas/workers_Worker/properties/id/type",
+              keyword: "type",
+              params: { type: "string" },
+              message: "must be string",
+            };
+            if (vErrors === null) {
+              vErrors = [err13];
+            } else {
+              vErrors.push(err13);
+            }
+            errors++;
+          }
+        }
+        if (data0.logpush !== undefined) {
+          if (typeof data0.logpush !== "boolean") {
+            const err14 = {
+              instancePath: instancePath + "/result/logpush",
+              schemaPath: "#/components/schemas/workers_Worker/properties/logpush/type",
+              keyword: "type",
+              params: { type: "boolean" },
+              message: "must be boolean",
+            };
+            if (vErrors === null) {
+              vErrors = [err14];
+            } else {
+              vErrors.push(err14);
+            }
+            errors++;
+          }
+        }
+        if (data0.name !== undefined) {
+          let data5 = data0.name;
+          if (typeof data5 === "string") {
+            if (!pattern9.test(data5)) {
+              const err15 = {
+                instancePath: instancePath + "/result/name",
+                schemaPath: "#/components/schemas/workers_Worker/properties/name/pattern",
+                keyword: "pattern",
+                params: { pattern: "^[a-z0-9_][a-z0-9-_]*$" },
+                message: 'must match pattern "' + "^[a-z0-9_][a-z0-9-_]*$" + '"',
+              };
+              if (vErrors === null) {
+                vErrors = [err15];
+              } else {
+                vErrors.push(err15);
+              }
+              errors++;
+            }
+          } else {
+            const err16 = {
+              instancePath: instancePath + "/result/name",
+              schemaPath: "#/components/schemas/workers_Worker/properties/name/type",
+              keyword: "type",
+              params: { type: "string" },
+              message: "must be string",
+            };
+            if (vErrors === null) {
+              vErrors = [err16];
+            } else {
+              vErrors.push(err16);
+            }
+            errors++;
+          }
+        }
+        if (data0.observability !== undefined) {
+          let data6 = data0.observability;
+          if (data6 && typeof data6 == "object" && !Array.isArray(data6)) {
+            if (data6.enabled !== undefined) {
+              if (typeof data6.enabled !== "boolean") {
+                const err17 = {
+                  instancePath: instancePath + "/result/observability/enabled",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/observability/properties/enabled/type",
+                  keyword: "type",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
+                };
+                if (vErrors === null) {
+                  vErrors = [err17];
+                } else {
+                  vErrors.push(err17);
+                }
+                errors++;
+              }
+            }
+            if (data6.head_sampling_rate !== undefined) {
+              if (!(typeof data6.head_sampling_rate == "number")) {
+                const err18 = {
+                  instancePath: instancePath + "/result/observability/head_sampling_rate",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/observability/properties/head_sampling_rate/type",
+                  keyword: "type",
+                  params: { type: "number" },
+                  message: "must be number",
+                };
+                if (vErrors === null) {
+                  vErrors = [err18];
+                } else {
+                  vErrors.push(err18);
+                }
+                errors++;
+              }
+            }
+            if (data6.logs !== undefined) {
+              let data9 = data6.logs;
+              if (data9 && typeof data9 == "object" && !Array.isArray(data9)) {
+                if (data9.destinations !== undefined) {
+                  let data10 = data9.destinations;
+                  if (Array.isArray(data10)) {
+                    const len0 = data10.length;
+                    for (let i0 = 0; i0 < len0; i0++) {
+                      if (typeof data10[i0] !== "string") {
+                        const err19 = {
+                          instancePath:
+                            instancePath + "/result/observability/logs/destinations/" + i0,
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/destinations/items/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err19];
+                        } else {
+                          vErrors.push(err19);
+                        }
+                        errors++;
+                      }
+                    }
+                  } else {
+                    const err20 = {
+                      instancePath: instancePath + "/result/observability/logs/destinations",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/destinations/type",
+                      keyword: "type",
+                      params: { type: "array" },
+                      message: "must be array",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err20];
+                    } else {
+                      vErrors.push(err20);
+                    }
+                    errors++;
+                  }
+                }
+                if (data9.enabled !== undefined) {
+                  if (typeof data9.enabled !== "boolean") {
+                    const err21 = {
+                      instancePath: instancePath + "/result/observability/logs/enabled",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/enabled/type",
+                      keyword: "type",
+                      params: { type: "boolean" },
+                      message: "must be boolean",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err21];
+                    } else {
+                      vErrors.push(err21);
+                    }
+                    errors++;
+                  }
+                }
+                if (data9.head_sampling_rate !== undefined) {
+                  if (!(typeof data9.head_sampling_rate == "number")) {
+                    const err22 = {
+                      instancePath: instancePath + "/result/observability/logs/head_sampling_rate",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/head_sampling_rate/type",
+                      keyword: "type",
+                      params: { type: "number" },
+                      message: "must be number",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err22];
+                    } else {
+                      vErrors.push(err22);
+                    }
+                    errors++;
+                  }
+                }
+                if (data9.invocation_logs !== undefined) {
+                  if (typeof data9.invocation_logs !== "boolean") {
+                    const err23 = {
+                      instancePath: instancePath + "/result/observability/logs/invocation_logs",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/invocation_logs/type",
+                      keyword: "type",
+                      params: { type: "boolean" },
+                      message: "must be boolean",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err23];
+                    } else {
+                      vErrors.push(err23);
+                    }
+                    errors++;
+                  }
+                }
+                if (data9.persist !== undefined) {
+                  if (typeof data9.persist !== "boolean") {
+                    const err24 = {
+                      instancePath: instancePath + "/result/observability/logs/persist",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/persist/type",
+                      keyword: "type",
+                      params: { type: "boolean" },
+                      message: "must be boolean",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err24];
+                    } else {
+                      vErrors.push(err24);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err25 = {
+                  instancePath: instancePath + "/result/observability/logs",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/observability/properties/logs/type",
+                  keyword: "type",
+                  params: { type: "object" },
+                  message: "must be object",
+                };
+                if (vErrors === null) {
+                  vErrors = [err25];
+                } else {
+                  vErrors.push(err25);
+                }
+                errors++;
+              }
+            }
+            if (data6.traces !== undefined) {
+              let data16 = data6.traces;
+              if (data16 && typeof data16 == "object" && !Array.isArray(data16)) {
+                if (data16.destinations !== undefined) {
+                  let data17 = data16.destinations;
+                  if (Array.isArray(data17)) {
+                    const len1 = data17.length;
+                    for (let i1 = 0; i1 < len1; i1++) {
+                      if (typeof data17[i1] !== "string") {
+                        const err26 = {
+                          instancePath:
+                            instancePath + "/result/observability/traces/destinations/" + i1,
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/destinations/items/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err26];
+                        } else {
+                          vErrors.push(err26);
+                        }
+                        errors++;
+                      }
+                    }
+                  } else {
+                    const err27 = {
+                      instancePath: instancePath + "/result/observability/traces/destinations",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/destinations/type",
+                      keyword: "type",
+                      params: { type: "array" },
+                      message: "must be array",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err27];
+                    } else {
+                      vErrors.push(err27);
+                    }
+                    errors++;
+                  }
+                }
+                if (data16.enabled !== undefined) {
+                  if (typeof data16.enabled !== "boolean") {
+                    const err28 = {
+                      instancePath: instancePath + "/result/observability/traces/enabled",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/enabled/type",
+                      keyword: "type",
+                      params: { type: "boolean" },
+                      message: "must be boolean",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err28];
+                    } else {
+                      vErrors.push(err28);
+                    }
+                    errors++;
+                  }
+                }
+                if (data16.head_sampling_rate !== undefined) {
+                  if (!(typeof data16.head_sampling_rate == "number")) {
+                    const err29 = {
+                      instancePath:
+                        instancePath + "/result/observability/traces/head_sampling_rate",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/head_sampling_rate/type",
+                      keyword: "type",
+                      params: { type: "number" },
+                      message: "must be number",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err29];
+                    } else {
+                      vErrors.push(err29);
+                    }
+                    errors++;
+                  }
+                }
+                if (data16.persist !== undefined) {
+                  if (typeof data16.persist !== "boolean") {
+                    const err30 = {
+                      instancePath: instancePath + "/result/observability/traces/persist",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/persist/type",
+                      keyword: "type",
+                      params: { type: "boolean" },
+                      message: "must be boolean",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err30];
+                    } else {
+                      vErrors.push(err30);
+                    }
+                    errors++;
+                  }
+                }
+                if (data16.propagation_policy !== undefined) {
+                  let data22 = data16.propagation_policy;
+                  if (typeof data22 !== "string") {
+                    const err31 = {
+                      instancePath:
+                        instancePath + "/result/observability/traces/propagation_policy",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/propagation_policy/type",
+                      keyword: "type",
+                      params: { type: "string" },
+                      message: "must be string",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err31];
+                    } else {
+                      vErrors.push(err31);
+                    }
+                    errors++;
+                  }
+                  if (!(data22 === "authenticated" || data22 === "accept")) {
+                    const err32 = {
+                      instancePath:
+                        instancePath + "/result/observability/traces/propagation_policy",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/propagation_policy/enum",
+                      keyword: "enum",
+                      params: {
+                        allowedValues:
+                          schema597.properties.observability.properties.traces.properties
+                            .propagation_policy.enum,
+                      },
+                      message: "must be equal to one of the allowed values",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err32];
+                    } else {
+                      vErrors.push(err32);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err33 = {
+                  instancePath: instancePath + "/result/observability/traces",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/observability/properties/traces/type",
+                  keyword: "type",
+                  params: { type: "object" },
+                  message: "must be object",
+                };
+                if (vErrors === null) {
+                  vErrors = [err33];
+                } else {
+                  vErrors.push(err33);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err34 = {
+              instancePath: instancePath + "/result/observability",
+              schemaPath: "#/components/schemas/workers_Worker/properties/observability/type",
+              keyword: "type",
+              params: { type: "object" },
+              message: "must be object",
+            };
+            if (vErrors === null) {
+              vErrors = [err34];
+            } else {
+              vErrors.push(err34);
+            }
+            errors++;
+          }
+        }
+        if (data0.references !== undefined) {
+          let data23 = data0.references;
+          if (data23 && typeof data23 == "object" && !Array.isArray(data23)) {
+            if (data23.workers === undefined) {
+              const err35 = {
+                instancePath: instancePath + "/result/references",
+                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
+                keyword: "required",
+                params: { missingProperty: "workers" },
+                message: "must have required property '" + "workers" + "'",
+              };
+              if (vErrors === null) {
+                vErrors = [err35];
+              } else {
+                vErrors.push(err35);
+              }
+              errors++;
+            }
+            if (data23.domains === undefined) {
+              const err36 = {
+                instancePath: instancePath + "/result/references",
+                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
+                keyword: "required",
+                params: { missingProperty: "domains" },
+                message: "must have required property '" + "domains" + "'",
+              };
+              if (vErrors === null) {
+                vErrors = [err36];
+              } else {
+                vErrors.push(err36);
+              }
+              errors++;
+            }
+            if (data23.dispatch_namespace_outbounds === undefined) {
+              const err37 = {
+                instancePath: instancePath + "/result/references",
+                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
+                keyword: "required",
+                params: { missingProperty: "dispatch_namespace_outbounds" },
+                message: "must have required property '" + "dispatch_namespace_outbounds" + "'",
+              };
+              if (vErrors === null) {
+                vErrors = [err37];
+              } else {
+                vErrors.push(err37);
+              }
+              errors++;
+            }
+            if (data23.durable_objects === undefined) {
+              const err38 = {
+                instancePath: instancePath + "/result/references",
+                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
+                keyword: "required",
+                params: { missingProperty: "durable_objects" },
+                message: "must have required property '" + "durable_objects" + "'",
+              };
+              if (vErrors === null) {
+                vErrors = [err38];
+              } else {
+                vErrors.push(err38);
+              }
+              errors++;
+            }
+            if (data23.queues === undefined) {
+              const err39 = {
+                instancePath: instancePath + "/result/references",
+                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
+                keyword: "required",
+                params: { missingProperty: "queues" },
+                message: "must have required property '" + "queues" + "'",
+              };
+              if (vErrors === null) {
+                vErrors = [err39];
+              } else {
+                vErrors.push(err39);
+              }
+              errors++;
+            }
+            if (data23.dispatch_namespace_outbounds !== undefined) {
+              let data24 = data23.dispatch_namespace_outbounds;
+              if (Array.isArray(data24)) {
+                const len2 = data24.length;
+                for (let i2 = 0; i2 < len2; i2++) {
+                  let data25 = data24[i2];
+                  if (data25 && typeof data25 == "object" && !Array.isArray(data25)) {
+                    if (data25.worker_id === undefined) {
+                      const err40 = {
+                        instancePath:
+                          instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "worker_id" },
+                        message: "must have required property '" + "worker_id" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err40];
+                      } else {
+                        vErrors.push(err40);
+                      }
+                      errors++;
+                    }
+                    if (data25.worker_name === undefined) {
+                      const err41 = {
+                        instancePath:
+                          instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "worker_name" },
+                        message: "must have required property '" + "worker_name" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err41];
+                      } else {
+                        vErrors.push(err41);
+                      }
+                      errors++;
+                    }
+                    if (data25.namespace_id === undefined) {
+                      const err42 = {
+                        instancePath:
+                          instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "namespace_id" },
+                        message: "must have required property '" + "namespace_id" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err42];
+                      } else {
+                        vErrors.push(err42);
+                      }
+                      errors++;
+                    }
+                    if (data25.namespace_name === undefined) {
+                      const err43 = {
+                        instancePath:
+                          instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "namespace_name" },
+                        message: "must have required property '" + "namespace_name" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err43];
+                      } else {
+                        vErrors.push(err43);
+                      }
+                      errors++;
+                    }
+                    if (data25.namespace_id !== undefined) {
+                      if (typeof data25.namespace_id !== "string") {
+                        const err44 = {
+                          instancePath:
+                            instancePath +
+                            "/result/references/dispatch_namespace_outbounds/" +
+                            i2 +
+                            "/namespace_id",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/properties/namespace_id/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err44];
+                        } else {
+                          vErrors.push(err44);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data25.namespace_name !== undefined) {
+                      if (typeof data25.namespace_name !== "string") {
+                        const err45 = {
+                          instancePath:
+                            instancePath +
+                            "/result/references/dispatch_namespace_outbounds/" +
+                            i2 +
+                            "/namespace_name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/properties/namespace_name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err45];
+                        } else {
+                          vErrors.push(err45);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data25.worker_id !== undefined) {
+                      if (typeof data25.worker_id !== "string") {
+                        const err46 = {
+                          instancePath:
+                            instancePath +
+                            "/result/references/dispatch_namespace_outbounds/" +
+                            i2 +
+                            "/worker_id",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/properties/worker_id/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err46];
+                        } else {
+                          vErrors.push(err46);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data25.worker_name !== undefined) {
+                      if (typeof data25.worker_name !== "string") {
+                        const err47 = {
+                          instancePath:
+                            instancePath +
+                            "/result/references/dispatch_namespace_outbounds/" +
+                            i2 +
+                            "/worker_name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/properties/worker_name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err47];
+                        } else {
+                          vErrors.push(err47);
+                        }
+                        errors++;
+                      }
+                    }
+                  } else {
+                    const err48 = {
+                      instancePath:
+                        instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/type",
+                      keyword: "type",
+                      params: { type: "object" },
+                      message: "must be object",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err48];
+                    } else {
+                      vErrors.push(err48);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err49 = {
+                  instancePath: instancePath + "/result/references/dispatch_namespace_outbounds",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/type",
+                  keyword: "type",
+                  params: { type: "array" },
+                  message: "must be array",
+                };
+                if (vErrors === null) {
+                  vErrors = [err49];
+                } else {
+                  vErrors.push(err49);
+                }
+                errors++;
+              }
+            }
+            if (data23.domains !== undefined) {
+              let data30 = data23.domains;
+              if (Array.isArray(data30)) {
+                const len3 = data30.length;
+                for (let i3 = 0; i3 < len3; i3++) {
+                  let data31 = data30[i3];
+                  if (data31 && typeof data31 == "object" && !Array.isArray(data31)) {
+                    if (data31.id === undefined) {
+                      const err50 = {
+                        instancePath: instancePath + "/result/references/domains/" + i3,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "id" },
+                        message: "must have required property '" + "id" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err50];
+                      } else {
+                        vErrors.push(err50);
+                      }
+                      errors++;
+                    }
+                    if (data31.hostname === undefined) {
+                      const err51 = {
+                        instancePath: instancePath + "/result/references/domains/" + i3,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "hostname" },
+                        message: "must have required property '" + "hostname" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err51];
+                      } else {
+                        vErrors.push(err51);
+                      }
+                      errors++;
+                    }
+                    if (data31.zone_id === undefined) {
+                      const err52 = {
+                        instancePath: instancePath + "/result/references/domains/" + i3,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "zone_id" },
+                        message: "must have required property '" + "zone_id" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err52];
+                      } else {
+                        vErrors.push(err52);
+                      }
+                      errors++;
+                    }
+                    if (data31.zone_name === undefined) {
+                      const err53 = {
+                        instancePath: instancePath + "/result/references/domains/" + i3,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "zone_name" },
+                        message: "must have required property '" + "zone_name" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err53];
+                      } else {
+                        vErrors.push(err53);
+                      }
+                      errors++;
+                    }
+                    if (data31.certificate_id !== undefined) {
+                      if (typeof data31.certificate_id !== "string") {
+                        const err54 = {
+                          instancePath:
+                            instancePath + "/result/references/domains/" + i3 + "/certificate_id",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/certificate_id/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err54];
+                        } else {
+                          vErrors.push(err54);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data31.hostname !== undefined) {
+                      if (typeof data31.hostname !== "string") {
+                        const err55 = {
+                          instancePath:
+                            instancePath + "/result/references/domains/" + i3 + "/hostname",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/hostname/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err55];
+                        } else {
+                          vErrors.push(err55);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data31.id !== undefined) {
+                      if (typeof data31.id !== "string") {
+                        const err56 = {
+                          instancePath: instancePath + "/result/references/domains/" + i3 + "/id",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/id/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err56];
+                        } else {
+                          vErrors.push(err56);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data31.zone_id !== undefined) {
+                      if (typeof data31.zone_id !== "string") {
+                        const err57 = {
+                          instancePath:
+                            instancePath + "/result/references/domains/" + i3 + "/zone_id",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_id/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err57];
+                        } else {
+                          vErrors.push(err57);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data31.zone_name !== undefined) {
+                      if (typeof data31.zone_name !== "string") {
+                        const err58 = {
+                          instancePath:
+                            instancePath + "/result/references/domains/" + i3 + "/zone_name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err58];
+                        } else {
+                          vErrors.push(err58);
+                        }
+                        errors++;
+                      }
+                    }
+                  } else {
+                    const err59 = {
+                      instancePath: instancePath + "/result/references/domains/" + i3,
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/references/properties/domains/items/type",
+                      keyword: "type",
+                      params: { type: "object" },
+                      message: "must be object",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err59];
+                    } else {
+                      vErrors.push(err59);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err60 = {
+                  instancePath: instancePath + "/result/references/domains",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/references/properties/domains/type",
+                  keyword: "type",
+                  params: { type: "array" },
+                  message: "must be array",
+                };
+                if (vErrors === null) {
+                  vErrors = [err60];
+                } else {
+                  vErrors.push(err60);
+                }
+                errors++;
+              }
+            }
+            if (data23.durable_objects !== undefined) {
+              let data37 = data23.durable_objects;
+              if (Array.isArray(data37)) {
+                const len4 = data37.length;
+                for (let i4 = 0; i4 < len4; i4++) {
+                  let data38 = data37[i4];
+                  if (data38 && typeof data38 == "object" && !Array.isArray(data38)) {
+                    if (data38.worker_id === undefined) {
+                      const err61 = {
+                        instancePath: instancePath + "/result/references/durable_objects/" + i4,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "worker_id" },
+                        message: "must have required property '" + "worker_id" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err61];
+                      } else {
+                        vErrors.push(err61);
+                      }
+                      errors++;
+                    }
+                    if (data38.worker_name === undefined) {
+                      const err62 = {
+                        instancePath: instancePath + "/result/references/durable_objects/" + i4,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "worker_name" },
+                        message: "must have required property '" + "worker_name" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err62];
+                      } else {
+                        vErrors.push(err62);
+                      }
+                      errors++;
+                    }
+                    if (data38.namespace_id === undefined) {
+                      const err63 = {
+                        instancePath: instancePath + "/result/references/durable_objects/" + i4,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "namespace_id" },
+                        message: "must have required property '" + "namespace_id" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err63];
+                      } else {
+                        vErrors.push(err63);
+                      }
+                      errors++;
+                    }
+                    if (data38.namespace_name === undefined) {
+                      const err64 = {
+                        instancePath: instancePath + "/result/references/durable_objects/" + i4,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "namespace_name" },
+                        message: "must have required property '" + "namespace_name" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err64];
+                      } else {
+                        vErrors.push(err64);
+                      }
+                      errors++;
+                    }
+                    if (data38.namespace_id !== undefined) {
+                      if (typeof data38.namespace_id !== "string") {
+                        const err65 = {
+                          instancePath:
+                            instancePath +
+                            "/result/references/durable_objects/" +
+                            i4 +
+                            "/namespace_id",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/properties/namespace_id/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err65];
+                        } else {
+                          vErrors.push(err65);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data38.namespace_name !== undefined) {
+                      if (typeof data38.namespace_name !== "string") {
+                        const err66 = {
+                          instancePath:
+                            instancePath +
+                            "/result/references/durable_objects/" +
+                            i4 +
+                            "/namespace_name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/properties/namespace_name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err66];
+                        } else {
+                          vErrors.push(err66);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data38.worker_id !== undefined) {
+                      if (typeof data38.worker_id !== "string") {
+                        const err67 = {
+                          instancePath:
+                            instancePath +
+                            "/result/references/durable_objects/" +
+                            i4 +
+                            "/worker_id",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/properties/worker_id/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err67];
+                        } else {
+                          vErrors.push(err67);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data38.worker_name !== undefined) {
+                      if (typeof data38.worker_name !== "string") {
+                        const err68 = {
+                          instancePath:
+                            instancePath +
+                            "/result/references/durable_objects/" +
+                            i4 +
+                            "/worker_name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/properties/worker_name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err68];
+                        } else {
+                          vErrors.push(err68);
+                        }
+                        errors++;
+                      }
+                    }
+                  } else {
+                    const err69 = {
+                      instancePath: instancePath + "/result/references/durable_objects/" + i4,
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/type",
+                      keyword: "type",
+                      params: { type: "object" },
+                      message: "must be object",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err69];
+                    } else {
+                      vErrors.push(err69);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err70 = {
+                  instancePath: instancePath + "/result/references/durable_objects",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/type",
+                  keyword: "type",
+                  params: { type: "array" },
+                  message: "must be array",
+                };
+                if (vErrors === null) {
+                  vErrors = [err70];
+                } else {
+                  vErrors.push(err70);
+                }
+                errors++;
+              }
+            }
+            if (data23.queues !== undefined) {
+              let data43 = data23.queues;
+              if (Array.isArray(data43)) {
+                const len5 = data43.length;
+                for (let i5 = 0; i5 < len5; i5++) {
+                  let data44 = data43[i5];
+                  if (data44 && typeof data44 == "object" && !Array.isArray(data44)) {
+                    if (data44.queue_id === undefined) {
+                      const err71 = {
+                        instancePath: instancePath + "/result/references/queues/" + i5,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "queue_id" },
+                        message: "must have required property '" + "queue_id" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err71];
+                      } else {
+                        vErrors.push(err71);
+                      }
+                      errors++;
+                    }
+                    if (data44.queue_name === undefined) {
+                      const err72 = {
+                        instancePath: instancePath + "/result/references/queues/" + i5,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "queue_name" },
+                        message: "must have required property '" + "queue_name" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err72];
+                      } else {
+                        vErrors.push(err72);
+                      }
+                      errors++;
+                    }
+                    if (data44.queue_consumer_id === undefined) {
+                      const err73 = {
+                        instancePath: instancePath + "/result/references/queues/" + i5,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "queue_consumer_id" },
+                        message: "must have required property '" + "queue_consumer_id" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err73];
+                      } else {
+                        vErrors.push(err73);
+                      }
+                      errors++;
+                    }
+                    if (data44.queue_consumer_id !== undefined) {
+                      if (typeof data44.queue_consumer_id !== "string") {
+                        const err74 = {
+                          instancePath:
+                            instancePath + "/result/references/queues/" + i5 + "/queue_consumer_id",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_consumer_id/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err74];
+                        } else {
+                          vErrors.push(err74);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data44.queue_id !== undefined) {
+                      if (typeof data44.queue_id !== "string") {
+                        const err75 = {
+                          instancePath:
+                            instancePath + "/result/references/queues/" + i5 + "/queue_id",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_id/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err75];
+                        } else {
+                          vErrors.push(err75);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data44.queue_name !== undefined) {
+                      if (typeof data44.queue_name !== "string") {
+                        const err76 = {
+                          instancePath:
+                            instancePath + "/result/references/queues/" + i5 + "/queue_name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err76];
+                        } else {
+                          vErrors.push(err76);
+                        }
+                        errors++;
+                      }
+                    }
+                  } else {
+                    const err77 = {
+                      instancePath: instancePath + "/result/references/queues/" + i5,
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/references/properties/queues/items/type",
+                      keyword: "type",
+                      params: { type: "object" },
+                      message: "must be object",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err77];
+                    } else {
+                      vErrors.push(err77);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err78 = {
+                  instancePath: instancePath + "/result/references/queues",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/references/properties/queues/type",
+                  keyword: "type",
+                  params: { type: "array" },
+                  message: "must be array",
+                };
+                if (vErrors === null) {
+                  vErrors = [err78];
+                } else {
+                  vErrors.push(err78);
+                }
+                errors++;
+              }
+            }
+            if (data23.workers !== undefined) {
+              let data48 = data23.workers;
+              if (Array.isArray(data48)) {
+                const len6 = data48.length;
+                for (let i6 = 0; i6 < len6; i6++) {
+                  let data49 = data48[i6];
+                  if (data49 && typeof data49 == "object" && !Array.isArray(data49)) {
+                    if (data49.id === undefined) {
+                      const err79 = {
+                        instancePath: instancePath + "/result/references/workers/" + i6,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/workers/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "id" },
+                        message: "must have required property '" + "id" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err79];
+                      } else {
+                        vErrors.push(err79);
+                      }
+                      errors++;
+                    }
+                    if (data49.name === undefined) {
+                      const err80 = {
+                        instancePath: instancePath + "/result/references/workers/" + i6,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/workers/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "name" },
+                        message: "must have required property '" + "name" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err80];
+                      } else {
+                        vErrors.push(err80);
+                      }
+                      errors++;
+                    }
+                    if (data49.id !== undefined) {
+                      if (typeof data49.id !== "string") {
+                        const err81 = {
+                          instancePath: instancePath + "/result/references/workers/" + i6 + "/id",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/workers/items/properties/id/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err81];
+                        } else {
+                          vErrors.push(err81);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data49.name !== undefined) {
+                      if (typeof data49.name !== "string") {
+                        const err82 = {
+                          instancePath: instancePath + "/result/references/workers/" + i6 + "/name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/workers/items/properties/name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err82];
+                        } else {
+                          vErrors.push(err82);
+                        }
+                        errors++;
+                      }
+                    }
+                  } else {
+                    const err83 = {
+                      instancePath: instancePath + "/result/references/workers/" + i6,
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/references/properties/workers/items/type",
+                      keyword: "type",
+                      params: { type: "object" },
+                      message: "must be object",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err83];
+                    } else {
+                      vErrors.push(err83);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err84 = {
+                  instancePath: instancePath + "/result/references/workers",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/references/properties/workers/type",
+                  keyword: "type",
+                  params: { type: "array" },
+                  message: "must be array",
+                };
+                if (vErrors === null) {
+                  vErrors = [err84];
+                } else {
+                  vErrors.push(err84);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err85 = {
+              instancePath: instancePath + "/result/references",
+              schemaPath: "#/components/schemas/workers_Worker/properties/references/type",
+              keyword: "type",
+              params: { type: "object" },
+              message: "must be object",
+            };
+            if (vErrors === null) {
+              vErrors = [err85];
+            } else {
+              vErrors.push(err85);
+            }
+            errors++;
+          }
+        }
+        if (data0.subdomain !== undefined) {
+          let data52 = data0.subdomain;
+          if (data52 && typeof data52 == "object" && !Array.isArray(data52)) {
+            if (data52.enabled !== undefined) {
+              if (typeof data52.enabled !== "boolean") {
+                const err86 = {
+                  instancePath: instancePath + "/result/subdomain/enabled",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/subdomain/properties/enabled/type",
+                  keyword: "type",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
+                };
+                if (vErrors === null) {
+                  vErrors = [err86];
+                } else {
+                  vErrors.push(err86);
+                }
+                errors++;
+              }
+            }
+            if (data52.previews_enabled !== undefined) {
+              if (typeof data52.previews_enabled !== "boolean") {
+                const err87 = {
+                  instancePath: instancePath + "/result/subdomain/previews_enabled",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/subdomain/properties/previews_enabled/type",
+                  keyword: "type",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
+                };
+                if (vErrors === null) {
+                  vErrors = [err87];
+                } else {
+                  vErrors.push(err87);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err88 = {
+              instancePath: instancePath + "/result/subdomain",
+              schemaPath: "#/components/schemas/workers_Worker/properties/subdomain/type",
+              keyword: "type",
+              params: { type: "object" },
+              message: "must be object",
+            };
+            if (vErrors === null) {
+              vErrors = [err88];
+            } else {
+              vErrors.push(err88);
+            }
+            errors++;
+          }
+        }
+        if (data0.tags !== undefined) {
+          let data55 = data0.tags;
+          if (Array.isArray(data55)) {
+            if (data55.length > 8) {
+              const err89 = {
+                instancePath: instancePath + "/result/tags",
+                schemaPath: "#/components/schemas/workers_Worker/properties/tags/maxItems",
+                keyword: "maxItems",
+                params: { limit: 8 },
+                message: "must NOT have more than 8 items",
+              };
+              if (vErrors === null) {
+                vErrors = [err89];
+              } else {
+                vErrors.push(err89);
+              }
+              errors++;
+            }
+            const len7 = data55.length;
+            for (let i7 = 0; i7 < len7; i7++) {
+              let data56 = data55[i7];
+              if (typeof data56 === "string") {
+                if (func2(data56) > 1024) {
+                  const err90 = {
+                    instancePath: instancePath + "/result/tags/" + i7,
+                    schemaPath:
+                      "#/components/schemas/workers_Worker/properties/tags/items/maxLength",
+                    keyword: "maxLength",
+                    params: { limit: 1024 },
+                    message: "must NOT have more than 1024 characters",
+                  };
+                  if (vErrors === null) {
+                    vErrors = [err90];
+                  } else {
+                    vErrors.push(err90);
+                  }
+                  errors++;
+                }
+                if (!pattern2.test(data56)) {
+                  const err91 = {
+                    instancePath: instancePath + "/result/tags/" + i7,
+                    schemaPath: "#/components/schemas/workers_Worker/properties/tags/items/pattern",
+                    keyword: "pattern",
+                    params: { pattern: "^[^,&]*$" },
+                    message: 'must match pattern "' + "^[^,&]*$" + '"',
+                  };
+                  if (vErrors === null) {
+                    vErrors = [err91];
+                  } else {
+                    vErrors.push(err91);
+                  }
+                  errors++;
+                }
+              } else {
+                const err92 = {
+                  instancePath: instancePath + "/result/tags/" + i7,
+                  schemaPath: "#/components/schemas/workers_Worker/properties/tags/items/type",
+                  keyword: "type",
+                  params: { type: "string" },
+                  message: "must be string",
+                };
+                if (vErrors === null) {
+                  vErrors = [err92];
+                } else {
+                  vErrors.push(err92);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err93 = {
+              instancePath: instancePath + "/result/tags",
+              schemaPath: "#/components/schemas/workers_Worker/properties/tags/type",
+              keyword: "type",
+              params: { type: "array" },
+              message: "must be array",
+            };
+            if (vErrors === null) {
+              vErrors = [err93];
+            } else {
+              vErrors.push(err93);
+            }
+            errors++;
+          }
+        }
+        if (data0.tail_consumers !== undefined) {
+          let data57 = data0.tail_consumers;
+          if (Array.isArray(data57)) {
+            const len8 = data57.length;
+            for (let i8 = 0; i8 < len8; i8++) {
+              let data58 = data57[i8];
+              if (data58 && typeof data58 == "object" && !Array.isArray(data58)) {
+                if (data58.name === undefined) {
+                  const err94 = {
+                    instancePath: instancePath + "/result/tail_consumers/" + i8,
+                    schemaPath:
+                      "#/components/schemas/workers_Worker/properties/tail_consumers/items/required",
+                    keyword: "required",
+                    params: { missingProperty: "name" },
+                    message: "must have required property '" + "name" + "'",
+                  };
+                  if (vErrors === null) {
+                    vErrors = [err94];
+                  } else {
+                    vErrors.push(err94);
+                  }
+                  errors++;
+                }
+                if (data58.name !== undefined) {
+                  if (typeof data58.name !== "string") {
+                    const err95 = {
+                      instancePath: instancePath + "/result/tail_consumers/" + i8 + "/name",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/tail_consumers/items/properties/name/type",
+                      keyword: "type",
+                      params: { type: "string" },
+                      message: "must be string",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err95];
+                    } else {
+                      vErrors.push(err95);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err96 = {
+                  instancePath: instancePath + "/result/tail_consumers/" + i8,
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/tail_consumers/items/type",
+                  keyword: "type",
+                  params: { type: "object" },
+                  message: "must be object",
+                };
+                if (vErrors === null) {
+                  vErrors = [err96];
+                } else {
+                  vErrors.push(err96);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err97 = {
+              instancePath: instancePath + "/result/tail_consumers",
+              schemaPath: "#/components/schemas/workers_Worker/properties/tail_consumers/type",
+              keyword: "type",
+              params: { type: "array" },
+              message: "must be array",
+            };
+            if (vErrors === null) {
+              vErrors = [err97];
+            } else {
+              vErrors.push(err97);
+            }
+            errors++;
+          }
+        }
+        if (data0.updated_on !== undefined) {
+          if (!(typeof data0.updated_on === "string")) {
+            const err98 = {
+              instancePath: instancePath + "/result/updated_on",
+              schemaPath: "#/components/schemas/workers_Worker/properties/updated_on/type",
+              keyword: "type",
+              params: { type: "string" },
+              message: "must be string",
+            };
+            if (vErrors === null) {
+              vErrors = [err98];
+            } else {
+              vErrors.push(err98);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err99 = {
+          instancePath: instancePath + "/result",
+          schemaPath: "#/components/schemas/workers_Worker/type",
+          keyword: "type",
+          params: { type: "object" },
+          message: "must be object",
+        };
+        if (vErrors === null) {
+          vErrors = [err99];
+        } else {
+          vErrors.push(err99);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err100 = {
+      instancePath,
+      schemaPath: "#/allOf/1/type",
+      keyword: "type",
+      params: { type: "object" },
+      message: "must be object",
+    };
+    if (vErrors === null) {
+      vErrors = [err100];
+    } else {
+      vErrors.push(err100);
+    }
+    errors++;
+  }
+  validate705.errors = vErrors;
+  return errors === 0;
+}
+validate705.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvEditWorkerResponse = validate706;
-const schema606 = {
+function validate704(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate704.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate705(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate705.errors : vErrors.concat(validate705.errors);
+    errors = vErrors.length;
+  }
+  validate704.errors = vErrors;
+  return errors === 0;
+}
+validate704.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+export const ajvEditWorkerResponse = validate708;
+const schema608 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}/patch/responses/200/content/application~1json/schema",
 };
-const schema607 = {
+const schema609 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -76155,13 +76360,13 @@ const schema607 = {
     },
   ],
 };
-function validate707(
+function validate709(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate707.evaluated;
+  const evaluated0 = validate709.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -76743,7 +76948,7 @@ function validate707(
                       keyword: "enum",
                       params: {
                         allowedValues:
-                          schema595.properties.observability.properties.traces.properties
+                          schema597.properties.observability.properties.traces.properties
                             .propagation_policy.enum,
                       },
                       message: "must be equal to one of the allowed values",
@@ -77990,21 +78195,21 @@ function validate707(
     }
     errors++;
   }
-  validate707.errors = vErrors;
+  validate709.errors = vErrors;
   return errors === 0;
 }
-validate707.evaluated = {
+validate709.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate706(
+function validate708(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate706.evaluated;
+  const evaluated0 = validate708.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -78012,24 +78217,24 @@ function validate706(
     evaluated0.items = undefined;
   }
   if (
-    !validate707(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate709(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate707.errors : vErrors.concat(validate707.errors);
+    vErrors = vErrors === null ? validate709.errors : vErrors.concat(validate709.errors);
     errors = vErrors.length;
   }
-  validate706.errors = vErrors;
+  validate708.errors = vErrors;
   return errors === 0;
 }
-validate706.evaluated = {
+validate708.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvUpdateWorkerResponse = validate710;
-const schema609 = {
+export const ajvUpdateWorkerResponse = validate712;
+const schema611 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}/put/responses/200/content/application~1json/schema",
 };
-const schema610 = {
+const schema612 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -78039,13 +78244,13 @@ const schema610 = {
     },
   ],
 };
-function validate711(
+function validate713(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate711.evaluated;
+  const evaluated0 = validate713.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -78627,7 +78832,7 @@ function validate711(
                       keyword: "enum",
                       params: {
                         allowedValues:
-                          schema595.properties.observability.properties.traces.properties
+                          schema597.properties.observability.properties.traces.properties
                             .propagation_policy.enum,
                       },
                       message: "must be equal to one of the allowed values",
@@ -79874,21 +80079,21 @@ function validate711(
     }
     errors++;
   }
-  validate711.errors = vErrors;
+  validate713.errors = vErrors;
   return errors === 0;
 }
-validate711.evaluated = {
+validate713.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate710(
+function validate712(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate710.evaluated;
+  const evaluated0 = validate712.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -79896,24 +80101,24 @@ function validate710(
     evaluated0.items = undefined;
   }
   if (
-    !validate711(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate713(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate711.errors : vErrors.concat(validate711.errors);
+    vErrors = vErrors === null ? validate713.errors : vErrors.concat(validate713.errors);
     errors = vErrors.length;
   }
-  validate710.errors = vErrors;
+  validate712.errors = vErrors;
   return errors === 0;
 }
-validate710.evaluated = {
+validate712.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvListWorkerVersionsResponse = validate714;
-const schema612 = {
+export const ajvListWorkerVersionsResponse = validate716;
+const schema614 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions/get/responses/200/content/application~1json/schema",
 };
-const schema613 = {
+const schema615 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-collection" },
     {
@@ -79925,7 +80130,7 @@ const schema613 = {
     },
   ],
 };
-const schema614 = {
+const schema616 = {
   type: "object",
   properties: {
     annotations: {
@@ -80165,7 +80370,7 @@ const schema614 = {
   },
   required: ["id", "number", "urls", "created_on"],
 };
-const schema617 = {
+const schema619 = {
   description:
     "List of containers attached to a Worker. Containers can only be attached to Durable Object classes of this Worker script.",
   type: "array",
@@ -80173,7 +80378,7 @@ const schema617 = {
   example: [{ class_name: "MyDurableObject" }],
   "x-stainless-collection-type": "set",
 };
-const schema618 = {
+const schema620 = {
   description: "Container configuration for a Worker.",
   type: "object",
   properties: {
@@ -80185,13 +80390,13 @@ const schema618 = {
   },
   required: ["class_name"],
 };
-function validate720(
+function validate722(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate720.evaluated;
+  const evaluated0 = validate722.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -80266,17 +80471,17 @@ function validate720(
     }
     errors++;
   }
-  validate720.errors = vErrors;
+  validate722.errors = vErrors;
   return errors === 0;
 }
-validate720.evaluated = { items: true, dynamicProps: false, dynamicItems: false };
-function validate717(
+validate722.evaluated = { items: true, dynamicProps: false, dynamicItems: false };
+function validate719(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate717.evaluated;
+  const evaluated0 = validate719.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -80485,7 +80690,7 @@ function validate717(
                   keyword: "enum",
                   params: {
                     allowedValues:
-                      schema614.properties.assets.properties.config.properties.html_handling.enum,
+                      schema616.properties.assets.properties.config.properties.html_handling.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -80525,7 +80730,7 @@ function validate717(
                   keyword: "enum",
                   params: {
                     allowedValues:
-                      schema614.properties.assets.properties.config.properties.not_found_handling
+                      schema616.properties.assets.properties.config.properties.not_found_handling
                         .enum,
                   },
                   message: "must be equal to one of the allowed values",
@@ -80820,7 +81025,7 @@ function validate717(
     }
     if (data.containers !== undefined) {
       if (
-        !validate720(data.containers, {
+        !validate722(data.containers, {
           instancePath: instancePath + "/containers",
           parentData: data,
           parentDataProperty: "containers",
@@ -80828,7 +81033,7 @@ function validate717(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate720.errors : vErrors.concat(validate720.errors);
+        vErrors = vErrors === null ? validate722.errors : vErrors.concat(validate722.errors);
         errors = vErrors.length;
       }
     }
@@ -80865,7 +81070,7 @@ function validate717(
     }
     if (data.exports_reconciliation !== undefined) {
       if (
-        !validate383(data.exports_reconciliation, {
+        !validate385(data.exports_reconciliation, {
           instancePath: instancePath + "/exports_reconciliation",
           parentData: data,
           parentDataProperty: "exports_reconciliation",
@@ -80873,7 +81078,7 @@ function validate717(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate383.errors : vErrors.concat(validate383.errors);
+        vErrors = vErrors === null ? validate385.errors : vErrors.concat(validate385.errors);
         errors = vErrors.length;
       }
     }
@@ -80990,7 +81195,7 @@ function validate717(
       let passing1 = null;
       const _errs61 = errors;
       if (
-        !validate389(data27, {
+        !validate391(data27, {
           instancePath: instancePath + "/migrations",
           parentData: data,
           parentDataProperty: "migrations",
@@ -80998,7 +81203,7 @@ function validate717(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate389.errors : vErrors.concat(validate389.errors);
+        vErrors = vErrors === null ? validate391.errors : vErrors.concat(validate391.errors);
         errors = vErrors.length;
       }
       var _valid1 = _errs61 === errors;
@@ -81016,7 +81221,7 @@ function validate717(
       }
       const _errs62 = errors;
       if (
-        !validate391(data27, {
+        !validate393(data27, {
           instancePath: instancePath + "/migrations",
           parentData: data,
           parentDataProperty: "migrations",
@@ -81024,7 +81229,7 @@ function validate717(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate391.errors : vErrors.concat(validate391.errors);
+        vErrors = vErrors === null ? validate393.errors : vErrors.concat(validate393.errors);
         errors = vErrors.length;
       }
       var _valid1 = _errs62 === errors;
@@ -81361,7 +81566,7 @@ function validate717(
     }
     if (data.placement !== undefined) {
       if (
-        !validate393(data.placement, {
+        !validate395(data.placement, {
           instancePath: instancePath + "/placement",
           parentData: data,
           parentDataProperty: "placement",
@@ -81369,7 +81574,7 @@ function validate717(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate393.errors : vErrors.concat(validate393.errors);
+        vErrors = vErrors === null ? validate395.errors : vErrors.concat(validate395.errors);
         errors = vErrors.length;
       }
     }
@@ -81467,7 +81672,7 @@ function validate717(
           instancePath: instancePath + "/usage_model",
           schemaPath: "#/properties/usage_model/enum",
           keyword: "enum",
-          params: { allowedValues: schema614.properties.usage_model.enum },
+          params: { allowedValues: schema616.properties.usage_model.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -81493,10 +81698,10 @@ function validate717(
     }
     errors++;
   }
-  validate717.errors = vErrors;
+  validate719.errors = vErrors;
   return errors === 0;
 }
-validate717.evaluated = {
+validate719.evaluated = {
   props: {
     annotations: true,
     assets: true,
@@ -81525,13 +81730,13 @@ validate717.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate715(
+function validate717(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate715.evaluated;
+  const evaluated0 = validate717.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -81539,9 +81744,9 @@ function validate715(
     evaluated0.items = undefined;
   }
   if (
-    !validate422(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate424(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate422.errors : vErrors.concat(validate422.errors);
+    vErrors = vErrors === null ? validate424.errors : vErrors.concat(validate424.errors);
     errors = vErrors.length;
   }
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -81566,7 +81771,7 @@ function validate715(
         const len0 = data0.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (
-            !validate717(data0[i0], {
+            !validate719(data0[i0], {
               instancePath: instancePath + "/result/" + i0,
               parentData: data0,
               parentDataProperty: i0,
@@ -81574,7 +81779,7 @@ function validate715(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate717.errors : vErrors.concat(validate717.errors);
+            vErrors = vErrors === null ? validate719.errors : vErrors.concat(validate719.errors);
             errors = vErrors.length;
           }
         }
@@ -81609,21 +81814,21 @@ function validate715(
     }
     errors++;
   }
-  validate715.errors = vErrors;
+  validate717.errors = vErrors;
   return errors === 0;
 }
-validate715.evaluated = {
+validate717.evaluated = {
   props: { result: true, result_info: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate714(
+function validate716(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate714.evaluated;
+  const evaluated0 = validate716.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -81631,24 +81836,24 @@ function validate714(
     evaluated0.items = undefined;
   }
   if (
-    !validate715(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate717(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate715.errors : vErrors.concat(validate715.errors);
+    vErrors = vErrors === null ? validate717.errors : vErrors.concat(validate717.errors);
     errors = vErrors.length;
   }
-  validate714.errors = vErrors;
+  validate716.errors = vErrors;
   return errors === 0;
 }
-validate714.evaluated = {
+validate716.evaluated = {
   props: { result: true, result_info: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvCreateWorkerVersionResponse = validate729;
-const schema619 = {
+export const ajvCreateWorkerVersionResponse = validate731;
+const schema621 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions/post/responses/200/content/application~1json/schema",
 };
-const schema620 = {
+const schema622 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -81658,13 +81863,13 @@ const schema620 = {
     },
   ],
 };
-function validate730(
+function validate732(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate730.evaluated;
+  const evaluated0 = validate732.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -81695,7 +81900,7 @@ function validate730(
     }
     if (data.result !== undefined) {
       if (
-        !validate717(data.result, {
+        !validate719(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -81703,7 +81908,7 @@ function validate730(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate717.errors : vErrors.concat(validate717.errors);
+        vErrors = vErrors === null ? validate719.errors : vErrors.concat(validate719.errors);
         errors = vErrors.length;
       }
     }
@@ -81722,21 +81927,21 @@ function validate730(
     }
     errors++;
   }
-  validate730.errors = vErrors;
+  validate732.errors = vErrors;
   return errors === 0;
 }
-validate730.evaluated = {
+validate732.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate729(
+function validate731(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate729.evaluated;
+  const evaluated0 = validate731.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -81744,30 +81949,30 @@ function validate729(
     evaluated0.items = undefined;
   }
   if (
-    !validate730(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate732(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate730.errors : vErrors.concat(validate730.errors);
+    vErrors = vErrors === null ? validate732.errors : vErrors.concat(validate732.errors);
     errors = vErrors.length;
   }
-  validate729.errors = vErrors;
+  validate731.errors = vErrors;
   return errors === 0;
 }
-validate729.evaluated = {
+validate731.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvDeleteWorkerVersionResponse = validate734;
-const schema621 = {
+export const ajvDeleteWorkerVersionResponse = validate736;
+const schema623 = {
   $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions~1{version_id}/delete/responses/200/content/application~1json/schema",
 };
-function validate735(
+function validate737(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate735.evaluated;
+  const evaluated0 = validate737.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -82286,157 +82491,44 @@ function validate735(
     }
     errors++;
   }
-  validate735.errors = vErrors;
-  return errors === 0;
-}
-validate735.evaluated = {
-  props: { errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-function validate734(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate734.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate735(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate735.errors : vErrors.concat(validate735.errors);
-    errors = vErrors.length;
-  }
-  validate734.errors = vErrors;
-  return errors === 0;
-}
-validate734.evaluated = {
-  props: { errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvGetWorkerVersionResponse = validate737;
-const schema625 = {
-  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions~1{version_id}/get/responses/200/content/application~1json/schema",
-};
-const schema626 = {
-  allOf: [
-    { $ref: "#/components/schemas/workers_api-response-common" },
-    {
-      properties: { result: { $ref: "#/components/schemas/workers_Version" } },
-      required: ["result"],
-      type: "object",
-    },
-  ],
-};
-function validate738(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate738.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate175(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate175.errors : vErrors.concat(validate175.errors);
-    errors = vErrors.length;
-  }
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.result === undefined) {
-      const err0 = {
-        instancePath,
-        schemaPath: "#/allOf/1/required",
-        keyword: "required",
-        params: { missingProperty: "result" },
-        message: "must have required property '" + "result" + "'",
-      };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.result !== undefined) {
-      if (
-        !validate717(data.result, {
-          instancePath: instancePath + "/result",
-          parentData: data,
-          parentDataProperty: "result",
-          rootData,
-          dynamicAnchors,
-        })
-      ) {
-        vErrors = vErrors === null ? validate717.errors : vErrors.concat(validate717.errors);
-        errors = vErrors.length;
-      }
-    }
-  } else {
-    const err1 = {
-      instancePath,
-      schemaPath: "#/allOf/1/type",
-      keyword: "type",
-      params: { type: "object" },
-      message: "must be object",
-    };
-    if (vErrors === null) {
-      vErrors = [err1];
-    } else {
-      vErrors.push(err1);
-    }
-    errors++;
-  }
-  validate738.errors = vErrors;
-  return errors === 0;
-}
-validate738.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-function validate737(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate737.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate738(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate738.errors : vErrors.concat(validate738.errors);
-    errors = vErrors.length;
-  }
   validate737.errors = vErrors;
   return errors === 0;
 }
 validate737.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
+  props: { errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvPatchLatestWorkerVersionResponse = validate742;
+function validate736(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate736.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate737(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate737.errors : vErrors.concat(validate737.errors);
+    errors = vErrors.length;
+  }
+  validate736.errors = vErrors;
+  return errors === 0;
+}
+validate736.evaluated = {
+  props: { errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+export const ajvGetWorkerVersionResponse = validate739;
 const schema627 = {
-  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions~1latest/patch/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions~1{version_id}/get/responses/200/content/application~1json/schema",
 };
 const schema628 = {
   allOf: [
@@ -82448,13 +82540,13 @@ const schema628 = {
     },
   ],
 };
-function validate743(
+function validate740(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate743.evaluated;
+  const evaluated0 = validate740.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -82485,7 +82577,7 @@ function validate743(
     }
     if (data.result !== undefined) {
       if (
-        !validate717(data.result, {
+        !validate719(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -82493,7 +82585,7 @@ function validate743(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate717.errors : vErrors.concat(validate717.errors);
+        vErrors = vErrors === null ? validate719.errors : vErrors.concat(validate719.errors);
         errors = vErrors.length;
       }
     }
@@ -82512,21 +82604,21 @@ function validate743(
     }
     errors++;
   }
-  validate743.errors = vErrors;
+  validate740.errors = vErrors;
   return errors === 0;
 }
-validate743.evaluated = {
+validate740.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate742(
+function validate739(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate742.evaluated;
+  const evaluated0 = validate739.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -82534,24 +82626,137 @@ function validate742(
     evaluated0.items = undefined;
   }
   if (
-    !validate743(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate740(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate743.errors : vErrors.concat(validate743.errors);
+    vErrors = vErrors === null ? validate740.errors : vErrors.concat(validate740.errors);
     errors = vErrors.length;
   }
-  validate742.errors = vErrors;
+  validate739.errors = vErrors;
   return errors === 0;
 }
-validate742.evaluated = {
+validate739.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvUserApiTokensVerifyTokenResponse = validate747;
+export const ajvPatchLatestWorkerVersionResponse = validate744;
 const schema629 = {
-  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1user~1tokens~1verify/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions~1latest/patch/responses/200/content/application~1json/schema",
 };
 const schema630 = {
+  allOf: [
+    { $ref: "#/components/schemas/workers_api-response-common" },
+    {
+      properties: { result: { $ref: "#/components/schemas/workers_Version" } },
+      required: ["result"],
+      type: "object",
+    },
+  ],
+};
+function validate745(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate745.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate175(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate175.errors : vErrors.concat(validate175.errors);
+    errors = vErrors.length;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.result === undefined) {
+      const err0 = {
+        instancePath,
+        schemaPath: "#/allOf/1/required",
+        keyword: "required",
+        params: { missingProperty: "result" },
+        message: "must have required property '" + "result" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.result !== undefined) {
+      if (
+        !validate719(data.result, {
+          instancePath: instancePath + "/result",
+          parentData: data,
+          parentDataProperty: "result",
+          rootData,
+          dynamicAnchors,
+        })
+      ) {
+        vErrors = vErrors === null ? validate719.errors : vErrors.concat(validate719.errors);
+        errors = vErrors.length;
+      }
+    }
+  } else {
+    const err1 = {
+      instancePath,
+      schemaPath: "#/allOf/1/type",
+      keyword: "type",
+      params: { type: "object" },
+      message: "must be object",
+    };
+    if (vErrors === null) {
+      vErrors = [err1];
+    } else {
+      vErrors.push(err1);
+    }
+    errors++;
+  }
+  validate745.errors = vErrors;
+  return errors === 0;
+}
+validate745.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate744(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate744.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate745(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate745.errors : vErrors.concat(validate745.errors);
+    errors = vErrors.length;
+  }
+  validate744.errors = vErrors;
+  return errors === 0;
+}
+validate744.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+export const ajvUserApiTokensVerifyTokenResponse = validate749;
+const schema631 = {
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1user~1tokens~1verify/get/responses/200/content/application~1json/schema",
+};
+const schema632 = {
   allOf: [
     { $ref: "#/components/schemas/iam_api-response-single" },
     {
@@ -82570,14 +82775,14 @@ const schema630 = {
     },
   ],
 };
-const schema631 = {
+const schema633 = {
   description: "The expiration time on or after which the JWT MUST NOT be accepted for processing.",
   type: "string",
   format: "date-time",
   example: "2020-01-01T00:00:00Z",
   "x-auditable": true,
 };
-const schema632 = {
+const schema634 = {
   description: "Token identifier tag.",
   type: "string",
   example: "ed17574386854bf78a67040be0a770b0",
@@ -82585,14 +82790,14 @@ const schema632 = {
   readOnly: true,
   "x-auditable": true,
 };
-const schema633 = {
+const schema635 = {
   description: "The time before which the token MUST NOT be accepted for processing.",
   type: "string",
   format: "date-time",
   example: "2018-07-01T05:20:00Z",
   "x-auditable": true,
 };
-const schema634 = {
+const schema636 = {
   description: "Status of the token.",
   type: "string",
   example: "active",
@@ -82600,13 +82805,13 @@ const schema634 = {
   "x-auditable": true,
   "x-stainless-terraform-configurability": "computed_optional",
 };
-function validate748(
+function validate750(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate748.evaluated;
+  const evaluated0 = validate750.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -82743,7 +82948,7 @@ function validate748(
               instancePath: instancePath + "/result/status",
               schemaPath: "#/components/schemas/iam_token_status/enum",
               keyword: "enum",
-              params: { allowedValues: schema634.enum },
+              params: { allowedValues: schema636.enum },
               message: "must be equal to one of the allowed values",
             };
             if (vErrors === null) {
@@ -82771,21 +82976,21 @@ function validate748(
     }
     errors++;
   }
-  validate748.errors = vErrors;
+  validate750.errors = vErrors;
   return errors === 0;
 }
-validate748.evaluated = {
+validate750.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate747(
+function validate749(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate747.evaluated;
+  const evaluated0 = validate749.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -82793,15 +82998,15 @@ function validate747(
     evaluated0.items = undefined;
   }
   if (
-    !validate748(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate750(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate748.errors : vErrors.concat(validate748.errors);
+    vErrors = vErrors === null ? validate750.errors : vErrors.concat(validate750.errors);
     errors = vErrors.length;
   }
-  validate747.errors = vErrors;
+  validate749.errors = vErrors;
   return errors === 0;
 }
-validate747.evaluated = {
+validate749.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
