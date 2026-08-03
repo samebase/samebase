@@ -36,7 +36,7 @@ type CheckoutAttempt =
 const productId = "samebase-pro-monthly";
 const externalCustomerId = "existing-customer";
 const currentPeriodEnd = "2026-09-01T00:00:00.000Z";
-const checkoutExpiresAt = new Date("2026-08-03T12:00:00.000Z");
+const checkoutExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
 function createDeferred<Value>() {
   const control: { resolve: (value: Value) => void } = {
