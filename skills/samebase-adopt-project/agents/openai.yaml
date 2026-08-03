@@ -1,0 +1,6 @@
+interface:
+  display_name: "Adopt Project to Samebase"
+  short_description: "Move an existing project to the Samebase stack"
+  default_prompt:
+    "Use $samebase-adopt-project to move an existing repository to the Samebase stack with monitored
+    gates and independent review."
