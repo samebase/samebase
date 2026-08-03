@@ -19,6 +19,7 @@ import {
 import { resolveDisplayedRepositories } from "@/lib/connectRepositoryPicker";
 import { queueExistingRepositoryAndNavigateToDashboard } from "@/lib/existingRepositoryConnectHandoff";
 import { PROVIDERS_ROUTE } from "@/lib/providersRoute";
+import { Loader2 } from "lucide-react";
 
 type Repository = FunctionReturnType<typeof api.github.listRepositories>[number];
 
@@ -473,6 +474,18 @@ export function ConnectRepositoryPageContent({
                 </div>
               );
             })}
+
+            {loadingMore && repositoryRows.length > 0 ? (
+              <div
+                data-testid="connect-repository-loading-more"
+                role="status"
+                aria-live="polite"
+                className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground"
+              >
+                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                Loading more repositories...
+              </div>
+            ) : null}
           </div>
         )}
 
