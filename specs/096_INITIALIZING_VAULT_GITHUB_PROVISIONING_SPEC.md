@@ -5,9 +5,10 @@
 - Status: Accepted and implemented
 - Owner: Samebase app creation, existing repository onboarding, and vault model
 - Created: 2026-05-07
-- Last updated: 2026-07-30
+- Last updated: 2026-08-04
 - Related docs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
   - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `research/2026-05-06-vault-first-provisioning-model.md`
 
@@ -118,7 +119,7 @@ type VaultRow = VaultBase & VaultGitHubState;
 /** Fields every vault row has regardless of GitHub connection state. */
 type VaultBase = {
   /** Ownership and authorization boundary for the vault. */
-  userId: Id<"users">;
+  organizationId: Id<"organizations">;
 };
 ```
 
@@ -220,8 +221,11 @@ type VaultGitHubState =
       /** Timestamp when the vault first became a usable source workspace. */
       connectedAt: number;
 
-      /** Timestamp of the current vault-wide tree-refresh claim, if one is active. */
-      treeRefreshStartedAt?: number;
+      /** Current vault-wide tree-refresh claim and the user credentials it uses. */
+      treeRefreshLock?: {
+        requestedByUserId: Id<"users">;
+        startedAt: number;
+      };
 
       /** Timestamp of the latest tree-refresh failure that has not been superseded. */
       lastTreeRefreshFailedAt?: number;
@@ -304,7 +308,8 @@ prefer deriving it so bad states become unrepresentable.
 
 Base vault fields:
 
-1. `userId`: required ownership and authorization boundary.
+1. `organizationId`: required ownership and authorization boundary. Membership grants access as
+   defined by spec 120.
 2. Convex `_creationTime`: stable creation ordering and audit timestamp. Do not duplicate this as
    `createdAt` unless a non-Convex boundary needs that name.
 
@@ -394,8 +399,9 @@ Connected GitHub fields:
 5. `visibility`: current repository visibility from GitHub metadata.
 6. `defaultBranch`: repository metadata needed for default source views.
 7. `connectedAt`: audit timestamp for when the vault first became a usable repository workspace.
-8. `treeRefreshStartedAt`: the live vault-wide refresh claim. It prevents concurrent tree fetches
-   and is ignored after the shared stale-lock threshold.
+8. `treeRefreshLock`: the live vault-wide refresh claim. `requestedByUserId` records whose provider
+   credentials the refresh uses, and `startedAt` applies the shared stale-lock threshold. The actor
+   is provenance and a credential dependency, not authorization.
 9. `lastTreeRefreshFailedAt`: timestamp of the latest tree-refresh failure. Surfaces compare it with
    the relevant branch observation's `lastTreeRefreshAt` so a later successful refresh wins.
 10. `treeRefreshFailureKind`: distinguishes an ordinary failure from provider rate limiting without

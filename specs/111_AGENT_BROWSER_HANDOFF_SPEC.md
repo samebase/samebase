@@ -2,7 +2,7 @@
 
 Status: Accepted
 
-Related: `rfcs/096_AGENT_BROWSER_HANDOFF_PLAN.md`
+Related: `rfcs/096_AGENT_BROWSER_HANDOFF_PLAN.md`, `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 
 ## Current Contract
 
@@ -14,6 +14,7 @@ The tool is listed and callable only when all of these conditions hold:
 1. The OAuth grant includes `access_browser_login_handoff`.
 2. The grant and MCP OAuth client are still active.
 3. The grant user still has current Samebase role access to `access_browser_login_handoff`.
+4. The grant user is still a member of the exact organization stored on the grant.
 
 Successful URL creation also requires `SITE_URL` to be configured to the Samebase app origin for the
 deployment. It must be an origin URL with no path, query, or fragment. HTTPS is required for
@@ -37,8 +38,8 @@ single use:
    session.
 3. If the browser is already signed in as a different user, redemption consumes the row and rejects
    the login.
-4. If the grant, client, scope, or user access is no longer valid, redemption consumes the row and
-   rejects the login.
+4. If the grant, client, scope, user access, or exact grant-organization membership is no longer
+   valid, redemption consumes the row and rejects the login.
 5. Missing, expired, or already consumed tokens do not create a browser session.
 
 The browser route waits for Convex Auth to finish loading the existing session before it consumes

@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase
-- Last updated: 2026-08-03
+- Last updated: 2026-08-04
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`
@@ -12,25 +12,20 @@
   - `specs/110_VAULT_ROUTE_SURFACE_SPEC.md`
   - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 
-## Accepted Organization Transition
+## Organization Ownership
 
-The current `userId` ownership clauses below stay effective until their organization rollout phase
-ships. Phase 1 adds `organizationId` quota keys to both attachment tables while it keeps the current
-`userId` fields for legacy authorization. The same phase makes all attachment writes derive that key
-from the parent vault. Phase 2 makes the organization key required, moves attachment access to the
-parent vault's organization membership, and removes legacy ownership values. Phase 3 removes
-attachment `userId` fields and their ownership indexes.
-
-The copied `organizationId` exists only for indexed billing counts. The parent vault remains the
-authorization boundary. Provider identities, attachment identity, placement, observations, and
-connection behavior in this spec do not change.
+Each attachment has the parent vault's required `organizationId` for indexed billing counts. The
+parent vault remains the authorization boundary. Attachment rows have no user ownership field.
+Provider identities, attachment identity, placement, observations, and connection behavior in this
+spec do not change.
 
 ## Current Contract
 
 ### Domain entities
 
-A vault is a user's connection to one GitHub repository. A provider resource attachment records the
-user's intent to include one independently identified provider resource in that vault.
+A vault is an organization's connection to one GitHub repository. A provider resource attachment
+records the organization's intent to include one independently identified provider resource in that
+vault.
 
 Samebase has no durable app, folder, or root-group entity. In particular, there is no `vaultApps`
 table and provider attachments do not carry an `appId`.
@@ -40,7 +35,7 @@ The durable Cloudflare attachment is:
 ```ts
 {
   vaultId;
-  userId;
+  organizationId;
   accountId;
   workerName;
   workerTag;
@@ -53,7 +48,7 @@ The durable Convex attachment is:
 ```ts
 {
   vaultId;
-  userId;
+  organizationId;
   teamId;
   projectId;
   convexConfigPath;
@@ -228,8 +223,8 @@ provider observation, or active operation.
 
 ## Rollout
 
-Before the first schema push on a deployment that contains the old model, delete all rows from
-`vaultCloudflareWorkers`, `vaultConvexProjects`, and `vaultApps`. Existing Convex placement cannot
-be reconstructed authoritatively, so the rollout intentionally requires the user to attach resources
-again through verified discovery. No migration field, dual write, fallback read, or compatibility
-adapter is permitted.
+The first organization deployment follows `docs/organization-manual-cutover.md`. It clears the old
+vault and attachment rows before the final schema deploys. Existing Convex placement cannot be
+reconstructed authoritatively, so the rollout requires members to attach resources again through
+verified discovery. No migration field, dual write, fallback read, or compatibility adapter is
+permitted.

@@ -13,6 +13,7 @@
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
   - `specs/098_VAULT_DELETION_WORKFLOW_SPEC.md`
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
+  - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Related code:
   - `apps/samebase/convex/auth.ts`
   - `apps/samebase/convex/email.ts`
@@ -33,7 +34,8 @@ run and retry failed work.
 Deletion has three product stages:
 
 1. **Lock:** accept the request, create a durable deletion run, and deny normal account access.
-2. **Clean:** cancel billing, revoke access, and delete Samebase-owned user data in retryable steps.
+2. **Clean:** revoke personal access and delete personal data in retryable steps. For a sole member,
+   also cancel organization billing and delete Samebase-owned organization data.
 3. **Finish:** delete authentication and user records, send completion email, and retain only a
    scrubbed operation receipt.
 
@@ -79,8 +81,9 @@ instead of presenting a partial list.
 Account deletion never commits, exports, or publishes staged changes. The user can cancel, commit
 the work normally, and return to deletion without a second confirmation mechanism.
 
-When the account has an active Samebase subscription, the same dialog also states that deletion
-immediately revokes the subscription and does not automatically refund unused time.
+When a sole-member account has an active Samebase subscription, the same dialog also states that
+deletion immediately revokes the subscription and does not automatically refund unused time. A
+shared-member deletion preserves organization billing.
 
 The dialog shows the viewer's current deletion stakes and requires typing a dynamic confirmation
 phrase before the destructive action enables. The base phrase is `delete my account`; nonzero counts
@@ -91,9 +94,10 @@ phrase is selectable, and pasting into the confirmation input is allowed.
 
 The request mutation recomputes the phrase and the complete displayed stakes from current data. It
 rejects either mismatch with a `stakes_changed` result instead of creating a run, so confirmation
-cannot silently survive a change moving between repositories or branches, or a Samebase subscription
-becoming cancellable. The subscribed stakes query remains the only source of displayed details. The
-dialog then clears the typed phrase, shows a short notice, and asks the user to confirm again.
+cannot silently survive a change moving between repositories or branches, or an applicable
+sole-member subscription becoming cancellable. The subscribed stakes query remains the only source
+of displayed details. The dialog then clears the typed phrase, shows a short notice, and asks the
+user to confirm again.
 
 The confirmation action is disabled until the typed phrase matches and while the request is being
 accepted. Acceptance atomically creates one durable account deletion run and gates the user.
@@ -131,10 +135,11 @@ loss, expiry, or a missing receipt never infer deletion success.
 
 On success:
 
-1. Any active Samebase subscription is canceled.
+1. A sole member's active organization subscription is canceled. A shared organization keeps its
+   subscription.
 2. Samebase sessions, MCP grants, and stored provider credentials are revoked or removed.
-3. Samebase-owned profile, vault, file, storage, collaboration, preference, and workflow data
-   belonging to the user is deleted according to the data-handling matrix below.
+3. Personal profile, preference, and credential data is deleted. Organization vault, file, storage,
+   collaboration, billing, and workflow data is deleted only when no member remains.
 4. A completion email is attempted after required cleanup succeeds and before the final identity is
    removed. Email delivery failure is visible to staff but does not retain the user's account
    indefinitely.
@@ -157,12 +162,12 @@ A failed step never silently reactivates the account. The deletion-only status p
 available and explains at a user level that staff attention is required. Staff see the detailed safe
 error and retry controls in the admin view.
 
-Active billing cancellation is a hard completion boundary. The workflow cannot report success while
-Samebase can continue charging the user. A provider revocation failure is recorded and retried, but
-it does not retain the user's local Samebase data forever after Samebase has removed its stored
-credential. Upstream provider revocation gets three attempts separated by five seconds. After that,
-the workflow deletes the local credential, records that upstream revocation was not confirmed, and
-continues local erasure.
+Sole-member billing cancellation is a hard completion boundary. Shared-member deletion preserves
+organization billing. A provider revocation failure is recorded and retried, but it does not retain
+the user's local Samebase data forever after Samebase has removed its stored credential. Upstream
+provider revocation gets three attempts separated by five seconds. After that, the workflow deletes
+the local credential, records that upstream revocation was not confirmed, and continues local
+erasure.
 
 ## External Resources
 
@@ -187,15 +192,16 @@ already deployed applications.
 Version one uses this complete product-level matrix. The implementation cleanup registry expands
 these classes into the concrete current schema tables and storage objects.
 
-| Data class                                                           | Final action                                                                                                                 |
-| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| User profile, auth accounts, sessions, verification data             | Delete                                                                                                                       |
-| Provider connections, MCP grants and tokens                          | Revoke where supported, then delete local rows and secrets                                                                   |
-| Vaults, files, staged content, collaboration state, and preferences  | Delete Samebase rows and storage objects                                                                                     |
-| Samebase subscription                                                | Immediately revoke before success, then delete the local customer link                                                       |
-| Other provisioning, refresh, and deletion runs belonging to the user | Quiesce, then delete                                                                                                         |
-| Current account deletion run and events                              | Replace with a scrubbed operation receipt                                                                                    |
-| Provider backups and infrastructure logs                             | Keep beyond normal product use until automatic provider retention expires; never restore erased account data into active use |
+| Data class                                                          | Final action                                                                                                                 |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| User profile, auth accounts, sessions, verification data            | Delete                                                                                                                       |
+| Provider connections, MCP grants and tokens                         | Revoke where supported, then delete local rows and secrets                                                                   |
+| Personal preferences                                                | Delete                                                                                                                       |
+| Organization vaults, files, staged content, and collaboration state | Preserve when another member remains; delete Samebase rows and storage objects for a sole member                             |
+| Samebase organization subscription                                  | Preserve when another member remains; immediately revoke before sole-member success, then delete the local customer link     |
+| Provisioning, refresh, and deletion runs                            | Preserve with a shared vault; quiesce and delete with the sole-member organization                                           |
+| Current account deletion run and events                             | Replace with a scrubbed operation receipt                                                                                    |
+| Provider backups and infrastructure logs                            | Keep beyond normal product use until automatic provider retention expires; never restore erased account data into active use |
 
 No active application row is retained merely by setting `deletedAt`. The deleting user row is
 temporary workflow state and is deleted at the terminal step.
@@ -306,7 +312,8 @@ test succeeds in the production-like environment with a dedicated non-staff acco
 - Prove all normal writes and routes reject the deleting role.
 - Prove request acceptance is idempotent and creates one run.
 - Prove failure and retry at every durable step are idempotent.
-- Prove billing cancellation failure prevents success.
+- Prove sole-member billing cancellation failure prevents success and shared-member deletion
+  preserves billing.
 - Prove provider-resource deletion is never requested.
 - Prove successful runs scrub personal identity while retaining safe operational evidence.
 - Prove completion email failure is visible and does not retain the account indefinitely.

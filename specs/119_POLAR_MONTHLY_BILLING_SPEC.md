@@ -4,25 +4,22 @@
 
 - Status: Accepted
 - Owner: Samebase platform
-- Last updated: 2026-08-03
+- Last updated: 2026-08-04
 - Active rollout plan: `rfcs/098_POLAR_MONTHLY_BILLING_LAUNCH_PLAN.md`
 - Supersedes: `specs/033_POLAR_BILLING_SPEC.md` and `specs/034_POLAR_BILLING_PHASED_ROLLOUT_SPEC.md`
 - Related: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 
-## Accepted Organization Transition
+## Organization Billing
 
-The current user billing contract below stays effective until Phase 1 of the organization rollout
-ships. Phase 1 moves the current Polar billing fields from `users` to one
-`organizationBillingAccounts` row for each organization. Paid entitlement, Worker counts, and Convex
-project counts then apply to the organization. The two plans, prices, resource limits, downgrade
-behavior, and Polar verification rules do not change. This transition does not add a team plan or
-seat billing. Phase 1 updates the Current Contract below when it ships.
+Each organization has one `organizationBillingAccounts` row. Paid entitlement, Worker counts, and
+Convex project counts apply to the organization. The two plans, prices, resource limits, downgrade
+behavior, and Polar verification rules do not change. This contract does not add seat billing.
 
 ## Current Contract
 
 ### Plans
 
-Samebase has two personal plans:
+Samebase has two organization plans:
 
 | Plan | Price        | Connected Cloudflare Workers | Connected Convex projects |
 | ---- | ------------ | ---------------------------: | ------------------------: |
@@ -30,10 +27,10 @@ Samebase has two personal plans:
 | Pro  | $4 per month |                           40 |                        40 |
 
 The two resource limits are independent. Connected resources are the authoritative resource
-attachments owned by the user, not provider credentials or vault records.
+attachments owned by the organization, not provider credentials or vault records.
 
 Pro is monthly only. Samebase does not offer an annual plan, usage billing, a trial, FileView, an
-add-on, a team plan, or seat billing as part of this contract.
+add-on, or seat billing as part of this contract.
 
 ### Subscription State
 
@@ -43,27 +40,27 @@ trusted reconciliation operation.
 
 - Cancellation keeps Pro active until the paid period ends.
 - Payment recovery keeps Pro active while Polar still grants the entitlement.
-- When Polar stops the entitlement, Samebase changes the user to Free.
+- When Polar stops the entitlement, Samebase changes the organization to Free.
 - Repeated or out-of-order webhook deliveries must converge on current Polar customer state.
 - Invalid or malformed provider data must not remove an existing entitlement.
 
 ### Resource Enforcement
 
 Samebase must enforce each limit on the server for every new Worker or Convex project attachment.
-The write must use the current authoritative count and reject the attachment when the user already
-has the plan limit.
+The write must use the current authoritative count and reject the attachment when the organization
+already has the plan limit.
 
-An account can be above the Free limit after Pro ends. Samebase keeps all existing resources usable
-and does not disconnect or delete them. It blocks new attachments for that resource type until the
-count is below the Free limit or Pro becomes active again.
+An organization can be above the Free limit after Pro ends. Samebase keeps all existing resources
+usable and does not disconnect or delete them. It blocks new attachments for that resource type
+until the count is below the Free limit or Pro becomes active again.
 
 ### Customer Surfaces
 
 The account page shows the current plan, subscription state when action is necessary, separate
 Worker and Convex project usage, the next billing or end date when known, and one billing action:
 
-- Free users can start the $4 monthly Pro checkout.
-- Pro users can open the Polar customer portal.
+- A member of a Free organization can start the $4 monthly Pro checkout.
+- A member of a Pro organization can open the Polar customer portal.
 
 The public pricing page shows the same Free and Pro contract. Polar owns payment methods, invoices,
 receipts, and cancellation controls through its hosted checkout and customer portal.

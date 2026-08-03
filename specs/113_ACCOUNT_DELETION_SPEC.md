@@ -5,22 +5,17 @@
 Accepted. This document is the source of truth for account deletion behavior. RFC 097 retains the
 release plan and manual acceptance evidence.
 
-Spec 120 defines the accepted organization transition. The current user-owned resource contract
-below stays effective until Phase 2. Phase 1 makes the narrow membership and billing cleanup changes
-defined below.
+Spec 120 defines the current organization ownership contract.
 
-## Accepted Organization Transition
+## Organization Deletion Contract
 
-The transition changes account deletion in these phases:
-
-- Phase 1 removes the deleting user's membership. It preserves an organization when another member
-  remains and removes the empty organization after the sole member's normal cleanup finishes. It
-  cancels and deletes organization billing only for a sole member. Shared subscription stakes and
-  billing stay with the organization.
-- Phase 2 applies the same sole-member decision to the organization's vaults, staged changes, and
-  other Samebase-owned resources. The existing full cleanup order applies only to sole-member
-  organizations.
-- Every phase deletes the user's personal data, provider connections, and provider authorizations.
+- Account deletion removes the deleting user's membership.
+- When another member remains, it preserves the organization, billing, vaults, staged changes, and
+  other organization-owned data.
+- When no member remains, it deletes the organization's Samebase-owned data and organization row. It
+  cancels and deletes organization billing through the normal billing cleanup.
+- Every deletion deletes the user's personal data, provider connections, and provider
+  authorizations.
 - Actor and workflow rows on retained organization data follow their table-specific delete, detach,
   or anonymize policy. They do not grant access and do not cause shared resources to be deleted.
 
@@ -35,8 +30,7 @@ scheduled continuation completes the same per-vault cleanup if the workflow comp
 fallback. No actor-wide account cleanup scan owns vault lifecycle data.
 
 The confirmation list, counts, and phrase include only the data that this deletion request will
-delete. Provider-owned infrastructure stays outside the deletion boundary in all phases. Each
-implementation phase updates the Current Contract below when its transition ships.
+delete. Provider-owned infrastructure stays outside the deletion boundary.
 
 ## User Contract
 
@@ -70,10 +64,12 @@ session to `/account-deletion`. Repeated requests return the same active run wit
 phrase. A deleting user cannot use ordinary authenticated product routes or create new user-owned
 data.
 
-The request rejects while a manual provider change is active and tells the user to wait for it to
-finish. A manual provider change rejects after the request marks the user as deleting. These two
-start checks prevent account deletion and a provider change from owning the same account at the same
-time.
+For a sole member, the request rejects while any organization provider change or repository refresh
+is active. For a shared member, it rejects only while a provider change or repository refresh that
+uses the deleting user's credentials is active. Work requested by a remaining member continues. A
+manual provider change or repository refresh rejects after its requesting user is marked as
+deleting. These start checks prevent account deletion from removing credentials that active work
+still uses.
 
 If a deletion request reports a pending billing checkout, the dialog attempts one Polar
 reconciliation and repeats the same request once, even if reconciliation fails, before it shows the
@@ -90,11 +86,10 @@ Vault and staged-data cleanup repeats bounded mutations until the persisted grou
 completion. It has no fixed batch-count ceiling. Each action attempt remains subject to Convex's
 execution limit and the workflow retry policy, while committed progress lets staff retry continue
 from the last completed batch. Every destructive batch rechecks active vault deletion, provisioning,
-and repository-refresh work before deleting rows. During Phase 1, the verified legacy `userId`
-dual-write makes this indexed check cover all organization vault work for a sole member. For a
-shared organization, the same check covers only work that depends on the deleting user. Work owned
-by a remaining member continues. The UI does not estimate percent complete or display steps the
-backend does not persist.
+and repository-refresh work before deleting rows. Sole-member deletion waits for work across the
+organization. Shared-member deletion waits only for work that depends on the deleting user or their
+credentials. Work started by a remaining member continues. The UI does not estimate percent complete
+or display steps the backend does not persist.
 
 ## Completion And Browser Recovery
 
@@ -117,13 +112,14 @@ Samebase tabs and retry.
 
 The workflow must:
 
-1. Stop other sessions and wait for active Samebase work to quiesce.
-2. Cancel active Samebase billing.
+1. Stop other sessions and wait for the applicable Samebase work to quiesce.
+2. For a sole member, cancel active organization billing. For a shared member, preserve organization
+   billing.
 3. Attempt supported provider authorization revocation, then remove local provider credentials.
-4. Delete Samebase-owned vault, staged, storage, profile, preference, access, and workflow data in
-   retryable batches.
-5. Recheck billing, then attempt the completion email with the opaque deletion operation ID as the
-   user's support reference.
+4. Delete personal profile, preference, access, and workflow data in retryable batches. For a sole
+   member, also delete the organization's Samebase-owned vault, staged, and storage data.
+5. Recheck the applicable sole-member billing cleanup, then attempt the completion email with the
+   opaque deletion operation ID as the user's support reference.
 6. Recheck late sessions, credentials, and cleanup invariants.
 7. Delete the final auth session, auth account, and user row.
 8. Retain only the scrubbed operation receipt in application tables. The workflow component can
@@ -152,14 +148,17 @@ until real deletion volume justifies automation.
 ## Required Validation
 
 - A request is idempotent and capability retries keep observing the same run.
-- Account deletion and manual provider changes reject each other at their start mutations.
+- Sole-member deletion waits for all organization provider changes and repository refreshes.
+  Shared-member deletion waits only for work requested by the deleting user.
+- Account deletion and credential-dependent work for the same user reject each other at their start
+  mutations.
 - More than 96 vault cleanup batches complete successfully.
 - Every detailed destructive batch fails closed when conflicting work appears.
 - Vault deletion removes lifecycle events before runs, does not remove an active run, and leaves no
   lifecycle rows after its bounded continuation completes.
 - Normal routes and writes reject a deleting user.
-- Billing failure prevents success, while completion-email failure remains visible without retaining
-  the account indefinitely.
+- Sole-member billing failure prevents success. Shared-member deletion preserves billing.
+  Completion-email failure remains visible without retaining the account indefinitely.
 - Provider-owned infrastructure is never deleted.
 - Successful runs remove identity and owned data while retaining only the scrubbed application
   receipt plus identity-free workflow execution state.

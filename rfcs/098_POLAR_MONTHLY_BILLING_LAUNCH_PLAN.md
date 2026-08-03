@@ -4,8 +4,10 @@
 
 - Status: Active implementation tracker
 - Owner: Samebase platform
-- Last updated: 2026-08-02
+- Last updated: 2026-08-04
 - Accepted contract: `specs/119_POLAR_MONTHLY_BILLING_SPEC.md`
+- Organization ownership: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
+- Organization cutover: `docs/organization-manual-cutover.md`
 - Integration branch: `codex-polar-monthly-billing`
 - Lifecycle: Update this file during the rollout. Archive it after production launch.
 
@@ -49,8 +51,8 @@ a complex automatic recovery system.
 - [x] Preserve quota and provider-orphan cleanup instructions through managed provisioning.
 - [x] Complete the final cross-review after these small fixes.
 
-- [ ] Remove `billingPolarStateChangedAt` only after production rows are verified or migrated. It
-      remains an optional compatibility field until that check is complete.
+- [ ] Complete the organization cutover. It records the retained Polar state, removes all old user
+      billing fields, and restores that state in the shared operator organization's billing row.
 
 Old specs 033 and 034 are historical input. They do not override the accepted contract in spec 119.
 
@@ -198,22 +200,23 @@ If any identifier or provider result is uncertain, leave the local state unchang
 4. Fix the provider, credential, or data problem that caused the non-2xx response.
 5. Run the internal `polarBillingState:reconcileCustomerFromPolar` action with the exact external
    customer ID.
-6. Verify the user billing row and the Settings Billing section.
+6. Verify the organization billing row and the Settings Billing section.
 7. If Polar disabled the webhook endpoint, re-enable it after the repair.
 
 ### Account deletion billing failure
 
 1. Open the failed run in `/admin/account-deletions` and read its run ID and user ID.
 2. Find `billing:polar:account_deletion_cancellation_failed` in the server log for that run ID.
-3. Read `billingPolarExternalCustomerId` from the exact active user row. Inspect that customer and
-   all of its subscriptions in Polar, then fix the provider, credential, or subscription problem.
+3. Resolve the run's user membership to its organization billing row. Read `polarExternalCustomerId`
+   from that row. Inspect that customer and all of its subscriptions in Polar, then fix the
+   provider, credential, or subscription problem.
 4. Retry the same run from `/admin/account-deletions`.
 5. Verify that the billing outcome succeeds before the run completes.
 
 ### Stuck checkout marker
 
-1. Read the user ID, `billingPolarExternalCustomerId`, and `billingPolarCheckoutAttempt` from the
-   exact user row.
+1. Read the user ID, `polarExternalCustomerId`, and `polarCheckoutAttempt` from the exact
+   organization billing row selected by that user's membership.
 2. Inspect the same customer in Polar. Match the product ID and the checkout metadata fields
    `source`, `plan`, and `samebase_checkout_attempt_id`.
 3. Run one internal compare-and-swap mutation with the exact current identifiers:
@@ -224,8 +227,8 @@ If any identifier or provider result is uncertain, leave the local state unchang
    - Run `polarCheckout:clearOpen` with the user ID, attempt ID, and exact checkout ID only when the
      checkout failed or expired.
 4. For a confirmed or succeeded checkout, first run the canonical Polar reconciliation and verify
-   that the user is Pro. The normal checkout reconciliation then clears the matching marker. If it
-   does not, use `polarCheckout:clearOpen` only after that Pro check.
+   that the organization is Pro. The normal checkout reconciliation then clears the matching marker.
+   If it does not, use `polarCheckout:clearOpen` only after that Pro check.
 
 Each mutation returns `false` and makes no change when the current marker does not match the
 expected attempt or checkout ID.
@@ -248,8 +251,8 @@ operator must approve the exact production changes before work starts.
 - [ ] Ask the operator to approve the exact production changes.
 - [ ] Use the existing private production product `Samebase Pro Monthly` at $4 per month.
 - [ ] Verify production product ID `efa4a7a9-ff34-4871-ac04-0c8a9355b751`.
-- [ ] Verify that no production user has the old `billingStatus` value `canceled` or `unknown`
-      before the narrower schema deploys. Migrate only if such a row exists.
+- [ ] Complete the organization manual cutover. Verify that retained user rows have no old billing
+      fields and that the shared operator organization billing row matches the captured Polar state.
 - [ ] Set production Polar credentials only on the production Convex deployment.
 - [ ] Register the stable production webhook endpoint and verify its signing secret.
 - [ ] Verify the stable Samebase checkout and portal return URLs.

@@ -5,9 +5,10 @@
 - Status: Proposed
 - Owner: Noter platform
 - Date: 2026-06-12
-- Last updated: 2026-07-28
+- Last updated: 2026-08-04
 - Related specs:
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
+  - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
   - `rfcs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
   - `rfcs/043_REMOTE_MCP_OAUTH_PROVIDER_CONVEX_ARCHITECTURE_SPEC.md`
   - `rfcs/062_MCP_DUAL_ORIGIN_CONSENT_LOGIN_REDIRECT_SPEC.md`
@@ -282,9 +283,9 @@ export const enqueueManualRepositoryRefresh = mutation({
   becomes `access_admin` first, then moves to the narrower capability in follow-up commits backed by
   route/function evidence. Raw `query`/`mutation`/`action` exports are not an allowed "temporary"
   state.
-- Per-resource ownership checks (`vault.userId !== userId` and friends) are the second dimension and
-  remain inside handlers, with their current semantics (e.g. `listStagedFiles` returning `[]` for
-  non-owners post-v1484 stays as-is).
+- Organization membership and personal-resource checks are the second dimension and remain inside
+  handlers. Vault and staged-file access uses the vault's organization. User preferences and
+  provider credentials remain personal.
 - The 4 inline `isAdminUser` sites become `access_admin` wrappers. Billing remains separate from
   access and must not be reintroduced as a hidden role check inside the grants table.
 

@@ -2,15 +2,16 @@
 
 ## Document Control
 
-- Status: Accepted next-phase implementation plan
+- Status: Accepted and implemented
 - Owner: Samebase vault deletion, durable workflows, and vault-scoped cleanup
 - Created: 2026-05-09
-- Last updated: 2026-07-29
+- Last updated: 2026-08-04
 - Related docs:
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
+  - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
   - `research/2026-05-09-vault-deletion-workflow-research.md`
   - [PR #724: Research vault deletion workflow failure](https://github.com/samebase/samebase/pull/724)
 
@@ -197,18 +198,18 @@ surface.
 
 ### Retention Decisions
 
-Delete vault-scoped product and cache data. Preserve deletion operation history.
+Delete vault-scoped product, cache data, and deletion lifecycle history.
 
 Accepted retention rules:
 
 1. `workflow_vaultProvisioning_runs` and `workflow_vaultProvisioning_events` are vault-scoped setup
    history and should be deleted in batches.
-2. `workflow_vaultDeletion_runs` and `workflow_vaultDeletion_events` are deletion operation history
-   and should outlive the vault row. They must not store credentials, provider tokens, deploy keys,
-   request headers, or raw provider payloads.
-3. After a deletion succeeds, the deletion run may retain display-safe summary fields such as
-   `repositoryFullName`, options, final state, step events, and timestamps. Provider identifiers
-   needed only for retry should be scrubbed from the completed snapshot.
+2. `workflow_vaultDeletion_runs` and `workflow_vaultDeletion_events` belong to the vault lifecycle.
+   Keep them while the vault exists so failure and retry remain visible. After deletion succeeds,
+   delete events before runs in bounded batches.
+3. Deletion history must not store credentials, provider tokens, deploy keys, request headers, or
+   raw provider payloads. Provider identifiers needed only for retry are removed when the run
+   succeeds, before the lifecycle rows drain.
 
 ## Data Model
 
@@ -380,7 +381,7 @@ Conceptual shape:
 
 ```ts
 type VaultDeletionRunBase = {
-  userId: Id<"users">;
+  requestedByUserId: Id<"users">;
   vaultId: Id<"vaults">;
   repositoryFullName: string;
   attempt:
@@ -452,7 +453,7 @@ type VaultDeletionRun = VaultDeletionRunBase &
 Required indexes:
 
 1. `vaultDeletionRuns.by_vault_and_updated_at`
-2. `vaultDeletionRuns.by_user_and_updated_at`
+2. `vaultDeletionRuns.by_requester_and_state_and_updated_at`
 3. `vaultDeletionRuns.by_workflow_id`, using the final workflow field path
 4. `vaultDeletionRuns.by_retry_of`, using the final retry field path
 
@@ -467,7 +468,6 @@ Conceptual shape:
 
 ```ts
 type VaultDeletionEvent = {
-  userId: Id<"users">;
   vaultId: Id<"vaults">;
   repositoryFullName: string;
   runId: Id<"workflow_vaultDeletion_runs">;
@@ -477,6 +477,9 @@ type VaultDeletionEvent = {
   createdAt: number;
 };
 ```
+
+The parent run records `requestedByUserId`. Events derive requester provenance through `runId` and
+do not copy the user ID.
 
 Required indexes:
 
@@ -646,11 +649,8 @@ Delete rows:
 13. `workflow_vaultProvisioning_writeLocks` via `by_vault`
 14. `workflow_vaultProvisioning_events` via `by_vault_and_created_at`
 15. `workflow_vaultProvisioning_runs` via `by_vault_and_updated_at`
-
-Preserve rows:
-
-1. `workflow_vaultDeletion_runs`
-2. `workflow_vaultDeletion_events`
+16. `workflow_vaultDeletion_events` via `by_vault_and_created_at`, after the active run succeeds
+17. `workflow_vaultDeletion_runs` via `by_vault_and_updated_at`, after all deletion events drain
 
 The registry must be fail-closed. If a new vault-scoped table is added later, the table owner must
 either add it to this cleanup registry or explicitly mark it preserved with a retention reason.

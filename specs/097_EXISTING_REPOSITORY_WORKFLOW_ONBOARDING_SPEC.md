@@ -6,11 +6,12 @@
   / `#733`
 - Owner: Samebase existing repository onboarding, vault source setup, and provisioning runs
 - Created: 2026-05-08
-- Last updated: 2026-07-29
+- Last updated: 2026-08-04
 - Related docs:
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/065_GITHUB_REPOSITORY_PICKER_DISCOVERY_SPEC.md`
+  - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
   - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `research/2026-05-08-existing-repository-workflow-onboarding.md`
 
@@ -217,7 +218,8 @@ The connect-existing Workflow runs:
 1. `validate_connections`: load the GitHub connection and fail the run if it is missing or unusable
 2. `fetch_github_repo`: fetch the repository, default branch, branch commit, visibility, and
    immutable GitHub repository id
-3. reject the run if the fetched `ghRepoId` belongs to another connected vault for the same user
+3. reject the run if the fetched `ghRepoId` belongs to another connected vault in the same
+   organization
 4. `connect_github`: patch this vault to connected GitHub state with the same `runId`, canonical
    owner/name, visibility, and default branch; do not create provider attachments
 5. `sync_tree`: fetch and write the recursive default-branch tree into
@@ -252,10 +254,10 @@ handoff after the queueing action returns successfully.
 
 ## Duplicate And Idempotency Rules
 
-1. Before insert, reject another active vault for the same user and normalized requested
+1. Before insert, reject another active vault in the same organization and normalized requested
    `owner/name`.
 2. After GitHub fetch, reject if the fetched `ghRepoId` belongs to a different connected vault for
-   the same user.
+   the same organization.
 3. If a workflow retries internally for the same `vaultId` and `runId`, it may continue only when
    the existing connected vault has the same `ghRepoId`.
 4. Never mutate one connected vault to point at a different `ghRepoId`.

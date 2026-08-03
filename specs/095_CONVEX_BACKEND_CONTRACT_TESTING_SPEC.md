@@ -4,12 +4,13 @@
 
 - Status: Accepted
 - Owner: Samebase backend/runtime
-- Last updated: 2026-05-06
+- Last updated: 2026-08-04
 - Related files:
   - `vite.config.ts`
   - `package.json`
   - `apps/samebase/convex/test.setup.ts`
   - `apps/samebase/convex/**/*.convex.test.ts`
+  - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 
 ## Summary
 
@@ -70,14 +71,18 @@ registered functions, and `t.fetch` for HTTP actions.
 
 ## Coverage Priorities
 
-Start with the user-owned public surface. Each user-owned area should include at least one two-user
-isolation case that proves user B cannot read or mutate user A's rows through public functions:
+Cover both personal and organization-owned public surfaces. Personal areas must prove that one user
+cannot read or change another user's rows. Organization areas must prove that two members can use
+the same rows and that a user from another organization cannot use them:
 
 - users: viewer, approval, provider connection status, disconnect mutations
-- vaults: ownership, listing, branch filter state, branch/tree visibility
-- file staging: ownership denial, create/update/delete rows, branch summaries
-- MCP/OAuth HTTP: metadata, registration, authorize, token, MCP request status
-- billing/webhooks: method/status validation and signed-event state changes
+- vaults: organization membership, listing, branch filter state, branch/tree visibility
+- file staging: same-organization access, different-organization denial, create/update/delete rows,
+  branch summaries
+- MCP/OAuth HTTP: metadata, registration, user and organization grant binding, token, MCP request
+  status
+- billing/webhooks: organization billing ownership, method/status validation, and signed-event state
+  changes
 
 Action tests may stub global `fetch` when testing provider calls. Tests against a real local Convex
 backend are reserved for smoke coverage where mock limitations matter, such as limits, hosted
@@ -89,8 +94,8 @@ configuration, or full client/backend interaction.
 - Keep pure helper tests in normal `.test.ts` files.
 - Always seed only the rows needed for the behavior under test.
 - Prefer `t.withIdentity` over accepting user IDs as test-only function args.
-- For user-owned data, include cross-user denial coverage, not only anonymous and owner happy-path
-  coverage.
+- For personal user-owned data, include cross-user denial coverage. For organization-owned data,
+  include same-organization access and different-organization denial coverage.
 - Assert persisted state after mutations and actions.
 - Use `t.fetch` for HTTP route coverage instead of calling handlers directly.
 - Do not add production-only test helpers just to seed data.

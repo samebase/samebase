@@ -4,10 +4,11 @@
 
 - Status: Active
 - Owner: Samebase backend
-- Last updated: 2026-08-03
+- Last updated: 2026-08-04
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Current branch: `codex-organization-ownership-spec`
-- Current phase: Phase 1, implementation in progress
+- Current state: Local implementation and independent reviews complete; CI and operator cutover
+  pending
 - Current pull request: [#1355](https://github.com/samebase/samebase/pull/1355)
 
 ## Purpose
@@ -18,23 +19,22 @@ output or a per-commit journal.
 
 ## Review Controls
 
-- Phase 0 contains documents only. It contains no product code.
-- The rollout has three implementation pull requests. Add another only if Convex requires another
-  deployed schema state.
+- The accepted specification contains no product code.
+- The rollout has one implementation pull request and one final-schema deployment.
 - Pull request size is not a split trigger. Use coherent commits and focused agent reviews inside
   each pull request.
-- A backend phase is not complete until every affected shipped UI, query contract, and workflow is
-  updated and tested in the same pull request.
-- Phase 1 is authorized in pull request #1355 after Phase 0 completion. Phase 2 and Phase 3 start
-  only after the preceding implementation phase is merged and rebased into the next worktree.
-- Each phase gets one implementation review and one independent simplicity review before merge.
+- The implementation is not complete until every affected shipped UI, query contract, and workflow
+  is updated and tested in the same pull request.
+- The implementation is authorized in pull request #1355.
+- The implementation gets one implementation review and one independent simplicity review before
+  merge.
 - New enterprise features do not enter this rollout without a spec change.
 
 ## Accepted Decisions
 
 - Use local `users`, `organizations`, and `organizationMemberships` as the tenant graph.
-- Backfill an organization for every user, including waitlisted users.
-- Put the two known operator accounts in one organization through explicit migration input.
+- Bootstrap an organization for every retained user, including waitlisted users.
+- Put the two known operator accounts in one organization through explicit bootstrap input.
 - Use membership presence as access. Do not add a role until two roles have different behavior.
 - Keep organization context out of `users` and derive it from the resource or verified request
   context.
@@ -53,15 +53,18 @@ output or a per-commit journal.
 - Keep authentication, provider credentials, OAuth callback state, and personal UI state
   user-scoped.
 - Keep WorkOS and Clerk out of the runtime and schema.
-- Preserve production data by default and use small idempotent backfills.
+- Preserve users, authentication data, provider connections, external provider resources, and the
+  recorded Polar billing state.
+- Use an operator-run manual reset for local vault, staging, workflow, and MCP authorization data so
+  the final schema can deploy without compatibility code.
 
 ## Rejected Or Deferred
 
 - Approval-based organization provisioning: rejected because approval is temporary.
 - Nine domain-sized implementation pull requests and fixed file or line caps: rejected because they
   add process without adding a required deployment boundary.
-- One data-preserving implementation pull request: not selected because Convex must deploy the
-  widened schema before backfill and must deploy the cleaned data before final schema narrowing.
+- A data-preserving multi-deploy migration: rejected because the operator approved a pre-beta manual
+  reset and values one final ownership model over local development data retention.
 - A general Convex migration component: rejected for now because every measured source table has
   fewer than 500 rows.
 - `users.organizationId`: rejected because a user row is not the durable resource boundary.
@@ -95,91 +98,80 @@ Read on 2026-08-03 without printing document contents:
 | `mcpRefreshTokens`                |  437 |
 
 Empty callback-state and provisioning-plan tables are omitted. Counts must be measured again before
-the related migration runs.
+the manual reset.
 
-## Rollout Phases
+## Rollout Status
 
-### Phase 0: Specification
+### Specification
 
 - Status: Complete
 - Scope: Accept the target schema and rollout.
 - Gate: Independent architecture and simplicity reviews pass.
 
-### Phase 1: Prepare and backfill
+### Final organization cutover
 
-- Status: In progress in pull request #1355
-- Scope: Add the organization graph, organization billing, organization keys, MCP binding, shared
-  helpers, dual writes, backfills, migration checks, organization-aware API results, and affected UI
-  and workflow support across all domains.
-- Gate: Every user and resource is prepared, the two operator accounts share one organization, and
-  legacy resource access still applies.
+- Status: Local implementation complete in pull request #1355; CI and operator cutover pending
+- Scope: Add the final organization graph, organization billing, membership access, MCP binding,
+  retained-user bootstrap, organization-aware API results, and affected UI and workflow support.
+- Gate: The operator completes the manual reset, every retained user has one membership, the two
+  operator accounts share one organization, and all organization access uses membership.
 
-### Phase 2: Switch and clean
+The cutover is intentionally one complete authorization pull request, not several domain pull
+requests. Its commits can separate the runtime cutover, final schema, bootstrap and runbook, and
+tests for review.
 
-- Status: Pending
-- Scope: Make organization keys authoritative, switch all resource access and account deletion to
-  memberships, stop legacy ownership writes, and remove legacy ownership values with bounded
-  migrations. Activate and verify the UI and workflow support prepared in Phase 1.
-- Gate: Shared access, billing, quotas, MCP, and account deletion use the organization boundary, and
-  cleanup checks pass.
-
-### Phase 3: Narrow
-
-- Status: Pending
-- Scope: Remove legacy ownership fields, indexes, fallbacks, dual-write code, and completed
-  migration code.
-- Gate: The final schema and current specs contain no legacy tenant ownership path.
-
-Phase 1 is intentionally one large preparation pull request, not several domain pull requests. Its
-commits can separate schema and backfills, billing and MCP, vault paths and workflows, and tests for
-review. Phase 2 is one coordinated authorization cutover. Phase 3 is the small schema-narrowing pull
-request required after production cleanup completes.
-
-## Phase 1 Implementation Progress
+## Implementation Progress
 
 Implemented in the current pull request and worktree:
 
 - the organization, membership, and organization billing tables, including automatic provisioning
   for every new account without coupling ownership to temporary approval;
-- organization billing reads and writes, organization Worker and Convex project quotas, and the
-  temporary legacy-user fallback for users that the backfill has not prepared yet;
-- optional organization keys and dual writes for vaults, billable attachments, and MCP grants;
-- final provenance fields for provisioning runs, deletion runs, and staged-file updates;
-- shared Phase 1 ownership checks that require the legacy user owner and use organization keys only
-  as consistency checks, so this phase does not widen resource access;
+- organization-only billing reads and writes and organization Worker and Convex project quotas;
+- required organization keys for vaults, billable attachments, and MCP grants;
+- final provenance fields for provisioning runs, deletion runs, and staged-file updates, without
+  legacy actor copies;
+- shared organization membership checks that reject missing organization data and give every member
+  access to the organization's resources;
+- exact MCP organization propagation from access-token validation through tool dispatch, including
+  organization-bound vault creation, inventory, and existing-vault checks;
 - sole-member and shared-member account-deletion behavior for memberships, billing, active work, and
   organization cleanup;
+- user-owned provider and repository-refresh lock attribution, plus bounded personal UI cleanup that
+  preserves other members' rows;
 - vault lifecycle preservation during member deletion, with bounded per-vault cleanup that deletes
   events before terminal runs at the vault deletion boundary;
-- one bounded, atomic, idempotent preparation mutation and one counts-only verification query for
-  the organization graph, billing authority, resources, actors, event references, and repository
-  collisions; and
-- explicit two-account migration input for the operator organization, canonical billing source, and
-  retained vault selections. Duplicate vault cleanup stays a separate, explicit, non-provider
-  operation.
+- one small bootstrap for the retained users after the operator-run reset; and
+- a manual cutover runbook that records the exact destructive scope and verification order.
 
 The branch was rebased onto current `origin/main` with operator approval. The supply-chain
-dependency patch is present. An exact comparison with the old reviewed merge recovered the
-organization-aware MCP grant lookup, its compound index and candidate-order tests, one Worker
-fixture, and the accepted MCP request-boundary contract that a normal rebase had omitted with the
-merge commit. The full Samebase check passed. The post-rebase Convex suite passed 47 files and 442
-tests. The focused MCP, browser-handoff, and billing run passed 4 files and 77 tests. The earlier
-focused account-deletion unit run passed all 24 tests, and the focused Linux visual run passed all 4
-tests. All four focused account-deletion visuals passed again in the canonical run. The canonical
-result was 209 passed, 1 skipped, and 1 unrelated URL-editor mount failure at
-`public-landing-shell.spec.ts:1052`. Migration, access, integration, and lifecycle reviews passed
-after their fixes.
+dependency patch is present. The approved manual reset replaces the earlier migration code. Current
+validation evidence is recorded below.
 
-Phase 1 remains in progress. It is pending green pull request CI, merge, deployment, the preparation
-mutation, and production verification.
+The operator approved a manual pre-beta reset on 2026-08-04. The mixed runtime and general migration
+are removed. The one-time retained-user bootstrap replaces them. Independent authorization,
+simplicity, and cutover reviews found and verified the final MCP organization boundary,
+credential-dependent account-deletion waits, personal UI cleanup, unused-index removal, and safe
+manual reset order. The work is pending green pull request CI, the operator-run reset, merge,
+deployment, bootstrap, and production verification.
+
+## Local Validation Evidence
+
+- `pnpm check`: passed, with existing repository warnings only.
+- `pnpm test`: 292 files passed, with 2,275 tests passed and 1 skipped.
+- `pnpm test:convex`: 47 files passed, with 424 tests passed.
+- Focused organization authorization review: 9 files passed, with 109 tests passed.
+- `pnpm --filter samebase typecheck`: passed.
+- `pnpm format:check` and `git diff --check`: passed.
+- Two full `pnpm test:visual:linux` runs each passed 209 tests, skipped 1 test, and failed the same
+  unchanged public landing URL-editor test. The focused canonical test passed on clean `main` and on
+  this branch. This known unrelated failure remains visible and is not patched in this rollout.
 
 ## UI And Workflow Coverage
 
-This is a full-stack rollout. Phase 1 owns the code changes for every existing surface whose data or
-behavior changes. Phase 2 activates shared access and runs the two-member acceptance pass. It is not
-a second set of domain UI projects.
+This is a full-stack rollout. The implementation owns the code changes and the two-member acceptance
+pass for every existing surface whose data or behavior changes.
 
-Phase 1 covers:
+The implementation covers:
 
 - normal sign-up and admin-created account provisioning for the organization, membership, and
   billing row;
@@ -198,16 +190,15 @@ Phase 1 covers:
 - provider observation, provider-write, provisioning, vault deletion, and account deletion flows;
 - the rule that each member uses their own provider credentials while shared resources stay with the
   organization;
-- migration-compatible query and action results used by current routes;
+- final organization-aware query and action results used by current routes;
 - route-level interaction tests and screenshot coverage for every changed shipped UI state.
 
-Phase 2 verifies those prepared surfaces with both members of the shared operator organization. It
+The implementation verifies those surfaces with both members of the shared operator organization. It
 also verifies sole-member and shared-member account deletion, MCP token validation, `tools/list`,
-`tools/call`, tool execution, and browser handoff before it removes the legacy access requirement.
+`tools/call`, tool execution, and browser handoff before the production reset.
 
-Personal UI settings and provider connections remain separate for two members. No phase adds an
-organization name, switcher, invitation flow, membership page, or new organization chrome. Phase 3
-has no intended user-visible behavior change.
+Personal UI settings and provider connections remain separate for two members. The rollout adds no
+organization name, switcher, invitation flow, membership page, or new organization chrome.
 
 ## Evidence Integrated
 
@@ -216,7 +207,7 @@ has no intended user-visible behavior change.
 - Clerk keeps active organization state in session or browser context, not as permanent user
   ownership.
 - Current Samebase ownership reaches at least 51 production files and 36 tests.
-- Current production row counts support bounded one-time migrations without a new general component.
+- Current production row counts make the operator-run manual reset practical.
 - Existing Samebase access keys remain useful as the coarse gate above organization membership.
 
 Primary external sources:
@@ -230,16 +221,11 @@ Primary external sources:
 
 ## Next Exact Task
 
-1. Require green pull request CI for pull request #1355.
-2. Merge pull request #1355 only after its CI is green, then deploy the widened Phase 1 code and
-   schema.
-3. Run the bounded organization preparation mutation with the two explicit operator user IDs, the
-   explicit canonical billing source user ID, and the explicit retained vault ID list.
-4. If preparation reports a duplicate repository identity, perform explicit full cleanup of each
-   reported losing vault's local Samebase data only. Do not delete its provider infrastructure.
-5. Rerun the same preparation mutation with the same explicit input after any required cleanup. A
-   clean first run must also permit an idempotent rerun.
-6. Run the counts-only verification query until it reports `ready` with zero issue counts.
-7. Do not start Phase 2 before Phase 1 is merged, the widened deployment is live, and the production
-   backfill verification reports `ready`. Rebase the Phase 2 worktree onto current `origin/main`
-   before implementation starts.
+1. Finish the final validation pass and require green pull request CI for pull request #1355.
+2. Record the Polar billing state and confirm that no destructive workflow is active.
+3. Pause product writes and follow the accepted manual reset runbook while the old schema is live.
+4. Merge and deploy the final schema and organization-authoritative runtime.
+5. Run the retained-user bootstrap with the two explicit operator user IDs and recorded billing
+   state.
+6. Verify the bootstrap counts and the required two-member flows, reconnect MCP and the retained
+   vaults, then resume product writes.

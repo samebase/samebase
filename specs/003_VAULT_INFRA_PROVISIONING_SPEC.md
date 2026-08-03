@@ -4,13 +4,14 @@
 
 - Status: Implemented for MVP
 - Owner: Samebase backend/frontend
-- Last updated: 2026-07-30
+- Last updated: 2026-08-04
 - Related plan: `archive/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 - Related vault-first cleanup: `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
 - Related deletion contract: `specs/098_VAULT_DELETION_WORKFLOW_SPEC.md`
 - Cloudflare Workers migration: `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
 - Manual Convex attachment: `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`
 - Resource attachment model: `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
+- Organization ownership: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 
 > Note: this spec describes the Workers-only provisioning workflow. Durable resource attachment
 > identity and read-time root projection are defined in spec 115.
@@ -67,7 +68,7 @@ Vault creation succeeds even if downstream provisioning partially fails.
 
 ### `workflow_vaultProvisioning_plans`
 
-- `vaultId`, `userId`
+- `vaultId`
 - `convexConfigPath`
 - `convex`: `{ state: "planned", projectName, teamId }`,
   `{ state: "creating", projectName, teamId }`, or
@@ -99,7 +100,7 @@ This table stores the current or most recent infrastructure write for one vault.
 of:
 
 - `{ kind: "managed_run", runId }`
-- `{ kind: "manual_provider_write", actionId, action, expiresAt }`
+- `{ kind: "manual_provider_write", actionId, action, requestedByUserId, expiresAt }`
 
 An owner can be `active`, `succeeded`, or `failed`. Only `active` blocks another infrastructure
 write. A manual owner stores one manual action name from a fixed list. The action maps to the
@@ -109,6 +110,9 @@ provider observation times that can change:
 - `connect_cloudflare_worker`, `create_cloudflare_worker`, and
   `configure_workers_builds_for_github`: Cloudflare
 - `rotate_convex_deploy_keys_for_workers_builds`: Convex and Cloudflare
+
+`requestedByUserId` records whose provider credentials the manual action uses. It is provenance and
+a credential dependency for account deletion. It does not grant vault access.
 
 Only create and retry runs can own a managed lock. The transaction that creates either run also
 creates its active lock. The lock stays active during source and provider setup. A terminal run
@@ -137,7 +141,7 @@ reader, data migration, or fallback for an older row shape.
 
 ### `vaultConvexProjects`
 
-- `vaultId`, `userId`
+- `vaultId`, `organizationId`
 - `teamId`, `projectId`, `convexConfigPath`
 - `origin: "provisioned" | "selected_existing"`
 
@@ -150,12 +154,12 @@ deployments, URLs, and deploy keys are provider state and must not be mirrored i
 Indexes:
 
 - `by_vault`
-- `by_user`
+- `by_organization`
 - `by_project` (global attachment exclusivity)
 
 ### `vaultCloudflareWorkers`
 
-- `vaultId`, `userId`
+- `vaultId`, `organizationId`
 - `accountId`, `workerName`, `workerTag`
 - `origin: "provisioned" | "selected_existing"`
 
@@ -237,7 +241,7 @@ database.
 Indexes:
 
 - `by_vault`
-- `by_user`
+- `by_organization`
 - `by_account_and_worker` (global attachment exclusivity)
 - `by_account_and_worker_tag` (global attachment exclusivity)
 

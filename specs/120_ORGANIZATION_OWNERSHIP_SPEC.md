@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase backend
-- Last updated: 2026-08-03
+- Last updated: 2026-08-04
 - Active rollout: `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
 - Related:
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
@@ -15,9 +15,8 @@
   - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
   - `research/2026-06-18-workos-authorization-model.md`
 
-This is the accepted target contract for the active rollout. Until a rollout phase ships, current
-code and the current clauses in specs 113, 115, and 119 remain effective. Each implementation phase
-updates the affected current spec when its behavior changes.
+This is the accepted target contract for the active rollout. The implementation updates all affected
+accepted specs when the new behavior ships.
 
 ## Accepted Target Contract
 
@@ -39,9 +38,9 @@ Every user row gets an organization and membership during account creation. This
 users. The temporary approval system controls application access only. It does not control
 organization creation, membership, or ownership.
 
-The initial backfill creates one organization for each existing user group. The two known accounts
+The initial bootstrap creates one organization for each existing user group. The two known accounts
 that represent the same operator share one organization through two explicit membership rows. Every
-other existing user gets a separate organization. This mapping is explicit migration input. Code
+other existing user gets a separate organization. This mapping is explicit bootstrap input. Code
 must never infer shared ownership from email, name, or another profile field.
 
 The initial product has no organization switcher. A root-resource creation operation resolves the
@@ -75,9 +74,9 @@ organizationId: Id<"organizations">
 userId: Id<"users">
 ```
 
-The table has `by_user`, `by_organization`, and `by_organization_and_user` indexes. App-owned
-mutations enforce exactly one membership per user during this rollout and at most one membership for
-each organization and user pair. Several users can be full members of one organization.
+The table has `by_user` and `by_organization_and_user` indexes. App-owned mutations enforce exactly
+one membership per user during this rollout and at most one membership for each organization and
+user pair. Several users can be full members of one organization.
 
 Membership presence is active access. Removing access deletes the membership. The current model has
 no role, status, timestamps, invitation state, or permission arrays. A role field becomes required
@@ -174,9 +173,10 @@ controls draft access. The final model removes `vaultStagedFiles.ownerId` and it
 `lastEditUserId` records only the last editor and never authorizes access.
 
 Provisioning and vault-deletion runs use `requestedByUserId`. Their event rows derive the requester
-through `runId` and do not copy a user ID. `vaultStagedFileUpdates` uses `editUserId`.
-`requestedByUserId`, `lastEditUserId`, and `editUserId` are provenance only. No actor field grants
-access.
+through `runId` and do not copy a user ID. `vaultStagedFileUpdates` uses `editUserId`. Manual
+provider-write and repository-refresh locks use `requestedByUserId` to identify work that depends on
+one member's credentials during account deletion. `requestedByUserId`, `lastEditUserId`, and
+`editUserId` are provenance only. No actor field grants access.
 
 MCP client registration remains system-wide. Only `mcpGrants` stores the required `organizationId`
 beside its user subject. Consent resolves the user's membership before it creates the grant.
@@ -225,39 +225,31 @@ user or their credentials. Work started by a remaining member continues.
 
 ## Migration Contract
 
-The rollout uses widen, backfill, verify, switch, clean, and narrow steps. Optional organization
-fields and old user ownership fields are temporary migration states, not accepted final schema.
+The pre-beta rollout uses one manual reset and one final-schema deployment. It does not deploy a
+mixed old and new ownership state.
 
 The rollout follows this order:
 
-1. Add organizations and memberships, then backfill every user.
-2. Add the new organization fields and writes one domain at a time. Each prepared domain uses a
-   shared helper that still requires the legacy user owner, so behavior does not widen early.
-3. Run idempotent, bounded internal backfills and verify every prepared domain.
-4. Use a planned pre-beta maintenance window to remove the legacy-user requirement from the shared
-   helpers and switch account deletion only after billing, MCP, vault, staging, provisioning, and
-   deletion data are ready.
-5. Remove old values with bounded cleanup migrations.
-6. Remove the old user ownership fields, fallback reads, dual writes, and indexes.
+1. Record the current Polar billing state and confirm that no destructive workflow is active.
+2. Pause product writes. While the old schema is still live, manually clear the approved local
+   vault, staging, workflow, MCP authorization, and organization-scoped data. Remove legacy billing
+   fields from the retained user rows.
+3. Deploy the final schema and organization membership access checks.
+4. Run one small bootstrap. It creates one shared organization for the two operator users, one
+   organization for every other retained user, one membership for every user, and one billing row
+   for every organization. It restores the recorded operator billing state.
+5. Verify the bootstrap counts and the two-member access paths, then resume product writes.
 
-These steps ship in three implementation pull requests. Phase 1 performs steps 1 through 3 across
-all domains. Phase 2 performs steps 4 and 5 as one coordinated authorization cutover and cleanup.
-Phase 3 performs step 6 after production cleanup checks pass. Review size alone does not create more
-rollout phases.
+These steps ship in one implementation pull request. No old user ownership fields, fallback reads,
+dual writes, migration indexes, or general data-conversion framework ship in the final runtime.
 
-The explicit migration input for the shared operator organization also selects the canonical current
-billing state and Polar customer. It selects the retained vault for every duplicate repository
-identity. The migration stops on an unlisted collision. It never selects the first row implicitly.
+The manual reset deletes Samebase-local resource records only. It does not delete GitHub
+repositories, Cloudflare Workers, Convex projects, user accounts, waitlist accounts, authentication
+records, or provider connections. Samebase vaults and provider-resource links must be connected
+again after deployment. MCP clients must authorize again.
 
-The current deployment is small enough for table-specific bounded migrations. The rollout does not
-install a general migration component. If row counts materially change before a phase starts, only
-the batch runner decision is reopened. The organization contract does not change.
-
-Production data is preserved by default. Clearing production tables requires separate operator
-approval at the time of deletion. Local and disposable preview data can be recreated.
-
-Account deletion must remain safe after every merged phase. A phase updates its domain cleanup or
-keeps the verified old cleanup path until the new ownership cutover completes.
+The operator performs the production reset from the accepted runbook. Codex does not execute the
+destructive production step. Local and disposable preview data can be recreated.
 
 ## Non-Goals
 
@@ -273,13 +265,12 @@ keeps the verified old cleanup path until the new ownership cutover completes.
 
 ## Validation
 
-The rollout is complete only when tests and migration checks prove:
+The rollout is complete only when tests and reset checks prove:
 
 - Every newly created user, including a waitlisted or admin-created user, gets one organization,
   membership, and billing row.
 - Repeated organization provisioning for one user is idempotent.
-- The explicit two-account migration produces one organization with two memberships.
-- The migration stops on an unlisted billing or duplicate-repository collision.
+- The explicit two-account bootstrap produces one organization with two memberships.
 - No generic profile or email match combines users.
 - A member can use normal resources in their organization.
 - A user from another organization cannot read or change those resources.
