@@ -6,11 +6,12 @@ packages:
 # ecosystem time to detect and yank compromised releases before CI can install
 # them.
 minimumReleaseAge: 10080
-# Keep release-age exceptions exact so future Convex releases do not bypass the
-# cooling period automatically.
+# Keep release-age exceptions exact so future package releases do not bypass
+# the cooling period automatically.
 minimumReleaseAgeExclude:
-  # TODO(2026-08-06): Remove after the normal 7-day cooling period has passed.
-  - "brace-expansion@5.0.9"
+  # TODO(2026-08-06): Remove after this security patch completes the normal
+  # 7-day cooling period.
+  - brace-expansion@5.0.9
   # TODO(2026-08-07): Remove these Vite+ exceptions after the normal 7-day
   # cooling period has passed.
   - "@voidzero-dev/vite-plus-core@0.2.7"

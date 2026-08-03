@@ -36,7 +36,8 @@ type CheckoutAttempt =
 const productId = "samebase-pro-monthly";
 const externalCustomerId = "existing-customer";
 const currentPeriodEnd = "2026-09-01T00:00:00.000Z";
-const checkoutExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
+const testNow = new Date("2026-08-03T11:00:00.000Z");
+const checkoutExpiresAt = new Date("2026-08-03T12:00:00.000Z");
 
 function createDeferred<Value>() {
   const control: { resolve: (value: Value) => void } = {
@@ -178,11 +179,13 @@ function configureSandboxBilling(): void {
 }
 
 beforeEach(() => {
+  vi.setSystemTime(testNow);
   vi.resetAllMocks();
   polarSdkMocks.subscriptionsList.mockImplementation(() => Promise.resolve(subscriptionPage([])));
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllEnvs();
 });
 

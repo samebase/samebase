@@ -26,7 +26,7 @@ export const retryInfrastructureProvisioningContract = {
     inputDescriptions: {
       vaultId: "Samebase vault id of the app whose managed provisioning failed.",
     },
-  } satisfies AppFunctionMcpMetadata,
+  } as const satisfies AppFunctionMcpMetadata,
   doc: `Retries failed Samebase-managed infrastructure setup: starts a fresh
 managed provisioning run that re-reads the app's current infrastructure state and skips the blocks
 whose resources already exist, so completed work is not redone. It does not require or inspect a

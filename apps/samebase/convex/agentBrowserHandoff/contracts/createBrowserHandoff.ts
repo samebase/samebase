@@ -33,7 +33,7 @@ export const createBrowserHandoffContract = {
       returnToPath:
         "Optional Samebase-relative path to open after the browser session is created. Defaults to the dashboard.",
     },
-  } satisfies AppFunctionMcpMetadata,
+  } as const satisfies AppFunctionMcpMetadata,
   doc: `Creates a short-lived, one-time browser handoff URL for the Samebase account behind the
 current MCP grant. The URL logs a browser into Samebase through Convex Auth after the user or agent
 opens it, so the tool requires explicit \`access_browser_login_handoff\` consent.

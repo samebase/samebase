@@ -29,7 +29,7 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
       workerId: "Stable Samebase Worker attachment id returned by get_user_vaults.",
       convexProjectId: "Attached Convex project selected for this deploy-key rotation.",
     },
-  } satisfies AppFunctionMcpMetadata,
+  } as const satisfies AppFunctionMcpMetadata,
   doc: `The repair for builds that cannot deploy the backend: mints production and preview deploy
 keys on the selected Convex project's production and preview scopes. It writes
 \`CONVEX_DEPLOY_KEY\`, \`PREVIEW_CONVEX_DEPLOY_KEY\`, and the non-secret
