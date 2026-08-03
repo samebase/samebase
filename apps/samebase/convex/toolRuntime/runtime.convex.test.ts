@@ -103,6 +103,19 @@ describe("toolRuntime scope enforcement", () => {
       text: "Insufficient scope for vault_cloudflare_listAccounts.",
     });
 
+    const createWorker = await t.action(internal.toolRuntime.runtime.cloudflareCreateWorkerTool, {
+      userId,
+      grantedScopes,
+      vaultId,
+      accountId: "account_1",
+      workerName: "worker-new",
+      rootDirectory: "/",
+    });
+    expect(createWorker).toMatchObject({
+      status: "blocked",
+      text: "Insufficient scope for vault_cloudflare_createWorker.",
+    });
+
     const discoverWorkers = await t.action(
       internal.toolRuntime.runtime.cloudflareDiscoverWorkersTool,
       {

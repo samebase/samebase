@@ -5,6 +5,7 @@ import { connectRepositoryContract } from "../vault/contracts/connectRepository"
 import { cloudflareListAccountsContract } from "../vault/contracts/cloudflareListAccounts";
 import {
   cloudflareAttachWorkersContract,
+  cloudflareCreateWorkerContract,
   cloudflareDiscoverWorkersContract,
 } from "../vault/contracts/cloudflareAttachments";
 import {
@@ -36,6 +37,7 @@ export const actionContracts = [
   cloudflareDiscoverWorkersContract,
   convexAttachProjectsContract,
   cloudflareAttachWorkersContract,
+  cloudflareCreateWorkerContract,
   cloudflareConfigureWorkersBuildsForGitHubContract,
   cloudflareRotateConvexDeployKeysForWorkersBuildsContract,
   retryInfrastructureProvisioningContract,

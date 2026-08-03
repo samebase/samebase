@@ -61,6 +61,9 @@ const contractSourceByMcpName: Record<string, string> = {
   vault_cloudflare_listAccounts: samebaseAppFilePath(
     "convex/vault/contracts/cloudflareListAccounts.ts",
   ),
+  vault_cloudflare_createWorker: samebaseAppFilePath(
+    "convex/vault/contracts/cloudflareAttachments.ts",
+  ),
   vault_convex_discoverProjects: samebaseAppFilePath("convex/vault/contracts/convexAttachments.ts"),
   vault_cloudflare_discoverWorkers: samebaseAppFilePath(
     "convex/vault/contracts/cloudflareAttachments.ts",

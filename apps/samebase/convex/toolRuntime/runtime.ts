@@ -8,6 +8,7 @@ import { connectRepositoryContract } from "../vault/contracts/connectRepository"
 import { cloudflareListAccountsContract } from "../vault/contracts/cloudflareListAccounts";
 import {
   cloudflareAttachWorkersContract,
+  cloudflareCreateWorkerContract,
   cloudflareDiscoverWorkersContract,
 } from "../vault/contracts/cloudflareAttachments";
 import {
@@ -32,6 +33,7 @@ import {
 } from "../mcp/tokens";
 import {
   attachExistingCloudflareWorkersForUser,
+  createWorkerForUser,
   discoverCloudflareWorkersForUser,
   listCloudflareAccountsForUser,
   configureWorkersBuildsForGitHubForUser,
@@ -248,6 +250,48 @@ export const cloudflareListAccountsTool = internalAction({
         structuredContent: {
           accounts,
         },
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Tool execution failed.";
+      return {
+        status: "error",
+        text: message,
+      };
+    }
+  },
+});
+
+const cloudflareCreateWorkerToolResultValidator = object({
+  status: toolStatus,
+  text: string(),
+  structuredContent: optional(cloudflareCreateWorkerContract.structuredContent),
+});
+type CloudflareCreateWorkerToolResult = Infer<typeof cloudflareCreateWorkerToolResultValidator>;
+
+export const cloudflareCreateWorkerTool = internalAction({
+  args: object({
+    userId: id("users"),
+    grantedScopes: array(string()),
+    ...cloudflareCreateWorkerContract.args,
+  }),
+  returns: cloudflareCreateWorkerToolResultValidator,
+  handler: async (
+    ctx,
+    { grantedScopes, ...creationArgs },
+  ): Promise<CloudflareCreateWorkerToolResult> => {
+    if (!mcpScopeAllowsAccess(cloudflareCreateWorkerContract.access, grantedScopes)) {
+      return {
+        status: "blocked",
+        text: `Insufficient scope for ${cloudflareCreateWorkerContract.mcp.name}.`,
+      };
+    }
+
+    try {
+      const workerId = await createWorkerForUser(ctx, creationArgs);
+      return {
+        status: "ok",
+        text: `Created and attached Cloudflare Worker ${creationArgs.workerName}.`,
+        structuredContent: { workerId },
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";

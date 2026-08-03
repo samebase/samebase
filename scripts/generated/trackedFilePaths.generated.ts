@@ -642,6 +642,7 @@ export const trackedFilePaths = [
   "apps/samebase/public/docs/actions/configure_workers_builds_for_github.md",
   "apps/samebase/public/docs/actions/connect_existing_repository.md",
   "apps/samebase/public/docs/actions/create_browser_handoff.md",
+  "apps/samebase/public/docs/actions/create_cloudflare_worker.md",
   "apps/samebase/public/docs/actions/create_repository.md",
   "apps/samebase/public/docs/actions/discover_cloudflare_workers.md",
   "apps/samebase/public/docs/actions/discover_convex_projects.md",

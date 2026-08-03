@@ -28,6 +28,7 @@ import { connectRepositoryContract } from "../vault/contracts/connectRepository"
 import { cloudflareListAccountsContract } from "../vault/contracts/cloudflareListAccounts";
 import {
   cloudflareAttachWorkersContract,
+  cloudflareCreateWorkerContract,
   cloudflareDiscoverWorkersContract,
 } from "../vault/contracts/cloudflareAttachments";
 import {
@@ -187,6 +188,14 @@ async function callConvexDiscoverProjectsMcpTool(ctx: ActionCtx, invocation: Mcp
 async function callCloudflareListAccountsMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
   return await ctx.runAction(
     internal.toolRuntime.runtime.cloudflareListAccountsTool,
+    buildMcpToolInvocationArgs(invocation),
+  );
+}
+
+async function callCloudflareCreateWorkerMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
+  return await ctx.runAction(
+    internal.toolRuntime.runtime.cloudflareCreateWorkerTool,
+    // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
     buildMcpToolInvocationArgs(invocation),
   );
 }
@@ -368,6 +377,21 @@ const mcpToolCatalog = [
       cloudflareAttachWorkersContract.structuredContent,
     ),
     call: callCloudflareAttachWorkersMcpTool,
+  },
+  {
+    access: cloudflareCreateWorkerContract.access,
+    title: cloudflareCreateWorkerContract.mcp.title,
+    name: cloudflareCreateWorkerContract.mcp.name,
+    description: cloudflareCreateWorkerContract.mcp.description,
+    annotations: cloudflareCreateWorkerContract.mcp.annotations,
+    inputSchema: convexArgsToToolInputSchema(
+      cloudflareCreateWorkerContract.args,
+      cloudflareCreateWorkerContract.mcp.inputDescriptions,
+    ),
+    outputSchema: convexValidatorToToolOutputSchema(
+      cloudflareCreateWorkerContract.structuredContent,
+    ),
+    call: callCloudflareCreateWorkerMcpTool,
   },
   {
     access: cloudflareConfigureWorkersBuildsForGitHubContract.access,
@@ -641,6 +665,9 @@ export function readMcpToolNameForUsage(params: unknown): SamebaseUsageMcpToolNa
   }
   if (toolName === cloudflareListAccountsContract.mcp.name) {
     return "vault_cloudflare_listAccounts";
+  }
+  if (toolName === cloudflareCreateWorkerContract.mcp.name) {
+    return "vault_cloudflare_createWorker";
   }
   if (toolName === convexDiscoverProjectsContract.mcp.name) {
     return "vault_convex_discoverProjects";

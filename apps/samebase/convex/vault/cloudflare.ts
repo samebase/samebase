@@ -1162,7 +1162,7 @@ async function connectWorkerForUser(
   return { state: "ready", workerId };
 }
 
-async function createWorkerForUser(
+export async function createWorkerForUser(
   ctx: ActionCtx,
   args: {
     userId: Id<"users">;
@@ -1307,6 +1307,7 @@ export const createWorker = action({
   access: cloudflareCreateWorkerContract.access,
   args: cloudflareCreateWorkerContract.args,
   returns: cloudflareCreateWorkerContract.returns,
+  mcp: cloudflareCreateWorkerContract.mcp,
   handler: async (ctx, args): Promise<Id<"vaultCloudflareWorkers">> =>
     await createWorkerForUser(ctx, { ...args, userId: ctx.viewer.userId }),
 });

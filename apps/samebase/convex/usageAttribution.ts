@@ -16,6 +16,7 @@ export type SamebaseUsageMcpToolName =
   | "vault_dashboard_getUserVaults"
   | "vault_actions_connectRepository"
   | "vault_cloudflare_listAccounts"
+  | "vault_cloudflare_createWorker"
   | "vault_convex_discoverProjects"
   | "vault_cloudflare_discoverWorkers"
   | "vault_convex_attachProjects"

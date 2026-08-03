@@ -13,6 +13,7 @@ describe("action catalog presentation order", () => {
       "discover_cloudflare_workers",
       "attach_convex_projects",
       "attach_cloudflare_workers",
+      "create_cloudflare_worker",
       "configure_workers_builds_for_github",
       "rotate_convex_deploy_keys_for_workers_builds",
       "retry_infrastructure_provisioning",
