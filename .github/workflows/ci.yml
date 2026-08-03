@@ -200,9 +200,11 @@ jobs:
           CONVEX_AGENT_MODE: anonymous
         run: node ./scripts/predev.ts
 
-      - name: Run Vite wrapper smoke on Windows
+      # This is a finite process-launch smoke, not a server readiness check.
+      # `--help` exercises the Windows Vite+ resolution and spawn path, then exits.
+      - name: Verify Vite+ launcher on Windows
         working-directory: apps/samebase
-        run: node ./scripts/run-vite-dev.ts --version
+        run: node ./scripts/run-vite-dev.ts --help
 
   ci:
     name: ci (24.x)
