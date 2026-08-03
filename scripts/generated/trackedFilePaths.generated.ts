@@ -249,6 +249,8 @@ export const trackedFilePaths = [
   "apps/samebase/convex/infraProvisioning.ts",
   "apps/samebase/convex/jsonUtils.test.ts",
   "apps/samebase/convex/jsonUtils.ts",
+  "apps/samebase/convex/mcp/client.test.ts",
+  "apps/samebase/convex/mcp/client.ts",
   "apps/samebase/convex/mcp/contracts/getAuthenticationStatus.test.ts",
   "apps/samebase/convex/mcp/contracts/getAuthenticationStatus.ts",
   "apps/samebase/convex/mcp/grants.convex.test.ts",
