@@ -80,6 +80,7 @@ export const mcpTables = {
   mcpGrants: defineTable({
     grantId: string(),
     userId: id("users"),
+    organizationId: optional(id("organizations")),
     clientId: string(),
     resource: string(),
     scope: string(),

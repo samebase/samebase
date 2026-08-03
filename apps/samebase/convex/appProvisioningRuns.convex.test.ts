@@ -181,6 +181,8 @@ describe("app provisioning retry admission", () => {
     });
     expect(admitted.queuedRuns).toHaveLength(1);
     expect(admitted.queuedRuns[0]).toMatchObject({
+      requestedByUserId: ids.userId,
+      userId: ids.userId,
       workflowId: expect.any(String),
     });
     expect(admitted.writeLock).toMatchObject({

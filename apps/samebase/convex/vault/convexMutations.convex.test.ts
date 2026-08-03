@@ -16,10 +16,32 @@ async function createGraphFixture() {
       email: "grace@example.com",
       isApproved: true,
     });
+    const organizationId = await ctx.db.insert("organizations", {});
+    const otherOrganizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    await ctx.db.insert("organizationMemberships", {
+      organizationId: otherOrganizationId,
+      userId: otherUserId,
+    });
+    await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      plan: "free",
+      status: "inactive",
+    });
+    await ctx.db.insert("organizationBillingAccounts", {
+      organizationId: otherOrganizationId,
+      plan: "free",
+      status: "inactive",
+    });
 
-    const createConnectedVault = async (ownerId: typeof userId, suffix: string) => {
+    const createConnectedVault = async (
+      ownerId: typeof userId,
+      vaultOrganizationId: typeof organizationId,
+      suffix: string,
+    ) => {
       const vaultId = await ctx.db.insert("vaults", {
         userId: ownerId,
+        organizationId: vaultOrganizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
@@ -36,6 +58,7 @@ async function createGraphFixture() {
       });
       await ctx.db.replace(vaultId, {
         userId: ownerId,
+        organizationId: vaultOrganizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "connect_existing_repository",
@@ -53,9 +76,10 @@ async function createGraphFixture() {
     return {
       userId,
       otherUserId,
-      primaryVaultId: await createConnectedVault(userId, "ada"),
-      secondaryVaultId: await createConnectedVault(userId, "ada-second"),
-      foreignVaultId: await createConnectedVault(otherUserId, "grace"),
+      organizationId,
+      primaryVaultId: await createConnectedVault(userId, organizationId, "ada"),
+      secondaryVaultId: await createConnectedVault(userId, organizationId, "ada-second"),
+      foreignVaultId: await createConnectedVault(otherUserId, otherOrganizationId, "grace"),
     };
   });
   return { ids, t };
@@ -105,6 +129,32 @@ describe("vault Convex project attachment mutations", () => {
     });
     expect(projects).toHaveLength(2);
     expect(projects.map((project) => project.origin)).toEqual(["provisioned", "provisioned"]);
+    expect(projects.map((project) => project.organizationId)).toEqual([
+      ids.organizationId,
+      ids.organizationId,
+    ]);
+  });
+
+  it("rejects a new project attachment when the parent vault has no organization key", async () => {
+    const { ids, t } = await createGraphFixture();
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ids.primaryVaultId, { organizationId: undefined });
+    });
+
+    await expect(
+      t.mutation(internal.vault.convexMutations.attachProjects, {
+        vaultId: ids.primaryVaultId,
+        userId: ids.userId,
+        projects: [
+          {
+            teamId: "team-1",
+            projectId: "missing-organization-project",
+            codeLocation: { kind: "config", convexConfigPath: "convex.json" },
+            origin: "selected_existing",
+          },
+        ],
+      }),
+    ).rejects.toThrow("Vault organization is required.");
   });
 
   it("enforces global project identity before writing any batch member", async () => {

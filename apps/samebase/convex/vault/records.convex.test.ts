@@ -20,11 +20,19 @@ describe("vault records Convex contract", () => {
   it("rolls back managed app admission when Workflow start fails", async () => {
     const t = convexTest(schema, modules);
     const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
+      const userId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
+      });
+      return userId;
     });
 
     await expect(
@@ -58,18 +66,26 @@ describe("vault records Convex contract", () => {
 
   it("defaults connection resource links open for new vaults", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
+      });
+      return { organizationId, userId };
     });
 
     const existingRepository = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
-        userId,
+        userId: ids.userId,
         ghRepoOwner: "Ada",
         ghRepoName: "Existing-App",
       },
@@ -77,7 +93,7 @@ describe("vault records Convex contract", () => {
     const samebaseManaged = await t.mutation(
       internal.vault.records.createInitializingSamebaseManagedVaultForUser,
       {
-        userId,
+        userId: ids.userId,
         ghRepoOwner: "Ada",
         ghRepoName: "Created-App",
         visibility: "private",
@@ -89,15 +105,29 @@ describe("vault records Convex contract", () => {
       },
     );
     const asUser = t.withIdentity({
-      subject: `${userId}|test-session`,
-      tokenIdentifier: `test:${userId}`,
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
     });
 
     await expect(
       t.run(async (ctx) => await ctx.db.get(samebaseManaged.runId)),
     ).resolves.toMatchObject({
+      requestedByUserId: ids.userId,
       workflowId: expect.any(String),
     });
+    await expect(
+      t.run(async (ctx) =>
+        Promise.all([
+          ctx.db.get(existingRepository.vaultId),
+          ctx.db.get(samebaseManaged.vaultId),
+          ctx.db.get(existingRepository.runId),
+        ]),
+      ),
+    ).resolves.toEqual([
+      expect.objectContaining({ organizationId: ids.organizationId, userId: ids.userId }),
+      expect.objectContaining({ organizationId: ids.organizationId, userId: ids.userId }),
+      expect.objectContaining({ requestedByUserId: ids.userId, userId: ids.userId }),
+    ]);
     await expect(asUser.query(api.vault.dashboard.getUserVaultResourceLinksState)).resolves.toEqual(
       expect.arrayContaining([
         {
@@ -152,7 +182,7 @@ describe("vault records Convex contract", () => {
     ).resolves.toBeNull();
   });
 
-  it("rejects case-insensitive duplicate Samebase-managed repository targets", async () => {
+  it("rejects a new vault when the user has no exact organization membership", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -162,21 +192,92 @@ describe("vault records Convex contract", () => {
       });
     });
 
-    await t.mutation(internal.vault.records.createInitializingSamebaseManagedVaultForUser, {
-      userId,
-      ghRepoOwner: "Ada",
-      ghRepoName: "Example-App",
-      visibility: "private",
-      description: null,
-      convexProjectName: "example-app",
-      convexTeamId: "convex-team",
-      cloudflareAccountId: "cloudflare-account",
-      cloudflareWorkerName: "example-app",
+    await expect(
+      t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
+        userId,
+        ghRepoOwner: "Ada",
+        ghRepoName: "Missing-Organization",
+      }),
+    ).rejects.toThrow("Organization membership is required.");
+    await expect(t.run(async (ctx) => await ctx.db.query("vaults").collect())).resolves.toEqual([]);
+  });
+
+  it("fails closed above the accepted Phase 1 organization membership count", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      const organizationId = await ctx.db.insert("organizations", {});
+      const userIds = [];
+      for (const email of ["one@example.com", "two@example.com", "three@example.com"]) {
+        const userId = await ctx.db.insert("users", { email, isApproved: true });
+        await ctx.db.insert("organizationMemberships", { organizationId, userId });
+        userIds.push(userId);
+      }
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
+      });
+      const userId = userIds[0];
+      if (!userId) {
+        throw new Error("Expected a user fixture.");
+      }
+      return userId;
+    });
+
+    await expect(
+      t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
+        userId,
+        ghRepoOwner: "Ada",
+        ghRepoName: "Too-Many-Members",
+      }),
+    ).rejects.toThrow("Phase 1 repository uniqueness supports at most two organization members.");
+  });
+
+  it("rejects case-insensitive duplicate Samebase-managed repository targets", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const otherUserId = await ctx.db.insert("users", {
+        name: "Grace",
+        email: "grace@example.com",
+        isApproved: true,
+      });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      await ctx.db.insert("organizationMemberships", { organizationId, userId: otherUserId });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
+      });
+      return { otherUserId, userId };
+    });
+
+    const existing = await t.mutation(
+      internal.vault.records.createInitializingSamebaseManagedVaultForUser,
+      {
+        userId: ids.userId,
+        ghRepoOwner: "Ada",
+        ghRepoName: "Example-App",
+        visibility: "private",
+        description: null,
+        convexProjectName: "example-app",
+        convexTeamId: "convex-team",
+        cloudflareAccountId: "cloudflare-account",
+        cloudflareWorkerName: "example-app",
+      },
+    );
+    await t.run(async (ctx) => {
+      await ctx.db.patch(existing.vaultId, { organizationId: undefined });
     });
 
     await expect(
       t.mutation(internal.vault.records.createInitializingSamebaseManagedVaultForUser, {
-        userId,
+        userId: ids.otherUserId,
         ghRepoOwner: " ada ",
         ghRepoName: " example-app ",
         visibility: "private",
@@ -187,6 +288,87 @@ describe("vault records Convex contract", () => {
         cloudflareWorkerName: "example-app-2",
       }),
     ).rejects.toThrow("Vault already exists for this repository.");
+  });
+
+  it("rejects a duplicate GitHub repository ID from a same-organization legacy vault", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const firstUserId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const secondUserId = await ctx.db.insert("users", {
+        name: "Grace",
+        email: "grace@example.com",
+        isApproved: true,
+      });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: firstUserId,
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: secondUserId,
+      });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
+      });
+      const legacyVaultId = await ctx.db.insert("vaults", {
+        userId: firstUserId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const legacyRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId: firstUserId,
+        vaultId: legacyVaultId,
+        repositoryFullName: "ada/legacy",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 2,
+      });
+      await ctx.db.replace(legacyVaultId, {
+        userId: firstUserId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId: legacyRunId,
+        ghRepoId: "shared-github-repository",
+        owner: "ada",
+        name: "legacy",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 3,
+      });
+      return { secondUserId };
+    });
+    const target = await t.mutation(
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      {
+        userId: ids.secondUserId,
+        ghRepoOwner: "grace",
+        ghRepoName: "new-target",
+      },
+    );
+
+    await expect(
+      t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
+        vaultId: target.vaultId,
+        runId: target.runId,
+        userId: ids.secondUserId,
+        ghRepoId: "shared-github-repository",
+        ghRepoOwner: "ada",
+        ghRepoName: "legacy",
+        defaultBranch: "main",
+        visibility: "private",
+      }),
+    ).rejects.toThrow("Vault already exists for this GitHub repository.");
   });
 
   it("rejects malformed repository full names with extra path segments", async () => {

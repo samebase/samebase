@@ -199,10 +199,20 @@ async function insertWorker(
     origin: "provisioned" | "selected_existing";
   },
 ): Promise<Id<"vaultCloudflareWorkers">> {
+  const vault = await requireConnectedVault(ctx, args);
+  const organizationId = vault.organizationId;
+  if (!organizationId) {
+    throw new Error("Vault organization is required.");
+  }
   const existing = await readMatchingWorker(ctx, args);
   if (existing) {
+    if (existing.organizationId && existing.organizationId !== organizationId) {
+      throw new Error("Cloudflare Worker organization does not match its vault.");
+    }
     if (args.origin === "provisioned" && existing.origin !== "provisioned") {
-      await ctx.db.patch(existing._id, { origin: "provisioned" });
+      await ctx.db.patch(existing._id, { organizationId, origin: "provisioned" });
+    } else if (!existing.organizationId) {
+      await ctx.db.patch(existing._id, { organizationId });
     }
     return existing._id;
   }
@@ -215,6 +225,7 @@ async function insertWorker(
   return await ctx.db.insert("vaultCloudflareWorkers", {
     vaultId: args.vaultId,
     userId: args.userId,
+    organizationId,
     accountId: args.accountId,
     workerName: args.workerName,
     workerTag: args.workerTag,

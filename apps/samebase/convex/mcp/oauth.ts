@@ -3,6 +3,7 @@ import { internal } from "../_generated/api";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { action, query } from "../functions";
 import { randomToken } from "../oauthUtils";
+import { requireSingleOrganizationIdForUser } from "../organizations";
 import {
   applyMcpDenyErrorParamsToRedirectUrl,
   type McpAuthorizationSuccessSearchParams,
@@ -482,6 +483,7 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
       });
     }
 
+    const organizationId = await requireSingleOrganizationIdForUser(ctx.db, args.userId);
     const userGrants = await ctx.db
       .query("mcpGrants")
       .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
@@ -496,13 +498,18 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
 
     const grantId = existingGrant?.grantId ?? `mcpg_${randomToken(24)}`;
     if (existingGrant) {
+      if (existingGrant.organizationId && existingGrant.organizationId !== organizationId) {
+        throw new Error("MCP grant organization does not match the current membership.");
+      }
       await ctx.db.patch(existingGrant._id, {
+        organizationId,
         updatedAt: args.now,
       });
     } else {
       await ctx.db.insert("mcpGrants", {
         grantId,
         userId: args.userId,
+        organizationId,
         clientId: authRequest.clientId,
         resource: authRequest.resource,
         scope: authRequest.scope,

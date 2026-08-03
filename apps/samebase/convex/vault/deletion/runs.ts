@@ -421,6 +421,7 @@ export const createInitialRun = internalMutation({
     const now = Date.now();
     const deletionRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
       userId: args.userId,
+      requestedByUserId: args.userId,
       vaultId: args.vaultId,
       repositoryFullName: plan.target.repositoryFullName,
       attempt: { kind: "initial" },
@@ -497,6 +498,7 @@ export const createRetryRun = internalMutation({
     const now = Date.now();
     const deletionRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
       userId: args.userId,
+      requestedByUserId: args.userId,
       vaultId: failedRun.vaultId,
       repositoryFullName: failedRun.repositoryFullName,
       attempt: {

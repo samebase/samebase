@@ -104,6 +104,7 @@ export const createRetryForVault = internalMutation({
     const repositoryFullName = `${connectedVault.owner}/${connectedVault.name}`;
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId: args.userId,
+      requestedByUserId: args.userId,
       vaultId: args.vaultId,
       repositoryFullName,
       trigger: "retry",

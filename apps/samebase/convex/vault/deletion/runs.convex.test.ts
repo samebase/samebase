@@ -280,6 +280,8 @@ describe("vault deletion Convex resource planning", () => {
 
     expect(snapshot.projects).toHaveLength(1);
     expect(snapshot.run).toMatchObject({
+      requestedByUserId: ids.userId,
+      userId: ids.userId,
       snapshot: {
         state: "retained_for_retry",
         plan: {

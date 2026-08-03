@@ -124,11 +124,21 @@ async function insertProject(
     origin: VaultProviderResourceOrigin;
   },
 ): Promise<Id<"vaultConvexProjects">> {
+  const vault = await requireConnectedVault(ctx, args);
+  const organizationId = vault.organizationId;
+  if (!organizationId) {
+    throw new Error("Vault organization is required.");
+  }
   const codeLocation = normalizeConvexCodeLocation(args.codeLocation);
   const existing = await readMatchingProject(ctx, { ...args, codeLocation });
   if (existing) {
+    if (existing.organizationId && existing.organizationId !== organizationId) {
+      throw new Error("Convex project organization does not match its vault.");
+    }
     if (args.origin === "provisioned" && existing.origin !== "provisioned") {
-      await ctx.db.patch(existing._id, { origin: "provisioned" });
+      await ctx.db.patch(existing._id, { organizationId, origin: "provisioned" });
+    } else if (!existing.organizationId) {
+      await ctx.db.patch(existing._id, { organizationId });
     }
     return existing._id;
   }
@@ -141,6 +151,7 @@ async function insertProject(
   const commonFields = {
     vaultId: args.vaultId,
     userId: args.userId,
+    organizationId,
     teamId: args.teamId,
     projectId: args.projectId,
     origin: args.origin,
@@ -452,6 +463,7 @@ export const reconcileProjectCodeLocation = internalMutation({
     const commonFields = {
       vaultId: project.vaultId,
       userId: project.userId,
+      ...(project.organizationId ? { organizationId: project.organizationId } : {}),
       teamId: project.teamId,
       projectId: project.projectId,
       origin: project.origin,

@@ -1,7 +1,7 @@
 import { defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 
-const { array, id, literal, number, object, string, union } = v;
+const { array, id, literal, number, object, optional, string, union } = v;
 
 export const vVaultDeletionNotDeleting = object({
   state: literal("not_deleting"),
@@ -181,6 +181,7 @@ export const vaultDeletionTables = {
       object({
         state: literal("queued"),
         userId: id("users"),
+        requestedByUserId: optional(id("users")),
         vaultId: id("vaults"),
         repositoryFullName: string(),
         createdAt: number(),
@@ -203,6 +204,7 @@ export const vaultDeletionTables = {
       object({
         state: literal("running"),
         userId: id("users"),
+        requestedByUserId: optional(id("users")),
         vaultId: id("vaults"),
         repositoryFullName: string(),
         createdAt: number(),
@@ -226,6 +228,7 @@ export const vaultDeletionTables = {
       object({
         state: literal("failed"),
         userId: id("users"),
+        requestedByUserId: optional(id("users")),
         vaultId: id("vaults"),
         repositoryFullName: string(),
         createdAt: number(),
@@ -256,6 +259,7 @@ export const vaultDeletionTables = {
       object({
         state: literal("succeeded"),
         userId: id("users"),
+        requestedByUserId: optional(id("users")),
         vaultId: id("vaults"),
         repositoryFullName: string(),
         createdAt: number(),

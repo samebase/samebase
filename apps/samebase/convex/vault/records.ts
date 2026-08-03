@@ -8,6 +8,7 @@ import {
 } from "../_generated/server";
 import { query } from "../functions";
 import { startCreateAppProvisioningWorkflow } from "../appProvisioningWorkflow";
+import { requireSingleOrganizationIdForUser } from "../organizations";
 import {
   parseRepositoryFullName,
   vGitHubRepositoryVisibility,
@@ -89,10 +90,24 @@ function normalizeGitHubRepositoryCoordinate(value: string): string {
   return value.trim().toLowerCase();
 }
 
-async function assertUserHasNoVaultForRepository(
+async function listPhaseOneOrganizationMemberUserIds(
+  ctx: Pick<MutationCtx, "db">,
+  organizationId: Id<"organizations">,
+): Promise<Array<Id<"users">>> {
+  const memberships = await ctx.db
+    .query("organizationMemberships")
+    .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
+    .take(3);
+  if (memberships.length > 2) {
+    throw new Error("Phase 1 repository uniqueness supports at most two organization members.");
+  }
+  return memberships.map((membership) => membership.userId);
+}
+
+async function assertOrganizationHasNoVaultForRepository(
   ctx: Pick<MutationCtx, "db">,
   args: {
-    userId: Id<"users">;
+    organizationId: Id<"organizations">;
     owner: string;
     name: string;
   },
@@ -101,7 +116,7 @@ async function assertUserHasNoVaultForRepository(
   const normalizedName = normalizeGitHubRepositoryCoordinate(args.name);
   for await (const vault of ctx.db
     .query("vaults")
-    .withIndex("by_userId", (q) => q.eq("userId", args.userId))) {
+    .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))) {
     if (vault.state === "not_connected") {
       continue;
     }
@@ -112,11 +127,67 @@ async function assertUserHasNoVaultForRepository(
       throw new Error("Vault already exists for this repository.");
     }
   }
+
+  const memberUserIds = await listPhaseOneOrganizationMemberUserIds(ctx, args.organizationId);
+  for (const userId of memberUserIds) {
+    for await (const vault of ctx.db
+      .query("vaults")
+      .withIndex("by_user_and_organization", (q) =>
+        q.eq("userId", userId).eq("organizationId", undefined),
+      )) {
+      if (vault.state === "not_connected") {
+        continue;
+      }
+      if (
+        normalizeGitHubRepositoryCoordinate(vault.owner) === normalizedOwner &&
+        normalizeGitHubRepositoryCoordinate(vault.name) === normalizedName
+      ) {
+        throw new Error("Vault already exists for this repository.");
+      }
+    }
+  }
+}
+
+async function assertOrganizationHasNoOtherVaultForGitHubRepository(
+  ctx: Pick<MutationCtx, "db">,
+  args: {
+    organizationId: Id<"organizations">;
+    ghRepoId: string;
+    excludeVaultId: Id<"vaults">;
+  },
+): Promise<void> {
+  for await (const vault of ctx.db
+    .query("vaults")
+    .withIndex("by_organization_and_ghRepoId", (q) =>
+      q.eq("organizationId", args.organizationId).eq("ghRepoId", args.ghRepoId),
+    )) {
+    if (vault._id !== args.excludeVaultId) {
+      throw new Error("Vault already exists for this GitHub repository.");
+    }
+  }
+
+  const memberUserIds = await listPhaseOneOrganizationMemberUserIds(ctx, args.organizationId);
+  for (const userId of memberUserIds) {
+    for await (const vault of ctx.db
+      .query("vaults")
+      .withIndex("by_user_and_organization", (q) =>
+        q.eq("userId", userId).eq("organizationId", undefined),
+      )) {
+      if (
+        isConnectedVault(vault) &&
+        vault.ghRepoId === args.ghRepoId &&
+        vault._id !== args.excludeVaultId
+      ) {
+        throw new Error("Vault already exists for this GitHub repository.");
+      }
+    }
+  }
 }
 
 function pickProvisioningVaultCoreFields(vault: ProvisioningVault) {
   return {
     userId: vault.userId,
+    ...(vault.organizationId ? { organizationId: vault.organizationId } : {}),
     deletion: vault.deletion,
   };
 }
@@ -166,8 +237,9 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
     if (!owner || !name) {
       throw new Error("Invalid repository full name");
     }
-    await assertUserHasNoVaultForRepository(ctx, {
-      userId: args.userId,
+    const organizationId = await requireSingleOrganizationIdForUser(ctx.db, args.userId);
+    await assertOrganizationHasNoVaultForRepository(ctx, {
+      organizationId,
       owner,
       name,
     });
@@ -175,6 +247,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
     const now = Date.now();
     const vaultId = await ctx.db.insert("vaults", {
       userId: args.userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
@@ -186,6 +259,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
     const repositoryFullName = `${owner}/${name}`;
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId: args.userId,
+      requestedByUserId: args.userId,
       vaultId,
       repositoryFullName,
       trigger: "connect_existing_repository",
@@ -239,17 +313,17 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
     if (isVaultDeletingOrDeleteFailed(vault)) {
       return null;
     }
+    const organizationId = vault.organizationId;
+    if (!organizationId) {
+      throw new Error("Vault organization is required.");
+    }
 
     // GitHub repository id stays stable across owner/name renames.
-    const existingVault = await ctx.db
-      .query("vaults")
-      .withIndex("by_userId_and_ghRepoId", (q) =>
-        q.eq("userId", args.userId).eq("ghRepoId", args.ghRepoId),
-      )
-      .first();
-    if (existingVault && existingVault._id !== args.vaultId) {
-      throw new Error("Vault already exists for this GitHub repository.");
-    }
+    await assertOrganizationHasNoOtherVaultForGitHubRepository(ctx, {
+      organizationId,
+      ghRepoId: args.ghRepoId,
+      excludeVaultId: args.vaultId,
+    });
     if (isConnectedVault(vault)) {
       if (
         vault.githubMode !== "connect_existing_repository" ||
@@ -270,6 +344,7 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
 
     await ctx.db.replace(args.vaultId, {
       userId: vault.userId,
+      organizationId,
       deletion: vault.deletion,
       state: "connected",
       githubMode: "connect_existing_repository",
@@ -322,8 +397,9 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     if (!owner || !name) {
       throw new Error("Invalid repository full name");
     }
-    await assertUserHasNoVaultForRepository(ctx, {
-      userId: args.userId,
+    const organizationId = await requireSingleOrganizationIdForUser(ctx.db, args.userId);
+    await assertOrganizationHasNoVaultForRepository(ctx, {
+      organizationId,
       owner,
       name,
     });
@@ -331,6 +407,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     const now = Date.now();
     const vaultId = await ctx.db.insert("vaults", {
       userId: args.userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
@@ -342,6 +419,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     const repositoryFullName = `${owner}/${name}`;
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId: args.userId,
+      requestedByUserId: args.userId,
       vaultId,
       repositoryFullName,
       trigger: "create",
@@ -448,6 +526,15 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
     if (isVaultDeletingOrDeleteFailed(vault)) {
       return null;
     }
+    const organizationId = vault.organizationId;
+    if (!organizationId) {
+      throw new Error("Vault organization is required.");
+    }
+    await assertOrganizationHasNoOtherVaultForGitHubRepository(ctx, {
+      organizationId,
+      ghRepoId: args.ghRepoId,
+      excludeVaultId: args.vaultId,
+    });
     if (isConnectedVault(vault)) {
       if (!isSamebaseManagedVault(vault)) {
         throw new Error("Connected vault repository identity cannot be changed.");
@@ -467,6 +554,7 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
 
     await ctx.db.replace(args.vaultId, {
       userId: vault.userId,
+      organizationId,
       deletion: vault.deletion,
       state: "connected",
       githubMode: "create_repository",

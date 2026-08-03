@@ -57,6 +57,7 @@ export type VaultProviderResourceOrigin = Infer<typeof vVaultProviderResourceOri
 const vVaultConvexProjectConfig = object({
   vaultId: id("vaults"),
   userId: id("users"),
+  organizationId: optional(id("organizations")),
   teamId: string(),
   projectId: string(),
   convexConfigPath: string(),
@@ -65,6 +66,7 @@ const vVaultConvexProjectConfig = object({
 const vVaultConvexProjectDirectory = object({
   vaultId: id("vaults"),
   userId: id("users"),
+  organizationId: optional(id("organizations")),
   teamId: string(),
   projectId: string(),
   convexDirectoryPath: string(),
@@ -126,12 +128,14 @@ export const vaultTables = {
       object({
         state: literal("not_connected"),
         userId: id("users"),
+        organizationId: optional(id("organizations")),
         deletion: vVaultDeletionState,
       }),
       object({
         state: literal("provisioning"),
         githubMode: literal("create_repository"),
         userId: id("users"),
+        organizationId: optional(id("organizations")),
         deletion: vVaultDeletionState,
         runId: id("workflow_vaultProvisioning_runs"),
         startedAt: number(),
@@ -143,6 +147,7 @@ export const vaultTables = {
         state: literal("provisioning"),
         githubMode: literal("connect_existing_repository"),
         userId: id("users"),
+        organizationId: optional(id("organizations")),
         deletion: vVaultDeletionState,
         runId: id("workflow_vaultProvisioning_runs"),
         startedAt: number(),
@@ -153,6 +158,7 @@ export const vaultTables = {
         state: literal("connected"),
         githubMode: literal("create_repository"),
         userId: id("users"),
+        organizationId: optional(id("organizations")),
         deletion: vVaultDeletionState,
         treeRefreshStartedAt: optional(number()),
         lastTreeRefreshFailedAt: optional(number()),
@@ -171,6 +177,7 @@ export const vaultTables = {
         state: literal("connected"),
         githubMode: literal("connect_existing_repository"),
         userId: id("users"),
+        organizationId: optional(id("organizations")),
         deletion: vVaultDeletionState,
         treeRefreshStartedAt: optional(number()),
         lastTreeRefreshFailedAt: optional(number()),
@@ -189,6 +196,7 @@ export const vaultTables = {
         state: literal("failed"),
         githubMode: literal("create_repository"),
         userId: id("users"),
+        organizationId: optional(id("organizations")),
         deletion: vVaultDeletionState,
         runId: id("workflow_vaultProvisioning_runs"),
         failedAt: number(),
@@ -200,6 +208,7 @@ export const vaultTables = {
         state: literal("failed"),
         githubMode: literal("connect_existing_repository"),
         userId: id("users"),
+        organizationId: optional(id("organizations")),
         deletion: vVaultDeletionState,
         runId: id("workflow_vaultProvisioning_runs"),
         failedAt: number(),
@@ -209,8 +218,11 @@ export const vaultTables = {
     ),
   )
     .index("by_userId", ["userId"])
+    .index("by_organization", ["organizationId"])
+    .index("by_user_and_organization", ["userId", "organizationId"])
     .index("by_userId_and_state_and_deletion_state", ["userId", "state", "deletion.state"])
     .index("by_userId_and_ghRepoId", ["userId", "ghRepoId"])
+    .index("by_organization_and_ghRepoId", ["organizationId", "ghRepoId"])
     .index("by_owner_and_name", ["owner", "name"])
     .index("by_userId_and_owner_and_name", ["userId", "owner", "name"]),
 
@@ -218,6 +230,7 @@ export const vaultTables = {
   vaultCloudflareWorkers: defineTable({
     vaultId: id("vaults"),
     userId: id("users"),
+    organizationId: optional(id("organizations")),
     accountId: string(),
     workerName: string(),
     workerTag: string(),
@@ -225,6 +238,8 @@ export const vaultTables = {
   })
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
+    .index("by_organization", ["organizationId"])
+    .index("by_user_and_organization", ["userId", "organizationId"])
     .index("by_account_and_worker", ["accountId", "workerName"])
     .index("by_account_and_worker_tag", ["accountId", "workerTag"]),
 
@@ -232,5 +247,7 @@ export const vaultTables = {
   vaultConvexProjects: defineTable(vVaultConvexProject)
     .index("by_vault", ["vaultId"])
     .index("by_user", ["userId"])
+    .index("by_organization", ["organizationId"])
+    .index("by_user_and_organization", ["userId", "organizationId"])
     .index("by_project", ["projectId"]),
 };

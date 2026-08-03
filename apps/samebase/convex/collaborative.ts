@@ -223,6 +223,7 @@ export const pushUpdates = mutation({
         clientId: update.clientId,
         changes: update.changes,
         userId: ctx.viewer.userId,
+        editUserId: ctx.viewer.userId,
         timestamp,
       });
 
@@ -329,6 +330,7 @@ export const pushContentUpdate = internalMutation({
       clientId: "agent",
       changes: JSON.stringify(changeSet.toJSON()),
       userId: args.userId,
+      editUserId: args.userId,
       timestamp,
     });
 
@@ -418,6 +420,7 @@ export const pushSerializedChangeSetUpdate = internalMutation({
       clientId: "agent",
       changes: args.serializedChangeSet,
       userId: args.userId,
+      editUserId: args.userId,
       timestamp,
     });
 

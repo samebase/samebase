@@ -397,6 +397,131 @@ describe("MCP OAuth authorization request boundaries", () => {
   });
 });
 
+describe("MCP OAuth organization binding", () => {
+  it("binds a created and reused grant to the user's exact organization", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "organization-grant@example.test",
+        isApproved: true,
+      });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
+      });
+      await ctx.db.insert("mcpOauthClients", {
+        clientId,
+        clientName: "Organization grant client",
+        redirectUris: ["http://127.0.0.1/callback"],
+        grantTypes: ["authorization_code", "refresh_token"],
+        responseTypes: ["code"],
+        tokenEndpointAuthMethod: "none",
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "dynamic_registration",
+        registrationStatus: "active",
+        metadataJson: "{}",
+      });
+      for (const requestId of ["mcpar_organization_first", "mcpar_organization_reuse"]) {
+        await ctx.db.insert("mcpAuthorizationRequests", {
+          requestId,
+          clientId,
+          redirectUri: "http://127.0.0.1/callback",
+          resource,
+          scope,
+          codeChallenge: "unused-code-challenge",
+          codeChallengeMethod: "S256",
+          userId,
+          status: "pending",
+          createdAt: now,
+          expiresAt: now + 60_000,
+        });
+      }
+      return { organizationId, userId };
+    });
+
+    for (const [requestId, codeHash] of [
+      ["mcpar_organization_first", "organization_code_hash_first"],
+      ["mcpar_organization_reuse", "organization_code_hash_reuse"],
+    ] as const) {
+      await expect(
+        t.mutation(internal.mcp.oauth.issueAuthorizationCodeForAuthRequest, {
+          requestId,
+          userId: ids.userId,
+          codeHash,
+          codeExpiresAt: now + 60_000,
+          allowLoopbackHttpRedirectUris: true,
+          now: now + 1,
+        }),
+      ).resolves.toMatchObject({ ok: true });
+    }
+
+    await expect(t.run(async (ctx) => await ctx.db.query("mcpGrants").collect())).resolves.toEqual([
+      expect.objectContaining({
+        organizationId: ids.organizationId,
+        userId: ids.userId,
+      }),
+    ]);
+  });
+
+  it("rejects a new grant when the user has no exact organization membership", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "missing-organization-grant@example.test",
+        isApproved: true,
+      });
+      await ctx.db.insert("mcpOauthClients", {
+        clientId,
+        clientName: "Missing organization grant client",
+        redirectUris: ["http://127.0.0.1/callback"],
+        grantTypes: ["authorization_code", "refresh_token"],
+        responseTypes: ["code"],
+        tokenEndpointAuthMethod: "none",
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "dynamic_registration",
+        registrationStatus: "active",
+        metadataJson: "{}",
+      });
+      await ctx.db.insert("mcpAuthorizationRequests", {
+        requestId: "mcpar_missing_organization",
+        clientId,
+        redirectUri: "http://127.0.0.1/callback",
+        resource,
+        scope,
+        codeChallenge: "unused-code-challenge",
+        codeChallengeMethod: "S256",
+        userId,
+        status: "pending",
+        createdAt: now,
+        expiresAt: now + 60_000,
+      });
+      return userId;
+    });
+
+    await expect(
+      t.mutation(internal.mcp.oauth.issueAuthorizationCodeForAuthRequest, {
+        requestId: "mcpar_missing_organization",
+        userId,
+        codeHash: "missing_organization_code_hash",
+        codeExpiresAt: now + 60_000,
+        allowLoopbackHttpRedirectUris: true,
+        now: now + 1,
+      }),
+    ).rejects.toThrow("Organization membership is required.");
+    await expect(
+      t.run(async (ctx) => ({
+        codes: await ctx.db.query("mcpAuthorizationCodes").collect(),
+        grants: await ctx.db.query("mcpGrants").collect(),
+      })),
+    ).resolves.toEqual({ codes: [], grants: [] });
+  });
+});
+
 describe("MCP OAuth account deletion access", () => {
   it("does not create authenticated authorization requests for deleting or missing users", async () => {
     const t = makeConvexTest();

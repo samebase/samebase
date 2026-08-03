@@ -73,6 +73,7 @@ export const vaultEditorTables = {
     clientId: string(),
     changes: string(),
     userId: id("users"),
+    editUserId: optional(id("users")),
     timestamp: number(),
   })
     .index("by_vault", ["vaultId"])

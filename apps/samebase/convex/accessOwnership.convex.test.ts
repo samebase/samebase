@@ -27,8 +27,17 @@ async function seedOwnedResources() {
       email: "nicuchiciuc@gmail.com",
       isApproved: true,
     });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId: ownerId });
+    await ctx.db.insert("organizationMemberships", { organizationId, userId: otherUserId });
+    await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      plan: "free",
+      status: "inactive",
+    });
     const vaultId = await ctx.db.insert("vaults", {
       userId: ownerId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
@@ -45,6 +54,7 @@ async function seedOwnedResources() {
     });
     await ctx.db.replace(vaultId, {
       userId: ownerId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "connect_existing_repository",
@@ -95,6 +105,7 @@ async function seedOwnedResources() {
       clientId: "owner-client",
       changes: "[]",
       userId: ownerId,
+      editUserId: ownerId,
       timestamp: now,
     });
     const deletionRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
@@ -134,7 +145,7 @@ async function seedOwnedResources() {
 }
 
 describe("public Convex route ownership checks", () => {
-  it("hides owner-scoped vault read gateways from another staff user", async () => {
+  it("hides owner-scoped vault read gateways from another same-organization user", async () => {
     const { ids, t } = await seedOwnedResources();
     const asOther = asIdentity(t, ids.otherUserId);
     const asOwner = asIdentity(t, ids.ownerId);
@@ -172,7 +183,7 @@ describe("public Convex route ownership checks", () => {
     ]);
   });
 
-  it("hides owner-scoped folder and collaborative reads from another staff user", async () => {
+  it("hides owner-scoped folder and collaborative reads from another same-organization user", async () => {
     const { ids, t } = await seedOwnedResources();
     const asOther = asIdentity(t, ids.otherUserId);
     const asOwner = asIdentity(t, ids.ownerId);
@@ -399,9 +410,38 @@ describe("public Convex route ownership checks", () => {
       updates: [
         {
           clientId: "owner-client",
+          editUserId: ids.ownerId,
           userId: ids.ownerId,
         },
       ],
+    });
+  });
+
+  it("records the edit actor for a successful collaborative update", async () => {
+    const { ids, t } = await seedOwnedResources();
+    const asOwner = asIdentity(t, ids.ownerId);
+
+    await expect(
+      asOwner.mutation(api.collaborative.pushUpdates, {
+        repositoryFullName: "owner/secure",
+        branch: "main",
+        filePath: "notes/plan.md",
+        version: 3,
+        updates: [{ clientId: "owner-new-client", changes: '[13,[0,"!"]]' }],
+      }),
+    ).resolves.toEqual({ success: true, newVersion: 4 });
+
+    await expect(
+      t.run(async (ctx) => {
+        const updates = await ctx.db
+          .query("vaultStagedFileUpdates")
+          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+          .collect();
+        return updates.find((update) => update.clientId === "owner-new-client");
+      }),
+    ).resolves.toMatchObject({
+      editUserId: ids.ownerId,
+      userId: ids.ownerId,
     });
   });
 });
