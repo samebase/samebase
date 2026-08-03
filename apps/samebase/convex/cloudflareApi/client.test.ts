@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { requestCloudflareApi, resolveCloudflareApiTransport } from "./client";
+import {
+  observedCompletedWorkerBuild,
+  observedRunningWorkerBuild,
+} from "./fixtures/observedWorkerBuilds";
 import { cloudflareApiResponseValidators } from "./validators.generated";
 
 describe("Cloudflare API transport", () => {
@@ -109,6 +113,37 @@ describe("Cloudflare API response validators", () => {
         ],
       }),
     ).toBe(true);
+  });
+
+  it("accepts an observed completed Worker build", () => {
+    const validate =
+      cloudflareApiResponseValidators.GET[
+        "/accounts/{account_id}/builds/workers/{external_script_id}/builds"
+      ];
+
+    expect(
+      validate({
+        success: true,
+        errors: [],
+        messages: [],
+        result: [observedCompletedWorkerBuild],
+      }),
+    ).toBe(true);
+  });
+
+  it("accepts an observed running Worker build", () => {
+    const validate =
+      cloudflareApiResponseValidators.GET[
+        "/accounts/{account_id}/builds/workers/{external_script_id}/builds"
+      ];
+
+    const response = {
+      success: true,
+      errors: [],
+      messages: [],
+      result: [observedRunningWorkerBuild],
+    };
+    expect(validate(response), JSON.stringify(validate.errors)).toBe(true);
   });
 
   it("accepts successful Worker version lists with null message fields", () => {

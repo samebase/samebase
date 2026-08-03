@@ -60,6 +60,7 @@ function classifyCloudflareBuildState(build: CloudflareWorkerBuild): CloudflareB
       return "cancelled";
     case "skipped":
       return "skipped";
+    case null:
     case undefined:
       return "unknown";
     default:

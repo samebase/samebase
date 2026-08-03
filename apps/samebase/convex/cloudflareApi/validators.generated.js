@@ -1955,7 +1955,8 @@ const schema22 = {
 const schema23 = {
   type: "string",
   example: "success",
-  enum: ["success", "fail", "skipped", "cancelled", "terminated"],
+  enum: ["success", "fail", "skipped", "cancelled", "terminated", null],
+  nullable: true,
 };
 const schema39 = { description: "Build UUID.", type: "string", format: "uuid" };
 const schema33 = { type: "string", format: "date-time" };
@@ -2756,7 +2757,7 @@ function validate26(
   if (data && typeof data == "object" && !Array.isArray(data)) {
     if (data.build_outcome !== undefined) {
       let data0 = data.build_outcome;
-      if (typeof data0 !== "string") {
+      if (typeof data0 !== "string" && data0 !== null) {
         const err0 = {
           instancePath: instancePath + "/build_outcome",
           schemaPath: "#/components/schemas/builds_BuildOutcome/type",
@@ -2777,7 +2778,8 @@ function validate26(
           data0 === "fail" ||
           data0 === "skipped" ||
           data0 === "cancelled" ||
-          data0 === "terminated"
+          data0 === "terminated" ||
+          data0 === null
         )
       ) {
         const err1 = {
@@ -3680,7 +3682,7 @@ function validate44(
   if (data && typeof data == "object" && !Array.isArray(data)) {
     if (data.build_outcome !== undefined) {
       let data0 = data.build_outcome;
-      if (typeof data0 !== "string") {
+      if (typeof data0 !== "string" && data0 !== null) {
         const err0 = {
           instancePath: instancePath + "/build_outcome",
           schemaPath: "#/components/schemas/builds_BuildOutcome/type",
@@ -3701,7 +3703,8 @@ function validate44(
           data0 === "fail" ||
           data0 === "skipped" ||
           data0 === "cancelled" ||
-          data0 === "terminated"
+          data0 === "terminated" ||
+          data0 === null
         )
       ) {
         const err1 = {

@@ -310,6 +310,9 @@ function normalizeObservedCloudflareApiResponseShapes(document: JsonRecord) {
     pointer: "#/components/schemas/workers_Worker/properties/references/properties/domains/items",
     property: "certificate_id",
   });
+  // Active Workers Builds responses return null before a final outcome exists,
+  // while the upstream schema currently declares only terminal strings.
+  markSchemaNullable(document, "#/components/schemas/builds_BuildOutcome");
   // Workers Builds history returns push_event and response-shaped environment
   // variable objects, while the upstream metadata schema declares push and a
   // string map. Patch the schema boundary instead of rewriting provider data.
@@ -326,6 +329,10 @@ function markSchemaNullable(document: JsonRecord, pointer: string): void {
     throw new Error(`Expected Cloudflare API schema ${pointer} to be an object.`);
   }
   schema["nullable"] = true;
+  const values = schema["enum"];
+  if (Array.isArray(values) && !values.includes(null)) {
+    values.push(null);
+  }
 }
 
 function markSchemaPropertyOptional(args: {
