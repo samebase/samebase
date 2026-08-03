@@ -71,6 +71,7 @@ import {
   validateJsonRpcRequestPayload,
   validateTokenRequestFromSearchParams,
 } from "./protocol";
+import { isMcpOauthClientInactive } from "./client";
 import { parseScopeTokens } from "./scopes";
 
 const MCP_PROVISIONAL_CLIENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -550,11 +551,7 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
     });
   }
 
-  if (
-    client.registrationStatus === "expired" ||
-    client.registrationStatus === "disabled" ||
-    (typeof client.provisionalExpiresAt === "number" && client.provisionalExpiresAt <= now)
-  ) {
+  if (isMcpOauthClientInactive({ client, now })) {
     return oauthErrorResponse({
       status: 400,
       error: "invalid_client",
@@ -701,11 +698,7 @@ export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {
     });
   }
 
-  if (
-    client.registrationStatus === "expired" ||
-    client.registrationStatus === "disabled" ||
-    (typeof client.provisionalExpiresAt === "number" && client.provisionalExpiresAt <= now)
-  ) {
+  if (isMcpOauthClientInactive({ client, now })) {
     return oauthErrorResponse({
       status: 400,
       error: "invalid_client",
