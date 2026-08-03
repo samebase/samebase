@@ -2,12 +2,12 @@ import { v, type Infer } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { vMcpOauthClientRegistrationStatus } from "./mcp/model";
 import {
   ACCESS_BROWSER_LOGIN_HANDOFF,
   canAccess,
   readAccessKeysForRole,
 } from "../shared/accessModel";
+import { isMcpOauthClientInactive } from "./mcp/client";
 import { parseScopeTokens } from "./mcp/scopes";
 import { readViewerRoleForUser } from "./viewerRole";
 
@@ -57,21 +57,6 @@ const redeemForAuthResultValidator = union(
   }),
 );
 type RedeemForAuthResult = Infer<typeof redeemForAuthResultValidator>;
-
-function isClientInactive(args: {
-  client: {
-    registrationStatus: Infer<typeof vMcpOauthClientRegistrationStatus>;
-    provisionalExpiresAt?: number;
-  };
-  now: number;
-}): boolean {
-  return (
-    args.client.registrationStatus === "expired" ||
-    args.client.registrationStatus === "disabled" ||
-    (typeof args.client.provisionalExpiresAt === "number" &&
-      args.client.provisionalExpiresAt <= args.now)
-  );
-}
 
 function error(reason: string): { ok: false; reason: string } {
   return { ok: false, reason };
@@ -131,7 +116,7 @@ export const createForMcp = internalMutation({
       .query("mcpOauthClients")
       .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
       .first();
-    if (!client || isClientInactive({ client, now: args.createdAt })) {
+    if (!client || isMcpOauthClientInactive({ client, now: args.createdAt })) {
       return error("client_inactive");
     }
 
@@ -237,7 +222,7 @@ export const redeemForAuth = internalMutation({
           ? "grant_mismatch"
           : !parseScopeTokens(grant.scope).includes(ACCESS_BROWSER_LOGIN_HANDOFF)
             ? "scope_missing"
-            : !client || isClientInactive({ client, now: args.now })
+            : !client || isMcpOauthClientInactive({ client, now: args.now })
               ? "client_inactive"
               : !(await canUserCreateBrowserHandoff(ctx, handoff.userId))
                 ? "access_missing"
