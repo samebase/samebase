@@ -5,6 +5,8 @@ from code. generate-action-docs.ts composes both halves into /chatgpt-app-submis
 fails closed when a catalog tool has no justification entry.
 */
 
+import type { ActionContractMcpName } from "../convex/toolRuntime/actionCatalog";
+
 export const appInfo = {
   display_name: "Samebase",
   subtitle: "Build and ship web apps",
@@ -126,15 +128,13 @@ export const toolJustifications = {
     destructive_justification:
       "Consumes the one-time handoff token on redemption or account mismatch; does not delete user data, repositories, deployments, Workers, or provider resources.",
   },
-} as const satisfies Record<string, ToolJustifications>;
-
-type SubmissionToolName = keyof typeof toolJustifications;
+} as const satisfies Record<ActionContractMcpName, ToolJustifications>;
 
 type SubmissionTestCase = {
   description: string;
   user_prompt: string;
   file_attachment_urls: null;
-  tools_triggered: readonly [SubmissionToolName, ...SubmissionToolName[]];
+  tools_triggered: readonly [ActionContractMcpName, ...ActionContractMcpName[]];
   expected_output: string;
   expected_output_url: null;
 };
@@ -143,18 +143,11 @@ type SubmissionNegativeTestCase = Omit<SubmissionTestCase, "tools_triggered"> & 
   tools_triggered: null;
 };
 
-type SubmissionTestCases = readonly [
-  SubmissionTestCase,
-  SubmissionTestCase,
-  SubmissionTestCase,
-  SubmissionTestCase,
-  SubmissionTestCase,
-];
+type SubmissionTestCases = readonly [SubmissionTestCase, ...SubmissionTestCase[]];
 
 type SubmissionNegativeTestCases = readonly [
   SubmissionNegativeTestCase,
-  SubmissionNegativeTestCase,
-  SubmissionNegativeTestCase,
+  ...SubmissionNegativeTestCase[],
 ];
 
 export const testCases = [
