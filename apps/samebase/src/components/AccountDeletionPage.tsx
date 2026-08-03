@@ -16,7 +16,7 @@ type TrackedAccountDeletionData = Exclude<
 
 const ACCOUNT_DELETION_STEP_LABELS = {
   request_accepted: "Request accepted",
-  cancel_billing: "Cancel billing",
+  cancel_billing: "Check billing",
   revoke_access: "Revoke access",
   delete_samebase_data: "Delete account data",
   send_completion_email: "Send completion email",

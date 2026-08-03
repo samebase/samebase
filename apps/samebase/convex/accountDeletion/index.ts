@@ -20,6 +20,7 @@ import {
   vAccountDeletionOutcomeSummary,
   vAccountDeletionStep,
 } from "./model";
+import { readAccountDeletionBilling } from "./stepContext";
 import { startAccountDeletionWorkflow } from "./workflow";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
@@ -164,6 +165,26 @@ async function readAccountDeletionVaults(
     .collect();
 }
 
+async function readAccountDeletionBillingStakes(
+  db: DatabaseReader,
+  userId: Id<"users">,
+): Promise<{ hasActiveSubscription: boolean; hasCheckoutAttempt: boolean }> {
+  const billing = await readAccountDeletionBilling(db, userId);
+
+  if (billing === null) {
+    throw new Error("Account deletion billing is unavailable.");
+  }
+
+  if (billing.kind === "preserve_organization") {
+    return { hasActiveSubscription: false, hasCheckoutAttempt: false };
+  }
+
+  return {
+    hasActiveSubscription: billing.state.status === "active" || billing.state.status === "past_due",
+    hasCheckoutAttempt: billing.state.polarCheckoutAttempt !== undefined,
+  };
+}
+
 /**
 Counts what deletion would destroy for the confirmation phrase. vaultStagedFiles
 reads walk the by_vault index in take() batches cursored on _creationTime
@@ -263,12 +284,11 @@ export const stakes = query({
   args: {},
   returns: vAccountDeletionStakes,
   handler: async (ctx) => {
-    const vaults = await readAccountDeletionVaults(ctx.db, ctx.viewer.userId);
-    return await countAccountDeletionStakes(
-      ctx.db,
-      vaults,
-      ctx.viewer.user.billingStatus === "active" || ctx.viewer.user.billingStatus === "past_due",
-    );
+    const [vaults, billing] = await Promise.all([
+      readAccountDeletionVaults(ctx.db, ctx.viewer.userId),
+      readAccountDeletionBillingStakes(ctx.db, ctx.viewer.userId),
+    ]);
+    return await countAccountDeletionStakes(ctx.db, vaults, billing.hasActiveSubscription);
   },
 });
 
@@ -301,7 +321,9 @@ export const request = mutation({
       return { state: "accepted" as const, status: projectStatus(existingRun) };
     }
 
-    if (ctx.viewer.user.billingPolarCheckoutAttempt) {
+    const billing = await readAccountDeletionBillingStakes(ctx.db, ctx.viewer.userId);
+
+    if (billing.hasCheckoutAttempt) {
       return { state: "billing_checkout_pending" as const };
     }
 
@@ -340,7 +362,7 @@ export const request = mutation({
     const currentStakes = await countAccountDeletionStakes(
       ctx.db,
       vaults,
-      ctx.viewer.user.billingStatus === "active" || ctx.viewer.user.billingStatus === "past_due",
+      billing.hasActiveSubscription,
     );
     if (
       args.confirmationPhrase !== buildAccountDeletionConfirmationPhrase(currentStakes) ||

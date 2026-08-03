@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "../../_generated/api";
 import { makeConvexTest } from "../../test.setup";
-import { VAULT_LOCAL_CLEANUP_BATCH_SIZE } from "./cleanup";
+import { deleteVaultLifecycleDataBatchForVault, VAULT_LOCAL_CLEANUP_BATCH_SIZE } from "./cleanup";
 
 describe("vault deletion workflow", () => {
   async function createConnectedVault() {
@@ -158,6 +158,34 @@ describe("vault deletion workflow", () => {
     expect(queued.events.map((event) => event.step)).toContain("initialize_deletion");
 
     expect(queued.vault).toMatchObject({ _id: ids.vaultId });
+  });
+
+  it("does not remove an active vault lifecycle", async () => {
+    const { ids, t } = await createConnectedVault();
+    const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+      options: {
+        removeGithubRepo: false,
+        removeConvexProvision: false,
+        removeCloudflareProvision: false,
+      },
+    });
+
+    await expect(
+      t.run(async (ctx) => deleteVaultLifecycleDataBatchForVault(ctx, { vaultId: ids.vaultId })),
+    ).rejects.toThrow("Active vault deletion lifecycle cannot be removed.");
+    await expect(t.run(async (ctx) => ctx.db.get(deletionRunId))).resolves.toMatchObject({
+      state: "queued",
+    });
+    await expect(
+      t.run(async (ctx) =>
+        ctx.db
+          .query("workflow_vaultDeletion_events")
+          .withIndex("by_run_and_created_at", (query) => query.eq("runId", deletionRunId))
+          .collect(),
+      ),
+    ).resolves.toHaveLength(1);
   });
 
   it("plans Cloudflare cleanup from Worker origin for connected repository vaults", async () => {
@@ -363,11 +391,19 @@ describe("vault deletion workflow", () => {
   it("returns the dashboard delete disabled reason while source setup runs", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
+      const userId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
+      });
+      return userId;
     });
     await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
       userId,
@@ -529,6 +565,33 @@ describe("vault deletion workflow", () => {
       runId: deletionRunId,
     });
 
+    await expect(
+      t.mutation(internal.vault.deletion.cleanup.cleanupDeletedVaultLifecycleDataBatch, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toMatchObject({
+      state: "needs_more",
+      table: "workflow_vaultDeletion_events",
+    });
+    await expect(t.run(async (ctx) => await ctx.db.get(deletionRunId))).resolves.toMatchObject({
+      state: "succeeded",
+      currentStep: "finish",
+    });
+    await expect(
+      t.mutation(internal.vault.deletion.cleanup.cleanupDeletedVaultLifecycleDataBatch, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({
+      state: "needs_more",
+      table: "workflow_vaultDeletion_runs",
+      rowsChanged: 1,
+    });
+    await expect(
+      t.mutation(internal.vault.deletion.cleanup.cleanupDeletedVaultLifecycleDataBatch, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual({ state: "done" });
+
     const completed = await t.run(async (ctx) => {
       return {
         run: await ctx.db.get(deletionRunId),
@@ -552,14 +615,8 @@ describe("vault deletion workflow", () => {
     expect(completed.branchTrees).toHaveLength(0);
     expect(completed.cloudflareWorkers).toHaveLength(0);
     expect(sourceCleanupBatches).toBeGreaterThan(1);
-    expect(completed.run).toMatchObject({
-      state: "succeeded",
-      currentStep: "finish",
-      snapshot: { state: "scrubbed_after_success" },
-    });
-    expect(completed.events.map((event) => event.step)).toEqual(
-      expect.arrayContaining(["lock_vault", "delete_vault", "finish"]),
-    );
+    expect(completed.run).toBeNull();
+    expect(completed.events).toEqual([]);
   });
 
   it("rejects source provisioning before creating a deletion run", async () => {

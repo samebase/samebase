@@ -99,34 +99,34 @@ export const cancelForAccountDeletion = internalAction({
   },
   returns: vCancelBillingResult,
   handler: async (ctx, args): Promise<CancelBillingResult> => {
-    const identity = await ctx.runQuery(
-      internal.accountDeletion.stepContext.getOwnedIdentity,
-      args,
-    );
-    const user = await ctx.runQuery(internal.users.getById, { userId: identity.userId });
+    const billing = await ctx.runQuery(internal.accountDeletion.stepContext.getOwnedBilling, args);
 
-    if (!user) {
+    if (billing.state === "invalid") {
       return {
         state: "failed",
         safeError: POLAR_CANCELLATION_SAFE_ERROR,
       };
     }
 
-    if (user.accountDeletion?.runId !== args.runId || user.billingPolarCheckoutAttempt) {
+    if (billing.state === "preserve_organization") {
+      return { state: "not_applicable" };
+    }
+
+    if (billing.hasCheckoutAttempt) {
       return {
         state: "failed",
         safeError: POLAR_CANCELLATION_SAFE_ERROR,
       };
     }
 
-    const externalCustomerId = user.billingPolarExternalCustomerId?.trim();
+    const externalCustomerId = billing.polarExternalCustomerId?.trim();
 
     if (!externalCustomerId) {
       if (
-        user.billingProvider === "polar" ||
-        user.billingPlan === "pro" ||
-        user.billingStatus === "active" ||
-        user.billingStatus === "past_due"
+        billing.provider === "polar" ||
+        billing.plan === "pro" ||
+        billing.status === "active" ||
+        billing.status === "past_due"
       ) {
         return {
           state: "failed",

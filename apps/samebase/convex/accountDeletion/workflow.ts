@@ -325,7 +325,7 @@ export const deleteAccountWorkflow = workflow.define({
           ...ownedArgs,
           step: "cancel_billing",
           level: "info",
-          message: "Canceling Samebase billing.",
+          message: "Checking Samebase billing.",
         },
         { name: "start_billing_cancellation" },
       );

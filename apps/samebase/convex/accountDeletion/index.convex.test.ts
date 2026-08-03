@@ -636,6 +636,40 @@ describe("account deletion foundation", () => {
 });
 
 describe("account deletion stakes and typed confirmation", () => {
+  it("counts organization billing only when the deleting user is the sole member", async () => {
+    const owner = await seedUser({ email: "ada@example.com" });
+    const remaining = await seedUser({ email: "grace@example.com", t: owner.t });
+    const membershipIds = await owner.t.run(async (ctx) => {
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: owner.ids.userId,
+      });
+      const remainingMembershipId = await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: remaining.ids.userId,
+      });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        polarExternalCustomerId: "shared-customer",
+      });
+      return { remainingMembershipId };
+    });
+
+    await expect(owner.asUser.query(api.accountDeletion.index.stakes)).resolves.toMatchObject({
+      hasActiveSubscription: false,
+    });
+    await owner.t.run(async (ctx) => {
+      await ctx.db.delete(membershipIds.remainingMembershipId);
+    });
+    await expect(owner.asUser.query(api.accountDeletion.index.stakes)).resolves.toMatchObject({
+      hasActiveSubscription: true,
+    });
+  });
+
   it("counts only the viewer's vaults and real staged changes", async () => {
     const owner = await seedUser({ email: "ada@example.com" });
     const other = await seedUser({ email: "grace@example.com", t: owner.t });

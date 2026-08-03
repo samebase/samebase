@@ -28,7 +28,7 @@ export const sendForAccountDeletion = internalAction({
       await sendEmail({
         to: identity.email,
         subject: "Your Samebase account deletion is finishing",
-        text: `Your Samebase workspace data and stored provider credentials have been removed. Your remaining sign-in records are being finalized. Samebase staff will finish the deletion if the last step needs attention.
+        text: `Your Samebase account deletion is finishing. The required cleanup steps before final account removal are complete. Samebase staff will finish the deletion if the last step needs attention.
 
 External repositories, deployments, projects, and Workers were not deleted.
 

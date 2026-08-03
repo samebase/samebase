@@ -1,14 +1,96 @@
 import { v } from "convex/values";
 
 import type { Doc, Id } from "../_generated/dataModel";
+import type { DatabaseReader } from "../_generated/server";
 import { internalQuery, type QueryCtx } from "../_generated/server";
+import {
+  findBillingAccountForUser,
+  readBillingAccountState,
+  type BillingAccountState,
+} from "../organizationBilling";
 
-const { id, object, string } = v;
+const { boolean, id, literal, object, optional, string, union } = v;
 
 type RunningAccountDeletionRun = Extract<
   Doc<"workflow_accountDeletion_runs">,
   { state: "running" }
 >;
+
+export type AccountDeletionOrganization =
+  | { kind: "legacy_user" }
+  | {
+      kind: "organization";
+      membershipId: Id<"organizationMemberships">;
+      organizationId: Id<"organizations">;
+      membershipState: "sole" | "shared";
+    };
+
+export type AccountDeletionBilling =
+  | { kind: "preserve_organization"; user: Doc<"users"> }
+  | { kind: "cancel"; state: BillingAccountState; user: Doc<"users"> };
+
+export async function readAccountDeletionOrganization(
+  db: DatabaseReader,
+  userId: Id<"users">,
+): Promise<AccountDeletionOrganization> {
+  const membership = await db
+    .query("organizationMemberships")
+    .withIndex("by_user", (query) => query.eq("userId", userId))
+    .unique();
+
+  if (membership === null) {
+    return { kind: "legacy_user" };
+  }
+
+  const memberships = await db
+    .query("organizationMemberships")
+    .withIndex("by_organization", (query) => query.eq("organizationId", membership.organizationId))
+    .take(2);
+
+  if (memberships.length === 0) {
+    throw new Error("Organization membership is inconsistent.");
+  }
+
+  if (memberships.length === 1 && memberships[0]._id !== membership._id) {
+    throw new Error("Organization membership is inconsistent.");
+  }
+
+  return {
+    kind: "organization",
+    membershipId: membership._id,
+    organizationId: membership.organizationId,
+    membershipState: memberships.length === 1 ? "sole" : "shared",
+  };
+}
+
+export async function readAccountDeletionBilling(
+  db: DatabaseReader,
+  userId: Id<"users">,
+): Promise<AccountDeletionBilling | null> {
+  const organization = await readAccountDeletionOrganization(db, userId);
+  const billing = await findBillingAccountForUser(db, userId);
+
+  if (billing === null) {
+    return null;
+  }
+
+  if (
+    (organization.kind === "legacy_user" && billing.target.kind !== "legacy_user") ||
+    (organization.kind === "organization" && billing.target.kind !== "organization")
+  ) {
+    throw new Error("Account deletion billing ownership is inconsistent.");
+  }
+
+  if (organization.kind === "organization" && organization.membershipState === "shared") {
+    return { kind: "preserve_organization", user: billing.user };
+  }
+
+  return {
+    kind: "cancel",
+    state: readBillingAccountState(billing.target),
+    user: billing.user,
+  };
+}
 
 export async function readOwnedActiveRun(
   ctx: Pick<QueryCtx, "db">,
@@ -42,6 +124,46 @@ export const getOwnedIdentity = internalQuery({
     return {
       userId: run.identity.userId,
       email: run.identity.email,
+    };
+  },
+});
+
+export const getOwnedBilling = internalQuery({
+  args: {
+    runId: id("workflow_accountDeletion_runs"),
+    workflowId: string(),
+  },
+  returns: union(
+    object({ state: literal("invalid") }),
+    object({ state: literal("preserve_organization") }),
+    object({
+      state: literal("cancel"),
+      hasCheckoutAttempt: boolean(),
+      provider: optional(literal("polar")),
+      plan: union(literal("free"), literal("pro")),
+      status: union(literal("inactive"), literal("active"), literal("past_due")),
+      polarExternalCustomerId: optional(string()),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const run = await readOwnedActiveRun(ctx, args);
+    const billing = await readAccountDeletionBilling(ctx.db, run.identity.userId);
+
+    if (billing === null || billing.user.accountDeletion?.runId !== run._id) {
+      return { state: "invalid" } as const;
+    }
+
+    if (billing.kind === "preserve_organization") {
+      return { state: "preserve_organization" } as const;
+    }
+
+    return {
+      state: "cancel" as const,
+      hasCheckoutAttempt: billing.state.polarCheckoutAttempt !== undefined,
+      provider: billing.state.provider,
+      plan: billing.state.plan,
+      status: billing.state.status,
+      polarExternalCustomerId: billing.state.polarExternalCustomerId,
     };
   },
 });

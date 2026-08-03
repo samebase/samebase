@@ -238,6 +238,269 @@ describe("account deletion auth cleanup", () => {
     expect(stored.run).not.toHaveProperty("initiatingSessionId");
   });
 
+  it("removes only the deleting membership from a shared organization", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    const retained = await t.run(async (ctx) => {
+      const remainingUserId = await ctx.db.insert("users", {
+        email: "remaining@example.com",
+        isApproved: true,
+      });
+      const organizationId = await ctx.db.insert("organizations", {});
+      const deletingMembershipId = await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: ids.userId,
+      });
+      const remainingMembershipId = await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: remainingUserId,
+      });
+      const billingAccountId = await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        polarExternalCustomerId: "shared-customer",
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId: remainingUserId,
+        organizationId,
+        state: "not_connected",
+        deletion: { state: "not_deleting" },
+      });
+      const provisioningRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId: remainingUserId,
+        vaultId,
+        repositoryFullName: "owner/shared-repository",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 2,
+      });
+      const failedRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
+        userId: ids.userId,
+        requestedByUserId: ids.userId,
+        vaultId,
+        repositoryFullName: "owner/shared-repository",
+        attempt: { kind: "initial" },
+        state: "failed",
+        workflow: { state: "started", workflowId: "failed-shared-delete" },
+        currentStep: "delete_github_repo",
+        snapshot: {
+          state: "retained_for_retry",
+          plan: {
+            target: {
+              kind: "existing_repository",
+              ghRepoId: "shared-repository",
+              owner: "owner",
+              name: "shared-repository",
+              repositoryFullName: "owner/shared-repository",
+            },
+            convex: { action: "skip", reason: "not_requested" },
+            cloudflare: { action: "skip", reason: "not_requested" },
+            githubRepository: { action: "skip", reason: "not_requested" },
+          },
+        },
+        lastError: "Deletion failed.",
+        createdAt: 3,
+        updatedAt: 4,
+        completedAt: 4,
+      });
+      const failedEventId = await ctx.db.insert("workflow_vaultDeletion_events", {
+        userId: ids.userId,
+        vaultId,
+        repositoryFullName: "owner/shared-repository",
+        runId: failedRunId,
+        step: "delete_github_repo",
+        level: "error",
+        message: "Deletion failed.",
+        createdAt: 4,
+      });
+      await ctx.db.replace(vaultId, {
+        userId: remainingUserId,
+        organizationId,
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        deletion: { state: "delete_failed", runId: failedRunId, failedAt: 4 },
+        runId: provisioningRunId,
+        ghRepoId: "shared-repository",
+        owner: "owner",
+        name: "shared-repository",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 2,
+      });
+      await ctx.db.patch(ids.runId, {
+        outcomes: {
+          billing: { state: "not_applicable" },
+          providerRevocation: {
+            state: "completed",
+            github: { state: "not_connected" },
+            cloudflare: { state: "not_connected" },
+            convex: { state: "not_connected" },
+          },
+          completionEmail: { state: "sent" },
+        },
+      });
+      return {
+        billingAccountId,
+        deletingMembershipId,
+        failedEventId,
+        failedRunId,
+        organizationId,
+        remainingMembershipId,
+        remainingUserId,
+        vaultId,
+      };
+    });
+    const args = { runId: ids.runId, workflowId };
+
+    await expect(
+      t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
+    ).resolves.toBeNull();
+    await expect(
+      t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, args),
+    ).resolves.toBeNull();
+
+    const stored = await t.run(async (ctx) => ({
+      billing: await ctx.db.get(retained.billingAccountId),
+      deletingMembership: await ctx.db.get(retained.deletingMembershipId),
+      organization: await ctx.db.get(retained.organizationId),
+      remainingMembership: await ctx.db.get(retained.remainingMembershipId),
+      remainingUser: await ctx.db.get(retained.remainingUserId),
+      failedEvent: await ctx.db.get(retained.failedEventId),
+      failedRun: await ctx.db.get(retained.failedRunId),
+      user: await ctx.db.get(ids.userId),
+      vault: await ctx.db.get(retained.vaultId),
+    }));
+    expect(stored.user).toBeNull();
+    expect(stored.deletingMembership).toBeNull();
+    expect(stored.organization).not.toBeNull();
+    expect(stored.billing).not.toBeNull();
+    expect(stored.remainingMembership).not.toBeNull();
+    expect(stored.remainingUser).not.toBeNull();
+    expect(stored.vault).not.toBeNull();
+    expect(stored.failedRun).toMatchObject({
+      requestedByUserId: ids.userId,
+      userId: ids.userId,
+      state: "failed",
+    });
+    expect(stored.failedEvent).toMatchObject({ userId: ids.userId });
+
+    const retry = await t.mutation(internal.vault.deletion.runs.createRetryRun, {
+      userId: retained.remainingUserId,
+      failedRunId: retained.failedRunId,
+    });
+    await expect(
+      t.run(async (ctx) => await ctx.db.get(retry.deletionRunId)),
+    ).resolves.toMatchObject({
+      requestedByUserId: retained.remainingUserId,
+      userId: retained.remainingUserId,
+      attempt: { kind: "retry", retryOf: retained.failedRunId },
+    });
+  });
+
+  it("deletes sole-member organization billing and the empty organization at finalization", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    const organization = await t.run(async (ctx) => {
+      const organizationId = await ctx.db.insert("organizations", {});
+      const membershipId = await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: ids.userId,
+      });
+      const billingAccountId = await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
+      });
+      await ctx.db.patch(ids.runId, {
+        outcomes: {
+          billing: { state: "not_applicable" },
+          providerRevocation: {
+            state: "completed",
+            github: { state: "not_connected" },
+            cloudflare: { state: "not_connected" },
+            convex: { state: "not_connected" },
+          },
+          completionEmail: { state: "sent" },
+        },
+      });
+      return { billingAccountId, membershipId, organizationId };
+    });
+    const args = { runId: ids.runId, workflowId };
+
+    await expect(
+      t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
+    ).resolves.toBeNull();
+    await expect(
+      t.run(async (ctx) => await ctx.db.get(organization.billingAccountId)),
+    ).resolves.not.toBeNull();
+    await expect(
+      t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, args),
+    ).resolves.toBeNull();
+
+    await expect(
+      t.run(async (ctx) => ({
+        billing: await ctx.db.get(organization.billingAccountId),
+        membership: await ctx.db.get(organization.membershipId),
+        organization: await ctx.db.get(organization.organizationId),
+        user: await ctx.db.get(ids.userId),
+      })),
+    ).resolves.toEqual({ billing: null, membership: null, organization: null, user: null });
+  });
+
+  it("requires confirmed billing cancellation before active sole-member billing is deleted", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    await t.run(async (ctx) => {
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: ids.userId,
+      });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        polarExternalCustomerId: "organization-customer",
+      });
+      await ctx.db.patch(ids.runId, {
+        outcomes: {
+          billing: { state: "not_applicable" },
+          providerRevocation: {
+            state: "completed",
+            github: { state: "not_connected" },
+            cloudflare: { state: "not_connected" },
+            convex: { state: "not_connected" },
+          },
+          completionEmail: { state: "sent" },
+        },
+      });
+    });
+    const args = { runId: ids.runId, workflowId };
+
+    await expect(
+      t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
+    ).rejects.toThrow("Organization billing cancellation is not complete.");
+
+    await t.run(async (ctx) => {
+      const run = await ctx.db.get(ids.runId);
+      if (run === null || run.state !== "running") {
+        throw new Error("Expected a running account deletion.");
+      }
+      await ctx.db.patch(run._id, {
+        outcomes: { ...run.outcomes, billing: { state: "succeeded" } },
+      });
+    });
+    await expect(
+      t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
+    ).resolves.toBeNull();
+    await expect(
+      t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, args),
+    ).resolves.toBeNull();
+  });
+
   it("finishes when the user signed out and the initiating session is already absent", async () => {
     const { ids, t } = await seedRunningDeletion();
     const args = { runId: ids.runId, workflowId };

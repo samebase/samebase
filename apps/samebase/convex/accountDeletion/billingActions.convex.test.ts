@@ -226,7 +226,75 @@ describe("account deletion billing actions", () => {
     expect(polarSdkMocks.constructorOptions).not.toHaveBeenCalled();
   });
 
-  it("revokes every cancelable subscription and verifies that none remain", async () => {
+  it("preserves billing when another organization member remains", async () => {
+    const { t, runId, userId } = await seedUser("legacy-customer");
+    const billingAccountId = await t.run(async (ctx) => {
+      const remainingUserId = await ctx.db.insert("users", {
+        email: "remaining@example.invalid",
+        isApproved: true,
+      });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: remainingUserId,
+      });
+      return await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        polarExternalCustomerId: "shared-customer",
+        polarCheckoutAttempt: {
+          state: "pending",
+          attemptId: "shared-checkout",
+        },
+      });
+    });
+
+    await expect(
+      t.action(internal.accountDeletion.billingActions.cancelForAccountDeletion, {
+        runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({ state: "not_applicable" });
+    expect(polarSdkMocks.constructorOptions).not.toHaveBeenCalled();
+    await expect(t.run(async (ctx) => await ctx.db.get(billingAccountId))).resolves.not.toBeNull();
+  });
+
+  it("uses sole-member organization billing instead of legacy user billing", async () => {
+    const { t, runId, userId } = await seedUser("legacy-customer");
+    await t.run(async (ctx) => {
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        polarExternalCustomerId: "external-customer-test",
+      });
+    });
+    configurePolar();
+    polarSdkMocks.subscriptionsList.mockResolvedValue(subscriptionPages([]));
+
+    await expect(
+      t.action(internal.accountDeletion.billingActions.cancelForAccountDeletion, {
+        runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({ state: "succeeded" });
+    expect(polarSdkMocks.subscriptionsList).toHaveBeenCalledWith({
+      externalCustomerId: "external-customer-test",
+      limit: 100,
+    });
+    expect(polarSdkMocks.subscriptionsList).not.toHaveBeenCalledWith({
+      externalCustomerId: "legacy-customer",
+      limit: 100,
+    });
+  });
+
+  it("uses legacy user billing before membership backfill and revokes every subscription", async () => {
     const { t, runId } = await seedUser("external-customer-test");
     configurePolar();
     polarSdkMocks.subscriptionsList

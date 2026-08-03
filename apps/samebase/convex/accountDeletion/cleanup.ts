@@ -3,6 +3,7 @@ import { v, type Infer } from "convex/values";
 
 import type { Id, TableNames } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
+import { TREE_REFRESH_STALE_LOCK_MS } from "../../shared/treeRefresh";
 import {
   deleteVaultLocalDataBatchForUser,
   type VaultLocalCleanupBatchResult,
@@ -18,6 +19,7 @@ const { id, literal, number, object, union } = v;
 
 type AccountDeletionTablePolicy =
   | "account_local"
+  | "vault_lifecycle"
   | "vault_local"
   | "provider_revocation"
   | "auth_finalization"
@@ -59,8 +61,8 @@ const ACCOUNT_DELETION_TABLE_REGISTRY = {
   workflow_vaultProvisioning_writeLocks: "vault_local",
   workflow_vaultProvisioning_runs: "vault_local",
   workflow_vaultProvisioning_events: "vault_local",
-  workflow_vaultDeletion_runs: "account_local",
-  workflow_vaultDeletion_events: "account_local",
+  workflow_vaultDeletion_runs: "vault_lifecycle",
+  workflow_vaultDeletion_events: "vault_lifecycle",
   vaultStagedFiles: "vault_local",
   observations_vaultFiles_blobs: "vault_local",
   ui_vaultFileTree_folderExpansions: "vault_local",
@@ -95,8 +97,6 @@ const accountLocalCleanupTarget = union(
   literal("mcpBrowserLoginTokens"),
   literal("mcpGrants"),
   literal("audit_mcpAccess_events"),
-  literal("workflow_vaultDeletion_events"),
-  literal("workflow_vaultDeletion_runs"),
 );
 const accountLocalCleanupBatchResult = union(
   object({
@@ -108,6 +108,11 @@ const accountLocalCleanupBatchResult = union(
     state: literal("blocked"),
     blocker: literal("active_app_provisioning"),
     runId: id("workflow_vaultProvisioning_runs"),
+  }),
+  object({
+    state: literal("blocked"),
+    blocker: literal("active_repository_refresh"),
+    vaultId: id("vaults"),
   }),
   object({
     state: literal("needs_more"),
@@ -140,6 +145,7 @@ const accountDeletionQuiescenceResult = union(
   object({ state: literal("done") }),
   object({ state: literal("waiting"), blocker: literal("active_vault_deletion") }),
   object({ state: literal("waiting"), blocker: literal("active_app_provisioning") }),
+  object({ state: literal("waiting"), blocker: literal("active_repository_refresh") }),
 );
 
 const ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE = 25;
@@ -157,6 +163,12 @@ async function deleteRowsById<TableName extends TableNames>(
   return rows.length;
 }
 
+/**
+ * Phase 1 dual-writes every vault work run with its legacy user owner. For a
+ * sole-member organization, that user owns every organization vault, so these
+ * indexed reads cover all organization work. For a shared organization, the
+ * same reads intentionally wait only for work owned by the deleting user.
+ */
 async function findActiveVaultDeletion(
   ctx: AccountLocalCleanupCtx,
   userId: Id<"users">,
@@ -205,6 +217,28 @@ async function findActiveAppProvisioning(
   return null;
 }
 
+async function findActiveRepositoryRefresh(
+  ctx: AccountLocalCleanupCtx,
+  userId: Id<"users">,
+): Promise<Id<"vaults"> | null> {
+  const now = Date.now();
+  const vaults = ctx.db
+    .query("vaults")
+    .withIndex("by_userId", (query) => query.eq("userId", userId));
+
+  for await (const vault of vaults) {
+    if (
+      vault.state === "connected" &&
+      vault.treeRefreshStartedAt &&
+      now - vault.treeRefreshStartedAt < TREE_REFRESH_STALE_LOCK_MS
+    ) {
+      return vault._id;
+    }
+  }
+
+  return null;
+}
+
 async function findAccountDeletionCleanupBlocker(
   ctx: AccountLocalCleanupCtx,
   userId: Id<"users">,
@@ -226,6 +260,16 @@ async function findAccountDeletionCleanupBlocker(
       state: "blocked",
       blocker: "active_app_provisioning",
       runId: activeProvisioningRunId,
+    };
+  }
+
+  const activeRepositoryRefreshVaultId = await findActiveRepositoryRefresh(ctx, userId);
+
+  if (activeRepositoryRefreshVaultId) {
+    return {
+      state: "blocked",
+      blocker: "active_repository_refresh",
+      vaultId: activeRepositoryRefreshVaultId,
     };
   }
 
@@ -293,6 +337,9 @@ function vaultCleanupPhase(
     case "workflow_vaultProvisioning_events":
     case "workflow_vaultProvisioning_runs":
       return "provisioning_history";
+    case "workflow_vaultDeletion_events":
+    case "workflow_vaultDeletion_runs":
+      return "vault_data";
     default:
       result.table satisfies never;
       return "vault_data";
@@ -463,45 +510,6 @@ const ACCOUNT_LOCAL_CLEANUP_HANDLERS = {
         }
       : null;
   },
-  workflow_vaultDeletion_events: async (ctx, userId) => {
-    const run = await ctx.db
-      .query("workflow_vaultDeletion_runs")
-      .withIndex("by_user_and_updated_at", (q) => q.eq("userId", userId))
-      .order("asc")
-      .first();
-
-    if (!run) {
-      return null;
-    }
-
-    const rows = await ctx.db
-      .query("workflow_vaultDeletion_events")
-      .withIndex("by_run_and_created_at", (q) => q.eq("runId", run._id))
-      .take(ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE);
-
-    return rows.length > 0
-      ? {
-          state: "needs_more",
-          target: "workflow_vaultDeletion_events",
-          rowsChanged: await deleteRowsById(ctx, rows),
-        }
-      : null;
-  },
-  workflow_vaultDeletion_runs: async (ctx, userId) => {
-    const run = await ctx.db
-      .query("workflow_vaultDeletion_runs")
-      .withIndex("by_user_and_updated_at", (q) => q.eq("userId", userId))
-      .order("asc")
-      .first();
-
-    if (!run) {
-      return null;
-    }
-
-    await ctx.db.delete(run._id);
-
-    return { state: "needs_more", target: "workflow_vaultDeletion_runs", rowsChanged: 1 };
-  },
 } satisfies Record<AccountLocalTableName, AccountLocalCleanupHandler>;
 
 const ACCOUNT_LOCAL_CLEANUP_GROUPS = {
@@ -516,8 +524,6 @@ const ACCOUNT_LOCAL_CLEANUP_GROUPS = {
   mcpBrowserLoginTokens: "appAccessAndTokens",
   mcpGrants: "appAccessAndTokens",
   audit_mcpAccess_events: "accessRequestsAndHistory",
-  workflow_vaultDeletion_events: "accessRequestsAndHistory",
-  workflow_vaultDeletion_runs: "accessRequestsAndHistory",
 } satisfies Record<AccountLocalTableName, SimpleDataDeletionGroup>;
 
 /**
@@ -763,13 +769,10 @@ export const inspectQuiescence = internalMutation({
   returns: accountDeletionQuiescenceResult,
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
+    const blocker = await findAccountDeletionCleanupBlocker(ctx, run.identity.userId);
 
-    if (await findActiveVaultDeletion(ctx, run.identity.userId)) {
-      return { state: "waiting", blocker: "active_vault_deletion" } as const;
-    }
-
-    if (await findActiveAppProvisioning(ctx, run.identity.userId)) {
-      return { state: "waiting", blocker: "active_app_provisioning" } as const;
+    if (blocker) {
+      return { state: "waiting", blocker: blocker.blocker } as const;
     }
 
     return { state: "done" } as const;

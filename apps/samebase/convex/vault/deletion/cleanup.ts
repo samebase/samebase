@@ -1,6 +1,8 @@
 import { v, type Infer } from "convex/values";
+import { internal } from "../../_generated/api";
 import { internalMutation, type MutationCtx } from "../../_generated/server";
 import type { Id } from "../../_generated/dataModel";
+import { hasPhaseOneUserOwnership, readPhaseOneOwnershipContext } from "../../phaseOneOwnership";
 import { vVaultDeletionCleanupStep, type VaultDeletionCleanupStep } from "./model";
 
 const { id, literal, number, object, union } = v;
@@ -30,10 +32,16 @@ const vaultLocalCleanupTable = union(
 );
 type VaultLocalCleanupTable = Infer<typeof vaultLocalCleanupTable>;
 
+const vaultDeletionBoundaryCleanupTable = union(
+  vaultLocalCleanupTable,
+  literal("workflow_vaultDeletion_events"),
+  literal("workflow_vaultDeletion_runs"),
+);
+
 const vaultLocalCleanupBatchResult = union(
   object({
     state: literal("needs_more"),
-    table: vaultLocalCleanupTable,
+    table: vaultDeletionBoundaryCleanupTable,
     rowsChanged: number(),
   }),
   object({
@@ -41,6 +49,16 @@ const vaultLocalCleanupBatchResult = union(
   }),
 );
 export type VaultLocalCleanupBatchResult = Infer<typeof vaultLocalCleanupBatchResult>;
+
+const vaultLifecycleCleanupBatchResult = union(
+  object({
+    state: literal("needs_more"),
+    table: union(literal("workflow_vaultDeletion_events"), literal("workflow_vaultDeletion_runs")),
+    rowsChanged: number(),
+  }),
+  object({ state: literal("done") }),
+);
+type VaultLifecycleCleanupBatchResult = Infer<typeof vaultLifecycleCleanupBatchResult>;
 
 const vaultLocalCleanupStepBatchResult = union(
   object({
@@ -283,6 +301,51 @@ const vaultLocalCleanupRegistryByStep = {
   ],
 } satisfies Record<VaultDeletionCleanupStep, readonly VaultLocalCleanupTable[]>;
 
+/**
+ * Deletes one terminal lifecycle slice for a vault. Events for a run are
+ * always deleted before that run, and an active run stops cleanup.
+ */
+export async function deleteVaultLifecycleDataBatchForVault(
+  ctx: Pick<MutationCtx, "db">,
+  args: { vaultId: Id<"vaults"> },
+): Promise<VaultLifecycleCleanupBatchResult> {
+  const run = await ctx.db
+    .query("workflow_vaultDeletion_runs")
+    .withIndex("by_vault_and_updated_at", (query) => query.eq("vaultId", args.vaultId))
+    .order("asc")
+    .first();
+
+  if (run === null) {
+    return { state: "done" };
+  }
+  if (run.state === "queued" || run.state === "running") {
+    throw new Error("Active vault deletion lifecycle cannot be removed.");
+  }
+
+  const events = await ctx.db
+    .query("workflow_vaultDeletion_events")
+    .withIndex("by_run_and_created_at", (query) => query.eq("runId", run._id))
+    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
+
+  if (events.length > 0) {
+    for (const event of events) {
+      await ctx.db.delete(event._id);
+    }
+    return {
+      state: "needs_more",
+      table: "workflow_vaultDeletion_events",
+      rowsChanged: events.length,
+    };
+  }
+
+  await ctx.db.delete(run._id);
+  return {
+    state: "needs_more",
+    table: "workflow_vaultDeletion_runs",
+    rowsChanged: 1,
+  };
+}
+
 export async function deleteVaultLocalDataBatchForUser(
   ctx: VaultLocalCleanupCtx,
   args: VaultLocalCleanupArgs,
@@ -291,7 +354,8 @@ export async function deleteVaultLocalDataBatchForUser(
   if (!vault) {
     return { state: "deleted" };
   }
-  if (vault.userId !== args.userId) {
+  const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+  if (!hasPhaseOneUserOwnership(ownership, vault)) {
     throw new Error("Vault not found");
   }
 
@@ -306,6 +370,13 @@ export async function deleteVaultLocalDataBatchForUser(
         rowsChanged,
       };
     }
+  }
+
+  const lifecycle = await deleteVaultLifecycleDataBatchForVault(ctx, {
+    vaultId: args.vaultId,
+  });
+  if (lifecycle.state === "needs_more") {
+    return lifecycle;
   }
 
   await ctx.db.delete(vault._id);
@@ -335,7 +406,8 @@ export const cleanupVaultLocalDataStepBatch = internalMutation({
       return { state: "done" };
     }
 
-    if (vault.userId !== args.userId) {
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+    if (!hasPhaseOneUserOwnership(ownership, vault)) {
       throw new Error("Vault not found");
     }
 
@@ -372,11 +444,49 @@ export const deleteVaultRow = internalMutation({
     if (!vault) {
       return null;
     }
-    if (vault.userId !== args.userId) {
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+    if (!hasPhaseOneUserOwnership(ownership, vault)) {
       throw new Error("Vault not found");
     }
 
     await ctx.db.delete(vault._id);
+    return null;
+  },
+});
+
+export const cleanupDeletedVaultLifecycleDataBatch = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+  },
+  returns: vaultLifecycleCleanupBatchResult,
+  handler: async (ctx, args): Promise<VaultLifecycleCleanupBatchResult> => {
+    if ((await ctx.db.get(args.vaultId)) !== null) {
+      throw new Error("Vault lifecycle cleanup requires a deleted vault.");
+    }
+
+    return await deleteVaultLifecycleDataBatchForVault(ctx, args);
+  },
+});
+
+export const continueDeletedVaultLifecycleCleanup = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    if ((await ctx.db.get(args.vaultId)) !== null) {
+      return null;
+    }
+
+    const result = await deleteVaultLifecycleDataBatchForVault(ctx, args);
+    if (result.state === "needs_more") {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.vault.deletion.cleanup.continueDeletedVaultLifecycleCleanup,
+        args,
+      );
+    }
+
     return null;
   },
 });

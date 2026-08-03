@@ -168,7 +168,7 @@ describe("account deletion workflow ownership and outcomes", () => {
       ...args,
       step: "cancel_billing",
       level: "info",
-      message: "Canceling Samebase billing.",
+      message: "Checking Samebase billing.",
     });
     await t.mutation(internal.accountDeletion.workflow.recordBillingOutcome, {
       ...args,
@@ -535,7 +535,7 @@ describe("account deletion workflow ownership and outcomes", () => {
     });
   });
 
-  it("describes cleanup as complete while sign-in removal is still being finalized", async () => {
+  it("describes completed cleanup without claiming final account removal", async () => {
     const { ids, t } = await seedRunningDeletion();
     vi.stubEnv("CLOUDFLARE_EMAIL_ACCOUNT_ID", "account-id");
     vi.stubEnv("CLOUDFLARE_EMAIL_API_TOKEN", "email-token");
@@ -574,7 +574,7 @@ describe("account deletion workflow ownership and outcomes", () => {
         name: "Samebase",
       },
       subject: "Your Samebase account deletion is finishing",
-      text: `Your Samebase workspace data and stored provider credentials have been removed. Your remaining sign-in records are being finalized. Samebase staff will finish the deletion if the last step needs attention.
+      text: `Your Samebase account deletion is finishing. The required cleanup steps before final account removal are complete. Samebase staff will finish the deletion if the last step needs attention.
 
 External repositories, deployments, projects, and Workers were not deleted.
 

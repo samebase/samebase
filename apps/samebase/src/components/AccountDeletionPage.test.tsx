@@ -114,6 +114,10 @@ describe("AccountDeletionPage", () => {
       expect(current?.textContent).toContain("in progress");
       expect(current?.querySelector(".animate-spin")).not.toBeNull();
       expect(
+        mounted.rootElement.querySelector('[data-account-deletion-step="cancel_billing"]')
+          ?.textContent,
+      ).toContain("Check billing");
+      expect(
         mounted.rootElement
           .querySelector('[data-account-deletion-step="delete_samebase_data"]')
           ?.getAttribute("data-step-state"),

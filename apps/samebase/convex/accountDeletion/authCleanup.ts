@@ -2,8 +2,9 @@ import { v } from "convex/values";
 
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
+import { readBillingAccountState } from "../organizationBilling";
 import { cleanupAccountLocalDataBatchForUser } from "./cleanup";
-import { readOwnedActiveRun } from "./stepContext";
+import { readAccountDeletionOrganization, readOwnedActiveRun } from "./stepContext";
 
 const AUTH_CHILD_BATCH_SIZE = 64;
 
@@ -16,6 +17,94 @@ type RunningAccountDeletionRun = Extract<
   Doc<"workflow_accountDeletion_runs">,
   { state: "running" }
 >;
+
+type OrganizationFinalization =
+  | { kind: "legacy_user" }
+  | {
+      kind: "organization";
+      billingAccount: Doc<"organizationBillingAccounts">;
+      membershipId: Id<"organizationMemberships">;
+      organizationId: Id<"organizations">;
+      membershipState: "sole" | "shared";
+    };
+
+function billingStateRequiresCancellation(account: Doc<"organizationBillingAccounts">): boolean {
+  const state = readBillingAccountState({ kind: "organization", account });
+  const externalCustomerId = state.polarExternalCustomerId?.trim();
+
+  return (
+    (externalCustomerId !== undefined && externalCustomerId.length > 0) ||
+    state.polarCheckoutAttempt !== undefined ||
+    state.provider === "polar" ||
+    state.plan === "pro" ||
+    state.status === "active" ||
+    state.status === "past_due"
+  );
+}
+
+async function readOrganizationFinalization(
+  ctx: MutationCtx,
+  run: RunningAccountDeletionRun,
+): Promise<OrganizationFinalization> {
+  const organization = await readAccountDeletionOrganization(ctx.db, run.identity.userId);
+
+  if (organization.kind === "legacy_user") {
+    return organization;
+  }
+
+  const [organizationRow, billingAccount] = await Promise.all([
+    ctx.db.get(organization.organizationId),
+    ctx.db
+      .query("organizationBillingAccounts")
+      .withIndex("by_organization", (query) =>
+        query.eq("organizationId", organization.organizationId),
+      )
+      .unique(),
+  ]);
+
+  if (organizationRow === null || billingAccount === null) {
+    throw new Error("Account deletion organization is incomplete.");
+  }
+
+  if (
+    organization.membershipState === "sole" &&
+    billingStateRequiresCancellation(billingAccount) &&
+    run.outcomes.billing.state !== "succeeded"
+  ) {
+    throw new Error("Organization billing cancellation is not complete.");
+  }
+
+  return { ...organization, billingAccount };
+}
+
+async function finalizeOrganizationMembership(
+  ctx: MutationCtx,
+  organization: OrganizationFinalization,
+): Promise<void> {
+  if (organization.kind === "legacy_user") {
+    return;
+  }
+
+  if (organization.membershipState === "shared") {
+    await ctx.db.delete(organization.membershipId);
+    return;
+  }
+
+  const remainingVault = await ctx.db
+    .query("vaults")
+    .withIndex("by_organization", (query) =>
+      query.eq("organizationId", organization.organizationId),
+    )
+    .first();
+
+  if (remainingVault !== null) {
+    throw new Error("Organization vaults remain during finalization.");
+  }
+
+  await ctx.db.delete(organization.membershipId);
+  await ctx.db.delete(organization.billingAccount._id);
+  await ctx.db.delete(organization.organizationId);
+}
 
 async function deleteRateLimit(ctx: MutationCtx, identifier: string): Promise<void> {
   const rateLimit = await ctx.db
@@ -175,7 +264,7 @@ export const deleteEventBatch = internalMutation({
 export async function assertIdentityDeletionReady(
   ctx: MutationCtx,
   run: RunningAccountDeletionRun,
-): Promise<void> {
+): Promise<OrganizationFinalization> {
   if (run.outcomes.billing.state === "not_started" || run.outcomes.billing.state === "failed") {
     throw new Error("Billing cancellation is not complete.");
   }
@@ -187,6 +276,8 @@ export async function assertIdentityDeletionReady(
   if (run.outcomes.completionEmail.state === "not_started") {
     throw new Error("Completion email was not attempted.");
   }
+
+  const organizationFinalization = await readOrganizationFinalization(ctx, run);
 
   const accountLocalData = await cleanupAccountLocalDataBatchForUser(ctx, {
     userId: run.identity.userId,
@@ -263,6 +354,8 @@ export async function assertIdentityDeletionReady(
   if (remainingProviderConnection !== null) {
     throw new Error("Provider connections remain for the deleting account.");
   }
+
+  return organizationFinalization;
 }
 
 export const finishIdentityDeletion = internalMutation({
@@ -281,7 +374,7 @@ export const finishIdentityDeletion = internalMutation({
       throw new Error("Account deletion is not ready to finalize.");
     }
 
-    await assertIdentityDeletionReady(ctx, run);
+    const organizationFinalization = await assertIdentityDeletionReady(ctx, run);
 
     const initiatingSession = await ctx.db.get(run.initiatingSessionId);
 
@@ -289,6 +382,7 @@ export const finishIdentityDeletion = internalMutation({
       await ctx.db.delete(initiatingSession._id);
     }
 
+    await finalizeOrganizationMembership(ctx, organizationFinalization);
     await ctx.db.delete(run.identity.userId);
 
     const completedAt = Date.now();

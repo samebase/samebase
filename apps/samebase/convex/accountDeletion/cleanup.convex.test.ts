@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
+import { TREE_REFRESH_STALE_LOCK_MS } from "../../shared/treeRefresh";
 import { cleanupAccountLocalDataBatchForUser } from "./cleanup";
 import { INITIAL_ACCOUNT_DELETION_DATA_PROGRESS } from "./model";
 
@@ -48,6 +49,46 @@ async function seedVault(
       state: "not_connected",
       deletion: { state: "not_deleting" },
     });
+  });
+}
+
+async function seedConnectedVaultWithRefresh(
+  t: ReturnType<typeof makeConvexTest>,
+  userId: Awaited<ReturnType<typeof seedUser>>,
+  treeRefreshStartedAt: number,
+) {
+  return await t.run(async (ctx) => {
+    const vaultId = await ctx.db.insert("vaults", {
+      userId,
+      state: "not_connected",
+      deletion: { state: "not_deleting" },
+    });
+    const provisioningRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      userId,
+      vaultId,
+      repositoryFullName: "owner/repository",
+      trigger: "create",
+      state: "succeeded",
+      currentStep: "finish",
+      createdAt: 1,
+      updatedAt: 2,
+      completedAt: 3,
+    });
+    await ctx.db.replace(vaultId, {
+      userId,
+      state: "connected",
+      githubMode: "create_repository",
+      deletion: { state: "not_deleting" },
+      treeRefreshStartedAt,
+      runId: provisioningRunId,
+      ghRepoId: `repository-${vaultId}`,
+      defaultBranch: "main",
+      connectedAt: 4,
+      owner: "owner",
+      name: `repository-${vaultId}`,
+      visibility: "private",
+    });
+    return vaultId;
   });
 }
 
@@ -201,6 +242,80 @@ describe("account-local deletion cleanup", () => {
     });
   });
 
+  it("deletes vault lifecycle events before runs on the legacy cleanup path", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "owner@example.com");
+    const vaultId = await seedVault(t, userId);
+    const lifecycle = await t.run(async (ctx) => {
+      const plan = {
+        target: {
+          kind: "failed_repository_setup" as const,
+          githubMode: "connect_existing_repository" as const,
+          owner: "owner",
+          name: "repository",
+          repositoryFullName: "owner/repository",
+        },
+        convex: { action: "skip" as const, reason: "not_requested" as const },
+        cloudflare: { action: "skip" as const, reason: "not_requested" as const },
+        githubRepository: { action: "skip" as const, reason: "not_requested" as const },
+      };
+
+      const lifecycleRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
+        userId,
+        requestedByUserId: userId,
+        vaultId,
+        repositoryFullName: "owner/deleting",
+        attempt: { kind: "initial" },
+        state: "failed",
+        workflow: { state: "not_started" },
+        currentStep: "initialize_deletion",
+        snapshot: { state: "retained_for_retry", plan },
+        lastError: "Deletion failed.",
+        createdAt: 100,
+        updatedAt: 100,
+        completedAt: 100,
+      });
+      const lifecycleEventId = await ctx.db.insert("workflow_vaultDeletion_events", {
+        userId,
+        vaultId,
+        repositoryFullName: "owner/deleting",
+        runId: lifecycleRunId,
+        step: "initialize_deletion",
+        level: "error",
+        message: "Deletion failed.",
+        createdAt: 100,
+      });
+      return { lifecycleEventId, lifecycleRunId };
+    });
+
+    await expect(runCleanup(t, userId)).resolves.toEqual({
+      state: "needs_more",
+      target: "vaults",
+      rowsChanged: 1,
+    });
+    await expect(t.run(async (ctx) => ctx.db.get(lifecycle.lifecycleEventId))).resolves.toBeNull();
+    await expect(
+      t.run(async (ctx) => ctx.db.get(lifecycle.lifecycleRunId)),
+    ).resolves.not.toBeNull();
+    await expect(t.run(async (ctx) => ctx.db.get(vaultId))).resolves.not.toBeNull();
+
+    await expect(runCleanup(t, userId)).resolves.toEqual({
+      state: "needs_more",
+      target: "vaults",
+      rowsChanged: 1,
+    });
+    await expect(t.run(async (ctx) => ctx.db.get(lifecycle.lifecycleRunId))).resolves.toBeNull();
+    await expect(t.run(async (ctx) => ctx.db.get(vaultId))).resolves.not.toBeNull();
+
+    await expect(runCleanup(t, userId)).resolves.toEqual({
+      state: "needs_more",
+      target: "vaults",
+      rowsChanged: 1,
+    });
+    await expect(t.run(async (ctx) => ctx.db.get(vaultId))).resolves.toBeNull();
+    await expect(runCleanup(t, userId)).resolves.toEqual({ state: "done" });
+  });
+
   it("completes one vault beyond the former 96-batch cleanup budget", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "large-vault@example.com");
@@ -284,17 +399,26 @@ describe("account-local deletion cleanup", () => {
     ).rejects.toThrow("Account deletion workflow is not running.");
   });
 
-  it("blocks while separately-authorized vault deletion is active", async () => {
+  it("blocks all sole-member organization work through the Phase 1 user index", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "owner@example.com");
     const runId = await t.run(async (ctx) => {
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
+      });
       const vaultId = await ctx.db.insert("vaults", {
         userId,
+        organizationId,
         state: "not_connected",
         deletion: { state: "not_deleting" },
       });
       return await ctx.db.insert("workflow_vaultDeletion_runs", {
         userId,
+        requestedByUserId: userId,
         vaultId,
         repositoryFullName: "owner/repository",
         attempt: { kind: "initial" },
@@ -328,6 +452,115 @@ describe("account-local deletion cleanup", () => {
     });
   });
 
+  it("does not wait for a remaining member's work in a shared organization", async () => {
+    const t = makeConvexTest();
+    const deletingUserId = await seedUser(t, "deleting@example.com");
+    const remainingUserId = await seedUser(t, "remaining@example.com");
+    const accountDeletionRunId = await seedRunningDeletion(t, deletingUserId);
+    const activeRunId = await t.run(async (ctx) => {
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: deletingUserId,
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: remainingUserId,
+      });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId: remainingUserId,
+        organizationId,
+        state: "not_connected",
+        deletion: { state: "not_deleting" },
+      });
+      return await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId: remainingUserId,
+        requestedByUserId: remainingUserId,
+        vaultId,
+        repositoryFullName: "remaining/repository",
+        trigger: "create",
+        state: "running",
+        currentStep: "claim_infra",
+        createdAt: 1,
+        updatedAt: 1,
+      });
+    });
+    const remainingRefreshVaultId = await seedConnectedVaultWithRefresh(
+      t,
+      remainingUserId,
+      Date.now(),
+    );
+
+    await expect(
+      t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, {
+        runId: accountDeletionRunId,
+        workflowId: "workflow-1",
+      }),
+    ).resolves.toEqual({ state: "done" });
+    await expect(runCleanup(t, deletingUserId)).resolves.toEqual({ state: "done" });
+    await expect(t.run(async (ctx) => await ctx.db.get(activeRunId))).resolves.not.toBeNull();
+    await expect(
+      t.run(async (ctx) => await ctx.db.get(remainingRefreshVaultId)),
+    ).resolves.not.toBeNull();
+  });
+
+  it("keeps remaining-member resources while Phase 1 deletes legacy user-owned vaults", async () => {
+    const t = makeConvexTest();
+    const deletingUserId = await seedUser(t, "deleting@example.com");
+    const remainingUserId = await seedUser(t, "remaining@example.com");
+    const resources = await t.run(async (ctx) => {
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: deletingUserId,
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: remainingUserId,
+      });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
+      });
+      const deletingVaultId = await ctx.db.insert("vaults", {
+        userId: deletingUserId,
+        organizationId,
+        state: "not_connected",
+        deletion: { state: "not_deleting" },
+      });
+      const remainingVaultId = await ctx.db.insert("vaults", {
+        userId: remainingUserId,
+        organizationId,
+        state: "not_connected",
+        deletion: { state: "not_deleting" },
+      });
+      return { deletingVaultId, organizationId, remainingVaultId };
+    });
+
+    let result = await runCleanup(t, deletingUserId);
+    for (let attempt = 0; attempt < 10 && result.state !== "done"; attempt += 1) {
+      result = await runCleanup(t, deletingUserId);
+    }
+    expect(result).toEqual({ state: "done" });
+    await expect(
+      t.run(async (ctx) => ({
+        deletingVault: await ctx.db.get(resources.deletingVaultId),
+        organization: await ctx.db.get(resources.organizationId),
+        remainingVault: await ctx.db.get(resources.remainingVaultId),
+      })),
+    ).resolves.toMatchObject({
+      deletingVault: null,
+      organization: expect.any(Object),
+      remainingVault: expect.any(Object),
+    });
+  });
+
   it("does not delete rows while app provisioning can still write provider state", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "owner@example.com");
@@ -354,6 +587,73 @@ describe("account-local deletion cleanup", () => {
       blocker: "active_app_provisioning",
       runId,
     });
+  });
+
+  it("blocks active repository refresh before quiescence and destructive batches", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "owner@example.com");
+    const runId = await seedRunningDeletion(t, userId);
+    const vaultId = await seedConnectedVaultWithRefresh(t, userId, Date.now());
+    const branchTreeId = await t.run(async (ctx) => {
+      return await ctx.db.insert("observations_vaultRepository_branchTrees", {
+        vaultId,
+        branch: "main",
+        commitSHA: "commit",
+        treeData: { sha: "tree", truncated: false, tree: [] },
+        lastTreeRefreshAt: 1,
+      });
+    });
+    const workflowArgs = { runId, workflowId: "workflow-1" };
+
+    await expect(
+      t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, workflowArgs),
+    ).resolves.toEqual({ state: "waiting", blocker: "active_repository_refresh" });
+    await expect(runCleanup(t, userId)).resolves.toEqual({
+      state: "blocked",
+      blocker: "active_repository_refresh",
+      vaultId,
+    });
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(vaultId, { treeRefreshStartedAt: undefined });
+    });
+    await t.mutation(internal.accountDeletion.cleanup.startVaultDataDeletion, workflowArgs);
+    await t.run(async (ctx) => {
+      await ctx.db.patch(vaultId, { treeRefreshStartedAt: Date.now() });
+    });
+
+    await expect(
+      t.mutation(internal.accountDeletion.cleanup.cleanupVaultDataDeletionBatch, workflowArgs),
+    ).rejects.toThrow("Account deletion cleanup is blocked by active work.");
+    await expect(t.run(async (ctx) => await ctx.db.get(branchTreeId))).resolves.not.toBeNull();
+  });
+
+  it("does not block cleanup for a stale repository refresh lock", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "owner@example.com");
+    const runId = await seedRunningDeletion(t, userId);
+    const vaultId = await seedConnectedVaultWithRefresh(
+      t,
+      userId,
+      Date.now() - TREE_REFRESH_STALE_LOCK_MS - 1,
+    );
+    const workflowArgs = { runId, workflowId: "workflow-1" };
+
+    await expect(
+      t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, workflowArgs),
+    ).resolves.toEqual({ state: "done" });
+    await t.mutation(internal.accountDeletion.cleanup.startVaultDataDeletion, workflowArgs);
+
+    let done = false;
+    for (let attempt = 0; attempt < 10 && !done; attempt += 1) {
+      done = await t.mutation(
+        internal.accountDeletion.cleanup.cleanupVaultDataDeletionBatch,
+        workflowArgs,
+      );
+    }
+
+    expect(done).toBe(true);
+    await expect(t.run(async (ctx) => await ctx.db.get(vaultId))).resolves.toBeNull();
   });
 
   it("rechecks active work before every detailed deletion batch", async () => {

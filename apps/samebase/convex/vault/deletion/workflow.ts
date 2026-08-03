@@ -2,7 +2,8 @@ import { v } from "convex/values";
 import { vResultValidator, type RunResult } from "@convex-dev/workpool";
 import { WorkflowManager } from "@convex-dev/workflow";
 import { components, internal } from "../../_generated/api";
-import { internalMutation } from "../../_generated/server";
+import type { Id } from "../../_generated/dataModel";
+import { internalMutation, type MutationCtx } from "../../_generated/server";
 import { toErrorMessage } from "../../jsonUtils";
 import type { VaultDeletionCleanupStep } from "./model";
 
@@ -17,6 +18,7 @@ const idempotentProviderStepRetry = {
 
 const workflowCompletionContext = object({
   runId: id("workflow_vaultDeletion_runs"),
+  vaultId: id("vaults"),
 });
 
 const cleanupSteps = [
@@ -46,6 +48,21 @@ export function resolveVaultDeletionWorkflowError(result: RunResult): string | n
       return null;
     }
   }
+}
+
+async function scheduleDeletedVaultLifecycleCleanup(
+  ctx: Pick<MutationCtx, "db" | "scheduler">,
+  vaultId: Id<"vaults">,
+): Promise<void> {
+  if ((await ctx.db.get(vaultId)) !== null) {
+    return;
+  }
+
+  await ctx.scheduler.runAfter(
+    0,
+    internal.vault.deletion.cleanup.continueDeletedVaultLifecycleCleanup,
+    { vaultId },
+  );
 }
 
 export const deleteVaultWorkflow = workflow.define({
@@ -147,6 +164,19 @@ export const deleteVaultWorkflow = workflow.define({
       { name: "finish" },
     );
 
+    let lifecycleCleanup = await step.runMutation(
+      internal.vault.deletion.cleanup.cleanupDeletedVaultLifecycleDataBatch,
+      { vaultId: args.vaultId },
+      { name: "cleanup_vault_lifecycle_batch_0" },
+    );
+    for (let batch = 1; lifecycleCleanup.state === "needs_more"; batch += 1) {
+      lifecycleCleanup = await step.runMutation(
+        internal.vault.deletion.cleanup.cleanupDeletedVaultLifecycleDataBatch,
+        { vaultId: args.vaultId },
+        { name: `cleanup_vault_lifecycle_batch_${batch}` },
+      );
+    }
+
     return null;
   },
 });
@@ -169,6 +199,7 @@ export const startVaultDeletion = internalMutation({
           onComplete: internal.vault.deletion.workflow.handleVaultDeletionWorkflowComplete,
           context: {
             runId: args.runId,
+            vaultId: args.vaultId,
           },
         },
       );
@@ -197,22 +228,28 @@ export const handleVaultDeletionWorkflowComplete = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
+    const error = resolveVaultDeletionWorkflowError(args.result);
     const run = await ctx.db.get(args.context.runId);
     if (!run) {
-      throw new Error("Deletion run not found.");
+      if ((await ctx.db.get(args.context.vaultId)) !== null) {
+        throw new Error("Deletion run not found.");
+      }
+      await scheduleDeletedVaultLifecycleCleanup(ctx, args.context.vaultId);
+      return null;
     }
     if (run.workflow.state === "started" && run.workflow.workflowId !== args.workflowId) {
       throw new Error("Workflow completion id does not match deletion run.");
     }
     if (run.state === "succeeded" || run.state === "failed") {
+      await scheduleDeletedVaultLifecycleCleanup(ctx, args.context.vaultId);
       return null;
     }
 
-    const error = resolveVaultDeletionWorkflowError(args.result);
     if (!error) {
       await ctx.runMutation(internal.vault.deletion.runs.finishWorkflowRun, {
         runId: args.context.runId,
       });
+      await scheduleDeletedVaultLifecycleCleanup(ctx, args.context.vaultId);
       return null;
     }
 
@@ -220,6 +257,7 @@ export const handleVaultDeletionWorkflowComplete = internalMutation({
       runId: args.context.runId,
       message: toErrorMessage(error),
     });
+    await scheduleDeletedVaultLifecycleCleanup(ctx, args.context.vaultId);
 
     return null;
   },

@@ -199,6 +199,16 @@ Transfer rules become necessary only when a less-privileged membership role ship
 workflow rows follow their table-specific deletion policy and must not cause shared organization
 resources to be deleted.
 
+Vault-deletion runs and events belong to the parent vault lifecycle. They remain while the vault
+exists, even if the deleting member requested the operation. Stored actor IDs are opaque historical
+provenance only. They can refer to a deleted user, are not resolved for authorization, and do not
+retain profile data. The bounded per-vault deletion path removes events before terminal runs.
+Account cleanup drains that lifecycle immediately before it removes an owned vault. Normal vault
+deletion removes the vault row, marks its active run successful, and then drains the lifecycle
+through journaled workflow batches with an idempotent scheduled continuation as fallback. This
+per-vault boundary prevents a later deletion by another member from racing past account
+finalization.
+
 Before sole-member cleanup starts, account deletion waits for all active work attached to the
 organization or its vaults. Shared-member deletion waits only for work that depends on the deleting
 user or their credentials. Work started by a remaining member continues.

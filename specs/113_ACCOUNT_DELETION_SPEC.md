@@ -24,6 +24,16 @@ The transition changes account deletion in these phases:
 - Actor and workflow rows on retained organization data follow their table-specific delete, detach,
   or anonymize policy. They do not grant access and do not cause shared resources to be deleted.
 
+Vault-deletion runs and events are vault lifecycle data. Account deletion preserves them while the
+parent vault exists, including when the deleting user requested the failed deletion. Their actor IDs
+are opaque historical provenance. They can refer to a deleted user, are never resolved for
+authorization, and do not preserve user profile data. The bounded vault deletion path owns their
+removal. Account cleanup deletes terminal lifecycle events, then terminal runs, immediately before
+it deletes a vault. A normal vault deletion deletes the vault row, marks the active run successful,
+then deletes lifecycle events and terminal runs through journaled workflow batches. An idempotent
+scheduled continuation completes the same per-vault cleanup if the workflow completion path needs a
+fallback. No actor-wide account cleanup scan owns vault lifecycle data.
+
 The confirmation list, counts, and phrase include only the data that this deletion request will
 delete. Provider-owned infrastructure stays outside the deletion boundary in all phases. Each
 implementation phase updates the Current Contract below when its transition ships.
@@ -80,8 +90,11 @@ Vault and staged-data cleanup repeats bounded mutations until the persisted grou
 completion. It has no fixed batch-count ceiling. Each action attempt remains subject to Convex's
 execution limit and the workflow retry policy, while committed progress lets staff retry continue
 from the last completed batch. Every destructive batch rechecks active vault deletion, provisioning,
-and repository-refresh work before deleting rows. The UI does not estimate percent complete or
-display steps the backend does not persist.
+and repository-refresh work before deleting rows. During Phase 1, the verified legacy `userId`
+dual-write makes this indexed check cover all organization vault work for a sole member. For a
+shared organization, the same check covers only work that depends on the deleting user. Work owned
+by a remaining member continues. The UI does not estimate percent complete or display steps the
+backend does not persist.
 
 ## Completion And Browser Recovery
 
@@ -142,6 +155,8 @@ until real deletion volume justifies automation.
 - Account deletion and manual provider changes reject each other at their start mutations.
 - More than 96 vault cleanup batches complete successfully.
 - Every detailed destructive batch fails closed when conflicting work appears.
+- Vault deletion removes lifecycle events before runs, does not remove an active run, and leaves no
+  lifecycle rows after its bounded continuation completes.
 - Normal routes and writes reject a deleting user.
 - Billing failure prevents success, while completion-email failure remains visible without retaining
   the account indefinitely.

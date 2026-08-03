@@ -175,6 +175,8 @@ export const vaultDeletionTables = {
   /**
    * One vault-deletion attempt, including its retained provider-cleanup plan,
    * background-workflow progress, outcome, and link to an earlier attempt.
+   * Actor IDs are historical provenance only while the parent vault exists.
+   * They can refer to a deleted user and must never authorize access.
    */
   workflow_vaultDeletion_runs: defineTable(
     union(
@@ -293,7 +295,8 @@ export const vaultDeletionTables = {
 
   /**
    * Ordered user-visible progress messages for one vault-deletion run, without
-   * provider payloads or credentials.
+   * provider payloads or credentials. The copied user ID is historical
+   * provenance only while the parent vault exists.
    */
   workflow_vaultDeletion_events: defineTable({
     userId: id("users"),
