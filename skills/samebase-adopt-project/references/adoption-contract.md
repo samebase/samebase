@@ -201,6 +201,20 @@ logs, repair the repository or trigger, push a new reviewed commit, and wait for
 successful build. Do not use an older successful build or an unrelated manual upload as substitute
 evidence.
 
+### First-deployment preview candidate
+
+Teardown Noita 3D supplied one assets-only Worker observation. Before the first active deployment, a
+successful preview upload created a version, but its version URL and branch alias returned 404 with
+Cloudflare error 1042. After an approved default-branch build created the first active deployment,
+the old preview URLs and a fresh pull request preview returned 200. The fresh preview did not
+replace the active production version.
+
+Treat this as a candidate, not as a general Cloudflare requirement or proven cause. If a new Worker
+has no active deployment and an uploaded preview URL returns error 1042, keep Preview blocked and
+record both facts. Do not start an active deployment only to repair Preview. After the user approves
+the named first deployment, test the old preview URLs, create a fresh preview, and confirm that the
+active production version did not change. Keep this candidate until another project tests it.
+
 ## Release evidence
 
 Keep these facts separate and bind them to the reviewed commit:

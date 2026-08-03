@@ -2,15 +2,17 @@
 
 ## Outcome
 
-[Teardown Noita 3D pull request 11](https://github.com/nicu-chiciuc/teardown-noita-3d/pull/11) moves
+[Teardown Noita 3D pull request 11](https://github.com/nicu-chiciuc/teardown-noita-3d/pull/11) moved
 the browser game to the portable Samebase repository contract. Samebase now joins the repository to
 the `teardown-noita-3d` Worker at root `/`, with separate production and preview GitHub Builds
 triggers.
 
-The reviewed branch build now succeeds. It installs Node 24 and pnpm 11, builds and verifies the
-static app, and uploads a non-production Worker version. The Preview gate is not complete. The new
-Worker has no active deployment, and both Cloudflare-generated version URLs return 404 with
-error 1042. No domain, route, existing deployment, or traffic changed.
+After the pull request was merged, the first default-branch build deployed Worker version `599266c1`
+and made [the application](https://teardown-noita-3d.pfp.workers.dev) reachable. The later
+[preview probe pull request 12](https://github.com/nicu-chiciuc/teardown-noita-3d/pull/12) uploaded
+version `5a0f10f9`. Its [version URL](https://5a0f10f9-teardown-noita-3d.pfp.workers.dev) and
+[branch alias](https://codex-verify-preview-after-main-teardown-noita-3d.pfp.workers.dev) both
+returned the built application. The active production deployment stayed on version `599266c1`.
 
 The earlier standalone [manual preview Worker](https://teardown-noita-3d-preview.pfp.workers.dev)
 remains reachable. It is a useful provider spike, but it is not evidence for the Samebase
@@ -55,8 +57,25 @@ replace the action with a manual provider-only workflow.
    any byte difference. Cloudflare consumes and verifies the reviewed artifact with its supported
    Node and pnpm tools.
 4. The next provider branch build succeeded and uploaded the reviewed version.
-5. Provider-native reads then found zero active deployments and unreachable generated preview URLs.
-   A successful build and version record therefore did not pass Preview.
+5. At that time, provider-native reads found zero active deployments and unreachable generated
+   preview URLs. A successful build and version record therefore did not pass Preview.
+
+## First-deployment preview experiment
+
+Before the Worker had an active deployment, the reviewed preview upload succeeded, but its version
+URL and branch alias returned 404 with Cloudflare error 1042. After pull request 11 was merged, the
+default-branch build used the same source tree, created the first active deployment, and made the
+production URL reachable.
+
+The earlier preview URLs then returned 200 without another upload of that preview version. Pull
+request 12 supplied a new documentation-only commit and a fresh preview build. Its version URL,
+branch alias, JavaScript, CSS, WASM, VOX, and PNG assets all returned 200. Provider-native reads
+still showed one active deployment, version `599266c1` from the merged main commit.
+
+This is one assets-only Worker observation. It suggests that the first active deployment made the
+Worker service routes available to preview versions and aliases. It does not prove a general
+Cloudflare requirement or cause. A manager must keep Preview blocked when a version URL is not
+reachable. It must not start an active deployment only to repair Preview without explicit approval.
 
 ## Bidirectional results
 
@@ -97,6 +116,9 @@ Teardown Noita 3D supports these rules once. Test them on the next adoption befo
   the commit that the provider will build before trigger setup
 - verify the active Samebase session and provider account, then use authenticated browser handoff
   when MCP lacks the exact Samebase action
+- when a new Worker has no active deployment and a successful preview upload returns error 1042,
+  record the state as a first-deployment preview candidate; after an approved first deployment, test
+  old and new preview URLs and confirm that production did not move to the preview version
 
 ### Intentionally different
 
@@ -106,8 +128,8 @@ browser and GPU test owner.
 
 ### Deferred
 
-- a reachable preview for the Samebase-connected Worker
-- the first active deployment and any production observation
+- independent-project validation of the first-deployment preview candidate
+- production observation beyond the successful first deployment and route checks
 - removal of the standalone manual Worker, which needs a separate destructive request
 
 ## Evidence policy

@@ -157,6 +157,20 @@ commit.
 Require a reachable non-production version URL or provider-specific preview deployment. A version
 record with an unreachable URL does not pass the preview.
 
+### Teardown first-deployment preview candidate
+
+One assets-only Worker gave this sequence. Before its first active deployment, a successful preview
+upload created a version, but the version URL and branch alias returned 404 with Cloudflare
+error 1042. After an approved default-branch build created the first active deployment, the old
+preview URLs and a new pull request preview returned 200. The new preview did not replace the active
+production version.
+
+Treat this as a one-project candidate, not as a general Cloudflare requirement or proven cause. If a
+new Worker has no active deployment and its uploaded preview URL returns error 1042, keep Preview
+blocked and record both facts. Do not start an active deployment only to repair Preview. After the
+user approves the named first deployment, test the old preview URLs, create a fresh preview, and
+confirm that the active production version did not change.
+
 Keep provider configuration separate from production promotion. Keep the old host or known-good
 Worker version available until the cutover and observation gate pass.
 
