@@ -117,6 +117,12 @@ describe("ConnectRepositoryPageContent", () => {
     expect(markup).toContain("samebase");
     expect(markup).toContain("samebase");
     expect(markup).toContain("starter-kit");
+    expect(markup).toContain('data-testid="connect-repository-loading-more"');
+    expect(markup).toContain('role="status"');
+    expect(markup).toContain("Loading more repositories...");
+    expect(markup.indexOf("Loading more repositories...")).toBeGreaterThan(
+      markup.indexOf("starter-kit"),
+    );
   });
 
   it("renders an in-button pending state for the connecting repository", () => {
@@ -130,6 +136,7 @@ describe("ConnectRepositoryPageContent", () => {
 
     expect(markup).toContain("Connecting...");
     expect(markup).toContain("disabled");
+    expect(markup).not.toContain("Loading more repositories...");
   });
 
   it("renders the search-empty background failure message", () => {
