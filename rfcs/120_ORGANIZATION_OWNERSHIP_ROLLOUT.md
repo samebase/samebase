@@ -7,8 +7,8 @@
 - Last updated: 2026-08-03
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Current branch: `codex-organization-ownership-spec`
-- Current phase: Phase 0, documentation ready
-- Current pull request: Not created
+- Current phase: Phase 0, ready pull request
+- Current pull request: [#1355](https://github.com/samebase/samebase/pull/1355)
 
 ## Purpose
 
@@ -124,6 +124,5 @@ Primary external sources:
 
 ## Next Exact Task
 
-Open the ready Phase 0 documentation pull request. Do not start Phase 1 code in this branch. After
-this pull request merges, create a new worktree from current `origin/main` and implement only
-Phase 1.
+Do not start Phase 1 code in this branch. After pull request 1355 merges, create a new worktree from
+current `origin/main` and implement only Phase 1.
