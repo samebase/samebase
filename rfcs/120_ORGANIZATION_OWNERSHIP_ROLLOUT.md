@@ -7,8 +7,7 @@
 - Last updated: 2026-08-04
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Current branch: `codex-organization-ownership-spec`
-- Current state: Local implementation and independent reviews complete; CI and operator cutover
-  pending
+- Current state: Implementation, independent reviews, and PR CI complete; operator cutover pending
 - Current pull request: [#1355](https://github.com/samebase/samebase/pull/1355)
 
 ## Purpose
@@ -110,7 +109,7 @@ the manual reset.
 
 ### Final organization cutover
 
-- Status: Local implementation complete in pull request #1355; CI and operator cutover pending
+- Status: Pull request implementation and CI complete; operator cutover pending
 - Scope: Add the final organization graph, organization billing, membership access, MCP binding,
   retained-user bootstrap, organization-aware API results, and affected UI and workflow support.
 - Gate: The operator completes the manual reset, every retained user has one membership, the two
@@ -151,11 +150,13 @@ The operator approved a manual pre-beta reset on 2026-08-04. The mixed runtime a
 are removed. The one-time retained-user bootstrap replaces them. Independent authorization,
 simplicity, and cutover reviews found and verified the final MCP organization boundary,
 credential-dependent account-deletion waits, personal UI cleanup, unused-index removal, and safe
-manual reset order. The work is pending green pull request CI, the operator-run reset, merge,
-deployment, bootstrap, and production verification.
+manual reset order. The work is pending the operator-run reset, merge, deployment, bootstrap, and
+production verification.
 
-## Local Validation Evidence
+## Validation Evidence
 
+- Pull request CI passed the supply-chain check, the complete checks and unit-test job, the final CI
+  job, and both Cloudflare preview builds.
 - `pnpm check`: passed, with existing repository warnings only.
 - `pnpm test`: 292 files passed, with 2,275 tests passed and 1 skipped.
 - `pnpm test:convex`: 47 files passed, with 424 tests passed.
@@ -221,7 +222,7 @@ Primary external sources:
 
 ## Next Exact Task
 
-1. Finish the final validation pass and require green pull request CI for pull request #1355.
+1. Confirm that pull request #1355 remains green immediately before the operator cutover.
 2. Record the Polar billing state and confirm that no destructive workflow is active.
 3. Pause product writes and follow the accepted manual reset runbook while the old schema is live.
 4. Merge and deploy the final schema and organization-authoritative runtime.
