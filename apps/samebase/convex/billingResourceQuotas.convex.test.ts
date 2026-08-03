@@ -27,20 +27,20 @@ function workerInput(index: number, prefix = "worker") {
 async function createQuotaFixture(entitlement: "free" | "pro" = "free") {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
-    const userId =
-      entitlement === "pro"
-        ? await ctx.db.insert("users", {
-            email: "member@example.com",
-            isApproved: true,
-            billingPlan: "pro",
-            billingStatus: "active",
-          })
-        : await ctx.db.insert("users", {
-            email: "member@example.com",
-            isApproved: true,
-          });
+    const userId = await ctx.db.insert("users", {
+      email: "member@example.com",
+      isApproved: true,
+    });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    const billingAccountId = await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      plan: entitlement,
+      status: entitlement === "pro" ? "active" : "inactive",
+    });
     const vaultId = await ctx.db.insert("vaults", {
       userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
@@ -57,6 +57,7 @@ async function createQuotaFixture(entitlement: "free" | "pro" = "free") {
     });
     await ctx.db.replace(vaultId, {
       userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "connect_existing_repository",
@@ -68,7 +69,54 @@ async function createQuotaFixture(entitlement: "free" | "pro" = "free") {
       defaultBranch: "main",
       connectedAt: 3,
     });
-    return { userId, vaultId };
+    return { billingAccountId, userId, vaultId };
+  });
+  const { billingAccountId, ...resourceIds } = ids;
+  return { billingAccountId, ids: resourceIds, t };
+}
+
+async function createOrganizationQuotaFixture() {
+  const t = makeConvexTest();
+  const ids = await t.run(async (ctx) => {
+    const firstUserId = await ctx.db.insert("users", {
+      email: "first-member@example.com",
+      isApproved: true,
+      billingPlan: "pro",
+      billingStatus: "active",
+    });
+    const secondUserId = await ctx.db.insert("users", {
+      email: "second-member@example.com",
+      isApproved: true,
+    });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await Promise.all([
+      ctx.db.insert("organizationMemberships", { organizationId, userId: firstUserId }),
+      ctx.db.insert("organizationMemberships", { organizationId, userId: secondUserId }),
+    ]);
+    await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      plan: "free",
+      status: "inactive",
+    });
+    const firstVaultId = await ctx.db.insert("vaults", {
+      userId: firstUserId,
+      organizationId,
+      deletion: { state: "not_deleting" },
+      state: "not_connected",
+    });
+    const secondVaultId = await ctx.db.insert("vaults", {
+      userId: secondUserId,
+      organizationId,
+      deletion: { state: "not_deleting" },
+      state: "not_connected",
+    });
+    return {
+      firstUserId,
+      firstVaultId,
+      organizationId,
+      secondUserId,
+      secondVaultId,
+    };
   });
   return { ids, t };
 }
@@ -77,6 +125,7 @@ async function seedProjects(
   t: ConvexTest,
   args: {
     count: number;
+    organizationId?: Id<"organizations">;
     userId: Id<"users">;
     vaultId: Id<"vaults">;
     prefix?: string;
@@ -90,6 +139,7 @@ async function seedProjects(
         await ctx.db.insert("vaultConvexProjects", {
           vaultId: args.vaultId,
           userId: args.userId,
+          ...(args.organizationId ? { organizationId: args.organizationId } : {}),
           teamId: project.teamId,
           projectId: project.projectId,
           convexConfigPath: project.codeLocation.convexConfigPath,
@@ -105,6 +155,7 @@ async function seedWorkers(
   t: ConvexTest,
   args: {
     count: number;
+    organizationId?: Id<"organizations">;
     userId: Id<"users">;
     vaultId: Id<"vaults">;
     prefix?: string;
@@ -118,6 +169,7 @@ async function seedWorkers(
         await ctx.db.insert("vaultCloudflareWorkers", {
           vaultId: args.vaultId,
           userId: args.userId,
+          ...(args.organizationId ? { organizationId: args.organizationId } : {}),
           accountId: worker.accountId,
           workerName: worker.workerName,
           workerTag: worker.workerTag,
@@ -295,6 +347,163 @@ async function createManagedWorkerCheckpoint(
 }
 
 describe("billing resource quotas", () => {
+  it("uses legacy user billing before organization membership backfill", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "legacy-member@example.com",
+        isApproved: true,
+        billingPlan: "pro",
+        billingStatus: "active",
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      return { userId, vaultId };
+    });
+    await Promise.all([
+      seedProjects(t, { ...ids, count: 2 }),
+      seedWorkers(t, { ...ids, count: 2 }),
+    ]);
+
+    await expect(
+      asUser(t, ids.userId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {}),
+    ).resolves.toEqual({
+      cloudflareWorkers: { used: { state: "exact", count: 2 }, limit: 40 },
+      convexProjects: { used: { state: "exact", count: 2 }, limit: 40 },
+    });
+  });
+
+  it("combines backfilled and legacy attachment usage for two organization members", async () => {
+    const { ids, t } = await createOrganizationQuotaFixture();
+    await Promise.all([
+      seedProjects(t, {
+        count: 1,
+        organizationId: ids.organizationId,
+        prefix: "first-backfilled-project",
+        userId: ids.firstUserId,
+        vaultId: ids.firstVaultId,
+      }),
+      seedProjects(t, {
+        count: 1,
+        prefix: "first-legacy-project",
+        userId: ids.firstUserId,
+        vaultId: ids.firstVaultId,
+      }),
+      seedProjects(t, {
+        count: 1,
+        organizationId: ids.organizationId,
+        prefix: "second-backfilled-project",
+        userId: ids.secondUserId,
+        vaultId: ids.secondVaultId,
+      }),
+      seedProjects(t, {
+        count: 1,
+        prefix: "second-legacy-project",
+        userId: ids.secondUserId,
+        vaultId: ids.secondVaultId,
+      }),
+      seedWorkers(t, {
+        count: 1,
+        organizationId: ids.organizationId,
+        prefix: "first-backfilled-worker",
+        userId: ids.firstUserId,
+        vaultId: ids.firstVaultId,
+      }),
+      seedWorkers(t, {
+        count: 1,
+        prefix: "first-legacy-worker",
+        userId: ids.firstUserId,
+        vaultId: ids.firstVaultId,
+      }),
+      seedWorkers(t, {
+        count: 1,
+        organizationId: ids.organizationId,
+        prefix: "second-backfilled-worker",
+        userId: ids.secondUserId,
+        vaultId: ids.secondVaultId,
+      }),
+      seedWorkers(t, {
+        count: 1,
+        prefix: "second-legacy-worker",
+        userId: ids.secondUserId,
+        vaultId: ids.secondVaultId,
+      }),
+    ]);
+
+    const expectedUsageAtFour = {
+      cloudflareWorkers: { used: { state: "exact", count: 4 }, limit: 5 },
+      convexProjects: { used: { state: "exact", count: 4 }, limit: 5 },
+    };
+    await expect(
+      asUser(t, ids.firstUserId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {}),
+    ).resolves.toEqual(expectedUsageAtFour);
+    await expect(
+      asUser(t, ids.secondUserId).query(
+        api.billingResourceQuotas.getViewerBillingResourceUsage,
+        {},
+      ),
+    ).resolves.toEqual(expectedUsageAtFour);
+    await expect(
+      t.query(internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate, {
+        userId: ids.secondUserId,
+        kind: "convex_project",
+      }),
+    ).resolves.toBeNull();
+
+    await Promise.all([
+      seedProjects(t, {
+        count: 1,
+        organizationId: ids.organizationId,
+        prefix: "fifth-project",
+        userId: ids.firstUserId,
+        vaultId: ids.firstVaultId,
+      }),
+      seedWorkers(t, {
+        count: 1,
+        organizationId: ids.organizationId,
+        prefix: "fifth-worker",
+        userId: ids.firstUserId,
+        vaultId: ids.firstVaultId,
+      }),
+    ]);
+
+    await expect(
+      t.query(internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate, {
+        userId: ids.secondUserId,
+        kind: "convex_project",
+      }),
+    ).rejects.toThrow("Convex project attachment limit reached (5).");
+    await expect(
+      t.query(internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate, {
+        userId: ids.secondUserId,
+        kind: "cloudflare_worker",
+      }),
+    ).rejects.toThrow("Cloudflare Worker attachment limit reached (5).");
+  });
+
+  it("fails clearly above the Phase 1 mixed-state membership bound", async () => {
+    const { ids, t } = await createOrganizationQuotaFixture();
+    await t.run(async (ctx) => {
+      const thirdUserId = await ctx.db.insert("users", {
+        email: "third-member@example.com",
+        isApproved: true,
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId: ids.organizationId,
+        userId: thirdUserId,
+      });
+    });
+
+    await expect(
+      asUser(t, ids.firstUserId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {}),
+    ).rejects.toThrow(
+      "Phase 1 mixed-state quota fallback supports at most two organization members.",
+    );
+  });
+
   it("permits resource 5 and blocks resource 6 for a free account", async () => {
     const { ids, t } = await createQuotaFixture();
     await Promise.all([
@@ -340,7 +549,7 @@ describe("billing resource quotas", () => {
   });
 
   it("permits resource 40 and blocks resource 41 for an entitled Pro account", async () => {
-    const { ids, t } = await createQuotaFixture("pro");
+    const { billingAccountId, ids, t } = await createQuotaFixture("pro");
     await Promise.all([
       seedProjects(t, { ...ids, count: 39 }),
       seedWorkers(t, { ...ids, count: 39 }),
@@ -353,7 +562,7 @@ describe("billing resource quotas", () => {
       }),
     ).resolves.toHaveLength(1);
     await t.run(async (ctx) => {
-      await ctx.db.patch(ids.userId, { billingStatus: "past_due" });
+      await ctx.db.patch(billingAccountId, { status: "past_due" });
     });
     await expect(
       t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
@@ -406,15 +615,15 @@ describe("billing resource quotas", () => {
   });
 
   it("keeps downgraded attachments usable until a new final count fits", async () => {
-    const { ids, t } = await createQuotaFixture("pro");
+    const { billingAccountId, ids, t } = await createQuotaFixture("pro");
     const [projectIds, workerIds] = await Promise.all([
       seedProjects(t, { ...ids, count: 6 }),
       seedWorkers(t, { ...ids, count: 6 }),
     ]);
     await t.run(async (ctx) => {
-      await ctx.db.patch(ids.userId, {
-        billingPlan: "free",
-        billingStatus: "inactive",
+      await ctx.db.patch(billingAccountId, {
+        plan: "free",
+        status: "inactive",
       });
     });
 

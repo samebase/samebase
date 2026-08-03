@@ -212,7 +212,6 @@ describe("users Convex contract", () => {
       "Access denied",
     );
     await expect(asViewer.query(api.users.getUserSettings)).resolves.toEqual({
-      hasActiveSubscription: false,
       signInEmail: "viewer@example.com",
     });
     await expect(
@@ -236,14 +235,12 @@ describe("users Convex contract", () => {
     });
     await expect(asViewer.query(api.users.getUserSettings)).resolves.toEqual({
       displayName: "Public Viewer",
-      hasActiveSubscription: false,
       signInEmail: "viewer@example.com",
     });
     await expect(
       asViewer.mutation(api.users.setDisplayName, { displayName: null }),
     ).resolves.toEqual({ kind: "email", label: "viewer@example.com" });
     await expect(asViewer.query(api.users.getUserSettings)).resolves.toEqual({
-      hasActiveSubscription: false,
       signInEmail: "viewer@example.com",
     });
     await expect(asViewer.query(api.users.getGithubProviderSummary)).rejects.toThrowError(

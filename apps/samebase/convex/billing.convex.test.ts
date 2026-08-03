@@ -143,6 +143,32 @@ async function seedMember(t: ConvexTest, isApproved = true) {
   });
 }
 
+async function seedOrganizationMembers(t: ConvexTest) {
+  return await t.run(async (ctx) => {
+    const firstUserId = await ctx.db.insert("users", {
+      name: "Ada",
+      email: "ada.organization@example.test",
+      isApproved: true,
+    });
+    const secondUserId = await ctx.db.insert("users", {
+      name: "Grace",
+      email: "grace.organization@example.test",
+      isApproved: true,
+    });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await Promise.all([
+      ctx.db.insert("organizationMemberships", { organizationId, userId: firstUserId }),
+      ctx.db.insert("organizationMemberships", { organizationId, userId: secondUserId }),
+    ]);
+    const billingAccountId = await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      plan: "free",
+      status: "inactive",
+    });
+    return { billingAccountId, firstUserId, organizationId, secondUserId };
+  });
+}
+
 async function seedCheckoutAttempt(t: ConvexTest, attempt: CheckoutAttempt) {
   const userId = await seedMember(t);
   await t.run(async (ctx) => {
@@ -210,6 +236,117 @@ describe("billing access", () => {
       status: "inactive",
       canStartCheckout: false,
     });
+  });
+
+  it("uses one organization billing account for every member", async () => {
+    const t = makeConvexTest();
+    const { billingAccountId, firstUserId, secondUserId } = await seedOrganizationMembers(t);
+    await t.run(async (ctx) => {
+      await ctx.db.patch(firstUserId, {
+        billingProvider: "polar",
+        billingPlan: "pro",
+        billingStatus: "active",
+      });
+    });
+
+    const freeBilling = {
+      plan: "free",
+      status: "inactive",
+      canStartCheckout: true,
+    };
+    await expect(
+      asUser(t, firstUserId).query(api.billing.getViewerBillingStatus, {}),
+    ).resolves.toEqual(freeBilling);
+    await expect(
+      asUser(t, secondUserId).query(api.billing.getViewerBillingStatus, {}),
+    ).resolves.toEqual(freeBilling);
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(billingAccountId, {
+        provider: "polar",
+        plan: "pro",
+        status: "past_due",
+      });
+    });
+    const proBilling = {
+      provider: "polar",
+      plan: "pro",
+      status: "past_due",
+      canStartCheckout: true,
+    };
+    await expect(
+      asUser(t, firstUserId).query(api.billing.getViewerBillingStatus, {}),
+    ).resolves.toEqual(proBilling);
+    await expect(
+      asUser(t, secondUserId).query(api.billing.getViewerBillingStatus, {}),
+    ).resolves.toEqual(proBilling);
+
+    const firstUser = await t.run(async (ctx) => await ctx.db.get(firstUserId));
+    expect(firstUser).toMatchObject({ billingPlan: "pro", billingStatus: "active" });
+  });
+
+  it("does not use legacy billing after organization membership exists", async () => {
+    const t = makeConvexTest();
+    const userId = await seedMember(t);
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId, {
+        billingProvider: "polar",
+        billingPlan: "pro",
+        billingStatus: "active",
+      });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    });
+
+    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).rejects.toThrow(
+      "Organization billing account is required.",
+    );
+  });
+
+  it("shares checkout ownership between organization members", async () => {
+    const t = makeConvexTest();
+    const { billingAccountId, firstUserId, secondUserId } = await seedOrganizationMembers(t);
+    configureSandboxBilling();
+    polarSdkMocks.checkoutsCreate.mockImplementation((request) => {
+      const checkout = polarCheckoutFromCreate(
+        request,
+        "checkout-organization",
+        "https://sandbox.polar.sh/checkout/organization-created",
+      );
+      polarSdkMocks.checkoutsGet.mockResolvedValue({
+        ...checkout,
+        url: "https://sandbox.polar.sh/checkout/organization-current",
+      });
+      return checkout;
+    });
+    const args = {
+      successUrl: "http://localhost:5174/settings?checkout=success",
+      returnUrl: "http://localhost:5174/settings?checkout=cancel",
+    };
+
+    await expect(
+      asUser(t, firstUserId).action(api.billing.createPolarCheckoutSession, args),
+    ).resolves.toEqual({ url: "https://sandbox.polar.sh/checkout/organization-created" });
+    await expect(
+      asUser(t, secondUserId).action(api.billing.createPolarCheckoutSession, args),
+    ).resolves.toEqual({ url: "https://sandbox.polar.sh/checkout/organization-current" });
+
+    expect(polarSdkMocks.checkoutsCreate).toHaveBeenCalledOnce();
+    const stored = await t.run(async (ctx) => ({
+      billingAccount: await ctx.db.get(billingAccountId),
+      firstUser: await ctx.db.get(firstUserId),
+      secondUser: await ctx.db.get(secondUserId),
+    }));
+    expect(stored.billingAccount?.polarExternalCustomerId).toMatch(/^samebase_/);
+    expect(stored.billingAccount?.polarCheckoutAttempt).toEqual({
+      state: "open",
+      attemptId: expect.stringMatching(/^polar_checkout_/),
+      checkoutId: "checkout-organization",
+    });
+    expect(stored.firstUser?.billingPolarExternalCustomerId).toBeUndefined();
+    expect(stored.firstUser?.billingPolarCheckoutAttempt).toBeUndefined();
+    expect(stored.secondUser?.billingPolarExternalCustomerId).toBeUndefined();
+    expect(stored.secondUser?.billingPolarCheckoutAttempt).toBeUndefined();
   });
 
   it("blocks pending members from checkout but lets them manage existing billing", async () => {

@@ -88,6 +88,36 @@ async function seedApprovedMember(t: ConvexTest) {
   });
 }
 
+async function seedOrganizationMembers(t: ConvexTest, organizationExternalCustomerId: string) {
+  return await t.run(async (ctx) => {
+    const firstUserId = await ctx.db.insert("users", {
+      name: "Ada",
+      email: "ada.organization@example.test",
+      isApproved: true,
+      billingPolarExternalCustomerId: "existing-customer",
+      billingPlan: "free",
+      billingStatus: "inactive",
+    });
+    const secondUserId = await ctx.db.insert("users", {
+      name: "Grace",
+      email: "grace.organization@example.test",
+      isApproved: true,
+    });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await Promise.all([
+      ctx.db.insert("organizationMemberships", { organizationId, userId: firstUserId }),
+      ctx.db.insert("organizationMemberships", { organizationId, userId: secondUserId }),
+    ]);
+    const billingAccountId = await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      plan: "free",
+      status: "inactive",
+      polarExternalCustomerId: organizationExternalCustomerId,
+    });
+    return { billingAccountId, firstUserId, secondUserId };
+  });
+}
+
 function customerStatePayload() {
   return {
     id: "polar-customer",
@@ -170,6 +200,76 @@ afterEach(() => {
 });
 
 describe("Polar customer.state_changed webhook", () => {
+  it("updates one organization billing account for every member", async () => {
+    const t = makeConvexTest();
+    const { billingAccountId, firstUserId, secondUserId } = await seedOrganizationMembers(
+      t,
+      "existing-customer",
+    );
+    configureWebhook();
+    polarSdkMocks.subscriptionsList.mockResolvedValue(
+      subscriptionPage([polarSubscription({ status: "active" })]),
+    );
+
+    const response = await deliver(t, customerStateChangedBody());
+
+    expect(response.status).toBe(204);
+    const expectedBilling = {
+      provider: "polar",
+      plan: "pro",
+      status: "active",
+      currentPeriodEndAt: Date.parse(currentPeriodEnd),
+      cancelAtPeriodEnd: false,
+      canStartCheckout: true,
+    };
+    await expect(
+      asUser(t, firstUserId).query(api.billing.getViewerBillingStatus, {}),
+    ).resolves.toEqual(expectedBilling);
+    await expect(
+      asUser(t, secondUserId).query(api.billing.getViewerBillingStatus, {}),
+    ).resolves.toEqual(expectedBilling);
+
+    const stored = await t.run(async (ctx) => ({
+      billingAccount: await ctx.db.get(billingAccountId),
+      firstUser: await ctx.db.get(firstUserId),
+      secondUser: await ctx.db.get(secondUserId),
+    }));
+    expect(stored.billingAccount).toMatchObject({
+      provider: "polar",
+      plan: "pro",
+      status: "active",
+      polarAppliedObservationRevision: 1,
+      polarObservationRevision: 1,
+    });
+    expect(stored.firstUser).toMatchObject({ billingPlan: "free", billingStatus: "inactive" });
+    expect(stored.secondUser?.billingPlan).toBeUndefined();
+  });
+
+  it("does not reconcile a legacy customer ID after organization membership exists", async () => {
+    const t = makeConvexTest();
+    const { firstUserId } = await seedOrganizationMembers(t, "organization-customer");
+    configureWebhook();
+
+    const response = await deliver(t, customerStateChangedBody());
+
+    expect(response.status).toBe(204);
+    expect(polarSdkMocks.subscriptionsList).not.toHaveBeenCalled();
+    await expect(
+      asUser(t, firstUserId).query(api.billing.getViewerBillingStatus, {}),
+    ).resolves.toEqual({
+      plan: "free",
+      status: "inactive",
+      canStartCheckout: true,
+    });
+    const user = await t.run(async (ctx) => await ctx.db.get(firstUserId));
+    expect(user).toMatchObject({
+      billingPlan: "free",
+      billingStatus: "inactive",
+      billingPolarExternalCustomerId: "existing-customer",
+    });
+    expect(user?.billingPolarObservationRevision).toBeUndefined();
+  });
+
   it.each([
     { providerStatus: "active", storedStatus: "active" },
     { providerStatus: "trialing", storedStatus: "active" },

@@ -77,6 +77,7 @@ import type * as mcpTokenHealth from "../mcpTokenHealth.js";
 import type * as newUserNotification from "../newUserNotification.js";
 import type * as oauthState from "../oauthState.js";
 import type * as oauthUtils from "../oauthUtils.js";
+import type * as organizationBilling from "../organizationBilling.js";
 import type * as organizationModel from "../organizationModel.js";
 import type * as organizations from "../organizations.js";
 import type * as polarBillingState from "../polarBillingState.js";
@@ -222,6 +223,7 @@ declare const fullApi: ApiFromModules<{
   newUserNotification: typeof newUserNotification;
   oauthState: typeof oauthState;
   oauthUtils: typeof oauthUtils;
+  organizationBilling: typeof organizationBilling;
   organizationModel: typeof organizationModel;
   organizations: typeof organizations;
   polarBillingState: typeof polarBillingState;

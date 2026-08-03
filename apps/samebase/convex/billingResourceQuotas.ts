@@ -1,14 +1,22 @@
 import { ConvexError, Infer, v } from "convex/values";
 
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 import { internalQuery, type QueryCtx } from "./_generated/server";
 import { query } from "./functions";
+import {
+  readBillingAccountState,
+  requireBillingAccountForUser,
+  type BillingAccountTarget,
+} from "./organizationBilling";
 
 const { id, literal, null: nullValue, number, object, union } = v;
 
 const FREE_RESOURCE_ATTACHMENT_LIMIT = 5;
 const PRO_RESOURCE_ATTACHMENT_LIMIT = 40;
 const RESOURCE_USAGE_READ_LIMIT = PRO_RESOURCE_ATTACHMENT_LIMIT + 1;
+// Phase 1 creates one-member organizations and migrates one measured two-member operator account.
+// Phase 3 removes this bound with the legacy attachment fallback.
+const PHASE_ONE_MIXED_STATE_MEMBER_LIMIT = 2;
 
 const vBillingResourceKind = union(literal("cloudflare_worker"), literal("convex_project"));
 type BillingResourceKind = Infer<typeof vBillingResourceKind>;
@@ -36,16 +44,14 @@ const vBillingResourceUsage = object({
 });
 export type BillingResourceUsage = Infer<typeof vBillingResourceUsage>;
 
-function readResourceAttachmentLimit(
-  user: Pick<Doc<"users">, "billingPlan" | "billingStatus">,
-): number {
-  return user.billingPlan === "pro" &&
-    (user.billingStatus === "active" || user.billingStatus === "past_due")
+function readResourceAttachmentLimit(target: BillingAccountTarget): number {
+  const account = readBillingAccountState(target);
+  return account.plan === "pro" && (account.status === "active" || account.status === "past_due")
     ? PRO_RESOURCE_ATTACHMENT_LIMIT
     : FREE_RESOURCE_ATTACHMENT_LIMIT;
 }
 
-async function readResourceAttachmentCount(
+async function readLegacyResourceAttachmentCount(
   ctx: BillingResourceReadCtx,
   args: {
     kind: BillingResourceKind;
@@ -74,6 +80,110 @@ async function readResourceAttachmentCount(
   }
 }
 
+async function readOrganizationResourceAttachmentCount(
+  ctx: BillingResourceReadCtx,
+  args: {
+    kind: BillingResourceKind;
+    organizationId: Id<"organizations">;
+    maximumRows: number;
+  },
+): Promise<number> {
+  let count: number;
+  switch (args.kind) {
+    case "cloudflare_worker":
+      count = (
+        await ctx.db
+          .query("vaultCloudflareWorkers")
+          .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))
+          .take(args.maximumRows)
+      ).length;
+      break;
+    case "convex_project":
+      count = (
+        await ctx.db
+          .query("vaultConvexProjects")
+          .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))
+          .take(args.maximumRows)
+      ).length;
+      break;
+    default:
+      args.kind satisfies never;
+      return 0;
+  }
+  if (count === args.maximumRows) {
+    return count;
+  }
+
+  const memberships = await ctx.db
+    .query("organizationMemberships")
+    .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))
+    .take(PHASE_ONE_MIXED_STATE_MEMBER_LIMIT + 1);
+  if (memberships.length > PHASE_ONE_MIXED_STATE_MEMBER_LIMIT) {
+    throw new Error(
+      "Phase 1 mixed-state quota fallback supports at most two organization members.",
+    );
+  }
+
+  for (const membership of memberships) {
+    const remainingRows = args.maximumRows - count;
+    let legacyRowCount: number;
+    switch (args.kind) {
+      case "cloudflare_worker":
+        legacyRowCount = (
+          await ctx.db
+            .query("vaultCloudflareWorkers")
+            .withIndex("by_user_and_organization", (query) =>
+              query.eq("userId", membership.userId).eq("organizationId", undefined),
+            )
+            .take(remainingRows)
+        ).length;
+        break;
+      case "convex_project":
+        legacyRowCount = (
+          await ctx.db
+            .query("vaultConvexProjects")
+            .withIndex("by_user_and_organization", (query) =>
+              query.eq("userId", membership.userId).eq("organizationId", undefined),
+            )
+            .take(remainingRows)
+        ).length;
+        break;
+      default:
+        args.kind satisfies never;
+        return 0;
+    }
+    count += legacyRowCount;
+    if (count === args.maximumRows) {
+      return count;
+    }
+  }
+
+  return count;
+}
+
+async function readResourceAttachmentCount(
+  ctx: BillingResourceReadCtx,
+  args: {
+    kind: BillingResourceKind;
+    target: BillingAccountTarget;
+    maximumRows: number;
+  },
+): Promise<number> {
+  if (args.target.kind === "legacy_user") {
+    return await readLegacyResourceAttachmentCount(ctx, {
+      kind: args.kind,
+      userId: args.target.account._id,
+      maximumRows: args.maximumRows,
+    });
+  }
+
+  return await readOrganizationResourceAttachmentCount(ctx, {
+    kind: args.kind,
+    organizationId: args.target.account.organizationId,
+    maximumRows: args.maximumRows,
+  });
+}
+
 function throwBillingResourceLimit(kind: BillingResourceKind, limit: number): never {
   switch (kind) {
     case "cloudflare_worker":
@@ -93,15 +203,11 @@ export async function requireBillingResourceCapacity(
     userId: Id<"users">;
   },
 ): Promise<void> {
-  const user = await ctx.db.get(args.userId);
-  if (!user) {
-    throw new Error("User not found.");
-  }
-
-  const limit = readResourceAttachmentLimit(user);
+  const billing = await requireBillingAccountForUser(ctx.db, args.userId);
+  const limit = readResourceAttachmentLimit(billing.target);
   const used = await readResourceAttachmentCount(ctx, {
     kind: args.kind,
-    userId: args.userId,
+    target: billing.target,
     maximumRows: limit + 1,
   });
   if (used >= limit) {
@@ -126,16 +232,17 @@ export const getViewerBillingResourceUsage = query({
   args: {},
   returns: vBillingResourceUsage,
   handler: async (ctx): Promise<BillingResourceUsage> => {
-    const limit = readResourceAttachmentLimit(ctx.viewer.user);
+    const billing = await requireBillingAccountForUser(ctx.db, ctx.viewer.userId);
+    const limit = readResourceAttachmentLimit(billing.target);
     const [cloudflareWorkers, convexProjects] = await Promise.all([
       readResourceAttachmentCount(ctx, {
         kind: "cloudflare_worker",
-        userId: ctx.viewer.userId,
+        target: billing.target,
         maximumRows: RESOURCE_USAGE_READ_LIMIT,
       }),
       readResourceAttachmentCount(ctx, {
         kind: "convex_project",
-        userId: ctx.viewer.userId,
+        target: billing.target,
         maximumRows: RESOURCE_USAGE_READ_LIMIT,
       }),
     ]);
