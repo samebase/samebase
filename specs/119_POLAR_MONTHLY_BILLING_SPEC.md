@@ -11,12 +11,12 @@
 
 ## Accepted Organization Transition
 
-The current user billing contract below stays effective until Phase 2 of the organization rollout
-ships. Phase 2 moves the current Polar billing fields from `users` to one
+The current user billing contract below stays effective until Phase 1 of the organization rollout
+ships. Phase 1 moves the current Polar billing fields from `users` to one
 `organizationBillingAccounts` row for each organization. Paid entitlement, Worker counts, and Convex
 project counts then apply to the organization. The two plans, prices, resource limits, downgrade
 behavior, and Polar verification rules do not change. This transition does not add a team plan or
-seat billing. Phase 2 updates the Current Contract below when it ships.
+seat billing. Phase 1 updates the Current Contract below when it ships.
 
 ## Current Contract
 

@@ -6,19 +6,18 @@ Accepted. This document is the source of truth for account deletion behavior. RF
 release plan and manual acceptance evidence.
 
 Spec 120 defines the accepted organization transition. The current user-owned resource contract
-below stays effective until Phase 8. Phase 1 and Phase 2 make the narrow membership and billing
-cleanup changes defined below.
+below stays effective until Phase 2. Phase 1 makes the narrow membership and billing cleanup changes
+defined below.
 
 ## Accepted Organization Transition
 
 The transition changes account deletion in these phases:
 
 - Phase 1 removes the deleting user's membership. It preserves an organization when another member
-  remains and removes the empty organization after the sole member's normal cleanup finishes.
-- Phase 2 cancels and deletes organization billing only when the deleting user is the sole member.
-  When another member remains, the confirmation stakes exclude the shared subscription and the
-  workflow preserves the organization billing row.
-- Phase 8 applies the same sole-member decision to the organization's vaults, staged changes, and
+  remains and removes the empty organization after the sole member's normal cleanup finishes. It
+  cancels and deletes organization billing only for a sole member. Shared subscription stakes and
+  billing stay with the organization.
+- Phase 2 applies the same sole-member decision to the organization's vaults, staged changes, and
   other Samebase-owned resources. The existing full cleanup order applies only to sole-member
   organizations.
 - Every phase deletes the user's personal data, provider connections, and provider authorizations.

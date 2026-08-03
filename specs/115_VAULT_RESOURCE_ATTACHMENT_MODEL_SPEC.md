@@ -15,10 +15,11 @@
 ## Accepted Organization Transition
 
 The current `userId` ownership clauses below stay effective until their organization rollout phase
-ships. Phase 2 adds required `organizationId` quota keys to both attachment tables while it keeps
-the current `userId` fields for legacy authorization. The same phase makes all attachment writes
-derive that key from the parent vault. Phase 8 moves attachment access to the parent vault's
-organization membership. Phase 9 removes attachment `userId` fields and their ownership indexes.
+ships. Phase 1 adds `organizationId` quota keys to both attachment tables while it keeps the current
+`userId` fields for legacy authorization. The same phase makes all attachment writes derive that key
+from the parent vault. Phase 2 makes the organization key required, moves attachment access to the
+parent vault's organization membership, and removes legacy ownership values. Phase 3 removes
+attachment `userId` fields and their ownership indexes.
 
 The copied `organizationId` exists only for indexed billing counts. The parent vault remains the
 authorization boundary. Provider identities, attachment identity, placement, observations, and

@@ -205,6 +205,11 @@ The rollout follows this order:
 5. Remove old values with bounded cleanup migrations.
 6. Remove the old user ownership fields, fallback reads, dual writes, and indexes.
 
+These steps ship in three implementation pull requests. Phase 1 performs steps 1 through 3 across
+all domains. Phase 2 performs steps 4 and 5 as one coordinated authorization cutover and cleanup.
+Phase 3 performs step 6 after production cleanup checks pass. Review size alone does not create more
+rollout phases.
+
 The explicit migration input for the shared operator organization also selects the canonical current
 billing state and Polar customer. It selects the retained vault for every duplicate repository
 identity. The migration stops on an unlisted collision. It never selects the first row implicitly.

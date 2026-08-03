@@ -16,14 +16,13 @@ This file is the restart point for the organization rollout. It records accepted
 status, evidence, and the next exact task. It does not record raw agent output or a per-commit
 journal.
 
-## Review Size Controls
+## Review Controls
 
 - Phase 0 contains documents only. It contains no product code.
-- Each implementation pull request owns one domain and one testable invariant.
-- A slice stops for another split before it exceeds 25 production files or 3,000 hand-authored
-  changed lines.
-- Generated bindings and lockfile changes do not count toward the line limit, but they remain part
-  of review.
+- The rollout has three implementation pull requests. Add another only if Convex requires another
+  deployed schema state.
+- Pull request size is not a split trigger. Use coherent commits and focused agent reviews inside
+  each pull request.
 - No implementation phase starts until the preceding phase is merged and rebased into the next
   worktree.
 - Each phase gets one implementation review and one independent simplicity review before merge.
@@ -47,7 +46,10 @@ journal.
 ## Rejected Or Deferred
 
 - Approval-based organization provisioning: rejected because approval is temporary.
-- A four-PR implementation: rejected because proposed slices reached 25 to 40 production files.
+- Nine domain-sized implementation pull requests and fixed file or line caps: rejected because they
+  add process without adding a required deployment boundary.
+- One data-preserving implementation pull request: not selected because Convex must deploy the
+  widened schema before backfill and must deploy the cleaned data before final schema narrowing.
 - A general Convex migration component: rejected for now because every measured source table has
   fewer than 500 rows.
 - `users.organizationId`: rejected because a user row is not the durable resource boundary.
@@ -85,23 +87,40 @@ the related migration runs.
 
 ## Rollout Phases
 
-| Phase | Scope                                                                                        | Acceptance gate                                                                                                   | Status   |
-| ----- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------- |
-| 0     | Accepted spec and this rollout record                                                        | Independent architecture and simplicity reviews agree that the contract is complete and narrow                    | Complete |
-| 1     | Empty organization rows, memberships, all-user backfill, collision audit, and access helpers | Every user has one membership; two operator accounts share one organization; deletion removes empty organizations | Pending  |
-| 2     | Organization billing, billable attachment keys, quotas, and billing deletion cleanup         | Limits aggregate by organization; shared billing survives one member's deletion                                   | Pending  |
-| 3     | MCP grants and delegated tokens                                                              | Only grants store the organization; every tool call rechecks membership                                           | Pending  |
-| 4     | Vault roots and ordinary vault paths, prepared without access cutover                        | Every vault has an organization; normal writes keep legacy and new fields consistent                              | Pending  |
-| 5     | Shared vault children, staged state, and provider observations                               | Child access can derive from the vault; actor fields do not grant access                                          | Pending  |
-| 6     | Provisioning and provider-write workflows                                                    | Every workflow can derive the organization and records users only as actors                                       | Pending  |
-| 7     | Vault deletion workflows                                                                     | Deletion authorization can derive the organization and legacy cleanup remains safe                                | Pending  |
-| 8     | Membership access cutover and shared account deletion                                        | Shared organizations survive member deletion; normal resources use membership                                     | Pending  |
-| 9     | Cleanup migrations and final schema narrowing                                                | No legacy tenant ownership value, fallback, dual write, or index remains                                          | Pending  |
+### Phase 0: Specification
 
-Phases 1 through 7 prepare and verify the new data while legacy resource authorization remains
-active. During preparation, shared helpers still require the legacy resource user as well as valid
-organization data. Phase 8 removes that legacy-user requirement after every domain uses the shared
-helpers. Phase 9 removes compatibility state after the cleanup migrations complete.
+- Status: Complete
+- Scope: Accept the target schema and rollout.
+- Gate: Independent architecture and simplicity reviews pass.
+
+### Phase 1: Prepare and backfill
+
+- Status: Pending
+- Scope: Add the organization graph, organization billing, organization keys, MCP binding, shared
+  helpers, dual writes, backfills, and migration checks across all domains.
+- Gate: Every user and resource is prepared, the two operator accounts share one organization, and
+  legacy resource access still applies.
+
+### Phase 2: Switch and clean
+
+- Status: Pending
+- Scope: Make organization keys authoritative, switch all resource access and account deletion to
+  memberships, stop legacy ownership writes, and remove legacy ownership values with bounded
+  migrations.
+- Gate: Shared access, billing, quotas, MCP, and account deletion use the organization boundary, and
+  cleanup checks pass.
+
+### Phase 3: Narrow
+
+- Status: Pending
+- Scope: Remove legacy ownership fields, indexes, fallbacks, dual-write code, and completed
+  migration code.
+- Gate: The final schema and current specs contain no legacy tenant ownership path.
+
+Phase 1 is intentionally one large preparation pull request, not several domain pull requests. Its
+commits can separate schema and backfills, billing and MCP, vault paths and workflows, and tests for
+review. Phase 2 is one coordinated authorization cutover. Phase 3 is the small schema-narrowing pull
+request required after production cleanup completes.
 
 ## Evidence Integrated
 
@@ -125,4 +144,4 @@ Primary external sources:
 ## Next Exact Task
 
 Do not start Phase 1 code in this branch. After pull request 1355 merges, create a new worktree from
-current `origin/main` and implement only Phase 1.
+current `origin/main` and implement Phase 1 as one pull request. Do not split it by domain.
