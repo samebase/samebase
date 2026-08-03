@@ -490,23 +490,36 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
     if (!organizationId) {
       throw new Error("Organization membership is required.");
     }
-    const userGrants = await ctx.db
+    const currentOrganizationGrant = await ctx.db
       .query("mcpGrants")
-      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
-      .collect();
-    const existingGrant = userGrants.find(
-      (grant) =>
-        grant.clientId === authRequest.clientId &&
-        grant.resource === authRequest.resource &&
-        grant.scope === authRequest.scope &&
-        grant.status === "active",
-    );
+      .withIndex("by_user_id_organization_id_client_id_resource_scope_status", (q) =>
+        q
+          .eq("userId", args.userId)
+          .eq("organizationId", organizationId)
+          .eq("clientId", authRequest.clientId)
+          .eq("resource", authRequest.resource)
+          .eq("scope", authRequest.scope)
+          .eq("status", "active"),
+      )
+      .first();
+    const legacyGrant = currentOrganizationGrant
+      ? null
+      : await ctx.db
+          .query("mcpGrants")
+          .withIndex("by_user_id_organization_id_client_id_resource_scope_status", (q) =>
+            q
+              .eq("userId", args.userId)
+              .eq("organizationId", undefined)
+              .eq("clientId", authRequest.clientId)
+              .eq("resource", authRequest.resource)
+              .eq("scope", authRequest.scope)
+              .eq("status", "active"),
+          )
+          .first();
+    const existingGrant = currentOrganizationGrant ?? legacyGrant;
 
     const grantId = existingGrant?.grantId ?? `mcpg_${randomToken(24)}`;
     if (existingGrant) {
-      if (!hasPhaseOneMcpGrantSubject(ownership, existingGrant)) {
-        throw new Error("MCP grant organization does not match the current membership.");
-      }
       await ctx.db.patch(existingGrant._id, {
         organizationId,
         updatedAt: args.now,

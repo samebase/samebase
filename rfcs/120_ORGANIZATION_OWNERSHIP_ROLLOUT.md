@@ -44,6 +44,12 @@ output or a per-commit journal.
 - Use `requestedByUserId` on provisioning and vault-deletion runs, derive event requesters through
   `runId`, and use `editUserId` on staged-file updates. Actor fields are provenance only.
 - Bind each user-specific MCP grant to one organization.
+- Authorize each MCP HTTP request with one complete token, grant, client, and membership snapshot
+  before internal tool dispatch. Internal runtime actions are not an independent public boundary and
+  do not reload the grant.
+- Apply a concurrent MCP grant revocation, membership change, or client disable to the next request.
+  Continue to reload and recheck the grant, membership, scope, and client during browser handoff
+  creation and redemption because they are separate requests.
 - Keep authentication, provider credentials, OAuth callback state, and personal UI state
   user-scoped.
 - Keep WorkOS and Clerk out of the runtime and schema.
@@ -152,14 +158,20 @@ Implemented in the current pull request and worktree:
   retained vault selections. Duplicate vault cleanup stays a separate, explicit, non-provider
   operation.
 
-Final local evidence is complete. The Convex run passed 47 files and 433 tests. The full Samebase
-check passed. The focused account-deletion Linux visual run passed all 4 tests, and the unit copy
-tests passed all 24 tests. Migration, access, integration, and lifecycle reviews passed after their
-fixes. Two canonical full Linux visual runs were not green only because unrelated route URL editor
-tests failed inconsistently. All account-deletion tests passed in both runs.
+The branch was rebased onto current `origin/main` with operator approval. The supply-chain
+dependency patch is present. An exact comparison with the old reviewed merge recovered the
+organization-aware MCP grant lookup, its compound index and candidate-order tests, one Worker
+fixture, and the accepted MCP request-boundary contract that a normal rebase had omitted with the
+merge commit. The full Samebase check passed. The post-rebase Convex suite passed 47 files and 442
+tests. The focused MCP, browser-handoff, and billing run passed 4 files and 77 tests. The earlier
+focused account-deletion unit run passed all 24 tests, and the focused Linux visual run passed all 4
+tests. All four focused account-deletion visuals passed again in the canonical run. The canonical
+result was 209 passed, 1 skipped, and 1 unrelated URL-editor mount failure at
+`public-landing-shell.spec.ts:1052`. Migration, access, integration, and lifecycle reviews passed
+after their fixes.
 
-Phase 1 remains in progress. It is pending commit and push, pull request CI, merge, deployment, and
-production backfill verification.
+Phase 1 remains in progress. It is pending green pull request CI, merge, deployment, the preparation
+mutation, and production verification.
 
 ## UI And Workflow Coverage
 
@@ -175,6 +187,10 @@ Phase 1 covers:
 - account deletion confirmation and progress for membership and shared billing cleanup, including
   the sole-member and shared-member active-work wait rules;
 - MCP consent and grant binding to the current user's one organization;
+- one MCP HTTP request-boundary authorization snapshot for token validation, tool listing, tool
+  calls, and internal tool dispatch, with concurrent authorization changes applied to the next
+  request;
+- browser handoff grant, membership, scope, and client rechecks at both creation and redemption;
 - repository connection and app creation contracts that create organization-owned vaults;
 - vault lists, pickers, navigation, dashboards, resource dialogs, and resource routes;
 - editor, collaborative, shared staged-draft, pull-request, Data, and Schema behavior, including the
@@ -214,8 +230,7 @@ Primary external sources:
 
 ## Next Exact Task
 
-1. Commit and push the completed Phase 1 implementation, then require green pull request CI for pull
-   request #1355.
+1. Require green pull request CI for pull request #1355.
 2. Merge pull request #1355 only after its CI is green, then deploy the widened Phase 1 code and
    schema.
 3. Run the bounded organization preparation mutation with the two explicit operator user IDs, the

@@ -93,6 +93,14 @@ export const mcpTables = {
     .index("by_grant_id", ["grantId"])
     .index("by_user_id", ["userId"])
     .index("by_user_id_and_status", ["userId", "status"])
+    .index("by_user_id_organization_id_client_id_resource_scope_status", [
+      "userId",
+      "organizationId",
+      "clientId",
+      "resource",
+      "scope",
+      "status",
+    ])
     .index("by_client_id", ["clientId"])
     .index("by_status", ["status"]),
 

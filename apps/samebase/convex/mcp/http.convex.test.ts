@@ -562,6 +562,21 @@ describe("MCP tools/call access enforcement", () => {
       scopes: ["access_dashboard", "access_provider_connections"],
     });
     const vaultId = await t.run(async (ctx) => {
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
+      });
+      const grant = await ctx.db
+        .query("mcpGrants")
+        .withIndex("by_grant_id", (query) => query.eq("grantId", "grant_test"))
+        .unique();
+      if (grant === null) {
+        throw new Error("Expected the MCP grant fixture.");
+      }
+      await ctx.db.patch(grant._id, { organizationId });
       await Promise.all([
         ctx.db.insert("providerConnections", {
           kind: "cloudflare",
@@ -587,6 +602,7 @@ describe("MCP tools/call access enforcement", () => {
       ]);
       const vaultId = await ctx.db.insert("vaults", {
         userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
@@ -603,6 +619,7 @@ describe("MCP tools/call access enforcement", () => {
       });
       await ctx.db.replace(vaultId, {
         userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "connect_existing_repository",

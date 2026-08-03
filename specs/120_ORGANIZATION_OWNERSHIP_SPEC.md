@@ -181,8 +181,18 @@ access.
 MCP client registration remains system-wide. Only `mcpGrants` stores the required `organizationId`
 beside its user subject. Consent resolves the user's membership before it creates the grant.
 Authorization codes, access tokens, refresh tokens, and browser tokens derive the organization
-through `grantId`. Token validation, each tool list and tool call, tool execution, and browser
-handoff reload the grant and recheck current membership.
+through `grantId`.
+
+Each MCP HTTP request creates one complete authorization snapshot before internal tool dispatch.
+Token validation loads the access token, grant, client, and current organization membership. The
+request then uses that snapshot for `tools/list` or `tools/call`, including tool execution. A
+concurrent grant revocation, membership change, or client disable applies to the next MCP HTTP
+request. Internal runtime actions receive trusted subject and scope data from this dispatcher. They
+are not an independent public boundary and do not reload the grant.
+
+Browser handoff creation and redemption are separate request boundaries. Creation and redemption
+each reload the grant and recheck its user, organization membership, scope, and client state before
+they create or consume the handoff.
 
 ### Account deletion
 
