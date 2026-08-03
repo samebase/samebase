@@ -31,7 +31,7 @@ export const connectRepositoryContract = {
     inputDescriptions: {
       repositoryFullName: 'Full repository name to import, as "owner/name".',
     },
-  } satisfies AppFunctionMcpMetadata,
+  } as const satisfies AppFunctionMcpMetadata,
   doc: `Brings a repository the caller's GitHub connection can read under Samebase's record
 (access is what is checked, not ownership): creates the vault,
 syncs the tree, and leaves the providers deliberately unconfigured. Importing never touches

@@ -235,7 +235,7 @@ export const getUserVaultsContract = {
       destructiveHint: false,
     },
     inputDescriptions: {},
-  } satisfies AppFunctionMcpMetadata,
+  } as const satisfies AppFunctionMcpMetadata,
   doc: `Returns every vault the authenticated account can see. Repository connection, source
 setup, provider setup, and deletion are independent axes; a source-setup failure does not revoke an
 already connected repository. Provider resources are stable identities only. Current Cloudflare

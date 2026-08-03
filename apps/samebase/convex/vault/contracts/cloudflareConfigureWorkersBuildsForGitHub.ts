@@ -29,7 +29,7 @@ export const cloudflareConfigureWorkersBuildsForGitHubContract = {
       workerId: "Stable Samebase Worker attachment id returned by get_user_vaults.",
       rootDirectory: "Repository root to write to this Worker's GitHub Builds triggers.",
     },
-  } satisfies AppFunctionMcpMetadata,
+  } as const satisfies AppFunctionMcpMetadata,
   doc: `Configures the production and preview Workers Builds triggers for an attached Worker,
 GitHub repository, and root directory, then starts a production build. A trigger belonging to a
 different repository is never adopted. Samebase reads the current Worker and repository state

@@ -1,4 +1,5 @@
 import type { AccessKey, ViewerRole } from "../shared/accessModel";
+import type { ActionContractMcpName } from "./toolRuntime/actionCatalog";
 
 const SAMEBASE_USAGE_CONTEXT_LOG_TOPIC = "samebase_usage_context";
 const SAMEBASE_USAGE_CONTEXT_LOG_VERSION = 1;
@@ -10,22 +11,7 @@ export type SamebaseUsageMcpMethod =
   | "tools/list"
   | "tools/call"
   | "other";
-export type SamebaseUsageMcpToolName =
-  | "samebase_auth_getAuthenticationStatus"
-  | "vault_actions_createRepository"
-  | "vault_dashboard_getUserVaults"
-  | "vault_actions_connectRepository"
-  | "vault_cloudflare_listAccounts"
-  | "vault_cloudflare_createWorker"
-  | "vault_convex_discoverProjects"
-  | "vault_cloudflare_discoverWorkers"
-  | "vault_convex_attachProjects"
-  | "vault_cloudflare_attachWorkers"
-  | "vault_cloudflare_configureWorkersBuildsForGitHub"
-  | "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds"
-  | "vault_actions_retryInfrastructureProvisioning"
-  | "create_browser_handoff"
-  | "unknown";
+export type SamebaseUsageMcpToolName = ActionContractMcpName | "unknown";
 
 type SamebaseUsageContextLog = {
   topic: typeof SAMEBASE_USAGE_CONTEXT_LOG_TOPIC;

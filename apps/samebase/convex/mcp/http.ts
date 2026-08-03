@@ -1,5 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { object, optional, string, unknown as unknownValue } from "@samebase/sure";
+import type { FunctionReference } from "convex/server";
+import type { Value } from "convex/values";
 import { asRecord, type JsonRecord } from "../jsonUtils";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -47,6 +49,7 @@ import { canAccess, type AccessKey } from "../../shared/accessModel";
 import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
 import { parseSiteOrigin } from "../../shared/siteOrigin";
 import { mcpScopeAllowsAccess } from "../toolRuntime/mcpScopes";
+import { actionContracts, type ActionContractMcpName } from "../toolRuntime/actionCatalog";
 import {
   createAccessTokenValue,
   createAuthorizationCodeValue,
@@ -115,7 +118,20 @@ export function buildMcpToolInvocationArgs(invocation: McpToolInvocation) {
   };
 }
 
-function callGetAuthenticationStatusMcpTool(_ctx: ActionCtx, invocation: McpToolInvocation) {
+type McpToolResult = {
+  status: "ok" | "error" | "blocked";
+  text: string;
+  structuredContent?: Value;
+};
+type McpToolCall = (
+  ctx: ActionCtx,
+  invocation: McpToolInvocation,
+) => McpToolResult | Promise<McpToolResult>;
+
+function callGetAuthenticationStatusMcpTool(
+  _ctx: ActionCtx,
+  invocation: McpToolInvocation,
+): McpToolResult {
   const viewerUser = invocation.viewer.user;
   if (viewerUser === null) {
     const authentication: McpAuthenticationStatus = {
@@ -154,110 +170,21 @@ function callGetAuthenticationStatusMcpTool(_ctx: ActionCtx, invocation: McpTool
   };
 }
 
-async function callCreateRepositoryMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
-  return await ctx.runAction(
-    internal.toolRuntime.runtime.createRepositoryTool,
-    // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
-    buildMcpToolInvocationArgs(invocation),
-  );
+function createMcpRuntimeToolCall<
+  Tool extends FunctionReference<"action", "internal", Record<string, Value>, McpToolResult>,
+>(tool: Tool): McpToolCall {
+  return async (ctx, invocation) =>
+    await ctx.runAction(
+      tool,
+      // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
+      buildMcpToolInvocationArgs(invocation),
+    );
 }
 
-async function callGetUserVaultsMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
-  return await ctx.runAction(
-    internal.toolRuntime.runtime.getUserVaultsTool,
-    buildMcpToolInvocationArgs(invocation),
-  );
-}
-
-async function callConnectRepositoryMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
-  return await ctx.runAction(
-    internal.toolRuntime.runtime.connectRepositoryTool,
-    // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
-    buildMcpToolInvocationArgs(invocation),
-  );
-}
-
-async function callConvexDiscoverProjectsMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
-  return await ctx.runAction(
-    internal.toolRuntime.runtime.convexDiscoverProjectsTool,
-    // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
-    buildMcpToolInvocationArgs(invocation),
-  );
-}
-
-async function callCloudflareListAccountsMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
-  return await ctx.runAction(
-    internal.toolRuntime.runtime.cloudflareListAccountsTool,
-    buildMcpToolInvocationArgs(invocation),
-  );
-}
-
-async function callCloudflareCreateWorkerMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
-  return await ctx.runAction(
-    internal.toolRuntime.runtime.cloudflareCreateWorkerTool,
-    // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
-    buildMcpToolInvocationArgs(invocation),
-  );
-}
-
-async function callCloudflareDiscoverWorkersMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
-  return await ctx.runAction(
-    internal.toolRuntime.runtime.cloudflareDiscoverWorkersTool,
-    // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
-    buildMcpToolInvocationArgs(invocation),
-  );
-}
-
-async function callConvexAttachProjectsMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
-  return await ctx.runAction(
-    internal.toolRuntime.runtime.convexAttachProjectsTool,
-    // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
-    buildMcpToolInvocationArgs(invocation),
-  );
-}
-
-async function callCloudflareAttachWorkersMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
-  return await ctx.runAction(
-    internal.toolRuntime.runtime.cloudflareAttachWorkersTool,
-    // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
-    buildMcpToolInvocationArgs(invocation),
-  );
-}
-
-async function callCloudflareConfigureWorkersBuildsForGitHubMcpTool(
+async function callCreateBrowserHandoffMcpTool(
   ctx: ActionCtx,
   invocation: McpToolInvocation,
-) {
-  return await ctx.runAction(
-    internal.toolRuntime.runtime.cloudflareConfigureWorkersBuildsForGitHubTool,
-    // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
-    buildMcpToolInvocationArgs(invocation),
-  );
-}
-
-async function callCloudflareRotateConvexDeployKeysForWorkersBuildsMcpTool(
-  ctx: ActionCtx,
-  invocation: McpToolInvocation,
-) {
-  return await ctx.runAction(
-    internal.toolRuntime.runtime.cloudflareRotateConvexDeployKeysForWorkersBuildsTool,
-    // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
-    buildMcpToolInvocationArgs(invocation),
-  );
-}
-
-async function callRetryInfrastructureProvisioningMcpTool(
-  ctx: ActionCtx,
-  invocation: McpToolInvocation,
-) {
-  return await ctx.runAction(
-    internal.toolRuntime.runtime.retryInfrastructureProvisioningTool,
-    // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
-    buildMcpToolInvocationArgs(invocation),
-  );
-}
-
-async function callCreateBrowserHandoffMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
+): Promise<McpToolResult> {
   return await ctx.runAction(internal.toolRuntime.runtime.createBrowserHandoffTool, {
     ...buildMcpToolInvocationArgs(invocation),
     grantId: invocation.grantId,
@@ -265,202 +192,60 @@ async function callCreateBrowserHandoffMcpTool(ctx: ActionCtx, invocation: McpTo
   });
 }
 
-const mcpToolCatalog = [
-  {
-    access: getUserVaultsContract.access,
-    title: getUserVaultsContract.mcp.title,
-    name: getUserVaultsContract.mcp.name,
-    description: getUserVaultsContract.mcp.description,
-    annotations: getUserVaultsContract.mcp.annotations,
-    inputSchema: convexArgsToToolInputSchema(
-      getUserVaultsContract.args,
-      getUserVaultsContract.mcp.inputDescriptions,
-    ),
-    outputSchema: convexValidatorToToolOutputSchema(getUserVaultsContract.structuredContent),
-    call: callGetUserVaultsMcpTool,
-  },
-  {
-    access: createRepositoryContract.access,
-    title: createRepositoryContract.mcp.title,
-    name: createRepositoryContract.mcp.name,
-    description: createRepositoryContract.mcp.description,
-    annotations: createRepositoryContract.mcp.annotations,
-    inputSchema: convexArgsToToolInputSchema(
-      createRepositoryContract.args,
-      createRepositoryContract.mcp.inputDescriptions,
-    ),
-    outputSchema: convexValidatorToToolOutputSchema(createRepositoryContract.structuredContent),
-    call: callCreateRepositoryMcpTool,
-  },
-  {
-    access: connectRepositoryContract.access,
-    title: connectRepositoryContract.mcp.title,
-    name: connectRepositoryContract.mcp.name,
-    description: connectRepositoryContract.mcp.description,
-    annotations: connectRepositoryContract.mcp.annotations,
-    inputSchema: convexArgsToToolInputSchema(
-      connectRepositoryContract.args,
-      connectRepositoryContract.mcp.inputDescriptions,
-    ),
-    outputSchema: convexValidatorToToolOutputSchema(connectRepositoryContract.structuredContent),
-    call: callConnectRepositoryMcpTool,
-  },
-  {
-    access: convexDiscoverProjectsContract.access,
-    title: convexDiscoverProjectsContract.mcp.title,
-    name: convexDiscoverProjectsContract.mcp.name,
-    description: convexDiscoverProjectsContract.mcp.description,
-    annotations: convexDiscoverProjectsContract.mcp.annotations,
-    inputSchema: convexArgsToToolInputSchema(
-      convexDiscoverProjectsContract.args,
-      convexDiscoverProjectsContract.mcp.inputDescriptions,
-    ),
-    outputSchema: convexValidatorToToolOutputSchema(
-      convexDiscoverProjectsContract.structuredContent,
-    ),
-    call: callConvexDiscoverProjectsMcpTool,
-  },
-  {
-    access: cloudflareListAccountsContract.access,
-    title: cloudflareListAccountsContract.mcp.title,
-    name: cloudflareListAccountsContract.mcp.name,
-    description: cloudflareListAccountsContract.mcp.description,
-    annotations: cloudflareListAccountsContract.mcp.annotations,
-    inputSchema: convexArgsToToolInputSchema(
-      cloudflareListAccountsContract.args,
-      cloudflareListAccountsContract.mcp.inputDescriptions,
-    ),
-    outputSchema: convexValidatorToToolOutputSchema(
-      cloudflareListAccountsContract.structuredContent,
-    ),
-    call: callCloudflareListAccountsMcpTool,
-  },
-  {
-    access: cloudflareDiscoverWorkersContract.access,
-    title: cloudflareDiscoverWorkersContract.mcp.title,
-    name: cloudflareDiscoverWorkersContract.mcp.name,
-    description: cloudflareDiscoverWorkersContract.mcp.description,
-    annotations: cloudflareDiscoverWorkersContract.mcp.annotations,
-    inputSchema: convexArgsToToolInputSchema(
-      cloudflareDiscoverWorkersContract.args,
-      cloudflareDiscoverWorkersContract.mcp.inputDescriptions,
-    ),
-    outputSchema: convexValidatorToToolOutputSchema(
-      cloudflareDiscoverWorkersContract.structuredContent,
-    ),
-    call: callCloudflareDiscoverWorkersMcpTool,
-  },
-  {
-    access: convexAttachProjectsContract.access,
-    title: convexAttachProjectsContract.mcp.title,
-    name: convexAttachProjectsContract.mcp.name,
-    description: convexAttachProjectsContract.mcp.description,
-    annotations: convexAttachProjectsContract.mcp.annotations,
-    inputSchema: convexArgsToToolInputSchema(
-      convexAttachProjectsContract.args,
-      convexAttachProjectsContract.mcp.inputDescriptions,
-    ),
-    outputSchema: convexValidatorToToolOutputSchema(convexAttachProjectsContract.structuredContent),
-    call: callConvexAttachProjectsMcpTool,
-  },
-  {
-    access: cloudflareAttachWorkersContract.access,
-    title: cloudflareAttachWorkersContract.mcp.title,
-    name: cloudflareAttachWorkersContract.mcp.name,
-    description: cloudflareAttachWorkersContract.mcp.description,
-    annotations: cloudflareAttachWorkersContract.mcp.annotations,
-    inputSchema: convexArgsToToolInputSchema(
-      cloudflareAttachWorkersContract.args,
-      cloudflareAttachWorkersContract.mcp.inputDescriptions,
-    ),
-    outputSchema: convexValidatorToToolOutputSchema(
-      cloudflareAttachWorkersContract.structuredContent,
-    ),
-    call: callCloudflareAttachWorkersMcpTool,
-  },
-  {
-    access: cloudflareCreateWorkerContract.access,
-    title: cloudflareCreateWorkerContract.mcp.title,
-    name: cloudflareCreateWorkerContract.mcp.name,
-    description: cloudflareCreateWorkerContract.mcp.description,
-    annotations: cloudflareCreateWorkerContract.mcp.annotations,
-    inputSchema: convexArgsToToolInputSchema(
-      cloudflareCreateWorkerContract.args,
-      cloudflareCreateWorkerContract.mcp.inputDescriptions,
-    ),
-    outputSchema: convexValidatorToToolOutputSchema(
-      cloudflareCreateWorkerContract.structuredContent,
-    ),
-    call: callCloudflareCreateWorkerMcpTool,
-  },
-  {
-    access: cloudflareConfigureWorkersBuildsForGitHubContract.access,
-    title: cloudflareConfigureWorkersBuildsForGitHubContract.mcp.title,
-    name: cloudflareConfigureWorkersBuildsForGitHubContract.mcp.name,
-    description: cloudflareConfigureWorkersBuildsForGitHubContract.mcp.description,
-    annotations: cloudflareConfigureWorkersBuildsForGitHubContract.mcp.annotations,
-    inputSchema: convexArgsToToolInputSchema(
-      cloudflareConfigureWorkersBuildsForGitHubContract.args,
-      cloudflareConfigureWorkersBuildsForGitHubContract.mcp.inputDescriptions,
-    ),
-    outputSchema: undefined,
-    call: callCloudflareConfigureWorkersBuildsForGitHubMcpTool,
-  },
-  {
-    access: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.access,
-    title: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.title,
-    name: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name,
-    description: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.description,
-    annotations: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.annotations,
-    inputSchema: convexArgsToToolInputSchema(
-      cloudflareRotateConvexDeployKeysForWorkersBuildsContract.args,
-      cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.inputDescriptions,
-    ),
-    outputSchema: undefined,
-    call: callCloudflareRotateConvexDeployKeysForWorkersBuildsMcpTool,
-  },
-  {
-    access: retryInfrastructureProvisioningContract.access,
-    title: retryInfrastructureProvisioningContract.mcp.title,
-    name: retryInfrastructureProvisioningContract.mcp.name,
-    description: retryInfrastructureProvisioningContract.mcp.description,
-    annotations: retryInfrastructureProvisioningContract.mcp.annotations,
-    inputSchema: convexArgsToToolInputSchema(
-      retryInfrastructureProvisioningContract.args,
-      retryInfrastructureProvisioningContract.mcp.inputDescriptions,
-    ),
-    outputSchema: undefined,
-    call: callRetryInfrastructureProvisioningMcpTool,
-  },
-  {
-    access: createBrowserHandoffContract.access,
-    title: createBrowserHandoffContract.mcp.title,
-    name: createBrowserHandoffContract.mcp.name,
-    description: createBrowserHandoffContract.mcp.description,
-    annotations: createBrowserHandoffContract.mcp.annotations,
-    inputSchema: convexArgsToToolInputSchema(
-      createBrowserHandoffContract.args,
-      createBrowserHandoffContract.mcp.inputDescriptions,
-    ),
-    outputSchema: convexValidatorToToolOutputSchema(createBrowserHandoffContract.structuredContent),
-    call: callCreateBrowserHandoffMcpTool,
-  },
-  {
-    access: getAuthenticationStatusContract.access,
-    title: getAuthenticationStatusContract.mcp.title,
-    name: getAuthenticationStatusContract.mcp.name,
-    description: getAuthenticationStatusContract.mcp.description,
-    annotations: getAuthenticationStatusContract.mcp.annotations,
-    inputSchema: convexArgsToToolInputSchema(
-      getAuthenticationStatusContract.args,
-      getAuthenticationStatusContract.mcp.inputDescriptions,
-    ),
-    outputSchema: convexValidatorToToolOutputSchema(
-      getAuthenticationStatusContract.structuredContent,
-    ),
-    call: callGetAuthenticationStatusMcpTool,
-  },
-] as const;
+const mcpToolCalls: Record<ActionContractMcpName, McpToolCall> = {
+  [getUserVaultsContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.getUserVaultsTool,
+  ),
+  [createRepositoryContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.createRepositoryTool,
+  ),
+  [connectRepositoryContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.connectRepositoryTool,
+  ),
+  [convexDiscoverProjectsContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.convexDiscoverProjectsTool,
+  ),
+  [cloudflareListAccountsContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.cloudflareListAccountsTool,
+  ),
+  [cloudflareDiscoverWorkersContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.cloudflareDiscoverWorkersTool,
+  ),
+  [convexAttachProjectsContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.convexAttachProjectsTool,
+  ),
+  [cloudflareAttachWorkersContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.cloudflareAttachWorkersTool,
+  ),
+  [cloudflareCreateWorkerContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.cloudflareCreateWorkerTool,
+  ),
+  [cloudflareConfigureWorkersBuildsForGitHubContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.cloudflareConfigureWorkersBuildsForGitHubTool,
+  ),
+  [cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.cloudflareRotateConvexDeployKeysForWorkersBuildsTool,
+  ),
+  [retryInfrastructureProvisioningContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.retryInfrastructureProvisioningTool,
+  ),
+  [createBrowserHandoffContract.mcp.name]: callCreateBrowserHandoffMcpTool,
+  [getAuthenticationStatusContract.mcp.name]: callGetAuthenticationStatusMcpTool,
+};
+
+const mcpToolCatalog = actionContracts.map((contract) => ({
+  access: contract.access,
+  title: contract.mcp.title,
+  name: contract.mcp.name,
+  description: contract.mcp.description,
+  annotations: contract.mcp.annotations,
+  inputSchema: convexArgsToToolInputSchema(contract.args, contract.mcp.inputDescriptions),
+  outputSchema:
+    "structuredContent" in contract
+      ? convexValidatorToToolOutputSchema(contract.structuredContent)
+      : undefined,
+  call: mcpToolCalls[contract.mcp.name],
+}));
 
 export function listMcpToolsForAccess(args: {
   grantedScopes: string[];
@@ -651,49 +436,7 @@ export function readMcpToolNameForUsage(params: unknown): SamebaseUsageMcpToolNa
   }
 
   const toolName = toolCallParams.name.trim();
-  if (toolName === getAuthenticationStatusContract.mcp.name) {
-    return "samebase_auth_getAuthenticationStatus";
-  }
-  if (toolName === createRepositoryContract.mcp.name) {
-    return "vault_actions_createRepository";
-  }
-  if (toolName === getUserVaultsContract.mcp.name) {
-    return "vault_dashboard_getUserVaults";
-  }
-  if (toolName === connectRepositoryContract.mcp.name) {
-    return "vault_actions_connectRepository";
-  }
-  if (toolName === cloudflareListAccountsContract.mcp.name) {
-    return "vault_cloudflare_listAccounts";
-  }
-  if (toolName === cloudflareCreateWorkerContract.mcp.name) {
-    return "vault_cloudflare_createWorker";
-  }
-  if (toolName === convexDiscoverProjectsContract.mcp.name) {
-    return "vault_convex_discoverProjects";
-  }
-  if (toolName === cloudflareDiscoverWorkersContract.mcp.name) {
-    return "vault_cloudflare_discoverWorkers";
-  }
-  if (toolName === convexAttachProjectsContract.mcp.name) {
-    return "vault_convex_attachProjects";
-  }
-  if (toolName === cloudflareAttachWorkersContract.mcp.name) {
-    return "vault_cloudflare_attachWorkers";
-  }
-  if (toolName === cloudflareConfigureWorkersBuildsForGitHubContract.mcp.name) {
-    return "vault_cloudflare_configureWorkersBuildsForGitHub";
-  }
-  if (toolName === cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name) {
-    return "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds";
-  }
-  if (toolName === retryInfrastructureProvisioningContract.mcp.name) {
-    return "vault_actions_retryInfrastructureProvisioning";
-  }
-  if (toolName === createBrowserHandoffContract.mcp.name) {
-    return "create_browser_handoff";
-  }
-  return "unknown";
+  return mcpToolCatalog.find((tool) => tool.name === toolName)?.name ?? "unknown";
 }
 
 export const getMcpOauthProtectedResourceMetadata = httpAction(async (_ctx, request) => {

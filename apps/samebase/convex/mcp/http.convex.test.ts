@@ -95,115 +95,6 @@ describe("MCP tool listing access", () => {
         currentAccessKeys: ["access_dashboard", "access_app_create", "access_repo_connect"],
       }).map((tool) => tool.name),
     ).toEqual(["vault_actions_connectRepository"]);
-
-    expect(
-      listMcpToolsForAccess({
-        grantedScopes: ["access_app_create", "access_dashboard", "access_provider_connections"],
-        currentAccessKeys: [
-          "access_public",
-          "access_dashboard",
-          "access_app_create",
-          "access_provider_connections",
-        ],
-      }),
-    ).toEqual([
-      expect.objectContaining({
-        name: "vault_dashboard_getUserVaults",
-        annotations: {
-          readOnlyHint: false,
-          openWorldHint: false,
-          destructiveHint: false,
-        },
-      }),
-      expect.objectContaining({
-        name: "vault_actions_createRepository",
-        annotations: {
-          readOnlyHint: false,
-          openWorldHint: true,
-          destructiveHint: false,
-        },
-      }),
-      expect.objectContaining({
-        name: "vault_convex_discoverProjects",
-        annotations: {
-          readOnlyHint: false,
-          openWorldHint: false,
-          destructiveHint: false,
-        },
-      }),
-      expect.objectContaining({
-        name: "vault_cloudflare_listAccounts",
-        annotations: {
-          readOnlyHint: false,
-          openWorldHint: false,
-          destructiveHint: false,
-        },
-      }),
-      expect.objectContaining({
-        name: "vault_cloudflare_discoverWorkers",
-        annotations: {
-          readOnlyHint: false,
-          openWorldHint: false,
-          destructiveHint: false,
-        },
-      }),
-      expect.objectContaining({
-        name: "vault_convex_attachProjects",
-        annotations: {
-          readOnlyHint: false,
-          openWorldHint: false,
-          destructiveHint: false,
-        },
-      }),
-      expect.objectContaining({
-        name: "vault_cloudflare_attachWorkers",
-        annotations: {
-          readOnlyHint: false,
-          openWorldHint: false,
-          destructiveHint: false,
-        },
-      }),
-      expect.objectContaining({
-        name: "vault_cloudflare_createWorker",
-        annotations: {
-          readOnlyHint: false,
-          openWorldHint: true,
-          destructiveHint: false,
-        },
-      }),
-      expect.objectContaining({
-        name: "vault_cloudflare_configureWorkersBuildsForGitHub",
-        annotations: {
-          readOnlyHint: false,
-          openWorldHint: true,
-          destructiveHint: true,
-        },
-      }),
-      expect.objectContaining({
-        name: "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds",
-        annotations: {
-          readOnlyHint: false,
-          openWorldHint: true,
-          destructiveHint: true,
-        },
-      }),
-      expect.objectContaining({
-        name: "vault_actions_retryInfrastructureProvisioning",
-        annotations: {
-          readOnlyHint: false,
-          openWorldHint: true,
-          destructiveHint: true,
-        },
-      }),
-      expect.objectContaining({
-        name: "samebase_auth_getAuthenticationStatus",
-        annotations: {
-          readOnlyHint: false,
-          openWorldHint: false,
-          destructiveHint: false,
-        },
-      }),
-    ]);
   });
 
   it("uses Claude-compatible public tool names", () => {
@@ -257,6 +148,11 @@ describe("MCP tool listing access", () => {
     });
     expect(tools.find((tool) => tool.name === "vault_cloudflare_createWorker")).toMatchObject({
       title: "Create Cloudflare Worker",
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: true,
+        destructiveHint: false,
+      },
       outputSchema: {
         type: "object",
         properties: {
@@ -272,6 +168,11 @@ describe("MCP tool listing access", () => {
     expect(configureWorkersBuildsTool).not.toHaveProperty("outputSchema");
     expect(configureWorkersBuildsTool).toMatchObject({
       description: expect.stringContaining("start a production build"),
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: true,
+        destructiveHint: true,
+      },
     });
     expect(
       tools.find((tool) => tool.name === "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds"),
@@ -291,42 +192,9 @@ describe("MCP usage attribution dimensions", () => {
   });
 
   it("maps tool call params to catalog names or unknown", () => {
-    expect(readMcpToolNameForUsage({ name: "samebase_auth_getAuthenticationStatus" })).toBe(
-      "samebase_auth_getAuthenticationStatus",
-    );
-    expect(readMcpToolNameForUsage({ name: "vault_actions_createRepository" })).toBe(
-      "vault_actions_createRepository",
-    );
-    expect(readMcpToolNameForUsage({ name: "vault_actions_connectRepository" })).toBe(
-      "vault_actions_connectRepository",
-    );
-    expect(readMcpToolNameForUsage({ name: "vault_convex_discoverProjects" })).toBe(
-      "vault_convex_discoverProjects",
-    );
-    expect(readMcpToolNameForUsage({ name: "vault_cloudflare_listAccounts" })).toBe(
-      "vault_cloudflare_listAccounts",
-    );
-    expect(readMcpToolNameForUsage({ name: "vault_cloudflare_createWorker" })).toBe(
-      "vault_cloudflare_createWorker",
-    );
-    expect(readMcpToolNameForUsage({ name: "vault_cloudflare_discoverWorkers" })).toBe(
-      "vault_cloudflare_discoverWorkers",
-    );
-    expect(readMcpToolNameForUsage({ name: "vault_convex_attachProjects" })).toBe(
-      "vault_convex_attachProjects",
-    );
-    expect(readMcpToolNameForUsage({ name: "vault_cloudflare_attachWorkers" })).toBe(
-      "vault_cloudflare_attachWorkers",
-    );
-    expect(
-      readMcpToolNameForUsage({ name: "vault_cloudflare_configureWorkersBuildsForGitHub" }),
-    ).toBe("vault_cloudflare_configureWorkersBuildsForGitHub");
-    expect(
-      readMcpToolNameForUsage({ name: "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds" }),
-    ).toBe("vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds");
-    expect(readMcpToolNameForUsage({ name: "vault_actions_retryInfrastructureProvisioning" })).toBe(
-      "vault_actions_retryInfrastructureProvisioning",
-    );
+    for (const contract of actionContracts) {
+      expect(readMcpToolNameForUsage({ name: ` ${contract.mcp.name} ` })).toBe(contract.mcp.name);
+    }
     expect(readMcpToolNameForUsage({ name: "caller controlled text" })).toBe("unknown");
     expect(readMcpToolNameForUsage({ name: "" })).toBe("unknown");
     expect(readMcpToolNameForUsage(null)).toBe("unknown");

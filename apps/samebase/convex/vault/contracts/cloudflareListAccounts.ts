@@ -27,7 +27,7 @@ export const cloudflareListAccountsContract = {
       destructiveHint: false,
     },
     inputDescriptions: {},
-  } satisfies AppFunctionMcpMetadata,
+  } as const satisfies AppFunctionMcpMetadata,
   doc: `Discovery read for manual existing-Worker attachment or new-Worker creation on an existing
 connected vault: returns the accounts on the caller's connected Cloudflare login. Use the chosen
 \`accountId\` with \`discover_cloudflare_workers\`, then attach one or more verified results with

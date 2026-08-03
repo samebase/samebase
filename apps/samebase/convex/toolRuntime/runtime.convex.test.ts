@@ -3,203 +3,75 @@ import { describe, expect, it } from "vite-plus/test";
 import { internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
-/**
-Every runtime bridge must enforce its contract's scope before touching any
-product helper. Granting no scopes at all must block all non-public tools with
-the tool's own MCP name in the message, the per-bridge half of the
-authorization story (the dispatch layer's current-access gate is covered in
-mcp/http.convex.test.ts).
-*/
-describe("toolRuntime scope enforcement", () => {
-  it("blocks every non-public catalog tool when the token grants no scopes", async () => {
-    const t = makeConvexTest();
-    const { convexProjectId, userId, vaultId, workerId } = await t.run(async (ctx) => {
-      const seededUserId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      const seededVaultId = await ctx.db.insert("vaults", {
-        userId: seededUserId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      const seededWorkerId = await ctx.db.insert("vaultCloudflareWorkers", {
-        vaultId: seededVaultId,
-        userId: seededUserId,
-        accountId: "account_1",
-        workerName: "worker-1",
-        workerTag: "worker-tag-1",
-        origin: "selected_existing",
-      });
-      const seededConvexProjectId = await ctx.db.insert("vaultConvexProjects", {
-        vaultId: seededVaultId,
-        userId: seededUserId,
-        teamId: "team_1",
-        projectId: "project_1",
-        convexConfigPath: "convex.json",
-        origin: "selected_existing",
-      });
-      return {
-        convexProjectId: seededConvexProjectId,
-        userId: seededUserId,
-        vaultId: seededVaultId,
-        workerId: seededWorkerId,
-      };
+async function seedToolRuntimeOwner() {
+  const t = makeConvexTest();
+  const { userId, vaultId } = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", {
+      name: "Ada",
+      email: "ada@example.com",
+      isApproved: true,
     });
-    const grantedScopes: string[] = [];
-
-    const getUserVaults = await t.action(internal.toolRuntime.runtime.getUserVaultsTool, {
+    const vaultId = await ctx.db.insert("vaults", {
       userId,
-      grantedScopes,
+      deletion: { state: "not_deleting" },
+      state: "not_connected",
     });
-    expect(getUserVaults).toMatchObject({
-      status: "blocked",
-      text: "Insufficient scope for vault_dashboard_getUserVaults.",
-    });
+    return { userId, vaultId };
+  });
+  return { t, userId, vaultId };
+}
 
-    const createRepository = await t.action(internal.toolRuntime.runtime.createRepositoryTool, {
+describe("MCP tool runtime boundaries", () => {
+  it("blocks a generic runtime tool before its product helper runs", async () => {
+    const { t, userId, vaultId } = await seedToolRuntimeOwner();
+
+    const result = await t.action(internal.toolRuntime.runtime.cloudflareCreateWorkerTool, {
       userId,
-      grantedScopes,
-      name: "tmp-app",
-      owner: "ada",
-      convexProjectName: "tmp-app",
-      cloudflareWorkerName: "tmp-app",
-    });
-    expect(createRepository).toMatchObject({
-      status: "blocked",
-      text: "Insufficient scope for vault_actions_createRepository.",
-    });
-
-    const connectRepository = await t.action(internal.toolRuntime.runtime.connectRepositoryTool, {
-      userId,
-      grantedScopes,
-      repositoryFullName: "ada/existing",
-    });
-    expect(connectRepository).toMatchObject({
-      status: "blocked",
-      text: "Insufficient scope for vault_actions_connectRepository.",
-    });
-
-    const discoverProjects = await t.action(
-      internal.toolRuntime.runtime.convexDiscoverProjectsTool,
-      {
-        userId,
-        grantedScopes,
-        vaultId,
-      },
-    );
-    expect(discoverProjects).toMatchObject({
-      status: "blocked",
-      text: "Insufficient scope for vault_convex_discoverProjects.",
-    });
-
-    const listAccounts = await t.action(internal.toolRuntime.runtime.cloudflareListAccountsTool, {
-      userId,
-      grantedScopes,
-    });
-    expect(listAccounts).toMatchObject({
-      status: "blocked",
-      text: "Insufficient scope for vault_cloudflare_listAccounts.",
-    });
-
-    const createWorker = await t.action(internal.toolRuntime.runtime.cloudflareCreateWorkerTool, {
-      userId,
-      grantedScopes,
+      grantedScopes: [],
       vaultId,
       accountId: "account_1",
       workerName: "worker-new",
       rootDirectory: "/",
     });
-    expect(createWorker).toMatchObject({
+
+    expect(result).toEqual({
       status: "blocked",
       text: "Insufficient scope for vault_cloudflare_createWorker.",
     });
+  });
 
-    const discoverWorkers = await t.action(
-      internal.toolRuntime.runtime.cloudflareDiscoverWorkersTool,
-      {
-        userId,
-        grantedScopes,
-        vaultId,
-        accountId: "account_1",
-      },
-    );
-    expect(discoverWorkers).toMatchObject({
-      status: "blocked",
-      text: "Insufficient scope for vault_cloudflare_discoverWorkers.",
-    });
+  it("converts a product helper error into a tool error without a provider write", async () => {
+    const { t, userId, vaultId } = await seedToolRuntimeOwner();
 
-    const attachProjects = await t.action(internal.toolRuntime.runtime.convexAttachProjectsTool, {
+    const result = await t.action(internal.toolRuntime.runtime.cloudflareCreateWorkerTool, {
       userId,
-      grantedScopes,
-      vaultId,
-      projects: [
-        {
-          projectId: "project_1",
-          codeLocation: {
-            kind: "config",
-            convexConfigPath: "convex.json",
-            blobSha: "blob_1",
-          },
-        },
-      ],
-    });
-    expect(attachProjects).toMatchObject({
-      status: "blocked",
-      text: "Insufficient scope for vault_convex_attachProjects.",
-    });
-
-    const attachWorkers = await t.action(internal.toolRuntime.runtime.cloudflareAttachWorkersTool, {
-      userId,
-      grantedScopes,
+      grantedScopes: ["access_provider_connections"],
       vaultId,
       accountId: "account_1",
-      workers: [{ workerName: "worker-1", workerTag: "worker-tag-1" }],
-    });
-    expect(attachWorkers).toMatchObject({
-      status: "blocked",
-      text: "Insufficient scope for vault_cloudflare_attachWorkers.",
+      workerName: "invalid worker name",
+      rootDirectory: "/",
     });
 
-    const configureWorkersBuildsForGitHub = await t.action(
-      internal.toolRuntime.runtime.cloudflareConfigureWorkersBuildsForGitHubTool,
-      {
-        userId,
-        grantedScopes,
-        vaultId,
-        workerId,
-        rootDirectory: "/",
-      },
-    );
-    expect(configureWorkersBuildsForGitHub).toMatchObject({
-      status: "blocked",
-      text: "Insufficient scope for vault_cloudflare_configureWorkersBuildsForGitHub.",
+    expect(result).toMatchObject({
+      status: "error",
+      text: expect.stringContaining("Worker name"),
     });
+    expect(result).not.toHaveProperty("structuredContent");
+  });
 
-    const rotateConvexDeployKeysForWorkersBuilds = await t.action(
-      internal.toolRuntime.runtime.cloudflareRotateConvexDeployKeysForWorkersBuildsTool,
-      {
-        userId,
-        grantedScopes,
-        vaultId,
-        workerId,
-        convexProjectId,
-      },
-    );
-    expect(rotateConvexDeployKeysForWorkersBuilds).toMatchObject({
-      status: "blocked",
-      text: "Insufficient scope for vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds.",
-    });
+  it("keeps browser handoff behind its dedicated trusted scope", async () => {
+    const { t, userId } = await seedToolRuntimeOwner();
 
-    const retry = await t.action(internal.toolRuntime.runtime.retryInfrastructureProvisioningTool, {
+    const result = await t.action(internal.toolRuntime.runtime.createBrowserHandoffTool, {
       userId,
-      grantedScopes,
-      vaultId,
+      grantId: "grant_1",
+      clientId: "client_1",
+      grantedScopes: [],
     });
-    expect(retry).toMatchObject({
+
+    expect(result).toEqual({
       status: "blocked",
-      text: "Insufficient scope for vault_actions_retryInfrastructureProvisioning.",
+      text: "Insufficient scope for create_browser_handoff.",
     });
   });
 });

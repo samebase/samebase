@@ -96,7 +96,7 @@ export const convexDiscoverProjectsContract = {
     inputDescriptions: {
       vaultId: "Samebase vault whose repository code locations should be discovered.",
     },
-  } satisfies AppFunctionMcpMetadata,
+  } as const satisfies AppFunctionMcpMetadata,
   doc: `Reads the vault's exact default-branch Git tree to find explicit convex.json files and
 default package.json plus convex/ layouts. Discovery uses exact tree entry types, paths, and object
 SHAs only. It does not read or validate convex.json or package.json contents. It also lists projects
@@ -136,7 +136,7 @@ export const convexAttachProjectsContract = {
       projects:
         "One or more project id and code location selections returned by discover_convex_projects.",
     },
-  } satisfies AppFunctionMcpMetadata,
+  } as const satisfies AppFunctionMcpMetadata,
   doc: `Re-reads every selected Convex project and exact repository code location before writing
 any attachment. The final Samebase mutation is atomic: either every selected project and confirmed
 location is attached or none are. Convex projects and GitHub files are not modified.`,
