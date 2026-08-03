@@ -171,7 +171,8 @@ organization. Real actor fields remain and use exact names such as `lastEditUser
 MCP client registration remains system-wide. Only `mcpGrants` stores the required `organizationId`
 beside its user subject. Consent resolves the user's membership before it creates the grant.
 Authorization codes, access tokens, refresh tokens, and browser tokens derive the organization
-through `grantId`. Each tool list and tool call reloads the grant and rechecks current membership.
+through `grantId`. Token validation, each tool list and tool call, tool execution, and browser
+handoff reload the grant and recheck current membership.
 
 ### Account deletion
 
@@ -240,15 +241,24 @@ keeps the verified old cleanup path until the new ownership cutover completes.
 
 The rollout is complete only when tests and migration checks prove:
 
-- Every newly created user, including a waitlisted user, gets one organization membership.
+- Every newly created user, including a waitlisted or admin-created user, gets one organization,
+  membership, and billing row.
 - Repeated organization provisioning for one user is idempotent.
 - The explicit two-account migration produces one organization with two memberships.
 - The migration stops on an unlisted billing or duplicate-repository collision.
 - No generic profile or email match combines users.
 - A member can use normal resources in their organization.
 - A user from another organization cannot read or change those resources.
+- Two members see the same organization vaults and can use the current dashboard, editor, staging,
+  resource, provisioning, and deletion flows after the access cutover.
 - A user actor field does not grant access to an organization resource.
 - UI preferences and other personal state remain different for two members of one organization.
+- Both members see the same organization plan and quota usage, while each member sees only their own
+  provider connections.
+- A waitlisted user has an organization membership but remains blocked by the current application
+  access gate.
+- The rollout adds no organization switcher, invitation surface, membership page, or organization
+  chrome.
 - Provider credentials stay user-scoped. Billing state, quota counts, and MCP grants use the
   organization boundary.
 - Deleting one of several members preserves shared organization data.

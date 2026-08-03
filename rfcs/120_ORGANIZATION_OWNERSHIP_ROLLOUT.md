@@ -23,6 +23,8 @@ journal.
   deployed schema state.
 - Pull request size is not a split trigger. Use coherent commits and focused agent reviews inside
   each pull request.
+- A backend phase is not complete until every affected shipped UI, query contract, and workflow is
+  updated and tested in the same pull request.
 - No implementation phase starts until the preceding phase is merged and rebased into the next
   worktree.
 - Each phase gets one implementation review and one independent simplicity review before merge.
@@ -97,7 +99,8 @@ the related migration runs.
 
 - Status: Pending
 - Scope: Add the organization graph, organization billing, organization keys, MCP binding, shared
-  helpers, dual writes, backfills, and migration checks across all domains.
+  helpers, dual writes, backfills, migration checks, organization-aware API results, and affected UI
+  and workflow support across all domains.
 - Gate: Every user and resource is prepared, the two operator accounts share one organization, and
   legacy resource access still applies.
 
@@ -106,7 +109,7 @@ the related migration runs.
 - Status: Pending
 - Scope: Make organization keys authoritative, switch all resource access and account deletion to
   memberships, stop legacy ownership writes, and remove legacy ownership values with bounded
-  migrations.
+  migrations. Activate and verify the UI and workflow support prepared in Phase 1.
 - Gate: Shared access, billing, quotas, MCP, and account deletion use the organization boundary, and
   cleanup checks pass.
 
@@ -121,6 +124,36 @@ Phase 1 is intentionally one large preparation pull request, not several domain 
 commits can separate schema and backfills, billing and MCP, vault paths and workflows, and tests for
 review. Phase 2 is one coordinated authorization cutover. Phase 3 is the small schema-narrowing pull
 request required after production cleanup completes.
+
+## UI And Workflow Coverage
+
+This is a full-stack rollout. Phase 1 owns the code changes for every existing surface whose data or
+behavior changes. Phase 2 activates shared access and runs the two-member acceptance pass. It is not
+a second set of domain UI projects.
+
+Phase 1 covers:
+
+- normal sign-up and admin-created account provisioning for the organization, membership, and
+  billing row;
+- the account billing plan, subscription, and Worker and Convex project usage;
+- account deletion confirmation and progress for membership and shared billing cleanup;
+- MCP consent and grant binding to the current user's one organization;
+- repository connection and app creation contracts that create organization-owned vaults;
+- vault lists, pickers, navigation, dashboards, resource dialogs, and resource routes;
+- editor, collaborative, staged-change, pull-request, Data, and Schema behavior;
+- provider observation, provider-write, provisioning, vault deletion, and account deletion flows;
+- the rule that each member uses their own provider credentials while shared resources stay with the
+  organization;
+- migration-compatible query and action results used by current routes;
+- route-level interaction tests and screenshot coverage for every changed shipped UI state.
+
+Phase 2 verifies those prepared surfaces with both members of the shared operator organization. It
+also verifies sole-member and shared-member account deletion, MCP token validation, `tools/list`,
+`tools/call`, tool execution, and browser handoff before it removes the legacy access requirement.
+
+Personal UI settings and provider connections remain separate for two members. No phase adds an
+organization name, switcher, invitation flow, membership page, or new organization chrome. Phase 3
+has no intended user-visible behavior change.
 
 ## Evidence Integrated
 
