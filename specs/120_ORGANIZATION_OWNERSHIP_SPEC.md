@@ -158,15 +158,25 @@ granted to that user. A member uses their own provider connection when an organi
 provider access. A future organization-managed service credential requires its own accepted
 contract. Provider connections do not own vaults or attached provider resources.
 
-Existing vault repository-identity indexes move from the user boundary to the organization boundary.
-One organization cannot have two retained vaults for the same provider repository identity.
+Existing vault repository-identity lookup indexes and guard checks move from the user boundary to
+the organization boundary. The guards keep the current `not_connected` exclusion because those
+vaults have no repository identity. One organization cannot have two retained vaults for the same
+provider repository identity.
 
 Vault children do not copy `organizationId` when loading the parent vault gives the authorization
 boundary. Existing `userId` or `ownerId` fields that only repeat vault ownership are removed. The
 two billable attachment tables copy `organizationId` only as the indexed quota-count key. Access
 still derives from the parent vault, and writes must keep the copied key equal to the vault
-organization. Real actor fields remain and use exact names such as `lastEditUserId`,
-`initiatedByUserId`, or `requestedByUserId`.
+organization.
+
+Staged files are one shared collaborative draft for a vault, branch, and path. Vault membership
+controls draft access. The final model removes `vaultStagedFiles.ownerId` and its access checks.
+`lastEditUserId` records only the last editor and never authorizes access.
+
+Provisioning and vault-deletion runs use `requestedByUserId`. Their event rows derive the requester
+through `runId` and do not copy a user ID. `vaultStagedFileUpdates` uses `editUserId`.
+`requestedByUserId`, `lastEditUserId`, and `editUserId` are provenance only. No actor field grants
+access.
 
 MCP client registration remains system-wide. Only `mcpGrants` stores the required `organizationId`
 beside its user subject. Consent resolves the user's membership before it creates the grant.
@@ -188,6 +198,10 @@ only the deleting user's membership and personal data. Every current membership 
 Transfer rules become necessary only when a less-privileged membership role ships. Actor and
 workflow rows follow their table-specific deletion policy and must not cause shared organization
 resources to be deleted.
+
+Before sole-member cleanup starts, account deletion waits for all active work attached to the
+organization or its vaults. Shared-member deletion waits only for work that depends on the deleting
+user or their credentials. Work started by a remaining member continues.
 
 ## Migration Contract
 
@@ -249,8 +263,8 @@ The rollout is complete only when tests and migration checks prove:
 - No generic profile or email match combines users.
 - A member can use normal resources in their organization.
 - A user from another organization cannot read or change those resources.
-- Two members see the same organization vaults and can use the current dashboard, editor, staging,
-  resource, provisioning, and deletion flows after the access cutover.
+- Two members see the same organization vaults and shared staged drafts, and can use the current
+  dashboard, editor, resource, provisioning, and deletion flows after the access cutover.
 - A user actor field does not grant access to an organization resource.
 - UI preferences and other personal state remain different for two members of one organization.
 - Both members see the same organization plan and quota usage, while each member sees only their own
@@ -263,4 +277,8 @@ The rollout is complete only when tests and migration checks prove:
   organization boundary.
 - Deleting one of several members preserves shared organization data.
 - Deleting the only member removes the organization's Samebase data but not provider infrastructure.
+- Sole-member deletion waits for all organization and vault work. Shared-member deletion waits only
+  for work that depends on the deleting user or their credentials.
+- Repository-identity lookup indexes and guard checks use the organization boundary and keep the
+  `not_connected` exclusion.
 - No final tenant authorization check or ownership index depends on the legacy resource `userId`.

@@ -18,6 +18,7 @@ import {
 } from "./deploymentProfile";
 import { buildNewUserNotification } from "./newUserNotification";
 import { isAgentBrowserHandoffTokenValue, sha256Hex } from "./mcp/tokens";
+import { ensureOrganizationForUser } from "./organizations";
 import {
   assertProviderConnectionWriteAllowed,
   buildSeedCloudflareDefaultAccount,
@@ -281,6 +282,9 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       assertAuthSessionUserCanSignIn(user);
       if (isAuthSessionUser(user) && isDeletingAccountMarker(user.accountDeletion)) {
         return;
+      }
+      if (args.existingUserId === null) {
+        await ensureOrganizationForUser(ctx.db, args.userId);
       }
       await applyAutoSeedProviderKeys(ctx.db, args.userId);
       const passwordAuthMode = resolvePasswordAuthMode(resolveDeploymentProfile());

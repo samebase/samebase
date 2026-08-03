@@ -5,6 +5,7 @@ import { vaultProvisioningTables } from "./appProvisioningModel";
 import { vaultEditorTables } from "./editorModel";
 import { identityTables } from "./identityModel";
 import { mcpTables } from "./mcp/model";
+import { organizationTables } from "./organizationModel";
 import { providerConnectionTables } from "./providerConnectionModel";
 import { userPreferenceTables } from "./userPreferenceModel";
 import { vaultBranchTables } from "./vault/branchModel";
@@ -16,6 +17,7 @@ import { vaultTables } from "./vault/model";
 
 export default defineSchema({
   ...identityTables,
+  ...organizationTables,
   ...accountDeletionTables,
   ...providerConnectionTables,
   ...userPreferenceTables,

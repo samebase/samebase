@@ -7,14 +7,14 @@
 - Last updated: 2026-08-03
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Current branch: `codex-organization-ownership-spec`
-- Current phase: Phase 0, ready pull request
+- Current phase: Phase 1, implementation in progress
 - Current pull request: [#1355](https://github.com/samebase/samebase/pull/1355)
 
 ## Purpose
 
-This file is the restart point for the organization rollout. It records accepted decisions, phase
-status, evidence, and the next exact task. It does not record raw agent output or a per-commit
-journal.
+This file is the compact progress and restart record for the organization rollout. It records
+accepted decisions, phase status, evidence, and the next exact task. It does not record raw agent
+output or a per-commit journal.
 
 ## Review Controls
 
@@ -25,8 +25,8 @@ journal.
   each pull request.
 - A backend phase is not complete until every affected shipped UI, query contract, and workflow is
   updated and tested in the same pull request.
-- No implementation phase starts until the preceding phase is merged and rebased into the next
-  worktree.
+- Phase 1 is authorized in pull request #1355 after Phase 0 completion. Phase 2 and Phase 3 start
+  only after the preceding implementation phase is merged and rebased into the next worktree.
 - Each phase gets one implementation review and one independent simplicity review before merge.
 - New enterprise features do not enter this rollout without a spec change.
 
@@ -39,6 +39,10 @@ journal.
 - Keep organization context out of `users` and derive it from the resource or verified request
   context.
 - Make vaults, billing, and resource quota ownership organization-scoped.
+- Treat staged files as one shared collaborative vault draft. Remove `vaultStagedFiles.ownerId` as
+  an access gate in the final model.
+- Use `requestedByUserId` on provisioning and vault-deletion runs, derive event requesters through
+  `runId`, and use `editUserId` on staged-file updates. Actor fields are provenance only.
 - Bind each user-specific MCP grant to one organization.
 - Keep authentication, provider credentials, OAuth callback state, and personal UI state
   user-scoped.
@@ -97,7 +101,7 @@ the related migration runs.
 
 ### Phase 1: Prepare and backfill
 
-- Status: Pending
+- Status: In progress in pull request #1355
 - Scope: Add the organization graph, organization billing, organization keys, MCP binding, shared
   helpers, dual writes, backfills, migration checks, organization-aware API results, and affected UI
   and workflow support across all domains.
@@ -136,11 +140,13 @@ Phase 1 covers:
 - normal sign-up and admin-created account provisioning for the organization, membership, and
   billing row;
 - the account billing plan, subscription, and Worker and Convex project usage;
-- account deletion confirmation and progress for membership and shared billing cleanup;
+- account deletion confirmation and progress for membership and shared billing cleanup, including
+  the sole-member and shared-member active-work wait rules;
 - MCP consent and grant binding to the current user's one organization;
 - repository connection and app creation contracts that create organization-owned vaults;
 - vault lists, pickers, navigation, dashboards, resource dialogs, and resource routes;
-- editor, collaborative, staged-change, pull-request, Data, and Schema behavior;
+- editor, collaborative, shared staged-draft, pull-request, Data, and Schema behavior, including the
+  final actor-field names;
 - provider observation, provider-write, provisioning, vault deletion, and account deletion flows;
 - the rule that each member uses their own provider credentials while shared resources stay with the
   organization;
@@ -176,5 +182,6 @@ Primary external sources:
 
 ## Next Exact Task
 
-Do not start Phase 1 code in this branch. After pull request 1355 merges, create a new worktree from
-current `origin/main` and implement Phase 1 as one pull request. Do not split it by domain.
+Implement and verify Phase 1 in the current worktree and pull request #1355. Keep this compact
+progress record current as evidence lands. Do not start Phase 2 until pull request #1355 merges and
+the next worktree is rebased onto current `origin/main`.
