@@ -4,12 +4,25 @@
 
 - Status: Accepted
 - Owner: Samebase
-- Last updated: 2026-07-30
+- Last updated: 2026-08-03
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`
   - `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`
   - `specs/110_VAULT_ROUTE_SURFACE_SPEC.md`
+  - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
+
+## Accepted Organization Transition
+
+The current `userId` ownership clauses below stay effective until their organization rollout phase
+ships. Phase 2 adds required `organizationId` quota keys to both attachment tables while it keeps
+the current `userId` fields for legacy authorization. The same phase makes all attachment writes
+derive that key from the parent vault. Phase 8 moves attachment access to the parent vault's
+organization membership. Phase 9 removes attachment `userId` fields and their ownership indexes.
+
+The copied `organizationId` exists only for indexed billing counts. The parent vault remains the
+authorization boundary. Provider identities, attachment identity, placement, observations, and
+connection behavior in this spec do not change.
 
 ## Current Contract
 
