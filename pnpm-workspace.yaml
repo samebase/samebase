@@ -15,6 +15,9 @@ minimumReleaseAgeExclude:
   # TODO(2026-08-07): Remove after this security patch completes the normal
   # 7-day cooling period.
   - fast-uri@3.1.5
+  # TODO(2026-08-07): Remove after this security patch completes the normal
+  # 7-day cooling period.
+  - ip-address@10.3.1
   # TODO(2026-08-07): Remove these Vite+ exceptions after the normal 7-day
   # cooling period has passed.
   - "@voidzero-dev/vite-plus-core@0.2.7"
@@ -54,7 +57,7 @@ overrides:
   fast-uri: 3.1.5
   flatted: 3.4.2
   hono: 4.12.27
-  ip-address: 10.1.1
+  ip-address: 10.3.1
   js-yaml: 4.3.0
   mailparser: 3.9.8
   "minimatch@3": 3.1.5
