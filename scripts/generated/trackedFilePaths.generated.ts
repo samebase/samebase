@@ -271,6 +271,7 @@ export const trackedFilePaths = [
   "apps/samebase/convex/newUserNotification.ts",
   "apps/samebase/convex/oauthState.ts",
   "apps/samebase/convex/oauthUtils.ts",
+  "apps/samebase/convex/organizationBilling.ts",
   "apps/samebase/convex/organizationModel.ts",
   "apps/samebase/convex/organizations.convex.test.ts",
   "apps/samebase/convex/organizations.ts",
