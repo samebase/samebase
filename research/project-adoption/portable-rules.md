@@ -2,9 +2,9 @@
 
 ## Status
 
-- Evidence: [Bristol TSX](cases/bristol-tsx.md)
-- Validation: one project
-- Use: candidate input for the next project
+- Evidence: [Bristol TSX](cases/bristol-tsx.md) and [Teardown Noita 3D](cases/teardown-noita-3d.md)
+- Validation: promoted rules have two-project evidence; one adoption is complete and one is partial
+- Use: validated rules plus clearly marked one-case candidates for the next project
 
 ## Start Without Private Samebase Source
 
@@ -18,16 +18,16 @@ missing portable rule or a real project-specific difference.
 
 Map these areas before implementation:
 
-| Area        | Required facts                                                                |
-| ----------- | ----------------------------------------------------------------------------- |
-| Repository  | app root, package manager, lock file, workspace, runtime, module type         |
-| Source      | authored languages, configuration languages, imports, type-check inclusion    |
-| Commands    | public scripts and every local, CI, provider, and nested caller               |
-| Tools       | development, build, lint, format, tests, type checks, code generation         |
-| Application | framework, CSS, server rendering, authentication, data boundaries             |
-| Provider    | build adapter, preview, production promotion, rollback, environment ownership |
-| Validation  | fresh checkout, linked worktree, CI, provider build, browser, observability   |
-| Versions    | runtime and core tool pins                                                    |
+| Area        | Required facts                                                                                                                                                              |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repository  | app root, package manager, lock file, workspace, runtime, module type                                                                                                       |
+| Source      | authored languages, configuration languages, imports, type-check inclusion                                                                                                  |
+| Commands    | public scripts and every local, CI, provider, and nested caller                                                                                                             |
+| Tools       | development, build, lint, format, tests, type checks, code generation                                                                                                       |
+| Application | framework, CSS, server rendering, authentication, data boundaries                                                                                                           |
+| Provider    | host, repository and Worker join, root, production and preview triggers, exact commands, preview, production promotion, rollback, environment and browser-account ownership |
+| Validation  | fresh checkout, linked worktree, CI, provider build, browser, observability                                                                                                 |
+| Versions    | runtime and core tool pins                                                                                                                                                  |
 
 Classify every difference as alignment, a proven target constraint, an investigation, or one exact
 tested exception. Do not start implementation with an unclassified row.
@@ -118,12 +118,58 @@ Keep framework runtime, repository workflow, and provider integration as separat
 
 ## Keep Release Evidence Exact
 
+Two-case evidence supports reviewed-commit binding and the separation of build, upload, deployment,
+and route evidence. The exact four-command preflight and Samebase control-surface rules below come
+from Teardown Noita 3D. Treat them as one-case candidates until another project uses them.
+
+Before provider configuration, run the exact install, build, production deploy dry-run, and preview
+deploy dry-run commands from the commit that the provider will build. Do not configure a provider
+against commands that exist only in another branch or local worktree.
+
+For Samebase, use a repository-backed Worker connected to the matching vault. Require a production
+GitHub Builds trigger for the default branch and a preview trigger for other branches. A Worker that
+was created directly at the provider is a boundary spike until Samebase joins it to the repository.
+Read Samebase inventory before and after each write.
+
+Create a new isolated Worker by default. Attach an existing Worker only after the user selects it
+and its ownership and live traffic are known. If trigger setup automatically builds the default
+branch, continue without new approval only when the provider can skip that build or the exact
+default-branch command must stop before deployment. Otherwise, require explicit approval for the
+named first active deployment before trigger creation. An expected pre-deploy failure is not preview
+evidence.
+
+If the Samebase MCP does not expose the required action, verify the active Samebase session and
+provider account, then use the authenticated browser handoff to complete the same Samebase UI
+action. Do not replace it with a provider-only workflow.
+
 Separate branch build, Worker version upload, public preview, backend preview, and production
 promotion. A successful build is not a deployment.
 
 Bind provider validation to the reviewed full source commit. Use provider-native reads for the
 terminal build, Worker version, active deployment, and backend state. Use the operator's named
 browser profile for saved-session checks.
+
+A failed repository check or provider build for the reviewed branch blocks the preview. Read the
+native logs, repair the repository or provider trigger, push a new reviewed commit, and wait for its
+terminal successful build. An older build or unrelated manual upload is not evidence for the new
+commit.
+
+Require a reachable non-production version URL or provider-specific preview deployment. A version
+record with an unreachable URL does not pass the preview.
+
+### Teardown first-deployment preview candidate
+
+One assets-only Worker gave this sequence. Before its first active deployment, a successful preview
+upload created a version, but the version URL and branch alias returned 404 with Cloudflare
+error 1042. After an approved default-branch build created the first active deployment, the old
+preview URLs and a new pull request preview returned 200. The new preview did not replace the active
+production version.
+
+Treat this as a one-project candidate, not as a general Cloudflare requirement or proven cause. If a
+new Worker has no active deployment and its uploaded preview URL returns error 1042, keep Preview
+blocked and record both facts. Do not start an active deployment only to repair Preview. After the
+user approves the named first deployment, test the old preview URLs, create a fresh preview, and
+confirm that the active production version did not change.
 
 Keep provider configuration separate from production promotion. Keep the old host or known-good
 Worker version available until the cutover and observation gate pass.

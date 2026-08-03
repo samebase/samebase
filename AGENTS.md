@@ -430,10 +430,6 @@ UI code:
 
 ## Task-Specific References
 
-- For the extracted agent context bundle and live modularization map, use
-  `packages/agent-context/manifests/samebase.md` and
-  `research/2026-05-23-agent-context-agents-migration-map.md`. The package does not replace live
-  routing yet; keep always-loaded rules until a migration proves each replacement is reachable.
 - Git, PR, and shipping details: `docs/agent-workflows.md`.
 - Repository exports: `docs/repository-exports.md`.
 - Safe Convex production reads: `docs/convex-production-reads.md`.
