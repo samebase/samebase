@@ -1,6 +1,6 @@
 import { Infer, v } from "convex/values";
 import { internal } from "../_generated/api";
-import { internalMutation, internalQuery } from "../_generated/server";
+import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { action, query } from "../functions";
 import { randomToken } from "../oauthUtils";
 import {
@@ -8,9 +8,11 @@ import {
   type McpAuthorizationSuccessSearchParams,
 } from "../../shared/mcpOAuth";
 import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
+import { isMcpOauthClientInactive } from "./client";
 import { vMcpAuthRequestStatus, vMcpOauthClientRegistrationStatus } from "./model";
 import { getDefaultMcpProtocolValidationOptions, redirectUriMatchesRegistered } from "./protocol";
 import { revokeActiveMcpGrant } from "./grants";
+import { parseScopeTokens } from "./scopes";
 import {
   createAuthorizationCodeValue,
   MCP_AUTHORIZATION_CODE_TTL_MS,
@@ -34,25 +36,15 @@ const registerDynamicClientArgsValidator = object({
 });
 type RegisterDynamicClientArgs = Infer<typeof registerDynamicClientArgsValidator>;
 
-const getClientByIdResultValidator = union(
+const getClientByClientIdResultValidator = union(
   object({
-    id: id("mcpOauthClients"),
-    clientId: string(),
-    clientName: optional(string()),
     redirectUris: array(string()),
-    grantTypes: array(string()),
-    responseTypes: array(string()),
-    tokenEndpointAuthMethod: literal("none"),
     registrationStatus: vMcpOauthClientRegistrationStatus,
     provisionalExpiresAt: optional(number()),
-    firstTokenExchangedAt: optional(number()),
-    createdAt: number(),
-    updatedAt: number(),
-    metadataJson: string(),
   }),
   nullValue(),
 );
-type GetClientByIdResult = Infer<typeof getClientByIdResultValidator>;
+type GetClientByClientIdResult = Infer<typeof getClientByClientIdResultValidator>;
 
 const createAuthRequestArgsValidator = object({
   requestId: string(),
@@ -240,19 +232,50 @@ function oauthError(args: {
   };
 }
 
-function isClientInactive(args: {
-  client: {
-    registrationStatus: Infer<typeof vMcpOauthClientRegistrationStatus>;
-    provisionalExpiresAt?: number;
-  };
-  now: number;
-}): boolean {
-  return (
-    args.client.registrationStatus === "expired" ||
-    args.client.registrationStatus === "disabled" ||
-    (typeof args.client.provisionalExpiresAt === "number" &&
-      args.client.provisionalExpiresAt <= args.now)
-  );
+async function readPendingAuthorizationRequestForUser(
+  ctx: Pick<MutationCtx, "db">,
+  args: Pick<DenyAuthorizationRequestArgs, "requestId" | "userId" | "now">,
+) {
+  const authRequest = await ctx.db
+    .query("mcpAuthorizationRequests")
+    .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
+    .first();
+  if (!authRequest) {
+    return oauthError({
+      status: 400,
+      error: "invalid_request",
+      errorDescription: "Unknown authorization request.",
+    });
+  }
+
+  if (authRequest.status !== "pending") {
+    return oauthError({
+      status: 400,
+      error: "invalid_request",
+      errorDescription: "Authorization request is no longer pending.",
+    });
+  }
+
+  if (authRequest.expiresAt <= args.now) {
+    await ctx.db.patch(authRequest._id, {
+      status: "expired" satisfies Infer<typeof vMcpAuthRequestStatus>,
+    });
+    return oauthError({
+      status: 400,
+      error: "invalid_request",
+      errorDescription: "Authorization request expired.",
+    });
+  }
+
+  if (authRequest.userId && authRequest.userId !== args.userId) {
+    return oauthError({
+      status: 403,
+      error: "invalid_request",
+      errorDescription: "Authorization request belongs to a different user.",
+    });
+  }
+
+  return { ok: true, authRequest } as const;
 }
 
 export const registerDynamicClient = internalMutation({
@@ -278,8 +301,8 @@ export const registerDynamicClient = internalMutation({
 
 export const getClientByClientId = internalQuery({
   args: { clientId: string() },
-  returns: getClientByIdResultValidator,
-  handler: async (ctx, args): Promise<GetClientByIdResult> => {
+  returns: getClientByClientIdResultValidator,
+  handler: async (ctx, args): Promise<GetClientByClientIdResult> => {
     const client = await ctx.db
       .query("mcpOauthClients")
       .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
@@ -288,19 +311,9 @@ export const getClientByClientId = internalQuery({
       return null;
     }
     return {
-      id: client._id,
-      clientId: client.clientId,
-      clientName: client.clientName,
       redirectUris: client.redirectUris,
-      grantTypes: client.grantTypes,
-      responseTypes: client.responseTypes,
-      tokenEndpointAuthMethod: client.tokenEndpointAuthMethod,
       registrationStatus: client.registrationStatus,
       provisionalExpiresAt: client.provisionalExpiresAt,
-      firstTokenExchangedAt: client.firstTokenExchangedAt,
-      createdAt: client.createdAt,
-      updatedAt: client.updatedAt,
-      metadataJson: client.metadataJson,
     };
   },
 });
@@ -367,10 +380,7 @@ export const getAuthorizationRequestForCurrentUser = query({
       clientId: authRequest.clientId,
       clientName: client?.clientName,
       scope: authRequest.scope,
-      scopes: authRequest.scope
-        .split(" ")
-        .map((scope) => scope.trim())
-        .filter((scope) => scope.length > 0),
+      scopes: parseScopeTokens(authRequest.scope),
       resource: authRequest.resource,
       status: effectiveStatus,
       dynamicallyRegistered: client?.createdBy === "dynamic_registration",
@@ -408,23 +418,6 @@ export const hasActiveGrantForAuthRequest = internalQuery({
   },
 });
 
-export const expireAuthRequest = internalMutation({
-  args: {
-    authRequestId: id("mcpAuthorizationRequests"),
-  },
-  returns: nullValue(),
-  handler: async (ctx, args) => {
-    const existing = await ctx.db.get(args.authRequestId);
-    if (!existing) {
-      return null;
-    }
-    await ctx.db.patch(args.authRequestId, {
-      status: "expired" satisfies Infer<typeof vMcpAuthRequestStatus>,
-    });
-    return null;
-  },
-});
-
 export const issueAuthorizationCodeForAuthRequest = internalMutation({
   args: issueAuthorizationCodeForAuthRequestArgsValidator,
   returns: issueAuthorizationCodeForAuthRequestResultValidator,
@@ -433,44 +426,11 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
     args: IssueAuthorizationCodeForAuthRequestArgs,
   ): Promise<IssueAuthorizationCodeForAuthRequestResult> => {
     const allowLoopbackHttpRedirectUris = args.allowLoopbackHttpRedirectUris === true;
-    const authRequest = await ctx.db
-      .query("mcpAuthorizationRequests")
-      .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
-      .first();
-    if (!authRequest) {
-      return oauthError({
-        status: 400,
-        error: "invalid_request",
-        errorDescription: "Unknown authorization request.",
-      });
+    const authRequestResult = await readPendingAuthorizationRequestForUser(ctx, args);
+    if (!authRequestResult.ok) {
+      return authRequestResult;
     }
-
-    if (authRequest.status !== "pending") {
-      return oauthError({
-        status: 400,
-        error: "invalid_request",
-        errorDescription: "Authorization request is no longer pending.",
-      });
-    }
-
-    if (authRequest.expiresAt <= args.now) {
-      await ctx.db.patch(authRequest._id, {
-        status: "expired" satisfies Infer<typeof vMcpAuthRequestStatus>,
-      });
-      return oauthError({
-        status: 400,
-        error: "invalid_request",
-        errorDescription: "Authorization request expired.",
-      });
-    }
-
-    if (authRequest.userId && authRequest.userId !== args.userId) {
-      return oauthError({
-        status: 403,
-        error: "invalid_request",
-        errorDescription: "Authorization request belongs to a different user.",
-      });
-    }
+    const { authRequest } = authRequestResult;
 
     const user = await ctx.db.get(args.userId);
     if (!user || user.accountDeletion) {
@@ -494,7 +454,7 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
     }
 
     if (
-      isClientInactive({
+      isMcpOauthClientInactive({
         client,
         now: args.now,
       })
@@ -595,41 +555,11 @@ export const denyAuthorizationRequest = internalMutation({
     ctx,
     args: DenyAuthorizationRequestArgs,
   ): Promise<DenyAuthorizationRequestResult> => {
-    const authRequest = await ctx.db
-      .query("mcpAuthorizationRequests")
-      .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
-      .first();
-    if (!authRequest) {
-      return oauthError({
-        status: 400,
-        error: "invalid_request",
-        errorDescription: "Unknown authorization request.",
-      });
+    const authRequestResult = await readPendingAuthorizationRequestForUser(ctx, args);
+    if (!authRequestResult.ok) {
+      return authRequestResult;
     }
-    if (authRequest.status !== "pending") {
-      return oauthError({
-        status: 400,
-        error: "invalid_request",
-        errorDescription: "Authorization request is no longer pending.",
-      });
-    }
-    if (authRequest.expiresAt <= args.now) {
-      await ctx.db.patch(authRequest._id, {
-        status: "expired" satisfies Infer<typeof vMcpAuthRequestStatus>,
-      });
-      return oauthError({
-        status: 400,
-        error: "invalid_request",
-        errorDescription: "Authorization request expired.",
-      });
-    }
-    if (authRequest.userId && authRequest.userId !== args.userId) {
-      return oauthError({
-        status: 403,
-        error: "invalid_request",
-        errorDescription: "Authorization request belongs to a different user.",
-      });
-    }
+    const { authRequest } = authRequestResult;
 
     await ctx.db.patch(authRequest._id, {
       status: "denied" satisfies Infer<typeof vMcpAuthRequestStatus>,
@@ -806,7 +736,7 @@ export const exchangeAuthorizationCode = internalMutation({
     }
 
     if (
-      isClientInactive({
+      isMcpOauthClientInactive({
         client,
         now: args.now,
       })
@@ -1018,7 +948,7 @@ export const exchangeRefreshToken = internalMutation({
       });
     }
     if (
-      isClientInactive({
+      isMcpOauthClientInactive({
         client,
         now: args.now,
       })
@@ -1156,7 +1086,7 @@ export const validateAccessToken = internalMutation({
       });
     }
     if (
-      isClientInactive({
+      isMcpOauthClientInactive({
         client,
         now: args.now,
       })

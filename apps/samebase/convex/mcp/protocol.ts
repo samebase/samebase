@@ -4,6 +4,7 @@ import { actionContracts } from "../toolRuntime/actionCatalog";
 import { createRepositoryContract } from "../vault/contracts/createRepository";
 import { getUserVaultsContract } from "../vault/contracts/getUserVaults";
 import type { AccessKey } from "../../shared/accessModel";
+import { parseScopeTokens } from "./scopes";
 
 const DEFAULT_GRANT_TYPES = ["authorization_code", "refresh_token"] as const;
 const DEFAULT_RESPONSE_TYPES = ["code"] as const;
@@ -17,8 +18,7 @@ const MAX_CONTACTS = 8;
 const MAX_CONTACT_LENGTH = 320;
 const MAX_STATE_LENGTH = 4096;
 
-const codeChallengePattern = /^[A-Za-z0-9\-._~]{43,128}$/;
-const codeVerifierPattern = /^[A-Za-z0-9\-._~]{43,128}$/;
+const pkceValuePattern = /^[A-Za-z0-9\-._~]{43,128}$/;
 
 // The v1 MCP OAuth scope vocabulary is the unique non-public access keys
 // behind the action catalog (rfcs/093), in catalog presentation order: one
@@ -239,10 +239,6 @@ function validateGrantTypes(grantTypes: string[]): boolean {
 
 function validateResponseTypes(responseTypes: string[]): boolean {
   return responseTypes.length === 1 && responseTypes[0] === DEFAULT_RESPONSE_TYPES[0];
-}
-
-function normalizeScopeToken(scope: string): string {
-  return scope.trim().toLowerCase();
 }
 
 export function buildMcpProtectedResourceMetadata(baseUrl: string): {
@@ -474,10 +470,7 @@ export function validateAuthorizeRequestFromUrl(
   // OAuth allows server-defined defaults, so use the scopes that back this
   // MCP server's public tool surface.
   const scopeRaw = url.searchParams.get("scope")?.trim() || DEFAULT_MCP_SCOPE;
-  const scopes = scopeRaw
-    .split(" ")
-    .map(normalizeScopeToken)
-    .filter((scope) => scope.length > 0);
+  const scopes = parseScopeTokens(scopeRaw).map((scope) => scope.toLowerCase());
 
   const supportedScopes: McpSupportedScope[] = [];
   for (const scope of scopes) {
@@ -501,7 +494,7 @@ export function validateAuthorizeRequestFromUrl(
   }
 
   const codeChallenge = url.searchParams.get("code_challenge")?.trim() ?? "";
-  if (!codeChallengePattern.test(codeChallenge)) {
+  if (!pkceValuePattern.test(codeChallenge)) {
     return {
       ok: false,
       status: 400,
@@ -578,7 +571,7 @@ export function validateTokenRequestFromSearchParams(
     }
 
     const codeVerifier = params.get("code_verifier")?.trim() ?? "";
-    if (!codeVerifierPattern.test(codeVerifier)) {
+    if (!pkceValuePattern.test(codeVerifier)) {
       return {
         ok: false,
         status: 400,
