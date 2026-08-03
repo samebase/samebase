@@ -143,11 +143,18 @@ type SubmissionNegativeTestCase = Omit<SubmissionTestCase, "tools_triggered"> & 
   tools_triggered: null;
 };
 
-type SubmissionTestCases = readonly [SubmissionTestCase, ...SubmissionTestCase[]];
+type SubmissionTestCases = readonly [
+  SubmissionTestCase,
+  SubmissionTestCase,
+  SubmissionTestCase,
+  SubmissionTestCase,
+  SubmissionTestCase,
+];
 
 type SubmissionNegativeTestCases = readonly [
   SubmissionNegativeTestCase,
-  ...SubmissionNegativeTestCase[],
+  SubmissionNegativeTestCase,
+  SubmissionNegativeTestCase,
 ];
 
 export const testCases = [
