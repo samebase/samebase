@@ -849,10 +849,11 @@ export async function retryInfrastructureProvisioningForUser(
   args: { userId: Id<"users">; vaultId: Id<"vaults"> },
 ): Promise<null> {
   const userId = args.userId;
-  const vault = await ctx.runQuery(internal.vault.records.getById, {
-    id: args.vaultId,
+  const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+    vaultId: args.vaultId,
+    userId,
   });
-  if (!vault || vault.userId !== userId) {
+  if (!vault) {
     throw new Error("Vault not found");
   }
   if (!isLiveConnectedVault(vault) || !isSamebaseManagedVault(vault)) {

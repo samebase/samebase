@@ -2,6 +2,7 @@ import { v, type Infer } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { query } from "./functions";
 import { vAppProvisioningEventLevel, vAppProvisioningStep } from "./appProvisioningModel";
+import { hasPhaseOneUserOwnership, readPhaseOneOwnershipContext } from "./phaseOneOwnership";
 
 const { array, id, number, object, string } = v;
 const MAX_PROVISIONING_EVENTS = 80;
@@ -71,7 +72,11 @@ export const listForVault = query({
   returns: array(provisioningEventResult),
   handler: async (ctx, args): Promise<ProvisioningEventResult[]> => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== ctx.viewer.userId) {
+    if (!vault) {
+      return [];
+    }
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, ctx.viewer.userId);
+    if (!hasPhaseOneUserOwnership(ownership, vault)) {
       return [];
     }
 

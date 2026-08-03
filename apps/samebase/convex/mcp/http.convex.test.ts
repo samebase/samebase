@@ -413,6 +413,23 @@ describe("MCP tools/call access enforcement", () => {
 
   it("executes the tool when scopes and current access both allow it", async () => {
     const { callTool, t, userId } = await seedMcpBearer({ isApproved: true });
+    await t.run(async (ctx) => {
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
+      });
+      const grant = await ctx.db
+        .query("mcpGrants")
+        .withIndex("by_grant_id", (query) => query.eq("grantId", "grant_test"))
+        .unique();
+      if (grant === null) {
+        throw new Error("Expected the MCP grant fixture.");
+      }
+      await ctx.db.patch(grant._id, { organizationId });
+    });
     await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
       userId,
       ghRepoOwner: "ada",

@@ -128,6 +128,71 @@ describe("agent browser handoff lifecycle", () => {
     });
   });
 
+  it("keeps handoffs bound to the exact grant user and prepared organization", async () => {
+    const { ids, t } = await seedGrant();
+    const prepared = await t.run(async (ctx) => {
+      const organizationId = await ctx.db.insert("organizations", {});
+      const otherOrganizationId = await ctx.db.insert("organizations", {});
+      const otherUserId = await ctx.db.insert("users", {
+        email: "other-handoff-user@example.test",
+        isApproved: true,
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: ids.userId,
+      });
+      await ctx.db.insert("organizationMemberships", { organizationId, userId: otherUserId });
+      const grant = await ctx.db
+        .query("mcpGrants")
+        .withIndex("by_grant_id", (query) => query.eq("grantId", grantId))
+        .unique();
+      if (!grant) {
+        throw new Error("Expected seeded grant.");
+      }
+      return { grantId: grant._id, organizationId, otherOrganizationId, otherUserId };
+    });
+
+    await expect(
+      t.mutation(internal.agentBrowserHandoff.createForMcp, {
+        ...(await createHandoff(ids.userId)),
+        tokenHash: "legacy_grant_handoff_hash",
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(prepared.grantId, { organizationId: prepared.otherOrganizationId });
+    });
+    await expect(
+      t.mutation(internal.agentBrowserHandoff.createForMcp, {
+        ...(await createHandoff(ids.userId)),
+        tokenHash: "wrong_organization_handoff_hash",
+      }),
+    ).resolves.toEqual({ ok: false, reason: "grant_mismatch" });
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("mcpBrowserLoginTokens", {
+        ...(await createHandoff(ids.userId)),
+        tokenHash: "wrong_organization_redeem_hash",
+      });
+    });
+    await expect(
+      t.mutation(internal.agentBrowserHandoff.redeemForAuth, {
+        tokenHash: "wrong_organization_redeem_hash",
+        now: now + 1,
+      }),
+    ).resolves.toEqual({ ok: false, reason: "grant_mismatch" });
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(prepared.grantId, { organizationId: prepared.organizationId });
+    });
+    await expect(
+      t.mutation(
+        internal.agentBrowserHandoff.createForMcp,
+        await createHandoff(prepared.otherUserId),
+      ),
+    ).resolves.toEqual({ ok: false, reason: "grant_mismatch" });
+  });
+
   it("limits handoff creation per grant within the five-minute window", async () => {
     const { ids, t } = await seedGrant();
 

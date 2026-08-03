@@ -7,8 +7,10 @@ import {
   canAccess,
   readAccessKeysForRole,
 } from "../shared/accessModel";
+import { hasPhaseOneMcpGrantSubject } from "./mcp/grants";
 import { isMcpOauthClientInactive } from "./mcp/client";
 import { parseScopeTokens } from "./mcp/scopes";
+import { readPhaseOneOwnershipContext } from "./phaseOneOwnership";
 import { readViewerRoleForUser } from "./viewerRole";
 
 const { id, literal, number, object, optional, string, union } = v;
@@ -105,7 +107,8 @@ export const createForMcp = internalMutation({
     if (!grant || grant.status !== "active") {
       return error("grant_inactive");
     }
-    if (grant.userId !== args.userId || grant.clientId !== args.clientId) {
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+    if (!hasPhaseOneMcpGrantSubject(ownership, grant) || grant.clientId !== args.clientId) {
       return error("grant_mismatch");
     }
     if (!parseScopeTokens(grant.scope).includes(ACCESS_BROWSER_LOGIN_HANDOFF)) {
@@ -215,10 +218,11 @@ export const redeemForAuth = internalMutation({
       .query("mcpOauthClients")
       .withIndex("by_client_id", (q) => q.eq("clientId", handoff.clientId))
       .first();
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, handoff.userId);
     const invalidReason =
       !grant || grant.status !== "active"
         ? "grant_inactive"
-        : grant.userId !== handoff.userId || grant.clientId !== handoff.clientId
+        : !hasPhaseOneMcpGrantSubject(ownership, grant) || grant.clientId !== handoff.clientId
           ? "grant_mismatch"
           : !parseScopeTokens(grant.scope).includes(ACCESS_BROWSER_LOGIN_HANDOFF)
             ? "scope_missing"

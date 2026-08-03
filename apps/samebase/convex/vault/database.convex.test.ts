@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { api } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { makeConvexTest } from "../test.setup";
 
@@ -280,5 +280,95 @@ describe("revokeEmbeddedDashboardCredentials", () => {
     });
 
     expect(fetch).toHaveBeenCalledOnce();
+  });
+});
+
+describe("embedded dashboard project ownership", () => {
+  it("derives access from the parent vault and rejects attachment organization conflicts", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", { email: "user@example.com" });
+      const otherUserId = await ctx.db.insert("users", { email: "other@example.com" });
+      const organizationId = await ctx.db.insert("organizations", {});
+      const otherOrganizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      const insertConnectedVault = async (ownerId: Id<"users">, name: string) => {
+        const vaultId = await ctx.db.insert("vaults", {
+          userId: ownerId,
+          organizationId,
+          deletion: { state: "not_deleting" },
+          state: "not_connected",
+        });
+        const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+          userId: ownerId,
+          vaultId,
+          repositoryFullName: `ada/${name}`,
+          trigger: "connect_existing_repository",
+          state: "succeeded",
+          currentStep: "finish",
+          createdAt: 1,
+          updatedAt: 2,
+          completedAt: 2,
+        });
+        await ctx.db.replace(vaultId, {
+          userId: ownerId,
+          organizationId,
+          deletion: { state: "not_deleting" },
+          state: "connected",
+          githubMode: "connect_existing_repository",
+          runId,
+          ghRepoId: name,
+          owner: "ada",
+          name,
+          visibility: "private",
+          defaultBranch: "main",
+          connectedAt: 2,
+        });
+        return vaultId;
+      };
+
+      const otherVaultId = await insertConnectedVault(otherUserId, "other");
+      const matchingVaultId = await insertConnectedVault(userId, "matching");
+      const projectForOtherVaultId = await ctx.db.insert("vaultConvexProjects", {
+        vaultId: otherVaultId,
+        userId,
+        organizationId,
+        teamId: "team",
+        projectId: "other-parent",
+        convexConfigPath: "convex.json",
+        origin: "selected_existing",
+      });
+      const mismatchedProjectId = await ctx.db.insert("vaultConvexProjects", {
+        vaultId: matchingVaultId,
+        userId,
+        organizationId: otherOrganizationId,
+        teamId: "team",
+        projectId: "wrong-organization",
+        convexConfigPath: "convex.json",
+        origin: "selected_existing",
+      });
+      return {
+        matchingVaultId,
+        mismatchedProjectId,
+        otherVaultId,
+        projectForOtherVaultId,
+        userId,
+      };
+    });
+
+    await expect(
+      t.query(internal.vault.database.readEmbeddedDashboardProject, {
+        userId: ids.userId,
+        vaultId: ids.otherVaultId,
+        convexProjectId: ids.projectForOtherVaultId,
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      t.query(internal.vault.database.readEmbeddedDashboardProject, {
+        userId: ids.userId,
+        vaultId: ids.matchingVaultId,
+        convexProjectId: ids.mismatchedProjectId,
+      }),
+    ).resolves.toBeNull();
   });
 });

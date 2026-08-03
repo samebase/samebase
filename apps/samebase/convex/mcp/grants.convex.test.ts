@@ -177,6 +177,48 @@ describe("MCP grant management", () => {
     ]);
   });
 
+  it("keeps grants bound to the exact user and prepared organization", async () => {
+    const { ids, t } = await seedGrants();
+    const owner = asUser(t, ids.ownerId);
+    await t.run(async (ctx) => {
+      const organizationId = await ctx.db.insert("organizations", {});
+      const otherOrganizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: ids.ownerId,
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: ids.otherUserId,
+      });
+      const newerGrant = await ctx.db
+        .query("mcpGrants")
+        .withIndex("by_grant_id", (query) => query.eq("grantId", "mcpg_newer"))
+        .unique();
+      const otherUserGrant = await ctx.db
+        .query("mcpGrants")
+        .withIndex("by_grant_id", (query) => query.eq("grantId", "mcpg_other"))
+        .unique();
+      if (!newerGrant || !otherUserGrant) {
+        throw new Error("Expected seeded grants.");
+      }
+      await ctx.db.patch(newerGrant._id, { organizationId: otherOrganizationId });
+      await ctx.db.patch(otherUserGrant._id, { organizationId });
+    });
+
+    const grants = await owner.query(api.mcp.grants.listCurrentUserGrants, {
+      paginationOpts: { cursor: null, numItems: 10 },
+    });
+    expect(grants.page.map((grant) => grant.grantId)).toEqual(["mcpg_older"]);
+
+    await expect(
+      owner.mutation(api.mcp.grants.revokeCurrentUserGrant, { grantId: "mcpg_newer" }),
+    ).rejects.toThrow("MCP client connection was not found.");
+    await expect(
+      owner.mutation(api.mcp.grants.revokeCurrentUserGrant, { grantId: "mcpg_other" }),
+    ).rejects.toThrow("MCP client connection was not found.");
+  });
+
   it("blocks every credential derived from a revoked grant immediately", async () => {
     const { ids, t } = await seedGrants();
     const owner = asUser(t, ids.ownerId);

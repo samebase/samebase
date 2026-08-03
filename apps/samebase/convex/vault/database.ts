@@ -4,6 +4,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalQuery, type ActionCtx } from "../_generated/server";
 import { action } from "../functions";
 import type { AuthenticatedAppViewer } from "../functions";
+import { hasPhaseOneVaultChildOwnership, readPhaseOneOwnershipContext } from "../phaseOneOwnership";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import {
   createConvexDeploymentDeployKey,
@@ -11,6 +12,7 @@ import {
   type ConvexDeployKeyAllowedAction,
 } from "./convexDeployKeys";
 import { readConvexProductionDeployment } from "./convexProjectResources";
+import { isLiveConnectedVault } from "./state";
 
 const { id, literal, null: nullValue, object, string, union } = v;
 
@@ -73,8 +75,16 @@ export const readEmbeddedDashboardProject = internalQuery({
     nullValue(),
   ),
   handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.convexProjectId);
-    if (!project || project.vaultId !== args.vaultId || project.userId !== args.userId) {
+    const [vault, project] = await Promise.all([
+      ctx.db.get(args.vaultId),
+      ctx.db.get(args.convexProjectId),
+    ]);
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+    if (
+      !isLiveConnectedVault(vault) ||
+      !project ||
+      !hasPhaseOneVaultChildOwnership(ownership, vault, project)
+    ) {
       return null;
     }
 

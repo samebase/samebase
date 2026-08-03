@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../functions";
+import { readPhaseOneOwnershipContext, type PhaseOneOwnershipContext } from "../phaseOneOwnership";
 import { parseScopeTokens } from "./scopes";
 
 const { array, boolean, number, object, optional, string } = v;
@@ -17,6 +18,20 @@ const grantListItemValidator = object({
   resource: string(),
   scopes: array(string()),
 });
+
+/**
+ * MCP grants stay bound to their exact delegated subject. Phase 1 also accepts
+ * a legacy grant without an organization key until backfill is complete.
+ */
+export function hasPhaseOneMcpGrantSubject(
+  ownership: PhaseOneOwnershipContext,
+  grant: Pick<Doc<"mcpGrants">, "organizationId" | "userId">,
+): boolean {
+  return (
+    grant.userId === ownership.userId &&
+    (grant.organizationId === undefined || grant.organizationId === ownership.organizationId)
+  );
+}
 
 export async function revokeActiveMcpGrant(
   ctx: MutationCtx,
@@ -60,26 +75,30 @@ export const listCurrentUserGrants = query({
       )
       .order("desc")
       .paginate(args.paginationOpts);
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, ctx.viewer.userId);
+    const page = [];
+    for (const grant of grants.page) {
+      if (!hasPhaseOneMcpGrantSubject(ownership, grant)) {
+        continue;
+      }
+      const client = await ctx.db
+        .query("mcpOauthClients")
+        .withIndex("by_client_id", (q) => q.eq("clientId", grant.clientId))
+        .first();
+      page.push({
+        clientId: grant.clientId,
+        ...(client?.clientName !== undefined ? { clientName: client.clientName } : {}),
+        createdAt: grant.createdAt,
+        grantId: grant.grantId,
+        ...(grant.lastUsedAt !== undefined ? { lastUsedAt: grant.lastUsedAt } : {}),
+        resource: grant.resource,
+        scopes: parseScopeTokens(grant.scope),
+      });
+    }
 
     return {
       ...grants,
-      page: await Promise.all(
-        grants.page.map(async (grant) => {
-          const client = await ctx.db
-            .query("mcpOauthClients")
-            .withIndex("by_client_id", (q) => q.eq("clientId", grant.clientId))
-            .first();
-          return {
-            clientId: grant.clientId,
-            ...(client?.clientName !== undefined ? { clientName: client.clientName } : {}),
-            createdAt: grant.createdAt,
-            grantId: grant.grantId,
-            ...(grant.lastUsedAt !== undefined ? { lastUsedAt: grant.lastUsedAt } : {}),
-            resource: grant.resource,
-            scopes: parseScopeTokens(grant.scope),
-          };
-        }),
-      ),
+      page,
     };
   },
 });
@@ -95,7 +114,8 @@ export const revokeCurrentUserGrant = mutation({
       .query("mcpGrants")
       .withIndex("by_grant_id", (q) => q.eq("grantId", args.grantId))
       .unique();
-    if (!grant || grant.userId !== ctx.viewer.userId) {
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, ctx.viewer.userId);
+    if (!grant || !hasPhaseOneMcpGrantSubject(ownership, grant)) {
       throw new Error("MCP client connection was not found.");
     }
 

@@ -520,6 +520,125 @@ describe("MCP OAuth organization binding", () => {
       })),
     ).resolves.toEqual({ codes: [], grants: [] });
   });
+
+  it("rejects credentials when the prepared grant organization does not match", async () => {
+    const t = makeConvexTest();
+    const codeVerifier = "organization-mismatch-code-verifier";
+    const codeChallenge = await createCodeChallenge(codeVerifier);
+    await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "organization-mismatch@example.test",
+        isApproved: true,
+      });
+      const organizationId = await ctx.db.insert("organizations", {});
+      const otherOrganizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      await ctx.db.insert("mcpOauthClients", {
+        clientId,
+        clientName: "Organization mismatch client",
+        redirectUris: ["http://127.0.0.1/callback"],
+        grantTypes: ["authorization_code", "refresh_token"],
+        responseTypes: ["code"],
+        tokenEndpointAuthMethod: "none",
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "dynamic_registration",
+        registrationStatus: "active",
+        metadataJson: "{}",
+      });
+      await ctx.db.insert("mcpAuthorizationRequests", {
+        requestId: "mcpar_organization_mismatch",
+        clientId,
+        redirectUri: "http://127.0.0.1/callback",
+        resource,
+        scope,
+        codeChallenge,
+        codeChallengeMethod: "S256",
+        userId,
+        status: "approved",
+        createdAt: now,
+        expiresAt: now + 60_000,
+      });
+      await ctx.db.insert("mcpGrants", {
+        grantId,
+        userId,
+        organizationId: otherOrganizationId,
+        clientId,
+        resource,
+        scope,
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      });
+      await ctx.db.insert("mcpAuthorizationCodes", {
+        codeHash: "organization_mismatch_code_hash",
+        requestId: "mcpar_organization_mismatch",
+        grantId,
+        clientId,
+        userId,
+        redirectUri: "http://127.0.0.1/callback",
+        resource,
+        scope,
+        expiresAt: now + 60_000,
+      });
+      await ctx.db.insert("mcpRefreshTokens", {
+        grantId,
+        clientId,
+        userId,
+        tokenHash: "organization_mismatch_refresh_hash",
+        status: "active",
+        createdAt: now,
+        expiresAt: now + 60_000,
+      });
+      await ctx.db.insert("mcpAccessTokens", {
+        grantId,
+        clientId,
+        userId,
+        tokenHash: "organization_mismatch_access_hash",
+        resource,
+        scope,
+        createdAt: now,
+        expiresAt: now + 60_000,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.mcp.oauth.exchangeAuthorizationCode, {
+        codeHash: "organization_mismatch_code_hash",
+        clientId,
+        redirectUri: "http://127.0.0.1/callback",
+        codeVerifier,
+        allowLoopbackHttpRedirectUris: true,
+        accessTokenHash: "unused_access_hash",
+        refreshTokenHash: "unused_refresh_hash",
+        accessTokenExpiresAt: now + 60_000,
+        refreshTokenExpiresAt: now + 60_000,
+        now: now + 1,
+      }),
+    ).resolves.toEqual(inactiveGrantError);
+    await expect(
+      t.mutation(internal.mcp.oauth.exchangeRefreshToken, {
+        refreshTokenHash: "organization_mismatch_refresh_hash",
+        clientId,
+        accessTokenHash: "unused_refresh_access_hash",
+        newRefreshTokenHash: "unused_rotated_refresh_hash",
+        accessTokenExpiresAt: now + 60_000,
+        refreshTokenExpiresAt: now + 60_000,
+        now: now + 1,
+      }),
+    ).resolves.toEqual(inactiveGrantError);
+    await expect(
+      t.mutation(internal.mcp.oauth.validateAccessToken, {
+        tokenHash: "organization_mismatch_access_hash",
+        now: now + 1,
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      status: 401,
+      error: "invalid_token",
+      errorDescription: "Grant is no longer active.",
+    });
+  });
 });
 
 describe("MCP OAuth account deletion access", () => {

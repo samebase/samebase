@@ -8,6 +8,11 @@ import {
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./functions";
+import {
+  hasPhaseOneUserOwnership,
+  readPhaseOneOwnershipContext,
+  type PhaseOneOwnershipContext,
+} from "./phaseOneOwnership";
 import type { GithubTree } from "./vault/model";
 import {
   hasStagedFileChanges,
@@ -196,6 +201,14 @@ type StagedFilesCategory = Exclude<keyof StagedFilesCategoryCounts, "total">;
 type StagedFileSummaryInput = StagedFileChangeCandidate & Pick<StagedFile, "branch">;
 type StagingAccessCtx = Pick<QueryCtx | MutationCtx, "db">;
 
+/** Phase 1 staged rows stay private to their exact legacy owner. */
+function hasPhaseOneStagingOwner(
+  stagedFile: Pick<Doc<"vaultStagedFiles">, "ownerId">,
+  userId: Infer<typeof userIdValidator>,
+): boolean {
+  return stagedFile.ownerId === userId;
+}
+
 function emptyStagedFilesCategoryCounts(): StagedFilesCategoryCounts {
   return {
     modified: 0,
@@ -223,11 +236,21 @@ function classifyStagedFile(file: StagedFileSummaryInput): StagedFilesCategory |
   return "modified";
 }
 
-export function canAccessVaultStaging(args: {
-  vaultOwnerId: string | undefined;
-  requesterUserId: string;
-}): boolean {
-  return args.vaultOwnerId === args.requesterUserId;
+async function getVaultForStagingAccessWithContext(
+  ctx: StagingAccessCtx,
+  args: {
+    ownership: PhaseOneOwnershipContext;
+    vaultId: Infer<typeof vaultIdValidator>;
+  },
+): Promise<Doc<"vaults"> | null> {
+  const vault = await ctx.db.get(args.vaultId);
+  if (!vault) {
+    return null;
+  }
+  if (!hasPhaseOneUserOwnership(args.ownership, vault)) {
+    return null;
+  }
+  return vault;
 }
 
 async function getVaultForStagingAccess(
@@ -237,16 +260,11 @@ async function getVaultForStagingAccess(
     userId: Infer<typeof userIdValidator>;
   },
 ): Promise<Doc<"vaults"> | null> {
-  const vault = await ctx.db.get(args.vaultId);
-  if (
-    !canAccessVaultStaging({
-      vaultOwnerId: vault?.userId,
-      requesterUserId: args.userId,
-    })
-  ) {
-    return null;
-  }
-  return vault;
+  const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+  return await getVaultForStagingAccessWithContext(ctx, {
+    ownership,
+    vaultId: args.vaultId,
+  });
 }
 
 async function assertVaultForStagingAccess(
@@ -565,11 +583,12 @@ export const listStagedFilesBranchSummariesByVault = query({
   handler: async (ctx, args) => {
     const summariesByVault: Infer<typeof stagedFilesBranchSummariesByVaultListValidator> = [];
     const uniqueVaultIds = new Set(args.vaultIds);
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, ctx.viewer.userId);
 
     for (const vaultId of uniqueVaultIds) {
-      const vault = await getVaultForStagingAccess(ctx, {
+      const vault = await getVaultForStagingAccessWithContext(ctx, {
+        ownership,
         vaultId,
-        userId: ctx.viewer.userId,
       });
       if (!vault) {
         continue;
@@ -1162,7 +1181,7 @@ export const revertDeletedFileInStaging = mutation({
       throw new Error("Deleted staged file not found");
     }
 
-    if (existingStaging.ownerId !== ctx.viewer.userId) {
+    if (!hasPhaseOneStagingOwner(existingStaging, ctx.viewer.userId)) {
       throw new Error("Unauthorized");
     }
 
@@ -1197,7 +1216,7 @@ export const updateStagedFileContent = mutation({
       throw new Error("Staged file not found");
     }
 
-    if (existingStaging.ownerId !== ctx.viewer.userId) {
+    if (!hasPhaseOneStagingOwner(existingStaging, ctx.viewer.userId)) {
       throw new Error("Unauthorized");
     }
     await assertConnectedVaultForStagingWrite(ctx, {
@@ -1485,7 +1504,7 @@ export const rename = internalMutation({
     if (!file) {
       throw new Error("File not found");
     }
-    if (file.ownerId !== args.userId) {
+    if (!hasPhaseOneStagingOwner(file, args.userId)) {
       throw new Error("Unauthorized");
     }
 

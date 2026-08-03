@@ -5,6 +5,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { mutation, query } from "./functions";
+import { hasPhaseOneUserOwnership, readPhaseOneOwnershipContext } from "./phaseOneOwnership";
 import { assertConnectedVault, isLiveConnectedVault } from "./vault/state";
 import {
   STALE_BASE_VERSION_ERROR_CODE,
@@ -39,7 +40,11 @@ async function getLiveCollaborativeVault(
   },
 ) {
   const vault = await ctx.db.get(args.vaultId);
-  if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+  if (!isLiveConnectedVault(vault)) {
+    return null;
+  }
+  const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+  if (!hasPhaseOneUserOwnership(ownership, vault)) {
     return null;
   }
   return vault;
@@ -47,10 +52,13 @@ async function getLiveCollaborativeVault(
 
 async function assertVaultAllowsCollaborativeWrites(
   ctx: Pick<MutationCtx, "db">,
-  vaultId: Id<"vaults">,
+  args: { userId: Id<"users">; vaultId: Id<"vaults"> },
 ): Promise<void> {
-  const vault = await ctx.db.get(vaultId);
-  assertConnectedVault(vault);
+  const vault = assertConnectedVault(await ctx.db.get(args.vaultId));
+  const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+  if (!hasPhaseOneUserOwnership(ownership, vault)) {
+    throw new Error("Unauthorized");
+  }
 }
 
 // MARK: Public
@@ -280,7 +288,7 @@ export const pushContentUpdate = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await assertVaultAllowsCollaborativeWrites(ctx, args.vaultId);
+    await assertVaultAllowsCollaborativeWrites(ctx, args);
 
     const staging = await ctx.db
       .query("vaultStagedFiles")
@@ -370,7 +378,7 @@ export const pushSerializedChangeSetUpdate = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await assertVaultAllowsCollaborativeWrites(ctx, args.vaultId);
+    await assertVaultAllowsCollaborativeWrites(ctx, args);
 
     const staging = await ctx.db
       .query("vaultStagedFiles")

@@ -191,6 +191,58 @@ describe("app provisioning retry admission", () => {
     });
   });
 
+  it("uses vault ownership instead of the failed run actor", async () => {
+    const { ids, t } = await createRetryFixture("none");
+    await t.run(async (ctx) => {
+      const otherUserId = await ctx.db.insert("users", {
+        email: "other@example.com",
+        isApproved: true,
+      });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId: ids.userId });
+      await ctx.db.insert("organizationMemberships", { organizationId, userId: otherUserId });
+      await ctx.db.patch(ids.vaultId, { organizationId });
+      await ctx.db.patch(ids.failedRunId, {
+        userId: otherUserId,
+        requestedByUserId: otherUserId,
+      });
+    });
+
+    const retryRunId = await t.mutation(internal.appProvisioningRuns.createRetryForVault, {
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+    });
+    await expect(t.run(async (ctx) => ctx.db.get(retryRunId))).resolves.toMatchObject({
+      requestedByUserId: ids.userId,
+      userId: ids.userId,
+    });
+
+    const blocked = await createRetryFixture("none");
+    const blockedOtherUserId = await blocked.t.run(async (ctx) => {
+      const blockedOtherUserId = await ctx.db.insert("users", {
+        email: "blocked-other@example.com",
+        isApproved: true,
+      });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: blocked.ids.userId,
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: blockedOtherUserId,
+      });
+      await ctx.db.patch(blocked.ids.vaultId, { organizationId });
+      return blockedOtherUserId;
+    });
+    await expect(
+      blocked.t.mutation(internal.appProvisioningRuns.createRetryForVault, {
+        userId: blockedOtherUserId,
+        vaultId: blocked.ids.vaultId,
+      }),
+    ).rejects.toThrow("Vault not found for provisioning run.");
+  });
+
   it("rolls back retry admission when Workflow start fails", async () => {
     const { ids, t } = await createRetryFixture("none", convexTest(schema, modules));
 

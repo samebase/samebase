@@ -224,6 +224,7 @@ export const vaultTables = {
     .index("by_userId_and_ghRepoId", ["userId", "ghRepoId"])
     .index("by_organization_and_ghRepoId", ["organizationId", "ghRepoId"])
     .index("by_owner_and_name", ["owner", "name"])
+    .index("by_organization_and_owner_and_name", ["organizationId", "owner", "name"])
     .index("by_userId_and_owner_and_name", ["userId", "owner", "name"]),
 
   /** Stable Cloudflare Worker identities attached to a repository-backed vault. */

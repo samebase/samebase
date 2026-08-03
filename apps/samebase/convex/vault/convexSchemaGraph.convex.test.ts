@@ -398,4 +398,48 @@ describe("vault Convex schema graph", () => {
       "changed-2",
     ]);
   });
+
+  it("rechecks parent vault membership and attachment consistency before recording", async () => {
+    const t = makeConvexTest();
+    const { ids } = await seedSchemaGraphVault(t, {
+      method: "oauth",
+      credential: "convex-oauth-token",
+    });
+    const membershipId = await t.run(async (ctx) => {
+      const organizationId = await ctx.db.insert("organizations", {});
+      const otherOrganizationId = await ctx.db.insert("organizations", {});
+      const membershipId = await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: ids.userId,
+      });
+      await ctx.db.patch(ids.vaultId, { organizationId });
+      await ctx.db.patch(ids.convexProjectId, { organizationId: otherOrganizationId });
+      return membershipId;
+    });
+    const args = {
+      userId: ids.userId,
+      vaultId: ids.vaultId,
+      convexProjectId: ids.convexProjectId,
+      deploymentName: "demo-prod",
+      schemaHash: "blocked",
+      graph: { tables: [], relationships: [], warnings: [] },
+      fetchedAt: 1,
+    };
+
+    await expect(t.mutation(internal.vault.convexSchemaGraph.recordSnapshot, args)).rejects.toThrow(
+      "Convex project not found.",
+    );
+
+    await t.run(async (ctx) => {
+      const vault = await ctx.db.get(ids.vaultId);
+      if (!vault?.organizationId) {
+        throw new Error("Expected the prepared vault fixture.");
+      }
+      await ctx.db.patch(ids.convexProjectId, { organizationId: vault.organizationId });
+      await ctx.db.delete(membershipId);
+    });
+    await expect(t.mutation(internal.vault.convexSchemaGraph.recordSnapshot, args)).rejects.toThrow(
+      "Convex project not found.",
+    );
+  });
 });

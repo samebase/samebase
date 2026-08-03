@@ -184,7 +184,108 @@ const deleteCloudflareOptions = {
   removeCloudflareProvision: true,
 };
 
+async function createDeletionRetryActorFixture() {
+  const t = makeConvexTest();
+  const ids = await t.run(async (ctx) => {
+    const ownerId = await ctx.db.insert("users", {
+      email: "owner@example.com",
+      isApproved: true,
+    });
+    const otherUserId = await ctx.db.insert("users", {
+      email: "other@example.com",
+      isApproved: true,
+    });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId: ownerId });
+    await ctx.db.insert("organizationMemberships", { organizationId, userId: otherUserId });
+    const vaultId = await ctx.db.insert("vaults", {
+      userId: ownerId,
+      organizationId,
+      deletion: { state: "not_deleting" },
+      state: "not_connected",
+    });
+    const setupRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      userId: ownerId,
+      vaultId,
+      repositoryFullName: "ada/retry-actor",
+      trigger: "connect_existing_repository",
+      state: "succeeded",
+      currentStep: "finish",
+      createdAt: 1,
+      updatedAt: 2,
+      completedAt: 2,
+    });
+    const failedRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
+      userId: otherUserId,
+      requestedByUserId: otherUserId,
+      vaultId,
+      repositoryFullName: "ada/retry-actor",
+      attempt: { kind: "initial" },
+      state: "failed",
+      workflow: { state: "started", workflowId: "failed-delete" },
+      currentStep: "delete_github_repo",
+      snapshot: {
+        state: "retained_for_retry",
+        plan: {
+          target: {
+            kind: "existing_repository",
+            ghRepoId: "retry-actor",
+            owner: "ada",
+            name: "retry-actor",
+            repositoryFullName: "ada/retry-actor",
+          },
+          convex: { action: "skip", reason: "not_requested" },
+          cloudflare: { action: "skip", reason: "not_requested" },
+          githubRepository: { action: "skip", reason: "not_requested" },
+        },
+      },
+      lastError: "Deletion failed.",
+      createdAt: 3,
+      updatedAt: 4,
+      completedAt: 4,
+    });
+    await ctx.db.replace(vaultId, {
+      userId: ownerId,
+      organizationId,
+      deletion: { state: "delete_failed", runId: failedRunId, failedAt: 4 },
+      state: "connected",
+      githubMode: "connect_existing_repository",
+      runId: setupRunId,
+      ghRepoId: "retry-actor",
+      owner: "ada",
+      name: "retry-actor",
+      visibility: "private",
+      defaultBranch: "main",
+      connectedAt: 2,
+    });
+    return { failedRunId, otherUserId, ownerId, vaultId };
+  });
+  return { ids, t };
+}
+
 describe("vault deletion Convex resource planning", () => {
+  it("uses vault ownership instead of the failed deletion actor", async () => {
+    const { ids, t } = await createDeletionRetryActorFixture();
+    const result = await t.mutation(internal.vault.deletion.runs.createRetryRun, {
+      userId: ids.ownerId,
+      failedRunId: ids.failedRunId,
+    });
+
+    await expect(t.run(async (ctx) => ctx.db.get(result.deletionRunId))).resolves.toMatchObject({
+      requestedByUserId: ids.ownerId,
+      userId: ids.ownerId,
+      attempt: { kind: "retry", retryOf: ids.failedRunId },
+    });
+
+    const blocked = await createDeletionRetryActorFixture();
+    await expect(
+      blocked.t.mutation(internal.vault.deletion.runs.createRetryRun, {
+        userId: blocked.ids.otherUserId,
+        failedRunId: blocked.ids.failedRunId,
+      }),
+    ).rejects.toThrow("Vault not found");
+  });
+
   it.each([
     { currentStep: "run_created" as const, state: "queued" as const },
     { currentStep: "sync_tree" as const, state: "running" as const },

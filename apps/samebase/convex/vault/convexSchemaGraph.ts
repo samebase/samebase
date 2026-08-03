@@ -9,6 +9,11 @@ import { internalMutation, internalQuery, type MutationCtx } from "../_generated
 import { action, mutation, query } from "../functions";
 import { isRecord, readBoolean, readString, toErrorMessage } from "../jsonUtils";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
+import {
+  hasPhaseOneUserOwnership,
+  hasPhaseOneVaultChildOwnership,
+  readPhaseOneOwnershipContext,
+} from "../phaseOneOwnership";
 import { isLiveConnectedVault } from "./state";
 import {
   createConvexDeploymentDeployKey,
@@ -961,12 +966,20 @@ export const get = query({
   returns: union(vConvexSchemaGraphStateResult, nullValue()),
   handler: async (ctx, args): Promise<ConvexSchemaGraphStateResult | null> => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== ctx.viewer.userId) {
+    if (!isLiveConnectedVault(vault)) {
+      return null;
+    }
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, ctx.viewer.userId);
+    if (!hasPhaseOneUserOwnership(ownership, vault)) {
       return null;
     }
 
     const project = await ctx.db.get(args.convexProjectId);
-    if (!project || project.vaultId !== args.vaultId || project.userId !== ctx.viewer.userId) {
+    if (
+      !project ||
+      project.vaultId !== args.vaultId ||
+      !hasPhaseOneUserOwnership(ownership, project)
+    ) {
       return null;
     }
 
@@ -1021,12 +1034,13 @@ export const saveLayout = mutation({
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
     const project = await ctx.db.get(args.convexProjectId);
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, ctx.viewer.userId);
     if (
       !isLiveConnectedVault(vault) ||
-      vault.userId !== ctx.viewer.userId ||
+      !hasPhaseOneUserOwnership(ownership, vault) ||
       !project ||
       project.vaultId !== args.vaultId ||
-      project.userId !== ctx.viewer.userId
+      !hasPhaseOneUserOwnership(ownership, project)
     ) {
       throw new Error("Convex project not found.");
     }
@@ -1152,12 +1166,20 @@ export const readRefreshTarget = internalQuery({
   returns: vConvexSchemaRefreshTarget,
   handler: async (ctx, args): Promise<ConvexSchemaRefreshTarget> => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+    if (!isLiveConnectedVault(vault)) {
+      throw new Error("Vault not found.");
+    }
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+    if (!hasPhaseOneUserOwnership(ownership, vault)) {
       throw new Error("Vault not found.");
     }
 
     const project = await ctx.db.get(args.convexProjectId);
-    if (!project || project.vaultId !== args.vaultId || project.userId !== args.userId) {
+    if (
+      !project ||
+      project.vaultId !== args.vaultId ||
+      !hasPhaseOneUserOwnership(ownership, project)
+    ) {
       throw new Error("Convex project not found.");
     }
 
@@ -1212,8 +1234,16 @@ export const recordSnapshot = internalMutation({
   },
   returns: id("observations_vaultConvexSchema_snapshots"),
   handler: async (ctx, args): Promise<Id<"observations_vaultConvexSchema_snapshots">> => {
-    const project = await ctx.db.get(args.convexProjectId);
-    if (!project || project.userId !== args.userId || project.vaultId !== args.vaultId) {
+    const [vault, project] = await Promise.all([
+      ctx.db.get(args.vaultId),
+      ctx.db.get(args.convexProjectId),
+    ]);
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+    if (
+      !isLiveConnectedVault(vault) ||
+      !project ||
+      !hasPhaseOneVaultChildOwnership(ownership, vault, project)
+    ) {
       throw new Error("Convex project not found.");
     }
 

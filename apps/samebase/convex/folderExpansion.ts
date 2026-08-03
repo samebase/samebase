@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./functions";
+import { hasPhaseOneUserOwnership, readPhaseOneOwnershipContext } from "./phaseOneOwnership";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 
@@ -15,7 +16,11 @@ async function canAccessFolderExpansionVault(
   },
 ) {
   const vault = await ctx.db.get(args.vaultId);
-  return vault?.userId === args.userId;
+  if (!vault) {
+    return false;
+  }
+  const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+  return hasPhaseOneUserOwnership(ownership, vault);
 }
 
 // MARK: Public

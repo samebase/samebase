@@ -3,7 +3,7 @@ import { internal } from "../_generated/api";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { action, query } from "../functions";
 import { randomToken } from "../oauthUtils";
-import { requireSingleOrganizationIdForUser } from "../organizations";
+import { readPhaseOneOwnershipContext } from "../phaseOneOwnership";
 import {
   applyMcpDenyErrorParamsToRedirectUrl,
   type McpAuthorizationSuccessSearchParams,
@@ -12,7 +12,7 @@ import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
 import { isMcpOauthClientInactive } from "./client";
 import { vMcpAuthRequestStatus, vMcpOauthClientRegistrationStatus } from "./model";
 import { getDefaultMcpProtocolValidationOptions, redirectUriMatchesRegistered } from "./protocol";
-import { revokeActiveMcpGrant } from "./grants";
+import { hasPhaseOneMcpGrantSubject, revokeActiveMcpGrant } from "./grants";
 import { parseScopeTokens } from "./scopes";
 import {
   createAuthorizationCodeValue,
@@ -409,8 +409,10 @@ export const hasActiveGrantForAuthRequest = internalQuery({
       .query("mcpGrants")
       .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
       .collect();
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
     return userGrants.some(
       (grant) =>
+        hasPhaseOneMcpGrantSubject(ownership, grant) &&
         grant.clientId === authRequest.clientId &&
         grant.resource === authRequest.resource &&
         grant.scope === authRequest.scope &&
@@ -483,7 +485,11 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
       });
     }
 
-    const organizationId = await requireSingleOrganizationIdForUser(ctx.db, args.userId);
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+    const organizationId = ownership.organizationId;
+    if (!organizationId) {
+      throw new Error("Organization membership is required.");
+    }
     const userGrants = await ctx.db
       .query("mcpGrants")
       .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
@@ -498,7 +504,7 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
 
     const grantId = existingGrant?.grantId ?? `mcpg_${randomToken(24)}`;
     if (existingGrant) {
-      if (existingGrant.organizationId && existingGrant.organizationId !== organizationId) {
+      if (!hasPhaseOneMcpGrantSubject(ownership, existingGrant)) {
         throw new Error("MCP grant organization does not match the current membership.");
       }
       await ctx.db.patch(existingGrant._id, {
@@ -776,7 +782,8 @@ export const exchangeAuthorizationCode = internalMutation({
       .query("mcpGrants")
       .withIndex("by_grant_id", (q) => q.eq("grantId", authorizationCode.grantId))
       .first();
-    if (!grant || grant.status !== "active") {
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, authorizationCode.userId);
+    if (!grant || grant.status !== "active" || !hasPhaseOneMcpGrantSubject(ownership, grant)) {
       return oauthError({
         status: 400,
         error: "invalid_grant",
@@ -885,6 +892,7 @@ export const exchangeRefreshToken = internalMutation({
         errorDescription: "Grant is no longer active.",
       });
     }
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, refreshToken.userId);
 
     if (refreshToken.status === "rotated") {
       const grant = await ctx.db
@@ -936,7 +944,7 @@ export const exchangeRefreshToken = internalMutation({
       .query("mcpGrants")
       .withIndex("by_grant_id", (q) => q.eq("grantId", refreshToken.grantId))
       .first();
-    if (!grant || grant.status !== "active") {
+    if (!grant || grant.status !== "active" || !hasPhaseOneMcpGrantSubject(ownership, grant)) {
       return oauthError({
         status: 400,
         error: "invalid_grant",
@@ -1069,12 +1077,13 @@ export const validateAccessToken = internalMutation({
         errorDescription: "Grant is no longer active.",
       });
     }
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, accessToken.userId);
 
     const grant = await ctx.db
       .query("mcpGrants")
       .withIndex("by_grant_id", (q) => q.eq("grantId", accessToken.grantId))
       .first();
-    if (!grant || grant.status !== "active") {
+    if (!grant || grant.status !== "active" || !hasPhaseOneMcpGrantSubject(ownership, grant)) {
       return oauthError({
         status: 401,
         error: "invalid_token",

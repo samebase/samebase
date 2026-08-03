@@ -16,6 +16,11 @@ import {
 import { normalizeConvexConfigPath } from "../../shared/convexConfigPath";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import { requireBillingResourceCapacity } from "../billingResourceQuotas";
+import {
+  hasPhaseOneUserOwnership,
+  readPhaseOneOwnershipContext,
+  type PhaseOneOwnershipContext,
+} from "../phaseOneOwnership";
 import { vVaultProviderResourceOrigin, type VaultProviderResourceOrigin } from "./model";
 import {
   requireUserVaultInfrastructureIdle,
@@ -31,12 +36,19 @@ type ConvexProjectGraphReadCtx = Pick<QueryCtx, "db">;
 async function requireConnectedVault(
   ctx: ConvexProjectGraphReadCtx,
   args: { vaultId: Id<"vaults">; userId: Id<"users"> },
-): Promise<Extract<Doc<"vaults">, { state: "connected" }>> {
+): Promise<{
+  ownership: PhaseOneOwnershipContext;
+  vault: Extract<Doc<"vaults">, { state: "connected" }>;
+}> {
   const vault = await ctx.db.get(args.vaultId);
-  if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+  if (!isLiveConnectedVault(vault)) {
     throw new Error("Vault not found.");
   }
-  return vault;
+  const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+  if (!hasPhaseOneUserOwnership(ownership, vault)) {
+    throw new Error("Vault not found.");
+  }
+  return { ownership, vault };
 }
 
 async function requireActiveManagedProvisioning(
@@ -92,6 +104,7 @@ async function readMatchingProject(
     teamId: string;
     projectId: string;
     codeLocation: ConvexCodeLocation;
+    ownership: PhaseOneOwnershipContext;
   },
 ) {
   const existing = await ctx.db
@@ -103,7 +116,7 @@ async function readMatchingProject(
   }
   if (
     existing.vaultId === args.vaultId &&
-    existing.userId === args.userId &&
+    hasPhaseOneUserOwnership(args.ownership, existing) &&
     existing.teamId === args.teamId &&
     getConvexCodeLocationKey(readConvexCodeLocation(existing)) ===
       getConvexCodeLocationKey(args.codeLocation)
@@ -115,6 +128,10 @@ async function readMatchingProject(
 
 async function insertProject(
   ctx: Pick<MutationCtx, "db">,
+  access: {
+    ownership: PhaseOneOwnershipContext;
+    vault: Extract<Doc<"vaults">, { state: "connected" }>;
+  },
   args: {
     vaultId: Id<"vaults">;
     userId: Id<"users">;
@@ -124,13 +141,16 @@ async function insertProject(
     origin: VaultProviderResourceOrigin;
   },
 ): Promise<Id<"vaultConvexProjects">> {
-  const vault = await requireConnectedVault(ctx, args);
-  const organizationId = vault.organizationId;
+  const organizationId = access.vault.organizationId;
   if (!organizationId) {
     throw new Error("Vault organization is required.");
   }
   const codeLocation = normalizeConvexCodeLocation(args.codeLocation);
-  const existing = await readMatchingProject(ctx, { ...args, codeLocation });
+  const existing = await readMatchingProject(ctx, {
+    ...args,
+    codeLocation,
+    ownership: access.ownership,
+  });
   if (existing) {
     if (existing.organizationId && existing.organizationId !== organizationId) {
       throw new Error("Convex project organization does not match its vault.");
@@ -197,9 +217,13 @@ export const readProjectAttachmentContext = internalQuery({
     codeLocation: vConvexCodeLocation,
   }),
   handler: async (ctx, args) => {
-    await requireConnectedVault(ctx, args);
+    const { ownership } = await requireConnectedVault(ctx, args);
     const project = await ctx.db.get(args.convexProjectId);
-    if (!project || project.vaultId !== args.vaultId || project.userId !== args.userId) {
+    if (
+      !project ||
+      project.vaultId !== args.vaultId ||
+      !hasPhaseOneUserOwnership(ownership, project)
+    ) {
       throw new Error("Convex project attachment not found.");
     }
     return {
@@ -291,6 +315,7 @@ export const recordManagedProjectCreated = internalMutation({
   returns: id("vaultConvexProjects"),
   handler: async (ctx, args): Promise<Id<"vaultConvexProjects">> => {
     const plan = await requireActiveManagedProvisioning(ctx, args);
+    const access = await requireConnectedVault(ctx, args);
     const convexConfigPath = normalizeConvexConfigPath(args.convexConfigPath);
     if (convexConfigPath !== readPlanConvexConfigPath(plan)) {
       throw new Error("Managed Convex config path does not match the provisioning plan.");
@@ -306,7 +331,7 @@ export const recordManagedProjectCreated = internalMutation({
       if (plan.convex.teamId !== args.teamId) {
         throw new Error("Managed Convex project checkpoint already names another team.");
       }
-      convexProjectId = await insertProject(ctx, {
+      convexProjectId = await insertProject(ctx, access, {
         ...args,
         codeLocation: { kind: "config", convexConfigPath },
         origin: "provisioned",
@@ -324,7 +349,7 @@ export const recordManagedProjectCreated = internalMutation({
         },
         updatedAt: Date.now(),
       });
-      convexProjectId = await insertProject(ctx, {
+      convexProjectId = await insertProject(ctx, access, {
         ...args,
         codeLocation: { kind: "config", convexConfigPath },
         origin: "provisioned",
@@ -354,7 +379,8 @@ export const recordManualProjectCreated = internalMutation({
       vaultId: args.vaultId,
       actionId: args.actionId,
     });
-    return await insertProject(ctx, {
+    const access = await requireConnectedVault(ctx, args);
+    return await insertProject(ctx, access, {
       vaultId: args.vaultId,
       userId: args.userId,
       teamId: args.teamId,
@@ -380,7 +406,7 @@ export const attachProjects = internalMutation({
   },
   returns: array(id("vaultConvexProjects")),
   handler: async (ctx, args): Promise<Array<Id<"vaultConvexProjects">>> => {
-    await requireUserVaultInfrastructureIdle(ctx, args);
+    const access = await requireUserVaultInfrastructureIdle(ctx, args);
 
     const projectIds = new Set<string>();
     const projects = args.projects.map((project) => ({
@@ -397,7 +423,7 @@ export const attachProjects = internalMutation({
     const projectAttachmentIds: Array<Id<"vaultConvexProjects">> = [];
     for (const project of projects) {
       projectAttachmentIds.push(
-        await insertProject(ctx, {
+        await insertProject(ctx, access, {
           vaultId: args.vaultId,
           userId: args.userId,
           ...project,
@@ -419,12 +445,12 @@ export const reconcileProjectTeam = internalMutation({
   },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
-    await requireUserVaultInfrastructureIdle(ctx, args);
+    const { ownership } = await requireUserVaultInfrastructureIdle(ctx, args);
     const project = await ctx.db.get(args.convexProjectId);
     if (
       !project ||
       project.vaultId !== args.vaultId ||
-      project.userId !== args.userId ||
+      !hasPhaseOneUserOwnership(ownership, project) ||
       project.projectId !== args.projectId ||
       project.teamId !== args.expectedTeamId
     ) {
@@ -446,14 +472,14 @@ export const reconcileProjectCodeLocation = internalMutation({
   },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
-    await requireUserVaultInfrastructureIdle(ctx, args);
+    const { ownership } = await requireUserVaultInfrastructureIdle(ctx, args);
     const project = await ctx.db.get(args.convexProjectId);
     const expectedCodeLocation = normalizeConvexCodeLocation(args.expectedCodeLocation);
     const nextCodeLocation = normalizeConvexCodeLocation(args.nextCodeLocation);
     if (
       !project ||
       project.vaultId !== args.vaultId ||
-      project.userId !== args.userId ||
+      !hasPhaseOneUserOwnership(ownership, project) ||
       project.projectId !== args.projectId ||
       getConvexCodeLocationKey(readConvexCodeLocation(project)) !==
         getConvexCodeLocationKey(expectedCodeLocation)
@@ -500,9 +526,13 @@ export const detachProject = internalMutation({
   },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
-    await requireUserVaultInfrastructureIdle(ctx, args);
+    const { ownership } = await requireUserVaultInfrastructureIdle(ctx, args);
     const project = await ctx.db.get(args.convexProjectId);
-    if (!project || project.vaultId !== args.vaultId || project.userId !== args.userId) {
+    if (
+      !project ||
+      project.vaultId !== args.vaultId ||
+      !hasPhaseOneUserOwnership(ownership, project)
+    ) {
       throw new Error("Convex project attachment not found.");
     }
     if (

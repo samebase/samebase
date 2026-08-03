@@ -11,6 +11,7 @@ import {
 import { readVaultInfrastructureState } from "./vault/infrastructureOperation";
 import { assertConnectedVault } from "./vault/state";
 import { startVaultInfrastructureProvisioningWorkflow } from "./appProvisioningWorkflow";
+import { hasPhaseOneUserOwnership, readPhaseOneOwnershipContext } from "./phaseOneOwnership";
 
 const { id, literal, string, union } = v;
 const MAX_EVENTS_TO_LINK_TO_VAULT = 20;
@@ -63,7 +64,11 @@ export const createRetryForVault = internalMutation({
   returns: id("workflow_vaultProvisioning_runs"),
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== args.userId) {
+    if (!vault) {
+      throw new Error("Vault not found for provisioning run.");
+    }
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+    if (!hasPhaseOneUserOwnership(ownership, vault)) {
       throw new Error("Vault not found for provisioning run.");
     }
     const user = await ctx.db.get(args.userId);
@@ -84,12 +89,7 @@ export const createRetryForVault = internalMutation({
       throw new Error("Infrastructure retry is available only after managed setup fails.");
     }
     const failedRun = await ctx.db.get(failedWrite.owner.runId);
-    if (
-      !failedRun ||
-      failedRun.state !== "failed" ||
-      failedRun.vaultId !== args.vaultId ||
-      failedRun.userId !== args.userId
-    ) {
+    if (!failedRun || failedRun.state !== "failed" || failedRun.vaultId !== args.vaultId) {
       throw new Error("Failed managed setup does not match this vault.");
     }
     if (

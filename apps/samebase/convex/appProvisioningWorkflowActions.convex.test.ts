@@ -12,6 +12,13 @@ describe("app provisioning workflow actions", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
+      });
       await ctx.db.insert("providerConnections", {
         kind: "github",
         userId,

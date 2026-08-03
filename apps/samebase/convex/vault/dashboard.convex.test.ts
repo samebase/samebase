@@ -4,16 +4,28 @@ import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 import { VAULT_LOCAL_CLEANUP_BATCH_SIZE } from "./deletion/cleanup";
 
+async function seedApprovedOrganizationUser(t: ReturnType<typeof makeConvexTest>) {
+  return await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", {
+      name: "Ada",
+      email: "ada@example.com",
+      isApproved: true,
+    });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      plan: "free",
+      status: "inactive",
+    });
+    return { organizationId, userId };
+  });
+}
+
 describe("vault dashboard Convex contract", () => {
   it("records initializing existing repository connection before external GitHub work", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-    });
+    const { userId } = await seedApprovedOrganizationUser(t);
 
     const ids = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
@@ -59,13 +71,7 @@ describe("vault dashboard Convex contract", () => {
 
   it("lists observed default-branch folders as repository root suggestions", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-    });
+    const { organizationId, userId } = await seedApprovedOrganizationUser(t);
     const ids = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
@@ -77,6 +83,7 @@ describe("vault dashboard Convex contract", () => {
     await t.run(async (ctx) => {
       await ctx.db.replace(ids.vaultId, {
         userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "connect_existing_repository",
@@ -119,13 +126,7 @@ describe("vault dashboard Convex contract", () => {
 
   it("exposes initializing existing repository source setup", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-    });
+    const { userId } = await seedApprovedOrganizationUser(t);
     const ids = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
@@ -158,13 +159,7 @@ describe("vault dashboard Convex contract", () => {
 
   it("exposes user vaults through the MCP user bridge", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-    });
+    const { userId } = await seedApprovedOrganizationUser(t);
     const ids = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
@@ -300,13 +295,7 @@ describe("vault dashboard Convex contract", () => {
 
   it("rejects duplicate existing repository targets before GitHub fetch", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-    });
+    const { userId } = await seedApprovedOrganizationUser(t);
 
     await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
       userId,
@@ -325,13 +314,7 @@ describe("vault dashboard Convex contract", () => {
 
   it("connects existing repository vaults with run provenance and no providers", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-    });
+    const { userId } = await seedApprovedOrganizationUser(t);
     const ids = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
@@ -370,13 +353,7 @@ describe("vault dashboard Convex contract", () => {
 
   it("blocks deletion during connected repository sync without reporting a provider write", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-    });
+    const { userId } = await seedApprovedOrganizationUser(t);
     const ids = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
@@ -434,13 +411,7 @@ describe("vault dashboard Convex contract", () => {
 
   it("marks existing repository setup failed before GitHub connects", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-    });
+    const { userId } = await seedApprovedOrganizationUser(t);
     const ids = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
@@ -567,13 +538,7 @@ describe("vault dashboard Convex contract", () => {
 
   it("records initializing vault creation before external GitHub work", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-    });
+    const { userId } = await seedApprovedOrganizationUser(t);
 
     const ids = await t.mutation(
       internal.vault.records.createInitializingSamebaseManagedVaultForUser,

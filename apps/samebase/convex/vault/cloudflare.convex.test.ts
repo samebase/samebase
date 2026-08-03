@@ -80,6 +80,13 @@ async function createCloudflareConnectedVault() {
       email: "ada@example.com",
       isApproved: true,
     });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      plan: "free",
+      status: "inactive",
+    });
     await Promise.all([
       ctx.db.insert("providerConnections", {
         kind: "cloudflare",
@@ -105,6 +112,7 @@ async function createCloudflareConnectedVault() {
     ]);
     const vaultId = await ctx.db.insert("vaults", {
       userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
@@ -121,6 +129,7 @@ async function createCloudflareConnectedVault() {
     });
     await ctx.db.replace(vaultId, {
       userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "connect_existing_repository",
@@ -132,7 +141,7 @@ async function createCloudflareConnectedVault() {
       defaultBranch: "stale-main",
       connectedAt: 2,
     });
-    return { userId, vaultId };
+    return { organizationId, userId, vaultId };
   });
   return {
     ...ids,
@@ -150,9 +159,14 @@ async function seedCloudflareWorkers(
   count = 5,
 ): Promise<void> {
   await t.run(async (ctx) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (vault === null || vault.organizationId === undefined) {
+      throw new Error("Expected an organization-owned vault fixture.");
+    }
     for (let index = 0; index < count; index += 1) {
       await ctx.db.insert("vaultCloudflareWorkers", {
         ...args,
+        organizationId: vault.organizationId,
         accountId: "existing-account",
         workerName: `existing-worker-${index}`,
         workerTag: `existing-worker-tag-${index}`,
@@ -594,7 +608,8 @@ describe("vault Cloudflare Worker attachments", () => {
   });
 
   it("names the created managed Cloudflare Worker when another attachment takes the last slot", async () => {
-    const { runId, t, userId, vaultId } = await createManagedWorkerCreatingFixture();
+    const { organizationId, runId, t, userId, vaultId } =
+      await createManagedWorkerCreatingFixture();
     await seedCloudflareWorkers(t, { userId, vaultId }, 4);
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
@@ -619,6 +634,7 @@ describe("vault Cloudflare Worker attachments", () => {
             await ctx.db.insert("vaultCloudflareWorkers", {
               vaultId,
               userId,
+              organizationId,
               accountId: "last-slot-account",
               workerName: "last-slot-worker",
               workerTag: "last-slot-worker-tag",
@@ -735,12 +751,13 @@ describe("vault Cloudflare Worker attachments", () => {
   });
 
   it("uses one backend conflict rule for browser and MCP configuration writes", async () => {
-    const { asUser, t, userId, vaultId } = await createCloudflareConnectedVault();
+    const { asUser, organizationId, t, userId, vaultId } = await createCloudflareConnectedVault();
     const workerId = await t.run(
       async (ctx) =>
         await ctx.db.insert("vaultCloudflareWorkers", {
           vaultId,
           userId,
+          organizationId,
           accountId,
           workerName: "portal",
           workerTag: "portal-tag",
@@ -987,12 +1004,13 @@ describe("vault Cloudflare Worker attachments", () => {
   });
 
   it("detaches explicitly without using provider absence as authority", async () => {
-    const { asUser, t, userId, vaultId } = await createCloudflareConnectedVault();
+    const { asUser, organizationId, t, userId, vaultId } = await createCloudflareConnectedVault();
     const workerId = await t.run(
       async (ctx) =>
         await ctx.db.insert("vaultCloudflareWorkers", {
           vaultId,
           userId,
+          organizationId,
           accountId,
           workerName: "still-live",
           workerTag: "worker-tag",
@@ -1010,11 +1028,12 @@ describe("vault Cloudflare Worker attachments", () => {
   });
 
   it("blocks delayed managed configuration after its run loses the write lock", async () => {
-    const { t, userId, vaultId } = await createCloudflareConnectedVault();
+    const { organizationId, t, userId, vaultId } = await createCloudflareConnectedVault();
     const { managedRunId, workerId } = await t.run(async (ctx) => {
       const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId,
         userId,
+        organizationId,
         accountId,
         workerName: "managed",
         workerTag: "managed-tag",

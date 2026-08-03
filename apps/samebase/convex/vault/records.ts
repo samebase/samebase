@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
+  type DatabaseReader,
   internalMutation,
   internalQuery,
   type MutationCtx,
@@ -9,6 +10,11 @@ import {
 import { query } from "../functions";
 import { startCreateAppProvisioningWorkflow } from "../appProvisioningWorkflow";
 import { requireSingleOrganizationIdForUser } from "../organizations";
+import {
+  hasPhaseOneUserOwnership,
+  readPhaseOneOwnershipContext,
+  type PhaseOneOwnershipContext,
+} from "../phaseOneOwnership";
 import {
   parseRepositoryFullName,
   vGitHubRepositoryVisibility,
@@ -22,6 +28,37 @@ const nullValidator = v.null();
 const { array, boolean, id, object, optional, string, union } = v;
 
 type ProvisioningVault = Extract<Doc<"vaults">, { state: "provisioning" }>;
+
+export async function listPhaseOneUserVaults(
+  db: DatabaseReader,
+  ownership: PhaseOneOwnershipContext,
+): Promise<Array<Doc<"vaults">>> {
+  const candidates = new Map<Id<"vaults">, Doc<"vaults">>();
+  if (ownership.organizationId) {
+    for await (const vault of db
+      .query("vaults")
+      .withIndex("by_organization", (query) =>
+        query.eq("organizationId", ownership.organizationId),
+      )) {
+      candidates.set(vault._id, vault);
+    }
+    for await (const vault of db
+      .query("vaults")
+      .withIndex("by_user_and_organization", (query) =>
+        query.eq("userId", ownership.userId).eq("organizationId", undefined),
+      )) {
+      candidates.set(vault._id, vault);
+    }
+  } else {
+    for await (const vault of db
+      .query("vaults")
+      .withIndex("by_userId", (query) => query.eq("userId", ownership.userId))) {
+      candidates.set(vault._id, vault);
+    }
+  }
+
+  return [...candidates.values()].filter((vault) => hasPhaseOneUserOwnership(ownership, vault));
+}
 
 // Get a specific vault by repository full name for a user
 export const getVaultByRepository = query({
@@ -48,7 +85,11 @@ export const getByIdForUser = internalQuery({
   },
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== args.userId) {
+    if (!vault) {
+      return null;
+    }
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+    if (!hasPhaseOneUserOwnership(ownership, vault)) {
       return null;
     }
     return vault;
@@ -61,10 +102,9 @@ export const listConnectedRepositoriesForUser = internalQuery({
   },
   returns: array(vVaultConnectedRepositoryTarget),
   handler: async (ctx, args) => {
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
     const repositories = [];
-    for await (const vault of ctx.db
-      .query("vaults")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))) {
+    for (const vault of await listPhaseOneUserVaults(ctx.db, ownership)) {
       if (!isLiveConnectedVault(vault)) {
         continue;
       }
@@ -307,7 +347,11 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
   returns: nullValidator,
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== args.userId) {
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+    if (!hasPhaseOneUserOwnership(ownership, vault)) {
       throw new Error("Vault not found");
     }
     if (isVaultDeletingOrDeleteFailed(vault)) {
@@ -520,7 +564,11 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
   returns: nullValidator,
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== args.userId) {
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+    if (!hasPhaseOneUserOwnership(ownership, vault)) {
       throw new Error("Vault not found");
     }
     if (isVaultDeletingOrDeleteFailed(vault)) {
@@ -618,15 +666,6 @@ export const markGithubProvisioningFailed = internalMutation({
   },
 });
 
-export const getById = internalQuery({
-  args: {
-    id: v.id("vaults"),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
-  },
-});
-
 export const hasOtherVaultsForRepository = internalQuery({
   args: {
     owner: string(),
@@ -655,13 +694,39 @@ async function getVaultByRepositoryHelper(
   },
 ) {
   const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
+  const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+  const candidates = new Map<Id<"vaults">, Doc<"vaults">>();
+  if (ownership.organizationId) {
+    for await (const vault of ctx.db
+      .query("vaults")
+      .withIndex("by_organization_and_owner_and_name", (query) =>
+        query.eq("organizationId", ownership.organizationId).eq("owner", owner).eq("name", name),
+      )) {
+      candidates.set(vault._id, vault);
+    }
+    for await (const vault of ctx.db
+      .query("vaults")
+      .withIndex("by_user_and_organization", (query) =>
+        query.eq("userId", args.userId).eq("organizationId", undefined),
+      )) {
+      if (isConnectedVault(vault) && vault.owner === owner && vault.name === name) {
+        candidates.set(vault._id, vault);
+      }
+    }
+  } else {
+    for await (const vault of ctx.db
+      .query("vaults")
+      .withIndex("by_userId_and_owner_and_name", (query) =>
+        query.eq("userId", args.userId).eq("owner", owner).eq("name", name),
+      )) {
+      candidates.set(vault._id, vault);
+    }
+  }
 
-  const vault = await ctx.db
-    .query("vaults")
-    .withIndex("by_userId_and_owner_and_name", (q) =>
-      q.eq("userId", args.userId).eq("owner", owner).eq("name", name),
-    )
-    .first();
+  const vault = [...candidates.values()]
+    .filter((candidate) => hasPhaseOneUserOwnership(ownership, candidate))
+    .sort((left, right) => left._id.localeCompare(right._id))
+    .find(isLiveConnectedVault);
 
   if (!isLiveConnectedVault(vault)) {
     return null;

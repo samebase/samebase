@@ -5,6 +5,7 @@ import { components, internal } from "./_generated/api";
 import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
+import { hasPhaseOneUserOwnership, readPhaseOneOwnershipContext } from "./phaseOneOwnership";
 import type { AppProvisioningStep } from "./appProvisioningModel";
 import { isLiveConnectedVault } from "./vault/state";
 
@@ -124,7 +125,8 @@ export const readComposedInfrastructureState = internalQuery({
   returns: composedInfrastructureState,
   handler: async (ctx, args): Promise<ComposedInfrastructureState> => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== args.userId) {
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+    if (!vault || !hasPhaseOneUserOwnership(ownership, vault)) {
       throw new Error("Vault not found.");
     }
 
@@ -160,7 +162,7 @@ export const readComposedInfrastructureState = internalQuery({
     if (
       convexProject &&
       (convexProject.vaultId !== args.vaultId ||
-        convexProject.userId !== args.userId ||
+        !hasPhaseOneUserOwnership(ownership, convexProject) ||
         !convexCheckpoint ||
         convexProject.teamId !== convexCheckpoint.teamId ||
         !("convexConfigPath" in convexProject) ||
@@ -171,7 +173,7 @@ export const readComposedInfrastructureState = internalQuery({
     if (
       worker &&
       (worker.vaultId !== args.vaultId ||
-        worker.userId !== args.userId ||
+        !hasPhaseOneUserOwnership(ownership, worker) ||
         !cloudflareCheckpoint ||
         worker.accountId !== cloudflareCheckpoint.accountId ||
         worker.workerName !== cloudflareCheckpoint.workerName ||
@@ -220,7 +222,8 @@ export const readComposedInfrastructureRetryContext = internalQuery({
       throw new Error("Provisioning run not found.");
     }
     const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== run.userId) {
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, run.userId);
+    if (!isLiveConnectedVault(vault) || !hasPhaseOneUserOwnership(ownership, vault)) {
       throw new Error("Vault not found.");
     }
 
@@ -248,7 +251,8 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
       throw new Error("Composed infrastructure run does not match vault.");
     }
     const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+    if (!isLiveConnectedVault(vault) || !hasPhaseOneUserOwnership(ownership, vault)) {
       throw new Error("Vault not found.");
     }
     const plan = await ctx.db

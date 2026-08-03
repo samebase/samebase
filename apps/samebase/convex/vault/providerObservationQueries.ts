@@ -3,6 +3,7 @@ import { v, type Infer } from "convex/values";
 import { internalQuery } from "../_generated/server";
 import { getConvexCodeLocationKey, readConvexCodeLocation } from "../../shared/convexCodeLocation";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";
+import { hasPhaseOneUserOwnership, readPhaseOneOwnershipContext } from "../phaseOneOwnership";
 import { isLiveConnectedVault } from "./state";
 
 const { array, id, object, string } = v;
@@ -44,7 +45,11 @@ export const readProviderAttachmentVaultContext = internalQuery({
   }),
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+    if (!isLiveConnectedVault(vault)) {
+      throw new Error("Vault not found.");
+    }
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+    if (!hasPhaseOneUserOwnership(ownership, vault)) {
       throw new Error("Vault not found.");
     }
     return {
@@ -64,7 +69,11 @@ export const readVaultProviderObservationContext = internalQuery({
   returns: vVaultProviderObservationContext,
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+    if (!isLiveConnectedVault(vault)) {
+      throw new Error("Vault not found.");
+    }
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+    if (!hasPhaseOneUserOwnership(ownership, vault)) {
       throw new Error("Vault not found.");
     }
     const [workers, projects] = await Promise.all([
@@ -77,6 +86,12 @@ export const readVaultProviderObservationContext = internalQuery({
         .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
         .collect(),
     ]);
+    if (
+      workers.some((worker) => !hasPhaseOneUserOwnership(ownership, worker)) ||
+      projects.some((project) => !hasPhaseOneUserOwnership(ownership, project))
+    ) {
+      throw new Error("Vault provider attachment not found.");
+    }
 
     return {
       ghRepoId: vault.ghRepoId,

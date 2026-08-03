@@ -135,6 +135,7 @@ async function seedOwnedResources() {
       deletionEventId,
       deletionRunId,
       folderExpansionId,
+      organizationId,
       otherUserId,
       ownerId,
       stagingId,
@@ -310,6 +311,110 @@ describe("public Convex route ownership checks", () => {
         content: "owner content",
         version: 3,
       },
+    ]);
+  });
+
+  it("summarizes prepared and legacy owned vaults but not a teammate vault", async () => {
+    const { ids, t } = await seedOwnedResources();
+    const extraVaultIds = await t.run(async (ctx) => {
+      const insertConnectedVault = async (args: {
+        organizationId?: Id<"organizations">;
+        owner: string;
+        userId: Id<"users">;
+      }) => {
+        const vaultId = await ctx.db.insert("vaults", {
+          userId: args.userId,
+          ...(args.organizationId ? { organizationId: args.organizationId } : {}),
+          deletion: { state: "not_deleting" },
+          state: "not_connected",
+        });
+        const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+          userId: args.userId,
+          vaultId,
+          repositoryFullName: `${args.owner}/staged`,
+          trigger: "connect_existing_repository",
+          state: "succeeded",
+          currentStep: "finish",
+          createdAt: 1,
+          updatedAt: 2,
+          completedAt: 3,
+        });
+        await ctx.db.replace(vaultId, {
+          userId: args.userId,
+          ...(args.organizationId ? { organizationId: args.organizationId } : {}),
+          deletion: { state: "not_deleting" },
+          state: "connected",
+          githubMode: "connect_existing_repository",
+          runId,
+          ghRepoId: `${args.owner}-repo`,
+          owner: args.owner,
+          name: "staged",
+          defaultBranch: "main",
+          visibility: "private",
+          connectedAt: 4,
+        });
+        await ctx.db.insert("vaultStagedFiles", {
+          ownerId: args.userId,
+          vaultId,
+          fileDeleted: false,
+          filePath: "new.md",
+          initialFilePath: "new.md",
+          content: "new",
+          initialContent: "",
+          parentCommitSha: null,
+          lastEditTime: 5,
+          lastEditUserId: args.userId,
+          branch: "main",
+          version: 1,
+        });
+        return vaultId;
+      };
+
+      return {
+        legacyVaultId: await insertConnectedVault({
+          owner: "legacy-owner",
+          userId: ids.ownerId,
+        }),
+        teammateVaultId: await insertConnectedVault({
+          organizationId: ids.organizationId,
+          owner: "teammate-owner",
+          userId: ids.otherUserId,
+        }),
+      };
+    });
+    const asOwner = asIdentity(t, ids.ownerId);
+
+    const summaries = await asOwner.query(api.fileStaging.listStagedFilesBranchSummariesByVault, {
+      vaultIds: [
+        ids.vaultId,
+        extraVaultIds.legacyVaultId,
+        extraVaultIds.teammateVaultId,
+        ids.vaultId,
+      ],
+    });
+
+    expect(summaries.map((summary) => summary.vaultId)).toEqual([
+      ids.vaultId,
+      extraVaultIds.legacyVaultId,
+    ]);
+    expect(summaries[1]?.branchSummaries).toEqual([
+      {
+        branch: "main",
+        counts: {
+          modified: 0,
+          deleted: 0,
+          new: 1,
+          renamed: 0,
+          renamedAndModified: 0,
+          total: 1,
+        },
+      },
+    ]);
+
+    const dashboardVaults = await asOwner.query(api.vault.dashboard.getUserVaults);
+    expect(dashboardVaults.map((vault) => vault._id)).toEqual([
+      ids.vaultId,
+      extraVaultIds.legacyVaultId,
     ]);
   });
 

@@ -5,7 +5,6 @@ import {
   buildDeletionSnapshotSeed,
   buildDeletedFileRestoreCandidate,
   buildClearAllStagingPlan,
-  canAccessVaultStaging,
   clearMatchingStagingSnapshotImpl,
   clearAllStagingImpl,
   selectRepositoryTreeForBranch,
@@ -274,26 +273,6 @@ describe("summarizeStagedFilesByBranch", () => {
         },
       },
     ]);
-  });
-});
-
-describe("canAccessVaultStaging", () => {
-  it("allows owner access", () => {
-    expect(
-      canAccessVaultStaging({
-        vaultOwnerId: "users:owner",
-        requesterUserId: "users:owner",
-      }),
-    ).toBe(true);
-  });
-
-  it("rejects non-owner access", () => {
-    expect(
-      canAccessVaultStaging({
-        vaultOwnerId: "users:owner",
-        requesterUserId: "users:other",
-      }),
-    ).toBe(false);
   });
 });
 

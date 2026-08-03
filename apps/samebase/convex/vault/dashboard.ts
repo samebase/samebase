@@ -31,6 +31,13 @@ import {
   readVaultInfrastructureState,
   type VaultInfrastructureState,
 } from "./infrastructureOperation";
+import {
+  hasPhaseOneUserOwnership,
+  hasPhaseOneVaultChildOwnership,
+  readPhaseOneOwnershipContext,
+  type PhaseOneOwnershipContext,
+} from "../phaseOneOwnership";
+import { listPhaseOneUserVaults } from "./records";
 
 const { array, boolean, id, object, string } = v;
 type SourceSetupVault = Extract<
@@ -419,6 +426,17 @@ const vVaultPullRequestFilters = object({
 });
 const vVaultRepositoryFolderSuggestions = array(string());
 
+async function readPhaseOneUserVault(
+  ctx: Pick<QueryCtx, "db">,
+  args: { ownership: PhaseOneOwnershipContext; vaultId: Id<"vaults"> },
+): Promise<Doc<"vaults"> | null> {
+  const vault = await ctx.db.get(args.vaultId);
+  if (!vault || !hasPhaseOneUserOwnership(args.ownership, vault)) {
+    return null;
+  }
+  return vault;
+}
+
 // MARK: Public
 
 export const listVaultRepositoryFolderSuggestions = query({
@@ -428,8 +446,12 @@ export const listVaultRepositoryFolderSuggestions = query({
   },
   returns: vVaultRepositoryFolderSuggestions,
   handler: async (ctx, args) => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== ctx.viewer.userId) {
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, ctx.viewer.userId);
+    const vault = await readPhaseOneUserVault(ctx, {
+      ownership,
+      vaultId: args.vaultId,
+    });
+    if (!isLiveConnectedVault(vault)) {
       return [];
     }
 
@@ -455,17 +477,28 @@ export const getUserVaultPullRequestFilters = query({
   args: {},
   returns: array(vVaultPullRequestFilters),
   handler: async (ctx) => {
-    const filters = (
-      await ctx.db
-        .query("ui_vaultPullRequests_filters")
-        .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
-        .collect()
-    ).map((vaultPullRequestFilter) => ({
-      vaultId: vaultPullRequestFilter.vaultId,
-      hiddenLabels: vaultPullRequestFilter.hiddenLabels,
-      includeDrafts: vaultPullRequestFilter.includeDrafts,
-      includeNoLabel: vaultPullRequestFilter.includeNoLabel,
-    }));
+    const rows = await ctx.db
+      .query("ui_vaultPullRequests_filters")
+      .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
+      .collect();
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, ctx.viewer.userId);
+    const filters = [];
+    for (const row of rows) {
+      if (
+        !(await readPhaseOneUserVault(ctx, {
+          ownership,
+          vaultId: row.vaultId,
+        }))
+      ) {
+        continue;
+      }
+      filters.push({
+        vaultId: row.vaultId,
+        hiddenLabels: row.hiddenLabels,
+        includeDrafts: row.includeDrafts,
+        includeNoLabel: row.includeNoLabel,
+      });
+    }
 
     return filters.sort((left, right) => left.vaultId.localeCompare(right.vaultId));
   },
@@ -476,15 +509,26 @@ export const getUserVaultResourceLinksState = query({
   args: {},
   returns: array(vVaultResourceLinksState),
   handler: async (ctx) => {
-    const states = (
-      await ctx.db
-        .query("ui_vaultResourceLinks_settings")
-        .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
-        .collect()
-    ).map((state) => ({
-      resourceLinksOpen: state.resourceLinksOpen,
-      vaultId: state.vaultId,
-    }));
+    const rows = await ctx.db
+      .query("ui_vaultResourceLinks_settings")
+      .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
+      .collect();
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, ctx.viewer.userId);
+    const states = [];
+    for (const row of rows) {
+      if (
+        !(await readPhaseOneUserVault(ctx, {
+          ownership,
+          vaultId: row.vaultId,
+        }))
+      ) {
+        continue;
+      }
+      states.push({
+        resourceLinksOpen: row.resourceLinksOpen,
+        vaultId: row.vaultId,
+      });
+    }
 
     return states.sort((left, right) => left.vaultId.localeCompare(right.vaultId));
   },
@@ -496,8 +540,9 @@ export const setVaultResourceLinksOpen = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;
-    const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== userId) {
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, userId);
+    const vault = await readPhaseOneUserVault(ctx, { ownership, vaultId: args.vaultId });
+    if (!vault) {
       throw new Error("Vault not found");
     }
     if (isVaultDeletingOrDeleteFailed(vault)) {
@@ -532,8 +577,9 @@ export const setVaultPullRequestFilters = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;
-    const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== userId) {
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, userId);
+    const vault = await readPhaseOneUserVault(ctx, { ownership, vaultId: args.vaultId });
+    if (!vault) {
       throw new Error("Vault not found");
     }
     if (isVaultDeletingOrDeleteFailed(vault)) {
@@ -587,26 +633,91 @@ function groupVaultRows<Row extends { vaultId: Id<"vaults"> }>(
   return rowsByVault;
 }
 
+async function listPhaseOneUserConvexProjects(
+  ctx: Pick<QueryCtx, "db">,
+  ownership: PhaseOneOwnershipContext,
+): Promise<ConvexProject[]> {
+  const candidates = new Map<Id<"vaultConvexProjects">, ConvexProject>();
+  if (ownership.organizationId) {
+    for await (const project of ctx.db
+      .query("vaultConvexProjects")
+      .withIndex("by_organization", (query) =>
+        query.eq("organizationId", ownership.organizationId),
+      )) {
+      candidates.set(project._id, project);
+    }
+    for await (const project of ctx.db
+      .query("vaultConvexProjects")
+      .withIndex("by_user_and_organization", (query) =>
+        query.eq("userId", ownership.userId).eq("organizationId", undefined),
+      )) {
+      candidates.set(project._id, project);
+    }
+  } else {
+    for await (const project of ctx.db
+      .query("vaultConvexProjects")
+      .withIndex("by_user", (query) => query.eq("userId", ownership.userId))) {
+      candidates.set(project._id, project);
+    }
+  }
+
+  return [...candidates.values()].filter((project) => hasPhaseOneUserOwnership(ownership, project));
+}
+
+async function listPhaseOneUserCloudflareWorkers(
+  ctx: Pick<QueryCtx, "db">,
+  ownership: PhaseOneOwnershipContext,
+): Promise<CloudflareWorker[]> {
+  const candidates = new Map<Id<"vaultCloudflareWorkers">, CloudflareWorker>();
+  if (ownership.organizationId) {
+    for await (const worker of ctx.db
+      .query("vaultCloudflareWorkers")
+      .withIndex("by_organization", (query) =>
+        query.eq("organizationId", ownership.organizationId),
+      )) {
+      candidates.set(worker._id, worker);
+    }
+    for await (const worker of ctx.db
+      .query("vaultCloudflareWorkers")
+      .withIndex("by_user_and_organization", (query) =>
+        query.eq("userId", ownership.userId).eq("organizationId", undefined),
+      )) {
+      candidates.set(worker._id, worker);
+    }
+  } else {
+    for await (const worker of ctx.db
+      .query("vaultCloudflareWorkers")
+      .withIndex("by_user", (query) => query.eq("userId", ownership.userId))) {
+      candidates.set(worker._id, worker);
+    }
+  }
+
+  return [...candidates.values()].filter((worker) => hasPhaseOneUserOwnership(ownership, worker));
+}
+
 async function readUserVaults(
   ctx: Pick<QueryCtx, "db">,
   userId: Id<"users">,
 ): Promise<UserVaultsResult> {
+  const ownership = await readPhaseOneOwnershipContext(ctx.db, userId);
   const [vaults, userConvexProjects, userCloudflareWorkers] = await Promise.all([
-    ctx.db
-      .query("vaults")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .collect(),
-    ctx.db
-      .query("vaultConvexProjects")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect(),
-    ctx.db
-      .query("vaultCloudflareWorkers")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect(),
+    listPhaseOneUserVaults(ctx.db, ownership),
+    listPhaseOneUserConvexProjects(ctx, ownership),
+    listPhaseOneUserCloudflareWorkers(ctx, ownership),
   ]);
-  const convexProjectsByVault = groupVaultRows(userConvexProjects);
-  const cloudflareWorkersByVault = groupVaultRows(userCloudflareWorkers);
+  const vaultsById = new Map(vaults.map((vault) => [vault._id, vault]));
+  const convexProjectsByVault = groupVaultRows(
+    userConvexProjects.filter((project) => {
+      const vault = vaultsById.get(project.vaultId);
+      return vault ? hasPhaseOneVaultChildOwnership(ownership, vault, project) : false;
+    }),
+  );
+  const cloudflareWorkersByVault = groupVaultRows(
+    userCloudflareWorkers.filter((worker) => {
+      const vault = vaultsById.get(worker.vaultId);
+      return vault ? hasPhaseOneVaultChildOwnership(ownership, vault, worker) : false;
+    }),
+  );
   const connectedVaults = vaults.filter(isConnectedVault);
   const initializingVaultResults: Array<UserVaultResult & { _creationTime: number }> = [];
   for (const vault of vaults) {

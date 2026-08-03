@@ -13,6 +13,11 @@ import {
   type ManualProviderWriteAction,
 } from "../appProvisioningModel";
 import { toErrorMessage } from "../jsonUtils";
+import {
+  hasPhaseOneUserOwnership,
+  readPhaseOneOwnershipContext,
+  type PhaseOneOwnershipContext,
+} from "../phaseOneOwnership";
 import { assertConnectedVault, isLiveConnectedVault } from "./state";
 
 type InfrastructureOperationReadCtx = Pick<QueryCtx, "db">;
@@ -114,9 +119,16 @@ export async function readVaultInfrastructureState(
 export async function requireUserVaultInfrastructureIdle(
   ctx: InfrastructureOperationReadCtx,
   args: { vaultId: Id<"vaults">; userId: Id<"users"> },
-): Promise<Extract<Doc<"vaults">, { state: "connected" }>> {
+): Promise<{
+  ownership: PhaseOneOwnershipContext;
+  vault: Extract<Doc<"vaults">, { state: "connected" }>;
+}> {
   const vault = await ctx.db.get(args.vaultId);
-  if (!vault || vault.state !== "connected" || vault.userId !== args.userId) {
+  if (!vault || vault.state !== "connected") {
+    throw new Error("Vault not found.");
+  }
+  const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+  if (!hasPhaseOneUserOwnership(ownership, vault)) {
     throw new Error("Vault not found.");
   }
   const connectedVault = assertConnectedVault(vault);
@@ -124,7 +136,7 @@ export async function requireUserVaultInfrastructureIdle(
   if (infrastructure.operation.kind !== "none") {
     throw new Error("Another vault infrastructure operation is active.");
   }
-  return connectedVault;
+  return { ownership, vault: connectedVault };
 }
 
 export async function recordManagedProviderWrite(
@@ -234,7 +246,11 @@ export const claimManualProviderWrite = internalMutation({
   returns: vManualProviderWriteClaim,
   handler: async (ctx, args): Promise<ManualProviderWriteClaim> => {
     const [vault, user] = await Promise.all([ctx.db.get(args.vaultId), ctx.db.get(args.userId)]);
-    if (!vault || vault.state !== "connected" || vault.userId !== args.userId) {
+    if (!vault || vault.state !== "connected") {
+      throw new Error("Vault not found.");
+    }
+    const ownership = await readPhaseOneOwnershipContext(ctx.db, args.userId);
+    if (!hasPhaseOneUserOwnership(ownership, vault)) {
       throw new Error("Vault not found.");
     }
     const connectedVault = assertConnectedVault(vault);
