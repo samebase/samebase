@@ -33,6 +33,39 @@ Use the portable contract first. Consult private Samebase source only for one na
 safety boundary. Record each escalation because it identifies either a missing portable rule or a
 real target-specific difference.
 
+Treat a comprehensive Samebase adoption request as authority for reviewable repository changes, a
+pull request, a new isolated Samebase-connected Worker, GitHub Builds trigger configuration that
+cannot start an active deployment, and preview version uploads. These actions must not replace
+existing traffic. A pull request is not a production change. Require explicit approval before
+changing an existing production resource, starting an active deployment, changing schema, data,
+authentication, secret, domain, route, backend promotion, or current traffic.
+
+## Use the Samebase control surface
+
+1. Read the installed Samebase skill and Samebase inventory before each Samebase resource write.
+   Reuse the vault that matches the exact repository.
+2. Create a new isolated Worker through a Samebase action or the Samebase UI by default. Attach an
+   existing Worker only after the user selects it and you verify its ownership and live traffic. A
+   standalone Worker created directly at the provider is only a boundary spike. It is not a
+   completed Samebase adoption.
+3. Require the Worker to report the target GitHub repository and root as ready. Require one
+   production trigger for the default branch and one preview trigger for other branches. Test and
+   record this Teardown candidate before you create or update the triggers: run the exact install,
+   build, production deploy dry-run, and preview deploy dry-run commands from the commit that the
+   provider will build. Keep this check as a candidate until another project validates it. If
+   trigger setup automatically builds the default branch, continue without new approval only when
+   the provider can skip that build or the exact default-branch command must stop before deployment.
+   Otherwise, require explicit approval for the named first active deployment before trigger
+   creation. An expected pre-deploy failure is not release evidence.
+4. Reread Samebase inventory after every attachment, trigger configuration, retry, or repair. Use
+   provider-native reads for terminal build, version, deployment, route, and log evidence.
+
+Test and record this Teardown candidate when the Samebase MCP does not expose the required action:
+verify the active Samebase session and selected provider account, create an authenticated browser
+handoff, complete only the missing action in the in-app Browser, and then reread inventory. Do not
+replace the missing Samebase action with a manual standalone provider workflow. Keep this handoff as
+a candidate until another project validates it.
+
 ## Protect current behavior
 
 Add framework-neutral characterization coverage for behavior that must survive. Cover the real
@@ -89,11 +122,17 @@ project uses the selected owner or contract.
 ## Preview, cutover, and observe
 
 - Bind preview and provider evidence to the reviewed commit.
+- Do not pass the Preview gate until repository CI and the provider branch build both finish
+  successfully for that commit. If either fails, read the native logs, repair the repository or
+  trigger, push a new commit, and wait for a new successful build.
 - Treat a successful build, uploaded version, active deployment, backend state, and working public
   route as separate facts.
+- Require a reachable non-production version URL or a provider-specific preview deployment. A
+  version record with an unreachable URL does not pass Preview.
 - Keep all production changes behind explicit user approval. This includes schema or data changes,
-  imports, authentication changes, domains, secrets, provider configuration, backend promotion, and
-  traffic cutover. A request to migrate or prepare a preview is not approval for these changes.
+  imports, authentication changes, domains, secrets, changes to an existing production provider
+  configuration, backend promotion, and traffic cutover. A request to migrate or prepare a preview
+  is not approval for these changes.
 - Keep the old host or known-good deployment available until the cutover and observation gates pass.
 - Use the operator's named browser profile when saved-session behavior is part of the release gate.
 - Before requesting production approval, define the observation duration, signals, failure

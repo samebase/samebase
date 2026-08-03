@@ -2,10 +2,12 @@
 
 ## Status
 
-- Method: candidate
+- Method: second case recorded; its repository-backed Preview gate is incomplete
 - First case: [Bristol TSX](cases/bristol-tsx.md)
+- Second case: [Teardown Noita 3D](cases/teardown-noita-3d.md)
 - Worker input: [portable rules](portable-rules.md)
-- Next gate: use the portable rules on a second project before private Samebase source is available
+- Next gate: resolve the new-Worker first-deployment gap, then test one-case findings on the next
+  adoption
 
 ## Purpose
 
@@ -69,10 +71,22 @@ For each finding, select one destination:
 
 Use separate branches and pull requests for different repositories.
 
+### 6. Prove the repository-backed provider path
+
+For a Samebase adoption, require the repository and Worker to be joined through Samebase, with one
+production trigger for the default branch and one preview trigger for other branches. A standalone
+manual Worker is a spike, not release evidence.
+
+Bind repository CI and the provider branch build to the reviewed commit. If either fails, use native
+logs, repair the repository or trigger, push a new commit, and wait for a new terminal result. Do
+not accept an older build or an unrelated upload.
+
 ## Promotion
 
 One case can produce candidate guidance. A rule becomes reusable evidence only after another project
-uses it successfully.
+uses it successfully. Bristol and Teardown Noita 3D support the complete manager preflight, reviewed
+commit binding, and separation of build, upload, deployment, and route evidence. The four-command
+provider preflight and authenticated Samebase browser handoff remain Teardown-only candidates.
 
 Commit at meaningful checkpoints. Do not preserve provider journals, temporary identifiers, raw
 logs, or historical validation output after they stop helping a current decision.

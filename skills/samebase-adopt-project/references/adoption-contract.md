@@ -1,26 +1,26 @@
 # Samebase project adoption contract
 
-This bundled contract is the operative portable source for the skill. The Bristol transition is its
-first completed evidence case. Record deviations and candidate improvements. Do not treat one
-target's constraint as a shared rule. When this skill changes in the Samebase repository, compare
-the bundled contract with the active project-adoption research and update both in the same change
-when they express the same rule.
+This bundled contract is the operative portable source for the skill. The Bristol and Teardown Noita
+3D transitions are its first two evidence cases. Record deviations and candidate improvements. Do
+not treat one target's constraint as a shared rule. When this skill changes in the Samebase
+repository, compare the bundled contract with the active project-adoption research and update both
+in the same change when they express the same rule.
 
 ## Manager preflight
 
 Complete every row before implementation. Classify each difference as `alignment`,
 `target constraint`, `investigation`, or `exact exception`.
 
-| Area        | Required facts                                                                                                      |
-| ----------- | ------------------------------------------------------------------------------------------------------------------- |
-| Repository  | Application root, package manager, lock file, workspace, runtime, module type, default branch, current instructions |
-| Source      | Authored languages, configuration languages, imports, generated files, type-check inclusion                         |
-| Commands    | Public scripts and every local, CI, provider, and nested caller                                                     |
-| Tools       | Development, build, lint, format, tests, type checks, code generation                                               |
-| Application | Framework, CSS, server rendering, routes, authentication, data and privacy boundaries                               |
-| Provider    | Current host, build adapter, preview, production promotion, rollback, environment ownership                         |
-| Validation  | Fresh checkout, linked worktree, CI, provider build, browser, observability                                         |
-| Versions    | Runtime and core tool pins                                                                                          |
+| Area        | Required facts                                                                                                                                                                   |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repository  | Application root, package manager, lock file, workspace, runtime, module type, default branch, current instructions                                                              |
+| Source      | Authored languages, configuration languages, imports, generated files, type-check inclusion                                                                                      |
+| Commands    | Public scripts and every local, CI, provider, and nested caller                                                                                                                  |
+| Tools       | Development, build, lint, format, tests, type checks, code generation                                                                                                            |
+| Application | Framework, CSS, server rendering, routes, authentication, data and privacy boundaries                                                                                            |
+| Provider    | Current host, Samebase vault and Worker join, repository root, both build triggers, commands, preview, production promotion, rollback, environment and browser-account ownership |
+| Validation  | Fresh checkout, linked worktree, CI, provider build, browser, observability                                                                                                      |
+| Versions    | Runtime and core tool pins                                                                                                                                                       |
 
 Repeat the same table after integration. Existing files and passing commands describe the current
 state. They do not select the desired state.
@@ -40,6 +40,8 @@ Use this baseline for classification, not for blind replacement:
 - Type-check application and Node surfaces through every real check and provider build.
 - Keep application logic and durable data in Convex by default.
 - Use Cloudflare as the front door, Worker runtime, and observability layer by default.
+- Use a repository-backed Worker connected through Samebase. Require separate production and preview
+  GitHub Builds triggers.
 - Keep preview and production authority separate.
 
 Treat authored `.js`, `.mjs`, and `.cjs` files and direct ESLint, Prettier, Vitest, or Vite runners
@@ -79,6 +81,13 @@ Before any production write, record:
 
 Keep every production write blocked until the user gives explicit approval for that named change.
 
+A comprehensive Samebase adoption request includes repository and pull request changes, a new
+isolated Samebase-connected Worker, GitHub Builds trigger configuration that cannot start an active
+deployment, and preview version uploads when these actions do not replace existing traffic. Do not
+classify a pull request as a production change. Require explicit approval before changing an
+existing production resource, starting an active deployment, current traffic, schema, data,
+authentication, secret, domain, route, or backend promotion.
+
 ## Worktree ownership
 
 For a linked worktree:
@@ -112,6 +121,9 @@ Keep one compact record with these sections:
 | Boundary spikes          | pending |                                 |             |
 | Implementation           | pending |                                 |             |
 | Independent review       | pending |                                 |             |
+| Samebase Worker join     | pending |                                 |             |
+| GitHub Builds triggers   | pending |                                 |             |
+| Provider branch build    | pending |                                 |             |
 | Preview                  | pending |                                 |             |
 | External production work | blocked | Explicit user approval required |             |
 | Production approval      | blocked | Explicit user approval required |             |
@@ -159,13 +171,46 @@ Remove only resources owned by this run. Do not leave a temporary resource witho
 For each material difference, record the fact, source, decision, validation result, and final
 destination.
 
+## Samebase provider contract
+
+Before a Samebase provider write:
+
+1. Read inventory and reuse the vault that matches the exact repository.
+2. Check the active Samebase session, selected provider account, target repository, default branch,
+   and provider root.
+3. Test and record the Teardown candidate: run the exact install, build, production deploy dry-run,
+   and preview deploy dry-run commands from the commit that the provider will build. Keep this check
+   as a candidate until another project validates it.
+4. Create a new isolated Worker through Samebase by default. Attach an existing Worker only after
+   the user selects it and you verify ownership and live traffic. A standalone provider Worker is
+   only a boundary spike.
+5. Require a production trigger for the default branch and a preview trigger for other branches. If
+   setup automatically builds the default branch, continue without new approval only when the
+   provider can skip that build or the exact default-branch command must stop before deployment.
+   Otherwise, require explicit approval for the named first active deployment before trigger
+   creation. An expected pre-deploy failure is not release evidence.
+6. Reread inventory after each write.
+
+When the MCP lacks the exact action, test and record the Teardown browser-handoff candidate. Use the
+authenticated Samebase browser handoff and complete the same action in the in-app Browser. Do not
+switch to a manual provider-only path. Keep this handoff as a candidate until another project
+validates it.
+
+A failed repository check or provider build for the reviewed branch blocks Preview. Read native
+logs, repair the repository or trigger, push a new reviewed commit, and wait for a new terminal
+successful build. Do not use an older successful build or an unrelated manual upload as substitute
+evidence.
+
 ## Release evidence
 
 Keep these facts separate and bind them to the reviewed commit:
 
+- Samebase vault, Worker, repository, and root join
+- production and preview GitHub Builds triggers
 - clean provider build
+- successful provider branch build
 - uploaded Worker version
-- active preview deployment
+- reachable non-production version URL or provider-specific preview deployment
 - preview backend state
 - working preview routes and authentication
 - explicit production approval
