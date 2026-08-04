@@ -7,7 +7,7 @@
 - Last updated: 2026-08-04
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Current branch: `codex-organization-ownership-spec`
-- Current state: Implementation, independent reviews, and PR CI complete; operator cutover pending
+- Current state: Follow-up review fixes pass local validation; updated PR CI pending
 - Current pull request: [#1355](https://github.com/samebase/samebase/pull/1355)
 
 ## Purpose
@@ -135,11 +135,17 @@ Implemented in the current pull request and worktree:
   organization-bound vault creation, inventory, and existing-vault checks;
 - sole-member and shared-member account-deletion behavior for memberships, billing, active work, and
   organization cleanup;
+- one organization account-deletion lock that prevents two members from starting deletion together,
+  remains through staff retry, and leaves manual staff retry as the recovery path;
 - user-owned provider and repository-refresh lock attribution, plus bounded personal UI cleanup that
   preserves other members' rows;
+- shared staged-file initialization and commit cleanup that preserve a teammate's newer edit;
+- explicit MCP query arguments at the deploy-key rotation boundary, with organization context kept
+  at the trusted request boundary;
 - vault lifecycle preservation during member deletion, with bounded per-vault cleanup that deletes
   events before terminal runs at the vault deletion boundary;
-- one small bootstrap for the retained users after the operator-run reset; and
+- one small bootstrap for the retained users after the operator-run reset, which rejects unresolved
+  checkout attempts; and
 - a manual cutover runbook that records the exact destructive scope and verification order.
 
 The branch was rebased onto current `origin/main` with operator approval. The supply-chain
@@ -150,16 +156,18 @@ The operator approved a manual pre-beta reset on 2026-08-04. The mixed runtime a
 are removed. The one-time retained-user bootstrap replaces them. Independent authorization,
 simplicity, and cutover reviews found and verified the final MCP organization boundary,
 credential-dependent account-deletion waits, personal UI cleanup, unused-index removal, and safe
-manual reset order. The work is pending the operator-run reset, merge, deployment, bootstrap, and
-production verification.
+manual reset order. A follow-up review found one strict MCP argument mismatch and two realistic
+two-member races. The focused fixes use an explicit argument object, one organization deletion lock,
+and the existing exact staging-snapshot cleanup. The work is pending updated pull request CI, the
+operator-run reset, merge, deployment, bootstrap, and production verification.
 
 ## Validation Evidence
 
 - Pull request CI passed the supply-chain check, the complete checks and unit-test job, the final CI
   job, and both Cloudflare preview builds.
-- `pnpm check`: passed, with existing repository warnings only.
-- `pnpm test`: 292 files passed, with 2,275 tests passed and 1 skipped.
-- `pnpm test:convex`: 47 files passed, with 424 tests passed.
+- `pnpm check`: passed after the follow-up review fixes, with existing repository warnings only.
+- `pnpm test`: 292 files passed, with 2,282 tests passed and 1 skipped.
+- `pnpm test:convex`: 47 files passed, with 431 tests passed.
 - Focused organization authorization review: 9 files passed, with 109 tests passed.
 - `pnpm --filter samebase typecheck`: passed.
 - `pnpm format:check` and `git diff --check`: passed.

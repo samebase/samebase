@@ -96,7 +96,7 @@ const queryState = vi.hoisted<{
     canStartCheckout: boolean;
   };
   billingUsage: BillingResourceUsage;
-  settings: { displayName?: string; hasActiveSubscription: boolean; signInEmail: string };
+  settings: { displayName?: string; signInEmail: string };
   stakes: AccountDeletionStakes | undefined;
   viewerAccess: { accessKeys: string[]; role: "role_member" | "role_staff" };
 }>(() => ({
@@ -111,7 +111,6 @@ const queryState = vi.hoisted<{
   },
   settings: {
     displayName: "Current name",
-    hasActiveSubscription: false,
     signInEmail: "nicu@samebase.com",
   },
   stakes: {
@@ -373,7 +372,6 @@ describe("UserSettingsPage", () => {
     });
     queryState.settings = {
       displayName: "Current name",
-      hasActiveSubscription: false,
       signInEmail: "nicu@samebase.com",
     };
     queryState.billing = {

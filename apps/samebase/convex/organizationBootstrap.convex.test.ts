@@ -35,11 +35,6 @@ describe("organization ownership bootstrap", () => {
           polarStateChangedAt: 30,
           polarObservationRevision: 4,
           polarAppliedObservationRevision: 3,
-          polarCheckoutAttempt: {
-            state: "open",
-            attemptId: "operator-attempt",
-            checkoutId: "operator-checkout",
-          },
         },
       }),
     ).resolves.toEqual({
@@ -94,13 +89,39 @@ describe("organization ownership bootstrap", () => {
       plan: "pro",
       status: "active",
       polarExternalCustomerId: "operator-customer",
-      polarCheckoutAttempt: {
-        state: "open",
-        attemptId: "operator-attempt",
-        checkoutId: "operator-checkout",
-      },
     });
     expect(graph.waitlistBilling).toMatchObject({ plan: "free", status: "inactive" });
+  });
+
+  it("rejects an unresolved operator checkout attempt before it writes", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => ({
+      operatorUserIdA: await ctx.db.insert("users", {
+        email: "checkout-operator-a@example.test",
+      }),
+      operatorUserIdB: await ctx.db.insert("users", {
+        email: "checkout-operator-b@example.test",
+      }),
+    }));
+
+    await expect(
+      t.mutation(internal.organizationBootstrap.bootstrapOrganizationOwnership, {
+        operatorUserIdA: ids.operatorUserIdA,
+        operatorUserIdB: ids.operatorUserIdB,
+        operatorBilling: {
+          plan: "free",
+          status: "inactive",
+          polarCheckoutAttempt: {
+            state: "pending",
+            attemptId: "operator-attempt",
+          },
+        },
+      }),
+    ).rejects.toThrow("Organization bootstrap requires checkout attempts to be resolved.");
+
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("organizations").take(1)),
+    ).resolves.toEqual([]);
   });
 
   it("rejects a nonempty organization graph before it writes", async () => {

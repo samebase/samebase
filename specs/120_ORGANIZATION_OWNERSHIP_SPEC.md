@@ -63,9 +63,15 @@ Sources:
 
 ### Minimal schema
 
-`organizations` has no application fields. Convex `_id` is the durable tenant identity and
-`_creationTime` records creation. A name becomes required only when an organization surface needs to
-display or edit one.
+`organizations` uses Convex `_id` as the durable tenant identity and `_creationTime` as its creation
+record. Its only application field is the optional active account-deletion lock:
+
+```text
+accountDeletionRunId?: Id<"workflow_accountDeletion_runs">
+```
+
+The lock prevents two members of one organization from deleting their accounts at the same time. A
+name becomes required only when an organization surface needs to display or edit one.
 
 `organizationMemberships` contains only:
 
@@ -82,8 +88,8 @@ Membership presence is active access. Removing access deletes the membership. Th
 no role, status, timestamps, invitation state, or permission arrays. A role field becomes required
 only when two membership roles have different current behavior.
 
-The organization has no name, slug, kind, status, lifecycle field, creator field, update timestamp,
-active-user field, or external-provider field.
+Other than the account-deletion lock, the organization has no name, slug, kind, status, lifecycle
+field, creator field, update timestamp, active-user field, or external-provider field.
 
 `organizationBillingAccounts` contains one row for each organization. Its final fields are:
 
@@ -237,7 +243,8 @@ The rollout follows this order:
 3. Deploy the final schema and organization membership access checks.
 4. Run one small bootstrap. It creates one shared organization for the two operator users, one
    organization for every other retained user, one membership for every user, and one billing row
-   for every organization. It restores the recorded operator billing state.
+   for every organization. It restores the recorded operator billing state after every checkout
+   attempt is resolved. The bootstrap rejects a checkout attempt.
 5. Verify the bootstrap counts and the two-member access paths, then resume product writes.
 
 These steps ship in one implementation pull request. No old user ownership fields, fallback reads,

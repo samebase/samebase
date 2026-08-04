@@ -9,8 +9,9 @@ Stop the cutover if one of these conditions is true:
 
 - The two operator user IDs are not known and different.
 - The current operator Polar state was not captured and checked against Polar.
-- The second operator or another retained user has a different Polar customer, an active or past-due
-  plan, or an open checkout attempt.
+- The second operator or another retained user has a different Polar customer or an active or
+  past-due plan.
+- Any retained user has a pending or open checkout attempt.
 - A user has an active account-deletion state.
 - An account-deletion run has state `queued`, `running`, or `needs_attention`.
 - A vault-deletion run has state `queued` or `running`.
@@ -53,8 +54,9 @@ normal data export without file storage cannot restore staged uploads and observ
 
 Before the reset, record the two operator user IDs and the selected operator billing state outside
 the repository. Compare the customer and subscription with Polar. Do not copy the second operator's
-billing state. Stop if the second operator or another retained user has separate Polar state that
-the bootstrap would replace with Free and inactive.
+billing state. Resolve every checkout attempt and verify that its field is absent. Stop if the
+second operator or another retained user has separate Polar state that the bootstrap would replace
+with Free and inactive.
 
 Map the old `users` fields to the bootstrap input as follows:
 
@@ -70,10 +72,10 @@ Map the old `users` fields to the bootstrap input as follows:
 | `billingPolarStateChangedAt`             | `polarStateChangedAt`             |
 | `billingPolarObservationRevision`        | `polarObservationRevision`        |
 | `billingPolarAppliedObservationRevision` | `polarAppliedObservationRevision` |
-| `billingPolarCheckoutAttempt`            | `polarCheckoutAttempt`            |
 
 The input must include `plan` and `status`. Keep each optional field absent when the old value is
-absent. For a user without Polar billing, use `plan: "free"` and `status: "inactive"`.
+absent. Do not include `polarCheckoutAttempt`. For a user without Polar billing, use `plan: "free"`
+and `status: "inactive"`.
 
 ## Freeze And Drain Writes
 
@@ -179,11 +181,12 @@ Run `organizationBootstrap:bootstrapOrganizationOwnership` once with this input 
 }
 ```
 
-Use the complete captured billing object, not only the example fields. The Polar external customer
-ID must exactly equal the old `billingPolarExternalCustomerId` value, including its `samebase_`
-prefix. Do not use the Polar internal customer ID. The function fails when the operator IDs are
-equal or missing, when more than 500 users are retained, or when an organization table is not empty.
-It has no rerun or recovery behavior.
+Use the complete captured billing object except `polarCheckoutAttempt`, not only the example fields.
+The Polar external customer ID must exactly equal the old `billingPolarExternalCustomerId` value,
+including its `samebase_` prefix. Do not use the Polar internal customer ID. The function fails when
+the operator IDs are equal or missing, when an operator checkout attempt is present, when more than
+500 users are retained, or when an organization table is not empty. It has no rerun or recovery
+behavior.
 
 ## Verify And Reconnect
 

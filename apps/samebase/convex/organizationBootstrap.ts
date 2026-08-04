@@ -26,6 +26,9 @@ export const bootstrapOrganizationOwnership = internalMutation({
     if (args.operatorUserIdA === args.operatorUserIdB) {
       throw new Error("Organization bootstrap requires two different operator users.");
     }
+    if (args.operatorBilling.polarCheckoutAttempt !== undefined) {
+      throw new Error("Organization bootstrap requires checkout attempts to be resolved.");
+    }
 
     const [users, organization, membership, billingAccount] = await Promise.all([
       ctx.db.query("users").take(USER_ROW_CAP + 1),

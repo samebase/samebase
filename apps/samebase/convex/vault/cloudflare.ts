@@ -217,7 +217,12 @@ async function readWorkerConvexProjectConfigurationContext(
 ): Promise<WorkerConvexProjectConfigurationContext> {
   return await ctx.runQuery(
     internal.vault.cloudflareMutations.readWorkerConvexProjectConfigurationContext,
-    args,
+    {
+      vaultId: args.vaultId,
+      userId: args.userId,
+      workerId: args.workerId,
+      convexProjectId: args.convexProjectId,
+    },
   );
 }
 

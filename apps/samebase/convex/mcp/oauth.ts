@@ -496,7 +496,7 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
     const access = await requireOrganizationAccessContext(ctx.db, args.userId);
     const existingGrant = await ctx.db
       .query("mcpGrants")
-      .withIndex("by_user_id_organization_id_client_id_resource_scope_status", (q) =>
+      .withIndex("by_user_and_org_and_client_and_resource_and_scope_and_status", (q) =>
         q
           .eq("userId", args.userId)
           .eq("organizationId", access.organizationId)
