@@ -53,6 +53,12 @@ output or a per-commit journal.
 - Make each provider connection organization-owned and require `connectedByUserId` for the member
   who connected or last reauthorized it. Use the organization for access and the user link for
   provenance and credential lifecycle.
+- Permit several connections per provider kind in the schema, while the first UI continues to create
+  and display one.
+- Bind each vault repository, Convex project, Cloudflare Worker, and provisioning plan to a stable
+  provider connection ID. Provider operations use that ID instead of the acting user.
+- Disconnect a provider by revoking OAuth when possible and stripping the local credential. Keep a
+  disconnected row when resources still refer to its stable ID.
 - Keep the current provider OAuth and API-key methods. Do not add a GitHub App flow.
 - Keep WorkOS and Clerk out of the runtime and schema.
 - Preserve users, authentication data, external provider resources, and the recorded Polar billing
@@ -165,10 +171,10 @@ simplicity, and cutover reviews found and verified the final MCP organization bo
 credential-dependent account-deletion waits, personal UI cleanup, unused-index removal, and safe
 manual reset order. A follow-up review found one strict MCP argument mismatch, one account-deletion
 race, and unsupported concurrent FileView commit cases. The focused fixes use an explicit argument
-object and one organization deletion lock. FileView now keeps only the same-row update needed for a
-normal delayed editor save. Concurrent FileView commit behavior is deferred. Organization provider
-ownership must be implemented and validated before fresh pull request review and the operator-run
-cutover.
+object and one organization deletion lock. FileView keeps the normal one-person edit and commit
+path, then clears committed staging. Delayed-save reconciliation and commit retry recovery are
+deferred. Organization provider ownership must be implemented and validated before fresh pull
+request review and the operator-run cutover.
 
 Manual testing with two members and one waitlisted account found one development-only credential
 problem: the normal auth callback copied the configured seed provider keys to every new local and
@@ -178,17 +184,17 @@ action now installs those keys on the seed account.
 
 On 2026-08-04, the operator changed the accepted provider boundary after the organization-base
 validation. Provider connections must now belong to the organization and retain a required
-`connectedByUserId`. The current branch still uses user-owned provider connections, so the earlier
-validation is evidence for the organization base only. Provider ownership implementation, focused
-tests, and the main provider-backed manual flows are pending. Existing connections will not be
-migrated.
+`connectedByUserId`. The schema must permit several connections of one provider kind without adding
+that UI now. Vault resources and provisioning plans must bind to stable connection IDs. The current
+branch still uses user-owned provider connections, so the earlier validation is evidence for the
+organization base only. Provider ownership implementation, focused tests, and the main
+provider-backed manual flows are pending. Existing connections will not be migrated.
 
 ### Final review-fix checkpoint
 
 Accepted before merge:
 
-- keep the current staged row and move its baseline after a normal commit so a delayed editor save
-  can finish;
+- keep the normal one-person FileView edit and commit path, then clear committed staging;
 - prevent deletion of a storage blob attached anywhere and derive deletion baseline data from the
   authorized vault instead of a client-supplied Git blob SHA;
 - revoke an MCP grant after rotated refresh-token replay even when current membership is absent;
@@ -208,10 +214,9 @@ Explicitly not part of this fix:
 - simultaneous FileView commits, structural edits during a commit, external Git changes during a
   commit, and full two-member FileView acceptance.
 
-The FileView change is intentionally narrow. It keeps row identity and the Git baseline needed for
-the normal one-session save path. It does not add a commit lock, multi-writer merge, or retry state
-machine. Small Git inspection checks remain because they make an interrupted one-person deletion or
-rename safe to retry and fail closed for an ambiguous rename target.
+The FileView release boundary is intentionally narrow. A normal one-person edit and commit remains.
+Post-commit delayed-save reconciliation, retry recovery after Git accepted a commit, ambiguous
+rename retry handling, commit locks, and multi-writer merging are deferred.
 
 ## Prior Organization-Base Validation Evidence
 
@@ -289,8 +294,9 @@ Primary external sources:
 
 ## Next Exact Task
 
-1. Implement organization-owned provider connections with required `connectedByUserId` and no
-   migration or compatibility path.
+1. Implement organization-owned provider connections with required `connectedByUserId`, stable
+   resource bindings, several rows per provider kind in the schema, and no migration or
+   compatibility path.
 2. Validate provider setup, `/vault` reload, repository connection, Convex project creation, and
    Cloudflare Worker creation through both members of the operator organization.
 3. Get fresh independent reviews and green pull request checks.

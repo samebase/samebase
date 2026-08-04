@@ -94,13 +94,21 @@ adds these required ownership fields:
 ```text
 organizationId: Id<"organizations">
 connectedByUserId: Id<"users">
+state: "connected" | "disconnected"
 ```
 
-An organization has at most one connection for each provider kind. `organizationId` controls who can
-use the connection. `connectedByUserId` records the member who connected or last reauthorized the
-credential. It is provenance and a credential-lifecycle dependency, not an access grant. A member
-who connects the same provider kind replaces the organization's existing connection and becomes its
-`connectedByUserId`.
+The schema permits several connections of one provider kind in an organization. The first product
+surface still creates and displays at most one connected connection of each kind. It does not add a
+connection selector. This current UI limit is not a database uniqueness rule.
+
+`organizationId` controls who can use a connection. `connectedByUserId` records the member who
+connected or last reauthorized the credential. It is provenance and a credential-lifecycle
+dependency, not an access grant.
+
+A connected row contains its provider credential. Disconnecting strips the credential and changes
+the row to `disconnected`; it does not delete the stable connection identity. Reauthorization of a
+selected connection restores that same row. Connecting a different external provider target creates
+a different row and never silently rebinds resources that use the old row.
 
 Provider credentials stay inside backend-only functions. Product clients can request an authorized
 provider operation and can read non-secret connection status, but no product client can retrieve the
@@ -108,7 +116,24 @@ stored credential. The rollout keeps the existing OAuth and API-key methods. It 
 GitHub App authorization flow.
 
 `providerOAuthCallbackStates` binds the initiating user to the target organization. The callback
-rechecks that membership before it creates or replaces the organization connection.
+rechecks that membership before it creates or reauthorizes the organization connection.
+
+Every provider-backed resource records the exact provider connection that Samebase must use:
+
+```text
+vaults.githubProviderConnectionId: Id<"providerConnections">
+vaultConvexProjects.providerConnectionId: Id<"providerConnections">
+vaultCloudflareWorkers.providerConnectionId: Id<"providerConnections">
+workflow_vaultProvisioning_plans.githubProviderConnectionId: Id<"providerConnections">
+workflow_vaultProvisioning_plans.convexProviderConnectionId: Id<"providerConnections">
+workflow_vaultProvisioning_plans.cloudflareProviderConnectionId: Id<"providerConnections">
+```
+
+The attachment or plan keeps resource ownership in the organization. Its connection ID only selects
+the credential for provider reads and writes. Provider operations load the row by ID, require the
+same organization and provider kind, and require `state: "connected"`. They never select a
+credential from an actor user ID. A provisioning retry uses the connection IDs recorded when the
+plan was created.
 
 Other than the account-deletion lock, the organization has no name, slug, kind, status, lifecycle
 field, creator field, update timestamp, active-user field, or external-provider field.
@@ -201,11 +226,11 @@ Staged files are one shared collaborative draft for a vault, branch, and path. V
 controls draft access. The final model removes `vaultStagedFiles.ownerId` and its access checks.
 `lastEditUserId` records only the last editor and never authorizes access.
 
-FileView remains a staff-only add-on during this release. Its supported operating mode is one active
-editing and commit session for a vault branch. A normal commit keeps the same staged row so a
-delayed save from that editor can finish. Simultaneous FileView commits, structural edits during a
-commit, and external Git changes during a commit are deferred until FileView becomes a shipped
-add-on. They are not organization-rollout acceptance requirements.
+FileView remains a staff-only add-on during this release. A normal one-person edit and commit is
+supported. A successful commit clears its staged rows. Delayed saves after a commit, commit retries
+after Git already accepted the change, simultaneous commits, structural edits during a commit, and
+external Git changes during a commit are deferred until FileView becomes a shipped add-on. They are
+not organization-rollout acceptance requirements.
 
 Provisioning and vault-deletion runs use `requestedByUserId`. Their event rows derive the requester
 through `runId` and do not copy a user ID. `vaultStagedFileUpdates` uses `editUserId`. Manual
@@ -233,9 +258,10 @@ they create or consume the handoff.
 ### Account deletion
 
 Account deletion always removes the user's authentication data, personal UI data, OAuth callback
-state, and organization membership. It also removes each organization provider connection whose
-`connectedByUserId` is the deleting user. A remaining member can reconnect that provider for the
-organization.
+state, and organization membership. For each connected organization provider connection whose
+`connectedByUserId` is the deleting user, it attempts provider-side OAuth revocation, strips the
+local credential, and changes the stable row to `disconnected`. A remaining member can reauthorize
+that connection without changing resource bindings.
 
 When the deleting user is the only member of an organization, the existing deletion workflow also
 deletes that organization's Samebase resources, billing state, and organization row. Provider-owned
@@ -319,8 +345,8 @@ The rollout is complete only when tests and reset checks prove:
 - A user from another organization cannot read or change those resources.
 - Two members see the same organization vaults and can use the current dashboard, resource,
   provisioning, and deletion flows after the access cutover.
-- A normal one-session FileView edit and commit keeps a delayed editor save. Simultaneous FileView
-  commit behavior is not a release gate.
+- A normal one-session FileView edit and commit succeeds and clears its staged rows. Delayed saves,
+  commit retry recovery, and simultaneous FileView commit behavior are not release gates.
 - A user actor field does not grant access to an organization resource.
 - UI preferences and other personal state remain different for two members of one organization.
 - Both members see the same organization plan, quota usage, and provider connection status. Both can
@@ -329,11 +355,14 @@ The rollout is complete only when tests and reset checks prove:
   access gate.
 - The rollout adds no organization switcher, invitation surface, membership page, or organization
   chrome.
-- Provider connections use the organization boundary and record the connecting member in required
-  `connectedByUserId`. Public functions never return provider credentials.
+- Provider connections use the organization boundary, permit several rows per provider kind, and
+  record the connecting member in required `connectedByUserId`. Public functions never return
+  provider credentials or raw provider error text.
+- Vault resources and provisioning plans use stable provider connection IDs. A retry or reload does
+  not select a credential from the acting user or from an implicit current provider connection.
 - Deleting one of several members preserves shared organization data.
-- Deleting a member removes provider connections linked to that member without deleting provider
-  infrastructure. A remaining member can reconnect the organization provider.
+- Deleting a member disconnects provider connections linked to that member without deleting their
+  stable rows or provider infrastructure. A remaining member can reauthorize the same connection.
 - Deleting the only member removes the organization's Samebase data but not provider infrastructure.
 - Sole-member deletion waits for all organization and vault work. Shared-member deletion waits only
   for work that depends on the deleting user or a provider connection linked to that user.

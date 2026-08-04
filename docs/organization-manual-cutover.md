@@ -79,10 +79,11 @@ and `status: "inactive"`.
 
 ## Freeze And Drain Writes
 
-Before the freeze, disconnect every provider account through the current product controls. Do not
-export or copy the stored credentials. Confirm that `providerConnections` and
-`providerOAuthCallbackStates` are empty. The final schema creates new organization-owned connections
-after deployment.
+Before the freeze, disconnect every provider account through the current product controls. Confirm
+provider-side OAuth revocation when the provider supports it, and revoke API keys in the provider
+dashboard. Do not export or copy the stored credentials. Because the old schema deletes disconnected
+rows, confirm that `providerConnections` and `providerOAuthCallbackStates` are empty. The final
+schema creates new organization-owned connection rows after deployment.
 
 Block all sign-in and account-update entry points. Block new accounts, product traffic, MCP clients,
 MCP authorization, and Polar checkout. Pause Polar webhook delivery. Keep these controls active from
