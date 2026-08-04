@@ -90,11 +90,17 @@ For a linked worktree:
 Use project-specific commands and ownership primitives. Do not copy Samebase names or internal
 implementation only to make the projects look similar.
 
-## Protect Behavior And Private Data
+## Agree On Validation And Protect Private Data
 
-Add framework-neutral characterization tests before a framework migration. Cover public and private
-routes, redirects, server endpoints, authentication recovery, assets, navigation, and the provider
-build.
+Before changing a required check, list its callers, measure or estimate its cost, and explain the
+named risk that it protects. Recommend a required gate that fits the project's importance, the
+migration risk, and the operator's cost tolerance. Get operator agreement before you add or remove
+slow required checks. Technical complexity does not determine project importance. Adoption must not
+silently become a testing-maturity upgrade.
+
+When the migration puts named behavior at risk and current checks do not protect it, propose the
+smallest framework-neutral characterization test for that risk. Do not add broad route, navigation,
+asset, browser, or provider coverage as a default migration requirement.
 
 Authorize private data at its data boundary. Route authentication alone is not enough. Test
 anonymous rejection and authenticated behavior for each public data function.

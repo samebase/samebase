@@ -77,6 +77,11 @@ pins. Classify each difference as alignment, a proven target constraint, an inve
 tested exception. Samebase is the first baseline, not an unquestioned authority. Carry target
 findings back when they improve the public reference.
 
+Before changing required validation, report the current commands, their measured or estimated cost,
+and the risk that each protects. Recommend a gate that fits the project's importance and the change
+risk, then get operator agreement. Do not infer project importance from technical complexity or turn
+stack alignment into a testing-maturity upgrade.
+
 Treat authored `.js`, `.mjs`, and `.cjs` files and direct ESLint, Prettier, Vitest, or Vite runners
 as review smells. Keep an exception only for one named tool or runtime boundary that cannot use the
 normal TypeScript and Vite+ path. Document the boundary. Do not add a repository scanner only to
