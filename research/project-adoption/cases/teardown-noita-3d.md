@@ -75,10 +75,11 @@ The adoption made the full Playwright suite a required pull request gate. Severa
 and touch tests allowed up to two minutes each. That was a testing-maturity decision, not a
 necessary Samebase stack decision, and the manager did not ask the operator to approve it.
 
-The correction keeps fast static checks, the build, and WASM artifact verification as required
-evidence. It reduces the browser requirement to one short application smoke test. Broader gameplay,
-device, and stress coverage can return when the operator decides that the project needs that
-assurance.
+The target correction in
+[pull request 13](https://github.com/nicu-chiciuc/teardown-noita-3d/pull/13) keeps fast static
+checks, the build, and WASM artifact verification as required evidence. It reduces the browser
+requirement to one short application smoke test. Broader gameplay, device, and stress coverage can
+return when the operator decides that the project needs that assurance.
 
 ## First-deployment preview experiment
 
