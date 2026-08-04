@@ -53,7 +53,7 @@ export function OrganizationSelector() {
   return (
     <div className="vault-dashboard-sidebar-inset border-b border-border/50 py-3">
       <Select
-        value={selection.state === "selected" ? selection.organizationId : undefined}
+        value={selection.state === "selected" ? selection.organizationId : null}
         onValueChange={(organization) => {
           const pathname = getOrganizationSwitchPathname(location.pathname);
           void router.navigate({

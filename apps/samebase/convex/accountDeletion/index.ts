@@ -13,7 +13,6 @@ import {
   serializeAccountDeletionConfirmationStakes,
 } from "../../shared/accountDeletionPhrase";
 import { hasStagedFileChanges } from "../../shared/stagedFiles";
-import { TREE_REFRESH_STALE_LOCK_MS } from "../../shared/treeRefresh";
 import {
   INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
   vAccountDeletionDataProgress,
@@ -356,41 +355,6 @@ export const request = mutation({
     }
 
     const vaults = stakesContext.vaults;
-    const organizationVaults = await ctx.db
-      .query("vaults")
-      .withIndex("by_organization", (query) =>
-        query.eq("organizationId", deletionOrganization.organizationId),
-      )
-      .collect();
-    const blockerCheckTime = Date.now();
-    for (const vault of organizationVaults) {
-      const write = await ctx.db
-        .query("workflow_vaultProvisioning_writeLocks")
-        .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-        .unique();
-      if (
-        write?.owner.kind === "manual_provider_write" &&
-        write.state === "active" &&
-        write.owner.expiresAt > blockerCheckTime &&
-        (deletionOrganization.membershipState === "sole" ||
-          write.owner.requestedByUserId === ctx.viewer.userId)
-      ) {
-        throw new Error(
-          "A provider change is active. Wait for it to finish before you delete the account.",
-        );
-      }
-      const refresh = vault.state === "connected" ? vault.treeRefreshLock : undefined;
-      if (
-        refresh &&
-        blockerCheckTime - refresh.startedAt < TREE_REFRESH_STALE_LOCK_MS &&
-        (deletionOrganization.membershipState === "sole" ||
-          refresh.requestedByUserId === ctx.viewer.userId)
-      ) {
-        throw new Error(
-          "A repository refresh is active. Wait for it to finish before you delete the account.",
-        );
-      }
-    }
     const currentStakes = await countAccountDeletionStakes(
       ctx.db,
       vaults,

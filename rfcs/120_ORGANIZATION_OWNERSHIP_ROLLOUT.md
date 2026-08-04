@@ -193,8 +193,8 @@ Implemented in the current pull request and worktree:
   default;
 - required provider OAuth return paths that preserve the selected organization across GitHub,
   Convex, Cloudflare, and Cloudflare MCP redirects;
-- one deployment-local organization binding for development provider seeding, created only when the
-  seed user has exactly one membership and reused after that user joins other organizations;
+- development provider seeding that uses the only membership when it is unambiguous and requires an
+  explicit organization for a user with several memberships, with no stored default organization;
 - provider-side OAuth revocation before local disconnect for GitHub and Cloudflare, fixed public
   provider failure messages, and account deletion across every connected provider row; and
 - the GitHub `workflow` scope required by the shipped starter CI file, plus a normal parented commit

@@ -3,7 +3,6 @@ import { v, type Infer } from "convex/values";
 
 import type { Id, TableNames } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
-import { TREE_REFRESH_STALE_LOCK_MS } from "../../shared/treeRefresh";
 import {
   deleteVaultLocalDataBatchForOrganization,
   type VaultLocalCleanupBatchResult,
@@ -119,16 +118,6 @@ const accountLocalCleanupBatchResult = union(
     runId: id("workflow_vaultProvisioning_runs"),
   }),
   object({
-    state: literal("blocked"),
-    blocker: literal("active_provider_change"),
-    vaultId: id("vaults"),
-  }),
-  object({
-    state: literal("blocked"),
-    blocker: literal("active_repository_refresh"),
-    vaultId: id("vaults"),
-  }),
-  object({
     state: literal("needs_more"),
     target: accountLocalCleanupTarget,
     rowsChanged: number(),
@@ -159,16 +148,11 @@ const accountDeletionQuiescenceResult = union(
   object({ state: literal("done") }),
   object({ state: literal("waiting"), blocker: literal("active_vault_deletion") }),
   object({ state: literal("waiting"), blocker: literal("active_app_provisioning") }),
-  object({ state: literal("waiting"), blocker: literal("active_provider_change") }),
-  object({ state: literal("waiting"), blocker: literal("active_repository_refresh") }),
 );
 
 const ACCOUNT_LOCAL_CLEANUP_BATCH_SIZE = 25;
 const ACTIVE_WORK_BLOCKS_DELETION_ERROR = "Account deletion cleanup is blocked by active work.";
 type AccountLocalCleanupCtx = Pick<MutationCtx, "db" | "storage">;
-type AccountDeletionCleanupScope = AccountDeletionOrganization & {
-  userId: Id<"users">;
-};
 
 async function deleteRowsById<TableName extends TableNames>(
   ctx: AccountLocalCleanupCtx,
@@ -183,24 +167,8 @@ async function deleteRowsById<TableName extends TableNames>(
 
 async function findActiveVaultDeletion(
   ctx: AccountLocalCleanupCtx,
-  scope: AccountDeletionCleanupScope,
+  scope: AccountDeletionOrganization,
 ): Promise<Id<"workflow_vaultDeletion_runs"> | null> {
-  if (scope.membershipState === "shared") {
-    for (const state of ["queued", "running"] as const) {
-      const run = await ctx.db
-        .query("workflow_vaultDeletion_runs")
-        .withIndex("by_requester_and_state_and_updated_at", (query) =>
-          query.eq("requestedByUserId", scope.userId).eq("state", state),
-        )
-        .order("asc")
-        .first();
-      if (run !== null) {
-        return run._id;
-      }
-    }
-    return null;
-  }
-
   for await (const vault of ctx.db
     .query("vaults")
     .withIndex("by_organization", (query) => query.eq("organizationId", scope.organizationId))) {
@@ -224,24 +192,8 @@ async function findActiveVaultDeletion(
 
 async function findActiveAppProvisioning(
   ctx: AccountLocalCleanupCtx,
-  scope: AccountDeletionCleanupScope,
+  scope: AccountDeletionOrganization,
 ): Promise<Id<"workflow_vaultProvisioning_runs"> | null> {
-  if (scope.membershipState === "shared") {
-    for (const state of ["queued", "running"] as const) {
-      const run = await ctx.db
-        .query("workflow_vaultProvisioning_runs")
-        .withIndex("by_requester_and_state_and_updated_at", (query) =>
-          query.eq("requestedByUserId", scope.userId).eq("state", state),
-        )
-        .order("asc")
-        .first();
-      if (run !== null) {
-        return run._id;
-      }
-    }
-    return null;
-  }
-
   for await (const vault of ctx.db
     .query("vaults")
     .withIndex("by_organization", (query) => query.eq("organizationId", scope.organizationId))) {
@@ -261,59 +213,9 @@ async function findActiveAppProvisioning(
   return null;
 }
 
-async function findActiveRepositoryRefresh(
-  ctx: AccountLocalCleanupCtx,
-  scope: AccountDeletionCleanupScope,
-): Promise<Id<"vaults"> | null> {
-  const now = Date.now();
-  const vaults = ctx.db
-    .query("vaults")
-    .withIndex("by_organization", (query) => query.eq("organizationId", scope.organizationId));
-
-  for await (const vault of vaults) {
-    const lock = vault.state === "connected" ? vault.treeRefreshLock : undefined;
-    if (
-      lock &&
-      now - lock.startedAt < TREE_REFRESH_STALE_LOCK_MS &&
-      (scope.membershipState === "sole" || lock.requestedByUserId === scope.userId)
-    ) {
-      return vault._id;
-    }
-  }
-
-  return null;
-}
-
-async function findActiveManualProviderWrite(
-  ctx: AccountLocalCleanupCtx,
-  scope: AccountDeletionCleanupScope,
-): Promise<Id<"vaults"> | null> {
-  const now = Date.now();
-  const vaults = ctx.db
-    .query("vaults")
-    .withIndex("by_organization", (query) => query.eq("organizationId", scope.organizationId));
-
-  for await (const vault of vaults) {
-    const write = await ctx.db
-      .query("workflow_vaultProvisioning_writeLocks")
-      .withIndex("by_vault", (query) => query.eq("vaultId", vault._id))
-      .unique();
-    if (
-      write?.state === "active" &&
-      write.owner.kind === "manual_provider_write" &&
-      write.owner.expiresAt > now &&
-      (scope.membershipState === "sole" || write.owner.requestedByUserId === scope.userId)
-    ) {
-      return vault._id;
-    }
-  }
-
-  return null;
-}
-
 async function findAccountDeletionCleanupBlocker(
   ctx: AccountLocalCleanupCtx,
-  scope: AccountDeletionCleanupScope,
+  scope: AccountDeletionOrganization,
 ): Promise<Extract<AccountLocalCleanupBatchResult, { state: "blocked" }> | null> {
   const activeVaultDeletionRunId = await findActiveVaultDeletion(ctx, scope);
 
@@ -335,32 +237,12 @@ async function findAccountDeletionCleanupBlocker(
     };
   }
 
-  const activeManualProviderWriteVaultId = await findActiveManualProviderWrite(ctx, scope);
-
-  if (activeManualProviderWriteVaultId) {
-    return {
-      state: "blocked",
-      blocker: "active_provider_change",
-      vaultId: activeManualProviderWriteVaultId,
-    };
-  }
-
-  const activeRepositoryRefreshVaultId = await findActiveRepositoryRefresh(ctx, scope);
-
-  if (activeRepositoryRefreshVaultId) {
-    return {
-      state: "blocked",
-      blocker: "active_repository_refresh",
-      vaultId: activeRepositoryRefreshVaultId,
-    };
-  }
-
   return null;
 }
 
 async function assertAccountDeletionCleanupIsQuiescent(
   ctx: AccountLocalCleanupCtx,
-  scope: AccountDeletionCleanupScope,
+  scope: AccountDeletionOrganization,
 ) {
   if (await findAccountDeletionCleanupBlocker(ctx, scope)) {
     throw new Error(ACTIVE_WORK_BLOCKS_DELETION_ERROR);
@@ -370,16 +252,13 @@ async function assertAccountDeletionCleanupIsQuiescent(
 async function readAccountDeletionCleanupScope(
   ctx: AccountLocalCleanupCtx,
   userId: Id<"users">,
-): Promise<AccountDeletionCleanupScope> {
-  return {
-    userId,
-    ...(await readAccountDeletionOrganization(ctx.db, userId)),
-  };
+): Promise<AccountDeletionOrganization> {
+  return await readAccountDeletionOrganization(ctx.db, userId);
 }
 
 async function cleanupVaultBatch(
   ctx: AccountLocalCleanupCtx,
-  scope: AccountDeletionCleanupScope,
+  scope: AccountDeletionOrganization,
 ): Promise<VaultDataCleanupBatchResult> {
   if (scope.membershipState === "shared") {
     return { state: "done" };

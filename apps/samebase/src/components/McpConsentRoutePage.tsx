@@ -33,7 +33,7 @@ function McpConsentView({ requestId }: { requestId: string }) {
   );
   const denyAuthorizationRequest = useAction(api.mcp.oauth.denyAuthorizationRequestForCurrentUser);
   const [pendingAction, setPendingAction] = useState<"approve" | "deny" | null>(null);
-  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>();
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const selectedOrganization = organizations?.find(
     ({ organizationId }) => organizationId === selectedOrganizationId,
@@ -133,7 +133,7 @@ function McpConsentView({ requestId }: { requestId: string }) {
               <div className="text-muted-foreground">{organizations[0].label}</div>
             ) : (
               <Select
-                value={organization?.organizationId}
+                value={organization?.organizationId ?? null}
                 onValueChange={setSelectedOrganizationId}
               >
                 <SelectTrigger aria-label="Organization" className="mt-1 w-full">
