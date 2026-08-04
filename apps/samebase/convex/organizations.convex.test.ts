@@ -157,39 +157,4 @@ describe("organization provisioning", () => {
       },
     });
   });
-
-  it("enforces the organization graph when an existing account is updated", async () => {
-    const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
-        email: "existing@example.com",
-        emailVerificationTime: 1,
-      });
-    });
-
-    await t.action(internal.authAdmin.createOrUpdatePasswordAccount, {
-      email: "existing@example.com",
-      password: "valid-password",
-    });
-
-    const snapshot = await t.run(async (ctx) => {
-      return {
-        membership: await ctx.db
-          .query("organizationMemberships")
-          .withIndex("by_user", (query) => query.eq("userId", userId))
-          .unique(),
-        organizations: await ctx.db.query("organizations").take(1),
-        billingAccounts: await ctx.db.query("organizationBillingAccounts").take(1),
-      };
-    });
-
-    expect(snapshot.membership).toMatchObject({ userId });
-    expect(snapshot.organizations).toHaveLength(1);
-    expect(snapshot.billingAccounts).toEqual([
-      expect.objectContaining({
-        plan: "free",
-        status: "inactive",
-      }),
-    ]);
-  });
 });

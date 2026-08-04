@@ -173,58 +173,6 @@ describe("McpConsentRoutePage workspace shell", () => {
   });
 
   it("renders a readable label for the browser handoff scope", async () => {
-    const organizationId = fakeOrganizationId();
-    authState.isAuthenticated = true;
-    authorizationRequestState.value = {
-      requestId: "mcpar_test",
-      clientId: "mcpc_test",
-      clientName: "Local Codex handoff smoke",
-      resource: "http://127.0.0.1:12469/mcp",
-      scope: "access_browser_login_handoff",
-      scopes: ["access_browser_login_handoff"],
-      status: "pending",
-      dynamicallyRegistered: true,
-      createdAt: 1,
-      expiresAt: 2,
-    };
-    organizationListState.value = [
-      {
-        organizationId,
-        label: "Test organization",
-      },
-    ];
-    rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    root = createRoot(rootElement);
-
-    await act(async () => {
-      root?.render(
-        <TestRouterProvider initialEntries={["/oauth/mcp/consent?mcp_consent_request=mcpar_test"]}>
-          <McpConsentRoutePage />
-        </TestRouterProvider>,
-      );
-    });
-
-    expect(rootElement.textContent).toContain("Open Samebase in a browser as your account");
-    expect(rootElement.textContent).not.toContain("access_browser_login_handoff");
-    expect(rootElement.textContent).toContain("Test organization");
-
-    const approveButton = Array.from(rootElement.querySelectorAll("button")).find(
-      (button) => button.textContent === "Approve",
-    );
-    if (approveButton === undefined) {
-      throw new Error("Expected the MCP approval button.");
-    }
-    await act(async () => {
-      approveButton.click();
-    });
-    expect(completeAuthorizationRequestMock).toHaveBeenCalledWith({
-      requestId: "mcpar_test",
-      organizationId,
-    });
-  });
-
-  it("shows the selected organization label instead of its id", async () => {
     const firstOrganizationId = fakeOrganizationId();
     // @ts-expect-error Convex ids are strings at runtime; this test needs a second stable id.
     const secondOrganizationId: Id<"organizations"> = "organization_second";
@@ -277,5 +225,21 @@ describe("McpConsentRoutePage workspace shell", () => {
 
     expect(trigger.textContent).toContain("First organization");
     expect(trigger.textContent).not.toContain(firstOrganizationId);
+    expect(rootElement.textContent).toContain("Open Samebase in a browser as your account");
+    expect(rootElement.textContent).not.toContain("access_browser_login_handoff");
+
+    const approveButton = Array.from(rootElement.querySelectorAll("button")).find(
+      (button) => button.textContent === "Approve",
+    );
+    if (approveButton === undefined) {
+      throw new Error("Expected the MCP approval button.");
+    }
+    await act(async () => {
+      approveButton.click();
+    });
+    expect(completeAuthorizationRequestMock).toHaveBeenCalledWith({
+      requestId: "mcpar_test",
+      organizationId: firstOrganizationId,
+    });
   });
 });

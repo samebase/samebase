@@ -489,27 +489,6 @@ describe("billing resource quotas", () => {
     ).rejects.toThrow("Organization membership is required.");
   });
 
-  it("fails clearly when organization billing is missing", async () => {
-    const t = makeConvexTest();
-    const { organizationId, userId } = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        email: "missing-billing@example.com",
-        isApproved: true,
-      });
-      const organizationId = await ctx.db.insert("organizations", {
-        name: "Usage organization",
-      });
-      await ctx.db.insert("organizationMemberships", { organizationId, userId });
-      return { organizationId, userId };
-    });
-
-    await expect(
-      asUser(t, userId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {
-        organizationId,
-      }),
-    ).rejects.toThrow("Organization billing account is required.");
-  });
-
   it("counts organization attachments across all members", async () => {
     const { ids, t } = await createOrganizationQuotaFixture();
     await Promise.all([

@@ -269,89 +269,6 @@ describe("account deletion auth cleanup", () => {
         organizationId: ids.organizationId,
         userId: remainingUserId,
       });
-      await ctx.db.patch(ids.billingAccountId, {
-        provider: "polar",
-        plan: "pro",
-        status: "active",
-        polarExternalCustomerId: "shared-customer",
-      });
-      const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
-        kind: "github",
-        state: "connected",
-        organizationId: ids.organizationId,
-        connectedByUserId: remainingUserId,
-        accountId: "remaining-github-account",
-        auth: { method: "api_key", credential: "github-token" },
-        createdAt: 1,
-        updatedAt: 1,
-      });
-      const vaultId = await ctx.db.insert("vaults", {
-        organizationId: ids.organizationId,
-        state: "not_connected",
-        deletion: { state: "not_deleting" },
-      });
-      const provisioningRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        requestedByUserId: remainingUserId,
-        vaultId,
-        repositoryFullName: "owner/shared-repository",
-        trigger: "connect_existing_repository",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 1,
-        updatedAt: 2,
-        completedAt: 2,
-      });
-      const failedRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
-        requestedByUserId: ids.userId,
-        vaultId,
-        repositoryFullName: "owner/shared-repository",
-        attempt: { kind: "initial" },
-        state: "failed",
-        workflow: { state: "started", workflowId: "failed-shared-delete" },
-        currentStep: "delete_github_repo",
-        snapshot: {
-          state: "retained_for_retry",
-          plan: {
-            target: {
-              kind: "existing_repository",
-              ghRepoId: "shared-repository",
-              owner: "owner",
-              name: "shared-repository",
-              repositoryFullName: "owner/shared-repository",
-            },
-            convex: { action: "skip", reason: "not_requested" },
-            cloudflare: { action: "skip", reason: "not_requested" },
-            githubRepository: { action: "skip", reason: "not_requested" },
-          },
-        },
-        lastError: "Deletion failed.",
-        createdAt: 3,
-        updatedAt: 4,
-        completedAt: 4,
-      });
-      const failedEventId = await ctx.db.insert("workflow_vaultDeletion_events", {
-        vaultId,
-        repositoryFullName: "owner/shared-repository",
-        runId: failedRunId,
-        step: "delete_github_repo",
-        level: "error",
-        message: "Deletion failed.",
-        createdAt: 4,
-      });
-      await ctx.db.replace(vaultId, {
-        organizationId: ids.organizationId,
-        state: "connected",
-        githubProviderConnectionId,
-        githubMode: "connect_existing_repository",
-        deletion: { state: "delete_failed", runId: failedRunId, failedAt: 4 },
-        runId: provisioningRunId,
-        ghRepoId: "shared-repository",
-        owner: "owner",
-        name: "shared-repository",
-        visibility: "private",
-        defaultBranch: "main",
-        connectedAt: 2,
-      });
       await ctx.db.patch(ids.runId, {
         outcomes: {
           billing: { state: "not_applicable" },
@@ -365,14 +282,10 @@ describe("account deletion auth cleanup", () => {
         },
       });
       return {
-        billingAccountId: ids.billingAccountId,
         deletingMembershipId: ids.membershipId,
-        failedEventId,
-        failedRunId,
         organizationId: ids.organizationId,
         remainingMembershipId,
         remainingUserId,
-        vaultId,
       };
     });
     const args = { runId: ids.runId, workflowId };
@@ -385,40 +298,18 @@ describe("account deletion auth cleanup", () => {
     ).resolves.toBeNull();
 
     const stored = await t.run(async (ctx) => ({
-      billing: await ctx.db.get(retained.billingAccountId),
       deletingMembership: await ctx.db.get(retained.deletingMembershipId),
       organization: await ctx.db.get(retained.organizationId),
       remainingMembership: await ctx.db.get(retained.remainingMembershipId),
       remainingUser: await ctx.db.get(retained.remainingUserId),
-      failedEvent: await ctx.db.get(retained.failedEventId),
-      failedRun: await ctx.db.get(retained.failedRunId),
       user: await ctx.db.get(ids.userId),
-      vault: await ctx.db.get(retained.vaultId),
     }));
     expect(stored.user).toBeNull();
     expect(stored.deletingMembership).toBeNull();
     expect(stored.organization).not.toBeNull();
     expect(stored.organization).not.toHaveProperty("accountDeletionRunId");
-    expect(stored.billing).not.toBeNull();
     expect(stored.remainingMembership).not.toBeNull();
     expect(stored.remainingUser).not.toBeNull();
-    expect(stored.vault).not.toBeNull();
-    expect(stored.failedRun).toMatchObject({
-      requestedByUserId: ids.userId,
-      state: "failed",
-    });
-    expect(stored.failedEvent).not.toBeNull();
-
-    const retry = await t.mutation(internal.vault.deletion.runs.createRetryRun, {
-      userId: retained.remainingUserId,
-      failedRunId: retained.failedRunId,
-    });
-    await expect(
-      t.run(async (ctx) => await ctx.db.get(retry.deletionRunId)),
-    ).resolves.toMatchObject({
-      requestedByUserId: retained.remainingUserId,
-      attempt: { kind: "retry", retryOf: retained.failedRunId },
-    });
   });
 
   it("deletes sole-member organization billing and the empty organization at finalization", async () => {

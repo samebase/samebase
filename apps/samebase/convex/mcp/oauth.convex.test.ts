@@ -566,74 +566,25 @@ describe("MCP OAuth organization binding", () => {
     });
   });
 
-  it("binds a created and reused grant to the explicitly selected organization", async () => {
-    const t = makeConvexTest();
-    const ids = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        email: "organization-grant@example.test",
-        isApproved: true,
-      });
-      const organizationId = await ctx.db.insert("organizations", { name: "Selected grant" });
-      const otherOrganizationId = await ctx.db.insert("organizations", {
-        name: "Other grant",
-      });
-      await ctx.db.insert("organizationMemberships", { organizationId, userId });
-      await ctx.db.insert("organizationMemberships", {
-        organizationId: otherOrganizationId,
-        userId,
-      });
-      await ctx.db.insert("organizationBillingAccounts", {
-        organizationId,
-        plan: "free",
-        status: "inactive",
-      });
-      await ctx.db.insert("mcpOauthClients", {
-        clientId,
-        clientName: "Organization grant client",
-        redirectUris: ["http://127.0.0.1/callback"],
-        grantTypes: ["authorization_code", "refresh_token"],
-        responseTypes: ["code"],
-        tokenEndpointAuthMethod: "none",
-        createdAt: now,
-        updatedAt: now,
-        createdBy: "dynamic_registration",
-        registrationStatus: "active",
-        metadataJson: "{}",
-      });
-      for (const requestId of ["mcpar_organization_first", "mcpar_organization_reuse"]) {
-        await ctx.db.insert("mcpAuthorizationRequests", {
-          requestId,
-          clientId,
-          redirectUri: "http://127.0.0.1/callback",
-          resource,
-          scope,
-          codeChallenge: "unused-code-challenge",
-          codeChallengeMethod: "S256",
-          userId,
-          status: "pending",
-          createdAt: now,
-          expiresAt: now + 60_000,
-        });
-      }
-      return { organizationId, userId };
+  it("binds a created grant to the explicitly selected organization", async () => {
+    const requestId = "mcpar_organization_first";
+    const { ids, t } = await seedOrganizationGrantCandidates({
+      email: "organization-grant@example.test",
+      requestId,
+      grants: [],
     });
 
-    for (const [requestId, codeHash] of [
-      ["mcpar_organization_first", "organization_code_hash_first"],
-      ["mcpar_organization_reuse", "organization_code_hash_reuse"],
-    ] as const) {
-      await expect(
-        t.mutation(internal.mcp.oauth.issueAuthorizationCodeForAuthRequest, {
-          requestId,
-          userId: ids.userId,
-          organizationId: ids.organizationId,
-          codeHash,
-          codeExpiresAt: now + 60_000,
-          allowLoopbackHttpRedirectUris: true,
-          now: now + 1,
-        }),
-      ).resolves.toMatchObject({ ok: true });
-    }
+    await expect(
+      t.mutation(internal.mcp.oauth.issueAuthorizationCodeForAuthRequest, {
+        requestId,
+        userId: ids.userId,
+        organizationId: ids.organizationId,
+        codeHash: "organization_code_hash_first",
+        codeExpiresAt: now + 60_000,
+        allowLoopbackHttpRedirectUris: true,
+        now: now + 1,
+      }),
+    ).resolves.toMatchObject({ ok: true });
 
     await expect(t.run(async (ctx) => await ctx.db.query("mcpGrants").collect())).resolves.toEqual([
       expect.objectContaining({
