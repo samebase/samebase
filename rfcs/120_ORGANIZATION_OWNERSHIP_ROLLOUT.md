@@ -275,6 +275,11 @@ Final integrated code head before this progress-record update: `22846b8c`.
   an isolated Linux rerun without a code change.
 - Independent release-path and delete-first reviews found no provider-ownership or main-flow blocker
   and no safe production code to remove before the one-time retained-user bootstrap runs.
+- The first pull request preview deploy found one old user-owned provider row in the exact Convex
+  preview deployment. Convex rejected the row because it had no organization fields. The preview
+  deployment was confirmed as `preview/codex-organization-ownership-spec`, deleted, and recreated.
+  The clean retry passed without migration or compatibility code, and all pull request checks were
+  green.
 
 ## UI And Workflow Coverage
 
@@ -333,14 +338,13 @@ Primary external sources:
 
 ## Next Exact Task
 
-1. Get green pull request checks.
-2. Validate shared provider status and resource access through both members when the member setup
+1. Validate shared provider status and resource access through both members when the member setup
    flow is ready for release testing.
-3. Record the Polar billing state and confirm that no destructive workflow is active.
-4. Disconnect all providers, pause product writes, and follow the accepted manual reset runbook
+2. Record the Polar billing state and confirm that no destructive workflow is active.
+3. Disconnect all providers, pause product writes, and follow the accepted manual reset runbook
    while the old schema is live.
-5. Merge and deploy the final schema and organization-authoritative runtime.
-6. Run the retained-user bootstrap with the two explicit operator user IDs and recorded billing
+4. Merge and deploy the final schema and organization-authoritative runtime.
+5. Run the retained-user bootstrap with the two explicit operator user IDs and recorded billing
    state.
-7. Verify the bootstrap counts and the required two-member flows, reconnect MCP and the retained
+6. Verify the bootstrap counts and the required two-member flows, reconnect MCP and the retained
    vaults, then resume product writes.
