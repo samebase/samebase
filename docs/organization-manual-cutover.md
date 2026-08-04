@@ -177,17 +177,25 @@ Run `organizationBootstrap:bootstrapOrganizationOwnership` once with this input 
     "provider": "polar",
     "plan": "pro",
     "status": "active",
+    "currentPeriodEndAt": 1788134400000,
+    "cancelAtPeriodEnd": false,
     "polarExternalCustomerId": "<captured Polar external customer ID>"
   }
 }
 ```
 
 Use the complete captured billing object except `polarCheckoutAttempt`, not only the example fields.
-The Polar external customer ID must exactly equal the old `billingPolarExternalCustomerId` value,
-including its `samebase_` prefix. Do not use the Polar internal customer ID. The function fails when
-the operator IDs are equal or missing, when an operator checkout attempt is present, when more than
-500 users are retained, or when an organization table is not empty. It has no rerun or recovery
-behavior.
+Free billing without a Polar customer must use `plan: "free"` and `status: "inactive"`; only
+`updatedAt` can also be present. Free billing with a Polar customer must also include
+`provider: "polar"` and its external customer ID. It can include the captured update and Polar
+observation fields, but it must not include a subscription period or cancellation state. Pro billing
+must use `provider: "polar"`, `plan: "pro"`, an `active` or `past_due` status, the external customer
+ID, `currentPeriodEndAt`, and `cancelAtPeriodEnd`. The Polar external customer ID must exactly equal
+the old `billingPolarExternalCustomerId` value, including its `samebase_` prefix. Do not use the
+Polar internal customer ID. The function fails when the operator IDs are equal or missing, when the
+billing state is inconsistent, when the external customer ID is empty or untrimmed, when an operator
+checkout attempt is present, when more than 500 users are retained, or when an organization table is
+not empty. It has no rerun or recovery behavior.
 
 ## Verify And Reconnect
 
