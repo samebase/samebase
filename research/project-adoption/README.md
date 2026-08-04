@@ -7,10 +7,9 @@
 - First case: [Bristol TSX](cases/bristol-tsx.md)
 - Second case: [Teardown Noita 3D](cases/teardown-noita-3d.md)
 - Skill-bundle experiment: [Weight TSX](experiments/weight-tsx-skill-bundles.md), where the short
-  public skill scored 28/32 and the public skill plus the detailed adoption bundle scored 22/32
+  public skill won the preflight 28/32 to 22/32 and the implementation 28/32 to 25/32
 - Worker input: [portable rules](portable-rules.md)
-- Next gate: compare both skill bundles during an isolated Weight TSX implementation before the
-  detailed adoption bundle is reduced or removed
+- Next gate: review the winning local Weight TSX patch before any target-repository publication
 
 ## Purpose
 

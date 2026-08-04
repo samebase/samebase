@@ -64,11 +64,23 @@ not copy tool schemas or general coding instructions into the skill.
 - Artifact commit: `230646b5e01f6fc75f0549490e7f9da3227dcf5a`
 - Model: GPT-5.6 Sol, high reasoning effort
 - Target: `nicu-chiciuc/weight_tsx` at `e26a38348dca39adbf7096d7a5ed1661ffeb3572`
-- Result: the public skill scored 28/32. The same skill plus the detailed adoption skill and
-  contract scored 22/32. Clean isolation passed. Keep the public skill as the default. Extract only
-  proven, compact Samebase-specific boundary rules from the detailed bundle. The public skill now
-  names the production-build approval boundary. See
+- Result: clean isolation passed. The public skill won the read-only preflight 28/32 to 22/32 and
+  the local implementation 28/32 to 25/32. The public implementation used less time and output,
+  preserved the frozen shared versions, covered more build boundaries, and produced the smaller
+  bundle. Retire the detailed adoption skill and keep the public plugin as the source of truth. The
+  public skill now names the production-build approval boundary. See
   `research/project-adoption/experiments/weight-tsx-skill-bundles.md`.
+
+## Last focused adoption implementation
+
+- Date: 2026-08-04
+- Artifact commit: `10e0b91594db18e178676947defa816a3b4a3d37`
+- Model: GPT-5.6 Sol, high reasoning effort
+- Target: `nicu-chiciuc/weight_tsx` at `e26a38348dca39adbf7096d7a5ed1661ffeb3572`
+- Result: both anonymous implementations passed independent format, lint, type, focused test,
+  production build, and Cloudflare dry-run checks. The public-only specimen scored 28/32. The
+  public-plus-detailed specimen scored 25/32. Continue from the public-only patch after a focused
+  review applies the useful missing-configuration and provider-documentation details.
 
 ## Last focused production-approval regression
 

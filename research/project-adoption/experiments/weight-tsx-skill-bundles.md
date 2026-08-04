@@ -4,17 +4,14 @@ Date: 2026-08-04
 
 ## Outcome
 
-The short public Samebase skill produced the better read-only adoption plan. It scored 28/32. The
-same skill plus the detailed adoption skill and contract scored 22/32.
+The short public Samebase skill won both controlled comparisons:
 
-Keep the public skill as the default input. Do not promote the detailed adoption bundle as the
-default. Its useful findings do not justify its added process, target-specific branches, unsupported
-claims, or output cost.
+- read-only preflight: 28/32, compared with 22/32 for the public skill plus the detailed bundle
+- local implementation: 28/32, compared with 25/32 for the public skill plus the detailed bundle
 
-The result is material enough to test both bundles during a controlled repository implementation.
-The detailed bundle found two real target defects and stated one production approval boundary more
-clearly. The next test must determine if those benefits survive when the agent edits and validates
-the project.
+Keep the public skill as the default and retire the detailed adoption bundle. The extra bundle found
+some useful target details, but it did not justify its added process, unsupported claims, version
+drift, or output cost.
 
 ## Question
 
@@ -113,15 +110,64 @@ Its isolated session was `019fcde2-217b-7640-b106-7206353612e3`. The audit found
 skill or plugin in the worker context, no network access, no target-source change, and no write
 other than `RESULT.md` and normal Git index metadata.
 
-Keep the detailed bundle unchanged until the controlled implementation comparison finishes. After
-that test, reduce or remove it instead of maintaining a second default source of Samebase behavior.
+## Controlled implementation result
 
-## Next test
+The implementation comparison used the same frozen target, public reference, task, operator
+decisions, model, and runtime policy. Both runs preserved Password auth and the shared authenticated
+dataset. Neither run used GitHub, Samebase, a browser, MCP, a provider action, a push, a pull
+request, or a deployment.
 
-Run two isolated local implementations against the same frozen target and reference. Give both runs
-the same operator decisions and the same proportionate acceptance matrix. Do not allow provider,
-GitHub, Samebase, browser, MCP, push, PR, or deployment writes.
+The common task required a focused local gate: formatting, lint, type checks, focused command tests,
+a production build, and credential-free Cloudflare dry runs. Both specimens passed independent
+reruns of that gate.
 
-The comparison must measure source correctness, diff scope, validation evidence, unnecessary work,
-production-approval handling, and agent cost. Review the two patches without revealing which skill
-bundle produced each patch.
+| Measure          |  Public skill | Public plus detailed bundle |
+| ---------------- | ------------: | --------------------------: |
+| Blind score      |         28/32 |                       25/32 |
+| Runtime          | 12 min 45 sec |               15 min 13 sec |
+| Result words     |           986 |                       1,618 |
+| Output tokens    |        28,586 |                      34,986 |
+| Focused tests    |            14 |                          11 |
+| Built JavaScript |     605.13 kB |                   662.58 kB |
+| Built modules    |           909 |                         972 |
+
+The public-only specimen was safer to continue. It kept the frozen shared dependency versions,
+covered more build and deploy boundaries, used cross-platform dry-run documentation, and produced a
+shorter report.
+
+The detailed-bundle specimen added three useful implementation ideas:
+
+- show an explicit setup state when `VITE_CONVEX_URL` is missing
+- document that both Cloudflare triggers store both Convex secrets while the build wrapper exposes
+  only the selected value
+- pass the supplied environment through the deploy wrapper for focused tests
+
+These are target or public-reference improvements. They do not require a second adoption skill.
+
+The detailed-bundle specimen also:
+
+- resolved React, Convex, Tailwind, date-fns, and Recharts past the frozen reference or target
+  versions
+- produced 57.45 kB more minified JavaScript and transformed 63 more modules
+- added a longer self-certified gate report and registry audits outside the common validation task
+- spent about 19% more wall time and 22% more output tokens
+
+The public-only specimen was not perfect. It removed one credential-adjacent log even though the
+task deferred unrelated defects, lacked the missing-Convex-URL setup state, and copied one unused
+dependency override. Continue from it only after a focused review applies the useful candidate
+changes and removes the unrelated cleanup.
+
+An isolation audit passed both specimens and the comparison. Each first Wrangler dry run attempted
+to write its default diagnostic log outside the run root. The sandbox blocked both attempts. Both
+implementations then moved the log inside their target and repeated the dry run successfully. The
+audit proves recorded behavior, not host-level filesystem or network activity.
+
+## Final decision
+
+Remove the detailed adoption skill and contract. The public plugin, the public `samebase/app`
+reference, the live action contract, and a target-specific operator decision record are sufficient
+inputs for this type of adoption.
+
+This is one target and one implementation sample per bundle, so it does not prove that every long
+skill is harmful. It does show that this detailed bundle failed twice against the shorter public
+skill and should not remain as a second source of Samebase behavior.
