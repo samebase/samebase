@@ -1,118 +1,123 @@
-# 120 Organization Ownership Spec
+# 120 GitHub-Backed Organization Ownership Spec
 
 ## Document Control
 
 - Status: Accepted rollout contract
 - Owner: Samebase backend
-- Last updated: 2026-08-04
+- Last updated: 2026-08-05
 - Active rollout: `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
 - Related:
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
-  - `specs/114_CONVEX_TABLE_TAXONOMY_AND_OWNERSHIP_SPEC.md`
   - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
   - `specs/119_POLAR_MONTHLY_BILLING_SPEC.md`
   - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
   - `research/2026-06-18-workos-authorization-model.md`
 
-This is the accepted target contract for the active rollout. The implementation updates all affected
-accepted specs when the new behavior ships.
+This contract replaces the earlier independent-workspace model in this spec. Samebase organizations
+are GitHub-backed workspaces. Signup does not create an organization, and GitHub is not a normal
+provider connection.
 
-## Accepted Target Contract
+## Current Contract
 
-### Tenant graph
+### Users, organizations, and memberships
 
-Samebase uses three separate domain entities:
+Samebase has three separate domain entities:
 
-1. A `users` row is one stable Samebase account and its personal state. Its Samebase ID survives an
-   authentication-provider change.
-2. An `organizations` row is one customer workspace, has one required durable name, and owns durable
-   customer resources.
+1. A `users` row is one stable Samebase account and its personal state.
+2. An `organizations` row is one workspace for exactly one GitHub repository owner.
 3. An `organizationMemberships` row grants one user access to one organization.
 
-Users and organizations are separate and connect through memberships. The schema must not put one
-`organizationId` on `users` or put a user ID array on an organization. One user can have several
-memberships, and one organization can have several users. At most one membership can exist for an
-exact organization and user pair.
+A user can have zero, one, or several memberships. An organization can have several members. At most
+one membership can exist for an exact organization and user pair. The schema must not put one
+`organizationId` on `users` or put a user ID array on an organization.
 
-Account creation gives a user an organization and membership only when the user has no membership.
-This includes waitlisted users. A later sign-in or account update preserves every existing
-membership and does not create another organization. The temporary approval system controls
-application access only. It does not control organization creation, membership, or ownership.
+Signup, sign-in, approval, and waitlist changes do not create an organization or billing account. A
+user who has not created or joined an organization has zero memberships. This is a normal state,
+including for waitlisted users.
 
-The initial bootstrap creates one organization for each existing user group. The two known accounts
-that represent the same operator share one organization through two explicit membership rows. Every
-other existing user gets a separate organization. This mapping is explicit bootstrap input. Code
-must never infer shared ownership from email, name, or another profile field. The shared operator
-organization name is explicit bootstrap input. Each personal organization receives the same initial
-name that normal account provisioning would create.
+Samebase authentication is independent from GitHub access. A user can sign in with Google or another
+supported authentication method. An invited member does not need a GitHub account. GitHub login is
+not required to read or operate an organization when Samebase membership and the GitHub App
+installation authorize the operation.
 
-Every organization-scoped request identifies one organization. A root read or creation operation
-receives an explicit `organizationId`. An existing-resource operation can instead load the resource
-and use its required organization ID. The backend then verifies the exact user and organization
-membership. No product backend function selects the first or only membership from `userId`.
+The current membership model has no roles, invitation rows, or permission arrays. Membership row
+presence grants the current organization access. The operator can add an existing Samebase user to
+an organization through one idempotent internal function until a product invitation flow exists.
+Adding a membership never creates another organization.
 
-Development password seeding is the only non-product exception. It runs during fresh environment
-bootstrap, after account creation and before another membership is added. The seed user must have
-exactly one membership. If it has several memberships, the operator must reset the disposable local
-or preview data. The seed action does not accept an organization argument or store a default
-organization.
+### GitHub owner identity
 
-The web app keeps the selected organization in explicit URL request context. If one membership is
-available, the client can select it without showing a choice, but it still sends the organization ID
-to the backend. If several memberships are available, the user must select one. The selection is not
-stored on `users`, and it never grants access.
+One Samebase organization maps to exactly one GitHub repository owner. A repository owner can be a
+GitHub organization or a personal GitHub account.
 
-This model follows the durable part of the WorkOS and Clerk organization models: users and
-organizations are independent records, memberships connect them, and organization data stays with
-the organization. Samebase does not copy provider session state or provider IDs into this model.
+The required organization identity is:
+
+```text
+githubOwnerId: string
+githubOwnerType: "organization" | "user"
+githubOwnerLogin: string
+```
+
+`githubOwnerId` is the stable external identity. The schema and creation function enforce that one
+GitHub owner ID maps to at most one Samebase organization. `githubOwnerLogin` is current display and
+route data. A GitHub rename updates the login without changing the Samebase organization or its
+resources.
+
+An organization is always bound to its GitHub owner when it is created. There is no unbound
+organization state and no arbitrary personal organization created during signup.
+
+### Samebase GitHub App
+
+Creating an organization requires a verified installation of the Samebase GitHub App on the target
+GitHub owner. The signed-in Samebase user who completes the verified setup becomes the initial
+member. The same transaction creates the organization's Free billing row.
+
+The GitHub App installation is the required connection to the GitHub owner. It is not a
+`providerConnections` row and is not a Samebase login method. The organization stores the current
+installation as replaceable connection state:
+
+```text
+githubInstallation:
+  | { state: "active"; installationId: string }
+  | { state: "suspended"; installationId: string }
+  | { state: "removed"; installationId: string }
+```
+
+The installation ID is not the organization identity. Suspending or uninstalling the app keeps the
+stable GitHub owner binding and Samebase data, but GitHub-backed operations fail closed. Installing
+the app again on the same owner ID updates the installation connection and restores access. It does
+not create another organization.
+
+Samebase generates short-lived installation access tokens when an operation needs one. It never
+stores installation access tokens in Convex. The GitHub App private key and webhook secret remain
+deployment secrets.
+
+The installation flow uses short-lived state bound to the signed-in Samebase user. The callback must
+verify the installation and the installer's access. It must not trust a returned `installation_id`
+by itself. GitHub webhooks update installation status, repository access, and owner login. Every
+webhook verifies its signature and handles repeated deliveries idempotently.
+
+GitHub App installation authentication is the default for repository reads, writes, and organization
+repository creation. Some GitHub operations require a GitHub user access token. The current example
+is creating a repository under a personal GitHub account. When Samebase retains a GitHub user
+authorization for such an operation, it belongs to the exact Samebase user and GitHub user. It never
+identifies an organization, grants membership, or becomes available to another member.
 
 Sources:
 
-- https://workos.com/docs/authkit/modeling-your-app
-- https://workos.com/docs/authkit/metadata
-- https://workos.com/docs/authkit/users-organizations
-- https://clerk.com/docs/reference/backend/types/backend-user
-- https://clerk.com/docs/guides/organizations/overview
-- https://clerk.com/docs/guides/how-clerk-works/multi-tenant-architecture
+- https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/about-authentication-with-a-github-app
+- https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation
+- https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/about-the-setup-url
+- https://docs.github.com/en/rest/apps/apps#get-an-installation-for-the-authenticated-app
+- https://docs.github.com/en/webhooks/webhook-events-and-payloads#installation
 
-### Minimal schema
+### Provider connections
 
-`organizations` uses Convex `_id` as the durable tenant identity and `_creationTime` as its creation
-record. Its required core field and optional active account-deletion lock are:
+`providerConnections` contains only deployment-provider connections, currently Convex and
+Cloudflare. GitHub App installations and GitHub user authorizations use their own models.
 
-```text
-name: string
-accountDeletionRunId?: Id<"workflow_accountDeletion_runs">
-```
-
-The name is trimmed, nonempty display data. It is durable, is not required to be unique, and never
-grants access. Normal account provisioning builds the initial personal organization name from the
-account display name, name, or email. The lock prevents two members of one organization from
-deleting their accounts at the same time.
-
-`organizationMemberships` contains only:
-
-```text
-organizationId: Id<"organizations">
-userId: Id<"users">
-```
-
-The table has `by_user` and `by_organization_and_user` indexes. App-owned mutations enforce at most
-one membership for each organization and user pair. Both sides of the relation can have several
-memberships.
-
-Membership presence is active access. Removing access deletes the membership. The current model has
-no role, status, timestamps, invitation state, or permission arrays. A role field becomes required
-only when two membership roles have different current behavior.
-
-The operator can add an existing Samebase user directly to an organization through one idempotent
-internal mutation. This inserts only the missing membership. It does not move the user, delete the
-organization created at sign-up, change approval, or create invitation state. Email invitations and
-acceptance are a later product surface.
-
-`providerConnections` keeps its existing provider-specific identity and authentication fields and
-adds these required ownership fields:
+Each provider connection has these ownership fields:
 
 ```text
 organizationId: Id<"organizations">
@@ -120,313 +125,166 @@ connectedByUserId: Id<"users">
 state: "connected" | "disconnected"
 ```
 
-The schema permits several connections of one provider kind in an organization. The first product
-surface still displays and changes one selected connection of each kind. It does not add a
-connection selector. This current UI limit is not a database uniqueness rule.
+The schema permits several connections of one provider kind in one organization. The initial UI can
+continue to select one current connection without making that UI limit a database uniqueness rule.
+`connectedByUserId` records credential provenance and lifecycle dependency. It does not grant
+access.
 
-`organizations` stores the selected default connection for each provider kind:
+Provider credentials stay in backend-only functions. Product clients can request authorized provider
+operations and read non-secret connection status. They cannot retrieve stored credentials or raw
+provider failures.
 
-```text
-selectedGithubProviderConnectionId?: Id<"providerConnections">
-selectedConvexProviderConnectionId?: Id<"providerConnections">
-selectedCloudflareProviderConnectionId?: Id<"providerConnections">
-```
+Cloudflare and Convex resources and provisioning plans store the exact provider connection ID used
+to create or attach them. Reloads and retries do not select credentials from the acting user.
 
-Provider status and new resource creation use the selected connection. Connecting or reauthorizing a
-connection selects that row. Disconnecting keeps the selection so reauthorization restores the same
-stable row. Existing vault resources and provisioning plans never follow a changed selection. They
-use the exact connection ID stored on the resource or plan.
+GitHub-specific selected-provider fields and resource bindings do not exist. In particular, the
+final schema has no `selectedGithubProviderConnectionId`, `vaults.githubProviderConnectionId`, or
+`workflow_vaultProvisioning_plans.githubProviderConnectionId`.
 
-`organizationId` controls who can use a connection. `connectedByUserId` records the member who
-connected or last reauthorized the credential. It is provenance and a credential-lifecycle
-dependency, not an access grant.
+### Vault identity and routing
 
-A connected row contains its provider credential. Disconnecting strips the credential and changes
-the row to `disconnected`; it does not delete the stable connection identity. Reauthorization of a
-selected connection restores that same row. Connecting a different external provider target creates
-a different row and never silently rebinds resources that use the old row.
+Every vault belongs to one organization and one GitHub repository owned by that organization's
+GitHub owner. Vault creation rejects a repository whose owner ID does not equal the organization's
+`githubOwnerId`.
 
-Provider credentials stay inside backend-only functions. Product clients can request an authorized
-provider operation and can read non-secret connection status, but no product client can retrieve the
-stored credential. The rollout keeps the existing OAuth and API-key methods. It does not add a
-GitHub App authorization flow. GitHub OAuth requests the `workflow` scope because the shipped
-starter creates `.github/workflows/ci.yml`. GitHub API-key health checks report this scope as
-granted, missing, or unknown with the other required scopes.
+One GitHub repository identity maps to at most one retained Samebase vault. Repository identity is
+stable across owner-login and repository-name changes.
 
-`providerOAuthCallbackStates` binds the initiating user to the target organization and stores one
-required root-relative same-site return path. Every provider OAuth start receives and validates that
-path. The callback rechecks membership before it creates or reauthorizes the organization
-connection, then returns to the exact URL context that started the flow. This preserves the selected
-organization through a full-page OAuth redirect.
+The route `/vault/<owner>/<repository>` resolves the vault, then derives its Samebase organization.
+It does not require or preserve an opaque `?organization=<id>` query parameter. Other
+organization-scoped routes use the readable GitHub owner login as route context when they need
+explicit context. Internal Samebase IDs remain authorization and database identities, not visible
+URL selectors.
 
-Every provider-backed resource records the exact provider connection that Samebase must use:
+Existing-resource operations load the resource and derive its organization before checking
+membership. Root creation operations identify the GitHub owner workspace and verify membership.
+Client-supplied organization IDs, user IDs, provider credentials, or actor fields are never proof of
+access.
 
-```text
-vaults.githubProviderConnectionId: Id<"providerConnections">
-vaultConvexProjects.providerConnectionId: Id<"providerConnections">
-vaultCloudflareWorkers.providerConnectionId: Id<"providerConnections">
-workflow_vaultProvisioning_plans.githubProviderConnectionId: Id<"providerConnections">
-workflow_vaultProvisioning_plans.convexProviderConnectionId: Id<"providerConnections">
-workflow_vaultProvisioning_plans.cloudflareProviderConnectionId: Id<"providerConnections">
-```
+### Authorization and ownership
 
-The attachment or plan keeps resource ownership in the organization. Its connection ID only selects
-the credential for provider reads and writes. Provider operations load the row by ID, require the
-same organization and provider kind, and require `state: "connected"`. They never select a
-credential from an actor user ID. A provisioning retry uses the connection IDs recorded when the
-plan was created.
-
-Other than the required name, account-deletion lock, and selected provider connection IDs, the
-organization has no slug, kind, status, lifecycle field, creator field, update timestamp, or
-active-user field.
-
-`organizationBillingAccounts` contains one row for each organization. Its final fields are:
+An organization-scoped operation requires both:
 
 ```text
-organizationId: Id<"organizations">
-provider?: "polar"
-plan: "free" | "pro"
-status: "inactive" | "active" | "past_due"
-updatedAt?: number
-currentPeriodEndAt?: number
-cancelAtPeriodEnd?: boolean
-polarExternalCustomerId?: string
-polarStateChangedAt?: number
-polarObservationRevision?: number
-polarAppliedObservationRevision?: number
-polarCheckoutAttempt?:
-  | { state: "pending"; attemptId: string }
-  | { state: "open"; attemptId: string; checkoutId: string }
-```
-
-This moves the current billing fields from `users`, removes their redundant `billing` prefix, and
-does not change their meaning. New rows start as Free and inactive. The table has `by_organization`
-and `by_polar_external_customer_id` indexes. Billing mutations enforce one row for each organization
-and one row for each nonempty Polar customer ID.
-
-### External identity boundary
-
-Samebase user and organization IDs stay canonical if the authentication or organization provider
-changes. Before a WorkOS, Clerk, or other external-provider migration starts, that migration adds
-separate provider-link rows and backfills them before session cutover. Provider user and
-organization IDs never replace Samebase IDs or become fields on the primary user and organization
-rows. A provider session organization resolves through its link to the local organization before
-Samebase checks membership.
-
-### Authorization
-
-The existing `access_*` keys remain the coarse application gate. Organization membership becomes a
-separate resource gate.
-
-An organization-scoped operation requires:
-
-```text
-the current user has the function's required access key
+the current user has the function's required application access
 AND the current user has a membership in the resource organization
 ```
 
-For a root read or creation operation, the client supplies the selected organization ID and the
-backend verifies the exact membership. For an operation on an existing resource, the backend loads
-the resource and derives its organization before it checks membership. The request selection does
-not replace that resource-derived boundary. A client user ID, organization ID, actor field, provider
-credential, or staff role is not proof of resource access. Normal staff product access follows the
-same membership rule.
+The existing `access_*` keys remain the coarse application and waitlist gate. Membership is the
+resource gate. Shared helpers implement membership checks.
 
-Shared helpers implement organization and vault membership checks. Product functions do not repeat
-raw ID comparisons.
+Durable ownership is:
 
-### Ownership boundary
+| Data                                       | Boundary                                               |
+| ------------------------------------------ | ------------------------------------------------------ |
+| GitHub App installation                    | Organization's stable GitHub owner                     |
+| Vault                                      | Organization and matching GitHub repository owner      |
+| Vault child data                           | Parent vault                                           |
+| Convex or Cloudflare provider connection   | Organization, with connecting-user provenance          |
+| Attached Convex or Cloudflare resource     | Parent vault plus exact provider connection            |
+| Billing account, plan, quota, and usage    | Organization                                           |
+| MCP grant                                  | User delegation bound to one organization              |
+| Auth accounts, sessions, profile, approval | User                                                   |
+| GitHub user authorization                  | Exact user, only for operations that need user context |
+| UI preferences and actor provenance        | User                                                   |
 
-| Data                                                   | Durable boundary                                                  |
-| ------------------------------------------------------ | ----------------------------------------------------------------- |
-| Vault                                                  | Organization through required `vaults.organizationId`             |
-| Vault child data                                       | Vault, and therefore the vault organization                       |
-| Provider connection                                    | Organization, with `connectedByUserId` for credential provenance  |
-| OAuth callback state                                   | Initiating user and target organization                           |
-| Billing account and subscription                       | One organization billing row                                      |
-| Billing resource quotas                                | Organization attachment counts                                    |
-| MCP grant                                              | One user delegation bound to one organization                     |
-| Auth account, sessions, profile, and approval          | User                                                              |
-| Account deletion workflow                              | User, with organization cleanup selected from current memberships |
-| UI settings, filters, folders, expansions, and layouts | User                                                              |
-| Edit, provisioning, deletion, and audit actors         | User provenance only                                              |
+Staged files remain one shared draft for a vault, branch, and path. FileView remains a staff-only
+add-on and is not a release gate for this rollout. Multi-writer FileView recovery is outside this
+contract.
 
-Provider connections are organization-scoped even when the external provider granted the credential
-through one member. Every organization member can request an authorized backend operation through
-the connection. The provider still applies the external permissions represented by that credential.
-Provider connections do not own vaults or attached provider resources.
+MCP consent binds each grant to one explicit organization membership. Removing that membership
+revokes the grant. Existing MCP requests keep one validated authorization snapshot for the request
+boundary. Vault tools derive the organization from the grant or loaded vault, never from a first
+membership.
 
-Existing vault repository-identity lookup indexes and guard checks move from the user boundary to
-the organization boundary. The guards keep the current `not_connected` exclusion because those
-vaults have no repository identity. One organization cannot have two retained vaults for the same
-provider repository identity.
+### Billing
 
-Vault children do not copy `organizationId` when loading the parent vault gives the authorization
-boundary. Existing `userId` or `ownerId` fields that only repeat vault ownership are removed. The
-two billable attachment tables copy `organizationId` only as the indexed quota-count key. Access
-still derives from the parent vault, and writes must keep the copied key equal to the vault
-organization.
+`organizationBillingAccounts` contains exactly one row for each organization and no row for a user
+who has no organization. New organization rows start on Free with inactive provider billing state.
 
-Staged files are one shared collaborative draft for a vault, branch, and path. Vault membership
-controls draft access. The final model removes `vaultStagedFiles.ownerId` and its access checks.
-`lastEditUserId` records only the last editor and never authorizes access.
+The organization owns its plan, quota, usage, checkout, and subscription. The GitHub App installer,
+the member who starts checkout, and the external payer do not become the organization identity.
+Invited members use the same organization plan and quota.
 
-FileView remains a staff-only add-on and is deferred. Its current one-person edit and commit path
-remains available, but no FileView behavior is an organization-rollout release gate. Delayed saves
-after a commit, commit retries after Git already accepted the change, simultaneous commits,
-structural edits during a commit, and external Git changes during a commit remain deferred until
-FileView becomes a shipped add-on.
+### Account and organization lifecycle
 
-Provisioning and vault-deletion runs use `requestedByUserId`. Their event rows derive the requester
-through `runId` and do not copy a user ID. `vaultStagedFileUpdates` uses `editUserId`. Manual
-provider-write and repository-refresh locks also use `requestedByUserId`. `requestedByUserId`,
-`lastEditUserId`, and `editUserId` are provenance only. No actor field grants access.
+Deleting a user account is not organization deletion. User deletion removes authentication data,
+personal state, memberships, MCP grants, and user-owned GitHub authorizations. It must not infer
+that a GitHub-backed organization should be deleted because the user was its only Samebase member.
 
-MCP client registration remains system-wide. Only `mcpGrants` stores the required `organizationId`
-beside its user subject. Consent requires one explicit organization choice, verifies that exact
-membership, and binds the grant to that organization. Authorization codes, access tokens, refresh
-tokens, and browser tokens derive the organization through `grantId`. Removing a membership revokes
-that user's grants for the organization. Rejoining requires new authorization and does not
-reactivate those grants.
+Convex or Cloudflare connections whose credential lifecycle depends on the deleting user are revoked
+when possible and disconnected locally. The organization, vaults, billing row, and other members
+remain.
 
-Each MCP HTTP request creates one complete authorization snapshot before internal tool dispatch.
-Token validation loads the access token, grant, client, and current organization membership. The
-request then uses that snapshot for `tools/list` or `tools/call`, including tool execution. A
-concurrent grant revocation, membership change, or client disable applies to the next MCP HTTP
-request. Internal runtime actions receive trusted subject and scope data from this dispatcher. They
-are not an independent public boundary and do not reload the grant.
+Organization deletion is a separate operator action in this rollout. It is not part of user account
+deletion or GitHub App uninstall.
 
-Browser handoff creation and redemption are separate request boundaries. Creation and redemption
-each reload the grant and recheck its user, organization membership, scope, and client state before
-they create or consume the handoff.
+## Migration
 
-### Account deletion
+This pre-beta rollout uses a reset and final-schema deployment. It ships no fallback reads, dual
+writes, compatibility fields, or general migration framework.
 
-Account deletion for a user with one membership removes the user's authentication data, personal UI
-data, OAuth callback state, and organization membership. For each connected organization provider
-connection whose `connectedByUserId` is the deleting user, it attempts provider-side OAuth
-revocation, strips the local credential, and changes the stable row to `disconnected`. A remaining
-member can reauthorize that connection without changing resource bindings.
+The operator can clear disposable organization, membership, billing, provider-connection, vault,
+staging, workflow, and MCP authorization data before the final schema deploy. User, authentication,
+approval, and waitlist rows remain.
 
-Account deletion fails before it writes when the user has several memberships. Member management is
-operator-only in this release, so the operator must remove the additional memberships or complete a
-manual account cleanup first. Full deletion across several organizations ships with the member
-management product surface. This fail-closed rule prevents the current workflow from deleting or
-locking an organization chosen through an implicit membership.
+After deployment:
 
-When the deleting user is the only member of an organization, the existing deletion workflow also
-deletes that organization's Samebase resources, provider connection rows, billing state, and
-organization row. Provider-owned infrastructure remains untouched under spec 113.
+1. A retained operator signs in through the normal Samebase authentication flow.
+2. The operator installs and verifies the environment's Samebase GitHub App.
+3. The verified flow creates the GitHub-backed organization, initial membership, and billing row.
+4. The operator adds the second retained Samebase user through the internal membership function.
+5. Waitlist users remain users with zero memberships.
+6. The operator reconnects Convex, Cloudflare, retained vaults, and MCP clients as needed.
 
-When another member remains, the workflow preserves the organization and its resources, then removes
-the deleting user's membership, personal data, and connected provider credentials. Every current
-membership has the same access. Transfer rules become necessary only when a less-privileged
-membership role ships. Actor and workflow rows follow their table-specific deletion policy and must
-not cause shared organization resources to be deleted.
-
-Vault-deletion runs and events belong to the parent vault lifecycle. They remain while the vault
-exists, even if the deleting member requested the operation. Stored actor IDs are opaque historical
-provenance only. They can refer to a deleted user, are not resolved for authorization, and do not
-retain profile data. The bounded per-vault deletion path removes events before terminal runs.
-Account cleanup drains that lifecycle immediately before it removes an owned vault. Normal vault
-deletion removes the vault row, marks its active run successful, and then drains the lifecycle
-through journaled workflow batches with an idempotent scheduled continuation as fallback. This
-per-vault boundary prevents a later deletion by another member from racing past account
-finalization.
-
-Account deletion waits while any vault in the organization has a queued or running vault-deletion or
-app-provisioning run. The same organization-wide rule applies to sole-member and shared-member
-deletion. Manual provider-write and repository-refresh locks do not block account deletion.
-
-## Migration Contract
-
-The pre-beta rollout uses one manual reset and one final-schema deployment. It does not deploy a
-mixed old and new ownership state.
-
-The rollout follows this order:
-
-1. Record the current Polar billing state and confirm that no destructive workflow is active.
-2. Disconnect every provider connection and confirm that provider connection and OAuth callback
-   state are empty. Pause product writes. While the old schema is still live, manually clear the
-   approved local vault, staging, workflow, MCP authorization, and organization-scoped data. Remove
-   legacy billing fields from the retained user rows.
-3. Deploy the final schema and organization membership access checks.
-4. Run one small bootstrap. It creates one shared organization for the two operator users, one
-   organization for every other retained user, one membership for every user, and one billing row
-   for every organization. Every organization receives its required durable name. It restores the
-   recorded operator billing state after every checkout attempt is resolved. The bootstrap rejects a
-   checkout attempt.
-5. Verify the bootstrap counts, direct membership addition, explicit organization selection, and the
-   two-member access paths, then resume product writes.
-
-These steps ship in one implementation pull request. No old user ownership fields, fallback reads,
-dual writes, migration indexes, or general data-conversion framework ship in the final runtime.
-Production schema, authorization contracts, and production callers change to the final model first.
-Tests that describe the former one-membership model are then rewritten or deleted. An old test does
-not justify a compatibility helper or fallback path in production.
-
-The manual reset deletes local provider connections and Samebase-local resource records. It does not
-delete GitHub repositories, Cloudflare Workers, Convex projects, user accounts, waitlist accounts,
-or authentication records. Provider accounts, Samebase vaults, and provider-resource links must be
-connected again after deployment. MCP clients must authorize again. No provider-connection
-migration, fallback read, dual write, or compatibility field ships.
-
-The operator performs the production reset from the accepted runbook. Codex does not execute the
-destructive production step. Local and disposable preview data can be recreated.
+Development and production use separate GitHub App registrations, credentials, callback URLs, and
+webhook secrets. The rollout does not start the GitHub App implementation until both registrations
+and their required permissions are recorded.
 
 ## Non-Goals
 
-- Organization creation, rename, deletion, or membership-management UI
-- Email invitations, acceptance, verified domains, team discovery, or automatic email-domain
-  membership
-- A persisted active organization. The selected organization stays in request context.
-- Membership roles, custom permissions, or grant tables
-- Organization slugs, statuses, kinds, lifecycle workflows, or soft-deleted memberships
-- WorkOS, Clerk, AuthKit, SSO, Directory Sync, SCIM, or provider mapping tables in this rollout
-- Fine-grained authorization for selected vaults, branches, files, or provider resources
-- Automatic account linking or shared ownership inferred from profile data
-- Replacing Convex Auth or changing the temporary waitlist and approval behavior
-- Replacing the current provider OAuth and API-key methods or adding a GitHub App flow
-- Zero-downtime migration machinery before the public beta
+- Automatic organization creation during signup
+- Unbound organizations or independent personal organization names
+- Requiring GitHub as the Samebase login method
+- Treating GitHub as a normal provider connection
+- Grouping repositories from several GitHub owners in one Samebase organization
+- Organization rename independent from the GitHub owner login
+- Email invitation, acceptance, membership-management, or role UI
+- Fine-grained vault, branch, file, or provider-resource roles
+- Persisted active-organization state or opaque organization query parameters
+- WorkOS, Clerk, SSO, Directory Sync, or SCIM implementation in this rollout
+- Changing the temporary waitlist and approval gate
+- Multi-member FileView commit coordination
+- Backward-compatible migration machinery before public beta
 
 ## Validation
 
-The rollout is complete only when tests and reset checks prove:
+The rollout is complete only when tests and manual checks prove:
 
-- Every newly created user with no membership, including a waitlisted or admin-created user, gets
-  one organization with a required durable name, one membership, and one billing row.
-- Repeated organization provisioning preserves all memberships and does not add an organization.
-- One user can access two organizations through two explicit organization selections. Neither
-  request can read the other organization's vaults, billing, or providers.
-- The operator membership mutation adds an existing user to a second organization without changing
-  the user's first organization, billing, approval, provider state, or personal settings. Repeating
-  it does not add a duplicate membership.
-- The explicit two-account bootstrap produces one organization with two memberships.
-- No generic profile or email match combines users.
-- A member can use normal resources in their organization.
-- A user from another organization cannot read or change those resources.
-- Two members see the same organization vaults and can use the current dashboard, resource,
-  provisioning, and deletion flows after the access cutover.
-- A user actor field does not grant access to an organization resource.
-- UI preferences and other personal state remain different for two members of one organization.
-- Both members see the same organization plan, quota usage, and provider connection status. Both can
-  use the organization connection through authorized backend operations.
-- A waitlisted user has an organization membership but remains blocked by the current application
-  access gate.
-- The rollout adds only the organization selector required to choose request context. It adds no
-  invitation surface, membership page, or organization-management page.
-- Provider connections use the organization boundary, permit several rows per provider kind, and
-  record the connecting member in required `connectedByUserId`. Public functions never return
-  provider credentials or raw provider error text.
-- Vault resources and provisioning plans use stable provider connection IDs. A retry or reload does
-  not select a credential from the acting user or from an implicit current provider connection.
-- Deleting one of several members preserves shared organization data.
-- Account deletion for a user with several organization memberships fails before any write.
-- Deleting a member disconnects provider connections linked to that member without deleting their
-  stable rows or provider infrastructure. A remaining member can reauthorize the same connection.
-- Deleting the only member removes the organization's Samebase data but not provider infrastructure.
-- Sole-member deletion waits for all organization and vault work. Shared-member deletion waits only
-  for work that depends on the deleting user or a provider connection linked to that user.
-- Repository-identity lookup indexes and guard checks use the organization boundary and keep the
-  `not_connected` exclusion.
-- No final tenant authorization check or ownership index depends on the legacy resource `userId`.
+- Signup and waitlist entry create a user with zero memberships and no billing row.
+- A Google-authenticated user can have zero organizations or join an existing organization.
+- A verified GitHub App installation creates exactly one organization for its stable owner ID, one
+  initial membership, and one billing row.
+- Reinstalling the app for the same owner ID restores the same organization without a duplicate.
+- Suspending or uninstalling the app blocks GitHub-backed operations without deleting the
+  organization.
+- One user can belong to several GitHub-backed organizations, and one organization can have several
+  users.
+- An invited member receives no automatic personal organization and needs no GitHub login for
+  installation-authenticated operations.
+- A GitHub user authorization is never exposed to or used as another Samebase member's user
+  identity.
+- A vault owner ID must match its organization owner ID.
+- `/vault/<owner>/<repository>` reloads without an organization query parameter and resolves the
+  same vault, organization, GitHub repository, Cloudflare Worker, and Convex project.
+- Two members see the same organization vaults, billing state, provider status, and observations.
+- A member can create and reload a GitHub-organization repository, Convex project, and Cloudflare
+  Worker through the organization GitHub App and provider connections.
+- A user outside the organization cannot read or change its resources.
+- Convex and Cloudflare connections are organization-owned, can have several rows per kind, record
+  connecting-user provenance, and never return credentials to clients.
+- Billing and quotas belong to the organization, not a user or GitHub installation.
+- User deletion does not delete the GitHub-backed organization or shared resources.
+- MCP consent and tool execution use the exact organization membership and resource boundary.
+- No production caller or test preserves automatic personal organizations, GitHub provider
+  connections, or opaque organization URL selection.

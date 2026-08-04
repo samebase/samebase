@@ -1,429 +1,208 @@
-# 120 Organization Ownership Rollout
+# 120 GitHub-Backed Organization Ownership Rollout
 
 ## Document Control
 
-- Status: Active
+- Status: Active, architecture revised
 - Owner: Samebase backend
-- Last updated: 2026-08-04
+- Last updated: 2026-08-05
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Current branch: `codex-organization-ownership-spec`
-- Current state: Main-flow and MCP validation complete; operator cutover remains
 - Current pull request: [#1355](https://github.com/samebase/samebase/pull/1355)
+- Current state: Existing implementation does not match the accepted GitHub App model
 
 ## Purpose
 
-This file is the compact progress and restart record for the organization rollout. It records
-accepted decisions, phase status, evidence, and the next exact task. It does not record raw agent
-output or a per-commit journal.
+This is the compact progress and restart record for the organization rollout. Update it when an
+architecture decision, implementation checkpoint, manual test, or blocker changes. Do not add raw
+agent output, review transcripts, or a per-commit journal.
 
-## Review Controls
+## Accepted Direction
 
-- The accepted specification contains no product code.
-- The rollout has one implementation pull request and one final-schema deployment.
-- Pull request size is not a split trigger. Use coherent commits and focused agent reviews inside
-  each pull request.
-- The implementation is not complete until every affected shipped UI, query contract, and workflow
-  is updated and tested in the same pull request.
-- The implementation is authorized in pull request #1355.
-- The implementation gets one implementation review and one independent simplicity review before
-  merge.
-- New enterprise features do not enter this rollout without a spec change.
-- Change the production schema, authorization contracts, and production callers to the accepted
-  model first. Then rewrite or delete tests for the former model. Do not add production
-  compatibility code to preserve an old test.
+- A Samebase user can have zero, one, or several organization memberships.
+- Signup, sign-in, waitlist entry, and approval do not create an organization or billing row.
+- Google and other supported sign-in methods remain independent from GitHub access.
+- One Samebase organization maps to exactly one stable GitHub repository owner ID.
+- An organization has no unbound state. A verified Samebase GitHub App installation creates it.
+- The GitHub owner login is display and route data. The stable owner ID is the external identity.
+- A GitHub App installation is replaceable connection state. App removal blocks GitHub operations
+  but does not erase the owner binding or organization data.
+- GitHub is not a `providerConnections` kind. Installation authentication is organization-owned.
+- GitHub user authorization is user-owned and exists only for operations that require user context.
+- Cloudflare and Convex connections remain organization-owned, record `connectedByUserId`, and
+  permit several rows of one provider kind.
+- Cloudflare and Convex resources and plans keep exact provider connection IDs.
+- Vault routes derive organization ownership from the GitHub owner and repository. They do not use
+  an opaque organization query parameter.
+- Billing, quotas, vaults, provider connections, and MCP organization grants belong to the
+  organization.
+- A user with no organization has no organization billing row.
+- User deletion is not organization deletion. It must not delete a GitHub-backed organization or
+  shared resources because the user was its only Samebase member.
+- The pre-beta cutover can clear disposable product data. No compatibility runtime is required.
+- FileView multi-writer behavior remains outside the release gate.
 
-## Accepted Decisions
+## Decision Change On 2026-08-05
 
-- Use local `users`, `organizations`, and `organizationMemberships` as the tenant graph.
-- Give every organization a required durable, nonempty name. The name is display data and never an
-  authorization key.
-- Bootstrap an organization for every retained user, including waitlisted users.
-- Put the two known operator accounts in one organization through explicit bootstrap input.
-- Use membership presence as access. Do not add a role until two roles have different behavior.
-- Allow several memberships for one user and enforce one row for each exact organization and user
-  pair.
-- Keep organization context out of `users` and derive it from the resource or verified request
-  context.
-- Keep the web selection in URL request context. Every root organization operation receives the
-  selected organization ID and verifies the exact membership. No backend function selects a
-  membership from only `userId`.
-- For an existing resource, load the resource and use its required organization ID. A request
-  selection cannot override the resource boundary.
-- Add existing users through an idempotent operator-only internal mutation. Do not add invitation,
-  email, acceptance, or pending-membership state.
-- Make vaults, billing, and resource quota ownership organization-scoped.
-- Treat staged files as one shared collaborative vault draft. Remove `vaultStagedFiles.ownerId` as
-  an access gate in the final model.
-- Use `requestedByUserId` on provisioning and vault-deletion runs, derive event requesters through
-  `runId`, and use `editUserId` on staged-file updates. Actor fields are provenance only.
-- Bind each user-specific MCP grant to one organization.
-- Authorize each MCP HTTP request with one complete token, grant, client, and membership snapshot
-  before internal tool dispatch. Internal runtime actions are not an independent public boundary and
-  do not reload the grant.
-- Apply a concurrent MCP grant revocation, membership change, or client disable to the next request.
-  Continue to reload and recheck the grant, membership, scope, and client during browser handoff
-  creation and redemption because they are separate requests.
-- Keep authentication and personal UI state user-scoped.
-- Fail account deletion before any write when the user has several memberships. Full
-  multi-organization deletion waits for the member-management surface.
-- Make each provider connection organization-owned and require `connectedByUserId` for the member
-  who connected or last reauthorized it. Use the organization for access and the user link for
-  provenance and credential lifecycle.
-- Permit several connections per provider kind in the schema, while the first UI continues to create
-  and display one.
-- Store one selected connection ID per provider kind on the organization. Use it for status and new
-  resources. Existing resources continue to use their own exact connection ID.
-- Bind each vault repository, Convex project, Cloudflare Worker, and provisioning plan to a stable
-  provider connection ID. Provider operations use that ID instead of the acting user.
-- Disconnect a provider by revoking OAuth when possible and stripping the local credential. Keep a
-  disconnected row when resources still refer to its stable ID.
-- Keep the current provider OAuth and API-key methods. Do not add a GitHub App flow.
-- Keep WorkOS and Clerk out of the runtime and schema.
-- Require every provider OAuth start to store a validated same-site return path so the callback
-  restores the selected organization URL.
-- Preserve users, authentication data, external provider resources, and the recorded Polar billing
-  state. Disconnect and recreate local provider connections during cutover.
-- Use an operator-run manual reset for local vault, staging, workflow, and MCP authorization data so
-  the final schema can deploy without compatibility code. Require an empty `providerConnections`
-  table and empty provider OAuth callback state before the final schema deploy.
-- Keep FileView deferred as a staff-only add-on. FileView behavior is not a release gate for this
-  rollout.
+The former model treated a Samebase organization as an independent customer workspace that could
+contain repositories from several GitHub owners. It also created one personal organization for every
+new and waitlisted user.
 
-## Rejected Or Deferred
+That model is rejected. It caused three separate choices in common flows: Samebase organization,
+GitHub owner, and provider connection. It also required an opaque organization URL parameter even
+when `/vault/<owner>/<repository>` already identified the resource.
 
-- Approval-based organization provisioning: rejected because approval is temporary.
-- Nine domain-sized implementation pull requests and fixed file or line caps: rejected because they
-  add process without adding a required deployment boundary.
-- A data-preserving multi-deploy migration: rejected because the operator approved a pre-beta manual
-  reset and values one final ownership model over local development data retention.
-- A general Convex migration component: rejected for now because every measured source table has
-  fewer than 500 rows.
-- `users.organizationId`: rejected because a user row is not the durable resource boundary.
-- `users.activeOrganizationId`: rejected because organization selection belongs to verified request
-  context.
-- Organization status, slug, kind, lifecycle, and creator fields: deferred without a current
-  behavior. The required durable name is part of this rollout.
-- Membership roles, status, timestamps, and permission arrays: deferred without a current behavior.
-- Auth identity and organization provider-link tables: deferred now, but required before any
-  external authentication or organization provider migration starts.
-- Migrating existing provider connections: rejected because the operator approved disconnecting all
-  current providers before cutover and reconnecting them under the final organization schema.
-- Invitation, SSO, SCIM, FGA, and team-management UI: outside this rollout. A small organization
-  selector is required for request context.
-- FileView collaboration, simultaneous commits, structural edits during a commit, and external Git
-  changes during a commit: deferred until FileView becomes a shipped add-on. They are not release
-  gates.
+The revised model makes the GitHub repository owner the organization boundary. It removes automatic
+personal organizations and uses a Samebase GitHub App as the required GitHub connection.
 
-## Current Production Shape
+## Current Pull Request Audit
 
-Read on 2026-08-03 without printing document contents:
+Against `origin/main` on 2026-08-05, pull request #1355 has 207 changed files, 13,716 additions, and
+4,843 deletions. Approximately 6,400 additions are tests or snapshots. The current branch also has
+six unstaged GitHub OAuth scope changes that predate the GitHub App decision.
 
-| Table                             | Rows |
-| --------------------------------- | ---: |
-| `users`                           |    6 |
-| `vaults`                          |   10 |
-| `providerConnections`             |    8 |
-| `vaultCloudflareWorkers`          |   11 |
-| `vaultConvexProjects`             |    8 |
-| `vaultStagedFiles`                |    5 |
-| `workflow_vaultProvisioning_runs` |   10 |
-| `workflow_vaultDeletion_runs`     |   13 |
-| `mcpGrants`                       |   26 |
-| `mcpAccessTokens`                 |  437 |
-| `mcpRefreshTokens`                |  437 |
+### Keep as accepted design
 
-Empty callback-state and provisioning-plan tables are omitted. Counts must be measured again before
-the manual reset.
+- Many-to-many `organizationMemberships` and membership-based access checks
+- Organization ownership on vaults, Cloudflare and Convex connections, billing, quotas, and MCP
+  grants
+- `connectedByUserId` provenance for Cloudflare and Convex credentials
+- Exact Cloudflare and Convex provider connection IDs on attached resources and provisioning plans
+- Resource-derived organization checks for existing vault operations
+- MCP grants bound to an exact organization
+- Personal UI and authentication state kept on the user
+- Shared vault staging ownership without FileView multi-writer expansion
 
-## Rollout Status
+These ideas remain valid, but many current files mix them with rejected GitHub provider and URL
+selection behavior. They are references, not code that must be preserved unchanged.
 
-### Specification
+### Delete
 
-- Status: Revised for many-to-many membership and explicit request context
-- Scope: Accept the target schema and rollout.
-- Gate: Independent architecture and simplicity reviews pass.
+- Automatic personal organization and billing creation during authentication
+- Retained-user organization bootstrap and its tests
+- Personal organization names derived from profile data
+- GitHub as a generic OAuth or API-key `providerConnections` variant
+- `selectedGithubProviderConnectionId`
+- GitHub provider connection IDs on vaults, plans, observations, and deletion workflows
+- Sticky `?organization=<Convex ID>` routing, selection hooks, selector effects, and related tests
+- Account deletion code that requires one membership or deletes a sole member's organization
+- Organization account-deletion locking that exists only for the rejected sole-member cleanup
+- GitHub OAuth scope-health work that the GitHub App permissions model replaces
+- Tests whose only purpose is preserving the rejected model
+- The old cutover guide that bootstraps one organization for every retained user
 
-### Final organization cutover
+### Rework
 
-- Status: Implementation complete; operator cutover pending
-- Scope: Add the final named organization graph, organization billing, membership access, MCP
-  binding, organization provider connections, retained-user bootstrap, organization-aware API
-  results, and affected UI and workflow support.
-- Gate: The operator completes the manual reset, every retained user has at least one membership,
-  the two operator accounts share one organization, one user can join a second organization, and
-  every organization access check uses explicit resource or request context.
+- Organization schema and creation around stable GitHub owner identity and App installation state
+- GitHub API calls to use installation authentication by default
+- Personal GitHub repository creation to use the acting user's GitHub App user authorization
+- Billing creation to run only with verified organization creation
+- Root vault, provider, billing, provisioning, and MCP context without opaque organization IDs
+- Account deletion to remove user state and memberships without organization deletion
+- Cloudflare and Convex provider code after removal of the GitHub union variants
+- Manual reset and two-member acceptance instructions
 
-The cutover is intentionally one complete authorization pull request, not several domain pull
-requests. Its commits can separate the runtime cutover, final schema, bootstrap and runbook, and
-tests for review.
+## Implementation Strategy Recommendation
 
-## Implementation Progress
+Start the implementation again from the latest `origin/main`. Use pull request #1355 only as a
+source for small, reviewed organization ownership fragments.
 
-Implemented in the current pull request and worktree:
+Do not reduce the current 207-file tree by trying to find every hidden dependency on automatic
+organizations, GitHub provider connection IDs, and explicit URL selection. The new GitHub App model
+changes the assumptions used by the largest connected parts of the diff. A clean base gives old
+tests no authority over the new schema.
 
-- the organization, membership, and organization billing tables, including required durable
-  organization names and automatic provisioning for every new account without coupling ownership to
-  temporary approval;
-- organization-only billing reads and writes and organization Worker and Convex project quotas;
-- required organization keys for vaults, billable attachments, and MCP grants;
-- final provenance fields for provisioning runs, deletion runs, and staged-file updates, without
-  legacy actor copies;
-- shared organization membership checks that reject missing organization data and give every member
-  access to the organization's resources;
-- exact MCP organization propagation from access-token validation through tool dispatch, including
-  organization-bound vault creation, inventory, and existing-vault checks;
-- sole-member and shared-member account-deletion behavior for memberships, billing, active work, and
-  organization cleanup;
-- one organization account-deletion lock that prevents two members from starting deletion together,
-  remains through staff retry, and leaves manual staff retry as the recovery path;
-- bounded personal UI cleanup that preserves other members' rows;
-- shared staged-file ownership and a narrow post-commit baseline update that keeps the current
-  editor row for a delayed one-session save;
-- explicit MCP query arguments at the deploy-key rotation boundary, with organization context kept
-  at the trusted request boundary;
-- vault lifecycle preservation during member deletion, with bounded per-vault cleanup that deletes
-  events before terminal runs at the vault deletion boundary;
-- one small bootstrap for the retained users after the operator-run reset, which rejects unresolved
-  checkout attempts;
-- a manual cutover runbook that records the exact destructive scope and verification order;
-- organization-owned provider connections with required connecting-member provenance, several rows
-  per provider kind, and one selected default of each kind on the organization;
-- exact provider connection IDs on repositories, Convex projects, Cloudflare Workers, and
-  provisioning plans so later reads, writes, observations, and retries do not follow a changed
-  default;
-- required provider OAuth return paths that preserve the selected organization across GitHub,
-  Convex, Cloudflare, and Cloudflare MCP redirects;
-- development provider seeding limited to a fresh seed account with exactly one membership, with no
-  stored default organization or multi-membership recovery API;
-- provider-side OAuth revocation before local disconnect for GitHub and Cloudflare, fixed public
-  provider failure messages, and account deletion across every connected provider row; and
-- OAuth reconnect that restores the selected disconnected connection row so existing resources keep
-  their stable provider connection ID; and
-- the GitHub `workflow` scope required by the shipped starter CI file, plus a normal parented commit
-  after empty-repository bootstrap instead of a forced second root commit.
+This recommendation does not authorize rewriting or deleting the current remote branch. Preserve
+pull request #1355 until the operator chooses whether the clean implementation replaces that pull
+request or updates its branch.
 
-Multi-organization correction completed:
+The clean implementation remains one complete rollout, not nine pull requests. Use a small number of
+coherent commits for review:
 
-- removed product backend lookups that inferred one organization from only `userId`;
-- made login preserve several existing memberships;
-- added explicit URL organization selection for root vault, provider, billing, provisioning, and MCP
-  consent operations;
-- derived organization context from the loaded resource for existing-resource operations;
-- added the operator-only direct membership mutation without invitation state;
-- changed production contracts and callers before tests were changed;
-- rewrote or deleted tests that asserted one membership per user, without a compatibility helper or
-  fallback read for the former model; and
-- completed a delete-first audit of the full branch test diff. The last reduction removed 350 net
-  test lines and 19 redundant production lines. The reduced diff has 6,349 additions and 2,194
-  deletions across 70 test files against `origin/main`. Independent reviews found no remaining
-  high-confidence bulk removal before the one-time retained-user bootstrap runs. Test volume is not
-  a reason to preserve a rejected contract.
+1. GitHub App organization identity, zero-organization users, membership, and billing creation.
+2. Vault, Cloudflare, Convex, MCP, account deletion, and UI routing on the new boundary.
+3. Delete-first reduction, generated files, accepted manual validation, and rollout records.
 
-The branch was rebased onto current `origin/main` with operator approval. The supply-chain
-dependency patch is present. The approved manual reset replaces the earlier migration code. Current
-validation evidence is recorded below.
+## GitHub App Prerequisite
 
-The operator approved a manual pre-beta reset on 2026-08-04. The mixed runtime and general migration
-are removed. The one-time retained-user bootstrap replaces them. Independent authorization,
-simplicity, and cutover reviews found and verified the final MCP organization boundary,
-credential-dependent account-deletion waits, personal UI cleanup, unused-index removal, and safe
-manual reset order. A follow-up review found one strict MCP argument mismatch, one account-deletion
-race, and unsupported concurrent FileView commit cases. The focused fixes use an explicit argument
-object and one organization deletion lock. FileView keeps the normal one-person edit and commit
-path, then clears committed staging. Delayed-save reconciliation and commit retry recovery are
-deferred. Organization provider ownership is implemented and has passed real provider creation,
-reload, observation, and deletion tests.
+Create separate development and production GitHub App registrations before implementation of the
+provider boundary. Record only non-secret configuration in the rollout or environment templates.
+Store private keys, client secrets, and webhook secrets only in the deployment secret stores.
 
-Manual testing with two members and one waitlisted account found one development-only credential
-problem: the normal auth callback copied the configured seed provider keys to every new local and
-preview user. Provider reads were correctly user-scoped, but each test user had received a separate
-copy of the same keys. The duplicate callback seeding is removed. Only the explicit development seed
-action now installs those keys on the seed account.
+The registration work must decide and verify:
 
-On 2026-08-04, the operator changed the accepted provider boundary after the organization-base
-validation. The branch now makes provider connections organization-owned with required
-`connectedByUserId`, permits several rows of one provider kind without adding selector UI, and binds
-provider-backed resources and plans to exact connection IDs. Existing connections will not be
-migrated.
+- application names and owners;
+- home, callback, setup, and webhook URLs;
+- development and production App IDs and client IDs;
+- repository and organization permissions required by current Samebase operations;
+- webhook events for installation lifecycle, repository access, and owner rename;
+- whether repository access is all repositories or selected repositories;
+- installation user authorization for secure setup and personal-account repository creation; and
+- local development callback and webhook delivery through the approved tunnel.
 
-### Final review-fix checkpoint
+Do not request a GitHub permission because it could be useful later. Map each permission to a
+current Samebase API operation before registration.
 
-Accepted before merge:
+## Retained Manual Evidence
 
-- keep the normal one-person FileView edit and commit path, then clear committed staging;
-- prevent deletion of a storage blob attached anywhere and derive deletion baseline data from the
-  authorized vault instead of a client-supplied Git blob SHA;
-- revoke an MCP grant after rotated refresh-token replay even when current membership is absent;
-- require dashboard access for the organization billing portal;
-- reject shared-member account deletion during an organization checkout and reject account deletion
-  during the applicable current repository refresh;
-- reject incoherent retained-user billing input before the one-time bootstrap writes anything; and
-- restore focused organization-boundary denial tests and the missing staged-path collision check.
+The old implementation completed one useful two-user manual test:
 
-Explicitly not part of this fix:
+- Two separate Samebase users accessed one organization.
+- The second user used organization-owned GitHub, Cloudflare, and Convex credentials without adding
+  personal provider credentials.
+- The second user created a repository, Convex project, and Cloudflare Worker.
+- Both users reloaded the same vault and saw the same resources and observations.
+- Normal product deletion removed the temporary external resources.
 
-- an account-deletion abort or force-success path;
-- an account-wide vault-deletion run sweep;
-- automatic recovery for an uncertain Polar checkout;
-- duplicate membership reads inside consumers of the validated MCP request snapshot; and
-- compatibility code for the data removed by the approved manual reset;
-- simultaneous FileView commits, structural edits during a commit, external Git changes during a
-  commit, and full two-member FileView acceptance.
+This proves the value of shared organization-owned deployment access. It does not validate the new
+GitHub App identity, zero-organization signup, or final URL model. Those checks must run again.
 
-FileView is deferred and is not a release gate. Its current one-person edit and commit path remains
-available. Post-commit delayed-save reconciliation, retry recovery after Git accepted a commit,
-ambiguous rename retry handling, commit locks, and multi-writer merging remain deferred.
+## Reset Boundary
 
-## Prior Organization-Base Validation Evidence
+The operator approved destructive cleanup of disposable pre-beta product data. Before the final
+schema deploy, the operator can clear organizations, memberships, organization billing, provider
+connections, vault records, staging, workflow state, and MCP grants. Retain users, authentication
+accounts, approval, waitlist state, and external provider resources unless the operator explicitly
+deletes them.
 
-Final integrated code head before this progress-record update: `22846b8c`.
+Do not create compatibility fields, fallback reads, dual writes, or a general data migration. Do not
+run a production reset until the final code, runbook, and exact measured targets are ready.
 
-- `pnpm check`: passed, with existing repository warnings only.
-- `pnpm test`: 292 files passed, with 2,309 tests passed and 1 skipped.
-- `pnpm test:convex`: 47 files passed, with 452 tests passed.
-- Focused FileView and development-auth suite: 4 files passed, with 75 tests passed.
-- `pnpm --filter samebase typecheck`: passed after Convex code generation.
-- `pnpm format:check` and `git diff --check`: passed.
-- `pnpm test:visual:linux`: 209 tests passed, 1 skipped, and the same unchanged public landing
-  URL-editor test failed. That test also failed on clean `main` in the earlier acceptance check. All
-  Settings route tests passed. The staged-editor row identity intentionally changes no pixels.
-- Real-route local acceptance passed for the seeded operator, a second member in the same
-  organization, and one waitlisted account. Both members loaded the same Free plan, zero shared
-  resource usage, and empty organization vault list. The second member kept three disconnected
-  personal providers after a new login. The waitlisted account saw `Account access pending` on
-  `/vault` and `/providers` and did not receive app access.
+## Validation Gates
 
-## Provider Ownership Validation Evidence
+The rollout is not ready until manual checks prove the main flows:
 
-- The local final-schema cutover required the approved reset of old user-owned provider rows. The
-  previous isolated local database was moved to a recoverable backup. No preview or production data
-  changed.
-- The seeded organization displayed its GitHub, Convex, and Cloudflare connections on `/providers`.
-  Live GitHub access checks loaded the expected account, repositories, and organizations.
-- A real `/new-app` run created the temporary GitHub repository, seeded the starter commit, created
-  the Convex project, created the Cloudflare Worker, configured Workers Builds, and rotated the
-  Convex deploy keys.
-- Reloading the real `/vault` route loaded the same repository commit, Cloudflare Worker and build,
-  Workers URL, and Convex deployment through their stored provider connection IDs.
-- Manual testing found and fixed one broad argument object passed to a strict Convex query. It also
-  found that the starter CI file requires GitHub's `workflow` scope. The GitHub connection contract
-  now requests and reports that scope.
-- The first Cloudflare build timed out in Cloudflare before a project command started. One clean
-  retry built the app, deployed the Convex functions, deployed the Worker, passed all three checks,
-  and returned HTTP 200 from the Workers URL.
-- The normal vault deletion flow removed the temporary vault, GitHub repository, Convex project, and
-  Cloudflare Worker. Follow-up reads through the product and provider APIs confirmed that all four
-  resources were gone.
-- `pnpm --filter samebase check:ci` passed. `pnpm test` passed 294 files and 2,304 tests, with one
-  existing skipped test.
-- The canonical Linux visual run passed the updated provider connection image and 209 other tests.
-  One unrelated mobile URL-editor test missed its input during the full parallel run, then passed in
-  an isolated Linux rerun without a code change.
-- Independent release-path and delete-first reviews found no provider-ownership or main-flow blocker
-  and no safe production code to remove before the one-time retained-user bootstrap runs.
-- The first pull request preview deploy found one old user-owned provider row in the exact Convex
-  preview deployment. Convex rejected the row because it had no organization fields. The preview
-  deployment was confirmed as `preview/codex-organization-ownership-spec`, deleted, and recreated.
-  The clean retry passed without migration or compatibility code, and all pull request checks were
-  green.
+- A new Google-authenticated or waitlisted user has zero organizations and no billing row.
+- A verified GitHub App installation creates one organization for one stable owner ID.
+- The second retained user joins through the internal membership function without getting a personal
+  organization or linking GitHub.
+- Both members can list and reload organization vaults.
+- A member can create a GitHub organization repository, Convex project, and Cloudflare Worker using
+  organization connections.
+- `/vault/<owner>/<repository>` reloads with no organization query and shows current GitHub,
+  Cloudflare, and Convex observations.
+- GitHub App suspension or removal blocks GitHub operations without deleting Samebase data.
+- A user outside the organization cannot read or change its resources.
+- MCP consent and tool calls use the exact organization membership.
+- Account deletion removes the user and memberships without deleting the organization.
 
-## Two-User Organization Validation Evidence
+Focused automated tests must protect these invariants. Do not rebuild the former broad test volume
+before the real flows pass manually.
 
-- Two separate approved local accounts signed in at the same time. The second account kept its
-  personal organization and joined the shared organization through the operator-only membership
-  mutation. Both organization names appeared in the selector.
-- In the shared organization, the second member saw the non-secret status of the GitHub, Convex, and
-  Cloudflare connections that the first member configured. In its personal organization, all three
-  providers stayed disconnected.
-- Without configuring personal provider credentials, the second member created
-  `tmp-8462-org-two-user-pass`. Samebase seeded the GitHub repository, created Convex project
-  `useful-cobra-480`, created the Cloudflare Worker, and reported all three resource checks as
-  passed.
-- The second member reloaded the exact vault URL and saw the same repository, Convex project, and
-  Cloudflare Worker. The first member then opened the same vault in a separate signed-in session and
-  saw the same three resources.
-- Two earlier attempts stopped while seeding the starter workflow because the local development
-  GitHub token did not have the `workflow` scope. Replacing that development token fixed the next
-  run without an organization code change.
-- Temporary cleanup completed through the normal product deletion flow after GitHub account
-  reauthentication. Samebase shows no matching vaults. Direct provider reads confirmed that all four
-  `tmp-8462-org-*` GitHub repositories, both Convex projects, and both Cloudflare Workers are
-  absent.
+## Current Blockers
 
-## MCP Organization Validation Evidence
-
-- A real local dynamic MCP client completed browser consent for the explicitly selected
-  organization. The provider page displayed the resulting client grant in that organization.
-- The authorized client called the vault inventory tool successfully through the MCP HTTP endpoint.
-- Manual testing found that automatic sole-organization selection removed child-route search keys
-  from the MCP consent URL. The selector now changes only the organization key when it stays on the
-  same route. One direct router test keeps the consent request and login-required keys.
-- Revoking the client from the provider page made the next request with its existing access token
-  return HTTP 401.
-
-## UI And Workflow Coverage
-
-This is a full-stack rollout. The implementation owns the code changes and the two-member acceptance
-pass for every shipped organization surface whose data or behavior changes.
-
-The implementation covers:
-
-- normal sign-up and admin-created account provisioning for the organization, membership, and
-  billing row;
-- the account billing plan, subscription, and Worker and Convex project usage;
-- account deletion confirmation and progress for membership and shared billing cleanup, including
-  the sole-member and shared-member active-work wait rules;
-- MCP consent and grant binding to the explicitly selected organization;
-- one MCP HTTP request-boundary authorization snapshot for token validation, tool listing, tool
-  calls, and internal tool dispatch, with concurrent authorization changes applied to the next
-  request;
-- browser handoff grant, membership, scope, and client rechecks at both creation and redemption;
-- repository connection and app creation contracts that create organization-owned vaults;
-- vault lists, pickers, navigation, dashboards, resource dialogs, and resource routes;
-- the organization access boundary and final actor-field names for editor, staged-file,
-  pull-request, Data, and Schema operations;
-- provider observation, provider-write, provisioning, vault deletion, and account deletion flows;
-- organization provider connection setup, shared status, and backend use by both members, with the
-  connecting member retained as provenance;
-- final organization-aware query and action results used by current routes;
-- route-level interaction tests and screenshot coverage for every changed shipped UI state.
-
-The implementation verifies the shipped organization surfaces with both members of the shared
-operator organization. Full two-member FileView editing is not part of this release acceptance. The
-implementation also verifies sole-member and shared-member account deletion, MCP token validation,
-`tools/list`, `tools/call`, tool execution, and browser handoff before the production reset.
-
-Personal UI settings remain separate for two members. Provider connections and their non-secret
-status are shared by the organization. The rollout adds one small selector that displays the
-required organization name. It adds no rename flow, invitation flow, membership page, or
-organization-management page.
-
-## Evidence Integrated
-
-- WorkOS and Clerk both use separate user, organization, and membership records.
-- WorkOS recommends an organization for an organization-scoped user who has none.
-- Clerk keeps active organization state in session or browser context, not as permanent user
-  ownership.
-- Current Samebase ownership reaches at least 51 production files and 36 tests.
-- Current production row counts make the operator-run manual reset practical.
-- Existing Samebase access keys remain useful as the coarse gate above organization membership.
-
-Primary external sources:
-
-- https://workos.com/docs/authkit/modeling-your-app
-- https://workos.com/docs/authkit/users-organizations
-- https://workos.com/docs/rbac/configuration
-- https://clerk.com/docs/guides/organizations/overview
-- https://clerk.com/docs/guides/organizations/control-access/roles-and-permissions
-- https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html
+- Development and production GitHub Apps do not exist yet.
+- Their exact permission and callback configuration is not recorded yet.
+- The current implementation and tests describe the rejected model.
+- The current branch is two commits behind `origin/main` and has six unstaged OAuth scope changes.
+- The operator has not chosen whether the clean implementation gets a replacement branch and pull
+  request or replaces the current pull request branch.
 
 ## Next Exact Task
 
-1. Record the Polar billing state and confirm that no destructive workflow is active.
-2. Disconnect all providers, pause product writes, and follow the accepted manual reset runbook
-   while the old schema is live.
-3. Merge and deploy the final schema and organization-authoritative runtime.
-4. Run the retained-user bootstrap with the two explicit operator user IDs and recorded billing
-   state.
-5. Verify the bootstrap counts and the required two-member flows, reconnect MCP and the retained
-   vaults, then resume product writes.
+1. Review and accept the revised spec and clean-start recommendation.
+2. Define the exact development and production GitHub App registration values and permissions.
+3. Create both GitHub Apps and store their secrets in the correct environments.
+4. Start the clean implementation from current `origin/main`.
+5. Implement the main flow before broad automated coverage.
+6. Run the two-user manual acceptance flow, then add only the focused regression tests it proves are
+   needed.
