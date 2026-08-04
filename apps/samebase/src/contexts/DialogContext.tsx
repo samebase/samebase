@@ -26,7 +26,6 @@ export function DialogProvider({ children }: DialogProviderProps) {
       ...prev,
       fileCreationDialog: {
         isOpen: false,
-        folderPath: undefined,
       },
     }));
   };
@@ -46,7 +45,6 @@ export function DialogProvider({ children }: DialogProviderProps) {
       ...prev,
       folderCreationDialog: {
         isOpen: false,
-        folderPath: undefined,
       },
     }));
   };

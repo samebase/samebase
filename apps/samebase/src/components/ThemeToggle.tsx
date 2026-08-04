@@ -15,7 +15,7 @@ export function ThemeToggle() {
           setTheme(nextTheme);
         }
       }}
-      value={theme}
+      {...(theme !== undefined ? { value: theme } : {})}
     >
       <ToggleGroupItem value="light" aria-label="Light">
         <SunIcon />

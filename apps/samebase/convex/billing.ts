@@ -64,7 +64,7 @@ type PolarBillingReconciliationResult = Infer<typeof vPolarBillingReconciliation
 const vPolarCustomerSeed = object({
   externalCustomerId: string(),
   name: optional(string()),
-  email: optional(string()),
+  email: string(),
 });
 
 const vUserDoc = schema.tables.users.validator.extend({
@@ -171,8 +171,8 @@ export const ensurePolarExternalCustomerId = internalMutation({
     if (existing.length > 0) {
       return {
         externalCustomerId: existing,
-        name: user.name,
         email: user.email,
+        ...(user.name !== undefined ? { name: user.name } : {}),
       };
     }
 
@@ -183,8 +183,8 @@ export const ensurePolarExternalCustomerId = internalMutation({
 
     return {
       externalCustomerId,
-      name: user.name,
       email: user.email,
+      ...(user.name !== undefined ? { name: user.name } : {}),
     };
   },
 });

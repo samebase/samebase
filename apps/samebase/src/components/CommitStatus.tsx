@@ -42,8 +42,8 @@ interface ChecksPausedState {
 interface CommitStatusProps {
   owner: string;
   repo: string;
-  commitSha?: string;
-  className?: string;
+  commitSha?: string | undefined;
+  className?: string | undefined;
 }
 
 type StatusKind = "success" | "failure" | "running" | "neutral";

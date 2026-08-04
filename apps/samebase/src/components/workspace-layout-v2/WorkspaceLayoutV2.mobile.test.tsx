@@ -75,16 +75,16 @@ HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
 };
 
 type RenderMobileLayoutArgs = {
-  includeLeftPane?: boolean;
-  includeRightPane?: boolean;
-  leftMobileWidthPx?: number;
-  leftToggleVisibility?: "all" | "desktop" | "hidden";
-  mainHeader?: React.ReactNode | typeof OMIT_HEADER;
-  mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
-  mobilePane?: WorkspaceSidebarState["mobilePane"];
-  mobileSurface?: WorkspaceSidebarState["mobileSurface"];
-  rightMobileWidthPx?: number;
-  rightToggleVisibility?: "all" | "desktop" | "hidden";
+  includeLeftPane?: boolean | undefined;
+  includeRightPane?: boolean | undefined;
+  leftMobileWidthPx?: number | undefined;
+  leftToggleVisibility?: "all" | "desktop" | "hidden" | undefined;
+  mainHeader?: React.ReactNode | typeof OMIT_HEADER | undefined;
+  mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior | undefined;
+  mobilePane?: WorkspaceSidebarState["mobilePane"] | undefined;
+  mobileSurface?: WorkspaceSidebarState["mobileSurface"] | undefined;
+  rightMobileWidthPx?: number | undefined;
+  rightToggleVisibility?: "all" | "desktop" | "hidden" | undefined;
 };
 
 function createMobileSidebarState({

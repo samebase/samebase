@@ -134,9 +134,7 @@ export function useCacheQuery<Query extends FunctionReference<"query">>({
   const { data: live } = useQuery({
     ...(queryOptions.queryFn !== undefined ? { queryFn: queryOptions.queryFn } : {}),
     ...(queryOptions.staleTime !== undefined ? { staleTime: queryOptions.staleTime } : {}),
-    ...("enabled" in queryOptions && queryOptions.enabled !== undefined
-      ? { enabled: queryOptions.enabled }
-      : {}),
+    ...("enabled" in queryOptions ? { enabled: queryOptions.enabled } : {}),
     queryKey: queryOptions.queryKey,
   });
   const queryName = useMemo(() => getFunctionName(query), [query]);

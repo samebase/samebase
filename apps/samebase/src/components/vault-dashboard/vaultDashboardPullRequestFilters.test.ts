@@ -153,12 +153,14 @@ describe("ui_vaultPullRequests_filters", () => {
       {
         key: "research",
         name: "research",
+        color: undefined,
         included: false,
         isNoLabel: false,
       },
       {
         key: "\u0000no-label",
         name: "No label",
+        color: undefined,
         included: false,
         isNoLabel: true,
       },
@@ -188,6 +190,7 @@ describe("ui_vaultPullRequests_filters", () => {
       {
         key: "\u0000no-label",
         name: "No label",
+        color: undefined,
         included: true,
         isNoLabel: true,
       },

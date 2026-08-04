@@ -14,7 +14,7 @@ export type VaultPullRequestFilterable = {
 export type VaultPullRequestFilterOption = {
   key: string;
   name: string;
-  color?: string;
+  color: string | undefined;
   included: boolean;
   isNoLabel: boolean;
 };
@@ -151,7 +151,7 @@ export function buildVaultPullRequestFilterOptions<T extends VaultPullRequestFil
       labelOptionsByKey.set(labelKey, {
         key: labelKey,
         name: label.name,
-        ...(label.color !== undefined ? { color: label.color } : {}),
+        color: label.color,
         included: !hiddenLabelNamesByKey.has(labelKey),
         isNoLabel: false,
       });
@@ -170,6 +170,7 @@ export function buildVaultPullRequestFilterOptions<T extends VaultPullRequestFil
     labelOptionsByKey.set(labelKey, {
       key: labelKey,
       name: labelName,
+      color: undefined,
       included: false,
       isNoLabel: false,
     });
@@ -180,6 +181,7 @@ export function buildVaultPullRequestFilterOptions<T extends VaultPullRequestFil
     {
       key: NO_LABEL_FILTER_KEY,
       name: NO_LABEL_FILTER_NAME,
+      color: undefined,
       included: normalizedFilters.includeNoLabel,
       isNoLabel: true,
     },

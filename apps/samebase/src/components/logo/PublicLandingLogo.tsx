@@ -89,12 +89,12 @@ function buildPublicLandingLogoRouteSearch({
   });
 
   if (view.elevationDegrees === defaultView.elevationDegrees) {
-    delete nextSearch.elev;
+    nextSearch.elev = undefined;
   } else {
     nextSearch.elev = Number(view.elevationDegrees.toFixed(1));
   }
   if (view.rotationDegrees === defaultView.rotationDegrees) {
-    delete nextSearch.rot;
+    nextSearch.rot = undefined;
   } else {
     nextSearch.rot = Number(view.rotationDegrees.toFixed(1));
   }
@@ -129,8 +129,8 @@ export function PublicLandingLogo({
   enableViewSnapping?: boolean;
   loadInteractiveScene?: boolean;
   /** Zero captures the rendered tilt; one renders exact neutral. */
-  presentationTiltNeutralProgress?: number;
-  presentationTiltTarget?: LogoPresentationTiltTarget;
+  presentationTiltNeutralProgress?: number | undefined;
+  presentationTiltTarget?: LogoPresentationTiltTarget | undefined;
   replaceRouteSearch?: (nextSearch: LogoRouteSearch) => void;
   routeSearch?: LogoRouteSearch;
   /**

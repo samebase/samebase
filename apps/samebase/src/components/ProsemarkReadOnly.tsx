@@ -41,7 +41,7 @@ type ProsemarkReadOnlyProps = {
   highlightedLineNumbers?: number[];
   lineHighlightTone?: "add" | "remove";
   mobilePaneDragEnabled?: boolean;
-  onChange?: (value: string) => void;
+  onChange?: ((value: string) => void) | undefined;
 };
 
 function getHighlightClassName(lineHighlightTone: "add" | "remove"): string {

@@ -70,7 +70,10 @@ export const blurOnOutsidePointerDownExtension = ViewPlugin.fromClass(
       }, 0);
     };
 
-    constructor(private readonly view: EditorView) {
+    private readonly view: EditorView;
+
+    constructor(view: EditorView) {
+      this.view = view;
       document.addEventListener("pointerdown", this.onPointerDown, true);
     }
 

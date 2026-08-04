@@ -950,13 +950,13 @@ function useProviderOAuthPopupCompletionReload({
       },
     };
     const handler = (event: MessageEvent) => {
-      if (!isRecord(event.data) || typeof event.data.type !== "string") {
+      if (!isRecord(event.data) || typeof event.data["type"] !== "string") {
         return;
       }
 
       for (const provider of PROVIDER_KEYS) {
         const popupConfig = providerPopupConfig[provider];
-        if (event.data.type !== popupConfig.completionEventType) {
+        if (event.data["type"] !== popupConfig.completionEventType) {
           continue;
         }
         if (event.source !== popupConfig.popupRef.current) {

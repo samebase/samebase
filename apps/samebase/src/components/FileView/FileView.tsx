@@ -2869,7 +2869,7 @@ function FileViewInner({
         <FileCreationDialog
           isOpen={true}
           onClose={closeFileCreation}
-          initialFolderPath={fileCreationDialog.folderPath || ""}
+          initialFolderPath={fileCreationDialog.folderPath}
           onFileCreate={handleCreateFileInFolder}
           folders={vault.treeData.tree
             .map((item: GithubTree) => {
@@ -2892,7 +2892,7 @@ function FileViewInner({
         <FolderCreationDialog
           isOpen={true}
           onClose={closeFolderCreation}
-          initialFolderPath={folderCreationDialog.folderPath || ""}
+          initialFolderPath={folderCreationDialog.folderPath}
           onFolderCreate={handleCreateFolderInFolder}
           folders={finalTreeData}
         />

@@ -378,10 +378,11 @@ export function UserSettingsPage() {
       resetScroll: false,
       search: (currentSearch) =>
         applySearchPatch(currentSearch, { [DELETE_ACCOUNT_QUERY_PARAM]: null }),
-      state: (currentState) => ({
-        ...currentState,
-        settingsDeleteAccountDialog: undefined,
-      }),
+      state: (currentState) => {
+        const nextState = { ...currentState };
+        delete nextState.settingsDeleteAccountDialog;
+        return nextState;
+      },
       to: ".",
     });
   };

@@ -33,6 +33,17 @@ const SANITIZED_VIDEO_ATTRIBUTES: string[] = [
 const SANITIZED_DETAILS_ATTRIBUTES: string[] = ["open"];
 const SANITIZED_IMAGE_ATTRIBUTES: string[] = ["alt", "height", "src", "title", "width"];
 const SANITIZED_SOURCE_ATTRIBUTES: string[] = ["src", "type"];
+type HeadingNode =
+  | {
+      position?:
+        | {
+            start?: {
+              line?: number;
+            };
+          }
+        | undefined;
+    }
+  | undefined;
 
 const markdownSanitizeSchema = {
   ...defaultSchema,
@@ -128,9 +139,9 @@ function MarkdownInternalLink({
   return (
     <Link
       className={MARKDOWN_LINK_CLASS_NAME}
-      hash={target.hash}
-      search={target.search}
-      title={title}
+      {...(target.hash !== undefined ? { hash: target.hash } : {})}
+      {...(target.search !== undefined ? { search: target.search } : {})}
+      {...(title !== undefined ? { title } : {})}
       to={target.to}
     >
       {children}
@@ -267,14 +278,6 @@ function buildImageAuthoredSizeStyle({
   };
 }
 
-type MarkdownHeadingNode = {
-  position?: {
-    start?: {
-      line?: number;
-    };
-  };
-};
-
 function renderHeading(level: 1 | 2 | 3 | 4, children: ReactNode, headingId: string | undefined) {
   switch (level) {
     case 1:
@@ -320,10 +323,7 @@ function renderHeading(level: 1 | 2 | 3 | 4, children: ReactNode, headingId: str
   }
 }
 
-function getHeadingId(
-  node: MarkdownHeadingNode | undefined,
-  headingIdsByLine: ReadonlyMap<number, string>,
-) {
+function getHeadingId(node: HeadingNode, headingIdsByLine: ReadonlyMap<number, string>) {
   const line = node?.position?.start?.line;
   if (line === undefined) {
     return undefined;

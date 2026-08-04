@@ -69,7 +69,13 @@ function parseStaticLandingCopy(markdown: string): LandingCopyBlock[] {
   return blocks;
 }
 
-function StaticLandingCopy({ className, markdown }: { className?: string; markdown: string }) {
+function StaticLandingCopy({
+  className,
+  markdown,
+}: {
+  className?: string | undefined;
+  markdown: string;
+}) {
   const blocks = parseStaticLandingCopy(markdown);
 
   // These line boxes mirror the editable ProseMark surface so toggling `?dev`
@@ -143,9 +149,9 @@ function EditableLandingCopyAfterHydration({
   onChange,
   staticCopy,
 }: {
-  className?: string;
+  className?: string | undefined;
   markdown: string;
-  onChange?: (value: string) => void;
+  onChange?: ((value: string) => void) | undefined;
   staticCopy: ReactNode;
 }) {
   const hasHydrated = useHasHydrated();
@@ -174,10 +180,10 @@ export function LandingCopy({
   markdown = landingPageMarkdown,
   onChange,
 }: {
-  className?: string;
+  className?: string | undefined;
   editable?: boolean;
   markdown?: string;
-  onChange?: (value: string) => void;
+  onChange?: ((value: string) => void) | undefined;
 }) {
   const staticCopy = <StaticLandingCopy className={className} markdown={markdown} />;
 

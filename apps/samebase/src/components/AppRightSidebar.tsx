@@ -56,9 +56,9 @@ function AppRightSidebarSignedInAccountSection({
   profile,
   user,
 }: {
-  authProviders?: AppRightSidebarAuthProviders;
+  authProviders?: AppRightSidebarAuthProviders | undefined;
   profile: AppAuthPresentationProfile | null;
-  user?: AppRightSidebarViewer | null;
+  user?: AppRightSidebarViewer | null | undefined;
 }) {
   const accountPresentation = user?.accountPresentation ?? profile?.accountPresentation;
   const accountProvider = authProviders?.primaryProvider ?? profile?.authProvider;
