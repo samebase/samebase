@@ -66,5 +66,6 @@ not copy tool schemas or general coding instructions into the skill.
 - Target: `nicu-chiciuc/weight_tsx` at `e26a38348dca39adbf7096d7a5ed1661ffeb3572`
 - Result: the public skill scored 28/32. The same skill plus the detailed adoption skill and
   contract scored 22/32. Clean isolation passed. Keep the public skill as the default. Extract only
-  proven, compact Samebase-specific boundary rules from the detailed bundle. See
+  proven, compact Samebase-specific boundary rules from the detailed bundle. The public skill now
+  names the production-build approval boundary. See
   `research/project-adoption/experiments/weight-tsx-skill-bundles.md`.

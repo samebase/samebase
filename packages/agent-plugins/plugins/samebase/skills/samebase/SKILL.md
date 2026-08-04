@@ -61,6 +61,8 @@ or copy tool schemas into this skill.
   setup is incomplete.
 - Reread inventory after each attachment, configuration, or repair action.
 - A started run, requested build, commit, or push is not proof of a live deployment.
+- If an action contract says it starts or requests a production build, name that effect and get
+  explicit approval immediately before the action.
 
 ## Work in the repository
 

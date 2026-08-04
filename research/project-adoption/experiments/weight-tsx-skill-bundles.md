@@ -90,8 +90,8 @@ Do not copy the detailed bundle into the public plugin. Extract a rule only when
 3. useful across target types
 4. short enough that it does not select the whole workflow for the agent
 
-The first-production-build approval boundary meets these conditions and should be tested as a small
-public rule. The Weight TSX parser defects belong to the target project, not the Samebase skill.
+The first-production-build approval boundary meets these conditions. The public skill now contains
+this small rule. The Weight TSX parser defects belong to the target project, not the Samebase skill.
 
 Keep the detailed bundle unchanged until the controlled implementation comparison finishes. After
 that test, reduce or remove it instead of maintaining a second default source of Samebase behavior.

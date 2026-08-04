@@ -108,6 +108,12 @@ check(
   ) && samebaseSkill.includes("Do not turn Samebase adoption into an unrelated testing upgrade."),
   "The Samebase skill must keep validation proportionate and operator-informed.",
 );
+check(
+  samebaseSkill.includes(
+    "If an action contract says it starts or requests a production build, name that effect and get explicit approval immediately before the action.",
+  ),
+  "The Samebase skill must require named approval before an action starts a production build.",
+);
 const scopeGateIndex = samebaseSkill.indexOf(
   "Do not use Samebase for unrelated Git work or standalone provider resources. A standalone Cloudflare Worker means no Samebase.",
 );
