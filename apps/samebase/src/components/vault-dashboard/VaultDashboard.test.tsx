@@ -516,6 +516,50 @@ describe("buildProductionEnvironmentRoots", () => {
     ]);
   });
 
+  it("keeps a stored Worker visible while live details load", () => {
+    const workerId = fakeCloudflareWorkerId();
+    const vault = makeRepositorySettingsBuilderVault({
+      cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({ workerId })],
+    });
+
+    expect(
+      buildProductionEnvironmentRoots({
+        branch: "main",
+        vault,
+        cloudflareObservations: {
+          workers: { state: "loading" },
+          builds: { state: "loading" },
+          convexBuildAccess: { state: "loading" },
+        },
+        convexObservations: {
+          state: "loaded",
+          refreshFailed: false,
+          reload: () => {},
+          observations: [],
+        },
+        owner: "ada",
+        repoName: "demo",
+        schemaGraphEnabled: true,
+      }),
+    ).toEqual([
+      {
+        rootDirectory: "Cloudflare Workers",
+        resources: [
+          {
+            kind: "cloudflare_worker",
+            id: workerId,
+            worker: {
+              workerName: "demo-worker",
+              build: { state: "loading" },
+              destination: { state: "absent" },
+              actions: [],
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
   it("does not manufacture links from attachments when live resources are missing", () => {
     const workerId = fakeCloudflareWorkerId();
     const convexProjectId = fakeConvexProjectId();
@@ -551,7 +595,23 @@ describe("buildProductionEnvironmentRoots", () => {
         repoName: "demo",
         schemaGraphEnabled: true,
       }),
-    ).toEqual([]);
+    ).toEqual([
+      {
+        rootDirectory: "Cloudflare Workers",
+        resources: [
+          {
+            kind: "cloudflare_worker",
+            id: workerId,
+            worker: {
+              workerName: "demo-worker",
+              build: { state: "unavailable" },
+              destination: { state: "absent" },
+              actions: [],
+            },
+          },
+        ],
+      },
+    ]);
   });
 });
 
