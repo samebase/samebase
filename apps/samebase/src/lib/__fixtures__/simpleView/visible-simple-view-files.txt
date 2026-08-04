@@ -468,6 +468,7 @@ research/onboarding-video-tooling-2026-03-19.md
 research/onboarding-video-window-treatment-options-2026-04-21.md
 research/project-adoption/cases/bristol-tsx.md
 research/project-adoption/cases/teardown-noita-3d.md
+research/project-adoption/experiments/weight-tsx-skill-bundles.md
 research/project-adoption/portable-rules.md
 research/project-adoption/README.md
 research/README.md
@@ -534,8 +535,6 @@ skills/delegation-orchestrator/SKILL.md
 skills/ios-safari-simulator/SKILL.md
 skills/mac-app-control/SKILL.md
 skills/README.md
-skills/samebase-adopt-project/references/adoption-contract.md
-skills/samebase-adopt-project/SKILL.md
 skills/samebase-playwright-live/references/playwright-cli-quickref.md
 skills/samebase-playwright-live/references/runbook.md
 skills/samebase-playwright-live/SKILL.md

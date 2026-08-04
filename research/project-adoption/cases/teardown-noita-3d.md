@@ -36,6 +36,11 @@ The repository also required SSH through one local credential agent. This blocke
 distracted the run from the provider contract. The repair used the active GitHub CLI account over
 HTTPS and left authentication ownership with the execution environment.
 
+The manager also treated broad regression coverage as part of adoption success without first
+agreeing on its cost or value with the operator. The application's Rust and WebGPU complexity did
+not make it an important production service. The operator wanted strong lint and type checks, but
+did not want to spend several minutes on broad gameplay and device tests for every change.
+
 ## Browser handoff
 
 The Samebase MCP did not expose the exact create-Worker action at the time of the run. The operator
@@ -59,6 +64,23 @@ replace the action with a manual provider-only workflow.
 5. At that time, provider-native reads found zero active deployments and unreachable generated
    preview URLs. A successful build and version record therefore did not pass Preview.
 
+## Validation budget correction
+
+The first successful repository CI run showed that Rust and WASM were not the main cost. The
+[workflow run](https://github.com/nicu-chiciuc/teardown-noita-3d/actions/runs/30905166331) spent
+about two seconds on the WASM artifact check, nine seconds on the application build, and six minutes
+and eight seconds on Playwright. The full job took about seven minutes and twenty-three seconds.
+
+The adoption made the full Playwright suite a required pull request gate. Several WebGPU, gameplay,
+and touch tests allowed up to two minutes each. That was a testing-maturity decision, not a
+necessary Samebase stack decision, and the manager did not ask the operator to approve it.
+
+The target correction in
+[pull request 13](https://github.com/nicu-chiciuc/teardown-noita-3d/pull/13) keeps fast static
+checks, the build, and WASM artifact verification as required evidence. It reduces the browser
+requirement to one short application smoke test. Broader gameplay, device, and stress coverage can
+return when the operator decides that the project needs that assurance.
+
 ## First-deployment preview experiment
 
 Before the Worker had an active deployment, the reviewed preview upload succeeded, but its version
@@ -81,10 +103,10 @@ reachable. It must not start an active deployment only to repair Preview without
 ### Target only
 
 - align Node, pnpm, Vite+, TypeScript, CI, and deploy commands
-- generate fixtures and verify every provider asset
 - keep the web-sized heightmap in ordinary Git
 - rebuild and compare the checked-in WASM in GitHub CI
-- give the slow WebGPU browser test the same timeout as the other Rust tests
+- keep fast static checks, the build, WASM artifact verification, and one short browser smoke test
+  as the required gate
 
 ### Samebase
 
@@ -129,6 +151,7 @@ browser and GPU test owner.
 
 - independent-project validation of the first-deployment preview candidate
 - production observation beyond the successful first deployment and route checks
+- broader gameplay, device, and stress coverage until the operator needs that assurance
 
 ## Experiment closure
 

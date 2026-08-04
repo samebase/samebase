@@ -6,9 +6,10 @@
   default-branch deployment
 - First case: [Bristol TSX](cases/bristol-tsx.md)
 - Second case: [Teardown Noita 3D](cases/teardown-noita-3d.md)
+- Skill-bundle experiment: [Weight TSX](experiments/weight-tsx-skill-bundles.md), where the short
+  public skill won the preflight 28/32 to 22/32 and the implementation 28/32 to 25/32
 - Worker input: [portable rules](portable-rules.md)
-- Next gate: test the new-Worker first-deployment candidate and other one-case findings on the next
-  adoption before promotion
+- Next gate: review the winning local Weight TSX patch before any target-repository publication
 
 ## Purpose
 
@@ -30,10 +31,14 @@ is available.
 Classify every difference before implementation. The manager owns and gives this contract to the
 workers. A worker cannot ask about a convention that it was never shown.
 
-### 2. Protect current behavior
+### 2. Choose proportionate validation
 
-Create framework-neutral tests for the behavior that must survive. Use synthetic data. Keep security
-defects separate from parity, so a characterization test does not make a defect permanent.
+Keep validation proportionate to the project and the migration risk. Discuss material cost and
+coverage tradeoffs with the operator. Do not turn Samebase adoption into an unrelated testing
+upgrade.
+
+Preserve the behavior that matters to the operator. Use synthetic data. Keep security defects
+separate from parity, so a test does not make a defect permanent.
 
 ### 3. Delegate bounded work
 

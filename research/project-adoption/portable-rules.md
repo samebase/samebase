@@ -90,11 +90,14 @@ For a linked worktree:
 Use project-specific commands and ownership primitives. Do not copy Samebase names or internal
 implementation only to make the projects look similar.
 
-## Protect Behavior And Private Data
+## Keep Validation Proportionate And Protect Private Data
 
-Add framework-neutral characterization tests before a framework migration. Cover public and private
-routes, redirects, server endpoints, authentication recovery, assets, navigation, and the provider
-build.
+Keep validation proportionate to the project and the migration risk. Discuss material cost and
+coverage tradeoffs with the operator. Do not turn Samebase adoption into an unrelated testing
+upgrade.
+
+Preserve the behavior that matters to the operator. Keep known security defects separate from
+parity.
 
 Authorize private data at its data boundary. Route authentication alone is not enough. Test
 anonymous rejection and authenticated behavior for each public data function.
