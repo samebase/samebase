@@ -7,7 +7,7 @@
 - Last updated: 2026-08-04
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Current branch: `codex-organization-ownership-spec`
-- Current state: Follow-up review fixes pass local validation; updated PR CI pending
+- Current state: Implementation and follow-up reviews complete; operator cutover pending
 - Current pull request: [#1355](https://github.com/samebase/samebase/pull/1355)
 
 ## Purpose
@@ -158,13 +158,13 @@ simplicity, and cutover reviews found and verified the final MCP organization bo
 credential-dependent account-deletion waits, personal UI cleanup, unused-index removal, and safe
 manual reset order. A follow-up review found one strict MCP argument mismatch and two realistic
 two-member races. The focused fixes use an explicit argument object, one organization deletion lock,
-and the existing exact staging-snapshot cleanup. The work is pending updated pull request CI, the
-operator-run reset, merge, deployment, bootstrap, and production verification.
+and the existing exact staging-snapshot cleanup. The work is pending the operator-run reset, merge,
+deployment, bootstrap, and production verification.
 
 ## Validation Evidence
 
-- Pull request CI passed the supply-chain check, the complete checks and unit-test job, the final CI
-  job, and both Cloudflare preview builds.
+- Pull request CI passed for follow-up code head `c14d1ac39`: the supply-chain check, the complete
+  checks and unit-test job, the final CI job, and both Cloudflare preview builds.
 - `pnpm check`: passed after the follow-up review fixes, with existing repository warnings only.
 - `pnpm test`: 292 files passed, with 2,282 tests passed and 1 skipped.
 - `pnpm test:convex`: 47 files passed, with 431 tests passed.
