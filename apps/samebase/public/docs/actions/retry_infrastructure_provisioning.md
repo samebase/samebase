@@ -6,9 +6,7 @@ MCP tool `vault_actions_retryInfrastructureProvisioning` · scope `access_app_cr
 
 Retries failed Samebase-managed infrastructure setup: starts a fresh managed provisioning run that
 re-reads the app's current infrastructure state and skips the blocks whose resources already exist,
-so completed work is not redone. It does not require or inspect a prior failed run. If the retry
-reaches Convex deploy-key setup, it requests one production build only after it verifies the scoped
-keys on both Workers Builds triggers.
+so completed work is not redone. It does not require or inspect a prior failed run.
 
 Only valid for live Samebase-managed apps, which are apps created by `create_repository`; imported
 repositories repair through the explicit manual attachment and provider-configuration actions

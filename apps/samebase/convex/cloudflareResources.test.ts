@@ -286,7 +286,6 @@ function stubEnsureCloudflareResourcesFetch(args: {
   let triggerCreateCount = 0;
   let triggerReadCount = 0;
   const environmentVariables = new Map<string, RecordedCloudflareEnvironmentVariables>();
-  const deletedEnvironmentVariables = new Map<string, Set<string>>();
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -308,9 +307,6 @@ function stubEnsureCloudflareResourcesFetch(args: {
             ...environmentVariables.get(endpoint),
             ...stored,
           });
-          for (const key of Object.keys(stored)) {
-            deletedEnvironmentVariables.get(endpoint)?.delete(key);
-          }
           return cloudflareSuccessResponse(environmentVariables.get(endpoint) ?? {});
         }
         if (method === "GET") {
@@ -332,24 +328,8 @@ function stubEnsureCloudflareResourcesFetch(args: {
           for (const key of args.dropReadEnvKeys?.[triggerUuid] ?? []) {
             delete stored[key];
           }
-          for (const key of deletedEnvironmentVariables.get(endpoint) ?? []) {
-            delete stored[key];
-          }
           return cloudflareSuccessResponse(stored);
         }
-      }
-
-      const environmentVariableMatch = endpoint.match(
-        /^(\/client\/v4\/accounts\/account-id\/builds\/triggers\/[^/]+\/environment_variables)\/([^/]+)$/,
-      );
-      if (method === "DELETE" && environmentVariableMatch) {
-        const environmentVariablesEndpoint = environmentVariableMatch[1];
-        const key = decodeURIComponent(environmentVariableMatch[2]);
-        const deleted = deletedEnvironmentVariables.get(environmentVariablesEndpoint) ?? new Set();
-        deleted.add(key);
-        deletedEnvironmentVariables.set(environmentVariablesEndpoint, deleted);
-        delete environmentVariables.get(environmentVariablesEndpoint)?.[key];
-        return cloudflareSuccessResponse(null);
       }
 
       if (
@@ -614,11 +594,11 @@ describe("cloudflare resources", () => {
     ]);
   });
 
-  it("scopes each Convex deploy key with the readable project marker", () => {
+  it("uses both Convex deploy keys and the readable project marker for Workers builds", () => {
     expect(
       buildCloudflareWorkersEnvVars({
-        convexDeployKey: "prod-key",
-        convexDeployKeyName: "CONVEX_DEPLOY_KEY",
+        productionConvexDeployKey: "prod-key",
+        previewConvexDeployKey: "preview-key",
         convexProject: { teamId: "team-1", projectId: "project-1" },
       }),
     ).toEqual({
@@ -626,18 +606,6 @@ describe("cloudflare resources", () => {
         value: "prod-key",
         is_secret: true,
       },
-      SAMEBASE_CONVEX_PROJECT: {
-        value: "version=1&teamId=team-1&projectId=project-1",
-        is_secret: false,
-      },
-    });
-    expect(
-      buildCloudflareWorkersEnvVars({
-        convexDeployKey: "preview-key",
-        convexDeployKeyName: "PREVIEW_CONVEX_DEPLOY_KEY",
-        convexProject: { teamId: "team-1", projectId: "project-1" },
-      }),
-    ).toEqual({
       PREVIEW_CONVEX_DEPLOY_KEY: {
         value: "preview-key",
         is_secret: true,
@@ -651,7 +619,17 @@ describe("cloudflare resources", () => {
 
   it("observes a configured Convex project regardless of marker parameter order", async () => {
     const requests: RecordedCloudflareRequest[] = [];
-    const marker = {
+    const variables = {
+      CONVEX_DEPLOY_KEY: {
+        created_on: "2026-07-20T00:00:00Z",
+        is_secret: true,
+        value: null,
+      },
+      PREVIEW_CONVEX_DEPLOY_KEY: {
+        created_on: "2026-07-20T00:00:00Z",
+        is_secret: true,
+        value: null,
+      },
       SAMEBASE_CONVEX_PROJECT: {
         created_on: "2026-07-20T00:00:00Z",
         is_secret: false,
@@ -661,20 +639,9 @@ describe("cloudflare resources", () => {
     stubEnsureCloudflareResourcesFetch({
       requests,
       readEnvVars: {
-        "production-trigger": {
-          CONVEX_DEPLOY_KEY: {
-            created_on: "2026-07-20T00:00:00Z",
-            is_secret: true,
-            value: null,
-          },
-          ...marker,
-        },
+        "production-trigger": variables,
         "preview-trigger": {
-          PREVIEW_CONVEX_DEPLOY_KEY: {
-            created_on: "2026-07-20T00:00:00Z",
-            is_secret: true,
-            value: null,
-          },
+          ...variables,
           SAMEBASE_CONVEX_PROJECT: {
             created_on: "2026-07-20T00:00:00Z",
             is_secret: false,
@@ -718,7 +685,7 @@ describe("cloudflare resources", () => {
     ).toHaveLength(2);
   });
 
-  it("reports the legacy cross-trigger key layout as incomplete", async () => {
+  it("distinguishes incomplete build access from a missing relationship", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
@@ -742,11 +709,6 @@ describe("cloudflare resources", () => {
         },
         "preview-trigger": {
           CONVEX_DEPLOY_KEY: {
-            created_on: "2026-07-20T00:00:00Z",
-            is_secret: true,
-            value: null,
-          },
-          PREVIEW_CONVEX_DEPLOY_KEY: {
             created_on: "2026-07-20T00:00:00Z",
             is_secret: true,
             value: null,
@@ -1052,26 +1014,10 @@ describe("cloudflare resources", () => {
     ).toBe(false);
   });
 
-  it("patches Convex build environment variables before starting the deferred production build", async () => {
+  it("writes both Convex deploy keys to both triggers for Cloudflare's shared variable table", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
-      readEnvVars: {
-        "production-trigger": {
-          PREVIEW_CONVEX_DEPLOY_KEY: {
-            created_on: "2026-07-20T00:00:00Z",
-            is_secret: true,
-            value: null,
-          },
-        },
-        "preview-trigger": {
-          CONVEX_DEPLOY_KEY: {
-            created_on: "2026-07-20T00:00:00Z",
-            is_secret: true,
-            value: null,
-          },
-        },
-      },
       triggers: [
         {
           trigger_uuid: "production-trigger",
@@ -1141,35 +1087,17 @@ describe("cloudflare resources", () => {
         request.path ===
           "/client/v4/accounts/account-id/builds/triggers/preview-trigger/environment_variables",
     );
-    const productionDeleteIndex = requests.findIndex(
+    const productionVerifyIndex = requests.findIndex(
       (request) =>
-        request.method === "DELETE" &&
-        request.path ===
-          "/client/v4/accounts/account-id/builds/triggers/production-trigger/environment_variables/PREVIEW_CONVEX_DEPLOY_KEY",
-    );
-    const previewDeleteIndex = requests.findIndex(
-      (request) =>
-        request.method === "DELETE" &&
-        request.path ===
-          "/client/v4/accounts/account-id/builds/triggers/preview-trigger/environment_variables/CONVEX_DEPLOY_KEY",
-    );
-    const productionVerifyIndex = requests.reduce(
-      (lastIndex, request, index) =>
         request.method === "GET" &&
         request.path ===
-          "/client/v4/accounts/account-id/builds/triggers/production-trigger/environment_variables"
-          ? index
-          : lastIndex,
-      -1,
+          "/client/v4/accounts/account-id/builds/triggers/production-trigger/environment_variables",
     );
-    const previewVerifyIndex = requests.reduce(
-      (lastIndex, request, index) =>
+    const previewVerifyIndex = requests.findIndex(
+      (request) =>
         request.method === "GET" &&
         request.path ===
-          "/client/v4/accounts/account-id/builds/triggers/preview-trigger/environment_variables"
-          ? index
-          : lastIndex,
-      -1,
+          "/client/v4/accounts/account-id/builds/triggers/preview-trigger/environment_variables",
     );
     const buildIndex = requests.findIndex(
       (request) =>
@@ -1179,40 +1107,31 @@ describe("cloudflare resources", () => {
 
     expect(productionPatchIndex).toBeGreaterThanOrEqual(0);
     expect(previewPatchIndex).toBeGreaterThanOrEqual(0);
-    expect(productionDeleteIndex).toBeGreaterThan(productionPatchIndex);
-    expect(previewDeleteIndex).toBeGreaterThan(previewPatchIndex);
-    expect(productionVerifyIndex).toBeGreaterThan(productionDeleteIndex);
-    expect(previewVerifyIndex).toBeGreaterThan(previewDeleteIndex);
     expect(productionVerifyIndex).toBeGreaterThan(productionPatchIndex);
     expect(previewVerifyIndex).toBeGreaterThan(previewPatchIndex);
     expect(buildIndex).toBeGreaterThan(productionPatchIndex);
     expect(buildIndex).toBeGreaterThan(previewPatchIndex);
     expect(buildIndex).toBeGreaterThan(productionVerifyIndex);
     expect(buildIndex).toBeGreaterThan(previewVerifyIndex);
-    const productionEnvVars = buildCloudflareWorkersEnvVars({
-      convexDeployKey: "prod-key",
-      convexDeployKeyName: "CONVEX_DEPLOY_KEY",
+    const convexEnvVars = buildCloudflareWorkersEnvVars({
+      productionConvexDeployKey: "prod-key",
+      previewConvexDeployKey: "preview-key",
       convexProject: { teamId: "team-1", projectId: "project-1" },
     });
-    const previewEnvVars = buildCloudflareWorkersEnvVars({
-      convexDeployKey: "preview-key",
-      convexDeployKeyName: "PREVIEW_CONVEX_DEPLOY_KEY",
-      convexProject: { teamId: "team-1", projectId: "project-1" },
-    });
-    expect(requests[productionPatchIndex]?.body).toEqual(productionEnvVars);
-    expect(requests[previewPatchIndex]?.body).toEqual(previewEnvVars);
+    expect(requests[productionPatchIndex]?.body).toEqual(convexEnvVars);
+    expect(requests[previewPatchIndex]?.body).toEqual(convexEnvVars);
     expect(requests[buildIndex]?.body).toEqual({
       branch: "main",
       commit_hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     });
   });
 
-  it("fails closed when the production trigger does not read back its deploy key", async () => {
+  it("fails closed when the production trigger does not read back the preview deploy key", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
       dropReadEnvKeys: {
-        "production-trigger": ["CONVEX_DEPLOY_KEY"],
+        "production-trigger": ["PREVIEW_CONVEX_DEPLOY_KEY"],
       },
       triggers: [
         {
@@ -1272,7 +1191,7 @@ describe("cloudflare resources", () => {
         convexProject: { teamId: "team-1", projectId: "project-1" },
       }),
     ).rejects.toThrow(
-      "Cloudflare production Workers Builds trigger production-trigger is missing build environment variable CONVEX_DEPLOY_KEY after deploy-key rotation.",
+      "Cloudflare production Workers Builds trigger production-trigger is missing build environment variable PREVIEW_CONVEX_DEPLOY_KEY after deploy-key rotation.",
     );
 
     expect(

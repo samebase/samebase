@@ -73,8 +73,6 @@ const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
 const SAMEBASE_CONVEX_PROJECT = "SAMEBASE_CONVEX_PROJECT";
 const SAMEBASE_CONVEX_PROJECT_MARKER_VERSION = "1";
 
-type ConvexDeployKeyName = typeof CONVEX_DEPLOY_KEY | typeof PREVIEW_CONVEX_DEPLOY_KEY;
-
 export function isCloudflareWorkerNotFoundError(error: unknown): boolean {
   if (error instanceof CloudflareApiError && !error.path.includes("/builds/triggers/")) {
     return error.details.some((detail) => {
@@ -154,13 +152,17 @@ function requireCloudflareString(value: string | null | undefined, message: stri
 }
 
 export function buildCloudflareWorkersEnvVars(vars: {
-  convexDeployKey: string;
-  convexDeployKeyName: ConvexDeployKeyName;
+  productionConvexDeployKey: string;
+  previewConvexDeployKey: string;
   convexProject: SamebaseConvexProjectReference;
 }): CloudflareBuildEnvVars {
   return {
-    [vars.convexDeployKeyName]: {
-      value: vars.convexDeployKey,
+    [CONVEX_DEPLOY_KEY]: {
+      value: vars.productionConvexDeployKey,
+      is_secret: true,
+    },
+    [PREVIEW_CONVEX_DEPLOY_KEY]: {
+      value: vars.previewConvexDeployKey,
       is_secret: true,
     },
     [SAMEBASE_CONVEX_PROJECT]: {
@@ -1513,31 +1515,6 @@ async function setTriggerEnvironmentVariables(
   });
 }
 
-async function deleteTriggerEnvironmentVariable(
-  args: {
-    token: string;
-    accountId: string;
-    triggerUuid: string;
-    key: ConvexDeployKeyName;
-  } & CloudflareApiCallOptions,
-): Promise<void> {
-  await args.beforeProviderWrite?.();
-  await requestCloudflareApi({
-    token: args.token,
-    method: "DELETE",
-    path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables/{environment_variable_key}",
-    transport: args.transport,
-    params: {
-      path: {
-        account_id: args.accountId,
-        trigger_uuid: args.triggerUuid,
-        environment_variable_key: args.key,
-      },
-    },
-    recordApiCall: args.recordApiCall,
-  });
-}
-
 async function listTriggerEnvironmentVariables(
   args: {
     token: string;
@@ -1566,7 +1543,6 @@ function assertTriggerEnvironmentVariables(args: {
   triggerUuid: string;
   envVars: CloudflareBuildEnvVarsResponse;
   expected: CloudflareBuildEnvVars;
-  forbiddenKey: ConvexDeployKeyName;
 }): void {
   const missingKeys = Object.keys(args.expected).filter(
     (key) => !Object.prototype.hasOwnProperty.call(args.envVars, key),
@@ -1592,12 +1568,6 @@ function assertTriggerEnvironmentVariables(args: {
         `Cloudflare ${args.triggerKind} Workers Builds trigger ${args.triggerUuid} has an unexpected value for build environment variable ${key}.`,
       );
     }
-  }
-
-  if (Object.prototype.hasOwnProperty.call(args.envVars, args.forbiddenKey)) {
-    throw new Error(
-      `Cloudflare ${args.triggerKind} Workers Builds trigger ${args.triggerUuid} still has unexpected build environment variable ${args.forbiddenKey} after deploy-key rotation.`,
-    );
   }
 }
 
@@ -1849,10 +1819,10 @@ function verifyConvexBuildAccess(args: {
     envVars: args.previewEnvVars,
     key: PREVIEW_CONVEX_DEPLOY_KEY,
   });
-  const productionDeployKeyIsScoped =
-    productionConvexDeployKeyPresent && !productionPreviewConvexDeployKeyPresent;
-  const previewDeployKeyIsScoped =
-    previewPreviewConvexDeployKeyPresent && !previewConvexDeployKeyPresent;
+  const productionDeployKeysPresent =
+    productionConvexDeployKeyPresent && productionPreviewConvexDeployKeyPresent;
+  const previewDeployKeysPresent =
+    previewConvexDeployKeyPresent && previewPreviewConvexDeployKeyPresent;
   if (productionMarker.state === "invalid" || previewMarker.state === "invalid") {
     return { state: "invalid" };
   }
@@ -1873,7 +1843,7 @@ function verifyConvexBuildAccess(args: {
   ) {
     return { state: "inconsistent" };
   }
-  return productionDeployKeyIsScoped && previewDeployKeyIsScoped
+  return productionDeployKeysPresent && previewDeployKeysPresent
     ? { state: "configured", convexProject: productionMarker.convexProject }
     : { state: "incomplete", convexProject: productionMarker.convexProject };
 }
@@ -2201,14 +2171,12 @@ export async function rotateConvexDeployKeysForCloudflareWorkerBuilds(
     });
 
     step = "set_environment_variables";
-    const productionEnvVars = buildCloudflareWorkersEnvVars({
-      convexDeployKey: args.convex.production.deployKey,
-      convexDeployKeyName: CONVEX_DEPLOY_KEY,
-      convexProject: args.convexProject,
-    });
-    const previewEnvVars = buildCloudflareWorkersEnvVars({
-      convexDeployKey: args.convex.preview.deployKey,
-      convexDeployKeyName: PREVIEW_CONVEX_DEPLOY_KEY,
+    // Cloudflare currently shows one shared build-variable table. Both trigger records must carry
+    // both Convex keys to keep the production and preview keys visible in that UI. Keep this layout
+    // until Cloudflare exposes separate production and preview build-variable views.
+    const convexEnvVars = buildCloudflareWorkersEnvVars({
+      productionConvexDeployKey: args.convex.production.deployKey,
+      previewConvexDeployKey: args.convex.preview.deployKey,
       convexProject: args.convexProject,
     });
     await Promise.all([
@@ -2216,7 +2184,7 @@ export async function rotateConvexDeployKeysForCloudflareWorkerBuilds(
         token: args.cloudflareToken,
         accountId: args.accountId,
         triggerUuid: args.build.production.triggerUuid,
-        envVars: productionEnvVars,
+        envVars: convexEnvVars,
         transport,
         recordApiCall: args.recordApiCall,
         beforeProviderWrite: args.beforeProviderWrite,
@@ -2225,53 +2193,11 @@ export async function rotateConvexDeployKeysForCloudflareWorkerBuilds(
         token: args.cloudflareToken,
         accountId: args.accountId,
         triggerUuid: args.build.preview.triggerUuid,
-        envVars: previewEnvVars,
+        envVars: convexEnvVars,
         transport,
         recordApiCall: args.recordApiCall,
         beforeProviderWrite: args.beforeProviderWrite,
       }),
-    ]);
-
-    step = "remove_cross_trigger_environment_variables";
-    const [productionCurrentEnvVars, previewCurrentEnvVars] = await Promise.all([
-      listTriggerEnvironmentVariables({
-        token: args.cloudflareToken,
-        accountId: args.accountId,
-        triggerUuid: args.build.production.triggerUuid,
-        transport,
-        recordApiCall: args.recordApiCall,
-      }),
-      listTriggerEnvironmentVariables({
-        token: args.cloudflareToken,
-        accountId: args.accountId,
-        triggerUuid: args.build.preview.triggerUuid,
-        transport,
-        recordApiCall: args.recordApiCall,
-      }),
-    ]);
-    await Promise.all([
-      Object.prototype.hasOwnProperty.call(productionCurrentEnvVars, PREVIEW_CONVEX_DEPLOY_KEY)
-        ? deleteTriggerEnvironmentVariable({
-            token: args.cloudflareToken,
-            accountId: args.accountId,
-            triggerUuid: args.build.production.triggerUuid,
-            key: PREVIEW_CONVEX_DEPLOY_KEY,
-            transport,
-            recordApiCall: args.recordApiCall,
-            beforeProviderWrite: args.beforeProviderWrite,
-          })
-        : Promise.resolve(),
-      Object.prototype.hasOwnProperty.call(previewCurrentEnvVars, CONVEX_DEPLOY_KEY)
-        ? deleteTriggerEnvironmentVariable({
-            token: args.cloudflareToken,
-            accountId: args.accountId,
-            triggerUuid: args.build.preview.triggerUuid,
-            key: CONVEX_DEPLOY_KEY,
-            transport,
-            recordApiCall: args.recordApiCall,
-            beforeProviderWrite: args.beforeProviderWrite,
-          })
-        : Promise.resolve(),
     ]);
 
     step = "verify_environment_variables";
@@ -2295,15 +2221,13 @@ export async function rotateConvexDeployKeysForCloudflareWorkerBuilds(
       triggerKind: "production",
       triggerUuid: args.build.production.triggerUuid,
       envVars: productionVerifiedEnvVars,
-      expected: productionEnvVars,
-      forbiddenKey: PREVIEW_CONVEX_DEPLOY_KEY,
+      expected: convexEnvVars,
     });
     assertTriggerEnvironmentVariables({
       triggerKind: "preview",
       triggerUuid: args.build.preview.triggerUuid,
       envVars: previewVerifiedEnvVars,
-      expected: previewEnvVars,
-      forbiddenKey: CONVEX_DEPLOY_KEY,
+      expected: convexEnvVars,
     });
 
     step = "trigger_initial_build";
