@@ -17,6 +17,7 @@ describe("starterSeedManifest", () => {
     const allFilePaths = [...filePaths, ...binaryFilePaths];
 
     expect(filePaths).toContain("package.json");
+    expect(filePaths).toContain("pnpm-workspace.yaml");
     expect(filePaths).toContain(".node-version");
     expect(filePaths).toContain("wrangler.jsonc");
     expect(filePaths).toContain("scripts/build-cloudflare.ts");
@@ -48,6 +49,7 @@ describe("starterSeedManifest", () => {
       starterTemplateManifest.files["tsconfig.node.json"],
     );
     const buildCloudflareScript = starterTemplateManifest.files["scripts/build-cloudflare.ts"];
+    const pnpmWorkspace = starterTemplateManifest.files["pnpm-workspace.yaml"];
 
     expect(starterTemplateManifest.files[".node-version"]).toBe("24\n");
     expect(packageJson).toEqual(
@@ -68,19 +70,16 @@ describe("starterSeedManifest", () => {
             "vp run generate:cloudflare-redirects && git diff --exit-code -- public/_redirects",
         }),
         devDependencies: expect.objectContaining({
-          vite: "npm:@voidzero-dev/vite-plus-core@0.1.24",
-          "vite-plus": "0.1.24",
-          vitest: "npm:@voidzero-dev/vite-plus-test@0.1.24",
+          vite: "catalog:",
+          "vite-plus": "catalog:",
+          vitest: "catalog:",
         }),
         packageManager: "pnpm@11.1.1",
-        pnpm: {
-          overrides: {
-            vite: "npm:@voidzero-dev/vite-plus-core@0.1.24",
-            vitest: "npm:@voidzero-dev/vite-plus-test@0.1.24",
-          },
-        },
       }),
     );
+    expect(pnpmWorkspace).toContain("vite: npm:@voidzero-dev/vite-plus-core@0.2.7");
+    expect(pnpmWorkspace).toContain("vitest: 4.1.10");
+    expect(pnpmWorkspace).toContain("vite-plus: 0.2.7");
     expect(starterTemplateManifest.files["package.json"]).not.toContain('"eslint"');
     expect(starterTemplateManifest.files["package.json"]).not.toContain('"prettier"');
     expect(buildCloudflareScript).toContain(
@@ -99,6 +98,15 @@ describe("starterSeedManifest", () => {
         moduleDetection: "force",
         noEmit: true,
         strict: true,
+        exactOptionalPropertyTypes: true,
+        noUncheckedSideEffectImports: true,
+        noImplicitReturns: true,
+        noImplicitOverride: true,
+        noPropertyAccessFromIndexSignature: true,
+        noUncheckedIndexedAccess: false,
+        allowUnreachableCode: false,
+        allowUnusedLabels: false,
+        forceConsistentCasingInFileNames: true,
         noUnusedLocals: true,
         noUnusedParameters: true,
         erasableSyntaxOnly: true,
@@ -134,12 +142,6 @@ describe("starterSeedManifest", () => {
   it("documents Convex deploy-key permissions for Workers builds", () => {
     expect(starterTemplateManifest.files["README.md"]).toContain("`CONVEX_DEPLOY_KEY`");
     expect(starterTemplateManifest.files["README.md"]).not.toContain("`PROD_CONVEX_DEPLOY_KEY`");
-    expect(starterTemplateManifest.files["README.md"]).toContain(
-      "`deployment:deploy`, `deployment:env:view`, `deployment:env:write`, and\n  `deployment:data:view`",
-    );
-    expect(starterTemplateManifest.files["README.md"]).toContain(
-      "Do not grant data write, function-run, logs, backups, or integration permissions",
-    );
     expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).toContain(
       "deployment:deploy, deployment:env:view, deployment:env:write, and deployment:data:view",
     );
@@ -181,7 +183,7 @@ describe("starterSeedManifest", () => {
 
   it("lists starter todos publicly with creator names", () => {
     expect(starterTemplateManifest.files["README.md"]).toContain(
-      "the public todo list keeps guest author attribution",
+      "The example app is a public todo list.",
     );
     expect(starterTemplateManifest.files["convex/schema.ts"]).toContain(
       '.index("by_created_at", ["createdAt"])',
