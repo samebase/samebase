@@ -35,12 +35,10 @@ verified.
 
 ## First-Deployment Preview Observation
 
-In the public
-[Teardown Noita 3D case study](https://github.com/samebase/samebase/blob/main/research/project-adoption/cases/teardown-noita-3d.md),
-a new assets-only Worker uploaded a preview version before it had an active deployment. Its version
-URL and branch alias returned Cloudflare error 1042. After an approved default-branch build created
-the first active deployment, the old preview URLs and a new pull request preview became reachable.
-The new preview did not replace the production version.
+During one adoption of an assets-only 3D browser game, a new Worker uploaded a preview version
+before it had an active deployment. Its version URL and branch alias returned Cloudflare error 1042.
+After an approved default-branch build created the first active deployment, the old preview URLs and
+a new pull request preview became reachable. The new preview did not replace the production version.
 
 This is one project observation, not a general Cloudflare requirement. When the same state appears:
 
