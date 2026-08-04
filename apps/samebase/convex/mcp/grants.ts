@@ -83,9 +83,6 @@ export const listCurrentUserGrants = query({
       .paginate(args.paginationOpts);
     const page = [];
     for (const grant of grants.page) {
-      if (!hasMcpGrantSubject(access, grant)) {
-        continue;
-      }
       const client = await ctx.db
         .query("mcpOauthClients")
         .withIndex("by_client_id", (q) => q.eq("clientId", grant.clientId))
@@ -123,13 +120,10 @@ export const revokeCurrentUserGrant = mutation({
     if (!grant || grant.userId !== ctx.viewer.userId) {
       throw new Error("MCP client connection was not found.");
     }
-    const access = await requireOrganizationAccessContext(ctx.db, {
+    await requireOrganizationAccessContext(ctx.db, {
       userId: ctx.viewer.userId,
       organizationId: grant.organizationId,
     });
-    if (!hasMcpGrantSubject(access, grant)) {
-      throw new Error("MCP client connection was not found.");
-    }
 
     const revoked = await revokeActiveMcpGrant(ctx, {
       action: "grant_revoked",

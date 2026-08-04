@@ -60,14 +60,6 @@ export async function readAccountDeletionOrganization(
     )
     .take(2);
 
-  if (memberships.length === 0) {
-    throw new Error("Organization membership is inconsistent.");
-  }
-
-  if (memberships.length === 1 && memberships[0]._id !== membership._id) {
-    throw new Error("Organization membership is inconsistent.");
-  }
-
   return {
     membershipId: membership._id,
     organizationId: membership.organizationId,
@@ -87,10 +79,6 @@ export async function readAccountDeletionBilling(
 
   if (billing === null) {
     return null;
-  }
-
-  if (billing.account.organizationId !== organization.organizationId) {
-    throw new Error("Account deletion billing ownership is inconsistent.");
   }
 
   if (organization.membershipState === "shared") {
