@@ -71,7 +71,7 @@ describe("devAuth password account seed", () => {
         cloudflareApiKey: "cloudflare-token",
         cloudflareAccountId: "cloudflare-account-id",
       }),
-    ).resolves.toMatchObject({ state: "complete" });
+    ).resolves.toBeNull();
 
     const snapshot = await t.run(async (ctx) => {
       const connections = await ctx.db
@@ -99,7 +99,7 @@ describe("devAuth password account seed", () => {
     ]);
   });
 
-  it("requires an organization before it seeds providers for a user with several memberships", async () => {
+  it("rejects provider seeding after the development account joins another organization", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       const insertedUserId = await ctx.db.insert("users", {
@@ -122,71 +122,14 @@ describe("devAuth password account seed", () => {
         githubAccountId: "github-account-id",
         githubUsername: "seed-user",
       }),
-    ).resolves.toEqual({ state: "organization_required" });
+    ).rejects.toThrowError(
+      "The development seed account must have exactly one organization. Reset the local data before seeding it again.",
+    );
 
     const connections = await t.run(async (ctx) => {
       return await ctx.db.query("providerConnections").collect();
     });
     expect(connections).toEqual([]);
-  });
-
-  it("seeds providers only into the explicit organization", async () => {
-    const t = makeConvexTest();
-    const { userId, selectedOrganizationId, otherOrganizationId } = await t.run(async (ctx) => {
-      const insertedUserId = await ctx.db.insert("users", {
-        email: "explicit-org-seed@example.com",
-      });
-      const firstOrganizationId = await ctx.db.insert("organizations", {
-        name: "First organization",
-      });
-      const secondOrganizationId = await ctx.db.insert("organizations", {
-        name: "Second organization",
-      });
-      await ctx.db.insert("organizationMemberships", {
-        organizationId: firstOrganizationId,
-        userId: insertedUserId,
-      });
-      await ctx.db.insert("organizationMemberships", {
-        organizationId: secondOrganizationId,
-        userId: insertedUserId,
-      });
-      return {
-        userId: insertedUserId,
-        selectedOrganizationId: secondOrganizationId,
-        otherOrganizationId: firstOrganizationId,
-      };
-    });
-
-    await expect(
-      t.mutation(internal.devAuth.seedPasswordAccountState, {
-        userId,
-        organizationId: selectedOrganizationId,
-        githubApiKey: "github-token",
-        githubAccountId: "github-account-id",
-        githubUsername: "seed-user",
-      }),
-    ).resolves.toEqual({
-      state: "complete",
-      organizationId: selectedOrganizationId,
-    });
-
-    const snapshot = await t.run(async (ctx) => ({
-      selectedConnections: await ctx.db
-        .query("providerConnections")
-        .withIndex("by_organization", (query) => query.eq("organizationId", selectedOrganizationId))
-        .collect(),
-      otherConnections: await ctx.db
-        .query("providerConnections")
-        .withIndex("by_organization", (query) => query.eq("organizationId", otherOrganizationId))
-        .collect(),
-    }));
-
-    expect(snapshot.selectedConnections).toHaveLength(1);
-    expect(snapshot.selectedConnections[0]).toMatchObject({
-      kind: "github",
-      connectedByUserId: userId,
-    });
-    expect(snapshot.otherConnections).toEqual([]);
   });
 
   it("fails closed when the seed user is missing", async () => {

@@ -52,10 +52,11 @@ receives an explicit `organizationId`. An existing-resource operation can instea
 and use its required organization ID. The backend then verifies the exact user and organization
 membership. No product backend function selects the first or only membership from `userId`.
 
-Development password seeding is the only non-product exception. Its first successful run requires
-the seed user to have exactly one membership. Later runs with several memberships require an
-explicit organization argument. The seed action does not store a default organization, and it never
-selects organization context for the web app or MCP.
+Development password seeding is the only non-product exception. It runs during fresh environment
+bootstrap, after account creation and before another membership is added. The seed user must have
+exactly one membership. If it has several memberships, the operator must reset the disposable local
+or preview data. The seed action does not accept an organization argument or store a default
+organization.
 
 The web app keeps the selected organization in explicit URL request context. If one membership is
 available, the client can select it without showing a choice, but it still sends the organization ID
