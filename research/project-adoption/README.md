@@ -2,12 +2,13 @@
 
 ## Status
 
-- Method: second case recorded; its repository-backed Preview gate is incomplete
+- Method: second case recorded; its repository-backed Preview gate passed after the first
+  default-branch deployment
 - First case: [Bristol TSX](cases/bristol-tsx.md)
 - Second case: [Teardown Noita 3D](cases/teardown-noita-3d.md)
 - Worker input: [portable rules](portable-rules.md)
-- Next gate: resolve the new-Worker first-deployment gap, then test one-case findings on the next
-  adoption
+- Next gate: test the new-Worker first-deployment candidate and other one-case findings on the next
+  adoption before promotion
 
 ## Purpose
 
