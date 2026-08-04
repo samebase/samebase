@@ -907,29 +907,10 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
       sha: upstreamSha,
     };
   };
-  const isCommittedRenameTarget = (
-    file: StagedFileForCommit,
-    upstreamLocation: { path: string; sha: string },
-  ): boolean => {
-    if (
-      file.fileDeleted ||
-      file.filePath === file.initialFilePath ||
-      upstreamLocation.path !== file.filePath
-    ) {
-      return false;
-    }
-    return isBinaryStagedFile(file)
-      ? file.stagedBlobSha === upstreamLocation.sha
-      : computeGitBlobShaFromText(file.content) === upstreamLocation.sha;
-  };
-
   const upstreamShasToPrefetch = new Set<string>();
   for (const file of args.stagedFiles) {
     const upstreamLocation = resolveUpstreamLocationForFile(file);
     if (!upstreamLocation) {
-      continue;
-    }
-    if (isCommittedRenameTarget(file, upstreamLocation)) {
       continue;
     }
     const upstreamSha = upstreamLocation.sha;
@@ -960,22 +941,6 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
   for (const file of args.stagedFiles) {
     const upstreamLocation = resolveUpstreamLocationForFile(file);
     const upstreamSha = upstreamLocation?.sha ?? null;
-    if (file.fileDeleted && file.parentCommitSha !== null && !upstreamLocation) {
-      rebasedFiles.push({
-        ...file,
-        parentCommitSha: null,
-      });
-      continue;
-    }
-    if (upstreamLocation && isCommittedRenameTarget(file, upstreamLocation)) {
-      rebasedFiles.push({
-        ...file,
-        initialFilePath: file.filePath,
-        initialContent: isBinaryStagedFile(file) ? file.initialContent : file.content,
-        parentCommitSha: upstreamLocation.sha,
-      });
-      continue;
-    }
     if (isBinaryStagedFile(file)) {
       if (file.fileDeleted) {
         if (file.parentCommitSha === null || !upstreamSha || upstreamSha === file.parentCommitSha) {
@@ -1053,21 +1018,6 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
         upstreamContent,
         upstreamPath: upstreamLocation?.path,
         upstreamSha,
-      });
-      rebasedFiles.push(file);
-      continue;
-    }
-
-    // The current tree cannot prove whether a different target came from our
-    // prior rebased commit or another rename. Fail closed instead of applying
-    // the staged patch twice.
-    if (file.filePath !== file.initialFilePath && upstreamLocation?.path === file.filePath) {
-      const upstreamContent = await getBlobText(upstreamLocation.sha);
-      conflicts.push({
-        ...file,
-        upstreamContent,
-        upstreamPath: upstreamLocation.path,
-        upstreamSha: upstreamLocation.sha,
       });
       rebasedFiles.push(file);
       continue;
@@ -3788,37 +3738,6 @@ export const commitAllStaged = internalAction({
       branch: commitBranch,
       stagedFiles: changedFiles,
     });
-    const committedStagingFiles = changedFiles.map((snapshot, index) => {
-      const file = resolvedChangedFiles.at(index);
-      if (!file) {
-        throw new Error("Committed staging snapshot is incomplete.");
-      }
-      if (file.fileDeleted) {
-        return {
-          snapshot,
-          baseline: { state: "deleted" as const },
-        };
-      }
-
-      const parentCommitSha = isBinaryStagedFile(file)
-        ? file.stagedBlobSha
-        : computeGitBlobShaFromText(file.content);
-      if (!parentCommitSha) {
-        throw new Error(`Binary file ${file.filePath} is missing its Git blob SHA.`);
-      }
-
-      return {
-        snapshot,
-        baseline: {
-          state: "present" as const,
-          kind: file.kind,
-          filePath: file.filePath,
-          content: file.content,
-          parentCommitSha,
-        },
-      };
-    });
-
     // Create a commit with all staged files
     await createCommitWithMultipleFiles({
       octokit,
@@ -3904,11 +3823,11 @@ export const commitAllStaged = internalAction({
       }
     }
 
-    // 4. Keep the same row so a delayed editor save can finish after the commit.
-    await ctx.runMutation(internal.fileStaging.advanceCommittedStagingSnapshot, {
+    // 4. Remove committed staging.
+    await ctx.runMutation(api.fileStaging.clearAllStaging, {
       vaultId: args.vaultId,
       branch: commitBranch,
-      files: committedStagingFiles,
+      skipTreeUpdate: true,
     });
 
     return null;

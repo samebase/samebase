@@ -2,7 +2,6 @@ import { describe, expect, it } from "vite-plus/test";
 import { internal } from "./_generated/api";
 
 import {
-  advanceCommittedStagingSnapshotImpl,
   buildDeletionSnapshotSeed,
   buildDeletedFileRestoreCandidate,
   buildClearAllStagingPlan,
@@ -607,117 +606,6 @@ describe("clearMatchingStagingSnapshotImpl", () => {
           vaultId: "vault-1",
           branch: "main",
           filePath: "src/old-name.ts",
-          cutoffTimestamp: 201,
-        },
-      },
-    ]);
-  });
-});
-
-describe("advanceCommittedStagingSnapshotImpl", () => {
-  const committedTextSnapshot = {
-    _id: "staging-1",
-    vaultId: "vault-1",
-    fileDeleted: false,
-    kind: "text" as const,
-    filePath: "src/app.ts",
-    initialFilePath: "src/app.ts",
-    content: "committed edit",
-    initialContent: "original",
-    parentCommitSha: "sha-old",
-    lastEditTime: 200,
-    lastEditUserId: "users:owner",
-    branch: "main",
-    version: 3,
-  };
-  const committedTextBaseline = {
-    state: "present" as const,
-    kind: "text" as const,
-    filePath: "src/app.ts",
-    content: "committed edit",
-    parentCommitSha: "sha-new",
-  };
-
-  it("keeps the same clean row and version for a delayed editor save", async () => {
-    const context = createClearMatchingStagingSnapshotTestContext({
-      stagedFiles: [{ _creationTime: 1, ...committedTextSnapshot }],
-    });
-
-    // @ts-expect-error Regression test uses a minimal MutationCtx stub that only includes accessed fields.
-    await advanceCommittedStagingSnapshotImpl(context.ctx, {
-      vaultId: "vault-1",
-      branch: "main",
-      files: [{ snapshot: committedTextSnapshot, baseline: committedTextBaseline }],
-    });
-
-    expect(context.stagingById.get("staging-1")).toMatchObject({
-      _id: "staging-1",
-      content: "committed edit",
-      initialContent: "committed edit",
-      parentCommitSha: "sha-new",
-      version: 3,
-    });
-    expect(context.deletedIds).toEqual([]);
-    expect(context.scheduledCalls).toEqual([]);
-  });
-
-  it("keeps a newer local edit and moves only its Git baseline", async () => {
-    const context = createClearMatchingStagingSnapshotTestContext({
-      stagedFiles: [
-        {
-          _creationTime: 1,
-          ...committedTextSnapshot,
-          content: "edit saved during commit",
-          lastEditTime: 300,
-          version: 4,
-        },
-      ],
-    });
-
-    // @ts-expect-error Regression test uses a minimal MutationCtx stub that only includes accessed fields.
-    await advanceCommittedStagingSnapshotImpl(context.ctx, {
-      vaultId: "vault-1",
-      branch: "main",
-      files: [{ snapshot: committedTextSnapshot, baseline: committedTextBaseline }],
-    });
-
-    expect(context.stagingById.get("staging-1")).toMatchObject({
-      content: "edit saved during commit",
-      initialContent: "committed edit",
-      parentCommitSha: "sha-new",
-      version: 4,
-    });
-    expect(context.deletedIds).toEqual([]);
-    expect(context.scheduledCalls).toEqual([]);
-  });
-
-  it("removes an exact committed deletion and its update history", async () => {
-    const snapshot = {
-      ...committedTextSnapshot,
-      fileDeleted: true,
-      content: "original",
-    };
-    const context = createClearMatchingStagingSnapshotTestContext({
-      stagedFiles: [{ _creationTime: 1, ...snapshot }],
-    });
-
-    // @ts-expect-error Regression test uses a minimal MutationCtx stub that only includes accessed fields.
-    await advanceCommittedStagingSnapshotImpl(context.ctx, {
-      vaultId: "vault-1",
-      branch: "main",
-      files: [{ snapshot, baseline: { state: "deleted" } }],
-    });
-
-    expect(context.stagingById.has("staging-1")).toBe(false);
-    expect(context.deletedIds).toEqual(["staging-1"]);
-    expect(context.scheduledCalls).toEqual([
-      {
-        delayMs: 0,
-        fnRef: internal.fileStaging.deleteCollaborativeUpdatesForFilePathBatch,
-        args: {
-          vaultId: "vault-1",
-          branch: "main",
-          filePath: "src/app.ts",
           cutoffTimestamp: 201,
         },
       },

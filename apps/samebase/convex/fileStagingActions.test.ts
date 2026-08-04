@@ -15,7 +15,6 @@ import {
   readOpenPullRequestForBranch,
   shouldAdvanceBinaryPullParentCommit,
 } from "./fileStagingActions";
-import { hasStagedFileChanges } from "./stagingChanges";
 
 type GitApi = RestEndpointMethodTypes["git"];
 type GetRefResponse = GitApi["getRef"]["response"];
@@ -1056,117 +1055,6 @@ describe("createCommitWithMultipleFiles", () => {
     const todoEntry = createTreeCall.tree.find((entry) => entry.path === "TODO.md");
     const committedContent = readInlineContent(todoEntry);
     expect(committedContent).toBe(["alpha-updated", "beta", "gamma", "delta", ""].join("\n"));
-  });
-
-  it("normalizes an already committed deletion to no Git change", async () => {
-    const inspection = await inspectStagedFilesAgainstLatestHead({
-      octokit,
-      owner: "test-owner",
-      repo: "test-repo",
-      branch: "main",
-      stagedFiles: [
-        {
-          kind: "text",
-          filePath: "TODO.md",
-          content: "",
-          fileDeleted: true,
-          initialFilePath: "TODO.md",
-          initialContent: "old content\n",
-          parentCommitSha: "old-sha",
-          branch: "main",
-        },
-      ],
-    });
-
-    expect(inspection.conflicts).toEqual([]);
-    expect(inspection.rebasedFiles[0]).toMatchObject({
-      filePath: "TODO.md",
-      fileDeleted: true,
-      parentCommitSha: null,
-    });
-    expect(hasStagedFileChanges(inspection.rebasedFiles[0])).toBe(false);
-  });
-
-  it("normalizes an already committed rename to no Git change", async () => {
-    const committedContent = "renamed content\n";
-    const committedBlobSha = "447368bb0c612513c7842a6b74dfe5f21dba983e";
-    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
-      makeGetTreeResponse("head-tree", [{ path: "docs/TODO.md", sha: committedBlobSha }]),
-    );
-    const getBlobSpy = vi.spyOn(octokit.rest.git, "getBlob");
-
-    const inspection = await inspectStagedFilesAgainstLatestHead({
-      octokit,
-      owner: "test-owner",
-      repo: "test-repo",
-      branch: "main",
-      stagedFiles: [
-        {
-          kind: "text",
-          filePath: "docs/TODO.md",
-          content: committedContent,
-          fileDeleted: false,
-          initialFilePath: "TODO.md",
-          initialContent: "old content\n",
-          parentCommitSha: "old-sha",
-          branch: "main",
-        },
-      ],
-    });
-
-    expect(inspection.conflicts).toEqual([]);
-    expect(getBlobSpy).not.toHaveBeenCalled();
-    expect(inspection.rebasedFiles[0]).toMatchObject({
-      filePath: "docs/TODO.md",
-      initialFilePath: "docs/TODO.md",
-      content: committedContent,
-      initialContent: committedContent,
-      parentCommitSha: committedBlobSha,
-    });
-    expect(hasStagedFileChanges(inspection.rebasedFiles[0])).toBe(false);
-  });
-
-  it("fails closed when a rename target has different merged content", async () => {
-    const initialContent = "a\na\na\na\na\n";
-    const stagedContent = "a\na\na\na\nX\n";
-    const upstreamContent = "U\na\na\na\na\nX\n";
-    const upstreamSha = "b25a3b5a5efd3f6df2eb773aedd6a56bcf714ca3";
-    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
-      makeGetTreeResponse("head-tree", [{ path: "docs/TODO.md", sha: upstreamSha }]),
-    );
-    vi.spyOn(octokit.rest.git, "getBlob").mockResolvedValue(
-      makeGetBlobResponse(upstreamSha, upstreamContent),
-    );
-
-    const inspection = await inspectStagedFilesAgainstLatestHead({
-      octokit,
-      owner: "test-owner",
-      repo: "test-repo",
-      branch: "main",
-      stagedFiles: [
-        {
-          kind: "text",
-          filePath: "docs/TODO.md",
-          content: stagedContent,
-          fileDeleted: false,
-          initialFilePath: "TODO.md",
-          initialContent,
-          parentCommitSha: "72e1fe35d30d7b0edb6c27d85b2b3b42f0e1914f",
-          branch: "main",
-        },
-      ],
-    });
-
-    expect(inspection.conflicts).toHaveLength(1);
-    expect(inspection.conflicts[0]).toMatchObject({
-      filePath: "docs/TODO.md",
-      initialFilePath: "TODO.md",
-      content: stagedContent,
-      upstreamContent,
-      upstreamPath: "docs/TODO.md",
-      upstreamSha,
-    });
-    expect(inspection.rebasedFiles[0].content).toBe(stagedContent);
   });
 
   it("collects rebase conflict payloads for files that cannot apply cleanly", async () => {

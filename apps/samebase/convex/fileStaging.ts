@@ -131,29 +131,6 @@ const clearMatchingStagingSnapshotArgsValidator = {
   branch: branchValidator,
   stagedFiles: stagedFileSnapshotListValidator,
 };
-const committedStagingBaselineValidator = union(
-  object({
-    state: literal("deleted"),
-  }),
-  object({
-    state: literal("present"),
-    kind: stagedFileKindValidator,
-    filePath: filePathValidator,
-    content: contentValidator,
-    parentCommitSha: string(),
-  }),
-);
-const advanceCommittedStagingSnapshotArgsValidator = {
-  vaultId: vaultIdValidator,
-  branch: branchValidator,
-  files: array(
-    object({
-      snapshot: stagedFileSnapshotValidator,
-      baseline: committedStagingBaselineValidator,
-    }),
-  ),
-};
-
 const deletionArgsValidator = {
   vaultId: vaultIdValidator,
   filePath: filePathValidator,
@@ -782,93 +759,6 @@ export const clearMatchingStagingSnapshot = internalMutation({
   args: clearMatchingStagingSnapshotArgsValidator,
   returns: nullResultValidator,
   handler: clearMatchingStagingSnapshotImpl,
-});
-
-type AdvanceCommittedStagingSnapshotArgs = {
-  vaultId: Infer<typeof vaultIdValidator>;
-  branch: string;
-  files: Array<{
-    snapshot: StagedFileSnapshot;
-    baseline: Infer<typeof committedStagingBaselineValidator>;
-  }>;
-};
-
-/**
- * Keep a committed row so the current editor can finish a delayed save.
- * This only advances the normal committed document. It does not merge
- * simultaneous renames, deletions, or upstream changes.
- */
-export async function advanceCommittedStagingSnapshotImpl(
-  ctx: MutationCtx,
-  args: AdvanceCommittedStagingSnapshotArgs,
-) {
-  const committedDeletions: StagedFileSnapshot[] = [];
-
-  for (const { snapshot, baseline } of args.files) {
-    if (snapshot.vaultId !== args.vaultId) {
-      throw new Error("Staging snapshot belongs to a different vault.");
-    }
-    if (snapshot.branch !== args.branch) {
-      throw new Error("Staging snapshot belongs to a different branch.");
-    }
-
-    const current = await ctx.db.get(snapshot._id);
-    if (!current) {
-      continue;
-    }
-
-    const matchesSnapshot = matchesStagedFileSnapshot({ current, snapshot });
-    if (baseline.state === "deleted") {
-      if (matchesSnapshot) {
-        committedDeletions.push(snapshot);
-      }
-      continue;
-    }
-
-    const baselineMatchesCommittedDocument =
-      !snapshot.fileDeleted &&
-      baseline.kind === snapshot.kind &&
-      baseline.filePath === snapshot.filePath &&
-      baseline.content === snapshot.content;
-    if (!baselineMatchesCommittedDocument) {
-      continue;
-    }
-
-    const isNewerTextEdit =
-      !matchesSnapshot &&
-      snapshot.kind === "text" &&
-      current.vaultId === snapshot.vaultId &&
-      current.branch === snapshot.branch &&
-      current.kind === "text" &&
-      !current.fileDeleted &&
-      current.filePath === snapshot.filePath &&
-      current.initialFilePath === snapshot.initialFilePath &&
-      current.initialContent === snapshot.initialContent &&
-      current.parentCommitSha === snapshot.parentCommitSha &&
-      current.version > snapshot.version;
-    if (!matchesSnapshot && !isNewerTextEdit) {
-      continue;
-    }
-
-    await ctx.db.patch(current._id, {
-      initialFilePath: baseline.filePath,
-      initialContent: baseline.content,
-      ...(baseline.kind === "binary" ? { stagedBlobSha: baseline.parentCommitSha } : {}),
-      parentCommitSha: baseline.parentCommitSha,
-    });
-  }
-
-  return await clearMatchingStagingSnapshotImpl(ctx, {
-    vaultId: args.vaultId,
-    branch: args.branch,
-    stagedFiles: committedDeletions,
-  });
-}
-
-export const advanceCommittedStagingSnapshot = internalMutation({
-  args: advanceCommittedStagingSnapshotArgsValidator,
-  returns: nullResultValidator,
-  handler: advanceCommittedStagingSnapshotImpl,
 });
 
 const DELETION_BATCH_SIZE = 500;
