@@ -7,7 +7,7 @@
 - Last updated: 2026-08-04
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Current branch: `codex-organization-ownership-spec`
-- Current state: Implementation and follow-up reviews complete; operator cutover pending
+- Current state: Final review fixes in progress; operator cutover pending
 - Current pull request: [#1355](https://github.com/samebase/samebase/pull/1355)
 
 ## Purpose
@@ -109,7 +109,7 @@ the manual reset.
 
 ### Final organization cutover
 
-- Status: Pull request implementation and CI complete; operator cutover pending
+- Status: Final review fixes in progress; operator cutover pending
 - Scope: Add the final organization graph, organization billing, membership access, MCP binding,
   retained-user bootstrap, organization-aware API results, and affected UI and workflow support.
 - Gate: The operator completes the manual reset, every retained user has one membership, the two
@@ -160,6 +160,33 @@ manual reset order. A follow-up review found one strict MCP argument mismatch an
 two-member races. The focused fixes use an explicit argument object, one organization deletion lock,
 and the existing exact staging-snapshot cleanup. The work is pending the operator-run reset, merge,
 deployment, bootstrap, and production verification.
+
+### Final review-fix checkpoint
+
+Accepted before merge:
+
+- reconcile a shared staged row onto the new Git baseline after a commit while preserving newer
+  edits and delayed client writes;
+- prevent deletion of a storage blob attached anywhere and derive deletion baseline data from the
+  authorized vault instead of a client-supplied Git blob SHA;
+- revoke an MCP grant after rotated refresh-token replay even when current membership is absent;
+- require dashboard access for the organization billing portal;
+- reject shared-member account deletion during an organization checkout and reject account deletion
+  during the applicable current repository refresh;
+- reject incoherent retained-user billing input before the one-time bootstrap writes anything; and
+- restore focused organization-boundary denial tests and the missing staged-path collision check.
+
+Explicitly not part of this fix:
+
+- an account-deletion abort or force-success path;
+- an account-wide vault-deletion run sweep;
+- automatic recovery for an uncertain Polar checkout;
+- duplicate membership reads inside consumers of the validated MCP request snapshot; and
+- compatibility code for the data removed by the approved manual reset.
+
+The shared staged-file fix is the only non-trivial design change in this checkpoint. All other
+accepted items are focused boundary checks or input validation. Prior validation evidence below
+applies to the pre-fix head and must be replaced after the final fixes are integrated.
 
 ## Validation Evidence
 
@@ -230,11 +257,14 @@ Primary external sources:
 
 ## Next Exact Task
 
-1. Confirm that pull request #1355 remains green immediately before the operator cutover.
-2. Record the Polar billing state and confirm that no destructive workflow is active.
-3. Pause product writes and follow the accepted manual reset runbook while the old schema is live.
-4. Merge and deploy the final schema and organization-authoritative runtime.
-5. Run the retained-user bootstrap with the two explicit operator user IDs and recorded billing
+1. Integrate and review the accepted final fixes as focused commits.
+2. Replace the pre-fix validation evidence with focused, full, and affected UI validation from the
+   final head.
+3. Get fresh independent reviews and green pull request checks.
+4. Record the Polar billing state and confirm that no destructive workflow is active.
+5. Pause product writes and follow the accepted manual reset runbook while the old schema is live.
+6. Merge and deploy the final schema and organization-authoritative runtime.
+7. Run the retained-user bootstrap with the two explicit operator user IDs and recorded billing
    state.
-6. Verify the bootstrap counts and the required two-member flows, reconnect MCP and the retained
+8. Verify the bootstrap counts and the required two-member flows, reconnect MCP and the retained
    vaults, then resume product writes.
