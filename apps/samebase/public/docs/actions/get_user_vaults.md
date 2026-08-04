@@ -30,6 +30,9 @@ JSON Schema for the tool's `structuredContent`:
           "_id": {
             "type": "string"
           },
+          "organizationId": {
+            "type": "string"
+          },
           "ghRepoOwner": {
             "type": "string"
           },
@@ -789,6 +792,7 @@ JSON Schema for the tool's `structuredContent`:
         },
         "required": [
           "_id",
+          "organizationId",
           "ghRepoOwner",
           "ghRepoName",
           "repositoryFullName",

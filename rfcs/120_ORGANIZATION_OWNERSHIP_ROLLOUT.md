@@ -7,7 +7,8 @@
 - Last updated: 2026-08-04
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Current branch: `codex-organization-ownership-spec`
-- Current state: Multi-organization request context and direct membership addition in progress
+- Current state: Implementation complete; final validation and temporary-resource cleanup in
+  progress
 - Current pull request: [#1355](https://github.com/samebase/samebase/pull/1355)
 
 ## Purpose
@@ -145,7 +146,7 @@ the manual reset.
 
 ### Final organization cutover
 
-- Status: Multi-organization correction in progress
+- Status: Implementation complete; operator cutover pending
 - Scope: Add the final named organization graph, organization billing, membership access, MCP
   binding, organization provider connections, retained-user bootstrap, organization-aware API
   results, and affected UI and workflow support.
@@ -200,18 +201,18 @@ Implemented in the current pull request and worktree:
 - the GitHub `workflow` scope required by the shipped starter CI file, plus a normal parented commit
   after empty-repository bootstrap instead of a forced second root commit.
 
-Correction now in progress:
+Multi-organization correction completed:
 
-- remove every product backend lookup that infers one organization from only `userId`;
-- make login preserve several existing memberships;
-- add explicit URL organization selection for root vault, provider, billing, provisioning, and MCP
+- removed product backend lookups that inferred one organization from only `userId`;
+- made login preserve several existing memberships;
+- added explicit URL organization selection for root vault, provider, billing, provisioning, and MCP
   consent operations;
-- derive organization context from the loaded resource for existing-resource operations;
-- add the operator-only direct membership mutation without invitation state;
-- finish the production contracts and callers before tests are changed; and
-- rewrite or delete tests that assert one membership per user. No compatibility helper or fallback
-  read for the former model will remain; and
-- complete a delete-first audit of the full branch test diff. The reduced diff has 6,493 additions
+- derived organization context from the loaded resource for existing-resource operations;
+- added the operator-only direct membership mutation without invitation state;
+- changed production contracts and callers before tests were changed;
+- rewrote or deleted tests that asserted one membership per user, without a compatibility helper or
+  fallback read for the former model; and
+- completed a delete-first audit of the full branch test diff. The reduced diff has 6,493 additions
   and 2,197 deletions across 65 test files against `origin/main`. Two independent reviews found no
   remaining high-confidence duplicate, obsolete, compatibility, or deferred FileView tests. Test
   volume is not a reason to preserve a rejected contract.
@@ -324,6 +325,29 @@ Final integrated code head before this progress-record update: `22846b8c`.
   The clean retry passed without migration or compatibility code, and all pull request checks were
   green.
 
+## Two-User Organization Validation Evidence
+
+- Two separate approved local accounts signed in at the same time. The second account kept its
+  personal organization and joined the shared organization through the operator-only membership
+  mutation. Both organization names appeared in the selector.
+- In the shared organization, the second member saw the non-secret status of the GitHub, Convex, and
+  Cloudflare connections that the first member configured. In its personal organization, all three
+  providers stayed disconnected.
+- Without configuring personal provider credentials, the second member created
+  `tmp-8462-org-two-user-pass`. Samebase seeded the GitHub repository, created Convex project
+  `useful-cobra-480`, created the Cloudflare Worker, and reported all three resource checks as
+  passed.
+- The second member reloaded the exact vault URL and saw the same repository, Convex project, and
+  Cloudflare Worker. The first member then opened the same vault in a separate signed-in session and
+  saw the same three resources.
+- Two earlier attempts stopped while seeding the starter workflow because the local development
+  GitHub token did not have the `workflow` scope. Replacing that development token fixed the next
+  run without an organization code change.
+- Exact temporary resource cleanup is in progress. GitHub requires normal account reauthentication
+  because the local command-line token does not have repository-deletion permission. The Samebase
+  delete retry will remove the linked Convex, Cloudflare, and local vault resources after the three
+  temporary repositories are absent.
+
 ## UI And Workflow Coverage
 
 This is a full-stack rollout. The implementation owns the code changes and the two-member acceptance
@@ -382,13 +406,15 @@ Primary external sources:
 
 ## Next Exact Task
 
-1. Run the two-user manual pass for vault reload, shared providers, app creation, Convex projects,
-   Cloudflare Workers, and MCP organization binding.
-2. Record the Polar billing state and confirm that no destructive workflow is active.
-3. Disconnect all providers, pause product writes, and follow the accepted manual reset runbook
+1. Finish deletion of the three exact `tmp-8462-org-two-user*` test resources and verify that no
+   matching GitHub repository, Convex project, Cloudflare Worker, or Samebase vault remains.
+2. Complete the final automated validation and independent blocking-issue reviews.
+3. Verify the MCP organization binding before the operator cutover.
+4. Record the Polar billing state and confirm that no destructive workflow is active.
+5. Disconnect all providers, pause product writes, and follow the accepted manual reset runbook
    while the old schema is live.
-4. Merge and deploy the final schema and organization-authoritative runtime.
-5. Run the retained-user bootstrap with the two explicit operator user IDs and recorded billing
+6. Merge and deploy the final schema and organization-authoritative runtime.
+7. Run the retained-user bootstrap with the two explicit operator user IDs and recorded billing
    state.
-6. Verify the bootstrap counts and the required two-member flows, reconnect MCP and the retained
+8. Verify the bootstrap counts and the required two-member flows, reconnect MCP and the retained
    vaults, then resume product writes.
