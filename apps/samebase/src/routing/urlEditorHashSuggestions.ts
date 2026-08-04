@@ -19,8 +19,8 @@ function normalizeRouteUrlEditorHashSuggestionKey(value: string | undefined): st
 
 function readRouteUrlEditorElementHashSuggestionKey(element: HTMLElement): string | null {
   return (
-    normalizeRouteUrlEditorHashSuggestionKey(element.dataset.landingHeadingId) ??
-    normalizeRouteUrlEditorHashSuggestionKey(element.dataset.routeUrlHashSuggestion)
+    normalizeRouteUrlEditorHashSuggestionKey(element.dataset["landingHeadingId"]) ??
+    normalizeRouteUrlEditorHashSuggestionKey(element.dataset["routeUrlHashSuggestion"])
   );
 }
 

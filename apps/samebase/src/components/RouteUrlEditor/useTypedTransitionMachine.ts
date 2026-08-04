@@ -25,8 +25,8 @@ export function useTypedTransitionMachine<
   initialState: State;
   transitionTable: TypedTransitionTable<StateKind, EventType, State, Event, Action>;
   runActions: (actions: Action[]) => void;
-  onDebugEvent?: (event: Event) => void;
-  onDebugStateChange?: (state: State) => void;
+  onDebugEvent?: ((event: Event) => void) | undefined;
+  onDebugStateChange?: ((state: State) => void) | undefined;
 }) {
   const store = useCreateStore<State>(initialState);
   const state = useSelector(store);

@@ -19,7 +19,7 @@ type TreeItem = {
   type: "tree" | "blob";
 };
 
-const UPDATE_SIMPLE_VIEW_FIXTURES = process.env.UPDATE_SIMPLE_VIEW_FIXTURES === "1";
+const UPDATE_SIMPLE_VIEW_FIXTURES = process.env["UPDATE_SIMPLE_VIEW_FIXTURES"] === "1";
 // Regenerate fixtures with:
 // UPDATE_SIMPLE_VIEW_FIXTURES=1 pnpm exec vp test run apps/samebase/src/lib/simpleView.test.ts
 

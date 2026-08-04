@@ -123,7 +123,7 @@ import {
 } from "@samebase/logo-model/voxel";
 import { LANDING_DEV_MODE_QUERY_PARAM } from "@/lib/landingDevMode";
 import { DEFAULT_LOGO_PRESET_ID, LOGO_PRESETS, getLogoPreset } from "@/components/logo/logoPresets";
-import { normalizeRouteSearchPresenceFlags } from "@/routing/searchFlags";
+import { normalizeRouteSearchPresenceFlags, type RouteSearchState } from "@/routing/searchFlags";
 import {
   defineRouteSearchParams,
   type InferRouteSearch,
@@ -820,13 +820,17 @@ function readLogoMengerHoverRouteSearchFields(search: LogoMengerHoverRouteSearch
   };
 }
 
-export type LogoRouteSearch = ReturnType<typeof readLogoRouteSearchFields>;
+export type LogoRouteSearch = RouteSearchState<ReturnType<typeof readLogoRouteSearchFields>>;
 
-export type LogoIsoRouteSearch = ReturnType<typeof readLogoIsoRouteSearchFields>;
+export type LogoIsoRouteSearch = RouteSearchState<ReturnType<typeof readLogoIsoRouteSearchFields>>;
 
-export type LogoCarpetHoverRouteSearch = ReturnType<typeof readLogoCarpetHoverRouteSearchFields>;
+export type LogoCarpetHoverRouteSearch = RouteSearchState<
+  ReturnType<typeof readLogoCarpetHoverRouteSearchFields>
+>;
 
-export type LogoMengerHoverRouteSearch = ReturnType<typeof readLogoMengerHoverRouteSearchFields>;
+export type LogoMengerHoverRouteSearch = RouteSearchState<
+  ReturnType<typeof readLogoMengerHoverRouteSearchFields>
+>;
 
 export type LogoRouteSearchBuildState = {
   autoRotateEnabled: boolean;
@@ -852,13 +856,13 @@ export type LogoRouteSearchBuildState = {
 };
 
 type LogoLeftFaceStyleSearch = {
-  leftFace?: LogoLeftFaceStyleKind;
-  stripeA?: number;
-  stripeBasis?: LogoLeftFaceStripeBasis;
-  stripeG?: number;
-  stripeLink?: true;
-  stripeO?: number;
-  stripeW?: number;
+  leftFace?: LogoLeftFaceStyleKind | undefined;
+  stripeA?: number | undefined;
+  stripeBasis?: LogoLeftFaceStripeBasis | undefined;
+  stripeG?: number | undefined;
+  stripeLink?: true | undefined;
+  stripeO?: number | undefined;
+  stripeW?: number | undefined;
 };
 
 export const LOGO_ROUTE_SEARCH_PARAM_METADATA = readRouteSearchParamMetadata(

@@ -18,9 +18,9 @@ function readBrowserConvexProxyUrl(proxyPath: string): string | null {
 // the normal app env var, then the local Vitest fallback for route imports.
 const convexUrl = browserConvexProxyPath
   ? (readBrowserConvexProxyUrl(browserConvexProxyPath) ??
-    import.meta.env.VITE_CONVEX_URL ??
+    import.meta.env["VITE_CONVEX_URL"] ??
     fallbackConvexUrl)
-  : (import.meta.env.VITE_CONVEX_URL ?? fallbackConvexUrl);
+  : (import.meta.env["VITE_CONVEX_URL"] ?? fallbackConvexUrl);
 
 if (!convexUrl) {
   throw new Error("Missing VITE_CONVEX_URL in environment");

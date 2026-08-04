@@ -326,10 +326,10 @@ export function EditedFilesCategoriesPopover({
 }) {
   const [open, setOpen] = useState(false);
   const shouldLoadStagedFiles = open && stagedFiles === undefined && vaultId !== undefined;
-  const stagedFilesFromQuery = useQuery(
-    api.fileStaging.listStagedFiles,
-    shouldLoadStagedFiles ? { vaultId, branch } : "skip",
-  );
+  const stagedFilesFromQuery = useQuery({
+    args: shouldLoadStagedFiles ? { vaultId, branch } : "skip",
+    query: api.fileStaging.listStagedFiles,
+  });
   const resolvedStagedFiles =
     stagedFiles ?? (stagedFilesFromQuery === undefined ? undefined : stagedFilesFromQuery);
   const categories =

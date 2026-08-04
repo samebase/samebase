@@ -296,18 +296,16 @@ export function CodeEditor({
   const [version, setVersion] = useState(mountedFileVersionRef.current);
   const [syncError, setSyncError] = useState<string | null>(null);
 
-  const updates = useQuery(
-    api.collaborative.pullUpdates,
-    {
+  const updates = useQuery({
+    args: {
       repositoryFullName,
       branch,
       filePath,
       version,
     },
-    {
-      dontCache: true,
-    },
-  );
+    dontCache: true,
+    query: api.collaborative.pullUpdates,
+  });
 
   useEffect(() => {
     if (!updates || !pullRef.current) return;

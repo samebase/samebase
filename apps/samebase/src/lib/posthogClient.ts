@@ -60,7 +60,7 @@ export function buildSamebasePostHogInitConfig(args: {
     disable_session_recording: false,
     // Keep localhost sessions visible while developing instead of classifying
     // them as internal/test users under the defaults snapshot.
-    internal_or_test_user_hostname: args.dev ? null : undefined,
+    ...(args.dev ? { internal_or_test_user_hostname: null } : {}),
     ui_host: DEFAULT_POSTHOG_UI_HOST,
     session_recording: {
       // Add data-posthog-block to a wrapper when the whole subtree should be

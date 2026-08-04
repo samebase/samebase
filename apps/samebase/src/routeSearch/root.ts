@@ -10,6 +10,7 @@ import { MOBILE_SIDEBAR_DEBUG_QUERY_PARAM } from "@/lib/mobileSidebarGestureDebu
 import {
   applySearchPatch,
   normalizeRouteSearchPresenceFlags,
+  type RouteSearchState,
   type SearchPatch,
 } from "@/routing/searchFlags";
 import {
@@ -89,7 +90,7 @@ const RouteSearchSchema_root = defineRouteSearchParams({
   }),
 });
 
-type RootRouteSearchBase = InferRouteSearch<typeof RouteSearchSchema_root>;
+type RootRouteSearchBase = RouteSearchState<InferRouteSearch<typeof RouteSearchSchema_root>>;
 export type RootRouteSearch = RootRouteSearchBase & LogoRouteSearch;
 
 const VAULT_DASHBOARD_DIALOG_CLEAR_PATCHES = {
@@ -227,7 +228,7 @@ function parseRootRouteSearch(search: Record<string, unknown>): RootRouteSearch 
   if (!parsedSearch[SEARCH_RESET_QUERY_PARAM]) {
     const logoSearch = validateLogoRouteSearch(presenceNormalizedSearch);
     const conflictingThemeModeSearch =
-      presenceNormalizedSearch.light && presenceNormalizedSearch.dark
+      presenceNormalizedSearch["light"] && presenceNormalizedSearch["dark"]
         ? { dark: true as const, light: true as const }
         : {};
     const normalizedSearch = {

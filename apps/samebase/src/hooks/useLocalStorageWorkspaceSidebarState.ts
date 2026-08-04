@@ -66,20 +66,20 @@ function parseMobileSurface(value: unknown): WorkspaceSidebarState["mobileSurfac
     return null;
   }
 
-  if (value.kind === "unmerged") {
+  if (value["kind"] === "unmerged") {
     return { kind: "unmerged" };
   }
 
   if (
-    value.kind === "merged" &&
-    (value.side === "left" || value.side === "right") &&
-    isFiniteNumber(value.mainWidthPx) &&
-    value.mainWidthPx >= WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX
+    value["kind"] === "merged" &&
+    (value["side"] === "left" || value["side"] === "right") &&
+    isFiniteNumber(value["mainWidthPx"]) &&
+    value["mainWidthPx"] >= WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX
   ) {
     return {
       kind: "merged",
-      mainWidthPx: value.mainWidthPx,
-      side: value.side,
+      mainWidthPx: value["mainWidthPx"],
+      side: value["side"],
     };
   }
 
@@ -91,30 +91,30 @@ function parseWorkspaceSidebarState(value: unknown): WorkspaceSidebarState | nul
     return null;
   }
 
-  const mobilePane = parseMobilePane(value.mobilePane);
-  const mobileSurface = parseMobileSurface(value.mobileSurface);
+  const mobilePane = parseMobilePane(value["mobilePane"]);
+  const mobileSurface = parseMobileSurface(value["mobileSurface"]);
   if (
-    typeof value.leftDesktopOpen !== "boolean" ||
-    !isFiniteNumber(value.leftDesktopWidthPx) ||
-    !isFiniteNumber(value.leftMobileWidthPx) ||
+    typeof value["leftDesktopOpen"] !== "boolean" ||
+    !isFiniteNumber(value["leftDesktopWidthPx"]) ||
+    !isFiniteNumber(value["leftMobileWidthPx"]) ||
     mobilePane === null ||
     mobileSurface === null ||
-    typeof value.rightDesktopOpen !== "boolean" ||
-    !isFiniteNumber(value.rightDesktopWidthPx) ||
-    !isFiniteNumber(value.rightMobileWidthPx)
+    typeof value["rightDesktopOpen"] !== "boolean" ||
+    !isFiniteNumber(value["rightDesktopWidthPx"]) ||
+    !isFiniteNumber(value["rightMobileWidthPx"])
   ) {
     return null;
   }
 
   return {
-    leftDesktopOpen: value.leftDesktopOpen,
-    leftDesktopWidthPx: value.leftDesktopWidthPx,
-    leftMobileWidthPx: value.leftMobileWidthPx,
+    leftDesktopOpen: value["leftDesktopOpen"],
+    leftDesktopWidthPx: value["leftDesktopWidthPx"],
+    leftMobileWidthPx: value["leftMobileWidthPx"],
     mobilePane,
     mobileSurface,
-    rightDesktopOpen: value.rightDesktopOpen,
-    rightDesktopWidthPx: value.rightDesktopWidthPx,
-    rightMobileWidthPx: value.rightMobileWidthPx,
+    rightDesktopOpen: value["rightDesktopOpen"],
+    rightDesktopWidthPx: value["rightDesktopWidthPx"],
+    rightMobileWidthPx: value["rightMobileWidthPx"],
   };
 }
 
@@ -123,11 +123,11 @@ function parseStoredWorkspaceSidebarState(value: unknown): WorkspaceSidebarState
     return null;
   }
 
-  if (value.version !== APP_WORKSPACE_SIDEBAR_STORAGE_VERSION) {
+  if (value["version"] !== APP_WORKSPACE_SIDEBAR_STORAGE_VERSION) {
     return null;
   }
 
-  return parseWorkspaceSidebarState(value.state);
+  return parseWorkspaceSidebarState(value["state"]);
 }
 
 function readLocalStorageWorkspaceSidebarState({

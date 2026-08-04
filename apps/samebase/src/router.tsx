@@ -21,7 +21,7 @@ export function createAppRouter(history?: RouterHistory) {
   const router = createTanStackRouter({
     context: queryClients,
     defaultPreload: false,
-    history,
+    ...(history === undefined ? {} : { history }),
     notFoundMode: "root",
     parseSearch: parseTanStackSearch,
     routeTree,
@@ -64,7 +64,7 @@ export function createAppRouter(history?: RouterHistory) {
         scrollY: mainPane.scrollTop,
       };
     }
-    destinationEntries.window = {
+    destinationEntries["window"] = {
       scrollX: window.scrollX,
       scrollY: window.scrollY,
     };

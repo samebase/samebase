@@ -3,12 +3,12 @@ import { TREE_REFRESH_STALE_LOCK_MS } from "../../shared/treeRefresh";
 type TreeRefreshFailureKind = "failed" | "rate_limited";
 
 type TreeRefreshUiStateArgs = {
-  now?: number;
-  treeRefreshStartedAt?: number;
-  lastTreeRefreshAt?: number;
-  lastTreeRefreshFailedAt?: number;
-  treeRefreshFailureKind?: TreeRefreshFailureKind;
-  treeRefreshCooldownUntil?: number;
+  now?: number | undefined;
+  treeRefreshStartedAt?: number | undefined;
+  lastTreeRefreshAt?: number | undefined;
+  lastTreeRefreshFailedAt?: number | undefined;
+  treeRefreshFailureKind?: TreeRefreshFailureKind | undefined;
+  treeRefreshCooldownUntil?: number | undefined;
 };
 
 type TreeRefreshUiState =

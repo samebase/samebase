@@ -443,16 +443,17 @@ function FileViewWrapper() {
     navigateByHref,
   ]);
 
-  const stagedFile = useQuery(
-    api.fileStaging.getByNewPath,
-    vault && branch && selectedFile
-      ? {
-          branch,
-          newPath: selectedFile,
-          vaultId: vault._id,
-        }
-      : "skip",
-  );
+  const stagedFile = useQuery({
+    args:
+      vault && branch && selectedFile
+        ? {
+            branch,
+            newPath: selectedFile,
+            vaultId: vault._id,
+          }
+        : "skip",
+    query: api.fileStaging.getByNewPath,
+  });
 
   /**
    * If the selected file is missing from both staging and the repository tree,
@@ -774,8 +775,9 @@ function FileViewInner({
     : `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/tree/${encodeGitHubPath(branch)}`;
 
   // Folder expansion state
-  const folderExpansionStates = useQuery(api.folderExpansion.getFolderExpansionStates, {
-    vaultId: vault._id,
+  const folderExpansionStates = useQuery({
+    args: { vaultId: vault._id },
+    query: api.folderExpansion.getFolderExpansionStates,
   });
   const setFolderExpansionState = useMutation(
     api.folderExpansion.setFolderExpansionState,
@@ -880,27 +882,23 @@ function FileViewInner({
   const isDiffRequested = routeSearch.diff ?? false;
 
   // Get count of staged files for this vault
-  const stagedFiles = useQuery(
-    api.fileStaging.listStagedFiles,
-    {
+  const stagedFiles = useQuery({
+    args: {
       vaultId: vault._id,
       branch,
     },
-    {
-      dontCache: isDiffRequested,
-    },
-  );
-  const stagedSimpleViewConfigFile = useQuery(
-    api.fileStaging.getByNewPath,
-    {
+    dontCache: isDiffRequested,
+    query: api.fileStaging.listStagedFiles,
+  });
+  const stagedSimpleViewConfigFile = useQuery({
+    args: {
       branch,
       vaultId: vault._id,
       newPath: SIMPLE_VIEW_CONFIG_PATH,
     },
-    {
-      dontCache: true,
-    },
-  );
+    dontCache: true,
+    query: api.fileStaging.getByNewPath,
+  });
   const [repositorySimpleViewConfigContent, setRepositorySimpleViewConfigContent] = useState<
     string | null
   >(null);

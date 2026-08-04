@@ -120,10 +120,10 @@ describe("RouteUrlEditorNext", () => {
 
     expect(display.autocomplete).toBe("off");
     expect(display.dataset["1pIgnore"]).toBe("true");
-    expect(display.dataset.bwignore).toBe("true");
-    expect(display.dataset.formType).toBe("other");
-    expect(display.dataset.lpignore).toBe("true");
-    expect(display.dataset.opIgnore).toBe("true");
+    expect(display.dataset["bwignore"]).toBe("true");
+    expect(display.dataset["formType"]).toBe("other");
+    expect(display.dataset["lpignore"]).toBe("true");
+    expect(display.dataset["opIgnore"]).toBe("true");
 
     act(() => {
       display.focus();
@@ -132,10 +132,10 @@ describe("RouteUrlEditorNext", () => {
     const input = readRequiredInput();
     expect(input.autocomplete).toBe("off");
     expect(input.dataset["1pIgnore"]).toBe("true");
-    expect(input.dataset.bwignore).toBe("true");
-    expect(input.dataset.formType).toBe("other");
-    expect(input.dataset.lpignore).toBe("true");
-    expect(input.dataset.opIgnore).toBe("true");
+    expect(input.dataset["bwignore"]).toBe("true");
+    expect(input.dataset["formType"]).toBe("other");
+    expect(input.dataset["lpignore"]).toBe("true");
+    expect(input.dataset["opIgnore"]).toBe("true");
   });
 
   it("renders scoped query suggestion groups without changing option indexes", () => {
@@ -228,7 +228,7 @@ describe("RouteUrlEditorNext", () => {
 
   it("suggests page-owned hashes from the current document", async () => {
     const pageHashElement = document.createElement("section");
-    pageHashElement.dataset.landingHeadingId = "pricing";
+    pageHashElement.dataset["landingHeadingId"] = "pricing";
     document.body.append(pageHashElement);
 
     const display = renderEditor(["/#top"]);
@@ -274,7 +274,7 @@ describe("RouteUrlEditorNext", () => {
     expect(readSuggestionValues()).not.toContain("#pricing");
 
     const pageHashElement = document.createElement("section");
-    pageHashElement.dataset.landingHeadingId = "pricing";
+    pageHashElement.dataset["landingHeadingId"] = "pricing";
 
     await act(async () => {
       document.body.append(pageHashElement);

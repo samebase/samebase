@@ -170,10 +170,10 @@ export function VaultSyncStatus({
     !disableStagedFilesQuery &&
     stagedFiles === undefined &&
     (stagedFilesCount === undefined || stagedFilesCount > 0);
-  const stagedFilesFromQuery = useQuery(
-    api.fileStaging.listStagedFiles,
-    shouldFetchStagedFiles ? { vaultId, branch: props.branch } : "skip",
-  );
+  const stagedFilesFromQuery = useQuery({
+    args: shouldFetchStagedFiles ? { vaultId, branch: props.branch } : "skip",
+    query: api.fileStaging.listStagedFiles,
+  });
 
   return (
     <VaultSyncStatusContent {...props} stagedFiles={stagedFiles ?? stagedFilesFromQuery ?? []} />

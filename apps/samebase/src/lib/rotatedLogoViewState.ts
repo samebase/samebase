@@ -63,17 +63,17 @@ function parseRotatedLogoViewState(value: string | null) {
     const parsed: unknown = JSON.parse(value);
     if (
       !isRecord(parsed) ||
-      typeof parsed.elevationDegrees !== "number" ||
-      typeof parsed.rotationDegrees !== "number" ||
-      !Number.isFinite(parsed.elevationDegrees) ||
-      !Number.isFinite(parsed.rotationDegrees)
+      typeof parsed["elevationDegrees"] !== "number" ||
+      typeof parsed["rotationDegrees"] !== "number" ||
+      !Number.isFinite(parsed["elevationDegrees"]) ||
+      !Number.isFinite(parsed["rotationDegrees"])
     ) {
       return null;
     }
 
     return normalizeRotatedLogoViewState({
-      elevationDegrees: parsed.elevationDegrees,
-      rotationDegrees: parsed.rotationDegrees,
+      elevationDegrees: parsed["elevationDegrees"],
+      rotationDegrees: parsed["rotationDegrees"],
     });
   } catch {
     return null;

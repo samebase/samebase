@@ -5,8 +5,8 @@ import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 type PlainSearchRecord = Record<string, unknown>;
 type PathSearchInput = {
   pathname: string;
-  search?: PlainSearchRecord;
-  hash?: string;
+  search?: PlainSearchRecord | undefined;
+  hash?: string | undefined;
 };
 
 function normalizeHashInput(hash?: string): string {

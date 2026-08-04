@@ -24,7 +24,7 @@ export type AppAuthPresentationPrehydrationArgs = {
 const appAuthPresentationPrehydrationArgs = {
   accountSectionTestId: PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
   browserConvexProxyPath: appBuildConfig.browserConvexProxyPath,
-  envConvexUrl: import.meta.env.VITE_CONVEX_URL ?? null,
+  envConvexUrl: import.meta.env["VITE_CONVEX_URL"] ?? null,
   ignoredPathnames: ["/visual-fixture"],
   mcpConsentPathname: MCP_CONSENT_APP_PATH,
   rootAttribute: APP_AUTH_PRESENTATION_PREHYDRATION_ROOT_ATTRIBUTE,

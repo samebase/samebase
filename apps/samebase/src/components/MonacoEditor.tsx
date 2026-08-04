@@ -209,11 +209,11 @@ export function MonacoEditor({
   }, []);
 
   // ---- Pull remote updates via Convex real-time query ----
-  const remoteUpdates = useQuery(
-    api.collaborative.pullUpdates,
-    { repositoryFullName, branch, filePath, version },
-    { dontCache: true },
-  );
+  const remoteUpdates = useQuery({
+    args: { repositoryFullName, branch, filePath, version },
+    dontCache: true,
+    query: api.collaborative.pullUpdates,
+  });
 
   // ---- Push local changes to server ----
   const pushToServer = useCallback(async () => {
