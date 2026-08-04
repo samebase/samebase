@@ -1058,6 +1058,21 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
       continue;
     }
 
+    // The current tree cannot prove whether a different target came from our
+    // prior rebased commit or another rename. Fail closed instead of applying
+    // the staged patch twice.
+    if (file.filePath !== file.initialFilePath && upstreamLocation?.path === file.filePath) {
+      const upstreamContent = await getBlobText(upstreamLocation.sha);
+      conflicts.push({
+        ...file,
+        upstreamContent,
+        upstreamPath: upstreamLocation.path,
+        upstreamSha: upstreamLocation.sha,
+      });
+      rebasedFiles.push(file);
+      continue;
+    }
+
     if (file.parentCommitSha === null) {
       if (!upstreamSha) {
         rebasedFiles.push(file);

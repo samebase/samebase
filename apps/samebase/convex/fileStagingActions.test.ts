@@ -1126,6 +1126,49 @@ describe("createCommitWithMultipleFiles", () => {
     expect(hasStagedFileChanges(inspection.rebasedFiles[0])).toBe(false);
   });
 
+  it("fails closed when a rename target has different merged content", async () => {
+    const initialContent = "a\na\na\na\na\n";
+    const stagedContent = "a\na\na\na\nX\n";
+    const upstreamContent = "U\na\na\na\na\nX\n";
+    const upstreamSha = "b25a3b5a5efd3f6df2eb773aedd6a56bcf714ca3";
+    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
+      makeGetTreeResponse("head-tree", [{ path: "docs/TODO.md", sha: upstreamSha }]),
+    );
+    vi.spyOn(octokit.rest.git, "getBlob").mockResolvedValue(
+      makeGetBlobResponse(upstreamSha, upstreamContent),
+    );
+
+    const inspection = await inspectStagedFilesAgainstLatestHead({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main",
+      stagedFiles: [
+        {
+          kind: "text",
+          filePath: "docs/TODO.md",
+          content: stagedContent,
+          fileDeleted: false,
+          initialFilePath: "TODO.md",
+          initialContent,
+          parentCommitSha: "72e1fe35d30d7b0edb6c27d85b2b3b42f0e1914f",
+          branch: "main",
+        },
+      ],
+    });
+
+    expect(inspection.conflicts).toHaveLength(1);
+    expect(inspection.conflicts[0]).toMatchObject({
+      filePath: "docs/TODO.md",
+      initialFilePath: "TODO.md",
+      content: stagedContent,
+      upstreamContent,
+      upstreamPath: "docs/TODO.md",
+      upstreamSha,
+    });
+    expect(inspection.rebasedFiles[0].content).toBe(stagedContent);
+  });
+
   it("collects rebase conflict payloads for files that cannot apply cleanly", async () => {
     vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
       makeGetTreeResponse("head-tree", [{ path: "TODO.md", sha: "upstream" }]),
