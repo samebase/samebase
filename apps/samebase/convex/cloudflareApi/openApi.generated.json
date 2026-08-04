@@ -139,7 +139,10 @@
           "enterprise": false,
           "free": false,
           "pro": false
-        }
+        },
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "accounts",
+        "x-fern-sdk-method-name": "create"
       }
     },
     "/accounts/{account_id}/builds/account/limits": {
@@ -16671,7 +16674,11 @@
           "enterprise": true,
           "free": true,
           "pro": true
-        }
+        },
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "user.tokens",
+        "x-fern-sdk-method-name": "verify",
+        "x-forge-hidden": true
       }
     }
   },
