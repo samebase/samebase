@@ -76,7 +76,7 @@ describe("vault records Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
       await ctx.db.insert("organizationBillingAccounts", {
         organizationId,
@@ -131,7 +131,7 @@ describe("vault records Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
       await ctx.db.insert("organizationBillingAccounts", {
         organizationId,
@@ -197,7 +197,11 @@ describe("vault records Convex contract", () => {
       expect.objectContaining({ organizationId: ids.organizationId }),
       expect.objectContaining({ requestedByUserId: ids.userId }),
     ]);
-    await expect(asUser.query(api.vault.dashboard.getUserVaultResourceLinksState)).resolves.toEqual(
+    await expect(
+      asUser.query(api.vault.dashboard.getUserVaultResourceLinksState, {
+        organizationId: ids.organizationId,
+      }),
+    ).resolves.toEqual(
       expect.arrayContaining([
         {
           vaultId: existingRepository.vaultId,
@@ -259,7 +263,7 @@ describe("vault records Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
       const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
         state: "connected",
         kind: "github",
@@ -299,7 +303,7 @@ describe("vault records Convex contract", () => {
         email: "grace@example.com",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
       await ctx.db.insert("organizationMemberships", { organizationId, userId: otherUserId });
       await ctx.db.insert("organizationBillingAccounts", {
@@ -351,20 +355,26 @@ describe("vault records Convex contract", () => {
 
   it("rejects malformed repository full names with extra path segments", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
         name: "Ada",
         email: "nicu@samebase.com",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {
+        name: "Ada organization",
+      });
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      return { organizationId, userId };
     });
     const asUser = t.withIdentity({
-      subject: `${userId}|test-session`,
-      tokenIdentifier: `test:${userId}`,
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
     });
 
     await expect(
       asUser.query(api.vault.records.getVaultByRepository, {
+        organizationId: ids.organizationId,
         repositoryFullName: "ada/example/extra",
       }),
     ).rejects.toThrow("Invalid repository full name");
@@ -378,17 +388,14 @@ describe("vault records Convex contract", () => {
         email: "nicu@samebase.com",
         isApproved: true,
       });
-      const otherUserId = await ctx.db.insert("users", {
-        name: "Grace",
-        email: "nicuchiciuc@gmail.com",
-        isApproved: true,
+      const organizationId = await ctx.db.insert("organizations", { name: "Ada organization" });
+      const otherOrganizationId = await ctx.db.insert("organizations", {
+        name: "Second organization",
       });
-      const organizationId = await ctx.db.insert("organizations", {});
-      const otherOrganizationId = await ctx.db.insert("organizations", {});
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
       await ctx.db.insert("organizationMemberships", {
         organizationId: otherOrganizationId,
-        userId: otherUserId,
+        userId,
       });
       const { githubProviderConnectionId } = await seedOrganizationProviderConnections(ctx, {
         organizationId,
@@ -435,7 +442,7 @@ describe("vault records Convex contract", () => {
         },
         lastTreeRefreshAt: 5,
       });
-      return { userId, otherUserId, vaultId };
+      return { organizationId, otherOrganizationId, userId, vaultId };
     });
     const asUser = t.withIdentity({
       subject: `${ids.userId}|test-session`,
@@ -443,6 +450,7 @@ describe("vault records Convex contract", () => {
     });
 
     const unhydratedBranch = await asUser.query(api.vault.records.getVaultByRepository, {
+      organizationId: ids.organizationId,
       repositoryFullName: "ada/exact-branch",
       branch: "feature/pr",
     });
@@ -465,6 +473,7 @@ describe("vault records Convex contract", () => {
     });
     await expect(
       asUser.query(api.vault.records.getVaultByRepository, {
+        organizationId: ids.organizationId,
         repositoryFullName: "ada/exact-branch",
         branch: "feature/pr",
       }),
@@ -476,6 +485,7 @@ describe("vault records Convex contract", () => {
     });
     await expect(
       asUser.query(api.vault.records.getVaultByRepository, {
+        organizationId: ids.organizationId,
         repositoryFullName: "ada/exact-branch",
       }),
     ).resolves.toMatchObject({
@@ -484,12 +494,9 @@ describe("vault records Convex contract", () => {
       treeSHA: "main-tree",
     });
 
-    const asOtherUser = t.withIdentity({
-      subject: `${ids.otherUserId}|other-session`,
-      tokenIdentifier: `test:${ids.otherUserId}`,
-    });
     await expect(
-      asOtherUser.query(api.vault.records.getVaultByRepository, {
+      asUser.query(api.vault.records.getVaultByRepository, {
+        organizationId: ids.otherOrganizationId,
         repositoryFullName: "ada/exact-branch",
         branch: "feature/pr",
       }),

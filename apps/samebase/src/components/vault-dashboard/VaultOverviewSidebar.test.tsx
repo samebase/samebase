@@ -16,6 +16,8 @@ const FOLDER_CALLBACKS = {
   onRenameVaultFolder: async () => {},
   onSetVaultFolderCollapsed: async () => {},
 } satisfies VaultFolderCallbacks;
+// @ts-expect-error Convex ids are strings at runtime; static rendering only needs a stable id.
+const FIXTURE_ORGANIZATION_ID: Id<"organizations"> = "organization-vault-sidebar-test";
 
 function fakeVaultId(value: string): Id<"vaults"> {
   // @ts-expect-error Convex ids are strings at runtime; static rendering only needs stable ids.
@@ -39,6 +41,7 @@ function vault(
 ) {
   return {
     _id: id,
+    organizationId: FIXTURE_ORGANIZATION_ID,
     ghRepoOwner: "samebase",
     ghRepoName: name,
     repositoryFullName: `samebase/${name}`,

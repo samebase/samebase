@@ -11,7 +11,7 @@ async function seedDeletingUserWithConnectedVault() {
       email: "deleting@example.com",
       isApproved: true,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
     const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
       kind: "github",
@@ -130,7 +130,9 @@ describe("account deletion late-write fences", () => {
       t.mutation(internal.oauthState.createOauthState, {
         provider: "cloudflare_mcp",
         userId: ids.userId,
+        organizationId: ids.organizationId,
         state: "late-oauth-state",
+        returnToPath: "/providers",
         createdAt: 1,
         expiresAt: 2,
       }),

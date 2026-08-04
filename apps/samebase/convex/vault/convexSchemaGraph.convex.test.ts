@@ -95,7 +95,7 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
       email: "nicu@samebase.com",
       isApproved: true,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
     const membershipId = await ctx.db.insert("organizationMemberships", {
       organizationId,
       userId,
@@ -430,7 +430,9 @@ describe("vault Convex schema graph", () => {
       credential: "convex-oauth-token",
     });
     await t.run(async (ctx) => {
-      const otherOrganizationId = await ctx.db.insert("organizations", {});
+      const otherOrganizationId = await ctx.db.insert("organizations", {
+        name: "Test organization",
+      });
       await ctx.db.patch(ids.convexProjectId, { organizationId: otherOrganizationId });
     });
     const args = {

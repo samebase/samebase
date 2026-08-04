@@ -71,6 +71,7 @@ const ACCOUNT_DELETION_TABLE_REGISTRY = {
   observations_vaultFiles_blobs: "vault_local",
   ui_vaultFileTree_folderExpansions: "account_local",
   providerOAuthCallbackStates: "account_local",
+  seededPasswordAccounts: "global",
   mcpOauthClients: "global",
   mcpAuthorizationRequests: "account_local",
   mcpAuthorizationCodes: "account_local",

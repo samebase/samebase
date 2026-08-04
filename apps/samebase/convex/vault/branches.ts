@@ -159,7 +159,10 @@ export const claimTreeRefresh = internalMutation({
     if (!isLiveConnectedVault(vault) || user === null || user.accountDeletion !== undefined) {
       return { claimed: false, reason: "unavailable" };
     }
-    const access = await findOrganizationAccessContext(ctx.db, args.userId);
+    const access = await findOrganizationAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: vault.organizationId,
+    });
     if (access === null || !hasOrganizationAccess(access, vault)) {
       return { claimed: false, reason: "unavailable" };
     }

@@ -47,7 +47,7 @@ async function seedRefreshTokenFamily() {
       isApproved: true,
       name: "Refresh Replay User",
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Refresh replay" });
     const seededMembershipId = await ctx.db.insert("organizationMemberships", {
       organizationId,
       userId: seededUserId,
@@ -299,7 +299,7 @@ describe("MCP OAuth authorization request boundaries", () => {
 
   it("applies the same pending request checks before approval and denial", async () => {
     const t = makeConvexTest();
-    const { otherUserId, ownerUserId } = await t.run(async (ctx) => {
+    const { organizationId, otherUserId, ownerUserId } = await t.run(async (ctx) => {
       const ownerUserId = await ctx.db.insert("users", {
         email: "authorization-owner@example.test",
         isApproved: true,
@@ -308,6 +308,11 @@ describe("MCP OAuth authorization request boundaries", () => {
         email: "authorization-other@example.test",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {
+        name: "Authorization checks",
+      });
+      await ctx.db.insert("organizationMemberships", { organizationId, userId: ownerUserId });
+      await ctx.db.insert("organizationMemberships", { organizationId, userId: otherUserId });
 
       for (const operation of ["issue", "deny"] as const) {
         const sharedRequest = {
@@ -340,13 +345,14 @@ describe("MCP OAuth authorization request boundaries", () => {
         });
       }
 
-      return { otherUserId, ownerUserId };
+      return { organizationId, otherUserId, ownerUserId };
     });
 
     const issue = async (requestId: string, userId: Id<"users">, invokedAt: number) => {
       return await t.mutation(internal.mcp.oauth.issueAuthorizationCodeForAuthRequest, {
         requestId,
         userId,
+        organizationId,
         codeHash: `${requestId}_code_hash`,
         codeExpiresAt: invokedAt + 60_000,
         now: invokedAt,
@@ -426,7 +432,7 @@ describe("MCP OAuth organization binding", () => {
     requestId: string;
     grants: Array<{
       grantId: string;
-      organization: "current" | "other";
+      organization: "selected" | "other";
     }>;
   }) {
     const t = makeConvexTest();
@@ -435,9 +441,13 @@ describe("MCP OAuth organization binding", () => {
         email: args.email,
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
-      const otherOrganizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", { name: "Selected" });
+      const otherOrganizationId = await ctx.db.insert("organizations", { name: "Other" });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId: otherOrganizationId,
+        userId,
+      });
       await ctx.db.insert("organizationBillingAccounts", {
         organizationId,
         plan: "free",
@@ -473,7 +483,7 @@ describe("MCP OAuth organization binding", () => {
         await ctx.db.insert("mcpGrants", {
           grantId: grant.grantId,
           userId,
-          organizationId: grant.organization === "current" ? organizationId : otherOrganizationId,
+          organizationId: grant.organization === "selected" ? organizationId : otherOrganizationId,
           clientId,
           resource,
           scope,
@@ -494,8 +504,10 @@ describe("MCP OAuth organization binding", () => {
         email: "organization-snapshot@example.test",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
-      const otherOrganizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", { name: "Snapshot" });
+      const otherOrganizationId = await ctx.db.insert("organizations", {
+        name: "Other snapshot",
+      });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
       await ctx.db.insert("organizationMemberships", {
         organizationId: otherOrganizationId,
@@ -554,15 +566,22 @@ describe("MCP OAuth organization binding", () => {
     });
   });
 
-  it("binds a created and reused grant to the user's exact organization", async () => {
+  it("binds a created and reused grant to the explicitly selected organization", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         email: "organization-grant@example.test",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", { name: "Selected grant" });
+      const otherOrganizationId = await ctx.db.insert("organizations", {
+        name: "Other grant",
+      });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId: otherOrganizationId,
+        userId,
+      });
       await ctx.db.insert("organizationBillingAccounts", {
         organizationId,
         plan: "free",
@@ -607,6 +626,7 @@ describe("MCP OAuth organization binding", () => {
         t.mutation(internal.mcp.oauth.issueAuthorizationCodeForAuthRequest, {
           requestId,
           userId: ids.userId,
+          organizationId: ids.organizationId,
           codeHash,
           codeExpiresAt: now + 60_000,
           allowLoopbackHttpRedirectUris: true,
@@ -623,16 +643,16 @@ describe("MCP OAuth organization binding", () => {
     ]);
   });
 
-  it("reuses the current organization grant when an old organization grant exists", async () => {
-    const requestId = "mcpar_current_organization_candidate";
-    const currentGrantId = "mcpg_current_organization_candidate";
+  it("reuses the selected organization grant when another organization grant exists", async () => {
+    const requestId = "mcpar_selected_organization_candidate";
+    const selectedGrantId = "mcpg_selected_organization_candidate";
     const oldGrantId = "mcpg_old_organization_candidate";
     const { ids, t } = await seedOrganizationGrantCandidates({
-      email: "current-organization-candidate@example.test",
+      email: "selected-organization-candidate@example.test",
       requestId,
       grants: [
         { grantId: oldGrantId, organization: "other" },
-        { grantId: currentGrantId, organization: "current" },
+        { grantId: selectedGrantId, organization: "selected" },
       ],
     });
 
@@ -640,7 +660,8 @@ describe("MCP OAuth organization binding", () => {
       t.mutation(internal.mcp.oauth.issueAuthorizationCodeForAuthRequest, {
         requestId,
         userId: ids.userId,
-        codeHash: "current_organization_candidate_code_hash",
+        organizationId: ids.organizationId,
+        codeHash: "selected_organization_candidate_code_hash",
         codeExpiresAt: now + 60_000,
         allowLoopbackHttpRedirectUris: true,
         now: now + 10,
@@ -652,7 +673,7 @@ describe("MCP OAuth organization binding", () => {
         const code = await ctx.db
           .query("mcpAuthorizationCodes")
           .withIndex("by_code_hash", (query) =>
-            query.eq("codeHash", "current_organization_candidate_code_hash"),
+            query.eq("codeHash", "selected_organization_candidate_code_hash"),
           )
           .unique();
         const grants = await ctx.db.query("mcpGrants").collect();
@@ -668,17 +689,17 @@ describe("MCP OAuth organization binding", () => {
         };
       }),
     ).resolves.toEqual({
-      codeGrantId: currentGrantId,
+      codeGrantId: selectedGrantId,
       grants: [
-        {
-          grantId: currentGrantId,
-          organizationId: ids.organizationId,
-          updatedAt: now + 10,
-        },
         {
           grantId: oldGrantId,
           organizationId: ids.otherOrganizationId,
           updatedAt: now,
+        },
+        {
+          grantId: selectedGrantId,
+          organizationId: ids.organizationId,
+          updatedAt: now + 10,
         },
       ],
     });
@@ -686,11 +707,12 @@ describe("MCP OAuth organization binding", () => {
 
   it("rejects a new grant when the user has no exact organization membership", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
+    const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         email: "missing-organization-grant@example.test",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", { name: "Not joined" });
       await ctx.db.insert("mcpOauthClients", {
         clientId,
         clientName: "Missing organization grant client",
@@ -717,13 +739,14 @@ describe("MCP OAuth organization binding", () => {
         createdAt: now,
         expiresAt: now + 60_000,
       });
-      return userId;
+      return { organizationId, userId };
     });
 
     await expect(
       t.mutation(internal.mcp.oauth.issueAuthorizationCodeForAuthRequest, {
         requestId: "mcpar_missing_organization",
-        userId,
+        userId: ids.userId,
+        organizationId: ids.organizationId,
         codeHash: "missing_organization_code_hash",
         codeExpiresAt: now + 60_000,
         allowLoopbackHttpRedirectUris: true,
@@ -736,125 +759,6 @@ describe("MCP OAuth organization binding", () => {
         grants: await ctx.db.query("mcpGrants").collect(),
       })),
     ).resolves.toEqual({ codes: [], grants: [] });
-  });
-
-  it("rejects credentials when the prepared grant organization does not match", async () => {
-    const t = makeConvexTest();
-    const codeVerifier = "organization-mismatch-code-verifier";
-    const codeChallenge = await createCodeChallenge(codeVerifier);
-    await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        email: "organization-mismatch@example.test",
-        isApproved: true,
-      });
-      const organizationId = await ctx.db.insert("organizations", {});
-      const otherOrganizationId = await ctx.db.insert("organizations", {});
-      await ctx.db.insert("organizationMemberships", { organizationId, userId });
-      await ctx.db.insert("mcpOauthClients", {
-        clientId,
-        clientName: "Organization mismatch client",
-        redirectUris: ["http://127.0.0.1/callback"],
-        grantTypes: ["authorization_code", "refresh_token"],
-        responseTypes: ["code"],
-        tokenEndpointAuthMethod: "none",
-        createdAt: now,
-        updatedAt: now,
-        createdBy: "dynamic_registration",
-        registrationStatus: "active",
-        metadataJson: "{}",
-      });
-      await ctx.db.insert("mcpAuthorizationRequests", {
-        requestId: "mcpar_organization_mismatch",
-        clientId,
-        redirectUri: "http://127.0.0.1/callback",
-        resource,
-        scope,
-        codeChallenge,
-        codeChallengeMethod: "S256",
-        userId,
-        status: "approved",
-        createdAt: now,
-        expiresAt: now + 60_000,
-      });
-      await ctx.db.insert("mcpGrants", {
-        grantId,
-        userId,
-        organizationId: otherOrganizationId,
-        clientId,
-        resource,
-        scope,
-        status: "active",
-        createdAt: now,
-        updatedAt: now,
-      });
-      await ctx.db.insert("mcpAuthorizationCodes", {
-        codeHash: "organization_mismatch_code_hash",
-        requestId: "mcpar_organization_mismatch",
-        grantId,
-        clientId,
-        userId,
-        redirectUri: "http://127.0.0.1/callback",
-        resource,
-        scope,
-        expiresAt: now + 60_000,
-      });
-      await ctx.db.insert("mcpRefreshTokens", {
-        grantId,
-        clientId,
-        userId,
-        tokenHash: "organization_mismatch_refresh_hash",
-        status: "active",
-        createdAt: now,
-        expiresAt: now + 60_000,
-      });
-      await ctx.db.insert("mcpAccessTokens", {
-        grantId,
-        clientId,
-        userId,
-        tokenHash: "organization_mismatch_access_hash",
-        resource,
-        scope,
-        createdAt: now,
-        expiresAt: now + 60_000,
-      });
-    });
-
-    await expect(
-      t.mutation(internal.mcp.oauth.exchangeAuthorizationCode, {
-        codeHash: "organization_mismatch_code_hash",
-        clientId,
-        redirectUri: "http://127.0.0.1/callback",
-        codeVerifier,
-        allowLoopbackHttpRedirectUris: true,
-        accessTokenHash: "unused_access_hash",
-        refreshTokenHash: "unused_refresh_hash",
-        accessTokenExpiresAt: now + 60_000,
-        refreshTokenExpiresAt: now + 60_000,
-        now: now + 1,
-      }),
-    ).resolves.toEqual(inactiveGrantError);
-    await expect(
-      t.mutation(internal.mcp.oauth.exchangeRefreshToken, {
-        refreshTokenHash: "organization_mismatch_refresh_hash",
-        clientId,
-        accessTokenHash: "unused_refresh_access_hash",
-        newRefreshTokenHash: "unused_rotated_refresh_hash",
-        accessTokenExpiresAt: now + 60_000,
-        refreshTokenExpiresAt: now + 60_000,
-        now: now + 1,
-      }),
-    ).resolves.toEqual(inactiveGrantError);
-    await expect(
-      t.mutation(internal.mcp.oauth.validateAccessToken, {
-        tokenHash: "organization_mismatch_access_hash",
-        now: now + 1,
-      }),
-    ).resolves.toEqual({
-      ok: false,
-      status: 401,
-      error: "invalid_token",
-      errorDescription: "Grant is no longer active.",
-    });
   });
 });
 
@@ -939,6 +843,9 @@ describe("MCP OAuth account deletion access", () => {
   it("does not issue authorization codes for deleting or missing users", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
+      const organizationId = await ctx.db.insert("organizations", {
+        name: "Authorization code checks",
+      });
       const deletingUserId = await ctx.db.insert("users", {
         email: "deleting-code-owner@example.test",
         isApproved: true,
@@ -1007,7 +914,7 @@ describe("MCP OAuth account deletion access", () => {
         });
       }
       await ctx.db.delete(missingUserId);
-      return { deletingUserId, missingUserId };
+      return { deletingUserId, missingUserId, organizationId };
     });
 
     const readIssuanceState = async () => {
@@ -1028,6 +935,7 @@ describe("MCP OAuth account deletion access", () => {
         t.mutation(internal.mcp.oauth.issueAuthorizationCodeForAuthRequest, {
           requestId: request.requestId,
           userId: request.userId,
+          organizationId: ids.organizationId,
           codeHash: `${request.requestId}_code_hash`,
           codeExpiresAt: now + 60_000,
           now: now + 1,
@@ -1047,7 +955,7 @@ describe("MCP OAuth account deletion access", () => {
         email: "deleting-mcp@example.test",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", { name: "Deleting user" });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
       const initiatingSessionId = await ctx.db.insert("authSessions", {
         userId,

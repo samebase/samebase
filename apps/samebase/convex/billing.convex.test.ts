@@ -162,17 +162,17 @@ async function seedMember(t: ConvexTest, isApproved = true) {
       email: "ada.member@example.test",
       isApproved,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Billing organization" });
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
     const billingAccountId = await ctx.db.insert("organizationBillingAccounts", {
       organizationId,
       plan: "free",
       status: "inactive",
     });
-    return { billingAccountId, userId };
+    return { billingAccountId, organizationId, userId };
   });
   rememberBillingAccount(t, ids.userId, ids.billingAccountId);
-  return ids.userId;
+  return ids;
 }
 
 async function seedOrganizationMembers(t: ConvexTest) {
@@ -187,7 +187,7 @@ async function seedOrganizationMembers(t: ConvexTest) {
       email: "grace.organization@example.test",
       isApproved: true,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Shared billing" });
     await Promise.all([
       ctx.db.insert("organizationMemberships", { organizationId, userId: firstUserId }),
       ctx.db.insert("organizationMemberships", { organizationId, userId: secondUserId }),
@@ -205,14 +205,14 @@ async function seedOrganizationMembers(t: ConvexTest) {
 }
 
 async function seedCheckoutAttempt(t: ConvexTest, attempt: CheckoutAttempt) {
-  const userId = await seedMember(t);
+  const member = await seedMember(t);
   await t.run(async (ctx) => {
-    await ctx.db.patch(billingAccountIdFor(t, userId), {
+    await ctx.db.patch(billingAccountIdFor(t, member.userId), {
       polarExternalCustomerId: externalCustomerId,
       polarCheckoutAttempt: attempt,
     });
   });
-  return userId;
+  return member;
 }
 
 async function readCheckoutAttempt(t: ConvexTest, userId: Id<"users">) {
@@ -253,9 +253,11 @@ afterEach(() => {
 describe("billing access", () => {
   it("returns Free for an approved member without billing state", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
 
-    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+    await expect(
+      asUser(t, userId).query(api.billing.getViewerBillingStatus, { organizationId }),
+    ).resolves.toEqual({
       plan: "free",
       status: "inactive",
       canStartCheckout: true,
@@ -264,9 +266,11 @@ describe("billing access", () => {
 
   it("lets a pending member read billing status from Settings", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t, false);
+    const { organizationId, userId } = await seedMember(t, false);
 
-    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+    await expect(
+      asUser(t, userId).query(api.billing.getViewerBillingStatus, { organizationId }),
+    ).resolves.toEqual({
       plan: "free",
       status: "inactive",
       canStartCheckout: false,
@@ -275,7 +279,8 @@ describe("billing access", () => {
 
   it("uses one organization billing account for every member", async () => {
     const t = makeConvexTest();
-    const { billingAccountId, firstUserId, secondUserId } = await seedOrganizationMembers(t);
+    const { billingAccountId, firstUserId, organizationId, secondUserId } =
+      await seedOrganizationMembers(t);
 
     const freeBilling = {
       plan: "free",
@@ -283,10 +288,10 @@ describe("billing access", () => {
       canStartCheckout: true,
     };
     await expect(
-      asUser(t, firstUserId).query(api.billing.getViewerBillingStatus, {}),
+      asUser(t, firstUserId).query(api.billing.getViewerBillingStatus, { organizationId }),
     ).resolves.toEqual(freeBilling);
     await expect(
-      asUser(t, secondUserId).query(api.billing.getViewerBillingStatus, {}),
+      asUser(t, secondUserId).query(api.billing.getViewerBillingStatus, { organizationId }),
     ).resolves.toEqual(freeBilling);
 
     await t.run(async (ctx) => {
@@ -303,34 +308,97 @@ describe("billing access", () => {
       canStartCheckout: true,
     };
     await expect(
-      asUser(t, firstUserId).query(api.billing.getViewerBillingStatus, {}),
+      asUser(t, firstUserId).query(api.billing.getViewerBillingStatus, { organizationId }),
     ).resolves.toEqual(proBilling);
     await expect(
-      asUser(t, secondUserId).query(api.billing.getViewerBillingStatus, {}),
+      asUser(t, secondUserId).query(api.billing.getViewerBillingStatus, { organizationId }),
     ).resolves.toEqual(proBilling);
+  });
+
+  it("reads billing for the exact selected organization", async () => {
+    const t = makeConvexTest();
+    const { freeOrganizationId, proOrganizationId, userId } = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada.multi-organization@example.test",
+        isApproved: true,
+      });
+      const freeOrganizationId = await ctx.db.insert("organizations", {
+        name: "Free organization",
+      });
+      const proOrganizationId = await ctx.db.insert("organizations", {
+        name: "Pro organization",
+      });
+      await Promise.all([
+        ctx.db.insert("organizationMemberships", {
+          organizationId: freeOrganizationId,
+          userId,
+        }),
+        ctx.db.insert("organizationMemberships", {
+          organizationId: proOrganizationId,
+          userId,
+        }),
+        ctx.db.insert("organizationBillingAccounts", {
+          organizationId: freeOrganizationId,
+          plan: "free",
+          status: "inactive",
+        }),
+        ctx.db.insert("organizationBillingAccounts", {
+          organizationId: proOrganizationId,
+          provider: "polar",
+          plan: "pro",
+          status: "active",
+        }),
+      ]);
+      return { freeOrganizationId, proOrganizationId, userId };
+    });
+    const viewer = asUser(t, userId);
+
+    await expect(
+      viewer.query(api.billing.getViewerBillingStatus, {
+        organizationId: freeOrganizationId,
+      }),
+    ).resolves.toEqual({
+      plan: "free",
+      status: "inactive",
+      canStartCheckout: true,
+    });
+    await expect(
+      viewer.query(api.billing.getViewerBillingStatus, {
+        organizationId: proOrganizationId,
+      }),
+    ).resolves.toEqual({
+      provider: "polar",
+      plan: "pro",
+      status: "active",
+      canStartCheckout: true,
+    });
   });
 
   it("fails clearly when organization billing is missing", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
+    const { organizationId, userId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada.missing-billing@example.test",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", {
+        name: "Missing billing",
+      });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
-      return userId;
+      return { organizationId, userId };
     });
 
-    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).rejects.toThrow(
-      "Organization billing account is required.",
-    );
+    await expect(
+      asUser(t, userId).query(api.billing.getViewerBillingStatus, { organizationId }),
+    ).rejects.toThrow("Organization billing account is required.");
   });
 
   it("shares checkout ownership between organization members", async () => {
     const t = makeConvexTest();
-    const { billingAccountId, firstUserId, secondUserId } = await seedOrganizationMembers(t);
+    const { billingAccountId, firstUserId, organizationId, secondUserId } =
+      await seedOrganizationMembers(t);
     configureSandboxBilling();
     polarSdkMocks.checkoutsCreate.mockImplementation((request) => {
       const checkout = polarCheckoutFromCreate(
@@ -345,6 +413,7 @@ describe("billing access", () => {
       return checkout;
     });
     const args = {
+      organizationId,
       successUrl: "http://localhost:5174/settings?checkout=success",
       returnUrl: "http://localhost:5174/settings?checkout=cancel",
     };
@@ -368,7 +437,7 @@ describe("billing access", () => {
 
   it("blocks pending members from checkout and subscription management", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t, false);
+    const { organizationId, userId } = await seedMember(t, false);
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
         polarExternalCustomerId: "pending-customer",
@@ -382,17 +451,19 @@ describe("billing access", () => {
     const pendingUser = asUser(t, userId);
     await expect(
       pendingUser.action(api.billing.createPolarCheckoutSession, {
+        organizationId,
         successUrl: "http://localhost:5174/settings?checkout=success",
         returnUrl: "http://localhost:5174/settings?checkout=cancel",
       }),
     ).rejects.toThrow("Access denied");
     await expect(
       pendingUser.action(api.billing.createPolarCustomerPortalSession, {
+        organizationId,
         returnUrl: "http://localhost:5174/settings",
       }),
     ).rejects.toThrow("Access denied");
     await expect(
-      pendingUser.action(api.billing.reconcileViewerBillingFromPolar, {}),
+      pendingUser.action(api.billing.reconcileViewerBillingFromPolar, { organizationId }),
     ).resolves.toEqual({ state: "observed", plan: "free" });
     expect(polarSdkMocks.checkoutsCreate).not.toHaveBeenCalled();
     expect(polarSdkMocks.customerSessionsCreate).not.toHaveBeenCalled();
@@ -400,13 +471,14 @@ describe("billing access", () => {
 
   it("fails closed when a preview has no product configuration", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
     vi.stubEnv("CONVEX_AGENT_MODE", "");
     vi.stubEnv("CONVEX_DEPLOYMENT", "preview:billing-test");
     vi.stubEnv("POLAR_PRO_MONTHLY_PRODUCT_ID", "");
 
     await expect(
       asUser(t, userId).action(api.billing.createPolarCheckoutSession, {
+        organizationId,
         successUrl: "https://preview.example.test/settings?checkout=success",
         returnUrl: "https://preview.example.test/settings?checkout=cancel",
       }),
@@ -419,7 +491,7 @@ describe("billing access", () => {
 
   it("creates the monthly Sandbox checkout with the stable external customer id", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
     configureSandboxBilling();
     polarSdkMocks.checkoutsCreate.mockImplementation((request) =>
       polarCheckoutFromCreate(request, "checkout-test", "https://sandbox.polar.sh/checkout/test"),
@@ -427,6 +499,7 @@ describe("billing access", () => {
 
     await expect(
       asUser(t, userId).action(api.billing.createPolarCheckoutSession, {
+        organizationId,
         successUrl: "http://localhost:5174/settings?checkout=success",
         returnUrl: "http://localhost:5174/settings?checkout=cancel",
       }),
@@ -459,7 +532,7 @@ describe("billing access", () => {
 
   it("reuses the stored open checkout for repeated requests", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
         polarExternalCustomerId: "existing-customer",
@@ -481,6 +554,7 @@ describe("billing access", () => {
 
     const viewer = asUser(t, userId);
     const args = {
+      organizationId,
       successUrl: "http://localhost:5174/settings?checkout=success",
       returnUrl: "http://localhost:5174/settings?checkout=cancel",
     };
@@ -503,7 +577,7 @@ describe("billing access", () => {
 
   it("fails closed when the stored checkout no longer belongs to the same customer", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
     const attemptId = "polar_checkout_stored_customer";
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
@@ -526,6 +600,7 @@ describe("billing access", () => {
 
     await expect(
       asUser(t, userId).action(api.billing.createPolarCheckoutSession, {
+        organizationId,
         successUrl: "http://localhost:5174/settings?checkout=success",
         returnUrl: "http://localhost:5174/settings?checkout=cancel",
       }),
@@ -536,7 +611,7 @@ describe("billing access", () => {
 
   it("fails closed when the stored checkout has another product", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
     const attemptId = "polar_checkout_stored_product";
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
@@ -560,6 +635,7 @@ describe("billing access", () => {
 
     await expect(
       asUser(t, userId).action(api.billing.createPolarCheckoutSession, {
+        organizationId,
         successUrl: "http://localhost:5174/settings?checkout=success",
         returnUrl: "http://localhost:5174/settings?checkout=cancel",
       }),
@@ -582,7 +658,7 @@ describe("billing access", () => {
     },
   ])("fails closed when the stored checkout has another $label", async ({ checkoutUrls }) => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
     const attemptId = "polar_checkout_stored_redirect";
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
@@ -606,6 +682,7 @@ describe("billing access", () => {
 
     await expect(
       asUser(t, userId).action(api.billing.createPolarCheckoutSession, {
+        organizationId,
         successUrl: "http://localhost:5174/settings?checkout=success",
         returnUrl: "http://localhost:5174/settings?checkout=cancel",
       }),
@@ -615,7 +692,7 @@ describe("billing access", () => {
 
   it("replaces a stored checkout only after Polar reports it unavailable", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
     const attemptId = "polar_checkout_stored_expired";
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
@@ -646,6 +723,7 @@ describe("billing access", () => {
 
     await expect(
       asUser(t, userId).action(api.billing.createPolarCheckoutSession, {
+        organizationId,
         successUrl: "http://localhost:5174/settings?checkout=success",
         returnUrl: "http://localhost:5174/settings?checkout=cancel",
       }),
@@ -655,7 +733,7 @@ describe("billing access", () => {
 
   it("keeps a stored open checkout when Polar cannot prove its status", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
     const checkoutAttempt = {
       state: "open" as const,
       attemptId: "polar_checkout_unknown_status",
@@ -672,6 +750,7 @@ describe("billing access", () => {
 
     await expect(
       asUser(t, userId).action(api.billing.createPolarCheckoutSession, {
+        organizationId,
         successUrl: "http://localhost:5174/settings?checkout=success",
         returnUrl: "http://localhost:5174/settings?checkout=cancel",
       }),
@@ -686,7 +765,7 @@ describe("billing access", () => {
 
   it("allows only one concurrent checkout creation", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
         polarExternalCustomerId: "existing-customer",
@@ -698,6 +777,7 @@ describe("billing access", () => {
 
     const viewer = asUser(t, userId);
     const args = {
+      organizationId,
       successUrl: "http://localhost:5174/settings?checkout=success",
       returnUrl: "http://localhost:5174/settings?checkout=cancel",
     };
@@ -723,7 +803,7 @@ describe("billing access", () => {
 
   it("clears pending after a definitive Polar rejection", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
         polarExternalCustomerId: "existing-customer",
@@ -741,6 +821,7 @@ describe("billing access", () => {
       );
     const viewer = asUser(t, userId);
     const args = {
+      organizationId,
       successUrl: "http://localhost:5174/settings?checkout=success",
       returnUrl: "http://localhost:5174/settings?checkout=cancel",
     };
@@ -756,7 +837,7 @@ describe("billing access", () => {
 
   it("keeps an ambiguous create result pending and never creates it twice", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
         polarExternalCustomerId: "existing-customer",
@@ -768,6 +849,7 @@ describe("billing access", () => {
     );
     const viewer = asUser(t, userId);
     const args = {
+      organizationId,
       successUrl: "http://localhost:5174/settings?checkout=success",
       returnUrl: "http://localhost:5174/settings?checkout=cancel",
     };
@@ -796,7 +878,7 @@ describe("billing access", () => {
 
   it("keeps pending when Polar returns an unverified checkout", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
         polarExternalCustomerId: "existing-customer",
@@ -812,6 +894,7 @@ describe("billing access", () => {
     );
     const viewer = asUser(t, userId);
     const args = {
+      organizationId,
       successUrl: "http://localhost:5174/settings?checkout=success",
       returnUrl: "http://localhost:5174/settings?checkout=cancel",
     };
@@ -834,7 +917,7 @@ describe("billing access", () => {
 
   it("uses the production Polar server only for the production deployment", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
     vi.stubEnv("CONVEX_AGENT_MODE", "");
     vi.stubEnv("CONVEX_DEPLOYMENT", "prod:billing-test");
     vi.stubEnv("POLAR_ACCESS_TOKEN", "production-token");
@@ -845,6 +928,7 @@ describe("billing access", () => {
 
     await expect(
       asUser(t, userId).action(api.billing.createPolarCheckoutSession, {
+        organizationId,
         successUrl: "https://samebase.com/settings?checkout=success",
         returnUrl: "https://samebase.com/settings?checkout=cancel",
       }),
@@ -861,7 +945,7 @@ describe("billing access", () => {
 
   it("continues checkout after an earlier checkout reserved an external id but no customer", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
         polarExternalCustomerId: "existing-customer",
@@ -878,6 +962,7 @@ describe("billing access", () => {
 
     await expect(
       asUser(t, userId).action(api.billing.createPolarCheckoutSession, {
+        organizationId,
         successUrl: "http://localhost:5174/settings?checkout=success",
         returnUrl: "http://localhost:5174/settings?checkout=cancel",
       }),
@@ -894,7 +979,7 @@ describe("billing access", () => {
     "reconciles Polar before checkout and rejects a $polarStatus Pro subscription",
     async ({ polarStatus, storedStatus }) => {
       const t = makeConvexTest();
-      const userId = await seedMember(t);
+      const { organizationId, userId } = await seedMember(t);
       await t.run(async (ctx) => {
         await ctx.db.patch(billingAccountIdFor(t, userId), {
           polarExternalCustomerId: "existing-customer",
@@ -909,13 +994,14 @@ describe("billing access", () => {
 
       await expect(
         asUser(t, userId).action(api.billing.createPolarCheckoutSession, {
+          organizationId,
           successUrl: "http://localhost:5174/settings?checkout=success",
           returnUrl: "http://localhost:5174/settings?checkout=cancel",
         }),
       ).rejects.toThrow("You already have a Pro subscription.");
       expect(polarSdkMocks.checkoutsCreate).not.toHaveBeenCalled();
       await expect(
-        asUser(t, userId).query(api.billing.getViewerBillingStatus, {}),
+        asUser(t, userId).query(api.billing.getViewerBillingStatus, { organizationId }),
       ).resolves.toEqual({
         provider: "polar",
         plan: "pro",
@@ -936,7 +1022,7 @@ describe("billing access", () => {
 
   it("opens the hosted portal for an existing Polar customer", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
         polarExternalCustomerId: "existing-customer",
@@ -949,6 +1035,7 @@ describe("billing access", () => {
 
     await expect(
       asUser(t, userId).action(api.billing.createPolarCustomerPortalSession, {
+        organizationId,
         returnUrl: "http://localhost:5174/settings",
       }),
     ).resolves.toEqual({
@@ -964,7 +1051,7 @@ describe("billing access", () => {
 describe("billing reconciliation", () => {
   it("applies an earlier valid observation when a later observation fails", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
         polarExternalCustomerId: "existing-customer",
@@ -977,9 +1064,13 @@ describe("billing reconciliation", () => {
       .mockRejectedValueOnce(new Error("Later Polar read failed"));
     const viewer = asUser(t, userId);
 
-    const earlierReconciliation = viewer.action(api.billing.reconcileViewerBillingFromPolar, {});
+    const earlierReconciliation = viewer.action(api.billing.reconcileViewerBillingFromPolar, {
+      organizationId,
+    });
     await vi.waitFor(() => expect(polarSdkMocks.subscriptionsList).toHaveBeenCalledOnce());
-    await expect(viewer.action(api.billing.reconcileViewerBillingFromPolar, {})).resolves.toEqual({
+    await expect(
+      viewer.action(api.billing.reconcileViewerBillingFromPolar, { organizationId }),
+    ).resolves.toEqual({
       state: "unavailable",
     });
     firstRead.resolve(
@@ -992,7 +1083,9 @@ describe("billing reconciliation", () => {
     const user = await t.run(async (ctx) => await ctx.db.get(billingAccountIdFor(t, userId)));
     expect(user?.polarObservationRevision).toBe(2);
     expect(user?.polarAppliedObservationRevision).toBe(1);
-    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+    await expect(
+      asUser(t, userId).query(api.billing.getViewerBillingStatus, { organizationId }),
+    ).resolves.toEqual({
       provider: "polar",
       plan: "pro",
       status: "active",
@@ -1004,7 +1097,7 @@ describe("billing reconciliation", () => {
 
   it("rejects a stale Polar response after a newer observation applies", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
         polarExternalCustomerId: "existing-customer",
@@ -1017,9 +1110,13 @@ describe("billing reconciliation", () => {
       .mockResolvedValueOnce(subscriptionPage([]));
     const viewer = asUser(t, userId);
 
-    const staleReconciliation = viewer.action(api.billing.reconcileViewerBillingFromPolar, {});
+    const staleReconciliation = viewer.action(api.billing.reconcileViewerBillingFromPolar, {
+      organizationId,
+    });
     await vi.waitFor(() => expect(polarSdkMocks.subscriptionsList).toHaveBeenCalledOnce());
-    await expect(viewer.action(api.billing.reconcileViewerBillingFromPolar, {})).resolves.toEqual({
+    await expect(
+      viewer.action(api.billing.reconcileViewerBillingFromPolar, { organizationId }),
+    ).resolves.toEqual({
       state: "observed",
       plan: "free",
     });
@@ -1030,7 +1127,9 @@ describe("billing reconciliation", () => {
     );
     await expect(staleReconciliation).resolves.toEqual({ state: "unavailable" });
 
-    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+    await expect(
+      asUser(t, userId).query(api.billing.getViewerBillingStatus, { organizationId }),
+    ).resolves.toEqual({
       provider: "polar",
       plan: "free",
       status: "inactive",
@@ -1040,7 +1139,7 @@ describe("billing reconciliation", () => {
 
   it("restores Pro after a missed webhook and keeps cancellation timing", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
         polarExternalCustomerId: "existing-customer",
@@ -1054,9 +1153,11 @@ describe("billing reconciliation", () => {
     );
 
     await expect(
-      asUser(t, userId).action(api.billing.reconcileViewerBillingFromPolar, {}),
+      asUser(t, userId).action(api.billing.reconcileViewerBillingFromPolar, { organizationId }),
     ).resolves.toEqual({ state: "observed", plan: "pro" });
-    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+    await expect(
+      asUser(t, userId).query(api.billing.getViewerBillingStatus, { organizationId }),
+    ).resolves.toEqual({
       provider: "polar",
       plan: "pro",
       status: "past_due",
@@ -1068,7 +1169,7 @@ describe("billing reconciliation", () => {
 
   it("downgrades to Free after the Polar entitlement disappears", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
         provider: "polar",
@@ -1083,9 +1184,11 @@ describe("billing reconciliation", () => {
     polarSdkMocks.subscriptionsList.mockResolvedValue(subscriptionPage([]));
 
     await expect(
-      asUser(t, userId).action(api.billing.reconcileViewerBillingFromPolar, {}),
+      asUser(t, userId).action(api.billing.reconcileViewerBillingFromPolar, { organizationId }),
     ).resolves.toEqual({ state: "observed", plan: "free" });
-    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+    await expect(
+      asUser(t, userId).query(api.billing.getViewerBillingStatus, { organizationId }),
+    ).resolves.toEqual({
       provider: "polar",
       plan: "free",
       status: "inactive",
@@ -1110,7 +1213,7 @@ describe("billing reconciliation", () => {
       attemptId: `polar_checkout_viewer_${label.replace(" ", "_")}`,
       checkoutId: `checkout-viewer-${label.replace(" ", "-")}`,
     };
-    const userId = await seedCheckoutAttempt(t, attempt);
+    const { organizationId, userId } = await seedCheckoutAttempt(t, attempt);
     configureSandboxBilling();
     if (plan === "pro") {
       polarSdkMocks.subscriptionsList.mockResolvedValue(
@@ -1133,7 +1236,7 @@ describe("billing reconciliation", () => {
     }
 
     await expect(
-      asUser(t, userId).action(api.billing.reconcileViewerBillingFromPolar, {}),
+      asUser(t, userId).action(api.billing.reconcileViewerBillingFromPolar, { organizationId }),
     ).resolves.toEqual({ state: "observed", plan });
     await expect(readCheckoutAttempt(t, userId)).resolves.toEqual(clears ? null : attempt);
     expect(polarSdkMocks.checkoutsGet).toHaveBeenCalledWith({ id: attempt.checkoutId });
@@ -1145,7 +1248,7 @@ describe("billing reconciliation", () => {
       state: "pending" as const,
       attemptId: "polar_checkout_viewer_pending",
     };
-    const userId = await seedCheckoutAttempt(t, attempt);
+    const { organizationId, userId } = await seedCheckoutAttempt(t, attempt);
     configureSandboxBilling();
     polarSdkMocks.subscriptionsList.mockResolvedValue(
       subscriptionPage([
@@ -1154,7 +1257,7 @@ describe("billing reconciliation", () => {
     );
 
     await expect(
-      asUser(t, userId).action(api.billing.reconcileViewerBillingFromPolar, {}),
+      asUser(t, userId).action(api.billing.reconcileViewerBillingFromPolar, { organizationId }),
     ).resolves.toEqual({ state: "observed", plan: "pro" });
     await expect(readCheckoutAttempt(t, userId)).resolves.toEqual(attempt);
     expect(polarSdkMocks.checkoutsGet).not.toHaveBeenCalled();
@@ -1162,7 +1265,7 @@ describe("billing reconciliation", () => {
 
   it("preserves the stored entitlement when Polar returns malformed data", async () => {
     const t = makeConvexTest();
-    const userId = await seedMember(t);
+    const { organizationId, userId } = await seedMember(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
         provider: "polar",
@@ -1177,9 +1280,11 @@ describe("billing reconciliation", () => {
     polarSdkMocks.subscriptionsList.mockRejectedValue(new Error("SDK response validation failed"));
 
     await expect(
-      asUser(t, userId).action(api.billing.reconcileViewerBillingFromPolar, {}),
+      asUser(t, userId).action(api.billing.reconcileViewerBillingFromPolar, { organizationId }),
     ).resolves.toEqual({ state: "unavailable" });
-    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+    await expect(
+      asUser(t, userId).query(api.billing.getViewerBillingStatus, { organizationId }),
+    ).resolves.toEqual({
       provider: "polar",
       plan: "pro",
       status: "active",

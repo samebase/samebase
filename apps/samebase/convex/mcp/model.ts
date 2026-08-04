@@ -92,7 +92,7 @@ export const mcpTables = {
   })
     .index("by_grant_id", ["grantId"])
     .index("by_user_id", ["userId"])
-    .index("by_user_id_and_status", ["userId", "status"])
+    .index("by_user_and_organization_and_status", ["userId", "organizationId", "status"])
     .index("by_user_and_org_and_client_and_resource_and_scope_and_status", [
       "userId",
       "organizationId",

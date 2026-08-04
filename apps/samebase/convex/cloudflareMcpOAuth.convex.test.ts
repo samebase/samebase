@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
 
 afterEach(() => {
@@ -11,14 +11,16 @@ afterEach(() => {
 describe("getCloudflareMcpOAuthUrl", () => {
   it("registers the Cloudflare OAuth client with the Samebase display name", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
+    const { organizationId, userId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         email: "test@example.invalid",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", {
+        name: "Cloudflare MCP organization",
+      });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
-      return userId;
+      return { organizationId, userId };
     });
     vi.stubEnv(
       "PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL",
@@ -43,15 +45,25 @@ describe("getCloudflareMcpOAuthUrl", () => {
       });
     });
     vi.stubGlobal("fetch", fetch);
+    const returnToPath = `/providers?organization=${organizationId}`;
 
     const authorizeUrl = await t
       .withIdentity({
         subject: `${userId}|test-session`,
         tokenIdentifier: `test:${userId}`,
       })
-      .action(api.cloudflareMcpOAuth.getCloudflareMcpOAuthUrl, {});
+      .action(api.cloudflareMcpOAuth.getCloudflareMcpOAuthUrl, {
+        organizationId,
+        returnToPath,
+      });
 
     expect(authorizeUrl).toContain("client_id=registered-client");
     expect(fetch).toHaveBeenCalledOnce();
+    await expect(
+      t.query(internal.oauthState.getOauthStateByState, {
+        provider: "cloudflare_mcp",
+        state: new URL(authorizeUrl).searchParams.get("state") ?? "",
+      }),
+    ).resolves.toMatchObject({ organizationId, returnToPath, userId });
   });
 });

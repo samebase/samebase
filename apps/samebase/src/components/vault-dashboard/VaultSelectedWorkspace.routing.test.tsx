@@ -51,6 +51,8 @@ vi.mock("./VaultCloudflareDialog", () => ({
 }));
 
 const { act } = React;
+// @ts-expect-error Convex ids are strings at runtime; this route test only needs a stable id.
+const FIXTURE_ORGANIZATION_ID: Id<"organizations"> = "organization-vault-workspace-routing";
 
 function fakeVaultId(): Id<"vaults"> {
   // @ts-expect-error Convex ids are strings at runtime; this route test only needs a stable id.
@@ -76,6 +78,7 @@ function makeVault({
 }): UserVaultResult {
   return {
     _id: fakeVaultId(),
+    organizationId: FIXTURE_ORGANIZATION_ID,
     ghRepoOwner: "ada",
     ghRepoName: "demo",
     repositoryFullName: "ada/demo",

@@ -445,10 +445,13 @@ export const listVaultRepositoryFolderSuggestions = query({
   },
   returns: vVaultRepositoryFolderSuggestions,
   handler: async (ctx, args) => {
-    const ownership = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
-    const vault = await readOrganizationVault(ctx, {
-      ownership,
-      vaultId: args.vaultId,
+    const vault = await ctx.db.get(args.vaultId);
+    if (vault === null) {
+      return [];
+    }
+    await requireOrganizationAccessContext(ctx.db, {
+      userId: ctx.viewer.userId,
+      organizationId: vault.organizationId,
     });
     if (!isLiveConnectedVault(vault)) {
       return [];
@@ -473,14 +476,19 @@ export const listVaultRepositoryFolderSuggestions = query({
 
 export const getUserVaultPullRequestFilters = query({
   access: "access_dashboard",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: array(vVaultPullRequestFilters),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const rows = await ctx.db
       .query("ui_vaultPullRequests_filters")
       .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
       .collect();
-    const ownership = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
+    });
     const filters = [];
     for (const row of rows) {
       if (
@@ -505,14 +513,19 @@ export const getUserVaultPullRequestFilters = query({
 
 export const getUserVaultResourceLinksState = query({
   access: "access_dashboard",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: array(vVaultResourceLinksState),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const rows = await ctx.db
       .query("ui_vaultResourceLinks_settings")
       .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
       .collect();
-    const ownership = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
+    });
     const states = [];
     for (const row of rows) {
       if (
@@ -539,11 +552,14 @@ export const setVaultResourceLinksOpen = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;
-    const ownership = await requireOrganizationAccessContext(ctx.db, userId);
-    const vault = await readOrganizationVault(ctx, { ownership, vaultId: args.vaultId });
+    const vault = await ctx.db.get(args.vaultId);
     if (!vault) {
       throw new Error("Vault not found");
     }
+    await requireOrganizationAccessContext(ctx.db, {
+      userId,
+      organizationId: vault.organizationId,
+    });
     if (isVaultDeletingOrDeleteFailed(vault)) {
       throw new Error("Vault deletion is in progress.");
     }
@@ -576,11 +592,14 @@ export const setVaultPullRequestFilters = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;
-    const ownership = await requireOrganizationAccessContext(ctx.db, userId);
-    const vault = await readOrganizationVault(ctx, { ownership, vaultId: args.vaultId });
+    const vault = await ctx.db.get(args.vaultId);
     if (!vault) {
       throw new Error("Vault not found");
     }
+    await requireOrganizationAccessContext(ctx.db, {
+      userId,
+      organizationId: vault.organizationId,
+    });
     if (isVaultDeletingOrDeleteFailed(vault)) {
       throw new Error("Vault deletion is in progress.");
     }
@@ -670,6 +689,7 @@ async function readOrganizationVaults(
     initializingVaultResults.push({
       _id: vault._id,
       _creationTime: vault._creationTime,
+      organizationId: vault.organizationId,
       ghRepoOwner: vault.owner,
       ghRepoName: vault.name,
       repositoryFullName: `${vault.owner}/${vault.name}`,
@@ -730,6 +750,7 @@ async function readOrganizationVaults(
         return {
           _id: vault._id,
           _creationTime: vault._creationTime,
+          organizationId: vault.organizationId,
           ghRepoOwner: vault.owner,
           ghRepoName: vault.name,
           repositoryFullName: `${vault.owner}/${vault.name}`,
@@ -776,6 +797,7 @@ async function readOrganizationVaults(
       return {
         _id: vault._id,
         _creationTime: vault._creationTime,
+        organizationId: vault.organizationId,
         ghRepoOwner: vault.owner,
         ghRepoName: vault.name,
         repositoryFullName,
@@ -815,11 +837,15 @@ async function readOrganizationVaults(
 
 export const getUserVaults = query({
   access: getUserVaultsContract.access,
-  args: getUserVaultsContract.args,
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: getUserVaultsContract.returns,
-  mcp: getUserVaultsContract.mcp,
-  handler: async (ctx): Promise<UserVaultsResult> => {
-    const access = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
+  handler: async (ctx, args): Promise<UserVaultsResult> => {
+    const access = await requireOrganizationAccessContext(ctx.db, {
+      userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
+    });
     return await readOrganizationVaults(ctx, access.userId, access.organizationId);
   },
 });

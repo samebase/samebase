@@ -14,7 +14,7 @@ import { CLOUDFLARE_MCP_OAUTH_SCOPES } from "./cloudflareMcpOAuth";
 import { deriveMcpTokenStatusFromExpiry, type McpTokenHealth } from "./mcpTokenHealth";
 import type { CloudflareDefaultAccount } from "./providerConnectionModel";
 
-const { array, boolean, literal, number, object, optional, string, union } = v;
+const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
 const vCloudflareProviderAuthMethod = union(
   literal("api_key"),
@@ -116,14 +116,17 @@ type CloudflareProbeResult<Value> =
 
 export const checkCloudflareConnectionAccess = action({
   access: "access_provider_connections",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: vCloudflareConnectionAccess,
-  handler: async (ctx): Promise<CloudflareConnectionAccess> => {
+  handler: async (ctx, args): Promise<CloudflareConnectionAccess> => {
     const checkedAt = Date.now();
     const organizationId = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
+      internal.organizationAccess.requireOrganizationIdForUser,
       {
         userId: ctx.viewer.userId,
+        organizationId: args.organizationId,
       },
     );
     const providerConnection = await ctx.runQuery(

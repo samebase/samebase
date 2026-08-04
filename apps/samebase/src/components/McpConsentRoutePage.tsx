@@ -1,6 +1,8 @@
 import { McpConsentSignInView } from "@/McpConsentSignInView";
 import { ApprovalGate } from "@/components/ApprovalGate";
+import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { Button } from "@/components/ui/button";
+import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { useCloseOAuthPopup } from "@/lib/useCloseOAuthPopup";
 import { usePageMetadata } from "@/lib/usePageMetadata";
@@ -25,12 +27,19 @@ function McpConsentView({ requestId }: { requestId: string }) {
   const authorizationRequest = useQuery(api.mcp.oauth.getAuthorizationRequestForCurrentUser, {
     requestId,
   });
+  const organizations = useQuery(api.organizations.listForViewer);
   const completeAuthorizationRequest = useAction(
     api.mcp.oauth.completeAuthorizationRequestForCurrentUser,
   );
   const denyAuthorizationRequest = useAction(api.mcp.oauth.denyAuthorizationRequestForCurrentUser);
   const [pendingAction, setPendingAction] = useState<"approve" | "deny" | null>(null);
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>();
   const [error, setError] = useState<string | null>(null);
+  const selectedOrganization = organizations?.find(
+    ({ organizationId }) => organizationId === selectedOrganizationId,
+  );
+  const organization =
+    selectedOrganization ?? (organizations?.length === 1 ? organizations[0] : undefined);
 
   const runAction = (action: "approve" | "deny") => {
     if (pendingAction !== null) {
@@ -40,10 +49,20 @@ function McpConsentView({ requestId }: { requestId: string }) {
     setError(null);
     setPendingAction(action);
 
-    const actionPromise =
-      action === "approve"
-        ? completeAuthorizationRequest({ requestId })
-        : denyAuthorizationRequest({ requestId });
+    let actionPromise;
+    if (action === "approve") {
+      if (organization === undefined) {
+        setPendingAction(null);
+        setError("Choose an organization.");
+        return;
+      }
+      actionPromise = completeAuthorizationRequest({
+        requestId,
+        organizationId: organization.organizationId,
+      });
+    } else {
+      actionPromise = denyAuthorizationRequest({ requestId });
+    }
 
     void actionPromise
       .then(({ redirectUrl }) => {
@@ -59,7 +78,7 @@ function McpConsentView({ requestId }: { requestId: string }) {
       });
   };
 
-  if (authorizationRequest === undefined) {
+  if (authorizationRequest === undefined || organizations === undefined) {
     return null;
   }
 
@@ -109,6 +128,33 @@ function McpConsentView({ requestId }: { requestId: string }) {
             <div className="text-muted-foreground">{clientName}</div>
           </div>
           <div>
+            <div className="font-medium">Organization</div>
+            {organizations.length === 1 ? (
+              <div className="text-muted-foreground">{organizations[0].label}</div>
+            ) : (
+              <Select
+                value={organization?.organizationId}
+                onValueChange={setSelectedOrganizationId}
+              >
+                <SelectTrigger aria-label="Organization" className="mt-1 w-full">
+                  <SelectValue placeholder="Choose an organization">
+                    {organization?.label}
+                  </SelectValue>
+                </SelectTrigger>
+                <AppSelectContent>
+                  {organizations.map((organization) => (
+                    <AppSelectItem
+                      key={organization.organizationId}
+                      value={organization.organizationId}
+                    >
+                      {organization.label}
+                    </AppSelectItem>
+                  ))}
+                </AppSelectContent>
+              </Select>
+            )}
+          </div>
+          <div>
             <div className="font-medium">Resource</div>
             <div className="text-muted-foreground">{authorizationRequest.resource}</div>
           </div>
@@ -144,7 +190,7 @@ function McpConsentView({ requestId }: { requestId: string }) {
             onClick={() => {
               runAction("approve");
             }}
-            disabled={pendingAction !== null}
+            disabled={pendingAction !== null || organization === undefined}
           >
             {pendingAction === "approve" ? "Approving..." : "Approve"}
           </Button>

@@ -20,12 +20,14 @@ export type VaultSidebarSummariesState =
       summaries: readonly VaultSidebarSummary[];
     };
 
-export function useVaultSidebarSummaries(): VaultSidebarSummariesState {
+export function useVaultSidebarSummaries(
+  organizationId: Id<"organizations">,
+): VaultSidebarSummariesState {
   const listVaultSidebarSummaries = useAction(api.repositoryPullRequests.listVaultSidebarSummaries);
   const summariesQuery = useQuery({
-    queryKey: ["vault-sidebar-summaries"],
+    queryKey: ["vault-sidebar-summaries", organizationId],
     queryFn: async () => {
-      const summaries = await listVaultSidebarSummaries({});
+      const summaries = await listVaultSidebarSummaries({ organizationId });
       return summaries.flatMap((summary) =>
         summary.repository
           ? [

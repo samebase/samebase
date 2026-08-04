@@ -1,7 +1,6 @@
 import { Infer, v } from "convex/values";
 import { httpAction, internalAction, internalMutation } from "./_generated/server";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { z } from "zod";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -15,7 +14,10 @@ import {
 import { isRecord } from "./jsonUtils";
 import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealth } from "./mcpTokenHealth";
 import { vCloudflareDefaultAccount } from "./providerConnectionModel";
-import { buildProviderOAuthDefaultReturnUrl } from "../shared/providerOAuthReturn";
+import {
+  buildProviderOAuthReturnUrl,
+  isSafeProviderOAuthReturnToPath,
+} from "../shared/providerOAuthReturn";
 import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSearchParams";
 
 const CLOUDFLARE_MCP_OAUTH_ISSUER = "https://mcp.cloudflare.com";
@@ -360,9 +362,17 @@ export async function revokeCloudflareMcpOAuthGrant(args: {
 
 async function buildCloudflareMcpOAuthUrl(
   ctx: OAuthContext,
-  userId: Id<"users">,
-  providerConnectionId?: Id<"providerConnections">,
+  args: {
+    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+    returnToPath: string;
+    providerConnectionId?: Id<"providerConnections">;
+  },
 ): Promise<string> {
+  if (!isSafeProviderOAuthReturnToPath(args.returnToPath)) {
+    throw new Error("OAuth return path must be a root-relative same-site path.");
+  }
+
   const redirectUri = readRequiredEnv("PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL");
 
   const state = randomToken();
@@ -374,9 +384,11 @@ async function buildCloudflareMcpOAuthUrl(
   const now = Date.now();
   await ctx.runMutation(internal.oauthState.createOauthState, {
     provider: "cloudflare_mcp",
-    userId,
-    providerConnectionId,
+    userId: args.userId,
+    organizationId: args.organizationId,
+    providerConnectionId: args.providerConnectionId,
     state,
+    returnToPath: args.returnToPath,
     codeVerifier,
     clientId,
     createdAt: now,
@@ -384,7 +396,7 @@ async function buildCloudflareMcpOAuthUrl(
   });
 
   console.log("cloudflare:mcp_oauth:url_built", {
-    userId,
+    userId: args.userId,
     redirectUri,
     clientIdLength: clientId.length,
     oauthStateExpiresAt: now + OAUTH_STATE_TTL_MS,
@@ -685,37 +697,30 @@ export const resolveConnectionForUser = internalAction({
 
 export const getCloudflareMcpOAuthUrl = action({
   access: "access_provider_connections",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+    returnToPath: string(),
+  },
   returns: getCloudflareMcpOAuthUrlResultValidator,
-  handler: async (ctx): Promise<string> => {
+  handler: async (ctx, args): Promise<string> => {
     const organizationId = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
+      internal.organizationAccess.requireOrganizationIdForUser,
       {
         userId: ctx.viewer.userId,
+        organizationId: args.organizationId,
       },
     );
     const connection = await ctx.runQuery(internal.providerConnections.loadDefaultForOrganization, {
       organizationId,
       kind: "cloudflare",
     });
-    return await buildCloudflareMcpOAuthUrl(ctx, ctx.viewer.userId, connection?._id);
+    return await buildCloudflareMcpOAuthUrl(ctx, {
+      userId: ctx.viewer.userId,
+      organizationId,
+      returnToPath: args.returnToPath,
+      providerConnectionId: connection?.state === "connected" ? connection._id : undefined,
+    });
   },
-});
-
-export const startCloudflareMcpOAuth = httpAction(async (ctx) => {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-  const organizationId = await ctx.runQuery(internal.organizationAccess.getOrganizationIdForUser, {
-    userId,
-  });
-  const connection = await ctx.runQuery(internal.providerConnections.loadDefaultForOrganization, {
-    organizationId,
-    kind: "cloudflare",
-  });
-  const authorizeUrl = await buildCloudflareMcpOAuthUrl(ctx, userId, connection?._id);
-  return Response.redirect(authorizeUrl, 302);
 });
 
 export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
@@ -742,7 +747,7 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
         });
       }
     }
-    return new Response(`Cloudflare OAuth error: ${errorDescription ?? error}`, { status: 400 });
+    return new Response("Cloudflare OAuth authorization was not completed.", { status: 400 });
   }
 
   if (!code || !state) {
@@ -843,9 +848,10 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
     return new Response("Cloudflare OAuth exchange failed", { status: 400 });
   }
 
-  const returnUrl = buildProviderOAuthDefaultReturnUrl({
+  const returnUrl = buildProviderOAuthReturnUrl({
     configuredAppUrl: process.env.SITE_URL ?? process.env.CONVEX_SITE_URL,
     requestUrl: request.url,
+    returnToPath: oauthState.returnToPath,
   });
   const returnOrigin = new URL(returnUrl).origin;
 

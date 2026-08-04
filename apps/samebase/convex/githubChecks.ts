@@ -7,7 +7,7 @@ import { Octokit } from "@octokit/rest";
 import { describeRepositoryTreeRefreshFailure } from "./github";
 import { isRecord } from "./jsonUtils";
 
-const { array, literal, number, object, string, union } = v;
+const { array, id, literal, number, object, string, union } = v;
 
 const checkRunValidator = object({
   id: number(),
@@ -184,13 +184,15 @@ function isRateLimitError(
 export const getCommitStatus = action({
   access: "access_files_read",
   args: {
+    organizationId: id("organizations"),
     owner: string(),
     repo: string(),
     ref: string(), // commit SHA or branch name
   },
   returns: commitStatusResultValidator,
-  handler: async (ctx, { owner, repo, ref }): Promise<CommitStatusResult> => {
+  handler: async (ctx, { organizationId, owner, repo, ref }): Promise<CommitStatusResult> => {
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+      organizationId,
       repositoryFullName: `${owner}/${repo}`,
       userId: ctx.viewer.userId,
     });

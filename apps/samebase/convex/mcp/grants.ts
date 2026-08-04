@@ -10,13 +10,14 @@ import {
 } from "../organizationAccess";
 import { parseScopeTokens } from "./scopes";
 
-const { array, boolean, number, object, optional, string } = v;
+const { array, boolean, id, number, object, optional, string } = v;
 
 const grantListItemValidator = object({
   clientId: string(),
   clientName: optional(string()),
   createdAt: number(),
   grantId: string(),
+  organizationId: id("organizations"),
   lastUsedAt: optional(number()),
   resource: string(),
   scopes: array(string()),
@@ -61,18 +62,25 @@ export async function revokeActiveMcpGrant(
 export const listCurrentUserGrants = query({
   access: "access_mcp",
   args: {
+    organizationId: id("organizations"),
     paginationOpts: paginationOptsValidator,
   },
   returns: paginationResultValidator(grantListItemValidator),
   handler: async (ctx, args) => {
+    const access = await requireOrganizationAccessContext(ctx.db, {
+      userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
+    });
     const grants = await ctx.db
       .query("mcpGrants")
-      .withIndex("by_user_id_and_status", (q) =>
-        q.eq("userId", ctx.viewer.userId).eq("status", "active"),
+      .withIndex("by_user_and_organization_and_status", (q) =>
+        q
+          .eq("userId", access.userId)
+          .eq("organizationId", access.organizationId)
+          .eq("status", "active"),
       )
       .order("desc")
       .paginate(args.paginationOpts);
-    const access = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
     const page = [];
     for (const grant of grants.page) {
       if (!hasMcpGrantSubject(access, grant)) {
@@ -87,6 +95,7 @@ export const listCurrentUserGrants = query({
         ...(client?.clientName !== undefined ? { clientName: client.clientName } : {}),
         createdAt: grant.createdAt,
         grantId: grant.grantId,
+        organizationId: grant.organizationId,
         ...(grant.lastUsedAt !== undefined ? { lastUsedAt: grant.lastUsedAt } : {}),
         resource: grant.resource,
         scopes: parseScopeTokens(grant.scope),
@@ -111,8 +120,14 @@ export const revokeCurrentUserGrant = mutation({
       .query("mcpGrants")
       .withIndex("by_grant_id", (q) => q.eq("grantId", args.grantId))
       .unique();
-    const access = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
-    if (!grant || !hasMcpGrantSubject(access, grant)) {
+    if (!grant || grant.userId !== ctx.viewer.userId) {
+      throw new Error("MCP client connection was not found.");
+    }
+    const access = await requireOrganizationAccessContext(ctx.db, {
+      userId: ctx.viewer.userId,
+      organizationId: grant.organizationId,
+    });
+    if (!hasMcpGrantSubject(access, grant)) {
       throw new Error("MCP client connection was not found.");
     }
 

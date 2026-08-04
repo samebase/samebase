@@ -3,6 +3,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { getRouteApi, Link, useRouter } from "@tanstack/react-router";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import {
   ACCOUNT_DELETION_UNCOMMITTED_FILE_CHANGE_COUNT_CAP,
   buildAccountDeletionConfirmationPhrase,
@@ -54,7 +55,13 @@ function buildAccountDeletionReviewHref(
   });
 }
 
-export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
+export function AccountDeletionDialog({
+  organizationId,
+  onClose,
+}: {
+  organizationId: Id<"organizations">;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const search = settingsRouteApi.useSearch();
   const requestAccountDeletion = useMutation(api.accountDeletion.index.request);
@@ -100,7 +107,7 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
 
       if (result.state === "billing_checkout_pending") {
         try {
-          await reconcileViewerBilling({});
+          await reconcileViewerBilling({ organizationId });
         } catch {
           // The retry stays valid if another tab starts deletion and removes billing access.
         }

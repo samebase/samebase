@@ -673,10 +673,13 @@ async function readCloudflareWorkerDiscoveryForInventoryItem(
         defaultBranch: args.defaultBranch,
       }),
     };
-  } catch (error) {
+  } catch {
     return {
       ...args.worker,
-      repository: { state: "failed", message: toErrorMessage(error) },
+      repository: {
+        state: "failed",
+        message: "Samebase could not verify this Worker's GitHub Builds state.",
+      },
     };
   }
 }

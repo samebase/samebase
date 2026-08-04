@@ -17,7 +17,7 @@ async function seedGithubOAuthConnection() {
       email: "ada@example.com",
       isApproved: true,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "GitHub organization" });
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
     const providerConnectionId = await ctx.db.insert("providerConnections", {
       state: "connected",
@@ -55,7 +55,10 @@ describe("GitHub OAuth organization ownership", () => {
         subject: `${userId}|test-session`,
         tokenIdentifier: `test:${userId}`,
       })
-      .action(api.githubOAuth.reauthorizeGithubOAuth, { returnToPath: "/providers" });
+      .action(api.githubOAuth.reauthorizeGithubOAuth, {
+        organizationId,
+        returnToPath: "/providers",
+      });
 
     expect(authorizeUrl).toContain("https://github.com/login/oauth/authorize");
     expect(new URL(authorizeUrl).searchParams.get("scope")?.split(" ")).toContain("workflow");

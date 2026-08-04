@@ -4,6 +4,7 @@ import { ConvexError } from "convex/values";
 import { useEffect, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import type { BillingResourceUsage } from "../../convex/billingResourceQuotas";
 import { type AccountPresentation } from "../../shared/accountPresentation";
 import { useAppAuthActions } from "@/authClient";
@@ -21,6 +22,7 @@ import {
 } from "@/routeSearch/settings";
 import { readBrowserRouteEnvironment } from "@/routing/availability";
 import { applySearchPatch } from "@/routing/searchFlags";
+import { useOrganizationSelection } from "@/hooks/useOrganizationSelection";
 
 const settingsRouteApi = getRouteApi("/settings");
 
@@ -53,30 +55,19 @@ function formatBillingResourceUsage(usage: BillingResourceUsage["cloudflareWorke
   return `${used} of ${usage.limit}`;
 }
 
-export function UserSettingsPage() {
+function OrganizationBillingSettings({ organizationId }: { organizationId: Id<"organizations"> }) {
   const router = useRouter();
   const navigate = settingsRouteApi.useNavigate();
   const search = settingsRouteApi.useSearch();
-  const deleteDialogHistoryEntry = useLocation({
-    select: (location) => location.state.settingsDeleteAccountDialog,
+  const billingStatus = useQuery(api.billing.getViewerBillingStatus, { organizationId });
+  const billingUsage = useQuery(api.billingResourceQuotas.getViewerBillingResourceUsage, {
+    organizationId,
   });
-  const settings = useQuery(api.users.getUserSettings);
-  const billingStatus = useQuery(api.billing.getViewerBillingStatus);
-  const billingUsage = useQuery(api.billingResourceQuotas.getViewerBillingResourceUsage);
-  const setDisplayName = useMutation(api.users.setDisplayName);
   const createCheckoutSession = useAction(api.billing.createPolarCheckoutSession);
   const createCustomerPortalSession = useAction(api.billing.createPolarCustomerPortalSession);
   const reconcileBilling = useAction(api.billing.reconcileViewerBillingFromPolar);
-  const { signOut } = useAppAuthActions();
-  const { fetchAccessToken } = useConvexAuth();
-  const [isSigningOut, setIsSigningOut] = useState(false);
-  const [saveState, setSaveState] = useState<ProfileSaveState>({ kind: "idle" });
-  const [sessionRefreshState, setSessionRefreshState] = useState<SessionRefreshState>({
-    kind: "current",
-  });
   const [billingRequestState, setBillingRequestState] = useState<BillingRequestState>("idle");
   const [billingReconciliationDelayed, setBillingReconciliationDelayed] = useState(false);
-  const isDeleteDialogOpen = search[DELETE_ACCOUNT_QUERY_PARAM];
   const checkoutReturnState = search[CHECKOUT_QUERY_PARAM];
   const billingActionsAvailable = readBrowserRouteEnvironment() !== "preview";
   const hasTrustedProBilling = billingStatus?.plan === "pro";
@@ -111,7 +102,7 @@ export function UserSettingsPage() {
     let active = true;
     const reconcileCheckoutReturn = async () => {
       try {
-        const reconciled = await reconcileBilling({});
+        const reconciled = await reconcileBilling({ organizationId });
         if (!active) {
           return;
         }
@@ -137,8 +128,197 @@ export function UserSettingsPage() {
     checkoutReturnState,
     hasTrustedProBilling,
     navigate,
+    organizationId,
     reconcileBilling,
   ]);
+
+  if (billingStatus === undefined || billingUsage === undefined) {
+    return null;
+  }
+
+  const buildSettingsBillingUrl = (checkout: "success" | "cancel" | null) => {
+    const location = router.buildLocation({
+      search: (currentSearch) =>
+        applySearchPatch(currentSearch, { [CHECKOUT_QUERY_PARAM]: checkout }),
+      to: "/settings",
+    });
+    return new URL(location.href, window.location.origin).toString();
+  };
+
+  const handleUpgrade = async () => {
+    if (!billingActionsAvailable || billingRequestState !== "idle") {
+      return;
+    }
+
+    setBillingRequestState("checkout");
+    try {
+      const session = await createCheckoutSession({
+        organizationId,
+        returnUrl: buildSettingsBillingUrl("cancel"),
+        successUrl: buildSettingsBillingUrl("success"),
+      });
+      window.location.assign(session.url);
+    } catch (error) {
+      toast({
+        description: readErrorMessage(error, "Please try again."),
+        title: "Could not open checkout",
+        variant: "destructive",
+      });
+      setBillingRequestState("idle");
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    if (!billingActionsAvailable || billingRequestState !== "idle") {
+      return;
+    }
+
+    setBillingRequestState("portal");
+    try {
+      const session = await createCustomerPortalSession({
+        organizationId,
+        returnUrl: buildSettingsBillingUrl(null),
+      });
+      window.location.assign(session.url);
+    } catch (error) {
+      toast({
+        description: readErrorMessage(error, "Please try again."),
+        title: "Could not open subscription settings",
+        variant: "destructive",
+      });
+      setBillingRequestState("idle");
+    }
+  };
+
+  return (
+    <section className="mt-8 border-t pt-6" aria-labelledby="settings-billing-heading">
+      <h2 id="settings-billing-heading" className="text-base font-semibold">
+        Billing
+      </h2>
+      <dl className="mt-4 space-y-3">
+        <div className="flex items-baseline justify-between gap-4">
+          <dt className="text-sm font-medium">Current plan</dt>
+          <dd className="text-sm text-muted-foreground">
+            {billingStatus.plan === "pro" ? "Pro" : "Free"}
+          </dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-4">
+          <dt className="text-sm font-medium">Cloudflare Workers</dt>
+          <dd className="text-sm text-muted-foreground">
+            {formatBillingResourceUsage(billingUsage.cloudflareWorkers)}
+          </dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-4">
+          <dt className="text-sm font-medium">Convex projects</dt>
+          <dd className="text-sm text-muted-foreground">
+            {formatBillingResourceUsage(billingUsage.convexProjects)}
+          </dd>
+        </div>
+        {billingStatus.plan === "pro" && billingStatus.currentPeriodEndAt !== undefined ? (
+          <div className="flex items-baseline justify-between gap-4">
+            <dt className="text-sm font-medium">
+              {billingStatus.cancelAtPeriodEnd
+                ? "Access ends"
+                : billingStatus.status === "past_due"
+                  ? "Billing period end"
+                  : "Next billing date"}
+            </dt>
+            <dd className="text-sm text-muted-foreground">
+              <time dateTime={new Date(billingStatus.currentPeriodEndAt).toISOString()}>
+                {billingDateFormatter.format(billingStatus.currentPeriodEndAt)}
+              </time>
+            </dd>
+          </div>
+        ) : null}
+      </dl>
+
+      {billingStatus.status === "past_due" ? (
+        <p className="mt-4 text-sm text-destructive" role="alert">
+          Payment needs attention. Manage your subscription to update the payment method.
+        </p>
+      ) : checkoutReturnState === "cancel" ? (
+        <p className="mt-4 text-sm text-muted-foreground" role="status">
+          Checkout canceled. Your plan did not change.
+        </p>
+      ) : checkoutReturnState === "success" ? (
+        billingActionsAvailable ? (
+          billingStatus.plan === "pro" ? (
+            <p className="mt-4 text-sm text-muted-foreground" role="status">
+              Your Pro plan is active.
+            </p>
+          ) : billingReconciliationDelayed ? (
+            <p className="mt-4 text-sm text-muted-foreground" role="status">
+              Plan confirmation is delayed. Refresh this page to check again.
+            </p>
+          ) : (
+            <p className="mt-4 text-sm text-muted-foreground" role="status">
+              Checking your payment and plan...
+            </p>
+          )
+        ) : (
+          <p className="mt-4 text-sm text-muted-foreground" role="status">
+            Checkout confirmation is disabled in this preview.
+          </p>
+        )
+      ) : null}
+
+      {billingStatus.canStartCheckout ? (
+        <div className="mt-6">
+          {billingStatus.plan === "pro" ? (
+            <Button
+              type="button"
+              disabled={!billingActionsAvailable || billingRequestState !== "idle"}
+              onClick={() => void handleManageSubscription()}
+            >
+              {billingRequestState === "portal" ? (
+                <>
+                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                  Opening...
+                </>
+              ) : (
+                "Manage subscription"
+              )}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              disabled={!billingActionsAvailable || billingRequestState !== "idle"}
+              onClick={() => void handleUpgrade()}
+            >
+              {billingRequestState === "checkout" ? (
+                <>
+                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                  Opening...
+                </>
+              ) : (
+                "Upgrade to Pro, $4/month"
+              )}
+            </Button>
+          )}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+export function UserSettingsPage() {
+  const selection = useOrganizationSelection();
+  const router = useRouter();
+  const navigate = settingsRouteApi.useNavigate();
+  const search = settingsRouteApi.useSearch();
+  const deleteDialogHistoryEntry = useLocation({
+    select: (location) => location.state.settingsDeleteAccountDialog,
+  });
+  const settings = useQuery(api.users.getUserSettings);
+  const setDisplayName = useMutation(api.users.setDisplayName);
+  const { signOut } = useAppAuthActions();
+  const { fetchAccessToken } = useConvexAuth();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [saveState, setSaveState] = useState<ProfileSaveState>({ kind: "idle" });
+  const [sessionRefreshState, setSessionRefreshState] = useState<SessionRefreshState>({
+    kind: "current",
+  });
+  const isDeleteDialogOpen = search[DELETE_ACCOUNT_QUERY_PARAM];
 
   if (settings === undefined) {
     return null;
@@ -228,58 +408,6 @@ export function UserSettingsPage() {
   };
 
   const pending = saveState.kind === "saving" || sessionRefreshState.kind === "refreshing";
-
-  const buildSettingsBillingUrl = (checkout: "success" | "cancel" | null) => {
-    const location = router.buildLocation({
-      search: (currentSearch) =>
-        applySearchPatch(currentSearch, { [CHECKOUT_QUERY_PARAM]: checkout }),
-      to: "/settings",
-    });
-    return new URL(location.href, window.location.origin).toString();
-  };
-
-  const handleUpgrade = async () => {
-    if (!billingActionsAvailable || billingRequestState !== "idle") {
-      return;
-    }
-
-    setBillingRequestState("checkout");
-    try {
-      const session = await createCheckoutSession({
-        returnUrl: buildSettingsBillingUrl("cancel"),
-        successUrl: buildSettingsBillingUrl("success"),
-      });
-      window.location.assign(session.url);
-    } catch (error) {
-      toast({
-        description: readErrorMessage(error, "Please try again."),
-        title: "Could not open checkout",
-        variant: "destructive",
-      });
-      setBillingRequestState("idle");
-    }
-  };
-
-  const handleManageSubscription = async () => {
-    if (!billingActionsAvailable || billingRequestState !== "idle") {
-      return;
-    }
-
-    setBillingRequestState("portal");
-    try {
-      const session = await createCustomerPortalSession({
-        returnUrl: buildSettingsBillingUrl(null),
-      });
-      window.location.assign(session.url);
-    } catch (error) {
-      toast({
-        description: readErrorMessage(error, "Please try again."),
-        title: "Could not open subscription settings",
-        variant: "destructive",
-      });
-      setBillingRequestState("idle");
-    }
-  };
 
   const handleSignOut = () => {
     if (isSigningOut) {
@@ -409,114 +537,11 @@ export function UserSettingsPage() {
         </form>
       </section>
 
-      {billingStatus !== undefined && billingUsage !== undefined ? (
-        <section className="mt-8 border-t pt-6" aria-labelledby="settings-billing-heading">
-          <h2 id="settings-billing-heading" className="text-base font-semibold">
-            Billing
-          </h2>
-          <dl className="mt-4 space-y-3">
-            <div className="flex items-baseline justify-between gap-4">
-              <dt className="text-sm font-medium">Current plan</dt>
-              <dd className="text-sm text-muted-foreground">
-                {billingStatus.plan === "pro" ? "Pro" : "Free"}
-              </dd>
-            </div>
-            <div className="flex items-baseline justify-between gap-4">
-              <dt className="text-sm font-medium">Cloudflare Workers</dt>
-              <dd className="text-sm text-muted-foreground">
-                {formatBillingResourceUsage(billingUsage.cloudflareWorkers)}
-              </dd>
-            </div>
-            <div className="flex items-baseline justify-between gap-4">
-              <dt className="text-sm font-medium">Convex projects</dt>
-              <dd className="text-sm text-muted-foreground">
-                {formatBillingResourceUsage(billingUsage.convexProjects)}
-              </dd>
-            </div>
-            {billingStatus.plan === "pro" && billingStatus.currentPeriodEndAt !== undefined ? (
-              <div className="flex items-baseline justify-between gap-4">
-                <dt className="text-sm font-medium">
-                  {billingStatus.cancelAtPeriodEnd
-                    ? "Access ends"
-                    : billingStatus.status === "past_due"
-                      ? "Billing period end"
-                      : "Next billing date"}
-                </dt>
-                <dd className="text-sm text-muted-foreground">
-                  <time dateTime={new Date(billingStatus.currentPeriodEndAt).toISOString()}>
-                    {billingDateFormatter.format(billingStatus.currentPeriodEndAt)}
-                  </time>
-                </dd>
-              </div>
-            ) : null}
-          </dl>
-
-          {billingStatus.status === "past_due" ? (
-            <p className="mt-4 text-sm text-destructive" role="alert">
-              Payment needs attention. Manage your subscription to update the payment method.
-            </p>
-          ) : checkoutReturnState === "cancel" ? (
-            <p className="mt-4 text-sm text-muted-foreground" role="status">
-              Checkout canceled. Your plan did not change.
-            </p>
-          ) : checkoutReturnState === "success" ? (
-            billingActionsAvailable ? (
-              billingStatus.plan === "pro" ? (
-                <p className="mt-4 text-sm text-muted-foreground" role="status">
-                  Your Pro plan is active.
-                </p>
-              ) : billingReconciliationDelayed ? (
-                <p className="mt-4 text-sm text-muted-foreground" role="status">
-                  Plan confirmation is delayed. Refresh this page to check again.
-                </p>
-              ) : (
-                <p className="mt-4 text-sm text-muted-foreground" role="status">
-                  Checking your payment and plan...
-                </p>
-              )
-            ) : (
-              <p className="mt-4 text-sm text-muted-foreground" role="status">
-                Checkout confirmation is disabled in this preview.
-              </p>
-            )
-          ) : null}
-
-          {billingStatus.canStartCheckout ? (
-            <div className="mt-6">
-              {billingStatus.plan === "pro" ? (
-                <Button
-                  type="button"
-                  disabled={!billingActionsAvailable || billingRequestState !== "idle"}
-                  onClick={() => void handleManageSubscription()}
-                >
-                  {billingRequestState === "portal" ? (
-                    <>
-                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                      Opening...
-                    </>
-                  ) : (
-                    "Manage subscription"
-                  )}
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  disabled={!billingActionsAvailable || billingRequestState !== "idle"}
-                  onClick={() => void handleUpgrade()}
-                >
-                  {billingRequestState === "checkout" ? (
-                    <>
-                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                      Opening...
-                    </>
-                  ) : (
-                    "Upgrade to Pro, $4/month"
-                  )}
-                </Button>
-              )}
-            </div>
-          ) : null}
-        </section>
+      {selection.state === "selected" ? (
+        <OrganizationBillingSettings
+          key={selection.organizationId}
+          organizationId={selection.organizationId}
+        />
       ) : null}
 
       <section className="mt-8 border-t pt-6" aria-labelledby="settings-account-heading">
@@ -533,7 +558,7 @@ export function UserSettingsPage() {
           <Button
             type="button"
             variant="destructive"
-            disabled={isDeleteDialogOpen}
+            disabled={isDeleteDialogOpen || selection.state !== "selected"}
             onClick={openDeleteDialog}
           >
             Delete account
@@ -541,7 +566,12 @@ export function UserSettingsPage() {
         </div>
       </section>
 
-      {isDeleteDialogOpen ? <AccountDeletionDialog onClose={closeDeleteDialog} /> : null}
+      {isDeleteDialogOpen && selection.state === "selected" ? (
+        <AccountDeletionDialog
+          organizationId={selection.organizationId}
+          onClose={closeDeleteDialog}
+        />
+      ) : null}
     </main>
   );
 }

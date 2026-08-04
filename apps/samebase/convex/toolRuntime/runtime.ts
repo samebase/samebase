@@ -215,7 +215,10 @@ export const cloudflareListAccountsTool = defineMcpTool({
     structuredContent: cloudflareListAccountsContract.structuredContent,
   },
   run: async (ctx, args) => {
-    const accounts = await listCloudflareAccountsForUser(ctx, { userId: args.userId });
+    const accounts = await listCloudflareAccountsForUser(ctx, {
+      userId: args.userId,
+      organizationId: args.organizationId,
+    });
     return {
       text: `Found ${accounts.length} ${accounts.length === 1 ? "account" : "accounts"}.`,
       structuredContent: { accounts },

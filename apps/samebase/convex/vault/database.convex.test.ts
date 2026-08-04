@@ -32,13 +32,13 @@ async function seedDatabaseEditorVault(
   t: ReturnType<typeof makeConvexTest>,
   convexAuth: ConvexAuth,
 ) {
-  const { convexProjectId, userId } = await t.run(async (ctx) => {
+  const { convexProjectId, organizationId, userId } = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       name: "Ada",
       email: "ada@example.com",
       isApproved: true,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
     const convexProviderConnectionId = await ctx.db.insert("providerConnections", {
       kind: "convex",
@@ -106,14 +106,18 @@ async function seedDatabaseEditorVault(
       origin: "selected_existing",
     });
 
-    return { convexProjectId, userId };
+    return { convexProjectId, organizationId, userId };
   });
 
-  return { convexProjectId, user: asUser(t, userId) };
+  return { convexProjectId, organizationId, user: asUser(t, userId) };
 }
 
-function databaseRouteArgs(convexProjectId: Id<"vaultConvexProjects">) {
+function databaseRouteArgs(
+  organizationId: Id<"organizations">,
+  convexProjectId: Id<"vaultConvexProjects">,
+) {
   return {
+    organizationId,
     owner: "ada",
     repoName: "demo",
     branch: "main",
@@ -145,7 +149,7 @@ afterEach(() => {
 describe("createEmbeddedDashboardCredentials", () => {
   it("mints and revokes OAuth-backed deploy keys without request-scoped options", async () => {
     const t = makeConvexTest();
-    const { convexProjectId, user } = await seedDatabaseEditorVault(t, {
+    const { convexProjectId, organizationId, user } = await seedDatabaseEditorVault(t, {
       method: "oauth",
       credential: "convex-oauth-token",
     });
@@ -172,7 +176,7 @@ describe("createEmbeddedDashboardCredentials", () => {
 
     const result = await user.action(
       api.vault.database.createEmbeddedDashboardCredentials,
-      databaseRouteArgs(convexProjectId),
+      databaseRouteArgs(organizationId, convexProjectId),
     );
 
     expect(result).toEqual({
@@ -196,7 +200,7 @@ describe("createEmbeddedDashboardCredentials", () => {
     }
 
     await user.action(api.vault.database.revokeEmbeddedDashboardCredentials, {
-      ...databaseRouteArgs(convexProjectId),
+      ...databaseRouteArgs(organizationId, convexProjectId),
       deployKeyName: result.deployKeyName,
     });
 
@@ -212,7 +216,7 @@ describe("createEmbeddedDashboardCredentials", () => {
 
   it("mints and revokes data editor deploy keys from API-key Convex connections", async () => {
     const t = makeConvexTest();
-    const { convexProjectId, user } = await seedDatabaseEditorVault(t, {
+    const { convexProjectId, organizationId, user } = await seedDatabaseEditorVault(t, {
       method: "api_key",
       credential: "convex-api-key",
     });
@@ -239,7 +243,7 @@ describe("createEmbeddedDashboardCredentials", () => {
 
     const result = await user.action(
       api.vault.database.createEmbeddedDashboardCredentials,
-      databaseRouteArgs(convexProjectId),
+      databaseRouteArgs(organizationId, convexProjectId),
     );
 
     expect(result).toEqual({
@@ -265,7 +269,7 @@ describe("createEmbeddedDashboardCredentials", () => {
     }
 
     await user.action(api.vault.database.revokeEmbeddedDashboardCredentials, {
-      ...databaseRouteArgs(convexProjectId),
+      ...databaseRouteArgs(organizationId, convexProjectId),
       deployKeyName: result.deployKeyName,
     });
 
@@ -283,7 +287,7 @@ describe("createEmbeddedDashboardCredentials", () => {
 describe("revokeEmbeddedDashboardCredentials", () => {
   it("does not delete arbitrary deployment keys", async () => {
     const t = makeConvexTest();
-    const { convexProjectId, user } = await seedDatabaseEditorVault(t, {
+    const { convexProjectId, organizationId, user } = await seedDatabaseEditorVault(t, {
       method: "api_key",
       credential: "convex-api-key",
     });
@@ -296,7 +300,7 @@ describe("revokeEmbeddedDashboardCredentials", () => {
     vi.stubGlobal("fetch", fetch);
 
     await user.action(api.vault.database.revokeEmbeddedDashboardCredentials, {
-      ...databaseRouteArgs(convexProjectId),
+      ...databaseRouteArgs(organizationId, convexProjectId),
       deployKeyName: "production-deploy-key",
     });
 
@@ -310,8 +314,12 @@ describe("embedded dashboard project ownership", () => {
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", { email: "user@example.com" });
       const otherUserId = await ctx.db.insert("users", { email: "other@example.com" });
-      const organizationId = await ctx.db.insert("organizations", {});
-      const otherOrganizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", {
+        name: "Shared organization",
+      });
+      const otherOrganizationId = await ctx.db.insert("organizations", {
+        name: "Other organization",
+      });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
       await ctx.db.insert("organizationMemberships", { organizationId, userId: otherUserId });
       const githubProviderConnectionId = await ctx.db.insert("providerConnections", {

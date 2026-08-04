@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,7 @@ import {
 } from "../../shared/appResourceNames";
 import { toSafeRepoName } from "../../shared/repoName";
 import { VaultDashboardCloudflareAccountDialog } from "@/components/vault-dashboard/VaultDashboardCloudflareAccountDialog";
+import { useOrganizationSelection } from "@/hooks/useOrganizationSelection";
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
@@ -203,9 +205,7 @@ function useGithubRepositoryOwnerOptions({
   setIsLoading,
 }: {
   githubConnected: boolean;
-  listGithubRepositoryOwners: (
-    args: Record<string, never>,
-  ) => Promise<GitHubRepositoryOwnerOption[]>;
+  listGithubRepositoryOwners: () => Promise<GitHubRepositoryOwnerOption[]>;
   onLoadError: (error: string | null) => void;
   onOwnersLoaded: (owners: GitHubRepositoryOwnerOption[]) => void;
   setIsLoading: (isLoading: boolean) => void;
@@ -221,7 +221,7 @@ function useGithubRepositoryOwnerOptions({
 
     setIsLoading(true);
     onLoadError(null);
-    void listGithubRepositoryOwners({})
+    void listGithubRepositoryOwners()
       .then((owners) => {
         if (!shouldIgnoreResult) {
           onOwnersLoaded(owners);
@@ -523,18 +523,47 @@ export function NewAppCreateFormFields({
 }
 
 export function NewAppPage() {
+  const selection = useOrganizationSelection();
+  if (selection.state !== "selected") {
+    return null;
+  }
+
+  return (
+    <NewAppPageForOrganization
+      key={selection.organizationId}
+      organizationId={selection.organizationId}
+    />
+  );
+}
+
+function NewAppPageForOrganization({ organizationId }: { organizationId: Id<"organizations"> }) {
   const location = useLocation();
   const navigate = useNavigate();
   const createRepository = useAction(api.vault.actions.createRepository);
-  const checkCreateRepositoryResourceNames = useAction(
+  const checkCreateRepositoryResourceNamesAction = useAction(
     api.vault.actions.checkCreateRepositoryResourceNames,
   );
-  const listGithubRepositoryOwners = useAction(api.vault.actions.listRepositoryOwners);
+  const listGithubRepositoryOwnersAction = useAction(api.vault.actions.listRepositoryOwners);
   const listCloudflareAccounts = useAction(api.vault.cloudflare.listAccounts);
   const selectCloudflareDefaultAccount = useAction(api.vault.cloudflare.selectDefaultAccount);
-  const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
-  const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus);
-  const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus);
+  const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus, { organizationId });
+  const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus, { organizationId });
+  const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus, {
+    organizationId,
+  });
+  const checkCreateRepositoryResourceNames = useCallback(
+    async (args: {
+      githubRepositoryOwner: string;
+      githubRepositoryName: string;
+      convexProjectName: string;
+      cloudflareWorkerName: string;
+    }) => await checkCreateRepositoryResourceNamesAction({ ...args, organizationId }),
+    [checkCreateRepositoryResourceNamesAction, organizationId],
+  );
+  const listGithubRepositoryOwners = useCallback(
+    async () => await listGithubRepositoryOwnersAction({ organizationId }),
+    [listGithubRepositoryOwnersAction, organizationId],
+  );
   const [newRepositoryName, setNewRepositoryNameState] = useState("");
   const [convexProjectName, setConvexProjectNameState] = useState("");
   const [convexProjectNameMode, setConvexProjectNameMode] =
@@ -721,7 +750,7 @@ export function NewAppPage() {
       setIsLoadingCloudflareAccounts(true);
       setCloudflareAccountDialogError(null);
       try {
-        const accounts = await listCloudflareAccounts({});
+        const accounts = await listCloudflareAccounts({ organizationId });
         if (cloudflareAccountDialogRequestIdRef.current !== requestId) {
           return;
         }
@@ -748,7 +777,7 @@ export function NewAppPage() {
         }
       }
     },
-    [listCloudflareAccounts],
+    [listCloudflareAccounts, organizationId],
   );
 
   useGithubRepositoryOwnerOptions({
@@ -778,6 +807,7 @@ export function NewAppPage() {
     try {
       await selectCloudflareDefaultAccount({
         accountId: selectedCloudflareAccountId,
+        organizationId,
       });
       setCreateError(null);
       handleCloudflareAccountDialogOpenChange(false);
@@ -1096,6 +1126,7 @@ export function NewAppPage() {
       await createRepository({
         name: repoName,
         owner,
+        organizationId,
         convexProjectName: convexProjectNameValidation.value,
         cloudflareWorkerName: cloudflareWorkerNameValidation.value,
         private: true,

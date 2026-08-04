@@ -57,6 +57,19 @@ vi.mock("@/components/ApiKeyConnectDialog", () => ({
   }),
 }));
 
+vi.mock("@/hooks/useOrganizationSelection", () => ({
+  useOrganizationSelection: () => ({
+    state: "selected",
+    organizationId: "organization_123",
+    organizations: [
+      {
+        name: "Test organization",
+        organizationId: "organization_123",
+      },
+    ],
+  }),
+}));
+
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
 
@@ -429,7 +442,9 @@ describe("ProviderConnectionsPage", () => {
       await Promise.resolve();
     });
 
-    expect(checkGithubConnectionHealth).toHaveBeenCalledWith({});
+    expect(checkGithubConnectionHealth).toHaveBeenCalledWith({
+      organizationId: "organization_123",
+    });
     expect(container.textContent).toContain("repo Granted");
     expect(container.textContent).toContain("delete_repo Missing");
     expect(container.textContent).toContain("samebase · Admin");
@@ -522,7 +537,9 @@ describe("ProviderConnectionsPage", () => {
       await Promise.resolve();
     });
 
-    expect(checkConvexConnectionAccess).toHaveBeenCalledWith({});
+    expect(checkConvexConnectionAccess).toHaveBeenCalledWith({
+      organizationId: "organization_123",
+    });
     expect(container.textContent).toContain("Team-scoped Convex Management API access");
     expect(container.textContent).toContain("Team token. Name Samebase OAuth grant. ID token_123");
     expect(container.textContent).toContain("Slug samebase. ID team_samebase");
@@ -634,7 +651,9 @@ describe("ProviderConnectionsPage", () => {
       await Promise.resolve();
     });
 
-    expect(checkCloudflareConnectionAccess).toHaveBeenCalledWith({});
+    expect(checkCloudflareConnectionAccess).toHaveBeenCalledWith({
+      organizationId: "organization_123",
+    });
     expect(container.textContent).toContain("account-settings.read · Read account metadata");
     expect(container.textContent).toContain("workers-scripts.read · Read Workers");
     expect(container.textContent).toContain("samebase (account_123) · Selected");

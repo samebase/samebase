@@ -12,9 +12,11 @@ import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
 
 type VaultId = NonNullable<(typeof api.vault.records.getVaultByRepository)["_returnType"]>["_id"];
 type StorageId = Id<"_storage">;
+type OrganizationId = Id<"organizations">;
 
 type GenerateUploadUrl = (args: { vaultId: VaultId }) => Promise<string>;
 type StageUploadedMedia = (args: {
+  organizationId: OrganizationId;
   repositoryFullName: string;
   filePath: string;
   storageId: StorageId;
@@ -32,6 +34,7 @@ export function useFileViewMediaUpload({
   deletePendingUploadBlob,
   generateUploadUrl,
   navigateByHref,
+  organizationId,
   repositoryFullName,
   selectedFile,
   stageUploadedMedia,
@@ -42,6 +45,7 @@ export function useFileViewMediaUpload({
   deletePendingUploadBlob: DeletePendingUploadBlob;
   generateUploadUrl: GenerateUploadUrl;
   navigateByHref: (href: string, options?: { replace?: boolean }) => void;
+  organizationId: OrganizationId;
   repositoryFullName: string;
   selectedFile: string;
   stageUploadedMedia: StageUploadedMedia;
@@ -125,6 +129,7 @@ export function useFileViewMediaUpload({
         },
         stageUploadedMedia: async (storageId) => {
           await stageUploadedMedia({
+            organizationId,
             repositoryFullName,
             filePath: targetPath,
             // Convex returns upload ids as opaque strings over HTTP even though
@@ -171,6 +176,7 @@ export function useFileViewMediaUpload({
       deletePendingUploadBlob,
       generateUploadUrl,
       navigateByHref,
+      organizationId,
       pendingMediaUpload,
       repositoryFullName,
       stageUploadedMedia,

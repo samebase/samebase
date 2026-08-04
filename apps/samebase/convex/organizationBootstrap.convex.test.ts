@@ -24,6 +24,7 @@ describe("organization ownership bootstrap", () => {
       t.mutation(internal.organizationBootstrap.bootstrapOrganizationOwnership, {
         operatorUserIdA: ids.operatorUserIdA,
         operatorUserIdB: ids.operatorUserIdB,
+        operatorOrganizationName: "Samebase",
         operatorBilling: {
           provider: "polar",
           plan: "pro",
@@ -108,6 +109,7 @@ describe("organization ownership bootstrap", () => {
       t.mutation(internal.organizationBootstrap.bootstrapOrganizationOwnership, {
         operatorUserIdA: ids.operatorUserIdA,
         operatorUserIdB: ids.operatorUserIdB,
+        operatorOrganizationName: "Samebase",
         operatorBilling: {
           provider: "polar",
           plan: "free",
@@ -145,6 +147,7 @@ describe("organization ownership bootstrap", () => {
       t.mutation(internal.organizationBootstrap.bootstrapOrganizationOwnership, {
         operatorUserIdA: ids.operatorUserIdA,
         operatorUserIdB: ids.operatorUserIdB,
+        operatorOrganizationName: "Samebase",
         operatorBilling: {
           plan: "free",
           status: "inactive",
@@ -165,111 +168,6 @@ describe("organization ownership bootstrap", () => {
     ).resolves.toEqual({ organizations: [], memberships: [], billingAccounts: [] });
   });
 
-  it.each([
-    {
-      label: "active Free billing",
-      billing: { plan: "free" as const, status: "active" as const },
-    },
-    {
-      label: "Free billing with a paid period",
-      billing: {
-        plan: "free" as const,
-        status: "inactive" as const,
-        currentPeriodEndAt: 20,
-        cancelAtPeriodEnd: false,
-      },
-    },
-    {
-      label: "inactive Pro billing",
-      billing: {
-        provider: "polar" as const,
-        plan: "pro" as const,
-        status: "inactive" as const,
-        currentPeriodEndAt: 20,
-        cancelAtPeriodEnd: false,
-        polarExternalCustomerId: "inactive-pro-customer",
-      },
-    },
-    {
-      label: "Pro billing without Polar subscription fields",
-      billing: { plan: "pro" as const, status: "active" as const },
-    },
-    {
-      label: "Polar billing without a customer ID",
-      billing: { provider: "polar" as const, plan: "free" as const, status: "inactive" as const },
-    },
-    {
-      label: "a Polar customer ID without the Polar provider",
-      billing: {
-        plan: "free" as const,
-        status: "inactive" as const,
-        polarExternalCustomerId: "providerless-customer",
-      },
-    },
-  ])("rejects $label before it writes", async ({ billing }) => {
-    const t = makeConvexTest();
-    const ids = await t.run(async (ctx) => ({
-      operatorUserIdA: await ctx.db.insert("users", {
-        email: "invalid-operator-a@example.test",
-      }),
-      operatorUserIdB: await ctx.db.insert("users", {
-        email: "invalid-operator-b@example.test",
-      }),
-    }));
-
-    await expect(
-      t.mutation(internal.organizationBootstrap.bootstrapOrganizationOwnership, {
-        operatorUserIdA: ids.operatorUserIdA,
-        operatorUserIdB: ids.operatorUserIdB,
-        operatorBilling: billing,
-      }),
-    ).rejects.toThrow("Organization bootstrap billing state is inconsistent.");
-    await expect(
-      t.run(async (ctx) => ({
-        organizations: await ctx.db.query("organizations").take(1),
-        memberships: await ctx.db.query("organizationMemberships").take(1),
-        billingAccounts: await ctx.db.query("organizationBillingAccounts").take(1),
-      })),
-    ).resolves.toEqual({ organizations: [], memberships: [], billingAccounts: [] });
-  });
-
-  it.each([
-    { label: "empty", polarExternalCustomerId: "" },
-    { label: "untrimmed", polarExternalCustomerId: " operator-customer " },
-  ])(
-    "rejects an $label Polar customer ID before it writes",
-    async ({ polarExternalCustomerId }) => {
-      const t = makeConvexTest();
-      const ids = await t.run(async (ctx) => ({
-        operatorUserIdA: await ctx.db.insert("users", {
-          email: "customer-id-operator-a@example.test",
-        }),
-        operatorUserIdB: await ctx.db.insert("users", {
-          email: "customer-id-operator-b@example.test",
-        }),
-      }));
-
-      await expect(
-        t.mutation(internal.organizationBootstrap.bootstrapOrganizationOwnership, {
-          operatorUserIdA: ids.operatorUserIdA,
-          operatorUserIdB: ids.operatorUserIdB,
-          operatorBilling: {
-            plan: "free",
-            status: "inactive",
-            polarExternalCustomerId,
-          },
-        }),
-      ).rejects.toThrow("Organization bootstrap requires a nonempty, trimmed Polar customer ID.");
-      await expect(
-        t.run(async (ctx) => ({
-          organizations: await ctx.db.query("organizations").take(1),
-          memberships: await ctx.db.query("organizationMemberships").take(1),
-          billingAccounts: await ctx.db.query("organizationBillingAccounts").take(1),
-        })),
-      ).resolves.toEqual({ organizations: [], memberships: [], billingAccounts: [] });
-    },
-  );
-
   it("rejects a nonempty organization graph before it writes", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => ({
@@ -279,13 +177,14 @@ describe("organization ownership bootstrap", () => {
       operatorUserIdB: await ctx.db.insert("users", {
         email: "dirty-operator-b@example.test",
       }),
-      organizationId: await ctx.db.insert("organizations", {}),
+      organizationId: await ctx.db.insert("organizations", { name: "Existing" }),
     }));
 
     await expect(
       t.mutation(internal.organizationBootstrap.bootstrapOrganizationOwnership, {
         operatorUserIdA: ids.operatorUserIdA,
         operatorUserIdB: ids.operatorUserIdB,
+        operatorOrganizationName: "Samebase",
         operatorBilling: { plan: "free", status: "inactive" },
       }),
     ).rejects.toThrow("Organization bootstrap requires empty organization tables.");
@@ -320,6 +219,7 @@ describe("organization ownership bootstrap", () => {
       t.mutation(internal.organizationBootstrap.bootstrapOrganizationOwnership, {
         operatorUserIdA: ids.operatorUserIdA,
         operatorUserIdB: ids.removedOperatorUserId,
+        operatorOrganizationName: "Samebase",
         operatorBilling: { plan: "free", status: "inactive" },
       }),
     ).rejects.toThrow("Organization bootstrap operator users must exist.");

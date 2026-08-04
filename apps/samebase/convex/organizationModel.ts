@@ -32,6 +32,7 @@ export const vOrganizationBillingState = object({
 export const organizationTables = {
   /** Samebase customer workspaces that own durable customer resources. */
   organizations: defineTable({
+    name: string(),
     accountDeletionRunId: optional(id("workflow_accountDeletion_runs")),
     selectedGithubProviderConnectionId: optional(id("providerConnections")),
     selectedConvexProviderConnectionId: optional(id("providerConnections")),

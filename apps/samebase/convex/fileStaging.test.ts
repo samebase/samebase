@@ -1,16 +1,21 @@
 import { describe, expect, it } from "vite-plus/test";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 
 import {
   buildDeletionSnapshotSeed,
   buildDeletedFileRestoreCandidate,
   buildClearAllStagingPlan,
-  clearMatchingStagingSnapshotImpl,
   clearAllStagingImpl,
   selectRepositoryTreeForBranch,
   shouldDeleteSupersededStagedBinaryUpload,
   summarizeStagedFilesByBranch,
 } from "./fileStaging";
+
+function fakeOrganizationId(): Id<"organizations"> {
+  // @ts-expect-error Convex IDs are strings at runtime. This test only passes the ID through.
+  return "organizations:test";
+}
 
 const branchTree = [
   {
@@ -95,60 +100,6 @@ function createClearAllStagingTestContext(args: {
         }),
         delete: async (id: string) => {
           deletedIds.push(id);
-        },
-      },
-      scheduler: {
-        runAfter: async (delayMs: number, fnRef: unknown, scheduledArgs: unknown) => {
-          scheduledCalls.push({ delayMs, fnRef, args: scheduledArgs });
-        },
-      },
-    },
-  };
-}
-
-function createClearMatchingStagingSnapshotTestContext(args: {
-  stagedFiles: Array<{
-    _id: string;
-    _creationTime: number;
-    vaultId: string;
-    fileDeleted: boolean;
-    kind: "text" | "binary";
-    filePath: string;
-    initialFilePath: string;
-    content: string;
-    initialContent: string;
-    parentCommitSha: string | null;
-    lastEditTime: number;
-    lastEditUserId: string;
-    branch: string;
-    version: number;
-  }>;
-}) {
-  const deletedIds: string[] = [];
-  const scheduledCalls: Array<{
-    delayMs: number;
-    fnRef: unknown;
-    args: unknown;
-  }> = [];
-  const stagingById = new Map(args.stagedFiles.map((file) => [file._id, file] as const));
-
-  return {
-    deletedIds,
-    scheduledCalls,
-    stagingById,
-    ctx: {
-      db: {
-        get: async (id: string) => stagingById.get(id) ?? null,
-        patch: async (id: string, value: Record<string, unknown>) => {
-          const current = stagingById.get(id);
-          if (!current) {
-            throw new Error("Staged file not found");
-          }
-          Object.assign(current, value);
-        },
-        delete: async (id: string) => {
-          deletedIds.push(id);
-          stagingById.delete(id);
         },
       },
       scheduler: {
@@ -368,6 +319,7 @@ describe("buildClearAllStagingPlan", () => {
         branch: "feature/login",
         cleanupCutoffTimestamp: 123,
         vault: {
+          organizationId: fakeOrganizationId(),
           owner: "octo",
           name: "repo",
           defaultBranch: "main",
@@ -386,6 +338,7 @@ describe("buildClearAllStagingPlan", () => {
       },
       treeRefreshArgs: {
         userId: "users:owner",
+        organizationId: fakeOrganizationId(),
         owner: "octo",
         repo: "repo",
         branch: "feature/login",
@@ -400,6 +353,7 @@ describe("buildClearAllStagingPlan", () => {
         userId: "users:owner",
         cleanupCutoffTimestamp: 456,
         vault: {
+          organizationId: fakeOrganizationId(),
           owner: "octo",
           name: "repo",
           defaultBranch: "main",
@@ -417,6 +371,7 @@ describe("buildClearAllStagingPlan", () => {
       },
       treeRefreshArgs: {
         userId: "users:owner",
+        organizationId: fakeOrganizationId(),
         owner: "octo",
         repo: "repo",
         branch: "main",
@@ -504,109 +459,6 @@ describe("buildClearAllStagingPlan", () => {
           owner: "octo",
           repo: "repo",
           branch: targetBranch,
-        },
-      },
-    ]);
-  });
-});
-
-describe("clearMatchingStagingSnapshotImpl", () => {
-  it("clears the committed snapshot and preserves an edit made during the commit", async () => {
-    const context = createClearMatchingStagingSnapshotTestContext({
-      stagedFiles: [
-        {
-          _id: "matching-1",
-          _creationTime: 1,
-          vaultId: "vault-1",
-          fileDeleted: false,
-          kind: "text",
-          filePath: "src/new-name.ts",
-          initialFilePath: "src/old-name.ts",
-          content: "updated",
-          initialContent: "original",
-          parentCommitSha: "sha-1",
-          lastEditTime: 200,
-          lastEditUserId: "users:owner",
-          branch: "main",
-          version: 3,
-        },
-        {
-          _id: "changed-1",
-          _creationTime: 2,
-          vaultId: "vault-1",
-          fileDeleted: false,
-          kind: "text",
-          filePath: "src/keep.ts",
-          initialFilePath: "src/keep.ts",
-          content: "edit after the commit snapshot",
-          initialContent: "original",
-          parentCommitSha: "sha-2",
-          lastEditTime: 450,
-          lastEditUserId: "users:owner",
-          branch: "main",
-          version: 4,
-        },
-      ],
-    });
-
-    // @ts-expect-error Regression test uses a minimal MutationCtx stub that only includes accessed fields.
-    await clearMatchingStagingSnapshotImpl(context.ctx, {
-      vaultId: "vault-1",
-      branch: "main",
-      stagedFiles: [
-        {
-          _id: "matching-1",
-          vaultId: "vault-1",
-          fileDeleted: false,
-          kind: "text",
-          filePath: "src/new-name.ts",
-          initialFilePath: "src/old-name.ts",
-          content: "updated",
-          initialContent: "original",
-          parentCommitSha: "sha-1",
-          lastEditTime: 200,
-          lastEditUserId: "users:owner",
-          branch: "main",
-          version: 3,
-        },
-        {
-          _id: "changed-1",
-          vaultId: "vault-1",
-          fileDeleted: false,
-          kind: "text",
-          filePath: "src/keep.ts",
-          initialFilePath: "src/keep.ts",
-          content: "content in the commit snapshot",
-          initialContent: "original",
-          parentCommitSha: "sha-2",
-          lastEditTime: 300,
-          lastEditUserId: "users:owner",
-          branch: "main",
-          version: 3,
-        },
-      ],
-    });
-
-    expect(context.deletedIds).toEqual(["matching-1"]);
-    expect(context.scheduledCalls).toEqual([
-      {
-        delayMs: 0,
-        fnRef: internal.fileStaging.deleteCollaborativeUpdatesForFilePathBatch,
-        args: {
-          vaultId: "vault-1",
-          branch: "main",
-          filePath: "src/new-name.ts",
-          cutoffTimestamp: 201,
-        },
-      },
-      {
-        delayMs: 0,
-        fnRef: internal.fileStaging.deleteCollaborativeUpdatesForFilePathBatch,
-        args: {
-          vaultId: "vault-1",
-          branch: "main",
-          filePath: "src/old-name.ts",
-          cutoffTimestamp: 201,
         },
       },
     ]);

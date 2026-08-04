@@ -136,7 +136,7 @@ export const providerConnectionTables = {
     organizationId: id("organizations"),
     providerConnectionId: optional(id("providerConnections")),
     state: string(),
-    returnToPath: optional(string()),
+    returnToPath: string(),
     codeVerifier: optional(string()),
     clientId: optional(string()),
     clientSecret: optional(string()),

@@ -106,7 +106,7 @@ async function seedApprovedMember(t: ConvexTest) {
       email: "ada.member@example.test",
       isApproved: true,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Webhook organization" });
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
     const billingAccountId = await ctx.db.insert("organizationBillingAccounts", {
       organizationId,
@@ -114,10 +114,10 @@ async function seedApprovedMember(t: ConvexTest) {
       status: "inactive",
       polarExternalCustomerId: "existing-customer",
     });
-    return { billingAccountId, userId };
+    return { billingAccountId, organizationId, userId };
   });
   rememberBillingAccount(t, ids.userId, ids.billingAccountId);
-  return ids.userId;
+  return ids;
 }
 
 async function seedOrganizationMembers(t: ConvexTest, organizationExternalCustomerId: string) {
@@ -132,7 +132,7 @@ async function seedOrganizationMembers(t: ConvexTest, organizationExternalCustom
       email: "grace.organization@example.test",
       isApproved: true,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Shared webhook" });
     await Promise.all([
       ctx.db.insert("organizationMemberships", { organizationId, userId: firstUserId }),
       ctx.db.insert("organizationMemberships", { organizationId, userId: secondUserId }),
@@ -143,7 +143,7 @@ async function seedOrganizationMembers(t: ConvexTest, organizationExternalCustom
       status: "inactive",
       polarExternalCustomerId: organizationExternalCustomerId,
     });
-    return { billingAccountId, firstUserId, secondUserId };
+    return { billingAccountId, firstUserId, organizationId, secondUserId };
   });
   rememberBillingAccount(t, ids.firstUserId, ids.billingAccountId);
   rememberBillingAccount(t, ids.secondUserId, ids.billingAccountId);
@@ -234,10 +234,8 @@ afterEach(() => {
 describe("Polar customer.state_changed webhook", () => {
   it("updates one organization billing account for every member", async () => {
     const t = makeConvexTest();
-    const { billingAccountId, firstUserId, secondUserId } = await seedOrganizationMembers(
-      t,
-      "existing-customer",
-    );
+    const { billingAccountId, firstUserId, organizationId, secondUserId } =
+      await seedOrganizationMembers(t, "existing-customer");
     configureWebhook();
     polarSdkMocks.subscriptionsList.mockResolvedValue(
       subscriptionPage([polarSubscription({ status: "active" })]),
@@ -255,10 +253,10 @@ describe("Polar customer.state_changed webhook", () => {
       canStartCheckout: true,
     };
     await expect(
-      asUser(t, firstUserId).query(api.billing.getViewerBillingStatus, {}),
+      asUser(t, firstUserId).query(api.billing.getViewerBillingStatus, { organizationId }),
     ).resolves.toEqual(expectedBilling);
     await expect(
-      asUser(t, secondUserId).query(api.billing.getViewerBillingStatus, {}),
+      asUser(t, secondUserId).query(api.billing.getViewerBillingStatus, { organizationId }),
     ).resolves.toEqual(expectedBilling);
 
     const billingAccount = await t.run(async (ctx) => await ctx.db.get(billingAccountId));
@@ -273,7 +271,7 @@ describe("Polar customer.state_changed webhook", () => {
 
   it("does not reconcile an unknown organization customer ID", async () => {
     const t = makeConvexTest();
-    const { billingAccountId, firstUserId } = await seedOrganizationMembers(
+    const { billingAccountId, firstUserId, organizationId } = await seedOrganizationMembers(
       t,
       "organization-customer",
     );
@@ -284,7 +282,7 @@ describe("Polar customer.state_changed webhook", () => {
     expect(response.status).toBe(204);
     expect(polarSdkMocks.subscriptionsList).not.toHaveBeenCalled();
     await expect(
-      asUser(t, firstUserId).query(api.billing.getViewerBillingStatus, {}),
+      asUser(t, firstUserId).query(api.billing.getViewerBillingStatus, { organizationId }),
     ).resolves.toEqual({
       plan: "free",
       status: "inactive",
@@ -304,7 +302,7 @@ describe("Polar customer.state_changed webhook", () => {
     { providerStatus: "trialing", storedStatus: "active" },
   ])("treats $providerStatus as Pro", async ({ providerStatus, storedStatus }) => {
     const t = makeConvexTest();
-    const userId = await seedApprovedMember(t);
+    const { organizationId, userId } = await seedApprovedMember(t);
     configureWebhook();
     polarSdkMocks.subscriptionsList.mockResolvedValue(
       subscriptionPage([polarSubscription({ status: providerStatus })]),
@@ -320,7 +318,9 @@ describe("Polar customer.state_changed webhook", () => {
       page: 1,
       limit: 100,
     });
-    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+    await expect(
+      asUser(t, userId).query(api.billing.getViewerBillingStatus, { organizationId }),
+    ).resolves.toEqual({
       provider: "polar",
       plan: "pro",
       status: storedStatus,
@@ -332,7 +332,7 @@ describe("Polar customer.state_changed webhook", () => {
 
   it("keeps past-due Pro entitled from the bounded subscription page", async () => {
     const t = makeConvexTest();
-    const userId = await seedApprovedMember(t);
+    const { organizationId, userId } = await seedApprovedMember(t);
     configureWebhook();
     polarSdkMocks.subscriptionsList.mockResolvedValue(
       subscriptionPage([polarSubscription({ status: "past_due", cancelAtPeriodEnd: true })]),
@@ -341,7 +341,9 @@ describe("Polar customer.state_changed webhook", () => {
     const response = await deliver(t, customerStateChangedBody());
 
     expect(response.status).toBe(204);
-    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+    await expect(
+      asUser(t, userId).query(api.billing.getViewerBillingStatus, { organizationId }),
+    ).resolves.toEqual({
       provider: "polar",
       plan: "pro",
       status: "past_due",
@@ -353,7 +355,7 @@ describe("Polar customer.state_changed webhook", () => {
 
   it("treats an empty entitled subscription page as Free", async () => {
     const t = makeConvexTest();
-    const userId = await seedApprovedMember(t);
+    const { organizationId, userId } = await seedApprovedMember(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
         provider: "polar",
@@ -367,7 +369,9 @@ describe("Polar customer.state_changed webhook", () => {
     const response = await deliver(t, customerStateChangedBody());
 
     expect(response.status).toBe(204);
-    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+    await expect(
+      asUser(t, userId).query(api.billing.getViewerBillingStatus, { organizationId }),
+    ).resolves.toEqual({
       provider: "polar",
       plan: "free",
       status: "inactive",
@@ -377,7 +381,7 @@ describe("Polar customer.state_changed webhook", () => {
 
   it("does not let a delayed provider response replace a newer observation", async () => {
     const t = makeConvexTest();
-    const userId = await seedApprovedMember(t);
+    const { organizationId, userId } = await seedApprovedMember(t);
     configureWebhook();
     const firstRead = createDeferred<ReturnType<typeof subscriptionPage>>();
     polarSdkMocks.subscriptionsList
@@ -393,7 +397,9 @@ describe("Polar customer.state_changed webhook", () => {
     const user = await t.run(async (ctx) => await ctx.db.get(billingAccountIdFor(t, userId)));
     expect(user?.polarObservationRevision).toBe(2);
     expect(user?.polarAppliedObservationRevision).toBe(2);
-    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+    await expect(
+      asUser(t, userId).query(api.billing.getViewerBillingStatus, { organizationId }),
+    ).resolves.toEqual({
       provider: "polar",
       plan: "free",
       status: "inactive",
@@ -403,7 +409,7 @@ describe("Polar customer.state_changed webhook", () => {
 
   it("returns 503 for a provider failure within the webhook timeout", async () => {
     const t = makeConvexTest();
-    const userId = await seedApprovedMember(t);
+    const { organizationId, userId } = await seedApprovedMember(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
         provider: "polar",
@@ -423,7 +429,9 @@ describe("Polar customer.state_changed webhook", () => {
       timeoutMs: 1_500,
     });
     expect(polarSdkMocks.subscriptionsList).toHaveBeenCalledOnce();
-    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+    await expect(
+      asUser(t, userId).query(api.billing.getViewerBillingStatus, { organizationId }),
+    ).resolves.toEqual({
       provider: "polar",
       plan: "pro",
       status: "active",
@@ -433,7 +441,7 @@ describe("Polar customer.state_changed webhook", () => {
 
   it("returns 503 when Polar reports more than 100 entitled subscriptions", async () => {
     const t = makeConvexTest();
-    const userId = await seedApprovedMember(t);
+    const { organizationId, userId } = await seedApprovedMember(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
         provider: "polar",
@@ -447,7 +455,9 @@ describe("Polar customer.state_changed webhook", () => {
     const response = await deliver(t, customerStateChangedBody());
 
     expect(response.status).toBe(503);
-    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+    await expect(
+      asUser(t, userId).query(api.billing.getViewerBillingStatus, { organizationId }),
+    ).resolves.toEqual({
       provider: "polar",
       plan: "pro",
       status: "active",
@@ -475,7 +485,7 @@ describe("Polar customer.state_changed webhook", () => {
     },
   ])("preserves stored entitlement when $name", async ({ page }) => {
     const t = makeConvexTest();
-    const userId = await seedApprovedMember(t);
+    const { organizationId, userId } = await seedApprovedMember(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
         provider: "polar",
@@ -489,7 +499,9 @@ describe("Polar customer.state_changed webhook", () => {
     const response = await deliver(t, customerStateChangedBody());
 
     expect(response.status).toBe(503);
-    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+    await expect(
+      asUser(t, userId).query(api.billing.getViewerBillingStatus, { organizationId }),
+    ).resolves.toEqual({
       provider: "polar",
       plan: "pro",
       status: "active",
@@ -499,7 +511,7 @@ describe("Polar customer.state_changed webhook", () => {
 
   it("lets an operator reconcile one Polar customer", async () => {
     const t = makeConvexTest();
-    const userId = await seedApprovedMember(t);
+    const { organizationId, userId } = await seedApprovedMember(t);
     configureWebhook();
     polarSdkMocks.subscriptionsList.mockResolvedValue(
       subscriptionPage([polarSubscription({ status: "past_due", cancelAtPeriodEnd: true })]),
@@ -515,7 +527,9 @@ describe("Polar customer.state_changed webhook", () => {
       server: "sandbox",
       timeoutMs: 10_000,
     });
-    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+    await expect(
+      asUser(t, userId).query(api.billing.getViewerBillingStatus, { organizationId }),
+    ).resolves.toEqual({
       provider: "polar",
       plan: "pro",
       status: "past_due",
@@ -555,7 +569,7 @@ describe("Polar customer.state_changed webhook", () => {
 
   it("preserves stored entitlement when a signed payload does not match the SDK schema", async () => {
     const t = makeConvexTest();
-    const userId = await seedApprovedMember(t);
+    const { organizationId, userId } = await seedApprovedMember(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountIdFor(t, userId), {
         provider: "polar",
@@ -573,7 +587,9 @@ describe("Polar customer.state_changed webhook", () => {
     const response = await deliver(t, body);
 
     expect(response.status).toBe(500);
-    await expect(asUser(t, userId).query(api.billing.getViewerBillingStatus, {})).resolves.toEqual({
+    await expect(
+      asUser(t, userId).query(api.billing.getViewerBillingStatus, { organizationId }),
+    ).resolves.toEqual({
       provider: "polar",
       plan: "pro",
       status: "active",

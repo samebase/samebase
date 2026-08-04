@@ -9,8 +9,10 @@ async function seedOrganizationMembers() {
     const ownerId = await ctx.db.insert("users", { email: "owner@example.com" });
     const memberId = await ctx.db.insert("users", { email: "member@example.com" });
     const outsiderId = await ctx.db.insert("users", { email: "outsider@example.com" });
-    const organizationId = await ctx.db.insert("organizations", {});
-    const otherOrganizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Primary organization" });
+    const otherOrganizationId = await ctx.db.insert("organizations", {
+      name: "Other organization",
+    });
     await ctx.db.insert("organizationMemberships", { organizationId, userId: ownerId });
     await ctx.db.insert("organizationMemberships", { organizationId, userId: memberId });
     await ctx.db.insert("organizationMemberships", {

@@ -26,27 +26,42 @@ Samebase uses three separate domain entities:
 
 1. A `users` row is one stable Samebase account and its personal state. Its Samebase ID survives an
    authentication-provider change.
-2. An `organizations` row is one customer workspace and owns durable customer resources.
+2. An `organizations` row is one customer workspace, has one required durable name, and owns durable
+   customer resources.
 3. An `organizationMemberships` row grants one user access to one organization.
 
 Users and organizations are separate and connect through memberships. The schema must not put one
-`organizationId` on `users` or put a user ID array on an organization. During this rollout, each
-user has exactly one membership, while one organization can have several users. The membership table
-can support several organizations per user when organization selection becomes a real feature.
+`organizationId` on `users` or put a user ID array on an organization. One user can have several
+memberships, and one organization can have several users. At most one membership can exist for an
+exact organization and user pair.
 
-Every user row gets an organization and membership during account creation. This includes waitlisted
-users. The temporary approval system controls application access only. It does not control
-organization creation, membership, or ownership.
+Account creation gives a user an organization and membership only when the user has no membership.
+This includes waitlisted users. A later sign-in or account update preserves every existing
+membership and does not create another organization. The temporary approval system controls
+application access only. It does not control organization creation, membership, or ownership.
 
 The initial bootstrap creates one organization for each existing user group. The two known accounts
 that represent the same operator share one organization through two explicit membership rows. Every
 other existing user gets a separate organization. This mapping is explicit bootstrap input. Code
-must never infer shared ownership from email, name, or another profile field.
+must never infer shared ownership from email, name, or another profile field. The shared operator
+organization name is explicit bootstrap input. Each personal organization receives the same initial
+name that normal account provisioning would create.
 
-The initial product has no organization switcher. A root-resource creation operation resolves the
-current user's one membership. Access to an existing resource always derives the organization from
-that resource. A future multi-organization product must put organization selection in verified
-request or session context. It must not store hidden authorization state on the user row.
+Every organization-scoped request identifies one organization. A root read or creation operation
+receives an explicit `organizationId`. An existing-resource operation can instead load the resource
+and use its required organization ID. The backend then verifies the exact user and organization
+membership. No product backend function selects the first or only membership from `userId`.
+
+Development password seeding is the only non-product exception. Its first successful run requires
+the seed user to have exactly one membership and stores that organization in a deployment-local
+binding. Later seed runs use the stored organization after the user joins other organizations. The
+seed action does not accept an organization argument, and this binding never selects organization
+context for the web app or MCP.
+
+The web app keeps the selected organization in explicit URL request context. If one membership is
+available, the client can select it without showing a choice, but it still sends the organization ID
+to the backend. If several memberships are available, the user must select one. The selection is not
+stored on `users`, and it never grants access.
 
 This model follows the durable part of the WorkOS and Clerk organization models: users and
 organizations are independent records, memberships connect them, and organization data stays with
@@ -64,14 +79,17 @@ Sources:
 ### Minimal schema
 
 `organizations` uses Convex `_id` as the durable tenant identity and `_creationTime` as its creation
-record. Its only application field is the optional active account-deletion lock:
+record. Its required core field and optional active account-deletion lock are:
 
 ```text
+name: string
 accountDeletionRunId?: Id<"workflow_accountDeletion_runs">
 ```
 
-The lock prevents two members of one organization from deleting their accounts at the same time. A
-name becomes required only when an organization surface needs to display or edit one.
+The name is trimmed, nonempty display data. It is durable, is not required to be unique, and never
+grants access. Normal account provisioning builds the initial personal organization name from the
+account display name, name, or email. The lock prevents two members of one organization from
+deleting their accounts at the same time.
 
 `organizationMemberships` contains only:
 
@@ -80,13 +98,18 @@ organizationId: Id<"organizations">
 userId: Id<"users">
 ```
 
-The table has `by_user` and `by_organization_and_user` indexes. App-owned mutations enforce exactly
-one membership per user during this rollout and at most one membership for each organization and
-user pair. Several users can be full members of one organization.
+The table has `by_user` and `by_organization_and_user` indexes. App-owned mutations enforce at most
+one membership for each organization and user pair. Both sides of the relation can have several
+memberships.
 
 Membership presence is active access. Removing access deletes the membership. The current model has
 no role, status, timestamps, invitation state, or permission arrays. A role field becomes required
 only when two membership roles have different current behavior.
+
+The operator can add an existing Samebase user directly to an organization through one idempotent
+internal mutation. This inserts only the missing membership. It does not move the user, delete the
+organization created at sign-up, change approval, or create invitation state. Email invitations and
+acceptance are a later product surface.
 
 `providerConnections` keeps its existing provider-specific identity and authentication fields and
 adds these required ownership fields:
@@ -130,8 +153,11 @@ GitHub App authorization flow. GitHub OAuth requests the `workflow` scope becaus
 starter creates `.github/workflows/ci.yml`. GitHub API-key health checks report this scope as
 granted, missing, or unknown with the other required scopes.
 
-`providerOAuthCallbackStates` binds the initiating user to the target organization. The callback
-rechecks that membership before it creates or reauthorizes the organization connection.
+`providerOAuthCallbackStates` binds the initiating user to the target organization and stores one
+required root-relative same-site return path. Every provider OAuth start receives and validates that
+path. The callback rechecks membership before it creates or reauthorizes the organization
+connection, then returns to the exact URL context that started the flow. This preserves the selected
+organization through a full-page OAuth redirect.
 
 Every provider-backed resource records the exact provider connection that Samebase must use:
 
@@ -150,8 +176,9 @@ same organization and provider kind, and require `state: "connected"`. They neve
 credential from an actor user ID. A provisioning retry uses the connection IDs recorded when the
 plan was created.
 
-Other than the account-deletion lock and selected provider connection IDs, the organization has no
-name, slug, kind, status, lifecycle field, creator field, update timestamp, or active-user field.
+Other than the required name, account-deletion lock, and selected provider connection IDs, the
+organization has no slug, kind, status, lifecycle field, creator field, update timestamp, or
+active-user field.
 
 `organizationBillingAccounts` contains one row for each organization. Its final fields are:
 
@@ -198,9 +225,12 @@ the current user has the function's required access key
 AND the current user has a membership in the resource organization
 ```
 
-The backend loads the resource and derives its organization before it checks membership. A client
-user ID, organization ID, actor field, provider credential, or staff role is not proof of resource
-access. Normal staff product access follows the same membership rule.
+For a root read or creation operation, the client supplies the selected organization ID and the
+backend verifies the exact membership. For an operation on an existing resource, the backend loads
+the resource and derives its organization before it checks membership. The request selection does
+not replace that resource-derived boundary. A client user ID, organization ID, actor field, provider
+credential, or staff role is not proof of resource access. Normal staff product access follows the
+same membership rule.
 
 Shared helpers implement organization and vault membership checks. Product functions do not repeat
 raw ID comparisons.
@@ -241,11 +271,11 @@ Staged files are one shared collaborative draft for a vault, branch, and path. V
 controls draft access. The final model removes `vaultStagedFiles.ownerId` and its access checks.
 `lastEditUserId` records only the last editor and never authorizes access.
 
-FileView remains a staff-only add-on during this release. A normal one-person edit and commit is
-supported. A successful commit clears its staged rows. Delayed saves after a commit, commit retries
-after Git already accepted the change, simultaneous commits, structural edits during a commit, and
-external Git changes during a commit are deferred until FileView becomes a shipped add-on. They are
-not organization-rollout acceptance requirements.
+FileView remains a staff-only add-on and is deferred. Its current one-person edit and commit path
+remains available, but no FileView behavior is an organization-rollout release gate. Delayed saves
+after a commit, commit retries after Git already accepted the change, simultaneous commits,
+structural edits during a commit, and external Git changes during a commit remain deferred until
+FileView becomes a shipped add-on.
 
 Provisioning and vault-deletion runs use `requestedByUserId`. Their event rows derive the requester
 through `runId` and do not copy a user ID. `vaultStagedFileUpdates` uses `editUserId`. Manual
@@ -254,10 +284,11 @@ one member's credentials during account deletion. `requestedByUserId`, `lastEdit
 `editUserId` are provenance only. No actor field grants access.
 
 MCP client registration remains system-wide. Only `mcpGrants` stores the required `organizationId`
-beside its user subject. Consent resolves the user's membership before it creates the grant.
-Authorization codes, access tokens, refresh tokens, and browser tokens derive the organization
-through `grantId`. Removing a membership revokes that user's grants for the organization. Rejoining
-requires new authorization and does not reactivate those grants.
+beside its user subject. Consent requires one explicit organization choice, verifies that exact
+membership, and binds the grant to that organization. Authorization codes, access tokens, refresh
+tokens, and browser tokens derive the organization through `grantId`. Removing a membership revokes
+that user's grants for the organization. Rejoining requires new authorization and does not
+reactivate those grants.
 
 Each MCP HTTP request creates one complete authorization snapshot before internal tool dispatch.
 Token validation loads the access token, grant, client, and current organization membership. The
@@ -272,11 +303,17 @@ they create or consume the handoff.
 
 ### Account deletion
 
-Account deletion always removes the user's authentication data, personal UI data, OAuth callback
-state, and organization membership. For each connected organization provider connection whose
-`connectedByUserId` is the deleting user, it attempts provider-side OAuth revocation, strips the
-local credential, and changes the stable row to `disconnected`. A remaining member can reauthorize
-that connection without changing resource bindings.
+Account deletion for a user with one membership removes the user's authentication data, personal UI
+data, OAuth callback state, and organization membership. For each connected organization provider
+connection whose `connectedByUserId` is the deleting user, it attempts provider-side OAuth
+revocation, strips the local credential, and changes the stable row to `disconnected`. A remaining
+member can reauthorize that connection without changing resource bindings.
+
+Account deletion fails before it writes when the user has several memberships. Member management is
+operator-only in this release, so the operator must remove the additional memberships or complete a
+manual account cleanup first. Full deletion across several organizations ships with the member
+management product surface. This fail-closed rule prevents the current workflow from deleting or
+locking an organization chosen through an implicit membership.
 
 When the deleting user is the only member of an organization, the existing deletion workflow also
 deletes that organization's Samebase resources, provider connection rows, billing state, and
@@ -318,12 +355,17 @@ The rollout follows this order:
 3. Deploy the final schema and organization membership access checks.
 4. Run one small bootstrap. It creates one shared organization for the two operator users, one
    organization for every other retained user, one membership for every user, and one billing row
-   for every organization. It restores the recorded operator billing state after every checkout
-   attempt is resolved. The bootstrap rejects a checkout attempt.
-5. Verify the bootstrap counts and the two-member access paths, then resume product writes.
+   for every organization. Every organization receives its required durable name. It restores the
+   recorded operator billing state after every checkout attempt is resolved. The bootstrap rejects a
+   checkout attempt.
+5. Verify the bootstrap counts, direct membership addition, explicit organization selection, and the
+   two-member access paths, then resume product writes.
 
 These steps ship in one implementation pull request. No old user ownership fields, fallback reads,
 dual writes, migration indexes, or general data-conversion framework ship in the final runtime.
+Production schema, authorization contracts, and production callers change to the final model first.
+Tests that describe the former one-membership model are then rewritten or deleted. An old test does
+not justify a compatibility helper or fallback path in production.
 
 The manual reset deletes local provider connections and Samebase-local resource records. It does not
 delete GitHub repositories, Cloudflare Workers, Convex projects, user accounts, waitlist accounts,
@@ -336,10 +378,12 @@ destructive production step. Local and disposable preview data can be recreated.
 
 ## Non-Goals
 
-- Organization management UI, organization switching, or a persisted active organization
-- Invitations, verified domains, team discovery, or automatic email-domain membership
+- Organization creation, rename, deletion, or membership-management UI
+- Email invitations, acceptance, verified domains, team discovery, or automatic email-domain
+  membership
+- A persisted active organization. The selected organization stays in request context.
 - Membership roles, custom permissions, or grant tables
-- Organization names, slugs, statuses, kinds, lifecycle workflows, or soft-deleted memberships
+- Organization slugs, statuses, kinds, lifecycle workflows, or soft-deleted memberships
 - WorkOS, Clerk, AuthKit, SSO, Directory Sync, SCIM, or provider mapping tables in this rollout
 - Fine-grained authorization for selected vaults, branches, files, or provider resources
 - Automatic account linking or shared ownership inferred from profile data
@@ -351,31 +395,35 @@ destructive production step. Local and disposable preview data can be recreated.
 
 The rollout is complete only when tests and reset checks prove:
 
-- Every newly created user, including a waitlisted or admin-created user, gets one organization,
-  membership, and billing row.
-- Repeated organization provisioning for one user is idempotent.
+- Every newly created user with no membership, including a waitlisted or admin-created user, gets
+  one organization with a required durable name, one membership, and one billing row.
+- Repeated organization provisioning preserves all memberships and does not add an organization.
+- One user can access two organizations through two explicit organization selections. Neither
+  request can read the other organization's vaults, billing, or providers.
+- The operator membership mutation adds an existing user to a second organization without changing
+  the user's first organization, billing, approval, provider state, or personal settings. Repeating
+  it does not add a duplicate membership.
 - The explicit two-account bootstrap produces one organization with two memberships.
 - No generic profile or email match combines users.
 - A member can use normal resources in their organization.
 - A user from another organization cannot read or change those resources.
 - Two members see the same organization vaults and can use the current dashboard, resource,
   provisioning, and deletion flows after the access cutover.
-- A normal one-session FileView edit and commit succeeds and clears its staged rows. Delayed saves,
-  commit retry recovery, and simultaneous FileView commit behavior are not release gates.
 - A user actor field does not grant access to an organization resource.
 - UI preferences and other personal state remain different for two members of one organization.
 - Both members see the same organization plan, quota usage, and provider connection status. Both can
   use the organization connection through authorized backend operations.
 - A waitlisted user has an organization membership but remains blocked by the current application
   access gate.
-- The rollout adds no organization switcher, invitation surface, membership page, or organization
-  chrome.
+- The rollout adds only the organization selector required to choose request context. It adds no
+  invitation surface, membership page, or organization-management page.
 - Provider connections use the organization boundary, permit several rows per provider kind, and
   record the connecting member in required `connectedByUserId`. Public functions never return
   provider credentials or raw provider error text.
 - Vault resources and provisioning plans use stable provider connection IDs. A retry or reload does
   not select a credential from the acting user or from an implicit current provider connection.
 - Deleting one of several members preserves shared organization data.
+- Account deletion for a user with several organization memberships fails before any write.
 - Deleting a member disconnects provider connections linked to that member without deleting their
   stable rows or provider infrastructure. A remaining member can reauthorize the same connection.
 - Deleting the only member removes the organization's Samebase data but not provider infrastructure.

@@ -28,6 +28,8 @@ vi.mock("./VaultFolderDialog", () => ({
 
 let root: Root | null = null;
 let rootElement: HTMLDivElement | null = null;
+// @ts-expect-error Convex ids are strings at runtime; this test only needs a stable id.
+const FIXTURE_ORGANIZATION_ID: Id<"organizations"> = "organization-vault-sidebar-interaction";
 
 afterEach(() => {
   act(() => root?.unmount());
@@ -50,6 +52,7 @@ function fakeFolderId(value: string): Id<"ui_vaultFolders"> {
 function makeVault(): UserVaultResult {
   return {
     _id: fakeVaultId("vault-active"),
+    organizationId: FIXTURE_ORGANIZATION_ID,
     canRemoveCloudflareProvision: false,
     canRemoveConvexProvision: false,
     cloudflareWorkers: [],

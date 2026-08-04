@@ -435,8 +435,8 @@ export function VaultCloudflareDialog({
     ? (vault.cloudflareWorkers.find((worker) => worker.workerId === repairWorkerId) ?? null)
     : null;
   const accountsQuery = useTanStackQuery({
-    queryKey: ["vault-provider-discovery", vault._id, "cloudflare-accounts"],
-    queryFn: () => listAccounts({}),
+    queryKey: ["vault-provider-discovery", vault.organizationId, vault._id, "cloudflare-accounts"],
+    queryFn: () => listAccounts({ organizationId: vault.organizationId }),
     enabled: !repairWorker,
     retry: false,
   });

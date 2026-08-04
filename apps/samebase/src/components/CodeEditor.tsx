@@ -36,12 +36,14 @@ const delay = 500;
 
 async function pushUpdates({
   version,
+  organizationId,
   repositoryFullName,
   branch,
   filePath,
   fullUpdates,
 }: {
   version: number;
+  organizationId: Id<"organizations">;
   repositoryFullName: string;
   branch: string;
   filePath: string;
@@ -56,6 +58,7 @@ async function pushUpdates({
 
   return client
     .mutation(api.collaborative.pushUpdates, {
+      organizationId,
       repositoryFullName,
       branch,
       filePath,
@@ -68,6 +71,7 @@ async function pushUpdates({
 // https://github.com/codemirror/website/blob/main/site/examples/collab/collab.ts#L89
 function peerExtension({
   startVersion,
+  organizationId,
   repositoryFullName,
   branch,
   filePath,
@@ -76,6 +80,7 @@ function peerExtension({
   setSyncError,
 }: {
   startVersion: number;
+  organizationId: Id<"organizations">;
   repositoryFullName: string;
   branch: string;
   filePath: string;
@@ -136,6 +141,7 @@ function peerExtension({
         try {
           const success = await pushUpdates({
             version,
+            organizationId,
             repositoryFullName,
             branch,
             filePath,
@@ -230,6 +236,7 @@ function shouldUseCodeMirrorEditor(args: { filePath: string; editorOverride: Cod
 }
 
 export function CodeEditorWrapper({
+  organizationId,
   repositoryFullName,
   branch,
   filePath,
@@ -240,6 +247,7 @@ export function CodeEditorWrapper({
   showMobileLineNumbers = false,
   editorOverride = "default",
 }: {
+  organizationId: Id<"organizations">;
   repositoryFullName: string;
   branch: string;
   filePath: string;
@@ -255,6 +263,7 @@ export function CodeEditorWrapper({
       <CodeEditor
         key={`${repositoryFullName}-${branch}-${filePath}`}
         firstDoc={stagedFile}
+        organizationId={organizationId}
         repositoryFullName={repositoryFullName}
         branch={branch}
         filePath={filePath}
@@ -266,6 +275,7 @@ export function CodeEditorWrapper({
     <MonacoEditor
       key={`${repositoryFullName}-${branch}-${filePath}`}
       firstDoc={stagedFile}
+      organizationId={organizationId}
       repositoryFullName={repositoryFullName}
       branch={branch}
       filePath={filePath}
@@ -279,11 +289,13 @@ export function CodeEditorWrapper({
 
 export function CodeEditor({
   firstDoc,
+  organizationId,
   repositoryFullName,
   branch,
   filePath,
 }: {
   firstDoc: { version: number; content: string };
+  organizationId: Id<"organizations">;
   repositoryFullName: string;
   branch: string;
   filePath: string;
@@ -299,6 +311,7 @@ export function CodeEditor({
   const updates = useQuery(
     api.collaborative.pullUpdates,
     {
+      organizationId,
       repositoryFullName,
       branch,
       filePath,
@@ -329,6 +342,7 @@ export function CodeEditor({
     () =>
       peerExtension({
         startVersion: mountedFileVersionRef.current,
+        organizationId,
         repositoryFullName,
         branch,
         filePath,
@@ -338,7 +352,7 @@ export function CodeEditor({
           pullRef.current = pull;
         },
       }),
-    [branch, filePath, repositoryFullName],
+    [branch, filePath, organizationId, repositoryFullName],
   );
 
   return (

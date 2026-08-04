@@ -77,6 +77,8 @@ const VISUAL_FOLDER_CALLBACKS = {
 } satisfies VaultFolderCallbacks;
 const VISUAL_CREATE_VAULT_FOLDER: VaultFolderCreate = async () => {};
 const EMPTY_FOLDER_STATE = { assignments: [], folders: [] };
+// @ts-expect-error Convex ids are strings at runtime; this fixture only needs a stable id.
+const FIXTURE_ORGANIZATION_ID: Id<"organizations"> = "organization-vault-overview-fixture";
 const LOADING_CLOUDFLARE_OBSERVATIONS = {
   workers: { state: "loading" },
   builds: { state: "loading" },
@@ -118,6 +120,7 @@ const LIST_SPACING_SAMEBASE_WORKER_ID = fakeCloudflareWorkerId("worker-samebase"
 const LIST_SPACING_CONVEX_PROJECT_ID = fakeConvexProjectId("convex-project-samebase");
 const LIST_SPACING_VAULT = {
   _id: LIST_SPACING_VAULT_ID,
+  organizationId: FIXTURE_ORGANIZATION_ID,
   ghRepoOwner: "samebase",
   ghRepoName: "samebase",
   repositoryFullName: "samebase/samebase",

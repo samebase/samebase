@@ -688,25 +688,29 @@ export function recoverGitHubVaultSidebarSummariesFromError(
 
 export const listVaultSidebarSummaries = action({
   access: "access_dashboard",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: array(vVaultSidebarSummary),
-  handler: async (ctx): Promise<VaultSidebarSummary[]> => {
+  handler: async (ctx, args): Promise<VaultSidebarSummary[]> => {
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.requireOrganizationIdForUser,
+      {
+        userId: ctx.viewer.userId,
+        organizationId: args.organizationId,
+      },
+    );
     const repositories = await ctx.runQuery(
       internal.vault.records.listConnectedRepositoriesForUser,
       {
         userId: ctx.viewer.userId,
+        organizationId,
       },
     );
     if (repositories.length === 0) {
       return [];
     }
     const summaries: VaultSidebarSummary[] = [];
-    const organizationId = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
-      {
-        userId: ctx.viewer.userId,
-      },
-    );
     const repositoriesByGithubConnection = new Map<string, VaultConnectedRepositoryTarget[]>();
     for (const repository of repositories) {
       const connectionRepositories = repositoriesByGithubConnection.get(

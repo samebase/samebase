@@ -78,6 +78,7 @@ import type * as newUserNotification from "../newUserNotification.js";
 import type * as oauthState from "../oauthState.js";
 import type * as oauthUtils from "../oauthUtils.js";
 import type * as organizationAccess from "../organizationAccess.js";
+import type * as organizationAdmin from "../organizationAdmin.js";
 import type * as organizationBilling from "../organizationBilling.js";
 import type * as organizationBootstrap from "../organizationBootstrap.js";
 import type * as organizationModel from "../organizationModel.js";
@@ -226,6 +227,7 @@ declare const fullApi: ApiFromModules<{
   oauthState: typeof oauthState;
   oauthUtils: typeof oauthUtils;
   organizationAccess: typeof organizationAccess;
+  organizationAdmin: typeof organizationAdmin;
   organizationBilling: typeof organizationBilling;
   organizationBootstrap: typeof organizationBootstrap;
   organizationModel: typeof organizationModel;

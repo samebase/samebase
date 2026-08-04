@@ -69,7 +69,10 @@ export const listForVault = query({
     if (!vault) {
       return [];
     }
-    const ownership = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: ctx.viewer.userId,
+      organizationId: vault.organizationId,
+    });
     if (!hasOrganizationAccess(ownership, vault)) {
       return [];
     }

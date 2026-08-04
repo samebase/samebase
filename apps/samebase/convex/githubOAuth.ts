@@ -3,18 +3,17 @@ import { Octokit } from "@octokit/rest";
 import { RequestError } from "@octokit/request-error";
 import { httpAction, internalAction, internalMutation } from "./_generated/server";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, mutation } from "./functions";
 import { requireOrganizationAccessContext } from "./organizationAccess";
+import { getDefaultProviderConnectionForOrganization } from "./providerConnections";
 import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
+import { GITHUB_OAUTH_POPUP_NAME, getGitHubOAuthScopeRequirements } from "../shared/githubOAuth";
 import {
-  GITHUB_OAUTH_POPUP_NAME,
-  getGitHubOAuthScopeRequirements,
-  isSafeGithubOAuthReturnToPath,
-} from "../shared/githubOAuth";
-import { buildProviderOAuthDefaultReturnUrl } from "../shared/providerOAuthReturn";
+  buildProviderOAuthReturnUrl,
+  isSafeProviderOAuthReturnToPath,
+} from "../shared/providerOAuthReturn";
 import { utf8ToBase64 } from "../shared/base64";
 import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSearchParams";
 
@@ -98,25 +97,29 @@ function createGitHubOctokit(accessToken: string): Octokit {
 
 async function buildGithubOAuthUrl(
   ctx: OAuthContext,
-  userId: Id<"users">,
-  returnToPath?: string,
-  providerConnectionId?: Id<"providerConnections">,
+  args: {
+    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+    returnToPath: string;
+    providerConnectionId?: Id<"providerConnections">;
+  },
 ): Promise<string> {
+  if (!isSafeProviderOAuthReturnToPath(args.returnToPath)) {
+    throw new Error("OAuth return path must be a root-relative same-site path.");
+  }
+
   const clientId = readRequiredEnv("PROVIDER_GITHUB_OAUTH_CLIENT_ID");
   const redirectUri = readRequiredEnv("PROVIDER_GITHUB_OAUTH_REDIRECT_URL");
   const state = randomToken();
-  const normalizedReturnToPath =
-    typeof returnToPath === "string" && isSafeGithubOAuthReturnToPath(returnToPath)
-      ? returnToPath
-      : undefined;
 
   const now = Date.now();
   await ctx.runMutation(internal.oauthState.createOauthState, {
     provider: "github",
-    userId,
-    providerConnectionId,
+    userId: args.userId,
+    organizationId: args.organizationId,
+    providerConnectionId: args.providerConnectionId,
     state,
-    returnToPath: normalizedReturnToPath,
+    returnToPath: args.returnToPath,
     createdAt: now,
     expiresAt: now + OAUTH_STATE_TTL_MS,
   });
@@ -251,40 +254,41 @@ export const storeGithubOauthConnection = internalMutation({
 export const getGithubOAuthUrl = mutation({
   access: "access_provider_connections",
   args: {
-    returnToPath: v.optional(v.string()),
+    organizationId: v.id("organizations"),
+    returnToPath: v.string(),
   },
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
-    const { organizationId } = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
-    const connected = await ctx.db
-      .query("providerConnections")
-      .withIndex("by_organization_and_kind_and_state", (query) =>
-        query.eq("organizationId", organizationId).eq("kind", "github").eq("state", "connected"),
-      )
-      .unique();
-    const connection =
-      connected ??
-      (await ctx.db
-        .query("providerConnections")
-        .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
-        .filter((query) => query.eq(query.field("kind"), "github"))
-        .order("desc")
-        .first());
-    return await buildGithubOAuthUrl(ctx, ctx.viewer.userId, args.returnToPath, connection?._id);
+    const { organizationId } = await requireOrganizationAccessContext(ctx.db, {
+      userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
+    });
+    const connection = await getDefaultProviderConnectionForOrganization(ctx.db, {
+      organizationId,
+      kind: "github",
+    });
+    return await buildGithubOAuthUrl(ctx, {
+      userId: ctx.viewer.userId,
+      organizationId,
+      returnToPath: args.returnToPath,
+      providerConnectionId: connection?.state === "connected" ? connection._id : undefined,
+    });
   },
 });
 
 export const reauthorizeGithubOAuth = action({
   access: "access_provider_connections",
   args: {
-    returnToPath: v.optional(v.string()),
+    organizationId: v.id("organizations"),
+    returnToPath: v.string(),
   },
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
     const organizationId = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
+      internal.organizationAccess.requireOrganizationIdForUser,
       {
         userId: ctx.viewer.userId,
+        organizationId: args.organizationId,
       },
     );
     const connection = await ctx.runQuery(
@@ -295,7 +299,12 @@ export const reauthorizeGithubOAuth = action({
       throw new Error("GitHub OAuth is not connected.");
     }
 
-    return await buildGithubOAuthUrl(ctx, ctx.viewer.userId, args.returnToPath, connection._id);
+    return await buildGithubOAuthUrl(ctx, {
+      userId: ctx.viewer.userId,
+      organizationId,
+      returnToPath: args.returnToPath,
+      providerConnectionId: connection._id,
+    });
   },
 });
 
@@ -321,22 +330,6 @@ export const revokeGithubOAuthForOrganizationConnection = internalAction({
     }
     return null;
   },
-});
-
-export const startGithubOAuth = httpAction(async (ctx) => {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-  const organizationId = await ctx.runQuery(internal.organizationAccess.getOrganizationIdForUser, {
-    userId,
-  });
-  const connection = await ctx.runQuery(internal.providerConnections.loadDefaultForOrganization, {
-    organizationId,
-    kind: "github",
-  });
-  const authorizeUrl = await buildGithubOAuthUrl(ctx, userId, undefined, connection?._id);
-  return Response.redirect(authorizeUrl, 302);
 });
 
 export const finishGithubOAuth = httpAction(async (ctx, request) => {
@@ -391,15 +384,11 @@ export const finishGithubOAuth = httpAction(async (ctx, request) => {
     throw error;
   }
 
-  const fallbackReturnUrl = buildProviderOAuthDefaultReturnUrl({
+  const returnUrl = buildProviderOAuthReturnUrl({
     configuredAppUrl: process.env.SITE_URL ?? process.env.CONVEX_SITE_URL,
     requestUrl: request.url,
+    returnToPath: oauthState.returnToPath,
   });
-  const returnUrl =
-    typeof oauthState.returnToPath === "string" &&
-    isSafeGithubOAuthReturnToPath(oauthState.returnToPath)
-      ? new URL(oauthState.returnToPath, fallbackReturnUrl).toString()
-      : fallbackReturnUrl;
 
   // GitHub popups clear `window.opener` before leaving our origin, so the
   // callback relies on the server-stored return path and lets popup windows

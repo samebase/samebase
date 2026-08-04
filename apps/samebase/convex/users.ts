@@ -152,7 +152,6 @@ type CloudflareConnectionStatusInput = {
 };
 type GitHubApiFailure = {
   status: number;
-  statusText: string;
 };
 type GitHubProfileHealthResult =
   | {
@@ -304,7 +303,7 @@ function formatGithubHealthFailure(failure: GitHubApiFailure): string {
   if (failure.status === 404) {
     return "GitHub could not find this resource for the current credential.";
   }
-  return `GitHub returned ${failure.status} ${failure.statusText || "error"}.`;
+  return `GitHub health check failed (${failure.status}).`;
 }
 
 async function readGithubProfileHealth(octokit: Octokit): Promise<GitHubProfileHealthResult> {
@@ -325,7 +324,6 @@ async function readGithubProfileHealth(octokit: Octokit): Promise<GitHubProfileH
         ok: false,
         failure: {
           status: error.status,
-          statusText: error.message,
         },
         oauthScopesHeader: error.response?.headers["x-oauth-scopes"] ?? null,
       };
@@ -354,7 +352,6 @@ async function readGithubRepositoryHealth(octokit: Octokit): Promise<GitHubRepos
         ok: false,
         failure: {
           status: error.status,
-          statusText: error.message,
         },
         oauthScopesHeader: error.response?.headers["x-oauth-scopes"] ?? null,
       };
@@ -413,7 +410,6 @@ async function readGithubOrganizationHealth(
         ok: false,
         failure: {
           status: error.status,
-          statusText: error.message,
         },
         oauthScopesHeader: error.response?.headers["x-oauth-scopes"] ?? null,
       };
@@ -710,14 +706,19 @@ export const currentViewerRole = query({
 
 export const getGithubConnectionStatus = query({
   access: "access_provider_connections",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: v.object({
     connected: boolean(),
     username: v.optional(v.string()),
     authMethod: v.optional(vProviderAuthMethod),
   }),
-  handler: async (ctx) => {
-    const access = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
+  handler: async (ctx, args) => {
+    const access = await requireOrganizationAccessContext(ctx.db, {
+      userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
+    });
     const connection = await getCurrentConnectedProviderConnection(ctx.db, {
       organizationId: access.organizationId,
       kind: "github",
@@ -736,10 +737,15 @@ export const getGithubConnectionStatus = query({
 
 export const getGithubProviderSummary = query({
   access: "access_provider_connections",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: vGithubProviderSummary,
-  handler: async (ctx) => {
-    const access = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
+  handler: async (ctx, args) => {
+    const access = await requireOrganizationAccessContext(ctx.db, {
+      userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
+    });
     const connection = await getCurrentConnectedProviderConnection(ctx.db, {
       organizationId: access.organizationId,
       kind: "github",
@@ -750,12 +756,14 @@ export const getGithubProviderSummary = query({
 
 export const checkGithubConnectionHealth = action({
   access: "access_provider_connections",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: vGithubConnectionHealth,
-  handler: async (ctx): Promise<GithubConnectionHealth> => {
+  handler: async (ctx, args): Promise<GithubConnectionHealth> => {
     const organizationId = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
-      { userId: ctx.viewer.userId },
+      internal.organizationAccess.requireOrganizationIdForUser,
+      { userId: ctx.viewer.userId, organizationId: args.organizationId },
     );
     const connection = await ctx.runQuery(
       internal.providerConnections.loadCurrentConnectedForOrganization,
@@ -922,12 +930,14 @@ export const checkGithubConnectionHealth = action({
 
 export const disconnectGithub = action({
   access: "access_provider_connections",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: v.null(),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const organizationId = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
-      { userId: ctx.viewer.userId },
+      internal.organizationAccess.requireOrganizationIdForUser,
+      { userId: ctx.viewer.userId, organizationId: args.organizationId },
     );
     const connection = await ctx.runQuery(
       internal.providerConnections.loadCurrentConnectedForOrganization,
@@ -951,15 +961,20 @@ export const disconnectGithub = action({
 
 export const getConvexConnectionStatus = query({
   access: "access_provider_connections",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: v.object({
     connected: boolean(),
     teamId: v.optional(v.string()),
     teamSlug: v.optional(v.string()),
     authMethod: v.optional(vProviderAuthMethod),
   }),
-  handler: async (ctx) => {
-    const access = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
+  handler: async (ctx, args) => {
+    const access = await requireOrganizationAccessContext(ctx.db, {
+      userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
+    });
     const connection = await getCurrentConnectedProviderConnection(ctx.db, {
       organizationId: access.organizationId,
       kind: "convex",
@@ -979,12 +994,14 @@ export const getConvexConnectionStatus = query({
 
 export const disconnectConvex = action({
   access: "access_provider_connections",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: v.null(),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const organizationId = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
-      { userId: ctx.viewer.userId },
+      internal.organizationAccess.requireOrganizationIdForUser,
+      { userId: ctx.viewer.userId, organizationId: args.organizationId },
     );
     const connection = await ctx.runQuery(
       internal.providerConnections.loadCurrentConnectedForOrganization,
@@ -1004,10 +1021,15 @@ export const disconnectConvex = action({
 
 export const getCloudflareConnectionStatus = query({
   access: "access_provider_connections",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: vCloudflareConnectionStatus,
-  handler: async (ctx) => {
-    const access = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
+  handler: async (ctx, args) => {
+    const access = await requireOrganizationAccessContext(ctx.db, {
+      userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
+    });
     const connection = await getCurrentConnectedProviderConnection(ctx.db, {
       organizationId: access.organizationId,
       kind: "cloudflare",
@@ -1031,13 +1053,14 @@ type CloudflareAutoRefreshTrigger = Infer<typeof vCloudflareAutoRefreshTrigger>;
 
 async function runCloudflareMcpTokenRefresh(args: {
   ctx: ActionCtx;
+  organizationId: Id<"organizations">;
   userId: Id<"users">;
   trigger: CloudflareAutoRefreshTrigger;
   force?: boolean;
 }): Promise<CloudflareConnectionStatus> {
   const organizationId = await args.ctx.runQuery(
-    internal.organizationAccess.getOrganizationIdForUser,
-    { userId: args.userId },
+    internal.organizationAccess.requireOrganizationIdForUser,
+    { userId: args.userId, organizationId: args.organizationId },
   );
   const connection = await args.ctx.runQuery(
     internal.providerConnections.loadCurrentConnectedForOrganization,
@@ -1205,6 +1228,7 @@ async function runCloudflareMcpTokenRefresh(args: {
 export const refreshCloudflareMcpTokenIfNeeded = action({
   access: "access_provider_connections",
   args: {
+    organizationId: id("organizations"),
     trigger: optional(vCloudflareAutoRefreshTrigger),
     force: optional(boolean()),
   },
@@ -1212,6 +1236,7 @@ export const refreshCloudflareMcpTokenIfNeeded = action({
   handler: async (ctx, args) => {
     return await runCloudflareMcpTokenRefresh({
       ctx,
+      organizationId: args.organizationId,
       userId: ctx.viewer.userId,
       trigger: args.trigger ?? "manual",
       force: args.force,
@@ -1221,11 +1246,14 @@ export const refreshCloudflareMcpTokenIfNeeded = action({
 
 export const checkCloudflareMcpTokenHealth = action({
   access: "access_provider_connections",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: vCloudflareConnectionStatus,
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     return await runCloudflareMcpTokenRefresh({
       ctx,
+      organizationId: args.organizationId,
       userId: ctx.viewer.userId,
       trigger: "manual",
       force: true,
@@ -1235,12 +1263,14 @@ export const checkCloudflareMcpTokenHealth = action({
 
 export const disconnectCloudflare = action({
   access: "access_provider_connections",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: v.null(),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const organizationId = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
-      { userId: ctx.viewer.userId },
+      internal.organizationAccess.requireOrganizationIdForUser,
+      { userId: ctx.viewer.userId, organizationId: args.organizationId },
     );
     const connection = await ctx.runQuery(
       internal.providerConnections.loadCurrentConnectedForOrganization,
@@ -1273,6 +1303,7 @@ const vConvexApiKeyConnectionResult = v.object({
 export const connectGithubWithApiKey = action({
   access: "access_provider_connections",
   args: {
+    organizationId: id("organizations"),
     token: v.string(),
   },
   returns: vGithubApiKeyConnectionResult,
@@ -1280,8 +1311,8 @@ export const connectGithubWithApiKey = action({
     const token = normalizeApiToken(args.token);
     const identity = await fetchGithubIdentity(token);
     const organizationId: Id<"organizations"> = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
-      { userId: ctx.viewer.userId },
+      internal.organizationAccess.requireOrganizationIdForUser,
+      { userId: ctx.viewer.userId, organizationId: args.organizationId },
     );
     const target: Doc<"providerConnections"> | null = await ctx.runQuery(
       internal.providerConnections.loadDefaultForOrganization,
@@ -1321,6 +1352,7 @@ export const connectGithubWithApiKey = action({
 export const connectConvexWithApiKey = action({
   access: "access_provider_connections",
   args: {
+    organizationId: id("organizations"),
     token: v.string(),
   },
   returns: vConvexApiKeyConnectionResult,
@@ -1328,8 +1360,8 @@ export const connectConvexWithApiKey = action({
     const token = normalizeApiToken(args.token);
     const details = await fetchConvexApiKeyTeamDetails(token);
     const organizationId: Id<"organizations"> = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
-      { userId: ctx.viewer.userId },
+      internal.organizationAccess.requireOrganizationIdForUser,
+      { userId: ctx.viewer.userId, organizationId: args.organizationId },
     );
     const target: Doc<"providerConnections"> | null = await ctx.runQuery(
       internal.providerConnections.loadDefaultForOrganization,

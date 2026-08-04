@@ -267,7 +267,10 @@ export function VaultDeleteDialog({
       didAttemptCommit: operation.didAttemptCommit,
     });
     try {
-      await commitStaging({ repositoryFullName: target.repositoryFullName });
+      await commitStaging({
+        organizationId: vault.organizationId,
+        repositoryFullName: target.repositoryFullName,
+      });
       setOperation({
         state: "idle",
         commitError: null,

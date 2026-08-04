@@ -33,7 +33,7 @@ async function seedRunningDeletion() {
       email: "deleting@example.com",
       isApproved: true,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
     await ctx.db.insert("organizationBillingAccounts", {
       organizationId,
@@ -85,7 +85,7 @@ describe("account deletion workflow ownership and outcomes", () => {
         email: "deleting@example.com",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
       await ctx.db.insert("organizationBillingAccounts", {
         organizationId,

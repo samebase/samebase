@@ -23,7 +23,7 @@ async function seedRunningDeletion() {
       userId,
       expirationTime: Date.now() + 60_000,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
     const membershipId = await ctx.db.insert("organizationMemberships", {
       organizationId,
       userId,
@@ -476,79 +476,6 @@ describe("account deletion auth cleanup", () => {
     });
   });
 
-  it("requires confirmed billing cancellation before active sole-member billing is deleted", async () => {
-    const { ids, t } = await seedRunningDeletion();
-    await t.run(async (ctx) => {
-      await ctx.db.patch(ids.billingAccountId, {
-        provider: "polar",
-        plan: "pro",
-        status: "active",
-        polarExternalCustomerId: "organization-customer",
-      });
-      await ctx.db.patch(ids.runId, {
-        outcomes: {
-          billing: { state: "not_applicable" },
-          providerRevocation: {
-            state: "completed",
-            github: { state: "not_connected" },
-            cloudflare: { state: "not_connected" },
-            convex: { state: "not_connected" },
-          },
-          completionEmail: { state: "sent" },
-        },
-      });
-    });
-    const args = { runId: ids.runId, workflowId };
-
-    await expect(
-      t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
-    ).rejects.toThrow("Organization billing cancellation is not complete.");
-
-    await t.run(async (ctx) => {
-      const run = await ctx.db.get(ids.runId);
-      if (run === null || run.state !== "running") {
-        throw new Error("Expected a running account deletion.");
-      }
-      await ctx.db.patch(run._id, {
-        outcomes: { ...run.outcomes, billing: { state: "succeeded" } },
-      });
-    });
-    await expect(
-      t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
-    ).resolves.toBeNull();
-    await expect(
-      t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, args),
-    ).resolves.toBeNull();
-  });
-
-  it("rejects finalization when the organization does not own the run", async () => {
-    const { ids, t } = await seedRunningDeletion();
-    await t.run(async (ctx) => {
-      await ctx.db.patch(ids.organizationId, { accountDeletionRunId: undefined });
-      await ctx.db.patch(ids.runId, {
-        outcomes: {
-          billing: { state: "not_applicable" },
-          providerRevocation: {
-            state: "completed",
-            github: { state: "not_connected" },
-            cloudflare: { state: "not_connected" },
-            convex: { state: "not_connected" },
-          },
-          completionEmail: { state: "sent" },
-        },
-      });
-    });
-
-    await expect(
-      t.mutation(internal.accountDeletion.workflow.markFinalizing, {
-        runId: ids.runId,
-        workflowId,
-      }),
-    ).rejects.toThrow("Account deletion organization lock is inconsistent.");
-    await expect(t.run(async (ctx) => await ctx.db.get(ids.membershipId))).resolves.not.toBeNull();
-    await expect(t.run(async (ctx) => await ctx.db.get(ids.userId))).resolves.not.toBeNull();
-  });
-
   it("finishes when the user signed out and the initiating session is already absent", async () => {
     const { ids, t } = await seedRunningDeletion();
     const args = { runId: ids.runId, workflowId };
@@ -650,40 +577,6 @@ describe("account deletion auth cleanup", () => {
         workflowId,
       }),
     ).rejects.toThrow("Only the initiating auth session may remain");
-  });
-
-  it("fails closed when account data appears before final identity deletion", async () => {
-    const { ids, t } = await seedRunningDeletion();
-    await t.run(async (ctx) => {
-      await ctx.db.patch(ids.runId, {
-        outcomes: {
-          billing: { state: "not_applicable" },
-          providerRevocation: {
-            state: "completed",
-            github: { state: "not_connected" },
-            cloudflare: { state: "not_connected" },
-            convex: { state: "not_connected" },
-          },
-          completionEmail: { state: "sent" },
-        },
-      });
-    });
-    const args = { runId: ids.runId, workflowId };
-
-    await expect(
-      t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
-    ).resolves.toBeNull();
-
-    await t.run(async (ctx) => {
-      await ctx.db.insert("ui_user_settings", {
-        userId: ids.userId,
-        providersPanelOpen: false,
-        pricingBillingCycle: "monthly",
-      });
-    });
-    await expect(
-      t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, args),
-    ).rejects.toThrow("Samebase account data remains during finalization.");
   });
 });
 

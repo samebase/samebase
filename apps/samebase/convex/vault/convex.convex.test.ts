@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const octokitMocks = vi.hoisted(() => ({
+  createClient: vi.fn(),
   getRepository: vi.fn(),
   getRef: vi.fn(),
   getCommit: vi.fn(),
@@ -10,6 +11,10 @@ const octokitMocks = vi.hoisted(() => ({
 
 vi.mock("@octokit/rest", () => ({
   Octokit: class {
+    constructor(options: { auth: string }) {
+      octokitMocks.createClient(options);
+    }
+
     readonly rest = {
       repos: { get: octokitMocks.getRepository },
       git: {
@@ -78,7 +83,7 @@ async function createConnectedVault(teamId = "1000") {
       email: "ada@example.com",
       isApproved: true,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
     await ctx.db.insert("organizationBillingAccounts", {
       organizationId,
@@ -288,7 +293,21 @@ describe("vault Convex project attachments", () => {
       throw new Error(`Unexpected Convex request: ${input.method} ${input.url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
-    const { asUser, t, vaultId } = await createConnectedVault();
+    const { asUser, organizationId, t, userId, vaultId } = await createConnectedVault();
+    await t.run(async (ctx) => {
+      const selectedGithubProviderConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "github",
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
+        auth: { method: "api_key", credential: "other-github-token" },
+        accountId: "github-other",
+        username: "other",
+        createdAt: 2,
+        updatedAt: 2,
+      });
+      await ctx.db.patch(organizationId, { selectedGithubProviderConnectionId });
+    });
 
     const convexProjectIds = await asUser.action(api.vault.convex.attachProjects, {
       vaultId,
@@ -336,6 +355,7 @@ describe("vault Convex project attachments", () => {
       },
     ]);
     expect(octokitMocks.getBlob).not.toHaveBeenCalled();
+    expect(octokitMocks.createClient).toHaveBeenCalledWith({ auth: "github-token" });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
@@ -701,9 +721,23 @@ describe("vault Convex project attachments", () => {
     ).resolves.toBeNull();
   });
 
-  it("retries an interrupted managed create after the project was deleted", async () => {
-    const { organizationId, runId, t, userId, vaultId } =
+  it("uses the planned Convex connection when retrying an interrupted create", async () => {
+    const { convexProviderConnectionId, organizationId, runId, t, userId, vaultId } =
       await createManagedProjectCreatingFixture();
+    await t.run(async (ctx) => {
+      const selectedConvexProviderConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "convex",
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
+        auth: { method: "oauth", credential: "other-convex-token" },
+        teamId: "2000",
+        teamSlug: "team-2000",
+        createdAt: 4,
+        updatedAt: 4,
+      });
+      await ctx.db.patch(organizationId, { selectedConvexProviderConnectionId });
+    });
     const fetchMock = vi.fn(async (input: Request) => {
       if (input.url.includes("/teams/1000/projects?limit=100")) {
         return jsonResponse({ items: [], pagination: { hasMore: false } });
@@ -729,6 +763,7 @@ describe("vault Convex project attachments", () => {
     await expect(t.run(async (ctx) => await ctx.db.get(convexProjectId))).resolves.toMatchObject({
       vaultId,
       organizationId,
+      providerConnectionId: convexProviderConnectionId,
       teamId: "1000",
       projectId: "1003",
       convexConfigPath: "convex.json",

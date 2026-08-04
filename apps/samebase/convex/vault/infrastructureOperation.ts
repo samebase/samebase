@@ -127,7 +127,10 @@ export async function requireUserVaultInfrastructureIdle(
   if (!vault || vault.state !== "connected") {
     throw new Error("Vault not found.");
   }
-  const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+  const ownership = await requireOrganizationAccessContext(ctx.db, {
+    userId: args.userId,
+    organizationId: vault.organizationId,
+  });
   if (!hasOrganizationAccess(ownership, vault)) {
     throw new Error("Vault not found.");
   }
@@ -249,7 +252,10 @@ export const claimManualProviderWrite = internalMutation({
     if (!vault || vault.state !== "connected") {
       throw new Error("Vault not found.");
     }
-    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: vault.organizationId,
+    });
     if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found.");
     }

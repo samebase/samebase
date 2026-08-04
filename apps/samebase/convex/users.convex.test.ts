@@ -15,15 +15,10 @@ async function insertGithubConnection(
     credential: string;
   },
 ) {
-  const existingMembership = await db
-    .query("organizationMemberships")
-    .withIndex("by_user", (query) => query.eq("userId", args.userId))
-    .unique();
-  const organizationId =
-    existingMembership?.organizationId ?? (await db.insert("organizations", {}));
-  if (existingMembership === null) {
-    await db.insert("organizationMemberships", { organizationId, userId: args.userId });
-  }
+  const organizationId = await db.insert("organizations", {
+    name: `${args.username} provider organization`,
+  });
+  await db.insert("organizationMemberships", { organizationId, userId: args.userId });
   const providerConnectionId = await db.insert("providerConnections", {
     state: "connected",
     kind: "github",
@@ -38,12 +33,16 @@ async function insertGithubConnection(
   await db.patch(organizationId, {
     selectedGithubProviderConnectionId: providerConnectionId,
   });
-  return providerConnectionId;
+  return { organizationId, providerConnectionId };
 }
 
 describe("users Convex contract", () => {
   it("treats anonymous viewers as signed out", async () => {
     const t = makeConvexTest();
+    const organizationId = await t.run(
+      async (ctx) =>
+        await ctx.db.insert("organizations", { name: "Anonymous request organization" }),
+    );
 
     await expect(t.query(api.users.viewer)).resolves.toBeNull();
     await expect(t.query(api.users.currentViewerAccess)).resolves.toEqual({
@@ -53,7 +52,9 @@ describe("users Convex contract", () => {
     await expect(t.query(api.users.currentViewerRole)).resolves.toEqual({
       role: "role_anonymous",
     });
-    await expect(t.action(api.users.disconnectGithub)).rejects.toThrowError("Access denied");
+    await expect(t.action(api.users.disconnectGithub, { organizationId })).rejects.toThrowError(
+      "Access denied",
+    );
   });
 
   it("resolves the viewer presentation without provider identity", async () => {
@@ -207,13 +208,14 @@ describe("users Convex contract", () => {
         isApproved: false,
       });
     });
-    await t.run(async (ctx) => {
-      await insertGithubConnection(ctx.db, {
+    const ownerOrganizationId = await t.run(async (ctx) => {
+      const { organizationId } = await insertGithubConnection(ctx.db, {
         userId: ownerId,
         username: "owner-login",
         method: "api_key",
         credential: "test-owner-github-api-key",
       });
+      return organizationId;
     });
 
     const asViewer = t.withIdentity({
@@ -235,9 +237,11 @@ describe("users Convex contract", () => {
     await expect(asViewer.query(api.users.currentViewerRole)).resolves.toEqual({
       role: "role_pending_access",
     });
-    await expect(asViewer.query(api.users.getGithubConnectionStatus)).rejects.toThrowError(
-      "Access denied",
-    );
+    await expect(
+      asViewer.query(api.users.getGithubConnectionStatus, {
+        organizationId: ownerOrganizationId,
+      }),
+    ).rejects.toThrowError("Access denied");
     await expect(asViewer.query(api.users.getUserSettings)).resolves.toEqual({
       signInEmail: "viewer@example.com",
     });
@@ -270,10 +274,14 @@ describe("users Convex contract", () => {
     await expect(asViewer.query(api.users.getUserSettings)).resolves.toEqual({
       signInEmail: "viewer@example.com",
     });
-    await expect(asViewer.query(api.users.getGithubProviderSummary)).rejects.toThrowError(
-      "Access denied",
-    );
-    await expect(asViewer.action(api.users.disconnectGithub)).rejects.toThrowError("Access denied");
+    await expect(
+      asViewer.query(api.users.getGithubProviderSummary, {
+        organizationId: ownerOrganizationId,
+      }),
+    ).rejects.toThrowError("Access denied");
+    await expect(
+      asViewer.action(api.users.disconnectGithub, { organizationId: ownerOrganizationId }),
+    ).rejects.toThrowError("Access denied");
 
     const ownerConnectionAfterViewerDisconnect = await t.run(async (ctx) => {
       return await ctx.db
@@ -292,12 +300,20 @@ describe("users Convex contract", () => {
       tokenIdentifier: `test:${ownerId}`,
     });
 
-    await expect(asOwner.query(api.users.getGithubConnectionStatus)).resolves.toEqual({
+    await expect(
+      asOwner.query(api.users.getGithubConnectionStatus, {
+        organizationId: ownerOrganizationId,
+      }),
+    ).resolves.toEqual({
       connected: true,
       username: "owner-login",
       authMethod: "api_key",
     });
-    await expect(asOwner.query(api.users.getGithubProviderSummary)).resolves.toMatchObject({
+    await expect(
+      asOwner.query(api.users.getGithubProviderSummary, {
+        organizationId: ownerOrganizationId,
+      }),
+    ).resolves.toMatchObject({
       connected: true,
       username: "owner-login",
       authMethod: "api_key",
@@ -332,21 +348,31 @@ describe("users Convex contract", () => {
     });
   });
 
-  it("keeps OAuth reauthorize available when the manage URL env is absent", async () => {
+  it("reads the exact organization provider and keeps OAuth reauthorize available", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
+    const { apiKeyOrganizationId, oauthOrganizationId, userId } = await t.run(async (ctx) => {
       const insertedUserId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
         isApproved: true,
       });
-      await insertGithubConnection(ctx.db, {
+      const apiKeyConnection = await insertGithubConnection(ctx.db, {
         userId: insertedUserId,
-        username: "ada",
+        username: "ada-api-key",
+        method: "api_key",
+        credential: "github-api-key",
+      });
+      const oauthConnection = await insertGithubConnection(ctx.db, {
+        userId: insertedUserId,
+        username: "ada-oauth",
         method: "oauth",
         credential: "github-oauth-token",
       });
-      return insertedUserId;
+      return {
+        apiKeyOrganizationId: apiKeyConnection.organizationId,
+        oauthOrganizationId: oauthConnection.organizationId,
+        userId: insertedUserId,
+      };
     });
 
     const asUser = t.withIdentity({
@@ -354,8 +380,23 @@ describe("users Convex contract", () => {
       tokenIdentifier: `test:${userId}`,
     });
 
-    await expect(asUser.query(api.users.getGithubProviderSummary)).resolves.toMatchObject({
+    await expect(
+      asUser.query(api.users.getGithubProviderSummary, {
+        organizationId: apiKeyOrganizationId,
+      }),
+    ).resolves.toMatchObject({
       connected: true,
+      username: "ada-api-key",
+      authMethod: "api_key",
+      reauthorizeAvailable: false,
+    });
+    await expect(
+      asUser.query(api.users.getGithubProviderSummary, {
+        organizationId: oauthOrganizationId,
+      }),
+    ).resolves.toMatchObject({
+      connected: true,
+      username: "ada-oauth",
       authMethod: "oauth",
       reauthorizeAvailable: true,
     });
@@ -363,19 +404,19 @@ describe("users Convex contract", () => {
 
   it("checks GitHub OAuth health from live GitHub responses", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
+    const { organizationId, userId } = await t.run(async (ctx) => {
       const insertedUserId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
         isApproved: true,
       });
-      await insertGithubConnection(ctx.db, {
+      const connection = await insertGithubConnection(ctx.db, {
         userId: insertedUserId,
         username: "stored-login",
         method: "oauth",
         credential: "github-oauth-token",
       });
-      return insertedUserId;
+      return { organizationId: connection.organizationId, userId: insertedUserId };
     });
     const requestedUrls: string[] = [];
     vi.stubGlobal(
@@ -442,7 +483,9 @@ describe("users Convex contract", () => {
         tokenIdentifier: `test:${userId}`,
       });
 
-      const health = await asUser.action(api.users.checkGithubConnectionHealth);
+      const health = await asUser.action(api.users.checkGithubConnectionHealth, {
+        organizationId,
+      });
 
       expect(requestedUrls).toEqual([
         "https://api.github.com/user",
@@ -525,19 +568,19 @@ describe("users Convex contract", () => {
 
   it("treats absent GitHub scope headers as unknown access", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
+    const { organizationId, userId } = await t.run(async (ctx) => {
       const insertedUserId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
         isApproved: true,
       });
-      await insertGithubConnection(ctx.db, {
+      const connection = await insertGithubConnection(ctx.db, {
         userId: insertedUserId,
         username: "stored-login",
         method: "oauth",
         credential: "github-oauth-token",
       });
-      return insertedUserId;
+      return { organizationId: connection.organizationId, userId: insertedUserId };
     });
     vi.stubGlobal(
       "fetch",
@@ -577,7 +620,9 @@ describe("users Convex contract", () => {
         tokenIdentifier: `test:${userId}`,
       });
 
-      const health = await asUser.action(api.users.checkGithubConnectionHealth);
+      const health = await asUser.action(api.users.checkGithubConnectionHealth, {
+        organizationId,
+      });
 
       expect(health.requiredScopes.map((scope) => scope.status)).toEqual([
         "unknown",
@@ -595,19 +640,19 @@ describe("users Convex contract", () => {
 
   it("reports rejected GitHub credentials and skips repository checks", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
+    const { organizationId, userId } = await t.run(async (ctx) => {
       const insertedUserId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
         isApproved: true,
       });
-      await insertGithubConnection(ctx.db, {
+      const connection = await insertGithubConnection(ctx.db, {
         userId: insertedUserId,
         username: "stored-login",
         method: "oauth",
         credential: "github-oauth-token",
       });
-      return insertedUserId;
+      return { organizationId: connection.organizationId, userId: insertedUserId };
     });
     const requestedUrls: string[] = [];
     vi.stubGlobal(
@@ -631,7 +676,9 @@ describe("users Convex contract", () => {
         tokenIdentifier: `test:${userId}`,
       });
 
-      const health = await asUser.action(api.users.checkGithubConnectionHealth);
+      const health = await asUser.action(api.users.checkGithubConnectionHealth, {
+        organizationId,
+      });
 
       expect(requestedUrls).toEqual(["https://api.github.com/user"]);
       expect(health.checks).toMatchObject([
@@ -667,19 +714,19 @@ describe("users Convex contract", () => {
 
   it("reports GitHub repository listing authorization failures", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
+    const { organizationId, userId } = await t.run(async (ctx) => {
       const insertedUserId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
         isApproved: true,
       });
-      await insertGithubConnection(ctx.db, {
+      const connection = await insertGithubConnection(ctx.db, {
         userId: insertedUserId,
         username: "stored-login",
         method: "oauth",
         credential: "github-oauth-token",
       });
-      return insertedUserId;
+      return { organizationId: connection.organizationId, userId: insertedUserId };
     });
     const requestedUrls: string[] = [];
     vi.stubGlobal(
@@ -719,7 +766,9 @@ describe("users Convex contract", () => {
         tokenIdentifier: `test:${userId}`,
       });
 
-      const health = await asUser.action(api.users.checkGithubConnectionHealth);
+      const health = await asUser.action(api.users.checkGithubConnectionHealth, {
+        organizationId,
+      });
 
       expect(requestedUrls).toEqual([
         "https://api.github.com/user",
@@ -759,13 +808,15 @@ describe("users Convex contract", () => {
 
   it("reports whether the Cloudflare connection still needs account selection", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
+    const { organizationId, userId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", {
+        name: "Cloudflare organization",
+      });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
       const providerConnectionId = await ctx.db.insert("providerConnections", {
         state: "connected",
@@ -792,7 +843,7 @@ describe("users Convex contract", () => {
       await ctx.db.patch(organizationId, {
         selectedCloudflareProviderConnectionId: providerConnectionId,
       });
-      return userId;
+      return { organizationId, userId };
     });
 
     const asUser = t.withIdentity({
@@ -800,7 +851,9 @@ describe("users Convex contract", () => {
       tokenIdentifier: `test:${userId}`,
     });
 
-    const status = await asUser.query(api.users.getCloudflareConnectionStatus);
+    const status = await asUser.query(api.users.getCloudflareConnectionStatus, {
+      organizationId,
+    });
     expect(status).toMatchObject({
       connected: true,
       authMethod: "mcp_oauth",

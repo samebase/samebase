@@ -21,24 +21,6 @@ export type OrganizationAccessContext = {
 
 export async function findOrganizationAccessContext(
   db: DatabaseReader,
-  userId: Id<"users">,
-): Promise<OrganizationAccessContext | null> {
-  const membership = await db
-    .query("organizationMemberships")
-    .withIndex("by_user", (query) => query.eq("userId", userId))
-    .unique();
-  if (membership === null) {
-    return null;
-  }
-
-  return {
-    userId,
-    organizationId: membership.organizationId,
-  };
-}
-
-export async function findOrganizationAccessContextForOrganization(
-  db: DatabaseReader,
   access: OrganizationAccessContext,
 ): Promise<OrganizationAccessContext | null> {
   const membership = await db
@@ -54,22 +36,23 @@ export async function findOrganizationAccessContextForOrganization(
 /** Resolve the acting user's required organization membership. */
 export async function requireOrganizationAccessContext(
   db: DatabaseReader,
-  userId: Id<"users">,
+  access: OrganizationAccessContext,
 ): Promise<OrganizationAccessContext> {
-  const access = await findOrganizationAccessContext(db, userId);
-  if (access === null) {
+  const verifiedAccess = await findOrganizationAccessContext(db, access);
+  if (verifiedAccess === null) {
     throw new Error("Organization membership is required.");
   }
-  return access;
+  return verifiedAccess;
 }
 
-export const getOrganizationIdForUser = internalQuery({
+export const requireOrganizationIdForUser = internalQuery({
   args: {
     userId: v.id("users"),
+    organizationId: v.id("organizations"),
   },
   returns: v.id("organizations"),
   handler: async (ctx, args) => {
-    const access = await requireOrganizationAccessContext(ctx.db, args.userId);
+    const access = await requireOrganizationAccessContext(ctx.db, args);
     return access.organizationId;
   },
 });

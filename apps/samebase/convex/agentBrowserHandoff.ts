@@ -10,7 +10,7 @@ import {
 import { hasMcpGrantSubject } from "./mcp/grants";
 import { isMcpOauthClientInactive } from "./mcp/client";
 import { parseScopeTokens } from "./mcp/scopes";
-import { findOrganizationAccessContextForOrganization } from "./organizationAccess";
+import { findOrganizationAccessContext } from "./organizationAccess";
 import { readViewerRoleForUser } from "./viewerRole";
 
 const { id, literal, number, object, optional, string, union } = v;
@@ -108,7 +108,7 @@ export const createForMcp = internalMutation({
     if (!grant || grant.status !== "active") {
       return error("grant_inactive");
     }
-    const access = await findOrganizationAccessContextForOrganization(ctx.db, {
+    const access = await findOrganizationAccessContext(ctx.db, {
       userId: args.userId,
       organizationId: args.organizationId,
     });
@@ -230,7 +230,7 @@ export const redeemForAuth = internalMutation({
       .withIndex("by_client_id", (q) => q.eq("clientId", handoff.clientId))
       .first();
     const access = grant
-      ? await findOrganizationAccessContextForOrganization(ctx.db, {
+      ? await findOrganizationAccessContext(ctx.db, {
           userId: handoff.userId,
           organizationId: grant.organizationId,
         })

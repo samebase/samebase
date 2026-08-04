@@ -181,6 +181,7 @@ export const vVaultDeletionSummary = union(
 const vUserVaultsResult = array(
   object({
     _id: id("vaults"),
+    organizationId: id("organizations"),
     ghRepoOwner: string(),
     ghRepoName: string(),
     repositoryFullName: string(),

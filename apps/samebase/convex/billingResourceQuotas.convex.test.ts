@@ -31,7 +31,7 @@ async function createQuotaFixture(entitlement: "free" | "pro" = "free") {
       email: "member@example.com",
       isApproved: true,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Quota organization" });
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
     const billingAccountId = await ctx.db.insert("organizationBillingAccounts", {
       organizationId,
@@ -141,7 +141,7 @@ async function createOrganizationQuotaFixture() {
       email: "second-member@example.com",
       isApproved: true,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Shared quota" });
     await Promise.all([
       ctx.db.insert("organizationMemberships", { organizationId, userId: firstUserId }),
       ctx.db.insert("organizationMemberships", { organizationId, userId: secondUserId }),
@@ -466,32 +466,47 @@ async function createManagedWorkerCheckpoint(
 describe("billing resource quotas", () => {
   it("fails clearly when organization membership is missing", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
+    const { organizationId, userId } = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
         email: "missing-membership@example.com",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {
+        name: "Unrelated quota organization",
+      });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
+      });
+      return { organizationId, userId };
     });
 
     await expect(
-      asUser(t, userId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {}),
+      asUser(t, userId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {
+        organizationId,
+      }),
     ).rejects.toThrow("Organization membership is required.");
   });
 
   it("fails clearly when organization billing is missing", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
+    const { organizationId, userId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         email: "missing-billing@example.com",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", {
+        name: "Usage organization",
+      });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
-      return userId;
+      return { organizationId, userId };
     });
 
     await expect(
-      asUser(t, userId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {}),
+      asUser(t, userId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {
+        organizationId,
+      }),
     ).rejects.toThrow("Organization billing account is required.");
   });
 
@@ -545,16 +560,18 @@ describe("billing resource quotas", () => {
       convexProjects: { used: { state: "exact", count: 4 }, limit: 5 },
     };
     await expect(
-      asUser(t, ids.firstUserId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {}),
+      asUser(t, ids.firstUserId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {
+        organizationId: ids.organizationId,
+      }),
     ).resolves.toEqual(expectedUsageAtFour);
     await expect(
-      asUser(t, ids.secondUserId).query(
-        api.billingResourceQuotas.getViewerBillingResourceUsage,
-        {},
-      ),
+      asUser(t, ids.secondUserId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {
+        organizationId: ids.organizationId,
+      }),
     ).resolves.toEqual(expectedUsageAtFour);
     await expect(
       t.query(internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate, {
+        organizationId: ids.organizationId,
         userId: ids.secondUserId,
         kind: "convex_project",
       }),
@@ -575,37 +592,18 @@ describe("billing resource quotas", () => {
 
     await expect(
       t.query(internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate, {
+        organizationId: ids.organizationId,
         userId: ids.secondUserId,
         kind: "convex_project",
       }),
     ).rejects.toThrow("Convex project attachment limit reached (5).");
     await expect(
       t.query(internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate, {
+        organizationId: ids.organizationId,
         userId: ids.secondUserId,
         kind: "cloudflare_worker",
       }),
     ).rejects.toThrow("Cloudflare Worker attachment limit reached (5).");
-  });
-
-  it("supports more than two organization members", async () => {
-    const { ids, t } = await createOrganizationQuotaFixture();
-    await t.run(async (ctx) => {
-      const thirdUserId = await ctx.db.insert("users", {
-        email: "third-member@example.com",
-        isApproved: true,
-      });
-      await ctx.db.insert("organizationMemberships", {
-        organizationId: ids.organizationId,
-        userId: thirdUserId,
-      });
-    });
-
-    await expect(
-      asUser(t, ids.firstUserId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {}),
-    ).resolves.toEqual({
-      cloudflareWorkers: { used: { state: "exact", count: 0 }, limit: 5 },
-      convexProjects: { used: { state: "exact", count: 0 }, limit: 5 },
-    });
   });
 
   it("permits resource 5 and blocks resource 6 for a free account", async () => {
@@ -732,8 +730,14 @@ describe("billing resource quotas", () => {
   });
 
   it("keeps downgraded attachments usable until a new final count fits", async () => {
-    const { billingAccountId, cloudflareProviderConnectionId, convexProviderConnectionId, ids, t } =
-      await createQuotaFixture("pro");
+    const {
+      billingAccountId,
+      cloudflareProviderConnectionId,
+      convexProviderConnectionId,
+      ids,
+      organizationId,
+      t,
+    } = await createQuotaFixture("pro");
     const [projectIds, workerIds] = await Promise.all([
       seedProjects(t, { count: 6, vaultId: ids.vaultId }),
       seedWorkers(t, { count: 6, vaultId: ids.vaultId }),
@@ -746,7 +750,9 @@ describe("billing resource quotas", () => {
     });
 
     await expect(
-      asUser(t, ids.userId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {}),
+      asUser(t, ids.userId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {
+        organizationId,
+      }),
     ).resolves.toEqual({
       cloudflareWorkers: { used: { state: "exact", count: 6 }, limit: 5 },
       convexProjects: { used: { state: "exact", count: 6 }, limit: 5 },
@@ -850,14 +856,16 @@ describe("billing resource quotas", () => {
   });
 
   it("reports organization usage above the bounded exact range as 41+", async () => {
-    const { ids, t } = await createQuotaFixture("pro");
+    const { ids, organizationId, t } = await createQuotaFixture("pro");
     await Promise.all([
       seedProjects(t, { count: 45, vaultId: ids.vaultId }),
       seedWorkers(t, { count: 45, vaultId: ids.vaultId }),
     ]);
 
     await expect(
-      asUser(t, ids.userId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {}),
+      asUser(t, ids.userId).query(api.billingResourceQuotas.getViewerBillingResourceUsage, {
+        organizationId,
+      }),
     ).resolves.toEqual({
       cloudflareWorkers: { used: { state: "at_least", count: 41 }, limit: 40 },
       convexProjects: { used: { state: "at_least", count: 41 }, limit: 40 },

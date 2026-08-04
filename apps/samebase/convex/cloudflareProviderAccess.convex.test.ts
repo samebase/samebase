@@ -10,13 +10,15 @@ describe("Cloudflare provider access", () => {
 
   it("does not return provider failure text", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
+    const { organizationId, userId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", {
+        name: "Cloudflare provider organization",
+      });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
       const providerConnectionId = await ctx.db.insert("providerConnections", {
         state: "connected",
@@ -34,7 +36,7 @@ describe("Cloudflare provider access", () => {
       await ctx.db.patch(organizationId, {
         selectedCloudflareProviderConnectionId: providerConnectionId,
       });
-      return userId;
+      return { organizationId, userId };
     });
     const asUser = t.withIdentity({
       subject: `${userId}|test-session`,
@@ -49,7 +51,7 @@ describe("Cloudflare provider access", () => {
 
     const access = await asUser.action(
       api.cloudflareProviderAccess.checkCloudflareConnectionAccess,
-      {},
+      { organizationId },
     );
 
     expect(access.checks).toContainEqual({

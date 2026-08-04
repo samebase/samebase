@@ -1,7 +1,9 @@
 import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
 import { useVaultPullRequests } from "@/hooks/useVaultPullRequests";
 import { useVaultSidebarSummaries } from "@/hooks/useVaultSidebarSummaries";
+import { useOrganizationVaults } from "@/hooks/useOrganizationVaults";
 import { useCacheQuery } from "@/lib/convexQueryCache";
 import { useQuery as useConvexQuery } from "convex/react";
 import { useMemo } from "react";
@@ -21,11 +23,12 @@ function selectVault(
 }
 
 export function useVaultWorkspaceModel(
+  organizationId: Id<"organizations">,
   selectedRepositoryFullName: string | undefined,
 ): VaultWorkspaceModel {
-  const vaults = useCacheQuery(api.vault.dashboard.getUserVaults);
+  const vaults = useOrganizationVaults(organizationId);
   const folderState = useCacheQuery(api.vault.folders.getVaultFolderState);
-  const sidebarSummaries = useVaultSidebarSummaries();
+  const sidebarSummaries = useVaultSidebarSummaries(organizationId);
   const selectedVault = useMemo(
     () => selectVault(vaults, selectedRepositoryFullName),
     [selectedRepositoryFullName, vaults],
@@ -38,7 +41,9 @@ export function useVaultWorkspaceModel(
         : null,
   });
   const viewerAccess = useConvexQuery(api.users.currentViewerAccess);
-  const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus);
+  const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus, {
+    organizationId,
+  });
 
   const model = useMemo<VaultWorkspaceModel>(() => {
     if (!vaults || !folderState) {

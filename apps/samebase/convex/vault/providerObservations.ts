@@ -291,12 +291,7 @@ export const observeCloudflareWorkers = action({
       vaultId: args.vaultId,
       userId: ctx.viewer.userId,
     });
-    const organizationId = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
-      {
-        userId: ctx.viewer.userId,
-      },
-    );
+    const organizationId = context.organizationId;
 
     const accountSubdomainRequests = new Map<
       string,
@@ -398,12 +393,11 @@ export const observeCloudflareWorkerBuilds = action({
       vaultId: args.vaultId,
       userId: ctx.viewer.userId,
     });
-    const [organizationId, githubAccessToken] = await Promise.all([
-      ctx.runQuery(internal.organizationAccess.getOrganizationIdForUser, {
-        userId: ctx.viewer.userId,
-      }),
-      readGitHubAccessToken(ctx, { vaultId: args.vaultId, userId: ctx.viewer.userId }),
-    ]);
+    const organizationId = context.organizationId;
+    const githubAccessToken = await readGitHubAccessToken(ctx, {
+      vaultId: args.vaultId,
+      userId: ctx.viewer.userId,
+    });
     if (!githubAccessToken) {
       return context.cloudflareWorkers.map((worker) => ({
         state: "failed" as const,
@@ -526,12 +520,7 @@ export const observeCloudflareWorkerConvexBuildAccess = action({
       vaultId: args.vaultId,
       userId: ctx.viewer.userId,
     });
-    const organizationId = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
-      {
-        userId: ctx.viewer.userId,
-      },
-    );
+    const organizationId = context.organizationId;
     const targets = [...args.targets].sort((left, right) =>
       left.workerId.localeCompare(right.workerId),
     );
@@ -601,12 +590,8 @@ export const observeConvexProjects = action({
       userId: ctx.viewer.userId,
     };
     const context = await readObservationContext(ctx, contextArgs);
-    const [organizationId, githubAccessToken] = await Promise.all([
-      ctx.runQuery(internal.organizationAccess.getOrganizationIdForUser, {
-        userId: ctx.viewer.userId,
-      }),
-      readGitHubAccessToken(ctx, contextArgs),
-    ]);
+    const organizationId = context.organizationId;
+    const githubAccessToken = await readGitHubAccessToken(ctx, contextArgs);
 
     let sourceResolution:
       | {

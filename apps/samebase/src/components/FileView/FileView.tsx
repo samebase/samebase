@@ -79,6 +79,7 @@ import {
   useFileViewRouteSearch,
 } from "@/routeSearch/fileView";
 import { encodeGitHubPath } from "@/lib/githubUrls";
+import { useOrganizationSelection } from "@/hooks/useOrganizationSelection";
 import {
   type BranchComparePreview,
   BRANCH_COMPARE_PREVIEW_STAGING_DEBOUNCE_MS,
@@ -135,14 +136,18 @@ function FileViewWrapper() {
   const selectedFile = filePathParam ?? "";
   const repositoryFullName =
     owner && repoName && !isInvalidVaultRoute ? `${owner}/${repoName}` : null;
+  const organizationSelection = useOrganizationSelection();
+  const organizationId =
+    organizationSelection.state === "selected" ? organizationSelection.organizationId : null;
 
   // Get vault for this repository
   // TODO: Keep vault existence checks on live query until useCacheQuery exposes
   // freshness metadata (cached null can trigger a false redirect to dashboard).
   const vault = useLiveQuery(
     api.vault.records.getVaultByRepository,
-    repositoryFullName
+    repositoryFullName && organizationId
       ? {
+          organizationId,
           repositoryFullName,
           branch: routeBranch,
         }
@@ -529,6 +534,7 @@ function FileViewWrapper() {
       !storageBackedSelection[storageBackedSelectionKey]
     ) {
       void firstDocAction({
+        organizationId: vault.organizationId,
         repositoryFullName: `${owner}/${repoName}`,
         originalFilePath: selectedFile,
         branch,
@@ -1004,6 +1010,7 @@ function FileViewInner({
     let cancelled = false;
 
     void loadRepositoryFileContent({
+      organizationId: vault.organizationId,
       repositoryFullName,
       filePath: SIMPLE_VIEW_CONFIG_PATH,
       branch,
@@ -1034,6 +1041,7 @@ function FileViewInner({
     loadRepositoryFileContent,
     repositoryFullName,
     stagedSimpleViewConfigFile,
+    vault.organizationId,
   ]);
 
   /**
@@ -1147,6 +1155,7 @@ function FileViewInner({
     deletePendingUploadBlob,
     generateUploadUrl,
     navigateByHref,
+    organizationId: vault.organizationId,
     repositoryFullName,
     selectedFile,
     stageUploadedMedia,
@@ -1203,6 +1212,7 @@ function FileViewInner({
       setRebaseConflictBundleFeedback(null);
 
       return getRebaseConflictPreview({
+        organizationId: vault.organizationId,
         repositoryFullName,
         branch,
       })
@@ -1247,6 +1257,7 @@ function FileViewInner({
       navigateByHref,
       repositoryFullName,
       selectedFile,
+      vault.organizationId,
     ],
   );
   const handleUpstreamConflictDetected = useCallback(
@@ -1269,6 +1280,7 @@ function FileViewInner({
 
     try {
       void getRebaseConflictBundle({
+        organizationId: vault.organizationId,
         repositoryFullName,
         branch: rebaseConflictPreview.branch,
       })
@@ -1290,7 +1302,7 @@ function FileViewInner({
           : "Clipboard is unavailable in this browser.";
       setRebaseConflictBundleFeedback(message);
     }
-  }, [getRebaseConflictBundle, rebaseConflictPreview, repositoryFullName]);
+  }, [getRebaseConflictBundle, rebaseConflictPreview, repositoryFullName, vault.organizationId]);
 
   const handleFileSelect = useCallback(
     (path: string, status?: CommitPreviewFileStatus) => {
@@ -1314,6 +1326,7 @@ function FileViewInner({
 
       try {
         await stageFileForEditing({
+          organizationId: vault.organizationId,
           repositoryFullName: `${owner}/${repoName}`,
           originalFilePath: originalPath,
           branch,
@@ -1350,6 +1363,7 @@ function FileViewInner({
       stageFileForEditing,
       stagedFile?.initialFilePath,
       vault._id,
+      vault.organizationId,
     ],
   );
 
@@ -1367,6 +1381,7 @@ function FileViewInner({
         if (fileSha) {
           try {
             await stageFileForEditing({
+              organizationId: vault.organizationId,
               repositoryFullName: `${owner}/${repoName}`,
               originalFilePath: originalPath,
               branch,
@@ -1409,6 +1424,7 @@ function FileViewInner({
       selectedFile,
       stageFileForEditing,
       vault._id,
+      vault.organizationId,
       vault.treeData.tree,
     ],
   );
@@ -1440,6 +1456,7 @@ function FileViewInner({
           });
         } else if (comparedDeletedFile) {
           await restoreComparedDeletedFileToStaging({
+            organizationId: vault.organizationId,
             repositoryFullName,
             branch,
             filePath,
@@ -1475,6 +1492,7 @@ function FileViewInner({
       selectedFile,
       stagedFiles,
       vault._id,
+      vault.organizationId,
     ],
   );
 
@@ -1532,6 +1550,7 @@ function FileViewInner({
     setRebaseConflictBundleFeedback(null);
 
     void commitStaging({
+      organizationId: vault.organizationId,
       repositoryFullName: repositoryFullName,
       branch,
     }).catch((error) => {
@@ -1544,7 +1563,13 @@ function FileViewInner({
       }
       setCommitError(message);
     });
-  }, [branch, commitStaging, handleUpstreamConflictDetected, repositoryFullName]);
+  }, [
+    branch,
+    commitStaging,
+    handleUpstreamConflictDetected,
+    repositoryFullName,
+    vault.organizationId,
+  ]);
 
   const handleDraftPullRequest = useCallback(() => {
     setCommitError(null);
@@ -1618,6 +1643,7 @@ function FileViewInner({
 
     if (isDefaultBranch) {
       void createDraftPullRequestFromDefaultBranch({
+        organizationId: vault.organizationId,
         repositoryFullName,
         branch,
       })
@@ -1632,6 +1658,7 @@ function FileViewInner({
     }
 
     void createDraftPullRequest({
+      organizationId: vault.organizationId,
       repositoryFullName,
       branch,
     })
@@ -1656,6 +1683,7 @@ function FileViewInner({
     repositoryFullName,
     selectedFile,
     vault._id,
+    vault.organizationId,
   ]);
 
   const handleResetToGitHub = useCallback(() => {
@@ -1674,6 +1702,7 @@ function FileViewInner({
   const loadCommitPreview = useCallback(() => {
     setCommitPreviewError(null);
     return getCommitPreview({
+      organizationId: vault.organizationId,
       repositoryFullName,
       branch,
       includePatch: true,
@@ -1699,11 +1728,13 @@ function FileViewInner({
     handleUpstreamConflictDetected,
     repositoryFullName,
     resetRebaseConflictState,
+    vault.organizationId,
   ]);
   const loadBranchComparePreview = useCallback(
     (requestKey: string) => {
       setBranchComparePreviewError(null);
       return getBranchComparePreview({
+        organizationId: vault.organizationId,
         repositoryFullName,
         branch,
         includePatch: true,
@@ -1728,7 +1759,7 @@ function FileViewInner({
           setBranchComparePreviewError(message);
         });
     },
-    [branch, getBranchComparePreview, repositoryFullName],
+    [branch, getBranchComparePreview, repositoryFullName, vault.organizationId],
   );
   const clearBranchComparePreviewReloadTimeout = useCallback(() => {
     if (branchComparePreviewReloadTimeoutRef.current === null) {
@@ -2418,6 +2449,7 @@ function FileViewInner({
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <VaultSyncStatus
+              organizationId={vault.organizationId}
               vaultId={vault._id}
               repositoryFullName={repositoryFullName}
               branch={branch}
@@ -2594,6 +2626,7 @@ function FileViewInner({
                                   upload again if you still want to replace the upstream file.
                                 </div>
                                 <RepositoryMediaViewer
+                                  organizationId={vault.organizationId}
                                   repositoryFullName={repositoryFullName}
                                   filePath={
                                     selectedRebaseConflictFile.upstreamPath ??
@@ -2718,6 +2751,7 @@ function FileViewInner({
                           <FileViewPatchPreview file={selectedPreviewFile} />
                         ) : selectedFileIsRenderableMedia ? (
                           <RepositoryMediaViewer
+                            organizationId={vault.organizationId}
                             repositoryFullName={repositoryFullName}
                             filePath={selectedFile}
                             branch={branch}
@@ -2734,6 +2768,7 @@ function FileViewInner({
           branchCompareLoadingState
         ) : selectedFileIsRenderableMedia ? (
           <RepositoryMediaViewer
+            organizationId={vault.organizationId}
             repositoryFullName={repositoryFullName}
             filePath={selectedFile}
             branch={branch}
@@ -2741,6 +2776,7 @@ function FileViewInner({
         ) : stagedFile ? (
           <CodeEditorWrapper
             key={stagedFile._id}
+            organizationId={vault.organizationId}
             repositoryFullName={repositoryFullName}
             branch={branch}
             filePath={selectedFile}

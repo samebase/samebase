@@ -1,14 +1,15 @@
-import { api } from "../../convex/_generated/api";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
+import { useOrganizationVaults } from "@/hooks/useOrganizationVaults";
 import {
   VaultConvexSchemaGraphRouteWorkspace,
   type VaultConvexSchemaGraphRouteContext,
 } from "@/components/vault-dashboard/VaultConvexSchemaGraph";
-import { useCacheQuery as useVaultQuery } from "@/lib/convexQueryCache";
 import { findVaultConvexProjectAttachment } from "@/lib/vaultConvexProjectAttachment";
 import { Database, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { getConvexCodeLocationPath } from "../../shared/convexCodeLocation";
+import type { Id } from "../../convex/_generated/dataModel";
+import { useOrganizationSelection } from "@/hooks/useOrganizationSelection";
 
 type VaultConvexSchemaGraphViewProps = {
   branch: string;
@@ -93,8 +94,32 @@ export function VaultConvexSchemaGraphView({
   owner,
   repoName,
 }: VaultConvexSchemaGraphViewProps) {
+  const selection = useOrganizationSelection();
+  if (selection.state !== "selected") {
+    return null;
+  }
+
+  return (
+    <VaultConvexSchemaGraphViewForOrganization
+      key={selection.organizationId}
+      organizationId={selection.organizationId}
+      branch={branch}
+      convexProjectId={routeConvexProjectId}
+      owner={owner}
+      repoName={repoName}
+    />
+  );
+}
+
+function VaultConvexSchemaGraphViewForOrganization({
+  organizationId,
+  branch,
+  convexProjectId: routeConvexProjectId,
+  owner,
+  repoName,
+}: VaultConvexSchemaGraphViewProps & { organizationId: Id<"organizations"> }) {
   const repositoryFullName = `${owner}/${repoName}`;
-  const dashboardVaults = useVaultQuery(api.vault.dashboard.getUserVaults);
+  const dashboardVaults = useOrganizationVaults(organizationId);
   const attachment = dashboardVaults
     ? findVaultConvexProjectAttachment(dashboardVaults, repositoryFullName, routeConvexProjectId)
     : null;

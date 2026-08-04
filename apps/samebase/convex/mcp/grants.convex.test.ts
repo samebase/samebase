@@ -29,8 +29,8 @@ async function seedGrants() {
       isApproved: true,
       name: "Other",
     });
-    const ownerOrganizationId = await ctx.db.insert("organizations", {});
-    const otherOrganizationId = await ctx.db.insert("organizations", {});
+    const ownerOrganizationId = await ctx.db.insert("organizations", { name: "Owner" });
+    const otherOrganizationId = await ctx.db.insert("organizations", { name: "Other" });
     await ctx.db.insert("organizationMemberships", {
       organizationId: ownerOrganizationId,
       userId: ownerId,
@@ -38,6 +38,10 @@ async function seedGrants() {
     await ctx.db.insert("organizationMemberships", {
       organizationId: otherOrganizationId,
       userId: otherUserId,
+    });
+    await ctx.db.insert("organizationMemberships", {
+      organizationId: otherOrganizationId,
+      userId: ownerId,
     });
     await ctx.db.insert("mcpOauthClients", {
       clientId: "mcpc_named",
@@ -117,11 +121,12 @@ async function seedGrants() {
 }
 
 describe("MCP grant management", () => {
-  it("paginates only the current user's active grants in newest-first order", async () => {
+  it("paginates only the selected organization's active grants in newest-first order", async () => {
     const { ids, t } = await seedGrants();
     const owner = asUser(t, ids.ownerId);
 
     const firstPage = await owner.query(api.mcp.grants.listCurrentUserGrants, {
+      organizationId: ids.ownerOrganizationId,
       paginationOpts: { cursor: null, numItems: 1 },
     });
     expect(firstPage.page).toEqual([
@@ -129,6 +134,7 @@ describe("MCP grant management", () => {
         clientId: "mcpc_unnamed",
         createdAt: now + 1,
         grantId: "mcpg_newer",
+        organizationId: ids.ownerOrganizationId,
         resource,
         scopes: ["access_dashboard"],
       },
@@ -136,6 +142,7 @@ describe("MCP grant management", () => {
     expect(firstPage.isDone).toBe(false);
 
     const secondPage = await owner.query(api.mcp.grants.listCurrentUserGrants, {
+      organizationId: ids.ownerOrganizationId,
       paginationOpts: { cursor: firstPage.continueCursor, numItems: 1 },
     });
     expect(secondPage.page).toEqual([
@@ -145,6 +152,7 @@ describe("MCP grant management", () => {
         createdAt: now,
         grantId: "mcpg_older",
         lastUsedAt: now + 5,
+        organizationId: ids.ownerOrganizationId,
         resource,
         scopes: ["access_dashboard", "access_browser_login_handoff"],
       },
@@ -191,7 +199,7 @@ describe("MCP grant management", () => {
     ]);
   });
 
-  it("keeps grants bound to the exact user and prepared organization", async () => {
+  it("uses explicit selection for lists and the grant organization for revoke", async () => {
     const { ids, t } = await seedGrants();
     const owner = asUser(t, ids.ownerId);
     await t.run(async (ctx) => {
@@ -211,13 +219,20 @@ describe("MCP grant management", () => {
     });
 
     const grants = await owner.query(api.mcp.grants.listCurrentUserGrants, {
+      organizationId: ids.ownerOrganizationId,
       paginationOpts: { cursor: null, numItems: 10 },
     });
     expect(grants.page.map((grant) => grant.grantId)).toEqual(["mcpg_older"]);
 
+    const otherOrganizationGrants = await owner.query(api.mcp.grants.listCurrentUserGrants, {
+      organizationId: ids.otherOrganizationId,
+      paginationOpts: { cursor: null, numItems: 10 },
+    });
+    expect(otherOrganizationGrants.page.map((grant) => grant.grantId)).toEqual(["mcpg_newer"]);
+
     await expect(
       owner.mutation(api.mcp.grants.revokeCurrentUserGrant, { grantId: "mcpg_newer" }),
-    ).rejects.toThrow("MCP client connection was not found.");
+    ).resolves.toEqual({ revoked: true });
     await expect(
       owner.mutation(api.mcp.grants.revokeCurrentUserGrant, { grantId: "mcpg_other" }),
     ).rejects.toThrow("MCP client connection was not found.");

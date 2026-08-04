@@ -409,16 +409,21 @@ async function cancelSupersededProvisioningRun(
 
 export async function resolveConvexProvisioningConnection(
   ctx: Pick<ActionCtx, "runQuery">,
-  userId: Id<"users">,
+  access: {
+    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+  },
 ): Promise<{
+  organizationId: Id<"organizations">;
   providerConnectionId: Id<"providerConnections">;
   convexToken: string;
   convexAuthMethod: ConvexProvisioningAuthMethod;
   convexTeamId: string;
 }> {
-  const organizationId = await ctx.runQuery(internal.organizationAccess.getOrganizationIdForUser, {
-    userId,
-  });
+  const organizationId = await ctx.runQuery(
+    internal.organizationAccess.requireOrganizationIdForUser,
+    access,
+  );
   const convexConnection = await ctx.runQuery(
     internal.providerConnections.loadCurrentConnectedForOrganization,
     { organizationId, kind: "convex" },
@@ -435,6 +440,7 @@ export async function resolveConvexProvisioningConnection(
   }
 
   return {
+    organizationId,
     providerConnectionId: convexConnection._id,
     convexToken,
     convexAuthMethod: convexConnection.auth.method,
@@ -451,17 +457,22 @@ export class ConvexProvisioningConnectionRequiredError extends Error {
 
 export async function resolveCloudflareProvisioningConnection(
   ctx: Pick<ActionCtx, "runAction" | "runQuery">,
-  userId: Id<"users">,
+  access: {
+    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+  },
   options?: { forceRefresh: true },
 ): Promise<{
+  organizationId: Id<"organizations">;
   providerConnectionId: Id<"providerConnections">;
   cloudflareToken: string;
   cloudflareAuthMethod: "api_key" | "oauth" | "mcp_oauth";
   cloudflareAccountId: string;
 }> {
-  const organizationId = await ctx.runQuery(internal.organizationAccess.getOrganizationIdForUser, {
-    userId,
-  });
+  const organizationId = await ctx.runQuery(
+    internal.organizationAccess.requireOrganizationIdForUser,
+    access,
+  );
   const connection = await ctx.runQuery(
     internal.providerConnections.loadCurrentConnectedForOrganization,
     { organizationId, kind: "cloudflare" },
@@ -472,7 +483,7 @@ export async function resolveCloudflareProvisioningConnection(
     );
   }
   const resolveArgs = {
-    userId,
+    userId: access.userId,
     organizationId,
     providerConnectionId: connection._id,
     ...(options ? { forceRefresh: true as const } : {}),
@@ -505,6 +516,7 @@ export async function resolveCloudflareProvisioningConnection(
   }
 
   return {
+    organizationId,
     providerConnectionId: connection._id,
     cloudflareToken,
     cloudflareAuthMethod: resolvedCloudflareConnection.auth.method,

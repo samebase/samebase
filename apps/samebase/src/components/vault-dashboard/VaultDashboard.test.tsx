@@ -65,6 +65,8 @@ const FOLDER_CALLBACKS = {
 const CREATE_VAULT_FOLDER: VaultFolderCreate = async () => {};
 
 const EMPTY_FOLDER_STATE = { assignments: [], folders: [] };
+// @ts-expect-error Convex ids are strings at runtime; this test only needs a stable id.
+const FIXTURE_ORGANIZATION_ID: Id<"organizations"> = "organization-vault-dashboard-test";
 const FAILED_CLOUDFLARE_BUILDS_OBSERVATIONS = {
   state: "failed",
   reload: () => {},
@@ -243,6 +245,7 @@ function makeRepositorySettingsBuilderVault(
 ): RepositorySettingsBuilderVault {
   const vault: RepositorySettingsBuilderVault = {
     _id: fakeVaultId(),
+    organizationId: FIXTURE_ORGANIZATION_ID,
     ghRepoOwner: "ada",
     ghRepoName: "demo",
     repositoryFullName: "ada/demo",

@@ -1,6 +1,7 @@
 import { useAction } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { cn } from "../lib/utils";
 
 const EMPTY_RESULT_RETRY_DELAYS_MS = [
@@ -40,6 +41,7 @@ interface ChecksPausedState {
 }
 
 interface CommitStatusProps {
+  organizationId: Id<"organizations">;
   owner: string;
   repo: string;
   commitSha?: string;
@@ -250,7 +252,13 @@ function InlineState({
   );
 }
 
-export function CommitStatus({ owner, repo, commitSha, className = "" }: CommitStatusProps) {
+export function CommitStatus({
+  organizationId,
+  owner,
+  repo,
+  commitSha,
+  className = "",
+}: CommitStatusProps) {
   const [checkRuns, setCheckRuns] = useState<GitHubCheckRun[] | null>(null);
   const [commitStatuses, setCommitStatuses] = useState<GitHubCommitStatus[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -328,6 +336,7 @@ export function CommitStatus({ owner, repo, commitSha, className = "" }: CommitS
 
       try {
         const result = await getCommitStatus({
+          organizationId,
           owner,
           repo,
           ref: commitSha,
@@ -427,7 +436,7 @@ export function CommitStatus({ owner, repo, commitSha, className = "" }: CommitS
       emptyAttemptRef.current = 0;
       lastFetchAtRef.current = null;
     };
-  }, [commitSha, owner, repo, getCommitStatus]);
+  }, [commitSha, getCommitStatus, organizationId, owner, repo]);
 
   if (!commitSha) {
     return <InlineState label="Missing commit SHA" className={cn("text-red-600", className)} />;

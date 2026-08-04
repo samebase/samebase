@@ -18,7 +18,7 @@ async function seedToolRuntimeOwner() {
       email: "ada@example.com",
       isApproved: true,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Tool runtime" });
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
@@ -89,7 +89,9 @@ describe("MCP tool runtime boundaries", () => {
   it("rejects a vault from another organization before provider access", async () => {
     const { organizationId, t, userId } = await seedToolRuntimeOwner();
     const foreignVaultId = await t.run(async (ctx) => {
-      const foreignOrganizationId = await ctx.db.insert("organizations", {});
+      const foreignOrganizationId = await ctx.db.insert("organizations", {
+        name: "Foreign runtime",
+      });
       return await ctx.db.insert("vaults", {
         organizationId: foreignOrganizationId,
         deletion: { state: "not_deleting" },

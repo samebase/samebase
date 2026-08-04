@@ -41,10 +41,7 @@ import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/cont
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
-import {
-  MCP_CONSENT_APP_PATH,
-  type McpAuthorizationSuccessSearchParams,
-} from "../../shared/mcpOAuth";
+import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 import { canAccess, type AccessKey } from "../../shared/accessModel";
 import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
 import { parseSiteOrigin } from "../../shared/siteOrigin";
@@ -52,10 +49,8 @@ import { mcpScopeAllowsAccess } from "../toolRuntime/mcpScopes";
 import { actionContracts, type ActionContractMcpName } from "../toolRuntime/actionCatalog";
 import {
   createAccessTokenValue,
-  createAuthorizationCodeValue,
   createRefreshTokenValue,
   MCP_ACCESS_TOKEN_TTL_MS,
-  MCP_AUTHORIZATION_CODE_TTL_MS,
   MCP_REFRESH_TOKEN_TTL_MS,
   sha256Hex,
 } from "./tokens";
@@ -617,55 +612,19 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
     return Response.redirect(consentRedirect.value, 302);
   }
 
-  const hasExistingGrant = await ctx.runQuery(internal.mcp.oauth.hasActiveGrantForAuthRequest, {
+  const consentRedirect = buildMcpConsentRedirectUrl({
+    request,
     requestId,
-    userId,
+    loginRequired: false,
   });
-  if (!hasExistingGrant) {
-    const consentRedirect = buildMcpConsentRedirectUrl({
-      request,
-      requestId,
-      loginRequired: false,
-    });
-    if (!consentRedirect.ok) {
-      return oauthErrorResponse({
-        status: 500,
-        error: "server_error",
-        errorDescription: consentRedirect.errorDescription,
-      });
-    }
-    return Response.redirect(consentRedirect.value, 302);
-  }
-
-  const authorizationCode = createAuthorizationCodeValue();
-  const authorizationCodeHash = await sha256Hex(authorizationCode);
-  const issueResult = await ctx.runMutation(
-    internal.mcp.oauth.issueAuthorizationCodeForAuthRequest,
-    {
-      requestId,
-      userId,
-      codeHash: authorizationCodeHash,
-      codeExpiresAt: now + MCP_AUTHORIZATION_CODE_TTL_MS,
-      allowLoopbackHttpRedirectUris:
-        protocolValidationOptions.allowLoopbackHttpRedirectUris === true,
-      now,
-    },
-  );
-  if (!issueResult.ok) {
+  if (!consentRedirect.ok) {
     return oauthErrorResponse({
-      status: issueResult.status,
-      error: issueResult.error,
-      errorDescription: issueResult.errorDescription,
+      status: 500,
+      error: "server_error",
+      errorDescription: consentRedirect.errorDescription,
     });
   }
-
-  return Response.redirect(
-    buildUrlWithSearchParams(issueResult.redirectUri, {
-      code: authorizationCode,
-      state: issueResult.state,
-    } satisfies McpAuthorizationSuccessSearchParams),
-    302,
-  );
+  return Response.redirect(consentRedirect.value, 302);
 });
 
 export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {
@@ -678,6 +637,7 @@ export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {
   }
 
   const rawBody = await request.text();
+  // eslint-disable-next-line no-restricted-globals -- OAuth form parsing is an explicit protocol boundary.
   const params = new URLSearchParams(rawBody);
   const now = Date.now();
   const protocolValidationOptions = getDefaultMcpProtocolValidationOptions();

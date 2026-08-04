@@ -395,7 +395,10 @@ export const cleanupVaultLocalDataStepBatch = internalMutation({
       return { state: "done" };
     }
 
-    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: vault.organizationId,
+    });
     if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found");
     }
@@ -433,7 +436,10 @@ export const deleteVaultRow = internalMutation({
     if (!vault) {
       return null;
     }
-    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: vault.organizationId,
+    });
     if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found");
     }

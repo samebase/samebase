@@ -25,7 +25,7 @@ import { assertConnectedVault } from "./vault/state";
 import { getRepositoryMediaKind } from "../shared/repositoryMedia";
 import { isStaleBaseVersionError } from "../shared/stagingErrors";
 
-const { boolean, number, object, optional, string } = v;
+const { boolean, id, number, object, optional, string } = v;
 
 type HeaderValue = string | number | readonly string[] | undefined;
 type HeaderMap = Record<string, HeaderValue>;
@@ -1877,6 +1877,7 @@ export const renameFileInStaging = action({
 
     // So that we guarantee that we have the file in staging
     await ctx.runAction(api.fileStagingActions.getFileForEditing, {
+      organizationId: connectedVault.organizationId,
       repositoryFullName: `${connectedVault.owner}/${connectedVault.name}`,
       originalFilePath: args.originalPath,
       branch,
@@ -1904,6 +1905,7 @@ export const renameFileInStaging = action({
 export const getFileForEditing = action({
   access: "access_files_read",
   args: {
+    organizationId: v.id("organizations"),
     repositoryFullName: v.string(),
     originalFilePath: v.string(),
     branch: v.optional(v.string()),
@@ -1914,6 +1916,7 @@ export const getFileForEditing = action({
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
+      organizationId: args.organizationId,
     });
 
     if (!vault) {
@@ -2101,6 +2104,7 @@ export const getFileForEditing = action({
 export const stageUploadedMedia = action({
   access: "access_files_write",
   args: {
+    organizationId: id("organizations"),
     repositoryFullName: string(),
     filePath: string(),
     storageId: v.id("_storage"),
@@ -2117,6 +2121,7 @@ export const stageUploadedMedia = action({
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
+      organizationId: args.organizationId,
     });
     if (!vault) {
       throw new Error("Vault not found");
@@ -2166,6 +2171,7 @@ export const stageUploadedMedia = action({
 export const commitStaging = action({
   access: "access_files_write",
   args: {
+    organizationId: v.id("organizations"),
     repositoryFullName: v.string(),
     branch: v.optional(v.string()),
   },
@@ -2177,6 +2183,7 @@ export const commitStaging = action({
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
+      organizationId: args.organizationId,
     });
     if (!vault) {
       throw new Error("Vault not found");
@@ -2197,6 +2204,7 @@ export const commitStaging = action({
 export const createDraftPullRequest = action({
   access: "access_files_write",
   args: {
+    organizationId: id("organizations"),
     repositoryFullName: string(),
     branch: optional(string()),
   },
@@ -2206,6 +2214,7 @@ export const createDraftPullRequest = action({
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
+      organizationId: args.organizationId,
     });
     if (!vault) {
       throw new Error("Vault not found");
@@ -2314,6 +2323,7 @@ export const createDraftPullRequest = action({
 export const createDraftPullRequestFromDefaultBranch = action({
   access: "access_files_write",
   args: {
+    organizationId: id("organizations"),
     repositoryFullName: string(),
     branch: optional(string()),
   },
@@ -2323,6 +2333,7 @@ export const createDraftPullRequestFromDefaultBranch = action({
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
+      organizationId: args.organizationId,
     });
     if (!vault) {
       throw new Error("Vault not found");
@@ -2751,6 +2762,7 @@ export const pullFromGitHubInternal = internalAction({
     for (const branch of touchedBranches) {
       await ctx.runAction(internal.github.updateRepositoryTree, {
         userId: args.userId,
+        organizationId: connectedVault.organizationId,
         owner: connectedVault.owner,
         repo: connectedVault.name,
         branch,
@@ -2799,6 +2811,7 @@ export const batchReadFiles = action({
       if (!branchTree) {
         await ctx.runAction(internal.github.updateRepositoryTree, {
           userId,
+          organizationId: connectedVault.organizationId,
           owner: connectedVault.owner,
           repo: connectedVault.name,
           branch: branchToLoad,
@@ -2928,6 +2941,7 @@ export const batchReadFiles = action({
 export const getCommitPreview = action({
   access: "access_files_read",
   args: {
+    organizationId: v.id("organizations"),
     repositoryFullName: v.string(),
     branch: v.optional(v.string()),
     includePatch: v.optional(v.boolean()),
@@ -2940,6 +2954,7 @@ export const getCommitPreview = action({
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
+      organizationId: args.organizationId,
     });
     if (!vault) {
       throw new Error("Vault not found");
@@ -2986,6 +3001,7 @@ export const getCommitPreview = action({
 export const getBranchComparePreview = action({
   access: "access_files_read",
   args: {
+    organizationId: v.id("organizations"),
     repositoryFullName: v.string(),
     branch: v.optional(v.string()),
     includePatch: v.optional(v.boolean()),
@@ -2998,6 +3014,7 @@ export const getBranchComparePreview = action({
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
+      organizationId: args.organizationId,
     });
     if (!vault) {
       throw new Error("Vault not found");
@@ -3146,6 +3163,7 @@ export const getBranchComparePreview = action({
 export const restoreComparedDeletedFileToStaging = action({
   access: "access_files_write",
   args: {
+    organizationId: v.id("organizations"),
     repositoryFullName: v.string(),
     branch: v.optional(v.string()),
     filePath: v.string(),
@@ -3157,6 +3175,7 @@ export const restoreComparedDeletedFileToStaging = action({
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
+      organizationId: args.organizationId,
     });
     if (!vault) {
       throw new Error("Vault not found");
@@ -3236,6 +3255,7 @@ export const restoreComparedDeletedFileToStaging = action({
 export const getRebaseConflictPreview = action({
   access: "access_files_read",
   args: {
+    organizationId: v.id("organizations"),
     repositoryFullName: v.string(),
     branch: v.optional(v.string()),
   },
@@ -3246,6 +3266,7 @@ export const getRebaseConflictPreview = action({
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
+      organizationId: args.organizationId,
     });
     if (!vault) {
       throw new Error("Vault not found");
@@ -3292,6 +3313,7 @@ export const getRebaseConflictPreview = action({
 export const getRebaseConflictBundle = action({
   access: "access_files_read",
   args: {
+    organizationId: v.id("organizations"),
     repositoryFullName: v.string(),
     branch: v.optional(v.string()),
   },
@@ -3302,6 +3324,7 @@ export const getRebaseConflictBundle = action({
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
+      organizationId: args.organizationId,
     });
     if (!vault) {
       throw new Error("Vault not found");
@@ -3696,16 +3719,12 @@ export const commitAllStaged = internalAction({
     const repoName = connectedVault.name;
     const fullRepo = `${repoOwner}/${repoName}`;
 
-    // Snapshot the changed staging rows before the GitHub work starts.
-    const changedFileRecords: StagedFileRecord[] = await ctx.runQuery(
+    const changedFiles: StagedFileRecord[] = await ctx.runQuery(
       internal.fileStaging.listAllStagedFiles,
       {
         vaultId: args.vaultId,
         branch: args.branch,
       },
-    );
-    const changedFiles: StagedFileSnapshot[] = changedFileRecords.map(
-      stripCreationTimeFromStagingRecord,
     );
 
     if (!changedFiles.length) {
@@ -3756,6 +3775,7 @@ export const commitAllStaged = internalAction({
       refreshBranchTree: async () => {
         await ctx.runAction(internal.github.updateRepositoryTree, {
           userId: args.userId,
+          organizationId: connectedVault.organizationId,
           owner: repoOwner,
           repo: repoName,
           branch: commitBranch,
@@ -3765,6 +3785,7 @@ export const commitAllStaged = internalAction({
         await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
           repositoryFullName: fullRepo,
           userId: args.userId,
+          organizationId: connectedVault.organizationId,
           branch: commitBranch,
         }),
       onWarning: (error) => {

@@ -125,8 +125,14 @@ export const readComposedInfrastructureState = internalQuery({
   returns: composedInfrastructureState,
   handler: async (ctx, args): Promise<ComposedInfrastructureState> => {
     const vault = await ctx.db.get(args.vaultId);
-    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
-    if (!vault || !hasOrganizationAccess(ownership, vault)) {
+    if (!vault) {
+      throw new Error("Vault not found.");
+    }
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: vault.organizationId,
+    });
+    if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found.");
     }
 
@@ -222,8 +228,14 @@ export const readComposedInfrastructureRetryContext = internalQuery({
       throw new Error("Provisioning run not found.");
     }
     const vault = await ctx.db.get(args.vaultId);
-    const ownership = await requireOrganizationAccessContext(ctx.db, run.requestedByUserId);
-    if (!isLiveConnectedVault(vault) || !hasOrganizationAccess(ownership, vault)) {
+    if (!isLiveConnectedVault(vault)) {
+      throw new Error("Vault not found.");
+    }
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: run.requestedByUserId,
+      organizationId: vault.organizationId,
+    });
+    if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found.");
     }
 
@@ -251,8 +263,14 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
       throw new Error("Composed infrastructure run does not match vault.");
     }
     const vault = await ctx.db.get(args.vaultId);
-    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
-    if (!isLiveConnectedVault(vault) || !hasOrganizationAccess(ownership, vault)) {
+    if (!isLiveConnectedVault(vault)) {
+      throw new Error("Vault not found.");
+    }
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: vault.organizationId,
+    });
+    if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found.");
     }
     const plan = await ctx.db

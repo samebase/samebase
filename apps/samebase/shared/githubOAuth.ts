@@ -38,7 +38,3 @@ export function getGitHubOAuthScopeRequirements() {
 export function buildGitHubOAuthManageUrl(clientId: string): string {
   return `https://github.com/settings/connections/applications/${encodeURIComponent(clientId)}`;
 }
-
-export function isSafeGithubOAuthReturnToPath(returnToPath: string) {
-  return returnToPath.startsWith("/") && !returnToPath.startsWith("//");
-}

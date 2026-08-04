@@ -17,6 +17,8 @@ import {
 import { VaultSelectedWorkspace } from "./VaultSelectedWorkspace";
 import { useVaultWorkspaceModel } from "./useVaultWorkspaceModel";
 import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
+import { useOrganizationSelection } from "@/hooks/useOrganizationSelection";
 
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 
@@ -29,11 +31,35 @@ export function VaultDashboard({
   page = "overview",
   selectedRepositoryFullName,
 }: VaultDashboardProps) {
+  const selection = useOrganizationSelection();
+  if (selection.state !== "selected") {
+    return null;
+  }
+
+  return (
+    <VaultDashboardForOrganization
+      key={selection.organizationId}
+      organizationId={selection.organizationId}
+      page={page}
+      selectedRepositoryFullName={selectedRepositoryFullName}
+    />
+  );
+}
+
+function VaultDashboardForOrganization({
+  organizationId,
+  page,
+  selectedRepositoryFullName,
+}: {
+  organizationId: Id<"organizations">;
+  page: VaultOverviewPageKind;
+  selectedRepositoryFullName: string | undefined;
+}) {
   const navigate = useNavigate();
   const pathname = useLocation({ select: (location) => location.pathname });
   const rootRouteSearch = useRootRouteSearch();
   const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
-  const workspaceModel = useVaultWorkspaceModel(selectedRepositoryFullName);
+  const workspaceModel = useVaultWorkspaceModel(organizationId, selectedRepositoryFullName);
   const createVaultFolder = useMutation(api.vault.folders.createVaultFolder);
   const deleteVaultFolder = useMutation(api.vault.folders.deleteVaultFolder);
   const moveVaultFolder = useMutation(api.vault.folders.moveVaultFolder);

@@ -182,6 +182,7 @@ Run `organizationBootstrap:bootstrapOrganizationOwnership` once with this input 
 {
   "operatorUserIdA": "<first retained user ID>",
   "operatorUserIdB": "<second retained user ID>",
+  "operatorOrganizationName": "Samebase",
   "operatorBilling": {
     "provider": "polar",
     "plan": "pro",
@@ -215,9 +216,18 @@ The function result must have these counts for `N` retained users:
 - `memberships`: `N`
 - `billingAccounts`: `N - 1`
 
-Verify the same table counts in production. Verify that the two operator memberships use one
-organization and that its billing row exactly matches the captured state. Verify that each other
-user has one separate organization with `plan: "free"` and `status: "inactive"`.
+Verify the same table counts in production. Verify that the two operator memberships use the
+organization named `Samebase` and that its billing row exactly matches the captured state. Verify
+that each other user has one separate organization with `plan: "free"` and `status: "inactive"`.
+
+To add an existing account to an organization later, run the internal mutation with the exact
+organization ID and account email:
+
+```sh
+npx convex run organizationAdmin:addExistingUserToOrganization '{"organizationId":"<organization ID>","userEmail":"<account email>"}'
+```
+
+The mutation adds one membership. It does not remove the account from another organization.
 
 After this billing verification succeeds, allow only controlled test traffic. Keep public traffic
 and Polar webhooks stopped. Then complete these user-visible checks in order:

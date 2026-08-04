@@ -48,4 +48,10 @@ export const identityTables = {
   })
     .index("email", ["email"])
     .index("phone", ["phone"]),
+
+  /** Only devAuth password seeding reads this deployment-local organization binding. */
+  seededPasswordAccounts: defineTable({
+    userId: id("users"),
+    organizationId: id("organizations"),
+  }).index("by_user", ["userId"]),
 };

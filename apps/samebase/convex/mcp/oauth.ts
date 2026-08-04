@@ -5,7 +5,6 @@ import { action, query } from "../functions";
 import { randomToken } from "../oauthUtils";
 import {
   findOrganizationAccessContext,
-  findOrganizationAccessContextForOrganization,
   requireOrganizationAccessContext,
 } from "../organizationAccess";
 import {
@@ -77,6 +76,7 @@ type McpOauthError = Infer<typeof mcpOauthErrorValidator>;
 const issueAuthorizationCodeForAuthRequestArgsValidator = object({
   requestId: string(),
   userId: id("users"),
+  organizationId: id("organizations"),
   codeHash: string(),
   codeExpiresAt: number(),
   allowLoopbackHttpRedirectUris: optional(boolean()),
@@ -100,6 +100,7 @@ type IssueAuthorizationCodeForAuthRequestResult = Infer<
 
 const completeAuthorizationRequestArgsValidator = object({
   requestId: string(),
+  organizationId: id("organizations"),
 });
 type CompleteAuthorizationRequestArgs = Infer<typeof completeAuthorizationRequestArgsValidator>;
 
@@ -396,39 +397,6 @@ export const getAuthorizationRequestForCurrentUser = query({
   },
 });
 
-export const hasActiveGrantForAuthRequest = internalQuery({
-  args: {
-    requestId: string(),
-    userId: id("users"),
-  },
-  returns: v.boolean(),
-  handler: async (ctx, args) => {
-    const authRequest = await ctx.db
-      .query("mcpAuthorizationRequests")
-      .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
-      .first();
-    if (!authRequest) {
-      return false;
-    }
-    const userGrants = await ctx.db
-      .query("mcpGrants")
-      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
-      .collect();
-    const access = await findOrganizationAccessContext(ctx.db, args.userId);
-    if (!access) {
-      return false;
-    }
-    return userGrants.some(
-      (grant) =>
-        hasMcpGrantSubject(access, grant) &&
-        grant.clientId === authRequest.clientId &&
-        grant.resource === authRequest.resource &&
-        grant.scope === authRequest.scope &&
-        grant.status === "active",
-    );
-  },
-});
-
 export const issueAuthorizationCodeForAuthRequest = internalMutation({
   args: issueAuthorizationCodeForAuthRequestArgsValidator,
   returns: issueAuthorizationCodeForAuthRequestResultValidator,
@@ -493,7 +461,10 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
       });
     }
 
-    const access = await requireOrganizationAccessContext(ctx.db, args.userId);
+    const access = await requireOrganizationAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: args.organizationId,
+    });
     const existingGrant = await ctx.db
       .query("mcpGrants")
       .withIndex("by_user_and_org_and_client_and_resource_and_scope_and_status", (q) =>
@@ -551,6 +522,7 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
       createdAt: args.now,
       detailsJson: JSON.stringify({
         requestId: authRequest.requestId,
+        organizationId: access.organizationId,
       }),
     });
 
@@ -615,6 +587,7 @@ export const completeAuthorizationRequestForCurrentUser = action({
       {
         requestId: args.requestId,
         userId: ctx.viewer.userId,
+        organizationId: args.organizationId,
         codeHash: authorizationCodeHash,
         codeExpiresAt: now + MCP_AUTHORIZATION_CODE_TTL_MS,
         allowLoopbackHttpRedirectUris:
@@ -783,7 +756,12 @@ export const exchangeAuthorizationCode = internalMutation({
       .query("mcpGrants")
       .withIndex("by_grant_id", (q) => q.eq("grantId", authorizationCode.grantId))
       .first();
-    const access = await findOrganizationAccessContext(ctx.db, authorizationCode.userId);
+    const access = grant
+      ? await findOrganizationAccessContext(ctx.db, {
+          userId: authorizationCode.userId,
+          organizationId: grant.organizationId,
+        })
+      : null;
     if (!grant || grant.status !== "active" || !access || !hasMcpGrantSubject(access, grant)) {
       return oauthError({
         status: 400,
@@ -939,11 +917,16 @@ export const exchangeRefreshToken = internalMutation({
       });
     }
 
-    const access = await findOrganizationAccessContext(ctx.db, refreshToken.userId);
     const grant = await ctx.db
       .query("mcpGrants")
       .withIndex("by_grant_id", (q) => q.eq("grantId", refreshToken.grantId))
       .first();
+    const access = grant
+      ? await findOrganizationAccessContext(ctx.db, {
+          userId: refreshToken.userId,
+          organizationId: grant.organizationId,
+        })
+      : null;
     if (!grant || grant.status !== "active" || !access || !hasMcpGrantSubject(access, grant)) {
       return oauthError({
         status: 400,
@@ -1082,7 +1065,7 @@ export const validateAccessToken = internalMutation({
       .withIndex("by_grant_id", (q) => q.eq("grantId", accessToken.grantId))
       .first();
     const access = grant
-      ? await findOrganizationAccessContextForOrganization(ctx.db, {
+      ? await findOrganizationAccessContext(ctx.db, {
           userId: accessToken.userId,
           organizationId: grant.organizationId,
         })

@@ -7,8 +7,7 @@
 - Last updated: 2026-08-04
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Current branch: `codex-organization-ownership-spec`
-- Current state: Organization provider ownership implemented; final validation and review in
-  progress
+- Current state: Multi-organization request context and direct membership addition in progress
 - Current pull request: [#1355](https://github.com/samebase/samebase/pull/1355)
 
 ## Purpose
@@ -29,15 +28,29 @@ output or a per-commit journal.
 - The implementation gets one implementation review and one independent simplicity review before
   merge.
 - New enterprise features do not enter this rollout without a spec change.
+- Change the production schema, authorization contracts, and production callers to the accepted
+  model first. Then rewrite or delete tests for the former model. Do not add production
+  compatibility code to preserve an old test.
 
 ## Accepted Decisions
 
 - Use local `users`, `organizations`, and `organizationMemberships` as the tenant graph.
+- Give every organization a required durable, nonempty name. The name is display data and never an
+  authorization key.
 - Bootstrap an organization for every retained user, including waitlisted users.
 - Put the two known operator accounts in one organization through explicit bootstrap input.
 - Use membership presence as access. Do not add a role until two roles have different behavior.
+- Allow several memberships for one user and enforce one row for each exact organization and user
+  pair.
 - Keep organization context out of `users` and derive it from the resource or verified request
   context.
+- Keep the web selection in URL request context. Every root organization operation receives the
+  selected organization ID and verifies the exact membership. No backend function selects a
+  membership from only `userId`.
+- For an existing resource, load the resource and use its required organization ID. A request
+  selection cannot override the resource boundary.
+- Add existing users through an idempotent operator-only internal mutation. Do not add invitation,
+  email, acceptance, or pending-membership state.
 - Make vaults, billing, and resource quota ownership organization-scoped.
 - Treat staged files as one shared collaborative vault draft. Remove `vaultStagedFiles.ownerId` as
   an access gate in the final model.
@@ -51,6 +64,8 @@ output or a per-commit journal.
   Continue to reload and recheck the grant, membership, scope, and client during browser handoff
   creation and redemption because they are separate requests.
 - Keep authentication and personal UI state user-scoped.
+- Fail account deletion before any write when the user has several memberships. Full
+  multi-organization deletion waits for the member-management surface.
 - Make each provider connection organization-owned and require `connectedByUserId` for the member
   who connected or last reauthorized it. Use the organization for access and the user link for
   provenance and credential lifecycle.
@@ -64,11 +79,15 @@ output or a per-commit journal.
   disconnected row when resources still refer to its stable ID.
 - Keep the current provider OAuth and API-key methods. Do not add a GitHub App flow.
 - Keep WorkOS and Clerk out of the runtime and schema.
+- Require every provider OAuth start to store a validated same-site return path so the callback
+  restores the selected organization URL.
 - Preserve users, authentication data, external provider resources, and the recorded Polar billing
   state. Disconnect and recreate local provider connections during cutover.
 - Use an operator-run manual reset for local vault, staging, workflow, and MCP authorization data so
   the final schema can deploy without compatibility code. Require an empty `providerConnections`
   table and empty provider OAuth callback state before the final schema deploy.
+- Keep FileView deferred as a staff-only add-on. FileView behavior is not a release gate for this
+  rollout.
 
 ## Rejected Or Deferred
 
@@ -80,18 +99,20 @@ output or a per-commit journal.
 - A general Convex migration component: rejected for now because every measured source table has
   fewer than 500 rows.
 - `users.organizationId`: rejected because a user row is not the durable resource boundary.
-- `users.activeOrganizationId`: rejected because future organization selection belongs to verified
-  request or session context.
-- Organization name, status, slug, kind, lifecycle, and creator fields: deferred without a current
-  behavior.
+- `users.activeOrganizationId`: rejected because organization selection belongs to verified request
+  context.
+- Organization status, slug, kind, lifecycle, and creator fields: deferred without a current
+  behavior. The required durable name is part of this rollout.
 - Membership roles, status, timestamps, and permission arrays: deferred without a current behavior.
 - Auth identity and organization provider-link tables: deferred now, but required before any
   external authentication or organization provider migration starts.
 - Migrating existing provider connections: rejected because the operator approved disconnecting all
   current providers before cutover and reconnecting them under the final organization schema.
-- Invitation, organization-switching, SSO, SCIM, FGA, and team-management UI: outside this rollout.
-- Simultaneous FileView commits, structural edits during a commit, and external Git changes during a
-  commit: deferred until FileView becomes a shipped add-on.
+- Invitation, SSO, SCIM, FGA, and team-management UI: outside this rollout. A small organization
+  selector is required for request context.
+- FileView collaboration, simultaneous commits, structural edits during a commit, and external Git
+  changes during a commit: deferred until FileView becomes a shipped add-on. They are not release
+  gates.
 
 ## Current Production Shape
 
@@ -118,18 +139,19 @@ the manual reset.
 
 ### Specification
 
-- Status: Complete
+- Status: Revised for many-to-many membership and explicit request context
 - Scope: Accept the target schema and rollout.
 - Gate: Independent architecture and simplicity reviews pass.
 
 ### Final organization cutover
 
-- Status: Organization provider ownership implemented; final validation and review in progress
-- Scope: Add the final organization graph, organization billing, membership access, MCP binding,
-  organization provider connections, retained-user bootstrap, organization-aware API results, and
-  affected UI and workflow support.
-- Gate: The operator completes the manual reset, every retained user has one membership, the two
-  operator accounts share one organization, and all organization access uses membership.
+- Status: Multi-organization correction in progress
+- Scope: Add the final named organization graph, organization billing, membership access, MCP
+  binding, organization provider connections, retained-user bootstrap, organization-aware API
+  results, and affected UI and workflow support.
+- Gate: The operator completes the manual reset, every retained user has at least one membership,
+  the two operator accounts share one organization, one user can join a second organization, and
+  every organization access check uses explicit resource or request context.
 
 The cutover is intentionally one complete authorization pull request, not several domain pull
 requests. Its commits can separate the runtime cutover, final schema, bootstrap and runbook, and
@@ -139,8 +161,9 @@ tests for review.
 
 Implemented in the current pull request and worktree:
 
-- the organization, membership, and organization billing tables, including automatic provisioning
-  for every new account without coupling ownership to temporary approval;
+- the organization, membership, and organization billing tables, including required durable
+  organization names and automatic provisioning for every new account without coupling ownership to
+  temporary approval;
 - organization-only billing reads and writes and organization Worker and Convex project quotas;
 - required organization keys for vaults, billable attachments, and MCP grants;
 - final provenance fields for provisioning runs, deletion runs, and staged-file updates, without
@@ -168,10 +191,30 @@ Implemented in the current pull request and worktree:
 - exact provider connection IDs on repositories, Convex projects, Cloudflare Workers, and
   provisioning plans so later reads, writes, observations, and retries do not follow a changed
   default;
+- required provider OAuth return paths that preserve the selected organization across GitHub,
+  Convex, Cloudflare, and Cloudflare MCP redirects;
+- one deployment-local organization binding for development provider seeding, created only when the
+  seed user has exactly one membership and reused after that user joins other organizations;
 - provider-side OAuth revocation before local disconnect for GitHub and Cloudflare, fixed public
   provider failure messages, and account deletion across every connected provider row; and
 - the GitHub `workflow` scope required by the shipped starter CI file, plus a normal parented commit
   after empty-repository bootstrap instead of a forced second root commit.
+
+Correction now in progress:
+
+- remove every product backend lookup that infers one organization from only `userId`;
+- make login preserve several existing memberships;
+- add explicit URL organization selection for root vault, provider, billing, provisioning, and MCP
+  consent operations;
+- derive organization context from the loaded resource for existing-resource operations;
+- add the operator-only direct membership mutation without invitation state;
+- finish the production contracts and callers before tests are changed; and
+- rewrite or delete tests that assert one membership per user. No compatibility helper or fallback
+  read for the former model will remain; and
+- complete a delete-first audit of the full branch test diff. The reduced diff has 6,493 additions
+  and 2,197 deletions across 65 test files against `origin/main`. Two independent reviews found no
+  remaining high-confidence duplicate, obsolete, compatibility, or deferred FileView tests. Test
+  volume is not a reason to preserve a rejected contract.
 
 The branch was rebased onto current `origin/main` with operator approval. The supply-chain
 dependency patch is present. The approved manual reset replaces the earlier migration code. Current
@@ -224,9 +267,9 @@ Explicitly not part of this fix:
 - simultaneous FileView commits, structural edits during a commit, external Git changes during a
   commit, and full two-member FileView acceptance.
 
-The FileView release boundary is intentionally narrow. A normal one-person edit and commit remains.
-Post-commit delayed-save reconciliation, retry recovery after Git accepted a commit, ambiguous
-rename retry handling, commit locks, and multi-writer merging are deferred.
+FileView is deferred and is not a release gate. Its current one-person edit and commit path remains
+available. Post-commit delayed-save reconciliation, retry recovery after Git accepted a commit,
+ambiguous rename retry handling, commit locks, and multi-writer merging remain deferred.
 
 ## Prior Organization-Base Validation Evidence
 
@@ -293,7 +336,7 @@ The implementation covers:
 - the account billing plan, subscription, and Worker and Convex project usage;
 - account deletion confirmation and progress for membership and shared billing cleanup, including
   the sole-member and shared-member active-work wait rules;
-- MCP consent and grant binding to the current user's one organization;
+- MCP consent and grant binding to the explicitly selected organization;
 - one MCP HTTP request-boundary authorization snapshot for token validation, tool listing, tool
   calls, and internal tool dispatch, with concurrent authorization changes applied to the next
   request;
@@ -314,8 +357,9 @@ implementation also verifies sole-member and shared-member account deletion, MCP
 `tools/list`, `tools/call`, tool execution, and browser handoff before the production reset.
 
 Personal UI settings remain separate for two members. Provider connections and their non-secret
-status are shared by the organization. The rollout adds no organization name, switcher, invitation
-flow, membership page, or new organization chrome.
+status are shared by the organization. The rollout adds one small selector that displays the
+required organization name. It adds no rename flow, invitation flow, membership page, or
+organization-management page.
 
 ## Evidence Integrated
 
@@ -338,8 +382,8 @@ Primary external sources:
 
 ## Next Exact Task
 
-1. Validate shared provider status and resource access through both members when the member setup
-   flow is ready for release testing.
+1. Run the two-user manual pass for vault reload, shared providers, app creation, Convex projects,
+   Cloudflare Workers, and MCP organization binding.
 2. Record the Polar billing state and confirm that no destructive workflow is active.
 3. Disconnect all providers, pause product writes, and follow the accepted manual reset runbook
    while the old schema is live.

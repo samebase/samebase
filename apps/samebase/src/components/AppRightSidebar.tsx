@@ -1,6 +1,7 @@
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME } from "@/components/appSidebarNavigation";
 import { PublicLandingAccountSection } from "@/components/PublicLandingAccountSection";
+import { OrganizationSelector } from "@/components/OrganizationSelector";
 import { buttonVariants } from "@/components/ui/button";
 import {
   VaultDashboardSidebarContent,
@@ -175,6 +176,7 @@ function AuthenticatedAppRightSidebarContent({
         profile={profile}
         user={user}
       />
+      <OrganizationSelector />
       <AppRightSidebarPrimaryLinks />
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />

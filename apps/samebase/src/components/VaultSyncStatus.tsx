@@ -18,6 +18,7 @@ export type VaultSyncStatusStagedFile = NonNullable<
 >[number];
 
 type VaultSyncStatusSharedProps = {
+  organizationId?: Id<"organizations">;
   repositoryFullName: string;
   branch: string;
   owner: string;
@@ -37,6 +38,7 @@ type VaultSyncStatusSharedProps = {
 
 export function VaultSyncStatusContent({
   repositoryFullName,
+  organizationId,
   branch,
   owner,
   repoName,
@@ -119,8 +121,14 @@ export function VaultSyncStatusContent({
               <span>·</span>
             </>
           )}
-          {showChecks && !suppressChecks && (
-            <CommitStatus owner={owner} repo={repoName} commitSha={commitSha} className="mr-1" />
+          {showChecks && !suppressChecks && organizationId && (
+            <CommitStatus
+              organizationId={organizationId}
+              owner={owner}
+              repo={repoName}
+              commitSha={commitSha}
+              className="mr-1"
+            />
           )}
           {commitSha && commitUrl ? (
             <a
@@ -161,6 +169,7 @@ export function VaultSyncStatus({
   disableStagedFilesQuery = false,
   ...props
 }: VaultSyncStatusSharedProps & {
+  organizationId: Id<"organizations">;
   vaultId: Id<"vaults">;
   stagedFiles?: VaultSyncStatusStagedFile[];
   stagedFilesCount?: number;

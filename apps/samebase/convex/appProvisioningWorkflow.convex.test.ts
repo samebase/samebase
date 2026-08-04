@@ -11,7 +11,7 @@ async function createComposedVault() {
       email: "ada@example.com",
       isApproved: true,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
     const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
       state: "connected",

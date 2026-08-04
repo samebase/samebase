@@ -31,7 +31,7 @@ import { createRepositoryContract, type CreateRepositoryArgs } from "./contracts
 import { connectRepositoryContract } from "./contracts/connectRepository";
 import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
 
-const { array, boolean, literal, null: nullValue, object, string, union } = v;
+const { array, boolean, id, literal, null: nullValue, object, string, union } = v;
 const githubRepositoryOwnerKind = union(literal("user"), literal("organization"));
 const githubRepositoryOwnerOption = object({
   login: string(),
@@ -324,6 +324,7 @@ async function checkGitHubRepositoryNameAvailability(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
     userId: Id<"users">;
+    organizationId: Id<"organizations">;
     owner: string;
     repositoryName: string;
   },
@@ -345,8 +346,8 @@ async function checkGitHubRepositoryNameAvailability(
 
   try {
     const organizationId = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
-      { userId: args.userId },
+      internal.organizationAccess.requireOrganizationIdForUser,
+      { userId: args.userId, organizationId: args.organizationId },
     );
     const githubConnection = await ctx.runQuery(
       internal.providerConnections.loadCurrentConnectedForOrganization,
@@ -430,6 +431,7 @@ async function checkConvexProjectNameAvailability(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
     userId: Id<"users">;
+    organizationId: Id<"organizations">;
     projectName: string;
   },
 ): Promise<AppResourceNameAvailability> {
@@ -440,7 +442,10 @@ async function checkConvexProjectNameAvailability(
 
   try {
     return await checkConvexProjectNameAvailabilityForConnection({
-      connection: await resolveConvexProvisioningConnection(ctx, args.userId),
+      connection: await resolveConvexProvisioningConnection(ctx, {
+        userId: args.userId,
+        organizationId: args.organizationId,
+      }),
       projectName: args.projectName,
     });
   } catch (error) {
@@ -506,6 +511,7 @@ async function checkCloudflareWorkerNameAvailability(
   ctx: Pick<ActionCtx, "runAction" | "runQuery">,
   args: {
     userId: Id<"users">;
+    organizationId: Id<"organizations">;
     workerName: string;
   },
 ): Promise<AppResourceNameAvailability> {
@@ -515,7 +521,10 @@ async function checkCloudflareWorkerNameAvailability(
   }
 
   try {
-    const connection = await resolveCloudflareProvisioningConnection(ctx, args.userId);
+    const connection = await resolveCloudflareProvisioningConnection(ctx, {
+      userId: args.userId,
+      organizationId: args.organizationId,
+    });
     return await checkCloudflareWorkerNameAvailabilityForConnection(ctx, {
       userId: args.userId,
       workerName: args.workerName,
@@ -553,9 +562,14 @@ async function checkCloudflareWorkerNameAvailabilityForConnection(
         args.connection.cloudflareAuthMethod !== "api_key" &&
         isCloudflareMcpInvalidAccessTokenError(error)
       ) {
-        const connection = await resolveCloudflareProvisioningConnection(ctx, args.userId, {
-          forceRefresh: true,
-        });
+        const connection = await resolveCloudflareProvisioningConnection(
+          ctx,
+          {
+            userId: args.userId,
+            organizationId: args.connection.organizationId,
+          },
+          { forceRefresh: true },
+        );
         return await readCloudflareWorkerNameAvailability({
           connection: {
             ...connection,
@@ -578,6 +592,7 @@ async function checkCreateResourceNameAvailabilityForUser(
   ctx: Pick<ActionCtx, "runAction" | "runQuery">,
   args: {
     userId: Id<"users">;
+    organizationId: Id<"organizations">;
     githubRepositoryOwner: string;
     githubRepositoryName: string;
     convexProjectName: string;
@@ -591,15 +606,18 @@ async function checkCreateResourceNameAvailabilityForUser(
   const [github, convex, cloudflare] = await Promise.all([
     checkGitHubRepositoryNameAvailability(ctx, {
       userId: args.userId,
+      organizationId: args.organizationId,
       owner: args.githubRepositoryOwner,
       repositoryName: args.githubRepositoryName,
     }),
     checkConvexProjectNameAvailability(ctx, {
       userId: args.userId,
+      organizationId: args.organizationId,
       projectName: args.convexProjectName,
     }),
     checkCloudflareWorkerNameAvailability(ctx, {
       userId: args.userId,
+      organizationId: args.organizationId,
       workerName: args.cloudflareWorkerName,
     }),
   ]);
@@ -644,13 +662,15 @@ async function resolveGithubConnectionUsername(
 
 export const listRepositoryOwners = action({
   access: "access_repo_connect",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: array(githubRepositoryOwnerOption),
-  handler: async (ctx): Promise<GitHubRepositoryOwnerOption[]> => {
+  handler: async (ctx, args): Promise<GitHubRepositoryOwnerOption[]> => {
     const userId = ctx.viewer.userId;
     const organizationId = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
-      { userId },
+      internal.organizationAccess.requireOrganizationIdForUser,
+      { userId, organizationId: args.organizationId },
     );
     const githubConnection = await ctx.runQuery(
       internal.providerConnections.loadCurrentConnectedForOrganization,
@@ -715,13 +735,16 @@ export async function connectRepositoryForUser(
 
 export const connectRepository = action({
   access: connectRepositoryContract.access,
-  args: connectRepositoryContract.args,
+  args: {
+    ...connectRepositoryContract.args,
+    organizationId: id("organizations"),
+  },
   returns: connectRepositoryContract.returns,
   mcp: connectRepositoryContract.mcp,
   handler: async (ctx, args): Promise<ConnectRepositoryResult> => {
     const organizationId = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
-      { userId: ctx.viewer.userId },
+      internal.organizationAccess.requireOrganizationIdForUser,
+      { userId: ctx.viewer.userId, organizationId: args.organizationId },
     );
     return await connectRepositoryForUser(ctx, {
       ...args,
@@ -792,13 +815,20 @@ export async function createAppForUser(
   }
 
   const [convexConnection, cloudflareConnection] = await Promise.all([
-    resolveConvexProvisioningConnection(ctx, args.userId),
-    resolveCloudflareProvisioningConnection(ctx, args.userId),
+    resolveConvexProvisioningConnection(ctx, {
+      userId: args.userId,
+      organizationId: args.organizationId,
+    }),
+    resolveCloudflareProvisioningConnection(ctx, {
+      userId: args.userId,
+      organizationId: args.organizationId,
+    }),
   ]);
   const [githubNameAvailability, convexNameAvailability, cloudflareNameAvailability] =
     await Promise.all([
       checkGitHubRepositoryNameAvailability(ctx, {
         userId: args.userId,
+        organizationId: args.organizationId,
         owner: ghRepoOwner,
         repositoryName: repoName,
       }),
@@ -842,13 +872,16 @@ export async function createAppForUser(
 // TODO: rename to createApp since we don't just create a repository
 export const createRepository = action({
   access: createRepositoryContract.access,
-  args: createRepositoryContract.args,
+  args: {
+    ...createRepositoryContract.args,
+    organizationId: id("organizations"),
+  },
   returns: createRepositoryContract.returns,
   mcp: createRepositoryContract.mcp,
   handler: async (ctx, args): Promise<CreateRepositoryResult> => {
     const organizationId = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
-      { userId: ctx.viewer.userId },
+      internal.organizationAccess.requireOrganizationIdForUser,
+      { userId: ctx.viewer.userId, organizationId: args.organizationId },
     );
     return await createAppForUser(ctx, {
       ...args,
@@ -861,6 +894,7 @@ export const createRepository = action({
 export const checkCreateRepositoryResourceNames = action({
   access: "access_app_create",
   args: {
+    organizationId: id("organizations"),
     githubRepositoryOwner: string(),
     githubRepositoryName: string(),
     convexProjectName: string(),
@@ -875,6 +909,7 @@ export const checkCreateRepositoryResourceNames = action({
     const userId = ctx.viewer.userId;
     return await checkCreateResourceNameAvailabilityForUser(ctx, {
       userId,
+      organizationId: args.organizationId,
       githubRepositoryOwner: args.githubRepositoryOwner,
       githubRepositoryName: args.githubRepositoryName,
       convexProjectName: args.convexProjectName,
@@ -916,14 +951,17 @@ export const retryInfrastructureProvisioning = action({
   returns: retryInfrastructureProvisioningContract.returns,
   mcp: retryInfrastructureProvisioningContract.mcp,
   handler: async (ctx, args): Promise<null> => {
-    const organizationId = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
-      { userId: ctx.viewer.userId },
-    );
+    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+      userId: ctx.viewer.userId,
+      vaultId: args.vaultId,
+    });
+    if (vault === null) {
+      throw new Error("Vault not found");
+    }
     return await retryInfrastructureProvisioningForUser(ctx, {
       ...args,
       userId: ctx.viewer.userId,
-      organizationId,
+      organizationId: vault.organizationId,
     });
   },
 });

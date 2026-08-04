@@ -16,8 +16,8 @@ async function createGraphFixture() {
       email: "grace@example.com",
       isApproved: true,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
-    const otherOrganizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
+    const otherOrganizationId = await ctx.db.insert("organizations", { name: "Test organization" });
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
     await ctx.db.insert("organizationMemberships", {
       organizationId: otherOrganizationId,
@@ -500,6 +500,7 @@ describe("vault Cloudflare Worker attachment mutations", () => {
       }),
     ).resolves.toEqual({
       ghRepoId: "github-ada",
+      githubProviderConnectionId: ids.githubProviderConnectionId,
       organizationId: ids.organizationId,
       owner: "ada",
       name: "repository",
@@ -524,13 +525,13 @@ describe("vault Cloudflare Worker attachment mutations", () => {
     });
   });
 
-  it("enforces vault ownership", async () => {
+  it("requires membership in the vault organization", async () => {
     const { ids, t } = await createGraphFixture();
     await expect(
       t.query(internal.vault.providerObservationQueries.readProviderAttachmentVaultContext, {
         vaultId: ids.foreignVaultId,
         userId: ids.userId,
       }),
-    ).rejects.toThrow("Vault not found.");
+    ).rejects.toThrow("Organization membership is required.");
   });
 });

@@ -10,7 +10,7 @@ import {
 import { query } from "../functions";
 import { startCreateAppProvisioningWorkflow } from "../appProvisioningWorkflow";
 import {
-  findOrganizationAccessContextForOrganization,
+  findOrganizationAccessContext,
   hasOrganizationAccess,
   requireOrganizationAccessContext,
   type OrganizationAccessContext,
@@ -43,12 +43,17 @@ export async function listOrganizationVaults(
 export const getVaultByRepository = query({
   access: "access_files_read",
   args: {
+    organizationId: id("organizations"),
     repositoryFullName: string(),
     branch: optional(string()),
   },
   handler: async (ctx, args) => {
-    return await getVaultByRepositoryHelper(ctx, {
+    await requireOrganizationAccessContext(ctx.db, {
       userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
+    });
+    return await getVaultByRepositoryHelper(ctx, {
+      organizationId: args.organizationId,
       repositoryFullName: args.repositoryFullName,
       branch: args.branch,
     });
@@ -67,7 +72,10 @@ export const getByIdForUser = internalQuery({
     if (!vault) {
       return null;
     }
-    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: vault.organizationId,
+    });
     if (!hasOrganizationAccess(ownership, vault)) {
       return null;
     }
@@ -89,10 +97,11 @@ export const getByIdForOrganization = internalQuery({
 export const listConnectedRepositoriesForUser = internalQuery({
   args: {
     userId: id("users"),
+    organizationId: id("organizations"),
   },
   returns: array(vVaultConnectedRepositoryTarget),
   handler: async (ctx, args) => {
-    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    const ownership = await requireOrganizationAccessContext(ctx.db, args);
     const repositories = [];
     for (const vault of await listOrganizationVaults(ctx.db, ownership)) {
       if (!isLiveConnectedVault(vault)) {
@@ -220,7 +229,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
     if (!owner || !name) {
       throw new Error("Invalid repository full name");
     }
-    const access = await findOrganizationAccessContextForOrganization(ctx.db, {
+    const access = await findOrganizationAccessContext(ctx.db, {
       userId: args.userId,
       organizationId: args.organizationId,
     });
@@ -297,7 +306,10 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
     if (!vault) {
       throw new Error("Vault not found");
     }
-    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: vault.organizationId,
+    });
     if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found");
     }
@@ -389,7 +401,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     if (!owner || !name) {
       throw new Error("Invalid repository full name");
     }
-    const access = await findOrganizationAccessContextForOrganization(ctx.db, {
+    const access = await findOrganizationAccessContext(ctx.db, {
       userId: args.userId,
       organizationId: args.organizationId,
     });
@@ -520,7 +532,10 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
     if (!vault) {
       throw new Error("Vault not found");
     }
-    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: vault.organizationId,
+    });
     if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found");
     }
@@ -619,18 +634,17 @@ export const markGithubProvisioningFailed = internalMutation({
 async function getVaultByRepositoryHelper(
   ctx: QueryCtx,
   args: {
-    userId: Id<"users">;
+    organizationId: Id<"organizations">;
     repositoryFullName: string;
     branch?: string;
   },
 ) {
   const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
-  const access = await requireOrganizationAccessContext(ctx.db, args.userId);
   const vault = (
     await ctx.db
       .query("vaults")
       .withIndex("by_organization_and_owner_and_name", (query) =>
-        query.eq("organizationId", access.organizationId).eq("owner", owner).eq("name", name),
+        query.eq("organizationId", args.organizationId).eq("owner", owner).eq("name", name),
       )
       .collect()
   )
@@ -684,12 +698,17 @@ async function getVaultByRepositoryHelper(
 export const getByRepositoryFullName = internalQuery({
   args: {
     userId: v.id("users"),
+    organizationId: v.id("organizations"),
     repositoryFullName: v.string(),
     branch: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    return await getVaultByRepositoryHelper(ctx, {
+    await requireOrganizationAccessContext(ctx.db, {
       userId: args.userId,
+      organizationId: args.organizationId,
+    });
+    return await getVaultByRepositoryHelper(ctx, {
+      organizationId: args.organizationId,
       repositoryFullName: args.repositoryFullName,
       branch: args.branch,
     });

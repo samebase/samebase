@@ -32,12 +32,14 @@ function awaitTimeout(timeout: number): Promise<void> {
 
 async function pushUpdatesToServer({
   version,
+  organizationId,
   repositoryFullName,
   branch,
   filePath,
   fullUpdates,
 }: {
   version: number;
+  organizationId: Id<"organizations">;
   repositoryFullName: string;
   branch: string;
   filePath: string;
@@ -50,6 +52,7 @@ async function pushUpdatesToServer({
   }));
   return client
     .mutation(api.collaborative.pushUpdates, {
+      organizationId,
       repositoryFullName,
       branch,
       filePath,
@@ -132,6 +135,7 @@ type MonacoEditorInstance = Parameters<OnMount>[0];
 
 export function MonacoEditor({
   firstDoc,
+  organizationId,
   repositoryFullName,
   branch,
   filePath,
@@ -141,6 +145,7 @@ export function MonacoEditor({
   showMobileLineNumbers = false,
 }: {
   firstDoc: { version: number; content: string };
+  organizationId: Id<"organizations">;
   repositoryFullName: string;
   branch: string;
   filePath: string;
@@ -211,7 +216,7 @@ export function MonacoEditor({
   // ---- Pull remote updates via Convex real-time query ----
   const remoteUpdates = useQuery(
     api.collaborative.pullUpdates,
-    { repositoryFullName, branch, filePath, version },
+    { organizationId, repositoryFullName, branch, filePath, version },
     { dontCache: true },
   );
 
@@ -229,6 +234,7 @@ export function MonacoEditor({
     try {
       const success = await pushUpdatesToServer({
         version: ver,
+        organizationId,
         repositoryFullName,
         branch,
         filePath,
@@ -257,7 +263,7 @@ export function MonacoEditor({
     if (sendableUpdates(cmStateRef.current).length) {
       setTimeout(() => void pushToServer(), retryDelayMs);
     }
-  }, [repositoryFullName, branch, filePath]);
+  }, [repositoryFullName, branch, filePath, organizationId]);
 
   // ---- Apply incoming remote updates ----
   useEffect(() => {

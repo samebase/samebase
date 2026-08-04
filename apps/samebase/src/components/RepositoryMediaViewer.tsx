@@ -3,6 +3,7 @@ import { useAction } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { RepositoryVoxPreview } from "@/components/RepositoryVoxPreview";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 
 export type RepositoryMediaAsset =
   | {
@@ -82,11 +83,13 @@ function renderRepositoryMediaAsset(
 }
 
 export function RepositoryMediaViewer({
+  organizationId,
   repositoryFullName,
   filePath,
   branch,
   skipStaging = false,
 }: {
+  organizationId: Id<"organizations">;
   repositoryFullName: string;
   filePath: string;
   branch: string;
@@ -115,6 +118,7 @@ export function RepositoryMediaViewer({
     setShowLoading(false);
 
     void loadMediaAsset({
+      organizationId,
       repositoryFullName,
       filePath,
       branch,
@@ -147,7 +151,7 @@ export function RepositoryMediaViewer({
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [branch, filePath, loadMediaAsset, repositoryFullName, skipStaging]);
+  }, [branch, filePath, loadMediaAsset, organizationId, repositoryFullName, skipStaging]);
 
   if (showLoading) {
     return (

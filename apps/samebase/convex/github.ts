@@ -509,13 +509,16 @@ export async function listGitHubRepositories(args: {
 
 export const listRepositoriesPreview = action({
   access: "access_repo_connect",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: githubRepositoryPreviewResult,
-  handler: async (ctx): Promise<GitHubRepositoryPreviewResult> => {
+  handler: async (ctx, args): Promise<GitHubRepositoryPreviewResult> => {
     const organizationId = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
+      internal.organizationAccess.requireOrganizationIdForUser,
       {
         userId: ctx.viewer.userId,
+        organizationId: args.organizationId,
       },
     );
     const githubConnection = await ctx.runQuery(
@@ -534,13 +537,16 @@ export const listRepositoriesPreview = action({
 // List the current user's GitHub repositories
 export const listRepositories = action({
   access: "access_repo_connect",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: array(githubRepositoryListItem),
-  handler: async (ctx): Promise<GitHubRepositoryList> => {
+  handler: async (ctx, args): Promise<GitHubRepositoryList> => {
     const organizationId = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
+      internal.organizationAccess.requireOrganizationIdForUser,
       {
         userId: ctx.viewer.userId,
+        organizationId: args.organizationId,
       },
     );
     const githubConnection = await ctx.runQuery(
@@ -831,6 +837,7 @@ function getRepositoryMediaErrorStatus(error: unknown): number | null {
 export const getRepositoryFileContent = action({
   access: "access_files_read",
   args: {
+    organizationId: id("organizations"),
     repositoryFullName: string(),
     filePath: string(),
     branch: optional(string()),
@@ -843,6 +850,7 @@ export const getRepositoryFileContent = action({
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
+      organizationId: args.organizationId,
     });
     if (!vault) {
       throw new Error("Vault not found");
@@ -922,6 +930,7 @@ export const getRepositoryFileContent = action({
 export const getRepositoryMediaAsset = action({
   access: "access_files_read",
   args: {
+    organizationId: id("organizations"),
     repositoryFullName: string(),
     filePath: string(),
     branch: optional(string()),
@@ -939,6 +948,7 @@ export const getRepositoryMediaAsset = action({
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
+      organizationId: args.organizationId,
       branch: requestedBranch,
     });
     if (!vault) {
@@ -1306,6 +1316,7 @@ export const refreshRepositoryTree = action({
 export const updateRepositoryTree = internalAction({
   args: {
     userId: id("users"),
+    organizationId: id("organizations"),
     owner: string(),
     repo: string(),
     branch: string(),
@@ -1316,6 +1327,7 @@ export const updateRepositoryTree = internalAction({
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: `${args.owner}/${args.repo}`,
       userId: args.userId,
+      organizationId: args.organizationId,
       branch,
     });
     if (!vault) {

@@ -9,6 +9,7 @@ import { isLiveConnectedVault } from "./state";
 const { array, id, object, string } = v;
 
 const vVaultProviderObservationContext = object({
+  organizationId: id("organizations"),
   ghRepoId: string(),
   owner: string(),
   name: string(),
@@ -24,6 +25,7 @@ const vVaultProviderObservationContext = object({
   convexProjects: array(
     object({
       convexProjectId: id("vaultConvexProjects"),
+      providerConnectionId: id("providerConnections"),
       teamId: string(),
       projectId: string(),
       codeLocation: vConvexCodeLocation,
@@ -39,6 +41,7 @@ export const readProviderAttachmentVaultContext = internalQuery({
   },
   returns: object({
     organizationId: id("organizations"),
+    githubProviderConnectionId: id("providerConnections"),
     ghRepoId: string(),
     owner: string(),
     name: string(),
@@ -49,12 +52,16 @@ export const readProviderAttachmentVaultContext = internalQuery({
     if (!isLiveConnectedVault(vault)) {
       throw new Error("Vault not found.");
     }
-    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: vault.organizationId,
+    });
     if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found.");
     }
     return {
       organizationId: vault.organizationId,
+      githubProviderConnectionId: vault.githubProviderConnectionId,
       ghRepoId: vault.ghRepoId,
       owner: vault.owner,
       name: vault.name,
@@ -74,7 +81,10 @@ export const readVaultProviderObservationContext = internalQuery({
     if (!isLiveConnectedVault(vault)) {
       throw new Error("Vault not found.");
     }
-    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: vault.organizationId,
+    });
     if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found.");
     }
@@ -96,6 +106,7 @@ export const readVaultProviderObservationContext = internalQuery({
     }
 
     return {
+      organizationId: vault.organizationId,
       ghRepoId: vault.ghRepoId,
       owner: vault.owner,
       name: vault.name,
@@ -115,6 +126,7 @@ export const readVaultProviderObservationContext = internalQuery({
       convexProjects: projects
         .map((project) => ({
           convexProjectId: project._id,
+          providerConnectionId: project.providerConnectionId,
           teamId: project.teamId,
           projectId: project.projectId,
           codeLocation: readConvexCodeLocation(project),

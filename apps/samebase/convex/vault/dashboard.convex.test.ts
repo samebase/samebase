@@ -19,7 +19,7 @@ async function runVaultLocalCleanupBatch(
 }
 
 async function seedOrganization(db: DatabaseWriter, userId: Id<"users">) {
-  const organizationId = await db.insert("organizations", {});
+  const organizationId = await db.insert("organizations", { name: "Test organization" });
   await db.insert("organizationMemberships", { organizationId, userId });
   const githubProviderConnectionId = await db.insert("providerConnections", {
     kind: "github",
@@ -209,7 +209,7 @@ describe("vault dashboard Convex contract", () => {
     ).resolves.toEqual(["apps", "apps/portal", "packages"]);
   });
 
-  it("exposes initializing existing repository source setup", async () => {
+  it("reloads initializing existing repository source setup for the selected organization", async () => {
     const t = makeConvexTest();
     const { githubProviderConnectionId, organizationId, userId } =
       await seedApprovedOrganizationUser(t);
@@ -228,9 +228,16 @@ describe("vault dashboard Convex contract", () => {
       subject: `${userId}|test-session`,
       tokenIdentifier: `test:${userId}`,
     });
-    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults, { organizationId });
+    const reloadedVaults = await t
+      .withIdentity({
+        subject: `${userId}|reloaded-test-session`,
+        tokenIdentifier: `test:${userId}`,
+      })
+      .query(api.vault.dashboard.getUserVaults, { organizationId });
 
     expect(vaults).toHaveLength(1);
+    expect(reloadedVaults).toEqual(vaults);
     expect(vaults[0]).not.toHaveProperty("_creationTime");
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
@@ -243,6 +250,41 @@ describe("vault dashboard Convex contract", () => {
         updatedAt: expect.any(Number),
       },
     });
+  });
+
+  it("rejects a vault list request for another organization", async () => {
+    const t = makeConvexTest();
+    const { githubProviderConnectionId, organizationId, userId } =
+      await seedApprovedOrganizationUser(t);
+    await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
+      userId,
+      organizationId,
+      githubProviderConnectionId,
+      ghRepoOwner: "ada",
+      ghRepoName: "private-app",
+    });
+    const otherUserId = await t.run(async (ctx) => {
+      const otherUserId = await ctx.db.insert("users", {
+        name: "Grace",
+        email: "grace@example.com",
+        isApproved: true,
+      });
+      const otherOrganizationId = await seedOrganization(ctx.db, otherUserId);
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId: otherOrganizationId,
+        plan: "free",
+        status: "inactive",
+      });
+      return otherUserId;
+    });
+    const otherUser = t.withIdentity({
+      subject: `${otherUserId}|test-session`,
+      tokenIdentifier: `test:${otherUserId}`,
+    });
+
+    await expect(
+      otherUser.query(api.vault.dashboard.getUserVaults, { organizationId }),
+    ).rejects.toThrow("Organization membership is required.");
   });
 
   it("exposes user vaults through the MCP user bridge", async () => {
@@ -307,42 +349,48 @@ describe("vault dashboard Convex contract", () => {
         state: "not_connected",
       });
 
-      return { userId, vaultId };
+      return { organizationId, userId, vaultId };
     });
     const asUser = t.withIdentity({
       subject: `${ids.userId}|test-session`,
       tokenIdentifier: `test:${ids.userId}`,
     });
 
-    await expect(asUser.query(api.vault.dashboard.getUserVaultResourceLinksState)).resolves.toEqual(
-      [],
-    );
+    await expect(
+      asUser.query(api.vault.dashboard.getUserVaultResourceLinksState, {
+        organizationId: ids.organizationId,
+      }),
+    ).resolves.toEqual([]);
 
     await asUser.mutation(api.vault.dashboard.setVaultResourceLinksOpen, {
       vaultId: ids.vaultId,
       resourceLinksOpen: true,
     });
-    await expect(asUser.query(api.vault.dashboard.getUserVaultResourceLinksState)).resolves.toEqual(
-      [
-        {
-          vaultId: ids.vaultId,
-          resourceLinksOpen: true,
-        },
-      ],
-    );
+    await expect(
+      asUser.query(api.vault.dashboard.getUserVaultResourceLinksState, {
+        organizationId: ids.organizationId,
+      }),
+    ).resolves.toEqual([
+      {
+        vaultId: ids.vaultId,
+        resourceLinksOpen: true,
+      },
+    ]);
 
     await asUser.mutation(api.vault.dashboard.setVaultResourceLinksOpen, {
       vaultId: ids.vaultId,
       resourceLinksOpen: false,
     });
-    await expect(asUser.query(api.vault.dashboard.getUserVaultResourceLinksState)).resolves.toEqual(
-      [
-        {
-          vaultId: ids.vaultId,
-          resourceLinksOpen: false,
-        },
-      ],
-    );
+    await expect(
+      asUser.query(api.vault.dashboard.getUserVaultResourceLinksState, {
+        organizationId: ids.organizationId,
+      }),
+    ).resolves.toEqual([
+      {
+        vaultId: ids.vaultId,
+        resourceLinksOpen: false,
+      },
+    ]);
   });
 
   it("lists pull request filters in stable vault order", async () => {
@@ -378,14 +426,16 @@ describe("vault dashboard Convex contract", () => {
         });
       }
 
-      return { userId, vaultIds };
+      return { organizationId, userId, vaultIds };
     });
     const asUser = t.withIdentity({
       subject: `${ids.userId}|test-session`,
       tokenIdentifier: `test:${ids.userId}`,
     });
 
-    const filters = await asUser.query(api.vault.dashboard.getUserVaultPullRequestFilters);
+    const filters = await asUser.query(api.vault.dashboard.getUserVaultPullRequestFilters, {
+      organizationId: ids.organizationId,
+    });
 
     expect(filters.map((filter) => filter.vaultId)).toEqual(ids.vaultIds);
   });
@@ -492,7 +542,7 @@ describe("vault dashboard Convex contract", () => {
       tokenIdentifier: `test:${userId}`,
     });
 
-    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults, { organizationId });
 
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
@@ -591,7 +641,7 @@ describe("vault dashboard Convex contract", () => {
         connectedAt: 20,
       });
 
-      return { runId, userId, vaultId };
+      return { organizationId, runId, userId, vaultId };
     });
 
     await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
@@ -634,7 +684,9 @@ describe("vault dashboard Convex contract", () => {
       subject: `${ids.userId}|test-session`,
       tokenIdentifier: `test:${ids.userId}`,
     });
-    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults, {
+      organizationId: ids.organizationId,
+    });
 
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
@@ -769,7 +821,7 @@ describe("vault dashboard Convex contract", () => {
         createdAt: 31,
       });
 
-      return { runId, userId, vaultId };
+      return { organizationId, runId, userId, vaultId };
     });
 
     const asUser = t.withIdentity({
@@ -777,7 +829,9 @@ describe("vault dashboard Convex contract", () => {
       tokenIdentifier: `test:${ids.userId}`,
     });
 
-    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults, {
+      organizationId: ids.organizationId,
+    });
 
     expect(vaults).toHaveLength(1);
     expect(vaults[0]).toMatchObject({
@@ -836,7 +890,7 @@ describe("vault dashboard Convex contract", () => {
       });
       await ctx.db.delete(runId);
 
-      return { runId, userId, vaultId };
+      return { organizationId, runId, userId, vaultId };
     });
 
     const asUser = t.withIdentity({
@@ -844,7 +898,9 @@ describe("vault dashboard Convex contract", () => {
       tokenIdentifier: `test:${ids.userId}`,
     });
 
-    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults, {
+      organizationId: ids.organizationId,
+    });
 
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
@@ -947,7 +1003,7 @@ describe("vault dashboard Convex contract", () => {
         updatedAt: 30,
       });
 
-      return { runId, userId, vaultId };
+      return { organizationId, runId, userId, vaultId };
     });
 
     const asUser = t.withIdentity({
@@ -955,7 +1011,9 @@ describe("vault dashboard Convex contract", () => {
       tokenIdentifier: `test:${ids.userId}`,
     });
 
-    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults, {
+      organizationId: ids.organizationId,
+    });
 
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
@@ -1072,7 +1130,7 @@ describe("vault dashboard Convex contract", () => {
         updatedAt: 44,
       });
 
-      return { retryRunId, userId, vaultId };
+      return { organizationId, retryRunId, userId, vaultId };
     });
 
     const asUser = t.withIdentity({
@@ -1080,7 +1138,9 @@ describe("vault dashboard Convex contract", () => {
       tokenIdentifier: `test:${ids.userId}`,
     });
 
-    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults, {
+      organizationId: ids.organizationId,
+    });
 
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
@@ -1186,7 +1246,7 @@ describe("vault dashboard Convex contract", () => {
         createdAt: 45,
       });
 
-      return { retryRunId, userId, vaultId };
+      return { organizationId, retryRunId, userId, vaultId };
     });
 
     const asUser = t.withIdentity({
@@ -1194,7 +1254,9 @@ describe("vault dashboard Convex contract", () => {
       tokenIdentifier: `test:${ids.userId}`,
     });
 
-    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults, {
+      organizationId: ids.organizationId,
+    });
 
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
@@ -1332,7 +1394,7 @@ describe("vault dashboard Convex contract", () => {
           });
         }
 
-        return { userId, vaultId };
+        return { organizationId, userId, vaultId };
       });
 
       const asUser = t.withIdentity({
@@ -1340,7 +1402,9 @@ describe("vault dashboard Convex contract", () => {
         tokenIdentifier: `test:${ids.userId}`,
       });
 
-      const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+      const vaults = await asUser.query(api.vault.dashboard.getUserVaults, {
+        organizationId: ids.organizationId,
+      });
 
       expect(vaults[0]).toMatchObject({
         _id: ids.vaultId,
@@ -1427,7 +1491,7 @@ describe("vault dashboard Convex contract", () => {
         updatedAt: 30,
       });
 
-      return { runId, userId, vaultId };
+      return { organizationId, runId, userId, vaultId };
     });
 
     const asUser = t.withIdentity({
@@ -1435,7 +1499,9 @@ describe("vault dashboard Convex contract", () => {
       tokenIdentifier: `test:${ids.userId}`,
     });
 
-    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults, {
+      organizationId: ids.organizationId,
+    });
 
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
@@ -1525,7 +1591,7 @@ describe("vault dashboard Convex contract", () => {
         lastTreeRefreshAt: 29,
       });
 
-      return { runId, userId, vaultId };
+      return { organizationId, runId, userId, vaultId };
     });
 
     const asUser = t.withIdentity({
@@ -1533,7 +1599,9 @@ describe("vault dashboard Convex contract", () => {
       tokenIdentifier: `test:${ids.userId}`,
     });
 
-    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults, {
+      organizationId: ids.organizationId,
+    });
 
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
@@ -1599,14 +1667,16 @@ describe("vault dashboard Convex contract", () => {
         },
         updatedAt: 200,
       });
-      return { userId, vaultId };
+      return { organizationId, userId, vaultId };
     });
     const asUser = t.withIdentity({
       subject: `${ids.userId}|test-session`,
       tokenIdentifier: `test:${ids.userId}`,
     });
 
-    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults, {
+      organizationId: ids.organizationId,
+    });
 
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
@@ -1697,7 +1767,7 @@ describe("vault dashboard Convex contract", () => {
         lastWriteAt: {},
         updatedAt: 30,
       });
-      return { userId, vaultId };
+      return { organizationId, userId, vaultId };
     });
     await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
       vaultId: ids.vaultId,
@@ -1715,7 +1785,9 @@ describe("vault dashboard Convex contract", () => {
       tokenIdentifier: `test:${ids.userId}`,
     });
 
-    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults, {
+      organizationId: ids.organizationId,
+    });
 
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
@@ -1811,14 +1883,16 @@ describe("vault dashboard Convex contract", () => {
         deletion: { state: "delete_failed", runId: deletionRunId, failedAt: 5 },
       });
 
-      return { userId, vaultId };
+      return { organizationId, userId, vaultId };
     });
     const asUser = t.withIdentity({
       subject: `${ids.userId}|test-session`,
       tokenIdentifier: `test:${ids.userId}`,
     });
 
-    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults, {
+      organizationId: ids.organizationId,
+    });
 
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,

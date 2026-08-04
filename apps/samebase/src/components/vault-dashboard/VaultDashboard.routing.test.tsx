@@ -12,6 +12,13 @@ import { VaultDashboard } from "./VaultDashboard";
 const workspaceModelMock = vi.hoisted(() => vi.fn());
 const vaultPickerMock = vi.hoisted(() => vi.fn(() => null));
 const folderMutationMock = vi.hoisted(() => vi.fn(async () => {}));
+const organizationSelectionMock = vi.hoisted(() =>
+  vi.fn(() => ({
+    state: "selected",
+    organizationId: "organization_test",
+    organizations: [{ organizationId: "organization_test", label: "Test organization" }],
+  })),
+);
 
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
@@ -24,6 +31,9 @@ vi.mock("convex/react", async (importOriginal) => {
 
 vi.mock("@/components/AppWorkspaceShell", () => ({
   AppWorkspaceRouteChrome: ({ children }: { children?: ReactNode }) => children ?? null,
+}));
+vi.mock("@/hooks/useOrganizationSelection", () => ({
+  useOrganizationSelection: organizationSelectionMock,
 }));
 vi.mock("./VaultOverviewPage", () => ({
   VaultOverviewLoadingPage: () => null,
@@ -62,6 +72,7 @@ describe("VaultDashboard dialog route cleanup", () => {
     workspaceModelMock.mockReset();
     vaultPickerMock.mockReset();
     folderMutationMock.mockClear();
+    organizationSelectionMock.mockClear();
   });
 
   function LocationProbe() {
@@ -173,6 +184,7 @@ describe("VaultDashboard dialog route cleanup", () => {
       }),
       undefined,
     );
+    expect(workspaceModelMock).toHaveBeenCalledWith("organization_test", undefined);
   });
 
   it("clears an unavailable dialog from a missing vault route", async () => {
@@ -205,6 +217,7 @@ describe("VaultDashboard dialog route cleanup", () => {
 
     await renderDashboard("/vault/samebase/samebase?delete&dev", "samebase/samebase");
 
+    expect(workspaceModelMock).toHaveBeenCalledWith("organization_test", "samebase/samebase");
     expect(readLocationHref()).toContain("delete");
     expect(readLocationHref()).toContain("dev");
   });

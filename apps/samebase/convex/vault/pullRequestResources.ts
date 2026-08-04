@@ -1081,13 +1081,7 @@ export const getPullRequestResources = action({
   handler: async (ctx, args): Promise<PullRequestResourceRead[]> => {
     validatePullRequestResourceIds(args.pullRequestIds);
 
-    const organizationId = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
-      {
-        userId: ctx.viewer.userId,
-      },
-    );
-    const [context, vault, convexConnection] = await Promise.all([
+    const [context, vault] = await Promise.all([
       ctx.runQuery(internal.vault.providerObservationQueries.readVaultProviderObservationContext, {
         vaultId: args.vaultId,
         userId: ctx.viewer.userId,
@@ -1095,10 +1089,6 @@ export const getPullRequestResources = action({
       ctx.runQuery(internal.vault.records.getByIdForUser, {
         vaultId: args.vaultId,
         userId: ctx.viewer.userId,
-      }),
-      ctx.runQuery(internal.providerConnections.loadCurrentConnectedForOrganization, {
-        organizationId,
-        kind: "convex",
       }),
     ]);
     if (!isLiveConnectedVault(vault)) {
@@ -1124,9 +1114,24 @@ export const getPullRequestResources = action({
       pullRequestIds: args.pullRequestIds,
     });
     const heads = headReads.flatMap((read) => (read.state === "available" ? [read.head] : []));
-    const convexToken =
-      convexConnection?.kind === "convex" ? convexConnection.auth.credential.trim() : "";
-    const convexTeamId = convexConnection?.kind === "convex" ? convexConnection.teamId.trim() : "";
+    const convexConnectionIds = Array.from(
+      new Set(context.convexProjects.map((project) => project.providerConnectionId)),
+    );
+    const convexConnections = new Map(
+      await Promise.all(
+        convexConnectionIds.map(
+          async (providerConnectionId) =>
+            [
+              providerConnectionId,
+              await ctx.runQuery(internal.providerConnections.loadConnectedByIdForOrganization, {
+                organizationId: vault.organizationId,
+                providerConnectionId,
+                kind: "convex",
+              }),
+            ] as const,
+        ),
+      ),
+    );
     const resourcesByPullRequest = new Map<string, PullRequestResourceAccumulator>();
     for (const head of heads) {
       const hostingPreviews = buildPullRequestHostingPreviews({
@@ -1145,42 +1150,32 @@ export const getPullRequestResources = action({
       });
     }
 
-    if (!convexToken || !convexTeamId) {
-      for (const project of context.convexProjects) {
-        const resources = unavailableConvexProjectResources({ heads, project });
-        heads.forEach((head, index) => {
-          const pullRequestResources = resourcesByPullRequest.get(head.id);
-          if (!pullRequestResources) {
-            throw new Error("Pull request resources lost requested identity.");
-          }
-          pullRequestResources.convexProjects.push(resources[index]);
-        });
-      }
-    } else {
-      const projectResources = await Promise.all(
-        context.convexProjects.map((project) =>
-          readConvexProjectResourcesForHeads({
-            project,
-            heads,
-            token: convexToken,
-            teamId: convexTeamId,
-          }),
-        ),
-      );
-      context.convexProjects.forEach((project, projectIndex) => {
-        heads.forEach((head, headIndex) => {
-          const resource = projectResources[projectIndex][headIndex];
-          if (resource.convexProjectId !== project.convexProjectId) {
-            throw new Error("Pull request resources lost stable Convex project identity.");
-          }
-          const pullRequestResources = resourcesByPullRequest.get(head.id);
-          if (!pullRequestResources) {
-            throw new Error("Pull request resources lost requested identity.");
-          }
-          pullRequestResources.convexProjects.push(resource);
-        });
+    const projectResources = await Promise.all(
+      context.convexProjects.map(async (project) => {
+        const connection = convexConnections.get(project.providerConnectionId);
+        if (connection?.kind !== "convex") {
+          return unavailableConvexProjectResources({ heads, project });
+        }
+        const token = connection.auth.credential.trim();
+        const teamId = connection.teamId.trim();
+        return token && teamId
+          ? await readConvexProjectResourcesForHeads({ project, heads, token, teamId })
+          : unavailableConvexProjectResources({ heads, project });
+      }),
+    );
+    context.convexProjects.forEach((project, projectIndex) => {
+      heads.forEach((head, headIndex) => {
+        const resource = projectResources[projectIndex][headIndex];
+        if (resource.convexProjectId !== project.convexProjectId) {
+          throw new Error("Pull request resources lost stable Convex project identity.");
+        }
+        const pullRequestResources = resourcesByPullRequest.get(head.id);
+        if (!pullRequestResources) {
+          throw new Error("Pull request resources lost requested identity.");
+        }
+        pullRequestResources.convexProjects.push(resource);
       });
-    }
+    });
 
     return args.pullRequestIds.map((pullRequestId): PullRequestResourceRead => {
       const resources = resourcesByPullRequest.get(pullRequestId);

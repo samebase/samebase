@@ -21,18 +21,20 @@ export type BillingAccountState = Pick<
   | "polarCheckoutAttempt"
 >;
 
-export async function findBillingAccountForUser(
+export async function findBillingAccountForOrganization(
   db: DatabaseReader,
-  userId: Id<"users">,
+  args: { userId: Id<"users">; organizationId: Id<"organizations"> },
 ): Promise<UserBillingAccount | null> {
-  const user = await db.get(userId);
+  const user = await db.get(args.userId);
   if (user === null) {
     return null;
   }
 
   const membership = await db
     .query("organizationMemberships")
-    .withIndex("by_user", (query) => query.eq("userId", userId))
+    .withIndex("by_organization_and_user", (query) =>
+      query.eq("organizationId", args.organizationId).eq("userId", args.userId),
+    )
     .unique();
   if (membership === null) {
     throw new Error("Organization membership is required.");
@@ -40,7 +42,7 @@ export async function findBillingAccountForUser(
 
   const account = await db
     .query("organizationBillingAccounts")
-    .withIndex("by_organization", (query) => query.eq("organizationId", membership.organizationId))
+    .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))
     .unique();
   if (account === null) {
     throw new Error("Organization billing account is required.");
@@ -52,11 +54,11 @@ export async function findBillingAccountForUser(
   };
 }
 
-export async function requireBillingAccountForUser(
+export async function requireBillingAccountForOrganization(
   db: DatabaseReader,
-  userId: Id<"users">,
+  args: { userId: Id<"users">; organizationId: Id<"organizations"> },
 ): Promise<UserBillingAccount> {
-  const billing = await findBillingAccountForUser(db, userId);
+  const billing = await findBillingAccountForOrganization(db, args);
   if (billing === null) {
     throw new Error("User not found.");
   }

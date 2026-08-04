@@ -84,12 +84,14 @@ export const readEmbeddedDashboardProject = internalQuery({
       ctx.db.get(args.vaultId),
       ctx.db.get(args.convexProjectId),
     ]);
-    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
-    if (
-      !isLiveConnectedVault(vault) ||
-      !project ||
-      !hasVaultChildOrganizationAccess(ownership, vault, project)
-    ) {
+    if (!isLiveConnectedVault(vault)) {
+      return null;
+    }
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: vault.organizationId,
+    });
+    if (!project || !hasVaultChildOrganizationAccess(ownership, vault, project)) {
       return null;
     }
 
@@ -124,6 +126,7 @@ function isEmbeddedDashboardDeployKeyName(args: {
 async function readVaultDatabaseDeploymentContext(
   ctx: VaultDatabaseActionCtx,
   args: {
+    organizationId: Id<"organizations">;
     owner: string;
     repoName: string;
     branch: string;
@@ -134,6 +137,7 @@ async function readVaultDatabaseDeploymentContext(
     internal.vault.records.getByRepositoryFullName,
     {
       userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
       repositoryFullName: `${args.owner}/${args.repoName}`,
       branch: args.branch,
     },
@@ -197,6 +201,7 @@ async function readVaultDatabaseDeploymentContext(
 export const createEmbeddedDashboardCredentials = action({
   access: "access_dashboard",
   args: {
+    organizationId: v.id("organizations"),
     owner: string(),
     repoName: string(),
     branch: string(),
@@ -236,6 +241,7 @@ export const createEmbeddedDashboardCredentials = action({
 export const revokeEmbeddedDashboardCredentials = action({
   access: "access_dashboard",
   args: {
+    organizationId: v.id("organizations"),
     owner: string(),
     repoName: string(),
     branch: string(),

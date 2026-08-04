@@ -2,12 +2,16 @@ import {
   ProviderConnectionsPageView,
   type ProviderConnectionsPageConnectionState,
 } from "@/components/ProviderConnectionsPage";
+import type { Id } from "../../convex/_generated/dataModel";
 
 export type ProviderConnectionsPageVisualMode = "providers-page-connected";
 
 const PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW = Date.UTC(2026, 5, 22, 12, 0, 0);
 const PROVIDER_CONNECTIONS_VISUAL_FIXTURE_GITHUB_MANAGE_URL =
   "https://github.com/settings/connections/applications/samebase-local-fixture";
+// @ts-expect-error Convex ids are strings at runtime; this fixture only needs a stable id.
+const PROVIDER_CONNECTIONS_VISUAL_FIXTURE_ORGANIZATION_ID: Id<"organizations"> =
+  "organization-provider-connections-fixture";
 
 const providerConnectionsVisualFixtureState = {
   cloudflareAccess: {
@@ -300,6 +304,7 @@ export function ProviderConnectionsPageVisualFixture() {
           createdAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW - 10 * 24 * 60 * 60_000,
           grantId: "mcpg_codex_local_fixture",
           lastUsedAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW - 2 * 60_000,
+          organizationId: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_ORGANIZATION_ID,
           resource: "https://api.samebase.com/mcp",
           scopes: ["access_dashboard", "access_browser_login_handoff"],
         },
@@ -307,6 +312,7 @@ export function ProviderConnectionsPageVisualFixture() {
           clientId: "mcpc_cli_local_fixture",
           createdAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW - 24 * 60 * 60_000,
           grantId: "mcpg_cli_local_fixture",
+          organizationId: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_ORGANIZATION_ID,
           resource: "https://api.samebase.com/mcp",
           scopes: ["access_dashboard"],
         },

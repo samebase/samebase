@@ -24,6 +24,7 @@ import { isLiveConnectedVault } from "./state";
 const { array, id, literal, null: nullValue, object, string, union } = v;
 
 const workerConfigurationContextFields = {
+  organizationId: id("organizations"),
   ghRepoId: string(),
   owner: string(),
   name: string(),
@@ -82,7 +83,10 @@ async function requireConnectedVault(
   if (!isLiveConnectedVault(vault)) {
     throw new Error("Vault not found.");
   }
-  const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+  const ownership = await requireOrganizationAccessContext(ctx.db, {
+    userId: args.userId,
+    organizationId: vault.organizationId,
+  });
   if (!hasOrganizationAccess(ownership, vault)) {
     throw new Error("Vault not found.");
   }
@@ -238,6 +242,7 @@ async function insertWorker(
 
   await requireBillingResourceCapacity(ctx, {
     kind: "cloudflare_worker",
+    organizationId,
     userId: args.userId,
   });
 
@@ -520,6 +525,7 @@ export const readWorkerConfigurationContext = internalQuery({
     const { ownership, vault } = await requireConnectedVault(ctx, args);
     const worker = await requireWorker(ctx, ownership, args);
     return {
+      organizationId: vault.organizationId,
       ghRepoId: vault.ghRepoId,
       owner: vault.owner,
       name: vault.name,
@@ -557,6 +563,7 @@ export const readManagedWorkerConfigurationContext = internalQuery({
       throw new Error("Managed Cloudflare Worker does not match the active provisioning run.");
     }
     return {
+      organizationId: vault.organizationId,
       ghRepoId: vault.ghRepoId,
       owner: vault.owner,
       name: vault.name,
@@ -585,6 +592,7 @@ export const readWorkerConvexProjectConfigurationContext = internalQuery({
       requireConvexProject(ctx, ownership, args),
     ]);
     return {
+      organizationId: vault.organizationId,
       ghRepoId: vault.ghRepoId,
       owner: vault.owner,
       name: vault.name,
@@ -642,6 +650,7 @@ export const readManagedWorkerConvexProjectConfigurationContext = internalQuery(
       throw new Error("Managed Convex project does not match the active provisioning run.");
     }
     return {
+      organizationId: vault.organizationId,
       ghRepoId: vault.ghRepoId,
       owner: vault.owner,
       name: vault.name,

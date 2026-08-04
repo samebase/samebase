@@ -17,6 +17,7 @@ import {
 import { readOptionalEnv } from "./oauthUtils";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
 import { ensureOrganizationForUser } from "./organizations";
+import { requireOrganizationAccessContext } from "./organizationAccess";
 
 const { boolean, id, literal, null: vNull, object, optional, string, union } = v;
 
@@ -224,7 +225,44 @@ export const seedPasswordAccountState = internalMutation({
     if (user.isApproved !== true) {
       await ctx.db.patch(args.userId, { isApproved: true });
     }
-    const organizationId = await ensureOrganizationForUser(ctx.db, args.userId);
+    await ensureOrganizationForUser(ctx.db, args.userId);
+
+    const binding = await ctx.db
+      .query("seededPasswordAccounts")
+      .withIndex("by_user", (query) => query.eq("userId", args.userId))
+      .unique();
+    let organizationId: Id<"organizations">;
+    if (binding !== null) {
+      const organization = await ctx.db.get(binding.organizationId);
+      if (organization === null) {
+        throw new Error("The seeded password account organization binding is invalid.");
+      }
+      await requireOrganizationAccessContext(ctx.db, {
+        userId: args.userId,
+        organizationId: binding.organizationId,
+      });
+      organizationId = binding.organizationId;
+    } else {
+      const memberships = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_user", (query) => query.eq("userId", args.userId))
+        .take(2);
+      if (memberships.length !== 1) {
+        throw new Error(
+          "The seeded password account organization must be bound before the user joins another organization.",
+        );
+      }
+      const [membership] = memberships;
+      const organization = await ctx.db.get(membership.organizationId);
+      if (organization === null) {
+        throw new Error("The seed account membership refers to a missing organization.");
+      }
+      organizationId = membership.organizationId;
+      await ctx.db.insert("seededPasswordAccounts", {
+        userId: args.userId,
+        organizationId,
+      });
+    }
 
     if (args.githubApiKey) {
       if (!args.githubAccountId || !args.githubUsername) {

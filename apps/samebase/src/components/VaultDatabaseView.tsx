@@ -1,10 +1,13 @@
 import { isRecord } from "@samebase/dependent";
-import { useAction, useQuery } from "convex/react";
+import { useAction } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
+import { useOrganizationVaults } from "@/hooks/useOrganizationVaults";
 import { findVaultConvexProjectAttachment } from "@/lib/vaultConvexProjectAttachment";
+import { useOrganizationSelection } from "@/hooks/useOrganizationSelection";
 
 const EMBEDDED_DASHBOARD_ORIGIN = "https://dashboard-embedded.convex.dev";
 const EMBEDDED_DASHBOARD_URL = `${EMBEDDED_DASHBOARD_ORIGIN}/data`;
@@ -58,7 +61,31 @@ export function VaultDatabaseView({
   branch,
   convexProjectId: routeConvexProjectId,
 }: VaultDatabaseViewProps) {
-  const vaults = useQuery(api.vault.dashboard.getUserVaults);
+  const selection = useOrganizationSelection();
+  if (selection.state !== "selected") {
+    return null;
+  }
+
+  return (
+    <VaultDatabaseViewForOrganization
+      key={selection.organizationId}
+      organizationId={selection.organizationId}
+      owner={owner}
+      repoName={repoName}
+      branch={branch}
+      convexProjectId={routeConvexProjectId}
+    />
+  );
+}
+
+function VaultDatabaseViewForOrganization({
+  organizationId,
+  owner,
+  repoName,
+  branch,
+  convexProjectId: routeConvexProjectId,
+}: VaultDatabaseViewProps & { organizationId: Id<"organizations"> }) {
+  const vaults = useOrganizationVaults(organizationId);
   const createEmbeddedDashboardCredentials = useAction(
     api.vault.database.createEmbeddedDashboardCredentials,
   );
@@ -131,6 +158,7 @@ export function VaultDatabaseView({
       return;
     }
     const requestArgs = {
+      organizationId,
       owner,
       repoName,
       branch,
@@ -177,6 +205,7 @@ export function VaultDatabaseView({
     convexProjectId,
     createEmbeddedDashboardCredentials,
     owner,
+    organizationId,
     repoName,
     revokeEmbeddedDashboardCredentials,
   ]);

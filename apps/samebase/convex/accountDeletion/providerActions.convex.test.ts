@@ -23,7 +23,7 @@ async function seedUser(t: ConvexTest): Promise<{
       email: "test@example.invalid",
       isApproved: true,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
     const initiatingSessionId = await ctx.db.insert("authSessions", {
       userId,

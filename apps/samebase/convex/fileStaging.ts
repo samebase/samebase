@@ -6,13 +6,9 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./functions";
-import {
-  hasOrganizationAccess,
-  requireOrganizationAccessContext,
-  type OrganizationAccessContext,
-} from "./organizationAccess";
+import { hasOrganizationAccess, requireOrganizationAccessContext } from "./organizationAccess";
 import type { GithubTree } from "./vault/model";
 import {
   hasStagedFileChanges,
@@ -223,23 +219,6 @@ function classifyStagedFile(file: StagedFileSummaryInput): StagedFilesCategory |
   return "modified";
 }
 
-async function getVaultForStagingAccessWithContext(
-  ctx: StagingAccessCtx,
-  args: {
-    ownership: OrganizationAccessContext;
-    vaultId: Infer<typeof vaultIdValidator>;
-  },
-): Promise<Doc<"vaults"> | null> {
-  const vault = await ctx.db.get(args.vaultId);
-  if (!vault) {
-    return null;
-  }
-  if (!hasOrganizationAccess(args.ownership, vault)) {
-    return null;
-  }
-  return vault;
-}
-
 async function getVaultForStagingAccess(
   ctx: StagingAccessCtx,
   args: {
@@ -247,11 +226,15 @@ async function getVaultForStagingAccess(
     userId: Infer<typeof userIdValidator>;
   },
 ): Promise<Doc<"vaults"> | null> {
-  const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
-  return await getVaultForStagingAccessWithContext(ctx, {
-    ownership,
-    vaultId: args.vaultId,
+  const vault = await ctx.db.get(args.vaultId);
+  if (vault === null) {
+    return null;
+  }
+  const ownership = await requireOrganizationAccessContext(ctx.db, {
+    userId: args.userId,
+    organizationId: vault.organizationId,
   });
+  return hasOrganizationAccess(ownership, vault) ? vault : null;
 }
 
 async function assertVaultForStagingAccess(
@@ -564,11 +547,10 @@ export const listStagedFilesBranchSummariesByVault = query({
   handler: async (ctx, args) => {
     const summariesByVault: Infer<typeof stagedFilesBranchSummariesByVaultListValidator> = [];
     const uniqueVaultIds = new Set(args.vaultIds);
-    const ownership = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
 
     for (const vaultId of uniqueVaultIds) {
-      const vault = await getVaultForStagingAccessWithContext(ctx, {
-        ownership,
+      const vault = await getVaultForStagingAccess(ctx, {
+        userId: ctx.viewer.userId,
         vaultId,
       });
       if (!vault) {
@@ -778,6 +760,7 @@ type ClearAllStagingPlan<VaultId extends string = string, UserId extends string 
   };
   treeRefreshArgs: {
     userId: UserId;
+    organizationId: Id<"organizations">;
     owner: string;
     repo: string;
     branch: string;
@@ -790,6 +773,7 @@ export function buildClearAllStagingPlan<VaultId extends string, UserId extends 
   branch?: string;
   cleanupCutoffTimestamp: number;
   vault: {
+    organizationId: Id<"organizations">;
     owner: string;
     name: string;
     defaultBranch: string;
@@ -815,6 +799,7 @@ export function buildClearAllStagingPlan<VaultId extends string, UserId extends 
     treeRefreshArgs: args.vault
       ? {
           userId: args.userId,
+          organizationId: args.vault.organizationId,
           owner: args.vault.owner,
           repo: args.vault.name,
           branch: args.branch ?? args.vault.defaultBranch,
@@ -842,6 +827,7 @@ export async function clearAllStagingImpl(ctx: MutationCtx, args: ClearAllStagin
     vault:
       vault && isLiveConnectedVault(vault)
         ? {
+            organizationId: vault.organizationId,
             owner: vault.owner,
             name: vault.name,
             defaultBranch: vault.defaultBranch,

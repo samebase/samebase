@@ -15,9 +15,10 @@ export const createOauthState = internalMutation({
   args: {
     provider: vOAuthProvider,
     userId: v.id("users"),
+    organizationId: v.id("organizations"),
     providerConnectionId: v.optional(v.id("providerConnections")),
     state: v.string(),
-    returnToPath: v.optional(v.string()),
+    returnToPath: v.string(),
     codeVerifier: v.optional(v.string()),
     clientId: v.optional(v.string()),
     clientSecret: v.optional(v.string()),
@@ -30,11 +31,14 @@ export const createOauthState = internalMutation({
     if (!user || user.accountDeletion) {
       throw new Error("Account deletion is in progress.");
     }
-    const access = await requireOrganizationAccessContext(ctx.db, args.userId);
+    await requireOrganizationAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: args.organizationId,
+    });
     return await ctx.db.insert("providerOAuthCallbackStates", {
       provider: args.provider,
       userId: args.userId,
-      organizationId: access.organizationId,
+      organizationId: args.organizationId,
       providerConnectionId: args.providerConnectionId,
       state: args.state,
       returnToPath: args.returnToPath,

@@ -8,7 +8,7 @@ import { deleteVaultLocalDataBatchForOrganization } from "./deletion/cleanup";
 async function seedUser(t: ReturnType<typeof makeConvexTest>, email: string) {
   return await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", { email, isApproved: true });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
     return userId;
   });

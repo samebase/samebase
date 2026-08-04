@@ -1,12 +1,17 @@
 // @vitest-environment jsdom
 
 import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { getFunctionName } from "convex/server";
 import { type ReactNode } from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { AppWorkspaceShell } from "./AppWorkspaceShell";
 import { McpConsentRoutePage } from "./McpConsentRoutePage";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
+
+type OrganizationList = (typeof api.organizations.listForViewer)["_returnType"];
 
 const authState = vi.hoisted(() => ({
   isAuthenticated: false,
@@ -20,6 +25,18 @@ const routeSearchState = vi.hoisted(() => ({
 const authorizationRequestState = vi.hoisted((): { value: unknown } => ({
   value: undefined,
 }));
+const organizationListState = vi.hoisted((): { value: OrganizationList | undefined } => ({
+  value: undefined,
+}));
+const completeAuthorizationRequestMock = vi.hoisted(() =>
+  vi.fn(() => new Promise<never>(() => {})),
+);
+const denyAuthorizationRequestMock = vi.hoisted(() => vi.fn());
+
+function fakeOrganizationId(): Id<"organizations"> {
+  // @ts-expect-error Convex ids are strings at runtime; this test needs one stable organization id.
+  return "organization_test";
+}
 
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
@@ -41,10 +58,28 @@ vi.mock("convex/react", async (importOriginal) => {
       authState.isAuthenticated ? <>{children}</> : null,
     Unauthenticated: ({ children }: { children: ReactNode }) =>
       authState.isAuthenticated || authState.isLoading ? null : <>{children}</>,
-    useAction: () => vi.fn(),
+    useAction: (action: Parameters<typeof actual.useAction>[0]) => {
+      switch (getFunctionName(action)) {
+        case "mcp/oauth:completeAuthorizationRequestForCurrentUser":
+          return completeAuthorizationRequestMock;
+        case "mcp/oauth:denyAuthorizationRequestForCurrentUser":
+          return denyAuthorizationRequestMock;
+        default:
+          throw new Error(`Unexpected action: ${getFunctionName(action)}`);
+      }
+    },
     useConvexAuth: () => authState,
     useMutation: () => vi.fn(),
-    useQuery: () => authorizationRequestState.value,
+    useQuery: (query: Parameters<typeof actual.useQuery>[0]) => {
+      switch (getFunctionName(query)) {
+        case "mcp/oauth:getAuthorizationRequestForCurrentUser":
+          return authorizationRequestState.value;
+        case "organizations:listForViewer":
+          return organizationListState.value;
+        default:
+          return undefined;
+      }
+    },
   };
 });
 
@@ -81,6 +116,9 @@ describe("McpConsentRoutePage workspace shell", () => {
       mcp_consent_request: "mcpar_test",
     };
     authorizationRequestState.value = undefined;
+    organizationListState.value = undefined;
+    completeAuthorizationRequestMock.mockClear();
+    denyAuthorizationRequestMock.mockClear();
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
       value: vi.fn((query: string) => ({
@@ -135,6 +173,7 @@ describe("McpConsentRoutePage workspace shell", () => {
   });
 
   it("renders a readable label for the browser handoff scope", async () => {
+    const organizationId = fakeOrganizationId();
     authState.isAuthenticated = true;
     authorizationRequestState.value = {
       requestId: "mcpar_test",
@@ -148,6 +187,12 @@ describe("McpConsentRoutePage workspace shell", () => {
       createdAt: 1,
       expiresAt: 2,
     };
+    organizationListState.value = [
+      {
+        organizationId,
+        label: "Test organization",
+      },
+    ];
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     root = createRoot(rootElement);
@@ -162,5 +207,75 @@ describe("McpConsentRoutePage workspace shell", () => {
 
     expect(rootElement.textContent).toContain("Open Samebase in a browser as your account");
     expect(rootElement.textContent).not.toContain("access_browser_login_handoff");
+    expect(rootElement.textContent).toContain("Test organization");
+
+    const approveButton = Array.from(rootElement.querySelectorAll("button")).find(
+      (button) => button.textContent === "Approve",
+    );
+    if (approveButton === undefined) {
+      throw new Error("Expected the MCP approval button.");
+    }
+    await act(async () => {
+      approveButton.click();
+    });
+    expect(completeAuthorizationRequestMock).toHaveBeenCalledWith({
+      requestId: "mcpar_test",
+      organizationId,
+    });
+  });
+
+  it("shows the selected organization label instead of its id", async () => {
+    const firstOrganizationId = fakeOrganizationId();
+    // @ts-expect-error Convex ids are strings at runtime; this test needs a second stable id.
+    const secondOrganizationId: Id<"organizations"> = "organization_second";
+    authState.isAuthenticated = true;
+    authorizationRequestState.value = {
+      requestId: "mcpar_test",
+      clientId: "mcpc_test",
+      clientName: "Local Codex handoff smoke",
+      resource: "http://127.0.0.1:12469/mcp",
+      scope: "access_browser_login_handoff",
+      scopes: ["access_browser_login_handoff"],
+      status: "pending",
+      dynamicallyRegistered: true,
+      createdAt: 1,
+      expiresAt: 2,
+    };
+    organizationListState.value = [
+      { organizationId: firstOrganizationId, label: "First organization" },
+      { organizationId: secondOrganizationId, label: "Second organization" },
+    ];
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+
+    await act(async () => {
+      root?.render(
+        <TestRouterProvider initialEntries={["/oauth/mcp/consent?mcp_consent_request=mcpar_test"]}>
+          <McpConsentRoutePage />
+        </TestRouterProvider>,
+      );
+    });
+
+    const trigger = rootElement.querySelector<HTMLButtonElement>('[aria-label="Organization"]');
+    if (trigger === null) {
+      throw new Error("Expected the organization selector.");
+    }
+    await act(async () => {
+      trigger.click();
+    });
+
+    const firstOption = Array.from(
+      document.body.querySelectorAll<HTMLElement>('[role="option"]'),
+    ).find((option) => option.textContent === "First organization");
+    if (firstOption === undefined) {
+      throw new Error("Expected the first organization option.");
+    }
+    await act(async () => {
+      firstOption.click();
+    });
+
+    expect(trigger.textContent).toContain("First organization");
+    expect(trigger.textContent).not.toContain(firstOrganizationId);
   });
 });

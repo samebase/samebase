@@ -20,7 +20,7 @@ async function seedGrant(args?: { approved?: boolean; scope?: string }) {
       isApproved: args?.approved ?? true,
       name: "Handoff User",
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Handoff" });
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
     await ctx.db.insert("mcpOauthClients", {
       clientId,
@@ -134,7 +134,9 @@ describe("agent browser handoff lifecycle", () => {
   it("keeps handoffs bound to the exact grant user and prepared organization", async () => {
     const { ids, t } = await seedGrant();
     const prepared = await t.run(async (ctx) => {
-      const otherOrganizationId = await ctx.db.insert("organizations", {});
+      const otherOrganizationId = await ctx.db.insert("organizations", {
+        name: "Other handoff",
+      });
       const otherUserId = await ctx.db.insert("users", {
         email: "other-handoff-user@example.test",
         isApproved: true,

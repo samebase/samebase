@@ -25,7 +25,7 @@ async function createRetryFixture(blocker: RetryBlocker, t = makeConvexTest()) {
       email: "ada@example.com",
       isApproved: true,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
     const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
       state: "connected",
@@ -208,7 +208,7 @@ describe("app provisioning retry admission", () => {
     });
   });
 
-  it("uses organization access instead of the failed run actor", async () => {
+  it("uses organization membership instead of the failed run actor", async () => {
     const { ids, t } = await createRetryFixture("none");
     await t.run(async (ctx) => {
       const otherUserId = await ctx.db.insert("users", {
@@ -238,7 +238,7 @@ describe("app provisioning retry admission", () => {
         email: "blocked-other@example.com",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
       await ctx.db.insert("organizationMemberships", {
         organizationId,
         userId: blockedOtherUserId,
@@ -250,7 +250,7 @@ describe("app provisioning retry admission", () => {
         userId: blockedOtherUserId,
         vaultId: blocked.ids.vaultId,
       }),
-    ).rejects.toThrow("Vault not found for provisioning run.");
+    ).rejects.toThrow("Organization membership is required.");
   });
 
   it("rolls back retry admission when Workflow start fails", async () => {

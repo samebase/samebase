@@ -73,6 +73,12 @@ const RouteSearchSchema_root = defineRouteSearchParams({
     access: "access_public",
     suggestion: "hidden",
   }),
+  organization: routeSearchValueParam(routeSearchNonEmptyString, {
+    access: "access_dashboard",
+    sampleValue: "organization-id",
+    suggestion: "hidden",
+    valueType: "freeform",
+  }),
   "prod-ui": routeSearchPresenceParam({
     access: "access_public",
     suggestion: "global",
@@ -149,6 +155,7 @@ const rootRouteSearchParamMetadata = {
   devtools: rootRouteSearchOwnParamMetadata.devtools,
   [MOBILE_SIDEBAR_DEBUG_QUERY_PARAM]:
     rootRouteSearchOwnParamMetadata[MOBILE_SIDEBAR_DEBUG_QUERY_PARAM],
+  organization: rootRouteSearchOwnParamMetadata.organization,
   "prod-ui": rootRouteSearchOwnParamMetadata["prod-ui"],
   [SEARCH_RESET_QUERY_PARAM]: rootRouteSearchOwnParamMetadata[SEARCH_RESET_QUERY_PARAM],
   signup: rootRouteSearchOwnParamMetadata.signup,
@@ -213,6 +220,7 @@ export const RETAINED_ROOT_SEARCH_KEYS = [
   "devtools",
   FORCE_PROD_UI_QUERY_PARAM,
   MOBILE_SIDEBAR_DEBUG_QUERY_PARAM,
+  "organization",
   ...LOGO_ROUTE_SEARCH_KEYS,
 ] as const satisfies readonly (keyof RootRouteSearch)[];
 

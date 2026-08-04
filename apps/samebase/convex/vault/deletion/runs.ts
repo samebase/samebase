@@ -427,7 +427,10 @@ export const createInitialRun = internalMutation({
     if (!vault) {
       throw new Error("Vault not found");
     }
-    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: vault.organizationId,
+    });
     if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found");
     }
@@ -508,7 +511,10 @@ export const createRetryRun = internalMutation({
     if (!vault) {
       throw new Error("Vault not found");
     }
-    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: vault.organizationId,
+    });
     if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found");
     }
@@ -651,8 +657,14 @@ export const claimWorkflowRun = internalMutation({
     }
 
     const vault = await ctx.db.get(args.vaultId);
-    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
-    if (!vault || !hasOrganizationAccess(ownership, vault)) {
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: vault.organizationId,
+    });
+    if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found");
     }
     const deletion = readVaultDeletionState(vault);

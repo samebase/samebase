@@ -8,6 +8,7 @@ describe("organization provisioning", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        displayName: "  Waitlisted user  ",
         email: "waitlisted@example.com",
         isApproved: false,
       });
@@ -38,7 +39,7 @@ describe("organization provisioning", () => {
     });
 
     expect(snapshot).toMatchObject({
-      organization: expect.objectContaining({}),
+      organization: expect.objectContaining({ name: "Waitlisted user's organization" }),
       membership: { userId },
       billingAccount: {
         plan: "free",
@@ -76,6 +77,40 @@ describe("organization provisioning", () => {
     expect(snapshot.organizations).toHaveLength(1);
     expect(snapshot.memberships).toHaveLength(1);
     expect(snapshot.billingAccounts).toHaveLength(1);
+  });
+
+  it("keeps every existing membership when the account is updated", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", { email: "multi-member@example.test" });
+      const firstOrganizationId = await ctx.db.insert("organizations", { name: "First" });
+      const secondOrganizationId = await ctx.db.insert("organizations", { name: "Second" });
+      for (const organizationId of [firstOrganizationId, secondOrganizationId]) {
+        await ctx.db.insert("organizationMemberships", { organizationId, userId });
+        await ctx.db.insert("organizationBillingAccounts", {
+          organizationId,
+          plan: "free",
+          status: "inactive",
+        });
+      }
+      return { firstOrganizationId, secondOrganizationId, userId };
+    });
+
+    await t.run(async (ctx) => {
+      await ensureOrganizationForUser(ctx.db, ids.userId);
+    });
+
+    const memberships = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query("organizationMemberships")
+          .withIndex("by_user", (query) => query.eq("userId", ids.userId))
+          .collect(),
+    );
+    expect(memberships.map(({ organizationId }) => organizationId)).toEqual(
+      expect.arrayContaining([ids.firstOrganizationId, ids.secondOrganizationId]),
+    );
+    expect(memberships).toHaveLength(2);
   });
 
   it("provisions a new admin-created user through the auth callback", async () => {

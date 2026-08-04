@@ -98,6 +98,7 @@ type CloudflareWorkerBuildPreparation =
   | { state: "prepared"; build: PreparedCloudflareWorkerBuilds };
 
 type ProviderAttachmentVaultContext = {
+  organizationId: Id<"organizations">;
   ghRepoId: string;
   owner: string;
   name: string;
@@ -187,13 +188,6 @@ async function readVaultConnectionContext(
     throw new Error("Vault not found.");
   }
   return vault;
-}
-
-async function resolveOrganizationId(
-  ctx: Pick<ActionCtx, "runQuery">,
-  userId: Id<"users">,
-): Promise<Id<"organizations">> {
-  return await ctx.runQuery(internal.organizationAccess.getOrganizationIdForUser, { userId });
 }
 
 async function resolveGitHubAccessTokenForVault(
@@ -327,17 +321,17 @@ async function resolveCloudflareRepositoryContext(
   if (!accountId) {
     throw new Error("Cloudflare account is required.");
   }
-  const [context, organizationId, githubAccessToken] = await Promise.all([
+  const [context, githubAccessToken] = await Promise.all([
     readProviderAttachmentVaultContext(ctx, {
       vaultId: args.vaultId,
       userId: args.userId,
     }),
-    resolveOrganizationId(ctx, args.userId),
     resolveGitHubAccessTokenForVault(ctx, {
       vaultId: args.vaultId,
       userId: args.userId,
     }),
   ]);
+  const organizationId = context.organizationId;
   const connection = await resolveCurrentCloudflareConnection(ctx, {
     organizationId,
     userId: args.userId,
@@ -460,19 +454,29 @@ async function createWorkerForManagedWorkflow(
   if (!accountId) {
     throw new Error("Cloudflare account is required.");
   }
-  const checkpoint = await ctx.runQuery(
-    internal.vault.cloudflareMutations.readManagedWorkerCreateCheckpoint,
-    {
+  const [checkpoint, vault, plan] = await Promise.all([
+    ctx.runQuery(internal.vault.cloudflareMutations.readManagedWorkerCreateCheckpoint, {
       vaultId: args.vaultId,
       runId: args.runId,
       userId: args.userId,
       accountId,
       workerName: validation.value,
-    },
-  );
-  const organizationId = await resolveOrganizationId(ctx, args.userId);
-  const connection = await resolveCurrentCloudflareConnection(ctx, {
+    }),
+    readVaultConnectionContext(ctx, {
+      vaultId: args.vaultId,
+      userId: args.userId,
+    }),
+    ctx.runQuery(internal.appProvisioningRuns.getPlanByVaultId, {
+      vaultId: args.vaultId,
+    }),
+  ]);
+  if (plan === null) {
+    throw new Error("Provisioning plan not found.");
+  }
+  const organizationId = vault.organizationId;
+  const connection = await resolveCloudflareConnection(ctx, {
     organizationId,
+    providerConnectionId: plan.cloudflareProviderConnectionId,
     userId: args.userId,
   });
   const account = await resolveAccount({
@@ -515,6 +519,7 @@ async function createWorkerForManagedWorkflow(
       internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate,
       {
         userId: args.userId,
+        organizationId,
         kind: "cloudflare_worker",
       },
     );
@@ -586,15 +591,12 @@ async function prepareWorkersBuildsForGitHub(
   githubDefaultBranch: string;
   buildConfig: CloudflareBuildConfig;
 }> {
-  const [organizationId, githubAccessToken] = await Promise.all([
-    resolveOrganizationId(ctx, args.userId),
-    resolveGitHubAccessTokenForVault(ctx, {
-      vaultId: args.vaultId,
-      userId: args.userId,
-    }),
-  ]);
+  const githubAccessToken = await resolveGitHubAccessTokenForVault(ctx, {
+    vaultId: args.vaultId,
+    userId: args.userId,
+  });
   const connection = await resolveCloudflareConnection(ctx, {
-    organizationId,
+    organizationId: context.organizationId,
     providerConnectionId: context.providerConnectionId,
     userId: args.userId,
   });
@@ -735,9 +737,8 @@ async function prepareConvexDeployKeyRotation(
   build: PreparedCloudflareWorkerBuilds;
   deployKeyNames: ReturnType<typeof buildWorkersBuildsConvexDeployKeyNames>;
 }> {
-  const [context, organizationId, githubAccessToken] = await Promise.all([
+  const [context, githubAccessToken] = await Promise.all([
     readWorkerConvexProjectConfigurationContext(ctx, args),
-    resolveOrganizationId(ctx, args.userId),
     resolveGitHubAccessTokenForVault(ctx, {
       vaultId: args.vaultId,
       userId: args.userId,
@@ -745,7 +746,7 @@ async function prepareConvexDeployKeyRotation(
   ]);
   const project = context.convexProject;
   const convexConnection = await resolveConvexConnection(ctx, {
-    organizationId,
+    organizationId: context.organizationId,
     providerConnectionId: project.providerConnectionId,
   });
   if (convexConnection.convexTeamId !== project.teamId) {
@@ -760,7 +761,7 @@ async function prepareConvexDeployKeyRotation(
   }
   const [connection, repository] = await Promise.all([
     resolveCloudflareConnection(ctx, {
-      organizationId,
+      organizationId: context.organizationId,
       providerConnectionId: context.providerConnectionId,
       userId: args.userId,
     }),
@@ -982,9 +983,12 @@ export async function rotateConvexDeployKeysForWorkersBuildsForUser(
 
 export async function listCloudflareAccountsForUser(
   ctx: ActionCtx,
-  args: { userId: Id<"users"> },
+  args: { userId: Id<"users">; organizationId: Id<"organizations"> },
 ): Promise<CloudflareAccountResult[]> {
-  const organizationId = await resolveOrganizationId(ctx, args.userId);
+  const organizationId = await ctx.runQuery(
+    internal.organizationAccess.requireOrganizationIdForUser,
+    args,
+  );
   const connection = await resolveCurrentCloudflareConnection(ctx, {
     organizationId,
     userId: args.userId,
@@ -1042,19 +1046,31 @@ export async function configureWorkersBuildsForGitHubForUser(
 
 export const listAccounts = action({
   access: cloudflareListAccountsContract.access,
-  args: cloudflareListAccountsContract.args,
+  args: {
+    ...cloudflareListAccountsContract.args,
+    organizationId: id("organizations"),
+  },
   returns: cloudflareListAccountsContract.returns,
   mcp: cloudflareListAccountsContract.mcp,
-  handler: async (ctx): Promise<CloudflareAccountResult[]> =>
-    await listCloudflareAccountsForUser(ctx, { userId: ctx.viewer.userId }),
+  handler: async (ctx, args): Promise<CloudflareAccountResult[]> =>
+    await listCloudflareAccountsForUser(ctx, {
+      userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
+    }),
 });
 
 export const selectDefaultAccount = action({
   access: "access_provider_connections",
-  args: { accountId: string() },
+  args: {
+    organizationId: id("organizations"),
+    accountId: string(),
+  },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
-    const organizationId = await resolveOrganizationId(ctx, ctx.viewer.userId);
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.requireOrganizationIdForUser,
+      { userId: ctx.viewer.userId, organizationId: args.organizationId },
+    );
     const connection = await resolveCurrentCloudflareConnection(ctx, {
       organizationId,
       userId: ctx.viewer.userId,
@@ -1228,7 +1244,7 @@ async function connectWorkerForUser(
         expectedRepoId: resolved.context.ghRepoId,
         defaultBranch: resolved.githubDefaultBranch,
       });
-    } catch (observationError) {
+    } catch {
       await attemptManualProviderWriteFailureRecord(ctx, {
         vaultId: args.vaultId,
         actionId,
@@ -1236,7 +1252,7 @@ async function connectWorkerForUser(
       return {
         state: "added_with_notice",
         workerId,
-        message: `Cloudflare Worker ${workerName} was added, but Samebase could not verify its GitHub Builds state. Refresh the vault after checking the Worker in Cloudflare. Setup error: ${toErrorMessage(error)} Verification error: ${toErrorMessage(observationError)}`,
+        message: `Cloudflare Worker ${workerName} was added, but Samebase could not verify its GitHub Builds state. Refresh the vault after checking the Worker in Cloudflare.`,
       };
     }
     if (
@@ -1258,7 +1274,7 @@ async function connectWorkerForUser(
       return {
         state: "added_with_notice",
         workerId,
-        message: `Cloudflare Worker ${workerName} was added and GitHub Builds is connected, but Cloudflare reported an error after setup. Start a build from Cloudflare if one is not running. Reason: ${toErrorMessage(error)}`,
+        message: `Cloudflare Worker ${workerName} was added and GitHub Builds is connected, but Cloudflare reported an error after setup. Start a build from Cloudflare if one is not running.`,
       };
     }
     await attemptManualProviderWriteFailureRecord(ctx, {
@@ -1273,7 +1289,7 @@ async function connectWorkerForUser(
       return {
         state: "added_with_notice",
         workerId,
-        message: `Cloudflare Worker ${workerName} was added ${rootMessage} Reason: ${toErrorMessage(error)}`,
+        message: `Cloudflare Worker ${workerName} was added ${rootMessage}`,
       };
     }
     const nextActionMessage =
@@ -1283,7 +1299,7 @@ async function connectWorkerForUser(
     return {
       state: "added_with_notice",
       workerId,
-      message: `Cloudflare Worker ${workerName} was added, but GitHub Builds setup did not complete. ${nextActionMessage} Reason: ${toErrorMessage(error)}`,
+      message: `Cloudflare Worker ${workerName} was added, but GitHub Builds setup did not complete. ${nextActionMessage}`,
     };
   }
   await ctx.runMutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
@@ -1348,6 +1364,7 @@ export async function createWorkerForUser(
       internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate,
       {
         userId: args.userId,
+        organizationId: resolved.organizationId,
         kind: "cloudflare_worker",
       },
     );

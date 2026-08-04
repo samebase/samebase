@@ -43,7 +43,10 @@ async function getLiveCollaborativeVault(
   if (!isLiveConnectedVault(vault)) {
     return null;
   }
-  const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+  const ownership = await requireOrganizationAccessContext(ctx.db, {
+    userId: args.userId,
+    organizationId: vault.organizationId,
+  });
   if (!hasOrganizationAccess(ownership, vault)) {
     return null;
   }
@@ -55,7 +58,10 @@ async function assertVaultAllowsCollaborativeWrites(
   args: { userId: Id<"users">; vaultId: Id<"vaults"> },
 ): Promise<void> {
   const vault = assertConnectedVault(await ctx.db.get(args.vaultId));
-  const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+  const ownership = await requireOrganizationAccessContext(ctx.db, {
+    userId: args.userId,
+    organizationId: vault.organizationId,
+  });
   if (!hasOrganizationAccess(ownership, vault)) {
     throw new Error("Unauthorized");
   }
@@ -119,6 +125,7 @@ export const getDocument = query({
 export const pullUpdates = query({
   access: "access_files_read",
   args: {
+    organizationId: id("organizations"),
     repositoryFullName: string(),
     branch: string(),
     filePath: string(),
@@ -136,6 +143,7 @@ export const pullUpdates = query({
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
     });
 
     if (!vault) {
@@ -165,6 +173,7 @@ export const pullUpdates = query({
 export const pushUpdates = mutation({
   access: "access_files_write",
   args: {
+    organizationId: id("organizations"),
     repositoryFullName: string(),
     branch: string(),
     filePath: string(),
@@ -184,6 +193,7 @@ export const pushUpdates = mutation({
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
     });
 
     if (!vault) {

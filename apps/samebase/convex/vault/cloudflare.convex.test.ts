@@ -80,7 +80,7 @@ async function createCloudflareConnectedVault() {
       email: "ada@example.com",
       isApproved: true,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
     await ctx.db.insert("organizationBillingAccounts", {
       organizationId,
@@ -535,7 +535,7 @@ describe("vault Cloudflare Worker attachments", () => {
       expect.objectContaining({
         state: "added_with_notice",
         message: expect.stringContaining(
-          "GitHub default branch changed while Samebase configured Workers Builds.",
+          "Cloudflare reported an error after setup. Start a build from Cloudflare if one is not running.",
         ),
       }),
     );
@@ -969,7 +969,7 @@ describe("vault Cloudflare Worker attachments", () => {
     });
   });
 
-  it("retries an interrupted managed create after the Worker was deleted", async () => {
+  it("uses the planned Cloudflare connection when retrying an interrupted create", async () => {
     const { cloudflareProviderConnectionId, organizationId, runId, t, userId, vaultId } =
       await createManagedWorkerCreatingFixture();
     await t.run(async (ctx) => {
@@ -984,6 +984,17 @@ describe("vault Cloudflare Worker attachments", () => {
           accountName: "Other Cloudflare account",
         },
       });
+      const selectedCloudflareProviderConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "cloudflare",
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
+        auth: { method: "api_key", credential: "other-cloudflare-token" },
+        defaultAccount: { state: "not_selected" },
+        createdAt: 4,
+        updatedAt: 4,
+      });
+      await ctx.db.patch(organizationId, { selectedCloudflareProviderConnectionId });
     });
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
@@ -1020,6 +1031,7 @@ describe("vault Cloudflare Worker attachments", () => {
     await expect(t.run(async (ctx) => await ctx.db.get(workerId))).resolves.toMatchObject({
       vaultId,
       organizationId,
+      providerConnectionId: cloudflareProviderConnectionId,
       accountId,
       workerName: "managed-worker",
       workerTag: "managed-worker-tag",
@@ -1034,6 +1046,10 @@ describe("vault Cloudflare Worker attachments", () => {
         accountName: "Other Cloudflare account",
       },
     });
+    for (const [input, init] of fetchMock.mock.calls) {
+      const request = input instanceof Request ? input : new Request(input, init);
+      expect(request.headers.get("authorization")).toBe("Bearer cloudflare-token");
+    }
     expect(
       fetchMock.mock.calls.filter(
         ([input, init]) => (input instanceof Request ? input.method : init?.method) === "POST",

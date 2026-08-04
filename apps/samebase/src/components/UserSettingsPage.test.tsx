@@ -96,6 +96,7 @@ const queryState = vi.hoisted<{
     canStartCheckout: boolean;
   };
   billingUsage: BillingResourceUsage;
+  organizations: Array<{ organizationId: string; label: string }>;
   settings: { displayName?: string; signInEmail: string };
   stakes: AccountDeletionStakes | undefined;
   viewerAccess: { accessKeys: string[]; role: "role_member" | "role_staff" };
@@ -109,6 +110,12 @@ const queryState = vi.hoisted<{
     cloudflareWorkers: { used: { state: "exact", count: 1 }, limit: 5 },
     convexProjects: { used: { state: "exact", count: 2 }, limit: 5 },
   },
+  organizations: [
+    {
+      organizationId: "test-organization-id",
+      label: "Nicu's organization",
+    },
+  ],
   settings: {
     displayName: "Current name",
     signInEmail: "nicu@samebase.com",
@@ -124,6 +131,7 @@ const queryState = vi.hoisted<{
     role: "role_staff",
   },
 }));
+const ORGANIZATION_ID = "test-organization-id";
 
 vi.mock("@convex-dev/auth/react", () => ({
   useConvexAuth: () => authState,
@@ -211,6 +219,9 @@ vi.mock("convex/react", async (importOriginal) => {
       }
       if (getFunctionName(reference) === "users:currentViewerAccess") {
         return queryState.viewerAccess;
+      }
+      if (getFunctionName(reference) === "organizations:listForViewer") {
+        return queryState.organizations;
       }
       if (getFunctionName(reference) === "billing:getViewerBillingStatus") {
         return queryState.billing;
@@ -383,6 +394,12 @@ describe("UserSettingsPage", () => {
       cloudflareWorkers: { used: { state: "exact", count: 1 }, limit: 5 },
       convexProjects: { used: { state: "exact", count: 2 }, limit: 5 },
     };
+    queryState.organizations = [
+      {
+        organizationId: ORGANIZATION_ID,
+        label: "Nicu's organization",
+      },
+    ];
     queryState.stakes = EMPTY_ACCOUNT_DELETION_STAKES;
   });
 
@@ -503,7 +520,9 @@ describe("UserSettingsPage", () => {
         await vi.advanceTimersByTimeAsync(0);
       });
 
-      expect(actionState.reconcileBilling).toHaveBeenCalledWith({});
+      expect(actionState.reconcileBilling).toHaveBeenCalledWith({
+        organizationId: ORGANIZATION_ID,
+      });
       expect(actionState.reconcileBilling).toHaveBeenCalledTimes(1);
     } finally {
       await unmount(mounted.root, mounted.rootElement);
@@ -716,6 +735,7 @@ describe("UserSettingsPage", () => {
       });
 
       expect(actionState.createCheckoutSession).toHaveBeenCalledWith({
+        organizationId: ORGANIZATION_ID,
         returnUrl: `${window.location.origin}/settings?devtools=&checkout=cancel`,
         successUrl: `${window.location.origin}/settings?devtools=&checkout=success`,
       });
@@ -768,6 +788,7 @@ describe("UserSettingsPage", () => {
       });
 
       expect(actionState.createCustomerPortalSession).toHaveBeenCalledWith({
+        organizationId: ORGANIZATION_ID,
         returnUrl: `${window.location.origin}/settings?devtools=`,
       });
       expect(actionState.createCheckoutSession).not.toHaveBeenCalled();

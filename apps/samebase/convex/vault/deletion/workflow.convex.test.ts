@@ -13,7 +13,7 @@ describe("vault deletion workflow", () => {
         email: "ada@example.com",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
       const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
         kind: "github",
@@ -99,7 +99,7 @@ describe("vault deletion workflow", () => {
         email: "ada@example.com",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
       const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
         kind: "github",
@@ -243,7 +243,7 @@ describe("vault deletion workflow", () => {
         email: "ada@example.com",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
       const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
         kind: "github",
@@ -417,9 +417,12 @@ describe("vault deletion workflow", () => {
     });
 
     const [vaults, liveRepositoryVault] = await Promise.all([
-      asUser.query(api.vault.dashboard.getUserVaults),
+      asUser.query(api.vault.dashboard.getUserVaults, {
+        organizationId: ids.organizationId,
+      }),
       t.query(internal.vault.records.getByRepositoryFullName, {
         userId: ids.userId,
+        organizationId: ids.organizationId,
         repositoryFullName: "ada/delete-me",
       }),
     ]);
@@ -466,7 +469,7 @@ describe("vault deletion workflow", () => {
         email: "ada@example.com",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
       await ctx.db.insert("organizationBillingAccounts", {
         organizationId,
@@ -500,7 +503,9 @@ describe("vault deletion workflow", () => {
       tokenIdentifier: `test:${userId}`,
     });
 
-    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults, {
+      organizationId,
+    });
 
     expect(vaults).toHaveLength(1);
     expect(vaults[0]).toMatchObject({
@@ -523,7 +528,7 @@ describe("vault deletion workflow", () => {
         email: "ada@example.com",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
       const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
         kind: "github",
@@ -744,7 +749,7 @@ describe("vault deletion workflow", () => {
         email: "ada@example.com",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
       const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
         kind: "github",
@@ -819,7 +824,7 @@ describe("vault deletion workflow", () => {
         email: "ada@example.com",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
       const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
         kind: "github",
@@ -886,7 +891,7 @@ describe("vault deletion workflow", () => {
         email: "nicu@samebase.com",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
       const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
         kind: "github",

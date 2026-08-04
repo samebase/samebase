@@ -42,7 +42,7 @@ async function seedUser(polarExternalCustomerId?: string) {
       email: "test@example.invalid",
       isApproved: true,
     });
-    const organizationId = await ctx.db.insert("organizations", {});
+    const organizationId = await ctx.db.insert("organizations", { name: "Test organization" });
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
     const billingAccountId = await ctx.db.insert("organizationBillingAccounts", {
       organizationId,

@@ -19,7 +19,10 @@ async function canAccessFolderExpansionVault(
   if (!vault) {
     return false;
   }
-  const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+  const ownership = await requireOrganizationAccessContext(ctx.db, {
+    userId: args.userId,
+    organizationId: vault.organizationId,
+  });
   return hasOrganizationAccess(ownership, vault);
 }
 

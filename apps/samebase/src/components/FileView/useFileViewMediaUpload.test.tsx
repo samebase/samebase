@@ -13,6 +13,12 @@ function fakeVaultId(): Id<"vaults"> {
   return "k976ryb9d1m2gyvxhps87dac257mv5ps";
 }
 
+function fakeOrganizationId(): Id<"organizations"> {
+  // @ts-expect-error Convex ids are strings at runtime; this hook test only
+  // needs a stable organization id for generated function arguments.
+  return "k976ryb9d1m2gyvxhps87dac257mv5ps";
+}
+
 function MediaUploadProbe() {
   const mediaUpload = useFileViewMediaUpload({
     branch: "main",
@@ -20,6 +26,7 @@ function MediaUploadProbe() {
     deletePendingUploadBlob: vi.fn(async () => null),
     generateUploadUrl: vi.fn(async () => "/upload"),
     navigateByHref: vi.fn(),
+    organizationId: fakeOrganizationId(),
     repositoryFullName: "octo/repo",
     selectedFile: "README.md",
     stageUploadedMedia: vi.fn(async () => null),

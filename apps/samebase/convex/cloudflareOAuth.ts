@@ -1,5 +1,4 @@
 import { Infer, v } from "convex/values";
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { z } from "zod";
 
 import { internal } from "./_generated/api";
@@ -15,7 +14,10 @@ import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealth } from "./mcpTokenHealt
 import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
 import { vCloudflareDefaultAccount } from "./providerConnectionModel";
 import { utf8ToBase64 } from "../shared/base64";
-import { buildProviderOAuthDefaultReturnUrl } from "../shared/providerOAuthReturn";
+import {
+  buildProviderOAuthReturnUrl,
+  isSafeProviderOAuthReturnToPath,
+} from "../shared/providerOAuthReturn";
 import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSearchParams";
 
 const CLOUDFLARE_OAUTH_AUTHORIZATION_URL = "https://dash.cloudflare.com/oauth2/auth";
@@ -247,9 +249,17 @@ async function refreshCloudflareOAuthToken(args: {
 
 async function buildCloudflareOAuthUrl(
   ctx: OAuthContext,
-  userId: Id<"users">,
-  providerConnectionId?: Id<"providerConnections">,
+  args: {
+    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+    returnToPath: string;
+    providerConnectionId?: Id<"providerConnections">;
+  },
 ): Promise<string> {
+  if (!isSafeProviderOAuthReturnToPath(args.returnToPath)) {
+    throw new Error("OAuth return path must be a root-relative same-site path.");
+  }
+
   const clientId = readRequiredEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID");
   const redirectUri = readRequiredEnv("PROVIDER_CLOUDFLARE_OAUTH_REDIRECT_URL");
   const state = randomToken();
@@ -257,15 +267,17 @@ async function buildCloudflareOAuthUrl(
 
   await ctx.runMutation(internal.oauthState.createOauthState, {
     provider: "cloudflare",
-    userId,
-    providerConnectionId,
+    userId: args.userId,
+    organizationId: args.organizationId,
+    providerConnectionId: args.providerConnectionId,
     state,
+    returnToPath: args.returnToPath,
     createdAt: now,
     expiresAt: now + OAUTH_STATE_TTL_MS,
   });
 
   console.log("cloudflare:oauth:url_built", {
-    userId,
+    userId: args.userId,
     redirectUri,
     oauthStateExpiresAt: now + OAUTH_STATE_TTL_MS,
   });
@@ -529,20 +541,29 @@ export const resolveConnectionForUser = internalAction({
 
 export const getCloudflareOAuthUrl = action({
   access: "access_provider_connections",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+    returnToPath: string(),
+  },
   returns: string(),
-  handler: async (ctx): Promise<string> => {
+  handler: async (ctx, args): Promise<string> => {
     const organizationId = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
+      internal.organizationAccess.requireOrganizationIdForUser,
       {
         userId: ctx.viewer.userId,
+        organizationId: args.organizationId,
       },
     );
     const connection = await ctx.runQuery(internal.providerConnections.loadDefaultForOrganization, {
       organizationId,
       kind: "cloudflare",
     });
-    return await buildCloudflareOAuthUrl(ctx, ctx.viewer.userId, connection?._id);
+    return await buildCloudflareOAuthUrl(ctx, {
+      userId: ctx.viewer.userId,
+      organizationId,
+      returnToPath: args.returnToPath,
+      providerConnectionId: connection?.state === "connected" ? connection._id : undefined,
+    });
   },
 });
 
@@ -577,22 +598,6 @@ export const revokeCloudflareOAuthForOrganizationConnection = internalAction({
   },
 });
 
-export const startCloudflareOAuth = httpAction(async (ctx) => {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-  const organizationId = await ctx.runQuery(internal.organizationAccess.getOrganizationIdForUser, {
-    userId,
-  });
-  const connection = await ctx.runQuery(internal.providerConnections.loadDefaultForOrganization, {
-    organizationId,
-    kind: "cloudflare",
-  });
-  const authorizeUrl = await buildCloudflareOAuthUrl(ctx, userId, connection?._id);
-  return Response.redirect(authorizeUrl, 302);
-});
-
 export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
   const url = new URL(request.url);
   const error = url.searchParams.get("error");
@@ -617,7 +622,7 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
         });
       }
     }
-    return new Response(`Cloudflare OAuth error: ${errorDescription ?? error}`, { status: 400 });
+    return new Response("Cloudflare OAuth authorization was not completed.", { status: 400 });
   }
 
   if (!code || !state) {
@@ -698,9 +703,10 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
     return new Response("Cloudflare OAuth exchange failed", { status: 400 });
   }
 
-  const returnUrl = buildProviderOAuthDefaultReturnUrl({
+  const returnUrl = buildProviderOAuthReturnUrl({
     configuredAppUrl: process.env.SITE_URL ?? process.env.CONVEX_SITE_URL,
     requestUrl: request.url,
+    returnToPath: oauthState.returnToPath,
   });
   const returnOrigin = new URL(returnUrl).origin;
 

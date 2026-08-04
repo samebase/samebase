@@ -969,7 +969,10 @@ export const get = query({
     if (!isLiveConnectedVault(vault)) {
       return null;
     }
-    const ownership = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: ctx.viewer.userId,
+      organizationId: vault.organizationId,
+    });
     if (!hasOrganizationAccess(ownership, vault)) {
       return null;
     }
@@ -1034,9 +1037,14 @@ export const saveLayout = mutation({
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
     const project = await ctx.db.get(args.convexProjectId);
-    const ownership = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
+    if (!isLiveConnectedVault(vault)) {
+      throw new Error("Convex project not found.");
+    }
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: ctx.viewer.userId,
+      organizationId: vault.organizationId,
+    });
     if (
-      !isLiveConnectedVault(vault) ||
       !hasOrganizationAccess(ownership, vault) ||
       !project ||
       project.vaultId !== args.vaultId ||
@@ -1169,7 +1177,10 @@ export const readRefreshTarget = internalQuery({
     if (!isLiveConnectedVault(vault)) {
       throw new Error("Vault not found.");
     }
-    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: vault.organizationId,
+    });
     if (!hasOrganizationAccess(ownership, vault)) {
       throw new Error("Vault not found.");
     }
@@ -1240,12 +1251,14 @@ export const recordSnapshot = internalMutation({
       ctx.db.get(args.vaultId),
       ctx.db.get(args.convexProjectId),
     ]);
-    const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
-    if (
-      !isLiveConnectedVault(vault) ||
-      !project ||
-      !hasVaultChildOrganizationAccess(ownership, vault, project)
-    ) {
+    if (!isLiveConnectedVault(vault)) {
+      throw new Error("Convex project not found.");
+    }
+    const ownership = await requireOrganizationAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: vault.organizationId,
+    });
+    if (!project || !hasVaultChildOrganizationAccess(ownership, vault, project)) {
       throw new Error("Convex project not found.");
     }
 

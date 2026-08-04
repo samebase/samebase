@@ -2,8 +2,9 @@ import { v, type Infer } from "convex/values";
 
 import { internalMutation } from "./_generated/server";
 import { vOrganizationBillingState } from "./organizationModel";
+import { buildPersonalOrganizationName } from "./organizations";
 
-const { id, number, object } = v;
+const { id, number, object, string } = v;
 
 const USER_ROW_CAP = 500;
 
@@ -60,6 +61,7 @@ export const bootstrapOrganizationOwnership = internalMutation({
   args: {
     operatorUserIdA: id("users"),
     operatorUserIdB: id("users"),
+    operatorOrganizationName: string(),
     operatorBilling: vOrganizationBillingState,
   },
   returns: bootstrapResult,
@@ -67,6 +69,10 @@ export const bootstrapOrganizationOwnership = internalMutation({
     validateOperatorBilling(args.operatorBilling);
     if (args.operatorUserIdA === args.operatorUserIdB) {
       throw new Error("Organization bootstrap requires two different operator users.");
+    }
+    const operatorOrganizationName = args.operatorOrganizationName.trim();
+    if (operatorOrganizationName.length === 0) {
+      throw new Error("Operator organization name is required.");
     }
 
     const [users, organization, membership, billingAccount] = await Promise.all([
@@ -87,7 +93,9 @@ export const bootstrapOrganizationOwnership = internalMutation({
       throw new Error("Organization bootstrap operator users must exist.");
     }
 
-    const operatorOrganizationId = await ctx.db.insert("organizations", {});
+    const operatorOrganizationId = await ctx.db.insert("organizations", {
+      name: operatorOrganizationName,
+    });
     await ctx.db.insert("organizationMemberships", {
       organizationId: operatorOrganizationId,
       userId: args.operatorUserIdA,
@@ -106,7 +114,9 @@ export const bootstrapOrganizationOwnership = internalMutation({
       if (user._id === args.operatorUserIdA || user._id === args.operatorUserIdB) {
         continue;
       }
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", {
+        name: buildPersonalOrganizationName(user),
+      });
       await ctx.db.insert("organizationMemberships", {
         organizationId,
         userId: user._id,

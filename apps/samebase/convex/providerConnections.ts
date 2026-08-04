@@ -125,10 +125,7 @@ async function assertActorCanWriteOrganizationConnection(
   if (user === null || user.accountDeletion !== undefined) {
     throw new Error("Provider connections are unavailable during account deletion.");
   }
-  const access = await requireOrganizationAccessContext(db, args.userId);
-  if (access.organizationId !== args.organizationId) {
-    throw new Error("Organization membership is required.");
-  }
+  await requireOrganizationAccessContext(db, args);
 }
 
 function buildConnectedConnection(args: {

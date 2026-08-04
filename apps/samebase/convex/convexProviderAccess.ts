@@ -7,9 +7,8 @@ import {
   requestConvexManagementApi,
 } from "./convexManagementApi/client";
 import { ConvexManagementApiError } from "./convexManagementApi/errors";
-import { toErrorMessage } from "./jsonUtils";
 
-const { array, boolean, literal, number, object, optional, string, union } = v;
+const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
 const vConvexProviderAuthMethod = union(literal("api_key"), literal("oauth"));
 
@@ -71,14 +70,17 @@ type ConvexProbeResult<Value> =
 
 export const checkConvexConnectionAccess = action({
   access: "access_provider_connections",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: vConvexConnectionAccess,
-  handler: async (ctx): Promise<ConvexConnectionAccess> => {
+  handler: async (ctx, args): Promise<ConvexConnectionAccess> => {
     const checkedAt = Date.now();
     const organizationId = await ctx.runQuery(
-      internal.organizationAccess.getOrganizationIdForUser,
+      internal.organizationAccess.requireOrganizationIdForUser,
       {
         userId: ctx.viewer.userId,
+        organizationId: args.organizationId,
       },
     );
     const connection = await ctx.runQuery(
@@ -265,5 +267,5 @@ function formatConvexAccessProbeError(error: unknown): string {
     }
     return `Convex probe ${error.path} failed (${error.status}).`;
   }
-  return toErrorMessage(error);
+  return "Convex access check failed. Reconnect Convex and retry.";
 }

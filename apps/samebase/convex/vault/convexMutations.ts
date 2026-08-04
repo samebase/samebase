@@ -44,7 +44,10 @@ async function requireConnectedVault(
   if (!isLiveConnectedVault(vault)) {
     throw new Error("Vault not found.");
   }
-  const ownership = await requireOrganizationAccessContext(ctx.db, args.userId);
+  const ownership = await requireOrganizationAccessContext(ctx.db, {
+    userId: args.userId,
+    organizationId: vault.organizationId,
+  });
   if (!hasOrganizationAccess(ownership, vault)) {
     throw new Error("Vault not found.");
   }
@@ -163,6 +166,7 @@ async function insertProject(
 
   await requireBillingResourceCapacity(ctx, {
     kind: "convex_project",
+    organizationId,
     userId: args.userId,
   });
 
@@ -210,6 +214,7 @@ export const readProjectAttachmentContext = internalQuery({
     convexProjectId: id("vaultConvexProjects"),
   },
   returns: object({
+    organizationId: id("organizations"),
     teamId: string(),
     projectId: string(),
     providerConnectionId: id("providerConnections"),
@@ -226,6 +231,7 @@ export const readProjectAttachmentContext = internalQuery({
       throw new Error("Convex project attachment not found.");
     }
     return {
+      organizationId: project.organizationId,
       teamId: project.teamId,
       projectId: project.projectId,
       providerConnectionId: project.providerConnectionId,

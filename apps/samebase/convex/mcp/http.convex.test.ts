@@ -27,8 +27,8 @@ describe("MCP HTTP tool invocation args", () => {
         email: "argument@example.com",
         isApproved: true,
       });
-      const tokenOrganizationId = await ctx.db.insert("organizations", {});
-      const argumentOrganizationId = await ctx.db.insert("organizations", {});
+      const tokenOrganizationId = await ctx.db.insert("organizations", { name: "Token" });
+      const argumentOrganizationId = await ctx.db.insert("organizations", { name: "Argument" });
       return { argumentOrganizationId, argumentUserId, tokenOrganizationId, tokenUserId };
     });
     const viewer = await t.query(internal.functions.resolveViewerForUserId, {
@@ -257,7 +257,7 @@ describe("MCP tools/call access enforcement", () => {
         email: "ada@example.com",
         isApproved: args.isApproved,
       });
-      const organizationId = await ctx.db.insert("organizations", {});
+      const organizationId = await ctx.db.insert("organizations", { name: "MCP bearer" });
       await ctx.db.insert("organizationMemberships", {
         organizationId,
         userId: seededUserId,

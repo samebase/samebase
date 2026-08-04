@@ -2,9 +2,11 @@ import { GitHubLogoIcon, ClockIcon } from "@/lib/radixIcons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
+import { useOrganizationSelection } from "@/hooks/useOrganizationSelection";
+import { useOrganizationVaults } from "@/hooks/useOrganizationVaults";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
 import { useState, type ReactElement } from "react";
 import { linkStyle } from "./styles";
@@ -108,16 +110,34 @@ function renderHighlightedText(target: string, matchedIndices: number[]): ReactE
 }
 
 export function ConnectRepository() {
+  const selection = useOrganizationSelection();
+  if (selection.state !== "selected") {
+    return null;
+  }
+
+  return (
+    <ConnectRepositoryForOrganization
+      key={selection.organizationId}
+      organizationId={selection.organizationId}
+    />
+  );
+}
+
+function ConnectRepositoryForOrganization({
+  organizationId,
+}: {
+  organizationId: Id<"organizations">;
+}) {
   const location = useLocation();
   const navigate = useNavigate();
-  const vaults = useQuery(api.vault.dashboard.getUserVaults);
+  const vaults = useOrganizationVaults(organizationId);
   const [searchQuery, setSearchQuery] = useState("");
   const [retryingFullRepositories, setRetryingFullRepositories] = useState(false);
   const listRepositoriesPreview = useAction(api.github.listRepositoriesPreview);
   const listRepositories = useAction(api.github.listRepositories);
   const connectRepository = useAction(api.vault.actions.connectRepository);
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
-  const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
+  const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus, { organizationId });
   const githubConnected = githubConnection?.connected === true;
   const [connectError, setConnectError] = useState<string | null>(null);
   const [connectingRepositoryFullName, setConnectingRepositoryFullName] = useState<string | null>(
@@ -129,9 +149,9 @@ export function ConnectRepository() {
     isLoading: previewLoading,
     error: previewQueryError,
   } = useReactQuery({
-    queryKey: ["github-repositories-preview"],
+    queryKey: ["github-repositories-preview", organizationId],
     queryFn: async () => {
-      return await listRepositoriesPreview();
+      return await listRepositoriesPreview({ organizationId });
     },
     enabled: githubConnected,
   });
@@ -145,9 +165,9 @@ export function ConnectRepository() {
     fetchStatus: fullRepositoriesFetchStatus,
     isFetchedAfterMount: fullRepositoriesFetchedAfterMount,
   } = useReactQuery({
-    queryKey: ["github-repositories"],
+    queryKey: ["github-repositories", organizationId],
     queryFn: async () => {
-      return await listRepositories();
+      return await listRepositories({ organizationId });
     },
     enabled: githubConnected && repositoryPreview?.hasMore === true,
   });
@@ -215,6 +235,7 @@ export function ConnectRepository() {
       setConnectError(null);
       try {
         const oauthUrl = await getGithubOAuthUrl({
+          organizationId,
           returnToPath: getCurrentRootRelativeUrl(),
         });
         if (isInIframe()) {
@@ -251,7 +272,11 @@ export function ConnectRepository() {
       setConnectingRepositoryFullName(repositoryFullName);
       try {
         await queueExistingRepositoryAndNavigateToDashboard({
-          connectRepository,
+          connectRepository: async ({ repositoryFullName: selectedRepositoryFullName }) =>
+            await connectRepository({
+              organizationId,
+              repositoryFullName: selectedRepositoryFullName,
+            }),
           repositoryFullName,
           search: location.search,
           navigateByHref: async (href) => {

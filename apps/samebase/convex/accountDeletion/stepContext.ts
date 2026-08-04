@@ -4,7 +4,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { DatabaseReader } from "../_generated/server";
 import { internalQuery, type QueryCtx } from "../_generated/server";
 import {
-  findBillingAccountForUser,
+  findBillingAccountForOrganization,
   readBillingAccountState,
   type BillingAccountState,
 } from "../organizationBilling";
@@ -40,14 +40,18 @@ export async function readAccountDeletionOrganization(
   db: DatabaseReader,
   userId: Id<"users">,
 ): Promise<AccountDeletionOrganization> {
-  const membership = await db
+  const membershipsForUser = await db
     .query("organizationMemberships")
     .withIndex("by_user", (query) => query.eq("userId", userId))
-    .unique();
+    .take(2);
 
-  if (membership === null) {
+  if (membershipsForUser.length === 0) {
     throw new Error("Organization membership is required.");
   }
+  if (membershipsForUser.length > 1) {
+    throw new Error("Account deletion is unavailable for accounts in multiple organizations.");
+  }
+  const [membership] = membershipsForUser;
 
   const memberships = await db
     .query("organizationMemberships")
@@ -76,7 +80,10 @@ export async function readAccountDeletionBilling(
   userId: Id<"users">,
 ): Promise<AccountDeletionBilling | null> {
   const organization = await readAccountDeletionOrganization(db, userId);
-  const billing = await findBillingAccountForUser(db, userId);
+  const billing = await findBillingAccountForOrganization(db, {
+    userId,
+    organizationId: organization.organizationId,
+  });
 
   if (billing === null) {
     return null;

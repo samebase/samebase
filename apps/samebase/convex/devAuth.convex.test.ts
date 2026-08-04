@@ -51,7 +51,7 @@ describe("devAuth password account seed", () => {
     });
   });
 
-  it("prepares the explicit seed user for normal app use", async () => {
+  it("creates one organization and seeds providers for a new account", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -97,6 +97,69 @@ describe("devAuth password account seed", () => {
       "convex",
       "github",
     ]);
+  });
+
+  it("keeps provider seeding on the bound organization after another membership is added", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", { email: "multi-org-seed@example.com" });
+    });
+
+    await t.mutation(internal.devAuth.seedPasswordAccountState, {
+      userId,
+      githubApiKey: "first-token",
+      githubAccountId: "github-account-id",
+      githubUsername: "seed-user",
+    });
+    const boundOrganizationId = await t.run(async (ctx) => {
+      const binding = await ctx.db
+        .query("seededPasswordAccounts")
+        .withIndex("by_user", (query) => query.eq("userId", userId))
+        .unique();
+      if (binding === null) {
+        throw new Error("The seed organization binding was not created.");
+      }
+      return binding.organizationId;
+    });
+    const secondOrganizationId = await t.run(async (ctx) => {
+      const organizationId = await ctx.db.insert("organizations", {
+        name: "Second organization",
+      });
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      return organizationId;
+    });
+
+    await expect(
+      t.mutation(internal.devAuth.seedPasswordAccountState, {
+        userId,
+        githubApiKey: "replacement-token",
+        githubAccountId: "github-account-id",
+        githubUsername: "seed-user",
+      }),
+    ).resolves.toBeNull();
+
+    const snapshot = await t.run(async (ctx) => ({
+      binding: await ctx.db
+        .query("seededPasswordAccounts")
+        .withIndex("by_user", (query) => query.eq("userId", userId))
+        .unique(),
+      boundConnections: await ctx.db
+        .query("providerConnections")
+        .withIndex("by_organization", (query) => query.eq("organizationId", boundOrganizationId))
+        .collect(),
+      secondConnections: await ctx.db
+        .query("providerConnections")
+        .withIndex("by_organization", (query) => query.eq("organizationId", secondOrganizationId))
+        .collect(),
+    }));
+
+    expect(snapshot.binding?.organizationId).toBe(boundOrganizationId);
+    expect(snapshot.boundConnections).toHaveLength(1);
+    expect(snapshot.boundConnections[0]).toMatchObject({
+      kind: "github",
+      auth: { method: "api_key", credential: "replacement-token" },
+    });
+    expect(snapshot.secondConnections).toEqual([]);
   });
 
   it("fails closed when the seed user is missing", async () => {
