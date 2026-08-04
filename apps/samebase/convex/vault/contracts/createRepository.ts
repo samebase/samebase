@@ -27,7 +27,7 @@ export const createRepositoryContract = {
     title: "Create Samebase app",
     name: "vault_actions_createRepository",
     description:
-      "Create a new Samebase app by starting the managed app provisioning workflow: create and seed the GitHub repository, provision Convex and Cloudflare, then request the first production build after deploy-key verification.",
+      "Create a new Samebase app by starting the managed app provisioning workflow: create the GitHub repository, seed the starter app, provision Convex, and provision Cloudflare.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -46,8 +46,7 @@ export const createRepositoryContract = {
   doc: `Creates a complete Samebase app in one action: a GitHub repository under the caller's
 connected owner, seeded with the starter template, a Convex project and dev/prod deployments, a
 Cloudflare Worker, Workers Builds configured for the repository (push to the default branch deploys,
-pull requests get preview deploys), and Convex deploy keys placed into the build triggers. The
-workflow requests the first production build only after it verifies the scoped deploy keys.
+pull requests get preview deploys), and Convex deploy keys placed into the build triggers.
 
 Preconditions: the account must have GitHub, Convex, and Cloudflare provider connections; the
 target names must be available on each provider. A name collision fails the call immediately before
@@ -55,9 +54,8 @@ any vault or run is created, so pick different names and call again; failures af
 provisioning starts surface through \`get_user_vaults\` instead.
 
 What it writes: one repository (private by default), one Convex project, one Worker, and two
-Workers Builds triggers. The production trigger carries \`CONVEX_DEPLOY_KEY\`; the preview trigger
-carries \`PREVIEW_CONVEX_DEPLOY_KEY\`. Both carry a readable Convex project marker. All resources
-live in the caller's own provider accounts.
+Workers Builds triggers that each carry \`CONVEX_DEPLOY_KEY\` and
+\`PREVIEW_CONVEX_DEPLOY_KEY\` variables. All resources live in the caller's own provider accounts.
 Deleting the Samebase account does not remove or stop any of them.
 
 Progress and failure are readable through \`get_user_vaults\`: while running, \`providerSetup\`
