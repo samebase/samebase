@@ -242,5 +242,54 @@ describe("organization resource access", () => {
         expectedVersion: 3,
       }),
     ).rejects.toThrow("Unauthorized");
+
+    await expect(
+      asOutsider.query(api.collaborative.getDocument, {
+        vaultId: ids.vaultId,
+        branch: "main",
+        filePath: "notes/plan.md",
+      }),
+    ).resolves.toEqual({ content: "", exists: false, version: 0 });
+    await expect(
+      asOutsider.query(api.collaborative.pullUpdates, {
+        repositoryFullName: "owner/shared",
+        branch: "main",
+        filePath: "notes/plan.md",
+        version: 0,
+      }),
+    ).rejects.toThrow("Vault not found");
+    await expect(
+      asOutsider.mutation(api.collaborative.pushUpdates, {
+        repositoryFullName: "owner/shared",
+        branch: "main",
+        filePath: "notes/plan.md",
+        version: 3,
+        updates: [{ clientId: "outsider", changes: "[]" }],
+      }),
+    ).rejects.toThrow("Vault not found");
+
+    await expect(
+      asOutsider.query(api.folderExpansion.getFolderExpansionStates, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual([]);
+    await expect(
+      asOutsider.mutation(api.folderExpansion.setFolderExpansionState, {
+        vaultId: ids.vaultId,
+        folderPath: "notes",
+        isExpanded: true,
+      }),
+    ).rejects.toThrow("Unauthorized");
+    await expect(
+      asOutsider.mutation(api.folderExpansion.clearFolderExpansionStates, {
+        vaultId: ids.vaultId,
+      }),
+    ).rejects.toThrow("Unauthorized");
+    await expect(
+      asOutsider.mutation(api.vault.folders.moveVaultToFolder, {
+        folderId: null,
+        vaultId: ids.vaultId,
+      }),
+    ).rejects.toThrow("Vault not found");
   });
 });

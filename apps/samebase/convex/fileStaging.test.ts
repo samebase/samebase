@@ -5,8 +5,8 @@ import {
   buildDeletionSnapshotSeed,
   buildDeletedFileRestoreCandidate,
   buildClearAllStagingPlan,
-  clearMatchingStagingSnapshotImpl,
   clearAllStagingImpl,
+  reconcileCommittedStagingSnapshotImpl,
   selectRepositoryTreeForBranch,
   shouldDeleteSupersededStagedBinaryUpload,
   summarizeStagedFilesByBranch,
@@ -106,7 +106,7 @@ function createClearAllStagingTestContext(args: {
   };
 }
 
-function createClearMatchingStagingSnapshotTestContext(args: {
+function createReconcileCommittedStagingSnapshotTestContext(args: {
   stagedFiles: Array<{
     _id: string;
     _creationTime: number;
@@ -117,6 +117,10 @@ function createClearMatchingStagingSnapshotTestContext(args: {
     initialFilePath: string;
     content: string;
     initialContent: string;
+    storageId?: string;
+    mime?: string;
+    size?: number;
+    stagedBlobSha?: string;
     parentCommitSha: string | null;
     lastEditTime: number;
     lastEditUserId: string;
@@ -130,17 +134,62 @@ function createClearMatchingStagingSnapshotTestContext(args: {
     fnRef: unknown;
     args: unknown;
   }> = [];
+  const collaborativeCalls: Array<{
+    vaultId: string;
+    filePath: string;
+    branch: string;
+    expectedVersion: number;
+    newContent: string;
+    userId: string;
+  }> = [];
   const stagingById = new Map(args.stagedFiles.map((file) => [file._id, file] as const));
 
   return {
+    collaborativeCalls,
     deletedIds,
     scheduledCalls,
+    stagingById,
     ctx: {
       db: {
         get: async (id: string) => stagingById.get(id) ?? null,
+        patch: async (id: string, value: Record<string, unknown>) => {
+          const current = stagingById.get(id);
+          if (!current) {
+            throw new Error("Staged file not found");
+          }
+          Object.assign(current, value);
+        },
         delete: async (id: string) => {
           deletedIds.push(id);
+          stagingById.delete(id);
         },
+      },
+      runMutation: async (
+        _fnRef: unknown,
+        mutationArgs: {
+          vaultId: string;
+          filePath: string;
+          branch: string;
+          expectedVersion: number;
+          newContent: string;
+          userId: string;
+        },
+      ) => {
+        collaborativeCalls.push(mutationArgs);
+        const current = Array.from(stagingById.values()).find(
+          (file) =>
+            file.vaultId === mutationArgs.vaultId &&
+            file.branch === mutationArgs.branch &&
+            file.filePath === mutationArgs.filePath,
+        );
+        if (!current || current.version !== mutationArgs.expectedVersion) {
+          throw new Error("Unexpected collaborative test state");
+        }
+        current.content = mutationArgs.newContent;
+        current.version += 1;
+        current.lastEditUserId = mutationArgs.userId;
+        current.lastEditTime += 1;
+        return null;
       },
       scheduler: {
         runAfter: async (delayMs: number, fnRef: unknown, scheduledArgs: unknown) => {
@@ -501,12 +550,12 @@ describe("buildClearAllStagingPlan", () => {
   });
 });
 
-describe("clearMatchingStagingSnapshotImpl", () => {
-  it("clears the committed snapshot and preserves a teammate edit made during the commit", async () => {
-    const context = createClearMatchingStagingSnapshotTestContext({
+describe("reconcileCommittedStagingSnapshotImpl", () => {
+  it("keeps the collaborative row and advances an exact committed rename", async () => {
+    const context = createReconcileCommittedStagingSnapshotTestContext({
       stagedFiles: [
         {
-          _id: "matching-1",
+          _id: "staging-1",
           _creationTime: 1,
           vaultId: "vault-1",
           fileDeleted: false,
@@ -521,17 +570,75 @@ describe("clearMatchingStagingSnapshotImpl", () => {
           branch: "main",
           version: 3,
         },
+      ],
+    });
+    const snapshot = {
+      _id: "staging-1",
+      vaultId: "vault-1",
+      fileDeleted: false,
+      kind: "text" as const,
+      filePath: "src/new-name.ts",
+      initialFilePath: "src/old-name.ts",
+      content: "updated",
+      initialContent: "original",
+      parentCommitSha: "sha-1",
+      lastEditTime: 200,
+      lastEditUserId: "users:owner",
+      branch: "main",
+      version: 3,
+    };
+    const args = {
+      vaultId: "vault-1",
+      branch: "main",
+      userId: "users:owner",
+      files: [
         {
-          _id: "changed-1",
-          _creationTime: 2,
+          snapshot,
+          baseline: {
+            state: "present" as const,
+            kind: "text" as const,
+            filePath: "src/new-name.ts",
+            content: "updated",
+            parentCommitSha: "sha-new",
+          },
+        },
+      ],
+    };
+
+    // @ts-expect-error Regression test uses a minimal MutationCtx stub that only includes accessed fields.
+    await reconcileCommittedStagingSnapshotImpl(context.ctx, args);
+    // A retry after Git succeeded must converge without another content update.
+    // @ts-expect-error Regression test uses a minimal MutationCtx stub that only includes accessed fields.
+    await reconcileCommittedStagingSnapshotImpl(context.ctx, args);
+
+    expect(context.stagingById.get("staging-1")).toMatchObject({
+      _id: "staging-1",
+      filePath: "src/new-name.ts",
+      initialFilePath: "src/new-name.ts",
+      content: "updated",
+      initialContent: "updated",
+      parentCommitSha: "sha-new",
+      version: 3,
+    });
+    expect(context.collaborativeCalls).toEqual([]);
+    expect(context.deletedIds).toEqual([]);
+    expect(context.scheduledCalls).toEqual([]);
+  });
+
+  it("preserves a newer teammate edit while advancing its Git baseline", async () => {
+    const context = createReconcileCommittedStagingSnapshotTestContext({
+      stagedFiles: [
+        {
+          _id: "staging-1",
+          _creationTime: 1,
           vaultId: "vault-1",
           fileDeleted: false,
           kind: "text",
           filePath: "src/keep.ts",
           initialFilePath: "src/keep.ts",
-          content: "teammate edit after the commit snapshot",
-          initialContent: "original",
-          parentCommitSha: "sha-2",
+          content: "alpha\nbeta\ngamma\ndelta\nteammate line\nepsilon\n",
+          initialContent: "alpha\nbeta\ngamma\ndelta\n",
+          parentCommitSha: "sha-old",
           lastEditTime: 450,
           lastEditUserId: "users:teammate",
           branch: "main",
@@ -541,35 +648,71 @@ describe("clearMatchingStagingSnapshotImpl", () => {
     });
 
     // @ts-expect-error Regression test uses a minimal MutationCtx stub that only includes accessed fields.
-    await clearMatchingStagingSnapshotImpl(context.ctx, {
+    await reconcileCommittedStagingSnapshotImpl(context.ctx, {
       vaultId: "vault-1",
       branch: "main",
+      userId: "users:owner",
+      files: [
+        {
+          snapshot: {
+            _id: "staging-1",
+            vaultId: "vault-1",
+            fileDeleted: false,
+            kind: "text",
+            filePath: "src/keep.ts",
+            initialFilePath: "src/keep.ts",
+            content: "alpha\nbeta\ngamma\ndelta\nepsilon\n",
+            initialContent: "alpha\nbeta\ngamma\ndelta\n",
+            parentCommitSha: "sha-old",
+            lastEditTime: 300,
+            lastEditUserId: "users:owner",
+            branch: "main",
+            version: 3,
+          },
+          baseline: {
+            state: "present",
+            kind: "text",
+            filePath: "src/keep.ts",
+            content: "ALPHA\nbeta\ngamma\ndelta\nepsilon\n",
+            parentCommitSha: "sha-new",
+          },
+        },
+      ],
+    });
+
+    expect(context.stagingById.get("staging-1")).toMatchObject({
+      content: "ALPHA\nbeta\ngamma\ndelta\nteammate line\nepsilon\n",
+      initialContent: "ALPHA\nbeta\ngamma\ndelta\nepsilon\n",
+      parentCommitSha: "sha-new",
+      version: 5,
+    });
+    expect(context.collaborativeCalls).toEqual([
+      {
+        vaultId: "vault-1",
+        filePath: "src/keep.ts",
+        branch: "main",
+        expectedVersion: 4,
+        newContent: "ALPHA\nbeta\ngamma\ndelta\nteammate line\nepsilon\n",
+        userId: "users:owner",
+      },
+    ]);
+    expect(context.scheduledCalls).toEqual([]);
+  });
+
+  it("publishes a rebased committed document without removing collaboration history", async () => {
+    const context = createReconcileCommittedStagingSnapshotTestContext({
       stagedFiles: [
         {
-          _id: "matching-1",
+          _id: "staging-1",
+          _creationTime: 1,
           vaultId: "vault-1",
           fileDeleted: false,
           kind: "text",
-          filePath: "src/new-name.ts",
-          initialFilePath: "src/old-name.ts",
-          content: "updated",
+          filePath: "src/app.ts",
+          initialFilePath: "src/app.ts",
+          content: "snapshot content",
           initialContent: "original",
-          parentCommitSha: "sha-1",
-          lastEditTime: 200,
-          lastEditUserId: "users:owner",
-          branch: "main",
-          version: 3,
-        },
-        {
-          _id: "changed-1",
-          vaultId: "vault-1",
-          fileDeleted: false,
-          kind: "text",
-          filePath: "src/keep.ts",
-          initialFilePath: "src/keep.ts",
-          content: "content in the commit snapshot",
-          initialContent: "original",
-          parentCommitSha: "sha-2",
+          parentCommitSha: "sha-old",
           lastEditTime: 300,
           lastEditUserId: "users:owner",
           branch: "main",
@@ -578,7 +721,108 @@ describe("clearMatchingStagingSnapshotImpl", () => {
       ],
     });
 
-    expect(context.deletedIds).toEqual(["matching-1"]);
+    // @ts-expect-error Regression test uses a minimal MutationCtx stub that only includes accessed fields.
+    await reconcileCommittedStagingSnapshotImpl(context.ctx, {
+      vaultId: "vault-1",
+      branch: "main",
+      userId: "users:owner",
+      files: [
+        {
+          snapshot: {
+            _id: "staging-1",
+            vaultId: "vault-1",
+            fileDeleted: false,
+            kind: "text",
+            filePath: "src/app.ts",
+            initialFilePath: "src/app.ts",
+            content: "snapshot content",
+            initialContent: "original",
+            parentCommitSha: "sha-old",
+            lastEditTime: 300,
+            lastEditUserId: "users:owner",
+            branch: "main",
+            version: 3,
+          },
+          baseline: {
+            state: "present",
+            kind: "text",
+            filePath: "src/app.ts",
+            content: "rebased committed content",
+            parentCommitSha: "sha-new",
+          },
+        },
+      ],
+    });
+
+    expect(context.collaborativeCalls).toEqual([
+      {
+        vaultId: "vault-1",
+        filePath: "src/app.ts",
+        branch: "main",
+        expectedVersion: 3,
+        newContent: "rebased committed content",
+        userId: "users:owner",
+      },
+    ]);
+    expect(context.stagingById.get("staging-1")).toMatchObject({
+      content: "rebased committed content",
+      initialContent: "rebased committed content",
+      parentCommitSha: "sha-new",
+      version: 4,
+    });
+    expect(context.scheduledCalls).toEqual([]);
+  });
+
+  it("removes an exact committed deletion and its old update history", async () => {
+    const context = createReconcileCommittedStagingSnapshotTestContext({
+      stagedFiles: [
+        {
+          _id: "staging-1",
+          _creationTime: 1,
+          vaultId: "vault-1",
+          fileDeleted: true,
+          kind: "text",
+          filePath: "src/app.ts",
+          initialFilePath: "src/app.ts",
+          content: "original",
+          initialContent: "original",
+          parentCommitSha: "sha-old",
+          lastEditTime: 300,
+          lastEditUserId: "users:owner",
+          branch: "main",
+          version: 3,
+        },
+      ],
+    });
+
+    // @ts-expect-error Regression test uses a minimal MutationCtx stub that only includes accessed fields.
+    await reconcileCommittedStagingSnapshotImpl(context.ctx, {
+      vaultId: "vault-1",
+      branch: "main",
+      userId: "users:owner",
+      files: [
+        {
+          snapshot: {
+            _id: "staging-1",
+            vaultId: "vault-1",
+            fileDeleted: true,
+            kind: "text",
+            filePath: "src/app.ts",
+            initialFilePath: "src/app.ts",
+            content: "original",
+            initialContent: "original",
+            parentCommitSha: "sha-old",
+            lastEditTime: 300,
+            lastEditUserId: "users:owner",
+            branch: "main",
+            version: 3,
+          },
+          baseline: { state: "deleted" },
+        },
+      ],
+    });
+
+    expect(context.deletedIds).toEqual(["staging-1"]);
     expect(context.scheduledCalls).toEqual([
       {
         delayMs: 0,
@@ -586,21 +830,72 @@ describe("clearMatchingStagingSnapshotImpl", () => {
         args: {
           vaultId: "vault-1",
           branch: "main",
-          filePath: "src/new-name.ts",
-          cutoffTimestamp: 201,
-        },
-      },
-      {
-        delayMs: 0,
-        fnRef: internal.fileStaging.deleteCollaborativeUpdatesForFilePathBatch,
-        args: {
-          vaultId: "vault-1",
-          branch: "main",
-          filePath: "src/old-name.ts",
-          cutoffTimestamp: 201,
+          filePath: "src/app.ts",
+          cutoffTimestamp: 301,
         },
       },
     ]);
+  });
+
+  it("turns a newer restore into a staged new file after the deletion commits", async () => {
+    const context = createReconcileCommittedStagingSnapshotTestContext({
+      stagedFiles: [
+        {
+          _id: "staging-1",
+          _creationTime: 1,
+          vaultId: "vault-1",
+          fileDeleted: false,
+          kind: "text",
+          filePath: "src/app.ts",
+          initialFilePath: "src/app.ts",
+          content: "restored and edited",
+          initialContent: "original",
+          parentCommitSha: "sha-old",
+          lastEditTime: 400,
+          lastEditUserId: "users:teammate",
+          branch: "main",
+          version: 4,
+        },
+      ],
+    });
+
+    // @ts-expect-error Regression test uses a minimal MutationCtx stub that only includes accessed fields.
+    await reconcileCommittedStagingSnapshotImpl(context.ctx, {
+      vaultId: "vault-1",
+      branch: "main",
+      userId: "users:owner",
+      files: [
+        {
+          snapshot: {
+            _id: "staging-1",
+            vaultId: "vault-1",
+            fileDeleted: true,
+            kind: "text",
+            filePath: "src/app.ts",
+            initialFilePath: "src/app.ts",
+            content: "original",
+            initialContent: "original",
+            parentCommitSha: "sha-old",
+            lastEditTime: 300,
+            lastEditUserId: "users:owner",
+            branch: "main",
+            version: 3,
+          },
+          baseline: { state: "deleted" },
+        },
+      ],
+    });
+
+    expect(context.stagingById.get("staging-1")).toMatchObject({
+      fileDeleted: false,
+      content: "restored and edited",
+      initialContent: "",
+      parentCommitSha: null,
+      lastEditUserId: "users:teammate",
+      version: 4,
+    });
+    expect(context.deletedIds).toEqual([]);
+    expect(context.scheduledCalls).toEqual([]);
   });
 });
 

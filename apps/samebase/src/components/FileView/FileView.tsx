@@ -1382,7 +1382,6 @@ function FileViewInner({
         await markFileForDeletion({
           vaultId: vault._id,
           filePath,
-          parentCommitSha: fileSha,
           branch,
         });
 
@@ -2741,7 +2740,7 @@ function FileViewInner({
           />
         ) : stagedFile ? (
           <CodeEditorWrapper
-            key={`${branch}/${selectedFile}-${stagedFile.parentCommitSha ?? "new"}`}
+            key={stagedFile._id}
             repositoryFullName={repositoryFullName}
             branch={branch}
             filePath={selectedFile}

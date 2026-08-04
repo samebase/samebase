@@ -3739,6 +3739,36 @@ export const commitAllStaged = internalAction({
       branch: commitBranch,
       stagedFiles: changedFiles,
     });
+    const committedStagingFiles = changedFiles.map((snapshot, index) => {
+      const file = resolvedChangedFiles.at(index);
+      if (!file) {
+        throw new Error("Committed staging snapshot is incomplete.");
+      }
+      if (file.fileDeleted) {
+        return {
+          snapshot,
+          baseline: { state: "deleted" as const },
+        };
+      }
+
+      const parentCommitSha = isBinaryStagedFile(file)
+        ? file.stagedBlobSha
+        : computeGitBlobShaFromText(file.content);
+      if (!parentCommitSha) {
+        throw new Error(`Binary file ${file.filePath} is missing its Git blob SHA.`);
+      }
+
+      return {
+        snapshot,
+        baseline: {
+          state: "present" as const,
+          kind: file.kind,
+          filePath: file.filePath,
+          content: file.content,
+          parentCommitSha,
+        },
+      };
+    });
 
     // Create a commit with all staged files
     await createCommitWithMultipleFiles({
@@ -3825,11 +3855,13 @@ export const commitAllStaged = internalAction({
       }
     }
 
-    // 4. Clear only the committed snapshot so edits made during the GitHub work survive.
-    await ctx.runMutation(internal.fileStaging.clearMatchingStagingSnapshot, {
+    // 4. Move the shared rows onto the committed baseline without replacing
+    //    edits that arrived during the GitHub work.
+    await ctx.runMutation(internal.fileStaging.reconcileCommittedStagingSnapshot, {
       vaultId: args.vaultId,
       branch: commitBranch,
-      stagedFiles: changedFiles,
+      userId: args.userId,
+      files: committedStagingFiles,
     });
 
     return null;

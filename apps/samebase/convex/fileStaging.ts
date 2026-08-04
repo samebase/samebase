@@ -19,6 +19,7 @@ import {
   hasStagedFileContentChange,
   type StagedFileChangeCandidate,
 } from "./stagingChanges";
+import { rebaseStagedContent } from "./stagingRebase";
 import { assertConnectedVault, isLiveConnectedVault } from "./vault/state";
 
 export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
@@ -126,16 +127,38 @@ const duplicateBranchStagingArgsValidator = {
   stagedFiles: stagedFileSnapshotListValidator,
   userId: userIdValidator,
 };
+const committedStagingBaselineValidator = union(
+  object({
+    state: literal("deleted"),
+  }),
+  object({
+    state: literal("present"),
+    kind: stagedFileKindValidator,
+    filePath: filePathValidator,
+    content: contentValidator,
+    parentCommitSha: string(),
+  }),
+);
 const clearMatchingStagingSnapshotArgsValidator = {
   vaultId: vaultIdValidator,
   branch: branchValidator,
   stagedFiles: stagedFileSnapshotListValidator,
 };
+const reconcileCommittedStagingSnapshotArgsValidator = {
+  vaultId: vaultIdValidator,
+  branch: branchValidator,
+  userId: userIdValidator,
+  files: array(
+    object({
+      snapshot: stagedFileSnapshotValidator,
+      baseline: committedStagingBaselineValidator,
+    }),
+  ),
+};
 
 const deletionArgsValidator = {
   vaultId: vaultIdValidator,
   filePath: filePathValidator,
-  parentCommitSha: nullableStringValidator,
   branch: branchValidator,
 };
 
@@ -409,7 +432,7 @@ export function shouldDeleteSupersededStagedBinaryUpload(args: {
 
 async function readDeletionSnapshotSeed(
   ctx: MutationCtx,
-  parentCommitSha: string | null,
+  parentCommitSha: string,
 ): Promise<{
   initialContent: string;
   kind: "text" | "binary";
@@ -417,11 +440,9 @@ async function readDeletionSnapshotSeed(
   size?: number;
   stagedBlobSha?: string;
 }> {
-  const blob = parentCommitSha
-    ? await ctx.runQuery(internal.gitOperations.getBlobBySha, {
-        sha: parentCommitSha,
-      })
-    : null;
+  const blob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+    sha: parentCommitSha,
+  });
 
   return buildDeletionSnapshotSeed({
     parentCommitSha,
@@ -461,15 +482,11 @@ export const deletePendingUploadBlob = mutation({
 
     const stagedFile = await ctx.db
       .query("vaultStagedFiles")
-      .withIndex("by_vault_and_storageId", (q) =>
-        q.eq("vaultId", args.vaultId).eq("storageId", args.storageId),
-      )
+      .withIndex("by_storageId", (q) => q.eq("storageId", args.storageId))
       .first();
     const cachedBlob = await ctx.db
       .query("observations_vaultFiles_blobs")
-      .withIndex("by_vault_and_storageId", (q) =>
-        q.eq("vaultId", args.vaultId).eq("storageId", args.storageId),
-      )
+      .withIndex("by_storageId", (q) => q.eq("storageId", args.storageId))
       .first();
     if (stagedFile || cachedBlob) {
       throw new Error("Cannot delete a blob that is already attached to staging.");
@@ -715,8 +732,8 @@ type ClearMatchingStagingSnapshotArgs = {
 };
 
 /**
- * Clear only the source-branch staging rows that still match the exact snapshot
- * committed onto a draft branch, so newer default-branch edits survive.
+ * Remove only an unchanged source snapshot after its draft pull request exists.
+ * A newer edit stays on the source branch.
  */
 export async function clearMatchingStagingSnapshotImpl(
   ctx: MutationCtx,
@@ -738,7 +755,6 @@ export async function clearMatchingStagingSnapshotImpl(
     }
 
     await ctx.db.delete(current._id);
-
     const cutoffTimestamp = snapshot.lastEditTime + 1;
     for (const filePath of listSnapshotCleanupPaths(snapshot)) {
       cleanupCutoffByFilePath.set(
@@ -768,6 +784,139 @@ export const clearMatchingStagingSnapshot = internalMutation({
   args: clearMatchingStagingSnapshotArgsValidator,
   returns: nullResultValidator,
   handler: clearMatchingStagingSnapshotImpl,
+});
+
+type ReconcileCommittedStagingSnapshotArgs = {
+  vaultId: Infer<typeof vaultIdValidator>;
+  branch: string;
+  userId: Infer<typeof userIdValidator>;
+  files: Array<{
+    snapshot: StagedFileSnapshot;
+    baseline: Infer<typeof committedStagingBaselineValidator>;
+  }>;
+};
+
+/**
+ * Move each committed row onto its new Git baseline without replacing a newer
+ * shared edit. Keeping a committed file's row and version lets a delayed editor
+ * update finish against the same collaborative document.
+ */
+export async function reconcileCommittedStagingSnapshotImpl(
+  ctx: MutationCtx,
+  args: ReconcileCommittedStagingSnapshotArgs,
+) {
+  const cleanupCutoffByFilePath = new Map<string, number>();
+
+  for (const { snapshot, baseline } of args.files) {
+    if (snapshot.vaultId !== args.vaultId) {
+      throw new Error("Staging snapshot belongs to a different vault.");
+    }
+    if (snapshot.branch !== args.branch) {
+      throw new Error("Staging snapshot belongs to a different branch.");
+    }
+
+    const current = await ctx.db.get(snapshot._id);
+    if (!current) {
+      continue;
+    }
+
+    const matchesSnapshot = matchesStagedFileSnapshot({ current, snapshot });
+    if (baseline.state === "present") {
+      let reconciledContent = current.content;
+      if (current.kind === "text" && !current.fileDeleted && baseline.kind === "text") {
+        if (matchesSnapshot) {
+          reconciledContent = baseline.content;
+        } else if (snapshot.kind === "text" && snapshot.content !== baseline.content) {
+          reconciledContent = rebaseStagedContent({
+            baseContent: snapshot.content,
+            stagedContent: current.content,
+            upstreamContent: baseline.content,
+          }).content;
+        }
+      }
+
+      if (reconciledContent !== current.content) {
+        await ctx.runMutation(internal.collaborative.pushContentUpdate, {
+          vaultId: args.vaultId,
+          filePath: current.filePath,
+          branch: args.branch,
+          expectedVersion: current.version,
+          newContent: reconciledContent,
+          userId: args.userId,
+        });
+      }
+
+      const retained = await ctx.db.get(snapshot._id);
+      if (!retained) {
+        throw new Error("Staged file disappeared during commit reconciliation.");
+      }
+
+      if (matchesSnapshot) {
+        await ctx.db.patch(retained._id, {
+          fileDeleted: false,
+          kind: baseline.kind,
+          filePath: baseline.filePath,
+          initialFilePath: baseline.filePath,
+          content: baseline.content,
+          initialContent: baseline.content,
+          ...(baseline.kind === "binary" ? { stagedBlobSha: baseline.parentCommitSha } : {}),
+          parentCommitSha: baseline.parentCommitSha,
+        });
+      } else {
+        await ctx.db.patch(retained._id, {
+          initialFilePath: baseline.filePath,
+          initialContent: baseline.content,
+          parentCommitSha: baseline.parentCommitSha,
+        });
+      }
+      continue;
+    }
+
+    if (!matchesSnapshot && !current.fileDeleted) {
+      await ctx.db.patch(current._id, {
+        initialFilePath: current.filePath,
+        initialContent: "",
+        parentCommitSha: null,
+      });
+      continue;
+    }
+
+    await ctx.db.delete(current._id);
+
+    const cutoffTimestamp = current.lastEditTime + 1;
+    const cleanupPaths = new Set([
+      ...listSnapshotCleanupPaths(snapshot),
+      current.filePath,
+      current.initialFilePath,
+    ]);
+    for (const filePath of cleanupPaths) {
+      cleanupCutoffByFilePath.set(
+        filePath,
+        Math.max(cleanupCutoffByFilePath.get(filePath) ?? 0, cutoffTimestamp),
+      );
+    }
+  }
+
+  for (const [filePath, cutoffTimestamp] of cleanupCutoffByFilePath) {
+    await ctx.scheduler.runAfter(
+      0,
+      internal.fileStaging.deleteCollaborativeUpdatesForFilePathBatch,
+      {
+        vaultId: args.vaultId,
+        branch: args.branch,
+        filePath,
+        cutoffTimestamp,
+      },
+    );
+  }
+
+  return null;
+}
+
+export const reconcileCommittedStagingSnapshot = internalMutation({
+  args: reconcileCommittedStagingSnapshotArgsValidator,
+  returns: nullResultValidator,
+  handler: reconcileCommittedStagingSnapshotImpl,
 });
 
 const DELETION_BATCH_SIZE = 500;
@@ -1052,7 +1201,18 @@ export const markFileForDeletion = mutation({
         branch: args.branch,
       });
     } else {
-      const snapshotSeed = await readDeletionSnapshotSeed(ctx, args.parentCommitSha);
+      const repositoryTree = await resolveRepositoryTreeForVault({
+        ctx,
+        vaultId: args.vaultId,
+        requestedBranch: args.branch,
+      });
+      const repositoryEntry = repositoryTree.find(
+        (entry) => entry.type === "blob" && entry.path === args.filePath,
+      );
+      if (!repositoryEntry) {
+        throw new Error("File not found in repository");
+      }
+      const snapshotSeed = await readDeletionSnapshotSeed(ctx, repositoryEntry.sha);
 
       // Create new staging record for deletion
       await ctx.db.insert("vaultStagedFiles", {
@@ -1067,7 +1227,7 @@ export const markFileForDeletion = mutation({
         mime: snapshotSeed.mime,
         size: snapshotSeed.size,
         stagedBlobSha: snapshotSeed.stagedBlobSha,
-        parentCommitSha: args.parentCommitSha,
+        parentCommitSha: repositoryEntry.sha,
         lastEditTime: currentTimestamp,
         lastEditUserId: ctx.viewer.userId,
         branch: args.branch,
@@ -1264,6 +1424,19 @@ export const initializeTextFileStaging = internalMutation({
       }
 
       return existingStaging;
+    }
+
+    const existingPathInStaging = await ctx.db
+      .query("vaultStagedFiles")
+      .withIndex("by_vault_and_branch_and_path", (q) =>
+        q
+          .eq("vaultId", args.vaultId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.initialFilePath),
+      )
+      .first();
+    if (existingPathInStaging) {
+      throw new Error("A staged file already uses this path");
     }
 
     const currentTimestamp = Date.now();
