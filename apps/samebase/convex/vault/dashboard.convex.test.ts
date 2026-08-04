@@ -4,7 +4,19 @@ import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { DatabaseWriter } from "../_generated/server";
 import { makeConvexTest } from "../test.setup";
-import { VAULT_LOCAL_CLEANUP_BATCH_SIZE } from "./deletion/cleanup";
+import {
+  deleteVaultLocalDataBatchForOrganization,
+  VAULT_LOCAL_CLEANUP_BATCH_SIZE,
+} from "./deletion/cleanup";
+
+async function runVaultLocalCleanupBatch(
+  t: ReturnType<typeof makeConvexTest>,
+  args: { organizationId: Id<"organizations">; vaultId: Id<"vaults"> },
+) {
+  return await t.run(async (ctx) => {
+    return await deleteVaultLocalDataBatchForOrganization(ctx, args);
+  });
+}
 
 async function seedOrganization(db: DatabaseWriter, userId: Id<"users">) {
   const organizationId = await db.insert("organizations", {});
@@ -1725,13 +1737,10 @@ describe("vault dashboard Convex contract", () => {
         });
       }
 
-      return { userId, vaultId };
+      return { organizationId, vaultId };
     });
 
-    const firstResult = await t.mutation(
-      internal.vault.deletion.cleanup.deleteVaultLocalDataBatch,
-      ids,
-    );
+    const firstResult = await runVaultLocalCleanupBatch(t, ids);
 
     expect(firstResult).toEqual({
       state: "needs_more",
@@ -1754,7 +1763,7 @@ describe("vault dashboard Convex contract", () => {
 
     let result = firstResult;
     while (result.state === "needs_more") {
-      result = await t.mutation(internal.vault.deletion.cleanup.deleteVaultLocalDataBatch, ids);
+      result = await runVaultLocalCleanupBatch(t, ids);
     }
 
     expect(result).toEqual({ state: "deleted" });
@@ -1912,24 +1921,22 @@ describe("vault dashboard Convex contract", () => {
       });
 
       return {
+        organizationId,
         stagedStorageId,
         storageId,
-        userId,
         vaultId,
       };
     });
 
     const tables: string[] = [];
-    let result = await t.mutation(internal.vault.deletion.cleanup.deleteVaultLocalDataBatch, {
+    const cleanupArgs = {
+      organizationId: ids.organizationId,
       vaultId: ids.vaultId,
-      userId: ids.userId,
-    });
+    };
+    let result = await runVaultLocalCleanupBatch(t, cleanupArgs);
     while (result.state === "needs_more") {
       tables.push(result.table);
-      result = await t.mutation(internal.vault.deletion.cleanup.deleteVaultLocalDataBatch, {
-        vaultId: ids.vaultId,
-        userId: ids.userId,
-      });
+      result = await runVaultLocalCleanupBatch(t, cleanupArgs);
     }
 
     expect(result).toEqual({ state: "deleted" });

@@ -381,26 +381,6 @@ export async function deleteVaultLocalDataBatchForOrganization(
   return { state: "deleted" };
 }
 
-export async function deleteVaultLocalDataBatchForUser(
-  ctx: VaultLocalCleanupCtx,
-  args: { userId: Id<"users">; vaultId: Id<"vaults"> },
-): Promise<VaultLocalCleanupBatchResult> {
-  const access = await requireOrganizationAccessContext(ctx.db, args.userId);
-  return await deleteVaultLocalDataBatchForOrganization(ctx, {
-    organizationId: access.organizationId,
-    vaultId: args.vaultId,
-  });
-}
-
-export const deleteVaultLocalDataBatch = internalMutation({
-  args: {
-    vaultId: id("vaults"),
-    userId: id("users"),
-  },
-  returns: vaultLocalCleanupBatchResult,
-  handler: deleteVaultLocalDataBatchForUser,
-});
-
 export const cleanupVaultLocalDataStepBatch = internalMutation({
   args: {
     vaultId: id("vaults"),

@@ -175,11 +175,13 @@ describe("account deletion foundation", () => {
     expect(first).not.toHaveProperty("stagedFileCount");
 
     const stored = await t.run(async (ctx) => {
+      const organization = await ctx.db.get(ids.organizationId);
       const user = await ctx.db.get(ids.userId);
       const runs = await ctx.db.query("workflow_accountDeletion_runs").collect();
       const events = await ctx.db.query("workflow_accountDeletion_events").collect();
-      return { user, runs, events };
+      return { events, organization, runs, user };
     });
+    expect(stored.organization?.accountDeletionRunId).toBe(first.runId);
     expect(stored.user?.accountDeletion).toEqual({
       state: "deleting",
       runId: first.runId,
@@ -204,6 +206,69 @@ describe("account deletion foundation", () => {
     ).rejects.toThrow("Access denied");
   });
 
+  it("accepts only one concurrent deletion request for an organization", async () => {
+    const first = await seedUser({ email: "ada@example.com" });
+    const vaultId = await seedVault(first.t, first.ids.userId);
+    const second = await first.t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "grace@example.com",
+        isApproved: true,
+      });
+      const sessionId = await ctx.db.insert("authSessions", {
+        userId,
+        expirationTime: now + 60_000,
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId: first.ids.organizationId,
+        userId,
+      });
+      return { sessionId, userId };
+    });
+    const asSecond = first.t.withIdentity({
+      subject: `${second.userId}|${second.sessionId}`,
+      tokenIdentifier: `test:${second.sessionId}`,
+    });
+    const [firstStakes, secondStakes] = await Promise.all([
+      first.asUser.query(api.accountDeletion.index.stakes),
+      asSecond.query(api.accountDeletion.index.stakes),
+    ]);
+
+    expect(firstStakes).toMatchObject({ vaultCount: 0, uncommittedFileChangeCount: 0 });
+    expect(secondStakes).toMatchObject({ vaultCount: 0, uncommittedFileChangeCount: 0 });
+
+    const requests = await Promise.allSettled([
+      first.asUser.mutation(api.accountDeletion.index.request, {
+        completionCapability: "a".repeat(64),
+        confirmationPhrase: buildAccountDeletionConfirmationPhrase(firstStakes),
+        confirmationStakesSnapshot: serializeAccountDeletionConfirmationStakes(firstStakes),
+      }),
+      asSecond.mutation(api.accountDeletion.index.request, {
+        completionCapability: "b".repeat(64),
+        confirmationPhrase: buildAccountDeletionConfirmationPhrase(secondStakes),
+        confirmationStakesSnapshot: serializeAccountDeletionConfirmationStakes(secondStakes),
+      }),
+    ]);
+    const accepted = requests.find((request) => request.status === "fulfilled");
+    const rejected = requests.find((request) => request.status === "rejected");
+
+    expect(requests.map(({ status }) => status).sort()).toEqual(["fulfilled", "rejected"]);
+    expect(rejected?.status === "rejected" ? String(rejected.reason) : null).toContain(
+      "Another organization member is already deleting their account.",
+    );
+    if (accepted?.status !== "fulfilled" || accepted.value.state !== "accepted") {
+      throw new Error("Expected one accepted account deletion request.");
+    }
+
+    const stored = await first.t.run(async (ctx) => ({
+      organization: await ctx.db.get(first.ids.organizationId),
+      runs: await ctx.db.query("workflow_accountDeletion_runs").take(2),
+      vault: await ctx.db.get(vaultId),
+    }));
+    expect(stored.organization?.accountDeletionRunId).toBe(accepted.value.status.runId);
+    expect(stored.runs).toHaveLength(1);
+    expect(stored.vault).not.toBeNull();
+  });
+
   it("reuses the active deletion run when a checkout is pending", async () => {
     const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
     // Seed the committed state directly so this assertion does not start a background workflow.
@@ -224,6 +289,7 @@ describe("account deletion foundation", () => {
       await ctx.db.patch(ids.userId, {
         accountDeletion: { state: "deleting", runId, requestedAt: now },
       });
+      await ctx.db.patch(ids.organizationId, { accountDeletionRunId: runId });
       await ctx.db.patch(ids.billingAccountId, {
         polarCheckoutAttempt: {
           state: "pending",

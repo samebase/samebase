@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 import { cleanupAccountLocalDataBatchForUser } from "../accountDeletion/cleanup";
+import { deleteVaultLocalDataBatchForOrganization } from "./deletion/cleanup";
 
 async function seedUser(t: ReturnType<typeof makeConvexTest>, email: string) {
   return await t.run(async (ctx) => {
@@ -311,8 +312,17 @@ describe("vault folders Convex contract", () => {
     });
     await viewer.mutation(api.vault.folders.moveVaultToFolder, { folderId, vaultId });
 
+    const organizationId = await t.run(async (ctx) => {
+      const vault = await ctx.db.get(vaultId);
+      if (vault === null) {
+        throw new Error("Expected vault.");
+      }
+      return vault.organizationId;
+    });
     await expect(
-      t.mutation(internal.vault.deletion.cleanup.deleteVaultLocalDataBatch, { userId, vaultId }),
+      t.run(async (ctx) => {
+        return await deleteVaultLocalDataBatchForOrganization(ctx, { organizationId, vaultId });
+      }),
     ).resolves.toEqual({
       rowsChanged: 1,
       state: "needs_more",

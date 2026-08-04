@@ -158,7 +158,7 @@ const updateStagedFileContentArgsValidator = {
   expectedVersion: number(),
 };
 
-const saveToStagingArgsValidator = {
+const initializeTextFileStagingArgsValidator = {
   vaultId: vaultIdValidator,
   initialFilePath: filePathValidator,
   content: contentValidator,
@@ -1238,9 +1238,9 @@ export const updateStagedFileContent = mutation({
 
 // MARK: Internal
 
-// Save file content to staging for real-time editing
-export const saveToStaging = internalMutation({
-  args: saveToStagingArgsValidator,
+// Initialize a repository text file for shared real-time editing.
+export const initializeTextFileStaging = internalMutation({
+  args: initializeTextFileStagingArgsValidator,
   returns: stagedFileValidator,
   handler: async (ctx, args) => {
     await assertConnectedVaultForStagingWrite(ctx, {
@@ -1258,45 +1258,29 @@ export const saveToStaging = internalMutation({
       )
       .first();
 
-    // console.log("saveToStaging", { args, existingStaging });
-
-    const currentTimestamp = Date.now();
-
     if (existingStaging) {
       if (existingStaging.kind === "binary") {
         throw new Error("Cannot overwrite binary staged content as text.");
       }
 
-      // Codemirror gives lots of updates
-      if (existingStaging.content === args.content) {
-        return existingStaging;
-      }
-
-      // Update existing staging
-      await ctx.db.patch(existingStaging._id, {
-        kind: "text",
-        content: args.content,
-        lastEditTime: currentTimestamp,
-        lastEditUserId: args.userId,
-        branch: args.branch,
-      });
-    } else {
-      // Create new staging record
-      await ctx.db.insert("vaultStagedFiles", {
-        vaultId: args.vaultId,
-        filePath: args.initialFilePath,
-        initialFilePath: args.initialFilePath,
-        fileDeleted: false,
-        kind: "text",
-        content: args.content,
-        initialContent: args.initialContent,
-        parentCommitSha: args.parentCommitSha,
-        lastEditTime: currentTimestamp,
-        lastEditUserId: args.userId,
-        branch: args.branch,
-        version: 0,
-      });
+      return existingStaging;
     }
+
+    const currentTimestamp = Date.now();
+    await ctx.db.insert("vaultStagedFiles", {
+      vaultId: args.vaultId,
+      filePath: args.initialFilePath,
+      initialFilePath: args.initialFilePath,
+      fileDeleted: false,
+      kind: "text",
+      content: args.content,
+      initialContent: args.initialContent,
+      parentCommitSha: args.parentCommitSha,
+      lastEditTime: currentTimestamp,
+      lastEditUserId: args.userId,
+      branch: args.branch,
+      version: 0,
+    });
 
     const staging = await ctx.db
       .query("vaultStagedFiles")

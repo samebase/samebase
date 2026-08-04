@@ -112,6 +112,7 @@ function createClearMatchingStagingSnapshotTestContext(args: {
     _creationTime: number;
     vaultId: string;
     fileDeleted: boolean;
+    kind: "text" | "binary";
     filePath: string;
     initialFilePath: string;
     content: string;
@@ -501,7 +502,7 @@ describe("buildClearAllStagingPlan", () => {
 });
 
 describe("clearMatchingStagingSnapshotImpl", () => {
-  it("clears only the unchanged snapshot rows and scopes cleanup by file path", async () => {
+  it("clears the committed snapshot and preserves a teammate edit made during the commit", async () => {
     const context = createClearMatchingStagingSnapshotTestContext({
       stagedFiles: [
         {
@@ -509,6 +510,7 @@ describe("clearMatchingStagingSnapshotImpl", () => {
           _creationTime: 1,
           vaultId: "vault-1",
           fileDeleted: false,
+          kind: "text",
           filePath: "src/new-name.ts",
           initialFilePath: "src/old-name.ts",
           content: "updated",
@@ -524,13 +526,14 @@ describe("clearMatchingStagingSnapshotImpl", () => {
           _creationTime: 2,
           vaultId: "vault-1",
           fileDeleted: false,
+          kind: "text",
           filePath: "src/keep.ts",
           initialFilePath: "src/keep.ts",
-          content: "newer content",
+          content: "teammate edit after the commit snapshot",
           initialContent: "original",
           parentCommitSha: "sha-2",
           lastEditTime: 450,
-          lastEditUserId: "users:other",
+          lastEditUserId: "users:teammate",
           branch: "main",
           version: 4,
         },
@@ -546,6 +549,7 @@ describe("clearMatchingStagingSnapshotImpl", () => {
           _id: "matching-1",
           vaultId: "vault-1",
           fileDeleted: false,
+          kind: "text",
           filePath: "src/new-name.ts",
           initialFilePath: "src/old-name.ts",
           content: "updated",
@@ -560,15 +564,16 @@ describe("clearMatchingStagingSnapshotImpl", () => {
           _id: "changed-1",
           vaultId: "vault-1",
           fileDeleted: false,
+          kind: "text",
           filePath: "src/keep.ts",
           initialFilePath: "src/keep.ts",
-          content: "original retry snapshot",
+          content: "content in the commit snapshot",
           initialContent: "original",
           parentCommitSha: "sha-2",
           lastEditTime: 300,
           lastEditUserId: "users:owner",
           branch: "main",
-          version: 2,
+          version: 3,
         },
       ],
     });

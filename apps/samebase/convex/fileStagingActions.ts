@@ -760,7 +760,7 @@ type StagedFileForCommit = {
   parentCommitSha: string | null;
   branch?: string;
 };
-type DraftSourceStagingSnapshot = Omit<StagedFileForCommit, "branch"> & {
+type StagedFileSnapshot = Omit<StagedFileForCommit, "branch"> & {
   branch: string;
   _id: Id<"vaultStagedFiles">;
   vaultId: Id<"vaults">;
@@ -768,7 +768,7 @@ type DraftSourceStagingSnapshot = Omit<StagedFileForCommit, "branch"> & {
   lastEditUserId: Id<"users">;
   version: number;
 };
-type DraftSourceStagingRecord = DraftSourceStagingSnapshot & {
+type StagedFileRecord = StagedFileSnapshot & {
   _creationTime: number;
 };
 
@@ -1983,7 +1983,7 @@ export const getFileForEditing = action({
           });
         }
 
-        const stagedFile = await ctx.runMutation(internal.fileStaging.saveToStaging, {
+        const stagedFile = await ctx.runMutation(internal.fileStaging.initializeTextFileStaging, {
           branch: targetBranch,
           vaultId: vault._id,
           initialFilePath: args.originalFilePath,
@@ -2063,7 +2063,7 @@ export const getFileForEditing = action({
         });
       }
 
-      const stagedFile = await ctx.runMutation(internal.fileStaging.saveToStaging, {
+      const stagedFile = await ctx.runMutation(internal.fileStaging.initializeTextFileStaging, {
         branch: targetBranch,
         vaultId: vault._id,
         initialFilePath: args.originalFilePath,
@@ -2331,14 +2331,14 @@ export const createDraftPullRequestFromDefaultBranch = action({
       throw new Error("Create a new draft branch from the default branch.");
     }
 
-    const stagedFilesResult: DraftSourceStagingRecord[] = await ctx.runQuery(
+    const stagedFilesResult: StagedFileRecord[] = await ctx.runQuery(
       internal.fileStaging.listAllStagedFiles,
       {
         vaultId: vault._id,
         branch: defaultBranch,
       },
     );
-    const stagedFiles: DraftSourceStagingSnapshot[] = stagedFilesResult.map(
+    const stagedFiles: StagedFileSnapshot[] = stagedFilesResult.map(
       stripCreationTimeFromStagingRecord,
     );
     if (stagedFiles.length === 0) {
@@ -3696,22 +3696,23 @@ export const commitAllStaged = internalAction({
     const repoName = connectedVault.name;
     const fullRepo = `${repoOwner}/${repoName}`;
 
-    // Get the staging record
-    const changedFiles: StagedFileForCommit[] = await ctx.runQuery(
+    // Snapshot the changed staging rows before the GitHub work starts.
+    const changedFileRecords: StagedFileRecord[] = await ctx.runQuery(
       internal.fileStaging.listAllStagedFiles,
       {
         vaultId: args.vaultId,
         branch: args.branch,
       },
     );
+    const changedFiles: StagedFileSnapshot[] = changedFileRecords.map(
+      stripCreationTimeFromStagingRecord,
+    );
 
     if (!changedFiles.length) {
       return null;
     }
 
-    const stagedBranches: string[] = Array.from(
-      new Set(changedFiles.map((file: StagedFileForCommit) => file.branch).filter(notEmpty)),
-    );
+    const stagedBranches = Array.from(new Set(changedFiles.map((file) => file.branch)));
     if (stagedBranches.length > 1) {
       throw new Error(
         `Cannot commit staged files across multiple branches: ${stagedBranches.join(", ")}`,
@@ -3824,11 +3825,11 @@ export const commitAllStaged = internalAction({
       }
     }
 
-    // 4. NOW clear staging. Client will refetch with correct tree + blobs.
-    await ctx.runMutation(api.fileStaging.clearAllStaging, {
+    // 4. Clear only the committed snapshot so edits made during the GitHub work survive.
+    await ctx.runMutation(internal.fileStaging.clearMatchingStagingSnapshot, {
       vaultId: args.vaultId,
       branch: commitBranch,
-      skipTreeUpdate: true,
+      stagedFiles: changedFiles,
     });
 
     return null;

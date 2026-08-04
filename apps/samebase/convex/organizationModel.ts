@@ -31,7 +31,9 @@ export const vOrganizationBillingState = object({
 
 export const organizationTables = {
   /** Samebase customer workspaces that own durable customer resources. */
-  organizations: defineTable({}),
+  organizations: defineTable({
+    accountDeletionRunId: optional(id("workflow_accountDeletion_runs")),
+  }),
 
   /** User access to an organization. Row presence grants access. */
   organizationMemberships: defineTable({

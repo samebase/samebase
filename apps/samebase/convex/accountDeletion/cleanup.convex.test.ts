@@ -4,6 +4,7 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { makeConvexTest } from "../test.setup";
 import { TREE_REFRESH_STALE_LOCK_MS } from "../../shared/treeRefresh";
+import { deleteVaultLocalDataBatchForOrganization } from "../vault/deletion/cleanup";
 import { cleanupAccountLocalDataBatchForUser } from "./cleanup";
 import { INITIAL_ACCOUNT_DELETION_DATA_PROGRESS } from "./model";
 
@@ -57,14 +58,14 @@ async function deleteVault(
   userId: Awaited<ReturnType<typeof seedUser>>,
   vaultId: Awaited<ReturnType<typeof seedVault>>,
 ) {
-  let result = await t.mutation(internal.vault.deletion.cleanup.deleteVaultLocalDataBatch, {
-    userId,
-    vaultId,
+  const organizationId = await readOrganizationId(t, userId);
+  const args = { organizationId, vaultId };
+  let result = await t.run(async (ctx) => {
+    return await deleteVaultLocalDataBatchForOrganization(ctx, args);
   });
   while (result.state === "needs_more") {
-    result = await t.mutation(internal.vault.deletion.cleanup.deleteVaultLocalDataBatch, {
-      userId,
-      vaultId,
+    result = await t.run(async (ctx) => {
+      return await deleteVaultLocalDataBatchForOrganization(ctx, args);
     });
   }
   expect(result).toEqual({ state: "deleted" });

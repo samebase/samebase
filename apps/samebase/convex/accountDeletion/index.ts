@@ -317,6 +317,17 @@ export const request = mutation({
       return { state: "accepted" as const, status: projectStatus(existingRun) };
     }
 
+    const deletionOrganization = await readAccountDeletionOrganization(ctx.db, ctx.viewer.userId);
+    const organization = await ctx.db.get(deletionOrganization.organizationId);
+
+    if (organization === null) {
+      throw new Error("Account deletion organization is missing.");
+    }
+
+    if (organization.accountDeletionRunId !== undefined) {
+      throw new Error("Another organization member is already deleting their account.");
+    }
+
     const stakesContext = await readAccountDeletionStakesContext(ctx.db, ctx.viewer.userId);
 
     if (stakesContext.hasCheckoutAttempt) {
@@ -344,7 +355,6 @@ export const request = mutation({
     }
 
     const vaults = stakesContext.vaults;
-    const deletionOrganization = await readAccountDeletionOrganization(ctx.db, ctx.viewer.userId);
     const organizationVaults = await ctx.db
       .query("vaults")
       .withIndex("by_organization", (query) =>
@@ -408,6 +418,8 @@ export const request = mutation({
       state: "queued",
       workflow: { state: "not_started" },
     });
+
+    await ctx.db.patch(organization._id, { accountDeletionRunId: runId });
 
     await ctx.db.insert("workflow_accountDeletion_events", {
       runId,

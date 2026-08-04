@@ -49,6 +49,7 @@ async function seedRunningDeletion() {
     await ctx.db.patch(userId, {
       accountDeletion: { state: "deleting", runId, requestedAt: Date.now() },
     });
+    await ctx.db.patch(organizationId, { accountDeletionRunId: runId });
     return {
       billingAccountId,
       initiatingSessionId,
@@ -386,6 +387,7 @@ describe("account deletion auth cleanup", () => {
     expect(stored.user).toBeNull();
     expect(stored.deletingMembership).toBeNull();
     expect(stored.organization).not.toBeNull();
+    expect(stored.organization).not.toHaveProperty("accountDeletionRunId");
     expect(stored.billing).not.toBeNull();
     expect(stored.remainingMembership).not.toBeNull();
     expect(stored.remainingUser).not.toBeNull();
@@ -489,6 +491,34 @@ describe("account deletion auth cleanup", () => {
     await expect(
       t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, args),
     ).resolves.toBeNull();
+  });
+
+  it("rejects finalization when the organization does not own the run", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ids.organizationId, { accountDeletionRunId: undefined });
+      await ctx.db.patch(ids.runId, {
+        outcomes: {
+          billing: { state: "not_applicable" },
+          providerRevocation: {
+            state: "completed",
+            github: { state: "not_connected" },
+            cloudflare: { state: "not_connected" },
+            convex: { state: "not_connected" },
+          },
+          completionEmail: { state: "sent" },
+        },
+      });
+    });
+
+    await expect(
+      t.mutation(internal.accountDeletion.workflow.markFinalizing, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).rejects.toThrow("Account deletion organization lock is inconsistent.");
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.membershipId))).resolves.not.toBeNull();
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.userId))).resolves.not.toBeNull();
   });
 
   it("finishes when the user signed out and the initiating session is already absent", async () => {

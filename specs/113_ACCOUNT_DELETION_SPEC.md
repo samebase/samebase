@@ -62,7 +62,11 @@ dialog clears the typed phrase and asks for confirmation again.
 Acceptance creates one durable deletion run, marks the user as deleting, and routes every signed-in
 session to `/account-deletion`. Repeated requests return the same active run without rechecking the
 phrase. A deleting user cannot use ordinary authenticated product routes or create new user-owned
-data.
+data. Only one account-deletion run can be active for an organization. The run holds the
+organization lock through queued, running, and needs-attention states. A successful shared-member
+deletion releases the lock after it removes that membership. A successful sole-member deletion
+removes the organization with the lock. A second member must request deletion after the first run
+finishes, so the new confirmation includes the current sole-member stakes.
 
 For a sole member, the request rejects while any organization provider change or repository refresh
 is active. For a shared member, it rejects only while a provider change or repository refresh that

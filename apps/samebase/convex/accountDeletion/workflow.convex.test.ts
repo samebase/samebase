@@ -64,7 +64,8 @@ async function seedRunningDeletion() {
     await ctx.db.patch(userId, {
       accountDeletion: { state: "deleting", runId, requestedAt: now },
     });
-    return { initiatingSessionId, runId, userId };
+    await ctx.db.patch(organizationId, { accountDeletionRunId: runId });
+    return { initiatingSessionId, organizationId, runId, userId };
   });
   return { ids, t };
 }
@@ -95,7 +96,7 @@ describe("account deletion workflow ownership and outcomes", () => {
         userId,
         expirationTime: now + 60_000,
       });
-      return { sessionId, userId };
+      return { organizationId, sessionId, userId };
     });
     const asUser = t.withIdentity({
       subject: `${ids.userId}|${ids.sessionId}`,
@@ -116,10 +117,12 @@ describe("account deletion workflow ownership and outcomes", () => {
       }),
     ).rejects.toThrow();
     const stored = await t.run(async (ctx) => ({
+      organization: await ctx.db.get(ids.organizationId),
       user: await ctx.db.get(ids.userId),
       runs: await ctx.db.query("workflow_accountDeletion_runs").collect(),
       events: await ctx.db.query("workflow_accountDeletion_events").collect(),
     }));
+    expect(stored.organization).not.toHaveProperty("accountDeletionRunId");
     expect(stored.user?.accountDeletion).toBeUndefined();
     expect(stored.runs).toEqual([]);
     expect(stored.events).toEqual([]);
@@ -610,6 +613,11 @@ Deletion reference: ${ids.runId}`,
       latestSafeError: "Account deletion needs staff attention.",
     });
     expect(JSON.stringify(failed)).not.toContain("provider-owned-sensitive-error");
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.organizationId))).resolves.toMatchObject(
+      {
+        accountDeletionRunId: ids.runId,
+      },
+    );
   });
 
   it("starts a fresh staff retry without regressing a late failed step", async () => {
@@ -652,6 +660,11 @@ Deletion reference: ${ids.runId}`,
       retryCount: 1,
       workflow: { state: "started", attempt: 2 },
     });
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.organizationId))).resolves.toMatchObject(
+      {
+        accountDeletionRunId: ids.runId,
+      },
+    );
     if (retriedRun === null || retriedRun.state !== "running") {
       throw new Error("Expected a running retry.");
     }

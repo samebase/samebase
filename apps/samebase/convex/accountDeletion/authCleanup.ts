@@ -59,6 +59,10 @@ async function readOrganizationFinalization(
     throw new Error("Account deletion organization is incomplete.");
   }
 
+  if (organizationRow.accountDeletionRunId !== run._id) {
+    throw new Error("Account deletion organization lock is inconsistent.");
+  }
+
   if (
     organization.membershipState === "sole" &&
     billingStateRequiresCancellation(billingAccount) &&
@@ -75,6 +79,7 @@ async function finalizeOrganizationMembership(
   organization: OrganizationFinalization,
 ): Promise<void> {
   if (organization.membershipState === "shared") {
+    await ctx.db.patch(organization.organizationId, { accountDeletionRunId: undefined });
     await ctx.db.delete(organization.membershipId);
     return;
   }

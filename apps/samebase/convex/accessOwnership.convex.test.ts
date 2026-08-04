@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { makeConvexTest } from "./test.setup";
 
@@ -130,6 +130,68 @@ describe("organization resource access", () => {
       content: "teammate content",
       expectedVersion: 3,
     });
+
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.stagingId))).resolves.toMatchObject({
+      content: "teammate content",
+      lastEditUserId: ids.teammateId,
+      version: 4,
+    });
+  });
+
+  it("preserves a teammate edit when another member finishes stale draft initialization", async () => {
+    const { ids, t } = await seedOrganizationVault();
+    const asTeammate = asIdentity(t, ids.teammateId);
+
+    await asTeammate.mutation(api.fileStaging.updateStagedFileContent, {
+      stagingId: ids.stagingId,
+      content: "teammate content",
+      expectedVersion: 3,
+    });
+
+    const initialized = await t.mutation(internal.fileStaging.initializeTextFileStaging, {
+      vaultId: ids.vaultId,
+      initialFilePath: "notes/plan.md",
+      content: "initial content",
+      initialContent: "initial content",
+      parentCommitSha: "abc123",
+      branch: "main",
+      userId: ids.ownerId,
+    });
+
+    expect(initialized).toMatchObject({
+      content: "teammate content",
+      lastEditUserId: ids.teammateId,
+      version: 4,
+    });
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.stagingId))).resolves.toMatchObject({
+      content: "teammate content",
+      lastEditUserId: ids.teammateId,
+      version: 4,
+    });
+  });
+
+  it("rejects a stale full-content update after a teammate changes the shared draft", async () => {
+    const { ids, t } = await seedOrganizationVault();
+    const asTeammate = asIdentity(t, ids.teammateId);
+
+    await asTeammate.mutation(api.fileStaging.updateStagedFileContent, {
+      stagingId: ids.stagingId,
+      content: "teammate content",
+      expectedVersion: 3,
+    });
+
+    await expect(
+      t.mutation(internal.collaborative.pushContentUpdate, {
+        vaultId: ids.vaultId,
+        filePath: "notes/plan.md",
+        branch: "main",
+        expectedVersion: 3,
+        newContent: "stale owner content",
+        userId: ids.ownerId,
+      }),
+    ).rejects.toThrow(
+      "[STALE_BASE_VERSION] pushContentUpdate failed: stale base version (expected 3, got 4)",
+    );
 
     await expect(t.run(async (ctx) => await ctx.db.get(ids.stagingId))).resolves.toMatchObject({
       content: "teammate content",
