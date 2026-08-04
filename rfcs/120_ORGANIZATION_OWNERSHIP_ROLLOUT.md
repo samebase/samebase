@@ -56,7 +56,7 @@ personal organizations and uses a Samebase GitHub App as the required GitHub con
 
 ## Current Pull Request Audit
 
-Against `origin/main` on 2026-08-05, pull request #1355 has 207 changed files, 13,716 additions, and
+Against `origin/main` on 2026-08-05, pull request #1355 has 207 changed files, 13,353 additions, and
 4,843 deletions. Approximately 6,400 additions are tests or snapshots. The current branch also has
 six unstaged GitHub OAuth scope changes that predate the GitHub App decision.
 
