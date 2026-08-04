@@ -868,6 +868,7 @@ export const trackedFilePaths = [
   "apps/samebase/src/components/NewAppPage.tsx",
   "apps/samebase/src/components/NotFoundRoutePage.test.tsx",
   "apps/samebase/src/components/NotFoundRoutePage.tsx",
+  "apps/samebase/src/components/OrganizationSelector.test.tsx",
   "apps/samebase/src/components/OrganizationSelector.tsx",
   "apps/samebase/src/components/PitchDeckPage.tsx",
   "apps/samebase/src/components/PrivacyPolicyPage.tsx",

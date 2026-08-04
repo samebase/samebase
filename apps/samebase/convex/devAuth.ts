@@ -19,7 +19,7 @@ import { normalizeAccountEmail } from "../shared/accountPresentation";
 import { ensureOrganizationForUser } from "./organizations";
 import { requireOrganizationAccessContext } from "./organizationAccess";
 
-const { boolean, id, literal, null: vNull, object, optional, string, union } = v;
+const { boolean, id, literal, object, optional, string, union } = v;
 
 function readSeedValue(envName: string): string | undefined {
   const value = readOptionalEnv(envName);
@@ -201,6 +201,7 @@ async function upsertCloudflareApiKey(
 
 const seedPasswordAccountStateArgs = object({
   userId: id("users"),
+  organizationId: optional(id("organizations")),
   githubApiKey: optional(string()),
   githubAccountId: optional(string()),
   githubUsername: optional(string()),
@@ -212,10 +213,19 @@ const seedPasswordAccountStateArgs = object({
 });
 type SeedPasswordAccountStateArgs = Infer<typeof seedPasswordAccountStateArgs>;
 
+const seedPasswordAccountProviderSeed = union(
+  object({
+    state: literal("complete"),
+    organizationId: id("organizations"),
+  }),
+  object({ state: literal("organization_required") }),
+);
+type SeedPasswordAccountProviderSeed = Infer<typeof seedPasswordAccountProviderSeed>;
+
 export const seedPasswordAccountState = internalMutation({
   args: seedPasswordAccountStateArgs,
-  returns: vNull(),
-  handler: async (ctx, args) => {
+  returns: seedPasswordAccountProviderSeed,
+  handler: async (ctx, args): Promise<SeedPasswordAccountProviderSeed> => {
     const user = await ctx.db.get(args.userId);
     if (user === null) {
       throw new Error(`Cannot prepare missing seed user ${args.userId}`);
@@ -227,30 +237,20 @@ export const seedPasswordAccountState = internalMutation({
     }
     await ensureOrganizationForUser(ctx.db, args.userId);
 
-    const binding = await ctx.db
-      .query("seededPasswordAccounts")
-      .withIndex("by_user", (query) => query.eq("userId", args.userId))
-      .unique();
     let organizationId: Id<"organizations">;
-    if (binding !== null) {
-      const organization = await ctx.db.get(binding.organizationId);
-      if (organization === null) {
-        throw new Error("The seeded password account organization binding is invalid.");
-      }
-      await requireOrganizationAccessContext(ctx.db, {
+    if (args.organizationId !== undefined) {
+      const access = await requireOrganizationAccessContext(ctx.db, {
         userId: args.userId,
-        organizationId: binding.organizationId,
+        organizationId: args.organizationId,
       });
-      organizationId = binding.organizationId;
+      organizationId = access.organizationId;
     } else {
       const memberships = await ctx.db
         .query("organizationMemberships")
         .withIndex("by_user", (query) => query.eq("userId", args.userId))
         .take(2);
       if (memberships.length !== 1) {
-        throw new Error(
-          "The seeded password account organization must be bound before the user joins another organization.",
-        );
+        return { state: "organization_required" };
       }
       const [membership] = memberships;
       const organization = await ctx.db.get(membership.organizationId);
@@ -258,10 +258,6 @@ export const seedPasswordAccountState = internalMutation({
         throw new Error("The seed account membership refers to a missing organization.");
       }
       organizationId = membership.organizationId;
-      await ctx.db.insert("seededPasswordAccounts", {
-        userId: args.userId,
-        organizationId,
-      });
     }
 
     if (args.githubApiKey) {
@@ -307,7 +303,7 @@ export const seedPasswordAccountState = internalMutation({
       );
     }
 
-    return null;
+    return { state: "complete", organizationId };
   },
 });
 
@@ -348,13 +344,16 @@ export const resolveSeedPasswordAccountUser = internalMutation({
 const seedPasswordAccountReturns = object({
   email: string(),
   created: boolean(),
+  providerSeed: seedPasswordAccountProviderSeed,
 });
 type SeedPasswordAccountResult = Infer<typeof seedPasswordAccountReturns>;
 
 export const seedPasswordAccount = internalAction({
-  args: {},
+  args: {
+    organizationId: optional(id("organizations")),
+  },
   returns: seedPasswordAccountReturns,
-  handler: async (ctx): Promise<SeedPasswordAccountResult> => {
+  handler: async (ctx, args): Promise<SeedPasswordAccountResult> => {
     const { email, password } = readSeedPasswordAccountConfig();
     const githubApiKey = readSeedValue("DEV_SEED_GITHUB_API_KEY");
     const convexManagementApiKey = readSeedValue("DEV_SEED_CONVEX_MANAGEMENT_API_KEY");
@@ -362,7 +361,9 @@ export const seedPasswordAccount = internalAction({
     const convexTeamSlug = readSeedValue("DEV_SEED_CONVEX_TEAM_SLUG");
     const cloudflareApiKey = readSeedValue("DEV_SEED_CLOUDFLARE_API_KEY");
     const cloudflareAccountId = readSeedValue("DEV_SEED_CLOUDFLARE_ACCOUNT_ID");
-    const seedArgs: Omit<SeedPasswordAccountStateArgs, "userId"> = {};
+    const seedArgs: Omit<SeedPasswordAccountStateArgs, "userId"> = {
+      ...(args.organizationId !== undefined ? { organizationId: args.organizationId } : {}),
+    };
     if (githubApiKey !== undefined) {
       const profile = await new Octokit({ auth: githubApiKey }).rest.users.getAuthenticated();
       if (!profile.data.login) {
@@ -423,11 +424,14 @@ export const seedPasswordAccount = internalAction({
       created = true;
     }
 
-    await ctx.runMutation(internal.devAuth.seedPasswordAccountState, {
-      ...seedArgs,
-      userId,
-    });
+    const providerSeed: SeedPasswordAccountProviderSeed = await ctx.runMutation(
+      internal.devAuth.seedPasswordAccountState,
+      {
+        ...seedArgs,
+        userId,
+      },
+    );
 
-    return { email, created };
+    return { email, created, providerSeed };
   },
 });
