@@ -442,7 +442,7 @@ describe("UserSettingsPage", () => {
     }
   });
 
-  it("keeps payment recovery available for a pending Pro account", async () => {
+  it("hides subscription management from a pending Pro account", async () => {
     queryState.billing = {
       provider: "polar",
       plan: "pro",
@@ -455,7 +455,6 @@ describe("UserSettingsPage", () => {
       cloudflareWorkers: { used: { state: "exact", count: 8 }, limit: 40 },
       convexProjects: { used: { state: "exact", count: 6 }, limit: 40 },
     };
-    actionState.createCustomerPortalSession.mockReturnValue(new Promise(() => {}));
     const mounted = await mountSettingsPage();
     try {
       expect(mounted.rootElement.textContent).toContain("Current planPro");
@@ -463,17 +462,9 @@ describe("UserSettingsPage", () => {
       expect(mounted.rootElement.textContent).toContain("Convex projects6 of 40");
       expect(mounted.rootElement.textContent).toContain("Billing period endAug 31, 2026");
       expect(mounted.rootElement.textContent).toContain("Payment needs attention.");
-      expect(mounted.rootElement.textContent).toContain("Manage subscription");
+      expect(mounted.rootElement.textContent).not.toContain("Manage subscription");
       expect(mounted.rootElement.textContent).not.toContain("Upgrade to Pro");
-      await act(async () => {
-        Array.from(mounted.rootElement.querySelectorAll("button"))
-          .find((button) => button.textContent === "Manage subscription")
-          ?.click();
-        await Promise.resolve();
-      });
-      expect(actionState.createCustomerPortalSession).toHaveBeenCalledWith({
-        returnUrl: `${window.location.origin}/settings`,
-      });
+      expect(actionState.createCustomerPortalSession).not.toHaveBeenCalled();
       expect(actionState.createCheckoutSession).not.toHaveBeenCalled();
     } finally {
       await unmount(mounted.root, mounted.rootElement);

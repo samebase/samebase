@@ -157,6 +157,7 @@ After the Polar state is recorded, remove these old fields from every retained `
 - `billingPolarAppliedObservationRevision`
 - `billingPolarCheckoutAttempt`
 
+Confirm that no retained `users` row contains any field in this list before schema deployment.
 Confirm that every table in the clear list and file storage is empty. Confirm that the preserve list
 still has the expected rows.
 

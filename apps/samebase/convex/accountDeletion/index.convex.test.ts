@@ -16,6 +16,7 @@ import {
   buildAccountDeletionConfirmationPhrase,
   serializeAccountDeletionConfirmationStakes,
 } from "../../shared/accountDeletionPhrase";
+import { TREE_REFRESH_STALE_LOCK_MS } from "../../shared/treeRefresh";
 import { INITIAL_ACCOUNT_DELETION_DATA_PROGRESS } from "./model";
 
 const now = 1_700_000_000_000;
@@ -24,6 +25,23 @@ const zeroStakesConfirmationPhrase = buildAccountDeletionConfirmationPhrase({
   vaultCount: 0,
   uncommittedFileChangeCount: 0,
 });
+const checkoutAttempts = [
+  {
+    label: "pending",
+    attempt: {
+      state: "pending" as const,
+      attemptId: "polar_checkout_deletion_pending",
+    },
+  },
+  {
+    label: "open",
+    attempt: {
+      state: "open" as const,
+      attemptId: "polar_checkout_deletion_open",
+      checkoutId: "checkout-deletion-open",
+    },
+  },
+];
 
 async function seedUser(args: {
   email: string;
@@ -117,6 +135,24 @@ async function seedVault(
     });
 
     return vaultId;
+  });
+}
+
+async function setTreeRefreshLock(
+  t: ReturnType<typeof makeConvexTest>,
+  args: {
+    vaultId: Id<"vaults">;
+    requestedByUserId: Id<"users">;
+    startedAt: number;
+  },
+) {
+  await t.run(async (ctx) => {
+    await ctx.db.patch(args.vaultId, {
+      treeRefreshLock: {
+        requestedByUserId: args.requestedByUserId,
+        startedAt: args.startedAt,
+      },
+    });
   });
 }
 
@@ -338,7 +374,7 @@ describe("account deletion foundation", () => {
           requestedByUserId: ids.userId,
           actionId: "active-provider-write",
           action: "create_convex_project",
-          expiresAt: now + 60_000,
+          expiresAt: Date.now() + 60_000,
         },
         state: "active",
         lastWriteAt: {},
@@ -380,7 +416,7 @@ describe("account deletion foundation", () => {
           requestedByUserId: ids.userId,
           actionId: "deleting-user-provider-write",
           action: "create_convex_project",
-          expiresAt: now + 60_000,
+          expiresAt: Date.now() + 60_000,
         },
         state: "active",
         lastWriteAt: {},
@@ -419,7 +455,7 @@ describe("account deletion foundation", () => {
           requestedByUserId: remainingUserId,
           actionId: "remaining-user-provider-write",
           action: "create_convex_project",
-          expiresAt: now + 60_000,
+          expiresAt: Date.now() + 60_000,
         },
         state: "active",
         lastWriteAt: {},
@@ -433,26 +469,43 @@ describe("account deletion foundation", () => {
     });
   });
 
-  it.each([
-    {
-      label: "pending",
-      attempt: {
-        state: "pending" as const,
-        attemptId: "polar_checkout_deletion_pending",
-      },
-    },
-    {
-      label: "open",
-      attempt: {
-        state: "open" as const,
-        attemptId: "polar_checkout_deletion_open",
-        checkoutId: "checkout-deletion-open",
-      },
-    },
-  ])("reports a $label checkout before account deletion starts", async ({ attempt }) => {
+  it("ignores an expired manual provider change", async () => {
     const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
+    const vaultId = await seedVault(t, ids.userId);
     await t.run(async (ctx) => {
-      await ctx.db.patch(ids.billingAccountId, { polarCheckoutAttempt: attempt });
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+        vaultId,
+        owner: {
+          kind: "manual_provider_write",
+          requestedByUserId: ids.userId,
+          actionId: "expired-provider-write",
+          action: "create_convex_project",
+          expiresAt: Date.now() - 1,
+        },
+        state: "active",
+        lastWriteAt: {},
+        updatedAt: now,
+      });
+    });
+
+    await expect(
+      requestAccepted(
+        asUser,
+        buildAccountDeletionConfirmationPhrase({ vaultCount: 1, uncommittedFileChangeCount: 0 }),
+      ),
+    ).resolves.toMatchObject({
+      state: "running",
+      currentStep: "request_accepted",
+    });
+  });
+
+  it("rejects sole-member deletion during a current repository refresh", async () => {
+    const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
+    const vaultId = await seedVault(t, ids.userId);
+    await setTreeRefreshLock(t, {
+      vaultId,
+      requestedByUserId: ids.userId,
+      startedAt: Date.now(),
     });
     const confirmationStakes = await asUser.query(api.accountDeletion.index.stakes);
 
@@ -462,14 +515,147 @@ describe("account deletion foundation", () => {
         confirmationPhrase: buildAccountDeletionConfirmationPhrase(confirmationStakes),
         confirmationStakesSnapshot: serializeAccountDeletionConfirmationStakes(confirmationStakes),
       }),
-    ).resolves.toEqual({ state: "billing_checkout_pending" });
-    const stored = await t.run(async (ctx) => ({
-      user: await ctx.db.get(ids.userId),
-      runs: await ctx.db.query("workflow_accountDeletion_runs").collect(),
-    }));
-    expect(stored.user?.accountDeletion).toBeUndefined();
-    expect(stored.runs).toEqual([]);
+    ).rejects.toThrow(
+      "A repository refresh is active. Wait for it to finish before you delete the account.",
+    );
   });
+
+  it("rejects shared deletion during the deleting member's repository refresh", async () => {
+    const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
+    const vaultId = await seedVault(t, ids.userId);
+    await t.run(async (ctx) => {
+      const remainingUserId = await ctx.db.insert("users", {
+        email: "grace@example.com",
+        isApproved: true,
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId: ids.organizationId,
+        userId: remainingUserId,
+      });
+    });
+    await setTreeRefreshLock(t, {
+      vaultId,
+      requestedByUserId: ids.userId,
+      startedAt: Date.now(),
+    });
+    const confirmationStakes = await asUser.query(api.accountDeletion.index.stakes);
+
+    await expect(
+      asUser.mutation(api.accountDeletion.index.request, {
+        completionCapability,
+        confirmationPhrase: buildAccountDeletionConfirmationPhrase(confirmationStakes),
+        confirmationStakesSnapshot: serializeAccountDeletionConfirmationStakes(confirmationStakes),
+      }),
+    ).rejects.toThrow(
+      "A repository refresh is active. Wait for it to finish before you delete the account.",
+    );
+  });
+
+  it("allows shared deletion during a remaining member's repository refresh", async () => {
+    const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
+    const vaultId = await seedVault(t, ids.userId);
+    const remainingUserId = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "grace@example.com",
+        isApproved: true,
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId: ids.organizationId,
+        userId,
+      });
+      return userId;
+    });
+    await setTreeRefreshLock(t, {
+      vaultId,
+      requestedByUserId: remainingUserId,
+      startedAt: Date.now(),
+    });
+
+    await expect(requestAccepted(asUser)).resolves.toMatchObject({
+      state: "running",
+      currentStep: "request_accepted",
+    });
+  });
+
+  it("allows deletion after a repository refresh lock becomes stale", async () => {
+    const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
+    const vaultId = await seedVault(t, ids.userId);
+    await setTreeRefreshLock(t, {
+      vaultId,
+      requestedByUserId: ids.userId,
+      startedAt: Date.now() - TREE_REFRESH_STALE_LOCK_MS - 1,
+    });
+
+    await expect(
+      requestAccepted(
+        asUser,
+        buildAccountDeletionConfirmationPhrase({ vaultCount: 1, uncommittedFileChangeCount: 0 }),
+      ),
+    ).resolves.toMatchObject({
+      state: "running",
+      currentStep: "request_accepted",
+    });
+  });
+
+  it.each(checkoutAttempts)(
+    "reports a $label checkout before account deletion starts",
+    async ({ attempt }) => {
+      const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
+      await t.run(async (ctx) => {
+        await ctx.db.patch(ids.billingAccountId, { polarCheckoutAttempt: attempt });
+      });
+      const confirmationStakes = await asUser.query(api.accountDeletion.index.stakes);
+
+      await expect(
+        asUser.mutation(api.accountDeletion.index.request, {
+          completionCapability,
+          confirmationPhrase: buildAccountDeletionConfirmationPhrase(confirmationStakes),
+          confirmationStakesSnapshot:
+            serializeAccountDeletionConfirmationStakes(confirmationStakes),
+        }),
+      ).resolves.toEqual({ state: "billing_checkout_pending" });
+      const stored = await t.run(async (ctx) => ({
+        user: await ctx.db.get(ids.userId),
+        runs: await ctx.db.query("workflow_accountDeletion_runs").collect(),
+      }));
+      expect(stored.user?.accountDeletion).toBeUndefined();
+      expect(stored.runs).toEqual([]);
+    },
+  );
+
+  it.each(checkoutAttempts)(
+    "reports a shared $label checkout before account deletion starts",
+    async ({ attempt }) => {
+      const { asUser, ids, t } = await seedUser({ email: "ada@example.com" });
+      await t.run(async (ctx) => {
+        const remainingUserId = await ctx.db.insert("users", {
+          email: "grace@example.com",
+          isApproved: true,
+        });
+        await ctx.db.insert("organizationMemberships", {
+          organizationId: ids.organizationId,
+          userId: remainingUserId,
+        });
+        await ctx.db.patch(ids.billingAccountId, { polarCheckoutAttempt: attempt });
+      });
+      const confirmationStakes = await asUser.query(api.accountDeletion.index.stakes);
+
+      await expect(
+        asUser.mutation(api.accountDeletion.index.request, {
+          completionCapability,
+          confirmationPhrase: buildAccountDeletionConfirmationPhrase(confirmationStakes),
+          confirmationStakesSnapshot:
+            serializeAccountDeletionConfirmationStakes(confirmationStakes),
+        }),
+      ).resolves.toEqual({ state: "billing_checkout_pending" });
+      const stored = await t.run(async (ctx) => ({
+        user: await ctx.db.get(ids.userId),
+        runs: await ctx.db.query("workflow_accountDeletion_runs").collect(),
+      }));
+      expect(stored.user?.accountDeletion).toBeUndefined();
+      expect(stored.runs).toEqual([]);
+    },
+  );
 
   it("rejects staff self-deletion without removing staff access", async () => {
     const staff = await seedUser({ email: "nicu@samebase.com" });

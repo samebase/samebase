@@ -25,6 +25,7 @@ export type AccountDeletionOrganization = {
 export type AccountDeletionBilling =
   | {
       kind: "preserve_organization";
+      hasCheckoutAttempt: boolean;
       organizationId: Id<"organizations">;
       user: Doc<"users">;
     }
@@ -86,8 +87,10 @@ export async function readAccountDeletionBilling(
   }
 
   if (organization.membershipState === "shared") {
+    const state = readBillingAccountState(billing.account);
     return {
       kind: "preserve_organization",
+      hasCheckoutAttempt: state.polarCheckoutAttempt !== undefined,
       organizationId: organization.organizationId,
       user: billing.user,
     };

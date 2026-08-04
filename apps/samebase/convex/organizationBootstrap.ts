@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 
 import { internalMutation } from "./_generated/server";
 import { vOrganizationBillingState } from "./organizationModel";
@@ -14,6 +14,47 @@ const bootstrapResult = object({
   billingAccounts: number(),
 });
 
+function validateOperatorBilling(billing: Infer<typeof vOrganizationBillingState>): void {
+  if (billing.polarCheckoutAttempt !== undefined) {
+    throw new Error("Organization bootstrap requires checkout attempts to be resolved.");
+  }
+
+  const externalCustomerId = billing.polarExternalCustomerId;
+  if (
+    externalCustomerId !== undefined &&
+    (externalCustomerId.length === 0 || externalCustomerId.trim() !== externalCustomerId)
+  ) {
+    throw new Error("Organization bootstrap requires a nonempty, trimmed Polar customer ID.");
+  }
+
+  if (billing.plan === "free") {
+    if (
+      billing.status !== "inactive" ||
+      billing.currentPeriodEndAt !== undefined ||
+      billing.cancelAtPeriodEnd !== undefined ||
+      (billing.provider === "polar" && externalCustomerId === undefined) ||
+      (billing.provider !== "polar" && externalCustomerId !== undefined) ||
+      (billing.provider !== "polar" &&
+        (billing.polarStateChangedAt !== undefined ||
+          billing.polarObservationRevision !== undefined ||
+          billing.polarAppliedObservationRevision !== undefined))
+    ) {
+      throw new Error("Organization bootstrap billing state is inconsistent.");
+    }
+    return;
+  }
+
+  if (
+    billing.provider !== "polar" ||
+    (billing.status !== "active" && billing.status !== "past_due") ||
+    externalCustomerId === undefined ||
+    billing.currentPeriodEndAt === undefined ||
+    billing.cancelAtPeriodEnd === undefined
+  ) {
+    throw new Error("Organization bootstrap billing state is inconsistent.");
+  }
+}
+
 /** Bootstrap the final organization graph after the manual production reset. */
 export const bootstrapOrganizationOwnership = internalMutation({
   args: {
@@ -23,11 +64,9 @@ export const bootstrapOrganizationOwnership = internalMutation({
   },
   returns: bootstrapResult,
   handler: async (ctx, args) => {
+    validateOperatorBilling(args.operatorBilling);
     if (args.operatorUserIdA === args.operatorUserIdB) {
       throw new Error("Organization bootstrap requires two different operator users.");
-    }
-    if (args.operatorBilling.polarCheckoutAttempt !== undefined) {
-      throw new Error("Organization bootstrap requires checkout attempts to be resolved.");
     }
 
     const [users, organization, membership, billingAccount] = await Promise.all([

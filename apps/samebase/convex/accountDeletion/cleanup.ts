@@ -288,6 +288,7 @@ async function findActiveManualProviderWrite(
   ctx: AccountLocalCleanupCtx,
   scope: AccountDeletionCleanupScope,
 ): Promise<Id<"vaults"> | null> {
+  const now = Date.now();
   const vaults = ctx.db
     .query("vaults")
     .withIndex("by_organization", (query) => query.eq("organizationId", scope.organizationId));
@@ -300,6 +301,7 @@ async function findActiveManualProviderWrite(
     if (
       write?.state === "active" &&
       write.owner.kind === "manual_provider_write" &&
+      write.owner.expiresAt > now &&
       (scope.membershipState === "sole" || write.owner.requestedByUserId === scope.userId)
     ) {
       return vault._id;

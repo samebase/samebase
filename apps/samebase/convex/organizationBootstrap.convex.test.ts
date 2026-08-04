@@ -93,6 +93,43 @@ describe("organization ownership bootstrap", () => {
     expect(graph.waitlistBilling).toMatchObject({ plan: "free", status: "inactive" });
   });
 
+  it("accepts a coherent Free Polar billing state", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => ({
+      operatorUserIdA: await ctx.db.insert("users", {
+        email: "free-operator-a@example.test",
+      }),
+      operatorUserIdB: await ctx.db.insert("users", {
+        email: "free-operator-b@example.test",
+      }),
+    }));
+
+    await expect(
+      t.mutation(internal.organizationBootstrap.bootstrapOrganizationOwnership, {
+        operatorUserIdA: ids.operatorUserIdA,
+        operatorUserIdB: ids.operatorUserIdB,
+        operatorBilling: {
+          provider: "polar",
+          plan: "free",
+          status: "inactive",
+          updatedAt: 10,
+          polarExternalCustomerId: "free-operator-customer",
+          polarObservationRevision: 4,
+          polarAppliedObservationRevision: 4,
+        },
+      }),
+    ).resolves.toEqual({ users: 2, organizations: 1, memberships: 2, billingAccounts: 1 });
+
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("organizationBillingAccounts").unique()),
+    ).resolves.toMatchObject({
+      provider: "polar",
+      plan: "free",
+      status: "inactive",
+      polarExternalCustomerId: "free-operator-customer",
+    });
+  });
+
   it("rejects an unresolved operator checkout attempt before it writes", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => ({
@@ -120,9 +157,118 @@ describe("organization ownership bootstrap", () => {
     ).rejects.toThrow("Organization bootstrap requires checkout attempts to be resolved.");
 
     await expect(
-      t.run(async (ctx) => await ctx.db.query("organizations").take(1)),
-    ).resolves.toEqual([]);
+      t.run(async (ctx) => ({
+        organizations: await ctx.db.query("organizations").take(1),
+        memberships: await ctx.db.query("organizationMemberships").take(1),
+        billingAccounts: await ctx.db.query("organizationBillingAccounts").take(1),
+      })),
+    ).resolves.toEqual({ organizations: [], memberships: [], billingAccounts: [] });
   });
+
+  it.each([
+    {
+      label: "active Free billing",
+      billing: { plan: "free" as const, status: "active" as const },
+    },
+    {
+      label: "Free billing with a paid period",
+      billing: {
+        plan: "free" as const,
+        status: "inactive" as const,
+        currentPeriodEndAt: 20,
+        cancelAtPeriodEnd: false,
+      },
+    },
+    {
+      label: "inactive Pro billing",
+      billing: {
+        provider: "polar" as const,
+        plan: "pro" as const,
+        status: "inactive" as const,
+        currentPeriodEndAt: 20,
+        cancelAtPeriodEnd: false,
+        polarExternalCustomerId: "inactive-pro-customer",
+      },
+    },
+    {
+      label: "Pro billing without Polar subscription fields",
+      billing: { plan: "pro" as const, status: "active" as const },
+    },
+    {
+      label: "Polar billing without a customer ID",
+      billing: { provider: "polar" as const, plan: "free" as const, status: "inactive" as const },
+    },
+    {
+      label: "a Polar customer ID without the Polar provider",
+      billing: {
+        plan: "free" as const,
+        status: "inactive" as const,
+        polarExternalCustomerId: "providerless-customer",
+      },
+    },
+  ])("rejects $label before it writes", async ({ billing }) => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => ({
+      operatorUserIdA: await ctx.db.insert("users", {
+        email: "invalid-operator-a@example.test",
+      }),
+      operatorUserIdB: await ctx.db.insert("users", {
+        email: "invalid-operator-b@example.test",
+      }),
+    }));
+
+    await expect(
+      t.mutation(internal.organizationBootstrap.bootstrapOrganizationOwnership, {
+        operatorUserIdA: ids.operatorUserIdA,
+        operatorUserIdB: ids.operatorUserIdB,
+        operatorBilling: billing,
+      }),
+    ).rejects.toThrow("Organization bootstrap billing state is inconsistent.");
+    await expect(
+      t.run(async (ctx) => ({
+        organizations: await ctx.db.query("organizations").take(1),
+        memberships: await ctx.db.query("organizationMemberships").take(1),
+        billingAccounts: await ctx.db.query("organizationBillingAccounts").take(1),
+      })),
+    ).resolves.toEqual({ organizations: [], memberships: [], billingAccounts: [] });
+  });
+
+  it.each([
+    { label: "empty", polarExternalCustomerId: "" },
+    { label: "untrimmed", polarExternalCustomerId: " operator-customer " },
+  ])(
+    "rejects an $label Polar customer ID before it writes",
+    async ({ polarExternalCustomerId }) => {
+      const t = makeConvexTest();
+      const ids = await t.run(async (ctx) => ({
+        operatorUserIdA: await ctx.db.insert("users", {
+          email: "customer-id-operator-a@example.test",
+        }),
+        operatorUserIdB: await ctx.db.insert("users", {
+          email: "customer-id-operator-b@example.test",
+        }),
+      }));
+
+      await expect(
+        t.mutation(internal.organizationBootstrap.bootstrapOrganizationOwnership, {
+          operatorUserIdA: ids.operatorUserIdA,
+          operatorUserIdB: ids.operatorUserIdB,
+          operatorBilling: {
+            plan: "free",
+            status: "inactive",
+            polarExternalCustomerId,
+          },
+        }),
+      ).rejects.toThrow("Organization bootstrap requires a nonempty, trimmed Polar customer ID.");
+      await expect(
+        t.run(async (ctx) => ({
+          organizations: await ctx.db.query("organizations").take(1),
+          memberships: await ctx.db.query("organizationMemberships").take(1),
+          billingAccounts: await ctx.db.query("organizationBillingAccounts").take(1),
+        })),
+      ).resolves.toEqual({ organizations: [], memberships: [], billingAccounts: [] });
+    },
+  );
 
   it("rejects a nonempty organization graph before it writes", async () => {
     const t = makeConvexTest();

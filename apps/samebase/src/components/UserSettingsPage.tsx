@@ -481,7 +481,7 @@ export function UserSettingsPage() {
             )
           ) : null}
 
-          {billingStatus.plan === "pro" || billingStatus.canStartCheckout ? (
+          {billingStatus.canStartCheckout ? (
             <div className="mt-6">
               {billingStatus.plan === "pro" ? (
                 <Button

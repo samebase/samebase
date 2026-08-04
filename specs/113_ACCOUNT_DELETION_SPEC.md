@@ -73,11 +73,11 @@ is active. For a shared member, it rejects only while a provider change or repos
 uses the deleting user's credentials is active. Work requested by a remaining member continues. A
 manual provider change or repository refresh rejects after its requesting user is marked as
 deleting. These start checks prevent account deletion from removing credentials that active work
-still uses.
+still uses. An expired provider-write lock or stale repository-refresh lock does not block deletion.
 
-If a deletion request reports a pending billing checkout, the dialog attempts one Polar
-reconciliation and repeats the same request once, even if reconciliation fails, before it shows the
-support message.
+A pending or open organization billing checkout blocks a sole-member or shared-member deletion
+request. The dialog attempts one Polar reconciliation and repeats the same request once, even if
+reconciliation fails, before it shows the support message.
 
 The deletion page is a direct projection of persisted backend progress. It shows these groups:
 

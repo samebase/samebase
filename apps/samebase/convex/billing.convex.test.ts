@@ -366,7 +366,7 @@ describe("billing access", () => {
     });
   });
 
-  it("blocks pending members from checkout but lets them manage existing billing", async () => {
+  it("blocks pending members from checkout and subscription management", async () => {
     const t = makeConvexTest();
     const userId = await seedMember(t, false);
     await t.run(async (ctx) => {
@@ -390,11 +390,12 @@ describe("billing access", () => {
       pendingUser.action(api.billing.createPolarCustomerPortalSession, {
         returnUrl: "http://localhost:5174/settings",
       }),
-    ).resolves.toEqual({ url: "https://sandbox.polar.sh/portal/pending" });
+    ).rejects.toThrow("Access denied");
     await expect(
       pendingUser.action(api.billing.reconcileViewerBillingFromPolar, {}),
     ).resolves.toEqual({ state: "observed", plan: "free" });
     expect(polarSdkMocks.checkoutsCreate).not.toHaveBeenCalled();
+    expect(polarSdkMocks.customerSessionsCreate).not.toHaveBeenCalled();
   });
 
   it("fails closed when a preview has no product configuration", async () => {

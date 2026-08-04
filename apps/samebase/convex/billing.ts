@@ -347,7 +347,7 @@ export const createPolarCheckoutSession = action({
 });
 
 export const createPolarCustomerPortalSession = action({
-  access: "access_user_preferences",
+  access: "access_dashboard",
   args: object({
     returnUrl: string(),
   }),

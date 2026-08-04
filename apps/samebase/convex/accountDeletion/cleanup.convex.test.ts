@@ -550,6 +550,36 @@ describe("account-local deletion cleanup", () => {
     });
   });
 
+  it("ignores an expired provider write for the deleting member", async () => {
+    const t = makeConvexTest();
+    const deletingUserId = await seedUser(t, "deleting@example.com");
+    const organizationId = await readOrganizationId(t, deletingUserId);
+    await seedUser(t, "remaining@example.com", organizationId);
+    const accountDeletionRunId = await seedRunningDeletion(t, deletingUserId);
+    const vaultId = await seedVault(t, deletingUserId);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+        vaultId,
+        owner: {
+          kind: "manual_provider_write",
+          requestedByUserId: deletingUserId,
+          actionId: "expired-provider-write",
+          action: "create_convex_project",
+          expiresAt: Date.now() - 1,
+        },
+        state: "active",
+        lastWriteAt: {},
+        updatedAt: Date.now(),
+      });
+    });
+    const workflowArgs = { runId: accountDeletionRunId, workflowId: "workflow-1" };
+
+    await expect(
+      t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, workflowArgs),
+    ).resolves.toEqual({ state: "done" });
+    await expect(runCleanup(t, deletingUserId)).resolves.toEqual({ state: "done" });
+  });
+
   it("preserves all organization resources when another member remains", async () => {
     const t = makeConvexTest();
     const deletingUserId = await seedUser(t, "deleting@example.com");
