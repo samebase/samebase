@@ -7,8 +7,8 @@
 - Last updated: 2026-08-04
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Current branch: `codex-organization-ownership-spec`
-- Current state: Implementation complete; final validation and temporary-resource cleanup in
-  progress
+- Current state: Main-flow validation complete; organization membership cardinality needs operator
+  confirmation
 - Current pull request: [#1355](https://github.com/samebase/samebase/pull/1355)
 
 ## Purpose
@@ -198,6 +198,8 @@ Implemented in the current pull request and worktree:
   stored default organization or multi-membership recovery API;
 - provider-side OAuth revocation before local disconnect for GitHub and Cloudflare, fixed public
   provider failure messages, and account deletion across every connected provider row; and
+- OAuth reconnect that restores the selected disconnected connection row so existing resources keep
+  their stable provider connection ID; and
 - the GitHub `workflow` scope required by the shipped starter CI file, plus a normal parented commit
   after empty-repository bootstrap instead of a forced second root commit.
 
@@ -343,10 +345,10 @@ Final integrated code head before this progress-record update: `22846b8c`.
 - Two earlier attempts stopped while seeding the starter workflow because the local development
   GitHub token did not have the `workflow` scope. Replacing that development token fixed the next
   run without an organization code change.
-- Exact temporary resource cleanup is in progress. GitHub requires normal account reauthentication
-  because the local command-line token does not have repository-deletion permission. The Samebase
-  delete retry will remove the linked Convex, Cloudflare, and local vault resources after the three
-  temporary repositories are absent.
+- Temporary cleanup completed through the normal product deletion flow after GitHub account
+  reauthentication. Samebase shows no matching vaults. Direct provider reads confirmed that all four
+  `tmp-8462-org-*` GitHub repositories, both Convex projects, and both Cloudflare Workers are
+  absent.
 
 ## UI And Workflow Coverage
 
@@ -406,9 +408,10 @@ Primary external sources:
 
 ## Next Exact Task
 
-1. Finish deletion of the three exact `tmp-8462-org-two-user*` test resources and verify that no
-   matching GitHub repository, Convex project, Cloudflare Worker, or Samebase vault remains.
-2. Complete the final automated validation and independent blocking-issue reviews.
+1. Confirm whether one user can belong to several organizations. If one organization per user is the
+   product invariant, replace the many-to-many behavior and delete its tests directly.
+2. Complete the final automated validation and independent blocking-issue reviews for the confirmed
+   membership model.
 3. Verify the MCP organization binding before the operator cutover.
 4. Record the Polar billing state and confirm that no destructive workflow is active.
 5. Disconnect all providers, pause product writes, and follow the accepted manual reset runbook
