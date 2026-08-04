@@ -7,7 +7,7 @@
 - Last updated: 2026-08-04
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Current branch: `codex-organization-ownership-spec`
-- Current state: Final review fixes in progress; operator cutover pending
+- Current state: Final fixes validated; fresh pull request review and operator cutover pending
 - Current pull request: [#1355](https://github.com/samebase/samebase/pull/1355)
 
 ## Purpose
@@ -109,7 +109,7 @@ the manual reset.
 
 ### Final organization cutover
 
-- Status: Final review fixes in progress; operator cutover pending
+- Status: Final fixes validated; fresh pull request review and operator cutover pending
 - Scope: Add the final organization graph, organization billing, membership access, MCP binding,
   retained-user bootstrap, organization-aware API results, and affected UI and workflow support.
 - Gate: The operator completes the manual reset, every retained user has one membership, the two
@@ -139,7 +139,8 @@ Implemented in the current pull request and worktree:
   remains through staff retry, and leaves manual staff retry as the recovery path;
 - user-owned provider and repository-refresh lock attribution, plus bounded personal UI cleanup that
   preserves other members' rows;
-- shared staged-file initialization and commit cleanup that preserve a teammate's newer edit;
+- shared staged-file initialization and post-commit Git-baseline reconciliation that preserve a
+  teammate's newer edit and the collaborative row;
 - explicit MCP query arguments at the deploy-key rotation boundary, with organization context kept
   at the trusted request boundary;
 - vault lifecycle preservation during member deletion, with bounded per-vault cleanup that deletes
@@ -158,8 +159,8 @@ simplicity, and cutover reviews found and verified the final MCP organization bo
 credential-dependent account-deletion waits, personal UI cleanup, unused-index removal, and safe
 manual reset order. A follow-up review found one strict MCP argument mismatch and two realistic
 two-member races. The focused fixes use an explicit argument object, one organization deletion lock,
-and the existing exact staging-snapshot cleanup. The work is pending the operator-run reset, merge,
-deployment, bootstrap, and production verification.
+and post-commit staging reconciliation. The work is pending fresh pull request review, the
+operator-run reset, merge, deployment, bootstrap, and production verification.
 
 ### Final review-fix checkpoint
 
@@ -185,22 +186,26 @@ Explicitly not part of this fix:
 - compatibility code for the data removed by the approved manual reset.
 
 The shared staged-file fix is the only non-trivial design change in this checkpoint. All other
-accepted items are focused boundary checks or input validation. Prior validation evidence below
-applies to the pre-fix head and must be replaced after the final fixes are integrated.
+accepted items are focused boundary checks or input validation. Two independent staging reviews
+passed after the retry path was made fail-closed when the current Git tree cannot prove who created
+a different rename target.
 
 ## Validation Evidence
 
-- Pull request CI passed for follow-up code head `c14d1ac39`: the supply-chain check, the complete
-  checks and unit-test job, the final CI job, and both Cloudflare preview builds.
-- `pnpm check`: passed after the follow-up review fixes, with existing repository warnings only.
-- `pnpm test`: 292 files passed, with 2,282 tests passed and 1 skipped.
-- `pnpm test:convex`: 47 files passed, with 431 tests passed.
-- Focused organization authorization review: 9 files passed, with 109 tests passed.
-- `pnpm --filter samebase typecheck`: passed.
+Final integrated code head before this progress-record update: `1d9caae2e`.
+
+- `pnpm check`: passed, with existing repository warnings only.
+- `pnpm test`: 292 files passed, with 2,309 tests passed and 1 skipped.
+- `pnpm test:convex`: 47 files passed, with 451 tests passed.
+- Focused staging, retry, storage, and organization-boundary suite: 4 files passed, with 76 tests
+  passed.
+- `pnpm --filter samebase typecheck`: passed after Convex code generation.
 - `pnpm format:check` and `git diff --check`: passed.
-- Two full `pnpm test:visual:linux` runs each passed 209 tests, skipped 1 test, and failed the same
-  unchanged public landing URL-editor test. The focused canonical test passed on clean `main` and on
-  this branch. This known unrelated failure remains visible and is not patched in this rollout.
+- `pnpm test:visual:linux`: 209 tests passed, 1 skipped, and the same unchanged public landing
+  URL-editor test failed. That test also failed on clean `main` in the earlier acceptance check. All
+  Settings route tests passed. The stable staged-editor identity intentionally changes no pixels,
+  and a live commit test would require an external repository write, so the backend reconciliation
+  tests and direct stable-row-key review are the focused evidence for that behavior.
 
 ## UI And Workflow Coverage
 
@@ -257,14 +262,11 @@ Primary external sources:
 
 ## Next Exact Task
 
-1. Integrate and review the accepted final fixes as focused commits.
-2. Replace the pre-fix validation evidence with focused, full, and affected UI validation from the
-   final head.
-3. Get fresh independent reviews and green pull request checks.
-4. Record the Polar billing state and confirm that no destructive workflow is active.
-5. Pause product writes and follow the accepted manual reset runbook while the old schema is live.
-6. Merge and deploy the final schema and organization-authoritative runtime.
-7. Run the retained-user bootstrap with the two explicit operator user IDs and recorded billing
+1. Get fresh independent reviews and green pull request checks.
+2. Record the Polar billing state and confirm that no destructive workflow is active.
+3. Pause product writes and follow the accepted manual reset runbook while the old schema is live.
+4. Merge and deploy the final schema and organization-authoritative runtime.
+5. Run the retained-user bootstrap with the two explicit operator user IDs and recorded billing
    state.
-8. Verify the bootstrap counts and the required two-member flows, reconnect MCP and the retained
+6. Verify the bootstrap counts and the required two-member flows, reconnect MCP and the retained
    vaults, then resume product writes.

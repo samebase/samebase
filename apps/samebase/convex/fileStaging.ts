@@ -798,7 +798,7 @@ type ReconcileCommittedStagingSnapshotArgs = {
 
 /**
  * Move each committed row onto its new Git baseline without replacing a newer
- * shared edit. Keeping a committed file's row and version lets a delayed editor
+ * shared edit. Keeping the row and collaborative history lets a delayed editor
  * update finish against the same collaborative document.
  */
 export async function reconcileCommittedStagingSnapshotImpl(
