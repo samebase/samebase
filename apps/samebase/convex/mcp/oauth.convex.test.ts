@@ -41,14 +41,17 @@ function successfulExchange(userId: Id<"users">) {
 
 async function seedRefreshTokenFamily() {
   const t = makeConvexTest();
-  const userId = await t.run(async (ctx) => {
+  const { membershipId, userId } = await t.run(async (ctx) => {
     const seededUserId = await ctx.db.insert("users", {
       email: "refresh-replay@example.test",
       isApproved: true,
       name: "Refresh Replay User",
     });
     const organizationId = await ctx.db.insert("organizations", {});
-    await ctx.db.insert("organizationMemberships", { organizationId, userId: seededUserId });
+    const seededMembershipId = await ctx.db.insert("organizationMemberships", {
+      organizationId,
+      userId: seededUserId,
+    });
     await ctx.db.insert("mcpOauthClients", {
       clientId,
       clientName: "Refresh replay client",
@@ -82,7 +85,7 @@ async function seedRefreshTokenFamily() {
       createdAt: now,
       expiresAt: now + 60_000,
     });
-    return seededUserId;
+    return { membershipId: seededMembershipId, userId: seededUserId };
   });
 
   const exchange = async (args: {
@@ -149,12 +152,18 @@ async function seedRefreshTokenFamily() {
     }));
   };
 
-  return { exchange, readContainmentState, readDatabaseState, userId };
+  const removeMembership = async () => {
+    await t.run(async (ctx) => {
+      await ctx.db.delete(membershipId);
+    });
+  };
+
+  return { exchange, readContainmentState, readDatabaseState, removeMembership, userId };
 }
 
 describe("MCP OAuth refresh token replay", () => {
-  it("revokes the grant once without walking the replacement chain", async () => {
-    const { exchange, readContainmentState, readDatabaseState, userId } =
+  it("revokes the grant once after membership removal without walking the replacement chain", async () => {
+    const { exchange, readContainmentState, readDatabaseState, removeMembership, userId } =
       await seedRefreshTokenFamily();
 
     await expect(
@@ -173,13 +182,23 @@ describe("MCP OAuth refresh token replay", () => {
         now: now + 2,
       }),
     ).resolves.toEqual(successfulExchange(userId));
+    await removeMembership();
+
+    await expect(
+      exchange({
+        refreshTokenHash: "refresh_hash_descendant_2",
+        newRefreshTokenHash: "refresh_hash_active_without_membership_unused",
+        accessTokenHash: "access_hash_active_without_membership_unused",
+        now: now + 3,
+      }),
+    ).resolves.toEqual(inactiveGrantError);
 
     await expect(
       exchange({
         refreshTokenHash: initialRefreshTokenHash,
         newRefreshTokenHash: "refresh_hash_replay_unused",
         accessTokenHash: "access_hash_replay_unused",
-        now: now + 3,
+        now: now + 4,
       }),
     ).resolves.toEqual(inactiveRefreshTokenError);
 
@@ -188,7 +207,7 @@ describe("MCP OAuth refresh token replay", () => {
       grant: {
         lastUsedAt: now + 2,
         status: "revoked",
-        updatedAt: now + 3,
+        updatedAt: now + 4,
       },
       refreshTokens: [
         { status: "rotated", tokenHash: initialRefreshTokenHash },
@@ -197,7 +216,7 @@ describe("MCP OAuth refresh token replay", () => {
       ],
       replayAudits: [
         {
-          createdAt: now + 3,
+          createdAt: now + 4,
           detailsJson: '{"outcome":"grant_revoked"}',
         },
       ],
@@ -209,7 +228,7 @@ describe("MCP OAuth refresh token replay", () => {
         refreshTokenHash: initialRefreshTokenHash,
         newRefreshTokenHash: "refresh_hash_repeated_replay_unused",
         accessTokenHash: "access_hash_repeated_replay_unused",
-        now: now + 4,
+        now: now + 5,
       }),
     ).resolves.toEqual(inactiveRefreshTokenError);
     await expect(readDatabaseState()).resolves.toEqual(containedState);
@@ -219,7 +238,7 @@ describe("MCP OAuth refresh token replay", () => {
         refreshTokenHash: "refresh_hash_descendant_2",
         newRefreshTokenHash: "refresh_hash_descendant_3_unused",
         accessTokenHash: "access_hash_3_unused",
-        now: now + 5,
+        now: now + 6,
       }),
     ).resolves.toEqual(inactiveGrantError);
     await expect(readDatabaseState()).resolves.toEqual(containedState);

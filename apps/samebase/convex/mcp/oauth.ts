@@ -893,8 +893,6 @@ export const exchangeRefreshToken = internalMutation({
         errorDescription: "Grant is no longer active.",
       });
     }
-    const access = await findOrganizationAccessContext(ctx.db, refreshToken.userId);
-
     if (refreshToken.status === "rotated") {
       const grant = await ctx.db
         .query("mcpGrants")
@@ -903,8 +901,7 @@ export const exchangeRefreshToken = internalMutation({
       if (
         grant &&
         grant.clientId === refreshToken.clientId &&
-        access &&
-        hasMcpGrantSubject(access, grant)
+        grant.userId === refreshToken.userId
       ) {
         await revokeActiveMcpGrant(ctx, {
           action: "refresh_token_replay_detected",
@@ -942,6 +939,7 @@ export const exchangeRefreshToken = internalMutation({
       });
     }
 
+    const access = await findOrganizationAccessContext(ctx.db, refreshToken.userId);
     const grant = await ctx.db
       .query("mcpGrants")
       .withIndex("by_grant_id", (q) => q.eq("grantId", refreshToken.grantId))

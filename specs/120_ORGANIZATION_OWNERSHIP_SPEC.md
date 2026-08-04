@@ -187,7 +187,8 @@ one member's credentials during account deletion. `requestedByUserId`, `lastEdit
 MCP client registration remains system-wide. Only `mcpGrants` stores the required `organizationId`
 beside its user subject. Consent resolves the user's membership before it creates the grant.
 Authorization codes, access tokens, refresh tokens, and browser tokens derive the organization
-through `grantId`.
+through `grantId`. Removing a membership revokes that user's grants for the organization. Rejoining
+requires new authorization and does not reactivate those grants.
 
 Each MCP HTTP request creates one complete authorization snapshot before internal tool dispatch.
 Token validation loads the access token, grant, client, and current organization membership. The
