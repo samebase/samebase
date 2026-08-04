@@ -57,3 +57,14 @@ not copy tool schemas or general coding instructions into the skill.
   small required gate, and asked the operator to confirm removal of broad Playwright checks. Both
   kept Rust and WASM as target constraints. Neither inferred project importance from technical
   complexity.
+
+## Last focused adoption-bundle comparison
+
+- Date: 2026-08-04
+- Artifact commit: `230646b5e01f6fc75f0549490e7f9da3227dcf5a`
+- Model: GPT-5.6 Sol, high reasoning effort
+- Target: `nicu-chiciuc/weight_tsx` at `e26a38348dca39adbf7096d7a5ed1661ffeb3572`
+- Result: the public skill scored 28/32. The same skill plus the detailed adoption skill and
+  contract scored 22/32. Clean isolation passed. Keep the public skill as the default. Extract only
+  proven, compact Samebase-specific boundary rules from the detailed bundle. See
+  `research/project-adoption/experiments/weight-tsx-skill-bundles.md`.
