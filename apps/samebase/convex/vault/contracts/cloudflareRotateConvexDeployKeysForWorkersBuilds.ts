@@ -17,7 +17,7 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
     title: "Rotate Convex deploy keys for Workers Builds",
     name: "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds",
     description:
-      "Rotate Samebase-named production and preview Convex deploy keys, write them with the readable SAMEBASE_CONVEX_PROJECT marker to both Workers Builds triggers, then start a production build.",
+      "Rotate Samebase-named Convex deploy keys, scope each key and the readable SAMEBASE_CONVEX_PROJECT marker to its matching Workers Builds trigger, then start a production build.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -32,11 +32,11 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
   } as const satisfies AppFunctionMcpMetadata,
   doc: `The repair for builds that cannot deploy the backend: mints production and preview deploy
 keys on the selected Convex project's production and preview scopes. It writes
-\`CONVEX_DEPLOY_KEY\`, \`PREVIEW_CONVEX_DEPLOY_KEY\`, and the non-secret
-\`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>\` marker to both Workers
-Builds triggers, reads the
-variables back, and verifies the marker value, secrecy flags, and required variable names before
-starting the production build.
+\`CONVEX_DEPLOY_KEY\` only to the production trigger and \`PREVIEW_CONVEX_DEPLOY_KEY\` only to the
+preview trigger. It writes the non-secret
+\`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>\` marker to both triggers,
+removes the opposite deploy key from each trigger, then reads the variables back and verifies the
+marker value, secrecy flags, and scoped variable names before starting the production build.
 
 The Worker and project must both be attached to the vault. Their selection is input to this one
 operation, not a persisted dependency. Rerunning the operation rotates the Samebase-named keys.

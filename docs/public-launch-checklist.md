@@ -16,18 +16,18 @@ repos and pages (operator policy: link now, flip later; this file records the fl
 - [ ] Eval round 2 against the deployed corpus
 - [ ] Second clean round (RFC 093 bar), then decide whether transcripts go public
 
-## samebase/app goes public
+## samebase/app is public
 
 - [x] Curated v6 line is `main` (2026-07-08); old Pages-era line kept as `v3-router-pages`
-- [ ] Flip repository visibility to public (the template setting is already on)
-- [ ] From that moment `main` history is frozen (append-only); rewrites only via a new edition
-- [ ] Drop or port `README.ro.md`, the only unique content left on `v3-router-pages` (`5b4865f`)
+- [x] Repository is public and remains a GitHub template (2026-08-04)
+- [x] Public `main` history is append-only; rewrites require a new edition
+- [x] Obsolete branches, including `v3-router-pages`, were removed before publication
 
 ## samebase.com flips
 
-- [ ] `apps/samebase/src/content/docs-do-it-yourself.md`: replace the "private today" sentence with
+- [x] `apps/samebase/src/content/docs-do-it-yourself.md`: replace the "private today" sentence with
       the template link and a "Use this template" step
-- [ ] `apps/samebase/src/content/docs-the-stack.md`: same sentence in the template paragraph
+- [x] `apps/samebase/src/content/docs-the-stack.md`: same sentence in the template paragraph
 - [ ] Landing swap: pasteable-prompt hero supersedes the spec 035 slogan rotation (amend spec 035,
       screenshot coverage)
 - [ ] Revisit spec 088's mirrored media once raw template URLs are public and stable

@@ -7,7 +7,8 @@ MCP tool `vault_actions_createRepository` · scope `access_app_create` · write
 Creates a complete Samebase app in one action: a GitHub repository under the caller's connected
 owner, seeded with the starter template, a Convex project and dev/prod deployments, a Cloudflare
 Worker, Workers Builds configured for the repository (push to the default branch deploys, pull
-requests get preview deploys), and Convex deploy keys placed into the build triggers.
+requests get preview deploys), and Convex deploy keys placed into the build triggers. The workflow
+requests the first production build only after it verifies the scoped deploy keys.
 
 Preconditions: the account must have GitHub, Convex, and Cloudflare provider connections; the target
 names must be available on each provider. A name collision fails the call immediately before any
@@ -15,9 +16,9 @@ vault or run is created, so pick different names and call again; failures after 
 surface through `get_user_vaults` instead.
 
 What it writes: one repository (private by default), one Convex project, one Worker, and two Workers
-Builds triggers that each carry `CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY` variables. All
-resources live in the caller's own provider accounts. Deleting the Samebase account does not remove
-or stop any of them.
+Builds triggers. The production trigger carries `CONVEX_DEPLOY_KEY`; the preview trigger carries
+`PREVIEW_CONVEX_DEPLOY_KEY`. Both carry a readable Convex project marker. All resources live in the
+caller's own provider accounts. Deleting the Samebase account does not remove or stop any of them.
 
 Progress and failure are readable through `get_user_vaults`: while running, `providerSetup` carries
 the current step; on failure it carries the failed step and a message. Repair it with

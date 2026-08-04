@@ -31,12 +31,13 @@ Create or sign in to:
 
 ## 2: Put the app code in GitHub
 
-The app Samebase deploys is the starter template `samebase/app`, built by hand, commit by commit, so
-it stays small and readable. It is private today and becomes public at release; until then, the
-template arrives in your GitHub account through Samebase's `create_repository`.
+The app Samebase deploys is the public
+[samebase/app starter template](https://github.com/samebase/app), built by hand, commit by commit,
+so it stays small and readable. Open the repository, select **Use this template**, and create a
+repository in your GitHub account.
 
-Without the template, bring your own app: the rest of this guide assumes a repository whose build
-outputs static assets and whose backend is Convex. Add Convex from the project checkout:
+You can also bring your own app. The rest of this guide assumes a repository whose build outputs
+static assets and whose backend is Convex. Add Convex from the project checkout:
 
 ```bash
 pnpm add convex

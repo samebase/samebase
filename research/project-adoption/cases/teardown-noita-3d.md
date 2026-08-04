@@ -14,9 +14,8 @@ version `5a0f10f9`. Its [version URL](https://5a0f10f9-teardown-noita-3d.pfp.wor
 [branch alias](https://codex-verify-preview-after-main-teardown-noita-3d.pfp.workers.dev) both
 returned the built application. The active production deployment stayed on version `599266c1`.
 
-The earlier standalone [manual preview Worker](https://teardown-noita-3d-preview.pfp.workers.dev)
-remains reachable. It is a useful provider spike, but it is not evidence for the Samebase
-repository-backed path.
+The earlier standalone manual preview Worker was a useful provider spike, but it was not evidence
+for the Samebase repository-backed path. It was removed after this evidence was preserved.
 
 ## Starting shape
 
@@ -130,7 +129,16 @@ browser and GPU test owner.
 
 - independent-project validation of the first-deployment preview candidate
 - production observation beyond the successful first deployment and route checks
-- removal of the standalone manual Worker, which needs a separate destructive request
+
+## Experiment closure
+
+Pull request 12 passed repository CI, its Samebase-connected Worker build, and review before merge.
+The experiment branch and the obsolete adoption branch were removed. The standalone manual Worker
+was also removed. The connected `teardown-noita-3d` Worker and its active production deployment were
+not changed.
+
+The successful repository-backed preview evidence remains in this case and the merged pull request.
+The first-deployment behavior remains a one-case candidate until another project tests it.
 
 ## Evidence policy
 

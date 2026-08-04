@@ -6,11 +6,12 @@ MCP tool `vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds` · scope
 `access_provider_connections` · write
 
 The repair for builds that cannot deploy the backend: mints production and preview deploy keys on
-the selected Convex project's production and preview scopes. It writes `CONVEX_DEPLOY_KEY`,
-`PREVIEW_CONVEX_DEPLOY_KEY`, and the non-secret
-`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` marker to both Workers
-Builds triggers, reads the variables back, and verifies the marker value, secrecy flags, and
-required variable names before starting the production build.
+the selected Convex project's production and preview scopes. It writes `CONVEX_DEPLOY_KEY` only to
+the production trigger and `PREVIEW_CONVEX_DEPLOY_KEY` only to the preview trigger. It writes the
+non-secret `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` marker to both
+triggers, removes the opposite deploy key from each trigger, then reads the variables back and
+verifies the marker value, secrecy flags, and scoped variable names before starting the production
+build.
 
 The Worker and project must both be attached to the vault. Their selection is input to this one
 operation, not a persisted dependency. Rerunning the operation rotates the Samebase-named keys.
