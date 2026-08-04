@@ -3904,12 +3904,10 @@ export const commitAllStaged = internalAction({
       }
     }
 
-    // 4. Move the shared rows onto the committed baseline without replacing
-    //    edits that arrived during the GitHub work.
-    await ctx.runMutation(internal.fileStaging.reconcileCommittedStagingSnapshot, {
+    // 4. Keep the same row so a delayed editor save can finish after the commit.
+    await ctx.runMutation(internal.fileStaging.advanceCommittedStagingSnapshot, {
       vaultId: args.vaultId,
       branch: commitBranch,
-      userId: args.userId,
       files: committedStagingFiles,
     });
 

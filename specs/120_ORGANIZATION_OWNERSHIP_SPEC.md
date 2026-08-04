@@ -178,6 +178,12 @@ Staged files are one shared collaborative draft for a vault, branch, and path. V
 controls draft access. The final model removes `vaultStagedFiles.ownerId` and its access checks.
 `lastEditUserId` records only the last editor and never authorizes access.
 
+FileView remains a staff-only add-on during this release. Its supported operating mode is one active
+editing and commit session for a vault branch. A normal commit keeps the same staged row so a
+delayed save from that editor can finish. Simultaneous FileView commits, structural edits during a
+commit, and external Git changes during a commit are deferred until FileView becomes a shipped
+add-on. They are not organization-rollout acceptance requirements.
+
 Provisioning and vault-deletion runs use `requestedByUserId`. Their event rows derive the requester
 through `runId` and do not copy a user ID. `vaultStagedFileUpdates` uses `editUserId`. Manual
 provider-write and repository-refresh locks use `requestedByUserId` to identify work that depends on
@@ -282,8 +288,10 @@ The rollout is complete only when tests and reset checks prove:
 - No generic profile or email match combines users.
 - A member can use normal resources in their organization.
 - A user from another organization cannot read or change those resources.
-- Two members see the same organization vaults and shared staged drafts, and can use the current
-  dashboard, editor, resource, provisioning, and deletion flows after the access cutover.
+- Two members see the same organization vaults and can use the current dashboard, resource,
+  provisioning, and deletion flows after the access cutover.
+- A normal one-session FileView edit and commit keeps a delayed editor save. Simultaneous FileView
+  commit behavior is not a release gate.
 - A user actor field does not grant access to an organization resource.
 - UI preferences and other personal state remain different for two members of one organization.
 - Both members see the same organization plan and quota usage, while each member sees only their own

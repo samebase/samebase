@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("authAdmin password accounts", () => {
   it("creates and approves a password account without storing the plaintext password", async () => {
@@ -35,6 +39,42 @@ describe("authAdmin password accounts", () => {
       isApproved: true,
     });
     expect(snapshot.user?.emailVerificationTime).toEqual(expect.any(Number));
+  });
+
+  it("does not copy development provider credentials to another member", async () => {
+    vi.stubEnv("CONVEX_AGENT_MODE", "anonymous");
+    vi.stubEnv("DEV_SEED_GITHUB_API_KEY", "seed-github-token");
+    const t = makeConvexTest();
+
+    await t.action(internal.authAdmin.createOrUpdatePasswordAccount, {
+      email: "second-member@example.com",
+      password: "valid-password",
+    });
+
+    const snapshot = await t.run(async (ctx) => {
+      const account = await ctx.db
+        .query("authAccounts")
+        .withIndex("providerAndAccountId", (q) =>
+          q.eq("provider", "password").eq("providerAccountId", "second-member@example.com"),
+        )
+        .unique();
+      if (account === null) {
+        throw new Error("Expected the password account to exist");
+      }
+      return {
+        connections: await ctx.db
+          .query("providerConnections")
+          .withIndex("by_user", (q) => q.eq("userId", account.userId))
+          .collect(),
+        membership: await ctx.db
+          .query("organizationMemberships")
+          .withIndex("by_user", (q) => q.eq("userId", account.userId))
+          .unique(),
+      };
+    });
+
+    expect(snapshot.membership).not.toBeNull();
+    expect(snapshot.connections).toEqual([]);
   });
 
   it("links a new password account to one verified user", async () => {

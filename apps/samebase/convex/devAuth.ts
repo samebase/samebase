@@ -15,6 +15,7 @@ import {
 } from "./providerConnections";
 import { readOptionalEnv } from "./oauthUtils";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
+import { ensureOrganizationForUser } from "./organizations";
 
 const { boolean, id, literal, null: vNull, object, optional, string, union } = v;
 
@@ -184,7 +185,7 @@ async function upsertCloudflareApiKey(
   });
 }
 
-const seedProviderConnectionsArgs = object({
+const seedPasswordAccountStateArgs = object({
   userId: id("users"),
   githubApiKey: optional(string()),
   convexManagementApiKey: optional(string()),
@@ -193,21 +194,22 @@ const seedProviderConnectionsArgs = object({
   cloudflareApiKey: optional(string()),
   cloudflareAccountId: optional(string()),
 });
-type SeedProviderConnectionsArgs = Infer<typeof seedProviderConnectionsArgs>;
+type SeedPasswordAccountStateArgs = Infer<typeof seedPasswordAccountStateArgs>;
 
-export const seedProviderConnectionsForUser = internalMutation({
-  args: seedProviderConnectionsArgs,
+export const seedPasswordAccountState = internalMutation({
+  args: seedPasswordAccountStateArgs,
   returns: vNull(),
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
     if (user === null) {
-      throw new Error(`Cannot seed provider connections for missing user ${args.userId}`);
+      throw new Error(`Cannot prepare missing seed user ${args.userId}`);
     }
     // Seeded preview/local password accounts must skip the pending access gate so
     // operators do not need a parallel code-side allowlist for dev access.
     if (user.isApproved !== true) {
       await ctx.db.patch(args.userId, { isApproved: true });
     }
+    await ensureOrganizationForUser(ctx.db, args.userId);
 
     if (args.githubApiKey) {
       await upsertGithubApiKey(ctx.db, args.userId, args.githubApiKey);
@@ -295,7 +297,7 @@ export const seedPasswordAccount = internalAction({
     const convexTeamSlug = readSeedValue("DEV_SEED_CONVEX_TEAM_SLUG");
     const cloudflareApiKey = readSeedValue("DEV_SEED_CLOUDFLARE_API_KEY");
     const cloudflareAccountId = readSeedValue("DEV_SEED_CLOUDFLARE_ACCOUNT_ID");
-    const seedArgs: Omit<SeedProviderConnectionsArgs, "userId"> = {};
+    const seedArgs: Omit<SeedPasswordAccountStateArgs, "userId"> = {};
     if (githubApiKey !== undefined) {
       seedArgs.githubApiKey = githubApiKey;
     }
@@ -350,7 +352,7 @@ export const seedPasswordAccount = internalAction({
       created = true;
     }
 
-    await ctx.runMutation(internal.devAuth.seedProviderConnectionsForUser, {
+    await ctx.runMutation(internal.devAuth.seedPasswordAccountState, {
       ...seedArgs,
       userId,
     });

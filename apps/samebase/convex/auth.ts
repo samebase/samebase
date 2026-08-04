@@ -6,8 +6,6 @@ import { guard } from "@samebase/dependent/main";
 import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktreePasswordAuth";
 import { buildAuthTokenProfileCustomClaims } from "../shared/authTokenClaims";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
-import { type DatabaseWriter } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import {
   assertPasswordAuthFlowAllowed,
@@ -19,11 +17,6 @@ import {
 import { buildNewUserNotification } from "./newUserNotification";
 import { isAgentBrowserHandoffTokenValue, sha256Hex } from "./mcp/tokens";
 import { ensureOrganizationForUser } from "./organizations";
-import {
-  assertProviderConnectionWriteAllowed,
-  buildSeedCloudflareDefaultAccount,
-  getConnectionByUserAndKind,
-} from "./providerConnections";
 import { readOptionalEnv } from "./oauthUtils";
 
 const isNonEmptyString = guard<unknown, string>((value) =>
@@ -48,120 +41,6 @@ export function assertAuthSessionUserCanSignIn(user: unknown): void {
     return;
   }
   throw new Error("Account deletion is already finalizing.");
-}
-
-async function upsertSeedGithubConnection(db: DatabaseWriter, userId: Id<"users">): Promise<void> {
-  const credential = readOptionalEnv("DEV_SEED_GITHUB_API_KEY");
-  if (credential === null) {
-    return;
-  }
-  await assertProviderConnectionWriteAllowed(db, userId);
-  const existing = await getConnectionByUserAndKind(db, userId, "github");
-  const now = Date.now();
-  if (existing) {
-    await db.patch(existing._id, {
-      auth: {
-        method: "api_key",
-        credential,
-      },
-      updatedAt: now,
-    });
-    return;
-  }
-  await db.insert("providerConnections", {
-    kind: "github",
-    userId,
-    auth: {
-      method: "api_key",
-      credential,
-    },
-    createdAt: now,
-    updatedAt: now,
-  });
-}
-
-async function upsertSeedConvexConnection(db: DatabaseWriter, userId: Id<"users">): Promise<void> {
-  const credential = readOptionalEnv("DEV_SEED_CONVEX_MANAGEMENT_API_KEY");
-  const teamId = readOptionalEnv("DEV_SEED_CONVEX_TEAM_ID");
-  const teamSlug = readOptionalEnv("DEV_SEED_CONVEX_TEAM_SLUG");
-  if (credential === null || teamId === null) {
-    return;
-  }
-  await assertProviderConnectionWriteAllowed(db, userId);
-  const existing = await getConnectionByUserAndKind(db, userId, "convex");
-  const now = Date.now();
-  if (existing) {
-    await db.patch(existing._id, {
-      auth: {
-        method: "api_key",
-        credential,
-      },
-      teamId,
-      teamSlug: teamSlug ?? undefined,
-      updatedAt: now,
-    });
-    return;
-  }
-  const connection = {
-    kind: "convex",
-    userId,
-    auth: {
-      method: "api_key",
-      credential,
-    },
-    teamId,
-    ...(teamSlug !== null ? { teamSlug } : {}),
-    createdAt: now,
-    updatedAt: now,
-  } as const;
-  await db.insert("providerConnections", connection);
-}
-
-async function upsertSeedCloudflareConnection(
-  db: DatabaseWriter,
-  userId: Id<"users">,
-): Promise<void> {
-  const credential = readOptionalEnv("DEV_SEED_CLOUDFLARE_API_KEY");
-  if (credential === null) {
-    return;
-  }
-  await assertProviderConnectionWriteAllowed(db, userId);
-  const accountId = readOptionalEnv("DEV_SEED_CLOUDFLARE_ACCOUNT_ID");
-  const existing = await getConnectionByUserAndKind(db, userId, "cloudflare");
-  const now = Date.now();
-  const defaultAccount = buildSeedCloudflareDefaultAccount(accountId);
-  if (existing) {
-    await db.patch(existing._id, {
-      auth: {
-        method: "api_key",
-        credential,
-      },
-      ...(accountId ? { defaultAccount } : {}),
-      updatedAt: now,
-    });
-    return;
-  }
-  await db.insert("providerConnections", {
-    kind: "cloudflare",
-    userId,
-    auth: {
-      method: "api_key",
-      credential,
-    },
-    defaultAccount,
-    createdAt: now,
-    updatedAt: now,
-  });
-}
-
-async function applyAutoSeedProviderKeys(db: DatabaseWriter, userId: Id<"users">) {
-  const deploymentProfile = resolveDeploymentProfile();
-  if (deploymentProfile.kind !== "local_worktree" && deploymentProfile.kind !== "preview") {
-    return;
-  }
-  await upsertSeedGithubConnection(db, userId);
-  await upsertSeedConvexConnection(db, userId);
-  await upsertSeedCloudflareConnection(db, userId);
 }
 
 const googleClientId = readOptionalEnv("AUTH_GOOGLE_ID");
@@ -284,7 +163,6 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         return;
       }
       await ensureOrganizationForUser(ctx.db, args.userId);
-      await applyAutoSeedProviderKeys(ctx.db, args.userId);
       const passwordAuthMode = resolvePasswordAuthMode(resolveDeploymentProfile());
       // Dashboard-created accounts must work before email delivery is configured.
       if (

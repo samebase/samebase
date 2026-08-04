@@ -7,7 +7,7 @@
 - Last updated: 2026-08-04
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Current branch: `codex-organization-ownership-spec`
-- Current state: Final fixes validated; fresh pull request review and operator cutover pending
+- Current state: Main organization flows validated; final review and operator cutover pending
 - Current pull request: [#1355](https://github.com/samebase/samebase/pull/1355)
 
 ## Purpose
@@ -77,6 +77,8 @@ output or a per-commit journal.
 - Organization-owned provider credentials: deferred until the product needs shared service
   credentials. Current provider connections remain user-owned.
 - Invitation, organization-switching, SSO, SCIM, FGA, and team-management UI: outside this rollout.
+- Simultaneous FileView commits, structural edits during a commit, and external Git changes during a
+  commit: deferred until FileView becomes a shipped add-on.
 
 ## Current Production Shape
 
@@ -109,7 +111,7 @@ the manual reset.
 
 ### Final organization cutover
 
-- Status: Final fixes validated; fresh pull request review and operator cutover pending
+- Status: Main organization flows validated; final review and operator cutover pending
 - Scope: Add the final organization graph, organization billing, membership access, MCP binding,
   retained-user bootstrap, organization-aware API results, and affected UI and workflow support.
 - Gate: The operator completes the manual reset, every retained user has one membership, the two
@@ -139,8 +141,8 @@ Implemented in the current pull request and worktree:
   remains through staff retry, and leaves manual staff retry as the recovery path;
 - user-owned provider and repository-refresh lock attribution, plus bounded personal UI cleanup that
   preserves other members' rows;
-- shared staged-file initialization and post-commit Git-baseline reconciliation that preserve a
-  teammate's newer edit and the collaborative row;
+- shared staged-file ownership and a narrow post-commit baseline update that keeps the current
+  editor row for a delayed one-session save;
 - explicit MCP query arguments at the deploy-key rotation boundary, with organization context kept
   at the trusted request boundary;
 - vault lifecycle preservation during member deletion, with bounded per-vault cleanup that deletes
@@ -157,17 +159,25 @@ The operator approved a manual pre-beta reset on 2026-08-04. The mixed runtime a
 are removed. The one-time retained-user bootstrap replaces them. Independent authorization,
 simplicity, and cutover reviews found and verified the final MCP organization boundary,
 credential-dependent account-deletion waits, personal UI cleanup, unused-index removal, and safe
-manual reset order. A follow-up review found one strict MCP argument mismatch and two realistic
-two-member races. The focused fixes use an explicit argument object, one organization deletion lock,
-and post-commit staging reconciliation. The work is pending fresh pull request review, the
-operator-run reset, merge, deployment, bootstrap, and production verification.
+manual reset order. A follow-up review found one strict MCP argument mismatch, one account-deletion
+race, and unsupported concurrent FileView commit cases. The focused fixes use an explicit argument
+object and one organization deletion lock. FileView now keeps only the same-row update needed for a
+normal delayed editor save. Concurrent FileView commit behavior is deferred. The work is pending
+fresh pull request review, the operator-run reset, merge, deployment, bootstrap, and production
+verification.
+
+Manual testing with two members and one waitlisted account found one development-only credential
+problem: the normal auth callback copied the configured seed provider keys to every new local and
+preview user. Provider reads were correctly user-scoped, but each test user had received a separate
+copy of the same keys. The duplicate callback seeding is removed. Only the explicit development seed
+action now installs those keys on the seed account.
 
 ### Final review-fix checkpoint
 
 Accepted before merge:
 
-- reconcile a shared staged row onto the new Git baseline after a commit while preserving newer
-  edits and delayed client writes;
+- keep the current staged row and move its baseline after a normal commit so a delayed editor save
+  can finish;
 - prevent deletion of a storage blob attached anywhere and derive deletion baseline data from the
   authorized vault instead of a client-supplied Git blob SHA;
 - revoke an MCP grant after rotated refresh-token replay even when current membership is absent;
@@ -183,12 +193,14 @@ Explicitly not part of this fix:
 - an account-wide vault-deletion run sweep;
 - automatic recovery for an uncertain Polar checkout;
 - duplicate membership reads inside consumers of the validated MCP request snapshot; and
-- compatibility code for the data removed by the approved manual reset.
+- compatibility code for the data removed by the approved manual reset;
+- simultaneous FileView commits, structural edits during a commit, external Git changes during a
+  commit, and full two-member FileView acceptance.
 
-The shared staged-file fix is the only non-trivial design change in this checkpoint. All other
-accepted items are focused boundary checks or input validation. Two independent staging reviews
-passed after the retry path was made fail-closed when the current Git tree cannot prove who created
-a different rename target.
+The FileView change is intentionally narrow. It keeps row identity and the Git baseline needed for
+the normal one-session save path. It does not add a commit lock, multi-writer merge, or retry state
+machine. Small Git inspection checks remain because they make an interrupted one-person deletion or
+rename safe to retry and fail closed for an ambiguous rename target.
 
 ## Validation Evidence
 
@@ -203,14 +215,17 @@ Final integrated code head before this progress-record update: `1d9caae2e`.
 - `pnpm format:check` and `git diff --check`: passed.
 - `pnpm test:visual:linux`: 209 tests passed, 1 skipped, and the same unchanged public landing
   URL-editor test failed. That test also failed on clean `main` in the earlier acceptance check. All
-  Settings route tests passed. The stable staged-editor identity intentionally changes no pixels,
-  and a live commit test would require an external repository write, so the backend reconciliation
-  tests and direct stable-row-key review are the focused evidence for that behavior.
+  Settings route tests passed. The staged-editor row identity intentionally changes no pixels.
+- Real-route local acceptance passed for the seeded operator, a second member in the same
+  organization, and one waitlisted account. Both members loaded the same Free plan, zero shared
+  resource usage, and empty organization vault list. The second member kept three disconnected
+  personal providers after a new login. The waitlisted account saw `Account access pending` on
+  `/vault` and `/providers` and did not receive app access.
 
 ## UI And Workflow Coverage
 
 This is a full-stack rollout. The implementation owns the code changes and the two-member acceptance
-pass for every existing surface whose data or behavior changes.
+pass for every shipped organization surface whose data or behavior changes.
 
 The implementation covers:
 
@@ -226,17 +241,18 @@ The implementation covers:
 - browser handoff grant, membership, scope, and client rechecks at both creation and redemption;
 - repository connection and app creation contracts that create organization-owned vaults;
 - vault lists, pickers, navigation, dashboards, resource dialogs, and resource routes;
-- editor, collaborative, shared staged-draft, pull-request, Data, and Schema behavior, including the
-  final actor-field names;
+- the organization access boundary and final actor-field names for editor, staged-file,
+  pull-request, Data, and Schema operations;
 - provider observation, provider-write, provisioning, vault deletion, and account deletion flows;
 - the rule that each member uses their own provider credentials while shared resources stay with the
   organization;
 - final organization-aware query and action results used by current routes;
 - route-level interaction tests and screenshot coverage for every changed shipped UI state.
 
-The implementation verifies those surfaces with both members of the shared operator organization. It
-also verifies sole-member and shared-member account deletion, MCP token validation, `tools/list`,
-`tools/call`, tool execution, and browser handoff before the production reset.
+The implementation verifies the shipped organization surfaces with both members of the shared
+operator organization. Full two-member FileView editing is not part of this release acceptance. The
+implementation also verifies sole-member and shared-member account deletion, MCP token validation,
+`tools/list`, `tools/call`, tool execution, and browser handoff before the production reset.
 
 Personal UI settings and provider connections remain separate for two members. The rollout adds no
 organization name, switcher, invitation flow, membership page, or new organization chrome.

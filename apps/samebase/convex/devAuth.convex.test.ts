@@ -51,7 +51,7 @@ describe("devAuth password account seed", () => {
     });
   });
 
-  it("adds provider keys to the explicit seed user", async () => {
+  it("prepares the explicit seed user for normal app use", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -60,7 +60,7 @@ describe("devAuth password account seed", () => {
     });
 
     await expect(
-      t.mutation(internal.devAuth.seedProviderConnectionsForUser, {
+      t.mutation(internal.devAuth.seedPasswordAccountState, {
         userId,
         githubApiKey: "github-token",
         convexManagementApiKey: "convex-token",
@@ -77,12 +77,19 @@ describe("devAuth password account seed", () => {
         .withIndex("by_user", (q) => q.eq("userId", userId))
         .collect();
       return {
+        billingAccount: await ctx.db.query("organizationBillingAccounts").unique(),
         connections,
+        membership: await ctx.db
+          .query("organizationMemberships")
+          .withIndex("by_user", (q) => q.eq("userId", userId))
+          .unique(),
         user: await ctx.db.get(userId),
       };
     });
 
     expect(snapshot.user?.isApproved).toBe(true);
+    expect(snapshot.membership).not.toBeNull();
+    expect(snapshot.billingAccount?.organizationId).toBe(snapshot.membership?.organizationId);
     expect(snapshot.connections.map((connection) => connection.kind).sort()).toEqual([
       "cloudflare",
       "convex",
@@ -101,9 +108,9 @@ describe("devAuth password account seed", () => {
     });
 
     await expect(
-      t.mutation(internal.devAuth.seedProviderConnectionsForUser, {
+      t.mutation(internal.devAuth.seedPasswordAccountState, {
         userId,
       }),
-    ).rejects.toThrowError("Cannot seed provider connections for missing user");
+    ).rejects.toThrowError("Cannot prepare missing seed user");
   });
 });
