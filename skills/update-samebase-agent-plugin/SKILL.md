@@ -50,9 +50,10 @@ not copy tool schemas or general coding instructions into the skill.
 
 ## Last focused stack-alignment run
 
-- Date: 2026-07-30
-- Artifact commit: `70d4c1d3`
+- Date: 2026-08-04
+- Artifact commit: `059edebe`
 - Models: GPT-5.6 Terra low and GPT-5.6 Sol low
-- Result: both models selected Node 24, ESM, TypeScript automation and tests, Vite+ with Oxlint and
-  Oxfmt, explicit type checks, and the real Cloudflare build path. Both kept npm as a target
-  constraint and rejected repository-wide extension or tool-name scanners.
+- Result: both models reported the cost and protected risk of the existing checks, recommended a
+  small required gate, and asked the operator to confirm removal of broad Playwright checks. Both
+  kept Rust and WASM as target constraints. Neither inferred project importance from technical
+  complexity.
