@@ -237,12 +237,16 @@ export function MengerHoverScene({
       : settledSurface === null
         ? settledInstanceCount * 12
         : settledSurface.quadCount * settledSurface.instanceCount * 2;
-    container.dataset.hoverChannelCount = String(depthOneOnly ? 0 : topology.channelCount);
-    container.dataset.hoverDynamicUploadBytes = String(
+    container.dataset["hoverChannelCount"] = String(depthOneOnly ? 0 : topology.channelCount);
+    container.dataset["hoverDynamicUploadBytes"] = String(
       depthOneOnly ? 0 : stateTexture.data.byteLength,
     );
-    container.dataset.hoverTriangleCount = String(settledTriangleCount + coverInstanceCount * 48);
-    container.dataset.hoverVisibleInstanceCount = String(settledInstanceCount + coverInstanceCount);
+    container.dataset["hoverTriangleCount"] = String(
+      settledTriangleCount + coverInstanceCount * 48,
+    );
+    container.dataset["hoverVisibleInstanceCount"] = String(
+      settledInstanceCount + coverInstanceCount,
+    );
 
     const stageMeshes: MengerHoverStageMeshes[] = model.stages.map((stage, stageIndex) => {
       const stageTopology = topology.stages[stageIndex];
@@ -328,10 +332,10 @@ export function MengerHoverScene({
 
     const clearAutomaticProbeClientPoint = (state: "invalid" | "off" | "resting" | "suspended") => {
       automaticProbeClientPoint = null;
-      container.dataset.automaticProbeState = state;
-      delete container.dataset.automaticProbeClientX;
-      delete container.dataset.automaticProbeClientY;
-      delete container.dataset.automaticProbeProgress;
+      container.dataset["automaticProbeState"] = state;
+      delete container.dataset["automaticProbeClientX"];
+      delete container.dataset["automaticProbeClientY"];
+      delete container.dataset["automaticProbeProgress"];
     };
 
     const invalidateAutomaticProbe = () => {
@@ -390,16 +394,16 @@ export function MengerHoverScene({
           x: bounds.left + point.x * bounds.width,
           y: bounds.top + point.y * bounds.height,
         };
-        container.dataset.automaticProbeState = "reduced-motion";
-        container.dataset.automaticProbeClientX = automaticProbeClientPoint.x.toFixed(3);
-        container.dataset.automaticProbeClientY = automaticProbeClientPoint.y.toFixed(3);
-        container.dataset.automaticProbeProgress = "0.0000";
+        container.dataset["automaticProbeState"] = "reduced-motion";
+        container.dataset["automaticProbeClientX"] = automaticProbeClientPoint.x.toFixed(3);
+        container.dataset["automaticProbeClientY"] = automaticProbeClientPoint.y.toFixed(3);
+        container.dataset["automaticProbeProgress"] = "0.0000";
         return false;
       } else {
         if (timestampMs < automaticProbeResumeAtMsRef.current) {
           progress = 1;
           automaticProbeNeedsFrame = false;
-          container.dataset.automaticProbeState = "resting";
+          container.dataset["automaticProbeState"] = "resting";
           scheduleAutomaticProbeResume(automaticProbeResumeAtMsRef.current);
         } else {
           if (automaticProbeResumeAtMsRef.current > 0) {
@@ -437,13 +441,13 @@ export function MengerHoverScene({
           if (cycleProgressMs >= loopDurationMs) {
             progress = 1;
             automaticProbeNeedsFrame = false;
-            container.dataset.automaticProbeState = "resting";
+            container.dataset["automaticProbeState"] = "resting";
             const resumeAtMs = timestampMs + cycleDurationMs - cycleProgressMs;
             automaticProbeResumeAtMsRef.current = resumeAtMs;
             scheduleAutomaticProbeResume(resumeAtMs);
           } else {
             progress = cycleProgressMs / loopDurationMs;
-            container.dataset.automaticProbeState = "playing";
+            container.dataset["automaticProbeState"] = "playing";
           }
         }
       }
@@ -472,20 +476,20 @@ export function MengerHoverScene({
         return false;
       }
       automaticProbeClientPoint = { x: clientX, y: clientY };
-      container.dataset.automaticProbeClientX = automaticProbeClientPoint.x.toFixed(3);
-      container.dataset.automaticProbeClientY = automaticProbeClientPoint.y.toFixed(3);
-      container.dataset.automaticProbeProgress = progress.toFixed(4);
+      container.dataset["automaticProbeClientX"] = automaticProbeClientPoint.x.toFixed(3);
+      container.dataset["automaticProbeClientY"] = automaticProbeClientPoint.y.toFixed(3);
+      container.dataset["automaticProbeProgress"] = progress.toFixed(4);
 
       return automaticProbeNeedsFrame && (!depthOneOnly || pointerTiltEnabledRef.current);
     };
 
     const clearProbe = () => {
-      delete container.dataset.hoverCoordinateX;
-      delete container.dataset.hoverCoordinateY;
-      delete container.dataset.hoverCoordinateZ;
-      delete container.dataset.hoverFaceAxis;
-      delete container.dataset.hoverFaceSign;
-      delete container.dataset.hoverVisibleFaceCount;
+      delete container.dataset["hoverCoordinateX"];
+      delete container.dataset["hoverCoordinateY"];
+      delete container.dataset["hoverCoordinateZ"];
+      delete container.dataset["hoverFaceAxis"];
+      delete container.dataset["hoverFaceSign"];
+      delete container.dataset["hoverVisibleFaceCount"];
     };
 
     /**
@@ -553,12 +557,12 @@ export function MengerHoverScene({
       if (!hasFiniteSquaredLength(probe.x, probe.y, probe.z)) {
         return rejectInvalidProbe();
       }
-      container.dataset.hoverCoordinateX = probe.x.toFixed(3);
-      container.dataset.hoverCoordinateY = probe.y.toFixed(3);
-      container.dataset.hoverCoordinateZ = probe.z.toFixed(3);
-      container.dataset.hoverFaceAxis = String(projection.axis);
-      container.dataset.hoverFaceSign = String(projection.sign);
-      container.dataset.hoverVisibleFaceCount = String(projection.visibleFaceCount);
+      container.dataset["hoverCoordinateX"] = probe.x.toFixed(3);
+      container.dataset["hoverCoordinateY"] = probe.y.toFixed(3);
+      container.dataset["hoverCoordinateZ"] = probe.z.toFixed(3);
+      container.dataset["hoverFaceAxis"] = String(projection.axis);
+      container.dataset["hoverFaceSign"] = String(projection.sign);
+      container.dataset["hoverVisibleFaceCount"] = String(projection.visibleFaceCount);
 
       return probe;
     };
@@ -605,10 +609,10 @@ export function MengerHoverScene({
       const radiusScale = normalizeLogoPresentationTiltRadiusScale(
         pointerTiltRadiusScaleRef.current,
       );
-      container.dataset.presentationTiltCenterX = centerX.toFixed(3);
-      container.dataset.presentationTiltCenterY = centerY.toFixed(3);
-      container.dataset.presentationTiltBaseRadius = baseRadius.toFixed(3);
-      container.dataset.presentationTiltNeutralRadius = (baseRadius * radiusScale).toFixed(3);
+      container.dataset["presentationTiltCenterX"] = centerX.toFixed(3);
+      container.dataset["presentationTiltCenterY"] = centerY.toFixed(3);
+      container.dataset["presentationTiltBaseRadius"] = baseRadius.toFixed(3);
+      container.dataset["presentationTiltNeutralRadius"] = (baseRadius * radiusScale).toFixed(3);
       const tiltClientPoint = automaticProbeClientPoint ?? presentationTiltClientPoint;
       const tiltClientPointEnabled =
         automaticProbeClientPoint !== null ||
@@ -643,8 +647,8 @@ export function MengerHoverScene({
         pointerTiltEnabledRef.current && !reducedMotionQuery.matches
           ? presentationTiltTarget
           : NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
-      container.dataset.presentationHorizontalDegrees = target.horizontal.toFixed(3);
-      container.dataset.presentationVerticalDegrees = target.vertical.toFixed(3);
+      container.dataset["presentationHorizontalDegrees"] = target.horizontal.toFixed(3);
+      container.dataset["presentationVerticalDegrees"] = target.vertical.toFixed(3);
 
       if (reducedMotionQuery.matches) {
         presentationTiltTargetQuaternion.identity();
@@ -719,7 +723,7 @@ export function MengerHoverScene({
       const automaticProbeNeedsFrame = updateAutomaticProbeClientPoint(now);
       updatePresentationTiltTarget();
       const presentationTiltSettled =
-        container.dataset.automaticProbeState === "invalid" || applyPresentationTilt(now);
+        container.dataset["automaticProbeState"] === "invalid" || applyPresentationTilt(now);
       presentationTiltGroup.updateMatrixWorld(true);
 
       depthOneMesh.visible = depthOneOnly;
@@ -735,14 +739,14 @@ export function MengerHoverScene({
       if (depthOneOnly) {
         clearProbe();
         lastFrameTime = null;
-        container.dataset.hoverMaximumOpenness = "0.000000";
-        container.dataset.hoverSettled = "true";
+        container.dataset["hoverMaximumOpenness"] = "0.000000";
+        container.dataset["hoverSettled"] = "true";
       } else {
         const probe = readProbe();
         if (probe !== null) {
           directionProbe = probe;
         }
-        if (container.dataset.automaticProbeState === "invalid") {
+        if (container.dataset["automaticProbeState"] === "invalid") {
           lastFrameTime = null;
         } else {
           writeMengerHoverState(
@@ -793,8 +797,8 @@ export function MengerHoverScene({
             }
           }
           stateTexture.texture.needsUpdate = true;
-          container.dataset.hoverMaximumOpenness = maximumOpenness.toFixed(6);
-          container.dataset.hoverSettled = settled ? "true" : "false";
+          container.dataset["hoverMaximumOpenness"] = maximumOpenness.toFixed(6);
+          container.dataset["hoverSettled"] = settled ? "true" : "false";
           if (!settled) {
             scheduleFrame();
           } else {
@@ -803,28 +807,30 @@ export function MengerHoverScene({
         }
       }
 
-      container.dataset.presentationTiltSettled = presentationTiltSettled ? "true" : "false";
-      container.dataset.presentationAppliedAngleDegrees = THREE.MathUtils.radToDeg(
+      container.dataset["presentationTiltSettled"] = presentationTiltSettled ? "true" : "false";
+      container.dataset["presentationAppliedAngleDegrees"] = THREE.MathUtils.radToDeg(
         presentationTiltGroup.quaternion.angleTo(presentationTiltNeutralQuaternion),
       ).toFixed(3);
-      if (!presentationTiltSettled && container.dataset.automaticProbeState !== "invalid") {
+      if (!presentationTiltSettled && container.dataset["automaticProbeState"] !== "invalid") {
         scheduleFrame();
       } else {
         lastPresentationTiltFrameTime = null;
       }
-      if (automaticProbeNeedsFrame && container.dataset.automaticProbeState !== "invalid") {
+      if (automaticProbeNeedsFrame && container.dataset["automaticProbeState"] !== "invalid") {
         scheduleFrame();
       }
 
       renderer.render(scene, camera);
       renderCount += 1;
-      container.dataset.hoverRenderCount = String(renderCount);
-      container.dataset.hoverCpuSubmissionMs = (performance.now() - cpuSubmissionStartedAt).toFixed(
-        3,
-      );
+      container.dataset["hoverRenderCount"] = String(renderCount);
+      container.dataset["hoverCpuSubmissionMs"] = (
+        performance.now() - cpuSubmissionStartedAt
+      ).toFixed(3);
       if (firstRenderPending) {
         firstRenderPending = false;
-        container.dataset.hoverSceneBuildMs = (performance.now() - sceneBuildStartedAt).toFixed(3);
+        container.dataset["hoverSceneBuildMs"] = (performance.now() - sceneBuildStartedAt).toFixed(
+          3,
+        );
         onRenderReady?.();
       }
     };
@@ -981,27 +987,27 @@ export function MengerHoverScene({
       stateTexture.texture.dispose();
       settledSurface?.geometry.dispose();
       clearProbe();
-      delete container.dataset.hoverChannelCount;
-      delete container.dataset.hoverDynamicUploadBytes;
-      delete container.dataset.hoverCpuSubmissionMs;
-      delete container.dataset.hoverMaximumOpenness;
-      delete container.dataset.hoverRenderCount;
-      delete container.dataset.hoverSceneBuildMs;
-      delete container.dataset.hoverSettled;
-      delete container.dataset.hoverTriangleCount;
-      delete container.dataset.hoverVisibleInstanceCount;
-      delete container.dataset.automaticProbeClientX;
-      delete container.dataset.automaticProbeClientY;
-      delete container.dataset.automaticProbeProgress;
-      delete container.dataset.automaticProbeState;
-      delete container.dataset.presentationAppliedAngleDegrees;
-      delete container.dataset.presentationTiltBaseRadius;
-      delete container.dataset.presentationTiltCenterX;
-      delete container.dataset.presentationTiltCenterY;
-      delete container.dataset.presentationHorizontalDegrees;
-      delete container.dataset.presentationTiltNeutralRadius;
-      delete container.dataset.presentationTiltSettled;
-      delete container.dataset.presentationVerticalDegrees;
+      delete container.dataset["hoverChannelCount"];
+      delete container.dataset["hoverDynamicUploadBytes"];
+      delete container.dataset["hoverCpuSubmissionMs"];
+      delete container.dataset["hoverMaximumOpenness"];
+      delete container.dataset["hoverRenderCount"];
+      delete container.dataset["hoverSceneBuildMs"];
+      delete container.dataset["hoverSettled"];
+      delete container.dataset["hoverTriangleCount"];
+      delete container.dataset["hoverVisibleInstanceCount"];
+      delete container.dataset["automaticProbeClientX"];
+      delete container.dataset["automaticProbeClientY"];
+      delete container.dataset["automaticProbeProgress"];
+      delete container.dataset["automaticProbeState"];
+      delete container.dataset["presentationAppliedAngleDegrees"];
+      delete container.dataset["presentationTiltBaseRadius"];
+      delete container.dataset["presentationTiltCenterX"];
+      delete container.dataset["presentationTiltCenterY"];
+      delete container.dataset["presentationHorizontalDegrees"];
+      delete container.dataset["presentationTiltNeutralRadius"];
+      delete container.dataset["presentationTiltSettled"];
+      delete container.dataset["presentationVerticalDegrees"];
       for (const stageMesh of stageMeshes) {
         stageMesh.blockerLinkTexture.texture.dispose();
         stageMesh.coverGeometry.dispose();

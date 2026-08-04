@@ -230,7 +230,7 @@ export function SierpinskiCarpetHoverScene({
         }
       }
 
-      container.dataset.carpetSettled = settled ? "true" : "false";
+      container.dataset["carpetSettled"] = settled ? "true" : "false";
       if (!sceneReadyRef.current) {
         sceneReadyRef.current = true;
         setIsSceneReady(true);

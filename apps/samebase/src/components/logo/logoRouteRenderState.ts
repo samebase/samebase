@@ -282,7 +282,7 @@ export function createLogoRouteVoxelGrid(
 
   return createLogoFractalVoxelGrid({
     depth,
-    filledVoxels,
     gridSize: routeState.gridSize,
+    ...(filledVoxels === undefined ? {} : { filledVoxels }),
   });
 }

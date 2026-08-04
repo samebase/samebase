@@ -34,7 +34,7 @@ export function LogoNumberInput({
   ariaLabel: string;
   formatValue: (value: number) => string;
   inputMode?: "decimal" | "numeric";
-  max?: number | string;
+  max?: number | string | undefined;
   min?: number | string;
   normalizeValue: (value: number) => number;
   onValueChange: (value: number) => void;

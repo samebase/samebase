@@ -152,7 +152,7 @@ type NLogoRasterSceneProps = {
   rotationAxisMode?: LogoRotationAxisMode;
   rotationDegrees: number;
   shuffleAnimation: LogoShuffleAnimationConfig;
-  viewDragConfig?: LogoViewDragConfig;
+  viewDragConfig?: LogoViewDragConfig | undefined;
   voxelState: string;
 };
 

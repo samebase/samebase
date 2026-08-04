@@ -87,20 +87,19 @@ function buildPublicLandingLogoRouteSearch({
     rotationDegrees: view.rotationDegrees,
     themeModeSearch: routeSearch,
   });
-  return preserveLogoRouteDevModeSearch(
-    {
-      ...nextSearch,
-      elev:
-        view.elevationDegrees !== defaultView.elevationDegrees
-          ? Number(view.elevationDegrees.toFixed(1))
-          : undefined,
-      rot:
-        view.rotationDegrees !== defaultView.rotationDegrees
-          ? Number(view.rotationDegrees.toFixed(1))
-          : undefined,
-    },
-    routeSearch,
-  );
+
+  if (view.elevationDegrees === defaultView.elevationDegrees) {
+    delete nextSearch.elev;
+  } else {
+    nextSearch.elev = Number(view.elevationDegrees.toFixed(1));
+  }
+  if (view.rotationDegrees === defaultView.rotationDegrees) {
+    delete nextSearch.rot;
+  } else {
+    nextSearch.rot = Number(view.rotationDegrees.toFixed(1));
+  }
+
+  return preserveLogoRouteDevModeSearch(nextSearch, routeSearch);
 }
 
 function easeOutCubic(value: number) {

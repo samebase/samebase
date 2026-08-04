@@ -383,10 +383,12 @@ type RecursiveSurfaceGeometryState = {
 };
 
 type NLogoSceneProps = {
-  autoRotation?: {
-    degreesPerSecond: number;
-    onViewChange: (nextView: LogoViewState) => void;
-  };
+  autoRotation?:
+    | {
+        degreesPerSecond: number;
+        onViewChange: (nextView: LogoViewState) => void;
+      }
+    | undefined;
   baseGridSize?: LogoGridSize;
   backgroundColor: string;
   className?: string;
@@ -403,17 +405,17 @@ type NLogoSceneProps = {
   onViewChange: (nextView: { elevationDegrees: number; rotationDegrees: number }) => void;
   onVoxelEdit: (edit: VoxelEdit) => void;
   /** Zero captures the rendered tilt; one renders exact neutral. */
-  presentationTiltNeutralProgress?: number;
-  presentationTiltTarget?: LogoPresentationTiltTarget;
+  presentationTiltNeutralProgress?: number | undefined;
+  presentationTiltTarget?: LogoPresentationTiltTarget | undefined;
   rotationAxisMode?: LogoRotationAxisMode;
   rotationDegrees: number;
   shuffleAnimation: LogoShuffleAnimationConfig;
   animateFaceColors: boolean;
   animateLeftFaceStripes: boolean;
   fractalDepth?: number;
-  voxelGrid?: LogoVoxelGrid;
+  voxelGrid?: LogoVoxelGrid | undefined;
   voxelEditingEnabled?: boolean;
-  viewDragConfig?: LogoViewDragConfig;
+  viewDragConfig?: LogoViewDragConfig | undefined;
   voxelState: string;
 };
 
@@ -2030,13 +2032,13 @@ function ensureRecursiveMoveLevel({
 }
 
 function clearRecursiveMoveDiagnostics(sceneState: SceneState) {
-  delete sceneState.renderer.domElement.dataset.logoRecursiveMoveDepth;
-  delete sceneState.renderer.domElement.dataset.logoRecursiveMoveFrameMatrixUploadBytes;
-  delete sceneState.renderer.domElement.dataset.logoRecursiveMoveFrom;
-  delete sceneState.renderer.domElement.dataset.logoRecursiveMoveLayerCounts;
-  delete sceneState.renderer.domElement.dataset.logoRecursiveMoveParentedLayerCounts;
-  delete sceneState.renderer.domElement.dataset.logoRecursiveMoveProgress;
-  delete sceneState.renderer.domElement.dataset.logoRecursiveMoveTo;
+  delete sceneState.renderer.domElement.dataset["logoRecursiveMoveDepth"];
+  delete sceneState.renderer.domElement.dataset["logoRecursiveMoveFrameMatrixUploadBytes"];
+  delete sceneState.renderer.domElement.dataset["logoRecursiveMoveFrom"];
+  delete sceneState.renderer.domElement.dataset["logoRecursiveMoveLayerCounts"];
+  delete sceneState.renderer.domElement.dataset["logoRecursiveMoveParentedLayerCounts"];
+  delete sceneState.renderer.domElement.dataset["logoRecursiveMoveProgress"];
+  delete sceneState.renderer.domElement.dataset["logoRecursiveMoveTo"];
 }
 
 function syncRecursiveMoveLevels(sceneState: SceneState, timestampMs: number) {
@@ -2188,15 +2190,17 @@ function syncRecursiveMoveLevels(sceneState: SceneState, timestampMs: number) {
   syncRecursiveMoveLevelInstanceOrder(sceneState, true);
 
   const { move, progress } = departedMoves[0];
-  sceneState.renderer.domElement.dataset.logoRecursiveMoveDepth = `${sceneState.recursiveRenderDepth}`;
-  sceneState.renderer.domElement.dataset.logoRecursiveMoveFrameMatrixUploadBytes = `${layerCounts.slice(1).reduce((total, count) => total + count * 16 * 4, 0)}`;
-  sceneState.renderer.domElement.dataset.logoRecursiveMoveFrom = move.from.join(",");
-  sceneState.renderer.domElement.dataset.logoRecursiveMoveLayerCounts = layerCounts.join(",");
-  sceneState.renderer.domElement.dataset.logoRecursiveMoveParentedLayerCounts =
+  sceneState.renderer.domElement.dataset["logoRecursiveMoveDepth"] =
+    `${sceneState.recursiveRenderDepth}`;
+  sceneState.renderer.domElement.dataset["logoRecursiveMoveFrameMatrixUploadBytes"] =
+    `${layerCounts.slice(1).reduce((total, count) => total + count * 16 * 4, 0)}`;
+  sceneState.renderer.domElement.dataset["logoRecursiveMoveFrom"] = move.from.join(",");
+  sceneState.renderer.domElement.dataset["logoRecursiveMoveLayerCounts"] = layerCounts.join(",");
+  sceneState.renderer.domElement.dataset["logoRecursiveMoveParentedLayerCounts"] =
     parentedLayerCounts.join(",");
-  sceneState.renderer.domElement.dataset.logoRecursiveMoveProgress =
+  sceneState.renderer.domElement.dataset["logoRecursiveMoveProgress"] =
     easeLogoShuffleProgress(progress).toFixed(6);
-  sceneState.renderer.domElement.dataset.logoRecursiveMoveTo = move.to.join(",");
+  sceneState.renderer.domElement.dataset["logoRecursiveMoveTo"] = move.to.join(",");
 }
 
 function hideRecursiveMoveLevels(sceneState: SceneState) {
