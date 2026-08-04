@@ -7,8 +7,8 @@
 - Last updated: 2026-08-04
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Current branch: `codex-organization-ownership-spec`
-- Current state: Main-flow validation complete; organization membership cardinality needs operator
-  confirmation
+- Current state: Main-flow validation complete; final automated validation and MCP organization
+  binding remain
 - Current pull request: [#1355](https://github.com/samebase/samebase/pull/1355)
 
 ## Purpose
@@ -214,10 +214,11 @@ Multi-organization correction completed:
 - changed production contracts and callers before tests were changed;
 - rewrote or deleted tests that asserted one membership per user, without a compatibility helper or
   fallback read for the former model; and
-- completed a delete-first audit of the full branch test diff. The reduced diff has 6,493 additions
-  and 2,197 deletions across 65 test files against `origin/main`. Two independent reviews found no
-  remaining high-confidence duplicate, obsolete, compatibility, or deferred FileView tests. Test
-  volume is not a reason to preserve a rejected contract.
+- completed a delete-first audit of the full branch test diff. The last reduction removed 350 net
+  test lines and 19 redundant production lines. The reduced diff has 6,349 additions and 2,194
+  deletions across 70 test files against `origin/main`. Independent reviews found no remaining
+  high-confidence bulk removal before the one-time retained-user bootstrap runs. Test volume is not
+  a reason to preserve a rejected contract.
 
 The branch was rebased onto current `origin/main` with operator approval. The supply-chain
 dependency patch is present. The approved manual reset replaces the earlier migration code. Current
@@ -408,16 +409,14 @@ Primary external sources:
 
 ## Next Exact Task
 
-1. Confirm whether one user can belong to several organizations. If one organization per user is the
-   product invariant, replace the many-to-many behavior and delete its tests directly.
-2. Complete the final automated validation and independent blocking-issue reviews for the confirmed
-   membership model.
-3. Verify the MCP organization binding before the operator cutover.
-4. Record the Polar billing state and confirm that no destructive workflow is active.
-5. Disconnect all providers, pause product writes, and follow the accepted manual reset runbook
+1. Complete the final automated validation and independent blocking-issue reviews for the accepted
+   many-to-many membership model.
+2. Verify the MCP organization binding before the operator cutover.
+3. Record the Polar billing state and confirm that no destructive workflow is active.
+4. Disconnect all providers, pause product writes, and follow the accepted manual reset runbook
    while the old schema is live.
-6. Merge and deploy the final schema and organization-authoritative runtime.
-7. Run the retained-user bootstrap with the two explicit operator user IDs and recorded billing
+5. Merge and deploy the final schema and organization-authoritative runtime.
+6. Run the retained-user bootstrap with the two explicit operator user IDs and recorded billing
    state.
-8. Verify the bootstrap counts and the required two-member flows, reconnect MCP and the retained
+7. Verify the bootstrap counts and the required two-member flows, reconnect MCP and the retained
    vaults, then resume product writes.

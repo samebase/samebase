@@ -279,9 +279,8 @@ FileView becomes a shipped add-on.
 
 Provisioning and vault-deletion runs use `requestedByUserId`. Their event rows derive the requester
 through `runId` and do not copy a user ID. `vaultStagedFileUpdates` uses `editUserId`. Manual
-provider-write and repository-refresh locks use `requestedByUserId` to identify work that depends on
-one member's credentials during account deletion. `requestedByUserId`, `lastEditUserId`, and
-`editUserId` are provenance only. No actor field grants access.
+provider-write and repository-refresh locks also use `requestedByUserId`. `requestedByUserId`,
+`lastEditUserId`, and `editUserId` are provenance only. No actor field grants access.
 
 MCP client registration remains system-wide. Only `mcpGrants` stores the required `organizationId`
 beside its user subject. Consent requires one explicit organization choice, verifies that exact
@@ -335,10 +334,9 @@ through journaled workflow batches with an idempotent scheduled continuation as 
 per-vault boundary prevents a later deletion by another member from racing past account
 finalization.
 
-Before sole-member cleanup starts, account deletion waits for all active work attached to the
-organization or its vaults. Shared-member deletion waits only for work that depends on the deleting
-user or a provider connection linked to that user. Work that does not depend on those credentials
-continues.
+Account deletion waits while any vault in the organization has a queued or running vault-deletion or
+app-provisioning run. The same organization-wide rule applies to sole-member and shared-member
+deletion. Manual provider-write and repository-refresh locks do not block account deletion.
 
 ## Migration Contract
 
