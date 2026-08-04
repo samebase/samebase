@@ -51,9 +51,15 @@ Vite+ path. Document that exact boundary. Do not add source-extension or selecte
 Name scripts by stable operator intent. Update every owned caller in the same change. Keep an old
 alias only when an external caller cannot move.
 
-## Behavior contract
+## Validation agreement
 
-Select the applicable surfaces before framework changes:
+Before changing required validation, list the current commands and callers, measure or estimate
+their cost, and explain the named risk that each protects. Recommend the smallest required gate that
+fits the project, the change, and the operator's cost tolerance. Get operator agreement before you
+add or remove slow required checks. Technical complexity does not determine project importance.
+
+Select only the preserved surfaces that the migration puts at risk and current checks do not
+protect:
 
 - public routes and redirects
 - protected server-rendered routes
@@ -65,6 +71,9 @@ Select the applicable surfaces before framework changes:
 - provider build and non-production upload
 - no private data or secret-like synthetic canaries in client output, logs, screenshots, fixtures,
   or pull request text
+
+The list is a risk prompt, not a mandatory test suite. Propose the smallest framework-neutral check
+for each selected risk. Adoption must not silently become a testing-maturity upgrade.
 
 Use synthetic data for tests and release evidence.
 
@@ -117,7 +126,7 @@ Keep one compact record with these sections:
 | Gate                     | State   | Evidence                        | Next action |
 | ------------------------ | ------- | ------------------------------- | ----------- |
 | Manager preflight        | pending |                                 |             |
-| Behavior contract        | pending |                                 |             |
+| Validation agreement     | pending |                                 |             |
 | Boundary spikes          | pending |                                 |             |
 | Implementation           | pending |                                 |             |
 | Independent review       | pending |                                 |             |

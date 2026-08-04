@@ -66,11 +66,17 @@ handoff, complete only the missing action in the in-app Browser, and then reread
 replace the missing Samebase action with a manual standalone provider workflow. Keep this handoff as
 a candidate until another project validates it.
 
-## Protect current behavior
+## Agree on validation
 
-Add framework-neutral characterization coverage for behavior that must survive. Cover the real
-routes, authentication and data boundaries, server endpoints, assets, navigation, browser session
-recovery, and provider build that are relevant to the target.
+Before changing required validation, report the current commands, their measured or estimated cost,
+and the risk that each protects. Recommend the smallest required gate that fits the project and the
+change, then get operator agreement. Technical complexity does not determine project importance.
+Adoption must not silently become a testing-maturity upgrade.
+
+Add framework-neutral characterization coverage only for named behavior that must survive and is not
+already protected. Select relevant routes, authentication and data boundaries, server endpoints,
+assets, navigation, browser session recovery, or provider builds from the target's actual risks. Do
+not turn that list into a default test suite.
 
 Keep a known security defect separate from parity. Do not make a defect permanent only because the
 old application has it.
