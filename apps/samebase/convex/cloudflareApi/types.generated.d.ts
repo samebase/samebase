@@ -2827,7 +2827,8 @@ export interface components {
        *         "code": 7003,
        *         "message": "No route for the URI"
        *       }
-       *      */
+       *     ]
+       */
       errors: components["schemas"]["workers_messages"];
       /** @example [] */
       messages: components["schemas"]["workers_messages"];
@@ -4355,7 +4356,7 @@ export interface components {
     };
     /**
      * @description A non-blocking reconciliation info entry. Emitted for stale
-     *     tombstones (a no-op on this deploy) and frtones applied
+     *     tombstones (a no-op on this deploy) and for tombstones applied
      *     with the source class still in code (the supported zero-downtime
      *     rollout pattern).
      */
@@ -5201,13 +5202,13 @@ export interface components {
       /** @description Raw bucket edges in the value's native unit, length buckets.length + 1. Used for the colour scale and percentile mapping. */
       bucketBoundaries: number[];
       /**
-       * @description Bucketing schm geometric edges; 'linear' produces fixed-width edges.
+       * @description Bucketing scheme used to derive the boundaries. 'log' produces geometric edges; 'linear' produces fixed-width edges.
        * @enum {string}
        */
       bucketMode: "log" | "linear";
-      /** @description Value-range labl per matrix row (e.g. '50–100ms'). */
+      /** @description Value-range labels, one per matrix row (e.g. '50–100ms'). */
       buckets: string[];
-      /** @description Smrrected counts. matrix[bucketIdx][binIdx] is the estimated number of events in value-bucket 'bucketIdx' during time-bin 'binIdx'. */
+      /** @description Sampling-corrected counts. matrix[bucketIdx][binIdx] is the estimated number of events in value-bucket 'bucketIdx' during time-bin 'binIdx'. */
       matrix: number[][];
     };
     /** @description A single telemetry event representing a log line, span, or metric data point emitted by a Worker. */
@@ -6181,7 +6182,7 @@ export interface components {
     };
     workers_ErrorWorkerTagLimit: {
       /**
-       * @description Code indicatingtof tags allowed. (enum property replaced by openapi-typescript)
+       * @description Code indicating that the Worker has exceeded the maximum number of tags allowed. (enum property replaced by openapi-typescript)
        * @enum {string}
        */
       code: "100103";
@@ -6219,16 +6220,17 @@ export interface components {
       /** @description Metadata about the version. */
       annotations?: {
         /**
-         * @description Human-readable message about thev     * @example Fixed bug.
+         * @description Human-readable message about the version. Truncated to 1000 bytes if longer.
+         * @example Fixed bug.
          */
         "workers/message"?: string;
         /**
-         * @description User-provided identifier for the version. Maximum 10
+         * @description User-provided identifier for the version. Maximum 100 bytes.
          * @example v1.0.1
          */
         "workers/tag"?: string;
         /**
-      cription Operation that triggered the creation of the version.
+         * @description Operation that triggered the creation of the version.
          * @example upload
          */
         "workers/triggered_by"?: $Read<string>;
