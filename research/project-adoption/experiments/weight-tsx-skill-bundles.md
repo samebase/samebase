@@ -93,6 +93,26 @@ Do not copy the detailed bundle into the public plugin. Extract a rule only when
 The first-production-build approval boundary meets these conditions. The public skill now contains
 this small rule. The Weight TSX parser defects belong to the target project, not the Samebase skill.
 
+### Focused regression
+
+The public skill at `6e7f8afcda112c9f7212616df36b8672a29ea428` passed a clean focused regression
+after the approval rule was added. The run used the same frozen task, target, reference, model,
+effort, sandbox, and network policy as the public-only specimen.
+
+The resulting plan had 2,303 words and 12,077 output tokens. It named the actions that start or
+request a production build and required explicit approval immediately before each action. It did not
+copy the detailed bundle's fixed observation periods, duplicate worktree cycles, reviewer structure,
+or target-specific Cloudflare branch.
+
+The focused run had these artifact hashes:
+
+- public skill: `3b863b89cbbd904214c7ce6888875328659bddfa32aa1f52e7c6a7030ddd942f`
+- result: `59e2e09bf83b9681bf6a15d75d0b2a6e7a2ee3a141a5eaa3e3654f2265ae74d5`
+
+Its isolated session was `019fcde2-217b-7640-b106-7206353612e3`. The audit found no global Samebase
+skill or plugin in the worker context, no network access, no target-source change, and no write
+other than `RESULT.md` and normal Git index metadata.
+
 Keep the detailed bundle unchanged until the controlled implementation comparison finishes. After
 that test, reduce or remove it instead of maintaining a second default source of Samebase behavior.
 

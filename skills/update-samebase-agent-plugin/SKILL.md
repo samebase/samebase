@@ -69,3 +69,13 @@ not copy tool schemas or general coding instructions into the skill.
   proven, compact Samebase-specific boundary rules from the detailed bundle. The public skill now
   names the production-build approval boundary. See
   `research/project-adoption/experiments/weight-tsx-skill-bundles.md`.
+
+## Last focused production-approval regression
+
+- Date: 2026-08-04
+- Artifact commit: `6e7f8afcda112c9f7212616df36b8672a29ea428`
+- Model: GPT-5.6 Sol, high reasoning effort
+- Target: `nicu-chiciuc/weight_tsx` at `e26a38348dca39adbf7096d7a5ed1661ffeb3572`
+- Result: clean isolation passed. The public-only plan named each action that starts or requests a
+  production build and required explicit approval immediately before it. The plan stayed focused at
+  2,303 words and did not reproduce the detailed bundle's excess process.
