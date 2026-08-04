@@ -7,7 +7,7 @@
 - Last updated: 2026-08-04
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Current branch: `codex-organization-ownership-spec`
-- Current state: Main organization flows validated; final review and operator cutover pending
+- Current state: Local validation complete; fresh pull request review and operator cutover pending
 - Current pull request: [#1355](https://github.com/samebase/samebase/pull/1355)
 
 ## Purpose
@@ -111,7 +111,7 @@ the manual reset.
 
 ### Final organization cutover
 
-- Status: Main organization flows validated; final review and operator cutover pending
+- Status: Local validation complete; fresh pull request review and operator cutover pending
 - Scope: Add the final organization graph, organization billing, membership access, MCP binding,
   retained-user bootstrap, organization-aware API results, and affected UI and workflow support.
 - Gate: The operator completes the manual reset, every retained user has one membership, the two
@@ -204,13 +204,12 @@ rename safe to retry and fail closed for an ambiguous rename target.
 
 ## Validation Evidence
 
-Final integrated code head before this progress-record update: `1d9caae2e`.
+Final integrated code head before this progress-record update: `22846b8c`.
 
 - `pnpm check`: passed, with existing repository warnings only.
 - `pnpm test`: 292 files passed, with 2,309 tests passed and 1 skipped.
-- `pnpm test:convex`: 47 files passed, with 451 tests passed.
-- Focused staging, retry, storage, and organization-boundary suite: 4 files passed, with 76 tests
-  passed.
+- `pnpm test:convex`: 47 files passed, with 452 tests passed.
+- Focused FileView and development-auth suite: 4 files passed, with 75 tests passed.
 - `pnpm --filter samebase typecheck`: passed after Convex code generation.
 - `pnpm format:check` and `git diff --check`: passed.
 - `pnpm test:visual:linux`: 209 tests passed, 1 skipped, and the same unchanged public landing
