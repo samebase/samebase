@@ -586,13 +586,14 @@ export function FileViewCodeParityVisualFixture({
           canvasWidth: captureWidth * captureScale,
           pixelRatio: 1,
           skipAutoScale: true,
-          style:
-            captureScale === 1
-              ? undefined
-              : {
+          ...(captureScale === 1
+            ? {}
+            : {
+                style: {
                   transform: `scale(${captureScale})`,
                   transformOrigin: "top left",
                 },
+              }),
         };
         const [monacoCanvas, prosemarkCanvas] = await Promise.all([
           toCanvas(monacoCaptureNode, captureOptions),

@@ -4,7 +4,7 @@ export function FileViewMainHeader({
   headerTitle,
   onQuickOpen,
 }: {
-  headerTitle?: string;
+  headerTitle?: string | undefined;
   onQuickOpen: () => void;
 }) {
   return (

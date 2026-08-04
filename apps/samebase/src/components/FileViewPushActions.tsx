@@ -4,8 +4,8 @@ import { cn } from "@/lib/utils";
 
 type FileViewPushActionsProps = {
   canCreateDraftPullRequest: boolean;
-  currentPullRequestNumber?: number;
-  currentPullRequestUrl?: string;
+  currentPullRequestNumber: number | undefined;
+  currentPullRequestUrl: string | undefined;
   draftButtonLabel: string;
   hasChangesToCommit: boolean;
   isCreatingDraftPullRequest: boolean;
@@ -29,7 +29,9 @@ export function FileViewPushActions({
     <>
       {currentPullRequestUrl ? (
         <PullRequestLink
-          pullRequestNumber={currentPullRequestNumber}
+          {...(currentPullRequestNumber === undefined
+            ? {}
+            : { pullRequestNumber: currentPullRequestNumber })}
           pullRequestUrl={currentPullRequestUrl}
           className="text-xs"
         />

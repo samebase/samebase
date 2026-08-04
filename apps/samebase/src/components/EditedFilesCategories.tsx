@@ -167,7 +167,9 @@ export function EditedFilesCategories({
             ...buildFileViewRouteSearch({
               diff: true,
             }),
-            mobileLineNumbers: currentFileViewSearch.mobileLineNumbers,
+            ...(currentFileViewSearch.mobileLineNumbers === undefined
+              ? {}
+              : { mobileLineNumbers: currentFileViewSearch.mobileLineNumbers }),
           }),
         }),
       });

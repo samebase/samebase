@@ -97,7 +97,9 @@ export function CodeMirrorFileSurface({
       editor = new EditorView({
         state: EditorState.create({
           doc: initialValueRef.current,
-          selection: prosemarkSelectionAnchor,
+          ...(prosemarkSelectionAnchor === undefined
+            ? {}
+            : { selection: prosemarkSelectionAnchor }),
           extensions: [
             ...fileCodeMirrorBaseExtensions,
             languageCompartment.of(getInitialCodeMirrorLanguageExtension(filePath)),
