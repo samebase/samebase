@@ -955,10 +955,11 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
   let convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
 
   switch (mode) {
-    case "vault-overview-v2-provisioning-source":
+    case "vault-overview-v2-provisioning-source": {
+      const { defaultBranch: _defaultBranch, ...provisioningVaultWithoutDefaultBranch } =
+        PROVISIONING_VAULT;
       vault = {
-        ...PROVISIONING_VAULT,
-        defaultBranch: undefined,
+        ...provisioningVaultWithoutDefaultBranch,
         hasConnectedGitHubRepository: false,
         cloudflareWorkers: [],
         convexProjects: [],
@@ -974,6 +975,7 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
       cloudflareObservations = PROVISIONING_EMPTY_CLOUDFLARE_OBSERVATIONS;
       convexObservations = PROVISIONING_EMPTY_CONVEX_OBSERVATIONS;
       break;
+    }
     case "vault-overview-v2-provisioning-github":
       vault = {
         ...PROVISIONING_VAULT,

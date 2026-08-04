@@ -27,7 +27,7 @@ export function formatVaultSourceSetupStep(step: VaultDashboardSourceSetupStep):
       return "Adding starter files";
     case "sync_tree":
       return "Syncing repository files";
+    default:
+      return step satisfies never;
   }
-  step satisfies never;
-  return step;
 }

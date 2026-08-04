@@ -151,7 +151,7 @@ export function buildVaultPullRequestFilterOptions<T extends VaultPullRequestFil
       labelOptionsByKey.set(labelKey, {
         key: labelKey,
         name: label.name,
-        color: label.color,
+        ...(label.color !== undefined ? { color: label.color } : {}),
         included: !hiddenLabelNamesByKey.has(labelKey),
         isNoLabel: false,
       });

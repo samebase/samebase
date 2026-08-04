@@ -65,9 +65,9 @@ function checkStateDotClassName(state: RepositoryCheckSummary["state"]): string 
     case "neutral":
     case "unknown":
       return "h-2 w-2 rounded-full bg-muted-foreground/60";
+    default:
+      return state satisfies never;
   }
-  state satisfies never;
-  return "h-2 w-2 rounded-full bg-muted-foreground/60";
 }
 
 type VaultSidebarStatus =
