@@ -1,7 +1,8 @@
 # Organization Manual Cutover
 
 Use this runbook once for the first production organization deployment. The procedure preserves
-retained users and their sign-in records. It does not migrate vault or MCP access data.
+retained users and their sign-in records. It does not migrate provider connections, vault data, or
+MCP access data.
 
 ## Stop Conditions
 
@@ -41,7 +42,6 @@ Preserve these rows:
 - `users`, including approved users and waitlist users
 - All Convex Auth tables: `authSessions`, `authAccounts`, `authRefreshTokens`,
   `authVerificationCodes`, `authVerifiers`, and `authRateLimits`
-- `providerConnections` and `providerOAuthCallbackStates`
 - Personal preferences without a vault reference: `ui_user_settings`, `ui_workspaceSidebar_layouts`,
   and `ui_vaultFolders`
 - MCP client registrations and audit history: `mcpOauthClients` and `audit_mcpAccess_events`
@@ -78,6 +78,11 @@ absent. Do not include `polarCheckoutAttempt`. For a user without Polar billing,
 and `status: "inactive"`.
 
 ## Freeze And Drain Writes
+
+Before the freeze, disconnect every provider account through the current product controls. Do not
+export or copy the stored credentials. Confirm that `providerConnections` and
+`providerOAuthCallbackStates` are empty. The final schema creates new organization-owned connections
+after deployment.
 
 Block all sign-in and account-update entry points. Block new accounts, product traffic, MCP clients,
 MCP authorization, and Polar checkout. Pause Polar webhook delivery. Keep these controls active from
@@ -129,7 +134,10 @@ groups. These are the exact production tables removed by this cutover.
    - `mcpAuthorizationCodes`
    - `mcpAuthorizationRequests`
    - `mcpGrants`
-6. Confirm that the final organization tables are absent. If an earlier preview or manual deploy
+6. Confirm that provider connection state is empty:
+   - `providerOAuthCallbackStates`
+   - `providerConnections`
+7. Confirm that the final organization tables are absent. If an earlier preview or manual deploy
    created them in production, clear them in this order and confirm that they are empty:
    - `organizationBillingAccounts`
    - `organizationMemberships`
@@ -164,8 +172,8 @@ still has the expected rows.
 ## Deploy And Bootstrap
 
 Deploy the approved revision through the normal production release. The final schema requires an
-organization on each vault, vault resource, and MCP grant. The cleared tables make this schema
-change valid without compatibility fields.
+organization on each provider connection, vault, vault resource, and MCP grant. The cleared tables
+make this schema change valid without compatibility fields.
 
 Run `organizationBootstrap:bootstrapOrganizationOwnership` once with this input shape:
 
@@ -215,10 +223,15 @@ and Polar webhooks stopped. Then complete these user-visible checks in order:
 
 1. Confirm that both operator accounts and one waitlist account can sign in with their existing
    identity.
-2. Reconnect each MCP client. Confirm that new grants contain the current organization ID.
-3. Reconnect each vault through the normal product flow. Existing provider connections stay in
-   place, so users do not reconnect provider accounts.
-4. Confirm that each new vault and resource row contains its organization ID.
-5. Stop the controlled test traffic.
+2. From one operator account, reconnect GitHub, Convex, and Cloudflare. Confirm that each connection
+   contains the shared organization ID and that account's `connectedByUserId`.
+3. From the second operator account, confirm the same non-secret provider status and use the shared
+   connections through repository discovery, Convex project creation, and Cloudflare Worker
+   creation.
+4. Reconnect each MCP client. Confirm that new grants contain the current organization ID.
+5. Reconnect each vault through the normal product flow.
+6. Confirm that each new vault and resource row contains its organization ID and reloads through
+   `/vault`.
+7. Stop the controlled test traffic.
 
 Resume Polar webhook delivery, then remove the public write and traffic freeze.

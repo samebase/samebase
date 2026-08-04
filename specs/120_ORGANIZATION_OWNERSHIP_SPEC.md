@@ -88,6 +88,28 @@ Membership presence is active access. Removing access deletes the membership. Th
 no role, status, timestamps, invitation state, or permission arrays. A role field becomes required
 only when two membership roles have different current behavior.
 
+`providerConnections` keeps its existing provider-specific identity and authentication fields and
+adds these required ownership fields:
+
+```text
+organizationId: Id<"organizations">
+connectedByUserId: Id<"users">
+```
+
+An organization has at most one connection for each provider kind. `organizationId` controls who can
+use the connection. `connectedByUserId` records the member who connected or last reauthorized the
+credential. It is provenance and a credential-lifecycle dependency, not an access grant. A member
+who connects the same provider kind replaces the organization's existing connection and becomes its
+`connectedByUserId`.
+
+Provider credentials stay inside backend-only functions. Product clients can request an authorized
+provider operation and can read non-secret connection status, but no product client can retrieve the
+stored credential. The rollout keeps the existing OAuth and API-key methods. It does not add a
+GitHub App authorization flow.
+
+`providerOAuthCallbackStates` binds the initiating user to the target organization. The callback
+rechecks that membership before it creates or replaces the organization connection.
+
 Other than the account-deletion lock, the organization has no name, slug, kind, status, lifecycle
 field, creator field, update timestamp, active-user field, or external-provider field.
 
@@ -149,7 +171,8 @@ raw ID comparisons.
 | ------------------------------------------------------ | ----------------------------------------------------------------- |
 | Vault                                                  | Organization through required `vaults.organizationId`             |
 | Vault child data                                       | Vault, and therefore the vault organization                       |
-| Provider connection and OAuth callback state           | User credential and user protocol state                           |
+| Provider connection                                    | Organization, with `connectedByUserId` for credential provenance  |
+| OAuth callback state                                   | Initiating user and target organization                           |
 | Billing account and subscription                       | One organization billing row                                      |
 | Billing resource quotas                                | Organization attachment counts                                    |
 | MCP grant                                              | One user delegation bound to one organization                     |
@@ -158,10 +181,10 @@ raw ID comparisons.
 | UI settings, filters, folders, expansions, and layouts | User                                                              |
 | Edit, provisioning, deletion, and audit actors         | User provenance only                                              |
 
-Provider connections remain user-scoped because they store credentials that an external provider
-granted to that user. A member uses their own provider connection when an organization action needs
-provider access. A future organization-managed service credential requires its own accepted
-contract. Provider connections do not own vaults or attached provider resources.
+Provider connections are organization-scoped even when the external provider granted the credential
+through one member. Every organization member can request an authorized backend operation through
+the connection. The provider still applies the external permissions represented by that credential.
+Provider connections do not own vaults or attached provider resources.
 
 Existing vault repository-identity lookup indexes and guard checks move from the user boundary to
 the organization boundary. The guards keep the current `not_connected` exclusion because those
@@ -209,18 +232,20 @@ they create or consume the handoff.
 
 ### Account deletion
 
-Account deletion always removes the user's authentication data, personal UI data, user-owned
-provider connections and authorizations, and organization membership.
+Account deletion always removes the user's authentication data, personal UI data, OAuth callback
+state, and organization membership. It also removes each organization provider connection whose
+`connectedByUserId` is the deleting user. A remaining member can reconnect that provider for the
+organization.
 
 When the deleting user is the only member of an organization, the existing deletion workflow also
 deletes that organization's Samebase resources, billing state, and organization row. Provider-owned
 infrastructure remains untouched under spec 113.
 
 When another member remains, the workflow preserves the organization and its resources, then removes
-only the deleting user's membership and personal data. Every current membership has the same access.
-Transfer rules become necessary only when a less-privileged membership role ships. Actor and
-workflow rows follow their table-specific deletion policy and must not cause shared organization
-resources to be deleted.
+the deleting user's membership, personal data, and connected provider credentials. Every current
+membership has the same access. Transfer rules become necessary only when a less-privileged
+membership role ships. Actor and workflow rows follow their table-specific deletion policy and must
+not cause shared organization resources to be deleted.
 
 Vault-deletion runs and events belong to the parent vault lifecycle. They remain while the vault
 exists, even if the deleting member requested the operation. Stored actor IDs are opaque historical
@@ -234,7 +259,8 @@ finalization.
 
 Before sole-member cleanup starts, account deletion waits for all active work attached to the
 organization or its vaults. Shared-member deletion waits only for work that depends on the deleting
-user or their credentials. Work started by a remaining member continues.
+user or a provider connection linked to that user. Work that does not depend on those credentials
+continues.
 
 ## Migration Contract
 
@@ -244,9 +270,10 @@ mixed old and new ownership state.
 The rollout follows this order:
 
 1. Record the current Polar billing state and confirm that no destructive workflow is active.
-2. Pause product writes. While the old schema is still live, manually clear the approved local
-   vault, staging, workflow, MCP authorization, and organization-scoped data. Remove legacy billing
-   fields from the retained user rows.
+2. Disconnect every provider connection and confirm that provider connection and OAuth callback
+   state are empty. Pause product writes. While the old schema is still live, manually clear the
+   approved local vault, staging, workflow, MCP authorization, and organization-scoped data. Remove
+   legacy billing fields from the retained user rows.
 3. Deploy the final schema and organization membership access checks.
 4. Run one small bootstrap. It creates one shared organization for the two operator users, one
    organization for every other retained user, one membership for every user, and one billing row
@@ -257,10 +284,11 @@ The rollout follows this order:
 These steps ship in one implementation pull request. No old user ownership fields, fallback reads,
 dual writes, migration indexes, or general data-conversion framework ship in the final runtime.
 
-The manual reset deletes Samebase-local resource records only. It does not delete GitHub
-repositories, Cloudflare Workers, Convex projects, user accounts, waitlist accounts, authentication
-records, or provider connections. Samebase vaults and provider-resource links must be connected
-again after deployment. MCP clients must authorize again.
+The manual reset deletes local provider connections and Samebase-local resource records. It does not
+delete GitHub repositories, Cloudflare Workers, Convex projects, user accounts, waitlist accounts,
+or authentication records. Provider accounts, Samebase vaults, and provider-resource links must be
+connected again after deployment. MCP clients must authorize again. No provider-connection
+migration, fallback read, dual write, or compatibility field ships.
 
 The operator performs the production reset from the accepted runbook. Codex does not execute the
 destructive production step. Local and disposable preview data can be recreated.
@@ -275,6 +303,7 @@ destructive production step. Local and disposable preview data can be recreated.
 - Fine-grained authorization for selected vaults, branches, files, or provider resources
 - Automatic account linking or shared ownership inferred from profile data
 - Replacing Convex Auth or changing the temporary waitlist and approval behavior
+- Replacing the current provider OAuth and API-key methods or adding a GitHub App flow
 - Zero-downtime migration machinery before the public beta
 
 ## Validation
@@ -294,18 +323,20 @@ The rollout is complete only when tests and reset checks prove:
   commit behavior is not a release gate.
 - A user actor field does not grant access to an organization resource.
 - UI preferences and other personal state remain different for two members of one organization.
-- Both members see the same organization plan and quota usage, while each member sees only their own
-  provider connections.
+- Both members see the same organization plan, quota usage, and provider connection status. Both can
+  use the organization connection through authorized backend operations.
 - A waitlisted user has an organization membership but remains blocked by the current application
   access gate.
 - The rollout adds no organization switcher, invitation surface, membership page, or organization
   chrome.
-- Provider credentials stay user-scoped. Billing state, quota counts, and MCP grants use the
-  organization boundary.
+- Provider connections use the organization boundary and record the connecting member in required
+  `connectedByUserId`. Public functions never return provider credentials.
 - Deleting one of several members preserves shared organization data.
+- Deleting a member removes provider connections linked to that member without deleting provider
+  infrastructure. A remaining member can reconnect the organization provider.
 - Deleting the only member removes the organization's Samebase data but not provider infrastructure.
 - Sole-member deletion waits for all organization and vault work. Shared-member deletion waits only
-  for work that depends on the deleting user or their credentials.
+  for work that depends on the deleting user or a provider connection linked to that user.
 - Repository-identity lookup indexes and guard checks use the organization boundary and keep the
   `not_connected` exclusion.
 - No final tenant authorization check or ownership index depends on the legacy resource `userId`.

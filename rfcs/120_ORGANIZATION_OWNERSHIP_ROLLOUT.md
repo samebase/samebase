@@ -7,7 +7,7 @@
 - Last updated: 2026-08-04
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Current branch: `codex-organization-ownership-spec`
-- Current state: Local validation complete; fresh pull request review and operator cutover pending
+- Current state: Organization base validated; organization provider ownership implementation pending
 - Current pull request: [#1355](https://github.com/samebase/samebase/pull/1355)
 
 ## Purpose
@@ -49,13 +49,17 @@ output or a per-commit journal.
 - Apply a concurrent MCP grant revocation, membership change, or client disable to the next request.
   Continue to reload and recheck the grant, membership, scope, and client during browser handoff
   creation and redemption because they are separate requests.
-- Keep authentication, provider credentials, OAuth callback state, and personal UI state
-  user-scoped.
+- Keep authentication and personal UI state user-scoped.
+- Make each provider connection organization-owned and require `connectedByUserId` for the member
+  who connected or last reauthorized it. Use the organization for access and the user link for
+  provenance and credential lifecycle.
+- Keep the current provider OAuth and API-key methods. Do not add a GitHub App flow.
 - Keep WorkOS and Clerk out of the runtime and schema.
-- Preserve users, authentication data, provider connections, external provider resources, and the
-  recorded Polar billing state.
+- Preserve users, authentication data, external provider resources, and the recorded Polar billing
+  state. Disconnect and recreate local provider connections during cutover.
 - Use an operator-run manual reset for local vault, staging, workflow, and MCP authorization data so
-  the final schema can deploy without compatibility code.
+  the final schema can deploy without compatibility code. Require an empty `providerConnections`
+  table and empty provider OAuth callback state before the final schema deploy.
 
 ## Rejected Or Deferred
 
@@ -74,8 +78,8 @@ output or a per-commit journal.
 - Membership roles, status, timestamps, and permission arrays: deferred without a current behavior.
 - Auth identity and organization provider-link tables: deferred now, but required before any
   external authentication or organization provider migration starts.
-- Organization-owned provider credentials: deferred until the product needs shared service
-  credentials. Current provider connections remain user-owned.
+- Migrating existing provider connections: rejected because the operator approved disconnecting all
+  current providers before cutover and reconnecting them under the final organization schema.
 - Invitation, organization-switching, SSO, SCIM, FGA, and team-management UI: outside this rollout.
 - Simultaneous FileView commits, structural edits during a commit, and external Git changes during a
   commit: deferred until FileView becomes a shipped add-on.
@@ -111,9 +115,10 @@ the manual reset.
 
 ### Final organization cutover
 
-- Status: Local validation complete; fresh pull request review and operator cutover pending
+- Status: Organization base validated; organization provider ownership implementation pending
 - Scope: Add the final organization graph, organization billing, membership access, MCP binding,
-  retained-user bootstrap, organization-aware API results, and affected UI and workflow support.
+  organization provider connections, retained-user bootstrap, organization-aware API results, and
+  affected UI and workflow support.
 - Gate: The operator completes the manual reset, every retained user has one membership, the two
   operator accounts share one organization, and all organization access uses membership.
 
@@ -139,8 +144,7 @@ Implemented in the current pull request and worktree:
   organization cleanup;
 - one organization account-deletion lock that prevents two members from starting deletion together,
   remains through staff retry, and leaves manual staff retry as the recovery path;
-- user-owned provider and repository-refresh lock attribution, plus bounded personal UI cleanup that
-  preserves other members' rows;
+- bounded personal UI cleanup that preserves other members' rows;
 - shared staged-file ownership and a narrow post-commit baseline update that keeps the current
   editor row for a delayed one-session save;
 - explicit MCP query arguments at the deploy-key rotation boundary, with organization context kept
@@ -162,15 +166,22 @@ credential-dependent account-deletion waits, personal UI cleanup, unused-index r
 manual reset order. A follow-up review found one strict MCP argument mismatch, one account-deletion
 race, and unsupported concurrent FileView commit cases. The focused fixes use an explicit argument
 object and one organization deletion lock. FileView now keeps only the same-row update needed for a
-normal delayed editor save. Concurrent FileView commit behavior is deferred. The work is pending
-fresh pull request review, the operator-run reset, merge, deployment, bootstrap, and production
-verification.
+normal delayed editor save. Concurrent FileView commit behavior is deferred. Organization provider
+ownership must be implemented and validated before fresh pull request review and the operator-run
+cutover.
 
 Manual testing with two members and one waitlisted account found one development-only credential
 problem: the normal auth callback copied the configured seed provider keys to every new local and
 preview user. Provider reads were correctly user-scoped, but each test user had received a separate
 copy of the same keys. The duplicate callback seeding is removed. Only the explicit development seed
 action now installs those keys on the seed account.
+
+On 2026-08-04, the operator changed the accepted provider boundary after the organization-base
+validation. Provider connections must now belong to the organization and retain a required
+`connectedByUserId`. The current branch still uses user-owned provider connections, so the earlier
+validation is evidence for the organization base only. Provider ownership implementation, focused
+tests, and the main provider-backed manual flows are pending. Existing connections will not be
+migrated.
 
 ### Final review-fix checkpoint
 
@@ -202,7 +213,7 @@ the normal one-session save path. It does not add a commit lock, multi-writer me
 machine. Small Git inspection checks remain because they make an interrupted one-person deletion or
 rename safe to retry and fail closed for an ambiguous rename target.
 
-## Validation Evidence
+## Prior Organization-Base Validation Evidence
 
 Final integrated code head before this progress-record update: `22846b8c`.
 
@@ -243,8 +254,8 @@ The implementation covers:
 - the organization access boundary and final actor-field names for editor, staged-file,
   pull-request, Data, and Schema operations;
 - provider observation, provider-write, provisioning, vault deletion, and account deletion flows;
-- the rule that each member uses their own provider credentials while shared resources stay with the
-  organization;
+- organization provider connection setup, shared status, and backend use by both members, with the
+  connecting member retained as provenance;
 - final organization-aware query and action results used by current routes;
 - route-level interaction tests and screenshot coverage for every changed shipped UI state.
 
@@ -253,8 +264,9 @@ operator organization. Full two-member FileView editing is not part of this rele
 implementation also verifies sole-member and shared-member account deletion, MCP token validation,
 `tools/list`, `tools/call`, tool execution, and browser handoff before the production reset.
 
-Personal UI settings and provider connections remain separate for two members. The rollout adds no
-organization name, switcher, invitation flow, membership page, or new organization chrome.
+Personal UI settings remain separate for two members. Provider connections and their non-secret
+status are shared by the organization. The rollout adds no organization name, switcher, invitation
+flow, membership page, or new organization chrome.
 
 ## Evidence Integrated
 
@@ -277,11 +289,16 @@ Primary external sources:
 
 ## Next Exact Task
 
-1. Get fresh independent reviews and green pull request checks.
-2. Record the Polar billing state and confirm that no destructive workflow is active.
-3. Pause product writes and follow the accepted manual reset runbook while the old schema is live.
-4. Merge and deploy the final schema and organization-authoritative runtime.
-5. Run the retained-user bootstrap with the two explicit operator user IDs and recorded billing
+1. Implement organization-owned provider connections with required `connectedByUserId` and no
+   migration or compatibility path.
+2. Validate provider setup, `/vault` reload, repository connection, Convex project creation, and
+   Cloudflare Worker creation through both members of the operator organization.
+3. Get fresh independent reviews and green pull request checks.
+4. Record the Polar billing state and confirm that no destructive workflow is active.
+5. Disconnect all providers, pause product writes, and follow the accepted manual reset runbook
+   while the old schema is live.
+6. Merge and deploy the final schema and organization-authoritative runtime.
+7. Run the retained-user bootstrap with the two explicit operator user IDs and recorded billing
    state.
-6. Verify the bootstrap counts and the required two-member flows, reconnect MCP and the retained
+8. Verify the bootstrap counts and the required two-member flows, reconnect MCP and the retained
    vaults, then resume product writes.
