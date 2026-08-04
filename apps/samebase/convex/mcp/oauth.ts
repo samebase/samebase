@@ -286,7 +286,7 @@ export const registerDynamicClient = internalMutation({
   handler: async (ctx, args: RegisterDynamicClientArgs) => {
     return await ctx.db.insert("mcpOauthClients", {
       clientId: args.clientId,
-      clientName: args.clientName,
+      ...(args.clientName !== undefined ? { clientName: args.clientName } : {}),
       redirectUris: args.redirectUris,
       grantTypes: args.grantTypes,
       responseTypes: args.responseTypes,
@@ -315,7 +315,9 @@ export const getClientByClientId = internalQuery({
     return {
       redirectUris: client.redirectUris,
       registrationStatus: client.registrationStatus,
-      provisionalExpiresAt: client.provisionalExpiresAt,
+      ...(client.provisionalExpiresAt !== undefined
+        ? { provisionalExpiresAt: client.provisionalExpiresAt }
+        : {}),
     };
   },
 });
@@ -338,10 +340,10 @@ export const createAuthRequest = internalMutation({
       redirectUri: args.redirectUri,
       resource: args.resource,
       scope: args.scope,
-      state: args.state,
+      ...(args.state !== undefined ? { state: args.state } : {}),
       codeChallenge: args.codeChallenge,
       codeChallengeMethod: args.codeChallengeMethod,
-      userId: args.userId,
+      ...(args.userId !== undefined ? { userId: args.userId } : {}),
       status: "pending",
       createdAt: args.createdAt,
       expiresAt: args.expiresAt,
@@ -380,7 +382,7 @@ export const getAuthorizationRequestForCurrentUser = query({
     return {
       requestId: authRequest.requestId,
       clientId: authRequest.clientId,
-      clientName: client?.clientName,
+      ...(client?.clientName !== undefined ? { clientName: client.clientName } : {}),
       scope: authRequest.scope,
       scopes: parseScopeTokens(authRequest.scope),
       resource: authRequest.resource,
@@ -527,7 +529,7 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
     return {
       ok: true,
       redirectUri: authRequest.redirectUri,
-      state: authRequest.state,
+      ...(authRequest.state !== undefined ? { state: authRequest.state } : {}),
     };
   },
 });
@@ -563,7 +565,7 @@ export const denyAuthorizationRequest = internalMutation({
     return {
       ok: true,
       redirectUri: authRequest.redirectUri,
-      state: authRequest.state,
+      ...(authRequest.state !== undefined ? { state: authRequest.state } : {}),
     };
   },
 });

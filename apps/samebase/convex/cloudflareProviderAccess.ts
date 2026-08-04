@@ -300,7 +300,7 @@ export const checkCloudflareConnectionAccess = action({
       authMethod,
       checkedAt,
       requestedScopes: getCloudflareRequestedScopes(authMethod),
-      token: tokenVerification,
+      ...(tokenVerification !== undefined ? { token: tokenVerification } : {}),
       accounts: buildCloudflareAccountAccess({
         selectedAccount,
         visibleAccounts,
@@ -365,11 +365,15 @@ async function verifyCloudflareApiToken({
     return {};
   }
 
+  const id = normalizeOptionalString(verification.id);
+  const status = normalizeOptionalString(verification.status);
+  const expiresOn = normalizeOptionalString(verification.expires_on);
+  const notBefore = normalizeOptionalString(verification.not_before);
   return {
-    id: normalizeOptionalString(verification.id),
-    status: normalizeOptionalString(verification.status),
-    expiresOn: normalizeOptionalString(verification.expires_on),
-    notBefore: normalizeOptionalString(verification.not_before),
+    ...(id !== undefined ? { id } : {}),
+    ...(status !== undefined ? { status } : {}),
+    ...(expiresOn !== undefined ? { expiresOn } : {}),
+    ...(notBefore !== undefined ? { notBefore } : {}),
   };
 }
 
@@ -415,7 +419,7 @@ function buildCloudflareOAuthTokenCheck({
   checkedAt,
 }: {
   auth: CloudflareOAuthAuth;
-  tokenHealth?: McpTokenHealth;
+  tokenHealth: McpTokenHealth | undefined;
   checkedAt: number;
 }): CloudflareAccessCheck {
   const expiresAt = tokenHealth?.expiresAt ?? auth.credentialExpiresAt;

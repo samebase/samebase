@@ -30,14 +30,14 @@ const vPublicDeploymentAuthPolicy = object({
 export type PublicDeploymentAuthPolicy = Infer<typeof vPublicDeploymentAuthPolicy>;
 
 type DeploymentProfileEnv = {
-  CONVEX_AGENT_MODE?: string;
-  CONVEX_CLOUD_URL?: string;
-  CONVEX_DEPLOYMENT?: string;
-  CONVEX_SITE_URL?: string;
-  PASSWORD_AUTH_ENABLED?: string;
-  PREVIEW_SEED_AUTH_EMAIL?: string;
-  PREVIEW_SEED_AUTH_PASSWORD?: string;
-  SITE_URL?: string;
+  CONVEX_AGENT_MODE?: string | undefined;
+  CONVEX_CLOUD_URL?: string | undefined;
+  CONVEX_DEPLOYMENT?: string | undefined;
+  CONVEX_SITE_URL?: string | undefined;
+  PASSWORD_AUTH_ENABLED?: string | undefined;
+  PREVIEW_SEED_AUTH_EMAIL?: string | undefined;
+  PREVIEW_SEED_AUTH_PASSWORD?: string | undefined;
+  SITE_URL?: string | undefined;
 };
 
 function readTrimmedValue(value: string | undefined): string | null {

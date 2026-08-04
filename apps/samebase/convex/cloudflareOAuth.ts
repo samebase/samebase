@@ -111,7 +111,7 @@ function parseCloudflareOAuthTokenResponse(
   }
   return {
     accessToken: result.data.access_token,
-    refreshToken: result.data.refresh_token,
+    ...(result.data.refresh_token !== undefined ? { refreshToken: result.data.refresh_token } : {}),
     expiresIn: result.data.expires_in,
   };
 }
@@ -473,12 +473,13 @@ export const resolveConnectionForOrganization = internalAction({
       });
     } catch (error) {
       const invalidToken = isLikelyInvalidCloudflareTokenError(error);
+      const errorMessage = sanitizeTokenHealthError(error);
       const tokenHealth: Infer<typeof vMcpTokenHealth> = {
         status: invalidToken ? "invalid" : derivedTokenHealth.status,
         checkedAt: Date.now(),
         expiresAt,
         source: invalidToken ? "refresh_attempt" : "runtime_error",
-        errorMessage: sanitizeTokenHealthError(error),
+        ...(errorMessage !== undefined ? { errorMessage } : {}),
       };
       await ctx.runMutation(internal.providerConnections.updateCloudflareConnected, {
         organizationId: args.organizationId,
@@ -690,7 +691,7 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
   }
 
   const returnUrl = buildProviderOAuthDefaultReturnUrl({
-    configuredAppUrl: process.env.SITE_URL ?? process.env.CONVEX_SITE_URL,
+    configuredAppUrl: process.env["SITE_URL"] ?? process.env["CONVEX_SITE_URL"],
     requestUrl: request.url,
   });
   const returnOrigin = new URL(returnUrl).origin;

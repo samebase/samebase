@@ -258,10 +258,10 @@ describe("MCP tools/call access enforcement", () => {
     const t = makeConvexTest();
     const metadataResponse = await t.fetch("/.well-known/oauth-protected-resource");
     const metadata = await metadataResponse.json();
-    if (!isRecord(metadata) || typeof metadata.resource !== "string") {
+    if (!isRecord(metadata) || typeof metadata["resource"] !== "string") {
       throw new Error("Protected resource metadata did not expose the MCP resource.");
     }
-    const resource = metadata.resource;
+    const resource = metadata["resource"];
 
     const accessToken = "test-mcp-access-token";
     const tokenHash = await sha256Hex(accessToken);

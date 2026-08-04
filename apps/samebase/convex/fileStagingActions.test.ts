@@ -455,32 +455,32 @@ describe("buildComparedCommitPreviewFileFromStagedFile", () => {
   });
 
   it("keeps a locally renamed PR-added file as added at the new path", () => {
-    expect(
-      buildComparedCommitPreviewFileFromStagedFile({
-        stagedFile: {
-          filePath: "src/better-name.ts",
-          initialFilePath: "src/new.ts",
-          content: "console.log('new');\n",
-          initialContent: "console.log('new');\n",
-          fileDeleted: false,
-          parentCommitSha: "head-sha",
-          branch: "feature",
-        },
-        matchedRemoteFile: {
-          status: "added",
-          path: "src/new.ts",
-        },
-        basePath: null,
-        baseContent: "",
-        includePatch: true,
-      }),
-    ).toEqual(
+    const previewFile = buildComparedCommitPreviewFileFromStagedFile({
+      stagedFile: {
+        filePath: "src/better-name.ts",
+        initialFilePath: "src/new.ts",
+        content: "console.log('new');\n",
+        initialContent: "console.log('new');\n",
+        fileDeleted: false,
+        parentCommitSha: "head-sha",
+        branch: "feature",
+      },
+      matchedRemoteFile: {
+        status: "added",
+        path: "src/new.ts",
+      },
+      basePath: null,
+      baseContent: "",
+      includePatch: true,
+    });
+
+    expect(previewFile).toEqual(
       expect.objectContaining({
         status: "added",
         path: "src/better-name.ts",
-        previousPath: undefined,
       }),
     );
+    expect(previewFile).not.toHaveProperty("previousPath");
   });
 
   it("drops a restored deleted file when staging matches the PR base content", () => {
@@ -825,9 +825,9 @@ describe("buildRemoteComparePreviewFile", () => {
         path: "src/file.ts",
         richOldContent: "export const flag = false;\n",
         richNewContent: "export const flag = true;\n",
-        patch: undefined,
       }),
     );
+    expect(result).not.toHaveProperty("patch");
   });
 });
 

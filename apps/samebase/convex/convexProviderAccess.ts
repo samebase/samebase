@@ -194,7 +194,7 @@ export const checkConvexConnectionAccess = action({
           label: "Team-scoped Convex Management API access",
         },
       ],
-      token: tokenDetails,
+      ...(tokenDetails !== undefined ? { token: tokenDetails } : {}),
       team: {
         teamId,
         ...(connection.teamSlug ? { teamSlug: connection.teamSlug } : {}),

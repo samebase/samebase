@@ -581,7 +581,7 @@ async function configurePreparedWorkersBuildsForGitHub(
     vaultId: Id<"vaults">;
     initialBuild: "deferred" | "requested";
     existingBuilds: "preserve_repository" | "require_unconnected";
-    beforeProviderWrite?: () => void | Promise<void>;
+    beforeProviderWrite?: (() => void | Promise<void>) | undefined;
   },
   prepared: Awaited<ReturnType<typeof prepareWorkersBuildsForGitHub>>,
 ): Promise<CloudflareConnectedWorkersBuilds> {
@@ -625,7 +625,7 @@ async function configureResolvedWorkersBuildsForGitHub(
     rootDirectory: string;
     initialBuild: "deferred" | "requested";
     existingBuilds: "preserve_repository" | "require_unconnected";
-    beforeProviderWrite?: () => void | Promise<void>;
+    beforeProviderWrite?: (() => void | Promise<void>) | undefined;
   },
   resolved: Awaited<ReturnType<typeof resolveCloudflareRepositoryContext>>,
   worker: { workerName: string; workerTag: string },
@@ -755,7 +755,7 @@ async function prepareConvexDeployKeyRotation(
 async function rotatePreparedConvexDeployKeys(
   args: {
     vaultId: Id<"vaults">;
-    beforeProviderWrite?: () => void | Promise<void>;
+    beforeProviderWrite?: (() => void | Promise<void>) | undefined;
   },
   prepared: Awaited<ReturnType<typeof prepareConvexDeployKeyRotation>>,
 ): Promise<void> {

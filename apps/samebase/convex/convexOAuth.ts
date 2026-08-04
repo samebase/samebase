@@ -303,7 +303,7 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
   }
 
   const returnUrl = buildProviderOAuthDefaultReturnUrl({
-    configuredAppUrl: process.env.SITE_URL ?? process.env.CONVEX_SITE_URL,
+    configuredAppUrl: process.env["SITE_URL"] ?? process.env["CONVEX_SITE_URL"],
     requestUrl: request.url,
   });
   const returnOrigin = new URL(returnUrl).origin;

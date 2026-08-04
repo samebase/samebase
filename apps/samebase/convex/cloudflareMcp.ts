@@ -112,11 +112,11 @@ function normalizeJsonRpcMessages(payload: unknown): JsonRpcMessage[] {
 
     messages.push({
       jsonrpc: "2.0",
-      id,
-      method,
-      params: record["params"],
-      result: record["result"],
-      error: record["error"],
+      ...(id === undefined ? {} : { id }),
+      ...(method === undefined ? {} : { method }),
+      ...(record["params"] === undefined ? {} : { params: record["params"] }),
+      ...(record["result"] === undefined ? {} : { result: record["result"] }),
+      ...(record["error"] === undefined ? {} : { error: record["error"] }),
     });
   }
 
@@ -159,11 +159,11 @@ function extractToolText(result: unknown): {
 async function postJsonRpcMessage(args: {
   url: string;
   token: string;
-  sessionId?: string;
+  sessionId?: string | undefined;
   message: Record<string, unknown>;
-  timeoutMs?: number;
+  timeoutMs?: number | undefined;
 }): Promise<{
-  sessionId?: string;
+  sessionId: string | undefined;
   messages: JsonRpcMessage[];
 }> {
   const response = await fetchWithTimeout(
@@ -201,8 +201,8 @@ async function postJsonRpcMessage(args: {
 async function initializeSession(args: {
   url: string;
   token: string;
-  timeoutMs?: number;
-}): Promise<{ sessionId?: string }> {
+  timeoutMs?: number | undefined;
+}): Promise<{ sessionId: string | undefined }> {
   const initId = 1;
   const initializeMessage = {
     jsonrpc: "2.0",
@@ -253,8 +253,8 @@ async function initializeSession(args: {
 async function closeSession(args: {
   url: string;
   token: string;
-  sessionId?: string;
-  timeoutMs?: number;
+  sessionId?: string | undefined;
+  timeoutMs?: number | undefined;
 }): Promise<void> {
   if (!args.sessionId) return;
 

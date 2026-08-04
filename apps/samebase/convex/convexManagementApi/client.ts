@@ -48,7 +48,7 @@ type ConvexManagementBodyOption<Operation> =
 type ConvexManagementRequestOptions<Operation> = ConvexManagementParamsOption<Operation> &
   ConvexManagementBodyOption<Operation>;
 type ConvexManagementApiCallOptions = {
-  recordApiCall?: ProviderApiCallRecorder;
+  recordApiCall?: ProviderApiCallRecorder | undefined;
 };
 type ConvexManagementGetOpenApiOptions<Path extends ConvexManagementGetPath> = MaybeOptionalInit<
   paths[Path],
@@ -96,8 +96,8 @@ type ConvexManagementOpenApiResult<T> = {
   response: Response;
 };
 type ConvexManagementRequestParams = {
-  path?: Record<string, unknown>;
-  query?: Record<string, unknown>;
+  path: Record<string, unknown> | undefined;
+  query: Record<string, unknown> | undefined;
 };
 
 export type ConvexCloudDeployment = Extract<PlatformDeploymentResponse, { kind: "cloud" }>;
@@ -127,7 +127,10 @@ export async function listConvexManagementProjects(args: {
     const page = await requestConvexManagementApi(args.token, "GET", "/teams/{team_id}/projects", {
       params: {
         path: { team_id: args.teamId },
-        query: { cursor, limit: 100 },
+        query: {
+          ...(cursor !== undefined ? { cursor } : {}),
+          limit: 100,
+        },
       },
     });
     projects.push(...page.items);
@@ -144,11 +147,14 @@ export async function listConvexManagementProjects(args: {
 
 function formatConvexManagementApiEndpoint(args: {
   path: string;
-  params?: ConvexManagementRequestParams;
+  params: ConvexManagementRequestParams | undefined;
 }): string {
   return createFinalURL(args.path, {
     baseUrl: "",
-    params: args.params ?? {},
+    params: {
+      ...(args.params?.path !== undefined ? { path: args.params.path } : {}),
+      ...(args.params?.query !== undefined ? { query: args.params.query } : {}),
+    },
     querySerializer: createQuerySerializer(),
     pathSerializer: serializeConvexManagementPath,
   });
@@ -177,12 +183,20 @@ export async function requestConvexManagementApi(
     | [
         method: "GET",
         path: ConvexManagementGetPath,
-        options?: { params?: unknown; body?: unknown; recordApiCall?: ProviderApiCallRecorder },
+        options?: {
+          params?: unknown;
+          body?: unknown;
+          recordApiCall?: ProviderApiCallRecorder | undefined;
+        },
       ]
     | [
         method: "POST",
         path: ConvexManagementPostPath,
-        options?: { params?: unknown; body?: unknown; recordApiCall?: ProviderApiCallRecorder },
+        options?: {
+          params?: unknown;
+          body?: unknown;
+          recordApiCall?: ProviderApiCallRecorder | undefined;
+        },
       ]
 ): Promise<unknown> {
   const [method, path, options] = request;
@@ -192,10 +206,10 @@ export async function requestConvexManagementApi(
   if (recordApiCall) {
     const values: Record<string, unknown> = {};
     if (params) {
-      values.params = params;
+      values["params"] = params;
     }
     if (body !== undefined) {
-      values.body = body;
+      values["body"] = body;
     }
     await recordApiCall({
       provider: "Convex",
@@ -288,7 +302,7 @@ async function executeConvexManagementApiRequest(args: {
     new Request(`${CONVEX_MANAGEMENT_BASE_URL}${args.endpoint}`, {
       method: args.method,
       headers,
-      body,
+      ...(body !== undefined ? { body } : {}),
     }),
   );
   const text = await response.text();
@@ -374,7 +388,7 @@ function parseConvexManagementResponseJson(args: {
   decimalPaths: readonly ConvexManagementResponseDecimalPath[];
   endpoint: string;
   schemaName: string;
-  text?: string;
+  text: string | undefined;
 }): unknown {
   if (args.text === undefined) {
     throw new Error(

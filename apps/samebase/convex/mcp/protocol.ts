@@ -90,7 +90,7 @@ export type JsonRpcRequestPayload = {
   jsonrpc: "2.0";
   method: string;
   id?: string | number | null;
-  params: unknown;
+  params?: unknown;
 };
 
 export type McpProtocolValidationOptions = {
@@ -288,7 +288,7 @@ export function validateDynamicClientRegistrationPayload(
   const record = asRecord(payload);
   const allowLoopbackHttpRedirectUris = resolveAllowLoopbackHttpRedirectUris(options);
 
-  const clientNameValue = record.client_name;
+  const clientNameValue = record["client_name"];
   let clientName: string | null = null;
   if (clientNameValue !== undefined) {
     if (typeof clientNameValue !== "string") {
@@ -310,7 +310,7 @@ export function validateDynamicClientRegistrationPayload(
   }
 
   const redirectUris = readStringArray(
-    record.redirect_uris,
+    record["redirect_uris"],
     MAX_REDIRECT_URIS,
     MAX_REDIRECT_URI_LENGTH,
   );
@@ -338,7 +338,7 @@ export function validateDynamicClientRegistrationPayload(
     }
   }
 
-  const contacts = readOptionalStringArray(record.contacts, MAX_CONTACTS, MAX_CONTACT_LENGTH);
+  const contacts = readOptionalStringArray(record["contacts"], MAX_CONTACTS, MAX_CONTACT_LENGTH);
   if (contacts === null) {
     return {
       ok: false,
@@ -348,9 +348,9 @@ export function validateDynamicClientRegistrationPayload(
   }
 
   const grantTypes =
-    record.grant_types === undefined
+    record["grant_types"] === undefined
       ? [...DEFAULT_GRANT_TYPES]
-      : readStringArray(record.grant_types, DEFAULT_GRANT_TYPES.length, 64);
+      : readStringArray(record["grant_types"], DEFAULT_GRANT_TYPES.length, 64);
   if (grantTypes === null || !validateGrantTypes(grantTypes)) {
     return {
       ok: false,
@@ -360,9 +360,9 @@ export function validateDynamicClientRegistrationPayload(
   }
 
   const responseTypes =
-    record.response_types === undefined
+    record["response_types"] === undefined
       ? [...DEFAULT_RESPONSE_TYPES]
-      : readStringArray(record.response_types, DEFAULT_RESPONSE_TYPES.length, 16);
+      : readStringArray(record["response_types"], DEFAULT_RESPONSE_TYPES.length, 16);
   if (responseTypes === null || !validateResponseTypes(responseTypes)) {
     return {
       ok: false,
@@ -371,7 +371,7 @@ export function validateDynamicClientRegistrationPayload(
     };
   }
 
-  const tokenEndpointAuthMethodValue = record.token_endpoint_auth_method;
+  const tokenEndpointAuthMethodValue = record["token_endpoint_auth_method"];
   if (
     tokenEndpointAuthMethodValue !== undefined &&
     typeof tokenEndpointAuthMethodValue !== "string"
@@ -667,7 +667,7 @@ export function validateJsonRpcRequestPayload(
 ): ValidationResult<JsonRpcRequestPayload> {
   const record = asRecord(payload);
 
-  if (record.jsonrpc !== "2.0") {
+  if (record["jsonrpc"] !== "2.0") {
     return {
       ok: false,
       status: 400,
@@ -675,7 +675,7 @@ export function validateJsonRpcRequestPayload(
     };
   }
 
-  if (typeof record.method !== "string" || record.method.trim().length === 0) {
+  if (typeof record["method"] !== "string" || record["method"].trim().length === 0) {
     return {
       ok: false,
       status: 400,
@@ -683,7 +683,7 @@ export function validateJsonRpcRequestPayload(
     };
   }
 
-  const idValue = record.id;
+  const idValue = record["id"];
   let id: string | number | null | undefined;
   if (idValue === undefined) {
     id = undefined;
@@ -701,9 +701,9 @@ export function validateJsonRpcRequestPayload(
     ok: true,
     value: {
       jsonrpc: "2.0",
-      method: record.method,
-      id,
-      params: record.params,
+      method: record["method"],
+      ...(id === undefined ? {} : { id }),
+      ...(record["params"] === undefined ? {} : { params: record["params"] }),
     },
   };
 }

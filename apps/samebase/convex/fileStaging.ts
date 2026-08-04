@@ -349,8 +349,8 @@ export function buildDeletionSnapshotSeed(args: {
   return {
     initialContent: "",
     kind: "binary",
-    mime: args.blob.mime,
-    size: args.blob.size,
+    ...(args.blob.mime !== undefined ? { mime: args.blob.mime } : {}),
+    ...(args.blob.size !== undefined ? { size: args.blob.size } : {}),
     stagedBlobSha: args.parentCommitSha,
   };
 }
@@ -633,15 +633,15 @@ export const duplicateBranchStaging = internalMutation({
       await ctx.db.insert("vaultStagedFiles", {
         vaultId: file.vaultId,
         fileDeleted: file.fileDeleted,
-        kind: file.kind,
+        ...(file.kind !== undefined ? { kind: file.kind } : {}),
         filePath: file.filePath,
         initialFilePath: file.initialFilePath,
         content: file.content,
         initialContent: file.initialContent,
-        storageId: file.storageId,
-        mime: file.mime,
-        size: file.size,
-        stagedBlobSha: file.stagedBlobSha,
+        ...(file.storageId !== undefined ? { storageId: file.storageId } : {}),
+        ...(file.mime !== undefined ? { mime: file.mime } : {}),
+        ...(file.size !== undefined ? { size: file.size } : {}),
+        ...(file.stagedBlobSha !== undefined ? { stagedBlobSha: file.stagedBlobSha } : {}),
         parentCommitSha: file.parentCommitSha,
         lastEditTime: file.lastEditTime,
         lastEditUserId: file.lastEditUserId,
@@ -769,7 +769,7 @@ type ClearAllStagingPlan<VaultId extends string = string, UserId extends string 
 
 export function buildClearAllStagingPlan<VaultId extends string, UserId extends string>(args: {
   vaultId: VaultId;
-  branch?: string;
+  branch?: string | undefined;
   cleanupCutoffTimestamp: number;
   vault: {
     userId: UserId;
@@ -790,7 +790,7 @@ export function buildClearAllStagingPlan<VaultId extends string, UserId extends 
           },
     deleteCollaborativeUpdatesArgs: {
       vaultId: args.vaultId,
-      branch: args.branch,
+      ...(args.branch !== undefined ? { branch: args.branch } : {}),
       cutoffTimestamp: args.cleanupCutoffTimestamp,
     },
     treeRefreshArgs: args.vault
@@ -937,8 +937,8 @@ export const deleteCollaborativeUpdatesBatch = internalMutation({
     if (updates.length === DELETION_BATCH_SIZE) {
       await ctx.scheduler.runAfter(0, internal.fileStaging.deleteCollaborativeUpdatesBatch, {
         vaultId: args.vaultId,
-        branch: args.branch,
-        cutoffTimestamp: args.cutoffTimestamp,
+        ...(args.branch !== undefined ? { branch: args.branch } : {}),
+        ...(args.cutoffTimestamp !== undefined ? { cutoffTimestamp: args.cutoffTimestamp } : {}),
       });
     }
 
@@ -1030,9 +1030,11 @@ export const markFileForDeletion = mutation({
         kind: snapshotSeed.kind,
         content: snapshotSeed.initialContent,
         initialContent: snapshotSeed.initialContent,
-        mime: snapshotSeed.mime,
-        size: snapshotSeed.size,
-        stagedBlobSha: snapshotSeed.stagedBlobSha,
+        ...(snapshotSeed.mime !== undefined ? { mime: snapshotSeed.mime } : {}),
+        ...(snapshotSeed.size !== undefined ? { size: snapshotSeed.size } : {}),
+        ...(snapshotSeed.stagedBlobSha !== undefined
+          ? { stagedBlobSha: snapshotSeed.stagedBlobSha }
+          : {}),
         parentCommitSha: args.parentCommitSha,
         lastEditTime: currentTimestamp,
         lastEditUserId: ctx.viewer.userId,
@@ -1554,7 +1556,7 @@ export const reconcileStagingWithTree = internalMutation({
           parentCommitSha: instruction.parentCommitSha,
         };
         if (instruction.initialContent !== undefined) {
-          patch.initialContent = instruction.initialContent;
+          patch["initialContent"] = instruction.initialContent;
         }
         await ctx.db.patch(instruction.stagingId, patch);
       }

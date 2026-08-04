@@ -108,10 +108,10 @@ export type McpToolInvocation = {
 
 export function buildMcpToolInvocationArgs(invocation: McpToolInvocation) {
   const input = { ...invocation.input };
-  delete input.userId;
-  delete input.grantedScopes;
-  delete input.grantId;
-  delete input.clientId;
+  delete input["userId"];
+  delete input["grantedScopes"];
+  delete input["grantId"];
+  delete input["clientId"];
   return {
     ...input,
     userId: invocation.userId,
@@ -153,7 +153,7 @@ function callGetAuthenticationStatusMcpTool(
   const authentication: McpAuthenticationStatus = {
     authenticated: true,
     user: {
-      name: viewerUser.name,
+      ...(viewerUser.name !== undefined ? { name: viewerUser.name } : {}),
       email: normalizedEmail,
     },
     role: invocation.viewer.role,
@@ -329,7 +329,7 @@ function buildMcpBearerChallenge(args: {
 
 function resolveAppUrl(request: Request): URL | null {
   const requestOrigin = parseOrigin(request);
-  const configuredSiteUrl = process.env.SITE_URL;
+  const configuredSiteUrl = process.env["SITE_URL"];
   if (!configuredSiteUrl) {
     console.error("SITE_URL is not set; cannot redirect MCP OAuth consent to the React app.", {
       requestOrigin,
@@ -393,7 +393,7 @@ function hasFormUrlEncodedContentType(request: Request): boolean {
   return contentType.toLowerCase().startsWith("application/x-www-form-urlencoded");
 }
 
-function jsonRpcSuccessResponse(args: { id?: string | number | null; result: unknown }): Response {
+function jsonRpcSuccessResponse(args: { id: string | number | null; result: unknown }): Response {
   return jsonResponse({
     jsonrpc: "2.0",
     id: args.id,
@@ -402,7 +402,7 @@ function jsonRpcSuccessResponse(args: { id?: string | number | null; result: unk
 }
 
 function jsonRpcErrorResponse(args: {
-  id?: string | number | null;
+  id: string | number | null;
   code: number;
   message: string;
   status?: number;
@@ -505,7 +505,9 @@ export const registerMcpOauthClient = httpAction(async (ctx, request) => {
 
   await ctx.runMutation(internal.mcp.oauth.registerDynamicClient, {
     clientId,
-    clientName: validation.value.clientName ?? undefined,
+    ...(typeof validation.value.clientName === "string"
+      ? { clientName: validation.value.clientName }
+      : {}),
     redirectUris: validation.value.redirectUris,
     grantTypes: validation.value.grantTypes,
     responseTypes: validation.value.responseTypes,
@@ -520,7 +522,9 @@ export const registerMcpOauthClient = httpAction(async (ctx, request) => {
     {
       client_id: clientId,
       client_id_issued_at: Math.floor(now / 1000),
-      client_name: validation.value.clientName ?? undefined,
+      ...(typeof validation.value.clientName === "string"
+        ? { client_name: validation.value.clientName }
+        : {}),
       redirect_uris: validation.value.redirectUris,
       grant_types: validation.value.grantTypes,
       response_types: validation.value.responseTypes,
@@ -593,10 +597,10 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
     redirectUri: validation.value.redirectUri,
     resource: validation.value.resource,
     scope: validation.value.scopes.join(" "),
-    state: validation.value.state ?? undefined,
+    ...(typeof validation.value.state === "string" ? { state: validation.value.state } : {}),
     codeChallenge: validation.value.codeChallenge,
     codeChallengeMethod: validation.value.codeChallengeMethod,
-    userId: userId ?? undefined,
+    ...(userId !== null ? { userId } : {}),
     createdAt: now,
     expiresAt: now + MCP_AUTH_REQUEST_TTL_MS,
   });
@@ -871,12 +875,14 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     return new Response(null, { status: 202 });
   }
 
+  if (rpcRequest.id === undefined) {
+    return new Response(null, { status: 202 });
+  }
+  const requestId = rpcRequest.id;
+
   if (rpcRequest.method === "initialize") {
-    if (isNotification) {
-      return new Response(null, { status: 202 });
-    }
     return jsonRpcSuccessResponse({
-      id: rpcRequest.id,
+      id: requestId,
       result: {
         protocolVersion: MCP_PROTOCOL_VERSION,
         capabilities: {
@@ -892,13 +898,10 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
   }
 
   if (rpcRequest.method === "tools/list") {
-    if (isNotification) {
-      return new Response(null, { status: 202 });
-    }
     const grantedScopes = parseScopeTokens(tokenValidation.scope);
     const currentViewer = await readMcpViewer(ctx, tokenValidation.userId);
     return jsonRpcSuccessResponse({
-      id: rpcRequest.id,
+      id: requestId,
       result: {
         tools: listMcpToolsForAccess({
           grantedScopes,
@@ -909,15 +912,11 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
   }
 
   if (rpcRequest.method === "tools/call") {
-    if (isNotification) {
-      return new Response(null, { status: 202 });
-    }
-
     const grantedScopes = parseScopeTokens(tokenValidation.scope);
     const [hasParams, params] = mcpToolCallParams(rpcRequest.params);
     if (!hasParams) {
       return jsonRpcSuccessResponse({
-        id: rpcRequest.id,
+        id: requestId,
         result: {
           content: [
             {
@@ -933,7 +932,7 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     const toolName = params.name.trim();
     if (toolName.length === 0) {
       return jsonRpcSuccessResponse({
-        id: rpcRequest.id,
+        id: requestId,
         result: {
           content: [
             {
@@ -950,7 +949,7 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     const tool = mcpToolCatalog.find((entry) => entry.name === toolName);
     if (!tool) {
       return jsonRpcSuccessResponse({
-        id: rpcRequest.id,
+        id: requestId,
         result: {
           content: [
             {
@@ -970,7 +969,7 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     const currentViewer = await readMcpViewer(ctx, tokenValidation.userId);
     if (!canAccess(tool.access, currentViewer.accessKeys)) {
       return jsonRpcSuccessResponse({
-        id: rpcRequest.id,
+        id: requestId,
         result: {
           content: [
             {
@@ -993,7 +992,7 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
         viewer: currentViewer,
       });
       return jsonRpcSuccessResponse({
-        id: rpcRequest.id,
+        id: requestId,
         result: {
           content: [
             {
@@ -1010,7 +1009,7 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";
       return jsonRpcSuccessResponse({
-        id: rpcRequest.id,
+        id: requestId,
         result: {
           content: [
             {
@@ -1024,11 +1023,8 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     }
   }
 
-  if (isNotification) {
-    return new Response(null, { status: 202 });
-  }
   return jsonRpcErrorResponse({
-    id: rpcRequest.id,
+    id: requestId,
     code: -32601,
     message: `Method not found: ${rpcRequest.method}`,
   });

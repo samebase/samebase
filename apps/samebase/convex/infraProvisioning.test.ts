@@ -39,7 +39,7 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
       userId,
       vaultId,
       repositoryFullName: `ada/${args.repoName}`,
-      workflowId: args.workflowId,
+      ...(args.workflowId !== undefined ? { workflowId: args.workflowId } : {}),
       trigger: args.trigger,
       state: "running",
       currentStep: args.currentStep,

@@ -216,9 +216,9 @@ function resolveObservedConvexBuildAccess(
     case "inconsistent":
     case "invalid":
       return observation;
+    default:
+      return observation satisfies never;
   }
-  observation satisfies never;
-  return observation;
 }
 
 async function readObservationContext(

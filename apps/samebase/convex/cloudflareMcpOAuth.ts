@@ -611,12 +611,13 @@ export const resolveConnectionForOrganization = internalAction({
       });
     } catch (error) {
       const invalidToken = isLikelyInvalidCloudflareTokenError(error);
+      const errorMessage = sanitizeTokenHealthError(error);
       const tokenHealth: Infer<typeof vMcpTokenHealth> = {
         status: invalidToken ? "invalid" : derivedTokenHealth.status,
         checkedAt: Date.now(),
         expiresAt,
         source: invalidToken ? "refresh_attempt" : "runtime_error",
-        errorMessage: sanitizeTokenHealthError(error),
+        ...(errorMessage !== undefined ? { errorMessage } : {}),
       };
       console.log("cloudflare:mcp_token:refresh_failed", {
         organizationId: args.organizationId,
@@ -831,7 +832,7 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
   }
 
   const returnUrl = buildProviderOAuthDefaultReturnUrl({
-    configuredAppUrl: process.env.SITE_URL ?? process.env.CONVEX_SITE_URL,
+    configuredAppUrl: process.env["SITE_URL"] ?? process.env["CONVEX_SITE_URL"],
     requestUrl: request.url,
   });
   const returnOrigin = new URL(returnUrl).origin;

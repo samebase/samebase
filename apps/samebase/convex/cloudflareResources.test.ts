@@ -183,11 +183,11 @@ function buildRecordedEnvironmentVariables(body: unknown): RecordedCloudflareEnv
     if (!isRecord(value)) {
       continue;
     }
-    const isSecret = value.is_secret === true;
+    const isSecret = value["is_secret"] === true;
     variables[key] = {
       created_on: "2026-07-05T00:00:00Z",
       is_secret: isSecret,
-      value: isSecret ? null : typeof value.value === "string" ? value.value : null,
+      value: isSecret ? null : typeof value["value"] === "string" ? value["value"] : null,
     };
   }
   return variables;
@@ -275,9 +275,9 @@ function stubEnsureCloudflareResourcesFetch(args: {
   triggers: readonly unknown[];
   triggerReads?: readonly (readonly unknown[])[];
   requests: RecordedCloudflareRequest[];
-  createTriggerWithoutIdNumber?: number;
+  createTriggerWithoutIdNumber?: number | undefined;
   dropReadEnvKeys?: Record<string, readonly string[]>;
-  failCreateTriggerNumber?: number;
+  failCreateTriggerNumber?: number | undefined;
   missingWorker?: boolean;
   missingTrigger?: string;
   readEnvVars?: Record<string, RecordedCloudflareEnvironmentVariables>;

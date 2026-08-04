@@ -141,8 +141,8 @@ type CloudflareApiPutRequestArgs<Path extends CloudflareApiPutPath> = Cloudflare
   path: Path;
 } & CloudflareApiPutOptions<Path>;
 type CloudflareApiRequestParams = {
-  path?: Record<string, unknown>;
-  query?: Record<string, unknown>;
+  path: Record<string, unknown> | undefined;
+  query: Record<string, unknown> | undefined;
 };
 type CloudflareApiResult =
   | {
@@ -156,7 +156,7 @@ type CloudflareApiResult =
 type CloudflareApiRequestBase = {
   token: string;
   transport: CloudflareApiTransport;
-  recordApiCall?: ProviderApiCallRecorder;
+  recordApiCall?: ProviderApiCallRecorder | undefined;
 };
 
 export class CloudflareApiError extends Error {
@@ -198,11 +198,14 @@ export function resolveCloudflareApiTransport(
 
 function formatCloudflareApiEndpoint(args: {
   path: string;
-  params?: CloudflareApiRequestParams;
+  params: CloudflareApiRequestParams | undefined;
 }): string {
   return createFinalURL(args.path, {
     baseUrl: "",
-    params: args.params ?? {},
+    params: {
+      ...(args.params?.path !== undefined ? { path: args.params.path } : {}),
+      ...(args.params?.query !== undefined ? { query: args.params.query } : {}),
+    },
     querySerializer: createQuerySerializer(),
     pathSerializer: serializeCloudflareApiPath,
   });
@@ -264,10 +267,10 @@ export async function requestCloudflareApi(
   if (args.recordApiCall) {
     const values: Record<string, unknown> = {};
     if (params) {
-      values.params = params;
+      values["params"] = params;
     }
     if (args.body !== undefined) {
-      values.body = args.body;
+      values["body"] = args.body;
     }
     await args.recordApiCall({
       provider: "Cloudflare",
@@ -522,7 +525,7 @@ async function executeCloudflareApiDirectRequest(args: {
         Authorization: `Bearer ${token}`,
         ...(args.body === undefined ? {} : { "Content-Type": "application/json" }),
       },
-      body: args.body === undefined ? undefined : JSON.stringify(args.body),
+      ...(args.body === undefined ? {} : { body: JSON.stringify(args.body) }),
       signal: controller.signal,
     });
     text = await response.text();
@@ -595,7 +598,7 @@ function validateCloudflareApiResult(args: {
 
 function readCloudflareApiEnvelopeResult(payload: unknown): unknown {
   if (isRecord(payload) && "result" in payload) {
-    return payload.result;
+    return payload["result"];
   }
   return undefined;
 }

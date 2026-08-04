@@ -37,9 +37,9 @@ export function matchesPolarCheckoutAttempt(args: {
     args.checkout.externalCustomerId === args.externalCustomerId &&
     args.checkout.products.length === 1 &&
     args.checkout.products[0]?.id === args.productId &&
-    args.checkout.metadata.source === "samebase_account" &&
-    args.checkout.metadata.plan === "pro" &&
-    args.checkout.metadata.samebase_checkout_attempt_id === args.attemptId
+    args.checkout.metadata["source"] === "samebase_account" &&
+    args.checkout.metadata["plan"] === "pro" &&
+    args.checkout.metadata["samebase_checkout_attempt_id"] === args.attemptId
   );
 }
 
