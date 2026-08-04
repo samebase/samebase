@@ -1014,7 +1014,7 @@ describe("cloudflare resources", () => {
     ).toBe(false);
   });
 
-  it("patches Convex build environment variables before starting the deferred production build", async () => {
+  it("writes both Convex deploy keys to both triggers for Cloudflare's shared variable table", async () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,

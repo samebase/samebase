@@ -2171,6 +2171,9 @@ export async function rotateConvexDeployKeysForCloudflareWorkerBuilds(
     });
 
     step = "set_environment_variables";
+    // Cloudflare currently shows one shared build-variable table. Both trigger records must carry
+    // both Convex keys to keep the production and preview keys visible in that UI. Keep this layout
+    // until Cloudflare exposes separate production and preview build-variable views.
     const convexEnvVars = buildCloudflareWorkersEnvVars({
       productionConvexDeployKey: args.convex.production.deployKey,
       previewConvexDeployKey: args.convex.preview.deployKey,

@@ -38,6 +38,10 @@ Builds triggers, reads the
 variables back, and verifies the marker value, secrecy flags, and required variable names before
 starting the production build.
 
+Cloudflare currently shows one shared build-variable table. Both triggers intentionally carry both
+deploy keys so the production and preview keys stay visible in that UI. Keep this shared layout
+until Cloudflare exposes separate production and preview build-variable views.
+
 The Worker and project must both be attached to the vault. Their selection is input to this one
 operation, not a persisted dependency. Rerunning the operation rotates the Samebase-named keys.
 Samebase reads Convex live and stores no completed Worker-to-project, key, or trigger mirror in
