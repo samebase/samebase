@@ -43,8 +43,8 @@ not copy tool schemas or general coding instructions into the skill.
 
 ## Last full run
 
-- Date: 2026-07-30
-- Artifact commit: `70d4c1d3`
+- Date: 2026-08-04
+- Artifact commit: `4f265d314`
 - Models: GPT-5.6 Terra low and GPT-5.6 Sol low
 - Result: all five positive cases and all three negative cases passed
 
