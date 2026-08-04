@@ -91,3 +91,8 @@ not copy tool schemas or general coding instructions into the skill.
 - Result: clean isolation passed. The public-only plan named each action that starts or requests a
   production build and required explicit approval immediately before it. The plan stayed focused at
   2,303 words and did not reproduce the detailed bundle's excess process.
+
+Operator review after this regression generalized the timing rule. One informed approval can cover a
+named production-build sequence when its repository, provider account, possible production effect,
+and rule for attaching an existing resource or creating a new one are clear. The supervised Weight
+TSX adoption will test this revised rule without another bundle comparison.

@@ -61,8 +61,8 @@ The detailed bundle found useful facts that the public-only plan missed:
 
 - notes do not survive the current import and export round trip
 - invalid import lines are silently excluded from the result count
-- creating a Worker or configuring Builds can start the first production build, so the agent must
-  stop for named approval immediately before that action
+- creating a Worker or configuring Builds can start the first production build, so named approval
+  must cover those actions
 
 The detailed bundle also caused harmful overreach:
 
@@ -89,6 +89,11 @@ Do not copy the detailed bundle into the public plugin. Extract a rule only when
 
 The first-production-build approval boundary meets these conditions. The public skill now contains
 this small rule. The Weight TSX parser defects belong to the target project, not the Samebase skill.
+
+Operator review later clarified the approval timing. One informed approval can cover a named write
+sequence after the repository, provider account, possible production effect, and rule for attaching
+an existing resource or creating a new one are clear. The agent asks again only when a verified fact
+or the approved scope changes.
 
 ### Focused regression
 

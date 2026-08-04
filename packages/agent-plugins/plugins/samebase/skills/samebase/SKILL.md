@@ -61,8 +61,10 @@ or copy tool schemas into this skill.
   setup is incomplete.
 - Reread inventory after each attachment, configuration, or repair action.
 - A started run, requested build, commit, or push is not proof of a live deployment.
-- If an action contract says it starts or requests a production build, name that effect and get
-  explicit approval immediately before the action.
+- Before a write sequence that can start or request a production build, name that effect and get
+  explicit approval. One approval can cover the named sequence when the repository, provider
+  account, possible production effect, and rule for attaching an existing resource or creating a new
+  one are clear. Ask again if one of those facts or the approved scope changes.
 
 ## Work in the repository
 
