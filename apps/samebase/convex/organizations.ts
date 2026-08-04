@@ -8,7 +8,7 @@ import type { DatabaseWriter } from "./_generated/server";
 export async function ensureOrganizationForUser(
   db: DatabaseWriter,
   userId: Id<"users">,
-): Promise<void> {
+): Promise<Id<"organizations">> {
   if ((await db.get(userId)) === null) {
     throw new Error("Organization provisioning requires an existing user.");
   }
@@ -40,4 +40,5 @@ export async function ensureOrganizationForUser(
       status: "inactive",
     });
   }
+  return organizationId;
 }

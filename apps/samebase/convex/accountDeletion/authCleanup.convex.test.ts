@@ -275,6 +275,16 @@ describe("account deletion auth cleanup", () => {
         status: "active",
         polarExternalCustomerId: "shared-customer",
       });
+      const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "github",
+        state: "connected",
+        organizationId: ids.organizationId,
+        connectedByUserId: remainingUserId,
+        accountId: "remaining-github-account",
+        auth: { method: "api_key", credential: "github-token" },
+        createdAt: 1,
+        updatedAt: 1,
+      });
       const vaultId = await ctx.db.insert("vaults", {
         organizationId: ids.organizationId,
         state: "not_connected",
@@ -331,6 +341,7 @@ describe("account deletion auth cleanup", () => {
       await ctx.db.replace(vaultId, {
         organizationId: ids.organizationId,
         state: "connected",
+        githubProviderConnectionId,
         githubMode: "connect_existing_repository",
         deletion: { state: "delete_failed", runId: failedRunId, failedAt: 4 },
         runId: provisioningRunId,
@@ -412,7 +423,7 @@ describe("account deletion auth cleanup", () => {
 
   it("deletes sole-member organization billing and the empty organization at finalization", async () => {
     const { ids, t } = await seedRunningDeletion();
-    await t.run(async (ctx) => {
+    const providerConnectionId = await t.run(async (ctx) => {
       await ctx.db.patch(ids.runId, {
         outcomes: {
           billing: { state: "not_applicable" },
@@ -424,6 +435,16 @@ describe("account deletion auth cleanup", () => {
           },
           completionEmail: { state: "sent" },
         },
+      });
+      return await ctx.db.insert("providerConnections", {
+        state: "disconnected",
+        kind: "github",
+        organizationId: ids.organizationId,
+        connectedByUserId: ids.userId,
+        accountId: "deleted-github-account",
+        disconnectedAt: 1,
+        createdAt: 1,
+        updatedAt: 1,
       });
     });
     const args = { runId: ids.runId, workflowId };
@@ -443,9 +464,16 @@ describe("account deletion auth cleanup", () => {
         billing: await ctx.db.get(ids.billingAccountId),
         membership: await ctx.db.get(ids.membershipId),
         organization: await ctx.db.get(ids.organizationId),
+        providerConnection: await ctx.db.get(providerConnectionId),
         user: await ctx.db.get(ids.userId),
       })),
-    ).resolves.toEqual({ billing: null, membership: null, organization: null, user: null });
+    ).resolves.toEqual({
+      billing: null,
+      membership: null,
+      organization: null,
+      providerConnection: null,
+      user: null,
+    });
   });
 
   it("requires confirmed billing cancellation before active sole-member billing is deleted", async () => {
@@ -624,9 +652,9 @@ describe("account deletion auth cleanup", () => {
     ).rejects.toThrow("Only the initiating auth session may remain");
   });
 
-  it("fails closed when provider access or account data races final identity deletion", async () => {
+  it("fails closed when account data appears before final identity deletion", async () => {
     const { ids, t } = await seedRunningDeletion();
-    const providerConnectionId = await t.run(async (ctx) => {
+    await t.run(async (ctx) => {
       await ctx.db.patch(ids.runId, {
         outcomes: {
           billing: { state: "not_applicable" },
@@ -639,22 +667,14 @@ describe("account deletion auth cleanup", () => {
           completionEmail: { state: "sent" },
         },
       });
-      return await ctx.db.insert("providerConnections", {
-        kind: "github",
-        userId: ids.userId,
-        auth: { method: "oauth", credential: "late-provider-token" },
-        createdAt: 1,
-        updatedAt: 1,
-      });
     });
     const args = { runId: ids.runId, workflowId };
 
     await expect(
       t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
-    ).rejects.toThrow("Provider connections remain for the deleting account.");
+    ).resolves.toBeNull();
 
     await t.run(async (ctx) => {
-      await ctx.db.delete(providerConnectionId);
       await ctx.db.insert("ui_user_settings", {
         userId: ids.userId,
         providersPanelOpen: false,
@@ -662,7 +682,7 @@ describe("account deletion auth cleanup", () => {
       });
     });
     await expect(
-      t.mutation(internal.accountDeletion.workflow.markFinalizing, args),
+      t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, args),
     ).rejects.toThrow("Samebase account data remains during finalization.");
   });
 });

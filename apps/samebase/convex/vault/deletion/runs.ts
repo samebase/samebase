@@ -51,28 +51,21 @@ function providerConnectionMessage(kind: ProviderKind): string {
   }
 }
 
-async function hasProviderConnection(
-  ctx: MutationCtx,
-  args: {
-    userId: Id<"users">;
-    kind: ProviderKind;
-  },
-): Promise<boolean> {
-  const connection = await ctx.db
-    .query("providerConnections")
-    .withIndex("by_user_kind", (q) => q.eq("userId", args.userId).eq("kind", args.kind))
-    .unique();
-  return connection?.kind === args.kind;
-}
-
 async function requireProviderConnection(
   ctx: MutationCtx,
   args: {
-    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+    providerConnectionId: Id<"providerConnections">;
     kind: ProviderKind;
   },
 ): Promise<void> {
-  if (await hasProviderConnection(ctx, args)) {
+  const connection = await ctx.db.get(args.providerConnectionId);
+  if (
+    connection !== null &&
+    connection.organizationId === args.organizationId &&
+    connection.kind === args.kind &&
+    connection.state === "connected"
+  ) {
     return;
   }
   throw new Error(providerConnectionMessage(args.kind));
@@ -80,13 +73,18 @@ async function requireProviderConnection(
 
 async function requireConvexProviderTeam(
   ctx: MutationCtx,
-  args: { userId: Id<"users">; teamId: string },
+  args: {
+    organizationId: Id<"organizations">;
+    providerConnectionId: Id<"providerConnections">;
+    teamId: string;
+  },
 ): Promise<void> {
-  const connection = await ctx.db
-    .query("providerConnections")
-    .withIndex("by_user_kind", (q) => q.eq("userId", args.userId).eq("kind", "convex"))
-    .unique();
-  if (connection?.kind !== "convex") {
+  const connection = await ctx.db.get(args.providerConnectionId);
+  if (
+    connection?.kind !== "convex" ||
+    connection.organizationId !== args.organizationId ||
+    connection.state !== "connected"
+  ) {
     throw new Error(providerConnectionMessage("convex"));
   }
   if (connection.teamId !== args.teamId) {
@@ -171,10 +169,15 @@ async function buildConvexPlan(
 
   const projectPlan = buildConvexProjectDeletionPlan(createdProjects);
   if (projectPlan) {
-    await requireConvexProviderTeam(ctx, {
-      userId: args.ownership.userId,
-      teamId: projectPlan.teamId,
-    });
+    for (const project of convexProjects) {
+      if (project.origin === "provisioned") {
+        await requireConvexProviderTeam(ctx, {
+          organizationId: vault.organizationId,
+          providerConnectionId: project.providerConnectionId,
+          teamId: project.teamId,
+        });
+      }
+    }
     return projectPlan;
   }
 
@@ -220,10 +223,13 @@ async function buildCloudflarePlan(
     return { action: "skip", reason: "not_recorded" };
   }
 
-  await requireProviderConnection(ctx, {
-    userId: args.ownership.userId,
-    kind: "cloudflare",
-  });
+  for (const worker of provisionedWorkers) {
+    await requireProviderConnection(ctx, {
+      organizationId: vault.organizationId,
+      providerConnectionId: worker.providerConnectionId,
+      kind: "cloudflare",
+    });
+  }
   if (provisionedWorkers.length === 1) {
     const worker = provisionedWorkers[0];
     return {
@@ -283,7 +289,8 @@ async function buildDeletionPlan(
 
       if (args.options.removeGithubRepo) {
         await requireProviderConnection(ctx, {
-          userId: args.ownership.userId,
+          organizationId: args.vault.organizationId,
+          providerConnectionId: args.vault.githubProviderConnectionId,
           kind: "github",
         });
       }
@@ -340,38 +347,6 @@ async function buildDeletionPlan(
   }
 }
 
-async function assertPlanProviderConnections(
-  ctx: MutationCtx,
-  args: {
-    userId: Id<"users">;
-    plan: VaultDeletionPlan;
-  },
-): Promise<void> {
-  if (args.plan.githubRepository.action === "delete_repository") {
-    await requireProviderConnection(ctx, {
-      userId: args.userId,
-      kind: "github",
-    });
-  }
-
-  if (args.plan.convex.action !== "skip") {
-    await requireConvexProviderTeam(ctx, {
-      userId: args.userId,
-      teamId: args.plan.convex.teamId,
-    });
-  }
-
-  if (
-    args.plan.cloudflare.action === "delete_worker" ||
-    args.plan.cloudflare.action === "delete_workers"
-  ) {
-    await requireProviderConnection(ctx, {
-      userId: args.userId,
-      kind: "cloudflare",
-    });
-  }
-}
-
 async function appendDeletionEvent(
   ctx: MutationCtx,
   args: {
@@ -399,6 +374,38 @@ export const getById = internalQuery({
   },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.runId);
+  },
+});
+
+export const getProviderDeletionContext = internalQuery({
+  args: {
+    runId: id("workflow_vaultDeletion_runs"),
+  },
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (run === null) {
+      return null;
+    }
+    const vault = await ctx.db.get(run.vaultId);
+    if (!isConnectedVault(vault)) {
+      return null;
+    }
+    const [workers, projects] = await Promise.all([
+      ctx.db
+        .query("vaultCloudflareWorkers")
+        .withIndex("by_vault", (query) => query.eq("vaultId", vault._id))
+        .collect(),
+      ctx.db
+        .query("vaultConvexProjects")
+        .withIndex("by_vault", (query) => query.eq("vaultId", vault._id))
+        .collect(),
+    ]);
+    return {
+      organizationId: vault.organizationId,
+      githubProviderConnectionId: vault.githubProviderConnectionId,
+      workers,
+      projects,
+    };
   },
 });
 
@@ -511,10 +518,6 @@ export const createRetryRun = internalMutation({
     }
 
     const retainedSnapshot = readRetainedSnapshot(failedRun);
-    await assertPlanProviderConnections(ctx, {
-      userId: args.userId,
-      plan: retainedSnapshot.plan,
-    });
 
     const now = Date.now();
     const deletionRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {

@@ -66,12 +66,19 @@ async function appendRunEvent(
 
 async function resolveGitHubOctokit(
   ctx: Pick<ActionCtx, "runQuery">,
-  userId: Id<"users">,
+  args: {
+    organizationId: Id<"organizations">;
+    providerConnectionId: Id<"providerConnections">;
+  },
 ): Promise<Octokit> {
-  const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-    userId,
-    kind: "github",
-  });
+  const githubConnection = await ctx.runQuery(
+    internal.providerConnections.loadConnectedByIdForOrganization,
+    {
+      organizationId: args.organizationId,
+      providerConnectionId: args.providerConnectionId,
+      kind: "github",
+    },
+  );
   if (githubConnection?.kind !== "github") {
     throw new Error("GitHub is not connected.");
   }
@@ -99,16 +106,12 @@ export const deleteCloudflare = internalAction({
       return null;
     }
 
-    const cloudflareConnection = await ctx.runAction(
-      internal.cloudflareOAuth.resolveConnectionForUser,
-      {
-        userId: args.userId,
-      },
-    );
-    if (!cloudflareConnection) {
-      throw new Error("Cloudflare connection is required to remove resources.");
+    const context = await ctx.runQuery(internal.vault.deletion.runs.getProviderDeletionContext, {
+      runId: args.runId,
+    });
+    if (!context) {
+      throw new Error("Vault provider context is unavailable.");
     }
-    const cloudflareTransport = resolveCloudflareApiTransport(cloudflareConnection.auth.method);
 
     const workers =
       plan.cloudflare.action === "delete_worker" ? [plan.cloudflare] : plan.cloudflare.workers;
@@ -116,12 +119,32 @@ export const deleteCloudflare = internalAction({
       throw new Error("Cloudflare deletion plan must include at least one Worker.");
     }
     for (const worker of workers) {
+      const attachment = context.workers.find(
+        (candidate) =>
+          candidate.accountId === worker.accountId &&
+          candidate.workerName === worker.workerName &&
+          candidate.workerTag === worker.workerTag,
+      );
+      if (!attachment) {
+        throw new Error("Cloudflare Worker attachment is unavailable.");
+      }
+      const cloudflareConnection = await ctx.runQuery(
+        internal.providerConnections.loadConnectedByIdForOrganization,
+        {
+          organizationId: context.organizationId,
+          providerConnectionId: attachment.providerConnectionId,
+          kind: "cloudflare",
+        },
+      );
+      if (cloudflareConnection?.kind !== "cloudflare") {
+        throw new Error("Cloudflare connection is required to remove resources.");
+      }
       try {
         await deleteCloudflareResources({
           accountId: worker.accountId,
           workerTag: worker.workerTag,
           cloudflareToken: cloudflareConnection.auth.credential,
-          transport: cloudflareTransport,
+          transport: resolveCloudflareApiTransport(cloudflareConnection.auth.method),
         });
       } catch (error) {
         if (!isCloudflareWorkerNotFoundError(error)) {
@@ -152,48 +175,46 @@ export const deleteConvex = internalAction({
       return null;
     }
 
-    const convexConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: args.userId,
-      kind: "convex",
+    const context = await ctx.runQuery(internal.vault.deletion.runs.getProviderDeletionContext, {
+      runId: args.runId,
     });
-    if (convexConnection?.kind !== "convex") {
-      throw new Error("Convex connection is required to remove resources.");
-    }
-    if (convexConnection.teamId !== plan.convex.teamId) {
-      throw new Error("Connect the Convex team that owns these projects before removing them.");
+    if (!context) {
+      throw new Error("Vault provider context is unavailable.");
     }
 
     try {
-      switch (plan.convex.action) {
-        case "delete_project": {
+      const teamId = plan.convex.teamId;
+      const projectIds =
+        plan.convex.action === "delete_project" ? [plan.convex.projectId] : plan.convex.projectIds;
+      for (const projectId of projectIds) {
+        const attachment = context.projects.find(
+          (candidate) => candidate.teamId === teamId && candidate.projectId === projectId,
+        );
+        if (!attachment) {
+          throw new Error("Convex project attachment is unavailable.");
+        }
+        const convexConnection = await ctx.runQuery(
+          internal.providerConnections.loadConnectedByIdForOrganization,
+          {
+            organizationId: context.organizationId,
+            providerConnectionId: attachment.providerConnectionId,
+            kind: "convex",
+          },
+        );
+        if (convexConnection?.kind !== "convex" || convexConnection.teamId !== attachment.teamId) {
+          throw new Error("Connect the Convex team that owns these projects before removing them.");
+        }
+        try {
           await requestConvexManagementApi(
             convexConnection.auth.credential,
             "POST",
             "/projects/{project_id}/delete",
-            { params: { path: { project_id: plan.convex.projectId } } },
+            { params: { path: { project_id: projectId } } },
           );
-          break;
-        }
-        case "delete_projects": {
-          for (const projectId of plan.convex.projectIds) {
-            try {
-              await requestConvexManagementApi(
-                convexConnection.auth.credential,
-                "POST",
-                "/projects/{project_id}/delete",
-                { params: { path: { project_id: projectId } } },
-              );
-            } catch (error) {
-              if (!isConvexManagementNotFoundError(error)) {
-                throw error;
-              }
-            }
+        } catch (error) {
+          if (!isConvexManagementNotFoundError(error)) {
+            throw error;
           }
-          break;
-        }
-        default: {
-          plan.convex satisfies never;
-          throw new Error("Unsupported Convex deletion action.");
         }
       }
     } catch (error) {
@@ -224,7 +245,16 @@ export const deleteGitHubRepository = internalAction({
       return null;
     }
 
-    const octokit = await resolveGitHubOctokit(ctx, args.userId);
+    const context = await ctx.runQuery(internal.vault.deletion.runs.getProviderDeletionContext, {
+      runId: args.runId,
+    });
+    if (!context) {
+      throw new Error("Vault provider context is unavailable.");
+    }
+    const octokit = await resolveGitHubOctokit(ctx, {
+      organizationId: context.organizationId,
+      providerConnectionId: context.githubProviderConnectionId,
+    });
     try {
       const repository = await octokit.rest.repos.get({
         owner: plan.githubRepository.owner,

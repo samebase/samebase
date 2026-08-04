@@ -56,6 +56,18 @@ export const getById = internalQuery({
   },
 });
 
+export const getPlanByVaultId = internalQuery({
+  args: {
+    vaultId: id("vaults"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("workflow_vaultProvisioning_plans")
+      .withIndex("by_vault", (query) => query.eq("vaultId", args.vaultId))
+      .unique();
+  },
+});
+
 export const createRetryForVault = internalMutation({
   args: {
     userId: id("users"),

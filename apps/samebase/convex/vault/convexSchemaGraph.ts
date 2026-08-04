@@ -1183,11 +1183,13 @@ export const readRefreshTarget = internalQuery({
       throw new Error("Convex project not found.");
     }
 
-    const connection = await ctx.db
-      .query("providerConnections")
-      .withIndex("by_user_kind", (q) => q.eq("userId", args.userId).eq("kind", "convex"))
-      .first();
-    if (connection?.kind !== "convex") {
+    const connection = await ctx.db.get(project.providerConnectionId);
+    if (
+      !connection ||
+      connection.organizationId !== vault.organizationId ||
+      connection.kind !== "convex" ||
+      connection.state !== "connected"
+    ) {
       throw new Error("Convex connection is required.");
     }
     const token = connection.auth.credential.trim();

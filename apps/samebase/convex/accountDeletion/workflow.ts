@@ -186,11 +186,17 @@ export const deleteProviderConnections = internalMutation({
 
     const connections = await ctx.db
       .query("providerConnections")
-      .withIndex("by_user", (query) => query.eq("userId", run.identity.userId))
+      .withIndex("by_connected_by_user", (query) =>
+        query.eq("connectedByUserId", run.identity.userId),
+      )
+      .filter((query) => query.eq(query.field("state"), "connected"))
       .take(25);
 
     for (const connection of connections) {
-      await ctx.db.delete(connection._id);
+      await ctx.runMutation(internal.providerConnections.disconnectForAccountDeletion, {
+        connectedByUserId: run.identity.userId,
+        providerConnectionId: connection._id,
+      });
     }
 
     return connections.length < 25;

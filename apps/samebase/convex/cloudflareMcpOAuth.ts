@@ -358,7 +358,11 @@ export async function revokeCloudflareMcpOAuthGrant(args: {
   }
 }
 
-async function buildCloudflareMcpOAuthUrl(ctx: OAuthContext, userId: Id<"users">): Promise<string> {
+async function buildCloudflareMcpOAuthUrl(
+  ctx: OAuthContext,
+  userId: Id<"users">,
+  providerConnectionId?: Id<"providerConnections">,
+): Promise<string> {
   const redirectUri = readRequiredEnv("PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL");
 
   const state = randomToken();
@@ -371,6 +375,7 @@ async function buildCloudflareMcpOAuthUrl(ctx: OAuthContext, userId: Id<"users">
   await ctx.runMutation(internal.oauthState.createOauthState, {
     provider: "cloudflare_mcp",
     userId,
+    providerConnectionId,
     state,
     codeVerifier,
     clientId,
@@ -394,7 +399,9 @@ async function buildCloudflareMcpOAuthUrl(ctx: OAuthContext, userId: Id<"users">
 }
 
 const storeCloudflareMcpOauthConnectionArgs = {
-  userId: id("users"),
+  organizationId: id("organizations"),
+  connectedByUserId: id("users"),
+  providerConnectionId: optional(id("providerConnections")),
   accessToken: string(),
   refreshToken: string(),
   expiresAt: number(),
@@ -409,10 +416,10 @@ export const storeCloudflareMcpOauthConnection = internalMutation({
   returns: storeCloudflareMcpOauthConnectionResultValidator,
   handler: async (ctx, args) => {
     const checkedAt = Date.now();
-    await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
-      userId: args.userId,
+    const connection = {
+      kind: "cloudflare" as const,
       auth: {
-        method: "mcp_oauth",
+        method: "mcp_oauth" as const,
         credential: args.accessToken,
         refreshCredential: args.refreshToken,
         credentialExpiresAt: args.expiresAt,
@@ -423,11 +430,25 @@ export const storeCloudflareMcpOauthConnection = internalMutation({
         status: deriveMcpTokenStatusFromExpiry(args.expiresAt, checkedAt),
         checkedAt,
         expiresAt: args.expiresAt,
-        source: "expiry_metadata",
+        source: "expiry_metadata" as const,
       },
-    });
+    };
+    if (args.providerConnectionId !== undefined) {
+      await ctx.runMutation(internal.providerConnections.reauthorizeConnected, {
+        organizationId: args.organizationId,
+        connectedByUserId: args.connectedByUserId,
+        providerConnectionId: args.providerConnectionId,
+        connection,
+      });
+    } else {
+      await ctx.runMutation(internal.providerConnections.createConnected, {
+        organizationId: args.organizationId,
+        connectedByUserId: args.connectedByUserId,
+        connection,
+      });
+    }
     console.log("cloudflare:mcp_oauth:connection_stored", {
-      userId: args.userId,
+      organizationId: args.organizationId,
       clientIdLength: args.clientId.length,
       expiresAt: args.expiresAt,
     });
@@ -471,15 +492,21 @@ type ResolvedCloudflareConnection = Infer<typeof resolvedCloudflareConnectionVal
 
 export const resolveConnectionForUser = internalAction({
   args: {
+    organizationId: id("organizations"),
+    providerConnectionId: id("providerConnections"),
     userId: id("users"),
     forceRefresh: optional(boolean()),
   },
   returns: resolveConnectionForUserResultValidator,
   handler: async (ctx, args): Promise<ResolvedCloudflareConnection | null> => {
-    const connection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: args.userId,
-      kind: "cloudflare",
-    });
+    const connection = await ctx.runQuery(
+      internal.providerConnections.loadConnectedByIdForOrganization,
+      {
+        organizationId: args.organizationId,
+        providerConnectionId: args.providerConnectionId,
+        kind: "cloudflare",
+      },
+    );
     if (connection?.kind !== "cloudflare") {
       return null;
     }
@@ -532,8 +559,10 @@ export const resolveConnectionForUser = internalAction({
         source: "refresh_attempt",
         errorMessage: message,
       };
-      await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
+      await ctx.runMutation(internal.providerConnections.updateCloudflareConnected, {
+        organizationId: args.organizationId,
         userId: args.userId,
+        providerConnectionId: args.providerConnectionId,
         auth: connection.auth,
         defaultAccount: connection.defaultAccount,
         tokenHealth,
@@ -557,8 +586,10 @@ export const resolveConnectionForUser = internalAction({
         source: "refresh_attempt",
         errorMessage: message,
       };
-      await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
+      await ctx.runMutation(internal.providerConnections.updateCloudflareConnected, {
+        organizationId: args.organizationId,
         userId: args.userId,
+        providerConnectionId: args.providerConnectionId,
         auth: connection.auth,
         defaultAccount: connection.defaultAccount,
         tokenHealth,
@@ -603,8 +634,10 @@ export const resolveConnectionForUser = internalAction({
         clientIdLength: clientId.length,
         errorMessage: tokenHealth.errorMessage,
       });
-      await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
+      await ctx.runMutation(internal.providerConnections.updateCloudflareConnected, {
+        organizationId: args.organizationId,
         userId: args.userId,
+        providerConnectionId: args.providerConnectionId,
         auth: connection.auth,
         defaultAccount: connection.defaultAccount,
         tokenHealth,
@@ -627,8 +660,10 @@ export const resolveConnectionForUser = internalAction({
       source: "refresh_attempt",
     };
 
-    await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
+    await ctx.runMutation(internal.providerConnections.updateCloudflareConnected, {
+      organizationId: args.organizationId,
       userId: args.userId,
+      providerConnectionId: args.providerConnectionId,
       auth: refreshedAuth,
       defaultAccount: connection.defaultAccount,
       tokenHealth: refreshedTokenHealth,
@@ -652,8 +687,18 @@ export const getCloudflareMcpOAuthUrl = action({
   access: "access_provider_connections",
   args: {},
   returns: getCloudflareMcpOAuthUrlResultValidator,
-  handler: async (ctx) => {
-    return await buildCloudflareMcpOAuthUrl(ctx, ctx.viewer.userId);
+  handler: async (ctx): Promise<string> => {
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.getOrganizationIdForUser,
+      {
+        userId: ctx.viewer.userId,
+      },
+    );
+    const connection = await ctx.runQuery(internal.providerConnections.loadDefaultForOrganization, {
+      organizationId,
+      kind: "cloudflare",
+    });
+    return await buildCloudflareMcpOAuthUrl(ctx, ctx.viewer.userId, connection?._id);
   },
 });
 
@@ -662,7 +707,14 @@ export const startCloudflareMcpOAuth = httpAction(async (ctx) => {
   if (!userId) {
     return new Response("Unauthorized", { status: 401 });
   }
-  const authorizeUrl = await buildCloudflareMcpOAuthUrl(ctx, userId);
+  const organizationId = await ctx.runQuery(internal.organizationAccess.getOrganizationIdForUser, {
+    userId,
+  });
+  const connection = await ctx.runQuery(internal.providerConnections.loadDefaultForOrganization, {
+    organizationId,
+    kind: "cloudflare",
+  });
+  const authorizeUrl = await buildCloudflareMcpOAuthUrl(ctx, userId, connection?._id);
   return Response.redirect(authorizeUrl, 302);
 });
 
@@ -761,7 +813,9 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
     );
 
     await ctx.runMutation(internal.cloudflareMcpOAuth.storeCloudflareMcpOauthConnection, {
-      userId: oauthState.userId,
+      organizationId: oauthState.organizationId,
+      connectedByUserId: oauthState.userId,
+      providerConnectionId: oauthState.providerConnectionId,
       accessToken: token.access_token,
       refreshToken: token.refresh_token,
       expiresAt,

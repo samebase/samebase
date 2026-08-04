@@ -119,10 +119,13 @@ function defineMcpTool<
           status: "ok",
         };
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Tool execution failed.";
         return {
           status: "error",
-          text: message,
+          text:
+            error instanceof Error &&
+            error.message === "Another vault infrastructure operation is active."
+              ? error.message
+              : "The provider operation failed. Check the provider connection and retry.",
         };
       }
     },

@@ -281,7 +281,10 @@ describe("account deletion workflow ownership and outcomes", () => {
       for (let index = 0; index < 26; index += 1) {
         await ctx.db.insert("providerConnections", {
           kind: "github",
-          userId: ids.userId,
+          state: "connected",
+          organizationId: ids.organizationId,
+          connectedByUserId: ids.userId,
+          accountId: `github-account-${index}`,
           auth: { method: "api_key", credential: `credential-${index}` },
           createdAt: now + index,
           updatedAt: now + index,
@@ -303,17 +306,24 @@ describe("account deletion workflow ownership and outcomes", () => {
   it("rejects OAuth callbacks, credential refresh, and disconnect writes after the deletion lock", async () => {
     const { ids, t } = await seedRunningDeletion();
     await expect(
-      t.mutation(internal.providerConnections.upsertGithub, {
-        userId: ids.userId,
-        auth: { method: "oauth", credential: "late-oauth-token" },
-        username: "late-user",
+      t.mutation(internal.providerConnections.createConnected, {
+        organizationId: ids.organizationId,
+        connectedByUserId: ids.userId,
+        connection: {
+          kind: "github",
+          auth: { method: "oauth", credential: "late-oauth-token" },
+          accountId: "late-github-account",
+          username: "late-user",
+        },
       }),
     ).rejects.toThrow("Provider connections are unavailable during account deletion.");
 
     await t.run(async (ctx) => {
-      await ctx.db.insert("providerConnections", {
+      return await ctx.db.insert("providerConnections", {
         kind: "cloudflare",
-        userId: ids.userId,
+        state: "connected",
+        organizationId: ids.organizationId,
+        connectedByUserId: ids.userId,
         auth: {
           method: "mcp_oauth",
           credential: "late-access-token",
@@ -326,14 +336,27 @@ describe("account deletion workflow ownership and outcomes", () => {
         updatedAt: now,
       });
     });
+    const cloudflareConnectionId = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("providerConnections")
+        .withIndex("by_connected_by_user", (query) => query.eq("connectedByUserId", ids.userId))
+        .unique();
+    });
+    if (cloudflareConnectionId === null) {
+      throw new Error("Expected Cloudflare connection");
+    }
     await expect(
       t.mutation(internal.providerConnections.claimCloudflareTokenRefresh, {
+        organizationId: ids.organizationId,
         userId: ids.userId,
+        providerConnectionId: cloudflareConnectionId._id,
       }),
     ).rejects.toThrow("Provider connections are unavailable during account deletion.");
     await expect(
-      t.mutation(internal.providerConnections.removeByUserAndKind, {
-        userId: ids.userId,
+      t.mutation(internal.providerConnections.disconnect, {
+        organizationId: ids.organizationId,
+        disconnectedByUserId: ids.userId,
+        providerConnectionId: cloudflareConnectionId._id,
         kind: "cloudflare",
       }),
     ).rejects.toThrow("Provider connections are unavailable during account deletion.");

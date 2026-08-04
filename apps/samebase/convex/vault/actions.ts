@@ -344,10 +344,14 @@ async function checkGitHubRepositoryNameAvailability(
   }
 
   try {
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: args.userId,
-      kind: "github",
-    });
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.getOrganizationIdForUser,
+      { userId: args.userId },
+    );
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.loadCurrentConnectedForOrganization,
+      { organizationId, kind: "github" },
+    );
     if (githubConnection?.kind !== "github") {
       return buildUnknownResult("Could not check GitHub repository name.");
     }
@@ -499,7 +503,7 @@ async function readCloudflareWorkerNameAvailability(args: {
 }
 
 async function checkCloudflareWorkerNameAvailability(
-  ctx: Pick<ActionCtx, "runAction">,
+  ctx: Pick<ActionCtx, "runAction" | "runQuery">,
   args: {
     userId: Id<"users">;
     workerName: string;
@@ -526,7 +530,7 @@ async function checkCloudflareWorkerNameAvailability(
 }
 
 async function checkCloudflareWorkerNameAvailabilityForConnection(
-  ctx: Pick<ActionCtx, "runAction">,
+  ctx: Pick<ActionCtx, "runAction" | "runQuery">,
   args: {
     userId: Id<"users">;
     workerName: string;
@@ -606,7 +610,8 @@ async function checkCreateResourceNameAvailabilityForUser(
 async function resolveGithubConnectionUsername(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
-    connection: Extract<Doc<"providerConnections">, { kind: "github" }>;
+    connection: Extract<Doc<"providerConnections">, { kind: "github"; state: "connected" }>;
+    organizationId: Id<"organizations">;
     userId: Id<"users">;
   },
 ): Promise<string> {
@@ -622,10 +627,15 @@ async function resolveGithubConnectionUsername(
   if (!username) {
     throw new Error("GitHub connection is missing an account login.");
   }
+  if (String(data.id) !== args.connection.accountId) {
+    throw new Error("GitHub connection account changed before username update.");
+  }
 
-  await ctx.runMutation(internal.providerConnections.upsertGithub, {
+  await ctx.runMutation(internal.providerConnections.setGithubUsername, {
+    organizationId: args.organizationId,
+    providerConnectionId: args.connection._id,
     userId: args.userId,
-    auth: args.connection.auth,
+    accountId: args.connection.accountId,
     username,
   });
 
@@ -638,16 +648,21 @@ export const listRepositoryOwners = action({
   returns: array(githubRepositoryOwnerOption),
   handler: async (ctx): Promise<GitHubRepositoryOwnerOption[]> => {
     const userId = ctx.viewer.userId;
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId,
-      kind: "github",
-    });
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.getOrganizationIdForUser,
+      { userId },
+    );
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.loadCurrentConnectedForOrganization,
+      { organizationId, kind: "github" },
+    );
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected.");
     }
 
     const username = await resolveGithubConnectionUsername(ctx, {
       connection: githubConnection,
+      organizationId,
       userId,
     });
     const octokit = new Octokit({
@@ -669,10 +684,10 @@ export async function connectRepositoryForUser(
 ): Promise<ConnectRepositoryResult> {
   const userId = args.userId;
   const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
-  const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-    userId,
-    kind: "github",
-  });
+  const githubConnection = await ctx.runQuery(
+    internal.providerConnections.loadCurrentConnectedForOrganization,
+    { organizationId: args.organizationId, kind: "github" },
+  );
   if (githubConnection?.kind !== "github") {
     throw new Error("GitHub is not connected");
   }
@@ -682,6 +697,7 @@ export async function connectRepositoryForUser(
     {
       userId,
       organizationId: args.organizationId,
+      githubProviderConnectionId: githubConnection._id,
       ghRepoOwner: owner,
       ghRepoName: name,
     },
@@ -738,15 +754,16 @@ export async function createAppForUser(
     throw new Error("GitHub owner is required.");
   }
 
-  const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-    userId: args.userId,
-    kind: "github",
-  });
+  const githubConnection = await ctx.runQuery(
+    internal.providerConnections.loadCurrentConnectedForOrganization,
+    { organizationId: args.organizationId, kind: "github" },
+  );
   if (githubConnection?.kind !== "github") {
     throw new Error("GitHub is not connected.");
   }
   const githubUsername = await resolveGithubConnectionUsername(ctx, {
     connection: githubConnection,
+    organizationId: args.organizationId,
     userId: args.userId,
   });
   const githubOctokit = new Octokit({
@@ -805,6 +822,9 @@ export async function createAppForUser(
     {
       userId: args.userId,
       organizationId: args.organizationId,
+      githubProviderConnectionId: githubConnection._id,
+      convexProviderConnectionId: convexConnection.providerConnectionId,
+      cloudflareProviderConnectionId: cloudflareConnection.providerConnectionId,
       ghRepoOwner,
       ghRepoName: repoName,
       visibility,

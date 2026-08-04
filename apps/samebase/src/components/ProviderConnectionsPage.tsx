@@ -1320,9 +1320,9 @@ export function ProviderConnectionsPage() {
   const selectCloudflareDefaultAccount = useAction(api.vault.cloudflare.selectDefaultAccount);
   const connectGithubWithApiKey = useAction(api.users.connectGithubWithApiKey);
   const connectConvexWithApiKey = useAction(api.users.connectConvexWithApiKey);
-  const disconnectGithub = useMutation(api.users.disconnectGithub);
-  const disconnectConvex = useMutation(api.users.disconnectConvex);
-  const disconnectCloudflare = useMutation(api.users.disconnectCloudflare);
+  const disconnectGithub = useAction(api.users.disconnectGithub);
+  const disconnectConvex = useAction(api.users.disconnectConvex);
+  const disconnectCloudflare = useAction(api.users.disconnectCloudflare);
   const revokeMcpGrant = useMutation(api.mcp.grants.revokeCurrentUserGrant);
   const githubProviderSummary = useConvexQuery(api.users.getGithubProviderSummary);
   const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus);

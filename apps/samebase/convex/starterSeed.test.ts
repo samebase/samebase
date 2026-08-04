@@ -82,7 +82,10 @@ function makeGitClient(options?: {
       createBootstrapCommitCalls.push(args);
       didBootstrap = true;
       bootstrapCounter += 1;
-      return { sha: `bootstrap-${bootstrapCounter}` };
+      return {
+        commitSha: `bootstrap-${bootstrapCounter}`,
+        treeSha: `bootstrap-tree-${bootstrapCounter}`,
+      };
     },
   };
 
@@ -251,7 +254,7 @@ describe("seedRepositoryWithStarter", () => {
     });
   });
 
-  it("bootstraps empty repositories then force-updates the branch to the root starter commit", async () => {
+  it("bootstraps empty repositories then adds the starter commit to that branch", async () => {
     const mock = makeGitClient({
       createTreeFailsWithEmptyRepoUntilBootstrap: true,
     });
@@ -275,8 +278,17 @@ describe("seedRepositoryWithStarter", () => {
     });
 
     expect(mock.createTreeCalls).toHaveLength(2);
+    expect(mock.createTreeCalls[1]).toMatchObject({
+      baseTreeSha: "bootstrap-tree-1",
+    });
+    expect(mock.createTreeCalls[1].tree).toContainEqual({
+      path: ".samebase-seed-bootstrap",
+      mode: "100644",
+      type: "blob",
+      sha: null,
+    });
     expect(mock.createCommitCalls).toHaveLength(1);
-    expect(mock.createCommitCalls[0].parents).toEqual([]);
+    expect(mock.createCommitCalls[0].parents).toEqual(["bootstrap-1"]);
     expect(mock.createRefCalls).toHaveLength(0);
     expect(mock.updateRefCalls).toHaveLength(1);
     expect(mock.updateRefCalls[0]).toEqual({
@@ -284,7 +296,7 @@ describe("seedRepositoryWithStarter", () => {
       repo: "repo",
       ref: "heads/main",
       sha: "commit-1",
-      force: true,
+      force: false,
     });
 
     expect(result).toEqual({
@@ -325,7 +337,7 @@ describe("seedRepositoryWithStarter", () => {
       repo: "repo",
       ref: "heads/main",
       sha: "commit-1",
-      force: true,
+      force: false,
     });
   });
 });

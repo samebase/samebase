@@ -40,14 +40,31 @@ async function seedDatabaseEditorVault(
     });
     const organizationId = await ctx.db.insert("organizations", {});
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
-    await ctx.db.insert("providerConnections", {
+    const convexProviderConnectionId = await ctx.db.insert("providerConnections", {
       kind: "convex",
-      userId,
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
       auth: convexAuth,
       teamId: "1000",
       teamSlug: "ada-team",
       createdAt: 1,
       updatedAt: 2,
+    });
+    const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "github",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "api_key", credential: "github-token" },
+      accountId: "github-ada",
+      username: "ada",
+      createdAt: 1,
+      updatedAt: 2,
+    });
+    await ctx.db.patch(organizationId, {
+      selectedConvexProviderConnectionId: convexProviderConnectionId,
+      selectedGithubProviderConnectionId: githubProviderConnectionId,
     });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
@@ -67,6 +84,7 @@ async function seedDatabaseEditorVault(
     });
     await ctx.db.replace(vaultId, {
       organizationId,
+      githubProviderConnectionId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "connect_existing_repository",
@@ -81,6 +99,7 @@ async function seedDatabaseEditorVault(
     const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
       vaultId,
       organizationId,
+      providerConnectionId: convexProviderConnectionId,
       teamId: "1000",
       projectId: "1001",
       convexConfigPath: "convex.json",
@@ -295,6 +314,28 @@ describe("embedded dashboard project ownership", () => {
       const otherOrganizationId = await ctx.db.insert("organizations", {});
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
       await ctx.db.insert("organizationMemberships", { organizationId, userId: otherUserId });
+      const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "github",
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
+        auth: { method: "api_key", credential: "github-token" },
+        accountId: "github-ada",
+        username: "ada",
+        createdAt: 1,
+        updatedAt: 2,
+      });
+      const convexProviderConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "convex",
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
+        auth: { method: "api_key", credential: "convex-token" },
+        teamId: "team",
+        teamSlug: "ada-team",
+        createdAt: 1,
+        updatedAt: 2,
+      });
       const insertConnectedVault = async (ownerId: Id<"users">, name: string) => {
         const vaultId = await ctx.db.insert("vaults", {
           organizationId,
@@ -314,6 +355,7 @@ describe("embedded dashboard project ownership", () => {
         });
         await ctx.db.replace(vaultId, {
           organizationId,
+          githubProviderConnectionId,
           deletion: { state: "not_deleting" },
           state: "connected",
           githubMode: "connect_existing_repository",
@@ -333,6 +375,7 @@ describe("embedded dashboard project ownership", () => {
       const projectForOtherVaultId = await ctx.db.insert("vaultConvexProjects", {
         vaultId: otherVaultId,
         organizationId,
+        providerConnectionId: convexProviderConnectionId,
         teamId: "team",
         projectId: "other-parent",
         convexConfigPath: "convex.json",
@@ -341,12 +384,14 @@ describe("embedded dashboard project ownership", () => {
       const mismatchedProjectId = await ctx.db.insert("vaultConvexProjects", {
         vaultId: matchingVaultId,
         organizationId: otherOrganizationId,
+        providerConnectionId: convexProviderConnectionId,
         teamId: "team",
         projectId: "wrong-organization",
         convexConfigPath: "convex.json",
         origin: "selected_existing",
       });
       return {
+        convexProviderConnectionId,
         matchingVaultId,
         mismatchedProjectId,
         otherVaultId,
@@ -361,7 +406,11 @@ describe("embedded dashboard project ownership", () => {
         vaultId: ids.otherVaultId,
         convexProjectId: ids.projectForOtherVaultId,
       }),
-    ).resolves.toEqual({ projectId: "other-parent", teamId: "team" });
+    ).resolves.toEqual({
+      projectId: "other-parent",
+      providerConnectionId: ids.convexProviderConnectionId,
+      teamId: "team",
+    });
     await expect(
       t.query(internal.vault.database.readEmbeddedDashboardProject, {
         userId: ids.userId,

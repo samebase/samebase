@@ -30,6 +30,11 @@ describe("buildGithubRequiredScopeHealth", () => {
         status: "granted",
       },
       {
+        scope: "workflow",
+        label: "Add and update GitHub Actions workflows",
+        status: "missing",
+      },
+      {
         scope: "delete_repo",
         label: "Delete Samebase-managed repositories",
         status: "missing",
@@ -73,7 +78,7 @@ describe("buildGithubRequiredScopeHealth", () => {
         grantedScopes: [],
         scopeReportAvailable: false,
       }).map((scope) => scope.status),
-    ).toEqual(["unknown", "unknown", "unknown", "unknown", "unknown", "unknown"]);
+    ).toEqual(["unknown", "unknown", "unknown", "unknown", "unknown", "unknown", "unknown"]);
   });
 
   it("treats API key scope headers as optional signal", () => {
@@ -82,13 +87,13 @@ describe("buildGithubRequiredScopeHealth", () => {
         grantedScopes: [],
         scopeReportAvailable: false,
       }).map((scope) => scope.status),
-    ).toEqual(["unknown", "unknown", "unknown", "unknown", "unknown", "unknown"]);
+    ).toEqual(["unknown", "unknown", "unknown", "unknown", "unknown", "unknown", "unknown"]);
 
     expect(
       buildGithubRequiredScopeHealth({
         grantedScopes: ["repo"],
         scopeReportAvailable: true,
       }).map((scope) => scope.status),
-    ).toEqual(["granted", "missing", "missing", "missing", "missing", "missing"]);
+    ).toEqual(["granted", "missing", "missing", "missing", "missing", "missing", "missing"]);
   });
 });

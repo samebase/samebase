@@ -13,6 +13,16 @@ async function seedDeletingUserWithConnectedVault() {
     });
     const organizationId = await ctx.db.insert("organizations", {});
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "github",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      accountId: "github-account",
+      auth: { method: "api_key", credential: "github-token" },
+      createdAt: 1,
+      updatedAt: 1,
+    });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
       deletion: { state: "not_deleting" },
@@ -33,6 +43,7 @@ async function seedDeletingUserWithConnectedVault() {
       organizationId,
       deletion: { state: "not_deleting" },
       state: "connected",
+      githubProviderConnectionId,
       githubMode: "connect_existing_repository",
       runId: provisioningRunId,
       ghRepoId: "repository-id",
@@ -70,7 +81,13 @@ async function seedDeletingUserWithConnectedVault() {
         requestedAt: 3,
       },
     });
-    return { organizationId, userId, vaultId, provisioningRunId };
+    return {
+      githubProviderConnectionId,
+      organizationId,
+      userId,
+      vaultId,
+      provisioningRunId,
+    };
   });
   return { ids, t };
 }
@@ -84,6 +101,7 @@ describe("account deletion late-write fences", () => {
       t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
         userId: ids.userId,
         organizationId: ids.organizationId,
+        githubProviderConnectionId: ids.githubProviderConnectionId,
         ghRepoOwner: "Ada",
         ghRepoName: "Late-App",
       }),

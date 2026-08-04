@@ -431,9 +431,22 @@ describe("MCP tools/call access enforcement", () => {
         status: "inactive",
       });
     });
+    const githubProviderConnectionId = await t.run(async (ctx) => {
+      return await ctx.db.insert("providerConnections", {
+        state: "connected",
+        kind: "github",
+        organizationId,
+        connectedByUserId: userId,
+        accountId: "github-account",
+        auth: { method: "api_key", credential: "github-token" },
+        createdAt: 1,
+        updatedAt: 1,
+      });
+    });
     await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
       userId,
       organizationId,
+      githubProviderConnectionId,
       ghRepoOwner: "ada",
       ghRepoName: "existing-app",
     });
@@ -450,6 +463,40 @@ describe("MCP tools/call access enforcement", () => {
       },
     });
     expect(JSON.stringify(payload)).not.toContain("_creationTime");
+  });
+
+  it("returns a fixed MCP failure message when a provider tool fails", async () => {
+    const { callTool, organizationId, t } = await seedMcpBearer({
+      isApproved: true,
+      scopes: ["access_provider_connections"],
+    });
+    const vaultId = await t.run(async (ctx) => {
+      return await ctx.db.insert("vaults", {
+        organizationId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+    });
+
+    const payload = await callTool("vault_cloudflare_createWorker", {
+      vaultId,
+      accountId: "account_1",
+      workerName: "provider-secret-sentinel",
+      rootDirectory: "/",
+    });
+
+    expect(payload).toMatchObject({
+      result: {
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: "The provider operation failed. Check the provider connection and retry.",
+          },
+        ],
+      },
+    });
+    expect(JSON.stringify(payload)).not.toContain("provider-secret-sentinel");
   });
 
   it("creates and attaches a repository-backed Worker, then returns it in inventory", async () => {
@@ -569,29 +616,36 @@ describe("MCP tools/call access enforcement", () => {
         plan: "free",
         status: "inactive",
       });
-      await Promise.all([
-        ctx.db.insert("providerConnections", {
-          kind: "cloudflare",
-          userId,
-          auth: {
-            method: "oauth",
-            credential: "cloudflare-token",
-            refreshCredential: "cloudflare-refresh-token",
-            credentialExpiresAt: 4_000_000_000_000,
-          },
-          defaultAccount: { state: "not_selected" },
-          createdAt: 1,
-          updatedAt: 1,
-        }),
-        ctx.db.insert("providerConnections", {
-          kind: "github",
-          userId,
-          auth: { method: "api_key", credential: "github-token" },
-          username: "ada",
-          createdAt: 1,
-          updatedAt: 1,
-        }),
-      ]);
+      const cloudflareProviderConnectionId = await ctx.db.insert("providerConnections", {
+        state: "connected",
+        kind: "cloudflare",
+        organizationId,
+        connectedByUserId: userId,
+        auth: {
+          method: "oauth",
+          credential: "cloudflare-token",
+          refreshCredential: "cloudflare-refresh-token",
+          credentialExpiresAt: 4_000_000_000_000,
+        },
+        defaultAccount: { state: "not_selected" },
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+        state: "connected",
+        kind: "github",
+        organizationId,
+        connectedByUserId: userId,
+        accountId: "github-account",
+        auth: { method: "api_key", credential: "github-token" },
+        username: "ada",
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      await ctx.db.patch(organizationId, {
+        selectedCloudflareProviderConnectionId: cloudflareProviderConnectionId,
+        selectedGithubProviderConnectionId: githubProviderConnectionId,
+      });
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
@@ -612,6 +666,7 @@ describe("MCP tools/call access enforcement", () => {
         organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
+        githubProviderConnectionId,
         githubMode: "connect_existing_repository",
         runId,
         ghRepoId: "123",

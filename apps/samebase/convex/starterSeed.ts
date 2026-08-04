@@ -13,7 +13,7 @@ type StarterTemplateTreeEntry = {
   path: string;
   mode: StarterTemplateFileMode;
   type: "blob";
-} & ({ content: string } | { sha: string });
+} & ({ content: string } | { sha: string | null });
 
 type StarterTemplateFileMode = StarterTemplateManifest["fileModes"][string];
 
@@ -21,6 +21,7 @@ export type StarterSeedGitClient = {
   createTree(args: {
     owner: string;
     repo: string;
+    baseTreeSha?: string;
     tree: StarterTemplateTreeEntry[];
   }): Promise<{ sha: string }>;
   createBlob(args: {
@@ -50,7 +51,7 @@ export type StarterSeedGitClient = {
     message: string;
     path: string;
     contentBase64: string;
-  }): Promise<{ sha: string }>;
+  }): Promise<{ commitSha: string; treeSha: string }>;
 };
 
 type StarterSeedGitClientOptions = {
@@ -112,7 +113,7 @@ function isMissingBranchError(error: unknown): boolean {
   );
 }
 
-function readRequiredCommitSha(value: unknown, operation: string): string {
+function readRequiredSha(value: unknown, operation: string): string {
   if (typeof value === "string" && value.length > 0) {
     return value;
   }
@@ -175,13 +176,14 @@ export function createStarterSeedGitClient(
         method: "POST",
         endpoint: "/repos/{owner}/{repo}/git/trees",
         values: {
-          body: { tree: args.tree },
+          body: { baseTreeSha: args.baseTreeSha, tree: args.tree },
           params: { path: { owner: args.owner, repo: args.repo } },
         },
       });
       const response = await octokit.rest.git.createTree({
         owner: args.owner,
         repo: args.repo,
+        base_tree: args.baseTreeSha,
         tree: args.tree,
       });
 
@@ -299,7 +301,8 @@ export function createStarterSeedGitClient(
           content: args.contentBase64,
         });
         return {
-          sha: readRequiredCommitSha(response.data.commit.sha, "seed:bootstrapCommit"),
+          commitSha: readRequiredSha(response.data.commit.sha, "seed:bootstrapCommit"),
+          treeSha: readRequiredSha(response.data.commit.tree?.sha, "seed:bootstrapTree"),
         };
       } catch (error) {
         if (!isMissingBranchError(error)) {
@@ -326,7 +329,8 @@ export function createStarterSeedGitClient(
         content: args.contentBase64,
       });
       return {
-        sha: readRequiredCommitSha(response.data.commit.sha, "seed:bootstrapCommit"),
+        commitSha: readRequiredSha(response.data.commit.sha, "seed:bootstrapCommit"),
+        treeSha: readRequiredSha(response.data.commit.tree?.sha, "seed:bootstrapTree"),
       };
     },
   };
@@ -437,7 +441,11 @@ export async function seedRepositoryWithStarter(args: {
     manifestVersion: manifest.version,
   });
 
-  const createManifestTree = async (): Promise<{ sha: string }> => {
+  const bootstrapPath = ".samebase-seed-bootstrap";
+  const bootstrapMessage = "chore: bootstrap branch for starter seeding";
+  const bootstrapContentBase64 = Buffer.from("bootstrap\n", "utf8").toString("base64");
+
+  const createManifestTree = async (bootstrapTreeSha?: string): Promise<{ sha: string }> => {
     const binaryFileShas = await createBinaryFileBlobs({
       client: args.client,
       owner: args.owner,
@@ -449,6 +457,14 @@ export async function seedRepositoryWithStarter(args: {
       binaryFileShas,
       manifest.fileModes,
     );
+    if (bootstrapTreeSha) {
+      treeEntries.push({
+        path: bootstrapPath,
+        mode: "100644",
+        type: "blob",
+        sha: null,
+      });
+    }
 
     return await retryOperation({
       operation: "seed:createTree",
@@ -457,17 +473,14 @@ export async function seedRepositoryWithStarter(args: {
         await args.client.createTree({
           owner: args.owner,
           repo: args.repo,
+          baseTreeSha: bootstrapTreeSha,
           tree: treeEntries,
         }),
     });
   };
 
-  const bootstrapPath = ".samebase-seed-bootstrap";
-  const bootstrapMessage = "chore: bootstrap branch for starter seeding";
-  const bootstrapContentBase64 = Buffer.from("bootstrap\n", "utf8").toString("base64");
-
   let tree: { sha: string };
-  let seededFromEmptyRepository = false;
+  let bootstrapCommitSha: string | undefined;
 
   try {
     tree = await createManifestTree();
@@ -476,15 +489,13 @@ export async function seedRepositoryWithStarter(args: {
       throw error;
     }
 
-    seededFromEmptyRepository = true;
-
     console.warn("seed:bootstrap_needed", {
       repo: `${args.owner}/${args.repo}`,
       defaultBranch: args.defaultBranch,
       message: errorMessage(error),
     });
 
-    await retryOperation({
+    const bootstrapCommit = await retryOperation({
       operation: "seed:bootstrapCommit",
       run: async () =>
         await args.client.createBootstrapCommit({
@@ -496,12 +507,13 @@ export async function seedRepositoryWithStarter(args: {
           contentBase64: bootstrapContentBase64,
         }),
     });
+    bootstrapCommitSha = bootstrapCommit.commitSha;
 
     tree = await retryOperation({
       operation: "seed:createManifestTreeAfterBootstrap",
       maxAttempts: 5,
       shouldRetry: isEmptyRepositoryError,
-      run: createManifestTree,
+      run: async () => await createManifestTree(bootstrapCommit.treeSha),
     });
   }
 
@@ -513,11 +525,11 @@ export async function seedRepositoryWithStarter(args: {
         repo: args.repo,
         message: manifest.commitMessage,
         tree: tree.sha,
-        parents: [],
+        parents: bootstrapCommitSha ? [bootstrapCommitSha] : [],
       }),
   });
 
-  if (seededFromEmptyRepository) {
+  if (bootstrapCommitSha) {
     await retryOperation({
       operation: "seed:updateRefAfterBootstrap",
       run: async () =>
@@ -526,7 +538,7 @@ export async function seedRepositoryWithStarter(args: {
           repo: args.repo,
           ref: `heads/${args.defaultBranch}`,
           sha: commit.sha,
-          force: true,
+          force: false,
         }),
     });
   } else {

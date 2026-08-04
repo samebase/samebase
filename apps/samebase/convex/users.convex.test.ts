@@ -1,8 +1,45 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 import { makeConvexTest } from "./test.setup";
 import { ACCOUNT_EMAIL_MAX_LENGTH } from "../shared/accountPresentation";
+
+async function insertGithubConnection(
+  db: MutationCtx["db"],
+  args: {
+    userId: Id<"users">;
+    username: string;
+    method: "api_key" | "oauth";
+    credential: string;
+  },
+) {
+  const existingMembership = await db
+    .query("organizationMemberships")
+    .withIndex("by_user", (query) => query.eq("userId", args.userId))
+    .unique();
+  const organizationId =
+    existingMembership?.organizationId ?? (await db.insert("organizations", {}));
+  if (existingMembership === null) {
+    await db.insert("organizationMemberships", { organizationId, userId: args.userId });
+  }
+  const providerConnectionId = await db.insert("providerConnections", {
+    state: "connected",
+    kind: "github",
+    organizationId,
+    connectedByUserId: args.userId,
+    accountId: args.username,
+    auth: { method: args.method, credential: args.credential },
+    username: args.username,
+    createdAt: 1,
+    updatedAt: 2,
+  });
+  await db.patch(organizationId, {
+    selectedGithubProviderConnectionId: providerConnectionId,
+  });
+  return providerConnectionId;
+}
 
 describe("users Convex contract", () => {
   it("treats anonymous viewers as signed out", async () => {
@@ -16,7 +53,7 @@ describe("users Convex contract", () => {
     await expect(t.query(api.users.currentViewerRole)).resolves.toEqual({
       role: "role_anonymous",
     });
-    await expect(t.mutation(api.users.disconnectGithub)).rejects.toThrowError("Access denied");
+    await expect(t.action(api.users.disconnectGithub)).rejects.toThrowError("Access denied");
   });
 
   it("resolves the viewer presentation without provider identity", async () => {
@@ -29,16 +66,11 @@ describe("users Convex contract", () => {
       });
     });
     await t.run(async (ctx) => {
-      await ctx.db.insert("providerConnections", {
-        kind: "github",
+      await insertGithubConnection(ctx.db, {
         userId,
-        auth: {
-          method: "api_key",
-          credential: "test-github-api-key",
-        },
         username: "ada",
-        createdAt: 1,
-        updatedAt: 2,
+        method: "api_key",
+        credential: "test-github-api-key",
       });
     });
 
@@ -176,16 +208,11 @@ describe("users Convex contract", () => {
       });
     });
     await t.run(async (ctx) => {
-      await ctx.db.insert("providerConnections", {
-        kind: "github",
+      await insertGithubConnection(ctx.db, {
         userId: ownerId,
-        auth: {
-          method: "api_key",
-          credential: "test-owner-github-api-key",
-        },
         username: "owner-login",
-        createdAt: 1,
-        updatedAt: 2,
+        method: "api_key",
+        credential: "test-owner-github-api-key",
       });
     });
 
@@ -246,19 +273,17 @@ describe("users Convex contract", () => {
     await expect(asViewer.query(api.users.getGithubProviderSummary)).rejects.toThrowError(
       "Access denied",
     );
-    await expect(asViewer.mutation(api.users.disconnectGithub)).rejects.toThrowError(
-      "Access denied",
-    );
+    await expect(asViewer.action(api.users.disconnectGithub)).rejects.toThrowError("Access denied");
 
     const ownerConnectionAfterViewerDisconnect = await t.run(async (ctx) => {
       return await ctx.db
         .query("providerConnections")
-        .withIndex("by_user_kind", (q) => q.eq("userId", ownerId).eq("kind", "github"))
+        .withIndex("by_connected_by_user", (query) => query.eq("connectedByUserId", ownerId))
         .unique();
     });
     expect(ownerConnectionAfterViewerDisconnect).toMatchObject({
       kind: "github",
-      userId: ownerId,
+      connectedByUserId: ownerId,
       username: "owner-login",
     });
 
@@ -288,16 +313,11 @@ describe("users Convex contract", () => {
         email: "nicu.dev@gmail.com",
         isApproved: true,
       });
-      await ctx.db.insert("providerConnections", {
-        kind: "github",
+      await insertGithubConnection(ctx.db, {
         userId: insertedUserId,
-        auth: {
-          method: "api_key",
-          credential: "test-github-api-key",
-        },
         username: "nicu-chiciuc",
-        createdAt: 1,
-        updatedAt: 2,
+        method: "api_key",
+        credential: "test-github-api-key",
       });
       return insertedUserId;
     });
@@ -320,16 +340,11 @@ describe("users Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
-      await ctx.db.insert("providerConnections", {
-        kind: "github",
+      await insertGithubConnection(ctx.db, {
         userId: insertedUserId,
-        auth: {
-          method: "oauth",
-          credential: "github-oauth-token",
-        },
         username: "ada",
-        createdAt: 1,
-        updatedAt: 2,
+        method: "oauth",
+        credential: "github-oauth-token",
       });
       return insertedUserId;
     });
@@ -354,16 +369,11 @@ describe("users Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
-      await ctx.db.insert("providerConnections", {
-        kind: "github",
+      await insertGithubConnection(ctx.db, {
         userId: insertedUserId,
-        auth: {
-          method: "oauth",
-          credential: "github-oauth-token",
-        },
         username: "stored-login",
-        createdAt: 1,
-        updatedAt: 2,
+        method: "oauth",
+        credential: "github-oauth-token",
       });
       return insertedUserId;
     });
@@ -478,6 +488,11 @@ describe("users Convex contract", () => {
           status: "granted",
         },
         {
+          scope: "workflow",
+          label: "Add and update GitHub Actions workflows",
+          status: "missing",
+        },
+        {
           scope: "delete_repo",
           label: "Delete Samebase-managed repositories",
           status: "missing",
@@ -516,16 +531,11 @@ describe("users Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
-      await ctx.db.insert("providerConnections", {
-        kind: "github",
+      await insertGithubConnection(ctx.db, {
         userId: insertedUserId,
-        auth: {
-          method: "oauth",
-          credential: "github-oauth-token",
-        },
         username: "stored-login",
-        createdAt: 1,
-        updatedAt: 2,
+        method: "oauth",
+        credential: "github-oauth-token",
       });
       return insertedUserId;
     });
@@ -576,6 +586,7 @@ describe("users Convex contract", () => {
         "unknown",
         "unknown",
         "unknown",
+        "unknown",
       ]);
     } finally {
       vi.unstubAllGlobals();
@@ -590,16 +601,11 @@ describe("users Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
-      await ctx.db.insert("providerConnections", {
-        kind: "github",
+      await insertGithubConnection(ctx.db, {
         userId: insertedUserId,
-        auth: {
-          method: "oauth",
-          credential: "github-oauth-token",
-        },
         username: "stored-login",
-        createdAt: 1,
-        updatedAt: 2,
+        method: "oauth",
+        credential: "github-oauth-token",
       });
       return insertedUserId;
     });
@@ -652,6 +658,7 @@ describe("users Convex contract", () => {
         "unknown",
         "unknown",
         "unknown",
+        "unknown",
       ]);
     } finally {
       vi.unstubAllGlobals();
@@ -666,16 +673,11 @@ describe("users Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
-      await ctx.db.insert("providerConnections", {
-        kind: "github",
+      await insertGithubConnection(ctx.db, {
         userId: insertedUserId,
-        auth: {
-          method: "oauth",
-          credential: "github-oauth-token",
-        },
         username: "stored-login",
-        createdAt: 1,
-        updatedAt: 2,
+        method: "oauth",
+        credential: "github-oauth-token",
       });
       return insertedUserId;
     });
@@ -746,6 +748,7 @@ describe("users Convex contract", () => {
         "missing",
         "missing",
         "missing",
+        "missing",
         "granted",
         "missing",
       ]);
@@ -762,16 +765,32 @@ describe("users Convex contract", () => {
         email: "ada@example.com",
         isApproved: true,
       });
-      await ctx.db.insert("providerConnections", {
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      const providerConnectionId = await ctx.db.insert("providerConnections", {
+        state: "connected",
         kind: "cloudflare",
-        userId,
+        organizationId,
+        connectedByUserId: userId,
         auth: {
-          method: "api_key",
-          credential: "test-cloudflare-api-key",
+          method: "mcp_oauth",
+          credential: "test-cloudflare-access-token",
+          refreshCredential: "test-cloudflare-refresh-token",
+          credentialExpiresAt: Date.now() + 60 * 60 * 1000,
+          clientId: "test-cloudflare-client",
         },
         defaultAccount: { state: "not_selected" },
+        tokenHealth: {
+          status: "valid",
+          checkedAt: 2,
+          source: "runtime_error",
+          errorMessage: "provider-secret-sentinel",
+        },
         createdAt: 1,
         updatedAt: 2,
+      });
+      await ctx.db.patch(organizationId, {
+        selectedCloudflareProviderConnectionId: providerConnectionId,
       });
       return userId;
     });
@@ -781,9 +800,12 @@ describe("users Convex contract", () => {
       tokenIdentifier: `test:${userId}`,
     });
 
-    await expect(asUser.query(api.users.getCloudflareConnectionStatus)).resolves.toEqual({
+    const status = await asUser.query(api.users.getCloudflareConnectionStatus);
+    expect(status).toMatchObject({
       connected: true,
-      authMethod: "api_key",
+      authMethod: "mcp_oauth",
     });
+    expect(status).not.toHaveProperty("mcpTokenError");
+    expect(JSON.stringify(status)).not.toContain("provider-secret-sentinel");
   });
 });

@@ -1,12 +1,13 @@
 import { v } from "convex/values";
 import { Octokit } from "@octokit/rest";
 import { RequestError } from "@octokit/request-error";
-import { httpAction, internalMutation } from "./_generated/server";
+import { httpAction, internalAction, internalMutation } from "./_generated/server";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, mutation } from "./functions";
+import { requireOrganizationAccessContext } from "./organizationAccess";
 import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
 import {
   GITHUB_OAUTH_POPUP_NAME,
@@ -99,6 +100,7 @@ async function buildGithubOAuthUrl(
   ctx: OAuthContext,
   userId: Id<"users">,
   returnToPath?: string,
+  providerConnectionId?: Id<"providerConnections">,
 ): Promise<string> {
   const clientId = readRequiredEnv("PROVIDER_GITHUB_OAUTH_CLIENT_ID");
   const redirectUri = readRequiredEnv("PROVIDER_GITHUB_OAUTH_REDIRECT_URL");
@@ -112,6 +114,7 @@ async function buildGithubOAuthUrl(
   await ctx.runMutation(internal.oauthState.createOauthState, {
     provider: "github",
     userId,
+    providerConnectionId,
     state,
     returnToPath: normalizedReturnToPath,
     createdAt: now,
@@ -158,7 +161,9 @@ async function exchangeGithubOAuthCode(args: {
   };
 }
 
-async function fetchGithubUser(accessToken: string): Promise<{ username: string }> {
+async function fetchGithubUser(
+  accessToken: string,
+): Promise<{ accountId: string; username: string }> {
   try {
     const response = await runGithubOAuthRequestWithTimeout((signal) =>
       createGitHubOctokit(accessToken).rest.users.getAuthenticated({
@@ -168,7 +173,7 @@ async function fetchGithubUser(accessToken: string): Promise<{ username: string 
     if (!response.data.login) {
       throw new Error("Failed to fetch GitHub user profile.");
     }
-    return { username: response.data.login };
+    return { accountId: String(response.data.id), username: response.data.login };
   } catch (error) {
     if (error instanceof RequestError) {
       throw new Error(`Failed to fetch GitHub user profile (${error.status}).`);
@@ -205,21 +210,39 @@ export async function revokeGithubOAuthGrant(accessToken: string): Promise<void>
 
 export const storeGithubOauthConnection = internalMutation({
   args: {
-    userId: v.id("users"),
+    organizationId: v.id("organizations"),
+    connectedByUserId: v.id("users"),
+    providerConnectionId: v.optional(v.id("providerConnections")),
     accessToken: v.string(),
+    accountId: v.string(),
     username: v.string(),
     oauthStateId: v.id("providerOAuthCallbackStates"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.runMutation(internal.providerConnections.upsertGithub, {
-      userId: args.userId,
+    const connection = {
+      kind: "github" as const,
       auth: {
-        method: "oauth",
+        method: "oauth" as const,
         credential: args.accessToken,
       },
+      accountId: args.accountId,
       username: args.username,
-    });
+    };
+    if (args.providerConnectionId !== undefined) {
+      await ctx.runMutation(internal.providerConnections.reauthorizeConnected, {
+        organizationId: args.organizationId,
+        connectedByUserId: args.connectedByUserId,
+        providerConnectionId: args.providerConnectionId,
+        connection,
+      });
+    } else {
+      await ctx.runMutation(internal.providerConnections.createConnected, {
+        organizationId: args.organizationId,
+        connectedByUserId: args.connectedByUserId,
+        connection,
+      });
+    }
     await ctx.db.delete(args.oauthStateId);
     return null;
   },
@@ -231,8 +254,23 @@ export const getGithubOAuthUrl = mutation({
     returnToPath: v.optional(v.string()),
   },
   returns: v.string(),
-  handler: async (ctx, args) => {
-    return await buildGithubOAuthUrl(ctx, ctx.viewer.userId, args.returnToPath);
+  handler: async (ctx, args): Promise<string> => {
+    const { organizationId } = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
+    const connected = await ctx.db
+      .query("providerConnections")
+      .withIndex("by_organization_and_kind_and_state", (query) =>
+        query.eq("organizationId", organizationId).eq("kind", "github").eq("state", "connected"),
+      )
+      .unique();
+    const connection =
+      connected ??
+      (await ctx.db
+        .query("providerConnections")
+        .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
+        .filter((query) => query.eq(query.field("kind"), "github"))
+        .order("desc")
+        .first());
+    return await buildGithubOAuthUrl(ctx, ctx.viewer.userId, args.returnToPath, connection?._id);
   },
 });
 
@@ -242,23 +280,46 @@ export const reauthorizeGithubOAuth = action({
     returnToPath: v.optional(v.string()),
   },
   returns: v.string(),
-  handler: async (ctx, args) => {
-    const connection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: ctx.viewer.userId,
-      kind: "github",
-    });
+  handler: async (ctx, args): Promise<string> => {
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.getOrganizationIdForUser,
+      {
+        userId: ctx.viewer.userId,
+      },
+    );
+    const connection = await ctx.runQuery(
+      internal.providerConnections.loadCurrentConnectedForOrganization,
+      { organizationId, kind: "github" },
+    );
     if (connection?.kind !== "github" || connection.auth.method !== "oauth") {
       throw new Error("GitHub OAuth is not connected.");
     }
 
-    const authorizeUrl = await buildGithubOAuthUrl(ctx, ctx.viewer.userId, args.returnToPath);
-    await revokeGithubOAuthGrant(connection.auth.credential);
-    await ctx.runMutation(internal.providerConnections.removeByUserAndKind, {
-      userId: ctx.viewer.userId,
-      kind: "github",
-    });
+    return await buildGithubOAuthUrl(ctx, ctx.viewer.userId, args.returnToPath, connection._id);
+  },
+});
 
-    return authorizeUrl;
+export const revokeGithubOAuthForOrganizationConnection = internalAction({
+  args: {
+    organizationId: v.id("organizations"),
+    providerConnectionId: v.id("providerConnections"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const connection = await ctx.runQuery(
+      internal.providerConnections.loadConnectedByIdForOrganization,
+      { ...args, kind: "github" },
+    );
+    if (connection?.kind !== "github" || connection.auth.method !== "oauth") {
+      return null;
+    }
+    try {
+      await revokeGithubOAuthGrant(connection.auth.credential);
+    } catch (error) {
+      void error;
+      throw new Error("GitHub provider disconnect failed. Reconnect GitHub and retry.");
+    }
+    return null;
   },
 });
 
@@ -267,7 +328,14 @@ export const startGithubOAuth = httpAction(async (ctx) => {
   if (!userId) {
     return new Response("Unauthorized", { status: 401 });
   }
-  const authorizeUrl = await buildGithubOAuthUrl(ctx, userId);
+  const organizationId = await ctx.runQuery(internal.organizationAccess.getOrganizationIdForUser, {
+    userId,
+  });
+  const connection = await ctx.runQuery(internal.providerConnections.loadDefaultForOrganization, {
+    organizationId,
+    kind: "github",
+  });
+  const authorizeUrl = await buildGithubOAuthUrl(ctx, userId, undefined, connection?._id);
   return Response.redirect(authorizeUrl, 302);
 });
 
@@ -308,8 +376,11 @@ export const finishGithubOAuth = httpAction(async (ctx, request) => {
     const githubUser = await fetchGithubUser(token.accessToken);
 
     await ctx.runMutation(internal.githubOAuth.storeGithubOauthConnection, {
-      userId: oauthState.userId,
+      organizationId: oauthState.organizationId,
+      connectedByUserId: oauthState.userId,
+      providerConnectionId: oauthState.providerConnectionId,
       accessToken: token.accessToken,
+      accountId: githubUser.accountId,
       username: githubUser.username,
       oauthStateId: oauthState._id,
     });

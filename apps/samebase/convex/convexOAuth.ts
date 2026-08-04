@@ -6,6 +6,7 @@ import { z } from "zod";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { mutation } from "./functions";
+import { requireOrganizationAccessContext } from "./organizationAccess";
 import {
   createCodeChallenge,
   OAUTH_STATE_TTL_MS,
@@ -85,7 +86,11 @@ async function fetchWithTimeout(
   }
 }
 
-async function buildConvexOAuthUrl(ctx: OAuthContext, userId: Id<"users">): Promise<string> {
+async function buildConvexOAuthUrl(
+  ctx: OAuthContext,
+  userId: Id<"users">,
+  providerConnectionId?: Id<"providerConnections">,
+): Promise<string> {
   const clientId = readRequiredEnv("PROVIDER_CONVEX_OAUTH_CLIENT_ID");
   const redirectUri = readRequiredEnv("PROVIDER_CONVEX_OAUTH_REDIRECT_URL");
 
@@ -97,6 +102,7 @@ async function buildConvexOAuthUrl(ctx: OAuthContext, userId: Id<"users">): Prom
   await ctx.runMutation(internal.oauthState.createOauthState, {
     provider: "convex",
     userId,
+    providerConnectionId,
     state,
     codeVerifier,
     createdAt: now,
@@ -167,21 +173,37 @@ function encodeConvexOAuthAuthorizeUrl(request: ConvexOAuthAuthorizeRequest): st
 
 export const storeConvexOauthTokens = internalMutation({
   args: {
-    userId: v.id("users"),
+    organizationId: v.id("organizations"),
+    connectedByUserId: v.id("users"),
+    providerConnectionId: v.optional(v.id("providerConnections")),
     accessToken: v.string(),
     teamId: v.string(),
     oauthStateId: v.id("providerOAuthCallbackStates"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.runMutation(internal.providerConnections.upsertConvex, {
-      userId: args.userId,
+    const connection = {
+      kind: "convex" as const,
       auth: {
-        method: "oauth",
+        method: "oauth" as const,
         credential: args.accessToken,
       },
       teamId: args.teamId,
-    });
+    };
+    if (args.providerConnectionId !== undefined) {
+      await ctx.runMutation(internal.providerConnections.reauthorizeConnected, {
+        organizationId: args.organizationId,
+        connectedByUserId: args.connectedByUserId,
+        providerConnectionId: args.providerConnectionId,
+        connection,
+      });
+    } else {
+      await ctx.runMutation(internal.providerConnections.createConnected, {
+        organizationId: args.organizationId,
+        connectedByUserId: args.connectedByUserId,
+        connection,
+      });
+    }
     await ctx.db.delete(args.oauthStateId);
     return null;
   },
@@ -192,7 +214,22 @@ export const getConvexOAuthUrl = mutation({
   args: {},
   returns: v.string(),
   handler: async (ctx) => {
-    return await buildConvexOAuthUrl(ctx, ctx.viewer.userId);
+    const { organizationId } = await requireOrganizationAccessContext(ctx.db, ctx.viewer.userId);
+    const connected = await ctx.db
+      .query("providerConnections")
+      .withIndex("by_organization_and_kind_and_state", (query) =>
+        query.eq("organizationId", organizationId).eq("kind", "convex").eq("state", "connected"),
+      )
+      .unique();
+    const connection =
+      connected ??
+      (await ctx.db
+        .query("providerConnections")
+        .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
+        .filter((query) => query.eq(query.field("kind"), "convex"))
+        .order("desc")
+        .first());
+    return await buildConvexOAuthUrl(ctx, ctx.viewer.userId, connection?._id);
   },
 });
 
@@ -202,7 +239,14 @@ export const startConvexOAuth = httpAction(async (ctx) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const authorizeUrl = await buildConvexOAuthUrl(ctx, userId);
+  const organizationId = await ctx.runQuery(internal.organizationAccess.getOrganizationIdForUser, {
+    userId,
+  });
+  const connection = await ctx.runQuery(internal.providerConnections.loadDefaultForOrganization, {
+    organizationId,
+    kind: "convex",
+  });
+  const authorizeUrl = await buildConvexOAuthUrl(ctx, userId, connection?._id);
   return Response.redirect(authorizeUrl, 302);
 });
 
@@ -254,7 +298,9 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
     const details = await fetchConvexTeamTokenDetails(token.accessToken);
 
     await ctx.runMutation(internal.convexOAuth.storeConvexOauthTokens, {
-      userId: oauthState.userId,
+      organizationId: oauthState.organizationId,
+      connectedByUserId: oauthState.userId,
+      providerConnectionId: oauthState.providerConnectionId,
       accessToken: token.accessToken,
       teamId: details.teamId,
       oauthStateId: oauthState._id,

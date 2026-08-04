@@ -33,6 +33,51 @@ async function createGraphFixture() {
       plan: "free",
       status: "inactive",
     });
+    const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "github",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "api_key", credential: "github-token" },
+      accountId: "github-ada",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    const cloudflareProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "cloudflare",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "api_key", credential: "cloudflare-token" },
+      defaultAccount: { state: "not_selected" },
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    const convexProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "convex",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "api_key", credential: "convex-token" },
+      teamId: "team-1",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    await ctx.db.patch(organizationId, {
+      selectedCloudflareProviderConnectionId: cloudflareProviderConnectionId,
+      selectedConvexProviderConnectionId: convexProviderConnectionId,
+      selectedGithubProviderConnectionId: githubProviderConnectionId,
+    });
+    const otherGithubProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "github",
+      state: "connected",
+      organizationId: otherOrganizationId,
+      connectedByUserId: otherUserId,
+      auth: { method: "api_key", credential: "github-grace-token" },
+      accountId: "github-grace",
+      createdAt: 1,
+      updatedAt: 1,
+    });
 
     const createConnectedVault = async (
       ownerId: typeof userId,
@@ -57,6 +102,10 @@ async function createGraphFixture() {
       });
       await ctx.db.replace(vaultId, {
         organizationId: vaultOrganizationId,
+        githubProviderConnectionId:
+          vaultOrganizationId === organizationId
+            ? githubProviderConnectionId
+            : otherGithubProviderConnectionId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "connect_existing_repository",
@@ -73,6 +122,9 @@ async function createGraphFixture() {
 
     return {
       userId,
+      cloudflareProviderConnectionId,
+      convexProviderConnectionId,
+      githubProviderConnectionId,
       otherUserId,
       organizationId,
       primaryVaultId: await createConnectedVault(userId, organizationId, "ada"),
@@ -89,6 +141,7 @@ describe("vault Cloudflare Worker attachment mutations", () => {
     const workerIds = await t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
       vaultId: ids.primaryVaultId,
       userId: ids.userId,
+      providerConnectionId: ids.cloudflareProviderConnectionId,
       workers: [
         {
           accountId: "account-1",
@@ -108,6 +161,7 @@ describe("vault Cloudflare Worker attachment mutations", () => {
       t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
         vaultId: ids.primaryVaultId,
         userId: ids.userId,
+        providerConnectionId: ids.cloudflareProviderConnectionId,
         workers: [
           {
             accountId: "account-1",
@@ -138,6 +192,7 @@ describe("vault Cloudflare Worker attachment mutations", () => {
     await t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
       vaultId: ids.primaryVaultId,
       userId: ids.userId,
+      providerConnectionId: ids.cloudflareProviderConnectionId,
       workers: [
         {
           accountId: "account-1",
@@ -152,6 +207,7 @@ describe("vault Cloudflare Worker attachment mutations", () => {
       t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
         vaultId: ids.secondaryVaultId,
         userId: ids.userId,
+        providerConnectionId: ids.cloudflareProviderConnectionId,
         workers: [
           {
             accountId: "account-1",
@@ -186,6 +242,7 @@ describe("vault Cloudflare Worker attachment mutations", () => {
     const [workerId] = await t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
       vaultId: ids.primaryVaultId,
       userId: ids.userId,
+      providerConnectionId: ids.cloudflareProviderConnectionId,
       workers: [
         {
           accountId: "account-1",
@@ -243,6 +300,9 @@ describe("vault Cloudflare Worker attachment mutations", () => {
       });
       const planId = await ctx.db.insert("workflow_vaultProvisioning_plans", {
         vaultId: ids.primaryVaultId,
+        githubProviderConnectionId: ids.githubProviderConnectionId,
+        convexProviderConnectionId: ids.convexProviderConnectionId,
+        cloudflareProviderConnectionId: ids.cloudflareProviderConnectionId,
         convexConfigPath: "convex.json",
         convex: {
           state: "planned",
@@ -329,6 +389,7 @@ describe("vault Cloudflare Worker attachment mutations", () => {
         vaultId: ids.primaryVaultId,
         userId: ids.userId,
         actionId: "connect-worker",
+        providerConnectionId: ids.cloudflareProviderConnectionId,
         accountId: "account-1",
         workerName: "connected-worker",
         workerTag: "connected-tag",
@@ -351,6 +412,7 @@ describe("vault Cloudflare Worker attachment mutations", () => {
         vaultId: ids.secondaryVaultId,
         userId: ids.userId,
         actionId: "old-create-worker",
+        providerConnectionId: ids.cloudflareProviderConnectionId,
         accountId: "account-1",
         workerName: "created-worker",
         workerTag: "created-tag",
@@ -362,6 +424,7 @@ describe("vault Cloudflare Worker attachment mutations", () => {
         vaultId: ids.secondaryVaultId,
         userId: ids.userId,
         actionId: "create-worker",
+        providerConnectionId: ids.cloudflareProviderConnectionId,
         accountId: "account-1",
         workerName: "created-worker",
         workerTag: "created-tag",
@@ -403,6 +466,7 @@ describe("vault Cloudflare Worker attachment mutations", () => {
     const [workerId] = await t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
       vaultId: ids.primaryVaultId,
       userId: ids.userId,
+      providerConnectionId: ids.cloudflareProviderConnectionId,
       workers: [
         {
           accountId: "account-1",
@@ -415,6 +479,7 @@ describe("vault Cloudflare Worker attachment mutations", () => {
     const [convexProjectId] = await t.mutation(internal.vault.convexMutations.attachProjects, {
       vaultId: ids.primaryVaultId,
       userId: ids.userId,
+      providerConnectionId: ids.convexProviderConnectionId,
       projects: [
         {
           teamId: "team-1",
@@ -435,6 +500,7 @@ describe("vault Cloudflare Worker attachment mutations", () => {
       }),
     ).resolves.toEqual({
       ghRepoId: "github-ada",
+      organizationId: ids.organizationId,
       owner: "ada",
       name: "repository",
       defaultBranch: "main",

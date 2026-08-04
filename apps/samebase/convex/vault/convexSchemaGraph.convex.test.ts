@@ -100,14 +100,31 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
       organizationId,
       userId,
     });
-    await ctx.db.insert("providerConnections", {
+    const convexProviderConnectionId = await ctx.db.insert("providerConnections", {
       kind: "convex",
-      userId,
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
       auth: convexAuth,
       teamId: "1000",
       teamSlug: "ada-team",
       createdAt: 1,
       updatedAt: 2,
+    });
+    const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "github",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "api_key", credential: "github-token" },
+      accountId: "github-ada",
+      username: "ada",
+      createdAt: 1,
+      updatedAt: 2,
+    });
+    await ctx.db.patch(organizationId, {
+      selectedConvexProviderConnectionId: convexProviderConnectionId,
+      selectedGithubProviderConnectionId: githubProviderConnectionId,
     });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
@@ -127,6 +144,7 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
     });
     await ctx.db.replace(vaultId, {
       organizationId,
+      githubProviderConnectionId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "connect_existing_repository",
@@ -141,6 +159,7 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
     const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
       vaultId,
       organizationId,
+      providerConnectionId: convexProviderConnectionId,
       teamId: "1000",
       projectId: "1001",
       convexConfigPath: "convex.json",

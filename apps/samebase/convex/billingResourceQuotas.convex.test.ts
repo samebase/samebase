@@ -38,6 +38,41 @@ async function createQuotaFixture(entitlement: "free" | "pro" = "free") {
       plan: entitlement,
       status: entitlement === "pro" ? "active" : "inactive",
     });
+    const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "github",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      accountId: "github-account",
+      auth: { method: "api_key", credential: "github-token" },
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    const convexProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "convex",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "api_key", credential: "convex-token" },
+      teamId: "team-1",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    const cloudflareProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "cloudflare",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "api_key", credential: "cloudflare-token" },
+      defaultAccount: { state: "selected", accountId: "account-1", accountName: "Account 1" },
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    await ctx.db.patch(organizationId, {
+      selectedGithubProviderConnectionId: githubProviderConnectionId,
+      selectedConvexProviderConnectionId: convexProviderConnectionId,
+      selectedCloudflareProviderConnectionId: cloudflareProviderConnectionId,
+    });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
       deletion: { state: "not_deleting" },
@@ -58,6 +93,7 @@ async function createQuotaFixture(entitlement: "free" | "pro" = "free") {
       organizationId,
       deletion: { state: "not_deleting" },
       state: "connected",
+      githubProviderConnectionId,
       githubMode: "connect_existing_repository",
       runId,
       ghRepoId: "github-repository",
@@ -67,10 +103,31 @@ async function createQuotaFixture(entitlement: "free" | "pro" = "free") {
       defaultBranch: "main",
       connectedAt: 3,
     });
-    return { billingAccountId, organizationId, userId, vaultId };
+    return {
+      billingAccountId,
+      cloudflareProviderConnectionId,
+      convexProviderConnectionId,
+      organizationId,
+      userId,
+      vaultId,
+    };
   });
-  const { billingAccountId, organizationId, userId, vaultId } = ids;
-  return { billingAccountId, organizationId, ids: { userId, vaultId }, t };
+  const {
+    billingAccountId,
+    cloudflareProviderConnectionId,
+    convexProviderConnectionId,
+    organizationId,
+    userId,
+    vaultId,
+  } = ids;
+  return {
+    billingAccountId,
+    cloudflareProviderConnectionId,
+    convexProviderConnectionId,
+    organizationId,
+    ids: { userId, vaultId },
+    t,
+  };
 }
 
 async function createOrganizationQuotaFixture() {
@@ -93,6 +150,30 @@ async function createOrganizationQuotaFixture() {
       organizationId,
       plan: "free",
       status: "inactive",
+    });
+    const convexProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "convex",
+      state: "connected",
+      organizationId,
+      connectedByUserId: firstUserId,
+      auth: { method: "api_key", credential: "convex-token" },
+      teamId: "team-1",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    const cloudflareProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "cloudflare",
+      state: "connected",
+      organizationId,
+      connectedByUserId: firstUserId,
+      auth: { method: "api_key", credential: "cloudflare-token" },
+      defaultAccount: { state: "selected", accountId: "account-1", accountName: "Account 1" },
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    await ctx.db.patch(organizationId, {
+      selectedConvexProviderConnectionId: convexProviderConnectionId,
+      selectedCloudflareProviderConnectionId: cloudflareProviderConnectionId,
     });
     const firstVaultId = await ctx.db.insert("vaults", {
       organizationId,
@@ -128,6 +209,10 @@ async function seedProjects(
     if (vault === null) {
       throw new Error("Expected an organization-owned vault.");
     }
+    const organization = await ctx.db.get(vault.organizationId);
+    if (organization?.selectedConvexProviderConnectionId === undefined) {
+      throw new Error("Expected a selected Convex connection.");
+    }
     const projectIds: Array<Id<"vaultConvexProjects">> = [];
     for (let index = 0; index < args.count; index += 1) {
       const project = projectInput(index, args.prefix);
@@ -135,6 +220,7 @@ async function seedProjects(
         await ctx.db.insert("vaultConvexProjects", {
           vaultId: args.vaultId,
           organizationId: vault.organizationId,
+          providerConnectionId: organization.selectedConvexProviderConnectionId,
           teamId: project.teamId,
           projectId: project.projectId,
           convexConfigPath: project.codeLocation.convexConfigPath,
@@ -159,6 +245,10 @@ async function seedWorkers(
     if (vault === null) {
       throw new Error("Expected an organization-owned vault.");
     }
+    const organization = await ctx.db.get(vault.organizationId);
+    if (organization?.selectedCloudflareProviderConnectionId === undefined) {
+      throw new Error("Expected a selected Cloudflare connection.");
+    }
     const workerIds: Array<Id<"vaultCloudflareWorkers">> = [];
     for (let index = 0; index < args.count; index += 1) {
       const worker = workerInput(index, args.prefix);
@@ -166,6 +256,7 @@ async function seedWorkers(
         await ctx.db.insert("vaultCloudflareWorkers", {
           vaultId: args.vaultId,
           organizationId: vault.organizationId,
+          providerConnectionId: organization.selectedCloudflareProviderConnectionId,
           accountId: worker.accountId,
           workerName: worker.workerName,
           workerTag: worker.workerTag,
@@ -215,6 +306,17 @@ async function createManagedProjectCheckpoint(
   },
 ) {
   return await t.run(async (ctx) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.state !== "connected") {
+      throw new Error("Expected a connected vault.");
+    }
+    const organization = await ctx.db.get(vault.organizationId);
+    if (
+      organization?.selectedConvexProviderConnectionId === undefined ||
+      organization.selectedCloudflareProviderConnectionId === undefined
+    ) {
+      throw new Error("Expected selected provider connections.");
+    }
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       requestedByUserId: args.userId,
       vaultId: args.vaultId,
@@ -235,6 +337,9 @@ async function createManagedProjectCheckpoint(
     const planId = args.projectId
       ? await ctx.db.insert("workflow_vaultProvisioning_plans", {
           vaultId: args.vaultId,
+          githubProviderConnectionId: vault.githubProviderConnectionId,
+          convexProviderConnectionId: organization.selectedConvexProviderConnectionId,
+          cloudflareProviderConnectionId: organization.selectedCloudflareProviderConnectionId,
           convexConfigPath: "apps/managed/convex.json",
           convex: {
             state: "created",
@@ -253,6 +358,9 @@ async function createManagedProjectCheckpoint(
         })
       : await ctx.db.insert("workflow_vaultProvisioning_plans", {
           vaultId: args.vaultId,
+          githubProviderConnectionId: vault.githubProviderConnectionId,
+          convexProviderConnectionId: organization.selectedConvexProviderConnectionId,
+          cloudflareProviderConnectionId: organization.selectedCloudflareProviderConnectionId,
           convexConfigPath: "apps/managed/convex.json",
           convex: {
             state: "creating",
@@ -281,6 +389,17 @@ async function createManagedWorkerCheckpoint(
   },
 ) {
   return await t.run(async (ctx) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.state !== "connected") {
+      throw new Error("Expected a connected vault.");
+    }
+    const organization = await ctx.db.get(vault.organizationId);
+    if (
+      organization?.selectedConvexProviderConnectionId === undefined ||
+      organization.selectedCloudflareProviderConnectionId === undefined
+    ) {
+      throw new Error("Expected selected provider connections.");
+    }
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       requestedByUserId: args.userId,
       vaultId: args.vaultId,
@@ -301,6 +420,9 @@ async function createManagedWorkerCheckpoint(
     const planId = args.workerTag
       ? await ctx.db.insert("workflow_vaultProvisioning_plans", {
           vaultId: args.vaultId,
+          githubProviderConnectionId: vault.githubProviderConnectionId,
+          convexProviderConnectionId: organization.selectedConvexProviderConnectionId,
+          cloudflareProviderConnectionId: organization.selectedCloudflareProviderConnectionId,
           convexConfigPath: "apps/managed/convex.json",
           convex: {
             state: "planned",
@@ -319,6 +441,9 @@ async function createManagedWorkerCheckpoint(
         })
       : await ctx.db.insert("workflow_vaultProvisioning_plans", {
           vaultId: args.vaultId,
+          githubProviderConnectionId: vault.githubProviderConnectionId,
+          convexProviderConnectionId: organization.selectedConvexProviderConnectionId,
+          cloudflareProviderConnectionId: organization.selectedCloudflareProviderConnectionId,
           convexConfigPath: "apps/managed/convex.json",
           convex: {
             state: "planned",
@@ -484,7 +609,8 @@ describe("billing resource quotas", () => {
   });
 
   it("permits resource 5 and blocks resource 6 for a free account", async () => {
-    const { ids, t } = await createQuotaFixture();
+    const { cloudflareProviderConnectionId, convexProviderConnectionId, ids, t } =
+      await createQuotaFixture();
     await Promise.all([
       seedProjects(t, { count: 4, vaultId: ids.vaultId }),
       seedWorkers(t, { count: 4, vaultId: ids.vaultId }),
@@ -493,12 +619,14 @@ describe("billing resource quotas", () => {
     await expect(
       t.mutation(internal.vault.convexMutations.attachProjects, {
         ...ids,
+        providerConnectionId: convexProviderConnectionId,
         projects: [projectInput(4)],
       }),
     ).resolves.toHaveLength(1);
     await expect(
       t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
         ...ids,
+        providerConnectionId: cloudflareProviderConnectionId,
         workers: [workerInput(4)],
       }),
     ).resolves.toHaveLength(1);
@@ -506,6 +634,7 @@ describe("billing resource quotas", () => {
     await expect(
       t.mutation(internal.vault.convexMutations.attachProjects, {
         ...ids,
+        providerConnectionId: convexProviderConnectionId,
         projects: [projectInput(5)],
       }),
     ).rejects.toMatchObject({
@@ -515,6 +644,7 @@ describe("billing resource quotas", () => {
     await expect(
       t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
         ...ids,
+        providerConnectionId: cloudflareProviderConnectionId,
         workers: [workerInput(5)],
       }),
     ).rejects.toMatchObject({
@@ -528,7 +658,8 @@ describe("billing resource quotas", () => {
   });
 
   it("permits resource 40 and blocks resource 41 for an entitled Pro account", async () => {
-    const { billingAccountId, ids, t } = await createQuotaFixture("pro");
+    const { billingAccountId, cloudflareProviderConnectionId, convexProviderConnectionId, ids, t } =
+      await createQuotaFixture("pro");
     await Promise.all([
       seedProjects(t, { count: 39, vaultId: ids.vaultId }),
       seedWorkers(t, { count: 39, vaultId: ids.vaultId }),
@@ -537,6 +668,7 @@ describe("billing resource quotas", () => {
     await expect(
       t.mutation(internal.vault.convexMutations.attachProjects, {
         ...ids,
+        providerConnectionId: convexProviderConnectionId,
         projects: [projectInput(39)],
       }),
     ).resolves.toHaveLength(1);
@@ -546,6 +678,7 @@ describe("billing resource quotas", () => {
     await expect(
       t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
         ...ids,
+        providerConnectionId: cloudflareProviderConnectionId,
         workers: [workerInput(39)],
       }),
     ).resolves.toHaveLength(1);
@@ -553,12 +686,14 @@ describe("billing resource quotas", () => {
     await expect(
       t.mutation(internal.vault.convexMutations.attachProjects, {
         ...ids,
+        providerConnectionId: convexProviderConnectionId,
         projects: [projectInput(40)],
       }),
     ).rejects.toThrow("Convex project attachment limit reached (40).");
     await expect(
       t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
         ...ids,
+        providerConnectionId: cloudflareProviderConnectionId,
         workers: [workerInput(40)],
       }),
     ).rejects.toThrow("Cloudflare Worker attachment limit reached (40).");
@@ -569,7 +704,8 @@ describe("billing resource quotas", () => {
   });
 
   it("rejects over-limit batches without retaining an earlier insertion", async () => {
-    const { ids, t } = await createQuotaFixture();
+    const { cloudflareProviderConnectionId, convexProviderConnectionId, ids, t } =
+      await createQuotaFixture();
     await Promise.all([
       seedProjects(t, { count: 4, vaultId: ids.vaultId }),
       seedWorkers(t, { count: 4, vaultId: ids.vaultId }),
@@ -578,12 +714,14 @@ describe("billing resource quotas", () => {
     await expect(
       t.mutation(internal.vault.convexMutations.attachProjects, {
         ...ids,
+        providerConnectionId: convexProviderConnectionId,
         projects: [projectInput(4), projectInput(5)],
       }),
     ).rejects.toThrow("Convex project attachment limit reached (5).");
     await expect(
       t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
         ...ids,
+        providerConnectionId: cloudflareProviderConnectionId,
         workers: [workerInput(4), workerInput(5)],
       }),
     ).rejects.toThrow("Cloudflare Worker attachment limit reached (5).");
@@ -594,7 +732,8 @@ describe("billing resource quotas", () => {
   });
 
   it("keeps downgraded attachments usable until a new final count fits", async () => {
-    const { billingAccountId, ids, t } = await createQuotaFixture("pro");
+    const { billingAccountId, cloudflareProviderConnectionId, convexProviderConnectionId, ids, t } =
+      await createQuotaFixture("pro");
     const [projectIds, workerIds] = await Promise.all([
       seedProjects(t, { count: 6, vaultId: ids.vaultId }),
       seedWorkers(t, { count: 6, vaultId: ids.vaultId }),
@@ -615,12 +754,14 @@ describe("billing resource quotas", () => {
     await expect(
       t.mutation(internal.vault.convexMutations.attachProjects, {
         ...ids,
+        providerConnectionId: convexProviderConnectionId,
         projects: [projectInput(0)],
       }),
     ).resolves.toEqual([projectIds[0]]);
     await expect(
       t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
         ...ids,
+        providerConnectionId: cloudflareProviderConnectionId,
         workers: [workerInput(0)],
       }),
     ).resolves.toEqual([workerIds[0]]);
@@ -628,12 +769,14 @@ describe("billing resource quotas", () => {
     await expect(
       t.mutation(internal.vault.convexMutations.attachProjects, {
         ...ids,
+        providerConnectionId: convexProviderConnectionId,
         projects: [projectInput(6)],
       }),
     ).rejects.toThrow("Convex project attachment limit reached (5).");
     await expect(
       t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
         ...ids,
+        providerConnectionId: cloudflareProviderConnectionId,
         workers: [workerInput(6)],
       }),
     ).rejects.toThrow("Cloudflare Worker attachment limit reached (5).");
@@ -660,12 +803,14 @@ describe("billing resource quotas", () => {
     await expect(
       t.mutation(internal.vault.convexMutations.attachProjects, {
         ...ids,
+        providerConnectionId: convexProviderConnectionId,
         projects: [projectInput(6)],
       }),
     ).rejects.toThrow("Convex project attachment limit reached (5).");
     await expect(
       t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
         ...ids,
+        providerConnectionId: cloudflareProviderConnectionId,
         workers: [workerInput(6)],
       }),
     ).rejects.toThrow("Cloudflare Worker attachment limit reached (5).");
@@ -687,12 +832,14 @@ describe("billing resource quotas", () => {
     await expect(
       t.mutation(internal.vault.convexMutations.attachProjects, {
         ...ids,
+        providerConnectionId: convexProviderConnectionId,
         projects: [projectInput(6)],
       }),
     ).resolves.toHaveLength(1);
     await expect(
       t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
         ...ids,
+        providerConnectionId: cloudflareProviderConnectionId,
         workers: [workerInput(6)],
       }),
     ).resolves.toHaveLength(1);
@@ -718,7 +865,8 @@ describe("billing resource quotas", () => {
   });
 
   it("serializes concurrent final writes for each last available slot", async () => {
-    const { ids, t } = await createQuotaFixture();
+    const { cloudflareProviderConnectionId, convexProviderConnectionId, ids, t } =
+      await createQuotaFixture();
     await Promise.all([
       seedProjects(t, { count: 4, vaultId: ids.vaultId }),
       seedWorkers(t, { count: 4, vaultId: ids.vaultId }),
@@ -728,20 +876,24 @@ describe("billing resource quotas", () => {
       Promise.allSettled([
         t.mutation(internal.vault.convexMutations.attachProjects, {
           ...ids,
+          providerConnectionId: convexProviderConnectionId,
           projects: [projectInput(4, "concurrent-project-a")],
         }),
         t.mutation(internal.vault.convexMutations.attachProjects, {
           ...ids,
+          providerConnectionId: convexProviderConnectionId,
           projects: [projectInput(4, "concurrent-project-b")],
         }),
       ]),
       Promise.allSettled([
         t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
           ...ids,
+          providerConnectionId: cloudflareProviderConnectionId,
           workers: [workerInput(4, "concurrent-worker-a")],
         }),
         t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
           ...ids,
+          providerConnectionId: cloudflareProviderConnectionId,
           workers: [workerInput(4, "concurrent-worker-b")],
         }),
       ]),
@@ -759,7 +911,7 @@ describe("billing resource quotas", () => {
 
   it("enforces manual and managed Convex project attachment paths", async () => {
     {
-      const { ids, t } = await createQuotaFixture();
+      const { convexProviderConnectionId, ids, t } = await createQuotaFixture();
       await seedProjects(t, { count: 5, vaultId: ids.vaultId });
       await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
         ...ids,
@@ -769,6 +921,7 @@ describe("billing resource quotas", () => {
       await expect(
         t.mutation(internal.vault.convexMutations.recordManualProjectCreated, {
           ...ids,
+          providerConnectionId: convexProviderConnectionId,
           actionId: "manual-project",
           teamId: "team-1",
           projectId: "manual-project",
@@ -797,12 +950,13 @@ describe("billing resource quotas", () => {
     }
 
     {
-      const { ids, organizationId, t } = await createQuotaFixture();
+      const { convexProviderConnectionId, ids, organizationId, t } = await createQuotaFixture();
       await seedProjects(t, { count: 4, vaultId: ids.vaultId });
       const existingId = await t.run(async (ctx) =>
         ctx.db.insert("vaultConvexProjects", {
           organizationId,
           vaultId: ids.vaultId,
+          providerConnectionId: convexProviderConnectionId,
           teamId: "team-1",
           projectId: "managed-project",
           convexConfigPath: "apps/managed/convex.json",
@@ -828,7 +982,7 @@ describe("billing resource quotas", () => {
 
   it("enforces all manual and managed Cloudflare Worker attachment paths", async () => {
     {
-      const { ids, t } = await createQuotaFixture();
+      const { cloudflareProviderConnectionId, ids, t } = await createQuotaFixture();
       await seedWorkers(t, { count: 5, vaultId: ids.vaultId });
       await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
         ...ids,
@@ -838,6 +992,7 @@ describe("billing resource quotas", () => {
       await expect(
         t.mutation(internal.vault.cloudflareMutations.recordManualConnectedWorker, {
           ...ids,
+          providerConnectionId: cloudflareProviderConnectionId,
           actionId: "connect-worker",
           accountId: "account-1",
           workerName: "connected-worker",
@@ -847,7 +1002,7 @@ describe("billing resource quotas", () => {
     }
 
     {
-      const { ids, t } = await createQuotaFixture();
+      const { cloudflareProviderConnectionId, ids, t } = await createQuotaFixture();
       await seedWorkers(t, { count: 5, vaultId: ids.vaultId });
       await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
         ...ids,
@@ -857,6 +1012,7 @@ describe("billing resource quotas", () => {
       await expect(
         t.mutation(internal.vault.cloudflareMutations.recordManualWorkerCreated, {
           ...ids,
+          providerConnectionId: cloudflareProviderConnectionId,
           actionId: "create-worker",
           accountId: "account-1",
           workerName: "created-worker",
@@ -884,12 +1040,13 @@ describe("billing resource quotas", () => {
     }
 
     {
-      const { ids, organizationId, t } = await createQuotaFixture();
+      const { cloudflareProviderConnectionId, ids, organizationId, t } = await createQuotaFixture();
       await seedWorkers(t, { count: 4, vaultId: ids.vaultId });
       const existingId = await t.run(async (ctx) =>
         ctx.db.insert("vaultCloudflareWorkers", {
           organizationId,
           vaultId: ids.vaultId,
+          providerConnectionId: cloudflareProviderConnectionId,
           accountId: "account-1",
           workerName: "managed-worker",
           workerTag: "managed-worker-tag",

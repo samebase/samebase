@@ -64,6 +64,16 @@ async function seedConnectedVaultWithForeignStorage() {
       organizationId: foreignOrganizationId,
       userId: foreignUserId,
     });
+    const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "github",
+      state: "connected",
+      organizationId,
+      connectedByUserId: ownerId,
+      accountId: "github-account",
+      auth: { method: "api_key", credential: "github-token" },
+      createdAt: 1,
+      updatedAt: 1,
+    });
 
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
@@ -85,6 +95,7 @@ async function seedConnectedVaultWithForeignStorage() {
       organizationId,
       deletion: { state: "not_deleting" },
       state: "connected",
+      githubProviderConnectionId,
       githubMode: "connect_existing_repository",
       runId,
       ghRepoId: "123",

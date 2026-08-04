@@ -24,6 +24,20 @@ async function createConnectedVault() {
     });
     const organizationId = await ctx.db.insert("organizations", {});
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+      state: "connected",
+      kind: "github",
+      organizationId,
+      connectedByUserId: userId,
+      accountId: "github-account",
+      auth: { method: "api_key", credential: "github-token" },
+      username: "ada",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    await ctx.db.patch(organizationId, {
+      selectedGithubProviderConnectionId: githubProviderConnectionId,
+    });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
       deletion: { state: "not_deleting" },
@@ -42,6 +56,7 @@ async function createConnectedVault() {
     });
     await ctx.db.replace(vaultId, {
       organizationId,
+      githubProviderConnectionId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "connect_existing_repository",

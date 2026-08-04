@@ -98,8 +98,21 @@ state: "connected" | "disconnected"
 ```
 
 The schema permits several connections of one provider kind in an organization. The first product
-surface still creates and displays at most one connected connection of each kind. It does not add a
+surface still displays and changes one selected connection of each kind. It does not add a
 connection selector. This current UI limit is not a database uniqueness rule.
+
+`organizations` stores the selected default connection for each provider kind:
+
+```text
+selectedGithubProviderConnectionId?: Id<"providerConnections">
+selectedConvexProviderConnectionId?: Id<"providerConnections">
+selectedCloudflareProviderConnectionId?: Id<"providerConnections">
+```
+
+Provider status and new resource creation use the selected connection. Connecting or reauthorizing a
+connection selects that row. Disconnecting keeps the selection so reauthorization restores the same
+stable row. Existing vault resources and provisioning plans never follow a changed selection. They
+use the exact connection ID stored on the resource or plan.
 
 `organizationId` controls who can use a connection. `connectedByUserId` records the member who
 connected or last reauthorized the credential. It is provenance and a credential-lifecycle
@@ -113,7 +126,9 @@ a different row and never silently rebinds resources that use the old row.
 Provider credentials stay inside backend-only functions. Product clients can request an authorized
 provider operation and can read non-secret connection status, but no product client can retrieve the
 stored credential. The rollout keeps the existing OAuth and API-key methods. It does not add a
-GitHub App authorization flow.
+GitHub App authorization flow. GitHub OAuth requests the `workflow` scope because the shipped
+starter creates `.github/workflows/ci.yml`. GitHub API-key health checks report this scope as
+granted, missing, or unknown with the other required scopes.
 
 `providerOAuthCallbackStates` binds the initiating user to the target organization. The callback
 rechecks that membership before it creates or reauthorizes the organization connection.
@@ -135,8 +150,8 @@ same organization and provider kind, and require `state: "connected"`. They neve
 credential from an actor user ID. A provisioning retry uses the connection IDs recorded when the
 plan was created.
 
-Other than the account-deletion lock, the organization has no name, slug, kind, status, lifecycle
-field, creator field, update timestamp, active-user field, or external-provider field.
+Other than the account-deletion lock and selected provider connection IDs, the organization has no
+name, slug, kind, status, lifecycle field, creator field, update timestamp, or active-user field.
 
 `organizationBillingAccounts` contains one row for each organization. Its final fields are:
 
@@ -264,8 +279,8 @@ local credential, and changes the stable row to `disconnected`. A remaining memb
 that connection without changing resource bindings.
 
 When the deleting user is the only member of an organization, the existing deletion workflow also
-deletes that organization's Samebase resources, billing state, and organization row. Provider-owned
-infrastructure remains untouched under spec 113.
+deletes that organization's Samebase resources, provider connection rows, billing state, and
+organization row. Provider-owned infrastructure remains untouched under spec 113.
 
 When another member remains, the workflow preserves the organization and its resources, then removes
 the deleting user's membership, personal data, and connected provider credentials. Every current

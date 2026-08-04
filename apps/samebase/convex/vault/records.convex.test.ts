@@ -4,6 +4,8 @@ import { convexTest } from "convex-test";
 import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 import { makeConvexTest } from "../test.setup";
 import schema from "../schema";
 
@@ -16,10 +18,59 @@ const modules = import.meta.glob([
   "!../test.setup.ts",
 ]);
 
+async function seedOrganizationProviderConnections(
+  ctx: Pick<MutationCtx, "db">,
+  args: { organizationId: Id<"organizations">; userId: Id<"users"> },
+) {
+  const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+    state: "connected",
+    kind: "github",
+    organizationId: args.organizationId,
+    connectedByUserId: args.userId,
+    accountId: "github-account",
+    auth: { method: "api_key", credential: "github-token" },
+    username: "ada",
+    createdAt: 1,
+    updatedAt: 1,
+  });
+  const convexProviderConnectionId = await ctx.db.insert("providerConnections", {
+    state: "connected",
+    kind: "convex",
+    organizationId: args.organizationId,
+    connectedByUserId: args.userId,
+    auth: { method: "api_key", credential: "convex-token" },
+    teamId: "convex-team",
+    createdAt: 1,
+    updatedAt: 1,
+  });
+  const cloudflareProviderConnectionId = await ctx.db.insert("providerConnections", {
+    state: "connected",
+    kind: "cloudflare",
+    organizationId: args.organizationId,
+    connectedByUserId: args.userId,
+    auth: { method: "api_key", credential: "cloudflare-token" },
+    defaultAccount: { state: "not_selected" },
+    createdAt: 1,
+    updatedAt: 1,
+  });
+  await ctx.db.patch(args.organizationId, {
+    selectedGithubProviderConnectionId: githubProviderConnectionId,
+    selectedConvexProviderConnectionId: convexProviderConnectionId,
+    selectedCloudflareProviderConnectionId: cloudflareProviderConnectionId,
+  });
+  return { cloudflareProviderConnectionId, convexProviderConnectionId, githubProviderConnectionId };
+}
+
 describe("vault records Convex contract", () => {
   it("rolls back managed app admission when Workflow start fails", async () => {
     const t = convexTest(schema, modules);
-    const { organizationId, userId } = await t.run(async (ctx) => {
+    const {
+      cloudflareProviderConnectionId,
+      convexProviderConnectionId,
+      githubProviderConnectionId,
+      organizationId,
+      userId,
+    } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
@@ -32,13 +83,20 @@ describe("vault records Convex contract", () => {
         plan: "free",
         status: "inactive",
       });
-      return { organizationId, userId };
+      return {
+        ...(await seedOrganizationProviderConnections(ctx, { organizationId, userId })),
+        organizationId,
+        userId,
+      };
     });
 
     await expect(
       t.mutation(internal.vault.records.createInitializingSamebaseManagedVaultForUser, {
         userId,
         organizationId,
+        githubProviderConnectionId,
+        convexProviderConnectionId,
+        cloudflareProviderConnectionId,
         ghRepoOwner: "Ada",
         ghRepoName: "Failed-App",
         visibility: "private",
@@ -80,7 +138,11 @@ describe("vault records Convex contract", () => {
         plan: "free",
         status: "inactive",
       });
-      return { organizationId, userId };
+      return {
+        ...(await seedOrganizationProviderConnections(ctx, { organizationId, userId })),
+        organizationId,
+        userId,
+      };
     });
 
     const existingRepository = await t.mutation(
@@ -88,6 +150,7 @@ describe("vault records Convex contract", () => {
       {
         userId: ids.userId,
         organizationId: ids.organizationId,
+        githubProviderConnectionId: ids.githubProviderConnectionId,
         ghRepoOwner: "Ada",
         ghRepoName: "Existing-App",
       },
@@ -97,6 +160,9 @@ describe("vault records Convex contract", () => {
       {
         userId: ids.userId,
         organizationId: ids.organizationId,
+        githubProviderConnectionId: ids.githubProviderConnectionId,
+        convexProviderConnectionId: ids.convexProviderConnectionId,
+        cloudflareProviderConnectionId: ids.cloudflareProviderConnectionId,
         ghRepoOwner: "Ada",
         ghRepoName: "Created-App",
         visibility: "private",
@@ -187,20 +253,32 @@ describe("vault records Convex contract", () => {
 
   it("rejects a new vault when the user has no exact organization membership", async () => {
     const t = makeConvexTest();
-    const { organizationId, userId } = await t.run(async (ctx) => {
+    const { githubProviderConnectionId, organizationId, userId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
         isApproved: true,
       });
       const organizationId = await ctx.db.insert("organizations", {});
-      return { organizationId, userId };
+      const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+        state: "connected",
+        kind: "github",
+        organizationId,
+        connectedByUserId: userId,
+        accountId: "github-account",
+        auth: { method: "api_key", credential: "github-token" },
+        username: "ada",
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      return { githubProviderConnectionId, organizationId, userId };
     });
 
     await expect(
       t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
         userId,
         organizationId,
+        githubProviderConnectionId,
         ghRepoOwner: "Ada",
         ghRepoName: "Missing-Organization",
       }),
@@ -229,12 +307,20 @@ describe("vault records Convex contract", () => {
         plan: "free",
         status: "inactive",
       });
-      return { organizationId, otherUserId, userId };
+      return {
+        ...(await seedOrganizationProviderConnections(ctx, { organizationId, userId })),
+        organizationId,
+        otherUserId,
+        userId,
+      };
     });
 
     await t.mutation(internal.vault.records.createInitializingSamebaseManagedVaultForUser, {
       userId: ids.userId,
       organizationId: ids.organizationId,
+      githubProviderConnectionId: ids.githubProviderConnectionId,
+      convexProviderConnectionId: ids.convexProviderConnectionId,
+      cloudflareProviderConnectionId: ids.cloudflareProviderConnectionId,
       ghRepoOwner: "Ada",
       ghRepoName: "Example-App",
       visibility: "private",
@@ -248,6 +334,9 @@ describe("vault records Convex contract", () => {
       t.mutation(internal.vault.records.createInitializingSamebaseManagedVaultForUser, {
         userId: ids.otherUserId,
         organizationId: ids.organizationId,
+        githubProviderConnectionId: ids.githubProviderConnectionId,
+        convexProviderConnectionId: ids.convexProviderConnectionId,
+        cloudflareProviderConnectionId: ids.cloudflareProviderConnectionId,
         ghRepoOwner: " ada ",
         ghRepoName: " example-app ",
         visibility: "private",
@@ -301,6 +390,10 @@ describe("vault records Convex contract", () => {
         organizationId: otherOrganizationId,
         userId: otherUserId,
       });
+      const { githubProviderConnectionId } = await seedOrganizationProviderConnections(ctx, {
+        organizationId,
+        userId,
+      });
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
@@ -319,6 +412,7 @@ describe("vault records Convex contract", () => {
       });
       await ctx.db.replace(vaultId, {
         organizationId,
+        githubProviderConnectionId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "connect_existing_repository",

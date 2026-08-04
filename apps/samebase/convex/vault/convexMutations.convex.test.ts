@@ -33,6 +33,51 @@ async function createGraphFixture() {
       plan: "free",
       status: "inactive",
     });
+    const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "github",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "api_key", credential: "github-token" },
+      accountId: "github-ada",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    const convexProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "convex",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "api_key", credential: "convex-token" },
+      teamId: "team-1",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    const cloudflareProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "cloudflare",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "api_key", credential: "cloudflare-token" },
+      defaultAccount: { state: "not_selected" },
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    await ctx.db.patch(organizationId, {
+      selectedConvexProviderConnectionId: convexProviderConnectionId,
+      selectedCloudflareProviderConnectionId: cloudflareProviderConnectionId,
+      selectedGithubProviderConnectionId: githubProviderConnectionId,
+    });
+    const otherGithubProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "github",
+      state: "connected",
+      organizationId: otherOrganizationId,
+      connectedByUserId: otherUserId,
+      auth: { method: "api_key", credential: "github-grace-token" },
+      accountId: "github-grace",
+      createdAt: 1,
+      updatedAt: 1,
+    });
 
     const createConnectedVault = async (
       ownerId: typeof userId,
@@ -57,6 +102,10 @@ async function createGraphFixture() {
       });
       await ctx.db.replace(vaultId, {
         organizationId: vaultOrganizationId,
+        githubProviderConnectionId:
+          vaultOrganizationId === organizationId
+            ? githubProviderConnectionId
+            : otherGithubProviderConnectionId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "connect_existing_repository",
@@ -73,6 +122,9 @@ async function createGraphFixture() {
 
     return {
       userId,
+      cloudflareProviderConnectionId,
+      convexProviderConnectionId,
+      githubProviderConnectionId,
       otherUserId,
       organizationId,
       primaryVaultId: await createConnectedVault(userId, organizationId, "ada"),
@@ -89,6 +141,7 @@ describe("vault Convex project attachment mutations", () => {
     const projectIds = await t.mutation(internal.vault.convexMutations.attachProjects, {
       vaultId: ids.primaryVaultId,
       userId: ids.userId,
+      providerConnectionId: ids.convexProviderConnectionId,
       projects: [
         {
           teamId: "team-1",
@@ -108,6 +161,7 @@ describe("vault Convex project attachment mutations", () => {
       t.mutation(internal.vault.convexMutations.attachProjects, {
         vaultId: ids.primaryVaultId,
         userId: ids.userId,
+        providerConnectionId: ids.convexProviderConnectionId,
         projects: [
           {
             teamId: "team-1",
@@ -138,6 +192,7 @@ describe("vault Convex project attachment mutations", () => {
     await t.mutation(internal.vault.convexMutations.attachProjects, {
       vaultId: ids.primaryVaultId,
       userId: ids.userId,
+      providerConnectionId: ids.convexProviderConnectionId,
       projects: [
         {
           teamId: "team-1",
@@ -152,6 +207,7 @@ describe("vault Convex project attachment mutations", () => {
       t.mutation(internal.vault.convexMutations.attachProjects, {
         vaultId: ids.secondaryVaultId,
         userId: ids.userId,
+        providerConnectionId: ids.convexProviderConnectionId,
         projects: [
           {
             teamId: "team-1",
@@ -184,6 +240,7 @@ describe("vault Convex project attachment mutations", () => {
     const [convexProjectId] = await t.mutation(internal.vault.convexMutations.attachProjects, {
       vaultId: ids.primaryVaultId,
       userId: ids.userId,
+      providerConnectionId: ids.convexProviderConnectionId,
       projects: [
         {
           teamId: "team-1",
@@ -268,6 +325,9 @@ describe("vault Convex project attachment mutations", () => {
       });
       const planId = await ctx.db.insert("workflow_vaultProvisioning_plans", {
         vaultId: ids.primaryVaultId,
+        githubProviderConnectionId: ids.githubProviderConnectionId,
+        convexProviderConnectionId: ids.convexProviderConnectionId,
+        cloudflareProviderConnectionId: ids.cloudflareProviderConnectionId,
         convexConfigPath: "apps/web/convex.json",
         convex: {
           state: "planned",
@@ -385,6 +445,7 @@ describe("vault Convex project attachment mutations", () => {
         vaultId: ids.primaryVaultId,
         userId: ids.userId,
         actionId: "old-project-action",
+        providerConnectionId: ids.convexProviderConnectionId,
         teamId: "team-1",
         projectId: "project-1",
         codeLocation: { kind: "config", convexConfigPath: "convex.json" },
@@ -396,6 +457,7 @@ describe("vault Convex project attachment mutations", () => {
         vaultId: ids.primaryVaultId,
         userId: ids.userId,
         actionId: "manual-project",
+        providerConnectionId: ids.convexProviderConnectionId,
         teamId: "team-1",
         projectId: "project-1",
         codeLocation: { kind: "config", convexConfigPath: "convex.json" },

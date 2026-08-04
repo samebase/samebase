@@ -65,7 +65,14 @@ function convexProjectResponse(projectId: string, teamId: string): Response {
 
 async function createConnectedVault(teamId = "1000") {
   const t = makeConvexTest();
-  const { organizationId, userId, vaultId } = await t.run(async (ctx) => {
+  const {
+    cloudflareProviderConnectionId,
+    convexProviderConnectionId,
+    githubProviderConnectionId,
+    organizationId,
+    userId,
+    vaultId,
+  } = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       name: "Ada",
       email: "ada@example.com",
@@ -78,25 +85,43 @@ async function createConnectedVault(teamId = "1000") {
       plan: "free",
       status: "inactive",
     });
-    await Promise.all([
-      ctx.db.insert("providerConnections", {
-        kind: "convex",
-        userId,
-        auth: { method: "oauth", credential: "convex-token" },
-        teamId,
-        teamSlug: `team-${teamId}`,
-        createdAt: 1,
-        updatedAt: 1,
-      }),
-      ctx.db.insert("providerConnections", {
-        kind: "github",
-        userId,
-        auth: { method: "api_key", credential: "github-token" },
-        username: "ada",
-        createdAt: 1,
-        updatedAt: 1,
-      }),
-    ]);
+    const convexProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "convex",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "oauth", credential: "convex-token" },
+      teamId,
+      teamSlug: `team-${teamId}`,
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "github",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "api_key", credential: "github-token" },
+      accountId: "github-ada",
+      username: "ada",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    const cloudflareProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "cloudflare",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "api_key", credential: "cloudflare-token" },
+      defaultAccount: { state: "not_selected" },
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    await ctx.db.patch(organizationId, {
+      selectedConvexProviderConnectionId: convexProviderConnectionId,
+      selectedCloudflareProviderConnectionId: cloudflareProviderConnectionId,
+      selectedGithubProviderConnectionId: githubProviderConnectionId,
+    });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
       deletion: { state: "not_deleting" },
@@ -115,6 +140,7 @@ async function createConnectedVault(teamId = "1000") {
     });
     await ctx.db.replace(vaultId, {
       organizationId,
+      githubProviderConnectionId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "connect_existing_repository",
@@ -126,7 +152,14 @@ async function createConnectedVault(teamId = "1000") {
       defaultBranch: "stale-main",
       connectedAt: 2,
     });
-    return { organizationId, userId, vaultId };
+    return {
+      cloudflareProviderConnectionId,
+      convexProviderConnectionId,
+      githubProviderConnectionId,
+      organizationId,
+      userId,
+      vaultId,
+    };
   });
   return {
     asUser: t.withIdentity({
@@ -134,6 +167,9 @@ async function createConnectedVault(teamId = "1000") {
       tokenIdentifier: `test:${userId}`,
     }),
     organizationId,
+    cloudflareProviderConnectionId,
+    convexProviderConnectionId,
+    githubProviderConnectionId,
     t,
     userId,
     vaultId,
@@ -146,9 +182,22 @@ async function seedConvexProjects(
   count = 5,
 ): Promise<void> {
   await t.run(async (ctx) => {
+    const connection = await ctx.db
+      .query("providerConnections")
+      .withIndex("by_organization_and_kind_and_state", (query) =>
+        query
+          .eq("organizationId", args.organizationId)
+          .eq("kind", "convex")
+          .eq("state", "connected"),
+      )
+      .unique();
+    if (connection?.kind !== "convex") {
+      throw new Error("Convex connection is required.");
+    }
     for (let index = 0; index < count; index += 1) {
       await ctx.db.insert("vaultConvexProjects", {
         ...args,
+        providerConnectionId: connection._id,
         teamId: "existing-team",
         projectId: `existing-project-${index}`,
         convexConfigPath: `apps/existing-${index}/convex.json`,
@@ -180,6 +229,9 @@ async function createManagedProjectCreatingFixture() {
     });
     await ctx.db.insert("workflow_vaultProvisioning_plans", {
       vaultId: fixture.vaultId,
+      githubProviderConnectionId: fixture.githubProviderConnectionId,
+      convexProviderConnectionId: fixture.convexProviderConnectionId,
+      cloudflareProviderConnectionId: fixture.cloudflareProviderConnectionId,
       convexConfigPath: "convex.json",
       convex: {
         state: "planned",
@@ -434,7 +486,7 @@ describe("vault Convex project attachments", () => {
   });
 
   it("names the created managed Convex project when another attachment takes the last slot", async () => {
-    const { organizationId, runId, t, userId, vaultId } =
+    const { convexProviderConnectionId, organizationId, runId, t, userId, vaultId } =
       await createManagedProjectCreatingFixture();
     await seedConvexProjects(t, { organizationId, vaultId }, 4);
     const fetchMock = vi.fn(async (input: Request) => {
@@ -447,6 +499,7 @@ describe("vault Convex project attachments", () => {
             await ctx.db.insert("vaultConvexProjects", {
               vaultId,
               organizationId,
+              providerConnectionId: convexProviderConnectionId,
               teamId: "last-slot-team",
               projectId: "last-slot-project",
               convexConfigPath: "last-slot/convex.json",
@@ -759,10 +812,11 @@ describe("vault Convex project attachments", () => {
     setGitHubConfigs([{ path: "apps/web/convex.json", sha: "web-sha" }]);
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const { asUser, t, userId, vaultId } = await createConnectedVault();
+    const { asUser, convexProviderConnectionId, t, userId, vaultId } = await createConnectedVault();
     const [convexProjectId] = await t.mutation(internal.vault.convexMutations.attachProjects, {
       vaultId,
       userId,
+      providerConnectionId: convexProviderConnectionId,
       projects: [
         {
           teamId: "1000",
@@ -803,10 +857,12 @@ describe("vault Convex project attachments", () => {
       throw new Error(`Unexpected Convex request: ${input.method} ${input.url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
-    const { asUser, t, userId, vaultId } = await createConnectedVault("2000");
+    const { asUser, convexProviderConnectionId, t, userId, vaultId } =
+      await createConnectedVault("2000");
     const [convexProjectId] = await t.mutation(internal.vault.convexMutations.attachProjects, {
       vaultId,
       userId,
+      providerConnectionId: convexProviderConnectionId,
       projects: [
         {
           teamId: "1000",
@@ -841,10 +897,11 @@ describe("vault Convex project attachments", () => {
         throw new Error(`Unexpected Convex request: ${input.method} ${input.url}`);
       }),
     );
-    const { asUser, t, userId, vaultId } = await createConnectedVault();
+    const { asUser, convexProviderConnectionId, t, userId, vaultId } = await createConnectedVault();
     const [convexProjectId] = await t.mutation(internal.vault.convexMutations.attachProjects, {
       vaultId,
       userId,
+      providerConnectionId: convexProviderConnectionId,
       projects: [
         {
           teamId: "1000",
@@ -879,10 +936,11 @@ describe("vault Convex project attachments", () => {
   it("detaches explicitly without reading Convex or GitHub", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const { asUser, t, userId, vaultId } = await createConnectedVault();
+    const { asUser, convexProviderConnectionId, t, userId, vaultId } = await createConnectedVault();
     const [convexProjectId] = await t.mutation(internal.vault.convexMutations.attachProjects, {
       vaultId,
       userId,
+      providerConnectionId: convexProviderConnectionId,
       projects: [
         {
           teamId: "1000",

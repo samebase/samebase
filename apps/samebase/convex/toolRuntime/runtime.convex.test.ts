@@ -74,14 +74,15 @@ describe("MCP tool runtime boundaries", () => {
       grantedScopes: ["access_provider_connections"],
       vaultId,
       accountId: "account_1",
-      workerName: "invalid worker name",
+      workerName: "provider-secret-sentinel invalid",
       rootDirectory: "/",
     });
 
-    expect(result).toMatchObject({
+    expect(result).toEqual({
       status: "error",
-      text: expect.stringContaining("Worker name"),
+      text: "The provider operation failed. Check the provider connection and retry.",
     });
+    expect(result.text).not.toContain("provider-secret-sentinel");
     expect(result).not.toHaveProperty("structuredContent");
   });
 
@@ -106,61 +107,103 @@ describe("MCP tool runtime boundaries", () => {
       rootDirectory: "/",
     });
 
-    expect(result).toEqual({ status: "error", text: "Vault not found" });
+    expect(result).toEqual({
+      status: "error",
+      text: "The provider operation failed. Check the provider connection and retry.",
+    });
   });
 
-  it("keeps MCP organization context out of the strict deploy-key rotation query", async () => {
+  it("uses exact deploy-key query arguments and keeps provider errors private", async () => {
     const { organizationId, t, userId, vaultId } = await seedToolRuntimeOwner();
-    const { convexProjectId, workerId } = await t.run(async (ctx) => {
-      await ctx.db.insert("providerConnections", {
-        kind: "github",
+    const { cloudflareProviderConnectionId, convexProjectId, workerId } = await t.run(
+      async (ctx) => {
+        const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+          state: "connected",
+          kind: "github",
+          organizationId,
+          connectedByUserId: userId,
+          accountId: "github-account",
+          auth: { method: "api_key", credential: "github-token" },
+          username: "ada",
+          createdAt: 1,
+          updatedAt: 1,
+        });
+        const cloudflareProviderConnectionId = await ctx.db.insert("providerConnections", {
+          state: "disconnected",
+          kind: "cloudflare",
+          organizationId,
+          connectedByUserId: userId,
+          defaultAccount: { state: "not_selected" },
+          disconnectedAt: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        });
+        const convexProviderConnectionId = await ctx.db.insert("providerConnections", {
+          state: "disconnected",
+          kind: "convex",
+          organizationId,
+          connectedByUserId: userId,
+          teamId: "team_1",
+          disconnectedAt: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        });
+        const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+          requestedByUserId: userId,
+          vaultId,
+          repositoryFullName: "ada/demo",
+          trigger: "connect_existing_repository",
+          state: "succeeded",
+          currentStep: "finish",
+          createdAt: 2,
+          updatedAt: 2,
+          completedAt: 2,
+        });
+        await ctx.db.replace(vaultId, {
+          organizationId,
+          deletion: { state: "not_deleting" },
+          state: "connected",
+          githubProviderConnectionId,
+          githubMode: "connect_existing_repository",
+          runId,
+          ghRepoId: "123",
+          owner: "ada",
+          name: "demo",
+          visibility: "private",
+          defaultBranch: "main",
+          connectedAt: 2,
+        });
+        const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
+          vaultId,
+          organizationId,
+          providerConnectionId: cloudflareProviderConnectionId,
+          accountId: "account_1",
+          workerName: "worker",
+          workerTag: "worker-tag",
+          origin: "selected_existing",
+        });
+        const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
+          vaultId,
+          organizationId,
+          providerConnectionId: convexProviderConnectionId,
+          teamId: "team_1",
+          projectId: "project_1",
+          convexConfigPath: "convex.json",
+          origin: "selected_existing",
+        });
+        return { cloudflareProviderConnectionId, convexProjectId, workerId };
+      },
+    );
+
+    await expect(
+      t.query(internal.vault.cloudflareMutations.readWorkerConvexProjectConfigurationContext, {
         userId,
-        auth: { method: "api_key", credential: "github-token" },
-        username: "ada",
-        createdAt: 1,
-        updatedAt: 1,
-      });
-      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        requestedByUserId: userId,
         vaultId,
-        repositoryFullName: "ada/demo",
-        trigger: "connect_existing_repository",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 2,
-        updatedAt: 2,
-        completedAt: 2,
-      });
-      await ctx.db.replace(vaultId, {
-        organizationId,
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "connect_existing_repository",
-        runId,
-        ghRepoId: "123",
-        owner: "ada",
-        name: "demo",
-        visibility: "private",
-        defaultBranch: "main",
-        connectedAt: 2,
-      });
-      const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
-        vaultId,
-        organizationId,
-        accountId: "account_1",
-        workerName: "worker",
-        workerTag: "worker-tag",
-        origin: "selected_existing",
-      });
-      const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
-        vaultId,
-        organizationId,
-        teamId: "team_1",
-        projectId: "project_1",
-        convexConfigPath: "convex.json",
-        origin: "selected_existing",
-      });
-      return { convexProjectId, workerId };
+        workerId,
+        convexProjectId,
+      }),
+    ).resolves.toMatchObject({
+      providerConnectionId: cloudflareProviderConnectionId,
     });
 
     const result = await t.action(
@@ -177,7 +220,7 @@ describe("MCP tool runtime boundaries", () => {
 
     expect(result).toEqual({
       status: "error",
-      text: "Convex connection is required to provision infrastructure. Connect Convex and retry.",
+      text: "The provider operation failed. Check the provider connection and retry.",
     });
   });
 

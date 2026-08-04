@@ -700,30 +700,52 @@ export const listVaultSidebarSummaries = action({
     if (repositories.length === 0) {
       return [];
     }
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: ctx.viewer.userId,
-      kind: "github",
-    });
-    if (githubConnection?.kind !== "github") {
-      throw new Error("GitHub connection unavailable.");
-    }
-
-    const octokit = new Octokit({ auth: githubConnection.auth.credential });
     const summaries: VaultSidebarSummary[] = [];
-    for (const batch of vaultSidebarSummaryBatches(repositories)) {
-      const signal = createGitHubRequestDeadlineSignal();
-      let providerResponse: unknown;
-      try {
-        providerResponse = await octokit.graphql(buildVaultSidebarSummariesQuery(batch), {
-          ...vaultSidebarSummariesVariables(batch),
-          request: { signal },
-        });
-      } catch (error) {
-        // GitHub throws for partial GraphQL responses. A missing aliased
-        // repository is still usable data for every other vault in the batch.
-        providerResponse = recoverGitHubVaultSidebarSummariesFromError(error, batch);
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.getOrganizationIdForUser,
+      {
+        userId: ctx.viewer.userId,
+      },
+    );
+    const repositoriesByGithubConnection = new Map<string, VaultConnectedRepositoryTarget[]>();
+    for (const repository of repositories) {
+      const connectionRepositories = repositoriesByGithubConnection.get(
+        repository.githubProviderConnectionId,
+      );
+      if (connectionRepositories) {
+        connectionRepositories.push(repository);
+      } else {
+        repositoriesByGithubConnection.set(repository.githubProviderConnectionId, [repository]);
       }
-      summaries.push(...normalizeGitHubVaultSidebarSummaries(providerResponse, batch));
+    }
+    for (const connectionRepositories of repositoriesByGithubConnection.values()) {
+      for (const batch of vaultSidebarSummaryBatches(connectionRepositories)) {
+        const githubConnection = await ctx.runQuery(
+          internal.providerConnections.loadConnectedByIdForOrganization,
+          {
+            organizationId,
+            providerConnectionId: batch[0].githubProviderConnectionId,
+            kind: "github",
+          },
+        );
+        if (githubConnection?.kind !== "github") {
+          throw new Error("GitHub connection unavailable.");
+        }
+        const octokit = new Octokit({ auth: githubConnection.auth.credential });
+        const signal = createGitHubRequestDeadlineSignal();
+        let providerResponse: unknown;
+        try {
+          providerResponse = await octokit.graphql(buildVaultSidebarSummariesQuery(batch), {
+            ...vaultSidebarSummariesVariables(batch),
+            request: { signal },
+          });
+        } catch (error) {
+          // GitHub throws for partial GraphQL responses. A missing aliased
+          // repository is still usable data for every other vault in the batch.
+          providerResponse = recoverGitHubVaultSidebarSummariesFromError(error, batch);
+        }
+        summaries.push(...normalizeGitHubVaultSidebarSummaries(providerResponse, batch));
+      }
     }
     return summaries;
   },
@@ -748,10 +770,14 @@ export const listOpenPullRequests = action({
     if (!isLiveConnectedVault(vault)) {
       throw new Error("Vault not found.");
     }
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: ctx.viewer.userId,
-      kind: "github",
-    });
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.loadConnectedByIdForOrganization,
+      {
+        organizationId: vault.organizationId,
+        providerConnectionId: vault.githubProviderConnectionId,
+        kind: "github",
+      },
+    );
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub connection unavailable.");
     }
@@ -806,10 +832,14 @@ export const getOpenPullRequestForBranch = action({
     if (branch === vault.defaultBranch) {
       return { aheadBy: 0, pullRequest: null };
     }
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: ctx.viewer.userId,
-      kind: "github",
-    });
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.loadConnectedByIdForOrganization,
+      {
+        organizationId: vault.organizationId,
+        providerConnectionId: vault.githubProviderConnectionId,
+        kind: "github",
+      },
+    );
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub connection unavailable.");
     }

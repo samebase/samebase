@@ -75,10 +75,19 @@ export const checkConvexConnectionAccess = action({
   returns: vConvexConnectionAccess,
   handler: async (ctx): Promise<ConvexConnectionAccess> => {
     const checkedAt = Date.now();
-    const connection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: ctx.viewer.userId,
-      kind: "convex",
-    });
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.getOrganizationIdForUser,
+      {
+        userId: ctx.viewer.userId,
+      },
+    );
+    const connection = await ctx.runQuery(
+      internal.providerConnections.loadCurrentConnectedForOrganization,
+      {
+        organizationId,
+        kind: "convex",
+      },
+    );
 
     if (connection?.kind !== "convex") {
       return {

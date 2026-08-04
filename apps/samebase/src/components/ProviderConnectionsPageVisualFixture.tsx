@@ -190,6 +190,11 @@ const providerConnectionsVisualFixtureState = {
         status: "granted",
       },
       {
+        label: "Add and update GitHub Actions workflows",
+        scope: "workflow",
+        status: "missing",
+      },
+      {
         label: "Delete Samebase-managed repositories",
         scope: "delete_repo",
         status: "missing",
@@ -226,6 +231,10 @@ const providerConnectionsVisualFixtureState = {
       {
         label: "List and edit repositories",
         scope: "repo",
+      },
+      {
+        label: "Add and update GitHub Actions workflows",
+        scope: "workflow",
       },
       {
         label: "Delete Samebase-managed repositories",

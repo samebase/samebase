@@ -88,12 +88,26 @@ async function getProvisioningRun(
 
 async function resolveGitHubOctokit(
   ctx: Pick<ActionCtx, "runQuery">,
-  userId: Id<"users">,
+  args: {
+    vaultId: Id<"vaults">;
+    userId: Id<"users">;
+  },
 ): Promise<Octokit> {
-  const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-    userId,
-    kind: "github",
+  const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+    userId: args.userId,
+    vaultId: args.vaultId,
   });
+  if (vault === null || vault.state === "not_connected") {
+    throw new Error("Vault GitHub connection is unavailable.");
+  }
+  const githubConnection = await ctx.runQuery(
+    internal.providerConnections.loadConnectedByIdForOrganization,
+    {
+      organizationId: vault.organizationId,
+      providerConnectionId: vault.githubProviderConnectionId,
+      kind: "github",
+    },
+  );
   if (githubConnection?.kind !== "github") {
     throw new Error("GitHub is not connected.");
   }
@@ -243,26 +257,43 @@ export const validateCreateAppConnections = internalAction({
       throw new Error("GitHub owner is required.");
     }
 
-    const [currentUser, githubConnection, convexConnection, cloudflareConnection] =
-      await Promise.all([
-        ctx.runQuery(internal.users.getById, { userId: args.userId }),
-        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId: args.userId,
-          kind: "github",
-        }),
-        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId: args.userId,
-          kind: "convex",
-        }),
-        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId: args.userId,
-          kind: "cloudflare",
-        }),
-      ]);
+    const [currentUser, vault, plan] = await Promise.all([
+      ctx.runQuery(internal.users.getById, { userId: args.userId }),
+      ctx.runQuery(internal.vault.records.getByIdForUser, {
+        vaultId: args.vaultId,
+        userId: args.userId,
+      }),
+      ctx.runQuery(internal.appProvisioningRuns.getPlanByVaultId, {
+        vaultId: args.vaultId,
+      }),
+    ]);
 
     if (!currentUser) {
       throw new Error("User not found.");
     }
+    if (vault === null || vault.state === "not_connected" || plan === null) {
+      throw new Error("Provisioning provider selections are unavailable.");
+    }
+    if (plan.githubProviderConnectionId !== vault.githubProviderConnectionId) {
+      throw new Error("Provisioning GitHub connection changed.");
+    }
+    const [githubConnection, convexConnection, cloudflareConnection] = await Promise.all([
+      ctx.runQuery(internal.providerConnections.loadConnectedByIdForOrganization, {
+        organizationId: vault.organizationId,
+        providerConnectionId: plan.githubProviderConnectionId,
+        kind: "github",
+      }),
+      ctx.runQuery(internal.providerConnections.loadConnectedByIdForOrganization, {
+        organizationId: vault.organizationId,
+        providerConnectionId: plan.convexProviderConnectionId,
+        kind: "convex",
+      }),
+      ctx.runQuery(internal.providerConnections.loadConnectedByIdForOrganization, {
+        organizationId: vault.organizationId,
+        providerConnectionId: plan.cloudflareProviderConnectionId,
+        kind: "cloudflare",
+      }),
+    ]);
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected.");
     }
@@ -308,7 +339,7 @@ export const createGitHubRepository = internalAction({
       state: "running",
     });
 
-    const octokit = await resolveGitHubOctokit(ctx, args.userId);
+    const octokit = await resolveGitHubOctokit(ctx, args);
     const description = args.description?.trim();
     const recordApiCall = createProviderApiCallRecorder(ctx, {
       runId: args.runId,
@@ -400,17 +431,28 @@ export const validateExistingRepositoryConnection = internalAction({
 
     readRepositoryCoordinates(args);
 
-    const [currentUser, githubConnection] = await Promise.all([
+    const [currentUser, vault] = await Promise.all([
       ctx.runQuery(internal.users.getById, { userId: args.userId }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      ctx.runQuery(internal.vault.records.getByIdForUser, {
+        vaultId: args.vaultId,
         userId: args.userId,
-        kind: "github",
       }),
     ]);
 
     if (!currentUser) {
       throw new Error("User not found.");
     }
+    if (vault === null || vault.state === "not_connected") {
+      throw new Error("Vault GitHub connection is unavailable.");
+    }
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.loadConnectedByIdForOrganization,
+      {
+        organizationId: vault.organizationId,
+        providerConnectionId: vault.githubProviderConnectionId,
+        kind: "github",
+      },
+    );
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected.");
     }
@@ -440,7 +482,7 @@ export const fetchExistingGitHubRepository = internalAction({
       state: "running",
     });
 
-    const octokit = await resolveGitHubOctokit(ctx, args.userId);
+    const octokit = await resolveGitHubOctokit(ctx, args);
     const recordApiCall = createProviderApiCallRecorder(ctx, {
       runId: args.runId,
       step: "fetch_github_repo",
@@ -528,7 +570,7 @@ export const seedStarterRepository = internalAction({
       state: "running",
     });
 
-    const octokit = await resolveGitHubOctokit(ctx, args.userId);
+    const octokit = await resolveGitHubOctokit(ctx, args);
     const recordApiCall = createProviderApiCallRecorder(ctx, {
       runId: args.runId,
       step: "seed_starter",
@@ -674,7 +716,7 @@ export const syncVaultTreeForRepository = internalAction({
       state: "running",
     });
 
-    const octokit = await resolveGitHubOctokit(ctx, args.userId);
+    const octokit = await resolveGitHubOctokit(ctx, args);
     const recordApiCall = createProviderApiCallRecorder(ctx, {
       runId: args.runId,
       step: "sync_tree",

@@ -87,29 +87,47 @@ async function createCloudflareConnectedVault() {
       plan: "free",
       status: "inactive",
     });
-    await Promise.all([
-      ctx.db.insert("providerConnections", {
-        kind: "cloudflare",
-        userId,
-        auth: {
-          method: "oauth",
-          credential: "cloudflare-token",
-          refreshCredential: "cloudflare-refresh-token",
-          credentialExpiresAt: 4_000_000_000_000,
-        },
-        defaultAccount: { state: "not_selected" },
-        createdAt: 1,
-        updatedAt: 1,
-      }),
-      ctx.db.insert("providerConnections", {
-        kind: "github",
-        userId,
-        auth: { method: "api_key", credential: "github-token" },
-        username: "ada",
-        createdAt: 1,
-        updatedAt: 1,
-      }),
-    ]);
+    const cloudflareProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "cloudflare",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: {
+        method: "oauth",
+        credential: "cloudflare-token",
+        refreshCredential: "cloudflare-refresh-token",
+        credentialExpiresAt: 4_000_000_000_000,
+      },
+      defaultAccount: { state: "not_selected" },
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "github",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "api_key", credential: "github-token" },
+      accountId: "github-ada",
+      username: "ada",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    const convexProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "convex",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "api_key", credential: "convex-token" },
+      teamId: "convex-team",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    await ctx.db.patch(organizationId, {
+      selectedCloudflareProviderConnectionId: cloudflareProviderConnectionId,
+      selectedConvexProviderConnectionId: convexProviderConnectionId,
+      selectedGithubProviderConnectionId: githubProviderConnectionId,
+    });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
       deletion: { state: "not_deleting" },
@@ -128,6 +146,7 @@ async function createCloudflareConnectedVault() {
     });
     await ctx.db.replace(vaultId, {
       organizationId,
+      githubProviderConnectionId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "connect_existing_repository",
@@ -139,7 +158,14 @@ async function createCloudflareConnectedVault() {
       defaultBranch: "stale-main",
       connectedAt: 2,
     });
-    return { organizationId, userId, vaultId };
+    return {
+      cloudflareProviderConnectionId,
+      convexProviderConnectionId,
+      githubProviderConnectionId,
+      organizationId,
+      userId,
+      vaultId,
+    };
   });
   return {
     ...ids,
@@ -153,7 +179,11 @@ async function createCloudflareConnectedVault() {
 
 async function seedCloudflareWorkers(
   t: ReturnType<typeof makeConvexTest>,
-  args: { organizationId: Id<"organizations">; vaultId: Id<"vaults"> },
+  args: {
+    organizationId: Id<"organizations">;
+    providerConnectionId: Id<"providerConnections">;
+    vaultId: Id<"vaults">;
+  },
   count = 5,
 ): Promise<void> {
   await t.run(async (ctx) => {
@@ -191,6 +221,9 @@ async function createManagedWorkerCreatingFixture() {
     });
     await ctx.db.insert("workflow_vaultProvisioning_plans", {
       vaultId: fixture.vaultId,
+      githubProviderConnectionId: fixture.githubProviderConnectionId,
+      convexProviderConnectionId: fixture.convexProviderConnectionId,
+      cloudflareProviderConnectionId: fixture.cloudflareProviderConnectionId,
       convexConfigPath: "convex.json",
       convex: {
         state: "planned",
@@ -539,8 +572,13 @@ describe("vault Cloudflare Worker attachments", () => {
       throw new Error(`Unexpected provider request: ${method} ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
-    const { asUser, organizationId, t, vaultId } = await createCloudflareConnectedVault();
-    await seedCloudflareWorkers(t, { organizationId, vaultId });
+    const { asUser, cloudflareProviderConnectionId, organizationId, t, vaultId } =
+      await createCloudflareConnectedVault();
+    await seedCloudflareWorkers(t, {
+      organizationId,
+      providerConnectionId: cloudflareProviderConnectionId,
+      vaultId,
+    });
 
     await expect(
       asUser.action(api.vault.cloudflare.createWorker, {
@@ -559,9 +597,13 @@ describe("vault Cloudflare Worker attachments", () => {
   });
 
   it("blocks a managed Cloudflare create before the provider write at the free limit", async () => {
-    const { organizationId, runId, t, userId, vaultId } =
+    const { cloudflareProviderConnectionId, organizationId, runId, t, userId, vaultId } =
       await createManagedWorkerCreatingFixture();
-    await seedCloudflareWorkers(t, { organizationId, vaultId });
+    await seedCloudflareWorkers(t, {
+      organizationId,
+      providerConnectionId: cloudflareProviderConnectionId,
+      vaultId,
+    });
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
       const method = input instanceof Request ? input.method : (init?.method ?? "GET");
@@ -601,9 +643,13 @@ describe("vault Cloudflare Worker attachments", () => {
   });
 
   it("names the created managed Cloudflare Worker when another attachment takes the last slot", async () => {
-    const { organizationId, runId, t, userId, vaultId } =
+    const { cloudflareProviderConnectionId, organizationId, runId, t, userId, vaultId } =
       await createManagedWorkerCreatingFixture();
-    await seedCloudflareWorkers(t, { organizationId, vaultId }, 4);
+    await seedCloudflareWorkers(
+      t,
+      { organizationId, providerConnectionId: cloudflareProviderConnectionId, vaultId },
+      4,
+    );
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
       const method = input instanceof Request ? input.method : (init?.method ?? "GET");
@@ -627,6 +673,7 @@ describe("vault Cloudflare Worker attachments", () => {
             await ctx.db.insert("vaultCloudflareWorkers", {
               vaultId,
               organizationId,
+              providerConnectionId: cloudflareProviderConnectionId,
               accountId: "last-slot-account",
               workerName: "last-slot-worker",
               workerTag: "last-slot-worker-tag",
@@ -743,12 +790,14 @@ describe("vault Cloudflare Worker attachments", () => {
   });
 
   it("uses one backend conflict rule for browser and MCP configuration writes", async () => {
-    const { asUser, organizationId, t, userId, vaultId } = await createCloudflareConnectedVault();
+    const { asUser, cloudflareProviderConnectionId, organizationId, t, userId, vaultId } =
+      await createCloudflareConnectedVault();
     const workerId = await t.run(
       async (ctx) =>
         await ctx.db.insert("vaultCloudflareWorkers", {
           vaultId,
           organizationId,
+          providerConnectionId: cloudflareProviderConnectionId,
           accountId,
           workerName: "portal",
           workerTag: "portal-tag",
@@ -812,9 +861,13 @@ describe("vault Cloudflare Worker attachments", () => {
   });
 
   it("requires dashboard deletion when an interrupted managed create left a Worker", async () => {
-    const { organizationId, runId, t, userId, vaultId } =
+    const { cloudflareProviderConnectionId, organizationId, runId, t, userId, vaultId } =
       await createManagedWorkerCreatingFixture();
-    await seedCloudflareWorkers(t, { organizationId, vaultId });
+    await seedCloudflareWorkers(t, {
+      organizationId,
+      providerConnectionId: cloudflareProviderConnectionId,
+      vaultId,
+    });
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
       const method = input instanceof Request ? input.method : (init?.method ?? "GET");
@@ -917,13 +970,10 @@ describe("vault Cloudflare Worker attachments", () => {
   });
 
   it("retries an interrupted managed create after the Worker was deleted", async () => {
-    const { organizationId, runId, t, userId, vaultId } =
+    const { cloudflareProviderConnectionId, organizationId, runId, t, userId, vaultId } =
       await createManagedWorkerCreatingFixture();
     await t.run(async (ctx) => {
-      const connection = await ctx.db
-        .query("providerConnections")
-        .withIndex("by_user_kind", (q) => q.eq("userId", userId).eq("kind", "cloudflare"))
-        .unique();
+      const connection = await ctx.db.get(cloudflareProviderConnectionId);
       if (!connection || connection.kind !== "cloudflare") {
         throw new Error("Expected Cloudflare connection.");
       }
@@ -976,13 +1026,7 @@ describe("vault Cloudflare Worker attachments", () => {
       origin: "provisioned",
     });
     await expect(
-      t.run(
-        async (ctx) =>
-          await ctx.db
-            .query("providerConnections")
-            .withIndex("by_user_kind", (q) => q.eq("userId", userId).eq("kind", "cloudflare"))
-            .unique(),
-      ),
+      t.run(async (ctx) => await ctx.db.get(cloudflareProviderConnectionId)),
     ).resolves.toMatchObject({
       defaultAccount: {
         state: "selected",
@@ -998,12 +1042,14 @@ describe("vault Cloudflare Worker attachments", () => {
   });
 
   it("detaches explicitly without using provider absence as authority", async () => {
-    const { asUser, organizationId, t, vaultId } = await createCloudflareConnectedVault();
+    const { asUser, cloudflareProviderConnectionId, organizationId, t, vaultId } =
+      await createCloudflareConnectedVault();
     const workerId = await t.run(
       async (ctx) =>
         await ctx.db.insert("vaultCloudflareWorkers", {
           vaultId,
           organizationId,
+          providerConnectionId: cloudflareProviderConnectionId,
           accountId,
           workerName: "still-live",
           workerTag: "worker-tag",
@@ -1021,11 +1067,20 @@ describe("vault Cloudflare Worker attachments", () => {
   });
 
   it("blocks delayed managed configuration after its run loses the write lock", async () => {
-    const { organizationId, t, userId, vaultId } = await createCloudflareConnectedVault();
+    const {
+      cloudflareProviderConnectionId,
+      convexProviderConnectionId,
+      githubProviderConnectionId,
+      organizationId,
+      t,
+      userId,
+      vaultId,
+    } = await createCloudflareConnectedVault();
     const { managedRunId, workerId } = await t.run(async (ctx) => {
       const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId,
         organizationId,
+        providerConnectionId: cloudflareProviderConnectionId,
         accountId,
         workerName: "managed",
         workerTag: "managed-tag",
@@ -1050,6 +1105,9 @@ describe("vault Cloudflare Worker attachments", () => {
       });
       await ctx.db.insert("workflow_vaultProvisioning_plans", {
         vaultId,
+        githubProviderConnectionId,
+        convexProviderConnectionId,
+        cloudflareProviderConnectionId,
         convexConfigPath: "convex.json",
         convex: { state: "planned", projectName: "demo", teamId: "convex-team" },
         cloudflare: {

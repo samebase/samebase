@@ -12,10 +12,13 @@ describe("getCloudflareMcpOAuthUrl", () => {
   it("registers the Cloudflare OAuth client with the Samebase display name", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
+      const userId = await ctx.db.insert("users", {
         email: "test@example.invalid",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {});
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      return userId;
     });
     vi.stubEnv(
       "PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL",

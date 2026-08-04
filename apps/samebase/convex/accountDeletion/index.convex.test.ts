@@ -103,6 +103,16 @@ async function seedVault(
     if (membership === null) {
       throw new Error("Expected organization membership.");
     }
+    const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "github",
+      state: "connected",
+      organizationId: membership.organizationId,
+      connectedByUserId: userId,
+      accountId: `github-${name}`,
+      auth: { method: "api_key", credential: "github-token" },
+      createdAt: now,
+      updatedAt: now,
+    });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId: membership.organizationId,
       state: "not_connected",
@@ -124,6 +134,7 @@ async function seedVault(
       organizationId: membership.organizationId,
       deletion: { state: "not_deleting" },
       state: "connected",
+      githubProviderConnectionId,
       githubMode: "create_repository",
       runId,
       ghRepoId: `${vaultId}-github`,

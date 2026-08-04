@@ -9,13 +9,8 @@ import {
   listCloudflareAccountsForToken,
   type CloudflareAccount,
 } from "./cloudflareAccountDiscovery";
-import {
-  CloudflareApiError,
-  requestCloudflareApi,
-  resolveCloudflareApiTransport,
-} from "./cloudflareApi/client";
+import { requestCloudflareApi, resolveCloudflareApiTransport } from "./cloudflareApi/client";
 import { CLOUDFLARE_MCP_OAUTH_SCOPES } from "./cloudflareMcpOAuth";
-import { toErrorMessage } from "./jsonUtils";
 import { deriveMcpTokenStatusFromExpiry, type McpTokenHealth } from "./mcpTokenHealth";
 import type { CloudflareDefaultAccount } from "./providerConnectionModel";
 
@@ -125,9 +120,24 @@ export const checkCloudflareConnectionAccess = action({
   returns: vCloudflareConnectionAccess,
   handler: async (ctx): Promise<CloudflareConnectionAccess> => {
     const checkedAt = Date.now();
-    const connection = await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForUser, {
-      userId: ctx.viewer.userId,
-    });
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.getOrganizationIdForUser,
+      {
+        userId: ctx.viewer.userId,
+      },
+    );
+    const providerConnection = await ctx.runQuery(
+      internal.providerConnections.loadCurrentConnectedForOrganization,
+      { organizationId, kind: "cloudflare" },
+    );
+    const connection =
+      providerConnection === null
+        ? null
+        : await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForUser, {
+            organizationId,
+            providerConnectionId: providerConnection._id,
+            userId: ctx.viewer.userId,
+          });
 
     if (connection === null) {
       return {
@@ -611,8 +621,6 @@ function normalizeOptionalString(value: string | undefined): string | undefined 
 }
 
 function formatCloudflareAccessProbeError(error: unknown): string {
-  if (error instanceof CloudflareApiError) {
-    return error.message;
-  }
-  return toErrorMessage(error);
+  void error;
+  return "Cloudflare access check failed. Reconnect Cloudflare and retry.";
 }

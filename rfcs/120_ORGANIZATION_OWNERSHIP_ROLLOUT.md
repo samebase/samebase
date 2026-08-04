@@ -7,7 +7,8 @@
 - Last updated: 2026-08-04
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Current branch: `codex-organization-ownership-spec`
-- Current state: Organization base validated; organization provider ownership implementation pending
+- Current state: Organization provider ownership implemented; final validation and review in
+  progress
 - Current pull request: [#1355](https://github.com/samebase/samebase/pull/1355)
 
 ## Purpose
@@ -55,6 +56,8 @@ output or a per-commit journal.
   provenance and credential lifecycle.
 - Permit several connections per provider kind in the schema, while the first UI continues to create
   and display one.
+- Store one selected connection ID per provider kind on the organization. Use it for status and new
+  resources. Existing resources continue to use their own exact connection ID.
 - Bind each vault repository, Convex project, Cloudflare Worker, and provisioning plan to a stable
   provider connection ID. Provider operations use that ID instead of the acting user.
 - Disconnect a provider by revoking OAuth when possible and stripping the local credential. Keep a
@@ -79,8 +82,8 @@ output or a per-commit journal.
 - `users.organizationId`: rejected because a user row is not the durable resource boundary.
 - `users.activeOrganizationId`: rejected because future organization selection belongs to verified
   request or session context.
-- Organization name, status, slug, kind, lifecycle, creator, and provider ID fields: deferred
-  without a current behavior.
+- Organization name, status, slug, kind, lifecycle, and creator fields: deferred without a current
+  behavior.
 - Membership roles, status, timestamps, and permission arrays: deferred without a current behavior.
 - Auth identity and organization provider-link tables: deferred now, but required before any
   external authentication or organization provider migration starts.
@@ -121,7 +124,7 @@ the manual reset.
 
 ### Final organization cutover
 
-- Status: Organization base validated; organization provider ownership implementation pending
+- Status: Organization provider ownership implemented; final validation and review in progress
 - Scope: Add the final organization graph, organization billing, membership access, MCP binding,
   organization provider connections, retained-user bootstrap, organization-aware API results, and
   affected UI and workflow support.
@@ -158,8 +161,17 @@ Implemented in the current pull request and worktree:
 - vault lifecycle preservation during member deletion, with bounded per-vault cleanup that deletes
   events before terminal runs at the vault deletion boundary;
 - one small bootstrap for the retained users after the operator-run reset, which rejects unresolved
-  checkout attempts; and
-- a manual cutover runbook that records the exact destructive scope and verification order.
+  checkout attempts;
+- a manual cutover runbook that records the exact destructive scope and verification order;
+- organization-owned provider connections with required connecting-member provenance, several rows
+  per provider kind, and one selected default of each kind on the organization;
+- exact provider connection IDs on repositories, Convex projects, Cloudflare Workers, and
+  provisioning plans so later reads, writes, observations, and retries do not follow a changed
+  default;
+- provider-side OAuth revocation before local disconnect for GitHub and Cloudflare, fixed public
+  provider failure messages, and account deletion across every connected provider row; and
+- the GitHub `workflow` scope required by the shipped starter CI file, plus a normal parented commit
+  after empty-repository bootstrap instead of a forced second root commit.
 
 The branch was rebased onto current `origin/main` with operator approval. The supply-chain
 dependency patch is present. The approved manual reset replaces the earlier migration code. Current
@@ -173,8 +185,8 @@ manual reset order. A follow-up review found one strict MCP argument mismatch, o
 race, and unsupported concurrent FileView commit cases. The focused fixes use an explicit argument
 object and one organization deletion lock. FileView keeps the normal one-person edit and commit
 path, then clears committed staging. Delayed-save reconciliation and commit retry recovery are
-deferred. Organization provider ownership must be implemented and validated before fresh pull
-request review and the operator-run cutover.
+deferred. Organization provider ownership is implemented and has passed real provider creation,
+reload, observation, and deletion tests.
 
 Manual testing with two members and one waitlisted account found one development-only credential
 problem: the normal auth callback copied the configured seed provider keys to every new local and
@@ -183,12 +195,10 @@ copy of the same keys. The duplicate callback seeding is removed. Only the expli
 action now installs those keys on the seed account.
 
 On 2026-08-04, the operator changed the accepted provider boundary after the organization-base
-validation. Provider connections must now belong to the organization and retain a required
-`connectedByUserId`. The schema must permit several connections of one provider kind without adding
-that UI now. Vault resources and provisioning plans must bind to stable connection IDs. The current
-branch still uses user-owned provider connections, so the earlier validation is evidence for the
-organization base only. Provider ownership implementation, focused tests, and the main
-provider-backed manual flows are pending. Existing connections will not be migrated.
+validation. The branch now makes provider connections organization-owned with required
+`connectedByUserId`, permits several rows of one provider kind without adding selector UI, and binds
+provider-backed resources and plans to exact connection IDs. Existing connections will not be
+migrated.
 
 ### Final review-fix checkpoint
 
@@ -236,6 +246,35 @@ Final integrated code head before this progress-record update: `22846b8c`.
   resource usage, and empty organization vault list. The second member kept three disconnected
   personal providers after a new login. The waitlisted account saw `Account access pending` on
   `/vault` and `/providers` and did not receive app access.
+
+## Provider Ownership Validation Evidence
+
+- The local final-schema cutover required the approved reset of old user-owned provider rows. The
+  previous isolated local database was moved to a recoverable backup. No preview or production data
+  changed.
+- The seeded organization displayed its GitHub, Convex, and Cloudflare connections on `/providers`.
+  Live GitHub access checks loaded the expected account, repositories, and organizations.
+- A real `/new-app` run created the temporary GitHub repository, seeded the starter commit, created
+  the Convex project, created the Cloudflare Worker, configured Workers Builds, and rotated the
+  Convex deploy keys.
+- Reloading the real `/vault` route loaded the same repository commit, Cloudflare Worker and build,
+  Workers URL, and Convex deployment through their stored provider connection IDs.
+- Manual testing found and fixed one broad argument object passed to a strict Convex query. It also
+  found that the starter CI file requires GitHub's `workflow` scope. The GitHub connection contract
+  now requests and reports that scope.
+- The first Cloudflare build timed out in Cloudflare before a project command started. One clean
+  retry built the app, deployed the Convex functions, deployed the Worker, passed all three checks,
+  and returned HTTP 200 from the Workers URL.
+- The normal vault deletion flow removed the temporary vault, GitHub repository, Convex project, and
+  Cloudflare Worker. Follow-up reads through the product and provider APIs confirmed that all four
+  resources were gone.
+- `pnpm --filter samebase check:ci` passed. `pnpm test` passed 294 files and 2,304 tests, with one
+  existing skipped test.
+- The canonical Linux visual run passed the updated provider connection image and 209 other tests.
+  One unrelated mobile URL-editor test missed its input during the full parallel run, then passed in
+  an isolated Linux rerun without a code change.
+- Independent release-path and delete-first reviews found no provider-ownership or main-flow blocker
+  and no safe production code to remove before the one-time retained-user bootstrap runs.
 
 ## UI And Workflow Coverage
 
@@ -294,17 +333,14 @@ Primary external sources:
 
 ## Next Exact Task
 
-1. Implement organization-owned provider connections with required `connectedByUserId`, stable
-   resource bindings, several rows per provider kind in the schema, and no migration or
-   compatibility path.
-2. Validate provider setup, `/vault` reload, repository connection, Convex project creation, and
-   Cloudflare Worker creation through both members of the operator organization.
-3. Get fresh independent reviews and green pull request checks.
-4. Record the Polar billing state and confirm that no destructive workflow is active.
-5. Disconnect all providers, pause product writes, and follow the accepted manual reset runbook
+1. Get green pull request checks.
+2. Validate shared provider status and resource access through both members when the member setup
+   flow is ready for release testing.
+3. Record the Polar billing state and confirm that no destructive workflow is active.
+4. Disconnect all providers, pause product writes, and follow the accepted manual reset runbook
    while the old schema is live.
-6. Merge and deploy the final schema and organization-authoritative runtime.
-7. Run the retained-user bootstrap with the two explicit operator user IDs and recorded billing
+5. Merge and deploy the final schema and organization-authoritative runtime.
+6. Run the retained-user bootstrap with the two explicit operator user IDs and recorded billing
    state.
-8. Verify the bootstrap counts and the required two-member flows, reconnect MCP and the retained
+7. Verify the bootstrap counts and the required two-member flows, reconnect MCP and the retained
    vaults, then resume product writes.

@@ -15,6 +15,36 @@ async function createGuardedAttachmentFixture(operation: ActiveOperation) {
     });
     const organizationId = await ctx.db.insert("organizations", {});
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "github",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "api_key", credential: "github-token" },
+      accountId: "github-ada",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    const convexProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "convex",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "api_key", credential: "convex-token" },
+      teamId: "team-1",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    const cloudflareProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "cloudflare",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "api_key", credential: "cloudflare-token" },
+      defaultAccount: { state: "not_selected" },
+      createdAt: 1,
+      updatedAt: 1,
+    });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
       deletion: { state: "not_deleting" },
@@ -33,6 +63,7 @@ async function createGuardedAttachmentFixture(operation: ActiveOperation) {
     });
     await ctx.db.replace(vaultId, {
       organizationId,
+      githubProviderConnectionId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "connect_existing_repository",
@@ -47,6 +78,7 @@ async function createGuardedAttachmentFixture(operation: ActiveOperation) {
     const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
       vaultId,
       organizationId,
+      providerConnectionId: convexProviderConnectionId,
       teamId: "team-1",
       projectId: "project-1",
       convexConfigPath: "convex.json",
@@ -55,6 +87,7 @@ async function createGuardedAttachmentFixture(operation: ActiveOperation) {
     const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
       vaultId,
       organizationId,
+      providerConnectionId: cloudflareProviderConnectionId,
       accountId: "account-1",
       workerName: "worker-1",
       workerTag: "worker-tag-1",
@@ -123,7 +156,14 @@ async function createGuardedAttachmentFixture(operation: ActiveOperation) {
         operation satisfies never;
     }
 
-    return { convexProjectId, userId, vaultId, workerId };
+    return {
+      cloudflareProviderConnectionId,
+      convexProjectId,
+      convexProviderConnectionId,
+      userId,
+      vaultId,
+      workerId,
+    };
   });
 
   return { ids, t };
@@ -144,6 +184,7 @@ describe.each([
       t.mutation(internal.vault.convexMutations.attachProjects, {
         vaultId: ids.vaultId,
         userId: ids.userId,
+        providerConnectionId: ids.convexProviderConnectionId,
         projects: [
           {
             teamId: "team-2",
@@ -188,6 +229,7 @@ describe.each([
       t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
         vaultId: ids.vaultId,
         userId: ids.userId,
+        providerConnectionId: ids.cloudflareProviderConnectionId,
         workers: [
           {
             accountId: "account-1",

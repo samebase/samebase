@@ -38,6 +38,7 @@ export const readProviderAttachmentVaultContext = internalQuery({
     userId: id("users"),
   },
   returns: object({
+    organizationId: id("organizations"),
     ghRepoId: string(),
     owner: string(),
     name: string(),
@@ -53,6 +54,7 @@ export const readProviderAttachmentVaultContext = internalQuery({
       throw new Error("Vault not found.");
     }
     return {
+      organizationId: vault.organizationId,
       ghRepoId: vault.ghRepoId,
       owner: vault.owner,
       name: vault.name,

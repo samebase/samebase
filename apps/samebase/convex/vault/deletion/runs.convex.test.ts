@@ -17,6 +17,32 @@ async function createExistingRepositoryVaultWithConvex(args: {
     });
     const organizationId = await ctx.db.insert("organizations", {});
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "github",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "api_key", credential: "github-token" },
+      accountId: "github-ada",
+      username: "ada",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    const convexProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "convex",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "api_key", credential: "convex-token" },
+      teamId: "team-id",
+      teamSlug: "ada-team",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    await ctx.db.patch(organizationId, {
+      selectedConvexProviderConnectionId: convexProviderConnectionId,
+      selectedGithubProviderConnectionId: githubProviderConnectionId,
+    });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
       deletion: { state: "not_deleting" },
@@ -35,6 +61,7 @@ async function createExistingRepositoryVaultWithConvex(args: {
     });
     await ctx.db.replace(vaultId, {
       organizationId,
+      githubProviderConnectionId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "connect_existing_repository",
@@ -49,27 +76,16 @@ async function createExistingRepositoryVaultWithConvex(args: {
     await ctx.db.insert("vaultConvexProjects", {
       vaultId,
       organizationId,
+      providerConnectionId: convexProviderConnectionId,
       convexConfigPath: "convex.json",
       teamId: "team-id",
       projectId: "convex-project",
       origin: args.origin,
     });
     if (args.origin === "provisioned") {
-      await ctx.db.insert("providerConnections", {
-        kind: "convex",
-        userId,
-        auth: {
-          method: "api_key",
-          credential: "convex-token",
-        },
-        teamId: "team-id",
-        teamSlug: "ada-team",
-        createdAt: 15,
-        updatedAt: 15,
-      });
     }
 
-    return { userId, vaultId };
+    return { convexProviderConnectionId, userId, vaultId };
   });
 
   return { ids, t };
@@ -85,6 +101,17 @@ async function createSamebaseManagedVaultWithConvex(args: { withProject: boolean
     });
     const organizationId = await ctx.db.insert("organizations", {});
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "github",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      auth: { method: "api_key", credential: "github-token" },
+      accountId: "github-ada",
+      username: "ada",
+      createdAt: 1,
+      updatedAt: 1,
+    });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
       deletion: { state: "not_deleting" },
@@ -103,6 +130,7 @@ async function createSamebaseManagedVaultWithConvex(args: { withProject: boolean
     });
     await ctx.db.replace(vaultId, {
       organizationId,
+      githubProviderConnectionId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "create_repository",
@@ -114,9 +142,11 @@ async function createSamebaseManagedVaultWithConvex(args: { withProject: boolean
       defaultBranch: "main",
       connectedAt: 12,
     });
-    await ctx.db.insert("providerConnections", {
+    const convexProviderConnectionId = await ctx.db.insert("providerConnections", {
       kind: "convex",
-      userId,
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
       auth: {
         method: "api_key",
         credential: "convex-token",
@@ -126,9 +156,11 @@ async function createSamebaseManagedVaultWithConvex(args: { withProject: boolean
       createdAt: 15,
       updatedAt: 15,
     });
-    await ctx.db.insert("providerConnections", {
+    const cloudflareProviderConnectionId = await ctx.db.insert("providerConnections", {
       kind: "cloudflare",
-      userId,
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
       auth: {
         method: "api_key",
         credential: "cloudflare-token",
@@ -141,9 +173,17 @@ async function createSamebaseManagedVaultWithConvex(args: { withProject: boolean
       createdAt: 15,
       updatedAt: 15,
     });
+    await ctx.db.patch(organizationId, {
+      selectedCloudflareProviderConnectionId: cloudflareProviderConnectionId,
+      selectedConvexProviderConnectionId: convexProviderConnectionId,
+      selectedGithubProviderConnectionId: githubProviderConnectionId,
+    });
     await ctx.db.insert("workflow_vaultProvisioning_plans", {
       vaultId,
       convexConfigPath: "convex.json",
+      githubProviderConnectionId,
+      convexProviderConnectionId,
+      cloudflareProviderConnectionId,
       convex: {
         state: "planned",
         projectName: "managed-convex",
@@ -162,6 +202,7 @@ async function createSamebaseManagedVaultWithConvex(args: { withProject: boolean
       await ctx.db.insert("vaultConvexProjects", {
         vaultId,
         organizationId,
+        providerConnectionId: convexProviderConnectionId,
         convexConfigPath: "convex.json",
         teamId: "team-id",
         projectId: "convex-project",
@@ -169,7 +210,7 @@ async function createSamebaseManagedVaultWithConvex(args: { withProject: boolean
       });
     }
 
-    return { userId, vaultId };
+    return { convexProviderConnectionId, userId, vaultId };
   });
 
   return { ids, t };
@@ -200,6 +241,17 @@ async function createDeletionRetryActorFixture() {
     });
     const organizationId = await ctx.db.insert("organizations", {});
     await ctx.db.insert("organizationMemberships", { organizationId, userId: ownerId });
+    const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "github",
+      state: "connected",
+      organizationId,
+      connectedByUserId: ownerId,
+      auth: { method: "api_key", credential: "github-token" },
+      accountId: "github-ada",
+      username: "ada",
+      createdAt: 1,
+      updatedAt: 1,
+    });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
       deletion: { state: "not_deleting" },
@@ -246,6 +298,7 @@ async function createDeletionRetryActorFixture() {
     });
     await ctx.db.replace(vaultId, {
       organizationId,
+      githubProviderConnectionId,
       deletion: { state: "delete_failed", runId: failedRunId, failedAt: 4 },
       state: "connected",
       githubMode: "connect_existing_repository",
@@ -306,7 +359,8 @@ describe("vault deletion Convex resource planning", () => {
 
     await expect(
       t.mutation(internal.vault.deletion.runs.createInitialRun, {
-        ...ids,
+        userId: ids.userId,
+        vaultId: ids.vaultId,
         options: {
           removeGithubRepo: false,
           removeConvexProvision: false,
@@ -348,7 +402,8 @@ describe("vault deletion Convex resource planning", () => {
 
     await expect(
       t.mutation(internal.vault.deletion.runs.createInitialRun, {
-        ...ids,
+        userId: ids.userId,
+        vaultId: ids.vaultId,
         options: {
           removeGithubRepo: false,
           removeConvexProvision: false,
@@ -364,7 +419,8 @@ describe("vault deletion Convex resource planning", () => {
     });
 
     const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
-      ...ids,
+      userId: ids.userId,
+      vaultId: ids.vaultId,
       options: {
         ...deleteConvexOptions,
         removeConvexProvision: false,
@@ -399,7 +455,8 @@ describe("vault deletion Convex resource planning", () => {
     });
 
     const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
-      ...ids,
+      userId: ids.userId,
+      vaultId: ids.vaultId,
       options: deleteConvexOptions,
     });
     const run = await t.run(async (ctx) => await ctx.db.get(deletionRunId));
@@ -429,6 +486,7 @@ describe("vault deletion Convex resource planning", () => {
       await ctx.db.insert("vaultConvexProjects", {
         vaultId: ids.vaultId,
         organizationId: vault.organizationId,
+        providerConnectionId: ids.convexProviderConnectionId,
         convexConfigPath: "convex.json",
         teamId: "other-team",
         projectId: "other-project",
@@ -438,7 +496,8 @@ describe("vault deletion Convex resource planning", () => {
 
     await expect(
       t.mutation(internal.vault.deletion.runs.createInitialRun, {
-        ...ids,
+        userId: ids.userId,
+        vaultId: ids.vaultId,
         options: deleteConvexOptions,
       }),
     ).rejects.toThrow("Managed Convex projects span more than one team.");
@@ -449,10 +508,7 @@ describe("vault deletion Convex resource planning", () => {
       origin: "provisioned",
     });
     await t.run(async (ctx) => {
-      const connection = await ctx.db
-        .query("providerConnections")
-        .withIndex("by_user_kind", (q) => q.eq("userId", ids.userId).eq("kind", "convex"))
-        .unique();
+      const connection = await ctx.db.get(ids.convexProviderConnectionId);
       if (connection?.kind !== "convex") {
         throw new Error("Test Convex connection not found.");
       }
@@ -461,7 +517,8 @@ describe("vault deletion Convex resource planning", () => {
 
     await expect(
       t.mutation(internal.vault.deletion.runs.createInitialRun, {
-        ...ids,
+        userId: ids.userId,
+        vaultId: ids.vaultId,
         options: deleteConvexOptions,
       }),
     ).rejects.toThrow("Connect the Convex team that owns these projects before removing them.");
@@ -473,7 +530,8 @@ describe("vault deletion Convex resource planning", () => {
     });
 
     const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
-      ...ids,
+      userId: ids.userId,
+      vaultId: ids.vaultId,
       options: deleteConvexOptions,
     });
     const run = await t.run(async (ctx) => await ctx.db.get(deletionRunId));
@@ -514,7 +572,8 @@ describe("vault deletion Convex resource planning", () => {
     });
 
     const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
-      ...ids,
+      userId: ids.userId,
+      vaultId: ids.vaultId,
       options: deleteConvexOptions,
     });
     const run = await t.run(async (ctx) => await ctx.db.get(deletionRunId));
@@ -554,7 +613,8 @@ describe("vault deletion Convex resource planning", () => {
     });
 
     const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
-      ...ids,
+      userId: ids.userId,
+      vaultId: ids.vaultId,
       options: deleteCloudflareOptions,
     });
     const run = await t.run(async (ctx) => await ctx.db.get(deletionRunId));
@@ -583,14 +643,16 @@ describe("vault deletion Convex resource planning", () => {
     const { deletionRunId: deleteRunId } = await withProject.t.mutation(
       internal.vault.deletion.runs.createInitialRun,
       {
-        ...withProject.ids,
+        userId: withProject.ids.userId,
+        vaultId: withProject.ids.vaultId,
         options: deleteConvexOptions,
       },
     );
     const { deletionRunId: skipRunId } = await withoutProject.t.mutation(
       internal.vault.deletion.runs.createInitialRun,
       {
-        ...withoutProject.ids,
+        userId: withoutProject.ids.userId,
+        vaultId: withoutProject.ids.vaultId,
         options: deleteConvexOptions,
       },
     );

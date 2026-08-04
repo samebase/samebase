@@ -14,6 +14,12 @@ function fakeVaultId(): Id<"vaults"> {
   return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
+function fakeGithubProviderConnectionId(): Id<"providerConnections"> {
+  // @ts-expect-error Convex ids are strings at runtime; this provider boundary
+  // test only needs a stable provider connection identity.
+  return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8b";
+}
+
 function providerPage() {
   return {
     repository: {
@@ -264,6 +270,7 @@ describe("normalizeGitHubPullRequestPage", () => {
 describe("normalizeGitHubVaultSidebarSummaries", () => {
   const repository = {
     vaultId: fakeVaultId(),
+    githubProviderConnectionId: fakeGithubProviderConnectionId(),
     ghRepoId: "123",
     owner: "samebase",
     name: "samebase",
@@ -332,6 +339,7 @@ describe("recoverGitHubVaultSidebarSummariesFromError", () => {
   const repositories = [
     {
       vaultId: fakeVaultId(),
+      githubProviderConnectionId: fakeGithubProviderConnectionId(),
       ghRepoId: "123",
       owner: "samebase",
       name: "samebase",
@@ -339,6 +347,7 @@ describe("recoverGitHubVaultSidebarSummariesFromError", () => {
     },
     {
       vaultId: fakeVaultId(),
+      githubProviderConnectionId: fakeGithubProviderConnectionId(),
       ghRepoId: "456",
       owner: "samebase",
       name: "deleted-repository",
@@ -407,6 +416,7 @@ describe("vaultSidebarSummaryBatches", () => {
   it("bounds each GitHub query while preserving every repository in order", () => {
     const repositories = Array.from({ length: 41 }, (_, index) => ({
       vaultId: fakeVaultId(),
+      githubProviderConnectionId: fakeGithubProviderConnectionId(),
       ghRepoId: String(1_000 + index),
       owner: `owner-${index}`,
       name: `repository-${index}`,

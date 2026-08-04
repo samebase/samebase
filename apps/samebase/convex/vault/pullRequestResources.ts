@@ -27,6 +27,7 @@ import {
 } from "./pullRequestHostingPreviews";
 import { buildConvexDeploymentDashboardUrl } from "./providerDashboardUrls";
 import type { VaultProviderObservationContext } from "./providerObservationQueries";
+import { isLiveConnectedVault } from "./state";
 
 const { array, id, literal, object, string, union } = v;
 
@@ -1080,20 +1081,37 @@ export const getPullRequestResources = action({
   handler: async (ctx, args): Promise<PullRequestResourceRead[]> => {
     validatePullRequestResourceIds(args.pullRequestIds);
 
-    const [context, githubConnection, convexConnection] = await Promise.all([
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.getOrganizationIdForUser,
+      {
+        userId: ctx.viewer.userId,
+      },
+    );
+    const [context, vault, convexConnection] = await Promise.all([
       ctx.runQuery(internal.vault.providerObservationQueries.readVaultProviderObservationContext, {
         vaultId: args.vaultId,
         userId: ctx.viewer.userId,
       }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      ctx.runQuery(internal.vault.records.getByIdForUser, {
+        vaultId: args.vaultId,
         userId: ctx.viewer.userId,
-        kind: "github",
       }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId: ctx.viewer.userId,
+      ctx.runQuery(internal.providerConnections.loadCurrentConnectedForOrganization, {
+        organizationId,
         kind: "convex",
       }),
     ]);
+    if (!isLiveConnectedVault(vault)) {
+      throw new Error("Vault not found.");
+    }
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.loadConnectedByIdForOrganization,
+      {
+        organizationId: vault.organizationId,
+        providerConnectionId: vault.githubProviderConnectionId,
+        kind: "github",
+      },
+    );
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub connection unavailable.");
     }

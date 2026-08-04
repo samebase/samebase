@@ -63,6 +63,8 @@ describe("devAuth password account seed", () => {
       t.mutation(internal.devAuth.seedPasswordAccountState, {
         userId,
         githubApiKey: "github-token",
+        githubAccountId: "github-account-id",
+        githubUsername: "seed-user",
         convexManagementApiKey: "convex-token",
         convexTeamId: "team-id",
         convexTeamSlug: "team-slug",
@@ -74,7 +76,7 @@ describe("devAuth password account seed", () => {
     const snapshot = await t.run(async (ctx) => {
       const connections = await ctx.db
         .query("providerConnections")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .withIndex("by_connected_by_user", (q) => q.eq("connectedByUserId", userId))
         .collect();
       return {
         billingAccount: await ctx.db.query("organizationBillingAccounts").unique(),

@@ -28,9 +28,9 @@ export const vRevokeProviderAccessResult = object({
 export type RevokeProviderAccessResult = Infer<typeof vRevokeProviderAccessResult>;
 
 async function revokeGithub(
-  connection: Doc<"providerConnections"> | null,
+  connection: Doc<"providerConnections"> | null | undefined,
 ): Promise<AccountDeletionGithubOutcome> {
-  if (connection?.kind !== "github") {
+  if (connection?.kind !== "github" || connection.state !== "connected") {
     return { state: "not_connected" };
   }
   if (connection.auth.method === "api_key") {
@@ -49,9 +49,9 @@ async function revokeGithub(
 }
 
 async function revokeCloudflare(
-  connection: Doc<"providerConnections"> | null,
+  connection: Doc<"providerConnections"> | null | undefined,
 ): Promise<AccountDeletionCloudflareOutcome> {
-  if (connection?.kind !== "cloudflare") {
+  if (connection?.kind !== "cloudflare" || connection.state !== "connected") {
     return { state: "not_connected" };
   }
   if (connection.auth.method === "api_key") {
@@ -77,9 +77,9 @@ async function revokeCloudflare(
 }
 
 function classifyConvex(
-  connection: Doc<"providerConnections"> | null,
+  connection: Doc<"providerConnections"> | null | undefined,
 ): AccountDeletionConvexOutcome {
-  if (connection?.kind !== "convex") {
+  if (connection?.kind !== "convex" || connection.state !== "connected") {
     return { state: "not_connected" };
   }
   if (connection.auth.method === "api_key") {
@@ -89,6 +89,35 @@ function classifyConvex(
     state: "manual_revocation_required",
     safeNotice: CONVEX_MANUAL_REVOCATION_NOTICE,
   };
+}
+
+function aggregateGithubOutcomes(
+  outcomes: AccountDeletionGithubOutcome[],
+): AccountDeletionGithubOutcome {
+  return (
+    outcomes.find((outcome) => outcome.state === "unconfirmed") ??
+    outcomes.find((outcome) => outcome.state === "revoked") ??
+    outcomes.find((outcome) => outcome.state === "local_delete_only") ?? { state: "not_connected" }
+  );
+}
+
+function aggregateCloudflareOutcomes(
+  outcomes: AccountDeletionCloudflareOutcome[],
+): AccountDeletionCloudflareOutcome {
+  return (
+    outcomes.find((outcome) => outcome.state === "unconfirmed") ??
+    outcomes.find((outcome) => outcome.state === "revoked") ??
+    outcomes.find((outcome) => outcome.state === "local_delete_only") ?? { state: "not_connected" }
+  );
+}
+
+function aggregateConvexOutcomes(
+  outcomes: AccountDeletionConvexOutcome[],
+): AccountDeletionConvexOutcome {
+  return (
+    outcomes.find((outcome) => outcome.state === "manual_revocation_required") ??
+    outcomes.find((outcome) => outcome.state === "local_delete_only") ?? { state: "not_connected" }
+  );
 }
 
 export const revokeForAccountDeletion = internalAction({
@@ -103,30 +132,38 @@ export const revokeForAccountDeletion = internalAction({
       args,
     );
 
-    const [githubConnection, cloudflareConnection, convexConnection] = await Promise.all([
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId: identity.userId,
-        kind: "github",
-      }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId: identity.userId,
-        kind: "cloudflare",
-      }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId: identity.userId,
-        kind: "convex",
-      }),
+    const connections = await ctx.runQuery(internal.providerConnections.listByConnectedByUserId, {
+      connectedByUserId: identity.userId,
+    });
+    const [githubOutcomes, cloudflareOutcomes] = await Promise.all([
+      Promise.all(
+        connections
+          .filter((connection) => connection.kind === "github" && connection.state === "connected")
+          .map(revokeGithub),
+      ),
+      Promise.all(
+        connections
+          .filter(
+            (connection) => connection.kind === "cloudflare" && connection.state === "connected",
+          )
+          .map(revokeCloudflare),
+      ),
     ]);
+    const convexOutcomes = connections
+      .filter((connection) => connection.kind === "convex" && connection.state === "connected")
+      .map(classifyConvex);
 
-    const [github, cloudflare] = await Promise.all([
-      revokeGithub(githubConnection),
-      revokeCloudflare(cloudflareConnection),
-    ]);
+    for (const connection of connections) {
+      await ctx.runMutation(internal.providerConnections.disconnectForAccountDeletion, {
+        connectedByUserId: identity.userId,
+        providerConnectionId: connection._id,
+      });
+    }
 
     return {
-      github,
-      cloudflare,
-      convex: classifyConvex(convexConnection),
+      github: aggregateGithubOutcomes(githubOutcomes),
+      cloudflare: aggregateCloudflareOutcomes(cloudflareOutcomes),
+      convex: aggregateConvexOutcomes(convexOutcomes),
     };
   },
 });

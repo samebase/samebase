@@ -15,6 +15,34 @@ describe("vault deletion workflow", () => {
       });
       const organizationId = await ctx.db.insert("organizations", {});
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "github",
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
+        accountId: "github-ada",
+        auth: { method: "api_key", credential: "test-github-api-key" },
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      const cloudflareProviderConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "cloudflare",
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
+        auth: { method: "api_key", credential: "test-cloudflare-api-key" },
+        defaultAccount: {
+          state: "selected",
+          accountId: "cloudflare-account",
+          accountName: "Cloudflare Account",
+        },
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      await ctx.db.patch(organizationId, {
+        selectedGithubProviderConnectionId: githubProviderConnectionId,
+        selectedCloudflareProviderConnectionId: cloudflareProviderConnectionId,
+      });
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
@@ -35,6 +63,7 @@ describe("vault deletion workflow", () => {
         organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
+        githubProviderConnectionId,
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
@@ -56,7 +85,7 @@ describe("vault deletion workflow", () => {
         lastTreeRefreshAt: 5,
       });
 
-      return { organizationId, userId, vaultId };
+      return { cloudflareProviderConnectionId, organizationId, userId, vaultId };
     });
 
     return { ids, t };
@@ -72,6 +101,19 @@ describe("vault deletion workflow", () => {
       });
       const organizationId = await ctx.db.insert("organizations", {});
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "github",
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
+        accountId: "github-ada",
+        auth: { method: "api_key", credential: "test-github-api-key" },
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      await ctx.db.patch(organizationId, {
+        selectedGithubProviderConnectionId: githubProviderConnectionId,
+      });
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
@@ -92,6 +134,7 @@ describe("vault deletion workflow", () => {
         organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
+        githubProviderConnectionId,
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
@@ -202,9 +245,21 @@ describe("vault deletion workflow", () => {
       });
       const organizationId = await ctx.db.insert("organizations", {});
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
-      await ctx.db.insert("providerConnections", {
+      const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "github",
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
+        accountId: "github-ada",
+        auth: { method: "api_key", credential: "test-github-api-key" },
+        createdAt: 1,
+        updatedAt: 2,
+      });
+      const cloudflareProviderConnectionId = await ctx.db.insert("providerConnections", {
         kind: "cloudflare",
-        userId,
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
         auth: {
           method: "api_key",
           credential: "test-cloudflare-api-key",
@@ -216,6 +271,10 @@ describe("vault deletion workflow", () => {
         },
         createdAt: 1,
         updatedAt: 2,
+      });
+      await ctx.db.patch(organizationId, {
+        selectedGithubProviderConnectionId: githubProviderConnectionId,
+        selectedCloudflareProviderConnectionId: cloudflareProviderConnectionId,
       });
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
@@ -237,6 +296,7 @@ describe("vault deletion workflow", () => {
         organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
+        githubProviderConnectionId,
         githubMode: "connect_existing_repository",
         runId,
         ghRepoId: "123",
@@ -249,6 +309,7 @@ describe("vault deletion workflow", () => {
       await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId,
         organizationId,
+        providerConnectionId: cloudflareProviderConnectionId,
         accountId: "cloudflare-account",
         workerName: "existing-repo-worker",
         workerTag: "worker-tag",
@@ -257,13 +318,14 @@ describe("vault deletion workflow", () => {
       await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId,
         organizationId,
+        providerConnectionId: cloudflareProviderConnectionId,
         accountId: "cloudflare-account",
         workerName: "existing-repo-selected-worker",
         workerTag: "selected-worker-tag",
         origin: "selected_existing",
       });
 
-      return { userId, vaultId };
+      return { cloudflareProviderConnectionId, userId, vaultId };
     });
 
     const { deletionRunId } = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
@@ -299,6 +361,7 @@ describe("vault deletion workflow", () => {
       await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId: ids.vaultId,
         organizationId: ids.organizationId,
+        providerConnectionId: ids.cloudflareProviderConnectionId,
         accountId: "cloudflare-account",
         workerName: "unchecked-worker",
         workerTag: "unchecked-worker-tag",
@@ -397,7 +460,7 @@ describe("vault deletion workflow", () => {
 
   it("returns the dashboard delete disabled reason while source setup runs", async () => {
     const t = makeConvexTest();
-    const { organizationId, userId } = await t.run(async (ctx) => {
+    const { githubProviderConnectionId, organizationId, userId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
@@ -410,11 +473,25 @@ describe("vault deletion workflow", () => {
         plan: "free",
         status: "inactive",
       });
-      return { organizationId, userId };
+      const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "github",
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
+        accountId: "github-ada",
+        auth: { method: "api_key", credential: "test-github-api-key" },
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      await ctx.db.patch(organizationId, {
+        selectedGithubProviderConnectionId: githubProviderConnectionId,
+      });
+      return { githubProviderConnectionId, organizationId, userId };
     });
     await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
       userId,
       organizationId,
+      githubProviderConnectionId,
       ghRepoOwner: "ada",
       ghRepoName: "existing-app",
     });
@@ -448,6 +525,34 @@ describe("vault deletion workflow", () => {
       });
       const organizationId = await ctx.db.insert("organizations", {});
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "github",
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
+        accountId: "github-ada",
+        auth: { method: "api_key", credential: "test-github-api-key" },
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      const cloudflareProviderConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "cloudflare",
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
+        auth: { method: "api_key", credential: "test-cloudflare-api-key" },
+        defaultAccount: {
+          state: "selected",
+          accountId: "cloudflare-account",
+          accountName: "Cloudflare Account",
+        },
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      await ctx.db.patch(organizationId, {
+        selectedGithubProviderConnectionId: githubProviderConnectionId,
+        selectedCloudflareProviderConnectionId: cloudflareProviderConnectionId,
+      });
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
@@ -468,6 +573,7 @@ describe("vault deletion workflow", () => {
         organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
+        githubProviderConnectionId,
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
@@ -493,6 +599,7 @@ describe("vault deletion workflow", () => {
       await ctx.db.insert("vaultCloudflareWorkers", {
         vaultId,
         organizationId,
+        providerConnectionId: cloudflareProviderConnectionId,
         accountId: "cloudflare-account",
         workerName: "delete-me-worker",
         workerTag: "worker-tag",
@@ -639,6 +746,16 @@ describe("vault deletion workflow", () => {
       });
       const organizationId = await ctx.db.insert("organizations", {});
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "github",
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
+        accountId: "github-ada",
+        auth: { method: "api_key", credential: "test-github-api-key" },
+        createdAt: 1,
+        updatedAt: 1,
+      });
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
@@ -658,6 +775,7 @@ describe("vault deletion workflow", () => {
         organizationId,
         deletion: { state: "not_deleting" },
         state: "provisioning",
+        githubProviderConnectionId,
         githubMode: "create_repository",
         runId,
         startedAt: 3,
@@ -703,6 +821,16 @@ describe("vault deletion workflow", () => {
       });
       const organizationId = await ctx.db.insert("organizations", {});
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "github",
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
+        accountId: "github-ada",
+        auth: { method: "api_key", credential: "test-github-api-key" },
+        createdAt: 1,
+        updatedAt: 1,
+      });
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
@@ -723,6 +851,7 @@ describe("vault deletion workflow", () => {
         organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
+        githubProviderConnectionId,
         githubMode: "connect_existing_repository",
         runId,
         ghRepoId: "456",
@@ -759,9 +888,12 @@ describe("vault deletion workflow", () => {
       });
       const organizationId = await ctx.db.insert("organizations", {});
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
-      await ctx.db.insert("providerConnections", {
+      const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
         kind: "github",
-        userId,
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
+        accountId: "github-ada",
         auth: {
           method: "api_key",
           credential: "test-github-api-key",
@@ -790,6 +922,7 @@ describe("vault deletion workflow", () => {
         organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
+        githubProviderConnectionId,
         githubMode: "create_repository",
         runId: setupRunId,
         ghRepoId: "789",
@@ -859,97 +992,5 @@ describe("vault deletion workflow", () => {
       state: "deleting",
       runId: retry.deletionRunId,
     });
-  });
-
-  it("rejects a retry when retained provider connections are missing", async () => {
-    const t = makeConvexTest();
-    const ids = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      const organizationId = await ctx.db.insert("organizations", {});
-      await ctx.db.insert("organizationMemberships", { organizationId, userId });
-      const githubConnectionId = await ctx.db.insert("providerConnections", {
-        kind: "github",
-        userId,
-        auth: {
-          method: "api_key",
-          credential: "test-github-api-key",
-        },
-        username: "ada",
-        createdAt: 1,
-        updatedAt: 2,
-      });
-      const vaultId = await ctx.db.insert("vaults", {
-        organizationId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-      });
-      const setupRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        requestedByUserId: userId,
-        vaultId,
-        repositoryFullName: "ada/retry-missing-provider",
-        trigger: "create",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 3,
-        updatedAt: 4,
-        completedAt: 5,
-      });
-      await ctx.db.replace(vaultId, {
-        organizationId,
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "create_repository",
-        runId: setupRunId,
-        ghRepoId: "789",
-        owner: "ada",
-        name: "retry-missing-provider",
-        defaultBranch: "main",
-        visibility: "private",
-        connectedAt: 6,
-      });
-
-      return { githubConnectionId, userId, vaultId };
-    });
-    const initial = await t.mutation(internal.vault.deletion.runs.createInitialRun, {
-      userId: ids.userId,
-      vaultId: ids.vaultId,
-      options: {
-        removeGithubRepo: true,
-        removeConvexProvision: false,
-        removeCloudflareProvision: false,
-      },
-    });
-    await t.mutation(internal.vault.deletion.runs.markWorkflowFailed, {
-      runId: initial.deletionRunId,
-      message: "Provider cleanup failed.",
-    });
-    await t.run(async (ctx) => {
-      await ctx.db.delete(ids.githubConnectionId);
-    });
-
-    await expect(
-      t.mutation(internal.vault.deletion.runs.createRetryRun, {
-        userId: ids.userId,
-        failedRunId: initial.deletionRunId,
-      }),
-    ).rejects.toThrow("GitHub is not connected.");
-
-    const snapshot = await t.run(async (ctx) => {
-      const vault = await ctx.db.get(ids.vaultId);
-      const runs = await ctx.db
-        .query("workflow_vaultDeletion_runs")
-        .withIndex("by_vault_and_updated_at", (q) => q.eq("vaultId", ids.vaultId))
-        .collect();
-      return { runs, vault };
-    });
-    expect(snapshot.vault?.deletion).toMatchObject({
-      state: "delete_failed",
-      runId: initial.deletionRunId,
-    });
-    expect(snapshot.runs).toHaveLength(1);
   });
 });

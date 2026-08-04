@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
@@ -6,7 +6,13 @@ import { makeConvexTest } from "./test.setup";
 describe("app provisioning workflow actions", () => {
   it("allows free approved members to validate app creation when providers are connected", async () => {
     const t = makeConvexTest();
-    const { organizationId, userId } = await t.run(async (ctx) => {
+    const {
+      cloudflareProviderConnectionId,
+      convexProviderConnectionId,
+      githubProviderConnectionId,
+      organizationId,
+      userId,
+    } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
@@ -19,9 +25,12 @@ describe("app provisioning workflow actions", () => {
         plan: "free",
         status: "inactive",
       });
-      await ctx.db.insert("providerConnections", {
+      const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+        state: "connected",
         kind: "github",
-        userId,
+        organizationId,
+        connectedByUserId: userId,
+        accountId: "github-account",
         auth: {
           method: "api_key",
           credential: "github-token",
@@ -30,9 +39,11 @@ describe("app provisioning workflow actions", () => {
         createdAt: 1,
         updatedAt: 1,
       });
-      await ctx.db.insert("providerConnections", {
+      const convexProviderConnectionId = await ctx.db.insert("providerConnections", {
+        state: "connected",
         kind: "convex",
-        userId,
+        organizationId,
+        connectedByUserId: userId,
         auth: {
           method: "api_key",
           credential: "convex-token",
@@ -42,9 +53,11 @@ describe("app provisioning workflow actions", () => {
         createdAt: 1,
         updatedAt: 1,
       });
-      await ctx.db.insert("providerConnections", {
+      const cloudflareProviderConnectionId = await ctx.db.insert("providerConnections", {
+        state: "connected",
         kind: "cloudflare",
-        userId,
+        organizationId,
+        connectedByUserId: userId,
         auth: {
           method: "api_key",
           credential: "cloudflare-token",
@@ -57,13 +70,27 @@ describe("app provisioning workflow actions", () => {
         createdAt: 1,
         updatedAt: 1,
       });
-      return { organizationId, userId };
+      await ctx.db.patch(organizationId, {
+        selectedGithubProviderConnectionId: githubProviderConnectionId,
+        selectedConvexProviderConnectionId: convexProviderConnectionId,
+        selectedCloudflareProviderConnectionId: cloudflareProviderConnectionId,
+      });
+      return {
+        cloudflareProviderConnectionId,
+        convexProviderConnectionId,
+        githubProviderConnectionId,
+        organizationId,
+        userId,
+      };
     });
     const { vaultId, runId } = await t.mutation(
       internal.vault.records.createInitializingSamebaseManagedVaultForUser,
       {
         userId,
         organizationId,
+        githubProviderConnectionId,
+        convexProviderConnectionId,
+        cloudflareProviderConnectionId,
         ghRepoOwner: "ada",
         ghRepoName: "demo",
         visibility: "private",
@@ -84,5 +111,48 @@ describe("app provisioning workflow actions", () => {
         repositoryOwner: "ada",
       }),
     ).resolves.toBeNull();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : new Request(input, init);
+        const url = new URL(request.url);
+        if (request.method === "GET" && url.pathname === "/user") {
+          return Response.json({ login: "ada" });
+        }
+        if (request.method === "POST" && url.pathname === "/user/repos") {
+          return Response.json({
+            id: 123,
+            owner: { login: "ada" },
+            name: "demo",
+            private: true,
+            default_branch: "main",
+          });
+        }
+        throw new Error(`Unexpected GitHub request: ${request.method} ${url.pathname}`);
+      }),
+    );
+
+    try {
+      await expect(
+        t.action(internal.appProvisioningWorkflowActions.createGitHubRepository, {
+          vaultId,
+          runId,
+          userId,
+          repositoryName: "demo",
+          repositoryOwner: "ada",
+          description: null,
+          private: true,
+        }),
+      ).resolves.toEqual({
+        ghRepoId: "123",
+        ownerName: "ada",
+        repoName: "demo",
+        defaultBranch: "main",
+        visibility: "private",
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

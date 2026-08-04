@@ -100,6 +100,7 @@ export const listConnectedRepositoriesForUser = internalQuery({
       }
       repositories.push({
         vaultId: vault._id,
+        githubProviderConnectionId: vault.githubProviderConnectionId,
         ghRepoId: vault.ghRepoId,
         owner: vault.owner,
         name: vault.name,
@@ -167,6 +168,7 @@ async function assertOrganizationHasNoOtherVaultForGitHubRepository(
 function pickProvisioningVaultCoreFields(vault: ProvisioningVault) {
   return {
     organizationId: vault.organizationId,
+    githubProviderConnectionId: vault.githubProviderConnectionId,
     deletion: vault.deletion,
   };
 }
@@ -191,6 +193,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
   args: {
     userId: id("users"),
     organizationId: id("organizations"),
+    githubProviderConnectionId: id("providerConnections"),
     ghRepoOwner: string(),
     ghRepoName: string(),
   },
@@ -257,6 +260,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
     await ctx.db.patch(vaultId, {
       state: "provisioning",
       githubMode: "connect_existing_repository",
+      githubProviderConnectionId: args.githubProviderConnectionId,
       runId,
       startedAt: now,
       owner,
@@ -328,6 +332,7 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
 
     await ctx.db.replace(args.vaultId, {
       organizationId,
+      githubProviderConnectionId: vault.githubProviderConnectionId,
       deletion: vault.deletion,
       state: "connected",
       githubMode: "connect_existing_repository",
@@ -348,6 +353,9 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
   args: {
     userId: id("users"),
     organizationId: id("organizations"),
+    githubProviderConnectionId: id("providerConnections"),
+    convexProviderConnectionId: id("providerConnections"),
+    cloudflareProviderConnectionId: id("providerConnections"),
     ghRepoOwner: string(),
     ghRepoName: string(),
     visibility: vGitHubRepositoryVisibility,
@@ -431,6 +439,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     await ctx.db.patch(vaultId, {
       state: "provisioning",
       githubMode: "create_repository",
+      githubProviderConnectionId: args.githubProviderConnectionId,
       runId,
       startedAt: now,
       owner,
@@ -448,6 +457,9 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     });
     await ctx.db.insert("workflow_vaultProvisioning_plans", {
       vaultId,
+      githubProviderConnectionId: args.githubProviderConnectionId,
+      convexProviderConnectionId: args.convexProviderConnectionId,
+      cloudflareProviderConnectionId: args.cloudflareProviderConnectionId,
       convexConfigPath: "convex.json",
       convex: {
         state: "planned",
@@ -540,6 +552,7 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
 
     await ctx.db.replace(args.vaultId, {
       organizationId,
+      githubProviderConnectionId: vault.githubProviderConnectionId,
       deletion: vault.deletion,
       state: "connected",
       githubMode: "create_repository",
@@ -645,6 +658,8 @@ async function getVaultByRepositoryHelper(
   return {
     _id: vault._id,
     _creationTime: vault._creationTime,
+    organizationId: vault.organizationId,
+    githubProviderConnectionId: vault.githubProviderConnectionId,
     ghRepoId: vault.ghRepoId,
     ghRepoOwner: vault.owner,
     ghRepoName: vault.name,

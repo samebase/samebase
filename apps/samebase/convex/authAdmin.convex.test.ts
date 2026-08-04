@@ -64,7 +64,7 @@ describe("authAdmin password accounts", () => {
       return {
         connections: await ctx.db
           .query("providerConnections")
-          .withIndex("by_user", (q) => q.eq("userId", account.userId))
+          .withIndex("by_connected_by_user", (q) => q.eq("connectedByUserId", account.userId))
           .collect(),
         membership: await ctx.db
           .query("organizationMemberships")

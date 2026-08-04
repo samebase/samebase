@@ -30,21 +30,38 @@ async function createGitHubDeletionFixture() {
     });
     const organizationId = await ctx.db.insert("organizations", {});
     await ctx.db.insert("organizationMemberships", { organizationId, userId });
-    await ctx.db.insert("providerConnections", {
+    const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
       kind: "github",
-      userId,
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
       auth: {
         method: "api_key",
         credential: "github-token",
       },
+      accountId: "github-ada",
       username: "ada",
       createdAt: 1,
       updatedAt: 1,
+    });
+    await ctx.db.patch(organizationId, {
+      selectedGithubProviderConnectionId: githubProviderConnectionId,
     });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
+    });
+    const setupRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      requestedByUserId: userId,
+      vaultId,
+      repositoryFullName: "ada/demo",
+      trigger: "create",
+      state: "succeeded",
+      currentStep: "finish",
+      createdAt: 1,
+      updatedAt: 1,
+      completedAt: 1,
     });
     const runId = await ctx.db.insert("workflow_vaultDeletion_runs", {
       requestedByUserId: userId,
@@ -76,6 +93,20 @@ async function createGitHubDeletionFixture() {
           },
         },
       },
+    });
+    await ctx.db.replace(vaultId, {
+      organizationId,
+      githubProviderConnectionId,
+      deletion: { state: "not_deleting" },
+      state: "connected",
+      githubMode: "create_repository",
+      runId: setupRunId,
+      ghRepoId: "123",
+      owner: "ada",
+      name: "demo",
+      visibility: "private",
+      defaultBranch: "main",
+      connectedAt: 1,
     });
 
     return { runId, userId };
@@ -119,9 +150,22 @@ describe("vault deletion Convex provider actions", () => {
       });
       const organizationId = await ctx.db.insert("organizations", {});
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
-      await ctx.db.insert("providerConnections", {
+      const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "github",
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
+        auth: { method: "api_key", credential: "github-token" },
+        accountId: "github-ada",
+        username: "ada",
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      const convexProviderConnectionId = await ctx.db.insert("providerConnections", {
         kind: "convex",
-        userId,
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
         auth: {
           method: "api_key",
           credential: "convex-token",
@@ -131,10 +175,25 @@ describe("vault deletion Convex provider actions", () => {
         createdAt: 1,
         updatedAt: 1,
       });
+      await ctx.db.patch(organizationId, {
+        selectedGithubProviderConnectionId: githubProviderConnectionId,
+        selectedConvexProviderConnectionId: convexProviderConnectionId,
+      });
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
+      });
+      const setupRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        requestedByUserId: userId,
+        vaultId,
+        repositoryFullName: "ada/demo",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 1,
+        completedAt: 1,
       });
       const runId = await ctx.db.insert("workflow_vaultDeletion_runs", {
         requestedByUserId: userId,
@@ -166,6 +225,38 @@ describe("vault deletion Convex provider actions", () => {
           },
         },
       });
+      await ctx.db.replace(vaultId, {
+        organizationId,
+        githubProviderConnectionId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId: setupRunId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "demo",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 1,
+      });
+      await ctx.db.insert("vaultConvexProjects", {
+        vaultId,
+        organizationId,
+        providerConnectionId: convexProviderConnectionId,
+        convexConfigPath: "convex.json",
+        teamId: "team-id",
+        projectId: "1001",
+        origin: "provisioned",
+      });
+      await ctx.db.insert("vaultConvexProjects", {
+        vaultId,
+        organizationId,
+        providerConnectionId: convexProviderConnectionId,
+        convexConfigPath: "convex.json",
+        teamId: "team-id",
+        projectId: "1002",
+        origin: "provisioned",
+      });
 
       return { runId, userId };
     });
@@ -192,19 +283,47 @@ describe("vault deletion Convex provider actions", () => {
       });
       const organizationId = await ctx.db.insert("organizations", {});
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
-      await ctx.db.insert("providerConnections", {
+      const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "github",
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
+        auth: { method: "api_key", credential: "github-token" },
+        accountId: "github-ada",
+        username: "ada",
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      const convexProviderConnectionId = await ctx.db.insert("providerConnections", {
         kind: "convex",
-        userId,
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
         auth: { method: "api_key", credential: "convex-token" },
         teamId: "other-team",
         teamSlug: "other-team",
         createdAt: 1,
         updatedAt: 1,
       });
+      await ctx.db.patch(organizationId, {
+        selectedGithubProviderConnectionId: githubProviderConnectionId,
+        selectedConvexProviderConnectionId: convexProviderConnectionId,
+      });
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
+      });
+      const setupRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        requestedByUserId: userId,
+        vaultId,
+        repositoryFullName: "ada/demo",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 1,
+        completedAt: 1,
       });
       const runId = await ctx.db.insert("workflow_vaultDeletion_runs", {
         requestedByUserId: userId,
@@ -232,6 +351,29 @@ describe("vault deletion Convex provider actions", () => {
           },
         },
       });
+      await ctx.db.replace(vaultId, {
+        organizationId,
+        githubProviderConnectionId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId: setupRunId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "demo",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 1,
+      });
+      await ctx.db.insert("vaultConvexProjects", {
+        vaultId,
+        organizationId,
+        providerConnectionId: convexProviderConnectionId,
+        convexConfigPath: "convex.json",
+        teamId: "original-team",
+        projectId: "1001",
+        origin: "provisioned",
+      });
       return { runId, userId };
     });
 
@@ -251,9 +393,22 @@ describe("vault deletion Convex provider actions", () => {
       });
       const organizationId = await ctx.db.insert("organizations", {});
       await ctx.db.insert("organizationMemberships", { organizationId, userId });
-      await ctx.db.insert("providerConnections", {
+      const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "github",
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
+        auth: { method: "api_key", credential: "github-token" },
+        accountId: "github-ada",
+        username: "ada",
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      const cloudflareProviderConnectionId = await ctx.db.insert("providerConnections", {
         kind: "cloudflare",
-        userId,
+        state: "connected",
+        organizationId,
+        connectedByUserId: userId,
         auth: {
           method: "api_key",
           credential: "cloudflare-token",
@@ -266,10 +421,25 @@ describe("vault deletion Convex provider actions", () => {
         createdAt: 1,
         updatedAt: 1,
       });
+      await ctx.db.patch(organizationId, {
+        selectedGithubProviderConnectionId: githubProviderConnectionId,
+        selectedCloudflareProviderConnectionId: cloudflareProviderConnectionId,
+      });
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
+      });
+      const setupRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        requestedByUserId: userId,
+        vaultId,
+        repositoryFullName: "ada/demo",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 1,
+        completedAt: 1,
       });
       const runId = await ctx.db.insert("workflow_vaultDeletion_runs", {
         requestedByUserId: userId,
@@ -296,6 +466,20 @@ describe("vault deletion Convex provider actions", () => {
             githubRepository: { action: "skip", reason: "not_requested" },
           },
         },
+      });
+      await ctx.db.replace(vaultId, {
+        organizationId,
+        githubProviderConnectionId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId: setupRunId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "demo",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 1,
       });
 
       return { runId, userId };

@@ -209,10 +209,14 @@ export const getCommitStatus = action({
       return cooldownResult;
     }
 
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: ctx.viewer.userId,
-      kind: "github",
-    });
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.loadConnectedByIdForOrganization,
+      {
+        organizationId: vault.organizationId,
+        providerConnectionId: vault.githubProviderConnectionId,
+        kind: "github",
+      },
+    );
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected");
     }

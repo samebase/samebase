@@ -31,6 +31,7 @@ const workerConfigurationContextFields = {
   accountId: string(),
   workerName: string(),
   workerTag: string(),
+  providerConnectionId: id("providerConnections"),
 };
 export const vWorkerConfigurationContext = object(workerConfigurationContextFields);
 export type WorkerConfigurationContext = Infer<typeof vWorkerConfigurationContext>;
@@ -45,6 +46,7 @@ export const vWorkerConvexProjectConfigurationContext = object({
   ...workerConfigurationContextFields,
   convexProject: object({
     convexProjectId: id("vaultConvexProjects"),
+    providerConnectionId: id("providerConnections"),
     teamId: string(),
     projectId: string(),
   }),
@@ -58,6 +60,7 @@ export const vManagedWorkerConvexProjectConfigurationContext = object({
   rootDirectory: string(),
   convexProject: object({
     convexProjectId: id("vaultConvexProjects"),
+    providerConnectionId: id("providerConnections"),
     teamId: string(),
     projectId: string(),
   }),
@@ -167,6 +170,7 @@ async function readMatchingWorker(
     accountId: string;
     workerName: string;
     workerTag: string;
+    providerConnectionId: Id<"providerConnections">;
     ownership: OrganizationAccessContext;
   },
 ) {
@@ -196,7 +200,8 @@ async function readMatchingWorker(
     hasOrganizationAccess(args.ownership, existing) &&
     existing.accountId === args.accountId &&
     existing.workerName === args.workerName &&
-    existing.workerTag === args.workerTag
+    existing.workerTag === args.workerTag &&
+    existing.providerConnectionId === args.providerConnectionId
   ) {
     return existing;
   }
@@ -215,6 +220,7 @@ async function insertWorker(
     accountId: string;
     workerName: string;
     workerTag: string;
+    providerConnectionId: Id<"providerConnections">;
     origin: "provisioned" | "selected_existing";
   },
 ): Promise<Id<"vaultCloudflareWorkers">> {
@@ -241,6 +247,7 @@ async function insertWorker(
     accountId: args.accountId,
     workerName: args.workerName,
     workerTag: args.workerTag,
+    providerConnectionId: args.providerConnectionId,
     origin: args.origin,
   });
 }
@@ -249,6 +256,7 @@ export const attachWorkers = internalMutation({
   args: {
     vaultId: id("vaults"),
     userId: id("users"),
+    providerConnectionId: id("providerConnections"),
     workers: array(
       object({
         accountId: string(),
@@ -280,6 +288,7 @@ export const attachWorkers = internalMutation({
         await insertWorker(ctx, access, {
           vaultId: args.vaultId,
           userId: args.userId,
+          providerConnectionId: args.providerConnectionId,
           ...worker,
         }),
       );
@@ -408,7 +417,11 @@ export const recordManagedWorkerCreated = internalMutation({
       if (plan.cloudflare.workerTag !== args.workerTag) {
         throw new Error("Managed Cloudflare Worker checkpoint already names another Worker.");
       }
-      workerId = await insertWorker(ctx, access, { ...args, origin: "provisioned" });
+      workerId = await insertWorker(ctx, access, {
+        ...args,
+        providerConnectionId: plan.cloudflareProviderConnectionId,
+        origin: "provisioned",
+      });
     } else {
       if (plan.cloudflare.state !== "creating") {
         throw new Error("Managed Cloudflare Worker creation was not started.");
@@ -423,7 +436,11 @@ export const recordManagedWorkerCreated = internalMutation({
         },
         updatedAt: Date.now(),
       });
-      workerId = await insertWorker(ctx, access, { ...args, origin: "provisioned" });
+      workerId = await insertWorker(ctx, access, {
+        ...args,
+        providerConnectionId: plan.cloudflareProviderConnectionId,
+        origin: "provisioned",
+      });
     }
     await recordManagedProviderWrite(ctx, {
       vaultId: args.vaultId,
@@ -439,6 +456,7 @@ export const recordManualConnectedWorker = internalMutation({
     vaultId: id("vaults"),
     userId: id("users"),
     actionId: string(),
+    providerConnectionId: id("providerConnections"),
     accountId: string(),
     workerName: string(),
     workerTag: string(),
@@ -453,6 +471,7 @@ export const recordManualConnectedWorker = internalMutation({
     return await insertWorker(ctx, access, {
       vaultId: args.vaultId,
       userId: args.userId,
+      providerConnectionId: args.providerConnectionId,
       accountId: args.accountId,
       workerName: args.workerName,
       workerTag: args.workerTag,
@@ -466,6 +485,7 @@ export const recordManualWorkerCreated = internalMutation({
     vaultId: id("vaults"),
     userId: id("users"),
     actionId: string(),
+    providerConnectionId: id("providerConnections"),
     accountId: string(),
     workerName: string(),
     workerTag: string(),
@@ -480,6 +500,7 @@ export const recordManualWorkerCreated = internalMutation({
     return await insertWorker(ctx, access, {
       vaultId: args.vaultId,
       userId: args.userId,
+      providerConnectionId: args.providerConnectionId,
       accountId: args.accountId,
       workerName: args.workerName,
       workerTag: args.workerTag,
@@ -506,6 +527,7 @@ export const readWorkerConfigurationContext = internalQuery({
       accountId: worker.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
+      providerConnectionId: worker.providerConnectionId,
     };
   },
 });
@@ -529,7 +551,8 @@ export const readManagedWorkerConfigurationContext = internalQuery({
       plan.cloudflare.state !== "created" ||
       plan.cloudflare.accountId !== worker.accountId ||
       plan.cloudflare.workerName !== worker.workerName ||
-      plan.cloudflare.workerTag !== worker.workerTag
+      plan.cloudflare.workerTag !== worker.workerTag ||
+      plan.cloudflareProviderConnectionId !== worker.providerConnectionId
     ) {
       throw new Error("Managed Cloudflare Worker does not match the active provisioning run.");
     }
@@ -541,6 +564,7 @@ export const readManagedWorkerConfigurationContext = internalQuery({
       accountId: worker.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
+      providerConnectionId: worker.providerConnectionId,
       rootDirectory: plan.cloudflare.rootDirectory,
     };
   },
@@ -568,8 +592,10 @@ export const readWorkerConvexProjectConfigurationContext = internalQuery({
       accountId: worker.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
+      providerConnectionId: worker.providerConnectionId,
       convexProject: {
         convexProjectId: project._id,
+        providerConnectionId: project.providerConnectionId,
         teamId: project.teamId,
         projectId: project.projectId,
       },
@@ -600,7 +626,8 @@ export const readManagedWorkerConvexProjectConfigurationContext = internalQuery(
       plan.cloudflare.state !== "created" ||
       plan.cloudflare.accountId !== worker.accountId ||
       plan.cloudflare.workerName !== worker.workerName ||
-      plan.cloudflare.workerTag !== worker.workerTag
+      plan.cloudflare.workerTag !== worker.workerTag ||
+      plan.cloudflareProviderConnectionId !== worker.providerConnectionId
     ) {
       throw new Error("Managed Cloudflare Worker does not match the active provisioning run.");
     }
@@ -608,6 +635,7 @@ export const readManagedWorkerConvexProjectConfigurationContext = internalQuery(
       plan.convex.state !== "created" ||
       plan.convex.teamId !== project.teamId ||
       plan.convex.projectId !== project.projectId ||
+      plan.convexProviderConnectionId !== project.providerConnectionId ||
       !("convexConfigPath" in project) ||
       plan.convexConfigPath !== project.convexConfigPath
     ) {
@@ -621,9 +649,11 @@ export const readManagedWorkerConvexProjectConfigurationContext = internalQuery(
       accountId: worker.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
+      providerConnectionId: worker.providerConnectionId,
       rootDirectory: plan.cloudflare.rootDirectory,
       convexProject: {
         convexProjectId: project._id,
+        providerConnectionId: project.providerConnectionId,
         teamId: project.teamId,
         projectId: project.projectId,
       },

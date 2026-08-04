@@ -95,6 +95,14 @@ async function finalizeOrganizationMembership(
     throw new Error("Organization vaults remain during finalization.");
   }
 
+  for await (const connection of ctx.db
+    .query("providerConnections")
+    .withIndex("by_organization", (query) =>
+      query.eq("organizationId", organization.organizationId),
+    )) {
+    await ctx.db.delete(connection._id);
+  }
+
   await ctx.db.delete(organization.membershipId);
   await ctx.db.delete(organization.billingAccount._id);
   await ctx.db.delete(organization.organizationId);
@@ -338,15 +346,6 @@ export async function assertIdentityDeletionReady(
 
   if (remainingEvent !== null) {
     throw new Error("Account deletion events remain during finalization.");
-  }
-
-  const remainingProviderConnection = await ctx.db
-    .query("providerConnections")
-    .withIndex("by_user", (query) => query.eq("userId", run.identity.userId))
-    .first();
-
-  if (remainingProviderConnection !== null) {
-    throw new Error("Provider connections remain for the deleting account.");
   }
 
   return organizationFinalization;

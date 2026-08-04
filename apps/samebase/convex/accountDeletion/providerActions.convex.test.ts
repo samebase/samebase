@@ -13,14 +13,18 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function seedUser(
-  t: ConvexTest,
-): Promise<{ userId: Id<"users">; runId: Id<"workflow_accountDeletion_runs"> }> {
+async function seedUser(t: ConvexTest): Promise<{
+  userId: Id<"users">;
+  organizationId: Id<"organizations">;
+  runId: Id<"workflow_accountDeletion_runs">;
+}> {
   return await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       email: "test@example.invalid",
       isApproved: true,
     });
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
     const initiatingSessionId = await ctx.db.insert("authSessions", {
       userId,
       expirationTime: 2_000_000_000_000,
@@ -42,7 +46,7 @@ async function seedUser(
       },
       dataDeletion: INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
     });
-    return { runId, userId };
+    return { runId, userId, organizationId };
   });
 }
 
@@ -75,18 +79,23 @@ describe("account deletion provider actions", () => {
 
   it("treats API keys as local deletion only", async () => {
     const t = makeConvexTest();
-    const { runId, userId } = await seedUser(t);
+    const { runId, userId, organizationId } = await seedUser(t);
     await t.run(async (ctx) => {
       await ctx.db.insert("providerConnections", {
         kind: "github",
-        userId,
+        organizationId,
+        connectedByUserId: userId,
+        state: "connected",
+        accountId: "github-account",
         auth: { method: "api_key", credential: "test-github-credential" },
         createdAt: 1,
         updatedAt: 1,
       });
       await ctx.db.insert("providerConnections", {
         kind: "cloudflare",
-        userId,
+        organizationId,
+        connectedByUserId: userId,
+        state: "connected",
         auth: { method: "api_key", credential: "test-cloudflare-credential" },
         defaultAccount: { state: "not_selected" },
         createdAt: 1,
@@ -94,7 +103,9 @@ describe("account deletion provider actions", () => {
       });
       await ctx.db.insert("providerConnections", {
         kind: "convex",
-        userId,
+        organizationId,
+        connectedByUserId: userId,
+        state: "connected",
         auth: { method: "api_key", credential: "test-convex-credential" },
         teamId: "test-team",
         createdAt: 1,
@@ -119,18 +130,23 @@ describe("account deletion provider actions", () => {
 
   it("revokes GitHub and native Cloudflare OAuth and flags Convex for manual revocation", async () => {
     const t = makeConvexTest();
-    const { runId, userId } = await seedUser(t);
+    const { runId, userId, organizationId } = await seedUser(t);
     await t.run(async (ctx) => {
       await ctx.db.insert("providerConnections", {
         kind: "github",
-        userId,
+        organizationId,
+        connectedByUserId: userId,
+        state: "connected",
+        accountId: "github-account",
         auth: { method: "oauth", credential: "test-github-credential" },
         createdAt: 1,
         updatedAt: 1,
       });
       await ctx.db.insert("providerConnections", {
         kind: "cloudflare",
-        userId,
+        organizationId,
+        connectedByUserId: userId,
+        state: "connected",
         auth: {
           method: "oauth",
           credential: "test-cloudflare-access-credential",
@@ -143,7 +159,9 @@ describe("account deletion provider actions", () => {
       });
       await ctx.db.insert("providerConnections", {
         kind: "convex",
-        userId,
+        organizationId,
+        connectedByUserId: userId,
+        state: "connected",
         auth: { method: "oauth", credential: "test-convex-credential" },
         teamId: "test-team",
         createdAt: 1,
@@ -182,13 +200,49 @@ describe("account deletion provider actions", () => {
     );
   });
 
+  it("revokes every connected GitHub OAuth grant before local disconnect", async () => {
+    const t = makeConvexTest();
+    const { runId, userId, organizationId } = await seedUser(t);
+    await t.run(async (ctx) => {
+      for (const [accountId, credential] of [
+        ["github-account-a", "github-credential-a"],
+        ["github-account-b", "github-credential-b"],
+      ]) {
+        await ctx.db.insert("providerConnections", {
+          kind: "github",
+          organizationId,
+          connectedByUserId: userId,
+          state: "connected",
+          accountId,
+          auth: { method: "oauth", credential },
+          createdAt: 1,
+          updatedAt: 1,
+        });
+      }
+    });
+    vi.stubEnv("PROVIDER_GITHUB_OAUTH_CLIENT_ID", "github-client-test");
+    vi.stubEnv("PROVIDER_GITHUB_OAUTH_CLIENT_SECRET", "github-secret-test");
+    const fetch = vi.fn(async () => new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      t.action(internal.accountDeletion.providerActions.revokeForAccountDeletion, {
+        runId,
+        workflowId,
+      }),
+    ).resolves.toMatchObject({ github: { state: "revoked" } });
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
   it("revokes a Cloudflare MCP OAuth refresh token through its advertised endpoint", async () => {
     const t = makeConvexTest();
-    const { runId, userId } = await seedUser(t);
+    const { runId, userId, organizationId } = await seedUser(t);
     await t.run(async (ctx) => {
       await ctx.db.insert("providerConnections", {
         kind: "cloudflare",
-        userId,
+        organizationId,
+        connectedByUserId: userId,
+        state: "connected",
         auth: {
           method: "mcp_oauth",
           credential: "test-cloudflare-access-credential",
@@ -228,11 +282,13 @@ describe("account deletion provider actions", () => {
 
   it("returns provider-safe revocation failures", async () => {
     const t = makeConvexTest();
-    const { runId, userId } = await seedUser(t);
+    const { runId, userId, organizationId } = await seedUser(t);
     await t.run(async (ctx) => {
       await ctx.db.insert("providerConnections", {
         kind: "cloudflare",
-        userId,
+        organizationId,
+        connectedByUserId: userId,
+        state: "connected",
         auth: {
           method: "mcp_oauth",
           credential: "test-cloudflare-access-credential",

@@ -21,7 +21,62 @@ async function runVaultLocalCleanupBatch(
 async function seedOrganization(db: DatabaseWriter, userId: Id<"users">) {
   const organizationId = await db.insert("organizations", {});
   await db.insert("organizationMemberships", { organizationId, userId });
+  const githubProviderConnectionId = await db.insert("providerConnections", {
+    kind: "github",
+    state: "connected",
+    organizationId,
+    connectedByUserId: userId,
+    auth: { method: "api_key", credential: "github-token" },
+    accountId: "github-ada",
+    username: "ada",
+    createdAt: 1,
+    updatedAt: 1,
+  });
+  const convexProviderConnectionId = await db.insert("providerConnections", {
+    kind: "convex",
+    state: "connected",
+    organizationId,
+    connectedByUserId: userId,
+    auth: { method: "api_key", credential: "convex-token" },
+    teamId: "convex-team",
+    createdAt: 1,
+    updatedAt: 1,
+  });
+  const cloudflareProviderConnectionId = await db.insert("providerConnections", {
+    kind: "cloudflare",
+    state: "connected",
+    organizationId,
+    connectedByUserId: userId,
+    auth: { method: "api_key", credential: "cloudflare-token" },
+    defaultAccount: { state: "not_selected" },
+    createdAt: 1,
+    updatedAt: 1,
+  });
+  await db.patch(organizationId, {
+    selectedCloudflareProviderConnectionId: cloudflareProviderConnectionId,
+    selectedConvexProviderConnectionId: convexProviderConnectionId,
+    selectedGithubProviderConnectionId: githubProviderConnectionId,
+  });
   return organizationId;
+}
+
+async function organizationProviderConnectionIds(
+  db: DatabaseWriter,
+  organizationId: Id<"organizations">,
+) {
+  const organization = await db.get(organizationId);
+  if (
+    !organization?.selectedGithubProviderConnectionId ||
+    !organization.selectedConvexProviderConnectionId ||
+    !organization.selectedCloudflareProviderConnectionId
+  ) {
+    throw new Error("Organization provider fixture is missing.");
+  }
+  return {
+    cloudflareProviderConnectionId: organization.selectedCloudflareProviderConnectionId,
+    convexProviderConnectionId: organization.selectedConvexProviderConnectionId,
+    githubProviderConnectionId: organization.selectedGithubProviderConnectionId,
+  };
 }
 
 async function seedApprovedOrganizationUser(t: ReturnType<typeof makeConvexTest>) {
@@ -37,20 +92,27 @@ async function seedApprovedOrganizationUser(t: ReturnType<typeof makeConvexTest>
       plan: "free",
       status: "inactive",
     });
-    return { organizationId, userId };
+    const providerConnectionIds = await organizationProviderConnectionIds(ctx.db, organizationId);
+    return {
+      ...providerConnectionIds,
+      organizationId,
+      userId,
+    };
   });
 }
 
 describe("vault dashboard Convex contract", () => {
   it("records initializing existing repository connection before external GitHub work", async () => {
     const t = makeConvexTest();
-    const { organizationId, userId } = await seedApprovedOrganizationUser(t);
+    const { githubProviderConnectionId, organizationId, userId } =
+      await seedApprovedOrganizationUser(t);
 
     const ids = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
         organizationId,
+        githubProviderConnectionId,
         ghRepoOwner: "Ada",
         ghRepoName: "Existing-App",
       },
@@ -91,12 +153,14 @@ describe("vault dashboard Convex contract", () => {
 
   it("lists observed default-branch folders as repository root suggestions", async () => {
     const t = makeConvexTest();
-    const { organizationId, userId } = await seedApprovedOrganizationUser(t);
+    const { githubProviderConnectionId, organizationId, userId } =
+      await seedApprovedOrganizationUser(t);
     const ids = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
         organizationId,
+        githubProviderConnectionId,
         ghRepoOwner: "ada",
         ghRepoName: "existing-app",
       },
@@ -104,6 +168,7 @@ describe("vault dashboard Convex contract", () => {
     await t.run(async (ctx) => {
       await ctx.db.replace(ids.vaultId, {
         organizationId,
+        githubProviderConnectionId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "connect_existing_repository",
@@ -146,12 +211,14 @@ describe("vault dashboard Convex contract", () => {
 
   it("exposes initializing existing repository source setup", async () => {
     const t = makeConvexTest();
-    const { organizationId, userId } = await seedApprovedOrganizationUser(t);
+    const { githubProviderConnectionId, organizationId, userId } =
+      await seedApprovedOrganizationUser(t);
     const ids = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
         organizationId,
+        githubProviderConnectionId,
         ghRepoOwner: "ada",
         ghRepoName: "existing-app",
       },
@@ -180,12 +247,14 @@ describe("vault dashboard Convex contract", () => {
 
   it("exposes user vaults through the MCP user bridge", async () => {
     const t = makeConvexTest();
-    const { organizationId, userId } = await seedApprovedOrganizationUser(t);
+    const { githubProviderConnectionId, organizationId, userId } =
+      await seedApprovedOrganizationUser(t);
     const ids = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
         organizationId,
+        githubProviderConnectionId,
         ghRepoOwner: "ada",
         ghRepoName: "existing-app",
       },
@@ -323,11 +392,13 @@ describe("vault dashboard Convex contract", () => {
 
   it("rejects duplicate existing repository targets before GitHub fetch", async () => {
     const t = makeConvexTest();
-    const { organizationId, userId } = await seedApprovedOrganizationUser(t);
+    const { githubProviderConnectionId, organizationId, userId } =
+      await seedApprovedOrganizationUser(t);
 
     await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
       userId,
       organizationId,
+      githubProviderConnectionId,
       ghRepoOwner: "Ada",
       ghRepoName: "Existing-App",
     });
@@ -336,6 +407,7 @@ describe("vault dashboard Convex contract", () => {
       t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
         userId,
         organizationId,
+        githubProviderConnectionId,
         ghRepoOwner: "ada",
         ghRepoName: "existing-app",
       }),
@@ -344,12 +416,14 @@ describe("vault dashboard Convex contract", () => {
 
   it("connects existing repository vaults with run provenance and no providers", async () => {
     const t = makeConvexTest();
-    const { organizationId, userId } = await seedApprovedOrganizationUser(t);
+    const { githubProviderConnectionId, organizationId, userId } =
+      await seedApprovedOrganizationUser(t);
     const ids = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
         organizationId,
+        githubProviderConnectionId,
         ghRepoOwner: "ada",
         ghRepoName: "existing-app",
       },
@@ -384,12 +458,14 @@ describe("vault dashboard Convex contract", () => {
 
   it("blocks deletion during connected repository sync without reporting a provider write", async () => {
     const t = makeConvexTest();
-    const { organizationId, userId } = await seedApprovedOrganizationUser(t);
+    const { githubProviderConnectionId, organizationId, userId } =
+      await seedApprovedOrganizationUser(t);
     const ids = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
         organizationId,
+        githubProviderConnectionId,
         ghRepoOwner: "ada",
         ghRepoName: "existing-app",
       },
@@ -443,12 +519,14 @@ describe("vault dashboard Convex contract", () => {
 
   it("marks existing repository setup failed before GitHub connects", async () => {
     const t = makeConvexTest();
-    const { organizationId, userId } = await seedApprovedOrganizationUser(t);
+    const { githubProviderConnectionId, organizationId, userId } =
+      await seedApprovedOrganizationUser(t);
     const ids = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
         userId,
         organizationId,
+        githubProviderConnectionId,
         ghRepoOwner: "ada",
         ghRepoName: "missing-repo",
       },
@@ -480,6 +558,7 @@ describe("vault dashboard Convex contract", () => {
         isApproved: true,
       });
       const organizationId = await seedOrganization(ctx.db, userId);
+      const providerConnectionIds = await organizationProviderConnectionIds(ctx.db, organizationId);
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
@@ -499,6 +578,7 @@ describe("vault dashboard Convex contract", () => {
 
       await ctx.db.replace(vaultId, {
         organizationId,
+        githubProviderConnectionId: providerConnectionIds.githubProviderConnectionId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "connect_existing_repository",
@@ -572,13 +652,22 @@ describe("vault dashboard Convex contract", () => {
 
   it("records initializing vault creation before external GitHub work", async () => {
     const t = makeConvexTest();
-    const { organizationId, userId } = await seedApprovedOrganizationUser(t);
+    const {
+      cloudflareProviderConnectionId,
+      convexProviderConnectionId,
+      githubProviderConnectionId,
+      organizationId,
+      userId,
+    } = await seedApprovedOrganizationUser(t);
 
     const ids = await t.mutation(
       internal.vault.records.createInitializingSamebaseManagedVaultForUser,
       {
         userId,
         organizationId,
+        githubProviderConnectionId,
+        convexProviderConnectionId,
+        cloudflareProviderConnectionId,
         ghRepoOwner: "ada",
         ghRepoName: "early-vault",
         visibility: "private",
@@ -637,6 +726,7 @@ describe("vault dashboard Convex contract", () => {
         isApproved: true,
       });
       const organizationId = await seedOrganization(ctx.db, userId);
+      const providerConnectionIds = await organizationProviderConnectionIds(ctx.db, organizationId);
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
@@ -657,6 +747,7 @@ describe("vault dashboard Convex contract", () => {
 
       await ctx.db.replace(vaultId, {
         organizationId,
+        githubProviderConnectionId: providerConnectionIds.githubProviderConnectionId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -712,6 +803,7 @@ describe("vault dashboard Convex contract", () => {
         isApproved: true,
       });
       const organizationId = await seedOrganization(ctx.db, userId);
+      const providerConnectionIds = await organizationProviderConnectionIds(ctx.db, organizationId);
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
@@ -730,6 +822,7 @@ describe("vault dashboard Convex contract", () => {
 
       await ctx.db.replace(vaultId, {
         organizationId,
+        githubProviderConnectionId: providerConnectionIds.githubProviderConnectionId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -775,6 +868,7 @@ describe("vault dashboard Convex contract", () => {
         isApproved: true,
       });
       const organizationId = await seedOrganization(ctx.db, userId);
+      const providerConnectionIds = await organizationProviderConnectionIds(ctx.db, organizationId);
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
@@ -793,6 +887,7 @@ describe("vault dashboard Convex contract", () => {
 
       await ctx.db.replace(vaultId, {
         organizationId,
+        githubProviderConnectionId: providerConnectionIds.githubProviderConnectionId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -818,6 +913,7 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("vaultConvexProjects", {
         vaultId,
         organizationId,
+        providerConnectionId: providerConnectionIds.convexProviderConnectionId,
         convexConfigPath: "convex.json",
         teamId: "provider-state-team-id",
         projectId: "convex-project",
@@ -825,6 +921,8 @@ describe("vault dashboard Convex contract", () => {
       });
       await ctx.db.insert("workflow_vaultProvisioning_plans", {
         vaultId,
+        ...providerConnectionIds,
+        ...providerConnectionIds,
         convexConfigPath: "convex.json",
         convex: {
           state: "created",
@@ -904,6 +1002,7 @@ describe("vault dashboard Convex contract", () => {
         isApproved: true,
       });
       const organizationId = await seedOrganization(ctx.db, userId);
+      const providerConnectionIds = await organizationProviderConnectionIds(ctx.db, organizationId);
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
@@ -933,6 +1032,7 @@ describe("vault dashboard Convex contract", () => {
 
       await ctx.db.replace(vaultId, {
         organizationId,
+        githubProviderConnectionId: providerConnectionIds.githubProviderConnectionId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -947,6 +1047,7 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("vaultConvexProjects", {
         vaultId,
         organizationId,
+        providerConnectionId: providerConnectionIds.convexProviderConnectionId,
         convexConfigPath: "convex.json",
         teamId: "cloudflare-retry-team-id",
         projectId: "convex-project",
@@ -1004,6 +1105,7 @@ describe("vault dashboard Convex contract", () => {
         isApproved: true,
       });
       const organizationId = await seedOrganization(ctx.db, userId);
+      const providerConnectionIds = await organizationProviderConnectionIds(ctx.db, organizationId);
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
@@ -1035,6 +1137,7 @@ describe("vault dashboard Convex contract", () => {
 
       await ctx.db.replace(vaultId, {
         organizationId,
+        githubProviderConnectionId: providerConnectionIds.githubProviderConnectionId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -1049,6 +1152,7 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("vaultConvexProjects", {
         vaultId,
         organizationId,
+        providerConnectionId: providerConnectionIds.convexProviderConnectionId,
         convexConfigPath: "convex.json",
         teamId: "cloudflare-retry-team-id",
         projectId: "convex-project",
@@ -1153,6 +1257,10 @@ describe("vault dashboard Convex contract", () => {
           isApproved: true,
         });
         const organizationId = await seedOrganization(ctx.db, userId);
+        const providerConnectionIds = await organizationProviderConnectionIds(
+          ctx.db,
+          organizationId,
+        );
         const vaultId = await ctx.db.insert("vaults", {
           organizationId,
           deletion: { state: "not_deleting" },
@@ -1173,6 +1281,7 @@ describe("vault dashboard Convex contract", () => {
 
         await ctx.db.replace(vaultId, {
           organizationId,
+          githubProviderConnectionId: providerConnectionIds.githubProviderConnectionId,
           deletion: { state: "not_deleting" },
           state: "connected",
           githubMode: "create_repository",
@@ -1187,6 +1296,7 @@ describe("vault dashboard Convex contract", () => {
         await ctx.db.insert("vaultConvexProjects", {
           vaultId,
           organizationId,
+          providerConnectionId: providerConnectionIds.convexProviderConnectionId,
           convexConfigPath: "convex.json",
           teamId: `provider-${testCase.label}-team-id`,
           projectId: "convex-project",
@@ -1195,6 +1305,7 @@ describe("vault dashboard Convex contract", () => {
         await ctx.db.insert("vaultCloudflareWorkers", {
           vaultId,
           organizationId,
+          providerConnectionId: providerConnectionIds.cloudflareProviderConnectionId,
           accountId: "cloudflare-account",
           workerName: `provider-${testCase.label}-worker`,
           workerTag: `provider-${testCase.label}-worker-tag`,
@@ -1247,6 +1358,7 @@ describe("vault dashboard Convex contract", () => {
         isApproved: true,
       });
       const organizationId = await seedOrganization(ctx.db, userId);
+      const providerConnectionIds = await organizationProviderConnectionIds(ctx.db, organizationId);
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
@@ -1265,6 +1377,7 @@ describe("vault dashboard Convex contract", () => {
 
       await ctx.db.replace(vaultId, {
         organizationId,
+        githubProviderConnectionId: providerConnectionIds.githubProviderConnectionId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -1289,6 +1402,8 @@ describe("vault dashboard Convex contract", () => {
       });
       await ctx.db.insert("workflow_vaultProvisioning_plans", {
         vaultId,
+        ...providerConnectionIds,
+        ...providerConnectionIds,
         convexConfigPath: "convex.json",
         convex: {
           state: "planned",
@@ -1366,6 +1481,7 @@ describe("vault dashboard Convex contract", () => {
         isApproved: true,
       });
       const organizationId = await seedOrganization(ctx.db, userId);
+      const providerConnectionIds = await organizationProviderConnectionIds(ctx.db, organizationId);
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
@@ -1385,6 +1501,7 @@ describe("vault dashboard Convex contract", () => {
 
       await ctx.db.replace(vaultId, {
         organizationId,
+        githubProviderConnectionId: providerConnectionIds.githubProviderConnectionId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -1435,6 +1552,7 @@ describe("vault dashboard Convex contract", () => {
         isApproved: true,
       });
       const organizationId = await seedOrganization(ctx.db, userId);
+      const providerConnectionIds = await organizationProviderConnectionIds(ctx.db, organizationId);
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
@@ -1453,6 +1571,7 @@ describe("vault dashboard Convex contract", () => {
       });
       await ctx.db.replace(vaultId, {
         organizationId,
+        githubProviderConnectionId: providerConnectionIds.githubProviderConnectionId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "connect_existing_repository",
@@ -1510,6 +1629,7 @@ describe("vault dashboard Convex contract", () => {
         isApproved: true,
       });
       const organizationId = await seedOrganization(ctx.db, userId);
+      const providerConnectionIds = await organizationProviderConnectionIds(ctx.db, organizationId);
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
@@ -1540,6 +1660,7 @@ describe("vault dashboard Convex contract", () => {
       });
       await ctx.db.replace(vaultId, {
         organizationId,
+        githubProviderConnectionId: providerConnectionIds.githubProviderConnectionId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -1553,6 +1674,7 @@ describe("vault dashboard Convex contract", () => {
       });
       await ctx.db.insert("workflow_vaultProvisioning_plans", {
         vaultId,
+        ...providerConnectionIds,
         convexConfigPath: "convex.json",
         convex: {
           state: "planned",
@@ -1616,6 +1738,7 @@ describe("vault dashboard Convex contract", () => {
         isApproved: true,
       });
       const organizationId = await seedOrganization(ctx.db, userId);
+      const providerConnectionIds = await organizationProviderConnectionIds(ctx.db, organizationId);
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
@@ -1634,6 +1757,7 @@ describe("vault dashboard Convex contract", () => {
       });
       await ctx.db.replace(vaultId, {
         organizationId,
+        githubProviderConnectionId: providerConnectionIds.githubProviderConnectionId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -1648,6 +1772,7 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("vaultConvexProjects", {
         vaultId,
         organizationId,
+        providerConnectionId: providerConnectionIds.convexProviderConnectionId,
         convexConfigPath: "convex.json",
         teamId: "team-id",
         projectId: "project-id",
@@ -1789,6 +1914,7 @@ describe("vault dashboard Convex contract", () => {
       });
       const organizationId = await seedOrganization(ctx.db, userId);
       await ctx.db.insert("organizationMemberships", { organizationId, userId: collaboratorId });
+      const providerConnectionIds = await organizationProviderConnectionIds(ctx.db, organizationId);
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         deletion: { state: "not_deleting" },
@@ -1898,6 +2024,7 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("vaultConvexProjects", {
         vaultId,
         organizationId,
+        providerConnectionId: providerConnectionIds.convexProviderConnectionId,
         convexConfigPath: "convex.json",
         teamId: "delete-team-id",
         projectId: "delete-convex-project",

@@ -43,48 +43,88 @@ export const vCloudflareDefaultAccount = union(
 );
 export type CloudflareDefaultAccount = Infer<typeof vCloudflareDefaultAccount>;
 
-export const providerConnectionTables = {
-  /** Provider credentials and account choices saved by one Samebase user. */
-  providerConnections: defineTable(
-    union(
-      object({
-        kind: literal("github"),
-        userId: id("users"),
-        auth: vStandardProviderAuth,
-        username: optional(string()),
-        createdAt: number(),
-        updatedAt: number(),
-      }),
-      object({
-        kind: literal("convex"),
-        userId: id("users"),
-        auth: vStandardProviderAuth,
-        teamId: string(),
-        teamSlug: optional(string()),
-        createdAt: number(),
-        updatedAt: number(),
-      }),
-      object({
-        kind: literal("cloudflare"),
-        userId: id("users"),
-        auth: vCloudflareProviderAuth,
-        defaultAccount: vCloudflareDefaultAccount,
-        tokenHealth: optional(vMcpTokenHealth),
-        tokenRefreshStartedAt: optional(number()),
-        lastTokenRefreshAt: optional(number()),
-        createdAt: number(),
-        updatedAt: number(),
-      }),
-    ),
-  )
-    .index("by_user", ["userId"])
-    .index("by_user_kind", ["userId", "kind"])
-    .index("by_kind_method", ["kind", "auth.method"]),
+const providerConnectionIdentity = {
+  organizationId: id("organizations"),
+  connectedByUserId: id("users"),
+  createdAt: number(),
+  updatedAt: number(),
+} as const;
 
-  /**
-   * Short-lived requests that bind a provider OAuth callback to the user who
-   * started it and retain callback data such as PKCE credentials until use.
-   */
+export const vConnectedGithubProviderConnection = object({
+  state: literal("connected"),
+  kind: literal("github"),
+  ...providerConnectionIdentity,
+  auth: vStandardProviderAuth,
+  accountId: string(),
+  username: optional(string()),
+});
+export const vDisconnectedGithubProviderConnection = object({
+  state: literal("disconnected"),
+  kind: literal("github"),
+  ...providerConnectionIdentity,
+  accountId: string(),
+  username: optional(string()),
+  disconnectedAt: number(),
+});
+export const vConnectedConvexProviderConnection = object({
+  state: literal("connected"),
+  kind: literal("convex"),
+  ...providerConnectionIdentity,
+  auth: vStandardProviderAuth,
+  teamId: string(),
+  teamSlug: optional(string()),
+});
+export const vDisconnectedConvexProviderConnection = object({
+  state: literal("disconnected"),
+  kind: literal("convex"),
+  ...providerConnectionIdentity,
+  teamId: string(),
+  teamSlug: optional(string()),
+  disconnectedAt: number(),
+});
+export const vConnectedCloudflareProviderConnection = object({
+  state: literal("connected"),
+  kind: literal("cloudflare"),
+  ...providerConnectionIdentity,
+  auth: vCloudflareProviderAuth,
+  defaultAccount: vCloudflareDefaultAccount,
+  tokenHealth: optional(vMcpTokenHealth),
+  tokenRefreshStartedAt: optional(number()),
+  lastTokenRefreshAt: optional(number()),
+});
+export const vDisconnectedCloudflareProviderConnection = object({
+  state: literal("disconnected"),
+  kind: literal("cloudflare"),
+  ...providerConnectionIdentity,
+  defaultAccount: vCloudflareDefaultAccount,
+  disconnectedAt: number(),
+});
+
+export const vProviderConnection = union(
+  vConnectedGithubProviderConnection,
+  vDisconnectedGithubProviderConnection,
+  vConnectedConvexProviderConnection,
+  vDisconnectedConvexProviderConnection,
+  vConnectedCloudflareProviderConnection,
+  vDisconnectedCloudflareProviderConnection,
+);
+export type ProviderConnection = Infer<typeof vProviderConnection>;
+
+export const vConnectedProviderConnection = union(
+  vConnectedGithubProviderConnection,
+  vConnectedConvexProviderConnection,
+  vConnectedCloudflareProviderConnection,
+);
+export type ConnectedProviderConnection = Infer<typeof vConnectedProviderConnection>;
+
+export const providerConnectionTables = {
+  /** Provider credentials held by an organization and used only in backend functions. */
+  providerConnections: defineTable(vProviderConnection)
+    .index("by_organization", ["organizationId"])
+    .index("by_organization_and_kind_and_state", ["organizationId", "kind", "state"])
+    .index("by_connected_by_user", ["connectedByUserId"]),
+
+  /** Short-lived OAuth state bound to the initiating user and organization. */
   providerOAuthCallbackStates: defineTable({
     provider: union(
       literal("github"),
@@ -93,6 +133,8 @@ export const providerConnectionTables = {
       literal("cloudflare_mcp"),
     ),
     userId: id("users"),
+    organizationId: id("organizations"),
+    providerConnectionId: optional(id("providerConnections")),
     state: string(),
     returnToPath: optional(string()),
     codeVerifier: optional(string()),

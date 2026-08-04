@@ -512,10 +512,16 @@ export const listRepositoriesPreview = action({
   args: {},
   returns: githubRepositoryPreviewResult,
   handler: async (ctx): Promise<GitHubRepositoryPreviewResult> => {
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: ctx.viewer.userId,
-      kind: "github",
-    });
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.getOrganizationIdForUser,
+      {
+        userId: ctx.viewer.userId,
+      },
+    );
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.loadCurrentConnectedForOrganization,
+      { organizationId, kind: "github" },
+    );
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected");
     }
@@ -531,10 +537,16 @@ export const listRepositories = action({
   args: {},
   returns: array(githubRepositoryListItem),
   handler: async (ctx): Promise<GitHubRepositoryList> => {
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: ctx.viewer.userId,
-      kind: "github",
-    });
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.getOrganizationIdForUser,
+      {
+        userId: ctx.viewer.userId,
+      },
+    );
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.loadCurrentConnectedForOrganization,
+      { organizationId, kind: "github" },
+    );
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected");
     }
@@ -858,10 +870,14 @@ export const getRepositoryFileContent = action({
       }
     }
 
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId,
-      kind: "github",
-    });
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.loadConnectedByIdForOrganization,
+      {
+        organizationId: vault.organizationId,
+        providerConnectionId: vault.githubProviderConnectionId,
+        kind: "github",
+      },
+    );
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected");
     }
@@ -990,10 +1006,14 @@ export const getRepositoryMediaAsset = action({
       }
     }
 
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId,
-      kind: "github",
-    });
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.loadConnectedByIdForOrganization,
+      {
+        organizationId: vault.organizationId,
+        providerConnectionId: vault.githubProviderConnectionId,
+        kind: "github",
+      },
+    );
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected");
     }
@@ -1095,6 +1115,8 @@ async function refreshExactRepositoryBranchForUser(
   args: {
     userId: Id<"users">;
     vaultId: Id<"vaults">;
+    organizationId: Id<"organizations">;
+    githubProviderConnectionId: Id<"providerConnections">;
     owner: string;
     repo: string;
     branch: string;
@@ -1114,10 +1136,14 @@ async function refreshExactRepositoryBranchForUser(
     return { kind: "ready", refreshed: false };
   }
 
-  const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-    userId: args.userId,
-    kind: "github",
-  });
+  const githubConnection = await ctx.runQuery(
+    internal.providerConnections.loadConnectedByIdForOrganization,
+    {
+      organizationId: args.organizationId,
+      providerConnectionId: args.githubProviderConnectionId,
+      kind: "github",
+    },
+  );
   if (githubConnection?.kind !== "github") {
     return { kind: "unavailable" };
   }
@@ -1266,6 +1292,8 @@ export const refreshRepositoryTree = action({
     return await refreshExactRepositoryBranchForUser(ctx, {
       userId,
       vaultId: args.vaultId,
+      organizationId: vault.organizationId,
+      githubProviderConnectionId: vault.githubProviderConnectionId,
       owner: vault.owner,
       repo: vault.name,
       branch: args.branch,
@@ -1296,6 +1324,8 @@ export const updateRepositoryTree = internalAction({
     const refresh = await refreshExactRepositoryBranchForUser(ctx, {
       userId: args.userId,
       vaultId: vault._id,
+      organizationId: vault.organizationId,
+      githubProviderConnectionId: vault.githubProviderConnectionId,
       owner: args.owner,
       repo: args.repo,
       branch,

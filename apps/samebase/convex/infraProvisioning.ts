@@ -411,14 +411,18 @@ export async function resolveConvexProvisioningConnection(
   ctx: Pick<ActionCtx, "runQuery">,
   userId: Id<"users">,
 ): Promise<{
+  providerConnectionId: Id<"providerConnections">;
   convexToken: string;
   convexAuthMethod: ConvexProvisioningAuthMethod;
   convexTeamId: string;
 }> {
-  const convexConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+  const organizationId = await ctx.runQuery(internal.organizationAccess.getOrganizationIdForUser, {
     userId,
-    kind: "convex",
   });
+  const convexConnection = await ctx.runQuery(
+    internal.providerConnections.loadCurrentConnectedForOrganization,
+    { organizationId, kind: "convex" },
+  );
   if (convexConnection?.kind !== "convex") {
     throw new ConvexProvisioningConnectionRequiredError();
   }
@@ -430,7 +434,12 @@ export async function resolveConvexProvisioningConnection(
     throw new ConvexProvisioningConnectionRequiredError();
   }
 
-  return { convexToken, convexAuthMethod: convexConnection.auth.method, convexTeamId };
+  return {
+    providerConnectionId: convexConnection._id,
+    convexToken,
+    convexAuthMethod: convexConnection.auth.method,
+    convexTeamId,
+  };
 }
 
 export class ConvexProvisioningConnectionRequiredError extends Error {
@@ -441,15 +450,33 @@ export class ConvexProvisioningConnectionRequiredError extends Error {
 }
 
 export async function resolveCloudflareProvisioningConnection(
-  ctx: Pick<ActionCtx, "runAction">,
+  ctx: Pick<ActionCtx, "runAction" | "runQuery">,
   userId: Id<"users">,
   options?: { forceRefresh: true },
 ): Promise<{
+  providerConnectionId: Id<"providerConnections">;
   cloudflareToken: string;
   cloudflareAuthMethod: "api_key" | "oauth" | "mcp_oauth";
   cloudflareAccountId: string;
 }> {
-  const resolveArgs = options ? { userId, forceRefresh: true } : { userId };
+  const organizationId = await ctx.runQuery(internal.organizationAccess.getOrganizationIdForUser, {
+    userId,
+  });
+  const connection = await ctx.runQuery(
+    internal.providerConnections.loadCurrentConnectedForOrganization,
+    { organizationId, kind: "cloudflare" },
+  );
+  if (connection?.kind !== "cloudflare") {
+    throw new Error(
+      "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
+    );
+  }
+  const resolveArgs = {
+    userId,
+    organizationId,
+    providerConnectionId: connection._id,
+    ...(options ? { forceRefresh: true as const } : {}),
+  };
   const resolvedCloudflareConnection = await ctx.runAction(
     internal.cloudflareOAuth.resolveConnectionForUser,
     resolveArgs,
@@ -478,6 +505,7 @@ export async function resolveCloudflareProvisioningConnection(
   }
 
   return {
+    providerConnectionId: connection._id,
     cloudflareToken,
     cloudflareAuthMethod: resolvedCloudflareConnection.auth.method,
     cloudflareAccountId,

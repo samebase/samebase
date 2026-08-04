@@ -1,5 +1,6 @@
 import { Infer, v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
+import { requireOrganizationAccessContext } from "./organizationAccess";
 
 export const vOAuthProvider = v.union(
   v.literal("github"),
@@ -14,6 +15,7 @@ export const createOauthState = internalMutation({
   args: {
     provider: vOAuthProvider,
     userId: v.id("users"),
+    providerConnectionId: v.optional(v.id("providerConnections")),
     state: v.string(),
     returnToPath: v.optional(v.string()),
     codeVerifier: v.optional(v.string()),
@@ -28,9 +30,12 @@ export const createOauthState = internalMutation({
     if (!user || user.accountDeletion) {
       throw new Error("Account deletion is in progress.");
     }
+    const access = await requireOrganizationAccessContext(ctx.db, args.userId);
     return await ctx.db.insert("providerOAuthCallbackStates", {
       provider: args.provider,
       userId: args.userId,
+      organizationId: access.organizationId,
+      providerConnectionId: args.providerConnectionId,
       state: args.state,
       returnToPath: args.returnToPath,
       codeVerifier: args.codeVerifier,

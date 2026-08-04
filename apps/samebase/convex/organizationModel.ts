@@ -33,6 +33,9 @@ export const organizationTables = {
   /** Samebase customer workspaces that own durable customer resources. */
   organizations: defineTable({
     accountDeletionRunId: optional(id("workflow_accountDeletion_runs")),
+    selectedGithubProviderConnectionId: optional(id("providerConnections")),
+    selectedConvexProviderConnectionId: optional(id("providerConnections")),
+    selectedCloudflareProviderConnectionId: optional(id("providerConnections")),
   }),
 
   /** User access to an organization. Row presence grants access. */

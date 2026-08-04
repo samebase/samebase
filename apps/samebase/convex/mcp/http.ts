@@ -1027,14 +1027,14 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
         },
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Tool execution failed.";
+      void error;
       return jsonRpcSuccessResponse({
         id: rpcRequest.id,
         result: {
           content: [
             {
               type: "text",
-              text: message,
+              text: "The provider operation failed. Check the provider connection and retry.",
             },
           ],
           isError: true,

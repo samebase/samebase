@@ -92,6 +92,16 @@ async function seedConnectedVaultWithRefresh(
 ) {
   const organizationId = await readOrganizationId(t, userId);
   return await t.run(async (ctx) => {
+    const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+      kind: "github",
+      state: "connected",
+      organizationId,
+      connectedByUserId: userId,
+      accountId: `github-${userId}`,
+      auth: { method: "api_key", credential: "github-token" },
+      createdAt: 1,
+      updatedAt: 1,
+    });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
       state: "not_connected",
@@ -111,6 +121,7 @@ async function seedConnectedVaultWithRefresh(
     await ctx.db.replace(vaultId, {
       organizationId,
       state: "connected",
+      githubProviderConnectionId,
       githubMode: "create_repository",
       deletion: { state: "not_deleting" },
       treeRefreshLock: { requestedByUserId: userId, startedAt },
@@ -623,6 +634,16 @@ describe("account-local deletion cleanup", () => {
     const organizationId = await readOrganizationId(t, deletingUserId);
     const remainingUserId = await seedUser(t, "remaining@example.com", organizationId);
     const { convexProjectId, vaultId } = await t.run(async (ctx) => {
+      const convexProviderConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "convex",
+        state: "connected",
+        organizationId,
+        connectedByUserId: deletingUserId,
+        auth: { method: "api_key", credential: "convex-token" },
+        teamId: "team",
+        createdAt: 1,
+        updatedAt: 1,
+      });
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         state: "not_connected",
@@ -631,6 +652,7 @@ describe("account-local deletion cleanup", () => {
       const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
         vaultId,
         organizationId,
+        providerConnectionId: convexProviderConnectionId,
         teamId: "team",
         projectId: "project",
         convexConfigPath: "convex/convex.json",

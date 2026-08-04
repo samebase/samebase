@@ -26,6 +26,20 @@ async function seedVault(
     if (!membership) {
       throw new Error("Organization membership not found");
     }
+    const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+      state: "connected",
+      kind: "github",
+      organizationId: membership.organizationId,
+      connectedByUserId: userId,
+      accountId: "github-account",
+      auth: { method: "api_key", credential: "github-token" },
+      username: "ada",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    await ctx.db.patch(membership.organizationId, {
+      selectedGithubProviderConnectionId: githubProviderConnectionId,
+    });
     return await ctx.db.insert("vaults", {
       organizationId: membership.organizationId,
       state: "not_connected",
@@ -46,6 +60,20 @@ async function seedDashboardVault(
     if (!membership) {
       throw new Error("Organization membership not found");
     }
+    const githubProviderConnectionId = await ctx.db.insert("providerConnections", {
+      state: "connected",
+      kind: "github",
+      organizationId: membership.organizationId,
+      connectedByUserId: args.userId,
+      accountId: "github-account",
+      auth: { method: "api_key", credential: "github-token" },
+      username: "ada",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    await ctx.db.patch(membership.organizationId, {
+      selectedGithubProviderConnectionId: githubProviderConnectionId,
+    });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId: membership.organizationId,
       state: "not_connected",
@@ -64,6 +92,7 @@ async function seedDashboardVault(
     });
     await ctx.db.replace(vaultId, {
       organizationId: membership.organizationId,
+      githubProviderConnectionId,
       state: "failed",
       githubMode: "connect_existing_repository",
       runId,

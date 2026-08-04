@@ -1,18 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { api } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import { api, internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
-
-type TestGithubAuth =
-  | {
-      method: "oauth";
-      credential: string;
-    }
-  | {
-      method: "api_key";
-      credential: string;
-    };
 
 function stubGithubOAuthEnv() {
   vi.stubEnv("PROVIDER_GITHUB_OAUTH_CLIENT_ID", "client_123");
@@ -20,39 +9,33 @@ function stubGithubOAuthEnv() {
   vi.stubEnv("PROVIDER_GITHUB_OAUTH_REDIRECT_URL", "https://samebase.test/oauth/github/callback");
 }
 
-async function seedGithubConnection(t: ReturnType<typeof makeConvexTest>, auth: TestGithubAuth) {
-  return await t.run(async (ctx) => {
+async function seedGithubOAuthConnection() {
+  const t = makeConvexTest();
+  const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       name: "Ada",
       email: "ada@example.com",
       isApproved: true,
     });
-    await ctx.db.insert("providerConnections", {
+    const organizationId = await ctx.db.insert("organizations", {});
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    const providerConnectionId = await ctx.db.insert("providerConnections", {
+      state: "connected",
       kind: "github",
-      userId,
-      auth,
+      organizationId,
+      connectedByUserId: userId,
+      accountId: "123",
+      auth: { method: "oauth", credential: "github-oauth-token" },
       username: "ada",
       createdAt: 1,
       updatedAt: 2,
     });
-    return userId;
+    await ctx.db.patch(organizationId, {
+      selectedGithubProviderConnectionId: providerConnectionId,
+    });
+    return { organizationId, providerConnectionId, userId };
   });
-}
-
-async function readGithubConnection(t: ReturnType<typeof makeConvexTest>, userId: Id<"users">) {
-  return await t.run(async (ctx) => {
-    return await ctx.db
-      .query("providerConnections")
-      .withIndex("by_user_kind", (q) => q.eq("userId", userId).eq("kind", "github"))
-      .unique();
-  });
-}
-
-function asUser(t: ReturnType<typeof makeConvexTest>, userId: Id<"users">) {
-  return t.withIdentity({
-    subject: `${userId}|test-session`,
-    tokenIdentifier: `test:${userId}`,
-  });
+  return { ...ids, t };
 }
 
 afterEach(() => {
@@ -60,119 +43,43 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("reauthorizeGithubOAuth", () => {
-  it("revokes the GitHub OAuth grant and removes the local connection", async () => {
-    const t = makeConvexTest();
-    const userId = await seedGithubConnection(t, {
-      method: "oauth",
-      credential: "github-oauth-token",
-    });
+describe("GitHub OAuth organization ownership", () => {
+  it("keeps the current connection until the callback reauthorizes its exact row", async () => {
+    const { organizationId, providerConnectionId, t, userId } = await seedGithubOAuthConnection();
     stubGithubOAuthEnv();
-    const fetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
-      expect(init?.method).toBe("DELETE");
-      expect(init?.body).toBe(JSON.stringify({ access_token: "github-oauth-token" }));
-      return new Response(null, { status: 204 });
-    });
+    const fetch = vi.fn(async () => new Response(null, { status: 204 }));
     vi.stubGlobal("fetch", fetch);
 
-    const authorizeUrl = await asUser(t, userId).action(api.githubOAuth.reauthorizeGithubOAuth, {
-      returnToPath: "/providers",
-    });
+    const authorizeUrl = await t
+      .withIdentity({
+        subject: `${userId}|test-session`,
+        tokenIdentifier: `test:${userId}`,
+      })
+      .action(api.githubOAuth.reauthorizeGithubOAuth, { returnToPath: "/providers" });
 
     expect(authorizeUrl).toContain("https://github.com/login/oauth/authorize");
-    expect(authorizeUrl).toContain("client_id=client_123");
-    expect(authorizeUrl).toContain("state=");
-    expect(fetch).toHaveBeenCalledTimes(1);
-    await expect(readGithubConnection(t, userId)).resolves.toBeNull();
-  });
-
-  it("treats a missing GitHub OAuth grant as already revoked", async () => {
-    const t = makeConvexTest();
-    const userId = await seedGithubConnection(t, {
-      method: "oauth",
-      credential: "github-oauth-token",
-    });
-    stubGithubOAuthEnv();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response("not found", { status: 404 })),
-    );
-
+    expect(new URL(authorizeUrl).searchParams.get("scope")?.split(" ")).toContain("workflow");
+    expect(fetch).not.toHaveBeenCalled();
     await expect(
-      asUser(t, userId).action(api.githubOAuth.reauthorizeGithubOAuth, {
-        returnToPath: "/providers",
+      t.query(internal.oauthState.getOauthStateByState, {
+        provider: "github",
+        state: new URL(authorizeUrl).searchParams.get("state") ?? "",
       }),
-    ).resolves.toContain("https://github.com/login/oauth/authorize");
-    await expect(readGithubConnection(t, userId)).resolves.toBeNull();
+    ).resolves.toMatchObject({ organizationId, providerConnectionId, userId });
   });
 
-  it("keeps the local connection when GitHub revoke fails", async () => {
-    const t = makeConvexTest();
-    const userId = await seedGithubConnection(t, {
-      method: "oauth",
-      credential: "github-oauth-token",
-    });
+  it("revokes only the exact connected OAuth row", async () => {
+    const { organizationId, providerConnectionId, t } = await seedGithubOAuthConnection();
     stubGithubOAuthEnv();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response("denied", { status: 401 })),
-    );
-
-    await expect(
-      asUser(t, userId).action(api.githubOAuth.reauthorizeGithubOAuth, {
-        returnToPath: "/providers",
-      }),
-    ).rejects.toThrowError("Failed to revoke GitHub OAuth grant (401).");
-    await expect(readGithubConnection(t, userId)).resolves.toMatchObject({
-      kind: "github",
-      auth: {
-        method: "oauth",
-        credential: "github-oauth-token",
-      },
-    });
-  });
-
-  it("rejects non-OAuth GitHub connections before network calls", async () => {
-    const t = makeConvexTest();
-    const userId = await seedGithubConnection(t, {
-      method: "api_key",
-      credential: "github-api-key",
-    });
     const fetch = vi.fn(async () => new Response(null, { status: 204 }));
     vi.stubGlobal("fetch", fetch);
 
     await expect(
-      asUser(t, userId).action(api.githubOAuth.reauthorizeGithubOAuth, {
-        returnToPath: "/providers",
+      t.action(internal.githubOAuth.revokeGithubOAuthForOrganizationConnection, {
+        organizationId,
+        providerConnectionId,
       }),
-    ).rejects.toThrowError("GitHub OAuth is not connected.");
-    expect(fetch).not.toHaveBeenCalled();
-    await expect(readGithubConnection(t, userId)).resolves.toMatchObject({
-      kind: "github",
-      auth: {
-        method: "api_key",
-        credential: "github-api-key",
-      },
-    });
-  });
-
-  it("rejects absent GitHub connections before network calls", async () => {
-    const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-    });
-    const fetch = vi.fn(async () => new Response(null, { status: 204 }));
-    vi.stubGlobal("fetch", fetch);
-
-    await expect(
-      asUser(t, userId).action(api.githubOAuth.reauthorizeGithubOAuth, {
-        returnToPath: "/providers",
-      }),
-    ).rejects.toThrowError("GitHub OAuth is not connected.");
-    expect(fetch).not.toHaveBeenCalled();
+    ).resolves.toBeNull();
+    expect(fetch).toHaveBeenCalledOnce();
   });
 });

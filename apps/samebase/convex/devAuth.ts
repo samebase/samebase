@@ -1,4 +1,5 @@
 import { createAccount, modifyAccountCredentials } from "@convex-dev/auth/server";
+import { Octokit } from "@octokit/rest";
 import { Infer, v } from "convex/values";
 import {
   LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
@@ -9,9 +10,9 @@ import { resolveDeploymentProfile, resolvePasswordAuthMode } from "./deploymentP
 import { internalAction, internalMutation, type DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import {
-  assertProviderConnectionWriteAllowed,
   buildSeedCloudflareDefaultAccount,
-  getConnectionByUserAndKind,
+  getDefaultProviderConnectionForOrganization,
+  selectProviderConnection,
 } from "./providerConnections";
 import { readOptionalEnv } from "./oauthUtils";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
@@ -87,107 +88,121 @@ function readSeedPasswordAccountConfig(): {
 async function upsertGithubApiKey(
   db: DatabaseWriter,
   userId: Id<"users">,
+  organizationId: Id<"organizations">,
   credential: string,
+  accountId: string,
+  username: string,
 ): Promise<void> {
-  await assertProviderConnectionWriteAllowed(db, userId);
-  const existing = await getConnectionByUserAndKind(db, userId, "github");
-  const now = Date.now();
-  if (existing) {
-    await db.patch(existing._id, {
-      auth: {
-        method: "api_key",
-        credential,
-      },
-      updatedAt: now,
-    });
-    return;
-  }
-  await db.insert("providerConnections", {
+  const existing = await getDefaultProviderConnectionForOrganization(db, {
+    organizationId,
     kind: "github",
-    userId,
-    auth: {
-      method: "api_key",
-      credential,
-    },
-    createdAt: now,
-    updatedAt: now,
   });
+  const now = Date.now();
+  const connection = {
+    state: "connected" as const,
+    kind: "github" as const,
+    organizationId,
+    connectedByUserId: userId,
+    auth: { method: "api_key" as const, credential },
+    accountId,
+    username,
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now,
+  };
+  let providerConnectionId: Id<"providerConnections">;
+  if (existing?.kind === "github" && existing.accountId === accountId) {
+    await db.replace(existing._id, connection);
+    providerConnectionId = existing._id;
+  } else {
+    if (existing?.state === "connected") {
+      throw new Error("Seed GitHub account does not match the connected account.");
+    }
+    providerConnectionId = await db.insert("providerConnections", connection);
+  }
+  await selectProviderConnection(db, { organizationId, providerConnectionId, kind: "github" });
 }
 
 async function upsertConvexApiKey(
   db: DatabaseWriter,
   userId: Id<"users">,
+  organizationId: Id<"organizations">,
   credential: string,
   teamId: string,
   teamSlug: string | undefined,
 ): Promise<void> {
-  await assertProviderConnectionWriteAllowed(db, userId);
-  const existing = await getConnectionByUserAndKind(db, userId, "convex");
-  const now = Date.now();
-  if (existing) {
-    await db.patch(existing._id, {
-      auth: {
-        method: "api_key",
-        credential,
-      },
-      teamId,
-      teamSlug,
-      updatedAt: now,
-    });
-    return;
-  }
-  const connection = {
+  const existing = await getDefaultProviderConnectionForOrganization(db, {
+    organizationId,
     kind: "convex",
-    userId,
-    auth: {
-      method: "api_key",
-      credential,
-    },
+  });
+  const now = Date.now();
+  const connection = {
+    state: "connected" as const,
+    kind: "convex" as const,
+    organizationId,
+    connectedByUserId: userId,
+    auth: { method: "api_key" as const, credential },
     teamId,
     ...(teamSlug !== undefined ? { teamSlug } : {}),
-    createdAt: now,
+    createdAt: existing?.createdAt ?? now,
     updatedAt: now,
-  } as const;
-  await db.insert("providerConnections", connection);
+  };
+  let providerConnectionId: Id<"providerConnections">;
+  if (existing?.kind === "convex" && existing.teamId === teamId) {
+    await db.replace(existing._id, connection);
+    providerConnectionId = existing._id;
+  } else {
+    if (existing?.state === "connected") {
+      throw new Error("Seed Convex team does not match the connected team.");
+    }
+    providerConnectionId = await db.insert("providerConnections", connection);
+  }
+  await selectProviderConnection(db, { organizationId, providerConnectionId, kind: "convex" });
 }
 
 async function upsertCloudflareApiKey(
   db: DatabaseWriter,
   userId: Id<"users">,
+  organizationId: Id<"organizations">,
   credential: string,
   accountId?: string,
 ): Promise<void> {
-  await assertProviderConnectionWriteAllowed(db, userId);
-  const existing = await getConnectionByUserAndKind(db, userId, "cloudflare");
-  const now = Date.now();
-  const defaultAccount = buildSeedCloudflareDefaultAccount(accountId);
-  if (existing) {
-    await db.patch(existing._id, {
-      auth: {
-        method: "api_key",
-        credential,
-      },
-      defaultAccount,
-      updatedAt: now,
-    });
-    return;
-  }
-  await db.insert("providerConnections", {
+  const existing = await getDefaultProviderConnectionForOrganization(db, {
+    organizationId,
     kind: "cloudflare",
-    userId,
-    auth: {
-      method: "api_key",
-      credential,
-    },
-    defaultAccount,
-    createdAt: now,
+  });
+  const now = Date.now();
+  const connection = {
+    state: "connected" as const,
+    kind: "cloudflare" as const,
+    organizationId,
+    connectedByUserId: userId,
+    auth: { method: "api_key" as const, credential },
+    defaultAccount: buildSeedCloudflareDefaultAccount(accountId),
+    createdAt: existing?.createdAt ?? now,
     updatedAt: now,
+  };
+  let providerConnectionId: Id<"providerConnections">;
+  if (existing?.kind === "cloudflare") {
+    await db.replace(existing._id, connection);
+    providerConnectionId = existing._id;
+  } else {
+    if (existing?.state === "connected") {
+      throw new Error("Seed Cloudflare connection conflicts with the connected provider.");
+    }
+    providerConnectionId = await db.insert("providerConnections", connection);
+  }
+  await selectProviderConnection(db, {
+    organizationId,
+    providerConnectionId,
+    kind: "cloudflare",
   });
 }
 
 const seedPasswordAccountStateArgs = object({
   userId: id("users"),
   githubApiKey: optional(string()),
+  githubAccountId: optional(string()),
+  githubUsername: optional(string()),
   convexManagementApiKey: optional(string()),
   convexTeamId: optional(string()),
   convexTeamSlug: optional(string()),
@@ -209,10 +224,20 @@ export const seedPasswordAccountState = internalMutation({
     if (user.isApproved !== true) {
       await ctx.db.patch(args.userId, { isApproved: true });
     }
-    await ensureOrganizationForUser(ctx.db, args.userId);
+    const organizationId = await ensureOrganizationForUser(ctx.db, args.userId);
 
     if (args.githubApiKey) {
-      await upsertGithubApiKey(ctx.db, args.userId, args.githubApiKey);
+      if (!args.githubAccountId || !args.githubUsername) {
+        throw new Error("GitHub seed identity is required with the GitHub API key.");
+      }
+      await upsertGithubApiKey(
+        ctx.db,
+        args.userId,
+        organizationId,
+        args.githubApiKey,
+        args.githubAccountId,
+        args.githubUsername,
+      );
     }
 
     if (args.convexManagementApiKey || args.convexTeamId || args.convexTeamSlug) {
@@ -224,6 +249,7 @@ export const seedPasswordAccountState = internalMutation({
       await upsertConvexApiKey(
         ctx.db,
         args.userId,
+        organizationId,
         args.convexManagementApiKey,
         args.convexTeamId,
         args.convexTeamSlug,
@@ -237,6 +263,7 @@ export const seedPasswordAccountState = internalMutation({
       await upsertCloudflareApiKey(
         ctx.db,
         args.userId,
+        organizationId,
         args.cloudflareApiKey,
         args.cloudflareAccountId,
       );
@@ -299,7 +326,13 @@ export const seedPasswordAccount = internalAction({
     const cloudflareAccountId = readSeedValue("DEV_SEED_CLOUDFLARE_ACCOUNT_ID");
     const seedArgs: Omit<SeedPasswordAccountStateArgs, "userId"> = {};
     if (githubApiKey !== undefined) {
+      const profile = await new Octokit({ auth: githubApiKey }).rest.users.getAuthenticated();
+      if (!profile.data.login) {
+        throw new Error("GitHub seed API key did not return an account login.");
+      }
       seedArgs.githubApiKey = githubApiKey;
+      seedArgs.githubAccountId = String(profile.data.id);
+      seedArgs.githubUsername = profile.data.login;
     }
     if (convexManagementApiKey !== undefined) {
       seedArgs.convexManagementApiKey = convexManagementApiKey;

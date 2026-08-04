@@ -6,6 +6,10 @@ const BASE_GITHUB_OAUTH_SCOPES = [
     label: "List and edit repositories",
   },
   {
+    scope: "workflow",
+    label: "Add and update GitHub Actions workflows",
+  },
+  {
     scope: "delete_repo",
     label: "Delete Samebase-managed repositories",
   },
