@@ -907,11 +907,29 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
       sha: upstreamSha,
     };
   };
+  const isCommittedRenameTarget = (
+    file: StagedFileForCommit,
+    upstreamLocation: { path: string; sha: string },
+  ): boolean => {
+    if (
+      file.fileDeleted ||
+      file.filePath === file.initialFilePath ||
+      upstreamLocation.path !== file.filePath
+    ) {
+      return false;
+    }
+    return isBinaryStagedFile(file)
+      ? file.stagedBlobSha === upstreamLocation.sha
+      : computeGitBlobShaFromText(file.content) === upstreamLocation.sha;
+  };
 
   const upstreamShasToPrefetch = new Set<string>();
   for (const file of args.stagedFiles) {
     const upstreamLocation = resolveUpstreamLocationForFile(file);
     if (!upstreamLocation) {
+      continue;
+    }
+    if (isCommittedRenameTarget(file, upstreamLocation)) {
       continue;
     }
     const upstreamSha = upstreamLocation.sha;
@@ -942,6 +960,22 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
   for (const file of args.stagedFiles) {
     const upstreamLocation = resolveUpstreamLocationForFile(file);
     const upstreamSha = upstreamLocation?.sha ?? null;
+    if (file.fileDeleted && file.parentCommitSha !== null && !upstreamLocation) {
+      rebasedFiles.push({
+        ...file,
+        parentCommitSha: null,
+      });
+      continue;
+    }
+    if (upstreamLocation && isCommittedRenameTarget(file, upstreamLocation)) {
+      rebasedFiles.push({
+        ...file,
+        initialFilePath: file.filePath,
+        initialContent: isBinaryStagedFile(file) ? file.initialContent : file.content,
+        parentCommitSha: upstreamLocation.sha,
+      });
+      continue;
+    }
     if (isBinaryStagedFile(file)) {
       if (file.fileDeleted) {
         if (file.parentCommitSha === null || !upstreamSha || upstreamSha === file.parentCommitSha) {

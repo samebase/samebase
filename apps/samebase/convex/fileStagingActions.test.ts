@@ -15,6 +15,7 @@ import {
   readOpenPullRequestForBranch,
   shouldAdvanceBinaryPullParentCommit,
 } from "./fileStagingActions";
+import { hasStagedFileChanges } from "./stagingChanges";
 
 type GitApi = RestEndpointMethodTypes["git"];
 type GetRefResponse = GitApi["getRef"]["response"];
@@ -1057,6 +1058,74 @@ describe("createCommitWithMultipleFiles", () => {
     expect(committedContent).toBe(["alpha-updated", "beta", "gamma", "delta", ""].join("\n"));
   });
 
+  it("normalizes an already committed deletion to no Git change", async () => {
+    const inspection = await inspectStagedFilesAgainstLatestHead({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main",
+      stagedFiles: [
+        {
+          kind: "text",
+          filePath: "TODO.md",
+          content: "",
+          fileDeleted: true,
+          initialFilePath: "TODO.md",
+          initialContent: "old content\n",
+          parentCommitSha: "old-sha",
+          branch: "main",
+        },
+      ],
+    });
+
+    expect(inspection.conflicts).toEqual([]);
+    expect(inspection.rebasedFiles[0]).toMatchObject({
+      filePath: "TODO.md",
+      fileDeleted: true,
+      parentCommitSha: null,
+    });
+    expect(hasStagedFileChanges(inspection.rebasedFiles[0])).toBe(false);
+  });
+
+  it("normalizes an already committed rename to no Git change", async () => {
+    const committedContent = "renamed content\n";
+    const committedBlobSha = "447368bb0c612513c7842a6b74dfe5f21dba983e";
+    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
+      makeGetTreeResponse("head-tree", [{ path: "docs/TODO.md", sha: committedBlobSha }]),
+    );
+    const getBlobSpy = vi.spyOn(octokit.rest.git, "getBlob");
+
+    const inspection = await inspectStagedFilesAgainstLatestHead({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main",
+      stagedFiles: [
+        {
+          kind: "text",
+          filePath: "docs/TODO.md",
+          content: committedContent,
+          fileDeleted: false,
+          initialFilePath: "TODO.md",
+          initialContent: "old content\n",
+          parentCommitSha: "old-sha",
+          branch: "main",
+        },
+      ],
+    });
+
+    expect(inspection.conflicts).toEqual([]);
+    expect(getBlobSpy).not.toHaveBeenCalled();
+    expect(inspection.rebasedFiles[0]).toMatchObject({
+      filePath: "docs/TODO.md",
+      initialFilePath: "docs/TODO.md",
+      content: committedContent,
+      initialContent: committedContent,
+      parentCommitSha: committedBlobSha,
+    });
+    expect(hasStagedFileChanges(inspection.rebasedFiles[0])).toBe(false);
+  });
+
   it("collects rebase conflict payloads for files that cannot apply cleanly", async () => {
     vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
       makeGetTreeResponse("head-tree", [{ path: "TODO.md", sha: "upstream" }]),
@@ -1253,6 +1322,10 @@ describe("createCommitWithMultipleFiles", () => {
    * Verify: Tree entry for deleted file has sha: null
    */
   it("Test 2: File deletion - creates tree entry with sha null", async () => {
+    const deletedBlobSha = "d3db7f3cde7fc5d671fe15d7d4671e660cfc6905";
+    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
+      makeGetTreeResponse("head-tree", [{ path: "src/deleted.ts", sha: deletedBlobSha }]),
+    );
     vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(makeGetRefResponse("abc123"));
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
@@ -1277,7 +1350,7 @@ describe("createCommitWithMultipleFiles", () => {
           fileDeleted: true,
           initialFilePath: "src/deleted.ts",
           initialContent: "deleted content",
-          parentCommitSha: "parent123",
+          parentCommitSha: deletedBlobSha,
         },
       ],
       branch: "main",
@@ -1354,6 +1427,10 @@ describe("createCommitWithMultipleFiles", () => {
    * Verify: No full tree reconstruction happens (base_tree is used)
    */
   it("Test 4: Mixed changes - handles edits, deletes, and renames", async () => {
+    const deletedBlobSha = "d3db7f3cde7fc5d671fe15d7d4671e660cfc6905";
+    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
+      makeGetTreeResponse("head-tree", [{ path: "src/deleted.ts", sha: deletedBlobSha }]),
+    );
     vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(makeGetRefResponse("abc123"));
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
@@ -1396,7 +1473,7 @@ describe("createCommitWithMultipleFiles", () => {
           fileDeleted: true,
           initialFilePath: "src/deleted.ts",
           initialContent: "deleted content",
-          parentCommitSha: "parent3",
+          parentCommitSha: deletedBlobSha,
         },
         {
           kind: "text",
