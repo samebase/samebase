@@ -6,7 +6,7 @@ import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useOrganizationSelection } from "@/hooks/useOrganizationSelection";
 import { useRootRouteSearch } from "@/routeSearch/root";
 import { applySearchPatch } from "@/routing/searchFlags";
-import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
+import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 
 function getOrganizationSwitchPathname(pathname: string): string {
   return pathname !== "/vault" && pathname.startsWith("/vault/") ? "/vault" : pathname;
@@ -36,15 +36,16 @@ export function OrganizationSelector() {
     void router.navigate({
       href: buildPathWithTanStackSearch({
         pathname,
-        search: applySearchPatch(search, {
-          organization: soleOrganizationId,
-        }),
+        search: applySearchPatch(
+          pathname === location.pathname ? parseTanStackSearch(location.searchStr) : search,
+          { organization: soleOrganizationId },
+        ),
         hash: pathname === location.pathname ? location.hash : undefined,
       }),
       replace: true,
       resetScroll: false,
     });
-  }, [location.hash, location.pathname, router, search, soleOrganizationId]);
+  }, [location.hash, location.pathname, location.searchStr, router, search, soleOrganizationId]);
 
   if (selection.organizations === undefined || selection.organizations.length < 2) {
     return null;
@@ -59,9 +60,10 @@ export function OrganizationSelector() {
           void router.navigate({
             href: buildPathWithTanStackSearch({
               pathname,
-              search: applySearchPatch(search, {
-                organization,
-              }),
+              search: applySearchPatch(
+                pathname === location.pathname ? parseTanStackSearch(location.searchStr) : search,
+                { organization },
+              ),
               hash: pathname === location.pathname ? location.hash : undefined,
             }),
             resetScroll: false,

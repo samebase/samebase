@@ -7,8 +7,7 @@
 - Last updated: 2026-08-04
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Current branch: `codex-organization-ownership-spec`
-- Current state: Main-flow validation complete; final automated validation and MCP organization
-  binding remain
+- Current state: Main-flow and MCP validation complete; operator cutover remains
 - Current pull request: [#1355](https://github.com/samebase/samebase/pull/1355)
 
 ## Purpose
@@ -351,6 +350,17 @@ Final integrated code head before this progress-record update: `22846b8c`.
   `tmp-8462-org-*` GitHub repositories, both Convex projects, and both Cloudflare Workers are
   absent.
 
+## MCP Organization Validation Evidence
+
+- A real local dynamic MCP client completed browser consent for the explicitly selected
+  organization. The provider page displayed the resulting client grant in that organization.
+- The authorized client called the vault inventory tool successfully through the MCP HTTP endpoint.
+- Manual testing found that automatic sole-organization selection removed child-route search keys
+  from the MCP consent URL. The selector now changes only the organization key when it stays on the
+  same route. One direct router test keeps the consent request and login-required keys.
+- Revoking the client from the provider page made the next request with its existing access token
+  return HTTP 401.
+
 ## UI And Workflow Coverage
 
 This is a full-stack rollout. The implementation owns the code changes and the two-member acceptance
@@ -409,14 +419,11 @@ Primary external sources:
 
 ## Next Exact Task
 
-1. Complete the final automated validation and independent blocking-issue reviews for the accepted
-   many-to-many membership model.
-2. Verify the MCP organization binding before the operator cutover.
-3. Record the Polar billing state and confirm that no destructive workflow is active.
-4. Disconnect all providers, pause product writes, and follow the accepted manual reset runbook
+1. Record the Polar billing state and confirm that no destructive workflow is active.
+2. Disconnect all providers, pause product writes, and follow the accepted manual reset runbook
    while the old schema is live.
-5. Merge and deploy the final schema and organization-authoritative runtime.
-6. Run the retained-user bootstrap with the two explicit operator user IDs and recorded billing
+3. Merge and deploy the final schema and organization-authoritative runtime.
+4. Run the retained-user bootstrap with the two explicit operator user IDs and recorded billing
    state.
-7. Verify the bootstrap counts and the required two-member flows, reconnect MCP and the retained
+5. Verify the bootstrap counts and the required two-member flows, reconnect MCP and the retained
    vaults, then resume product writes.
