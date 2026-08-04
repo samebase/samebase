@@ -71,6 +71,34 @@ describe("GitHub OAuth organization ownership", () => {
     ).resolves.toMatchObject({ organizationId, providerConnectionId, userId });
   });
 
+  it("reconnects through the selected disconnected row", async () => {
+    const { organizationId, providerConnectionId, t, userId } = await seedGithubOAuthConnection();
+    stubGithubOAuthEnv();
+    await t.mutation(internal.providerConnections.disconnect, {
+      organizationId,
+      disconnectedByUserId: userId,
+      providerConnectionId,
+      kind: "github",
+    });
+
+    const authorizeUrl = await t
+      .withIdentity({
+        subject: `${userId}|test-session`,
+        tokenIdentifier: `test:${userId}`,
+      })
+      .mutation(api.githubOAuth.getGithubOAuthUrl, {
+        organizationId,
+        returnToPath: "/providers",
+      });
+
+    await expect(
+      t.query(internal.oauthState.getOauthStateByState, {
+        provider: "github",
+        state: new URL(authorizeUrl).searchParams.get("state") ?? "",
+      }),
+    ).resolves.toMatchObject({ organizationId, providerConnectionId, userId });
+  });
+
   it("revokes only the exact connected OAuth row", async () => {
     const { organizationId, providerConnectionId, t } = await seedGithubOAuthConnection();
     stubGithubOAuthEnv();

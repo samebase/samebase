@@ -271,7 +271,7 @@ export const getGithubOAuthUrl = mutation({
       userId: ctx.viewer.userId,
       organizationId,
       returnToPath: args.returnToPath,
-      providerConnectionId: connection?.state === "connected" ? connection._id : undefined,
+      providerConnectionId: connection?._id,
     });
   },
 });
