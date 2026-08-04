@@ -50,7 +50,7 @@ repos and pages (operator policy: link now, flip later; this file records the fl
 
 ## Anytime (not launch-gated)
 
-- [ ] Monorepo seed flip: export from `main`, regenerate the starter manifest (operator PR planned;
-      recipe in the maintenance plan's migration section)
+- [x] Monorepo seed flip: export the public `samebase/app` `main` snapshot without requiring a
+      private GitHub token (2026-08-04)
 - [ ] README "Do it faster with Samebase" section in samebase/app, mirroring the old notermd §8
       funnel

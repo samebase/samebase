@@ -97,29 +97,23 @@ function parseArgs(argv: readonly string[]): ExportOptions {
   return { sourceBranch };
 }
 
-function readToken(): string {
-  const envToken = process.env.SAMEBASE_TEMPLATE_GITHUB_TOKEN;
-  if (envToken?.trim()) {
-    return envToken.trim();
-  }
-
-  throw new Error("Set SAMEBASE_TEMPLATE_GITHUB_TOKEN before exporting samebase/app.");
-}
-
-async function githubFetch(token: string, url: string): Promise<Response> {
+async function githubFetch(token: string | undefined, url: string): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => {
     controller.abort();
   }, githubRequestTimeoutMs);
+  const headers = new Headers({
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+  });
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
   let response: Response;
 
   try {
     response = await fetch(url, {
-      headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${token}`,
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
+      headers,
       signal: controller.signal,
     });
   } catch (error) {
@@ -141,7 +135,10 @@ async function githubFetch(token: string, url: string): Promise<Response> {
   return response;
 }
 
-async function resolveSourceCommit(args: { token: string; sourceBranch: string }): Promise<string> {
+async function resolveSourceCommit(args: {
+  token: string | undefined;
+  sourceBranch: string;
+}): Promise<string> {
   const response = await githubFetch(
     args.token,
     `${githubApiBase}/repos/${sourceOwner}/${sourceRepoName}/commits/${encodeURIComponent(args.sourceBranch)}`,
@@ -157,7 +154,7 @@ async function resolveSourceCommit(args: { token: string; sourceBranch: string }
 }
 
 async function downloadArchive(args: {
-  token: string;
+  token: string | undefined;
   sourceCommit: string;
   outputPath: string;
 }): Promise<void> {
@@ -326,7 +323,7 @@ const outputPath = path.resolve(
 );
 
 const { sourceBranch } = parseArgs(process.argv.slice(2));
-const token = readToken();
+const token = process.env.SAMEBASE_TEMPLATE_GITHUB_TOKEN?.trim() || undefined;
 const sourceCommit = await resolveSourceCommit({ token, sourceBranch });
 const tempDir = await mkdtemp(path.join(os.tmpdir(), "samebase-app-template-"));
 const archivePath = path.join(tempDir, "source.tar.gz");
