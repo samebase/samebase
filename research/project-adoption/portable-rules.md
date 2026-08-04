@@ -90,17 +90,14 @@ For a linked worktree:
 Use project-specific commands and ownership primitives. Do not copy Samebase names or internal
 implementation only to make the projects look similar.
 
-## Agree On Validation And Protect Private Data
+## Keep Validation Proportionate And Protect Private Data
 
-Before changing a required check, list its callers, measure or estimate its cost, and explain the
-named risk that it protects. Recommend a required gate that fits the project's importance, the
-migration risk, and the operator's cost tolerance. Get operator agreement before you add or remove
-slow required checks. Technical complexity does not determine project importance. Adoption must not
-silently become a testing-maturity upgrade.
+Keep validation proportionate to the project and the migration risk. Discuss material cost and
+coverage tradeoffs with the operator. Do not turn Samebase adoption into an unrelated testing
+upgrade.
 
-When the migration puts named behavior at risk and current checks do not protect it, propose the
-smallest framework-neutral characterization test for that risk. Do not add broad route, navigation,
-asset, browser, or provider coverage as a default migration requirement.
+Preserve the behavior that matters to the operator. Keep known security defects separate from
+parity.
 
 Authorize private data at its data boundary. Route authentication alone is not enough. Test
 anonymous rejection and authenticated behavior for each public data function.

@@ -30,16 +30,14 @@ is available.
 Classify every difference before implementation. The manager owns and gives this contract to the
 workers. A worker cannot ask about a convention that it was never shown.
 
-### 2. Agree on validation
+### 2. Choose proportionate validation
 
-Inventory the current checks and measure or estimate their cost before changing them. Explain the
-risk that each check protects, recommend the smallest required gate that fits the project and the
-change, and get operator agreement. The operator owns the assurance level. Do not infer project
-importance from technical complexity or turn adoption into an unrequested testing-maturity upgrade.
+Keep validation proportionate to the project and the migration risk. Discuss material cost and
+coverage tradeoffs with the operator. Do not turn Samebase adoption into an unrelated testing
+upgrade.
 
-Add a framework-neutral characterization test only for named behavior that must survive and is not
-already protected. Use synthetic data. Keep security defects separate from parity, so a
-characterization test does not make a defect permanent.
+Preserve the behavior that matters to the operator. Use synthetic data. Keep security defects
+separate from parity, so a test does not make a defect permanent.
 
 ### 3. Delegate bounded work
 

@@ -104,12 +104,9 @@ check(
 );
 check(
   samebaseSkill.includes(
-    "Before changing required validation, report the current commands, their measured or estimated cost, and the risk that each protects.",
-  ) &&
-    samebaseSkill.includes(
-      "Do not infer project importance from technical complexity or turn stack alignment into a testing-maturity upgrade.",
-    ),
-  "The Samebase skill must make validation cost and assurance an operator-owned decision.",
+    "Keep validation proportionate to the project and the migration risk. Discuss material cost and coverage tradeoffs with the operator.",
+  ) && samebaseSkill.includes("Do not turn Samebase adoption into an unrelated testing upgrade."),
+  "The Samebase skill must keep validation proportionate and operator-informed.",
 );
 const scopeGateIndex = samebaseSkill.indexOf(
   "Do not use Samebase for unrelated Git work or standalone provider resources. A standalone Cloudflare Worker means no Samebase.",

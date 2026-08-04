@@ -66,17 +66,13 @@ handoff, complete only the missing action in the in-app Browser, and then reread
 replace the missing Samebase action with a manual standalone provider workflow. Keep this handoff as
 a candidate until another project validates it.
 
-## Agree on validation
+## Choose proportionate validation
 
-Before changing required validation, report the current commands, their measured or estimated cost,
-and the risk that each protects. Recommend the smallest required gate that fits the project and the
-change, then get operator agreement. Technical complexity does not determine project importance.
-Adoption must not silently become a testing-maturity upgrade.
+Keep validation proportionate to the project and the migration risk. Discuss material cost and
+coverage tradeoffs with the operator. Do not turn Samebase adoption into an unrelated testing
+upgrade.
 
-Add framework-neutral characterization coverage only for named behavior that must survive and is not
-already protected. Select relevant routes, authentication and data boundaries, server endpoints,
-assets, navigation, browser session recovery, or provider builds from the target's actual risks. Do
-not turn that list into a default test suite.
+Preserve the behavior that matters to the operator.
 
 Keep a known security defect separate from parity. Do not make a defect permanent only because the
 old application has it.

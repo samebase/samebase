@@ -53,29 +53,12 @@ alias only when an external caller cannot move.
 
 ## Validation agreement
 
-Before changing required validation, list the current commands and callers, measure or estimate
-their cost, and explain the named risk that each protects. Recommend the smallest required gate that
-fits the project, the change, and the operator's cost tolerance. Get operator agreement before you
-add or remove slow required checks. Technical complexity does not determine project importance.
+Keep validation proportionate to the project and the migration risk. Discuss material cost and
+coverage tradeoffs with the operator. Do not turn Samebase adoption into an unrelated testing
+upgrade.
 
-Select only the preserved surfaces that the migration puts at risk and current checks do not
-protect:
-
-- public routes and redirects
-- protected server-rendered routes
-- server endpoints
-- authentication success, rejection, sign-out, and saved-session recovery
-- sign-out clears private browser caches before another identity can use them
-- anonymous rejection and authenticated access at each private data function
-- navigation, assets, browser history, focus, touch, and responsive behavior
-- provider build and non-production upload
-- no private data or secret-like synthetic canaries in client output, logs, screenshots, fixtures,
-  or pull request text
-
-The list is a risk prompt, not a mandatory test suite. Propose the smallest framework-neutral check
-for each selected risk. Adoption must not silently become a testing-maturity upgrade.
-
-Use synthetic data for tests and release evidence.
+Preserve the target behavior and security boundaries that matter. Use synthetic data for tests and
+release evidence.
 
 ## Production data and configuration plan
 
