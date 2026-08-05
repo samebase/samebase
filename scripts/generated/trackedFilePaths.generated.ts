@@ -319,6 +319,7 @@ export const trackedFilePaths = [
   "apps/samebase/convex/vault/cloudflareBuildMatching.test.ts",
   "apps/samebase/convex/vault/cloudflareBuildMatching.ts",
   "apps/samebase/convex/vault/cloudflareMutations.ts",
+  "apps/samebase/convex/vault/cloudflareResourceNames.convex.test.ts",
   "apps/samebase/convex/vault/contracts/cloudflareAttachments.ts",
   "apps/samebase/convex/vault/contracts/cloudflareConfigureWorkersBuildsForGitHub.ts",
   "apps/samebase/convex/vault/contracts/cloudflareListAccounts.ts",
