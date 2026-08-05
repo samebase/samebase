@@ -1,0 +1,226 @@
+<DesignBoard title="Samebase organization context" version={2}>
+<Section id="desktop-context" title="Desktop" subtitle="Global inventory and organization-owned work use different, explicit contexts.">
+
+<Artboard
+  id="all-vaults-desktop"
+  label="Global: all vaults by organization"
+  surface="desktop"
+  x={120}
+  y={110}
+  order={1}
+>
+  <Screen
+    surface="desktop"
+    caption="The global vault inventory uses owner sections and no active organization."
+    html={`<div style="display:flex;flex-direction:column;padding:14px;height:100%;box-sizing:border-box">
+  <div class="wf-box" style="display:flex;flex-direction:column;padding:0;height:100%;min-height:0;overflow:hidden">
+    <div style="display:flex;align-items:center;width:100%;gap:10px;padding:9px 12px;border-bottom:1.4px solid var(--wf-line);white-space:nowrap">
+      <span data-icon="arrowLeft" aria-label="Back"></span>
+      <strong style="overflow:hidden;text-overflow:ellipsis">/vault</strong>
+      <div style="flex:1"></div>
+      <button aria-label="Navigation"><span data-icon="more"></span></button>
+    </div>
+    <div style="display:flex;flex:1;min-height:0">
+      <main style="display:flex;flex:1;min-width:0;flex-direction:column">
+        <header style="display:flex;align-items:center;width:100%;padding:12px 16px;border-bottom:1.4px solid var(--wf-line)">
+          <strong>All vaults</strong>
+          <div style="flex:1"></div>
+          <button>Install GitHub App</button>
+        </header>
+        <div style="display:flex;flex:1;flex-direction:column;gap:14px;padding:16px;min-height:0">
+          <div style="display:flex;align-items:center;width:100%">
+            <h1>Vaults</h1>
+          </div>
+          <section class="wf-card" style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;width:100%;gap:8px">
+              <a href="#"><strong>samebase</strong></a>
+            </div>
+            <div class="wf-box" style="display:flex;align-items:center;gap:10px;padding:10px 12px">
+              <span data-icon="settings" aria-label="Vault"></span>
+              <div style="flex:1;min-width:0"><strong>samebase / samebase</strong><br/><small>Edited 12 minutes ago</small></div>
+              <span class="wf-pill">Healthy</span>
+            </div>
+            <div class="wf-box" style="display:flex;align-items:center;gap:10px;padding:10px 12px">
+              <span data-icon="settings" aria-label="Vault"></span>
+              <div style="flex:1;min-width:0"><strong>samebase / monorepo-fixture</strong><br/><small>Edited yesterday</small></div>
+              <span class="wf-pill">Healthy</span>
+            </div>
+          </section>
+          <section class="wf-card" style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;width:100%;gap:8px">
+              <a href="#"><strong>nicu-typescript</strong></a>
+            </div>
+            <div class="wf-box" style="display:flex;align-items:center;gap:10px;padding:10px 12px">
+              <span data-icon="settings" aria-label="Vault"></span>
+              <div style="flex:1;min-width:0"><strong>nicu-typescript / codespace-test</strong><br/><small>Edited 3 days ago</small></div>
+              <span class="wf-pill">Needs setup</span>
+            </div>
+          </section>
+        </div>
+      </main>
+      <aside style="display:flex;width:200px;flex-shrink:0;flex-direction:column;gap:12px;padding:16px;border-left:1.4px solid var(--wf-line)">
+        <strong>Account</strong>
+        <a href="#">All vaults</a>
+        <a href="#">Account settings</a>
+        <div style="flex:1"></div>
+        <small>Samebase</small>
+      </aside>
+    </div>
+  </div>
+</div>`}
+  />
+</Artboard>
+
+<Artboard
+  id="organization-providers-desktop"
+  label="Organization: providers"
+  surface="desktop"
+  x={1520}
+  y={110}
+  order={2}
+>
+  <Screen
+    surface="desktop"
+    caption="The owner is in shared chrome and every navigation link keeps that owner."
+    html={`<div style="display:flex;flex-direction:column;padding:14px;height:100%;box-sizing:border-box">
+  <div class="wf-box" style="display:flex;flex-direction:column;padding:0;height:100%;min-height:0;overflow:hidden">
+    <div style="display:flex;align-items:center;width:100%;gap:10px;padding:9px 12px;border-bottom:1.4px solid var(--wf-line);white-space:nowrap">
+      <span data-icon="arrowLeft" aria-label="Back"></span>
+      <strong style="overflow:hidden;text-overflow:ellipsis">/org/samebase/providers</strong>
+      <div style="flex:1"></div>
+      <button aria-label="Navigation"><span data-icon="more"></span></button>
+    </div>
+    <div style="display:flex;flex:1;min-height:0">
+      <main style="display:flex;flex:1;min-width:0;flex-direction:column">
+        <header style="display:flex;align-items:center;width:100%;padding:10px 16px;border-bottom:1.4px solid var(--wf-line)">
+          <button style="display:flex;align-items:center;gap:7px"><strong>samebase</strong><span data-icon="chevronDown" aria-label="Switch organization"></span></button>
+        </header>
+        <div style="display:flex;flex:1;flex-direction:column;gap:16px;padding:16px;min-height:0">
+          <h1>Providers</h1>
+          <div class="wf-card" style="display:flex;align-items:center;gap:12px">
+            <div style="flex:1"><strong>Convex</strong><br/><small>Connected to Samebase</small></div>
+            <span class="wf-pill accent">Connected</span>
+            <button>Check access</button>
+          </div>
+          <div class="wf-card" style="display:flex;align-items:center;gap:12px">
+            <div style="flex:1"><strong>Cloudflare</strong><br/><small>Account: Samebase</small></div>
+            <span class="wf-pill accent">Connected</span>
+            <button>Check access</button>
+          </div>
+        </div>
+      </main>
+      <aside style="display:flex;width:210px;flex-shrink:0;flex-direction:column;gap:11px;padding:16px;border-left:1.4px solid var(--wf-line)">
+        <strong>Account</strong>
+        <hr/>
+        <a href="#">Vaults</a>
+        <a href="#"><strong>Providers</strong></a>
+        <button class="primary">New app</button>
+        <button>Connect repository</button>
+        <a href="#">Organization settings</a>
+        <div style="flex:1"></div>
+        <a href="#">All vaults</a>
+      </aside>
+    </div>
+  </div>
+</div>`}
+  />
+</Artboard>
+
+</Section>
+
+<Section id="mobile-context" title="Mobile and switching" subtitle="The organization stays in the main pane when the navigation pane is closed.">
+
+<Artboard
+  id="organization-vaults-mobile"
+  label="Mobile: organization vaults"
+  surface="mobile"
+  x={120}
+  y={1600}
+  order={3}
+>
+  <Screen
+    surface="mobile"
+    caption="The owner control and navigation button remain in the main pane."
+    html={`<div style="display:flex;flex-direction:column;padding:14px;height:100%;box-sizing:border-box">
+  <div class="wf-box" style="display:flex;flex:1;min-height:0;flex-direction:column;padding:0;overflow:hidden">
+    <div style="display:flex;align-items:center;width:100%;gap:8px;padding:9px 10px;border-bottom:1.4px solid var(--wf-line);white-space:nowrap">
+      <span data-icon="arrowLeft" aria-label="Back"></span>
+      <strong style="overflow:hidden;text-overflow:ellipsis">/org/samebase/vaults</strong>
+    </div>
+    <header style="display:flex;align-items:center;width:100%;gap:8px;padding:10px 12px;border-bottom:1.4px solid var(--wf-line)">
+      <button style="display:flex;align-items:center;gap:6px"><strong>samebase</strong><span data-icon="chevronDown" aria-label="Switch organization"></span></button>
+      <div style="flex:1"></div>
+      <button aria-label="Open navigation"><span data-icon="more"></span></button>
+    </header>
+    <main style="display:flex;flex:1;min-height:0;flex-direction:column;gap:12px;padding:14px">
+      <div style="display:flex;align-items:center;width:100%"><h1>Vaults</h1><div style="flex:1"></div><button class="primary">New app</button></div>
+      <div class="wf-card" style="display:flex;align-items:center;gap:9px;padding:11px">
+        <div style="flex:1;min-width:0"><strong>samebase</strong><br/><small>Healthy</small></div>
+        <span data-icon="chevronRight" aria-label="Open"></span>
+      </div>
+      <div class="wf-card" style="display:flex;align-items:center;gap:9px;padding:11px">
+        <div style="flex:1;min-width:0"><strong>monorepo-fixture</strong><br/><small>Healthy</small></div>
+        <span data-icon="chevronRight" aria-label="Open"></span>
+      </div>
+      <div class="wf-card" style="display:flex;align-items:center;gap:9px;padding:11px">
+        <div style="flex:1;min-width:0"><strong>docs</strong><br/><small>Needs setup</small></div>
+        <span data-icon="chevronRight" aria-label="Open"></span>
+      </div>
+      <div style="flex:1"></div>
+      <button>Connect repository</button>
+    </main>
+  </div>
+</div>`}
+  />
+</Artboard>
+
+<Artboard
+  id="organization-switcher-popover"
+  label="Organization switcher"
+  surface="popover"
+  x={1050}
+  y={1600}
+  order={4}
+>
+  <Screen
+    surface="popover"
+    caption="The switcher includes the global inventory and current memberships only."
+    html={`<div style="display:flex;flex-direction:column;gap:8px;padding:16px;height:100%;box-sizing:border-box">
+  <strong>Organization</strong>
+  <button style="display:flex;align-items:center;width:100%;gap:8px"><span data-icon="chevronLeft"></span><span>All vaults</span></button>
+  <hr/>
+  <button style="display:flex;align-items:center;width:100%;gap:8px"><span>samebase</span><div style="flex:1"></div><span data-icon="check" aria-label="Selected"></span></button>
+  <button style="display:flex;align-items:center;width:100%;gap:8px"><span>nicu-typescript</span></button>
+  <hr/>
+  <button style="display:flex;align-items:center;width:100%;gap:8px"><span data-icon="plus"></span><span>Install GitHub App</span></button>
+</div>`}
+  />
+</Artboard>
+
+</Section>
+
+<Annotation id="all-vaults-boundary-note" title="Global view" targetId="all-vaults-desktop" placement="bottom">
+
+Organization sections replace personal folders. The page combines work without flattening its owner.
+
+</Annotation>
+
+<Annotation id="organization-header-note" title="Route context" targetId="organization-providers-desktop" placement="bottom">
+
+The owner in the URL is also the owner in the header and navigation links. The page has no local
+owner dropdown.
+
+</Annotation>
+
+<Annotation id="mobile-context-note" title="Small-screen invariant" targetId="organization-vaults-mobile" placement="right">
+
+The owner control stays in the main pane. It does not depend on the navigation pane being open.
+
+</Annotation>
+
+<Annotation id="switcher-scope-note" title="Only required choices" targetId="organization-switcher-popover" placement="right">
+
+The menu switches context. Account settings and sign-out stay outside it.
+
+</Annotation>
+</DesignBoard>

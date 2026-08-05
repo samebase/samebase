@@ -1,0 +1,269 @@
+---
+title: "Samebase organization context and routes"
+brief:
+  "A route-first organization model for vaults, providers, billing, members, and account settings."
+kind: "plan"
+localOnly: true
+---
+
+# Samebase Organization Context And Routes
+
+This plan turns the accepted GitHub-backed organization model into one product model. Review the
+canvas first. It shows the global inventory, an organization page, the small-screen context, and the
+switch menu.
+
+## Outcome
+
+<Callout id="organization-context-decision" tone="decision">
+
+Use `/org/<github-owner>` for organization-owned pages, keep `/vault/<owner>/<repo>` for vaults,
+group `/vault` by organization, and do not save an active organization.
+
+</Callout>
+
+Done means that a user can always answer three questions from the route and header: which Samebase
+account is signed in, which organization owns the current work, and which vault is open.
+
+## Scope
+
+- Create one organization route family for vaults, providers, app creation, repository connection,
+  billing, and future member administration.
+- Put the organization context in shared main-pane chrome.
+- Keep one user-global vault inventory with visible organization sections.
+- Split user settings from organization administration.
+- Delete personal vault folders and their stored data after approval.
+- Add explicit zero-membership and lost-membership states.
+
+This plan does not change organization ownership, Samebase login, GitHub admission, the FileView
+editor, or provider resource ownership. It does not add an enterprise account layer.
+
+## Route Model
+
+<Table
+  id="organization-route-table"
+  columns={["Scope", "Route", "Purpose"]}
+  rows={[
+    ["User", "/vault", "All current organizations as sections"],
+    ["User", "/settings", "Profile, sign-out, and account deletion"],
+    ["User", "/settings/mcp", "User-owned MCP clients"],
+    ["Organization", "/org/:owner/vaults", "Vaults for one GitHub owner"],
+    ["Organization", "/org/:owner/providers", "Convex and Cloudflare connections"],
+    ["Organization", "/org/:owner/new-app", "Create owned resources"],
+    ["Organization", "/org/:owner/connect-repo", "Connect an owned repository"],
+    ["Organization", "/org/:owner/settings/billing", "Plan, usage, and subscription"],
+    ["Vault", "/vault/:owner/:repo", "Stable GitHub repository coordinate"],
+    ["Vault", "/vault/:owner/:repo/fs/:branch/*", "FileView and its shared shell"],
+  ]}
+/>
+
+The route owner is authoritative. The application resolves it to an internal organization ID only
+after it checks current Samebase membership. A missing membership renders an unavailable state on
+the same URL. `/org/:owner` redirects to its vault list only after this check succeeds.
+
+## Interaction Rules
+
+1. The main-pane header shows `All vaults`, `Account`, or the GitHub owner login.
+2. A one-organization user sees a static owner label without a chevron.
+3. A multi-organization user gets a switch menu in that same place.
+4. Switching from an organization page keeps the same section when possible.
+5. Switching from a vault goes to the target organization's vault list.
+6. Every switch creates a normal history entry. Back restores the prior owner.
+7. The global `/vault` page has no active organization.
+8. The right navigation uses links for the owner in the route.
+9. The global `/vault` page always offers `Install GitHub App` so any user can add another owner.
+
+## Settings Boundary
+
+User settings contain the display name, user preferences, sign-out, account deletion, MCP clients,
+and personal GitHub user authorization. Organization administration contains GitHub App installation
+health, providers, billing, members, roles, and later organization-level destructive actions.
+
+MCP consent stays user-global. Each MCP operation checks current membership for the target resource.
+
+## Folder Reduction
+
+The current folder tables are user-owned and can place vaults from several organizations under one
+personal heading. Remove that hierarchy. Derive organization sections from memberships and vault
+ownership. Delete the stored assignments and folders because a mixed folder has no safe organization
+target.
+
+## Implementation Map
+
+<FileTree
+  id="organization-context-file-map"
+  title="Main implementation surface"
+  entries={[
+    {
+      path: "apps/samebase/src/routes.ts",
+      change: "modified",
+      note: "Register the organization route family and user MCP settings route.",
+    },
+    {
+      path: "apps/samebase/src/routeAccessMetadata.ts",
+      change: "modified",
+      note: "Assign access and shell behavior to the new routes.",
+    },
+    {
+      path: "apps/samebase/src/components/AppWorkspaceShell.tsx",
+      change: "modified",
+      note: "Host the visible organization context in main-pane chrome on desktop and mobile.",
+    },
+    {
+      path: "apps/samebase/src/components/AppRightSidebar.tsx",
+      change: "modified",
+      note: "Build navigation from the route owner.",
+    },
+    {
+      path: "apps/samebase/src/components/GitHubOwnerSelect.tsx",
+      change: "removed",
+      note: "Delete page-local organization selection.",
+    },
+    {
+      path: "apps/samebase/src/components/ProviderConnectionsPage.tsx",
+      change: "modified",
+      note: "Keep organization providers here and move user MCP clients to user settings.",
+    },
+    {
+      path: "apps/samebase/shared/providerOAuthReturn.ts",
+      change: "modified",
+      note: "Return provider OAuth to the route organization.",
+    },
+    {
+      path: "apps/samebase/src/components/vault-dashboard/VaultOverviewSidebar.tsx",
+      change: "modified",
+      note: "Show one organization at vault detail and remove folder controls.",
+    },
+    {
+      path: "apps/samebase/convex/vault/folderModel.ts",
+      change: "removed",
+      note: "Delete folder tables after the proposal is approved.",
+    },
+    {
+      path: "specs/118_VAULT_FOLDER_SPEC.md",
+      change: "removed",
+      note: "Replace or archive only after approval and implementation.",
+    },
+    {
+      path: "specs/120_ORGANIZATION_OWNERSHIP_SPEC.md",
+      change: "modified",
+      note: "After approval, replace the setup and billing route contract and validation.",
+    },
+  ]}
+/>
+
+## Delivery Slices
+
+### 1. Organization routes and shared context
+
+Add the route namespace and shared resolver. Move providers, app creation, repository connection,
+GitHub installation health, and billing. Add the main-pane organization control. Make the right
+navigation owner-aware. Move MCP clients and personal GitHub user authorization to user settings.
+Return provider OAuth and billing flows to their scoped organization routes. Delete unscoped page
+selectors. After approval, update organization ownership Spec 120.
+
+### 2. Vault separation and folder deletion
+
+Group `/vault` by organization. Limit the vault detail picker to one organization. Delete folder
+tables, APIs, UI, tests, and cleanup paths. Add desktop and mobile screenshot coverage.
+
+### 3. Access-state acceptance
+
+Add the no-organization, unavailable organization, and unavailable vault states. Test zero, one,
+several, and removed memberships. Test reload, direct links, Back, Forward, mobile panes, roles, and
+MCP target checks. Test full-page provider OAuth and billing returns, including membership removal
+during the external flow. Confirm that signed-out deep links return to the same route after sign-in.
+
+## Risks
+
+<Callout id="organization-context-risks" tone="risk">
+
+The main correctness risk is silent fallback to a different organization. The route resolver and
+every scoped page must fail closed for the owner in the URL. GitHub owner rename handling remains a
+separate identity synchronization task.
+
+</Callout>
+
+## Verification
+
+1. Run `pnpm dev --once` in the implementation worktree before tests.
+2. Run `pnpm check` and the focused route, organization, billing, provider, folder-removal, and MCP
+   tests.
+3. Run `pnpm test:visual:linux` for canonical desktop and mobile visual acceptance.
+4. In the real app, test zero, one, several, and removed memberships.
+5. For each state, test direct links, reload, Back, Forward, organization switching, provider
+   actions, billing, and vault detail navigation.
+6. Inspect every rendered URL and link. Confirm that no internal organization ID is present.
+
+### Open Questions
+
+<QuestionForm
+  id="organization-context-open-questions"
+  questions={[
+    {
+      id: "organization-route-family",
+      title: "Approve the organization route family?",
+      subtitle: "Use /org/<github-owner> for scoped pages and keep the clean vault route.",
+      mode: "single",
+      options: [
+        {
+          id: "approve-org-routes",
+          label: "Approve",
+          detail: "Use the route model in this plan.",
+          recommended: true,
+        },
+        {
+          id: "revise-org-routes",
+          label: "Revise namespace",
+          detail: "Choose a different public organization route family.",
+        },
+      ],
+      required: true,
+    },
+    {
+      id: "global-vault-inventory",
+      title: "What should /vault show?",
+      subtitle: "Choose one stable meaning that does not change with membership count.",
+      mode: "single",
+      options: [
+        {
+          id: "all-org-sections",
+          label: "Organization sections",
+          detail: "Show all current organizations and group vaults by owner.",
+          recommended: true,
+        },
+        {
+          id: "one-current-org",
+          label: "One current organization",
+          detail: "Add a saved active organization and show only that owner.",
+        },
+      ],
+      required: true,
+    },
+    {
+      id: "vault-folder-future",
+      title: "What should happen to vault folders?",
+      subtitle: "Choose the hierarchy for the primary vault navigation.",
+      mode: "single",
+      options: [
+        {
+          id: "delete-folders",
+          label: "Delete folders",
+          detail: "Use derived organization sections and delete the stored folder data.",
+          recommended: true,
+        },
+        {
+          id: "scope-folders",
+          label: "Scope by organization",
+          detail: "Keep folders, but add a separate set inside each organization.",
+        },
+        {
+          id: "keep-personal-folders",
+          label: "Keep personal folders",
+          detail: "Allow one personal folder view to cross organization boundaries.",
+        },
+      ],
+      required: true,
+    },
+  ]}
+  submitLabel="Send decisions"
+/>
