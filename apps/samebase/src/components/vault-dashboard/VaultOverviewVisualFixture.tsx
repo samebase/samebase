@@ -1241,6 +1241,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
       return <VaultOverviewFoldersFixture />;
     case "vault-overview-v2-cloudflare-builds-repair":
     case "vault-overview-v2-cloudflare-dialog":
+    case "vault-overview-v2-cloudflare-dialog-invalid-name":
     case "vault-overview-v2-cloudflare-dialog-loading":
     case "vault-overview-v2-convex-dialog":
     case "vault-overview-v2-convex-dialog-error":

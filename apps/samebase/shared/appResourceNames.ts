@@ -1,10 +1,5 @@
 export type AppResourceNameProvider = "convex" | "cloudflare";
 
-type AppResourceNameConfig = {
-  label: string;
-  maxLength: number;
-};
-
 type AppResourceNameValidationResult =
   | {
       valid: true;
@@ -16,20 +11,11 @@ type AppResourceNameValidationResult =
       suggestion: string | null;
     };
 
-const appResourceNameConfigs = {
-  convex: {
-    label: "Convex project name",
-    maxLength: 40,
-  },
-  cloudflare: {
-    label: "Cloudflare Worker name",
-    maxLength: 63,
-  },
-} satisfies Record<AppResourceNameProvider, AppResourceNameConfig>;
-
-function readConfig(provider: AppResourceNameProvider): AppResourceNameConfig {
-  return appResourceNameConfigs[provider];
-}
+const generatedNameMaxLengths = {
+  convex: 40,
+  // Samebase enables preview URLs when it creates a Worker. Cloudflare limits those names to 54 characters.
+  cloudflare: 54,
+} satisfies Record<AppResourceNameProvider, number>;
 
 function trimDashes(value: string): string {
   return value.replace(/^-+|-+$/g, "");
@@ -39,7 +25,7 @@ export function sanitizeAppResourceName(
   rawName: string,
   provider: AppResourceNameProvider,
 ): string {
-  const { maxLength } = readConfig(provider);
+  const maxLength = generatedNameMaxLengths[provider];
   const sanitized = trimDashes(
     rawName
       .trim()
@@ -61,7 +47,7 @@ export function validateAppResourceName(
   rawName: string,
   provider: AppResourceNameProvider,
 ): AppResourceNameValidationResult {
-  const { label, maxLength } = readConfig(provider);
+  const label = provider === "convex" ? "Convex project name" : "Cloudflare Worker name";
   const value = rawName.trim();
   const suggestion = sanitizeAppResourceName(value, provider);
 
@@ -72,19 +58,22 @@ export function validateAppResourceName(
       suggestion: suggestion || null,
     };
   }
-  if (value.length > maxLength) {
-    return {
-      valid: false,
-      message: `${label} must be ${maxLength} characters or fewer.`,
-      suggestion: suggestion || null,
-    };
-  }
-  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(value)) {
-    return {
-      valid: false,
-      message: `${label} can use lowercase letters, numbers, and dashes, and must start and end with a letter or number.`,
-      suggestion: suggestion || null,
-    };
+  if (provider === "cloudflare") {
+    const maxLength = generatedNameMaxLengths.cloudflare;
+    if (value.length > maxLength) {
+      return {
+        valid: false,
+        message: `${label} must be ${maxLength} characters or fewer.`,
+        suggestion: suggestion || null,
+      };
+    }
+    if (!/^[a-z0-9_][a-z0-9_-]*$/.test(value)) {
+      return {
+        valid: false,
+        message: `${label} can use lowercase letters, numbers, underscores, and dashes, and cannot start with a dash.`,
+        suggestion: suggestion || null,
+      };
+    }
   }
 
   return {
@@ -98,7 +87,7 @@ export function buildNumberedAppResourceNameSuggestion(args: {
   baseName: string;
   number: number;
 }): string {
-  const { maxLength } = readConfig(args.provider);
+  const maxLength = generatedNameMaxLengths[args.provider];
   const suffix = `-${args.number}`;
   const stemMaxLength = maxLength - suffix.length;
   if (stemMaxLength <= 0) {

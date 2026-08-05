@@ -1,10 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import { buildCloudflareWorkerCreateBody } from "../cloudflareResources";
 import { requestCloudflareApi, resolveCloudflareApiTransport } from "./client";
 import {
   observedCompletedWorkerBuild,
   observedRunningWorkerBuild,
 } from "./fixtures/observedWorkerBuilds";
+import {
+  observedInvalidWorkerNameResponse,
+  observedPreviewWorkerNameTooLongResponse,
+} from "./fixtures/observedWorkerErrors";
 import { cloudflareApiResponseValidators } from "./validators.generated";
 
 describe("Cloudflare API transport", () => {
@@ -57,6 +62,49 @@ describe("Cloudflare API transport", () => {
 
     await vi.advanceTimersByTimeAsync(30_000);
     await assertion;
+  });
+
+  it.each([
+    {
+      name: "invalid name",
+      response: observedInvalidWorkerNameResponse,
+      workerName: "samebase app",
+    },
+    {
+      name: "preview name limit",
+      response: observedPreviewWorkerNameTooLongResponse,
+      workerName: "a".repeat(55),
+    },
+  ])("parses the observed Worker $name error", async ({ response, workerName }) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return new Response(JSON.stringify(response), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
+
+    await expect(
+      requestCloudflareApi({
+        token: "cloudflare-token",
+        transport: "direct",
+        method: "POST",
+        path: "/accounts/{account_id}/workers/workers",
+        params: { path: { account_id: "account-id" } },
+        body: buildCloudflareWorkerCreateBody(workerName),
+      }),
+    ).rejects.toMatchObject({
+      name: "CloudflareApiError",
+      method: "POST",
+      details: [
+        {
+          code: String(response.errors[0].code),
+          message: response.errors[0].message,
+        },
+      ],
+    });
   });
 });
 

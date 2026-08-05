@@ -2143,7 +2143,7 @@ describe("VaultCloudflareDialogContent", () => {
       <VaultCloudflareDialogContent
         accounts={[{ accountId: "account-1", accountName: "Ada" }]}
         createRootDirectory="apps/web"
-        createWorkerName="web-worker"
+        createWorkerName="samebase_app"
         didAddWorker={false}
         error={null}
         folderSuggestions={[]}
@@ -2173,6 +2173,49 @@ describe("VaultCloudflareDialogContent", () => {
     expect(markup).toContain("Repository root");
     expect(markup).toContain('value="apps/web"');
     expect(markup).toContain("Create Worker");
+    expect(markup).not.toContain("cloudflare-worker-name-error");
+  });
+
+  it("rejects an invalid Worker name inline before submission", () => {
+    const markup = renderToStaticMarkup(
+      <VaultCloudflareDialogContent
+        accounts={[{ accountId: "account-1", accountName: "Ada" }]}
+        createRootDirectory="apps/web"
+        createWorkerName="samebase app"
+        didAddWorker={false}
+        error={null}
+        folderSuggestions={[]}
+        isLoading={false}
+        isSubmitting={false}
+        inventoryState="complete"
+        mode="create"
+        onAccountChange={() => {}}
+        onCreateRootDirectoryChange={() => {}}
+        onCreateWorkerNameChange={() => {}}
+        onConnectWorker={() => {}}
+        onConnectWorkerBack={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onSubmit={() => {}}
+        onWorkerToggle={() => {}}
+        repairWorker={null}
+        selectedAccountId="account-1"
+        selectedWorkerTags={[]}
+        vault={vault}
+        workerToConnect={null}
+        workers={[]}
+      />,
+    );
+    const createButton = markup.match(/<button[^>]*>Create Worker<\/button>/)?.[0];
+
+    expect(markup).toContain(
+      "Cloudflare Worker name can use lowercase letters, numbers, underscores, and dashes, and cannot start with a dash.",
+    );
+    expect(markup).toContain('aria-invalid="true"');
+    expect(markup).toContain('aria-describedby="cloudflare-worker-name-error"');
+    expect(markup).toContain('id="cloudflare-worker-name-error" role="alert"');
+    expect(createButton).toBeDefined();
+    expect(createButton).toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
   });
 
   it("shows the operation block reason and disables confirmation", () => {
