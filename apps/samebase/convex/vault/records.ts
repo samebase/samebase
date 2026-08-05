@@ -112,9 +112,7 @@ async function assertOrganizationHasNoVaultForRepository(
   const normalizedName = normalizeGitHubRepositoryCoordinate(args.name);
   for await (const vault of ctx.db
     .query("vaults")
-    .withIndex("by_organization_and_name", (q) =>
-      q.eq("organizationId", args.organizationId).eq("name", args.name),
-    )) {
+    .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))) {
     if (vault.state === "not_connected") {
       continue;
     }

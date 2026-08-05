@@ -16,10 +16,11 @@ access, pending provider authorization states, GitHub App user authorization, an
 connection that user created. It does not delete an organization, organization billing, vault,
 staged file, attached resource, observation, or organization workflow record.
 
-An organization can continue to exist after its last membership is removed. Inviting or adding a new
-member later restores access to its existing data. Removing the user who connected a provider
-removes that provider credential and can make operations that depend on it unavailable until a
-member reconnects the provider.
+Account deletion is rejected while the user is the last active owner of any organization. The user
+must add or promote another owner first. Account deletion can then remove the user's memberships
+without leaving an organization with no owner. Removing the user who connected a provider removes
+that provider credential and can make operations that depend on it unavailable until a member
+reconnects the provider.
 
 Acceptance creates one durable deletion run, marks the user as deleting, and routes every signed-in
 session to `/account-deletion`. Repeated requests return the same active run without rechecking the

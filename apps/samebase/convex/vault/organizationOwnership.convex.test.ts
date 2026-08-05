@@ -179,6 +179,14 @@ describe("organization-owned vaults", () => {
     expect(snapshot.vault).not.toHaveProperty("owner");
     expect(snapshot.vault).not.toHaveProperty("userId");
     expect(snapshot.preference).toMatchObject({ userId: ownerUserId, vaultId });
+    await expect(
+      t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
+        organizationId,
+        userId: ownerUserId,
+        ghRepoOwner: "samebase",
+        ghRepoName: "APP",
+      }),
+    ).rejects.toThrow("Vault already exists for this repository.");
   });
 
   it("resolves global routes and lists every current membership in stable order", async () => {

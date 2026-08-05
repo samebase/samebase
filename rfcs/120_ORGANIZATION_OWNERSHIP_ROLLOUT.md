@@ -9,7 +9,8 @@
 - Replacement branch: `codex-github-app-organizations`
 - Replacement PR: [#1367](https://github.com/samebase/samebase/pull/1367)
 - Superseded draft: [#1355](https://github.com/samebase/samebase/pull/1355)
-- Current checkpoint: Production data reset complete; merge and production validation remain
+- Current checkpoint: Final implementation and focused validation complete; final review, CI, and
+  merge remain
 
 ## Purpose
 
@@ -234,6 +235,16 @@ Status: Complete on the replacement branch
   was revoked after the check.
 - Temporary password sign-in and MCP OAuth data used for this development check were disabled or
   cleared after validation.
+- A final signed-in Chrome pass checked the current implementation after the durable provider
+  resource, last-owner, vault owner-login, and billing route changes. `/vault` listed vaults from
+  both current memberships. `/providers/samebase` passed live Convex project and deployment checks
+  and live Cloudflare account, Worker, and Workers Builds checks.
+- Reloading `/vault/samebase/tmp-8462-org-route-member` kept its clean route and restored its GitHub
+  repository, Cloudflare Worker, Convex project, and `3/3 passed` state.
+- `/settings` required a GitHub owner selection for organization billing. Selecting `samebase`
+  changed the URL to `/settings?owner=samebase`, showed that organization's plan and usage, and
+  survived reload. Selecting `nicu-typescript` changed the URL to `/settings?owner=nicu-typescript`
+  and showed its separate zero usage. Neither URL exposed an internal organization ID.
 
 ## Manual Acceptance Order
 
@@ -282,8 +293,7 @@ Clear `observations_vaultConvexSchema_snapshots` before deploying the schema tha
 
 ## Current Blockers
 
-- Remove long-lived provider connection references and resolve credentials by external scope.
-- Remove the duplicate vault owner-login source and enforce the last-owner invariant.
+- None in the accepted organization schema or ownership model.
 
 ## Production Cutover Result
 
@@ -306,6 +316,5 @@ blocker for this rollout.
 
 ## Next Exact Task
 
-Implement the final resource identity, owner-login, and last-owner decisions. Then repeat focused
-owner, member, provider reconnect, vault reload, observation, provisioning, and MCP checks before
-merge.
+Review the final diff for accidental feature deletion, run focused validation and CI, then merge.
+Keep production provider housekeeping separate from the organization model.

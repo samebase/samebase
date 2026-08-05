@@ -5,9 +5,10 @@
 - Status: Accepted and implemented
 - Owner: Samebase app creation, existing repository onboarding, and vault model
 - Created: 2026-05-07
-- Last updated: 2026-07-30
+- Last updated: 2026-08-05
 - Related docs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
   - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `research/2026-05-06-vault-first-provisioning-model.md`
 
@@ -144,13 +145,10 @@ GitHub state:
 type GitHubRepositoryVisibility = "private" | "public";
 
 /**
- * GitHub repository owner/name pair.
- * The enclosing state defines whether this is requested, targeted, or confirmed.
+ * GitHub repository name within the vault's organization owner.
+ * The organization supplies the current owner login.
  */
-type GitHubRepositoryCoordinates = {
-  /** GitHub user or organization owner. */
-  owner: string;
-
+type GitHubRepositoryTarget = {
   /** GitHub repository name. */
   name: string;
 };
@@ -159,7 +157,7 @@ type GitHubRepositoryCoordinates = {
  * Repository coordinates plus visibility.
  * Used for requested create intent and connected GitHub metadata.
  */
-type GitHubRepositoryWithVisibility = GitHubRepositoryCoordinates & {
+type GitHubRepositoryWithVisibility = GitHubRepositoryTarget & {
   /** Repository visibility, either requested intent or current GitHub metadata. */
   visibility: GitHubRepositoryVisibility;
 };
@@ -200,7 +198,7 @@ type VaultGitHubState =
 
       /** Timestamp when this GitHub connection attempt started. */
       startedAt: number;
-    } & GitHubRepositoryCoordinates)
+    } & GitHubRepositoryTarget)
   | ({
       /** GitHub is connected; repo-backed vault behavior is now allowed. */
       state: "connected";
@@ -260,7 +258,7 @@ type VaultGitHubState =
 
       /** Timestamp when the latest failure was recorded. */
       failedAt: number;
-    } & GitHubRepositoryCoordinates);
+    } & GitHubRepositoryTarget);
 ```
 
 Connected GitHub state describes repository identity. Provisioning and failed states describe the
@@ -273,18 +271,18 @@ connected." Later failures must be represented by live provider observations, wo
 future connected-only GitHub health state. Stable Convex and Cloudflare attachment rows remain
 representable because the vault stays connected.
 
-The extracted repository field groups are deliberately small. `owner`/`name` belong together because
-every repo-targeted state needs the same coordinates. `visibility` joins that group only where the
-state has either requested create visibility or confirmed GitHub visibility. State-specific fields
-such as `runId` and `defaultBranch` stay inline on the variants that give them meaning.
+The extracted repository field groups are deliberately small. Every repo-targeted state stores the
+repository `name`. The vault's `organizationId` resolves the current owner login from
+`organizations.githubOwnerLogin`. `visibility` joins the repository name only where the state has
+either requested create visibility or confirmed GitHub visibility. State-specific fields such as
+`runId` and `defaultBranch` stay inline on the variants that give them meaning.
 
 State transitions should not discard known GitHub facts. Moving from provisioning to connected
-should carry forward `owner`, `name`, and visibility, replacing requested intent with confirmed
-GitHub metadata when the provider response differs. If the workflow learns durable repository facts
-such as `ghRepoId` or confirmed visibility and then a later step fails before the normal connected
-write, do not fall back to the basic failed variant. Either write the connected GitHub state before
-continuing to later work, or add a richer explicit state that preserves the learned repository
-identity.
+should carry forward `name` and visibility, replacing requested intent with confirmed GitHub
+metadata when the provider response differs. If the workflow learns durable repository facts such as
+`ghRepoId` or confirmed visibility and then a later step fails before the normal connected write, do
+not fall back to the basic failed variant. Either write the connected GitHub state before continuing
+to later work, or add a richer explicit state that preserves the learned repository identity.
 
 Convex and Cloudflare do not live on the vault row. `vaultConvexProjects` and
 `vaultCloudflareWorkers` store independent stable attachments only after GitHub connects. Current
@@ -314,13 +312,13 @@ query or workflow that intentionally sorts by explicit recency. It must not be t
 state, and UI lists that should not reshuffle must use a stable sort instead.
 
 Root `displayName` should not be part of this shape. Its only durable utility is before GitHub
-connection, and those states already carry better operation intent. Dashboard labels should derive
-from `owner/name` in every state that has a GitHub target.
+connection, and those states already carry better operation intent. Dashboard labels should combine
+`organizations.githubOwnerLogin` with the vault `name` in every state that has a GitHub target.
 
-Reusing `owner` and `name` across provisioning, failed, and connected variants is intentional. In
-provisioning and failed states, they are the requested or targeted GitHub repository. In connected
-state, they are the current repository coordinates used for API calls and display. The `state` field
-makes that meaning explicit.
+Reusing `name` across provisioning, failed, and connected variants is intentional. In provisioning
+and failed states, it is the requested or targeted GitHub repository name. In connected state, it is
+the current repository name used for API calls and display. The organization supplies the owner for
+all variants, and the `state` field makes the name's meaning explicit.
 
 The `not_connected` state deliberately has no user-supplied label. If future manual blank-vault
 creation needs a user-named placeholder, add a separate field with a concrete product reason instead
@@ -342,10 +340,8 @@ GitHub state fields:
    owns the in-flight attempt. In failed state, it is the run that recorded the latest failure. In
    connected state, it is the run that established the GitHub connection. It must not mean "latest
    run for this vault" because later Convex/Cloudflare retries can have their own runs.
-4. `owner`: GitHub user or organization owner. In `create_repository` provisioning and failed
-   states, this is the requested owner for the new repo. In `connect_existing_repository`
-   provisioning and failed states, this is the existing repo owner being targeted. In connected
-   state, this is the current owner used for API calls and display.
+4. The GitHub owner login is not stored on `vaults`. `organizationId` resolves the only current copy
+   from `organizations.githubOwnerLogin`.
 5. `name`: repository name. In provisioning and failed states, this is the requested or targeted
    repository name. In connected state, this is the current GitHub repository name.
 6. `visibility`: in `create_repository` provisioning and failed states, this is requested create
@@ -353,9 +349,8 @@ GitHub state fields:
    visibility changes. Existing-repo provisioning and failed states must not carry visibility unless
    the workflow has already fetched repository metadata; in that case use connected state or a
    richer explicit failure state instead of dropping the learned fact.
-7. Failed states preserve the same `owner` and `name` target fields used by the attempt, plus any
-   operation-specific fields such as create-only `visibility`. Do not collapse them into a generic
-   `repositoryLabel`.
+7. Failed states preserve the same `name` target used by the attempt, plus any operation-specific
+   fields such as create-only `visibility`. Do not collapse them into a generic `repositoryLabel`.
 8. `failedAt`: timestamp when the latest failure was recorded.
 
 Do not store a `message` or `retryable` boolean on failed states. Failure messages should be derived
@@ -366,22 +361,16 @@ Stored summaries and booleans would add state that can drift when auth, billing,
 text, or retry policy changes. If a future retry decision needs durable classification that cannot
 be derived, add a structured failure code with concrete meanings instead of a generic boolean.
 
-Create-repository state must store `owner` now, even if the first UI only defaults it to the
-authenticated GitHub account. The target owner can later be a user account or organization, and
-retry must not infer that target from mutable provider connection state.
-
-The target create owner is product input, not backend-discovered technical state. The New App UI
-should present the available GitHub user/org destinations and pass the selected owner into
-create-app. Once that exists, the backend can insert the initializing vault and run before any
-GitHub API request because `owner`, `name`, and `visibility` are all local request intent. Any
-temporary backend fallback that calls GitHub to recover a missing API-key username is a known UX
-gap, not the target architecture; fix it with owner selection instead of adding more pre-vault
-GitHub discovery.
+The target owner is product input represented by the selected Samebase organization. The New App UI
+presents the viewer's GitHub-backed organizations and passes the selected `organizationId` into
+create-app. The backend can insert the initializing vault and run before any GitHub API request
+because `organizationId`, `name`, and `visibility` are local request intent. Retry resolves the
+current owner login from the same organization instead of copying it onto the vault.
 
 The create-repository failed variant stores only requested create intent. If a GitHub repository was
 actually created and cannot be cleaned up after a later step fails, that is a different state and
 must include explicit GitHub repository identity for cleanup/retry. Do not hide a retained external
-repository behind requested `owner` and `name`.
+repository behind only requested name and visibility.
 
 Connected GitHub fields:
 
@@ -391,7 +380,8 @@ Connected GitHub fields:
    must not overwrite it unless they are retrying the GitHub connection itself.
 3. `ghRepoId`: immutable repository identity. This is the field that prevents accidental in-place
    repository replacement.
-4. `owner` and `name`: current dashboard-safe repository label and API target.
+4. `name`: current repository name. The organization supplies the current owner login for the
+   dashboard label and API target.
 5. `visibility`: current repository visibility from GitHub metadata.
 6. `defaultBranch`: repository metadata needed for default source views.
 7. `connectedAt`: audit timestamp for when the vault first became a usable repository workspace.
@@ -424,9 +414,9 @@ optional validators are errors.
 
 For Samebase-managed repository creation:
 
-1. validate local input shape, including the selected GitHub user/org owner
+1. validate local input shape, including the selected GitHub-backed organization
 2. in one mutation, insert the vault, insert the provisioning run with required `vaultId`, then
-   patch the vault to `state: "provisioning", githubMode: "create_repository", runId, owner, name`
+   patch the vault to `state: "provisioning", githubMode: "create_repository", runId, name`
 3. start the create-app Workflow
 4. create the GitHub repository
 5. write `state: "connected", githubMode: "create_repository"` with the same `runId`, immutable repo
@@ -438,9 +428,9 @@ For Samebase-managed repository creation:
    attachments, live observations, and provider-write state
 
 External provider validation happens after the vault exists so failures have a visible dashboard
-target. Local input validation can happen before insert when it does not require provider calls.
-GitHub owner selection is local product intent by this point; the create action should not need to
-call GitHub only to decide where the repository will be created.
+target. Local input validation can happen before insert when it does not require provider calls. The
+selected organization provides the GitHub owner. The create action should not call GitHub only to
+decide where the repository will be created.
 
 ## Existing Repository Flow
 
@@ -449,7 +439,7 @@ Connecting an existing repository must use the same vault/run/GitHub state model
 1. validate local repository name shape
 2. in one mutation, insert the vault, insert the provisioning run with required `vaultId`, then
    patch the vault to
-   `state: "provisioning", githubMode: "connect_existing_repository", runId, owner, name`
+   `state: "provisioning", githubMode: "connect_existing_repository", runId, name`
 3. start a connect-existing Workflow
 4. fetch and validate the existing GitHub repository
 5. write `state: "connected", githubMode: "connect_existing_repository"` with fetched repository
@@ -495,8 +485,8 @@ The dashboard should render the vault immediately after insert.
 
 The vault label should be derived from GitHub state:
 
-1. provisioning or failed: targeted `owner/name`
-2. connected: current `owner/name`
+1. provisioning or failed: organization owner login plus targeted repository `name`
+2. connected: organization owner login plus current repository `name`
 3. not connected: generic GitHub connection prompt, unless a future feature adds a justified
    user-supplied placeholder name
 
