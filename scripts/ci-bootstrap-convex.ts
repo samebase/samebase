@@ -7,7 +7,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { samebaseAppFilePath } from "./lib/trackedFilePath.ts";
 
-const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+const samebaseAppDirectory = path.join("apps", "samebase");
+const convexCliPath = path.join("node_modules", "convex", "bin", "main.js");
 const convexBootstrapLogPath = path.join(tmpdir(), "convex-bootstrap.log");
 const envLocalPath = path.join("apps", "samebase", ".env.local");
 const convexEnvSetMaxAttempts = 4;
@@ -20,18 +21,15 @@ async function main(): Promise<void> {
   // Node 24 only accepts inherited fd numbers here, not a WriteStream object.
   const logFileDescriptor = openSync(convexBootstrapLogPath, "w");
   const bootstrapProcess = spawn(
-    PNPM_COMMAND,
+    process.execPath,
     [
-      "--filter",
-      "samebase",
-      "exec",
-      "node",
       samebaseAppFilePath("scripts/convex-dev.ts"),
       ...(keepBackendRunning ? [] : ["--until-success"]),
       "--typecheck=disable",
       "--tail-logs=disable",
     ],
     {
+      cwd: samebaseAppDirectory,
       env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" },
       stdio: ["ignore", logFileDescriptor, logFileDescriptor],
     },
@@ -125,10 +123,11 @@ async function main(): Promise<void> {
  * for fatal errors and the idempotent single-key write contract.
  */
 async function runConvexEnvSet(key: string, value: string): Promise<void> {
-  const args = ["--filter", "samebase", "exec", "convex", "env", "set", "--", key, value];
+  const args = [convexCliPath, "env", "set", "--", key, value];
 
   for (let attempt = 1; attempt <= convexEnvSetMaxAttempts; attempt += 1) {
-    const result = spawnSync(PNPM_COMMAND, args, {
+    const result = spawnSync(process.execPath, args, {
+      cwd: samebaseAppDirectory,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -174,12 +173,9 @@ function buildConvexAuthEnvEntries(): readonly [string, string][] {
 
 async function runConvexPasswordAccountSeed(): Promise<void> {
   const result = spawnSync(
-    PNPM_COMMAND,
+    process.execPath,
     [
-      "--filter",
-      "samebase",
-      "exec",
-      "convex",
+      convexCliPath,
       "run",
       "devAuth:seedPasswordAccount",
       "--typecheck",
@@ -188,6 +184,7 @@ async function runConvexPasswordAccountSeed(): Promise<void> {
       "disable",
     ],
     {
+      cwd: samebaseAppDirectory,
       encoding: "utf8",
       env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" },
       stdio: ["ignore", "pipe", "pipe"],
