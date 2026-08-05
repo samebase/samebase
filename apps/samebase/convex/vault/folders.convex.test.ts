@@ -28,7 +28,7 @@ async function seedVault(
         githubOwnerType: "user",
       }));
     if (existingMembership === null) {
-      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+      await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
     }
     return await ctx.db.insert("vaults", {
       organizationId,
@@ -60,6 +60,7 @@ async function seedDashboardVault(
       await ctx.db.insert("organizationMemberships", {
         organizationId,
         userId: args.userId,
+        role: "member",
       });
     }
     const vaultId = await ctx.db.insert("vaults", {

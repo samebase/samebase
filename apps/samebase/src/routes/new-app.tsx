@@ -7,7 +7,7 @@ import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 function NewAppRouteComponent() {
   return (
     <AuthenticatedAppRoutePage>
-      <NewAppPage />
+      <NewAppPage githubOwnerLogin={null} />
     </AuthenticatedAppRoutePage>
   );
 }

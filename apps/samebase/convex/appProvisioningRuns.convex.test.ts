@@ -32,7 +32,7 @@ async function createRetryFixture(blocker: RetryBlocker, t = makeConvexTest()) {
       githubOwnerLoginNormalized: "ada",
       githubOwnerType: "user",
     });
-    await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
       deletion: { state: "not_deleting" },

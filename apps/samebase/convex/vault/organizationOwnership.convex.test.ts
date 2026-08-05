@@ -140,6 +140,7 @@ describe("organization-owned vaults", () => {
       await ctx.db.insert("organizationMemberships", {
         organizationId: zetaOrganizationId,
         userId: otherMemberUserId,
+        role: "member",
       });
     });
     const zetaVault = await createConnectedVault(t, {

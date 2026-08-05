@@ -7,7 +7,7 @@ import {
   findBillingAccountForOrganization,
   patchBillingAccount,
   readBillingAccountState,
-  requireBillingAccountForOrganization,
+  requireOwnerBillingAccountForOrganization,
 } from "./organizationBilling";
 import { randomToken } from "./oauthUtils";
 
@@ -83,7 +83,7 @@ export const reserveAttempt = internalMutation({
   },
   returns: vPolarCheckoutReservation,
   handler: async (ctx, args): Promise<PolarCheckoutReservation> => {
-    const billing = await requireBillingAccountForOrganization(ctx.db, args);
+    const billing = await requireOwnerBillingAccountForOrganization(ctx.db, args);
     const user = billing.user;
     if (user.accountDeletion !== undefined) {
       throw new Error("Checkout is unavailable.");
@@ -124,7 +124,12 @@ export const clearPending = internalMutation({
     const attempt = billing
       ? readBillingAccountState(billing.account).polarCheckoutAttempt
       : undefined;
-    if (!billing || attempt?.state !== "pending" || attempt.attemptId !== args.attemptId) {
+    if (
+      !billing ||
+      billing.role !== "owner" ||
+      attempt?.state !== "pending" ||
+      attempt.attemptId !== args.attemptId
+    ) {
       return false;
     }
 
@@ -143,7 +148,7 @@ export const recordOpen = internalMutation({
   returns: boolean(),
   handler: async (ctx, args) => {
     const billing = await findBillingAccountForOrganization(ctx.db, args);
-    if (!billing) {
+    if (!billing || billing.role !== "owner") {
       return false;
     }
     const attempt = readBillingAccountState(billing.account).polarCheckoutAttempt;
@@ -180,6 +185,7 @@ export const clearOpen = internalMutation({
       : undefined;
     if (
       !billing ||
+      billing.role !== "owner" ||
       attempt?.state !== "open" ||
       attempt.attemptId !== args.attemptId ||
       attempt.checkoutId !== args.checkoutId

@@ -4,6 +4,7 @@ import { v } from "convex/values";
 const { boolean, id, literal, number, object, optional, string, union } = v;
 
 export const vGitHubOwnerType = union(literal("organization"), literal("user"));
+export const vOrganizationMembershipRole = union(literal("owner"), literal("member"));
 
 export const vOrganizationBillingState = object({
   provider: optional(literal("polar")),
@@ -46,10 +47,11 @@ export const organizationTables = {
     .index("by_github_owner_login_normalized", ["githubOwnerLoginNormalized"])
     .index("by_github_installation_id", ["githubInstallationId"]),
 
-  /** User access to an organization. Row presence grants access. */
+  /** User access to an organization. */
   organizationMemberships: defineTable({
     organizationId: id("organizations"),
     userId: id("users"),
+    role: vOrganizationMembershipRole,
   })
     .index("by_user", ["userId"])
     .index("by_organization_and_user", ["organizationId", "userId"]),

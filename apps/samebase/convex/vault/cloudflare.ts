@@ -986,9 +986,16 @@ export const selectDefaultAccount = action({
   args: { organizationId: id("organizations"), accountId: string() },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.requireOrganizationOwnerIdForUser,
+      {
+        userId: ctx.viewer.userId,
+        organizationId: args.organizationId,
+      },
+    );
     const connection = await resolveSelectedCloudflareConnection(ctx, {
       userId: ctx.viewer.userId,
-      organizationId: args.organizationId,
+      organizationId,
     });
     const account = await resolveAccount({
       token: connection.token,

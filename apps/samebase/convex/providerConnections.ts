@@ -8,7 +8,10 @@ import {
 } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { vMcpTokenHealth } from "./mcpTokenHealth";
-import { requireOrganizationAccessContext } from "./organizationAccess";
+import {
+  requireOrganizationAccessContext,
+  requireOrganizationMembership,
+} from "./organizationAccess";
 import {
   vCloudflareDefaultAccount,
   vCloudflareProviderAuth,
@@ -54,10 +57,10 @@ const vCloudflareConnectionWrite = object({
 const vConnectionWrite = union(vConvexConnectionWrite, vCloudflareConnectionWrite);
 type ConnectionWrite = Infer<typeof vConnectionWrite>;
 
-async function assertActorCanWriteOrganizationConnection(
+async function requireActiveOrganizationConnectionMember(
   db: DatabaseReader,
   args: { organizationId: Id<"organizations">; userId: Id<"users"> },
-): Promise<void> {
+): Promise<Doc<"organizationMemberships">> {
   const [user, organization] = await Promise.all([
     db.get(args.userId),
     db.get(args.organizationId),
@@ -68,7 +71,17 @@ async function assertActorCanWriteOrganizationConnection(
   if (organization === null) {
     throw new Error("Organization not found.");
   }
-  await requireOrganizationAccessContext(db, args);
+  return await requireOrganizationMembership(db, args);
+}
+
+async function requireActiveOrganizationConnectionOwner(
+  db: DatabaseReader,
+  args: { organizationId: Id<"organizations">; userId: Id<"users"> },
+): Promise<void> {
+  const membership = await requireActiveOrganizationConnectionMember(db, args);
+  if (membership.role !== "owner") {
+    throw new Error("Organization owner access is required.");
+  }
 }
 
 function buildProviderConnection(args: {
@@ -189,23 +202,6 @@ export async function getSelectedProviderConnectionForOrganization(
   });
 }
 
-export async function selectProviderConnection(
-  db: DatabaseWriter,
-  args: {
-    organizationId: Id<"organizations">;
-    userId: Id<"users">;
-    providerConnectionId: Id<"providerConnections">;
-    kind: ProviderKind;
-  },
-): Promise<void> {
-  await assertActorCanWriteOrganizationConnection(db, args);
-  const connection = await getProviderConnectionByIdForOrganization(db, args);
-  if (connection === null) {
-    throw new Error("Provider connection not found.");
-  }
-  await patchSelectedProviderConnection(db, args);
-}
-
 export const loadSelectedForOrganization = internalQuery({
   args: {
     organizationId: id("organizations"),
@@ -257,7 +253,7 @@ export const createConnected = internalMutation({
   },
   returns: id("providerConnections"),
   handler: async (ctx, args) => {
-    await assertActorCanWriteOrganizationConnection(ctx.db, {
+    await requireActiveOrganizationConnectionOwner(ctx.db, {
       organizationId: args.organizationId,
       userId: args.connectedByUserId,
     });
@@ -284,7 +280,7 @@ export const reauthorizeConnected = internalMutation({
   },
   returns: id("providerConnections"),
   handler: async (ctx, args) => {
-    await assertActorCanWriteOrganizationConnection(ctx.db, {
+    await requireActiveOrganizationConnectionOwner(ctx.db, {
       organizationId: args.organizationId,
       userId: args.connectedByUserId,
     });
@@ -322,20 +318,6 @@ export const reauthorizeConnected = internalMutation({
   },
 });
 
-export const setSelected = internalMutation({
-  args: {
-    organizationId: id("organizations"),
-    userId: id("users"),
-    providerConnectionId: id("providerConnections"),
-    kind: vProviderKind,
-  },
-  returns: vNull(),
-  handler: async (ctx, args) => {
-    await selectProviderConnection(ctx.db, args);
-    return null;
-  },
-});
-
 export const setConvexTeamSlug = internalMutation({
   args: {
     organizationId: id("organizations"),
@@ -346,7 +328,7 @@ export const setConvexTeamSlug = internalMutation({
   },
   returns: vNull(),
   handler: async (ctx, args) => {
-    await assertActorCanWriteOrganizationConnection(ctx.db, args);
+    await requireActiveOrganizationConnectionMember(ctx.db, args);
     const connection = await getProviderConnectionByIdForOrganization(ctx.db, {
       organizationId: args.organizationId,
       providerConnectionId: args.providerConnectionId,
@@ -376,7 +358,7 @@ export const updateCloudflareConnected = internalMutation({
   },
   returns: vNull(),
   handler: async (ctx, args) => {
-    await assertActorCanWriteOrganizationConnection(ctx.db, args);
+    const membership = await requireActiveOrganizationConnectionMember(ctx.db, args);
     const connection = await getProviderConnectionByIdForOrganization(ctx.db, {
       organizationId: args.organizationId,
       providerConnectionId: args.providerConnectionId,
@@ -384,6 +366,16 @@ export const updateCloudflareConnected = internalMutation({
     });
     if (connection?.kind !== "cloudflare") {
       throw new Error("Cloudflare connection not found.");
+    }
+    const defaultAccountChanged =
+      connection.defaultAccount.state !== args.defaultAccount.state ||
+      (connection.defaultAccount.state === "selected" &&
+        args.defaultAccount.state === "selected" &&
+        connection.defaultAccount.accountId !== args.defaultAccount.accountId);
+    if (defaultAccountChanged) {
+      if (membership.role !== "owner") {
+        throw new Error("Organization owner access is required.");
+      }
     }
     await ctx.db.patch(connection._id, {
       auth: args.auth,
@@ -410,7 +402,7 @@ export const disconnect = internalMutation({
   },
   returns: vNull(),
   handler: async (ctx, args) => {
-    await assertActorCanWriteOrganizationConnection(ctx.db, {
+    await requireActiveOrganizationConnectionOwner(ctx.db, {
       organizationId: args.organizationId,
       userId: args.disconnectedByUserId,
     });
@@ -437,7 +429,7 @@ export const claimCloudflareTokenRefresh = internalMutation({
     nextAllowedRefreshAt: optional(number()),
   }),
   handler: async (ctx, args) => {
-    await assertActorCanWriteOrganizationConnection(ctx.db, args);
+    await requireActiveOrganizationConnectionMember(ctx.db, args);
     const connection = await getProviderConnectionByIdForOrganization(ctx.db, {
       organizationId: args.organizationId,
       providerConnectionId: args.providerConnectionId,
@@ -487,7 +479,7 @@ export const releaseCloudflareTokenRefresh = internalMutation({
     lastTokenRefreshAt: optional(number()),
   }),
   handler: async (ctx, args) => {
-    await assertActorCanWriteOrganizationConnection(ctx.db, args);
+    await requireActiveOrganizationConnectionMember(ctx.db, args);
     const connection = await getProviderConnectionByIdForOrganization(ctx.db, {
       organizationId: args.organizationId,
       providerConnectionId: args.providerConnectionId,

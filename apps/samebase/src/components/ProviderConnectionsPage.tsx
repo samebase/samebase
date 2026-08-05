@@ -11,8 +11,11 @@ import {
 import { useNow } from "@/hooks/useNow";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { getCurrentRootRelativeUrl, openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
+import { PROVIDERS_OWNER_ROUTE } from "@/lib/providersRoute";
 import { claimRefreshDebounce, releaseRefreshDebounce } from "@/lib/refreshDebounce";
+import { useGitHubOwnerRouteSelection } from "@/components/useGitHubOwnerRouteSelection";
 import { isRecord, notEmpty } from "@samebase/dependent";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import {
   useAction,
   useMutation,
@@ -114,7 +117,7 @@ type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState &
   onCloudflareAccountSubmit: () => void;
   onConnect: (provider: ProviderKey) => void;
   onDisconnect: (provider: ProviderKey) => void;
-  onGitHubOwnerChange: (organizationId: Id<"organizations">) => void;
+  onGitHubOwnerChange: (owner: GitHubOwner) => void;
   onInstallGitHubApp: () => void;
   onLoadMoreMcpGrants: () => void;
   onOpenApiKeyDialog: () => void;
@@ -666,6 +669,9 @@ export function ProviderConnectionsPageView({
   revokingMcpGrantId,
   selectedOrganizationId,
 }: ProviderConnectionsPageViewProps) {
+  const canManageSelectedOrganization = githubOwners.some(
+    (owner) => owner.organizationId === selectedOrganizationId && owner.role === "owner",
+  );
   const convexProviderRow =
     convexConnection?.connected === true
       ? (() => {
@@ -685,7 +691,7 @@ export function ProviderConnectionsPageView({
                 href: getConvexManageAccessUrl(convexConnection.teamSlug),
                 key: "manage-convex-access",
                 label: "Manage access",
-                target: "_blank",
+                target: "_blank" as const,
               },
               ...(convexConnection.authMethod === "oauth"
                 ? [
@@ -712,7 +718,9 @@ export function ProviderConnectionsPageView({
                 onClick: () => onDisconnect("convex"),
                 pendingLabel: "Disconnecting...",
               },
-            ],
+            ].filter(
+              (action) => canManageSelectedOrganization || action.key === "check-convex-access",
+            ),
             details: (
               <ConvexConnectionDetails
                 access={convexAccess}
@@ -729,20 +737,22 @@ export function ProviderConnectionsPageView({
           } satisfies ProviderConnectionRowViewModel;
         })()
       : ({
-          actions: [
-            {
-              disabled: disconnectingProvider !== null,
-              key: "oauth",
-              label: PROVIDER_METADATA.convex.oauthButtonLabel,
-              onClick: () => onConnect("convex"),
-            },
-            {
-              disabled: disconnectingProvider !== null,
-              key: "api-key",
-              label: "Use API key",
-              onClick: onOpenApiKeyDialog,
-            },
-          ],
+          actions: canManageSelectedOrganization
+            ? [
+                {
+                  disabled: disconnectingProvider !== null,
+                  key: "oauth",
+                  label: PROVIDER_METADATA.convex.oauthButtonLabel,
+                  onClick: () => onConnect("convex"),
+                },
+                {
+                  disabled: disconnectingProvider !== null,
+                  key: "api-key",
+                  label: "Use API key",
+                  onClick: onOpenApiKeyDialog,
+                },
+              ]
+            : [],
           icon: PROVIDER_METADATA.convex.icon,
           key: "convex",
           label: PROVIDER_METADATA.convex.label,
@@ -773,7 +783,7 @@ export function ProviderConnectionsPageView({
           href: getCloudflareManageAccessUrl(cloudflareConnection.authMethod),
           key: "manage-cloudflare-access",
           label: "Manage access",
-          target: "_blank",
+          target: "_blank" as const,
         },
         {
           disabled: cloudflareActionsDisabled,
@@ -795,7 +805,9 @@ export function ProviderConnectionsPageView({
           onClick: () => onDisconnect("cloudflare"),
           pendingLabel: "Disconnecting...",
         },
-      ],
+      ].filter(
+        (action) => canManageSelectedOrganization || action.key === "check-cloudflare-access",
+      ),
       details: (
         <CloudflareConnectionDetails
           access={cloudflareAccess}
@@ -814,14 +826,16 @@ export function ProviderConnectionsPageView({
     };
   } else {
     cloudflareProviderRow = {
-      actions: [
-        {
-          disabled: disconnectingProvider !== null,
-          key: "oauth",
-          label: PROVIDER_METADATA.cloudflare.oauthButtonLabel,
-          onClick: () => onConnect("cloudflare"),
-        },
-      ],
+      actions: canManageSelectedOrganization
+        ? [
+            {
+              disabled: disconnectingProvider !== null,
+              key: "oauth",
+              label: PROVIDER_METADATA.cloudflare.oauthButtonLabel,
+              onClick: () => onConnect("cloudflare"),
+            },
+          ]
+        : [],
       icon: PROVIDER_METADATA.cloudflare.icon,
       key: "cloudflare",
       label: PROVIDER_METADATA.cloudflare.label,
@@ -899,7 +913,7 @@ export function ProviderConnectionsPageView({
         onAccountChange={onCloudflareAccountChange}
         onOpenChange={onCloudflareAccountOpenChange}
         onSubmit={onCloudflareAccountSubmit}
-        open={cloudflareAccountDialog.isOpen}
+        open={canManageSelectedOrganization && cloudflareAccountDialog.isOpen}
         selectedAccountId={cloudflareAccountDialog.selectedAccountId}
       />
       {apiKeyDialog}
@@ -1069,7 +1083,9 @@ function useCloudflareMcpTokenAutoCheck({
   ]);
 }
 
-export function ProviderConnectionsPage() {
+export function ProviderConnectionsPage({ githubOwnerLogin }: { githubOwnerLogin: string | null }) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const getGitHubAppInstallationUrl = useMutation(
     api.githubAppInstallation.getGitHubAppInstallationUrl,
   );
@@ -1088,14 +1104,7 @@ export function ProviderConnectionsPage() {
   const disconnectConvex = useAction(api.users.disconnectConvex);
   const disconnectCloudflare = useAction(api.users.disconnectCloudflare);
   const revokeMcpGrant = useMutation(api.mcp.grants.revokeCurrentUserGrant);
-  const githubOwners = useConvexQuery(api.organizations.listForViewer);
-  const [requestedOrganizationId, setSelectedOrganizationId] = useState<Id<"organizations"> | null>(
-    null,
-  );
-  const selectedOwner =
-    githubOwners?.length === 1
-      ? githubOwners[0]
-      : (githubOwners?.find((owner) => owner.organizationId === requestedOrganizationId) ?? null);
+  const { githubOwners, selectedOwner } = useGitHubOwnerRouteSelection(githubOwnerLogin);
   const selectedOrganizationId = selectedOwner?.organizationId ?? null;
   const convexConnection = useConvexQuery(
     api.users.getConvexConnectionStatus,
@@ -1405,14 +1414,18 @@ export function ProviderConnectionsPage() {
     }
   };
 
-  const handleGitHubOwnerChange = (organizationId: Id<"organizations">) => {
-    setSelectedOrganizationId(organizationId);
+  const handleGitHubOwnerChange = (owner: GitHubOwner) => {
     setCloudflareAccess(null);
     setCloudflareAccessError(null);
     setConvexAccess(null);
     setConvexAccessError(null);
     cloudflareAccountDialogRequestIdRef.current += 1;
     setCloudflareAccountDialog((current) => ({ ...current, isOpen: false }));
+    void navigate({
+      to: PROVIDERS_OWNER_ROUTE,
+      params: { owner: owner.githubOwnerLogin },
+      search: location.search,
+    });
   };
 
   if (githubOwners === undefined) {

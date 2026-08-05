@@ -1,5 +1,5 @@
 import { index, rootRoute, route } from "@tanstack/virtual-file-routes";
-import { CONNECT_REPO_ROUTE } from "./lib/connectRepoRoute";
+import { CONNECT_REPO_OWNER_ROUTE, CONNECT_REPO_ROUTE } from "./lib/connectRepoRoute";
 import { DASHBOARD_ROUTE } from "./lib/dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./lib/indexedDbRoute";
 import {
@@ -9,9 +9,9 @@ import {
   LANDING_PREVIEW_ROUTE,
 } from "./routeSearch/landingPreview";
 import { LOCAL_STORAGE_ROUTE } from "./lib/localStorageRoute";
-import { NEW_APP_ROUTE } from "./lib/newAppRoute";
+import { NEW_APP_OWNER_ROUTE, NEW_APP_ROUTE } from "./lib/newAppRoute";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
-import { PROVIDERS_ROUTE } from "./lib/providersRoute";
+import { PROVIDERS_OWNER_ROUTE, PROVIDERS_ROUTE } from "./lib/providersRoute";
 import { SETTINGS_ROUTE } from "./lib/settingsRoute";
 import { ACCOUNT_DELETION_ROUTE } from "./lib/accountDeletionRoute";
 
@@ -50,8 +50,11 @@ export const routes = rootRoute("root.tsx", [
   route(LANDING_PREVIEW_ROUTE, "landing-preview.tsx"),
   route("/pricing", "pricing.tsx"),
   route(CONNECT_REPO_ROUTE, "connect-repo.tsx"),
+  route(CONNECT_REPO_OWNER_ROUTE, "connect-repo-owner.tsx"),
   route(NEW_APP_ROUTE, "new-app.tsx"),
+  route(NEW_APP_OWNER_ROUTE, "new-app-owner.tsx"),
   route(PROVIDERS_ROUTE, "providers.tsx"),
+  route(PROVIDERS_OWNER_ROUTE, "providers-owner.tsx"),
   route(SETTINGS_ROUTE, "settings.tsx"),
   route(ACCOUNT_DELETION_ROUTE, "account-deletion.tsx"),
   route("/admin/account-deletions", "admin-account-deletions.tsx"),

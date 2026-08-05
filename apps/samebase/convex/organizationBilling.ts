@@ -1,10 +1,11 @@
 import type { Doc, Id } from "./_generated/dataModel";
 import type { DatabaseReader, DatabaseWriter } from "./_generated/server";
-import { requireOrganizationAccessContext } from "./organizationAccess";
+import { requireOrganizationMembership } from "./organizationAccess";
 
 export type OrganizationBillingAccess = {
   user: Doc<"users">;
   account: Doc<"organizationBillingAccounts">;
+  role: Doc<"organizationMemberships">["role"];
 };
 
 export type BillingAccountState = Pick<
@@ -31,7 +32,7 @@ export async function findBillingAccountForOrganization(
     return null;
   }
 
-  await requireOrganizationAccessContext(db, args);
+  const membership = await requireOrganizationMembership(db, args);
 
   const account = await db
     .query("organizationBillingAccounts")
@@ -43,6 +44,7 @@ export async function findBillingAccountForOrganization(
 
   return {
     account,
+    role: membership.role,
     user,
   };
 }
@@ -54,6 +56,18 @@ export async function requireBillingAccountForOrganization(
   const billing = await findBillingAccountForOrganization(db, args);
   if (billing === null) {
     throw new Error("User not found.");
+  }
+
+  return billing;
+}
+
+export async function requireOwnerBillingAccountForOrganization(
+  db: DatabaseReader,
+  args: { userId: Id<"users">; organizationId: Id<"organizations"> },
+): Promise<OrganizationBillingAccess> {
+  const billing = await requireBillingAccountForOrganization(db, args);
+  if (billing.role !== "owner") {
+    throw new Error("Organization owner access is required.");
   }
 
   return billing;

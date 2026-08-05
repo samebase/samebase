@@ -28,8 +28,10 @@ import {
   ConvexProviderLogo,
   GitHubProviderLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
-import { GitHubOwnerSelect, type GitHubOwner } from "@/components/GitHubOwnerSelect";
+import { GitHubOwnerSelect } from "@/components/GitHubOwnerSelect";
+import { useGitHubOwnerRouteSelection } from "@/components/useGitHubOwnerRouteSelection";
 import { getCurrentRootRelativeUrl, openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
+import { NEW_APP_OWNER_ROUTE } from "@/lib/newAppRoute";
 import type { Id } from "../../convex/_generated/dataModel";
 
 type CreateResourceNameMode = "auto" | "manual";
@@ -415,7 +417,7 @@ export function NewAppCreateFormFields({
   );
 }
 
-export function NewAppPage() {
+export function NewAppPage({ githubOwnerLogin }: { githubOwnerLogin: string | null }) {
   const location = useLocation();
   const navigate = useNavigate();
   const createRepository = useAction(api.vault.actions.createRepository);
@@ -427,17 +429,9 @@ export function NewAppPage() {
   const getGitHubAppInstallationUrl = useMutation(
     api.githubAppInstallation.getGitHubAppInstallationUrl,
   );
-  const githubOwners = useConvexQuery(api.organizations.listForViewer);
-  const [requestedOrganizationId, setSelectedOrganizationId] = useState<Id<"organizations"> | null>(
-    null,
-  );
-  const selectedOwner =
-    githubOwners?.length === 1
-      ? githubOwners[0]
-      : (githubOwners?.find(
-          (owner: GitHubOwner) => owner.organizationId === requestedOrganizationId,
-        ) ?? null);
+  const { githubOwners, selectedOwner } = useGitHubOwnerRouteSelection(githubOwnerLogin);
   const selectedOrganizationId = selectedOwner?.organizationId ?? null;
+  const canManageSelectedOrganization = selectedOwner?.role === "owner";
   const convexConnection = useConvexQuery(
     api.users.getConvexConnectionStatus,
     selectedOrganizationId === null ? "skip" : { organizationId: selectedOrganizationId },
@@ -635,6 +629,10 @@ export function NewAppPage() {
   );
 
   const openCloudflareAccountDialog = () => {
+    if (!canManageSelectedOrganization) {
+      setCreateError("An organization owner must choose the Cloudflare account.");
+      return;
+    }
     setCloudflareAccountDialogOpen(true);
     void loadCloudflareAccountDialogResources(connectedCloudflareConnection?.accountId);
   };
@@ -845,12 +843,16 @@ export function NewAppPage() {
             {selectedOrganizationId === null ? (
               "Choose a GitHub owner."
             ) : cloudflareAccountSelectionRequired ? (
-              <>
-                Choose a Cloudflare account to create an app.{" "}
-                <CreateResourceNameInlineAction onClick={openCloudflareAccountDialog}>
-                  Select account
-                </CreateResourceNameInlineAction>
-              </>
+              canManageSelectedOrganization ? (
+                <>
+                  Choose a Cloudflare account to create an app.{" "}
+                  <CreateResourceNameInlineAction onClick={openCloudflareAccountDialog}>
+                    Select account
+                  </CreateResourceNameInlineAction>
+                </>
+              ) : (
+                "An organization owner must choose the Cloudflare account before an app can be created."
+              )
             ) : (
               "Connect Convex and Cloudflare to create an app."
             )}
@@ -935,8 +937,14 @@ export function NewAppPage() {
       return;
     }
     if (cloudflareAccountSelectionRequired) {
-      setCreateError("Choose a Cloudflare account before creating an app.");
-      openCloudflareAccountDialog();
+      if (canManageSelectedOrganization) {
+        setCreateError("Choose a Cloudflare account before creating an app.");
+        openCloudflareAccountDialog();
+      } else {
+        setCreateError(
+          "An organization owner must choose the Cloudflare account before an app can be created.",
+        );
+      }
       return;
     }
     if (!convexProjectNameValidation.valid) {
@@ -1035,9 +1043,13 @@ export function NewAppPage() {
               disabled={isCreating}
               owners={githubOwners}
               selectedOrganizationId={selectedOrganizationId}
-              onChange={(organizationId) => {
+              onChange={(owner) => {
                 setCreateError(null);
-                setSelectedOrganizationId(organizationId);
+                void navigate({
+                  to: NEW_APP_OWNER_ROUTE,
+                  params: { owner: owner.githubOwnerLogin },
+                  search: location.search,
+                });
               }}
             />
             <div className="flex w-full flex-col items-stretch gap-2">{createFormFields}</div>
@@ -1064,7 +1076,7 @@ export function NewAppPage() {
         onSubmit={() => {
           void handleSubmitCloudflareAccount();
         }}
-        open={cloudflareAccountDialogOpen}
+        open={canManageSelectedOrganization && cloudflareAccountDialogOpen}
         selectedAccountId={selectedCloudflareAccountId}
       />
     </div>

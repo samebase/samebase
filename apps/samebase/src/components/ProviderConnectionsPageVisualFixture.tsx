@@ -181,6 +181,7 @@ export function ProviderConnectionsPageVisualFixture() {
           githubOwnerLogin: "samebase",
           githubOwnerType: "organization",
           organizationId: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_ORGANIZATION_ID,
+          role: "owner",
         },
       ]}
       isAutoCheckingCloudflareToken={false}

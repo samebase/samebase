@@ -101,7 +101,8 @@ export function UserSettingsPage() {
   const [isStartingGitHubAppSetup, setIsStartingGitHubAppSetup] = useState(false);
   const isDeleteDialogOpen = search[DELETE_ACCOUNT_QUERY_PARAM];
   const checkoutReturnState = search[CHECKOUT_QUERY_PARAM];
-  const billingActionsAvailable = readBrowserRouteEnvironment() !== "preview";
+  const canManageBilling = selectedOwner?.role === "owner";
+  const billingActionsAvailable = canManageBilling && readBrowserRouteEnvironment() !== "preview";
   const hasTrustedProBilling = billingStatus?.plan === "pro";
 
   // A successful return starts trusted provider reconciliation. The URL alone never grants Pro.
@@ -496,8 +497,8 @@ export function UserSettingsPage() {
               <div className="mt-4 max-w-xs">
                 <GitHubOwnerSelect
                   disabled={billingRequestState !== "idle"}
-                  onChange={(organizationId) => {
-                    setSelectedOrganizationId(organizationId);
+                  onChange={(owner) => {
+                    setSelectedOrganizationId(owner.organizationId);
                     setBillingReconciliationDelayed(false);
                   }}
                   owners={githubOwners}
@@ -575,7 +576,8 @@ export function UserSettingsPage() {
                   )
                 ) : null}
 
-                {billingStatus.plan === "pro" || billingStatus.canStartCheckout ? (
+                {canManageBilling &&
+                (billingStatus.plan === "pro" || billingStatus.canStartCheckout) ? (
                   <div className="mt-6">
                     {billingStatus.plan === "pro" ? (
                       <Button

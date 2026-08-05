@@ -32,6 +32,7 @@ describe("MCP organization grants", () => {
       await ctx.db.insert("organizationMemberships", {
         organizationId,
         userId,
+        role: "owner",
       });
       await ctx.db.insert("mcpOauthClients", {
         clientId: "client_test",

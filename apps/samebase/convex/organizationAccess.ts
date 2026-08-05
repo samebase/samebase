@@ -8,18 +8,38 @@ export type OrganizationAccessContext = {
   organizationId: Id<"organizations">;
 };
 
-export async function findOrganizationAccessContext(
+export async function findOrganizationMembership(
   db: DatabaseReader,
   access: OrganizationAccessContext,
-): Promise<OrganizationAccessContext | null> {
-  const membership = await db
+): Promise<Doc<"organizationMemberships"> | null> {
+  return await db
     .query("organizationMemberships")
     .withIndex("by_organization_and_user", (query) =>
       query.eq("organizationId", access.organizationId).eq("userId", access.userId),
     )
     .unique();
+}
+
+export async function findOrganizationAccessContext(
+  db: DatabaseReader,
+  access: OrganizationAccessContext,
+): Promise<OrganizationAccessContext | null> {
+  const membership = await findOrganizationMembership(db, access);
 
   return membership === null ? null : access;
+}
+
+/** Resolve the acting user's required organization membership. */
+export async function requireOrganizationMembership(
+  db: DatabaseReader,
+  access: OrganizationAccessContext,
+): Promise<Doc<"organizationMemberships">> {
+  const membership = await findOrganizationMembership(db, access);
+  if (membership === null) {
+    throw new Error("Organization membership is required.");
+  }
+
+  return membership;
 }
 
 /** Resolve the acting user's required organization membership. */
@@ -27,12 +47,22 @@ export async function requireOrganizationAccessContext(
   db: DatabaseReader,
   access: OrganizationAccessContext,
 ): Promise<OrganizationAccessContext> {
-  const verifiedAccess = await findOrganizationAccessContext(db, access);
-  if (verifiedAccess === null) {
-    throw new Error("Organization membership is required.");
+  await requireOrganizationMembership(db, access);
+
+  return access;
+}
+
+/** Resolve the acting user's required owner role for an organization. */
+export async function requireOrganizationOwnerAccessContext(
+  db: DatabaseReader,
+  access: OrganizationAccessContext,
+): Promise<OrganizationAccessContext> {
+  const membership = await requireOrganizationMembership(db, access);
+  if (membership.role !== "owner") {
+    throw new Error("Organization owner access is required.");
   }
 
-  return verifiedAccess;
+  return access;
 }
 
 /** List every organization the user can access in stable identifier order. */
@@ -94,6 +124,18 @@ export const requireOrganizationIdForUser = internalQuery({
   returns: v.id("organizations"),
   handler: async (ctx, args) => {
     const access = await requireOrganizationAccessContext(ctx.db, args);
+    return access.organizationId;
+  },
+});
+
+export const requireOrganizationOwnerIdForUser = internalQuery({
+  args: {
+    userId: v.id("users"),
+    organizationId: v.id("organizations"),
+  },
+  returns: v.id("organizations"),
+  handler: async (ctx, args) => {
+    const access = await requireOrganizationOwnerAccessContext(ctx.db, args);
     return access.organizationId;
   },
 });

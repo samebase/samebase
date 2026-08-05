@@ -127,15 +127,27 @@ vi.mock("@/components/AgentsConnectRoutePage", () => ({
 }));
 
 vi.mock("@/components/ConnectRepository", () => ({
-  ConnectRepository: () => <div data-testid="connect-repository-page">Connect repository page</div>,
+  ConnectRepository: ({ githubOwnerLogin }: { githubOwnerLogin: string | null }) => (
+    <div data-testid="connect-repository-page" data-owner={githubOwnerLogin ?? undefined}>
+      Connect repository page
+    </div>
+  ),
 }));
 
 vi.mock("@/components/NewAppPage", () => ({
-  NewAppPage: () => <div data-testid="new-app-page">New app page</div>,
+  NewAppPage: ({ githubOwnerLogin }: { githubOwnerLogin: string | null }) => (
+    <div data-testid="new-app-page" data-owner={githubOwnerLogin ?? undefined}>
+      New app page
+    </div>
+  ),
 }));
 
 vi.mock("@/components/ProviderConnectionsPage", () => ({
-  ProviderConnectionsPage: () => <div data-testid="providers-page">Providers page</div>,
+  ProviderConnectionsPage: ({ githubOwnerLogin }: { githubOwnerLogin: string | null }) => (
+    <div data-testid="providers-page" data-owner={githubOwnerLogin ?? undefined}>
+      Providers page
+    </div>
+  ),
 }));
 
 vi.mock("@/components/UserSettingsPage", () => ({
@@ -730,6 +742,16 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
+  it("passes the GitHub owner slug to the connect repository route", async () => {
+    await renderRoute("/connect-repo/Samebase");
+
+    expect(
+      rootElement
+        ?.querySelector('[data-testid="connect-repository-page"]')
+        ?.getAttribute("data-owner"),
+    ).toBe("Samebase");
+  });
+
   it("accepts a trailing slash on the promoted pricing route", async () => {
     await renderRoute("/pricing/");
 
@@ -757,6 +779,14 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
+  it("passes the GitHub owner slug to the new app route", async () => {
+    await renderRoute("/new-app/Samebase");
+
+    expect(
+      rootElement?.querySelector('[data-testid="new-app-page"]')?.getAttribute("data-owner"),
+    ).toBe("Samebase");
+  });
+
   it("accepts a trailing slash on the promoted new app route", async () => {
     await renderRoute("/new-app/");
 
@@ -773,6 +803,14 @@ describe("appRouter", () => {
       "Providers page",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("passes the GitHub owner slug to the providers route", async () => {
+    await renderRoute("/providers/Samebase");
+
+    expect(
+      rootElement?.querySelector('[data-testid="providers-page"]')?.getAttribute("data-owner"),
+    ).toBe("Samebase");
   });
 
   it("accepts a trailing slash on the promoted providers route", async () => {

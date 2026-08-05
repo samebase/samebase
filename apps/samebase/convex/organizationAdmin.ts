@@ -57,6 +57,7 @@ export const addExistingUserToOrganization = internalMutation({
     const membershipId = await ctx.db.insert("organizationMemberships", {
       organizationId: args.organizationId,
       userId: user._id,
+      role: "member",
     });
 
     return {

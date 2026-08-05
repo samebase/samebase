@@ -299,6 +299,7 @@ describe("MCP tools/call access enforcement", () => {
       await ctx.db.insert("organizationMemberships", {
         organizationId,
         userId: seededUserId,
+        role: "owner",
       });
       await ctx.db.insert("mcpOauthClients", {
         clientId: "client_test",

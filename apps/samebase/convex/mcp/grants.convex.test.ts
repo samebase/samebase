@@ -39,10 +39,12 @@ async function seedGrants() {
     await ctx.db.insert("organizationMemberships", {
       organizationId,
       userId: ownerId,
+      role: "owner",
     });
     await ctx.db.insert("organizationMemberships", {
       organizationId,
       userId: otherUserId,
+      role: "member",
     });
     await ctx.db.insert("mcpOauthClients", {
       clientId: "mcpc_named",

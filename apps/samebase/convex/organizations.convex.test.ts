@@ -56,6 +56,7 @@ describe("GitHub-backed organizations", () => {
     expect(snapshot.memberships[0]).toMatchObject({
       organizationId: created.organizationId,
       userId,
+      role: "owner",
     });
     expect(snapshot.billingAccounts).toHaveLength(1);
     expect(snapshot.billingAccounts[0]).toMatchObject({
@@ -119,5 +120,21 @@ describe("GitHub-backed organizations", () => {
         .collect();
     });
     expect(memberships).toHaveLength(1);
+    expect(memberships[0]?.role).toBe("member");
+    await expect(
+      t.mutation(internal.organizations.createOrReconnectVerifiedOrganization, {
+        userId: secondUserId,
+        githubOwnerId: "101",
+        githubOwnerType: "user",
+        githubOwnerLogin: "owner",
+        githubInstallationId: "1002",
+      }),
+    ).rejects.toThrowError("Organization owner access is required.");
+    await expect(
+      t.mutation(internal.billing.ensurePolarExternalCustomerId, {
+        userId: secondUserId,
+        organizationId: created.organizationId,
+      }),
+    ).rejects.toThrowError("Organization owner access is required.");
   });
 });

@@ -407,7 +407,7 @@ export const disconnectConvex = action({
   returns: v.null(),
   handler: async (ctx, args) => {
     const organizationId = await ctx.runQuery(
-      internal.organizationAccess.requireOrganizationIdForUser,
+      internal.organizationAccess.requireOrganizationOwnerIdForUser,
       { userId: ctx.viewer.userId, organizationId: args.organizationId },
     );
     const connection = await ctx.runQuery(
@@ -678,7 +678,7 @@ export const disconnectCloudflare = action({
   returns: v.null(),
   handler: async (ctx, args) => {
     const organizationId = await ctx.runQuery(
-      internal.organizationAccess.requireOrganizationIdForUser,
+      internal.organizationAccess.requireOrganizationOwnerIdForUser,
       { userId: ctx.viewer.userId, organizationId: args.organizationId },
     );
     const connection = await ctx.runQuery(
@@ -714,12 +714,12 @@ export const connectConvexWithApiKey = action({
   },
   returns: vConvexApiKeyConnectionResult,
   handler: async (ctx, args): Promise<Infer<typeof vConvexApiKeyConnectionResult>> => {
-    const token = normalizeApiToken(args.token);
-    const details = await fetchConvexApiKeyTeamDetails(token);
     const organizationId: Id<"organizations"> = await ctx.runQuery(
-      internal.organizationAccess.requireOrganizationIdForUser,
+      internal.organizationAccess.requireOrganizationOwnerIdForUser,
       { userId: ctx.viewer.userId, organizationId: args.organizationId },
     );
+    const token = normalizeApiToken(args.token);
+    const details = await fetchConvexApiKeyTeamDetails(token);
     const target: Doc<"providerConnections"> | null = await ctx.runQuery(
       internal.providerConnections.loadSelectedForOrganization,
       {

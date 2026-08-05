@@ -102,7 +102,7 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
       githubOwnerLoginNormalized: "ada",
       githubOwnerType: "user",
     });
-    await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
     const providerConnectionId = await ctx.db.insert("providerConnections", {
       kind: "convex",
       organizationId,

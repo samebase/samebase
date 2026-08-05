@@ -8,7 +8,7 @@
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Replacement branch: `codex-github-app-organizations`
 - Superseded draft: [#1355](https://github.com/samebase/samebase/pull/1355)
-- Current checkpoint: Implementation complete, real development validation pending
+- Current checkpoint: Development implementation, reduction, and manual validation complete
 
 ## Purpose
 
@@ -19,6 +19,8 @@ review transcripts, or a per-commit journal.
 ## Accepted Direction
 
 - Users can have zero, one, or several organization memberships.
+- Every membership is either `owner` or `member`. Members use organization resources; owners also
+  manage providers, GitHub reconnection, and billing.
 - Signup and waitlist entry do not create organizations or billing rows.
 - One Samebase organization maps to one stable GitHub repository owner.
 - A verified Samebase GitHub App installation creates or reconnects the organization.
@@ -108,17 +110,59 @@ Status: Complete on the replacement branch
 
 ### 3. Reduction and real validation
 
-Status: In progress
+Status: Complete on the replacement branch
 
 - Rejected user-owned, GitHub-provider, compatibility, and broad stale test code is removed.
 - Full TypeScript validation and the focused organization test set pass.
 - The implementation diff removes substantially more code than it adds.
 - An organization-bound MCP grant no longer exposes the full-user browser handoff tool.
-- Development data reset complete: four user and authentication records remain; organization,
-  membership, billing, provider, vault, workflow, staging, and MCP authorization rows were removed.
-- Run real two-user and multiple-organization manual flows with OAuth credentials.
-- Validate vault reload, GitHub, Convex, Cloudflare, observations, MCP, and denied access.
-- Record exact evidence and remaining production cutover work.
+- Development data reset complete. Later Google sign-in checks left six test users: four approved
+  accounts and two pending accounts. Disposable product data was rebuilt from the final model.
+- The real two-user flow passed with GitHub App, Convex OAuth, and Cloudflare OAuth credentials.
+- Vault reload, provider observations, shared provisioning, and denied browser access passed.
+- Multiple-owner, membership-role, owner-route, and MCP organization-boundary checks passed.
+- The final deletion audit removed a duplicate owner lookup subscription and unused provider
+  selection APIs. The branch now has 9,555 additions and 27,002 deletions against `origin/main`.
+  Production code has 6,384 additions and 7,876 deletions.
+- Samebase typecheck, app build, focused lint and format checks, and 69 focused role and route tests
+  pass after the final reduction.
+
+## Development Manual Results
+
+- A signed-in user with no membership saw no vaults and no provider connections.
+- Installing Samebase Dev for `samebase` created one organization, one membership, and one Free
+  billing account. No GitHub provider connection or user authorization row was created.
+- The first member connected Convex and Cloudflare through OAuth. Live checks passed for Convex
+  projects and deployments, and for Cloudflare accounts, Workers, and Workers Builds.
+- The first member created `tmp-8462-org-happy-path`. GitHub, Convex, and Cloudflare provisioning
+  reached `3/3 passed`; its Worker returned HTTP 200; reload kept the route
+  `/vault/samebase/tmp-8462-org-happy-path` with no organization query parameter.
+- The internal membership function added a second real Samebase account. That member immediately saw
+  the shared vault and both organization provider connections without connecting credentials.
+- The second member created `tmp-8462-org-member-app` with the same organization credentials.
+  GitHub, Convex, and Cloudflare provisioning reached `3/3 passed`; its Worker returned HTTP 200;
+  reload kept the clean vault route.
+- An approved account without membership saw no vaults or provider connections. Opening a known
+  vault route returned `Vault not found` and did not expose its Convex or Cloudflare resources.
+- The two-member provider page exposed that unrestricted memberships also allowed provider and
+  billing administration. The accepted fix is a required `owner | member` role before beta, with no
+  compatibility path or general role-management feature.
+- Installing Samebase Dev on `nicu-typescript` created a second organization and owner membership
+  for the same user. The installation was limited to one test repository. The two organizations had
+  separate provider state and separate Free billing accounts.
+- Connecting `nicu-typescript/codespace-test` created a vault only in that organization. Its clean
+  vault route reloaded and did not expose or require provider connections from `samebase`.
+- `/providers/samebase`, `/new-app/samebase`, and `/connect-repo/nicu-typescript` restored their
+  selected organization after reload. Their selectors showed GitHub owner logins and did not show
+  internal organization IDs.
+- The owner provider page kept reconnect, disconnect, account-selection, and billing actions. The
+  second member saw the same provider status and vaults, but only the read-only access checks. The
+  owner session was restored after this check.
+- An MCP grant bound to `samebase` returned only the two `samebase` vaults. A Convex discovery call
+  using the known `nicu-typescript` vault failed with
+  `Vault not found in the authorized organization.` Both temporary MCP grants were then revoked.
+- Real provisioning found two strict Convex argument-boundary defects. The saved fixes construct
+  only the arguments accepted by the target query. No compatibility path was added.
 
 ## Manual Acceptance Order
 
@@ -147,11 +191,11 @@ targets and final schema deployment are ready.
 
 ## Current Blockers
 
-- No implementation blocker exists for development validation.
+- No development organization-flow blocker remains.
 - Production GitHub App secrets block production deployment only.
 - Webhook setup is deferred until the main installation and repository flows work.
 
 ## Next Exact Task
 
-Run the real development GitHub App, provider, vault reload, two-member, denied-access, and MCP
-organization-boundary checks. Record the exact results before opening the replacement pull request.
+Review the replacement pull request. Generate and configure the production GitHub App secrets before
+production deployment, then perform the accepted pre-beta product-data reset.

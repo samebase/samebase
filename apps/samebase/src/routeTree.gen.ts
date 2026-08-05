@@ -27,7 +27,9 @@ import { Route as connectRepoRouteImport } from "./routes/connect-repo";
 import { Route as accountDeletionRouteImport } from "./routes/account-deletion";
 import { Route as indexRouteImport } from "./routes/index";
 import { Route as vaultFileRouteImport } from "./routes/vault-file";
+import { Route as providersOwnerRouteImport } from "./routes/providers-owner";
 import { Route as pitchPrintRouteImport } from "./routes/pitch-print";
+import { Route as newAppOwnerRouteImport } from "./routes/new-app-owner";
 import { Route as logoTransitionLabRouteImport } from "./routes/logo-transition-lab";
 import { Route as logoSvgRouteImport } from "./routes/logo-svg";
 import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
@@ -37,6 +39,7 @@ import { Route as logoIsoRouteImport } from "./routes/logo-iso";
 import { Route as docsTheStackRouteImport } from "./routes/docs-the-stack";
 import { Route as docsReceiptsRouteImport } from "./routes/docs-receipts";
 import { Route as docsDoItYourselfRouteImport } from "./routes/docs-do-it-yourself";
+import { Route as connectRepoOwnerRouteImport } from "./routes/connect-repo-owner";
 import { Route as adminAccountDeletionsRouteImport } from "./routes/admin-account-deletions";
 import { Route as vaultDashboardRootRouteImport } from "./routes/vault-dashboard-root";
 import { Route as vaultDashboardRouteImport } from "./routes/vault-dashboard";
@@ -140,9 +143,19 @@ const vaultFileRoute = vaultFileRouteImport.update({
   path: "/vault/$",
   getParentRoute: () => rootRouteImport,
 } as any);
+const providersOwnerRoute = providersOwnerRouteImport.update({
+  id: "/providers/$owner",
+  path: "/providers/$owner",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const pitchPrintRoute = pitchPrintRouteImport.update({
   id: "/pitch/print",
   path: "/pitch/print",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const newAppOwnerRoute = newAppOwnerRouteImport.update({
+  id: "/new-app/$owner",
+  path: "/new-app/$owner",
   getParentRoute: () => rootRouteImport,
 } as any);
 const logoTransitionLabRoute = logoTransitionLabRouteImport.update({
@@ -188,6 +201,11 @@ const docsReceiptsRoute = docsReceiptsRouteImport.update({
 const docsDoItYourselfRoute = docsDoItYourselfRouteImport.update({
   id: "/docs/do-it-yourself",
   path: "/docs/do-it-yourself",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const connectRepoOwnerRoute = connectRepoOwnerRouteImport.update({
+  id: "/connect-repo/$owner",
+  path: "/connect-repo/$owner",
   getParentRoute: () => rootRouteImport,
 } as any);
 const adminAccountDeletionsRoute = adminAccountDeletionsRouteImport.update({
@@ -273,6 +291,7 @@ export interface FileRoutesByFullPath {
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault/": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
+  "/connect-repo/$owner": typeof connectRepoOwnerRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
@@ -282,7 +301,9 @@ export interface FileRoutesByFullPath {
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
+  "/new-app/$owner": typeof newAppOwnerRoute;
   "/pitch/print": typeof pitchPrintRoute;
+  "/providers/$owner": typeof providersOwnerRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/hover/carpet": typeof logoCarpetHoverResearchRoute;
   "/logo/hover/menger": typeof logoMengerHoverResearchRoute;
@@ -315,6 +336,7 @@ export interface FileRoutesByTo {
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
+  "/connect-repo/$owner": typeof connectRepoOwnerRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
@@ -324,7 +346,9 @@ export interface FileRoutesByTo {
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
+  "/new-app/$owner": typeof newAppOwnerRoute;
   "/pitch/print": typeof pitchPrintRoute;
+  "/providers/$owner": typeof providersOwnerRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/hover/carpet": typeof logoCarpetHoverResearchRoute;
   "/logo/hover/menger": typeof logoMengerHoverResearchRoute;
@@ -358,6 +382,7 @@ export interface FileRoutesById {
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault/": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
+  "/connect-repo/$owner": typeof connectRepoOwnerRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
@@ -367,7 +392,9 @@ export interface FileRoutesById {
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
+  "/new-app/$owner": typeof newAppOwnerRoute;
   "/pitch/print": typeof pitchPrintRoute;
+  "/providers/$owner": typeof providersOwnerRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/hover/carpet": typeof logoCarpetHoverResearchRoute;
   "/logo/hover/menger": typeof logoMengerHoverResearchRoute;
@@ -402,6 +429,7 @@ export interface FileRouteTypes {
     | "/visual-fixture"
     | "/vault/"
     | "/admin/account-deletions"
+    | "/connect-repo/$owner"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
     | "/docs/the-stack"
@@ -411,7 +439,9 @@ export interface FileRouteTypes {
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
+    | "/new-app/$owner"
     | "/pitch/print"
+    | "/providers/$owner"
     | "/vault/$"
     | "/logo/hover/carpet"
     | "/logo/hover/menger"
@@ -444,6 +474,7 @@ export interface FileRouteTypes {
     | "/visual-fixture"
     | "/vault"
     | "/admin/account-deletions"
+    | "/connect-repo/$owner"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
     | "/docs/the-stack"
@@ -453,7 +484,9 @@ export interface FileRouteTypes {
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
+    | "/new-app/$owner"
     | "/pitch/print"
+    | "/providers/$owner"
     | "/vault/$"
     | "/logo/hover/carpet"
     | "/logo/hover/menger"
@@ -486,6 +519,7 @@ export interface FileRouteTypes {
     | "/visual-fixture"
     | "/vault/"
     | "/admin/account-deletions"
+    | "/connect-repo/$owner"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
     | "/docs/the-stack"
@@ -495,7 +529,9 @@ export interface FileRouteTypes {
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
+    | "/new-app/$owner"
     | "/pitch/print"
+    | "/providers/$owner"
     | "/vault/$"
     | "/logo/hover/carpet"
     | "/logo/hover/menger"
@@ -529,6 +565,7 @@ export interface RootRouteChildren {
   visualFixtureRoute: typeof visualFixtureRoute;
   vaultDashboardRootRoute: typeof vaultDashboardRootRoute;
   adminAccountDeletionsRoute: typeof adminAccountDeletionsRoute;
+  connectRepoOwnerRoute: typeof connectRepoOwnerRoute;
   docsDoItYourselfRoute: typeof docsDoItYourselfRoute;
   docsReceiptsRoute: typeof docsReceiptsRoute;
   docsTheStackRoute: typeof docsTheStackRoute;
@@ -538,7 +575,9 @@ export interface RootRouteChildren {
   logoIsoStudyRoute: typeof logoIsoStudyRoute;
   logoSvgRoute: typeof logoSvgRoute;
   logoTransitionLabRoute: typeof logoTransitionLabRoute;
+  newAppOwnerRoute: typeof newAppOwnerRoute;
   pitchPrintRoute: typeof pitchPrintRoute;
+  providersOwnerRoute: typeof providersOwnerRoute;
   vaultFileRoute: typeof vaultFileRoute;
   logoCarpetHoverResearchRoute: typeof logoCarpetHoverResearchRoute;
   logoMengerHoverResearchRoute: typeof logoMengerHoverResearchRoute;
@@ -680,11 +719,25 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof vaultFileRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/providers/$owner": {
+      id: "/providers/$owner";
+      path: "/providers/$owner";
+      fullPath: "/providers/$owner";
+      preLoaderRoute: typeof providersOwnerRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/pitch/print": {
       id: "/pitch/print";
       path: "/pitch/print";
       fullPath: "/pitch/print";
       preLoaderRoute: typeof pitchPrintRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/new-app/$owner": {
+      id: "/new-app/$owner";
+      path: "/new-app/$owner";
+      fullPath: "/new-app/$owner";
+      preLoaderRoute: typeof newAppOwnerRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/logo/transition": {
@@ -748,6 +801,13 @@ declare module "@tanstack/react-router" {
       path: "/docs/do-it-yourself";
       fullPath: "/docs/do-it-yourself";
       preLoaderRoute: typeof docsDoItYourselfRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/connect-repo/$owner": {
+      id: "/connect-repo/$owner";
+      path: "/connect-repo/$owner";
+      fullPath: "/connect-repo/$owner";
+      preLoaderRoute: typeof connectRepoOwnerRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/admin/account-deletions": {
@@ -857,6 +917,7 @@ const rootRouteChildren: RootRouteChildren = {
   visualFixtureRoute: visualFixtureRoute,
   vaultDashboardRootRoute: vaultDashboardRootRoute,
   adminAccountDeletionsRoute: adminAccountDeletionsRoute,
+  connectRepoOwnerRoute: connectRepoOwnerRoute,
   docsDoItYourselfRoute: docsDoItYourselfRoute,
   docsReceiptsRoute: docsReceiptsRoute,
   docsTheStackRoute: docsTheStackRoute,
@@ -866,7 +927,9 @@ const rootRouteChildren: RootRouteChildren = {
   logoIsoStudyRoute: logoIsoStudyRoute,
   logoSvgRoute: logoSvgRoute,
   logoTransitionLabRoute: logoTransitionLabRoute,
+  newAppOwnerRoute: newAppOwnerRoute,
   pitchPrintRoute: pitchPrintRoute,
+  providersOwnerRoute: providersOwnerRoute,
   vaultFileRoute: vaultFileRoute,
   logoCarpetHoverResearchRoute: logoCarpetHoverResearchRoute,
   logoMengerHoverResearchRoute: logoMengerHoverResearchRoute,

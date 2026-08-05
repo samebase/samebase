@@ -14,7 +14,7 @@ export function GitHubOwnerSelect({
   disabled: boolean;
   owners: GitHubOwner[];
   selectedOrganizationId: Id<"organizations"> | null;
-  onChange: (organizationId: Id<"organizations">) => void;
+  onChange: (owner: GitHubOwner) => void;
 }) {
   if (owners.length < 2) {
     return null;
@@ -22,8 +22,17 @@ export function GitHubOwnerSelect({
 
   return (
     <Select
+      items={owners.map((owner) => ({
+        label: owner.githubOwnerLogin,
+        value: owner.organizationId,
+      }))}
       value={selectedOrganizationId ?? undefined}
-      onValueChange={onChange}
+      onValueChange={(organizationId) => {
+        const owner = owners.find((candidate) => candidate.organizationId === organizationId);
+        if (owner) {
+          onChange(owner);
+        }
+      }}
       disabled={disabled}
     >
       <SelectTrigger className="w-full" aria-label="GitHub owner">

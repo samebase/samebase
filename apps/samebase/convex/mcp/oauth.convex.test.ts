@@ -57,6 +57,7 @@ async function seedRefreshTokenFamily() {
     await ctx.db.insert("organizationMemberships", {
       organizationId,
       userId: seededUserId,
+      role: "owner",
     });
     await ctx.db.insert("mcpOauthClients", {
       clientId,
@@ -308,6 +309,7 @@ describe("MCP OAuth authorization request boundaries", () => {
       await ctx.db.insert("organizationMemberships", {
         organizationId,
         userId: ownerUserId,
+        role: "owner",
       });
 
       for (const operation of ["issue", "deny"] as const) {

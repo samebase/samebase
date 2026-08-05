@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { ProviderConnectionsPage } from "./ProviderConnectionsPage";
 import { ProviderConnectionsPageVisualFixture } from "./ProviderConnectionsPageVisualFixture";
 
@@ -26,6 +27,7 @@ const organization = {
   githubOwnerLogin: "samebase",
   githubOwnerType: "organization" as const,
   organizationId: ORGANIZATION_ID,
+  role: "owner" as const,
 };
 
 const testState = vi.hoisted(() => ({
@@ -88,12 +90,20 @@ function setProviderQueries(organizations: unknown[]) {
 let mountedRoot: Root | null = null;
 let mountedElement: HTMLDivElement | null = null;
 
-function mountProviderConnectionsPage() {
+function mountProviderConnectionsPage(githubOwnerLogin: string | null = null) {
   mountedElement = document.createElement("div");
   document.body.append(mountedElement);
   mountedRoot = createRoot(mountedElement);
   act(() => {
-    mountedRoot?.render(<ProviderConnectionsPage />);
+    mountedRoot?.render(
+      <TestRouterProvider
+        initialEntries={[
+          githubOwnerLogin === null ? "/providers" : `/providers/${githubOwnerLogin}`,
+        ]}
+      >
+        <ProviderConnectionsPage githubOwnerLogin={githubOwnerLogin} />
+      </TestRouterProvider>,
+    );
   });
   return mountedElement;
 }
@@ -189,7 +199,64 @@ describe("ProviderConnectionsPage", () => {
     expect(checkConvexAccess).toHaveBeenCalledWith({ organizationId: ORGANIZATION_ID });
   });
 
-  it("requires a local GitHub owner choice when several organizations exist", () => {
+  it("keeps provider checks and hides provider management for a member", async () => {
+    setProviderQueries([{ ...organization, role: "member" }]);
+    const checkConvexAccess = vi.fn(async () => ({
+      checkedAt: Date.now(),
+      checks: [],
+      connected: false,
+      requestedAccess: [],
+    }));
+    testState.actions.set(
+      getFunctionName(api.convexProviderAccess.checkConvexConnectionAccess),
+      checkConvexAccess,
+    );
+    testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
+      authMethod: "oauth",
+      connected: true,
+      teamSlug: "samebase",
+    });
+    const container = mountProviderConnectionsPage();
+    const convexRow = container.querySelector('[data-provider-key="convex"]');
+
+    expect(convexRow?.textContent).toContain("Check access");
+    expect(convexRow?.textContent).not.toContain("Manage access");
+    expect(convexRow?.textContent).not.toContain("Reauthorize");
+    expect(convexRow?.textContent).not.toContain("Disconnect");
+    expect(container.textContent).not.toContain("Cloudflare OAuth");
+
+    const checkAccessButton = [...(convexRow?.querySelectorAll("button") ?? [])].find(
+      (button) => button.textContent === "Check access",
+    );
+    await act(async () => {
+      checkAccessButton?.click();
+      await Promise.resolve();
+    });
+    expect(checkConvexAccess).toHaveBeenCalledWith({ organizationId: ORGANIZATION_ID });
+  });
+
+  it("restores the routed owner case-insensitively and never shows its internal ID", () => {
+    const secondOrganization = {
+      githubOwnerId: "789",
+      githubOwnerLogin: "acme",
+      githubOwnerType: "organization" as const,
+      organizationId: SECOND_ORGANIZATION_ID,
+      role: "owner" as const,
+    };
+    setProviderQueries([organization, secondOrganization]);
+
+    const container = mountProviderConnectionsPage("SAMEBASE");
+
+    expect(testState.queryCalls).toContainEqual({
+      args: { organizationId: ORGANIZATION_ID },
+      name: getFunctionName(api.users.getConvexConnectionStatus),
+    });
+    const ownerTrigger = container.querySelector('[aria-label="GitHub owner"]');
+    expect(ownerTrigger?.textContent).toContain("samebase");
+    expect(ownerTrigger?.textContent).not.toContain(ORGANIZATION_ID);
+  });
+
+  it("keeps the base route as a chooser when several organizations exist", () => {
     setProviderQueries([
       organization,
       {
@@ -197,10 +264,15 @@ describe("ProviderConnectionsPage", () => {
         githubOwnerLogin: "acme",
         githubOwnerType: "organization",
         organizationId: SECOND_ORGANIZATION_ID,
+        role: "owner",
       },
     ]);
 
-    const markup = renderToStaticMarkup(<ProviderConnectionsPage />);
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/providers"]}>
+        <ProviderConnectionsPage githubOwnerLogin={null} />
+      </TestRouterProvider>,
+    );
 
     expect(markup).toContain("GitHub owner");
     expect(markup).toContain("Select a GitHub owner.");

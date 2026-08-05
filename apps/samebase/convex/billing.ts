@@ -9,6 +9,7 @@ import {
   patchBillingAccount,
   readBillingAccountState,
   requireBillingAccountForOrganization,
+  requireOwnerBillingAccountForOrganization,
 } from "./organizationBilling";
 import { randomToken } from "./oauthUtils";
 import { reconcilePolarCustomerBilling } from "./polarBillingState";
@@ -26,6 +27,7 @@ import {
   type PolarServer,
 } from "./polarClient";
 import schema from "./schema";
+import { vOrganizationMembershipRole } from "./organizationModel";
 
 const { boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -77,6 +79,7 @@ const vOrganizationBillingAccountDoc = schema.tables.organizationBillingAccounts
 
 const vUserBillingAccount = object({
   account: vOrganizationBillingAccountDoc,
+  role: vOrganizationMembershipRole,
   user: vUserDoc,
 });
 
@@ -138,7 +141,8 @@ export const getViewerBillingStatus = query({
       status: state.status,
       currentPeriodEndAt: state.currentPeriodEndAt,
       cancelAtPeriodEnd: state.cancelAtPeriodEnd,
-      canStartCheckout: ctx.viewer.accessKeys.includes("access_dashboard"),
+      canStartCheckout:
+        billing.role === "owner" && ctx.viewer.accessKeys.includes("access_dashboard"),
     };
   },
 });
@@ -159,7 +163,7 @@ export const ensurePolarExternalCustomerId = internalMutation({
   },
   returns: vPolarCustomerSeed,
   handler: async (ctx, args) => {
-    const billing = await requireBillingAccountForOrganization(ctx.db, args);
+    const billing = await requireOwnerBillingAccountForOrganization(ctx.db, args);
     const state = readBillingAccountState(billing.account);
     const user = billing.user;
 
@@ -202,6 +206,9 @@ export const createPolarCheckoutSession = action({
     });
     if (!currentBilling) {
       throw new Error("User not found.");
+    }
+    if (currentBilling.role !== "owner") {
+      throw new Error("Organization owner access is required.");
     }
     const storedBilling = readBillingAccountState(currentBilling.account);
 
@@ -379,6 +386,9 @@ export const createPolarCustomerPortalSession = action({
     if (!currentBilling) {
       throw new Error("User not found.");
     }
+    if (currentBilling.role !== "owner") {
+      throw new Error("Organization owner access is required.");
+    }
 
     const externalCustomerId = readBillingAccountState(
       currentBilling.account,
@@ -423,10 +433,16 @@ export const reconcileViewerBillingFromPolar = action({
       userId,
       organizationId,
     });
-    const storedBilling = currentBilling ? readBillingAccountState(currentBilling.account) : null;
-    const externalCustomerId = storedBilling?.polarExternalCustomerId?.trim();
+    if (currentBilling === null) {
+      return { state: "unavailable" };
+    }
+    if (currentBilling.role !== "owner") {
+      throw new Error("Organization owner access is required.");
+    }
+    const storedBilling = readBillingAccountState(currentBilling.account);
+    const externalCustomerId = storedBilling.polarExternalCustomerId?.trim();
     const productId = readPolarProMonthlyProductId();
-    if (storedBilling === null || !externalCustomerId || !productId) {
+    if (!externalCustomerId || !productId) {
       return { state: "unavailable" };
     }
 

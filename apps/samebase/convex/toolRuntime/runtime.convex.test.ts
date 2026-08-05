@@ -28,6 +28,7 @@ async function seedToolRuntimeOwner() {
     await ctx.db.insert("organizationMemberships", {
       organizationId,
       userId,
+      role: "owner",
     });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
@@ -116,6 +117,7 @@ describe("MCP tool runtime boundaries", () => {
       await ctx.db.insert("organizationMemberships", {
         organizationId: otherOrganizationId,
         userId,
+        role: "member",
       });
       const otherRunVaultId = await ctx.db.insert("vaults", {
         organizationId: otherOrganizationId,

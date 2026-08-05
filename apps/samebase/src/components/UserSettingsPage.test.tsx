@@ -23,6 +23,7 @@ const organization = {
   githubOwnerLogin: "samebase",
   githubOwnerType: "organization" as const,
   organizationId: ORGANIZATION_ID,
+  role: "owner" as const,
 };
 
 const testState = vi.hoisted(() => ({
@@ -252,6 +253,21 @@ describe("UserSettingsPage", () => {
     });
   });
 
+  it("shows billing state but hides billing management for a member", async () => {
+    setDefaultQueries([{ ...organization, role: "member" }]);
+    testState.queries.set(getFunctionName(api.billing.getViewerBillingStatus), {
+      canStartCheckout: false,
+      plan: "pro",
+      status: "active",
+    });
+    const container = await mountSettingsPage();
+
+    expect(container.textContent).toContain("Current plan");
+    expect(container.textContent).toContain("Pro");
+    expect(findButton(container, "Manage subscription")).toBeUndefined();
+    expect(findButton(container, "Upgrade to Pro, $4/month")).toBeUndefined();
+  });
+
   it("requires a local owner choice before reading billing for several organizations", async () => {
     setDefaultQueries([
       organization,
@@ -260,6 +276,7 @@ describe("UserSettingsPage", () => {
         githubOwnerLogin: "acme",
         githubOwnerType: "organization",
         organizationId: SECOND_ORGANIZATION_ID,
+        role: "owner",
       },
     ]);
     const container = await mountSettingsPage();

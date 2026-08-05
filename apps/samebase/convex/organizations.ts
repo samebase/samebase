@@ -2,11 +2,8 @@ import { v } from "convex/values";
 
 import { internalMutation } from "./_generated/server";
 import { query } from "./functions";
-import {
-  findOrganizationAccessContext,
-  requireOrganizationAccessContext,
-} from "./organizationAccess";
-import { vGitHubOwnerType } from "./organizationModel";
+import { requireOrganizationOwnerAccessContext } from "./organizationAccess";
+import { vGitHubOwnerType, vOrganizationMembershipRole } from "./organizationModel";
 
 const { boolean, id, object, string } = v;
 
@@ -15,6 +12,7 @@ const vOrganizationSummary = object({
   githubOwnerId: string(),
   githubOwnerType: vGitHubOwnerType,
   githubOwnerLogin: string(),
+  role: vOrganizationMembershipRole,
 });
 
 const vCreateOrReconnectResult = object({
@@ -55,6 +53,7 @@ export const listForViewer = query({
         githubOwnerId: organization.githubOwnerId,
         githubOwnerType: organization.githubOwnerType,
         githubOwnerLogin: organization.githubOwnerLogin,
+        role: membership.role,
       });
     }
 
@@ -63,45 +62,6 @@ export const listForViewer = query({
         left.githubOwnerLogin.localeCompare(right.githubOwnerLogin) ||
         left.organizationId.localeCompare(right.organizationId),
     );
-  },
-});
-
-export const getByOwnerLoginForViewer = query({
-  access: "access_dashboard",
-  args: {
-    githubOwnerLogin: string(),
-  },
-  returns: v.union(vOrganizationSummary, v.null()),
-  handler: async (ctx, args) => {
-    const githubOwnerLoginNormalized = normalizeGitHubOwnerLogin(args.githubOwnerLogin);
-    if (githubOwnerLoginNormalized.length === 0) {
-      return null;
-    }
-
-    const organization = await ctx.db
-      .query("organizations")
-      .withIndex("by_github_owner_login_normalized", (query) =>
-        query.eq("githubOwnerLoginNormalized", githubOwnerLoginNormalized),
-      )
-      .unique();
-    if (organization === null) {
-      return null;
-    }
-
-    const access = await findOrganizationAccessContext(ctx.db, {
-      userId: ctx.viewer.userId,
-      organizationId: organization._id,
-    });
-    if (access === null) {
-      return null;
-    }
-
-    return {
-      organizationId: organization._id,
-      githubOwnerId: organization.githubOwnerId,
-      githubOwnerType: organization.githubOwnerType,
-      githubOwnerLogin: organization.githubOwnerLogin,
-    };
   },
 });
 
@@ -150,7 +110,7 @@ export const createOrReconnectVerifiedOrganization = internalMutation({
       ]);
 
     if (existingOrganization !== null) {
-      await requireOrganizationAccessContext(ctx.db, {
+      await requireOrganizationOwnerAccessContext(ctx.db, {
         userId: args.userId,
         organizationId: existingOrganization._id,
       });
@@ -194,6 +154,7 @@ export const createOrReconnectVerifiedOrganization = internalMutation({
     await ctx.db.insert("organizationMemberships", {
       organizationId,
       userId: args.userId,
+      role: "owner",
     });
     await ctx.db.insert("organizationBillingAccounts", {
       organizationId,

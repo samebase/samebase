@@ -684,7 +684,7 @@ export const getCloudflareMcpOAuthUrl = action({
   returns: getCloudflareMcpOAuthUrlResultValidator,
   handler: async (ctx, args): Promise<string> => {
     const organizationId = await ctx.runQuery(
-      internal.organizationAccess.requireOrganizationIdForUser,
+      internal.organizationAccess.requireOrganizationOwnerIdForUser,
       {
         userId: ctx.viewer.userId,
         organizationId: args.organizationId,

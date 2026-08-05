@@ -35,6 +35,7 @@ async function seedOrganizationMembers() {
     await ctx.db.insert("organizationMemberships", {
       organizationId,
       userId: users.memberId,
+      role: "member",
     });
   });
   return { ...users, organizationId, otherOrganizationId, t };
@@ -54,7 +55,7 @@ describe("organization provider connections", () => {
     });
     const selectedConnectionId = await t.mutation(internal.providerConnections.createConnected, {
       organizationId,
-      connectedByUserId: memberId,
+      connectedByUserId: ownerId,
       connection: {
         kind: "convex",
         auth: { method: "api_key", credential: "credential-b" },
@@ -89,6 +90,66 @@ describe("organization provider connections", () => {
     expect(connections).toHaveLength(2);
   });
 
+  it("lets members use connections but not manage them", async () => {
+    const { memberId, organizationId, ownerId, t } = await seedOrganizationMembers();
+    const providerConnectionId = await t.mutation(internal.providerConnections.createConnected, {
+      organizationId,
+      connectedByUserId: ownerId,
+      connection: {
+        kind: "cloudflare",
+        auth: { method: "api_key", credential: "credential-a" },
+        defaultAccount: {
+          state: "selected",
+          accountId: "account-a",
+          accountName: "Account A",
+        },
+      },
+    });
+
+    await expect(
+      t.query(internal.providerConnections.loadSelectedForOrganization, {
+        organizationId,
+        userId: memberId,
+        kind: "cloudflare",
+      }),
+    ).resolves.toMatchObject({ _id: providerConnectionId });
+    await expect(
+      t.mutation(internal.providerConnections.disconnect, {
+        organizationId,
+        disconnectedByUserId: memberId,
+        providerConnectionId,
+        kind: "cloudflare",
+      }),
+    ).rejects.toThrow("Organization owner access is required.");
+
+    await expect(
+      t.mutation(internal.providerConnections.updateCloudflareConnected, {
+        organizationId,
+        userId: memberId,
+        providerConnectionId,
+        auth: { method: "api_key", credential: "credential-a" },
+        defaultAccount: {
+          state: "selected",
+          accountId: "account-a",
+          accountName: "Renamed Account A",
+        },
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      t.mutation(internal.providerConnections.updateCloudflareConnected, {
+        organizationId,
+        userId: memberId,
+        providerConnectionId,
+        auth: { method: "api_key", credential: "credential-a" },
+        defaultAccount: {
+          state: "selected",
+          accountId: "account-b",
+          accountName: "Account B",
+        },
+      }),
+    ).rejects.toThrow("Organization owner access is required.");
+  });
+
   it("checks membership and deletes a disconnected row and its selected pointer", async () => {
     const { organizationId, otherOrganizationId, outsiderId, ownerId, t } =
       await seedOrganizationMembers();
@@ -103,9 +164,9 @@ describe("organization provider connections", () => {
     });
 
     await expect(
-      t.mutation(internal.providerConnections.setSelected, {
+      t.mutation(internal.providerConnections.disconnect, {
         organizationId,
-        userId: outsiderId,
+        disconnectedByUserId: outsiderId,
         providerConnectionId,
         kind: "cloudflare",
       }),

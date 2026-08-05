@@ -33,9 +33,14 @@ user with no membership is a valid user. Samebase login stays independent from G
 use Google login and does not need a GitHub account for operations that use organization
 credentials.
 
-The first release has no membership roles, invitation records, or permission arrays. Membership row
-presence grants organization access. Until an invitation UI exists, an idempotent internal function
-adds an existing Samebase user to an organization.
+Each membership has one required role: `owner` or `member`. Both roles can read and operate the
+organization's vaults and use organization credentials to create apps. Only owners can manage
+provider connections, reconnect the GitHub organization, or manage billing. The first verified
+GitHub App installation creates an owner membership. Until an invitation UI exists, an idempotent
+internal function adds an existing Samebase user as a member.
+
+The first release has no invitation records, role-editing flow, last-owner transition rules,
+permission arrays, or custom roles.
 
 ## GitHub Owner And App Installation
 
@@ -59,9 +64,10 @@ An organization is always bound to its GitHub owner when it is created. There is
 organization and no automatic personal organization during signup.
 
 Creating an organization requires a verified installation of the environment's Samebase GitHub App.
-The signed-in Samebase user who completes setup becomes the first member. The same transaction
+The signed-in Samebase user who completes setup becomes the first owner. The same transaction
 creates the organization's Free billing row. Reinstalling the app for the same owner updates the
-installation ID and does not create another organization.
+installation ID and does not create another organization. Reconnecting an existing organization
+requires an owner membership.
 
 The installation is not a `providerConnections` row and is not a Samebase login method. Samebase
 creates short-lived installation access tokens for repository operations and does not store those
@@ -96,7 +102,9 @@ The schema permits several connections of one kind in one organization. The firs
 use one current connection without adding a database uniqueness rule. The organization stores an
 optional selected Convex connection ID and an optional selected Cloudflare connection ID for this
 current UI. It never stores a selected GitHub connection ID. The user who connects a credential is
-provenance, not the authorization boundary. Organization membership controls use.
+provenance, not the authorization boundary. Organization membership controls use. Any member can run
+operations through the selected connection. Only an owner can create, replace, select, reauthorize,
+or disconnect an organization connection.
 
 Provider credentials stay in backend-only functions. Product clients can request authorized
 operations and read non-secret status. They cannot retrieve credentials or raw provider errors.
@@ -118,6 +126,12 @@ The route `/vault/<owner>/<repository>` resolves the vault and then derives the 
 organization. It does not use an opaque `?organization=<id>` parameter. Internal Samebase IDs are
 database and authorization identities, not URL selectors.
 
+Organization setup pages use the same stable GitHub owner login in `/providers/<owner>`,
+`/new-app/<owner>`, and `/connect-repo/<owner>`. Their base routes are chooser pages when the user
+has several memberships. Selecting an owner navigates to the owner route, and a reload resolves the
+internal organization ID through the viewer's membership. These pages do not store a hidden active
+organization or expose an internal organization ID in the URL or selector.
+
 An operation on an existing resource loads that resource and derives its organization before it
 checks membership. A root creation operation identifies the GitHub owner through the verified App
 installation and checks membership. Client-supplied user IDs, actor fields, organization IDs, or
@@ -126,7 +140,8 @@ credentials are not proof of access.
 ## Authorization And Ownership
 
 An organization operation requires both the existing Samebase application access gate and a current
-membership in the resource organization.
+membership in the resource organization. Provider administration, organization reconnection, and
+billing management additionally require an owner membership.
 
 Durable ownership is:
 
@@ -159,6 +174,7 @@ that need the web app use the normal user login flow outside MCP authorization.
 `organizationBillingAccounts` contains exactly one row for each organization. A user with no
 organization has no organization billing row. A new organization starts on Free with inactive
 provider billing state. Plan, quota, usage, checkout, and subscription belong to the organization.
+All members can read plan and usage. Only owners can start checkout or open subscription management.
 
 Deleting a user is not organization deletion. User deletion removes authentication data, personal
 state, memberships, MCP grants, user-owned GitHub authorizations, and provider grants connected by
@@ -218,6 +234,8 @@ The rollout is ready only when focused tests and real manual checks prove:
 - A vault owner ID must match its organization owner ID.
 - `/vault/<owner>/<repository>` reloads without an organization query parameter and shows the same
   repository, Cloudflare Worker, Convex project, and observations.
+- `/providers/<owner>`, `/new-app/<owner>`, and `/connect-repo/<owner>` reload with the same
+  selected organization and never show an internal organization ID.
 - Both members see the same organization vaults, provider status, billing state, and observations.
 - A member can create and reload a GitHub repository, Convex project, and Cloudflare Worker.
 - A user outside the organization cannot read or change its resources.

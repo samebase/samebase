@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
 import { useState, type ReactElement } from "react";
@@ -18,7 +18,9 @@ import { resolveDisplayedRepositories } from "@/lib/connectRepositoryPicker";
 import { queueExistingRepositoryAndNavigateToDashboard } from "@/lib/existingRepositoryConnectHandoff";
 import { Loader2 } from "lucide-react";
 import { GitHubOwnerSelect, type GitHubOwner } from "@/components/GitHubOwnerSelect";
+import { useGitHubOwnerRouteSelection } from "@/components/useGitHubOwnerRouteSelection";
 import { getCurrentRootRelativeUrl, openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
+import { CONNECT_REPO_OWNER_ROUTE } from "@/lib/connectRepoRoute";
 import type { Id } from "../../convex/_generated/dataModel";
 
 type Repository = FunctionReturnType<typeof api.github.listRepositories>[number];
@@ -49,7 +51,7 @@ type ConnectRepositoryPageContentProps = {
   showBackgroundError: boolean;
   onConnectRepository: (repositoryFullName: string) => void;
   onInstallGitHubApp: () => void;
-  onOrganizationChange: (organizationId: Id<"organizations">) => void;
+  onOrganizationChange: (owner: GitHubOwner) => void;
   onRetryFullRepositories: () => void;
   onSearchQueryChange: (value: string) => void;
 };
@@ -103,7 +105,7 @@ function renderHighlightedText(target: string, matchedIndices: number[]): ReactE
   return <span>{elements}</span>;
 }
 
-export function ConnectRepository() {
+export function ConnectRepository({ githubOwnerLogin }: { githubOwnerLogin: string | null }) {
   const location = useLocation();
   const navigate = useNavigate();
   const vaults = useQuery(api.vault.dashboard.getUserVaults);
@@ -115,16 +117,7 @@ export function ConnectRepository() {
   const getGitHubAppInstallationUrl = useMutation(
     api.githubAppInstallation.getGitHubAppInstallationUrl,
   );
-  const githubOwners = useConvexQuery(api.organizations.listForViewer);
-  const [requestedOrganizationId, setSelectedOrganizationId] = useState<Id<"organizations"> | null>(
-    null,
-  );
-  const selectedOwner =
-    githubOwners?.length === 1
-      ? githubOwners[0]
-      : (githubOwners?.find(
-          (owner: GitHubOwner) => owner.organizationId === requestedOrganizationId,
-        ) ?? null);
+  const { githubOwners, selectedOwner } = useGitHubOwnerRouteSelection(githubOwnerLogin);
   const selectedOrganizationId = selectedOwner?.organizationId ?? null;
   const canListRepositories = selectedOrganizationId !== null;
   const [connectError, setConnectError] = useState<string | null>(null);
@@ -304,7 +297,13 @@ export function ConnectRepository() {
       showBackgroundError={showBackgroundError}
       onConnectRepository={connectSelectedRepository}
       onInstallGitHubApp={installGitHubApp}
-      onOrganizationChange={setSelectedOrganizationId}
+      onOrganizationChange={(owner) => {
+        void navigate({
+          to: CONNECT_REPO_OWNER_ROUTE,
+          params: { owner: owner.githubOwnerLogin },
+          search: location.search,
+        });
+      }}
       onRetryFullRepositories={retryFullRepositories}
       onSearchQueryChange={setSearchQuery}
     />

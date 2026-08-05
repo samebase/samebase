@@ -5,7 +5,7 @@ import { z } from "zod";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { mutation } from "./functions";
-import { requireOrganizationAccessContext } from "./organizationAccess";
+import { requireOrganizationOwnerAccessContext } from "./organizationAccess";
 import { getSelectedProviderConnectionForOrganization } from "./providerConnections";
 import {
   createCodeChallenge,
@@ -220,7 +220,7 @@ export const getConvexOAuthUrl = mutation({
   },
   returns: v.string(),
   handler: async (ctx, args) => {
-    const { organizationId } = await requireOrganizationAccessContext(ctx.db, {
+    const { organizationId } = await requireOrganizationOwnerAccessContext(ctx.db, {
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
     });
