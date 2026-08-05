@@ -230,8 +230,8 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 - Editor: Monaco plus CodeMirror 6 / `@prosemark/core`
 - UI: Tailwind CSS, Base UI, shadcn/ui
 - State: Convex subscriptions plus TanStack Query
-- Samebase does not ship an in-app AI chat or agent graph. Agents use the app through MCP and
-  browser handoff. Reintroduction requires a new accepted product decision.
+- Samebase does not ship an in-app AI chat or agent graph. Agents use MCP or a normal signed-in
+  browser. Reintroduction requires a new accepted product decision.
 
 Key domain entities:
 

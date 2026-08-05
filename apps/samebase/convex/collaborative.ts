@@ -5,6 +5,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { mutation, query } from "./functions";
+import { findVaultForUser } from "./organizationAccess";
 import { assertConnectedVault, isLiveConnectedVault } from "./vault/state";
 import {
   STALE_BASE_VERSION_ERROR_CODE,
@@ -38,8 +39,8 @@ async function getLiveCollaborativeVault(
     userId: Id<"users">;
   },
 ) {
-  const vault = await ctx.db.get(args.vaultId);
-  if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+  const vault = await findVaultForUser(ctx.db, args);
+  if (!isLiveConnectedVault(vault)) {
     return null;
   }
   return vault;

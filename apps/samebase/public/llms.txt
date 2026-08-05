@@ -62,7 +62,6 @@ Choose an explicit action whose contract matches the required stable IDs, then r
 - [Configure Workers Builds for GitHub](https://samebase.com/docs/actions/configure_workers_builds_for_github.md): Configure the selected Worker's production and preview Workers Builds triggers for the vault's GitHub repository, then start a production build.
 - [Rotate Convex deploy keys for Workers Builds](https://samebase.com/docs/actions/rotate_convex_deploy_keys_for_workers_builds.md): Rotate Samebase-named production and preview Convex deploy keys, write them with the readable SAMEBASE_CONVEX_PROJECT marker to both Workers Builds triggers, then start a production build.
 - [Retry infrastructure provisioning](https://samebase.com/docs/actions/retry_infrastructure_provisioning.md): Retry a failed managed provisioning run for a Samebase-managed app, resuming from the failed step.
-- [Create browser handoff](https://samebase.com/docs/actions/create_browser_handoff.md): Create a short-lived one-time Samebase browser sign-in URL for the MCP grant's current user. The URL is sensitive and expires quickly.
 - [Get authentication status](https://samebase.com/docs/actions/get_authentication_status.md): Read the caller's current Samebase MCP authentication state: account identity, role, access keys, and OAuth token scopes.
 
 ## Operate

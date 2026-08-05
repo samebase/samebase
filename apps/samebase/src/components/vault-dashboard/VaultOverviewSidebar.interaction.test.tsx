@@ -42,6 +42,11 @@ function fakeVaultId(value: string): Id<"vaults"> {
   return value;
 }
 
+function fakeOrganizationId(): Id<"organizations"> {
+  // @ts-expect-error Convex ids are strings at runtime; the test needs a stable id.
+  return "organization-samebase";
+}
+
 function fakeFolderId(value: string): Id<"ui_vaultFolders"> {
   // @ts-expect-error Convex ids are strings at runtime; the test needs stable ids.
   return value;
@@ -50,6 +55,7 @@ function fakeFolderId(value: string): Id<"ui_vaultFolders"> {
 function makeVault(): UserVaultResult {
   return {
     _id: fakeVaultId("vault-active"),
+    organizationId: fakeOrganizationId(),
     canRemoveCloudflareProvision: false,
     canRemoveConvexProvision: false,
     cloudflareWorkers: [],

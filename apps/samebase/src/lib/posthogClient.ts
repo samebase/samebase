@@ -1,8 +1,3 @@
-import {
-  hasAgentBrowserHandoffFragment,
-  isAgentBrowserHandoffRoute,
-} from "../../shared/agentBrowserHandoff";
-
 type SamebasePostHogClient = (typeof import("posthog-js"))["default"];
 type SamebasePostHogInitConfig = NonNullable<Parameters<SamebasePostHogClient["init"]>[1]>;
 
@@ -115,17 +110,8 @@ export async function loadSamebasePostHogClient(): Promise<SamebasePostHogClient
 export async function captureSamebasePostHogPageview(href: string) {
   const posthog = await loadSamebasePostHogClient();
   posthog?.capture("$pageview", {
-    $current_url: sanitizeSamebasePostHogPageviewUrl(href, window.location.origin),
+    $current_url: new URL(href, window.location.origin).href,
   });
-}
-
-export function sanitizeSamebasePostHogPageviewUrl(href: string, origin: string): string {
-  const url = new URL(href, origin);
-  if (isAgentBrowserHandoffRoute(url.pathname) && hasAgentBrowserHandoffFragment(url.hash)) {
-    url.hash = "";
-  }
-
-  return url.href;
 }
 
 /**

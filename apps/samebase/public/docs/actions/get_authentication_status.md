@@ -103,9 +103,6 @@ JSON Schema for the tool's `structuredContent`:
                     "const": "access_mcp"
                   },
                   {
-                    "const": "access_browser_login_handoff"
-                  },
-                  {
                     "const": "access_schema_graph"
                   },
                   {
@@ -188,9 +185,6 @@ JSON Schema for the tool's `structuredContent`:
                   },
                   {
                     "const": "access_mcp"
-                  },
-                  {
-                    "const": "access_browser_login_handoff"
                   },
                   {
                     "const": "access_schema_graph"

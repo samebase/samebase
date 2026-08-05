@@ -4,6 +4,11 @@ import { Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import { internalAction, internalMutation, type ActionCtx } from "./_generated/server";
+import {
+  findBillingAccountByPolarExternalCustomerId,
+  patchBillingAccount,
+  readBillingAccountState,
+} from "./organizationBilling";
 import { createPolarClient, readPolarProMonthlyProductId } from "./polarClient";
 
 const { boolean, literal, null: nullValue, number, object, string, union } = v;
@@ -121,22 +126,21 @@ export const beginObservation = internalMutation({
   },
   returns: union(number(), nullValue()),
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_polar_external_customer_id", (q) =>
-        q.eq("billingPolarExternalCustomerId", args.externalCustomerId),
-      )
-      .unique();
-    if (!user) {
+    const target = await findBillingAccountByPolarExternalCustomerId(
+      ctx.db,
+      args.externalCustomerId,
+    );
+    if (target === null) {
       return null;
     }
+    const account = readBillingAccountState(target);
 
     const revision =
       Math.max(
-        user.billingPolarObservationRevision ?? 0,
-        user.billingPolarAppliedObservationRevision ?? 0,
+        account.polarObservationRevision ?? 0,
+        account.polarAppliedObservationRevision ?? 0,
       ) + 1;
-    await ctx.db.patch(user._id, { billingPolarObservationRevision: revision });
+    await patchBillingAccount(ctx.db, target, { polarObservationRevision: revision });
     return revision;
   },
 });
@@ -149,26 +153,28 @@ export const applyObservation = internalMutation({
   returns: boolean(),
   handler: async (ctx, args) => {
     const state = args.state;
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_polar_external_customer_id", (q) =>
-        q.eq("billingPolarExternalCustomerId", state.externalCustomerId),
-      )
-      .unique();
-    if (!user || args.observationRevision <= (user.billingPolarAppliedObservationRevision ?? 0)) {
+    const target = await findBillingAccountByPolarExternalCustomerId(
+      ctx.db,
+      state.externalCustomerId,
+    );
+    if (target === null) {
+      return false;
+    }
+    const account = readBillingAccountState(target);
+    if (args.observationRevision <= (account.polarAppliedObservationRevision ?? 0)) {
       return false;
     }
 
-    await ctx.db.patch(user._id, {
-      billingProvider: "polar",
-      billingPlan: state.plan,
-      billingStatus: state.status,
-      billingUpdatedAt: Date.now(),
-      billingPolarAppliedObservationRevision: args.observationRevision,
-      billingCurrentPeriodEndAt: state.plan === "pro" ? state.currentPeriodEndAt : undefined,
-      billingCancelAtPeriodEnd: state.plan === "pro" ? state.cancelAtPeriodEnd : undefined,
-      ...(state.plan === "pro" && user.billingPolarCheckoutAttempt?.state === "open"
-        ? { billingPolarCheckoutAttempt: undefined }
+    await patchBillingAccount(ctx.db, target, {
+      provider: "polar",
+      plan: state.plan,
+      status: state.status,
+      updatedAt: Date.now(),
+      polarAppliedObservationRevision: args.observationRevision,
+      currentPeriodEndAt: state.plan === "pro" ? state.currentPeriodEndAt : undefined,
+      cancelAtPeriodEnd: state.plan === "pro" ? state.cancelAtPeriodEnd : undefined,
+      ...(state.plan === "pro" && account.polarCheckoutAttempt?.state === "open"
+        ? { polarCheckoutAttempt: undefined }
         : {}),
     });
 

@@ -2,6 +2,7 @@ import { v, type Infer } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { query } from "./functions";
 import { vAppProvisioningEventLevel, vAppProvisioningStep } from "./appProvisioningModel";
+import { findVaultForUser } from "./organizationAccess";
 
 const { array, id, number, object, string } = v;
 const MAX_PROVISIONING_EVENTS = 80;
@@ -70,8 +71,11 @@ export const listForVault = query({
   },
   returns: array(provisioningEventResult),
   handler: async (ctx, args): Promise<ProvisioningEventResult[]> => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== ctx.viewer.userId) {
+    const vault = await findVaultForUser(ctx.db, {
+      userId: ctx.viewer.userId,
+      vaultId: args.vaultId,
+    });
+    if (!vault) {
       return [];
     }
 

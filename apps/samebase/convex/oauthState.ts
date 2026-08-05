@@ -1,19 +1,38 @@
-import { Infer, v } from "convex/values";
+import { v } from "convex/values";
+
 import { internalMutation, internalQuery } from "./_generated/server";
+import { requireOrganizationAccessContext } from "./organizationAccess";
+import { getProviderConnectionByIdForOrganization } from "./providerConnections";
+import {
+  vOAuthProvider,
+  vProviderOAuthCallbackState,
+  type OAuthProvider,
+  type ProviderKind,
+} from "./providerConnectionModel";
 
-export const vOAuthProvider = v.union(
-  v.literal("github"),
-  v.literal("convex"),
-  v.literal("cloudflare"),
-  v.literal("cloudflare_mcp"),
-);
+export { vOAuthProvider, type OAuthProvider } from "./providerConnectionModel";
 
-export type OAuthProvider = Infer<typeof vOAuthProvider>;
+const vProviderOAuthCallbackStateResult = vProviderOAuthCallbackState.extend({
+  _id: v.id("providerOAuthCallbackStates"),
+  _creationTime: v.number(),
+});
+
+function providerKindForOAuthProvider(provider: OAuthProvider): ProviderKind {
+  switch (provider) {
+    case "convex":
+      return "convex";
+    case "cloudflare":
+    case "cloudflare_mcp":
+      return "cloudflare";
+  }
+}
 
 export const createOauthState = internalMutation({
   args: {
     provider: vOAuthProvider,
     userId: v.id("users"),
+    organizationId: v.id("organizations"),
+    providerConnectionId: v.optional(v.id("providerConnections")),
     state: v.string(),
     returnToPath: v.optional(v.string()),
     codeVerifier: v.optional(v.string()),
@@ -24,21 +43,28 @@ export const createOauthState = internalMutation({
   },
   returns: v.id("providerOAuthCallbackStates"),
   handler: async (ctx, args) => {
-    const user = await ctx.db.get(args.userId);
-    if (!user || user.accountDeletion) {
+    const [user, organization] = await Promise.all([
+      ctx.db.get(args.userId),
+      ctx.db.get(args.organizationId),
+    ]);
+    if (user === null || user.accountDeletion !== undefined) {
       throw new Error("Account deletion is in progress.");
     }
-    return await ctx.db.insert("providerOAuthCallbackStates", {
-      provider: args.provider,
-      userId: args.userId,
-      state: args.state,
-      returnToPath: args.returnToPath,
-      codeVerifier: args.codeVerifier,
-      clientId: args.clientId,
-      clientSecret: args.clientSecret,
-      createdAt: args.createdAt,
-      expiresAt: args.expiresAt,
-    });
+    if (organization === null) {
+      throw new Error("Organization not found.");
+    }
+    await requireOrganizationAccessContext(ctx.db, args);
+    if (args.providerConnectionId !== undefined) {
+      const connection = await getProviderConnectionByIdForOrganization(ctx.db, {
+        organizationId: args.organizationId,
+        providerConnectionId: args.providerConnectionId,
+        kind: providerKindForOAuthProvider(args.provider),
+      });
+      if (connection === null) {
+        throw new Error("Provider connection not found.");
+      }
+    }
+    return await ctx.db.insert("providerOAuthCallbackStates", args);
   },
 });
 
@@ -47,10 +73,11 @@ export const getOauthStateByState = internalQuery({
     provider: vOAuthProvider,
     state: v.string(),
   },
+  returns: v.union(vProviderOAuthCallbackStateResult, v.null()),
   handler: async (ctx, args) => {
     const record = await ctx.db
       .query("providerOAuthCallbackStates")
-      .withIndex("by_state", (q) => q.eq("state", args.state))
+      .withIndex("by_state", (query) => query.eq("state", args.state))
       .first();
     if (record?.provider !== args.provider) {
       return null;

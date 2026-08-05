@@ -13,18 +13,6 @@ export function AccountDeletionStatusVisualFixture({
     <AccountDeletionStatusView
       status={{
         currentStep: "delete_samebase_data",
-        dataDeletion: {
-          vaultsAndStagedChanges: {
-            state: "in_progress",
-            startedAt: Date.UTC(2026, 6, 12, 11, 56),
-            updatedAt: Date.UTC(2026, 6, 12, 12),
-            deletedVaultCount: 1,
-            currentVaultPhase: "staged_changes",
-          },
-          preferences: { state: "not_started" },
-          appAccessAndTokens: { state: "not_started" },
-          accessRequestsAndHistory: { state: "not_started" },
-        },
         latestProgressAt: Date.UTC(2026, 6, 12, 12),
         state: mode === "account-deletion-running" ? "running" : "needs_attention",
       }}

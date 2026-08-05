@@ -29,6 +29,21 @@ async function seedGrants() {
       isApproved: true,
       name: "Other",
     });
+    const organizationId = await ctx.db.insert("organizations", {
+      githubInstallationId: "installation_owner",
+      githubOwnerId: "owner",
+      githubOwnerLogin: "samebase",
+      githubOwnerLoginNormalized: "samebase",
+      githubOwnerType: "organization",
+    });
+    await ctx.db.insert("organizationMemberships", {
+      organizationId,
+      userId: ownerId,
+    });
+    await ctx.db.insert("organizationMemberships", {
+      organizationId,
+      userId: otherUserId,
+    });
     await ctx.db.insert("mcpOauthClients", {
       clientId: "mcpc_named",
       clientName: "Codex",
@@ -59,9 +74,10 @@ async function seedGrants() {
       clientId: "mcpc_named",
       createdAt: now,
       grantId: "mcpg_older",
+      organizationId,
       lastUsedAt: now + 5,
       resource,
-      scope: "access_dashboard access_browser_login_handoff",
+      scope: "access_dashboard",
       status: "active",
       updatedAt: now + 5,
       userId: ownerId,
@@ -70,6 +86,7 @@ async function seedGrants() {
       clientId: "mcpc_unnamed",
       createdAt: now + 1,
       grantId: "mcpg_newer",
+      organizationId,
       resource,
       scope: "access_dashboard",
       status: "active",
@@ -80,6 +97,7 @@ async function seedGrants() {
       clientId: "mcpc_named",
       createdAt: now + 2,
       grantId: "mcpg_revoked",
+      organizationId,
       resource,
       scope: "access_dashboard",
       status: "revoked",
@@ -90,6 +108,7 @@ async function seedGrants() {
       clientId: "mcpc_named",
       createdAt: now + 3,
       grantId: "mcpg_other",
+      organizationId,
       resource,
       scope: "access_dashboard",
       status: "active",
@@ -97,7 +116,7 @@ async function seedGrants() {
       userId: otherUserId,
     });
 
-    return { otherUserId, ownerId };
+    return { organizationId, otherUserId, ownerId };
   });
   return { ids, t };
 }
@@ -115,6 +134,8 @@ describe("MCP grant management", () => {
         clientId: "mcpc_unnamed",
         createdAt: now + 1,
         grantId: "mcpg_newer",
+        githubOwnerLogin: "samebase",
+        organizationId: ids.organizationId,
         resource,
         scopes: ["access_dashboard"],
       },
@@ -130,9 +151,11 @@ describe("MCP grant management", () => {
         clientName: "Codex",
         createdAt: now,
         grantId: "mcpg_older",
+        githubOwnerLogin: "samebase",
         lastUsedAt: now + 5,
+        organizationId: ids.organizationId,
         resource,
-        scopes: ["access_dashboard", "access_browser_login_handoff"],
+        scopes: ["access_dashboard"],
       },
     ]);
     expect(secondPage.isDone).toBe(true);
@@ -187,7 +210,7 @@ describe("MCP grant management", () => {
         expiresAt: now + 60_000,
         grantId: "mcpg_older",
         resource,
-        scope: "access_dashboard access_browser_login_handoff",
+        scope: "access_dashboard",
         tokenHash: "access_hash",
         userId: ids.ownerId,
       });
@@ -198,14 +221,6 @@ describe("MCP grant management", () => {
         grantId: "mcpg_older",
         status: "active",
         tokenHash: "refresh_hash",
-        userId: ids.ownerId,
-      });
-      await ctx.db.insert("mcpBrowserLoginTokens", {
-        clientId: "mcpc_named",
-        createdAt: now,
-        expiresAt: now + 60_000,
-        grantId: "mcpg_older",
-        tokenHash: "handoff_hash",
         userId: ids.ownerId,
       });
     });
@@ -239,11 +254,5 @@ describe("MCP grant management", () => {
       ok: false,
       status: 400,
     });
-    await expect(
-      t.mutation(internal.agentBrowserHandoff.redeemForAuth, {
-        now: now + 1,
-        tokenHash: "handoff_hash",
-      }),
-    ).resolves.toEqual({ ok: false, reason: "grant_inactive" });
   });
 });

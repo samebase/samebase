@@ -6,6 +6,7 @@ import { internalMutation, internalQuery, type MutationCtx } from "./_generated/
 import type { Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
 import type { AppProvisioningStep } from "./appProvisioningModel";
+import { requireVaultForUser } from "./organizationAccess";
 import { isLiveConnectedVault } from "./vault/state";
 
 const workflow = new WorkflowManager(components.workflow);
@@ -123,10 +124,7 @@ export const readComposedInfrastructureState = internalQuery({
   },
   returns: composedInfrastructureState,
   handler: async (ctx, args): Promise<ComposedInfrastructureState> => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== args.userId) {
-      throw new Error("Vault not found.");
-    }
+    const vault = await requireVaultForUser(ctx.db, args);
 
     const plan = await ctx.db
       .query("workflow_vaultProvisioning_plans")
@@ -160,7 +158,8 @@ export const readComposedInfrastructureState = internalQuery({
     if (
       convexProject &&
       (convexProject.vaultId !== args.vaultId ||
-        convexProject.userId !== args.userId ||
+        convexProject.organizationId !== vault.organizationId ||
+        convexProject.providerConnectionId !== plan.convexProviderConnectionId ||
         !convexCheckpoint ||
         convexProject.teamId !== convexCheckpoint.teamId ||
         !("convexConfigPath" in convexProject) ||
@@ -171,7 +170,8 @@ export const readComposedInfrastructureState = internalQuery({
     if (
       worker &&
       (worker.vaultId !== args.vaultId ||
-        worker.userId !== args.userId ||
+        worker.organizationId !== vault.organizationId ||
+        worker.providerConnectionId !== plan.cloudflareProviderConnectionId ||
         !cloudflareCheckpoint ||
         worker.accountId !== cloudflareCheckpoint.accountId ||
         worker.workerName !== cloudflareCheckpoint.workerName ||
@@ -219,8 +219,11 @@ export const readComposedInfrastructureRetryContext = internalQuery({
     if (!run || run.vaultId !== args.vaultId) {
       throw new Error("Provisioning run not found.");
     }
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== run.userId) {
+    const vault = await requireVaultForUser(ctx.db, {
+      userId: run.userId,
+      vaultId: args.vaultId,
+    });
+    if (!isLiveConnectedVault(vault)) {
       throw new Error("Vault not found.");
     }
 
@@ -247,8 +250,8 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
     ) {
       throw new Error("Composed infrastructure run does not match vault.");
     }
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+    const vault = await requireVaultForUser(ctx.db, args);
+    if (!isLiveConnectedVault(vault)) {
       throw new Error("Vault not found.");
     }
     const plan = await ctx.db
@@ -308,6 +311,7 @@ export const finishComposedInfrastructureProvisioning = internalMutation({
     ) {
       throw new Error("Composed infrastructure run does not match vault.");
     }
+    await requireVaultForUser(ctx.db, args);
     const writeLock = await ctx.db
       .query("workflow_vaultProvisioning_writeLocks")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))

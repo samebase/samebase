@@ -45,10 +45,13 @@ function buildRepositoryRow(repository: ConnectRepositoryRepository, searchQuery
 
 function renderConnectRepositoryContent(overrides: Partial<ConnectRepositoryPageContentProps>) {
   const props: ConnectRepositoryPageContentProps = {
+    canListRepositories: true,
     connectingRepositoryFullName: null,
     emptyRepositoryMessage: null,
     error: null,
-    githubConnected: true,
+    githubOwners: [],
+    githubOwnersLoaded: false,
+    installingGitHubApp: false,
     loading: false,
     loadingMore: false,
     repositoryPreviewCount: 0,
@@ -56,9 +59,11 @@ function renderConnectRepositoryContent(overrides: Partial<ConnectRepositoryPage
     repositoryTotalCount: 0,
     retryingFullRepositories: false,
     searchQuery: "",
+    selectedOrganizationId: null,
     showBackgroundError: false,
-    onConnectGithub: noop,
     onConnectRepository: noop,
+    onInstallGitHubApp: noop,
+    onOrganizationChange: noop,
     onRetryFullRepositories: noop,
     onSearchQueryChange: noop,
     ...overrides,
@@ -74,17 +79,16 @@ function renderConnectRepositoryContent(overrides: Partial<ConnectRepositoryPage
 }
 
 describe("ConnectRepositoryPageContent", () => {
-  it("renders the disconnected GitHub state from the shipped page content", () => {
+  it("offers GitHub App installation when the user has no GitHub owners", () => {
     const markup = renderConnectRepositoryContent({
-      githubConnected: false,
+      canListRepositories: false,
+      githubOwnersLoaded: true,
     });
 
     expect(markup).toContain("Connect an existing repository");
     expect(markup).not.toContain("Back to Vaults");
-    expect(markup).toContain("GitHub connection required");
-    expect(markup).toContain("Connect GitHub to list your repositories.");
-    expect(markup).toContain("Search repositories...");
-    expect(markup).not.toContain("Owner docs");
+    expect(markup).toContain("Install GitHub App");
+    expect(markup).not.toContain("Search repositories...");
   });
 
   it("renders partial repository discovery with retry copy and real rows", () => {
@@ -92,7 +96,6 @@ describe("ConnectRepositoryPageContent", () => {
     const secondRepository = buildRepository(2, "samebase/starter-kit");
 
     const markup = renderConnectRepositoryContent({
-      githubConnected: true,
       loadingMore: true,
       repositoryPreviewCount: 10,
       repositoryRows: [
@@ -103,15 +106,11 @@ describe("ConnectRepositoryPageContent", () => {
       showBackgroundError: true,
     });
 
-    expect(markup).toContain("Owner docs");
-    expect(markup).toContain("Member docs");
-    expect(markup).toContain("Review GitHub access");
-    expect(markup).toContain("to check granted scopes and repository listing");
     expect(markup).toContain(
       "Showing the 10 most recently updated repositories while we load the rest.",
     );
     expect(markup).toContain(
-      "Couldn't load the rest of your repositories. You're still seeing the most recently updated ones. Review GitHub access from Providers if this keeps failing.",
+      "Couldn't load the rest of your repositories. You're still seeing the most recently updated ones.",
     );
     expect(markup).toContain("Retry");
     expect(markup).toContain("samebase");
@@ -143,7 +142,6 @@ describe("ConnectRepositoryPageContent", () => {
     const markup = renderConnectRepositoryContent({
       emptyRepositoryMessage:
         "Couldn't finish loading the rest of your repositories. Retry to finish your search.",
-      githubConnected: true,
       repositoryRows: [],
       repositoryTotalCount: 3,
       searchQuery: "transferred",
@@ -157,13 +155,11 @@ describe("ConnectRepositoryPageContent", () => {
 
   it("keeps the loading state and stays silent for default empty content", () => {
     const loadingMarkup = renderConnectRepositoryContent({
-      githubConnected: true,
       loading: true,
       repositoryRows: [],
       repositoryTotalCount: 0,
     });
     const emptyMarkup = renderConnectRepositoryContent({
-      githubConnected: true,
       repositoryRows: [],
       repositoryTotalCount: 0,
     });

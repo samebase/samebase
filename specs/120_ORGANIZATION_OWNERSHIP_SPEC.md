@@ -150,6 +150,10 @@ MCP consent binds each grant to one explicit organization membership. Removing t
 revokes its authority. Vault tools derive the organization from the grant or the loaded vault. They
 do not select a user's first membership.
 
+An organization-bound MCP grant cannot mint a normal Samebase browser session. A normal session can
+access every organization of its user, so browser handoff would exceed the grant boundary. Agents
+that need the web app use the normal user login flow outside MCP authorization.
+
 ## Billing And Lifecycle
 
 `organizationBillingAccounts` contains exactly one row for each organization. A user with no

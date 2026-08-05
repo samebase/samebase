@@ -2,7 +2,7 @@ import { v } from "convex/values";
 
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
-const { array, object, string } = v;
+const { array, id, object, string } = v;
 
 export const vCloudflareAccountResult = object({
   accountId: string(),
@@ -12,7 +12,7 @@ export const vCloudflareAccountResult = object({
 export const cloudflareListAccountsContract = {
   id: "list_cloudflare_accounts",
   access: "access_provider_connections",
-  args: {},
+  args: { organizationId: id("organizations") },
   returns: array(vCloudflareAccountResult),
   structuredContent: object({ accounts: array(vCloudflareAccountResult) }),
   mcp: {
@@ -26,10 +26,12 @@ export const cloudflareListAccountsContract = {
       openWorldHint: false,
       destructiveHint: false,
     },
-    inputDescriptions: {},
+    inputDescriptions: {
+      organizationId: "Samebase organization whose selected Cloudflare connection is used.",
+    },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Discovery read for manual existing-Worker attachment or new-Worker creation on an existing
-connected vault: returns the accounts on the caller's connected Cloudflare login. Use the chosen
+connected vault: returns the accounts on the organization's selected Cloudflare connection. Use the chosen
 \`accountId\` with \`discover_cloudflare_workers\`, then attach one or more verified results with
 \`attach_cloudflare_workers\`, or create and attach a new Worker with
 \`create_cloudflare_worker\`. This action is not a preflight for

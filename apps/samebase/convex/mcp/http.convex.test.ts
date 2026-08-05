@@ -1,3 +1,5 @@
+import { generateKeyPairSync } from "node:crypto";
+
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
@@ -27,7 +29,21 @@ describe("MCP HTTP tool invocation args", () => {
         email: "argument@example.com",
         isApproved: true,
       });
-      return { argumentUserId, tokenUserId };
+      const tokenOrganizationId = await ctx.db.insert("organizations", {
+        githubInstallationId: "token_installation",
+        githubOwnerId: "token_owner",
+        githubOwnerLogin: "token-owner",
+        githubOwnerLoginNormalized: "token-owner",
+        githubOwnerType: "organization",
+      });
+      const argumentOrganizationId = await ctx.db.insert("organizations", {
+        githubInstallationId: "argument_installation",
+        githubOwnerId: "argument_owner",
+        githubOwnerLogin: "argument-owner",
+        githubOwnerLoginNormalized: "argument-owner",
+        githubOwnerType: "organization",
+      });
+      return { argumentOrganizationId, argumentUserId, tokenOrganizationId, tokenUserId };
     });
     const viewer = await t.query(internal.functions.resolveViewerForUserId, {
       userId: ids.tokenUserId,
@@ -43,8 +59,10 @@ describe("MCP HTTP tool invocation args", () => {
         grantedScopes: ["access_app_create"],
         grantId: "raw_grant",
         clientId: "raw_client",
+        organizationId: ids.argumentOrganizationId,
       },
       userId: ids.tokenUserId,
+      organizationId: ids.tokenOrganizationId,
       grantedScopes: [],
       grantId: "trusted_grant",
       clientId: "trusted_client",
@@ -57,6 +75,7 @@ describe("MCP HTTP tool invocation args", () => {
       convexProjectName: "test-app",
       cloudflareWorkerName: "test-app",
       userId: ids.tokenUserId,
+      organizationId: ids.tokenOrganizationId,
       grantedScopes: [],
     });
     expect(isRecord(toolArgs) && "grantId" in toolArgs).toBe(false);
@@ -122,6 +141,18 @@ describe("MCP tool listing access", () => {
     expect(tools.map((tool) => tool.name)).toEqual(
       actionContracts.map((contract) => contract.mcp.name),
     );
+  });
+
+  it("keeps the grant organization out of MCP tool input schemas", () => {
+    const tools = listMcpToolsForAccess({
+      grantedScopes: ["access_app_create", "access_repo_connect"],
+      currentAccessKeys: ["access_app_create", "access_repo_connect"],
+    });
+
+    for (const tool of tools) {
+      expect(tool.inputSchema.properties).not.toHaveProperty("organizationId");
+      expect(tool.inputSchema.required ?? []).not.toContain("organizationId");
+    }
   });
 
   it("publishes human titles and structured output schemas", () => {
@@ -218,6 +249,7 @@ describe("MCP usage attribution dimensions", () => {
 describe("MCP tools/call access enforcement", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
 
@@ -227,7 +259,7 @@ describe("MCP tools/call access enforcement", () => {
     expect(header).toContain('resource_metadata="');
     expect(header).toContain('/.well-known/oauth-protected-resource/mcp"');
     expect(header).toContain(
-      'scope="access_dashboard access_app_create access_repo_connect access_provider_connections access_browser_login_handoff"',
+      'scope="access_dashboard access_app_create access_repo_connect access_provider_connections"',
     );
     expect(header).toContain('error="invalid_token"');
     expect(header).toContain(`error_description="${errorDescription}"`);
@@ -246,11 +278,27 @@ describe("MCP tools/call access enforcement", () => {
     const tokenHash = await sha256Hex(accessToken);
     const now = Date.now();
     const scope = (args.scopes ?? ["access_dashboard", "access_app_create"]).join(" ");
-    const userId = await t.run(async (ctx) => {
+    const ids = await t.run(async (ctx) => {
       const seededUserId = await ctx.db.insert("users", {
         name: "Ada",
         email: "ada@example.com",
         isApproved: args.isApproved,
+      });
+      const organizationId = await ctx.db.insert("organizations", {
+        githubInstallationId: "12345",
+        githubOwnerId: "owner_test",
+        githubOwnerLogin: "samebase",
+        githubOwnerLoginNormalized: "samebase",
+        githubOwnerType: "organization",
+      });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: seededUserId,
       });
       await ctx.db.insert("mcpOauthClients", {
         clientId: "client_test",
@@ -267,6 +315,7 @@ describe("MCP tools/call access enforcement", () => {
       await ctx.db.insert("mcpGrants", {
         grantId: "grant_test",
         userId: seededUserId,
+        organizationId,
         clientId: "client_test",
         resource,
         scope,
@@ -284,7 +333,7 @@ describe("MCP tools/call access enforcement", () => {
         createdAt: now,
         expiresAt: now + 60 * 60 * 1000,
       });
-      return seededUserId;
+      return { organizationId, userId: seededUserId };
     });
 
     const callTool = async (name: string, toolArguments: Record<string, unknown> = {}) => {
@@ -304,7 +353,7 @@ describe("MCP tools/call access enforcement", () => {
       return await response.json();
     };
 
-    return { accessToken, callTool, t, userId };
+    return { accessToken, callTool, t, ...ids };
   }
 
   it("returns cross-tool workflow instructions during initialization", async () => {
@@ -412,10 +461,11 @@ describe("MCP tools/call access enforcement", () => {
   });
 
   it("executes the tool when scopes and current access both allow it", async () => {
-    const { callTool, t, userId } = await seedMcpBearer({ isApproved: true });
+    const { callTool, organizationId, t, userId } = await seedMcpBearer({ isApproved: true });
     await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
       userId,
-      ghRepoOwner: "ada",
+      organizationId,
+      ghRepoOwner: "samebase",
       ghRepoName: "existing-app",
     });
 
@@ -434,6 +484,17 @@ describe("MCP tools/call access enforcement", () => {
   });
 
   it("creates and attaches a repository-backed Worker, then returns it in inventory", async () => {
+    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    vi.stubEnv("GITHUB_APP_ID", "123");
+    vi.stubEnv("GITHUB_APP_SLUG", "samebase-test");
+    vi.stubEnv("GITHUB_APP_CLIENT_ID", "test-client");
+    vi.stubEnv("GITHUB_APP_CLIENT_SECRET", "test-secret");
+    vi.stubEnv(
+      "GITHUB_APP_PRIVATE_KEY",
+      privateKey.export({ format: "pem", type: "pkcs8" }).toString(),
+    );
+    vi.stubEnv("GITHUB_APP_OAUTH_CALLBACK_URL", "https://samebase.test/github/callback");
+
     const cloudflareAccountId = "00000000000000000000000000000001";
     const defaultBranchCommitSha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const providerRequests: Array<{ body: unknown; method: string; path: string }> = [];
@@ -486,12 +547,26 @@ describe("MCP tools/call access enforcement", () => {
         path: url.pathname,
       });
 
-      if (url.hostname === "api.github.com" && url.pathname === "/repos/ada/demo") {
+      if (
+        method === "POST" &&
+        url.hostname === "api.github.com" &&
+        url.pathname === "/app/installations/12345/access_tokens"
+      ) {
+        return jsonResponse({
+          token: "installation-token",
+          expires_at: "2026-08-03T01:00:00Z",
+          permissions: {},
+          repositories: [],
+          repository_selection: "selected",
+        });
+      }
+
+      if (url.hostname === "api.github.com" && url.pathname === "/repos/samebase/demo") {
         return jsonResponse({ id: 123, default_branch: "main", owner: { id: 456 } });
       }
       if (
         url.hostname === "api.github.com" &&
-        decodeURIComponent(url.pathname) === "/repos/ada/demo/git/ref/heads/main"
+        decodeURIComponent(url.pathname) === "/repos/samebase/demo/git/ref/heads/main"
       ) {
         return jsonResponse({ object: { sha: defaultBranchCommitSha } });
       }
@@ -540,43 +615,37 @@ describe("MCP tools/call access enforcement", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const { callTool, t, userId } = await seedMcpBearer({
+    const { callTool, organizationId, t, userId } = await seedMcpBearer({
       isApproved: true,
       scopes: ["access_dashboard", "access_provider_connections"],
     });
     const vaultId = await t.run(async (ctx) => {
-      await Promise.all([
-        ctx.db.insert("providerConnections", {
-          kind: "cloudflare",
-          userId,
-          auth: {
-            method: "oauth",
-            credential: "cloudflare-token",
-            refreshCredential: "cloudflare-refresh-token",
-            credentialExpiresAt: 4_000_000_000_000,
-          },
-          defaultAccount: { state: "not_selected" },
-          createdAt: 1,
-          updatedAt: 1,
-        }),
-        ctx.db.insert("providerConnections", {
-          kind: "github",
-          userId,
-          auth: { method: "api_key", credential: "github-token" },
-          username: "ada",
-          createdAt: 1,
-          updatedAt: 1,
-        }),
-      ]);
+      const cloudflareProviderConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "cloudflare",
+        organizationId,
+        connectedByUserId: userId,
+        auth: {
+          method: "oauth",
+          credential: "cloudflare-token",
+          refreshCredential: "cloudflare-refresh-token",
+          credentialExpiresAt: 4_000_000_000_000,
+        },
+        defaultAccount: { state: "not_selected" },
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      await ctx.db.patch(organizationId, {
+        selectedCloudflareProviderConnectionId: cloudflareProviderConnectionId,
+      });
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
         userId,
         vaultId,
-        repositoryFullName: "ada/demo",
+        repositoryFullName: "samebase/demo",
         trigger: "connect_existing_repository",
         state: "succeeded",
         currentStep: "finish",
@@ -585,13 +654,13 @@ describe("MCP tools/call access enforcement", () => {
         completedAt: 2,
       });
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "connect_existing_repository",
         runId,
         ghRepoId: "123",
-        owner: "ada",
+        owner: "samebase",
         name: "demo",
         visibility: "private",
         defaultBranch: "stale-main",

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
 
 afterEach(() => {
@@ -17,6 +17,16 @@ describe("getCloudflareMcpOAuthUrl", () => {
         isApproved: true,
       });
     });
+    const { organizationId } = await t.mutation(
+      internal.organizations.createOrReconnectVerifiedOrganization,
+      {
+        userId,
+        githubOwnerId: "owner-1",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "Primary",
+        githubInstallationId: "installation-1",
+      },
+    );
     vi.stubEnv(
       "PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL",
       "https://samebase.test/api/auth/cloudflare/callback",
@@ -46,9 +56,20 @@ describe("getCloudflareMcpOAuthUrl", () => {
         subject: `${userId}|test-session`,
         tokenIdentifier: `test:${userId}`,
       })
-      .action(api.cloudflareMcpOAuth.getCloudflareMcpOAuthUrl, {});
+      .action(api.cloudflareMcpOAuth.getCloudflareMcpOAuthUrl, { organizationId });
 
     expect(authorizeUrl).toContain("client_id=registered-client");
     expect(fetch).toHaveBeenCalledOnce();
+    const oauthState = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("providerOAuthCallbackStates")
+        .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
+        .unique();
+    });
+    expect(oauthState).toMatchObject({
+      organizationId,
+      provider: "cloudflare_mcp",
+      userId,
+    });
   });
 });

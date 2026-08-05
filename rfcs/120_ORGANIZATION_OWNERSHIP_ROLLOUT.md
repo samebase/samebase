@@ -8,7 +8,7 @@
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Replacement branch: `codex-github-app-organizations`
 - Superseded draft: [#1355](https://github.com/samebase/samebase/pull/1355)
-- Current checkpoint: Clean branch and accepted contract
+- Current checkpoint: Implementation complete, real development validation pending
 
 ## Purpose
 
@@ -85,15 +85,15 @@ validation.
 
 ### 1. Contract and minimal identity model
 
-Status: In progress
+Status: Complete
 
 - Clean branch created from `origin/main` at `7d30d805f`.
 - Final product contract recorded.
-- Exact schema and GitHub App request boundary under review.
+- Exact schema and GitHub App request boundary implemented.
 
 ### 2. Released organization flows
 
-Status: Not started
+Status: Complete on the replacement branch
 
 - Implement verified GitHub App setup.
 - Add membership and organization billing access.
@@ -106,10 +106,12 @@ Status: Not started
 
 ### 3. Reduction and real validation
 
-Status: Not started
+Status: In progress
 
-- Remove rejected user-owned and GitHub-provider code.
-- Run focused static and backend tests.
+- Rejected user-owned, GitHub-provider, compatibility, and broad stale test code is removed.
+- Full TypeScript validation and the focused organization test set pass.
+- The implementation diff removes substantially more code than it adds.
+- An organization-bound MCP grant no longer exposes the full-user browser handoff tool.
 - Reset disposable local product data.
 - Run real two-user and multiple-organization manual flows with OAuth credentials.
 - Validate vault reload, GitHub, Convex, Cloudflare, observations, MCP, and denied access.
@@ -142,12 +144,11 @@ targets and final schema deployment are ready.
 
 ## Current Blockers
 
-- No implementation blocker exists for local and development work.
+- No implementation blocker exists for development validation.
 - Production GitHub App secrets block production deployment only.
 - Webhook setup is deferred until the main installation and repository flows work.
 
 ## Next Exact Task
 
-Implement the minimal organization, membership, billing, GitHub App setup, and installation-token
-boundary. Validate it against the real development App before changing the wider vault and provider
-surfaces.
+Run the real development GitHub App, provider, vault reload, two-member, denied-access, and MCP
+organization-boundary checks. Record the exact results before opening the replacement pull request.

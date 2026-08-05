@@ -38,7 +38,10 @@ export function useVaultWorkspaceModel(
         : null,
   });
   const viewerAccess = useConvexQuery(api.users.currentViewerAccess);
-  const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus);
+  const cloudflareConnection = useConvexQuery(
+    api.users.getCloudflareConnectionStatus,
+    selectedVault ? { organizationId: selectedVault.organizationId } : "skip",
+  );
 
   const model = useMemo<VaultWorkspaceModel>(() => {
     if (!vaults || !folderState) {

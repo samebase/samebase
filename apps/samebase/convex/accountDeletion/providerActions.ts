@@ -1,132 +1,154 @@
 import { Infer, v } from "convex/values";
 
 import { internal } from "../_generated/api";
-import { internalAction } from "../_generated/server";
-import type { Doc } from "../_generated/dataModel";
+import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { revokeCloudflareMcpOAuthGrant } from "../cloudflareMcpOAuth";
 import { revokeCloudflareOAuthGrant } from "../cloudflareOAuth";
-import { revokeGithubOAuthGrant } from "../githubOAuth";
 import {
-  CLOUDFLARE_REVOCATION_UNCONFIRMED_ERROR,
-  CONVEX_MANUAL_REVOCATION_NOTICE,
-  GITHUB_REVOCATION_UNCONFIRMED_ERROR,
-  type AccountDeletionCloudflareOutcome,
-  type AccountDeletionConvexOutcome,
-  type AccountDeletionGithubOutcome,
-  vAccountDeletionCloudflareOutcome,
-  vAccountDeletionConvexOutcome,
-  vAccountDeletionGithubOutcome,
-} from "./model";
+  vCloudflareProviderConnection,
+  vConvexProviderConnection,
+} from "../providerConnectionModel";
+import { readOwnedActiveRun } from "./stepContext";
 
-const { id, object, string } = v;
+const { array, boolean, id, number, object, string, union } = v;
 
-export const vRevokeProviderAccessResult = object({
-  github: vAccountDeletionGithubOutcome,
-  cloudflare: vAccountDeletionCloudflareOutcome,
-  convex: vAccountDeletionConvexOutcome,
+const PROVIDER_CONNECTION_BATCH_SIZE = 25;
+const CLOUDFLARE_REVOCATION_SAFE_ERROR = "Cloudflare OAuth revocation could not be confirmed.";
+
+const vProviderConnectionForAccountDeletion = union(
+  vConvexProviderConnection.extend({
+    _id: id("providerConnections"),
+    _creationTime: number(),
+  }),
+  vCloudflareProviderConnection.extend({
+    _id: id("providerConnections"),
+    _creationTime: number(),
+  }),
+);
+
+export const vRevokeProviderConnectionBatchResult = object({
+  done: boolean(),
+  convexManualRevocationRequired: boolean(),
 });
-export type RevokeProviderAccessResult = Infer<typeof vRevokeProviderAccessResult>;
+export type RevokeProviderConnectionBatchResult = Infer<
+  typeof vRevokeProviderConnectionBatchResult
+>;
 
-async function revokeGithub(
-  connection: Doc<"providerConnections"> | null,
-): Promise<AccountDeletionGithubOutcome> {
-  if (connection?.kind !== "github") {
-    return { state: "not_connected" };
-  }
-  if (connection.auth.method === "api_key") {
-    return { state: "local_delete_only" };
-  }
+const workflowArgs = {
+  runId: id("workflow_accountDeletion_runs"),
+  workflowId: string(),
+};
 
-  try {
-    await revokeGithubOAuthGrant(connection.auth.credential);
-    return { state: "revoked" };
-  } catch {
-    return {
-      state: "unconfirmed",
-      safeError: GITHUB_REVOCATION_UNCONFIRMED_ERROR,
-    };
-  }
-}
+export const loadConnectionBatch = internalQuery({
+  args: workflowArgs,
+  returns: array(vProviderConnectionForAccountDeletion),
+  handler: async (ctx, args) => {
+    const run = await readOwnedActiveRun(ctx, args);
+    return await ctx.db
+      .query("providerConnections")
+      .withIndex("by_connected_by_user", (query) =>
+        query.eq("connectedByUserId", run.identity.userId),
+      )
+      .order("asc")
+      .take(PROVIDER_CONNECTION_BATCH_SIZE);
+  },
+});
 
-async function revokeCloudflare(
-  connection: Doc<"providerConnections"> | null,
-): Promise<AccountDeletionCloudflareOutcome> {
-  if (connection?.kind !== "cloudflare") {
-    return { state: "not_connected" };
-  }
-  if (connection.auth.method === "api_key") {
-    return { state: "local_delete_only" };
-  }
+export const deleteRevokedConnection = internalMutation({
+  args: {
+    ...workflowArgs,
+    providerConnectionId: id("providerConnections"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const run = await readOwnedActiveRun(ctx, args);
+    const connection = await ctx.db.get(args.providerConnectionId);
+    if (connection === null) {
+      return null;
+    }
+    if (connection.connectedByUserId !== run.identity.userId) {
+      throw new Error("Provider connection belongs to another user.");
+    }
 
-  try {
-    if (connection.auth.method === "oauth") {
-      await revokeCloudflareOAuthGrant(connection.auth.refreshCredential);
-    } else {
-      await revokeCloudflareMcpOAuthGrant({
-        refreshToken: connection.auth.refreshCredential,
-        clientId: connection.auth.clientId,
+    if (connection.kind === "convex" && connection.auth.method === "oauth") {
+      const providerRevocation = run.outcomes.providerRevocation;
+      if (providerRevocation.state !== "in_progress") {
+        throw new Error("Provider revocation was not started.");
+      }
+      await ctx.db.patch(run._id, {
+        outcomes: {
+          ...run.outcomes,
+          providerRevocation: {
+            state: "in_progress",
+            convexManualRevocationRequired: true,
+          },
+        },
+        updatedAt: Date.now(),
       });
     }
-    return { state: "revoked" };
-  } catch {
-    return {
-      state: "unconfirmed",
-      safeError: CLOUDFLARE_REVOCATION_UNCONFIRMED_ERROR,
-    };
-  }
-}
 
-function classifyConvex(
-  connection: Doc<"providerConnections"> | null,
-): AccountDeletionConvexOutcome {
-  if (connection?.kind !== "convex") {
-    return { state: "not_connected" };
-  }
-  if (connection.auth.method === "api_key") {
-    return { state: "local_delete_only" };
-  }
-  return {
-    state: "manual_revocation_required",
-    safeNotice: CONVEX_MANUAL_REVOCATION_NOTICE,
-  };
-}
+    const organization = await ctx.db.get(connection.organizationId);
+    if (organization !== null) {
+      if (
+        connection.kind === "convex" &&
+        organization.selectedConvexProviderConnectionId === connection._id
+      ) {
+        await ctx.db.patch(organization._id, {
+          selectedConvexProviderConnectionId: undefined,
+        });
+      }
+      if (
+        connection.kind === "cloudflare" &&
+        organization.selectedCloudflareProviderConnectionId === connection._id
+      ) {
+        await ctx.db.patch(organization._id, {
+          selectedCloudflareProviderConnectionId: undefined,
+        });
+      }
+    }
 
-export const revokeForAccountDeletion = internalAction({
-  args: {
-    runId: id("workflow_accountDeletion_runs"),
-    workflowId: string(),
+    await ctx.db.delete(connection._id);
+    return null;
   },
-  returns: vRevokeProviderAccessResult,
-  handler: async (ctx, args): Promise<RevokeProviderAccessResult> => {
-    const identity = await ctx.runQuery(
-      internal.accountDeletion.stepContext.getOwnedIdentity,
+});
+
+export const revokeConnectionBatch = internalAction({
+  args: workflowArgs,
+  returns: vRevokeProviderConnectionBatchResult,
+  handler: async (ctx, args): Promise<RevokeProviderConnectionBatchResult> => {
+    const connections = await ctx.runQuery(
+      internal.accountDeletion.providerActions.loadConnectionBatch,
       args,
     );
+    let convexManualRevocationRequired = false;
 
-    const [githubConnection, cloudflareConnection, convexConnection] = await Promise.all([
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId: identity.userId,
-        kind: "github",
-      }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId: identity.userId,
-        kind: "cloudflare",
-      }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId: identity.userId,
-        kind: "convex",
-      }),
-    ]);
+    for (const connection of connections) {
+      if (connection.kind === "cloudflare") {
+        try {
+          if (connection.auth.method === "oauth") {
+            await revokeCloudflareOAuthGrant(connection.auth.refreshCredential);
+          } else if (connection.auth.method === "mcp_oauth") {
+            await revokeCloudflareMcpOAuthGrant({
+              refreshToken: connection.auth.refreshCredential,
+              clientId: connection.auth.clientId,
+            });
+          }
+        } catch {
+          throw new Error(CLOUDFLARE_REVOCATION_SAFE_ERROR);
+        }
+      } else if (connection.auth.method === "oauth") {
+        convexManualRevocationRequired = true;
+      }
 
-    const [github, cloudflare] = await Promise.all([
-      revokeGithub(githubConnection),
-      revokeCloudflare(cloudflareConnection),
-    ]);
+      await ctx.runMutation(internal.accountDeletion.providerActions.deleteRevokedConnection, {
+        ...args,
+        providerConnectionId: connection._id,
+      });
+    }
 
     return {
-      github,
-      cloudflare,
-      convex: classifyConvex(convexConnection),
+      done: connections.length < PROVIDER_CONNECTION_BATCH_SIZE,
+      convexManualRevocationRequired,
     };
   },
 });

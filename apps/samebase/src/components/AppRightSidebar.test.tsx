@@ -44,7 +44,6 @@ const PROFILE_PROVIDER_JWT = createJwt({
   exp: 4100000000,
 });
 const PROVIDER_STATUS_QUERY_NAMES = new Set([
-  getFunctionName(api.users.getGithubConnectionStatus),
   getFunctionName(api.users.getConvexConnectionStatus),
   getFunctionName(api.users.getCloudflareConnectionStatus),
 ]);
@@ -526,7 +525,6 @@ describe("AppRightSidebarContent", () => {
             accessKeys: ["access_public", "access_provider_connections"],
           },
         ],
-        [getFunctionName(api.users.getGithubConnectionStatus), { connected: false }],
         [getFunctionName(api.users.getConvexConnectionStatus), { connected: false }],
         [getFunctionName(api.users.getCloudflareConnectionStatus), { connected: false }],
         [

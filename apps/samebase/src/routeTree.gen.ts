@@ -37,7 +37,6 @@ import { Route as logoIsoRouteImport } from "./routes/logo-iso";
 import { Route as docsTheStackRouteImport } from "./routes/docs-the-stack";
 import { Route as docsReceiptsRouteImport } from "./routes/docs-receipts";
 import { Route as docsDoItYourselfRouteImport } from "./routes/docs-do-it-yourself";
-import { Route as agentsConnectRouteImport } from "./routes/agents-connect";
 import { Route as adminAccountDeletionsRouteImport } from "./routes/admin-account-deletions";
 import { Route as vaultDashboardRootRouteImport } from "./routes/vault-dashboard-root";
 import { Route as vaultDashboardRouteImport } from "./routes/vault-dashboard";
@@ -191,11 +190,6 @@ const docsDoItYourselfRoute = docsDoItYourselfRouteImport.update({
   path: "/docs/do-it-yourself",
   getParentRoute: () => rootRouteImport,
 } as any);
-const agentsConnectRoute = agentsConnectRouteImport.update({
-  id: "/agents/connect",
-  path: "/agents/connect",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const adminAccountDeletionsRoute = adminAccountDeletionsRouteImport.update({
   id: "/admin/account-deletions",
   path: "/admin/account-deletions",
@@ -279,7 +273,6 @@ export interface FileRoutesByFullPath {
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault/": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
-  "/agents/connect": typeof agentsConnectRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
@@ -322,7 +315,6 @@ export interface FileRoutesByTo {
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
-  "/agents/connect": typeof agentsConnectRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
@@ -366,7 +358,6 @@ export interface FileRoutesById {
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault/": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
-  "/agents/connect": typeof agentsConnectRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
@@ -411,7 +402,6 @@ export interface FileRouteTypes {
     | "/visual-fixture"
     | "/vault/"
     | "/admin/account-deletions"
-    | "/agents/connect"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
     | "/docs/the-stack"
@@ -454,7 +444,6 @@ export interface FileRouteTypes {
     | "/visual-fixture"
     | "/vault"
     | "/admin/account-deletions"
-    | "/agents/connect"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
     | "/docs/the-stack"
@@ -497,7 +486,6 @@ export interface FileRouteTypes {
     | "/visual-fixture"
     | "/vault/"
     | "/admin/account-deletions"
-    | "/agents/connect"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
     | "/docs/the-stack"
@@ -541,7 +529,6 @@ export interface RootRouteChildren {
   visualFixtureRoute: typeof visualFixtureRoute;
   vaultDashboardRootRoute: typeof vaultDashboardRootRoute;
   adminAccountDeletionsRoute: typeof adminAccountDeletionsRoute;
-  agentsConnectRoute: typeof agentsConnectRoute;
   docsDoItYourselfRoute: typeof docsDoItYourselfRoute;
   docsReceiptsRoute: typeof docsReceiptsRoute;
   docsTheStackRoute: typeof docsTheStackRoute;
@@ -763,13 +750,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof docsDoItYourselfRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/agents/connect": {
-      id: "/agents/connect";
-      path: "/agents/connect";
-      fullPath: "/agents/connect";
-      preLoaderRoute: typeof agentsConnectRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/admin/account-deletions": {
       id: "/admin/account-deletions";
       path: "/admin/account-deletions";
@@ -877,7 +857,6 @@ const rootRouteChildren: RootRouteChildren = {
   visualFixtureRoute: visualFixtureRoute,
   vaultDashboardRootRoute: vaultDashboardRootRoute,
   adminAccountDeletionsRoute: adminAccountDeletionsRoute,
-  agentsConnectRoute: agentsConnectRoute,
   docsDoItYourselfRoute: docsDoItYourselfRoute,
   docsReceiptsRoute: docsReceiptsRoute,
   docsTheStackRoute: docsTheStackRoute,

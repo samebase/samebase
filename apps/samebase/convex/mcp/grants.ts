@@ -6,13 +6,15 @@ import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../functions";
 import { parseScopeTokens } from "./scopes";
 
-const { array, boolean, number, object, optional, string } = v;
+const { array, boolean, id, number, object, optional, string } = v;
 
 const grantListItemValidator = object({
   clientId: string(),
   clientName: optional(string()),
   createdAt: number(),
   grantId: string(),
+  organizationId: id("organizations"),
+  githubOwnerLogin: string(),
   lastUsedAt: optional(number()),
   resource: string(),
   scopes: array(string()),
@@ -65,15 +67,24 @@ export const listCurrentUserGrants = query({
       ...grants,
       page: await Promise.all(
         grants.page.map(async (grant) => {
-          const client = await ctx.db
-            .query("mcpOauthClients")
-            .withIndex("by_client_id", (q) => q.eq("clientId", grant.clientId))
-            .first();
+          const [client, organization] = await Promise.all([
+            ctx.db
+              .query("mcpOauthClients")
+              .withIndex("by_client_id", (q) => q.eq("clientId", grant.clientId))
+              .first(),
+            ctx.db.get(grant.organizationId),
+          ]);
+          if (organization === null) {
+            throw new Error("MCP grant refers to a missing organization.");
+          }
+
           return {
             clientId: grant.clientId,
             ...(client?.clientName !== undefined ? { clientName: client.clientName } : {}),
             createdAt: grant.createdAt,
             grantId: grant.grantId,
+            organizationId: grant.organizationId,
+            githubOwnerLogin: organization.githubOwnerLogin,
             ...(grant.lastUsedAt !== undefined ? { lastUsedAt: grant.lastUsedAt } : {}),
             resource: grant.resource,
             scopes: parseScopeTokens(grant.scope),

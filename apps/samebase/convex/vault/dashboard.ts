@@ -3,6 +3,12 @@ import { internal } from "../_generated/api";
 import { internalQuery, type QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { mutation, query } from "../functions";
+import {
+  findVaultForUser,
+  listOrganizationIdsForUser,
+  requireOrganizationAccessContext,
+  requireVaultForUser,
+} from "../organizationAccess";
 import { isConnectedVault, isLiveConnectedVault, isSamebaseManagedVault } from "./state";
 import {
   hasActiveVaultProvisioningRun,
@@ -428,8 +434,11 @@ export const listVaultRepositoryFolderSuggestions = query({
   },
   returns: vVaultRepositoryFolderSuggestions,
   handler: async (ctx, args) => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== ctx.viewer.userId) {
+    const vault = await findVaultForUser(ctx.db, {
+      userId: ctx.viewer.userId,
+      vaultId: args.vaultId,
+    });
+    if (!isLiveConnectedVault(vault)) {
       return [];
     }
 
@@ -455,17 +464,24 @@ export const getUserVaultPullRequestFilters = query({
   args: {},
   returns: array(vVaultPullRequestFilters),
   handler: async (ctx) => {
-    const filters = (
-      await ctx.db
-        .query("ui_vaultPullRequests_filters")
-        .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
-        .collect()
-    ).map((vaultPullRequestFilter) => ({
-      vaultId: vaultPullRequestFilter.vaultId,
-      hiddenLabels: vaultPullRequestFilter.hiddenLabels,
-      includeDrafts: vaultPullRequestFilter.includeDrafts,
-      includeNoLabel: vaultPullRequestFilter.includeNoLabel,
-    }));
+    const filters = [];
+    for await (const vaultPullRequestFilter of ctx.db
+      .query("ui_vaultPullRequests_filters")
+      .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))) {
+      const vault = await findVaultForUser(ctx.db, {
+        userId: ctx.viewer.userId,
+        vaultId: vaultPullRequestFilter.vaultId,
+      });
+      if (vault === null) {
+        continue;
+      }
+      filters.push({
+        vaultId: vaultPullRequestFilter.vaultId,
+        hiddenLabels: vaultPullRequestFilter.hiddenLabels,
+        includeDrafts: vaultPullRequestFilter.includeDrafts,
+        includeNoLabel: vaultPullRequestFilter.includeNoLabel,
+      });
+    }
 
     return filters.sort((left, right) => left.vaultId.localeCompare(right.vaultId));
   },
@@ -476,15 +492,22 @@ export const getUserVaultResourceLinksState = query({
   args: {},
   returns: array(vVaultResourceLinksState),
   handler: async (ctx) => {
-    const states = (
-      await ctx.db
-        .query("ui_vaultResourceLinks_settings")
-        .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
-        .collect()
-    ).map((state) => ({
-      resourceLinksOpen: state.resourceLinksOpen,
-      vaultId: state.vaultId,
-    }));
+    const states = [];
+    for await (const state of ctx.db
+      .query("ui_vaultResourceLinks_settings")
+      .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))) {
+      const vault = await findVaultForUser(ctx.db, {
+        userId: ctx.viewer.userId,
+        vaultId: state.vaultId,
+      });
+      if (vault === null) {
+        continue;
+      }
+      states.push({
+        resourceLinksOpen: state.resourceLinksOpen,
+        vaultId: state.vaultId,
+      });
+    }
 
     return states.sort((left, right) => left.vaultId.localeCompare(right.vaultId));
   },
@@ -496,10 +519,7 @@ export const setVaultResourceLinksOpen = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;
-    const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== userId) {
-      throw new Error("Vault not found");
-    }
+    const vault = await requireVaultForUser(ctx.db, { userId, vaultId: args.vaultId });
     if (isVaultDeletingOrDeleteFailed(vault)) {
       throw new Error("Vault deletion is in progress.");
     }
@@ -532,10 +552,7 @@ export const setVaultPullRequestFilters = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;
-    const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== userId) {
-      throw new Error("Vault not found");
-    }
+    const vault = await requireVaultForUser(ctx.db, { userId, vaultId: args.vaultId });
     if (isVaultDeletingOrDeleteFailed(vault)) {
       throw new Error("Vault deletion is in progress.");
     }
@@ -587,26 +604,55 @@ function groupVaultRows<Row extends { vaultId: Id<"vaults"> }>(
   return rowsByVault;
 }
 
-async function readUserVaults(
+async function readOrganizationVaults(
   ctx: Pick<QueryCtx, "db">,
-  userId: Id<"users">,
+  organizationIds: Id<"organizations">[],
 ): Promise<UserVaultsResult> {
-  const [vaults, userConvexProjects, userCloudflareWorkers] = await Promise.all([
-    ctx.db
-      .query("vaults")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .collect(),
-    ctx.db
-      .query("vaultConvexProjects")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect(),
-    ctx.db
-      .query("vaultCloudflareWorkers")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect(),
-  ]);
-  const convexProjectsByVault = groupVaultRows(userConvexProjects);
-  const cloudflareWorkersByVault = groupVaultRows(userCloudflareWorkers);
+  const organizationRows = await Promise.all(
+    organizationIds.map(async (organizationId) => {
+      const [connectedVaults, provisioningVaults, failedVaults, convexProjects, cloudflareWorkers] =
+        await Promise.all([
+          ctx.db
+            .query("vaults")
+            .withIndex("by_organization_and_state_and_deletion_state", (q) =>
+              q.eq("organizationId", organizationId).eq("state", "connected"),
+            )
+            .collect(),
+          ctx.db
+            .query("vaults")
+            .withIndex("by_organization_and_state_and_deletion_state", (q) =>
+              q.eq("organizationId", organizationId).eq("state", "provisioning"),
+            )
+            .collect(),
+          ctx.db
+            .query("vaults")
+            .withIndex("by_organization_and_state_and_deletion_state", (q) =>
+              q.eq("organizationId", organizationId).eq("state", "failed"),
+            )
+            .collect(),
+          ctx.db
+            .query("vaultConvexProjects")
+            .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
+            .collect(),
+          ctx.db
+            .query("vaultCloudflareWorkers")
+            .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
+            .collect(),
+        ]);
+      return {
+        vaults: [...connectedVaults, ...provisioningVaults, ...failedVaults],
+        convexProjects,
+        cloudflareWorkers,
+      };
+    }),
+  );
+  const vaults = organizationRows.flatMap((rows) => rows.vaults);
+  const convexProjectsByVault = groupVaultRows(
+    organizationRows.flatMap((rows) => rows.convexProjects),
+  );
+  const cloudflareWorkersByVault = groupVaultRows(
+    organizationRows.flatMap((rows) => rows.cloudflareWorkers),
+  );
   const connectedVaults = vaults.filter(isConnectedVault);
   const initializingVaultResults: Array<UserVaultResult & { _creationTime: number }> = [];
   for (const vault of vaults) {
@@ -620,6 +666,7 @@ async function readUserVaults(
     const deletion = await resolveVaultDeletionSummary(ctx, vault, infrastructure);
     initializingVaultResults.push({
       _id: vault._id,
+      organizationId: vault.organizationId,
       _creationTime: vault._creationTime,
       ghRepoOwner: vault.owner,
       ghRepoName: vault.name,
@@ -680,6 +727,7 @@ async function readUserVaults(
       if (deletion.state !== "not_deleting") {
         return {
           _id: vault._id,
+          organizationId: vault.organizationId,
           _creationTime: vault._creationTime,
           ghRepoOwner: vault.owner,
           ghRepoName: vault.name,
@@ -726,6 +774,7 @@ async function readUserVaults(
           : { status: "not_applicable" as const };
       return {
         _id: vault._id,
+        organizationId: vault.organizationId,
         _creationTime: vault._creationTime,
         ghRepoOwner: vault.owner,
         ghRepoName: vault.name,
@@ -770,13 +819,15 @@ export const getUserVaults = query({
   returns: getUserVaultsContract.returns,
   mcp: getUserVaultsContract.mcp,
   handler: async (ctx): Promise<UserVaultsResult> => {
-    return await readUserVaults(ctx, ctx.viewer.userId);
+    const organizationIds = await listOrganizationIdsForUser(ctx.db, ctx.viewer.userId);
+    return await readOrganizationVaults(ctx, organizationIds);
   },
 });
 
 export const getUserVaultsForUser = internalQuery({
   args: {
     userId: id("users"),
+    organizationId: id("organizations"),
   },
   returns: getUserVaultsContract.returns,
   handler: async (ctx, args): Promise<UserVaultsResult> => {
@@ -787,6 +838,7 @@ export const getUserVaultsForUser = internalQuery({
       throw new Error("Access denied");
     }
 
-    return await readUserVaults(ctx, args.userId);
+    await requireOrganizationAccessContext(ctx.db, args);
+    return await readOrganizationVaults(ctx, [args.organizationId]);
   },
 });

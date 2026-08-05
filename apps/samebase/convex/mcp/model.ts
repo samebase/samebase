@@ -80,6 +80,7 @@ export const mcpTables = {
   mcpGrants: defineTable({
     grantId: string(),
     userId: id("users"),
+    organizationId: id("organizations"),
     clientId: string(),
     resource: string(),
     scope: string(),
@@ -130,25 +131,6 @@ export const mcpTables = {
     .index("by_user_id", ["userId"])
     .index("by_status", ["status"])
     .index("by_expires_at", ["expiresAt"]),
-
-  /**
-   * Hashes of one-use tokens that an authorized MCP client sends to a browser
-   * to start a Samebase session for the grant's user.
-   */
-  mcpBrowserLoginTokens: defineTable({
-    tokenHash: string(),
-    userId: id("users"),
-    grantId: string(),
-    clientId: string(),
-    // Deprecated rollout field. New tokens never write it; legacy rows expire after five minutes.
-    returnToPath: optional(string()),
-    createdAt: number(),
-    expiresAt: number(),
-    consumedAt: optional(number()),
-  })
-    .index("by_token_hash", ["tokenHash"])
-    .index("by_user_id", ["userId"])
-    .index("by_grant_id", ["grantId"]),
 
   /** One immutable MCP OAuth action, never read to authorize live requests. */
   audit_mcpAccess_events: defineTable({

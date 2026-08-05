@@ -1,7 +1,7 @@
 import { GitHubLogoIcon, ClockIcon } from "@/lib/radixIcons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -9,8 +9,6 @@ import { useQuery as useReactQuery } from "@tanstack/react-query";
 import { useState, type ReactElement } from "react";
 import { linkStyle } from "./styles";
 import type { FunctionReturnType } from "convex/server";
-import { isInIframe } from "@/authClient";
-import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
 import {
   findRepositorySearchMatch,
   splitRepositoryFullNameMatch,
@@ -18,8 +16,10 @@ import {
 } from "@/lib/repositorySearch";
 import { resolveDisplayedRepositories } from "@/lib/connectRepositoryPicker";
 import { queueExistingRepositoryAndNavigateToDashboard } from "@/lib/existingRepositoryConnectHandoff";
-import { PROVIDERS_ROUTE } from "@/lib/providersRoute";
 import { Loader2 } from "lucide-react";
+import { GitHubOwnerSelect, type GitHubOwner } from "@/components/GitHubOwnerSelect";
+import { getCurrentRootRelativeUrl, openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
+import type { Id } from "../../convex/_generated/dataModel";
 
 type Repository = FunctionReturnType<typeof api.github.listRepositories>[number];
 
@@ -31,10 +31,13 @@ type ConnectRepositoryRow = {
 };
 
 type ConnectRepositoryPageContentProps = {
+  canListRepositories: boolean;
   connectingRepositoryFullName: string | null;
   emptyRepositoryMessage: string | null;
   error: string | null;
-  githubConnected: boolean;
+  githubOwners: GitHubOwner[];
+  githubOwnersLoaded: boolean;
+  installingGitHubApp: boolean;
   loading: boolean;
   loadingMore: boolean;
   repositoryPreviewCount: number;
@@ -42,21 +45,14 @@ type ConnectRepositoryPageContentProps = {
   repositoryTotalCount: number;
   retryingFullRepositories: boolean;
   searchQuery: string;
+  selectedOrganizationId: Id<"organizations"> | null;
   showBackgroundError: boolean;
-  onConnectGithub: () => void;
   onConnectRepository: (repositoryFullName: string) => void;
+  onInstallGitHubApp: () => void;
+  onOrganizationChange: (organizationId: Id<"organizations">) => void;
   onRetryFullRepositories: () => void;
   onSearchQueryChange: (value: string) => void;
 };
-
-const GITHUB_OAUTH_ORG_APPROVAL_DOCS_URL =
-  "https://docs.github.com/en/organizations/managing-oauth-access-to-your-organizations-data/approving-oauth-apps-for-your-organization";
-const GITHUB_OAUTH_MEMBER_REQUEST_DOCS_URL =
-  "https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-personal-account-on-github/managing-your-membership-in-organizations/requesting-organization-approval-for-oauth-apps";
-
-function getCurrentRootRelativeUrl(): string {
-  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
-}
 
 function formatTimeAgo(timestamp: number) {
   const now = Date.now();
@@ -116,10 +112,23 @@ export function ConnectRepository() {
   const listRepositoriesPreview = useAction(api.github.listRepositoriesPreview);
   const listRepositories = useAction(api.github.listRepositories);
   const connectRepository = useAction(api.vault.actions.connectRepository);
-  const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
-  const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
-  const githubConnected = githubConnection?.connected === true;
+  const getGitHubAppInstallationUrl = useMutation(
+    api.githubAppInstallation.getGitHubAppInstallationUrl,
+  );
+  const githubOwners = useConvexQuery(api.organizations.listForViewer);
+  const [requestedOrganizationId, setSelectedOrganizationId] = useState<Id<"organizations"> | null>(
+    null,
+  );
+  const selectedOwner =
+    githubOwners?.length === 1
+      ? githubOwners[0]
+      : (githubOwners?.find(
+          (owner: GitHubOwner) => owner.organizationId === requestedOrganizationId,
+        ) ?? null);
+  const selectedOrganizationId = selectedOwner?.organizationId ?? null;
+  const canListRepositories = selectedOrganizationId !== null;
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [installingGitHubApp, setInstallingGitHubApp] = useState(false);
   const [connectingRepositoryFullName, setConnectingRepositoryFullName] = useState<string | null>(
     null,
   );
@@ -129,11 +138,14 @@ export function ConnectRepository() {
     isLoading: previewLoading,
     error: previewQueryError,
   } = useReactQuery({
-    queryKey: ["github-repositories-preview"],
+    queryKey: ["github-repositories-preview", selectedOrganizationId],
     queryFn: async () => {
-      return await listRepositoriesPreview();
+      if (selectedOrganizationId === null) {
+        throw new Error("Choose a GitHub owner.");
+      }
+      return await listRepositoriesPreview({ organizationId: selectedOrganizationId });
     },
-    enabled: githubConnected,
+    enabled: canListRepositories,
   });
 
   // Keep the fast preview and the full discovery scan separate so /connect-repo can
@@ -145,11 +157,14 @@ export function ConnectRepository() {
     fetchStatus: fullRepositoriesFetchStatus,
     isFetchedAfterMount: fullRepositoriesFetchedAfterMount,
   } = useReactQuery({
-    queryKey: ["github-repositories"],
+    queryKey: ["github-repositories", selectedOrganizationId],
     queryFn: async () => {
-      return await listRepositories();
+      if (selectedOrganizationId === null) {
+        throw new Error("Choose a GitHub owner.");
+      }
+      return await listRepositories({ organizationId: selectedOrganizationId });
     },
-    enabled: githubConnected && repositoryPreview?.hasMore === true,
+    enabled: canListRepositories && repositoryPreview?.hasMore === true,
   });
 
   const hasFreshFullRepositories =
@@ -157,7 +172,7 @@ export function ConnectRepository() {
     fullRepositoriesFetchedAfterMount &&
     fullQueryError == null;
   const repositories = resolveDisplayedRepositories({
-    githubConnected,
+    githubConnected: canListRepositories,
     repositoryPreview,
     fullRepositories,
     hasFreshFullRepositories,
@@ -166,7 +181,7 @@ export function ConnectRepository() {
   // Until the full query succeeds, every search result is still partial even
   // though the first page is already interactive.
   const hasPartialResults =
-    githubConnected && repositoryPreview?.hasMore === true && !hasFreshFullRepositories;
+    canListRepositories && repositoryPreview?.hasMore === true && !hasFreshFullRepositories;
   const loadingMore = hasPartialResults && fullRepositoriesFetchStatus === "fetching";
   const hasSearchQuery = searchQuery.trim().length > 0;
   const showBackgroundError =
@@ -210,28 +225,22 @@ export function ConnectRepository() {
     return [{ repo, searchMatch }];
   });
 
-  const connectGithub = () => {
-    void (async () => {
-      setConnectError(null);
-      try {
-        const oauthUrl = await getGithubOAuthUrl({
-          returnToPath: getCurrentRootRelativeUrl(),
-        });
-        if (isInIframe()) {
-          const popup = openGithubOAuthPopup(oauthUrl);
-          if (popup) {
-            return;
-          }
-        }
-        window.location.assign(oauthUrl);
-      } catch (connectGithubError) {
-        setConnectError(
-          connectGithubError instanceof Error
-            ? connectGithubError.message
-            : "Failed to start GitHub OAuth",
-        );
-      }
-    })();
+  const installGitHubApp = () => {
+    if (installingGitHubApp) {
+      return;
+    }
+
+    setConnectError(null);
+    setInstallingGitHubApp(true);
+    void openGitHubAppSetupPopup(async () => {
+      return await getGitHubAppInstallationUrl({ returnToPath: getCurrentRootRelativeUrl() });
+    })
+      .catch((error: unknown) => {
+        setConnectError(error instanceof Error ? error.message : "Could not install GitHub App.");
+      })
+      .finally(() => {
+        setInstallingGitHubApp(false);
+      });
   };
 
   const retryFullRepositories = () => {
@@ -242,7 +251,7 @@ export function ConnectRepository() {
   };
 
   const connectSelectedRepository = (repositoryFullName: string) => {
-    if (connectingRepositoryFullName !== null) {
+    if (connectingRepositoryFullName !== null || selectedOrganizationId === null) {
       return;
     }
 
@@ -251,7 +260,12 @@ export function ConnectRepository() {
       setConnectingRepositoryFullName(repositoryFullName);
       try {
         await queueExistingRepositoryAndNavigateToDashboard({
-          connectRepository,
+          connectRepository: async (args) => {
+            return await connectRepository({
+              organizationId: selectedOrganizationId,
+              repositoryFullName: args.repositoryFullName,
+            });
+          },
           repositoryFullName,
           search: location.search,
           navigateByHref: async (href) => {
@@ -272,10 +286,13 @@ export function ConnectRepository() {
 
   return (
     <ConnectRepositoryPageContent
+      canListRepositories={canListRepositories}
       connectingRepositoryFullName={connectingRepositoryFullName}
       emptyRepositoryMessage={emptyRepositoryMessage}
       error={error}
-      githubConnected={githubConnected}
+      githubOwners={githubOwners ?? []}
+      githubOwnersLoaded={githubOwners !== undefined}
+      installingGitHubApp={installingGitHubApp}
       loading={loading}
       loadingMore={loadingMore}
       repositoryPreviewCount={repositoryPreview?.repositories.length ?? 0}
@@ -283,9 +300,11 @@ export function ConnectRepository() {
       repositoryTotalCount={repositories.length}
       retryingFullRepositories={retryingFullRepositories}
       searchQuery={searchQuery}
+      selectedOrganizationId={selectedOrganizationId}
       showBackgroundError={showBackgroundError}
-      onConnectGithub={connectGithub}
       onConnectRepository={connectSelectedRepository}
+      onInstallGitHubApp={installGitHubApp}
+      onOrganizationChange={setSelectedOrganizationId}
       onRetryFullRepositories={retryFullRepositories}
       onSearchQueryChange={setSearchQuery}
     />
@@ -293,10 +312,13 @@ export function ConnectRepository() {
 }
 
 export function ConnectRepositoryPageContent({
+  canListRepositories,
   connectingRepositoryFullName,
   emptyRepositoryMessage,
   error,
-  githubConnected,
+  githubOwners,
+  githubOwnersLoaded,
+  installingGitHubApp,
   loading,
   loadingMore,
   repositoryPreviewCount,
@@ -304,9 +326,11 @@ export function ConnectRepositoryPageContent({
   repositoryTotalCount,
   retryingFullRepositories,
   searchQuery,
+  selectedOrganizationId,
   showBackgroundError,
-  onConnectGithub,
   onConnectRepository,
+  onInstallGitHubApp,
+  onOrganizationChange,
   onRetryFullRepositories,
   onSearchQueryChange,
 }: ConnectRepositoryPageContentProps) {
@@ -325,88 +349,61 @@ export function ConnectRepositoryPageContent({
         </div>
       )}
 
-      {!githubConnected && (
-        <div className="mb-6 corner-notch-1 border border-border bg-background p-4">
-          <div className="text-sm font-medium">GitHub connection required</div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Connect GitHub to list your repositories.
-          </p>
-          <Button className="mt-3" onClick={onConnectGithub}>
-            Connect GitHub
+      {githubOwnersLoaded && githubOwners.length === 0 ? (
+        <div>
+          <Button onClick={onInstallGitHubApp} disabled={installingGitHubApp}>
+            {installingGitHubApp ? "Opening GitHub..." : "Install GitHub App"}
           </Button>
         </div>
+      ) : (
+        <>
+          <div className="mb-4 max-w-md">
+            <GitHubOwnerSelect
+              disabled={connectingRepositoryFullName !== null}
+              owners={githubOwners}
+              selectedOrganizationId={selectedOrganizationId}
+              onChange={onOrganizationChange}
+            />
+          </div>
+          {canListRepositories ? (
+            <div className="mb-6 flex-shrink-0">
+              <Input
+                placeholder="Search repositories..."
+                value={searchQuery}
+                onChange={(event) => onSearchQueryChange(event.target.value)}
+                className="max-w-md"
+              />
+              {loadingMore && (
+                <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
+                  Showing the {repositoryPreviewCount} most recently updated repositories while we
+                  load the rest. Search results stay partial until loading finishes.
+                </p>
+              )}
+
+              {showBackgroundError && (
+                <div className="mt-3 flex max-w-2xl items-center justify-between gap-3 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 corner-notch-1">
+                  <div>
+                    Couldn&apos;t load the rest of your repositories. You&apos;re still seeing the
+                    most recently updated ones.
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-amber-300 bg-transparent"
+                    onClick={onRetryFullRepositories}
+                    disabled={retryingFullRepositories}
+                  >
+                    {retryingFullRepositories ? "Retrying..." : "Retry"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </>
       )}
 
-      <div className="mb-6 flex-shrink-0">
-        <Input
-          placeholder="Search repositories..."
-          value={searchQuery}
-          onChange={(e) => onSearchQueryChange(e.target.value)}
-          className="max-w-md"
-          disabled={!githubConnected}
-        />
-        {githubConnected && (
-          <>
-            <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
-              Missing a private org repo?{" "}
-              <Link to={PROVIDERS_ROUTE} className={linkStyle}>
-                Review GitHub access
-              </Link>{" "}
-              to check granted scopes and repository listing. GitHub org policy can still block
-              Samebase even when the token has the right scopes. If you're an org owner, approve
-              Samebase in the org's Settings, then Third-party Access, then OAuth app policy.
-              Otherwise request access from GitHub's Authorized OAuth Apps page if GitHub offers
-              that option, or ask an org owner to approve Samebase.{" "}
-              <a
-                href={GITHUB_OAUTH_ORG_APPROVAL_DOCS_URL}
-                target="_blank"
-                rel="noreferrer"
-                className={linkStyle}
-              >
-                Owner docs
-              </a>{" "}
-              /{" "}
-              <a
-                href={GITHUB_OAUTH_MEMBER_REQUEST_DOCS_URL}
-                target="_blank"
-                rel="noreferrer"
-                className={linkStyle}
-              >
-                Member docs
-              </a>
-            </p>
-
-            {loadingMore && (
-              <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
-                Showing the {repositoryPreviewCount} most recently updated repositories while we
-                load the rest. Search results stay partial until loading finishes.
-              </p>
-            )}
-
-            {showBackgroundError && (
-              <div className="mt-3 flex max-w-2xl items-center justify-between gap-3 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 corner-notch-1">
-                <div>
-                  Couldn&apos;t load the rest of your repositories. You&apos;re still seeing the
-                  most recently updated ones. Review GitHub access from Providers if this keeps
-                  failing.
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-amber-300 bg-transparent"
-                  onClick={onRetryFullRepositories}
-                  disabled={retryingFullRepositories}
-                >
-                  {retryingFullRepositories ? "Retrying..." : "Retry"}
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
       <div className="flex-1 overflow-y-auto">
-        {githubConnected && loading && repositoryTotalCount === 0 ? (
+        {canListRepositories && loading && repositoryTotalCount === 0 ? (
           <div className="flex items-center justify-center py-8">
             <div className="text-muted-foreground">Loading repositories...</div>
           </div>
@@ -494,7 +491,7 @@ export function ConnectRepositoryPageContent({
           !error &&
           repositoryTotalCount > 0 &&
           emptyRepositoryMessage !== null &&
-          githubConnected && (
+          canListRepositories && (
             <div className="text-center py-8">
               <div className="text-muted-foreground">{emptyRepositoryMessage}</div>
             </div>

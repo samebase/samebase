@@ -14,6 +14,7 @@ import { randomToken } from "../oauthUtils";
 import {
   convexArgsToToolInputSchema,
   convexValidatorToToolOutputSchema,
+  type ToolJsonSchema,
 } from "../toolRuntime/convexSchemas";
 import {
   logMcpHttpUsageContext,
@@ -40,11 +41,7 @@ import {
 import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub";
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
-import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
-import {
-  MCP_CONSENT_APP_PATH,
-  type McpAuthorizationSuccessSearchParams,
-} from "../../shared/mcpOAuth";
+import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 import { canAccess, type AccessKey } from "../../shared/accessModel";
 import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
 import { parseSiteOrigin } from "../../shared/siteOrigin";
@@ -52,10 +49,8 @@ import { mcpScopeAllowsAccess } from "../toolRuntime/mcpScopes";
 import { actionContracts, type ActionContractMcpName } from "../toolRuntime/actionCatalog";
 import {
   createAccessTokenValue,
-  createAuthorizationCodeValue,
   createRefreshTokenValue,
   MCP_ACCESS_TOKEN_TTL_MS,
-  MCP_AUTHORIZATION_CODE_TTL_MS,
   MCP_REFRESH_TOKEN_TTL_MS,
   sha256Hex,
 } from "./tokens";
@@ -101,6 +96,7 @@ export type McpToolInvocation = {
   clientId: string;
   grantId: string;
   input: JsonRecord;
+  organizationId: Id<"organizations">;
   userId: Id<"users">;
   grantedScopes: string[];
   viewer: McpResolvedViewer;
@@ -112,9 +108,11 @@ export function buildMcpToolInvocationArgs(invocation: McpToolInvocation) {
   delete input.grantedScopes;
   delete input.grantId;
   delete input.clientId;
+  delete input.organizationId;
   return {
     ...input,
     userId: invocation.userId,
+    organizationId: invocation.organizationId,
     grantedScopes: invocation.grantedScopes,
   };
 }
@@ -182,17 +180,6 @@ function createMcpRuntimeToolCall<
     );
 }
 
-async function callCreateBrowserHandoffMcpTool(
-  ctx: ActionCtx,
-  invocation: McpToolInvocation,
-): Promise<McpToolResult> {
-  return await ctx.runAction(internal.toolRuntime.runtime.createBrowserHandoffTool, {
-    ...buildMcpToolInvocationArgs(invocation),
-    grantId: invocation.grantId,
-    clientId: invocation.clientId,
-  });
-}
-
 const mcpToolCalls: Record<ActionContractMcpName, McpToolCall> = {
   [getUserVaultsContract.mcp.name]: createMcpRuntimeToolCall(
     internal.toolRuntime.runtime.getUserVaultsTool,
@@ -230,9 +217,21 @@ const mcpToolCalls: Record<ActionContractMcpName, McpToolCall> = {
   [retryInfrastructureProvisioningContract.mcp.name]: createMcpRuntimeToolCall(
     internal.toolRuntime.runtime.retryInfrastructureProvisioningTool,
   ),
-  [createBrowserHandoffContract.mcp.name]: callCreateBrowserHandoffMcpTool,
   [getAuthenticationStatusContract.mcp.name]: callGetAuthenticationStatusMcpTool,
 };
+
+function removeTrustedOrganizationFromMcpInputSchema(inputSchema: ToolJsonSchema): ToolJsonSchema {
+  const properties = { ...inputSchema.properties };
+  delete properties.organizationId;
+  const required = inputSchema.required?.filter((name) => name !== "organizationId");
+
+  return {
+    type: inputSchema.type,
+    properties,
+    ...(required !== undefined && required.length > 0 ? { required } : {}),
+    additionalProperties: inputSchema.additionalProperties,
+  };
+}
 
 const mcpToolCatalog = actionContracts.map((contract) => ({
   access: contract.access,
@@ -240,7 +239,9 @@ const mcpToolCatalog = actionContracts.map((contract) => ({
   name: contract.mcp.name,
   description: contract.mcp.description,
   annotations: contract.mcp.annotations,
-  inputSchema: convexArgsToToolInputSchema(contract.args, contract.mcp.inputDescriptions),
+  inputSchema: removeTrustedOrganizationFromMcpInputSchema(
+    convexArgsToToolInputSchema(contract.args, contract.mcp.inputDescriptions),
+  ),
   outputSchema:
     "structuredContent" in contract
       ? convexValidatorToToolOutputSchema(contract.structuredContent)
@@ -598,71 +599,19 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
     expiresAt: now + MCP_AUTH_REQUEST_TTL_MS,
   });
 
-  if (!userId) {
-    const consentRedirect = buildMcpConsentRedirectUrl({
-      request,
-      requestId,
-      loginRequired: true,
-    });
-    if (!consentRedirect.ok) {
-      return oauthErrorResponse({
-        status: 500,
-        error: "server_error",
-        errorDescription: consentRedirect.errorDescription,
-      });
-    }
-    return Response.redirect(consentRedirect.value, 302);
-  }
-
-  const hasExistingGrant = await ctx.runQuery(internal.mcp.oauth.hasActiveGrantForAuthRequest, {
+  const consentRedirect = buildMcpConsentRedirectUrl({
+    request,
     requestId,
-    userId,
+    loginRequired: userId === null,
   });
-  if (!hasExistingGrant) {
-    const consentRedirect = buildMcpConsentRedirectUrl({
-      request,
-      requestId,
-      loginRequired: false,
-    });
-    if (!consentRedirect.ok) {
-      return oauthErrorResponse({
-        status: 500,
-        error: "server_error",
-        errorDescription: consentRedirect.errorDescription,
-      });
-    }
-    return Response.redirect(consentRedirect.value, 302);
-  }
-
-  const authorizationCode = createAuthorizationCodeValue();
-  const authorizationCodeHash = await sha256Hex(authorizationCode);
-  const issueResult = await ctx.runMutation(
-    internal.mcp.oauth.issueAuthorizationCodeForAuthRequest,
-    {
-      requestId,
-      userId,
-      codeHash: authorizationCodeHash,
-      codeExpiresAt: now + MCP_AUTHORIZATION_CODE_TTL_MS,
-      allowLoopbackHttpRedirectUris:
-        protocolValidationOptions.allowLoopbackHttpRedirectUris === true,
-      now,
-    },
-  );
-  if (!issueResult.ok) {
+  if (!consentRedirect.ok) {
     return oauthErrorResponse({
-      status: issueResult.status,
-      error: issueResult.error,
-      errorDescription: issueResult.errorDescription,
+      status: 500,
+      error: "server_error",
+      errorDescription: consentRedirect.errorDescription,
     });
   }
-
-  return Response.redirect(
-    buildUrlWithSearchParams(issueResult.redirectUri, {
-      code: authorizationCode,
-      state: issueResult.state,
-    } satisfies McpAuthorizationSuccessSearchParams),
-    302,
-  );
+  return Response.redirect(consentRedirect.value, 302);
 });
 
 export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {
@@ -1003,6 +952,7 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
         clientId: tokenValidation.clientId,
         grantId: tokenValidation.grantId,
         input,
+        organizationId: tokenValidation.organizationId,
         userId: tokenValidation.userId,
         grantedScopes,
         viewer: currentViewer,

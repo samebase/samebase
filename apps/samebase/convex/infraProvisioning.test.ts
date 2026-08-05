@@ -22,8 +22,16 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
       email: "ada@example.com",
       isApproved: true,
     });
+    const organizationId = await ctx.db.insert("organizations", {
+      githubInstallationId: `installation-${args.repoName}`,
+      githubOwnerId: `owner-${args.repoName}`,
+      githubOwnerLogin: "ada",
+      githubOwnerLoginNormalized: "ada",
+      githubOwnerType: "user",
+    });
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
     const vaultId = await ctx.db.insert("vaults", {
-      userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
@@ -41,7 +49,7 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
 
     if (args.vaultState === "connected") {
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -55,7 +63,7 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
       });
     } else if (args.vaultState === "provisioning") {
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "provisioning",
         githubMode: "create_repository",

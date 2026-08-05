@@ -2,12 +2,14 @@ import { v, type Infer } from "convex/values";
 
 import { internalQuery } from "../_generated/server";
 import { getConvexCodeLocationKey, readConvexCodeLocation } from "../../shared/convexCodeLocation";
+import { requireVaultForUser } from "../organizationAccess";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import { isLiveConnectedVault } from "./state";
 
 const { array, id, object, string } = v;
 
 const vVaultProviderObservationContext = object({
+  organizationId: id("organizations"),
   ghRepoId: string(),
   owner: string(),
   name: string(),
@@ -15,6 +17,7 @@ const vVaultProviderObservationContext = object({
   cloudflareWorkers: array(
     object({
       workerId: id("vaultCloudflareWorkers"),
+      providerConnectionId: id("providerConnections"),
       accountId: string(),
       workerName: string(),
       workerTag: string(),
@@ -23,6 +26,7 @@ const vVaultProviderObservationContext = object({
   convexProjects: array(
     object({
       convexProjectId: id("vaultConvexProjects"),
+      providerConnectionId: id("providerConnections"),
       teamId: string(),
       projectId: string(),
       codeLocation: vConvexCodeLocation,
@@ -37,17 +41,19 @@ export const readProviderAttachmentVaultContext = internalQuery({
     userId: id("users"),
   },
   returns: object({
+    organizationId: id("organizations"),
     ghRepoId: string(),
     owner: string(),
     name: string(),
     defaultBranch: string(),
   }),
   handler: async (ctx, args) => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+    const vault = await requireVaultForUser(ctx.db, args);
+    if (!isLiveConnectedVault(vault)) {
       throw new Error("Vault not found.");
     }
     return {
+      organizationId: vault.organizationId,
       ghRepoId: vault.ghRepoId,
       owner: vault.owner,
       name: vault.name,
@@ -63,8 +69,8 @@ export const readVaultProviderObservationContext = internalQuery({
   },
   returns: vVaultProviderObservationContext,
   handler: async (ctx, args) => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+    const vault = await requireVaultForUser(ctx.db, args);
+    if (!isLiveConnectedVault(vault)) {
       throw new Error("Vault not found.");
     }
     const [workers, projects] = await Promise.all([
@@ -77,8 +83,15 @@ export const readVaultProviderObservationContext = internalQuery({
         .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
         .collect(),
     ]);
+    if (
+      workers.some((worker) => worker.organizationId !== vault.organizationId) ||
+      projects.some((project) => project.organizationId !== vault.organizationId)
+    ) {
+      throw new Error("Vault provider attachment not found.");
+    }
 
     return {
+      organizationId: vault.organizationId,
       ghRepoId: vault.ghRepoId,
       owner: vault.owner,
       name: vault.name,
@@ -86,6 +99,7 @@ export const readVaultProviderObservationContext = internalQuery({
       cloudflareWorkers: workers
         .map((worker) => ({
           workerId: worker._id,
+          providerConnectionId: worker.providerConnectionId,
           accountId: worker.accountId,
           workerName: worker.workerName,
           workerTag: worker.workerTag,
@@ -98,6 +112,7 @@ export const readVaultProviderObservationContext = internalQuery({
       convexProjects: projects
         .map((project) => ({
           convexProjectId: project._id,
+          providerConnectionId: project.providerConnectionId,
           teamId: project.teamId,
           projectId: project.projectId,
           codeLocation: readConvexCodeLocation(project),

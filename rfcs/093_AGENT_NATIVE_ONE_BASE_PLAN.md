@@ -83,7 +83,7 @@ The repo has been converging on this design for months. Much of the original pla
 | Existing-repository adoption                          | `connectRepositoryContract` in `apps/samebase/convex/vault/contracts/connectRepository.ts:12`                                                                | Any readable GitHub repo can be registered without touching Convex or Cloudflare, remain GitHub-only, or attach providers later                                  |
 | Monorepo app roots                                    | `vaultApps` in `apps/samebase/convex/schema.ts:469`, `VaultDashboardAppRootDialog` in `apps/samebase/src/components/vault-dashboard/VaultDashboard.tsx:1125` | Several deployable roots per repo are supported in the dashboard and provider records; no MCP action creates roots yet                                           |
 | Public agent-readable corpus                          | `/landing-preview`, `/docs/*`, `/pricing.md`, `/llms.txt`                                                                                                    | Public, prerendered or raw-served, and indexed from `/llms.txt`                                                                                                  |
-| MCP OAuth and pre-account direction                   | `apps/samebase/convex/mcp/`, `rfcs/063_MCP_PREACCOUNT_ONBOARDING_FLOW_SPEC.md`                                                                               | OAuth, PKCE, dynamic client registration, and browser handoff are live; the earlier pre-account flow remains prior art                                           |
+| MCP OAuth and pre-account direction                   | `apps/samebase/convex/mcp/`, `rfcs/063_MCP_PREACCOUNT_ONBOARDING_FLOW_SPEC.md`                                                                               | OAuth, PKCE, dynamic client registration, and organization-bound grants are live; the earlier pre-account flow remains prior art                                 |
 
 What does **not** exist yet: public CLONK or Conductor comparison pages, MCP creation of monorepo
 app roots, automatic discovery of an entire GitHub account, or fleet-wide base versioning and drift
@@ -162,9 +162,9 @@ holds OAuth grants server-side, so the same verbs work from ChatGPT, a phone, or
 one Samebase auth, under single-owner fencing across providers.
 
 The live MCP catalog stays small: authentication and status, create and import, provider discovery,
-attach, wire, verify, retry, and browser handoff. `/llms.txt` is the generated authoritative list.
-The provider discovery reads are necessary because an agent cannot safely supply attach targets
-without them. Contract ids are snake_case action names and form the documented action vocabulary;
+attach, wire, verify, and retry. `/llms.txt` is the generated authoritative list. The provider
+discovery reads are necessary because an agent cannot safely supply attach targets without them.
+Contract ids are snake_case action names and form the documented action vocabulary;
 implementation-specific function names stay behind the contracts.
 
 ## The Front Door: Directed Retrieval, Not Ambient SEO

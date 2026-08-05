@@ -11,30 +11,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export type ApiKeyProvider = "github" | "convex";
-
 type ConnectWithApiKey = (args: { token: string }) => Promise<unknown>;
 
 type UseApiKeyConnectDialogArgs = {
-  connectGithubWithApiKey: ConnectWithApiKey;
   connectConvexWithApiKey: ConnectWithApiKey;
 };
 
-const getApiKeyProviderLabel = (provider: ApiKeyProvider | null): string => {
-  if (provider === "github") return "GitHub";
-  if (provider === "convex") return "Convex";
-  return "Provider";
-};
-
-const assertNever = (value: never): never => {
-  throw new Error(`Unhandled provider: ${String(value)}`);
-};
-
-export const useApiKeyConnectDialog = ({
-  connectGithubWithApiKey,
-  connectConvexWithApiKey,
-}: UseApiKeyConnectDialogArgs) => {
-  const [apiKeyDialogProvider, setApiKeyDialogProvider] = useState<ApiKeyProvider | null>(null);
+export const useApiKeyConnectDialog = ({ connectConvexWithApiKey }: UseApiKeyConnectDialogArgs) => {
+  const [isApiKeyDialogOpen, setIsApiKeyDialogOpen] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
   const [isConnectingApiKey, setIsConnectingApiKey] = useState(false);
@@ -42,8 +26,8 @@ export const useApiKeyConnectDialog = ({
   const apiKeyInputId = useId();
   const apiKeyErrorId = `${apiKeyInputId}-error`;
 
-  const openApiKeyDialog = useCallback((provider: ApiKeyProvider) => {
-    setApiKeyDialogProvider(provider);
+  const openApiKeyDialog = useCallback(() => {
+    setIsApiKeyDialogOpen(true);
     setApiKeyInput("");
     setApiKeyError(null);
   }, []);
@@ -52,19 +36,19 @@ export const useApiKeyConnectDialog = ({
     if (isConnectingApiKeyRef.current) {
       return;
     }
-    setApiKeyDialogProvider(null);
+    setIsApiKeyDialogOpen(false);
     setApiKeyInput("");
     setApiKeyError(null);
   }, []);
 
   const handleConnectWithApiKey = useCallback(async () => {
-    if (!apiKeyDialogProvider || isConnectingApiKeyRef.current) {
+    if (!isApiKeyDialogOpen || isConnectingApiKeyRef.current) {
       return;
     }
 
     const token = apiKeyInput.trim();
     if (!token) {
-      setApiKeyError("API key is required.");
+      setApiKeyError("Team token is required.");
       return;
     }
 
@@ -73,34 +57,24 @@ export const useApiKeyConnectDialog = ({
     setApiKeyError(null);
 
     try {
-      switch (apiKeyDialogProvider) {
-        case "github":
-          await connectGithubWithApiKey({ token });
-          break;
-        case "convex":
-          await connectConvexWithApiKey({ token });
-          break;
-        default:
-          assertNever(apiKeyDialogProvider);
-      }
-      setApiKeyDialogProvider(null);
+      await connectConvexWithApiKey({ token });
+      setIsApiKeyDialogOpen(false);
       setApiKeyInput("");
       setApiKeyError(null);
     } catch (error) {
-      setApiKeyError(error instanceof Error ? error.message : "Failed to connect using API key");
+      setApiKeyError(error instanceof Error ? error.message : "Could not connect Convex.");
     } finally {
       isConnectingApiKeyRef.current = false;
       setIsConnectingApiKey(false);
     }
-  }, [apiKeyDialogProvider, apiKeyInput, connectConvexWithApiKey, connectGithubWithApiKey]);
+  }, [apiKeyInput, connectConvexWithApiKey, isApiKeyDialogOpen]);
 
-  const apiKeyProviderLabel = getApiKeyProviderLabel(apiKeyDialogProvider);
-  const apiKeySubmitLabel = isConnectingApiKey ? "Connecting..." : `Connect ${apiKeyProviderLabel}`;
+  const apiKeySubmitLabel = isConnectingApiKey ? "Connecting..." : "Connect Convex";
 
   const apiKeyDialog = useMemo(
     () => (
       <Dialog
-        open={apiKeyDialogProvider !== null}
+        open={isApiKeyDialogOpen}
         onOpenChange={(open) => {
           if (!open) {
             closeApiKeyDialog();
@@ -109,13 +83,11 @@ export const useApiKeyConnectDialog = ({
       >
         <AppDialogContent>
           <DialogHeader>
-            <DialogTitle>{`Connect ${apiKeyProviderLabel} with API key`}</DialogTitle>
-            <DialogDescription>
-              Paste your {apiKeyProviderLabel} API key or token to connect this account.
-            </DialogDescription>
+            <DialogTitle>Connect Convex with API key</DialogTitle>
+            <DialogDescription>Paste a Convex team token.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor={apiKeyInputId}>{`${apiKeyProviderLabel} API key`}</Label>
+            <Label htmlFor={apiKeyInputId}>Convex team token</Label>
             <Input
               id={apiKeyInputId}
               type="password"
@@ -127,7 +99,7 @@ export const useApiKeyConnectDialog = ({
                   setApiKeyError(null);
                 }
               }}
-              placeholder={`${apiKeyProviderLabel} API key`}
+              placeholder="Convex team token"
               disabled={isConnectingApiKey}
               aria-invalid={apiKeyError !== null}
               aria-describedby={apiKeyError ? apiKeyErrorId : undefined}
@@ -160,15 +132,14 @@ export const useApiKeyConnectDialog = ({
       </Dialog>
     ),
     [
-      apiKeyDialogProvider,
       apiKeyError,
       apiKeyErrorId,
       apiKeyInput,
       apiKeyInputId,
-      apiKeyProviderLabel,
       apiKeySubmitLabel,
       closeApiKeyDialog,
       handleConnectWithApiKey,
+      isApiKeyDialogOpen,
       isConnectingApiKey,
     ],
   );

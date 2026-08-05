@@ -8,6 +8,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { action, mutation, query } from "../functions";
 import { isRecord, readBoolean, readString, toErrorMessage } from "../jsonUtils";
+import { findVaultForUser, requireVaultForUser } from "../organizationAccess";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import { isLiveConnectedVault } from "./state";
 import {
@@ -960,13 +961,20 @@ export const get = query({
   },
   returns: union(vConvexSchemaGraphStateResult, nullValue()),
   handler: async (ctx, args): Promise<ConvexSchemaGraphStateResult | null> => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== ctx.viewer.userId) {
+    const vault = await findVaultForUser(ctx.db, {
+      userId: ctx.viewer.userId,
+      vaultId: args.vaultId,
+    });
+    if (!isLiveConnectedVault(vault)) {
       return null;
     }
 
     const project = await ctx.db.get(args.convexProjectId);
-    if (!project || project.vaultId !== args.vaultId || project.userId !== ctx.viewer.userId) {
+    if (
+      !project ||
+      project.vaultId !== args.vaultId ||
+      project.organizationId !== vault.organizationId
+    ) {
       return null;
     }
 
@@ -1019,14 +1027,16 @@ export const saveLayout = mutation({
   },
   returns: nullValue(),
   handler: async (ctx, args) => {
-    const vault = await ctx.db.get(args.vaultId);
+    const vault = await findVaultForUser(ctx.db, {
+      userId: ctx.viewer.userId,
+      vaultId: args.vaultId,
+    });
     const project = await ctx.db.get(args.convexProjectId);
     if (
       !isLiveConnectedVault(vault) ||
-      vault.userId !== ctx.viewer.userId ||
       !project ||
       project.vaultId !== args.vaultId ||
-      project.userId !== ctx.viewer.userId
+      project.organizationId !== vault.organizationId
     ) {
       throw new Error("Convex project not found.");
     }
@@ -1151,21 +1161,25 @@ export const readRefreshTarget = internalQuery({
   },
   returns: vConvexSchemaRefreshTarget,
   handler: async (ctx, args): Promise<ConvexSchemaRefreshTarget> => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+    const vault = await requireVaultForUser(ctx.db, {
+      userId: args.userId,
+      vaultId: args.vaultId,
+    });
+    if (!isLiveConnectedVault(vault)) {
       throw new Error("Vault not found.");
     }
 
     const project = await ctx.db.get(args.convexProjectId);
-    if (!project || project.vaultId !== args.vaultId || project.userId !== args.userId) {
+    if (
+      !project ||
+      project.vaultId !== args.vaultId ||
+      project.organizationId !== vault.organizationId
+    ) {
       throw new Error("Convex project not found.");
     }
 
-    const connection = await ctx.db
-      .query("providerConnections")
-      .withIndex("by_user_kind", (q) => q.eq("userId", args.userId).eq("kind", "convex"))
-      .first();
-    if (connection?.kind !== "convex") {
+    const connection = await ctx.db.get(project.providerConnectionId);
+    if (connection?.kind !== "convex" || connection.organizationId !== vault.organizationId) {
       throw new Error("Convex connection is required.");
     }
     const token = connection.auth.credential.trim();
@@ -1212,8 +1226,16 @@ export const recordSnapshot = internalMutation({
   },
   returns: id("observations_vaultConvexSchema_snapshots"),
   handler: async (ctx, args): Promise<Id<"observations_vaultConvexSchema_snapshots">> => {
+    const vault = await requireVaultForUser(ctx.db, {
+      userId: args.userId,
+      vaultId: args.vaultId,
+    });
     const project = await ctx.db.get(args.convexProjectId);
-    if (!project || project.userId !== args.userId || project.vaultId !== args.vaultId) {
+    if (
+      !project ||
+      project.vaultId !== args.vaultId ||
+      project.organizationId !== vault.organizationId
+    ) {
       throw new Error("Convex project not found.");
     }
 

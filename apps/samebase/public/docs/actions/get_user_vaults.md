@@ -4,11 +4,12 @@
 
 MCP tool `vault_dashboard_getUserVaults` · scope `access_dashboard` · write
 
-Returns every vault the authenticated account can see. Repository connection, source setup, provider
-setup, and deletion are independent axes; a source-setup failure does not revoke an already
-connected repository. Provider resources are stable identities only. Current Cloudflare and Convex
-state, including the Worker-to-project marker, is loaded from those providers when a relevant view
-opens; it is not mirrored by this query.
+Returns every vault the authenticated account can see in the web app. An MCP call returns only
+vaults in the organization selected when its grant was approved. Repository connection, source
+setup, provider setup, and deletion are independent axes; a source-setup failure does not revoke an
+already connected repository. Provider resources are stable identities only. Current Cloudflare and
+Convex state, including the Worker-to-project marker, is loaded from those providers when a relevant
+view opens; it is not mirrored by this query.
 
 ## Arguments
 
@@ -28,6 +29,9 @@ JSON Schema for the tool's `structuredContent`:
         "type": "object",
         "properties": {
           "_id": {
+            "type": "string"
+          },
+          "organizationId": {
             "type": "string"
           },
           "ghRepoOwner": {
@@ -789,6 +793,7 @@ JSON Schema for the tool's `structuredContent`:
         },
         "required": [
           "_id",
+          "organizationId",
           "ghRepoOwner",
           "ghRepoName",
           "repositoryFullName",

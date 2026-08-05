@@ -3,6 +3,7 @@ import { internal } from "../_generated/api";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { action, query } from "../functions";
 import { randomToken } from "../oauthUtils";
+import { findOrganizationAccessContext, listOrganizationIdsForUser } from "../organizationAccess";
 import {
   applyMcpDenyErrorParamsToRedirectUrl,
   type McpAuthorizationSuccessSearchParams,
@@ -72,6 +73,7 @@ type McpOauthError = Infer<typeof mcpOauthErrorValidator>;
 const issueAuthorizationCodeForAuthRequestArgsValidator = object({
   requestId: string(),
   userId: id("users"),
+  organizationId: id("organizations"),
   codeHash: string(),
   codeExpiresAt: number(),
   allowLoopbackHttpRedirectUris: optional(boolean()),
@@ -95,6 +97,7 @@ type IssueAuthorizationCodeForAuthRequestResult = Infer<
 
 const completeAuthorizationRequestArgsValidator = object({
   requestId: string(),
+  organizationId: id("organizations"),
 });
 type CompleteAuthorizationRequestArgs = Infer<typeof completeAuthorizationRequestArgsValidator>;
 
@@ -151,6 +154,12 @@ const getAuthorizationRequestForCurrentUserResultValidator = union(
     resource: string(),
     status: vMcpAuthRequestStatus,
     dynamicallyRegistered: boolean(),
+    organizations: array(
+      object({
+        organizationId: id("organizations"),
+        githubOwnerLogin: string(),
+      }),
+    ),
     createdAt: number(),
     expiresAt: number(),
   }),
@@ -178,6 +187,7 @@ const tokenExchangeSuccessValidator = object({
   ok: literal(true),
   grantId: string(),
   userId: id("users"),
+  organizationId: id("organizations"),
   clientId: string(),
   scope: string(),
   resource: string(),
@@ -209,6 +219,7 @@ const validateAccessTokenResultValidator = union(
     ok: literal(true),
     grantId: string(),
     userId: id("users"),
+    organizationId: id("organizations"),
     clientId: string(),
     scope: string(),
     resource: string(),
@@ -374,6 +385,25 @@ export const getAuthorizationRequestForCurrentUser = query({
       authRequest.status === "pending" && authRequest.expiresAt <= Date.now()
         ? ("expired" satisfies Infer<typeof vMcpAuthRequestStatus>)
         : authRequest.status;
+    const organizationIds = await listOrganizationIdsForUser(ctx.db, ctx.viewer.userId);
+    const organizations = await Promise.all(
+      organizationIds.map(async (organizationId) => {
+        const organization = await ctx.db.get(organizationId);
+        if (organization === null) {
+          throw new Error("Organization membership refers to a missing organization.");
+        }
+
+        return {
+          organizationId,
+          githubOwnerLogin: organization.githubOwnerLogin,
+        };
+      }),
+    );
+    organizations.sort(
+      (left, right) =>
+        left.githubOwnerLogin.localeCompare(right.githubOwnerLogin) ||
+        left.organizationId.localeCompare(right.organizationId),
+    );
 
     return {
       requestId: authRequest.requestId,
@@ -384,37 +414,10 @@ export const getAuthorizationRequestForCurrentUser = query({
       resource: authRequest.resource,
       status: effectiveStatus,
       dynamicallyRegistered: client?.createdBy === "dynamic_registration",
+      organizations,
       createdAt: authRequest.createdAt,
       expiresAt: authRequest.expiresAt,
     };
-  },
-});
-
-export const hasActiveGrantForAuthRequest = internalQuery({
-  args: {
-    requestId: string(),
-    userId: id("users"),
-  },
-  returns: v.boolean(),
-  handler: async (ctx, args) => {
-    const authRequest = await ctx.db
-      .query("mcpAuthorizationRequests")
-      .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
-      .first();
-    if (!authRequest) {
-      return false;
-    }
-    const userGrants = await ctx.db
-      .query("mcpGrants")
-      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
-      .collect();
-    return userGrants.some(
-      (grant) =>
-        grant.clientId === authRequest.clientId &&
-        grant.resource === authRequest.resource &&
-        grant.scope === authRequest.scope &&
-        grant.status === "active",
-    );
   },
 });
 
@@ -438,6 +441,17 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
         status: 400,
         error: "invalid_grant",
         errorDescription: "Grant is no longer active.",
+      });
+    }
+    const organizationAccess = await findOrganizationAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: args.organizationId,
+    });
+    if (organizationAccess === null) {
+      return oauthError({
+        status: 403,
+        error: "access_denied",
+        errorDescription: "Organization membership is required.",
       });
     }
 
@@ -482,35 +496,18 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
       });
     }
 
-    const userGrants = await ctx.db
-      .query("mcpGrants")
-      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
-      .collect();
-    const existingGrant = userGrants.find(
-      (grant) =>
-        grant.clientId === authRequest.clientId &&
-        grant.resource === authRequest.resource &&
-        grant.scope === authRequest.scope &&
-        grant.status === "active",
-    );
-
-    const grantId = existingGrant?.grantId ?? `mcpg_${randomToken(24)}`;
-    if (existingGrant) {
-      await ctx.db.patch(existingGrant._id, {
-        updatedAt: args.now,
-      });
-    } else {
-      await ctx.db.insert("mcpGrants", {
-        grantId,
-        userId: args.userId,
-        clientId: authRequest.clientId,
-        resource: authRequest.resource,
-        scope: authRequest.scope,
-        status: "active",
-        createdAt: args.now,
-        updatedAt: args.now,
-      });
-    }
+    const grantId = `mcpg_${randomToken(24)}`;
+    await ctx.db.insert("mcpGrants", {
+      grantId,
+      userId: args.userId,
+      organizationId: args.organizationId,
+      clientId: authRequest.clientId,
+      resource: authRequest.resource,
+      scope: authRequest.scope,
+      status: "active",
+      createdAt: args.now,
+      updatedAt: args.now,
+    });
 
     await ctx.db.insert("mcpAuthorizationCodes", {
       codeHash: args.codeHash,
@@ -601,6 +598,7 @@ export const completeAuthorizationRequestForCurrentUser = action({
       {
         requestId: args.requestId,
         userId: ctx.viewer.userId,
+        organizationId: args.organizationId,
         codeHash: authorizationCodeHash,
         codeExpiresAt: now + MCP_AUTHORIZATION_CODE_TTL_MS,
         allowLoopbackHttpRedirectUris:
@@ -776,6 +774,17 @@ export const exchangeAuthorizationCode = internalMutation({
         errorDescription: "Grant is no longer active.",
       });
     }
+    const organizationAccess = await findOrganizationAccessContext(ctx.db, {
+      userId: grant.userId,
+      organizationId: grant.organizationId,
+    });
+    if (organizationAccess === null) {
+      return oauthError({
+        status: 400,
+        error: "invalid_grant",
+        errorDescription: "Grant is no longer active.",
+      });
+    }
 
     await ctx.db.patch(authorizationCode._id, {
       usedAt: args.now,
@@ -846,6 +855,7 @@ export const exchangeAuthorizationCode = internalMutation({
       ok: true,
       grantId: grant.grantId,
       userId: grant.userId,
+      organizationId: grant.organizationId,
       clientId: grant.clientId,
       scope: grant.scope,
       resource: grant.resource,
@@ -936,6 +946,17 @@ export const exchangeRefreshToken = internalMutation({
         errorDescription: "Grant is no longer active.",
       });
     }
+    const organizationAccess = await findOrganizationAccessContext(ctx.db, {
+      userId: grant.userId,
+      organizationId: grant.organizationId,
+    });
+    if (organizationAccess === null) {
+      return oauthError({
+        status: 400,
+        error: "invalid_grant",
+        errorDescription: "Grant is no longer active.",
+      });
+    }
     const client = await ctx.db
       .query("mcpOauthClients")
       .withIndex("by_client_id", (q) => q.eq("clientId", grant.clientId))
@@ -1014,6 +1035,7 @@ export const exchangeRefreshToken = internalMutation({
       ok: true,
       grantId: grant.grantId,
       userId: grant.userId,
+      organizationId: grant.organizationId,
       clientId: grant.clientId,
       scope: grant.scope,
       resource: grant.resource,
@@ -1074,6 +1096,17 @@ export const validateAccessToken = internalMutation({
         errorDescription: "Grant is no longer active.",
       });
     }
+    const organizationAccess = await findOrganizationAccessContext(ctx.db, {
+      userId: grant.userId,
+      organizationId: grant.organizationId,
+    });
+    if (organizationAccess === null) {
+      return oauthError({
+        status: 401,
+        error: "invalid_token",
+        errorDescription: "Grant is no longer active.",
+      });
+    }
     const client = await ctx.db
       .query("mcpOauthClients")
       .withIndex("by_client_id", (q) => q.eq("clientId", grant.clientId))
@@ -1123,6 +1156,7 @@ export const validateAccessToken = internalMutation({
       ok: true,
       grantId: grant.grantId,
       userId: grant.userId,
+      organizationId: grant.organizationId,
       clientId: grant.clientId,
       scope: grant.scope,
       resource: grant.resource,

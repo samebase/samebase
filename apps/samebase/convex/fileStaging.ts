@@ -8,6 +8,7 @@ import {
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./functions";
+import { findVaultForUser } from "./organizationAccess";
 import type { GithubTree } from "./vault/model";
 import {
   hasStagedFileChanges,
@@ -223,13 +224,6 @@ function classifyStagedFile(file: StagedFileSummaryInput): StagedFilesCategory |
   return "modified";
 }
 
-export function canAccessVaultStaging(args: {
-  vaultOwnerId: string | undefined;
-  requesterUserId: string;
-}): boolean {
-  return args.vaultOwnerId === args.requesterUserId;
-}
-
 async function getVaultForStagingAccess(
   ctx: StagingAccessCtx,
   args: {
@@ -237,16 +231,7 @@ async function getVaultForStagingAccess(
     userId: Infer<typeof userIdValidator>;
   },
 ): Promise<Doc<"vaults"> | null> {
-  const vault = await ctx.db.get(args.vaultId);
-  if (
-    !canAccessVaultStaging({
-      vaultOwnerId: vault?.userId,
-      requesterUserId: args.userId,
-    })
-  ) {
-    return null;
-  }
-  return vault;
+  return await findVaultForUser(ctx.db, args);
 }
 
 async function assertVaultForStagingAccess(
@@ -828,6 +813,7 @@ export function buildClearAllStagingPlan<VaultId extends string, UserId extends 
 
 type ClearAllStagingArgs = {
   vaultId: Infer<typeof vaultIdValidator>;
+  userId: Infer<typeof userIdValidator>;
   branch?: string;
   skipTreeUpdate?: boolean;
 };
@@ -843,7 +829,7 @@ export async function clearAllStagingImpl(ctx: MutationCtx, args: ClearAllStagin
     vault:
       vault && isLiveConnectedVault(vault)
         ? {
-            userId: vault.userId,
+            userId: args.userId,
             owner: vault.owner,
             name: vault.name,
             defaultBranch: vault.defaultBranch,
@@ -903,7 +889,7 @@ export const clearAllStaging = mutation({
       userId: ctx.viewer.userId,
     });
 
-    return await clearAllStagingImpl(ctx, args);
+    return await clearAllStagingImpl(ctx, { ...args, userId: ctx.viewer.userId });
   },
 });
 

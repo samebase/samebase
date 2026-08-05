@@ -13,6 +13,7 @@ import {
 } from "../convexManagementApi/client";
 import type { ProjectResponse } from "../convexManagementApi/types.generated";
 import { action } from "../functions";
+import { resolveGitHubAppAccess } from "../githubAppAccess";
 import {
   fetchGitHubConvexCodeLocationDiscovery,
   type GitHubConvexCodeLocationDiscovery,
@@ -45,10 +46,13 @@ const { id } = v;
 type ConvexAttachmentProject = Infer<typeof vConvexAttachmentProject>;
 type ConvexCodeLocationSelection = Infer<typeof vConvexCodeLocationSelection>;
 type ConvexActionConnection = {
+  organizationId: Id<"organizations">;
+  providerConnectionId: Id<"providerConnections">;
   token: string;
   teamId: string;
 };
 type ProviderAttachmentVaultContext = {
+  organizationId: Id<"organizations">;
   ghRepoId: string;
   owner: string;
   name: string;
@@ -58,10 +62,16 @@ type ConvexWorkerReference = ConvexAttachmentProject["workerReferences"][number]
 
 async function resolveConvexConnection(
   ctx: Pick<ActionCtx, "runQuery">,
-  userId: Id<"users">,
+  args: {
+    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+    providerConnectionId: Id<"providerConnections">;
+  },
 ): Promise<ConvexActionConnection> {
-  const connection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-    userId,
+  const connection = await ctx.runQuery(internal.providerConnections.loadByIdForOrganization, {
+    userId: args.userId,
+    organizationId: args.organizationId,
+    providerConnectionId: args.providerConnectionId,
     kind: "convex",
   });
   const token = connection?.kind === "convex" ? connection.auth.credential.trim() : "";
@@ -69,22 +79,37 @@ async function resolveConvexConnection(
   if (!token || !teamId) {
     throw new Error("Convex connection is required.");
   }
-  return { token, teamId };
+  return {
+    organizationId: args.organizationId,
+    providerConnectionId: args.providerConnectionId,
+    token,
+    teamId,
+  };
 }
 
-async function resolveGitHubAccessToken(
+async function resolveSelectedConvexConnection(
   ctx: Pick<ActionCtx, "runQuery">,
-  userId: Id<"users">,
-): Promise<string> {
-  const connection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-    userId,
-    kind: "github",
+  args: { userId: Id<"users">; organizationId: Id<"organizations"> },
+): Promise<ConvexActionConnection> {
+  const connection = await ctx.runQuery(internal.providerConnections.loadSelectedForOrganization, {
+    userId: args.userId,
+    organizationId: args.organizationId,
+    kind: "convex",
   });
-  const token = connection?.kind === "github" ? connection.auth.credential.trim() : "";
-  if (!token) {
-    throw new Error("GitHub connection is required.");
+  if (connection?.kind !== "convex") {
+    throw new Error("Convex connection is required.");
   }
-  return token;
+  const token = connection.auth.credential.trim();
+  const teamId = connection.teamId.trim();
+  if (!token || !teamId) {
+    throw new Error("Convex connection is required.");
+  }
+  return {
+    organizationId: args.organizationId,
+    providerConnectionId: connection._id,
+    token,
+    teamId,
+  };
 }
 
 async function readProviderAttachmentVaultContext(
@@ -104,15 +129,18 @@ async function discoverConvexCodeLocations(
   context: ProviderAttachmentVaultContext;
   source: GitHubConvexCodeLocationDiscovery;
 }> {
-  const [context, githubAccessToken] = await Promise.all([
+  const [context, githubAccess] = await Promise.all([
     readProviderAttachmentVaultContext(ctx, {
       vaultId: args.vaultId,
       userId: args.userId,
     }),
-    resolveGitHubAccessToken(ctx, args.userId),
+    resolveGitHubAppAccess(ctx, {
+      userId: args.userId,
+      target: { kind: "vault", vaultId: args.vaultId },
+    }),
   ]);
   const source = await fetchGitHubConvexCodeLocationDiscovery({
-    githubAccessToken,
+    octokit: githubAccess.octokit,
     owner: context.owner,
     repo: context.name,
     expectedRepoId: context.ghRepoId,
@@ -245,13 +273,15 @@ async function recordConvexTeamSlug(
 ): Promise<void> {
   await ctx.runMutation(internal.providerConnections.setConvexTeamSlug, {
     userId: args.userId,
+    organizationId: args.connection.organizationId,
+    providerConnectionId: args.connection.providerConnectionId,
     teamId: args.connection.teamId,
     teamSlug: args.project.teamSlug,
   });
 }
 
 async function readConvexWorkerReferences(
-  ctx: Pick<ActionCtx, "runAction">,
+  ctx: Pick<ActionCtx, "runAction" | "runQuery">,
   args: {
     userId: Id<"users">;
     context: ProviderAttachmentVaultContext;
@@ -259,9 +289,25 @@ async function readConvexWorkerReferences(
   },
 ): Promise<Map<string, ConvexWorkerReference[]>> {
   try {
-    const connection = await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForUser, {
-      userId: args.userId,
-    });
+    const selectedConnection = await ctx.runQuery(
+      internal.providerConnections.loadSelectedForOrganization,
+      {
+        userId: args.userId,
+        organizationId: args.context.organizationId,
+        kind: "cloudflare",
+      },
+    );
+    if (selectedConnection?.kind !== "cloudflare") {
+      return new Map();
+    }
+    const connection = await ctx.runAction(
+      internal.cloudflareOAuth.resolveConnectionForOrganization,
+      {
+        userId: args.userId,
+        organizationId: args.context.organizationId,
+        providerConnectionId: selectedConnection._id,
+      },
+    );
     const token = connection?.auth.credential.trim();
     if (!connection || !token || connection.defaultAccount.state !== "selected") {
       return new Map();
@@ -316,10 +362,11 @@ export async function discoverProjectsForUser(
   ctx: ActionCtx,
   args: { vaultId: Id<"vaults">; userId: Id<"users"> },
 ) {
-  const [sourceDiscovery, connection] = await Promise.all([
-    discoverConvexCodeLocations(ctx, args),
-    resolveConvexConnection(ctx, args.userId),
-  ]);
+  const sourceDiscovery = await discoverConvexCodeLocations(ctx, args);
+  const connection = await resolveSelectedConvexConnection(ctx, {
+    userId: args.userId,
+    organizationId: sourceDiscovery.context.organizationId,
+  });
   const [providerProjects, workerReferences] = await Promise.all([
     listProjectsForConnection(connection),
     readConvexWorkerReferences(ctx, {
@@ -357,10 +404,11 @@ export async function attachExistingProjectsForUser(
     throw new Error("Each selected Convex project must have one unique project id.");
   }
 
-  const [sourceDiscovery, connection] = await Promise.all([
-    discoverConvexCodeLocations(ctx, args),
-    resolveConvexConnection(ctx, args.userId),
-  ]);
+  const sourceDiscovery = await discoverConvexCodeLocations(ctx, args);
+  const connection = await resolveSelectedConvexConnection(ctx, {
+    userId: args.userId,
+    organizationId: sourceDiscovery.context.organizationId,
+  });
   for (const project of normalizedProjects) {
     requireVerifiedConvexCodeLocation(sourceDiscovery.source, project.codeLocation);
   }
@@ -378,6 +426,7 @@ export async function attachExistingProjectsForUser(
   return await ctx.runMutation(internal.vault.convexMutations.attachProjects, {
     vaultId: args.vaultId,
     userId: args.userId,
+    providerConnectionId: connection.providerConnectionId,
     projects: normalizedProjects.map((project) => ({
       teamId: connection.teamId,
       projectId: project.projectId,
@@ -414,10 +463,11 @@ async function createProjectForUser(
   let providerCreateStarted = false;
   let projectRecorded = false;
   try {
-    const [sourceDiscovery, connection] = await Promise.all([
-      discoverConvexCodeLocations(ctx, args),
-      resolveConvexConnection(ctx, args.userId),
-    ]);
+    const sourceDiscovery = await discoverConvexCodeLocations(ctx, args);
+    const connection = await resolveSelectedConvexConnection(ctx, {
+      userId: args.userId,
+      organizationId: sourceDiscovery.context.organizationId,
+    });
     requireVerifiedConvexCodeLocation(sourceDiscovery.source, codeLocation);
     const projects = await listProjectsForConnection(connection);
     if (
@@ -433,6 +483,7 @@ async function createProjectForUser(
       internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate,
       {
         userId: args.userId,
+        organizationId: connection.organizationId,
         kind: "convex_project",
       },
     );
@@ -453,6 +504,7 @@ async function createProjectForUser(
         vaultId: args.vaultId,
         userId: args.userId,
         actionId,
+        providerConnectionId: connection.providerConnectionId,
         teamId: connection.teamId,
         projectId: created.id,
         codeLocation: removeConvexCodeLocationEvidence(codeLocation),
@@ -504,7 +556,20 @@ async function createProjectForManagedWorkflow(
   if (!validation.valid) {
     throw new Error(validation.message);
   }
-  const connection = await resolveConvexConnection(ctx, args.userId);
+  const [context, plan] = await Promise.all([
+    readProviderAttachmentVaultContext(ctx, args),
+    ctx.runQuery(internal.appProvisioningRuns.getPlanByVaultId, {
+      vaultId: args.vaultId,
+    }),
+  ]);
+  if (!plan) {
+    throw new Error("Infrastructure provisioning plan not found for vault.");
+  }
+  const connection = await resolveConvexConnection(ctx, {
+    userId: args.userId,
+    organizationId: context.organizationId,
+    providerConnectionId: plan.convexProviderConnectionId,
+  });
   const checkpoint = await ctx.runQuery(
     internal.vault.convexMutations.readManagedProjectCreateCheckpoint,
     {
@@ -539,6 +604,7 @@ async function createProjectForManagedWorkflow(
       internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate,
       {
         userId: args.userId,
+        organizationId: connection.organizationId,
         kind: "convex_project",
       },
     );
@@ -650,13 +716,18 @@ export const reconcileProjectTeam = action({
   args: convexReconcileProjectTeamContract.args,
   returns: convexReconcileProjectTeamContract.returns,
   handler: async (ctx, args): Promise<null> => {
-    const [attachment, connection] = await Promise.all([
-      ctx.runQuery(internal.vault.convexMutations.readProjectAttachmentContext, {
+    const attachment = await ctx.runQuery(
+      internal.vault.convexMutations.readProjectAttachmentContext,
+      {
         ...args,
         userId: ctx.viewer.userId,
-      }),
-      resolveConvexConnection(ctx, ctx.viewer.userId),
-    ]);
+      },
+    );
+    const connection = await resolveConvexConnection(ctx, {
+      userId: ctx.viewer.userId,
+      organizationId: attachment.organizationId,
+      providerConnectionId: attachment.providerConnectionId,
+    });
     await readConvexProject({ connection, projectId: attachment.projectId });
     await ctx.runMutation(internal.vault.convexMutations.reconcileProjectTeam, {
       ...args,

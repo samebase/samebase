@@ -12,20 +12,31 @@ type CloudflareCreateWorkerToolResult = FunctionReturnType<
 
 async function seedToolRuntimeOwner() {
   const t = makeConvexTest();
-  const { userId, vaultId } = await t.run(async (ctx) => {
+  const { organizationId, userId, vaultId } = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       name: "Ada",
       email: "ada@example.com",
       isApproved: true,
     });
-    const vaultId = await ctx.db.insert("vaults", {
+    const organizationId = await ctx.db.insert("organizations", {
+      githubInstallationId: "tool_runtime_installation",
+      githubOwnerId: "tool_runtime_owner",
+      githubOwnerLogin: "tool-runtime-owner",
+      githubOwnerLoginNormalized: "tool-runtime-owner",
+      githubOwnerType: "organization",
+    });
+    await ctx.db.insert("organizationMemberships", {
+      organizationId,
       userId,
+    });
+    const vaultId = await ctx.db.insert("vaults", {
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    return { userId, vaultId };
+    return { organizationId, userId, vaultId };
   });
-  return { t, userId, vaultId };
+  return { organizationId, t, userId, vaultId };
 }
 
 describe("MCP tool runtime boundaries", () => {
@@ -45,10 +56,11 @@ describe("MCP tool runtime boundaries", () => {
   });
 
   it("blocks a generic runtime tool before its product helper runs", async () => {
-    const { t, userId, vaultId } = await seedToolRuntimeOwner();
+    const { organizationId, t, userId, vaultId } = await seedToolRuntimeOwner();
 
     const result = await t.action(internal.toolRuntime.runtime.cloudflareCreateWorkerTool, {
       userId,
+      organizationId,
       grantedScopes: [],
       vaultId,
       accountId: "account_1",
@@ -62,11 +74,105 @@ describe("MCP tool runtime boundaries", () => {
     });
   });
 
+  it("lists vaults only from the grant organization", async () => {
+    const { organizationId, t, userId } = await seedToolRuntimeOwner();
+    const { authorizedVaultId, otherOrganizationId } = await t.run(async (ctx) => {
+      const authorizedVaultId = await ctx.db.insert("vaults", {
+        organizationId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const authorizedRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId,
+        vaultId: authorizedVaultId,
+        repositoryFullName: "tool-runtime-owner/authorized",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 1,
+        completedAt: 1,
+      });
+      await ctx.db.replace(authorizedVaultId, {
+        organizationId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId: authorizedRunId,
+        ghRepoId: "authorized-repository",
+        owner: "tool-runtime-owner",
+        name: "authorized",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 1,
+      });
+      const otherOrganizationId = await ctx.db.insert("organizations", {
+        githubInstallationId: "other_installation",
+        githubOwnerId: "other_owner",
+        githubOwnerLogin: "other-owner",
+        githubOwnerLoginNormalized: "other-owner",
+        githubOwnerType: "organization",
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId: otherOrganizationId,
+        userId,
+      });
+      const otherRunVaultId = await ctx.db.insert("vaults", {
+        organizationId: otherOrganizationId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const otherRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId,
+        vaultId: otherRunVaultId,
+        repositoryFullName: "other-owner/hidden",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 1,
+        completedAt: 1,
+      });
+      await ctx.db.replace(otherRunVaultId, {
+        organizationId: otherOrganizationId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId: otherRunId,
+        ghRepoId: "hidden-repository",
+        owner: "other-owner",
+        name: "hidden",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 1,
+      });
+      return { authorizedVaultId, otherOrganizationId };
+    });
+
+    const result = await t.action(internal.toolRuntime.runtime.getUserVaultsTool, {
+      userId,
+      organizationId,
+      grantedScopes: ["access_dashboard"],
+    });
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") {
+      throw new Error(result.text);
+    }
+    expect(result.structuredContent.vaults).toEqual([
+      expect.objectContaining({ _id: authorizedVaultId, organizationId }),
+    ]);
+    expect(result.structuredContent.vaults).not.toContainEqual(
+      expect.objectContaining({ organizationId: otherOrganizationId }),
+    );
+  });
+
   it("converts a product helper error into a tool error without a provider write", async () => {
-    const { t, userId, vaultId } = await seedToolRuntimeOwner();
+    const { organizationId, t, userId, vaultId } = await seedToolRuntimeOwner();
 
     const result = await t.action(internal.toolRuntime.runtime.cloudflareCreateWorkerTool, {
       userId,
+      organizationId,
       grantedScopes: ["access_provider_connections"],
       vaultId,
       accountId: "account_1",
@@ -79,21 +185,5 @@ describe("MCP tool runtime boundaries", () => {
       text: expect.stringContaining("Worker name"),
     });
     expect(result).not.toHaveProperty("structuredContent");
-  });
-
-  it("keeps browser handoff behind its dedicated trusted scope", async () => {
-    const { t, userId } = await seedToolRuntimeOwner();
-
-    const result = await t.action(internal.toolRuntime.runtime.createBrowserHandoffTool, {
-      userId,
-      grantId: "grant_1",
-      clientId: "client_1",
-      grantedScopes: [],
-    });
-
-    expect(result).toEqual({
-      status: "blocked",
-      text: "Insufficient scope for create_browser_handoff.",
-    });
   });
 });

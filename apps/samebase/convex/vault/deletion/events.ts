@@ -1,6 +1,7 @@
 import { v, type Infer } from "convex/values";
 import { internalMutation } from "../../_generated/server";
 import { query } from "../../functions";
+import { findVaultForUser } from "../../organizationAccess";
 import { vVaultDeletionEventLevel, vVaultDeletionStep } from "./model";
 
 const { array, id, number, object, string } = v;
@@ -26,6 +27,7 @@ function normalizeDeletionMessage(message: string): string {
 
 export const append = internalMutation({
   args: {
+    organizationId: id("organizations"),
     userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
@@ -42,6 +44,7 @@ export const append = internalMutation({
       throw new Error("Deletion run not found for event.");
     }
     if (
+      run.organizationId !== args.organizationId ||
       run.userId !== args.userId ||
       run.vaultId !== args.vaultId ||
       run.repositoryFullName !== args.repositoryFullName
@@ -50,6 +53,7 @@ export const append = internalMutation({
     }
 
     await ctx.db.insert("workflow_vaultDeletion_events", {
+      organizationId: args.organizationId,
       userId: args.userId,
       vaultId: args.vaultId,
       repositoryFullName: args.repositoryFullName,
@@ -70,8 +74,11 @@ export const listForVault = query({
   },
   returns: array(deletionEventResult),
   handler: async (ctx, args): Promise<DeletionEventResult[]> => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== ctx.viewer.userId) {
+    const vault = await findVaultForUser(ctx.db, {
+      vaultId: args.vaultId,
+      userId: ctx.viewer.userId,
+    });
+    if (!vault) {
       return [];
     }
 

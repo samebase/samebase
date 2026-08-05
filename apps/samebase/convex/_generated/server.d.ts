@@ -27,6 +27,12 @@ import type { DataModel } from "./dataModel.js";
 type Env = {
   readonly CLOUDFLARE_EMAIL_ACCOUNT_ID: string | undefined;
   readonly CLOUDFLARE_EMAIL_API_TOKEN: string | undefined;
+  readonly GITHUB_APP_CLIENT_ID: string;
+  readonly GITHUB_APP_CLIENT_SECRET: string;
+  readonly GITHUB_APP_ID: string;
+  readonly GITHUB_APP_OAUTH_CALLBACK_URL: string;
+  readonly GITHUB_APP_PRIVATE_KEY: string;
+  readonly GITHUB_APP_SLUG: string;
   readonly OPENAI_APPS_CHALLENGE_TOKEN: string | undefined;
   readonly PASSWORD_AUTH_ENABLED: string | undefined;
   readonly POLAR_ACCESS_TOKEN: string | undefined;

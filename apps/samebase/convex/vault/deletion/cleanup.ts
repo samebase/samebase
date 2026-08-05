@@ -1,6 +1,7 @@
 import { v, type Infer } from "convex/values";
 import { internalMutation, type MutationCtx } from "../../_generated/server";
-import type { Id } from "../../_generated/dataModel";
+import type { Doc, Id } from "../../_generated/dataModel";
+import { requireOrganizationAccessContext } from "../../organizationAccess";
 import { vVaultDeletionCleanupStep, type VaultDeletionCleanupStep } from "./model";
 
 const { id, literal, number, object, union } = v;
@@ -65,6 +66,21 @@ type VaultLocalCleanupHandler = (
   ctx: VaultLocalCleanupCtx,
   args: VaultLocalCleanupArgs,
 ) => Promise<number>;
+
+async function loadVaultForDeletionActor(
+  ctx: VaultLocalCleanupCtx,
+  args: VaultLocalCleanupArgs,
+): Promise<Doc<"vaults"> | null> {
+  const vault = await ctx.db.get(args.vaultId);
+  if (!vault) {
+    return null;
+  }
+  await requireOrganizationAccessContext(ctx.db, {
+    organizationId: vault.organizationId,
+    userId: args.userId,
+  });
+  return vault;
+}
 
 function deleteByVaultBatch(tableName: DeleteOnlyByVaultCleanupTable): VaultLocalCleanupHandler {
   return async function deleteByVault(
@@ -287,12 +303,9 @@ export async function deleteVaultLocalDataBatchForUser(
   ctx: VaultLocalCleanupCtx,
   args: VaultLocalCleanupArgs,
 ): Promise<VaultLocalCleanupBatchResult> {
-  const vault = await ctx.db.get(args.vaultId);
+  const vault = await loadVaultForDeletionActor(ctx, args);
   if (!vault) {
     return { state: "deleted" };
-  }
-  if (vault.userId !== args.userId) {
-    throw new Error("Vault not found");
   }
 
   // Deletion is fail-closed: every vault-scoped table must live in this
@@ -329,14 +342,10 @@ export const cleanupVaultLocalDataStepBatch = internalMutation({
   },
   returns: vaultLocalCleanupStepBatchResult,
   handler: async (ctx, args): Promise<VaultLocalCleanupStepBatchResult> => {
-    const vault = await ctx.db.get(args.vaultId);
+    const vault = await loadVaultForDeletionActor(ctx, args);
 
     if (!vault) {
       return { state: "done" };
-    }
-
-    if (vault.userId !== args.userId) {
-      throw new Error("Vault not found");
     }
 
     const tables: readonly VaultLocalCleanupTable[] = vaultLocalCleanupRegistryByStep[args.step];
@@ -368,12 +377,9 @@ export const deleteVaultRow = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const vault = await ctx.db.get(args.vaultId);
+    const vault = await loadVaultForDeletionActor(ctx, args);
     if (!vault) {
       return null;
-    }
-    if (vault.userId !== args.userId) {
-      throw new Error("Vault not found");
     }
 
     await ctx.db.delete(vault._id);

@@ -22,6 +22,11 @@ function fakeVaultId(value: string): Id<"vaults"> {
   return value;
 }
 
+function fakeOrganizationId(): Id<"organizations"> {
+  // @ts-expect-error Convex ids are strings at runtime; static rendering only needs a stable id.
+  return "organization-samebase";
+}
+
 function fakeFolderId(value: string): Id<"ui_vaultFolders"> {
   // @ts-expect-error Convex ids are strings at runtime; static rendering only needs stable ids.
   return value;
@@ -39,6 +44,7 @@ function vault(
 ) {
   return {
     _id: id,
+    organizationId: fakeOrganizationId(),
     ghRepoOwner: "samebase",
     ghRepoName: name,
     repositoryFullName: `samebase/${name}`,

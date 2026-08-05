@@ -12,8 +12,16 @@ describe("vault branch mutations", () => {
         email: "ada@example.com",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {
+        githubInstallationId: "claimed-tree-installation",
+        githubOwnerId: "claimed-tree-owner",
+        githubOwnerLogin: "ada",
+        githubOwnerLoginNormalized: "ada",
+        githubOwnerType: "user",
+      });
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
       const vaultId = await ctx.db.insert("vaults", {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
@@ -29,7 +37,7 @@ describe("vault branch mutations", () => {
         completedAt: 3,
       });
       await ctx.db.replace(vaultId, {
-        userId,
+        organizationId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",

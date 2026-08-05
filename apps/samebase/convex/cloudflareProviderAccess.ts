@@ -15,11 +15,10 @@ import {
   resolveCloudflareApiTransport,
 } from "./cloudflareApi/client";
 import { CLOUDFLARE_MCP_OAUTH_SCOPES } from "./cloudflareMcpOAuth";
-import { toErrorMessage } from "./jsonUtils";
 import { deriveMcpTokenStatusFromExpiry, type McpTokenHealth } from "./mcpTokenHealth";
 import type { CloudflareDefaultAccount } from "./providerConnectionModel";
 
-const { array, boolean, literal, number, object, optional, string, union } = v;
+const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
 const vCloudflareProviderAuthMethod = union(
   literal("api_key"),
@@ -121,13 +120,35 @@ type CloudflareProbeResult<Value> =
 
 export const checkCloudflareConnectionAccess = action({
   access: "access_provider_connections",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: vCloudflareConnectionAccess,
-  handler: async (ctx): Promise<CloudflareConnectionAccess> => {
+  handler: async (ctx, args): Promise<CloudflareConnectionAccess> => {
     const checkedAt = Date.now();
-    const connection = await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForUser, {
-      userId: ctx.viewer.userId,
-    });
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.requireOrganizationIdForUser,
+      {
+        userId: ctx.viewer.userId,
+        organizationId: args.organizationId,
+      },
+    );
+    const selectedConnection = await ctx.runQuery(
+      internal.providerConnections.loadSelectedForOrganization,
+      {
+        organizationId,
+        userId: ctx.viewer.userId,
+        kind: "cloudflare",
+      },
+    );
+    const connection =
+      selectedConnection?.kind === "cloudflare"
+        ? await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
+            organizationId,
+            providerConnectionId: selectedConnection._id,
+            userId: ctx.viewer.userId,
+          })
+        : null;
 
     if (connection === null) {
       return {
@@ -612,7 +633,7 @@ function normalizeOptionalString(value: string | undefined): string | undefined 
 
 function formatCloudflareAccessProbeError(error: unknown): string {
   if (error instanceof CloudflareApiError) {
-    return error.message;
+    return `Cloudflare probe ${error.method} ${error.path} failed.`;
   }
-  return toErrorMessage(error);
+  return "Cloudflare access check failed.";
 }

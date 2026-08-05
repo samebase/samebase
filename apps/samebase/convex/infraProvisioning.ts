@@ -409,50 +409,74 @@ async function cancelSupersededProvisioningRun(
 
 export async function resolveConvexProvisioningConnection(
   ctx: Pick<ActionCtx, "runQuery">,
-  userId: Id<"users">,
+  args: {
+    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+    providerConnectionId: Id<"providerConnections">;
+  },
 ): Promise<{
+  organizationId: Id<"organizations">;
+  providerConnectionId: Id<"providerConnections">;
   convexToken: string;
   convexAuthMethod: ConvexProvisioningAuthMethod;
   convexTeamId: string;
 }> {
-  const convexConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-    userId,
-    kind: "convex",
-  });
+  const convexConnection = await ctx.runQuery(
+    internal.providerConnections.loadByIdForOrganization,
+    {
+      userId: args.userId,
+      organizationId: args.organizationId,
+      providerConnectionId: args.providerConnectionId,
+      kind: "convex",
+    },
+  );
   if (convexConnection?.kind !== "convex") {
-    throw new ConvexProvisioningConnectionRequiredError();
+    throw new Error(
+      "Convex connection is required to provision infrastructure. Connect Convex and retry.",
+    );
   }
 
   const convexToken = convexConnection.auth.credential.trim();
   const convexTeamId = convexConnection.teamId.trim();
 
   if (!convexToken || !convexTeamId) {
-    throw new ConvexProvisioningConnectionRequiredError();
+    throw new Error(
+      "Convex connection is required to provision infrastructure. Connect Convex and retry.",
+    );
   }
 
-  return { convexToken, convexAuthMethod: convexConnection.auth.method, convexTeamId };
-}
-
-export class ConvexProvisioningConnectionRequiredError extends Error {
-  constructor() {
-    super("Convex connection is required to provision infrastructure. Connect Convex and retry.");
-    this.name = "ConvexProvisioningConnectionRequiredError";
-  }
+  return {
+    organizationId: args.organizationId,
+    providerConnectionId: convexConnection._id,
+    convexToken,
+    convexAuthMethod: convexConnection.auth.method,
+    convexTeamId,
+  };
 }
 
 export async function resolveCloudflareProvisioningConnection(
   ctx: Pick<ActionCtx, "runAction">,
-  userId: Id<"users">,
-  options?: { forceRefresh: true },
+  args: {
+    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+    providerConnectionId: Id<"providerConnections">;
+    forceRefresh?: true;
+  },
 ): Promise<{
+  organizationId: Id<"organizations">;
+  providerConnectionId: Id<"providerConnections">;
   cloudflareToken: string;
   cloudflareAuthMethod: "api_key" | "oauth" | "mcp_oauth";
   cloudflareAccountId: string;
 }> {
-  const resolveArgs = options ? { userId, forceRefresh: true } : { userId };
   const resolvedCloudflareConnection = await ctx.runAction(
-    internal.cloudflareOAuth.resolveConnectionForUser,
-    resolveArgs,
+    internal.cloudflareOAuth.resolveConnectionForOrganization,
+    {
+      userId: args.userId,
+      organizationId: args.organizationId,
+      providerConnectionId: args.providerConnectionId,
+      ...(args.forceRefresh ? { forceRefresh: true } : {}),
+    },
   );
   if (!resolvedCloudflareConnection) {
     throw new Error(
@@ -478,6 +502,8 @@ export async function resolveCloudflareProvisioningConnection(
   }
 
   return {
+    organizationId: args.organizationId,
+    providerConnectionId: args.providerConnectionId,
     cloudflareToken,
     cloudflareAuthMethod: resolvedCloudflareConnection.auth.method,
     cloudflareAccountId,

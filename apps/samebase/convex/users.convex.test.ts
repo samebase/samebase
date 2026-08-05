@@ -1,792 +1,161 @@
-import { describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
-import { ACCOUNT_EMAIL_MAX_LENGTH } from "../shared/accountPresentation";
 
-describe("users Convex contract", () => {
-  it("treats anonymous viewers as signed out", async () => {
-    const t = makeConvexTest();
+async function seedProviderOrganizations() {
+  const t = makeConvexTest();
+  const { outsiderId, userId } = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", {
+      email: "member@example.com",
+      isApproved: true,
+    });
+    const outsiderId = await ctx.db.insert("users", {
+      email: "outsider@example.com",
+      isApproved: true,
+    });
+    return { outsiderId, userId };
+  });
+  const { organizationId } = await t.mutation(
+    internal.organizations.createOrReconnectVerifiedOrganization,
+    {
+      userId,
+      githubOwnerId: "owner-1",
+      githubOwnerType: "organization",
+      githubOwnerLogin: "Primary",
+      githubInstallationId: "installation-1",
+    },
+  );
+  const { organizationId: otherOrganizationId } = await t.mutation(
+    internal.organizations.createOrReconnectVerifiedOrganization,
+    {
+      userId,
+      githubOwnerId: "owner-2",
+      githubOwnerType: "organization",
+      githubOwnerLogin: "Other",
+      githubInstallationId: "installation-2",
+    },
+  );
+  const convexConnectionId = await t.mutation(internal.providerConnections.createConnected, {
+    organizationId,
+    connectedByUserId: userId,
+    connection: {
+      kind: "convex",
+      auth: { method: "api_key", credential: "convex-credential" },
+      teamId: "team-1",
+      teamSlug: "team-one",
+    },
+  });
+  const cloudflareConnectionId = await t.mutation(internal.providerConnections.createConnected, {
+    organizationId,
+    connectedByUserId: userId,
+    connection: {
+      kind: "cloudflare",
+      auth: { method: "api_key", credential: "cloudflare-credential" },
+      defaultAccount: {
+        state: "selected",
+        accountId: "account-1",
+        accountName: "Primary account",
+      },
+    },
+  });
+  return {
+    cloudflareConnectionId,
+    convexConnectionId,
+    organizationId,
+    otherOrganizationId,
+    outsiderId,
+    t,
+    userId,
+  };
+}
 
-    await expect(t.query(api.users.viewer)).resolves.toBeNull();
-    await expect(t.query(api.users.currentViewerAccess)).resolves.toEqual({
-      role: "role_anonymous",
-      accessKeys: ["access_public"],
+describe("organization provider status", () => {
+  it("isolates selected connections by organization and checks membership", async () => {
+    const { organizationId, otherOrganizationId, outsiderId, t, userId } =
+      await seedProviderOrganizations();
+    const asUser = t.withIdentity({
+      subject: `${userId}|session`,
+      tokenIdentifier: `test:${userId}`,
     });
-    await expect(t.query(api.users.currentViewerRole)).resolves.toEqual({
-      role: "role_anonymous",
+    const asOutsider = t.withIdentity({
+      subject: `${outsiderId}|session`,
+      tokenIdentifier: `test:${outsiderId}`,
     });
-    await expect(t.mutation(api.users.disconnectGithub)).rejects.toThrowError("Access denied");
+
+    await expect(
+      asUser.query(api.users.getConvexConnectionStatus, { organizationId }),
+    ).resolves.toEqual({
+      connected: true,
+      teamId: "team-1",
+      teamSlug: "team-one",
+      authMethod: "api_key",
+    });
+    await expect(
+      asUser.query(api.users.getCloudflareConnectionStatus, { organizationId }),
+    ).resolves.toEqual({
+      connected: true,
+      accountId: "account-1",
+      accountName: "Primary account",
+      authMethod: "api_key",
+    });
+    await expect(
+      asUser.query(api.users.getConvexConnectionStatus, {
+        organizationId: otherOrganizationId,
+      }),
+    ).resolves.toEqual({ connected: false });
+    await expect(
+      asOutsider.query(api.users.getConvexConnectionStatus, { organizationId }),
+    ).rejects.toThrow("Organization membership is required.");
   });
 
-  it("resolves the viewer presentation without provider identity", async () => {
-    const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
+  it("deletes API-key connections only from the requested organization", async () => {
+    const {
+      cloudflareConnectionId,
+      convexConnectionId,
+      organizationId,
+      otherOrganizationId,
+      t,
+      userId,
+    } = await seedProviderOrganizations();
+    const asUser = t.withIdentity({
+      subject: `${userId}|session`,
+      tokenIdentifier: `test:${userId}`,
     });
-    await t.run(async (ctx) => {
-      await ctx.db.insert("providerConnections", {
-        kind: "github",
+
+    await asUser.action(api.users.disconnectConvex, { organizationId });
+    await asUser.action(api.users.disconnectCloudflare, { organizationId });
+
+    const state = await t.run(async (ctx) => {
+      const [cloudflareConnection, convexConnection, otherOrganization] = await Promise.all([
+        ctx.db.get(cloudflareConnectionId),
+        ctx.db.get(convexConnectionId),
+        ctx.db.get(otherOrganizationId),
+      ]);
+      return {
+        cloudflareConnection,
+        convexConnection,
+        otherOrganizationExists: otherOrganization !== null,
+      };
+    });
+    const [selectedCloudflareConnection, selectedConvexConnection] = await Promise.all([
+      t.query(internal.providerConnections.loadSelectedForOrganization, {
+        organizationId,
         userId,
-        auth: {
-          method: "api_key",
-          credential: "test-github-api-key",
-        },
-        username: "ada",
-        createdAt: 1,
-        updatedAt: 2,
-      });
-    });
-
-    const asUser = t.withIdentity({
-      subject: `${userId}|test-session`,
-      tokenIdentifier: `test:${userId}`,
-    });
-
-    await expect(asUser.query(api.users.viewer)).resolves.toEqual({
-      _id: userId,
-      accountPresentation: {
-        kind: "email",
-        label: "ada@example.com",
-      },
-    });
-    await expect(asUser.query(api.users.currentViewerAccess)).resolves.toEqual({
-      role: "role_member",
-      accessKeys: [
-        "access_public",
-        "access_account_deletion",
-        "access_user_preferences",
-        "access_dashboard",
-        "access_provider_connections",
-        "access_repo_connect",
-        "access_app_create",
-        "access_app_refresh",
-        "access_mcp",
-        "access_browser_login_handoff",
-        "access_schema_graph",
-      ],
-    });
-    await expect(asUser.query(api.users.currentViewerRole)).resolves.toEqual({
-      role: "role_member",
-    });
-  });
-
-  it("ignores inactive GitHub sign-in accounts in auth provider presentation", async () => {
-    const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      const insertedUserId = await ctx.db.insert("users", {
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      await ctx.db.insert("authAccounts", {
-        userId: insertedUserId,
-        provider: "google",
-        providerAccountId: "ada@example.com",
-      });
-      await ctx.db.insert("authAccounts", {
-        userId: insertedUserId,
-        provider: "github",
-        providerAccountId: "octocat",
-      });
-      return insertedUserId;
-    });
-    const asUser = t.withIdentity({
-      subject: `${userId}|test-session`,
-      tokenIdentifier: `test:${userId}`,
-    });
-
-    await expect(asUser.query(api.users.getViewerAuthProviders)).resolves.toEqual({
-      providers: ["google"],
-      primaryProvider: "google",
-    });
-    await expect(t.query(internal.users.getPrimaryAuthProviderForToken, { userId })).resolves.toBe(
-      "google",
-    );
-  });
-
-  it("fails closed when stored account fields cannot form a presentation", async () => {
-    const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
-        email: "not-an-email",
-        name: "Invalid user",
-        isApproved: true,
-      });
-    });
-    const asUser = t.withIdentity({
-      subject: `${userId}|test-session`,
-      tokenIdentifier: `test:${userId}`,
-    });
-
-    await expect(asUser.query(api.users.viewer)).rejects.toThrowError(
-      "A valid email address is required.",
-    );
-    await expect(asUser.query(api.users.getUserSettings)).rejects.toThrowError(
-      "A valid email address is required.",
-    );
-
-    await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        displayName: "first\nsecond",
-        email: "legacy@example.com",
-      });
-    });
-    await expect(asUser.query(api.users.viewer)).rejects.toThrowError(
-      "Display name must be one line.",
-    );
-    await expect(asUser.query(api.users.getUserSettings)).rejects.toThrowError(
-      "Display name must be one line.",
-    );
-
-    const suffix = "@b.co";
-    await t.run(async (ctx) => {
-      await ctx.db.patch(userId, {
-        displayName: undefined,
-        email: "a".repeat(ACCOUNT_EMAIL_MAX_LENGTH + 1 - suffix.length) + suffix,
-      });
-    });
-    await expect(asUser.query(api.users.viewer)).rejects.toThrowError(
-      `Email address must be ${ACCOUNT_EMAIL_MAX_LENGTH} characters or fewer.`,
-    );
-    await expect(
-      asUser.mutation(api.users.setDisplayName, { displayName: "Nicu" }),
-    ).rejects.toThrowError(
-      `Email address must be ${ACCOUNT_EMAIL_MAX_LENGTH} characters or fewer.`,
-    );
-  });
-
-  it("keeps pending-access users on public shell access and denies provider access", async () => {
-    const t = makeConvexTest();
-    const ownerId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
-        name: "Owner",
-        email: "owner@example.com",
-        isApproved: true,
-      });
-    });
-    const viewerId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
-        name: "Viewer",
-        email: "viewer@example.com",
-        isApproved: false,
-      });
-    });
-    await t.run(async (ctx) => {
-      await ctx.db.insert("providerConnections", {
-        kind: "github",
-        userId: ownerId,
-        auth: {
-          method: "api_key",
-          credential: "test-owner-github-api-key",
-        },
-        username: "owner-login",
-        createdAt: 1,
-        updatedAt: 2,
-      });
-    });
-
-    const asViewer = t.withIdentity({
-      subject: `${viewerId}|viewer-session`,
-      tokenIdentifier: `test:${viewerId}`,
-    });
-
-    await expect(asViewer.query(api.users.viewer)).resolves.toEqual({
-      _id: viewerId,
-      accountPresentation: {
-        kind: "email",
-        label: "viewer@example.com",
-      },
-    });
-    await expect(asViewer.query(api.users.currentViewerAccess)).resolves.toEqual({
-      role: "role_pending_access",
-      accessKeys: ["access_public", "access_account_deletion", "access_user_preferences"],
-    });
-    await expect(asViewer.query(api.users.currentViewerRole)).resolves.toEqual({
-      role: "role_pending_access",
-    });
-    await expect(asViewer.query(api.users.getGithubConnectionStatus)).rejects.toThrowError(
-      "Access denied",
-    );
-    await expect(asViewer.query(api.users.getUserSettings)).resolves.toEqual({
-      hasActiveSubscription: false,
-      signInEmail: "viewer@example.com",
-    });
-    await expect(
-      asViewer.mutation(api.users.setDisplayName, { displayName: "   " }),
-    ).rejects.toThrowError("Display name cannot be blank.");
-    await expect(
-      asViewer.mutation(api.users.setDisplayName, { displayName: "first\nsecond" }),
-    ).rejects.toThrowError("Display name must be one line.");
-    await expect(
-      asViewer.mutation(api.users.setDisplayName, { displayName: "a".repeat(65) }),
-    ).rejects.toThrowError("Display name must be 64 characters or fewer.");
-    await expect(
-      asViewer.mutation(api.users.setDisplayName, { displayName: "  Public Viewer  " }),
-    ).resolves.toEqual({ kind: "displayName", label: "Public Viewer" });
-    await expect(asViewer.query(api.users.viewer)).resolves.toEqual({
-      _id: viewerId,
-      accountPresentation: {
-        kind: "displayName",
-        label: "Public Viewer",
-      },
-    });
-    await expect(asViewer.query(api.users.getUserSettings)).resolves.toEqual({
-      displayName: "Public Viewer",
-      hasActiveSubscription: false,
-      signInEmail: "viewer@example.com",
-    });
-    await expect(
-      asViewer.mutation(api.users.setDisplayName, { displayName: null }),
-    ).resolves.toEqual({ kind: "email", label: "viewer@example.com" });
-    await expect(asViewer.query(api.users.getUserSettings)).resolves.toEqual({
-      hasActiveSubscription: false,
-      signInEmail: "viewer@example.com",
-    });
-    await expect(asViewer.query(api.users.getGithubProviderSummary)).rejects.toThrowError(
-      "Access denied",
-    );
-    await expect(asViewer.mutation(api.users.disconnectGithub)).rejects.toThrowError(
-      "Access denied",
-    );
-
-    const ownerConnectionAfterViewerDisconnect = await t.run(async (ctx) => {
-      return await ctx.db
-        .query("providerConnections")
-        .withIndex("by_user_kind", (q) => q.eq("userId", ownerId).eq("kind", "github"))
-        .unique();
-    });
-    expect(ownerConnectionAfterViewerDisconnect).toMatchObject({
-      kind: "github",
-      userId: ownerId,
-      username: "owner-login",
-    });
-
-    const asOwner = t.withIdentity({
-      subject: `${ownerId}|owner-session`,
-      tokenIdentifier: `test:${ownerId}`,
-    });
-
-    await expect(asOwner.query(api.users.getGithubConnectionStatus)).resolves.toEqual({
-      connected: true,
-      username: "owner-login",
-      authMethod: "api_key",
-    });
-    await expect(asOwner.query(api.users.getGithubProviderSummary)).resolves.toMatchObject({
-      connected: true,
-      username: "owner-login",
-      authMethod: "api_key",
-      reauthorizeAvailable: false,
-    });
-  });
-
-  it("keeps an approved member as member when they connect the staff GitHub username", async () => {
-    const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      const insertedUserId = await ctx.db.insert("users", {
-        name: "Member",
-        email: "nicu.dev@gmail.com",
-        isApproved: true,
-      });
-      await ctx.db.insert("providerConnections", {
-        kind: "github",
-        userId: insertedUserId,
-        auth: {
-          method: "api_key",
-          credential: "test-github-api-key",
-        },
-        username: "nicu-chiciuc",
-        createdAt: 1,
-        updatedAt: 2,
-      });
-      return insertedUserId;
-    });
-
-    const asUser = t.withIdentity({
-      subject: `${userId}|test-session`,
-      tokenIdentifier: `test:${userId}`,
-    });
-
-    await expect(asUser.query(api.users.currentViewerRole)).resolves.toEqual({
-      role: "role_member",
-    });
-  });
-
-  it("keeps OAuth reauthorize available when the manage URL env is absent", async () => {
-    const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      const insertedUserId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      await ctx.db.insert("providerConnections", {
-        kind: "github",
-        userId: insertedUserId,
-        auth: {
-          method: "oauth",
-          credential: "github-oauth-token",
-        },
-        username: "ada",
-        createdAt: 1,
-        updatedAt: 2,
-      });
-      return insertedUserId;
-    });
-
-    const asUser = t.withIdentity({
-      subject: `${userId}|test-session`,
-      tokenIdentifier: `test:${userId}`,
-    });
-
-    await expect(asUser.query(api.users.getGithubProviderSummary)).resolves.toMatchObject({
-      connected: true,
-      authMethod: "oauth",
-      reauthorizeAvailable: true,
-    });
-  });
-
-  it("checks GitHub OAuth health from live GitHub responses", async () => {
-    const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      const insertedUserId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      await ctx.db.insert("providerConnections", {
-        kind: "github",
-        userId: insertedUserId,
-        auth: {
-          method: "oauth",
-          credential: "github-oauth-token",
-        },
-        username: "stored-login",
-        createdAt: 1,
-        updatedAt: 2,
-      });
-      return insertedUserId;
-    });
-    const requestedUrls: string[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url =
-          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-        requestedUrls.push(url);
-
-        if (url === "https://api.github.com/user") {
-          return new Response(JSON.stringify({ login: "live-login" }), {
-            headers: {
-              "content-type": "application/json",
-              "x-oauth-scopes": "repo, user, read:org",
-            },
-          });
-        }
-        if (url.startsWith("https://api.github.com/user/repos")) {
-          return new Response("[]", {
-            headers: {
-              "content-type": "application/json",
-              "x-oauth-scopes": "repo, user, read:org",
-            },
-          });
-        }
-        if (url.startsWith("https://api.github.com/user/memberships/orgs")) {
-          return new Response(
-            JSON.stringify([
-              {
-                role: "admin",
-                permissions: {
-                  can_create_repository: false,
-                },
-                organization: {
-                  login: "samebase",
-                },
-              },
-              {
-                role: "member",
-                permissions: {
-                  can_create_repository: false,
-                },
-                organization: {
-                  login: "acme-product",
-                },
-              },
-            ]),
-            {
-              headers: {
-                "content-type": "application/json",
-                "x-oauth-scopes": "repo, user, read:org",
-              },
-            },
-          );
-        }
-
-        return new Response("not found", { status: 404 });
-      }),
-    );
-
-    try {
-      const asUser = t.withIdentity({
-        subject: `${userId}|test-session`,
-        tokenIdentifier: `test:${userId}`,
-      });
-
-      const health = await asUser.action(api.users.checkGithubConnectionHealth);
-
-      expect(requestedUrls).toEqual([
-        "https://api.github.com/user",
-        "https://api.github.com/user/repos?sort=updated&per_page=1&affiliation=owner%2Ccollaborator%2Corganization_member",
-        "https://api.github.com/user/memberships/orgs?state=active&per_page=100&page=1",
-      ]);
-      expect(health).toMatchObject({
-        connected: true,
-        username: "live-login",
-        authMethod: "oauth",
-        grantedScopes: ["repo", "user", "read:org"],
-        organizations: [
-          {
-            login: "acme-product",
-            role: "member",
-            canCreateRepository: false,
-          },
-          {
-            login: "samebase",
-            role: "admin",
-            canCreateRepository: false,
-          },
-        ],
-        checks: [
-          {
-            key: "profile",
-            status: "ok",
-          },
-          {
-            key: "repositories",
-            status: "ok",
-          },
-          {
-            key: "organizations",
-            status: "ok",
-          },
-        ],
-      });
-      expect(health.requiredScopes).toEqual([
-        {
-          scope: "repo",
-          label: "List and edit repositories",
-          status: "granted",
-        },
-        {
-          scope: "delete_repo",
-          label: "Delete Samebase-managed repositories",
-          status: "missing",
-        },
-        {
-          scope: "user",
-          label: "Read GitHub profile",
-          status: "granted",
-        },
-        {
-          scope: "user:email",
-          label: "Read GitHub email addresses",
-          status: "granted",
-        },
-        {
-          scope: "read:org",
-          label: "Read organization memberships",
-          status: "granted",
-        },
-        {
-          scope: "read:packages",
-          label: "Read packages",
-          status: "missing",
-        },
-      ]);
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it("treats absent GitHub scope headers as unknown access", async () => {
-    const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      const insertedUserId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      await ctx.db.insert("providerConnections", {
-        kind: "github",
-        userId: insertedUserId,
-        auth: {
-          method: "oauth",
-          credential: "github-oauth-token",
-        },
-        username: "stored-login",
-        createdAt: 1,
-        updatedAt: 2,
-      });
-      return insertedUserId;
-    });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url =
-          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-
-        if (url === "https://api.github.com/user") {
-          return new Response(JSON.stringify({ login: "live-login" }), {
-            headers: {
-              "content-type": "application/json",
-            },
-          });
-        }
-        if (url.startsWith("https://api.github.com/user/repos")) {
-          return new Response("[]", {
-            headers: {
-              "content-type": "application/json",
-            },
-          });
-        }
-        if (url.startsWith("https://api.github.com/user/memberships/orgs")) {
-          return new Response("[]", {
-            headers: {
-              "content-type": "application/json",
-            },
-          });
-        }
-
-        return new Response("not found", { status: 404 });
-      }),
-    );
-
-    try {
-      const asUser = t.withIdentity({
-        subject: `${userId}|test-session`,
-        tokenIdentifier: `test:${userId}`,
-      });
-
-      const health = await asUser.action(api.users.checkGithubConnectionHealth);
-
-      expect(health.requiredScopes.map((scope) => scope.status)).toEqual([
-        "unknown",
-        "unknown",
-        "unknown",
-        "unknown",
-        "unknown",
-        "unknown",
-      ]);
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it("reports rejected GitHub credentials and skips repository checks", async () => {
-    const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      const insertedUserId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      await ctx.db.insert("providerConnections", {
-        kind: "github",
-        userId: insertedUserId,
-        auth: {
-          method: "oauth",
-          credential: "github-oauth-token",
-        },
-        username: "stored-login",
-        createdAt: 1,
-        updatedAt: 2,
-      });
-      return insertedUserId;
-    });
-    const requestedUrls: string[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url =
-          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-        requestedUrls.push(url);
-
-        if (url === "https://api.github.com/user") {
-          return new Response("denied", { status: 401 });
-        }
-
-        return new Response("not found", { status: 404 });
-      }),
-    );
-
-    try {
-      const asUser = t.withIdentity({
-        subject: `${userId}|test-session`,
-        tokenIdentifier: `test:${userId}`,
-      });
-
-      const health = await asUser.action(api.users.checkGithubConnectionHealth);
-
-      expect(requestedUrls).toEqual(["https://api.github.com/user"]);
-      expect(health.checks).toMatchObject([
-        {
-          key: "profile",
-          status: "error",
-          message: "GitHub rejected this credential. Reconnect GitHub.",
-        },
-        {
-          key: "repositories",
-          status: "unknown",
-          message: "Skipped because the profile check failed.",
-        },
-        {
-          key: "organizations",
-          status: "unknown",
-          message: "Skipped because the profile check failed.",
-        },
-      ]);
-      expect(health.requiredScopes.map((scope) => scope.status)).toEqual([
-        "unknown",
-        "unknown",
-        "unknown",
-        "unknown",
-        "unknown",
-        "unknown",
-      ]);
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it("reports GitHub repository listing authorization failures", async () => {
-    const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      const insertedUserId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      await ctx.db.insert("providerConnections", {
-        kind: "github",
-        userId: insertedUserId,
-        auth: {
-          method: "oauth",
-          credential: "github-oauth-token",
-        },
-        username: "stored-login",
-        createdAt: 1,
-        updatedAt: 2,
-      });
-      return insertedUserId;
-    });
-    const requestedUrls: string[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url =
-          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-        requestedUrls.push(url);
-
-        if (url === "https://api.github.com/user") {
-          return new Response(JSON.stringify({ login: "live-login" }), {
-            headers: {
-              "content-type": "application/json",
-              "x-oauth-scopes": "repo",
-            },
-          });
-        }
-        if (url.startsWith("https://api.github.com/user/repos")) {
-          return new Response("denied", { status: 403 });
-        }
-        if (url.startsWith("https://api.github.com/user/memberships/orgs")) {
-          return new Response("[]", {
-            headers: {
-              "content-type": "application/json",
-              "x-oauth-scopes": "repo, read:org",
-            },
-          });
-        }
-
-        return new Response("not found", { status: 404 });
-      }),
-    );
-
-    try {
-      const asUser = t.withIdentity({
-        subject: `${userId}|test-session`,
-        tokenIdentifier: `test:${userId}`,
-      });
-
-      const health = await asUser.action(api.users.checkGithubConnectionHealth);
-
-      expect(requestedUrls).toEqual([
-        "https://api.github.com/user",
-        "https://api.github.com/user/repos?sort=updated&per_page=1&affiliation=owner%2Ccollaborator%2Corganization_member",
-        "https://api.github.com/user/memberships/orgs?state=active&per_page=100&page=1",
-      ]);
-      expect(health.checks).toMatchObject([
-        {
-          key: "profile",
-          status: "ok",
-          message: "Authenticated as live-login.",
-        },
-        {
-          key: "repositories",
-          status: "error",
-          message: "GitHub denied this request. Check org approval, SSO, or rate limits.",
-        },
-        {
-          key: "organizations",
-          status: "ok",
-          message: "No organizations are visible to this credential.",
-        },
-      ]);
-      expect(health.requiredScopes.map((scope) => scope.status)).toEqual([
-        "granted",
-        "missing",
-        "missing",
-        "missing",
-        "granted",
-        "missing",
-      ]);
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it("reports whether the Cloudflare connection still needs account selection", async () => {
-    const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        name: "Ada",
-        email: "ada@example.com",
-        isApproved: true,
-      });
-      await ctx.db.insert("providerConnections", {
         kind: "cloudflare",
+      }),
+      t.query(internal.providerConnections.loadSelectedForOrganization, {
+        organizationId,
         userId,
-        auth: {
-          method: "api_key",
-          credential: "test-cloudflare-api-key",
-        },
-        defaultAccount: { state: "not_selected" },
-        createdAt: 1,
-        updatedAt: 2,
-      });
-      return userId;
-    });
-
-    const asUser = t.withIdentity({
-      subject: `${userId}|test-session`,
-      tokenIdentifier: `test:${userId}`,
-    });
-
-    await expect(asUser.query(api.users.getCloudflareConnectionStatus)).resolves.toEqual({
-      connected: true,
-      authMethod: "api_key",
+        kind: "convex",
+      }),
+    ]);
+    expect({ ...state, selectedCloudflareConnection, selectedConvexConnection }).toEqual({
+      cloudflareConnection: null,
+      convexConnection: null,
+      otherOrganizationExists: true,
+      selectedCloudflareConnection: null,
+      selectedConvexConnection: null,
     });
   });
 });

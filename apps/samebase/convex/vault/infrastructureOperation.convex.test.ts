@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { INITIAL_ACCOUNT_DELETION_DATA_PROGRESS } from "../accountDeletion/model";
 import { makeConvexTest } from "../test.setup";
 import {
   MANUAL_PROVIDER_ACTION_LIMIT_MS,
@@ -22,8 +21,16 @@ async function createConnectedVault() {
       email: "ada@example.com",
       isApproved: true,
     });
+    const organizationId = await ctx.db.insert("organizations", {
+      githubInstallationId: "manual-provider-write-installation",
+      githubOwnerId: "manual-provider-write-owner",
+      githubOwnerLogin: "ada",
+      githubOwnerLoginNormalized: "ada",
+      githubOwnerType: "user",
+    });
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
     const vaultId = await ctx.db.insert("vaults", {
-      userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
@@ -39,7 +46,7 @@ async function createConnectedVault() {
       completedAt: 20,
     });
     await ctx.db.replace(vaultId, {
-      userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "connect_existing_repository",
@@ -183,11 +190,9 @@ describe("manual provider write ownership", () => {
         workflow: { state: "not_started" },
         retryCount: 0,
         outcomes: {
-          billing: { state: "not_started" },
           providerRevocation: { state: "not_started" },
           completionEmail: { state: "not_started" },
         },
-        dataDeletion: INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
       });
       await ctx.db.patch(ids.userId, {
         accountDeletion: { state: "deleting", runId: deletionRunId, requestedAt: now },

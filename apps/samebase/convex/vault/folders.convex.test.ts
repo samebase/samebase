@@ -2,7 +2,6 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
-import { cleanupAccountLocalDataBatchForUser } from "../accountDeletion/cleanup";
 
 async function seedUser(t: ReturnType<typeof makeConvexTest>, email: string) {
   return await t.run(async (ctx) => {
@@ -15,8 +14,24 @@ async function seedVault(
   userId: Awaited<ReturnType<typeof seedUser>>,
 ) {
   return await t.run(async (ctx) => {
+    const existingMembership = await ctx.db
+      .query("organizationMemberships")
+      .withIndex("by_user", (query) => query.eq("userId", userId))
+      .first();
+    const organizationId =
+      existingMembership?.organizationId ??
+      (await ctx.db.insert("organizations", {
+        githubInstallationId: `installation-${userId}`,
+        githubOwnerId: `owner-${userId}`,
+        githubOwnerLogin: `owner-${userId}`,
+        githubOwnerLoginNormalized: `owner-${userId}`,
+        githubOwnerType: "user",
+      }));
+    if (existingMembership === null) {
+      await ctx.db.insert("organizationMemberships", { organizationId, userId });
+    }
     return await ctx.db.insert("vaults", {
-      userId,
+      organizationId,
       state: "not_connected",
       deletion: { state: "not_deleting" },
     });
@@ -28,8 +43,27 @@ async function seedDashboardVault(
   args: { name: string; userId: Awaited<ReturnType<typeof seedUser>> },
 ) {
   return await t.run(async (ctx) => {
+    const existingMembership = await ctx.db
+      .query("organizationMemberships")
+      .withIndex("by_user", (query) => query.eq("userId", args.userId))
+      .first();
+    const organizationId =
+      existingMembership?.organizationId ??
+      (await ctx.db.insert("organizations", {
+        githubInstallationId: `installation-${args.userId}`,
+        githubOwnerId: `owner-${args.userId}`,
+        githubOwnerLogin: "ada",
+        githubOwnerLoginNormalized: "ada",
+        githubOwnerType: "user",
+      }));
+    if (existingMembership === null) {
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: args.userId,
+      });
+    }
     const vaultId = await ctx.db.insert("vaults", {
-      userId: args.userId,
+      organizationId,
       state: "not_connected",
       deletion: { state: "not_deleting" },
     });
@@ -45,7 +79,7 @@ async function seedDashboardVault(
       lastError: "Test failure.",
     });
     await ctx.db.replace(vaultId, {
-      userId: args.userId,
+      organizationId,
       state: "failed",
       githubMode: "connect_existing_repository",
       runId,
@@ -307,51 +341,6 @@ describe("vault folders Convex contract", () => {
         await ctx.db
           .query("ui_vaultFolderAssignments")
           .withIndex("by_vaultId", (q) => q.eq("vaultId", vaultId))
-          .first(),
-      ).toBeNull();
-    });
-  });
-
-  it("removes folder data during account deletion and leaves MCP vault output complete", async () => {
-    const t = makeConvexTest();
-    const userId = await seedUser(t, "ada@example.com");
-    const firstVaultId = await seedDashboardVault(t, { name: "first", userId });
-    const secondVaultId = await seedDashboardVault(t, { name: "second", userId });
-    const viewer = asUser(t, userId);
-    const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
-      name: "Current",
-    });
-    await viewer.mutation(api.vault.folders.moveVaultToFolder, {
-      folderId,
-      vaultId: firstVaultId,
-    });
-
-    await expect(
-      t.query(internal.vault.dashboard.getUserVaultsForUser, { userId }),
-    ).resolves.toHaveLength(2);
-
-    let cleanup = await t.run(async (ctx) => {
-      return await cleanupAccountLocalDataBatchForUser(ctx, { userId });
-    });
-    while (cleanup.state !== "done") {
-      cleanup = await t.run(async (ctx) => {
-        return await cleanupAccountLocalDataBatchForUser(ctx, { userId });
-      });
-    }
-
-    await t.run(async (ctx) => {
-      expect(await ctx.db.get(firstVaultId)).toBeNull();
-      expect(await ctx.db.get(secondVaultId)).toBeNull();
-      expect(
-        await ctx.db
-          .query("ui_vaultFolders")
-          .withIndex("by_userId_and_position", (q) => q.eq("userId", userId))
-          .first(),
-      ).toBeNull();
-      expect(
-        await ctx.db
-          .query("ui_vaultFolderAssignments")
-          .withIndex("by_userId_and_vaultId", (q) => q.eq("userId", userId))
           .first(),
       ).toBeNull();
     });

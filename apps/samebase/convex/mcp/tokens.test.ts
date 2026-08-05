@@ -2,32 +2,21 @@ import { describe, expect, it } from "vite-plus/test";
 import { createCodeChallenge } from "../oauthUtils";
 import {
   createAccessTokenValue,
-  createAgentBrowserHandoffTokenValue,
   createAuthorizationCodeValue,
   createRefreshTokenValue,
-  isAgentBrowserHandoffTokenValue,
   sha256Hex,
   verifyPkceS256,
 } from "./tokens";
 
 describe("opaque token creators", () => {
-  it("creates prefixed authorization, access, refresh, and handoff tokens", () => {
+  it("creates prefixed authorization, access, and refresh tokens", () => {
     const authCode = createAuthorizationCodeValue();
     const accessToken = createAccessTokenValue();
-    const browserHandoffToken = createAgentBrowserHandoffTokenValue();
     const refreshToken = createRefreshTokenValue();
 
     expect(authCode.startsWith("mcpac_")).toBe(true);
     expect(accessToken.startsWith("mcpat_")).toBe(true);
-    expect(isAgentBrowserHandoffTokenValue(browserHandoffToken)).toBe(true);
     expect(refreshToken.startsWith("mcprt_")).toBe(true);
-  });
-
-  it("rejects malformed browser handoff token values", () => {
-    expect(isAgentBrowserHandoffTokenValue("agbh_short")).toBe(false);
-    expect(isAgentBrowserHandoffTokenValue(`agbh_${"a".repeat(42)}!`)).toBe(false);
-    expect(isAgentBrowserHandoffTokenValue(`agbh_${"a".repeat(43)}\n`)).toBe(false);
-    expect(isAgentBrowserHandoffTokenValue(`mcpat_${"a".repeat(43)}`)).toBe(false);
   });
 });
 

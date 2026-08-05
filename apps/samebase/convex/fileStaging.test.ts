@@ -5,7 +5,6 @@ import {
   buildDeletionSnapshotSeed,
   buildDeletedFileRestoreCandidate,
   buildClearAllStagingPlan,
-  canAccessVaultStaging,
   clearMatchingStagingSnapshotImpl,
   clearAllStagingImpl,
   selectRepositoryTreeForBranch,
@@ -277,26 +276,6 @@ describe("summarizeStagedFilesByBranch", () => {
   });
 });
 
-describe("canAccessVaultStaging", () => {
-  it("allows owner access", () => {
-    expect(
-      canAccessVaultStaging({
-        vaultOwnerId: "users:owner",
-        requesterUserId: "users:owner",
-      }),
-    ).toBe(true);
-  });
-
-  it("rejects non-owner access", () => {
-    expect(
-      canAccessVaultStaging({
-        vaultOwnerId: "users:owner",
-        requesterUserId: "users:other",
-      }),
-    ).toBe(false);
-  });
-});
-
 describe("buildDeletedFileRestoreCandidate", () => {
   it("clears the deleted flag while preserving rename and content changes", () => {
     expect(
@@ -471,6 +450,7 @@ describe("buildClearAllStagingPlan", () => {
     // @ts-expect-error Regression test uses a minimal MutationCtx stub that only includes accessed fields.
     await clearAllStagingImpl(context.ctx, {
       vaultId: targetVaultId,
+      userId: "users:owner",
       branch: targetBranch,
     });
 

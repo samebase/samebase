@@ -3,21 +3,18 @@
 import { v, type Infer } from "convex/values";
 import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
-import type { Doc, Id } from "../_generated/dataModel";
+import type { Id } from "../_generated/dataModel";
 import { Octokit } from "@octokit/rest";
 import { RequestError } from "@octokit/request-error";
 import { action } from "../functions";
 import { toErrorMessage } from "../jsonUtils";
+import { requireGitHubRepositoryOwnerId, resolveGitHubAppAccess } from "../githubAppAccess";
 import { parseRepositoryFullName } from "./model";
 import { isLiveConnectedVault, isSamebaseManagedVault } from "./state";
 import { toSafeRepoName } from "../../shared/repoName";
 import { canAccess } from "../../shared/accessModel";
 import { listConvexManagementProjects } from "../convexManagementApi/client";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
-import {
-  resolveCloudflareProvisioningConnection,
-  resolveConvexProvisioningConnection,
-} from "../infraProvisioning";
 import {
   isCloudflareMcpInvalidAccessTokenError,
   isCloudflareWorkerNameAvailable,
@@ -31,13 +28,7 @@ import { createRepositoryContract, type CreateRepositoryArgs } from "./contracts
 import { connectRepositoryContract } from "./contracts/connectRepository";
 import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
 
-const { array, boolean, literal, null: nullValue, object, string, union } = v;
-const githubRepositoryOwnerKind = union(literal("user"), literal("organization"));
-const githubRepositoryOwnerOption = object({
-  login: string(),
-  kind: githubRepositoryOwnerKind,
-  canCreateRepository: boolean(),
-});
+const { id, literal, null: nullValue, object, string, union } = v;
 const appResourceNameAvailability = object({
   status: union(literal("available"), literal("taken"), literal("invalid"), literal("unknown")),
   message: union(string(), nullValue()),
@@ -45,7 +36,6 @@ const appResourceNameAvailability = object({
 });
 
 type AppResourceNameAvailability = Infer<typeof appResourceNameAvailability>;
-type GitHubRepositoryOwnerOption = Infer<typeof githubRepositoryOwnerOption>;
 export type CreateRepositoryResult = Infer<typeof createRepositoryContract.returns>;
 
 function buildAvailableResult(): AppResourceNameAvailability {
@@ -174,53 +164,6 @@ async function buildAvailableGitHubRepositoryNameSuggestion(args: {
   return null;
 }
 
-async function listGitHubRepositoryOwnerOptions(args: {
-  octokit: Octokit;
-  username: string;
-}): Promise<GitHubRepositoryOwnerOption[]> {
-  const memberships = await args.octokit.rest.orgs.listMembershipsForAuthenticatedUser({
-    state: "active",
-    per_page: 100,
-  });
-  const organizationOwners = memberships.data
-    .map((membership) => ({
-      login: membership.organization.login,
-      kind: "organization" as const,
-      canCreateRepository:
-        membership.permissions?.can_create_repository ?? membership.role === "admin",
-    }))
-    .filter((owner) => owner.login.length > 0)
-    .sort((left, right) => left.login.localeCompare(right.login));
-
-  return [
-    {
-      login: args.username,
-      kind: "user",
-      canCreateRepository: true,
-    },
-    ...organizationOwners,
-  ];
-}
-
-function resolveGitHubRepositoryCreateOwner(args: {
-  owner: string;
-  ownerOptions: GitHubRepositoryOwnerOption[];
-}): string {
-  const selectedOwner = args.owner.trim();
-  const ownerOption = args.ownerOptions.find(
-    (option) => option.login.toLowerCase() === selectedOwner.toLowerCase(),
-  );
-  if (!ownerOption) {
-    throw new Error(`GitHub owner ${selectedOwner} is not available to this account.`);
-  }
-  if (!ownerOption.canCreateRepository) {
-    throw new Error(
-      `Your GitHub account cannot create repositories under ${ownerOption.login}. Choose your user account or an organization where you can create repositories.`,
-    );
-  }
-  return ownerOption.login;
-}
-
 async function markProvisioningStartupFailed(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
@@ -324,7 +267,7 @@ async function checkGitHubRepositoryNameAvailability(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
     userId: Id<"users">;
-    owner: string;
+    organizationId: Id<"organizations">;
     repositoryName: string;
   },
 ): Promise<AppResourceNameAvailability> {
@@ -335,30 +278,15 @@ async function checkGitHubRepositoryNameAvailability(
       suggestion: null,
     });
   }
-  const owner = args.owner.trim();
-  if (!owner) {
-    return buildInvalidResult({
-      message: "Choose a GitHub owner before checking repository names.",
-      suggestion: null,
-    });
-  }
-
   try {
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+    const access = await resolveGitHubAppAccess(ctx, {
       userId: args.userId,
-      kind: "github",
-    });
-    if (githubConnection?.kind !== "github") {
-      return buildUnknownResult("Could not check GitHub repository name.");
-    }
-
-    const octokit = new Octokit({
-      auth: githubConnection.auth.credential,
+      target: { kind: "organization", organizationId: args.organizationId },
     });
     if (
       await isGitHubRepositoryNameAvailable({
-        octokit,
-        owner,
+        octokit: access.octokit,
+        owner: access.githubOwnerLogin,
         repositoryName,
       })
     ) {
@@ -368,8 +296,8 @@ async function checkGitHubRepositoryNameAvailability(
     return buildTakenResult({
       providerLabel: "GitHub repository",
       suggestion: await buildAvailableGitHubRepositoryNameSuggestion({
-        octokit,
-        owner,
+        octokit: access.octokit,
+        owner: access.githubOwnerLogin,
         baseName: repositoryName,
       }),
     });
@@ -381,8 +309,100 @@ async function checkGitHubRepositoryNameAvailability(
   }
 }
 
+async function resolveSelectedConvexProvisioningConnection(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+  },
+) {
+  const connection = await ctx.runQuery(internal.providerConnections.loadSelectedForOrganization, {
+    ...args,
+    kind: "convex",
+  });
+  if (connection?.kind !== "convex") {
+    throw new Error(
+      "Convex connection is required to provision infrastructure. Connect Convex and retry.",
+    );
+  }
+
+  const convexToken = connection.auth.credential.trim();
+  const convexTeamId = connection.teamId.trim();
+  if (!convexToken || !convexTeamId) {
+    throw new Error(
+      "Convex connection is required to provision infrastructure. Connect Convex and retry.",
+    );
+  }
+
+  return {
+    convexToken,
+    convexAuthMethod: connection.auth.method,
+    convexTeamId,
+    providerConnectionId: connection._id,
+  };
+}
+
+async function resolveSelectedCloudflareProvisioningConnection(
+  ctx: Pick<ActionCtx, "runAction" | "runQuery">,
+  args: {
+    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+    forceRefresh?: true;
+  },
+) {
+  const connection = await ctx.runQuery(internal.providerConnections.loadSelectedForOrganization, {
+    userId: args.userId,
+    organizationId: args.organizationId,
+    kind: "cloudflare",
+  });
+  if (connection?.kind !== "cloudflare") {
+    throw new Error(
+      "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
+    );
+  }
+
+  const resolved = await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
+    userId: args.userId,
+    organizationId: args.organizationId,
+    providerConnectionId: connection._id,
+    ...(args.forceRefresh === true ? { forceRefresh: true } : {}),
+  });
+  if (resolved === null) {
+    throw new Error(
+      "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
+    );
+  }
+
+  const cloudflareToken = resolved.auth.credential.trim();
+  if (!cloudflareToken) {
+    throw new Error(
+      "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
+    );
+  }
+  if (connection.defaultAccount.state !== "selected") {
+    throw new Error("Cloudflare account selection is required before provisioning can continue.");
+  }
+  const cloudflareAccountId = connection.defaultAccount.accountId.trim();
+  if (!cloudflareAccountId) {
+    throw new Error("Cloudflare account selection is required before provisioning can continue.");
+  }
+  if (
+    resolved.defaultAccount.state !== "selected" ||
+    resolved.defaultAccount.accountId !== connection.defaultAccount.accountId
+  ) {
+    throw new Error("Cloudflare account selection changed. Retry the request.");
+  }
+
+  return {
+    cloudflareToken,
+    cloudflareAuthMethod: resolved.auth.method,
+    cloudflareAccountId,
+    providerConnectionId: connection._id,
+  };
+}
+
 async function checkConvexProjectNameAvailabilityForConnection(args: {
-  connection: Awaited<ReturnType<typeof resolveConvexProvisioningConnection>>;
+  connection: Awaited<ReturnType<typeof resolveSelectedConvexProvisioningConnection>>;
   projectName: string;
 }): Promise<AppResourceNameAvailability> {
   const validation = validateCreateResourceName("convex", args.projectName);
@@ -426,6 +446,7 @@ async function checkConvexProjectNameAvailability(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
     userId: Id<"users">;
+    organizationId: Id<"organizations">;
     projectName: string;
   },
 ): Promise<AppResourceNameAvailability> {
@@ -436,7 +457,7 @@ async function checkConvexProjectNameAvailability(
 
   try {
     return await checkConvexProjectNameAvailabilityForConnection({
-      connection: await resolveConvexProvisioningConnection(ctx, args.userId),
+      connection: await resolveSelectedConvexProvisioningConnection(ctx, args),
       projectName: args.projectName,
     });
   } catch (error) {
@@ -474,7 +495,7 @@ async function buildAvailableCloudflareWorkerNameSuggestion(args: {
 }
 
 async function readCloudflareWorkerNameAvailability(args: {
-  connection: Awaited<ReturnType<typeof resolveCloudflareProvisioningConnection>>;
+  connection: Awaited<ReturnType<typeof resolveSelectedCloudflareProvisioningConnection>>;
   workerName: string;
 }): Promise<AppResourceNameAvailability> {
   const available = await isCloudflareWorkerNameAvailable({
@@ -499,9 +520,10 @@ async function readCloudflareWorkerNameAvailability(args: {
 }
 
 async function checkCloudflareWorkerNameAvailability(
-  ctx: Pick<ActionCtx, "runAction">,
+  ctx: Pick<ActionCtx, "runAction" | "runQuery">,
   args: {
     userId: Id<"users">;
+    organizationId: Id<"organizations">;
     workerName: string;
   },
 ): Promise<AppResourceNameAvailability> {
@@ -511,9 +533,10 @@ async function checkCloudflareWorkerNameAvailability(
   }
 
   try {
-    const connection = await resolveCloudflareProvisioningConnection(ctx, args.userId);
+    const connection = await resolveSelectedCloudflareProvisioningConnection(ctx, args);
     return await checkCloudflareWorkerNameAvailabilityForConnection(ctx, {
       userId: args.userId,
+      organizationId: args.organizationId,
       workerName: args.workerName,
       connection,
     });
@@ -526,11 +549,12 @@ async function checkCloudflareWorkerNameAvailability(
 }
 
 async function checkCloudflareWorkerNameAvailabilityForConnection(
-  ctx: Pick<ActionCtx, "runAction">,
+  ctx: Pick<ActionCtx, "runAction" | "runQuery">,
   args: {
     userId: Id<"users">;
+    organizationId: Id<"organizations">;
     workerName: string;
-    connection: Awaited<ReturnType<typeof resolveCloudflareProvisioningConnection>>;
+    connection: Awaited<ReturnType<typeof resolveSelectedCloudflareProvisioningConnection>>;
   },
 ): Promise<AppResourceNameAvailability> {
   const validation = validateCreateResourceName("cloudflare", args.workerName);
@@ -549,7 +573,9 @@ async function checkCloudflareWorkerNameAvailabilityForConnection(
         args.connection.cloudflareAuthMethod !== "api_key" &&
         isCloudflareMcpInvalidAccessTokenError(error)
       ) {
-        const connection = await resolveCloudflareProvisioningConnection(ctx, args.userId, {
+        const connection = await resolveSelectedCloudflareProvisioningConnection(ctx, {
+          userId: args.userId,
+          organizationId: args.organizationId,
           forceRefresh: true,
         });
         return await readCloudflareWorkerNameAvailability({
@@ -574,7 +600,7 @@ async function checkCreateResourceNameAvailabilityForUser(
   ctx: Pick<ActionCtx, "runAction" | "runQuery">,
   args: {
     userId: Id<"users">;
-    githubRepositoryOwner: string;
+    organizationId: Id<"organizations">;
     githubRepositoryName: string;
     convexProjectName: string;
     cloudflareWorkerName: string;
@@ -587,15 +613,17 @@ async function checkCreateResourceNameAvailabilityForUser(
   const [github, convex, cloudflare] = await Promise.all([
     checkGitHubRepositoryNameAvailability(ctx, {
       userId: args.userId,
-      owner: args.githubRepositoryOwner,
+      organizationId: args.organizationId,
       repositoryName: args.githubRepositoryName,
     }),
     checkConvexProjectNameAvailability(ctx, {
       userId: args.userId,
+      organizationId: args.organizationId,
       projectName: args.convexProjectName,
     }),
     checkCloudflareWorkerNameAvailability(ctx, {
       userId: args.userId,
+      organizationId: args.organizationId,
       workerName: args.cloudflareWorkerName,
     }),
   ]);
@@ -603,80 +631,38 @@ async function checkCreateResourceNameAvailabilityForUser(
   return { github, convex, cloudflare };
 }
 
-async function resolveGithubConnectionUsername(
-  ctx: Pick<ActionCtx, "runMutation">,
-  args: {
-    connection: Extract<Doc<"providerConnections">, { kind: "github" }>;
-    userId: Id<"users">;
-  },
-): Promise<string> {
-  if (args.connection.username) {
-    return args.connection.username;
-  }
-
-  const octokit = new Octokit({
-    auth: args.connection.auth.credential,
-  });
-  const { data } = await octokit.rest.users.getAuthenticated();
-  const username = data.login;
-  if (!username) {
-    throw new Error("GitHub connection is missing an account login.");
-  }
-
-  await ctx.runMutation(internal.providerConnections.upsertGithub, {
-    userId: args.userId,
-    auth: args.connection.auth,
-    username,
-  });
-
-  return username;
-}
-
-export const listRepositoryOwners = action({
-  access: "access_repo_connect",
-  args: {},
-  returns: array(githubRepositoryOwnerOption),
-  handler: async (ctx): Promise<GitHubRepositoryOwnerOption[]> => {
-    const userId = ctx.viewer.userId;
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId,
-      kind: "github",
-    });
-    if (githubConnection?.kind !== "github") {
-      throw new Error("GitHub is not connected.");
-    }
-
-    const username = await resolveGithubConnectionUsername(ctx, {
-      connection: githubConnection,
-      userId,
-    });
-    const octokit = new Octokit({
-      auth: githubConnection.auth.credential,
-    });
-    return await listGitHubRepositoryOwnerOptions({ octokit, username });
-  },
-});
-
 export type ConnectRepositoryResult = Infer<typeof connectRepositoryContract.returns>;
 
 export async function connectRepositoryForUser(
   ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
-  args: { userId: Id<"users">; repositoryFullName: string },
+  args: {
+    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+    repositoryFullName: string;
+  },
 ): Promise<ConnectRepositoryResult> {
   const userId = args.userId;
-  const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
-  const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+  const requestedRepository = parseRepositoryFullName(args.repositoryFullName);
+  const access = await resolveGitHubAppAccess(ctx, {
     userId,
-    kind: "github",
+    target: { kind: "organization", organizationId: args.organizationId },
   });
-  if (githubConnection?.kind !== "github") {
-    throw new Error("GitHub is not connected");
-  }
+  const repository = await access.octokit.rest.repos.get({
+    owner: requestedRepository.owner,
+    repo: requestedRepository.name,
+  });
+  requireGitHubRepositoryOwnerId({
+    expectedOwnerId: access.githubOwnerId,
+    repositoryOwnerId: repository.data.owner.id,
+  });
+  const owner = repository.data.owner.login;
+  const name = repository.data.name;
 
   const { vaultId, runId } = await ctx.runMutation(
     internal.vault.records.createInitializingExistingRepositoryVaultForUser,
     {
       userId,
+      organizationId: access.organizationId,
       ghRepoOwner: owner,
       ghRepoName: name,
     },
@@ -720,31 +706,9 @@ export async function createAppForUser(
   if (!repoName) {
     throw new Error("Repository name is required.");
   }
-  const ghRepoOwnerInput = args.owner.trim();
-  if (!ghRepoOwnerInput) {
-    throw new Error("GitHub owner is required.");
-  }
-
-  const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+  const githubAccess = await resolveGitHubAppAccess(ctx, {
     userId: args.userId,
-    kind: "github",
-  });
-  if (githubConnection?.kind !== "github") {
-    throw new Error("GitHub is not connected.");
-  }
-  const githubUsername = await resolveGithubConnectionUsername(ctx, {
-    connection: githubConnection,
-    userId: args.userId,
-  });
-  const githubOctokit = new Octokit({
-    auth: githubConnection.auth.credential,
-  });
-  const ghRepoOwner = resolveGitHubRepositoryCreateOwner({
-    owner: ghRepoOwnerInput,
-    ownerOptions: await listGitHubRepositoryOwnerOptions({
-      octokit: githubOctokit,
-      username: githubUsername,
-    }),
+    target: { kind: "organization", organizationId: args.organizationId },
   });
 
   const convexNameValidation = validateCreateResourceName("convex", args.convexProjectName);
@@ -762,14 +726,20 @@ export async function createAppForUser(
   }
 
   const [convexConnection, cloudflareConnection] = await Promise.all([
-    resolveConvexProvisioningConnection(ctx, args.userId),
-    resolveCloudflareProvisioningConnection(ctx, args.userId),
+    resolveSelectedConvexProvisioningConnection(ctx, {
+      userId: args.userId,
+      organizationId: githubAccess.organizationId,
+    }),
+    resolveSelectedCloudflareProvisioningConnection(ctx, {
+      userId: args.userId,
+      organizationId: githubAccess.organizationId,
+    }),
   ]);
   const [githubNameAvailability, convexNameAvailability, cloudflareNameAvailability] =
     await Promise.all([
       checkGitHubRepositoryNameAvailability(ctx, {
         userId: args.userId,
-        owner: ghRepoOwner,
+        organizationId: githubAccess.organizationId,
         repositoryName: repoName,
       }),
       checkConvexProjectNameAvailabilityForConnection({
@@ -778,6 +748,7 @@ export async function createAppForUser(
       }),
       checkCloudflareWorkerNameAvailabilityForConnection(ctx, {
         userId: args.userId,
+        organizationId: githubAccess.organizationId,
         workerName: cloudflareNameValidation.value,
         connection: cloudflareConnection,
       }),
@@ -791,14 +762,17 @@ export async function createAppForUser(
     internal.vault.records.createInitializingSamebaseManagedVaultForUser,
     {
       userId: args.userId,
-      ghRepoOwner,
+      organizationId: githubAccess.organizationId,
+      ghRepoOwner: githubAccess.githubOwnerLogin,
       ghRepoName: repoName,
       visibility,
       description: args.description ?? null,
       convexProjectName: convexNameValidation.value,
       convexTeamId: convexConnection.convexTeamId,
+      convexProviderConnectionId: convexConnection.providerConnectionId,
       cloudflareAccountId: cloudflareConnection.cloudflareAccountId,
       cloudflareWorkerName: cloudflareNameValidation.value,
+      cloudflareProviderConnectionId: cloudflareConnection.providerConnectionId,
     },
   );
 
@@ -822,7 +796,7 @@ export const createRepository = action({
 export const checkCreateRepositoryResourceNames = action({
   access: "access_app_create",
   args: {
-    githubRepositoryOwner: string(),
+    organizationId: id("organizations"),
     githubRepositoryName: string(),
     convexProjectName: string(),
     cloudflareWorkerName: string(),
@@ -836,7 +810,7 @@ export const checkCreateRepositoryResourceNames = action({
     const userId = ctx.viewer.userId;
     return await checkCreateResourceNameAvailabilityForUser(ctx, {
       userId,
-      githubRepositoryOwner: args.githubRepositoryOwner,
+      organizationId: args.organizationId,
       githubRepositoryName: args.githubRepositoryName,
       convexProjectName: args.convexProjectName,
       cloudflareWorkerName: args.cloudflareWorkerName,
@@ -849,10 +823,11 @@ export async function retryInfrastructureProvisioningForUser(
   args: { userId: Id<"users">; vaultId: Id<"vaults"> },
 ): Promise<null> {
   const userId = args.userId;
-  const vault = await ctx.runQuery(internal.vault.records.getById, {
-    id: args.vaultId,
+  const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+    userId,
+    vaultId: args.vaultId,
   });
-  if (!vault || vault.userId !== userId) {
+  if (!vault) {
     throw new Error("Vault not found");
   }
   if (!isLiveConnectedVault(vault) || !isSamebaseManagedVault(vault)) {

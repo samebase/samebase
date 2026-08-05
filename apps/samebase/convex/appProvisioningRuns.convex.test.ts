@@ -25,8 +25,16 @@ async function createRetryFixture(blocker: RetryBlocker, t = makeConvexTest()) {
       email: "ada@example.com",
       isApproved: true,
     });
+    const organizationId = await ctx.db.insert("organizations", {
+      githubInstallationId: "retry-guard-installation",
+      githubOwnerId: "retry-guard-owner",
+      githubOwnerLogin: "ada",
+      githubOwnerLoginNormalized: "ada",
+      githubOwnerType: "user",
+    });
+    await ctx.db.insert("organizationMemberships", { organizationId, userId });
     const vaultId = await ctx.db.insert("vaults", {
-      userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
@@ -43,7 +51,7 @@ async function createRetryFixture(blocker: RetryBlocker, t = makeConvexTest()) {
       completedAt: 2,
     });
     await ctx.db.replace(vaultId, {
-      userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "create_repository",
@@ -92,6 +100,7 @@ async function createRetryFixture(blocker: RetryBlocker, t = makeConvexTest()) {
       case "deletion": {
         const deletionRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
           state: "queued",
+          organizationId,
           userId,
           vaultId,
           repositoryFullName: "ada/retry-guard",

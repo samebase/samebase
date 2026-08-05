@@ -142,47 +142,37 @@ export function AdminAccountDeletionsPage() {
             <OutcomeState label="Operation" state={detail.run.runId} />
             <OutcomeState label="Account" state={detail.run.email ?? "Scrubbed"} />
             <OutcomeState
-              label="Billing"
-              state={detail.run.outcomes.billing.state.replace(/_/g, " ")}
-            />
-            {detail.run.outcomes.billing.state === "failed" ? (
-              <OutcomeState label="Billing error" state={detail.run.outcomes.billing.safeError} />
-            ) : null}
-            <OutcomeState
               label="Provider revocation"
               state={detail.run.outcomes.providerRevocation.state.replace(/_/g, " ")}
             />
             {detail.run.outcomes.providerRevocation.state === "completed" ? (
               <>
                 <OutcomeState
-                  label="GitHub"
-                  state={detail.run.outcomes.providerRevocation.github.state.replace(/_/g, " ")}
+                  label="GitHub user authorization"
+                  state={detail.run.outcomes.providerRevocation.githubUserAuthorization.state.replace(
+                    /_/g,
+                    " ",
+                  )}
                 />
                 <OutcomeState
-                  label="Cloudflare"
-                  state={detail.run.outcomes.providerRevocation.cloudflare.state.replace(/_/g, " ")}
+                  label="Cloudflare connections"
+                  state={detail.run.outcomes.providerRevocation.cloudflareConnections.state.replace(
+                    /_/g,
+                    " ",
+                  )}
                 />
                 <OutcomeState
-                  label="Convex"
-                  state={detail.run.outcomes.providerRevocation.convex.state.replace(/_/g, " ")}
+                  label="Convex connections"
+                  state={detail.run.outcomes.providerRevocation.convexConnections.state.replace(
+                    /_/g,
+                    " ",
+                  )}
                 />
-                {detail.run.outcomes.providerRevocation.github.state === "unconfirmed" ? (
-                  <OutcomeState
-                    label="GitHub error"
-                    state={detail.run.outcomes.providerRevocation.github.safeError}
-                  />
-                ) : null}
-                {detail.run.outcomes.providerRevocation.cloudflare.state === "unconfirmed" ? (
-                  <OutcomeState
-                    label="Cloudflare error"
-                    state={detail.run.outcomes.providerRevocation.cloudflare.safeError}
-                  />
-                ) : null}
-                {detail.run.outcomes.providerRevocation.convex.state ===
+                {detail.run.outcomes.providerRevocation.convexConnections.state ===
                 "manual_revocation_required" ? (
                   <OutcomeState
                     label="Convex notice"
-                    state={detail.run.outcomes.providerRevocation.convex.safeNotice}
+                    state={detail.run.outcomes.providerRevocation.convexConnections.safeNotice}
                   />
                 ) : null}
               </>

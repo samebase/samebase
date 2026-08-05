@@ -8,18 +8,10 @@ import { getRouteApi } from "@tanstack/react-router";
 import { Authenticated, Unauthenticated, useAction, useConvexAuth, useQuery } from "convex/react";
 import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
-import { ACCESS_BROWSER_LOGIN_HANDOFF } from "../../shared/accessModel";
+import type { Id } from "../../convex/_generated/dataModel";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 const mcpConsentRouteApi = getRouteApi(MCP_CONSENT_APP_PATH);
-
-function readMcpConsentScopeLabel(scope: string): string {
-  if (scope === ACCESS_BROWSER_LOGIN_HANDOFF) {
-    return "Open Samebase in a browser as your account";
-  }
-
-  return scope;
-}
 
 function McpConsentView({ requestId }: { requestId: string }) {
   const authorizationRequest = useQuery(api.mcp.oauth.getAuthorizationRequestForCurrentUser, {
@@ -30,20 +22,31 @@ function McpConsentView({ requestId }: { requestId: string }) {
   );
   const denyAuthorizationRequest = useAction(api.mcp.oauth.denyAuthorizationRequestForCurrentUser);
   const [pendingAction, setPendingAction] = useState<"approve" | "deny" | null>(null);
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<Id<"organizations"> | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
 
   const runAction = (action: "approve" | "deny") => {
     if (pendingAction !== null) {
       return;
     }
+    let actionPromise;
+    if (action === "approve") {
+      if (selectedOrganizationId === null) {
+        setError("Select an organization to authorize.");
+        return;
+      }
+      actionPromise = completeAuthorizationRequest({
+        requestId,
+        organizationId: selectedOrganizationId,
+      });
+    } else {
+      actionPromise = denyAuthorizationRequest({ requestId });
+    }
 
     setError(null);
     setPendingAction(action);
-
-    const actionPromise =
-      action === "approve"
-        ? completeAuthorizationRequest({ requestId })
-        : denyAuthorizationRequest({ requestId });
 
     void actionPromise
       .then(({ redirectUrl }) => {
@@ -99,7 +102,7 @@ function McpConsentView({ requestId }: { requestId: string }) {
         <div className="text-center">
           <h2 className="text-xl font-semibold tracking-tight">Authorize MCP client</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            {clientName} is requesting access to your Samebase account.
+            {clientName} is requesting access to a Samebase organization.
           </p>
         </div>
 
@@ -109,6 +112,33 @@ function McpConsentView({ requestId }: { requestId: string }) {
             <div className="text-muted-foreground">{clientName}</div>
           </div>
           <div>
+            <div className="font-medium">Organization</div>
+            {authorizationRequest.organizations.length === 0 ? (
+              <div className="text-muted-foreground">
+                You need a GitHub-backed organization before you can approve this request.
+              </div>
+            ) : (
+              <div className="mt-1 space-y-2">
+                {authorizationRequest.organizations.map((organization) => (
+                  <label
+                    key={organization.organizationId}
+                    className="flex items-center gap-2 text-muted-foreground"
+                  >
+                    <input
+                      type="radio"
+                      name="mcp-organization"
+                      checked={selectedOrganizationId === organization.organizationId}
+                      onChange={() => {
+                        setSelectedOrganizationId(organization.organizationId);
+                      }}
+                    />
+                    <span>{organization.githubOwnerLogin}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
             <div className="font-medium">Resource</div>
             <div className="text-muted-foreground">{authorizationRequest.resource}</div>
           </div>
@@ -116,7 +146,7 @@ function McpConsentView({ requestId }: { requestId: string }) {
             <div className="font-medium">Requested scopes</div>
             <ul className="mt-1 list-disc pl-5 text-muted-foreground">
               {authorizationRequest.scopes.map((scope) => (
-                <li key={scope}>{readMcpConsentScopeLabel(scope)}</li>
+                <li key={scope}>{scope}</li>
               ))}
             </ul>
           </div>
@@ -144,7 +174,7 @@ function McpConsentView({ requestId }: { requestId: string }) {
             onClick={() => {
               runAction("approve");
             }}
-            disabled={pendingAction !== null}
+            disabled={pendingAction !== null || selectedOrganizationId === null}
           >
             {pendingAction === "approve" ? "Approving..." : "Approve"}
           </Button>
@@ -174,7 +204,7 @@ export function McpConsentRoutePage() {
     <>
       <Authenticated>
         <ApprovalGate>
-          {requestId === null ? null : <McpConsentView requestId={requestId} />}
+          {requestId === null ? null : <McpConsentView key={requestId} requestId={requestId} />}
         </ApprovalGate>
       </Authenticated>
       <Unauthenticated>

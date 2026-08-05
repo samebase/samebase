@@ -1,11 +1,11 @@
 "use node";
 
-import { Octokit } from "@octokit/rest";
 import { Infer, v } from "convex/values";
 import { z } from "zod";
 
 import { internal } from "./_generated/api";
 import { action } from "./functions";
+import { resolveGitHubAppAccess } from "./githubAppAccess";
 import { createGitHubRequestDeadlineSignal } from "./githubRepoApi";
 import type { VaultConnectedRepositoryTarget } from "./vault/model";
 import { isLiveConnectedVault } from "./vault/state";
@@ -499,8 +499,20 @@ export function vaultSidebarSummaryBatches(
   repositories: readonly VaultConnectedRepositoryTarget[],
 ): VaultConnectedRepositoryTarget[][] {
   const batches: VaultConnectedRepositoryTarget[][] = [];
-  for (let start = 0; start < repositories.length; start += VAULT_SIDEBAR_SUMMARY_BATCH_SIZE) {
-    batches.push(repositories.slice(start, start + VAULT_SIDEBAR_SUMMARY_BATCH_SIZE));
+  const repositoriesByOwner = new Map<string, VaultConnectedRepositoryTarget[]>();
+  for (const repository of repositories) {
+    const ownerRepositories = repositoriesByOwner.get(repository.owner) ?? [];
+    ownerRepositories.push(repository);
+    repositoriesByOwner.set(repository.owner, ownerRepositories);
+  }
+  for (const ownerRepositories of repositoriesByOwner.values()) {
+    for (
+      let start = 0;
+      start < ownerRepositories.length;
+      start += VAULT_SIDEBAR_SUMMARY_BATCH_SIZE
+    ) {
+      batches.push(ownerRepositories.slice(start, start + VAULT_SIDEBAR_SUMMARY_BATCH_SIZE));
+    }
   }
   return batches;
 }
@@ -700,17 +712,16 @@ export const listVaultSidebarSummaries = action({
     if (repositories.length === 0) {
       return [];
     }
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: ctx.viewer.userId,
-      kind: "github",
-    });
-    if (githubConnection?.kind !== "github") {
-      throw new Error("GitHub connection unavailable.");
-    }
-
-    const octokit = new Octokit({ auth: githubConnection.auth.credential });
     const summaries: VaultSidebarSummary[] = [];
     for (const batch of vaultSidebarSummaryBatches(repositories)) {
+      const firstRepository = batch.at(0);
+      if (firstRepository === undefined) {
+        continue;
+      }
+      const { octokit } = await resolveGitHubAppAccess(ctx, {
+        userId: ctx.viewer.userId,
+        target: { kind: "vault", vaultId: firstRepository.vaultId },
+      });
       const signal = createGitHubRequestDeadlineSignal();
       let providerResponse: unknown;
       try {
@@ -748,15 +759,10 @@ export const listOpenPullRequests = action({
     if (!isLiveConnectedVault(vault)) {
       throw new Error("Vault not found.");
     }
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+    const { octokit } = await resolveGitHubAppAccess(ctx, {
       userId: ctx.viewer.userId,
-      kind: "github",
+      target: { kind: "vault", vaultId: vault._id },
     });
-    if (githubConnection?.kind !== "github") {
-      throw new Error("GitHub connection unavailable.");
-    }
-
-    const octokit = new Octokit({ auth: githubConnection.auth.credential });
     const signal = createGitHubRequestDeadlineSignal();
     const page = normalizeGitHubPullRequestPage(
       await octokit.graphql(REPOSITORY_PULL_REQUEST_PAGE_QUERY, {
@@ -806,14 +812,10 @@ export const getOpenPullRequestForBranch = action({
     if (branch === vault.defaultBranch) {
       return { aheadBy: 0, pullRequest: null };
     }
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+    const { octokit } = await resolveGitHubAppAccess(ctx, {
       userId: ctx.viewer.userId,
-      kind: "github",
+      target: { kind: "vault", vaultId: vault._id },
     });
-    if (githubConnection?.kind !== "github") {
-      throw new Error("GitHub connection unavailable.");
-    }
-    const octokit = new Octokit({ auth: githubConnection.auth.credential });
     const signal = createGitHubRequestDeadlineSignal();
     const [comparison, pullRequests] = await Promise.all([
       octokit.rest.repos.compareCommitsWithBasehead({
