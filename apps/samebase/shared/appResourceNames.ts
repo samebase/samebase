@@ -30,7 +30,7 @@ export function sanitizeAppResourceName(
     rawName
       .trim()
       .toLowerCase()
-      .replace(provider === "cloudflare" ? /[^a-z0-9_-]+/g : /[^a-z0-9-]+/g, "-")
+      .replace(/[^a-z0-9-]+/g, "-")
       .replace(/-+/g, "-"),
   );
   return trimDashes(sanitized.slice(0, maxLength));

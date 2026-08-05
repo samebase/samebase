@@ -29,7 +29,7 @@ describe("app resource names", () => {
         repositoryName: "My_App.Name",
         provider: "cloudflare",
       }),
-    ).toBe("my_app-name");
+    ).toBe("my-app-name");
   });
 
   it("uses provider-specific name limits", () => {
@@ -123,11 +123,6 @@ describe("app resource names", () => {
       expect(numberedSuggestion.length).toBeLessThanOrEqual(maxLength);
       expect(validateAppResourceName(numberedSuggestion, provider).valid).toBe(true);
     }
-  });
-
-  it("keeps Cloudflare underscores in generated names", () => {
-    expect(sanitizeAppResourceName("my_app", "cloudflare")).toBe("my_app");
-    expect(sanitizeAppResourceName("my_app", "convex")).toBe("my-app");
   });
 
   it("requires a name for every provider", () => {
