@@ -9,8 +9,7 @@
 - Replacement branch: `codex-github-app-organizations`
 - Replacement PR: [#1367](https://github.com/samebase/samebase/pull/1367)
 - Superseded draft: [#1355](https://github.com/samebase/samebase/pull/1355)
-- Current checkpoint: Corrected two-user and user-wide MCP validation complete; production cutover
-  remains
+- Current checkpoint: Production data reset complete; merge and production validation remain
 
 ## Purpose
 
@@ -263,14 +262,28 @@ Clear `observations_vaultConvexSchema_snapshots` before deploying the schema tha
 
 ## Current Blockers
 
-- Cancel the active pre-beta Polar test subscription before removing its legacy user billing state.
-- Revoke the eight old user-owned provider connections before the production data reset.
+- None for schema deployment.
+
+## Production Cutover Result
+
+- A full production backup with file storage was created before any destructive action.
+- The one pre-beta Polar subscription was revoked immediately and verified as canceled.
+- All three old GitHub OAuth grants and both old Cloudflare OAuth grants were revoked.
+- Of the three old Convex OAuth tokens, one was already invalid and one was revoked through Convex
+  Authorized Applications. The last token belongs to another Convex dashboard account. Samebase's
+  stored copy was deleted, so the application cannot use it. Revoke it from that account's Convex
+  Authorized Applications page as later provider housekeeping.
+- All 30 accepted disposable tables were cleared. This includes vault, provider, workflow, MCP
+  authorization, and MCP audit data.
+- All six users, authentication tables, approval state, waitlist state, user UI state, vault folder
+  definitions, and global MCP client registrations remain.
+- All legacy user billing fields were removed. No retained user has an active account deletion.
+- The Workflow component has no active run. Its internal history and configuration remain.
 
 Webhook setup is deferred until the main installation and repository flows work. It is not a release
 blocker for this rollout.
 
 ## Next Exact Task
 
-Cancel the pre-beta Polar test subscription and revoke old provider credentials. Then take a
-production backup, perform the accepted product-data reset, merge the PR, and verify the strict
-schema deployment.
+Merge the PR, verify the strict production deployment, install the production GitHub App, and test
+the main owner, member, provider, vault, reload, observation, provisioning, and MCP flows.
