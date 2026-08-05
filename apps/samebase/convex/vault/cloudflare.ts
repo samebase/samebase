@@ -1096,7 +1096,7 @@ async function connectWorkerForUser(
         expectedRepoId: resolved.context.ghRepoId,
         defaultBranch: resolved.githubDefaultBranch,
       });
-    } catch (observationError) {
+    } catch {
       await attemptManualProviderWriteFailureRecord(ctx, {
         vaultId: args.vaultId,
         actionId,
@@ -1104,7 +1104,7 @@ async function connectWorkerForUser(
       return {
         state: "added_with_notice",
         workerId,
-        message: `Cloudflare Worker ${workerName} was added, but Samebase could not verify its GitHub Builds state. Refresh the vault after checking the Worker in Cloudflare. Setup error: ${toErrorMessage(error)} Verification error: ${toErrorMessage(observationError)}`,
+        message: `Cloudflare Worker ${workerName} was added, but Samebase could not verify its GitHub Builds state. Refresh the vault after checking the Worker in Cloudflare.`,
       };
     }
     if (
@@ -1126,7 +1126,7 @@ async function connectWorkerForUser(
       return {
         state: "added_with_notice",
         workerId,
-        message: `Cloudflare Worker ${workerName} was added and GitHub Builds is connected, but Cloudflare reported an error after setup. Start a build from Cloudflare if one is not running. Reason: ${toErrorMessage(error)}`,
+        message: `Cloudflare Worker ${workerName} was added and GitHub Builds is connected, but Cloudflare reported an error after setup. Start a build from Cloudflare if one is not running.`,
       };
     }
     await attemptManualProviderWriteFailureRecord(ctx, {
@@ -1141,7 +1141,7 @@ async function connectWorkerForUser(
       return {
         state: "added_with_notice",
         workerId,
-        message: `Cloudflare Worker ${workerName} was added ${rootMessage} Reason: ${toErrorMessage(error)}`,
+        message: `Cloudflare Worker ${workerName} was added ${rootMessage}`,
       };
     }
     const nextActionMessage =
@@ -1151,7 +1151,7 @@ async function connectWorkerForUser(
     return {
       state: "added_with_notice",
       workerId,
-      message: `Cloudflare Worker ${workerName} was added, but GitHub Builds setup did not complete. ${nextActionMessage} Reason: ${toErrorMessage(error)}`,
+      message: `Cloudflare Worker ${workerName} was added, but GitHub Builds setup did not complete. ${nextActionMessage}`,
     };
   }
   await ctx.runMutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {

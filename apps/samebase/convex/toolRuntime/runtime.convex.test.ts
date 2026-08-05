@@ -74,11 +74,29 @@ describe("MCP tool runtime boundaries", () => {
       rootDirectory: "/",
     });
 
-    expect(result).toMatchObject({
+    expect(result).toEqual({
       status: "error",
-      text: expect.stringContaining("Worker name"),
+      text: "Cloudflare Worker name can use lowercase letters, numbers, and dashes, and must start and end with a letter or number.",
     });
     expect(result).not.toHaveProperty("structuredContent");
+  });
+
+  it("does not expose arbitrary product helper errors", async () => {
+    const { t, userId, vaultId } = await seedToolRuntimeOwner();
+
+    const result = await t.action(internal.toolRuntime.runtime.cloudflareCreateWorkerTool, {
+      userId,
+      grantedScopes: ["access_provider_connections"],
+      vaultId,
+      accountId: "account_1",
+      workerName: "worker-new",
+      rootDirectory: "/",
+    });
+
+    expect(result).toEqual({
+      status: "error",
+      text: "Tool execution failed.",
+    });
   });
 
   it("keeps browser handoff behind its dedicated trusted scope", async () => {

@@ -1,6 +1,12 @@
 "use node";
 
-import { v, type Infer, type ObjectType, type PropertyValidators } from "convex/values";
+import {
+  ConvexError,
+  v,
+  type Infer,
+  type ObjectType,
+  type PropertyValidators,
+} from "convex/values";
 import type { ReturnValueForOptionalValidator } from "convex/server";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
@@ -117,10 +123,12 @@ function defineMcpTool<
           status: "ok",
         };
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Tool execution failed.";
         return {
           status: "error",
-          text: message,
+          text:
+            error instanceof ConvexError && typeof error.data === "string"
+              ? error.data
+              : "Tool execution failed.",
         };
       }
     },

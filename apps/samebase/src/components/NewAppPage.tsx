@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useAction, useQuery as useConvexQuery } from "convex/react";
+import { ConvexError } from "convex/values";
 import { CheckIcon, Loader2 } from "lucide-react";
 import {
   useCallback,
@@ -1112,7 +1113,11 @@ export function NewAppPage() {
         }),
       });
     } catch (error) {
-      setCreateError(error instanceof Error ? error.message : "Failed to create app");
+      setCreateError(
+        error instanceof ConvexError && typeof error.data === "string"
+          ? error.data
+          : "Failed to create app",
+      );
     } finally {
       setIsCreating(false);
     }

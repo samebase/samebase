@@ -398,18 +398,23 @@ describe("vault Cloudflare Worker attachments", () => {
       const { asUser, t, userId, vaultId } = await createCloudflareConnectedVault();
       stubConnectWorkerProvider(failure);
 
-      await expect(
-        asUser.action(api.vault.cloudflare.connectWorker, {
-          vaultId,
-          accountId,
-          workerName: "portal",
-          workerTag: "portal-tag",
-          rootDirectory: "apps/portal",
-        }),
-      ).resolves.toEqual(
+      const result = await asUser.action(api.vault.cloudflare.connectWorker, {
+        vaultId,
+        accountId,
+        workerName: "portal",
+        workerTag: "portal-tag",
+        rootDirectory: "apps/portal",
+      });
+
+      expect(result).toEqual(
         expect.objectContaining({
           state: "added_with_notice",
           message: expect.stringContaining(expectedMessage),
+        }),
+      );
+      expect(result).not.toEqual(
+        expect.objectContaining({
+          message: expect.stringContaining("Cloudflare test error"),
         }),
       );
       await expect(
@@ -496,7 +501,7 @@ describe("vault Cloudflare Worker attachments", () => {
       expect.objectContaining({
         state: "added_with_notice",
         message: expect.stringContaining(
-          "GitHub default branch changed while Samebase configured Workers Builds.",
+          "Cloudflare reported an error after setup. Start a build from Cloudflare if one is not running.",
         ),
       }),
     );

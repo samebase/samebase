@@ -1,4 +1,4 @@
-import { v, type Infer } from "convex/values";
+import { ConvexError, v, type Infer } from "convex/values";
 
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -243,7 +243,7 @@ export const claimManualProviderWrite = internalMutation({
     }
     const infrastructure = await readVaultInfrastructureState(ctx, connectedVault);
     if (infrastructure.operation.kind !== "none") {
-      throw new Error("Another vault infrastructure operation is active.");
+      throw new ConvexError("Another vault infrastructure operation is active.");
     }
 
     const now = Date.now();
