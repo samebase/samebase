@@ -164,6 +164,29 @@ Status: Complete on the replacement branch
   `Vault not found in the authorized organization.` Both temporary MCP grants were then revoked.
 - Real provisioning found two strict Convex argument-boundary defects. The saved fixes construct
   only the arguments accepted by the target query. No compatibility path was added.
+- A final Chrome run tested the current owner routes from their base pages. With two memberships,
+  `/providers`, `/new-app`, and `/connect-repo` started without a selected owner. Selecting
+  `samebase` moved each page to its stable owner route. The `nicu-typescript` organization kept its
+  separate, unconnected provider state, and app creation stayed disabled there.
+- The owner created `tmp-8462-org-route-owner` from `/new-app/samebase`. GitHub, Convex, and
+  Cloudflare reached `3/3 passed`; the Worker served the generated app; reload restored the clean
+  vault route and all three resources. The owner also connected `samebase/monorepo-fixture` from
+  `/connect-repo/samebase`; its branch and pull-request observations survived reload.
+- The member saw both organization provider connections, completed both live access checks, and
+  could not reconnect, disconnect, or select provider accounts. The member saw the two new shared
+  vaults but did not see the `nicu-typescript` vault.
+- The member created `tmp-8462-org-route-member` without personal GitHub, Convex, or Cloudflare
+  credentials. The owner then saw the same GitHub repository, Convex project, Worker, and
+  observations after signing in and reloading the vault.
+- The first Cloudflare build for `tmp-8462-org-route-member` failed because the generated app's
+  prerender step timed out while it fetched its temporary local server. Retrying the same build
+  without a code or configuration change succeeded. The Worker then served the app and Samebase
+  reported `3/3 passed`. This was a Cloudflare build reliability failure, not an organization or
+  provider-authorization failure.
+- A sanitized database check confirmed one owner and one member in `samebase`, one billing row per
+  test organization, two selected organization provider connections, organization-matching vault
+  resources and provisioning plans for both new apps, and isolation for the `nicu-typescript` vault.
+  Credential fields were not printed or copied.
 
 ## Manual Acceptance Order
 
