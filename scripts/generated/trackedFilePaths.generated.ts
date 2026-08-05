@@ -554,6 +554,7 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/vault-overview-v2-visual.spec.ts",
   "apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-build-status-unavailable-mobile.png",
   "apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-builds-repair-mobile.png",
+  "apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-dialog-invalid-name-mobile.png",
   "apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-dialog-loading-mobile.png",
   "apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-dialog-mobile.png",
   "apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-convex-dialog-error.png",

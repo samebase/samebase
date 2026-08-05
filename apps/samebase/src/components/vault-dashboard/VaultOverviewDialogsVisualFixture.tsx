@@ -9,6 +9,7 @@ import { VaultDeleteDialogContent } from "./VaultDeleteDialog";
 export type VaultOverviewDialogsVisualMode =
   | "vault-overview-v2-cloudflare-builds-repair"
   | "vault-overview-v2-cloudflare-dialog"
+  | "vault-overview-v2-cloudflare-dialog-invalid-name"
   | "vault-overview-v2-cloudflare-dialog-loading"
   | "vault-overview-v2-convex-dialog"
   | "vault-overview-v2-convex-dialog-error"
@@ -187,6 +188,7 @@ function CloudflareDialogFixture({
   mode: Extract<VaultOverviewDialogsVisualMode, `vault-overview-v2-cloudflare-${string}`>;
   repair: boolean;
 }) {
+  const invalidName = mode === "vault-overview-v2-cloudflare-dialog-invalid-name";
   return (
     <DialogFixture mode={mode}>
       <VaultCloudflareDialogContent
@@ -194,14 +196,14 @@ function CloudflareDialogFixture({
           isLoading || repair ? [] : [{ accountId: "samebase-account", accountName: "Samebase" }]
         }
         createRootDirectory={repair ? "apps/portal" : "/"}
-        createWorkerName=""
+        createWorkerName={invalidName ? "samebase app" : ""}
         didAddWorker={false}
         error={null}
         folderSuggestions={["apps", "apps/admin", "apps/portal", "apps/web", "packages/backend"]}
         isLoading={isLoading}
         isSubmitting={false}
         inventoryState={isLoading || repair ? null : "complete"}
-        mode="existing"
+        mode={invalidName ? "create" : "existing"}
         onAccountChange={() => {}}
         onCreateRootDirectoryChange={() => {}}
         onCreateWorkerNameChange={() => {}}
@@ -272,6 +274,8 @@ export function VaultOverviewDialogsVisualFixture({
         />
       );
     case "vault-overview-v2-cloudflare-dialog":
+      return <CloudflareDialogFixture isLoading={false} mode={mode} repair={false} />;
+    case "vault-overview-v2-cloudflare-dialog-invalid-name":
       return <CloudflareDialogFixture isLoading={false} mode={mode} repair={false} />;
     case "vault-overview-v2-cloudflare-dialog-loading":
       return <CloudflareDialogFixture isLoading mode={mode} repair={false} />;
