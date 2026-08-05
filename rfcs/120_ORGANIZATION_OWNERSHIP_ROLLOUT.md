@@ -22,19 +22,26 @@ review transcripts, or a per-commit journal.
 - Users can have zero, one, or several organization memberships.
 - Every membership is either `owner` or `member`. Members use organization resources; owners also
   manage providers, GitHub reconnection, and billing.
+- Every organization always has at least one owner. Account deletion, membership removal, and
+  demotion fail if they would remove the last owner.
 - Signup and waitlist entry do not create organizations or billing rows.
 - One Samebase organization maps to one stable GitHub repository owner.
 - A verified Samebase GitHub App installation creates or reconnects the organization.
 - GitHub is not a deployment `providerConnections` kind.
 - GitHub App installation tokens serve normal repository operations.
-- User-specific GitHub App authorization stays user-owned and separate.
+- User-specific GitHub App authorization stays user-owned and separate. One Samebase user has one
+  current personal GitHub authorization.
 - Convex and Cloudflare connections are organization-owned and record who connected them.
 - Several Convex or Cloudflare connections per organization are valid in the schema.
+- Long-lived Convex and Cloudflare resource rows use stable external team, project, account, and
+  Worker IDs. They do not depend on a replaceable `providerConnections` ID.
 - Vaults, billing, quotas, and provider resources are organization-owned. MCP grants act as their
   Samebase user across that user's current organization memberships.
 - Vault routes derive organization context from `/vault/<owner>/<repository>` and have no opaque
   organization query parameter.
 - User deletion is not organization deletion.
+- Whole-vault deletion keeps its current member access for pre-beta testing. Commit-aware deletion
+  rules and stronger customer guardrails are a later vault-lifecycle task.
 - Disposable pre-beta product data can be reset. Compatibility code is not required.
 - FileView multi-writer behavior is not a release gate.
 
@@ -48,8 +55,8 @@ The draft had 207 changed files, 13,353 additions, and 4,843 deletions when the 
 made. The old branch remains untouched as a reference. The clean branch starts from current
 `origin/main` so rejected tests and compatibility code do not control the final model.
 
-Useful concepts to reapply are membership access, organization-owned resources, exact Convex and
-Cloudflare connection references, and organization billing.
+Useful concepts to reapply are membership access, organization-owned resources, external provider
+resource identities, and organization billing.
 
 ## GitHub Apps
 
@@ -252,11 +259,12 @@ Status: Complete on the replacement branch
   repository requires the acting Samebase user's exact GitHub user authorization.
 - MCP acts on behalf of the Samebase user across current memberships. The organization chooser and
   organization ID on MCP grants are removed instead of extended.
-- Cloudflare account visibility remains a simple business rule for this rollout. The schema already
-  keeps the selected account plus exact account and connection IDs on attachments, so account
-  visibility can be refined before member invitations ship without changing the ownership model.
-- The operator membership function accepts a required role so an organization without an owner is
-  manually recoverable. No invitation UI, role editor, or last-owner workflow is added.
+- Cloudflare account visibility remains a simple business rule for this rollout. Attached resources
+  keep stable external account IDs and resolve a current organization credential for that account.
+- The operator membership function accepts a required role. Every organization must retain an owner,
+  with no invitation UI or general role editor in this rollout.
+- Vaults use `organizations.githubOwnerLogin` as current route and display data. Historical workflow
+  snapshots can retain the owner login observed when the workflow started.
 
 ## Reset Boundary
 
@@ -271,7 +279,8 @@ Clear `observations_vaultConvexSchema_snapshots` before deploying the schema tha
 
 ## Current Blockers
 
-- None for schema deployment.
+- Remove long-lived provider connection references and resolve credentials by external scope.
+- Remove the duplicate vault owner-login source and enforce the last-owner invariant.
 
 ## Production Cutover Result
 
@@ -294,5 +303,6 @@ blocker for this rollout.
 
 ## Next Exact Task
 
-Merge the PR, verify the strict production deployment, install the production GitHub App, and test
-the main owner, member, provider, vault, reload, observation, provisioning, and MCP flows.
+Implement the final resource identity, owner-login, and last-owner decisions. Then repeat focused
+owner, member, provider reconnect, vault reload, observation, provisioning, and MCP checks before
+merge.

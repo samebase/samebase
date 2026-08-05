@@ -42,8 +42,9 @@ verified GitHub App installation creates an owner membership. Until an invitatio
 idempotent internal function adds an existing Samebase user with an explicit `owner` or `member`
 role.
 
-The first release has no invitation records, role-editing flow, last-owner transition rules,
-permission arrays, or custom roles.
+Every organization must always have at least one owner. Account deletion, membership removal, and
+role changes must reject a transition that would leave an organization without an owner. The first
+release has no invitation records, general role-editing flow, permission arrays, or custom roles.
 
 ## GitHub Owner And App Installation
 
@@ -97,6 +98,8 @@ GitHub App installation authentication is the default for repository reads and w
 user authorization is stored separately only for operations that require the acting GitHub user,
 such as repository creation under a personal account. It belongs to one Samebase user and GitHub
 user. It does not identify an organization, grant membership, or become available to another member.
+One Samebase user has at most one current GitHub App user authorization. Supporting several personal
+GitHub identities for one Samebase user is outside this contract.
 
 ## Deployment Provider Connections
 
@@ -119,12 +122,17 @@ or disconnect an organization connection.
 Provider credentials stay in backend-only functions. Product clients can request authorized
 operations and read non-secret status. They cannot retrieve credentials or raw provider errors.
 
-Convex and Cloudflare resources and provisioning plans store the exact provider connection ID that
-created or attached them. Reloads and retries do not select a credential from the acting user.
+Long-lived `vaultConvexProjects` rows identify external resources with `teamId` and `projectId`.
+Long-lived `vaultCloudflareWorkers` rows identify external resources with `accountId`, `workerName`,
+and `workerTag`. They do not store a `providerConnections` ID. Operations resolve a current
+organization connection whose external scope matches the resource's `teamId` or `accountId`.
+Short-lived provisioning and deletion workflow rows can keep an exact provider connection ID for one
+running operation.
 
 Disconnect revokes OAuth access when the provider supports revocation, then removes the local
 connection. If a user account is deleted, connections whose credential grant belongs to that user
-are revoked and removed. Other organization data remains.
+are revoked and removed. Other organization data remains. Reconnecting the same external team or
+account restores operations on existing resources without rewriting their rows.
 
 ## Vault Identity And Routing
 
@@ -132,9 +140,11 @@ Every vault belongs to one organization and one GitHub repository owned by that 
 GitHub owner. Vault creation rejects a repository whose stable owner ID differs from the
 organization's `githubOwnerId`. One GitHub repository identity maps to at most one retained vault.
 
-The route `/vault/<owner>/<repository>` resolves the vault and then derives the Samebase
-organization. It does not use an opaque `?organization=<id>` parameter. Internal Samebase IDs are
-database and authorization identities, not URL selectors.
+The route `/vault/<owner>/<repository>` resolves the current GitHub owner login to an organization
+through the viewer's membership, then resolves the vault by `organizationId` and repository name. A
+vault does not store another current copy of `organizations.githubOwnerLogin`. It does not use an
+opaque `?organization=<id>` parameter. Internal Samebase IDs are database and authorization
+identities, not URL selectors.
 
 Organization setup pages use the current GitHub owner login in `/providers/<owner>`,
 `/new-app/<owner>`, and `/connect-repo/<owner>`. Their base routes are chooser pages when the user
@@ -161,7 +171,7 @@ Durable ownership is:
 | Vault                                      | Organization and matching GitHub repository owner |
 | Vault child data                           | Parent vault                                      |
 | Convex or Cloudflare connection            | Organization, with connecting-user provenance     |
-| Attached Convex or Cloudflare resource     | Parent vault and exact provider connection        |
+| Attached Convex or Cloudflare resource     | Parent vault and stable external provider IDs     |
 | Billing, quota, and usage                  | Organization                                      |
 | MCP grant                                  | User delegation across current memberships        |
 | Auth accounts, sessions, profile, approval | User                                              |
@@ -199,6 +209,10 @@ that user. It does not delete an organization, vault, billing row, or another me
 
 Organization deletion is a separate future product or operator action. GitHub App uninstall also
 does not delete Samebase data.
+
+Whole-vault deletion remains available to both `owner` and `member` during pre-beta testing. This
+rollout does not add commit-aware deletion rules or stronger deletion UX. A later vault-lifecycle
+task must define those guardrails before deletion is treated as a general customer workflow.
 
 ## Reset Cutover
 
