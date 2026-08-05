@@ -76,10 +76,12 @@ Production App:
 - Client ID: `Iv23lidFhcIUMzBjZUdN`
 - Callback: `https://api.samebase.com/oauth/github/callback`
 - Public page: https://github.com/apps/samebase
-- Production secrets: Not generated yet
+- Production public Convex settings: Configured
+- Production client secret and private key: Not generated yet
 
 Both Apps have repository Administration read/write, Checks read, Commit statuses read, Contents
-read/write, Pull requests read/write, Workflows read/write, and automatic Metadata read.
+read/write, Pull requests read/write, Workflows read/write, and automatic Metadata read. Both Apps
+still require organization Members read before the next installation or reconnection.
 
 Development Convex has the App ID, slug, client ID, client secret, private key, and OAuth callback
 URL. The client secret and private key were validated against GitHub without printing them. Convert
@@ -258,7 +260,10 @@ Clear `observations_vaultConvexSchema_snapshots` before deploying the schema tha
 
 ## Current Blockers
 
-- Production GitHub App secrets block production deployment only.
+- Add organization Members read to the development and production GitHub Apps.
+- Generate and configure the production GitHub App client secret and private key.
+- Cancel the active pre-beta Polar test subscription before removing its legacy user billing state.
+- Revoke the eight old user-owned provider connections before the production data reset.
 
 Webhook setup is deferred until the main installation and repository flows work. It is not a release
 blocker for this rollout.

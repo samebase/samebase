@@ -76,6 +76,9 @@ transaction creates the organization's Free billing row. Reinstalling the app fo
 updates the installation ID and does not create another organization. Reconnecting an existing
 organization also requires a Samebase owner membership.
 
+The GitHub App requires organization Members read permission because the organization authority
+check reads the signed-in GitHub user's live organization membership and role.
+
 The installation is not a `providerConnections` row and is not a Samebase login method. Samebase
 creates short-lived installation access tokens for repository operations and does not store those
 tokens. The App private key and client secret stay in deployment secrets.
