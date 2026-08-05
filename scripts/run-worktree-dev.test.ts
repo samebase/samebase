@@ -15,20 +15,17 @@ describe("run-worktree-dev", () => {
       vitePort: 5174,
       sourceEnv: null,
       sourceDeployKey: null,
-      allowMissingSourceEnv: false,
     });
   });
 
   it("reads env fallbacks for the worktree bootstrap flow", () => {
     expect(
       parseWorktreeDevArgs([], {
-        WORKTREE_DEV_ALLOW_MISSING_SOURCE_ENV: "1",
         WORKTREE_DEV_SOURCE_DEPLOY_KEY: "dev:key|token",
         WORKTREE_DEV_SOURCE_ENV: "apps/samebase/.env.source.local",
         WORKTREE_DEV_VITE_PORT: "6210",
       }),
     ).toMatchObject({
-      allowMissingSourceEnv: true,
       forceBootstrap: false,
       sourceDeployKey: "dev:key|token",
       sourceEnv: "apps/samebase/.env.source.local",
@@ -49,7 +46,6 @@ describe("run-worktree-dev", () => {
           "custom.env.local",
         ],
         {
-          WORKTREE_DEV_ALLOW_MISSING_SOURCE_ENV: "1",
           WORKTREE_DEV_VITE_PORT: "5174",
         },
       ),
@@ -59,7 +55,6 @@ describe("run-worktree-dev", () => {
       forceBootstrap: true,
       vitePort: 6001,
       sourceEnv: "custom.env.local",
-      allowMissingSourceEnv: true,
     });
   });
 
@@ -72,7 +67,6 @@ describe("run-worktree-dev", () => {
         vitePort: 5174,
         sourceEnv: null,
         sourceDeployKey: null,
-        allowMissingSourceEnv: false,
         showHelp: false,
       },
       "/repo",
@@ -93,7 +87,6 @@ describe("run-worktree-dev", () => {
         vitePort: 6001,
         sourceEnv: "seed.env",
         sourceDeployKey: "dev:key|token",
-        allowMissingSourceEnv: true,
         showHelp: false,
       },
       "/repo",
@@ -128,7 +121,6 @@ describe("run-worktree-dev", () => {
         vitePort: 5174,
         sourceEnv: null,
         sourceDeployKey: null,
-        allowMissingSourceEnv: false,
         showHelp: false,
       },
       "/repo",
@@ -155,7 +147,6 @@ describe("run-worktree-dev", () => {
         vitePort: 5174,
         sourceEnv: null,
         sourceDeployKey: null,
-        allowMissingSourceEnv: false,
         showHelp: false,
       },
       "/repo",

@@ -40,7 +40,6 @@ Options:
   --force-bootstrap          Ignore the completed --once marker and rerun seed/auth setup.
   --source-env <path>        Explicit cloud dev source env file for local seed generation.
   --source-deploy-key <key>  Explicit cloud deploy key for source-env queries.
-  --allow-missing-source-env Allow local-only seed generation when no cloud source env exists.
   -h, --help                 Show this help message.
 `;
 
@@ -51,7 +50,6 @@ type WorktreeDevOptions = {
   vitePort: number;
   sourceEnv: string | null;
   sourceDeployKey: string | null;
-  allowMissingSourceEnv: boolean;
   showHelp: boolean;
 };
 
@@ -88,7 +86,6 @@ export function parseWorktreeDevArgs(
     vitePort: readDefaultVitePort(env),
     sourceEnv: readOptionalEnvValue(env.WORKTREE_DEV_SOURCE_ENV),
     sourceDeployKey: readOptionalEnvValue(env.WORKTREE_DEV_SOURCE_DEPLOY_KEY),
-    allowMissingSourceEnv: readBooleanEnvValue(env.WORKTREE_DEV_ALLOW_MISSING_SOURCE_ENV),
     showHelp: false,
   };
 
@@ -111,10 +108,6 @@ export function parseWorktreeDevArgs(
     }
     if (arg === "--force-bootstrap") {
       options.forceBootstrap = true;
-      continue;
-    }
-    if (arg === "--allow-missing-source-env") {
-      options.allowMissingSourceEnv = true;
       continue;
     }
     if (arg === "--vite-port") {
@@ -165,9 +158,6 @@ export function buildWorktreeDevSeedEnvArgs(
   const args: string[] = [];
   if (mode === "check-prereqs") {
     args.push("--check-prereqs");
-  }
-  if (options.allowMissingSourceEnv) {
-    args.push("--allow-missing-source-env");
   }
   if (options.sourceEnv) {
     args.push("--source-env", options.sourceEnv);
