@@ -244,6 +244,84 @@ describe("MCP OAuth refresh token replay", () => {
 });
 
 describe("MCP OAuth authorization request boundaries", () => {
+  it("does not recreate a revoked grant on the no-consent path", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "revoked-grant@example.test",
+        isApproved: true,
+      });
+      await ctx.db.insert("mcpOauthClients", {
+        clientId,
+        clientName: "Revoked grant client",
+        redirectUris: ["http://127.0.0.1/callback"],
+        grantTypes: ["authorization_code", "refresh_token"],
+        responseTypes: ["code"],
+        tokenEndpointAuthMethod: "none",
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "dynamic_registration",
+        registrationStatus: "active",
+        metadataJson: "{}",
+      });
+      await ctx.db.insert("mcpAuthorizationRequests", {
+        requestId: "mcpar_revoked_grant",
+        clientId,
+        redirectUri: "http://127.0.0.1/callback",
+        resource,
+        scope,
+        codeChallenge: "unused-code-challenge",
+        codeChallengeMethod: "S256",
+        userId,
+        status: "pending",
+        createdAt: now,
+        expiresAt: now + 60_000,
+      });
+      await ctx.db.insert("mcpGrants", {
+        grantId,
+        userId,
+        clientId,
+        resource,
+        scope,
+        status: "revoked",
+        createdAt: now,
+        updatedAt: now,
+      });
+      return userId;
+    });
+
+    await expect(
+      t.mutation(internal.mcp.oauth.issueAuthorizationCodeForAuthRequest, {
+        requestId: "mcpar_revoked_grant",
+        userId,
+        codeHash: "unused-code-hash",
+        codeExpiresAt: now + 60_000,
+        grantMode: "reuse_only",
+        allowLoopbackHttpRedirectUris: true,
+        now: now + 1,
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      status: 403,
+      error: "consent_required",
+      errorDescription: "Authorization consent is required.",
+    });
+    await expect(
+      t.run(async (ctx) => ({
+        authorizationCodes: await ctx.db.query("mcpAuthorizationCodes").collect(),
+        grants: await ctx.db.query("mcpGrants").collect(),
+        request: await ctx.db
+          .query("mcpAuthorizationRequests")
+          .withIndex("by_request_id", (query) => query.eq("requestId", "mcpar_revoked_grant"))
+          .unique(),
+      })),
+    ).resolves.toMatchObject({
+      authorizationCodes: [],
+      grants: [{ grantId, status: "revoked" }],
+      request: { status: "pending" },
+    });
+  });
+
   it("returns only the client fields used by the HTTP OAuth boundary", async () => {
     const t = makeConvexTest();
     await t.run(async (ctx) => {
@@ -325,6 +403,7 @@ describe("MCP OAuth authorization request boundaries", () => {
         userId,
         codeHash: `${requestId}_code_hash`,
         codeExpiresAt: invokedAt + 60_000,
+        grantMode: "create_or_reuse",
         now: invokedAt,
       });
     };
@@ -564,6 +643,7 @@ describe("MCP OAuth account deletion access", () => {
           userId: request.userId,
           codeHash: `${request.requestId}_code_hash`,
           codeExpiresAt: now + 60_000,
+          grantMode: "create_or_reuse",
           now: now + 1,
         }),
       ).resolves.toEqual(inactiveGrantError);

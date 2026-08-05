@@ -2,7 +2,10 @@
 
 Status: Accepted
 
-Related: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
+Related:
+
+- `rfcs/096_AGENT_BROWSER_HANDOFF_PLAN.md`
+- `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 
 ## Current Contract
 

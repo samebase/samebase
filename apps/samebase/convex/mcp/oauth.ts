@@ -1,5 +1,6 @@
 import { Infer, v } from "convex/values";
 import { internal } from "../_generated/api";
+import type { Doc } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { action, query } from "../functions";
 import { randomToken } from "../oauthUtils";
@@ -74,6 +75,7 @@ const issueAuthorizationCodeForAuthRequestArgsValidator = object({
   userId: id("users"),
   codeHash: string(),
   codeExpiresAt: number(),
+  grantMode: union(literal("create_or_reuse"), literal("reuse_only")),
   allowLoopbackHttpRedirectUris: optional(boolean()),
   now: number(),
 });
@@ -454,17 +456,45 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
       });
     }
 
-    const grantId = `mcpg_${randomToken(24)}`;
-    await ctx.db.insert("mcpGrants", {
-      grantId,
-      userId: args.userId,
-      clientId: authRequest.clientId,
-      resource: authRequest.resource,
-      scope: authRequest.scope,
-      status: "active",
-      createdAt: args.now,
-      updatedAt: args.now,
-    });
+    let existingGrant: Doc<"mcpGrants"> | null = null;
+    for await (const grant of ctx.db
+      .query("mcpGrants")
+      .withIndex("by_user_id_and_status", (query) =>
+        query.eq("userId", args.userId).eq("status", "active"),
+      )) {
+      if (
+        grant.clientId === authRequest.clientId &&
+        grant.resource === authRequest.resource &&
+        grant.scope === authRequest.scope
+      ) {
+        existingGrant = grant;
+        break;
+      }
+    }
+
+    if (existingGrant === null && args.grantMode === "reuse_only") {
+      return oauthError({
+        status: 403,
+        error: "consent_required",
+        errorDescription: "Authorization consent is required.",
+      });
+    }
+
+    const grantId = existingGrant?.grantId ?? `mcpg_${randomToken(24)}`;
+    if (existingGrant === null) {
+      await ctx.db.insert("mcpGrants", {
+        grantId,
+        userId: args.userId,
+        clientId: authRequest.clientId,
+        resource: authRequest.resource,
+        scope: authRequest.scope,
+        status: "active",
+        createdAt: args.now,
+        updatedAt: args.now,
+      });
+    } else {
+      await ctx.db.patch(existingGrant._id, { updatedAt: args.now });
+    }
 
     await ctx.db.insert("mcpAuthorizationCodes", {
       codeHash: args.codeHash,
@@ -557,6 +587,7 @@ export const completeAuthorizationRequestForCurrentUser = action({
         userId: ctx.viewer.userId,
         codeHash: authorizationCodeHash,
         codeExpiresAt: now + MCP_AUTHORIZATION_CODE_TTL_MS,
+        grantMode: "create_or_reuse",
         allowLoopbackHttpRedirectUris:
           protocolValidationOptions.allowLoopbackHttpRedirectUris === true,
         now,

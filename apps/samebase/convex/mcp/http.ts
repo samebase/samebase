@@ -41,7 +41,10 @@ import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/cont
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
-import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
+import {
+  MCP_CONSENT_APP_PATH,
+  type McpAuthorizationSuccessSearchParams,
+} from "../../shared/mcpOAuth";
 import { canAccess, type AccessKey } from "../../shared/accessModel";
 import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
 import { parseSiteOrigin } from "../../shared/siteOrigin";
@@ -49,8 +52,10 @@ import { mcpScopeAllowsAccess } from "../toolRuntime/mcpScopes";
 import { actionContracts, type ActionContractMcpName } from "../toolRuntime/actionCatalog";
 import {
   createAccessTokenValue,
+  createAuthorizationCodeValue,
   createRefreshTokenValue,
   MCP_ACCESS_TOKEN_TTL_MS,
+  MCP_AUTHORIZATION_CODE_TTL_MS,
   MCP_REFRESH_TOKEN_TTL_MS,
   sha256Hex,
 } from "./tokens";
@@ -595,6 +600,40 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
     createdAt: now,
     expiresAt: now + MCP_AUTH_REQUEST_TTL_MS,
   });
+
+  if (userId !== null) {
+    const authorizationCode = createAuthorizationCodeValue();
+    const authorizationCodeHash = await sha256Hex(authorizationCode);
+    const issueResult = await ctx.runMutation(
+      internal.mcp.oauth.issueAuthorizationCodeForAuthRequest,
+      {
+        requestId,
+        userId,
+        codeHash: authorizationCodeHash,
+        codeExpiresAt: now + MCP_AUTHORIZATION_CODE_TTL_MS,
+        grantMode: "reuse_only",
+        allowLoopbackHttpRedirectUris:
+          protocolValidationOptions.allowLoopbackHttpRedirectUris === true,
+        now,
+      },
+    );
+    if (issueResult.ok) {
+      return Response.redirect(
+        buildUrlWithSearchParams(issueResult.redirectUri, {
+          code: authorizationCode,
+          state: issueResult.state,
+        } satisfies McpAuthorizationSuccessSearchParams),
+        302,
+      );
+    }
+    if (issueResult.error !== "consent_required") {
+      return oauthErrorResponse({
+        status: issueResult.status,
+        error: issueResult.error,
+        errorDescription: issueResult.errorDescription,
+      });
+    }
+  }
 
   const consentRedirect = buildMcpConsentRedirectUrl({
     request,
