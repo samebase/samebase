@@ -9,8 +9,8 @@
 - Replacement branch: `codex-github-app-organizations`
 - Replacement PR: [#1367](https://github.com/samebase/samebase/pull/1367)
 - Superseded draft: [#1355](https://github.com/samebase/samebase/pull/1355)
-- Current checkpoint: Focused post-review corrections complete; final manual validation and
-  production cutover remain
+- Current checkpoint: Corrected two-user and user-wide MCP validation complete; production cutover
+  remains
 
 ## Purpose
 
@@ -196,6 +196,22 @@ Status: Complete on the replacement branch
   reloads restored the member-created vault with its GitHub repository, Worker, Convex project, and
   `3/3 passed` state. The member stayed isolated from `nicu-typescript` and did not receive
   owner-only provider controls.
+- A final corrected-model pass signed in as the member and created
+  `samebase/tmp-8462-org-final-member` with the organization's GitHub App, Convex connection, and
+  Cloudflare connection. The repository, Convex project, Cloudflare Worker, and observations were
+  created. The deployed Worker returned HTTP 200. Its GitHub check failed when the generated app's
+  prerender request to its temporary local server timed out. The successful Worker deployment and
+  provider observations confirmed that this was not an organization authorization failure.
+- The owner then saw vaults from both `samebase` and `nicu-typescript`. `/providers` required an
+  explicit GitHub owner selection, `/providers/samebase` survived reload, and no internal
+  organization ID appeared in the URL. The owner received provider management actions. The member
+  received shared provider status and read-only access checks.
+- A real Codex OAuth flow showed account-wide MCP consent with no organization selector. One MCP
+  grant called `vault_dashboard_getUserVaults` and returned seven vaults across the `samebase` and
+  `nicu-typescript` memberships. This confirms that the grant represents the Samebase user and that
+  inventory uses all current memberships.
+- Temporary password sign-in and MCP OAuth data used for this development check were disabled or
+  cleared after validation.
 
 ## Manual Acceptance Order
 
@@ -242,8 +258,6 @@ Clear `observations_vaultConvexSchema_snapshots` before deploying the schema tha
 
 ## Current Blockers
 
-- Repeat the realistic organization and MCP flows on the corrected model before the production
-  cutover.
 - Production GitHub App secrets block production deployment only.
 
 Webhook setup is deferred until the main installation and repository flows work. It is not a release
@@ -251,5 +265,5 @@ blocker for this rollout.
 
 ## Next Exact Task
 
-Repeat the realistic manual organization and MCP flows. Then generate and configure the production
-GitHub App secrets and perform the accepted pre-beta product-data reset.
+Generate and configure the production GitHub App secrets. Then perform the accepted pre-beta
+product-data reset and deploy the strict schema.
