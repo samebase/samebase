@@ -66,7 +66,6 @@ async function createComposedVault() {
       githubMode: "create_repository",
       runId,
       ghRepoId: "123",
-      owner: "ada",
       name: "composed-app",
       visibility: "private",
       defaultBranch: "main",

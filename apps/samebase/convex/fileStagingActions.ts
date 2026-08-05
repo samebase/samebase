@@ -1863,10 +1863,14 @@ export const renameFileInStaging = action({
       throw new Error("Vault not found");
     }
     const connectedVault = assertConnectedVault(vault);
+    const githubAccess = await resolveGitHubAppAccess(ctx, {
+      userId,
+      target: { kind: "vault", vaultId: args.vaultId },
+    });
 
     // So that we guarantee that we have the file in staging
     await ctx.runAction(api.fileStagingActions.getFileForEditing, {
-      repositoryFullName: `${connectedVault.owner}/${connectedVault.name}`,
+      repositoryFullName: `${githubAccess.githubOwnerLogin}/${connectedVault.name}`,
       originalFilePath: args.originalPath,
       branch,
     });
@@ -2518,7 +2522,11 @@ export const pullFromGitHubInternal = internalAction({
       throw new Error("Vault not found");
     }
     const connectedVault = assertConnectedVault(vault);
-    const octokit = await getGitHubOctokit(ctx, args.userId, args.vaultId);
+    const githubAccess = await resolveGitHubAppAccess(ctx, {
+      userId: args.userId,
+      target: { kind: "vault", vaultId: args.vaultId },
+    });
+    const octokit = githubAccess.octokit;
 
     // 1. Read all staging records for this vault (including unchanged)
     const allStaged = await ctx.runQuery(internal.fileStaging.listAllStagedFiles, {
@@ -2535,7 +2543,7 @@ export const pullFromGitHubInternal = internalAction({
 
       const loaded = getBranchTreeMap({
         octokit,
-        owner: connectedVault.owner,
+        owner: githubAccess.githubOwnerLogin,
         repo: connectedVault.name,
         branch,
       });
@@ -2625,7 +2633,7 @@ export const pullFromGitHubInternal = internalAction({
     for (const item of blobFetchQueue) {
       try {
         const blob = await octokit.rest.git.getBlob({
-          owner: connectedVault.owner,
+          owner: githubAccess.githubOwnerLogin,
           repo: connectedVault.name,
           file_sha: item.sha,
         });
@@ -2724,8 +2732,7 @@ export const pullFromGitHubInternal = internalAction({
     for (const branch of touchedBranches) {
       await ctx.runAction(internal.github.updateRepositoryTree, {
         userId: args.userId,
-        owner: connectedVault.owner,
-        repo: connectedVault.name,
+        vaultId: args.vaultId,
         branch,
       });
     }
@@ -2754,7 +2761,11 @@ export const batchReadFiles = action({
       throw new Error("Vault not found");
     }
     const connectedVault = assertConnectedVault(vault);
-    const octokit = await getGitHubOctokit(ctx, userId, args.vaultId);
+    const githubAccess = await resolveGitHubAppAccess(ctx, {
+      userId,
+      target: { kind: "vault", vaultId: args.vaultId },
+    });
+    const octokit = githubAccess.octokit;
 
     const requestedBranch =
       typeof args.branch === "string" && args.branch.trim().length > 0
@@ -2772,8 +2783,7 @@ export const batchReadFiles = action({
       if (!branchTree) {
         await ctx.runAction(internal.github.updateRepositoryTree, {
           userId,
-          owner: connectedVault.owner,
-          repo: connectedVault.name,
+          vaultId: args.vaultId,
           branch: branchToLoad,
         });
         branchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
@@ -2842,7 +2852,7 @@ export const batchReadFiles = action({
       // 2. Fetch from GitHub (blob API by SHA – lightweight)
       try {
         const blob = await getOctokit().rest.git.getBlob({
-          owner: connectedVault.owner,
+          owner: githubAccess.githubOwnerLogin,
           repo: connectedVault.name,
           file_sha: miss.sha,
         });
@@ -3652,7 +3662,11 @@ export const commitAllStaged = internalAction({
       throw new Error("Vault not found");
     }
     const connectedVault = assertConnectedVault(vault);
-    const repoOwner = connectedVault.owner;
+    const githubAccess = await resolveGitHubAppAccess(ctx, {
+      userId: args.userId,
+      target: { kind: "vault", vaultId: args.vaultId },
+    });
+    const repoOwner = githubAccess.githubOwnerLogin;
     const repoName = connectedVault.name;
     const fullRepo = `${repoOwner}/${repoName}`;
 
@@ -3678,7 +3692,7 @@ export const commitAllStaged = internalAction({
       );
     }
 
-    const octokit = await getGitHubOctokit(ctx, args.userId, args.vaultId);
+    const octokit = githubAccess.octokit;
     const commitBranch: string =
       args.branch ??
       stagedBranches.at(0) ??
@@ -3712,8 +3726,7 @@ export const commitAllStaged = internalAction({
       refreshBranchTree: async () => {
         await ctx.runAction(internal.github.updateRepositoryTree, {
           userId: args.userId,
-          owner: repoOwner,
-          repo: repoName,
+          vaultId: args.vaultId,
           branch: commitBranch,
         });
       },

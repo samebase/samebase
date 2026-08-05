@@ -90,6 +90,18 @@ export async function requireAnotherActiveOrganizationOwner(
   throw new Error("An organization must have at least one active owner.");
 }
 
+/** Load the organization that owns a vault and its current GitHub owner identity. */
+export async function requireVaultOrganization(
+  db: DatabaseReader,
+  vault: Pick<Doc<"vaults">, "organizationId">,
+): Promise<Doc<"organizations">> {
+  const organization = await db.get(vault.organizationId);
+  if (organization === null) {
+    throw new Error("Vault organization not found.");
+  }
+  return organization;
+}
+
 /** List every organization the user can access in stable identifier order. */
 export async function listOrganizationIdsForUser(
   db: DatabaseReader,

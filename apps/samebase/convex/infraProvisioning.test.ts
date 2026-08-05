@@ -55,7 +55,6 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
-        owner: "ada",
         name: args.repoName,
         visibility: "private",
         defaultBranch: "main",
@@ -69,7 +68,6 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
         githubMode: "create_repository",
         runId,
         startedAt: 20,
-        owner: "ada",
         name: args.repoName,
         visibility: "private",
       });

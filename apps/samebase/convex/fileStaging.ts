@@ -762,8 +762,7 @@ type ClearAllStagingPlan<VaultId extends string = string, UserId extends string 
   };
   treeRefreshArgs: {
     userId: UserId;
-    owner: string;
-    repo: string;
+    vaultId: VaultId;
     branch: string;
   } | null;
 };
@@ -774,8 +773,6 @@ export function buildClearAllStagingPlan<VaultId extends string, UserId extends 
   cleanupCutoffTimestamp: number;
   vault: {
     userId: UserId;
-    owner: string;
-    name: string;
     defaultBranch: string;
   } | null;
 }): ClearAllStagingPlan<VaultId, UserId> {
@@ -799,8 +796,7 @@ export function buildClearAllStagingPlan<VaultId extends string, UserId extends 
     treeRefreshArgs: args.vault
       ? {
           userId: args.vault.userId,
-          owner: args.vault.owner,
-          repo: args.vault.name,
+          vaultId: args.vaultId,
           branch: args.branch ?? args.vault.defaultBranch,
         }
       : null,
@@ -826,8 +822,6 @@ export async function clearAllStagingImpl(ctx: MutationCtx, args: ClearAllStagin
       vault && isLiveConnectedVault(vault)
         ? {
             userId: args.userId,
-            owner: vault.owner,
-            name: vault.name,
             defaultBranch: vault.defaultBranch,
           }
         : null,

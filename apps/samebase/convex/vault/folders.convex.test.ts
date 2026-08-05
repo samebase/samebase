@@ -85,7 +85,6 @@ async function seedDashboardVault(
       githubMode: "connect_existing_repository",
       runId,
       failedAt: 3,
-      owner: "ada",
       name: args.name,
       deletion: { state: "not_deleting" },
     });

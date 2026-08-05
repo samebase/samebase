@@ -43,7 +43,6 @@ describe("vault branch mutations", () => {
         githubMode: "create_repository",
         runId,
         ghRepoId: "123",
-        owner: "ada",
         name: "claimed-tree",
         defaultBranch: "main",
         visibility: "private",

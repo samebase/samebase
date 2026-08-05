@@ -13,7 +13,7 @@ import {
 import { readVaultDeletionEligibility } from "./eligibility";
 import { isConnectedVault } from "../state";
 import { readVaultDeletionState } from "./state";
-import { requireVaultForUser } from "../../organizationAccess";
+import { requireVaultForUser, requireVaultOrganization } from "../../organizationAccess";
 import {
   getConvexProviderConnectionForTeam,
   getSelectedProviderConnectionForOrganization,
@@ -29,10 +29,6 @@ const deletionRequestOptions = object({
 type DeletionRequestOptions = Infer<typeof deletionRequestOptions>;
 
 const deletionRunEventState = union(literal("unchanged"), literal("running"));
-
-function getRepositoryFullName(vault: Exclude<Doc<"vaults">, { state: "not_connected" }>): string {
-  return `${vault.owner}/${vault.name}`;
-}
 
 async function listVaultConvexProjects(
   ctx: MutationCtx,
@@ -183,13 +179,14 @@ async function buildDeletionPlan(
   ctx: MutationCtx,
   args: {
     vault: Exclude<Doc<"vaults">, { state: "not_connected" | "provisioning" }>;
+    githubOwnerLogin: string;
     convexProjects: Doc<"vaultConvexProjects">[];
     options: DeletionRequestOptions;
   },
 ): Promise<VaultDeletionPlan> {
   const convex = await buildConvexPlan(ctx, args);
   const cloudflare = await buildCloudflarePlan(ctx, args);
-  const repositoryFullName = getRepositoryFullName(args.vault);
+  const repositoryFullName = `${args.githubOwnerLogin}/${args.vault.name}`;
 
   switch (args.vault.state) {
     case "connected": {
@@ -205,7 +202,7 @@ async function buildDeletionPlan(
           target: {
             kind: "existing_repository",
             ghRepoId: args.vault.ghRepoId,
-            owner: args.vault.owner,
+            owner: args.githubOwnerLogin,
             name: args.vault.name,
             repositoryFullName,
           },
@@ -222,7 +219,7 @@ async function buildDeletionPlan(
         target: {
           kind: "samebase_managed_repository",
           ghRepoId: args.vault.ghRepoId,
-          owner: args.vault.owner,
+          owner: args.githubOwnerLogin,
           name: args.vault.name,
           repositoryFullName,
         },
@@ -230,7 +227,7 @@ async function buildDeletionPlan(
           ? {
               action: "delete_repository",
               ghRepoId: args.vault.ghRepoId,
-              owner: args.vault.owner,
+              owner: args.githubOwnerLogin,
               name: args.vault.name,
             }
           : {
@@ -251,7 +248,7 @@ async function buildDeletionPlan(
         target: {
           kind: "failed_repository_setup",
           githubMode: args.vault.githubMode,
-          owner: args.vault.owner,
+          owner: args.githubOwnerLogin,
           name: args.vault.name,
           repositoryFullName,
         },
@@ -350,9 +347,13 @@ export const createInitialRun = internalMutation({
       throw new Error("Vault is not ready to delete yet.");
     }
 
-    const convexProjects = await listVaultConvexProjects(ctx, args.vaultId);
+    const [convexProjects, organization] = await Promise.all([
+      listVaultConvexProjects(ctx, args.vaultId),
+      requireVaultOrganization(ctx.db, vault),
+    ]);
     const plan = await buildDeletionPlan(ctx, {
       vault,
+      githubOwnerLogin: organization.githubOwnerLogin,
       convexProjects,
       options: args.options,
     });

@@ -346,8 +346,6 @@ describe("buildClearAllStagingPlan", () => {
         cleanupCutoffTimestamp: 123,
         vault: {
           userId: "users:owner",
-          owner: "octo",
-          name: "repo",
           defaultBranch: "main",
         },
       }),
@@ -364,8 +362,7 @@ describe("buildClearAllStagingPlan", () => {
       },
       treeRefreshArgs: {
         userId: "users:owner",
-        owner: "octo",
-        repo: "repo",
+        vaultId: "vault-1",
         branch: "feature/login",
       },
     });
@@ -378,8 +375,6 @@ describe("buildClearAllStagingPlan", () => {
         cleanupCutoffTimestamp: 456,
         vault: {
           userId: "users:owner",
-          owner: "octo",
-          name: "repo",
           defaultBranch: "main",
         },
       }),
@@ -395,8 +390,7 @@ describe("buildClearAllStagingPlan", () => {
       },
       treeRefreshArgs: {
         userId: "users:owner",
-        owner: "octo",
-        repo: "repo",
+        vaultId: "vault-1",
         branch: "main",
       },
     });
@@ -479,8 +473,7 @@ describe("buildClearAllStagingPlan", () => {
         fnRef: internal.github.updateRepositoryTree,
         args: {
           userId: "users:owner",
-          owner: "octo",
-          repo: "repo",
+          vaultId: targetVaultId,
           branch: targetBranch,
         },
       },

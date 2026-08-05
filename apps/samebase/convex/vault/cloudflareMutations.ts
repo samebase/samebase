@@ -2,7 +2,7 @@ import { v, type Infer } from "convex/values";
 
 import type { Doc, Id } from "../_generated/dataModel";
 import { requireBillingResourceCapacity } from "../billingResourceQuotas";
-import { requireVaultForUser } from "../organizationAccess";
+import { requireVaultForUser, requireVaultOrganization } from "../organizationAccess";
 import {
   getConvexProviderConnectionForTeam,
   getProviderConnectionByIdForOrganization,
@@ -554,14 +554,15 @@ export const readWorkerConfigurationContext = internalQuery({
   returns: vWorkerConfigurationContext,
   handler: async (ctx, args) => {
     const vault = await requireConnectedVault(ctx, args);
-    const [worker, connection] = await Promise.all([
+    const [worker, connection, organization] = await Promise.all([
       requireWorker(ctx, vault, args),
       requireCurrentCloudflareProviderConnection(ctx, vault.organizationId),
+      requireVaultOrganization(ctx.db, vault),
     ]);
     return {
       organizationId: vault.organizationId,
       ghRepoId: vault.ghRepoId,
-      owner: vault.owner,
+      owner: organization.githubOwnerLogin,
       name: vault.name,
       defaultBranch: vault.defaultBranch,
       accountId: worker.accountId,
@@ -585,9 +586,10 @@ export const readManagedWorkerConfigurationContext = internalQuery({
       requireActiveManagedProvisioning(ctx, args),
       requireConnectedVault(ctx, args),
     ]);
-    const [worker, connection] = await Promise.all([
+    const [worker, connection, organization] = await Promise.all([
       requireWorker(ctx, vault, args),
       requireCurrentCloudflareProviderConnection(ctx, vault.organizationId),
+      requireVaultOrganization(ctx.db, vault),
     ]);
     if (
       plan.cloudflare.state !== "created" ||
@@ -600,7 +602,7 @@ export const readManagedWorkerConfigurationContext = internalQuery({
     return {
       organizationId: vault.organizationId,
       ghRepoId: vault.ghRepoId,
-      owner: vault.owner,
+      owner: organization.githubOwnerLogin,
       name: vault.name,
       defaultBranch: vault.defaultBranch,
       accountId: worker.accountId,
@@ -622,9 +624,10 @@ export const readWorkerConvexProjectConfigurationContext = internalQuery({
   returns: vWorkerConvexProjectConfigurationContext,
   handler: async (ctx, args) => {
     const vault = await requireConnectedVault(ctx, args);
-    const [worker, project] = await Promise.all([
+    const [worker, project, organization] = await Promise.all([
       requireWorker(ctx, vault, args),
       requireConvexProject(ctx, vault, args),
+      requireVaultOrganization(ctx.db, vault),
     ]);
     const [cloudflareConnection, convexConnection] = await Promise.all([
       requireCurrentCloudflareProviderConnection(ctx, vault.organizationId),
@@ -636,7 +639,7 @@ export const readWorkerConvexProjectConfigurationContext = internalQuery({
     return {
       organizationId: vault.organizationId,
       ghRepoId: vault.ghRepoId,
-      owner: vault.owner,
+      owner: organization.githubOwnerLogin,
       name: vault.name,
       defaultBranch: vault.defaultBranch,
       accountId: worker.accountId,
@@ -667,9 +670,10 @@ export const readManagedWorkerConvexProjectConfigurationContext = internalQuery(
       requireActiveManagedProvisioning(ctx, args),
       requireConnectedVault(ctx, args),
     ]);
-    const [worker, project] = await Promise.all([
+    const [worker, project, organization] = await Promise.all([
       requireWorker(ctx, vault, args),
       requireConvexProject(ctx, vault, args),
+      requireVaultOrganization(ctx.db, vault),
     ]);
     const [cloudflareConnection, convexConnection] = await Promise.all([
       requireCurrentCloudflareProviderConnection(ctx, vault.organizationId),
@@ -698,7 +702,7 @@ export const readManagedWorkerConvexProjectConfigurationContext = internalQuery(
     return {
       organizationId: vault.organizationId,
       ghRepoId: vault.ghRepoId,
-      owner: vault.owner,
+      owner: organization.githubOwnerLogin,
       name: vault.name,
       defaultBranch: vault.defaultBranch,
       accountId: worker.accountId,

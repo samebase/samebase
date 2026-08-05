@@ -685,7 +685,6 @@ describe("MCP tools/call access enforcement", () => {
         githubMode: "connect_existing_repository",
         runId,
         ghRepoId: "123",
-        owner: "samebase",
         name: "demo",
         visibility: "private",
         defaultBranch: "stale-main",

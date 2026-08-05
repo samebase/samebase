@@ -2,7 +2,7 @@ import { v, type Infer } from "convex/values";
 
 import { internalQuery } from "../_generated/server";
 import { getConvexCodeLocationKey, readConvexCodeLocation } from "../../shared/convexCodeLocation";
-import { requireVaultForUser } from "../organizationAccess";
+import { requireVaultForUser, requireVaultOrganization } from "../organizationAccess";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import { isLiveConnectedVault } from "./state";
 
@@ -50,10 +50,11 @@ export const readProviderAttachmentVaultContext = internalQuery({
     if (!isLiveConnectedVault(vault)) {
       throw new Error("Vault not found.");
     }
+    const organization = await requireVaultOrganization(ctx.db, vault);
     return {
       organizationId: vault.organizationId,
       ghRepoId: vault.ghRepoId,
-      owner: vault.owner,
+      owner: organization.githubOwnerLogin,
       name: vault.name,
       defaultBranch: vault.defaultBranch,
     };
@@ -71,7 +72,7 @@ export const readVaultProviderObservationContext = internalQuery({
     if (!isLiveConnectedVault(vault)) {
       throw new Error("Vault not found.");
     }
-    const [workers, projects] = await Promise.all([
+    const [workers, projects, organization] = await Promise.all([
       ctx.db
         .query("vaultCloudflareWorkers")
         .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
@@ -80,6 +81,7 @@ export const readVaultProviderObservationContext = internalQuery({
         .query("vaultConvexProjects")
         .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
         .collect(),
+      requireVaultOrganization(ctx.db, vault),
     ]);
     if (
       workers.some((worker) => worker.organizationId !== vault.organizationId) ||
@@ -91,7 +93,7 @@ export const readVaultProviderObservationContext = internalQuery({
     return {
       organizationId: vault.organizationId,
       ghRepoId: vault.ghRepoId,
-      owner: vault.owner,
+      owner: organization.githubOwnerLogin,
       name: vault.name,
       defaultBranch: vault.defaultBranch,
       cloudflareWorkers: workers

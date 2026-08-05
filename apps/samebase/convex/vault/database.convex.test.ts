@@ -79,7 +79,6 @@ async function seedDatabaseEditorVault(
       githubMode: "connect_existing_repository",
       runId,
       ghRepoId: "123",
-      owner: "ada",
       name: "demo",
       visibility: "private",
       defaultBranch: "main",

@@ -26,7 +26,7 @@ import { isConnectedVault, isLiveConnectedVault, isSamebaseManagedVault } from "
 import { isVaultDeletingOrDeleteFailed } from "./deletion/state";
 
 const nullValidator = v.null();
-const { array, boolean, id, object, optional, string, union } = v;
+const { array, id, object, optional, string, union } = v;
 
 type ProvisioningVault = Extract<Doc<"vaults">, { state: "provisioning" }>;
 
@@ -67,6 +67,10 @@ export const listConnectedRepositoriesForUser = internalQuery({
     const repositories = [];
     const organizationIds = await listOrganizationIdsForUser(ctx.db, args.userId);
     for (const organizationId of organizationIds) {
+      const organization = await ctx.db.get(organizationId);
+      if (organization === null) {
+        continue;
+      }
       for await (const vault of ctx.db
         .query("vaults")
         .withIndex("by_organization_and_state_and_deletion_state", (q) =>
@@ -78,7 +82,7 @@ export const listConnectedRepositoriesForUser = internalQuery({
         repositories.push({
           vaultId: vault._id,
           ghRepoId: vault.ghRepoId,
-          owner: vault.owner,
+          owner: organization.githubOwnerLogin,
           name: vault.name,
           defaultBranch: vault.defaultBranch,
         });
@@ -102,22 +106,19 @@ async function assertOrganizationHasNoVaultForRepository(
   ctx: Pick<MutationCtx, "db">,
   args: {
     organizationId: Id<"organizations">;
-    owner: string;
     name: string;
   },
 ): Promise<void> {
-  const normalizedOwner = normalizeGitHubRepositoryCoordinate(args.owner);
   const normalizedName = normalizeGitHubRepositoryCoordinate(args.name);
   for await (const vault of ctx.db
     .query("vaults")
-    .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))) {
+    .withIndex("by_organization_and_name", (q) =>
+      q.eq("organizationId", args.organizationId).eq("name", args.name),
+    )) {
     if (vault.state === "not_connected") {
       continue;
     }
-    if (
-      normalizeGitHubRepositoryCoordinate(vault.owner) === normalizedOwner &&
-      normalizeGitHubRepositoryCoordinate(vault.name) === normalizedName
-    ) {
+    if (normalizeGitHubRepositoryCoordinate(vault.name) === normalizedName) {
       throw new Error("Vault already exists for this repository.");
     }
   }
@@ -220,7 +221,6 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
     const owner = organization.githubOwnerLogin;
     await assertOrganizationHasNoVaultForRepository(ctx, {
       organizationId: organization._id,
-      owner,
       name,
     });
 
@@ -253,7 +253,6 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
       githubMode: "connect_existing_repository",
       runId,
       startedAt: now,
-      owner,
       name,
     });
     await ctx.db.insert("workflow_vaultProvisioning_events", {
@@ -327,7 +326,6 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
       githubMode: "connect_existing_repository",
       runId: args.runId,
       ghRepoId: args.ghRepoId,
-      owner: args.ghRepoOwner,
       name: args.ghRepoName,
       visibility: args.visibility,
       defaultBranch: args.defaultBranch,
@@ -406,7 +404,6 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     }
     await assertOrganizationHasNoVaultForRepository(ctx, {
       organizationId: organization._id,
-      owner,
       name,
     });
 
@@ -449,7 +446,6 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       githubMode: "create_repository",
       runId,
       startedAt: now,
-      owner,
       name,
       visibility: args.visibility,
     });
@@ -562,7 +558,6 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
       githubMode: "create_repository",
       runId: args.runId,
       ghRepoId: args.ghRepoId,
-      owner: args.ghRepoOwner,
       name: args.ghRepoName,
       visibility: args.visibility,
       defaultBranch: args.defaultBranch,
@@ -598,7 +593,6 @@ export const markGithubProvisioningFailed = internalMutation({
         state: "failed",
         githubMode: "create_repository",
         runId: args.runId,
-        owner: vault.owner,
         name: vault.name,
         visibility: vault.visibility,
         failedAt: Date.now(),
@@ -611,7 +605,6 @@ export const markGithubProvisioningFailed = internalMutation({
       state: "failed",
       githubMode: "connect_existing_repository",
       runId: args.runId,
-      owner: vault.owner,
       name: vault.name,
       failedAt: Date.now(),
     });
@@ -629,25 +622,6 @@ export const getById = internalQuery({
   },
 });
 
-export const hasOtherVaultsForRepository = internalQuery({
-  args: {
-    owner: string(),
-    repo: string(),
-    excludeVaultId: id("vaults"),
-  },
-  returns: boolean(),
-  handler: async (ctx, args) => {
-    for await (const vault of ctx.db
-      .query("vaults")
-      .withIndex("by_owner_and_name", (q) => q.eq("owner", args.owner).eq("name", args.repo))) {
-      if (isConnectedVault(vault) && vault._id !== args.excludeVaultId) {
-        return true;
-      }
-    }
-    return false;
-  },
-});
-
 async function getVaultByRepositoryHelper(
   ctx: QueryCtx,
   args: {
@@ -657,10 +631,27 @@ async function getVaultByRepositoryHelper(
   },
 ) {
   const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
-
+  const organization = await ctx.db
+    .query("organizations")
+    .withIndex("by_github_owner_login_normalized", (query) =>
+      query.eq("githubOwnerLoginNormalized", normalizeGitHubRepositoryCoordinate(owner)),
+    )
+    .unique();
+  if (organization === null) {
+    return null;
+  }
+  const access = await findOrganizationAccessContext(ctx.db, {
+    userId: args.userId,
+    organizationId: organization._id,
+  });
+  if (access === null) {
+    return null;
+  }
   const matchingVaults = await ctx.db
     .query("vaults")
-    .withIndex("by_owner_and_name", (q) => q.eq("owner", owner).eq("name", name))
+    .withIndex("by_organization_and_name", (query) =>
+      query.eq("organizationId", organization._id).eq("name", name),
+    )
     .collect();
   const liveVaults = matchingVaults.filter(isLiveConnectedVault);
   if (liveVaults.length > 1) {
@@ -669,13 +660,6 @@ async function getVaultByRepositoryHelper(
   const vault = liveVaults.at(0);
 
   if (vault === undefined) {
-    return null;
-  }
-  const access = await findOrganizationAccessContext(ctx.db, {
-    userId: args.userId,
-    organizationId: vault.organizationId,
-  });
-  if (access === null) {
     return null;
   }
 
@@ -698,11 +682,11 @@ async function getVaultByRepositoryHelper(
     organizationId: vault.organizationId,
     _creationTime: vault._creationTime,
     ghRepoId: vault.ghRepoId,
-    ghRepoOwner: vault.owner,
+    ghRepoOwner: organization.githubOwnerLogin,
     ghRepoName: vault.name,
-    owner: vault.owner,
+    owner: organization.githubOwnerLogin,
     name: vault.name,
-    repositoryFullName: `${vault.owner}/${vault.name}`,
+    repositoryFullName: `${organization.githubOwnerLogin}/${vault.name}`,
     treeSHA: branchTree?.treeData.sha,
     commitSHA: branchTree?.commitSHA,
     treeData: branchTree?.treeData,

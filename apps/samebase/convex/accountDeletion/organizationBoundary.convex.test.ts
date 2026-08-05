@@ -333,7 +333,6 @@ describe("account deletion organization boundary", () => {
         ghRepoId: "701",
         defaultBranch: "main",
         connectedAt: 3,
-        owner: "example",
         name: "shared",
         visibility: "private",
       });

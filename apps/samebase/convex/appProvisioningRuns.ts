@@ -11,7 +11,7 @@ import {
 import { readVaultInfrastructureState } from "./vault/infrastructureOperation";
 import { assertConnectedVault } from "./vault/state";
 import { startVaultInfrastructureProvisioningWorkflow } from "./appProvisioningWorkflow";
-import { requireVaultForUser } from "./organizationAccess";
+import { requireVaultForUser, requireVaultOrganization } from "./organizationAccess";
 
 const { id, literal, string, union } = v;
 const MAX_EVENTS_TO_LINK_TO_VAULT = 20;
@@ -81,7 +81,10 @@ export const createRetryForVault = internalMutation({
       throw new Error("App provisioning is unavailable during account deletion.");
     }
     const connectedVault = assertConnectedVault(vault);
-    const infrastructure = await readVaultInfrastructureState(ctx, connectedVault);
+    const [infrastructure, organization] = await Promise.all([
+      readVaultInfrastructureState(ctx, connectedVault),
+      requireVaultOrganization(ctx.db, connectedVault),
+    ]);
     if (infrastructure.operation.kind !== "none") {
       throw new Error("Another vault infrastructure operation is active.");
     }
@@ -106,7 +109,7 @@ export const createRetryForVault = internalMutation({
     }
 
     const now = Date.now();
-    const repositoryFullName = `${connectedVault.owner}/${connectedVault.name}`;
+    const repositoryFullName = `${organization.githubOwnerLogin}/${connectedVault.name}`;
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId: args.userId,
       vaultId: args.vaultId,

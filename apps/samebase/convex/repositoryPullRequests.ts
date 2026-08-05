@@ -759,14 +759,14 @@ export const listOpenPullRequests = action({
     if (!isLiveConnectedVault(vault)) {
       throw new Error("Vault not found.");
     }
-    const { octokit } = await resolveGitHubAppAccess(ctx, {
+    const { octokit, githubOwnerLogin } = await resolveGitHubAppAccess(ctx, {
       userId: ctx.viewer.userId,
       target: { kind: "vault", vaultId: vault._id },
     });
     const signal = createGitHubRequestDeadlineSignal();
     const page = normalizeGitHubPullRequestPage(
       await octokit.graphql(REPOSITORY_PULL_REQUEST_PAGE_QUERY, {
-        owner: vault.owner,
+        owner: githubOwnerLogin,
         name: vault.name,
         defaultBranchRef: `refs/heads/${vault.defaultBranch}`,
         first: args.first,
@@ -812,23 +812,23 @@ export const getOpenPullRequestForBranch = action({
     if (branch === vault.defaultBranch) {
       return { aheadBy: 0, pullRequest: null };
     }
-    const { octokit } = await resolveGitHubAppAccess(ctx, {
+    const { octokit, githubOwnerLogin } = await resolveGitHubAppAccess(ctx, {
       userId: ctx.viewer.userId,
       target: { kind: "vault", vaultId: vault._id },
     });
     const signal = createGitHubRequestDeadlineSignal();
     const [comparison, pullRequests] = await Promise.all([
       octokit.rest.repos.compareCommitsWithBasehead({
-        owner: vault.owner,
+        owner: githubOwnerLogin,
         repo: vault.name,
         basehead: `${vault.defaultBranch}...${branch}`,
         request: { signal },
       }),
       octokit.rest.pulls.list({
-        owner: vault.owner,
+        owner: githubOwnerLogin,
         repo: vault.name,
         state: "open",
-        head: `${vault.owner}:${branch}`,
+        head: `${githubOwnerLogin}:${branch}`,
         sort: "updated",
         direction: "desc",
         per_page: 1,

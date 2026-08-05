@@ -609,36 +609,48 @@ async function readOrganizationVaults(
 ): Promise<UserVaultsResult> {
   const organizationRows = await Promise.all(
     organizationIds.map(async (organizationId) => {
-      const [connectedVaults, provisioningVaults, failedVaults, convexProjects, cloudflareWorkers] =
-        await Promise.all([
-          ctx.db
-            .query("vaults")
-            .withIndex("by_organization_and_state_and_deletion_state", (q) =>
-              q.eq("organizationId", organizationId).eq("state", "connected"),
-            )
-            .collect(),
-          ctx.db
-            .query("vaults")
-            .withIndex("by_organization_and_state_and_deletion_state", (q) =>
-              q.eq("organizationId", organizationId).eq("state", "provisioning"),
-            )
-            .collect(),
-          ctx.db
-            .query("vaults")
-            .withIndex("by_organization_and_state_and_deletion_state", (q) =>
-              q.eq("organizationId", organizationId).eq("state", "failed"),
-            )
-            .collect(),
-          ctx.db
-            .query("vaultConvexProjects")
-            .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
-            .collect(),
-          ctx.db
-            .query("vaultCloudflareWorkers")
-            .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
-            .collect(),
-        ]);
+      const [
+        organization,
+        connectedVaults,
+        provisioningVaults,
+        failedVaults,
+        convexProjects,
+        cloudflareWorkers,
+      ] = await Promise.all([
+        ctx.db.get(organizationId),
+        ctx.db
+          .query("vaults")
+          .withIndex("by_organization_and_state_and_deletion_state", (q) =>
+            q.eq("organizationId", organizationId).eq("state", "connected"),
+          )
+          .collect(),
+        ctx.db
+          .query("vaults")
+          .withIndex("by_organization_and_state_and_deletion_state", (q) =>
+            q.eq("organizationId", organizationId).eq("state", "provisioning"),
+          )
+          .collect(),
+        ctx.db
+          .query("vaults")
+          .withIndex("by_organization_and_state_and_deletion_state", (q) =>
+            q.eq("organizationId", organizationId).eq("state", "failed"),
+          )
+          .collect(),
+        ctx.db
+          .query("vaultConvexProjects")
+          .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
+          .collect(),
+        ctx.db
+          .query("vaultCloudflareWorkers")
+          .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
+          .collect(),
+      ]);
+      if (organization === null) {
+        throw new Error("Organization not found.");
+      }
       return {
+        organizationId,
+        githubOwnerLogin: organization.githubOwnerLogin,
         vaults: [...connectedVaults, ...provisioningVaults, ...failedVaults],
         convexProjects,
         cloudflareWorkers,
@@ -646,6 +658,16 @@ async function readOrganizationVaults(
     }),
   );
   const vaults = organizationRows.flatMap((rows) => rows.vaults);
+  const githubOwnerLoginByOrganizationId = new Map(
+    organizationRows.map((rows) => [rows.organizationId, rows.githubOwnerLogin] as const),
+  );
+  const getGitHubOwnerLogin = (organizationId: Id<"organizations">): string => {
+    const githubOwnerLogin = githubOwnerLoginByOrganizationId.get(organizationId);
+    if (githubOwnerLogin === undefined) {
+      throw new Error("Organization not found.");
+    }
+    return githubOwnerLogin;
+  };
   const convexProjectsByVault = groupVaultRows(
     organizationRows.flatMap((rows) => rows.convexProjects),
   );
@@ -663,13 +685,14 @@ async function readOrganizationVaults(
       readManagedProviderPlan(ctx, vault._id),
     ]);
     const deletion = await resolveVaultDeletionSummary(ctx, vault, infrastructure);
+    const githubOwnerLogin = getGitHubOwnerLogin(vault.organizationId);
     initializingVaultResults.push({
       _id: vault._id,
       organizationId: vault.organizationId,
       _creationTime: vault._creationTime,
-      ghRepoOwner: vault.owner,
+      ghRepoOwner: githubOwnerLogin,
       ghRepoName: vault.name,
-      repositoryFullName: `${vault.owner}/${vault.name}`,
+      repositoryFullName: `${githubOwnerLogin}/${vault.name}`,
       defaultBranch: undefined,
       fileCount: 0,
       lastEditTime: undefined,
@@ -691,6 +714,7 @@ async function readOrganizationVaults(
 
   const vaultResults: Array<UserVaultResult & { _creationTime: number }> = await Promise.all(
     connectedVaults.map(async (vault) => {
+      const githubOwnerLogin = getGitHubOwnerLogin(vault.organizationId);
       const [infrastructure, providerPlan] = await Promise.all([
         readVaultInfrastructureState(ctx, vault),
         readManagedProviderPlan(ctx, vault._id),
@@ -728,9 +752,9 @@ async function readOrganizationVaults(
           _id: vault._id,
           organizationId: vault.organizationId,
           _creationTime: vault._creationTime,
-          ghRepoOwner: vault.owner,
+          ghRepoOwner: githubOwnerLogin,
           ghRepoName: vault.name,
-          repositoryFullName: `${vault.owner}/${vault.name}`,
+          repositoryFullName: `${githubOwnerLogin}/${vault.name}`,
           defaultBranch: vault.defaultBranch,
           fileCount: 0,
           lastEditTime: undefined,
@@ -760,7 +784,7 @@ async function readOrganizationVaults(
       const lastEditTime =
         stagingData.length > 0 ? Math.max(...stagingData.map((s) => s.lastEditTime)) : undefined;
 
-      const repositoryFullName = `${vault.owner}/${vault.name}`;
+      const repositoryFullName = `${githubOwnerLogin}/${vault.name}`;
       const sourceSetup = await resolveSourceSetupSummary(ctx, vault);
       const providerSetup =
         sourceSetup.status === "ready"
@@ -775,7 +799,7 @@ async function readOrganizationVaults(
         _id: vault._id,
         organizationId: vault.organizationId,
         _creationTime: vault._creationTime,
-        ghRepoOwner: vault.owner,
+        ghRepoOwner: githubOwnerLogin,
         ghRepoName: vault.name,
         repositoryFullName,
         defaultBranch: vault.defaultBranch,

@@ -1215,11 +1215,15 @@ export const refreshRepositoryTree = action({
     if (!vault || vault.state !== "connected" || vault.deletion.state !== "not_deleting") {
       throw new Error("Vault not found.");
     }
+    const githubAccess = await resolveGitHubAppAccess(ctx, {
+      userId,
+      target: { kind: "vault", vaultId: args.vaultId },
+    });
 
     return await refreshExactRepositoryBranchForUser(ctx, {
       userId,
       vaultId: args.vaultId,
-      owner: vault.owner,
+      owner: githubAccess.githubOwnerLogin,
       repo: vault.name,
       branch: args.branch,
       intent: args.intent,
@@ -1231,26 +1235,28 @@ export const refreshRepositoryTree = action({
 export const updateRepositoryTree = internalAction({
   args: {
     userId: id("users"),
-    owner: string(),
-    repo: string(),
+    vaultId: id("vaults"),
     branch: string(),
   },
   returns: nullValidator(),
   handler: async (ctx, args) => {
     const branch = normalizeRequiredRepositoryBranch(args.branch);
-    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
-      repositoryFullName: `${args.owner}/${args.repo}`,
+    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+      vaultId: args.vaultId,
       userId: args.userId,
-      branch,
     });
-    if (!vault) {
+    if (!vault || vault.state !== "connected" || vault.deletion.state !== "not_deleting") {
       throw new Error("Vault not found");
     }
+    const githubAccess = await resolveGitHubAppAccess(ctx, {
+      userId: args.userId,
+      target: { kind: "vault", vaultId: args.vaultId },
+    });
     const refresh = await refreshExactRepositoryBranchForUser(ctx, {
       userId: args.userId,
       vaultId: vault._id,
-      owner: args.owner,
-      repo: args.repo,
+      owner: githubAccess.githubOwnerLogin,
+      repo: vault.name,
       branch,
       intent: "manual",
     });

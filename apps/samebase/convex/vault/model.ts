@@ -135,7 +135,6 @@ export const vaultTables = {
         deletion: vVaultDeletionState,
         runId: id("workflow_vaultProvisioning_runs"),
         startedAt: number(),
-        owner: string(),
         name: string(),
         visibility: vGitHubRepositoryVisibility,
       }),
@@ -146,7 +145,6 @@ export const vaultTables = {
         deletion: vVaultDeletionState,
         runId: id("workflow_vaultProvisioning_runs"),
         startedAt: number(),
-        owner: string(),
         name: string(),
       }),
       object({
@@ -163,7 +161,6 @@ export const vaultTables = {
         ghRepoId: string(),
         defaultBranch: string(),
         connectedAt: number(),
-        owner: string(),
         name: string(),
         visibility: vGitHubRepositoryVisibility,
       }),
@@ -181,7 +178,6 @@ export const vaultTables = {
         ghRepoId: string(),
         defaultBranch: string(),
         connectedAt: number(),
-        owner: string(),
         name: string(),
         visibility: vGitHubRepositoryVisibility,
       }),
@@ -192,7 +188,6 @@ export const vaultTables = {
         deletion: vVaultDeletionState,
         runId: id("workflow_vaultProvisioning_runs"),
         failedAt: number(),
-        owner: string(),
         name: string(),
         visibility: vGitHubRepositoryVisibility,
       }),
@@ -203,7 +198,6 @@ export const vaultTables = {
         deletion: vVaultDeletionState,
         runId: id("workflow_vaultProvisioning_runs"),
         failedAt: number(),
-        owner: string(),
         name: string(),
       }),
     ),
@@ -215,7 +209,7 @@ export const vaultTables = {
       "deletion.state",
     ])
     .index("by_ghRepoId", ["ghRepoId"])
-    .index("by_owner_and_name", ["owner", "name"]),
+    .index("by_organization_and_name", ["organizationId", "name"]),
 
   /** Stable Cloudflare Worker identities attached to a repository-backed vault. */
   vaultCloudflareWorkers: defineTable({

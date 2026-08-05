@@ -174,9 +174,9 @@ describe("organization-owned vaults", () => {
 
     expect(snapshot.vault).toMatchObject({
       organizationId,
-      owner: "Samebase",
       name: "app",
     });
+    expect(snapshot.vault).not.toHaveProperty("owner");
     expect(snapshot.vault).not.toHaveProperty("userId");
     expect(snapshot.preference).toMatchObject({ userId: ownerUserId, vaultId });
   });
@@ -304,7 +304,56 @@ describe("organization-owned vaults", () => {
     ).rejects.toThrow("Vault already exists for this GitHub repository.");
   });
 
-  it("stores the exact Convex and Cloudflare connection IDs in managed plans", async () => {
+  it("uses the organization login after a GitHub owner rename", async () => {
+    const t = makeConvexTest();
+    const userId = await createUser(t, "nicu@samebase.com");
+    const organizationId = await createOrganization(t, {
+      userId,
+      ownerId: "owner-rename-id",
+      ownerLogin: "before-rename",
+    });
+    const { vaultId } = await createConnectedVault(t, {
+      organizationId,
+      userId,
+      owner: "before-rename",
+      name: "rename-app",
+      ghRepoId: "rename-repository-id",
+    });
+
+    await t.mutation(internal.organizations.createOrReconnectVerifiedOrganization, {
+      userId,
+      githubOwnerId: "owner-rename-id",
+      githubOwnerType: "organization",
+      githubOwnerLogin: "after-rename",
+      githubInstallationId: "installation-after-rename",
+    });
+
+    const asUser = t.withIdentity({
+      subject: `${userId}|test-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    await expect(
+      asUser.query(api.vault.records.getVaultByRepository, {
+        repositoryFullName: "before-rename/rename-app",
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      asUser.query(api.vault.records.getVaultByRepository, {
+        repositoryFullName: "after-rename/rename-app",
+      }),
+    ).resolves.toMatchObject({ _id: vaultId, ghRepoOwner: "after-rename" });
+    await expect(
+      t.query(internal.vault.records.listConnectedRepositoriesForUser, { userId }),
+    ).resolves.toMatchObject([{ vaultId, owner: "after-rename" }]);
+    await expect(asUser.query(api.vault.dashboard.getUserVaults)).resolves.toMatchObject([
+      { _id: vaultId, repositoryFullName: "after-rename/rename-app" },
+    ]);
+    await expect(t.run(async (ctx) => await ctx.db.get(vaultId))).resolves.not.toHaveProperty(
+      "owner",
+    );
+  });
+
+  it("stores external provider resource IDs in managed plans", async () => {
     const t = makeConvexTest();
     const userId = await createUser(t, "owner@example.com");
     const organizationId = await createOrganization(t, {
@@ -363,9 +412,11 @@ describe("organization-owned vaults", () => {
 
     expect(plan).toMatchObject({
       vaultId,
-      convexProviderConnectionId,
-      cloudflareProviderConnectionId,
+      convex: { teamId: "convex-team" },
+      cloudflare: { accountId: "cloudflare-account" },
     });
+    expect(plan).not.toHaveProperty("convexProviderConnectionId");
+    expect(plan).not.toHaveProperty("cloudflareProviderConnectionId");
     expect(plan).not.toHaveProperty("userId");
     expect(plan).not.toHaveProperty("githubProviderConnectionId");
   });

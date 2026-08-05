@@ -52,7 +52,6 @@ async function createConnectedVault() {
       githubMode: "connect_existing_repository",
       runId,
       ghRepoId: "123",
-      owner: "ada",
       name: "manual-provider-write",
       visibility: "private",
       defaultBranch: "main",

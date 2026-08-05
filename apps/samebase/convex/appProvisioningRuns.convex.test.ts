@@ -57,7 +57,6 @@ async function createRetryFixture(blocker: RetryBlocker, t = makeConvexTest()) {
       githubMode: "create_repository",
       runId: failedRunId,
       ghRepoId: "github-repository",
-      owner: "ada",
       name: "retry-guard",
       visibility: "private",
       defaultBranch: "main",
