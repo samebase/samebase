@@ -537,7 +537,7 @@ test("covers Cloudflare connection and Builds repair states", async ({ page }) =
     await expect(dialog).toBeVisible();
     if (mode === "vault-overview-v2-cloudflare-dialog-invalid-name") {
       await expect(dialog.getByRole("alert")).toContainText(
-        "Cloudflare Worker name can use lowercase letters, numbers, and dashes",
+        "Cloudflare Worker name can use lowercase letters, numbers, underscores, and dashes",
       );
       await expect(dialog.getByRole("button", { name: "Create Worker" })).toBeDisabled();
     }

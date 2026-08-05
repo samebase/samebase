@@ -30,7 +30,7 @@ export function sanitizeAppResourceName(
     rawName
       .trim()
       .toLowerCase()
-      .replace(/[^a-z0-9-]+/g, "-")
+      .replace(provider === "cloudflare" ? /[^a-z0-9_-]+/g : /[^a-z0-9-]+/g, "-")
       .replace(/-+/g, "-"),
   );
   return trimDashes(sanitized.slice(0, maxLength));
@@ -67,10 +67,10 @@ export function validateAppResourceName(
         suggestion: suggestion || null,
       };
     }
-    if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(value)) {
+    if (!/^[a-z0-9_][a-z0-9_-]*$/.test(value)) {
       return {
         valid: false,
-        message: `${label} can use lowercase letters, numbers, and dashes, and must start and end with a letter or number.`,
+        message: `${label} can use lowercase letters, numbers, underscores, and dashes, and cannot start with a dash.`,
         suggestion: suggestion || null,
       };
     }

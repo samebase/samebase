@@ -2170,7 +2170,7 @@ describe("VaultCloudflareDialogContent", () => {
       <VaultCloudflareDialogContent
         accounts={[{ accountId: "account-1", accountName: "Ada" }]}
         createRootDirectory="apps/web"
-        createWorkerName="web-worker"
+        createWorkerName="samebase_app"
         didAddWorker={false}
         error={null}
         folderSuggestions={[]}
@@ -2200,6 +2200,7 @@ describe("VaultCloudflareDialogContent", () => {
     expect(markup).toContain("Repository root");
     expect(markup).toContain('value="apps/web"');
     expect(markup).toContain("Create Worker");
+    expect(markup).not.toContain("cloudflare-worker-name-error");
   });
 
   it("rejects an invalid Worker name inline before submission", () => {
@@ -2207,7 +2208,7 @@ describe("VaultCloudflareDialogContent", () => {
       <VaultCloudflareDialogContent
         accounts={[{ accountId: "account-1", accountName: "Ada" }]}
         createRootDirectory="apps/web"
-        createWorkerName="samebase_app"
+        createWorkerName="samebase app"
         didAddWorker={false}
         error={null}
         folderSuggestions={[]}
@@ -2235,7 +2236,7 @@ describe("VaultCloudflareDialogContent", () => {
     const createButton = markup.match(/<button[^>]*>Create Worker<\/button>/)?.[0];
 
     expect(markup).toContain(
-      "Cloudflare Worker name can use lowercase letters, numbers, and dashes, and must start and end with a letter or number.",
+      "Cloudflare Worker name can use lowercase letters, numbers, underscores, and dashes, and cannot start with a dash.",
     );
     expect(markup).toContain("Use samebase-app");
     expect(markup).toContain('aria-invalid="true"');

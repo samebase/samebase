@@ -10,10 +10,6 @@ import {
 } from "./convexManagementApi/client";
 import { isConvexManagementNotFoundError } from "./convexManagementApi/errors";
 import type { components, PlatformDeploymentResponse } from "./convexManagementApi/types.generated";
-import {
-  formatCloudflareGitHubAppRepositoryAuthorizationMessage,
-  isCloudflareGitHubAppRepositoryAuthorizationError,
-} from "./cloudflareResources";
 import { isAppProvisioningProviderStep, type AppProvisioningStep } from "./appProvisioningModel";
 import type { ProviderApiCallRecorder } from "./providerApiLog";
 
@@ -571,89 +567,6 @@ async function recordWorkflowRunFailure(
   });
 }
 
-const USER_FACING_PROVISIONING_ERROR_MARKERS = [
-  "Cloudflare connection is required to provision infrastructure.",
-  "Cloudflare account selection is required before provisioning can continue.",
-  "The current Cloudflare credential cannot access Cloudflare account",
-  "Cloudflare connection is missing Workers Builds write access.",
-  "Cloudflare Workers and Pages GitHub App is not authorized",
-  "Cloudflare Workers needs a configured workers.dev subdomain",
-  "Cloudflare Worker name",
-  "Cloudflare Worker attachment limit reached",
-  "exists after an interrupted create. Delete it in the Cloudflare dashboard, then retry.",
-  "Cloudflare Workers Builds has no build API token",
-  "Cloudflare has multiple Workers build tokens",
-  "Cannot connect Cloudflare Worker",
-  "Cloudflare Worker connection did not attach a Worker.",
-  "Convex connection is required to provision infrastructure.",
-  "Connected Convex team does not match the provisioning plan.",
-  "Convex project name",
-  "Convex project attachment limit reached",
-  "exists after an interrupted create. Delete it in the Convex dashboard, then retry.",
-  "Convex deployment connection did not attach a deployment.",
-  "Cloudflare Worker is required before rotating Convex deploy keys for Workers Builds.",
-  "Cloudflare Workers Builds are required before rotating Convex deploy keys.",
-  "Convex deployment is required before rotating Convex deploy keys for Workers Builds.",
-  "GitHub owner id is required before Cloudflare Workers Builds can connect the repository.",
-  "GitHub repository response did not match the vault repo.",
-];
-
-function extractUserFacingProvisioningError(args: {
-  message: string;
-  repositoryFullName: string;
-}): string | null {
-  const firstLine = args.message.trim().split("\n")[0]?.trim();
-  if (!firstLine) {
-    return null;
-  }
-
-  let cleaned = firstLine;
-  for (;;) {
-    if (cleaned.startsWith("Error: Uncaught Error: ")) {
-      cleaned = cleaned.slice("Error: Uncaught Error: ".length);
-      continue;
-    }
-    if (cleaned.startsWith("Uncaught Error: ")) {
-      cleaned = cleaned.slice("Uncaught Error: ".length);
-      continue;
-    }
-    if (cleaned.startsWith("Error: ")) {
-      cleaned = cleaned.slice("Error: ".length);
-      continue;
-    }
-    break;
-  }
-
-  if (isCloudflareGitHubAppRepositoryAuthorizationError(new Error(cleaned))) {
-    return formatCloudflareGitHubAppRepositoryAuthorizationMessage(args.repositoryFullName);
-  }
-
-  for (const marker of USER_FACING_PROVISIONING_ERROR_MARKERS) {
-    if (cleaned.includes(marker)) {
-      return cleaned;
-    }
-  }
-
-  return null;
-}
-
-function resolveSafeWorkflowRunError(args: {
-  currentStep: string;
-  message: string;
-  repositoryFullName: string;
-}): string {
-  if (args.currentStep === "run_created") {
-    return "Provisioning failed before the first step.";
-  }
-
-  return (
-    extractUserFacingProvisioningError({
-      message: args.message,
-      repositoryFullName: args.repositoryFullName,
-    }) ?? `Provisioning failed during ${args.currentStep}.`
-  );
-}
-
 export const markWorkflowProvisioningFailed = internalMutation({
   args: {
     runId: v.id("workflow_vaultProvisioning_runs"),
@@ -677,11 +590,10 @@ export const markWorkflowProvisioningFailed = internalMutation({
     const eventStep = resolveWorkflowFailureEventStep(run);
     const vaultId = run.vaultId;
     const vault = await ctx.db.get(vaultId);
-    const safeRunError = resolveSafeWorkflowRunError({
-      currentStep: run.currentStep,
-      message: args.message,
-      repositoryFullName: run.repositoryFullName,
-    });
+    const safeRunError =
+      run.currentStep === "run_created"
+        ? "Provisioning failed before the first step."
+        : `Provisioning failed during ${run.currentStep}.`;
     if (vault?.state === "provisioning" && vault.runId === args.runId) {
       await ctx.runMutation(internal.vault.records.markGithubProvisioningFailed, {
         runId: args.runId,

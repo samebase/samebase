@@ -300,7 +300,7 @@ export function VaultOverviewDialogsVisualFixture({
       return (
         <CloudflareDialogFixture
           connectMode="create"
-          createWorkerName="samebase_app"
+          createWorkerName="samebase app"
           isLoading={false}
           mode={mode}
           repair={false}

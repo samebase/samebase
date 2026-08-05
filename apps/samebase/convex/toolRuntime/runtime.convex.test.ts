@@ -76,7 +76,7 @@ describe("MCP tool runtime boundaries", () => {
 
     expect(result).toEqual({
       status: "error",
-      text: "Cloudflare Worker name can use lowercase letters, numbers, and dashes, and must start and end with a letter or number.",
+      text: "Cloudflare Worker name can use lowercase letters, numbers, underscores, and dashes, and cannot start with a dash.",
     });
     expect(result).not.toHaveProperty("structuredContent");
   });

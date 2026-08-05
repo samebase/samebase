@@ -431,11 +431,7 @@ export function VaultConvexDialog({
   const projects = (resourcesQuery.data?.projects ?? []).filter(
     (project) => !attachedProjectIds.has(project.projectId),
   );
-  const resourceError = resourcesQuery.error
-    ? resourcesQuery.error instanceof Error
-      ? resourcesQuery.error.message
-      : "Could not discover Convex projects."
-    : null;
+  const resourceError = resourcesQuery.error ? "Could not discover Convex projects." : null;
 
   const handleSubmit = async () => {
     if (blockedReason || !resourcesQuery.data || isSubmitting) {
@@ -501,9 +497,7 @@ export function VaultConvexDialog({
       setSubmitError(
         error instanceof ConvexError && typeof error.data === "string"
           ? error.data
-          : error instanceof Error
-            ? error.message
-            : "Could not add Convex projects.",
+          : "Could not add Convex projects.",
       );
       setIsSubmitting(false);
     }
@@ -520,12 +514,18 @@ export function VaultConvexDialog({
       isLoading={resourcesQuery.isPending}
       isSubmitting={isSubmitting}
       mode={mode}
-      onCreateCodeLocationKeyChange={setSelectedCreateCodeLocationKey}
+      onCreateCodeLocationKeyChange={(codeLocationKey) => {
+        setSelectedCreateCodeLocationKey(codeLocationKey);
+        setSubmitError(null);
+      }}
       onCreateProjectNameChange={(projectName) => {
         setCreateProjectName(projectName);
         setSubmitError(null);
       }}
-      onModeChange={setMode}
+      onModeChange={(nextMode) => {
+        setMode(nextMode);
+        setSubmitError(null);
+      }}
       onOpenChange={(isOpen) => {
         if (!isOpen && (!isSubmitting || blockedReason)) {
           onClose();
@@ -536,6 +536,7 @@ export function VaultConvexDialog({
           ...current,
           [projectId]: codeLocationKey,
         }));
+        setSubmitError(null);
       }}
       onProjectToggle={(projectId) => {
         setSelectedProjectCodeLocationKeys((current) => {
@@ -552,6 +553,7 @@ export function VaultConvexDialog({
                 : "",
           };
         });
+        setSubmitError(null);
       }}
       onSubmit={() => {
         void handleSubmit();

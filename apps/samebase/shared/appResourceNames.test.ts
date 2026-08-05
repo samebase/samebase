@@ -29,7 +29,7 @@ describe("app resource names", () => {
         repositoryName: "My_App.Name",
         provider: "cloudflare",
       }),
-    ).toBe("my-app-name");
+    ).toBe("my_app-name");
   });
 
   it("uses provider-specific name limits", () => {
@@ -47,12 +47,27 @@ describe("app resource names", () => {
     expect(validateAppResourceName("a".repeat(80), "convex").valid).toBe(true);
   });
 
-  it("rejects the Cloudflare Worker name from the production failure", () => {
+  it("accepts the Cloudflare Worker name from the production failure", () => {
+    // Cloudflare returned this exact name after creating it through the Workers API on 2026-08-05.
     expect(validateAppResourceName("samebase_app", "cloudflare")).toEqual({
+      valid: true,
+      value: "samebase_app",
+    });
+  });
+
+  it("rejects a name from an observed Cloudflare 10016 response", () => {
+    expect(validateAppResourceName("samebase app", "cloudflare")).toEqual({
       valid: false,
       message:
-        "Cloudflare Worker name can use lowercase letters, numbers, and dashes, and must start and end with a letter or number.",
+        "Cloudflare Worker name can use lowercase letters, numbers, underscores, and dashes, and cannot start with a dash.",
       suggestion: "samebase-app",
+    });
+  });
+
+  it("accepts the observed trailing-dash Worker shape", () => {
+    expect(validateAppResourceName("tmp-3952-name-end-", "cloudflare")).toEqual({
+      valid: true,
+      value: "tmp-3952-name-end-",
     });
   });
 
@@ -114,6 +129,11 @@ describe("app resource names", () => {
       message: "Cloudflare Worker name must be 54 characters or fewer.",
       suggestion: "a".repeat(54),
     });
+  });
+
+  it("keeps Cloudflare underscores in generated names", () => {
+    expect(sanitizeAppResourceName("my_app", "cloudflare")).toBe("my_app");
+    expect(sanitizeAppResourceName("my_app", "convex")).toBe("my-app");
   });
 
   it("requires a name for every provider", () => {

@@ -2,6 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import {
+  observedInvalidWorkerNameResponse,
+  observedMissingWorkerResponse,
+} from "../cloudflareApi/fixtures/observedWorkerErrors";
 import { makeConvexTest } from "../test.setup";
 
 const accountId = "00000000000000000000000000000001";
@@ -14,16 +18,12 @@ function jsonResponse(result: unknown, status = 200): Response {
   });
 }
 
-function cloudflareResponse(result: unknown, status = 200): Response {
-  return jsonResponse(
-    {
-      success: status >= 200 && status < 300,
-      errors: status >= 400 ? [{ code: 1000, message: "Cloudflare test error" }] : [],
-      messages: [],
-      result,
-    },
-    status,
-  );
+function cloudflareResponse(result: unknown): Response {
+  return jsonResponse({ success: true, errors: [], messages: [], result });
+}
+
+function observedCloudflareFailureResponse(): Response {
+  return jsonResponse(observedInvalidWorkerNameResponse, 400);
 }
 
 function workerDetails(workerName: string, workerTag: string) {
@@ -297,7 +297,7 @@ function stubConnectWorkerProvider(
     if (url.pathname.endsWith("/builds/workers/portal-tag/triggers")) {
       if (failNextVerification) {
         failNextVerification = false;
-        return cloudflareResponse(null, 500);
+        return observedCloudflareFailureResponse();
       }
       return cloudflareResponse(triggers);
     }
@@ -319,7 +319,7 @@ function stubConnectWorkerProvider(
         (failure === "production_trigger" && triggerCreateCount === 1) ||
         (failure === "preview_trigger" && triggerCreateCount === 2)
       ) {
-        return cloudflareResponse(null, 500);
+        return observedCloudflareFailureResponse();
       }
       const trigger = buildTriggers("apps/portal")[triggerCreateCount - 1];
       triggers = [...triggers, trigger];
@@ -327,7 +327,7 @@ function stubConnectWorkerProvider(
     }
     if (method === "POST" && url.pathname.endsWith("/builds")) {
       if (failure === "initial_build") {
-        return cloudflareResponse(null, 500);
+        return observedCloudflareFailureResponse();
       }
       failNextVerification = failure === "verification";
       return cloudflareResponse({});
@@ -414,7 +414,7 @@ describe("vault Cloudflare Worker attachments", () => {
       );
       expect(result).not.toEqual(
         expect.objectContaining({
-          message: expect.stringContaining("Cloudflare test error"),
+          message: expect.stringContaining(observedInvalidWorkerNameResponse.errors[0].message),
         }),
       );
       await expect(
@@ -525,15 +525,7 @@ describe("vault Cloudflare Worker attachments", () => {
         return cloudflareResponse([{ id: accountId, name: "Ada Cloudflare", type: "standard" }]);
       }
       if (method === "GET" && url.pathname.endsWith("/workers/workers/new-worker")) {
-        return jsonResponse(
-          {
-            success: false,
-            errors: [{ code: 10007, message: "Worker not found" }],
-            messages: [],
-            result: null,
-          },
-          404,
-        );
+        return jsonResponse(observedMissingWorkerResponse, 404);
       }
       throw new Error(`Unexpected provider request: ${method} ${url}`);
     });
@@ -566,12 +558,12 @@ describe("vault Cloudflare Worker attachments", () => {
       asUser.action(api.vault.cloudflare.createWorker, {
         vaultId,
         accountId,
-        workerName: "samebase_app",
+        workerName: "samebase app",
         rootDirectory: "/",
       }),
     ).rejects.toMatchObject({
       name: "ConvexError",
-      data: "Cloudflare Worker name can use lowercase letters, numbers, and dashes, and must start and end with a letter or number.",
+      data: "Cloudflare Worker name can use lowercase letters, numbers, underscores, and dashes, and cannot start with a dash.",
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -586,15 +578,7 @@ describe("vault Cloudflare Worker attachments", () => {
         return cloudflareResponse([{ id: accountId, name: "Ada Cloudflare", type: "standard" }]);
       }
       if (method === "GET" && url.pathname.endsWith("/workers/workers/managed-worker")) {
-        return jsonResponse(
-          {
-            success: false,
-            errors: [{ code: 10007, message: "Worker not found" }],
-            messages: [],
-            result: null,
-          },
-          404,
-        );
+        return jsonResponse(observedMissingWorkerResponse, 404);
       }
       throw new Error(`Unexpected provider request: ${method} ${url}`);
     });
@@ -628,10 +612,10 @@ describe("vault Cloudflare Worker attachments", () => {
         runId,
         userId,
         accountId,
-        workerName: "samebase_app",
+        workerName: "samebase app",
       }),
     ).rejects.toThrow(
-      "Cloudflare Worker name can use lowercase letters, numbers, and dashes, and must start and end with a letter or number.",
+      "Cloudflare Worker name can use lowercase letters, numbers, underscores, and dashes, and cannot start with a dash.",
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -646,15 +630,7 @@ describe("vault Cloudflare Worker attachments", () => {
         return cloudflareResponse([{ id: accountId, name: "Ada Cloudflare", type: "standard" }]);
       }
       if (method === "GET" && url.pathname.endsWith("/workers/workers/managed-worker")) {
-        return jsonResponse(
-          {
-            success: false,
-            errors: [{ code: 10007, message: "Worker not found" }],
-            messages: [],
-            result: null,
-          },
-          404,
-        );
+        return jsonResponse(observedMissingWorkerResponse, 404);
       }
       if (method === "POST" && url.pathname.endsWith("/workers/workers")) {
         await t.run(
@@ -717,15 +693,7 @@ describe("vault Cloudflare Worker attachments", () => {
         return cloudflareResponse([{ id: accountId, name: "Ada Cloudflare", type: "standard" }]);
       }
       if (method === "GET" && url.pathname.endsWith("/workers/workers/new-worker")) {
-        return jsonResponse(
-          {
-            success: false,
-            errors: [{ code: 10007, message: "Worker not found" }],
-            messages: [],
-            result: null,
-          },
-          404,
-        );
+        return jsonResponse(observedMissingWorkerResponse, 404);
       }
       if (method === "POST" && url.pathname.endsWith("/workers/workers")) {
         vi.setSystemTime(1_000 + 10 * 60 * 1_000);
@@ -940,12 +908,12 @@ describe("vault Cloudflare Worker attachments", () => {
     });
     expect(result.run).toMatchObject({
       state: "failed",
-      lastError: expectedMessage,
+      lastError: "Provisioning failed during attach_worker.",
     });
     expect(result.event).toMatchObject({
       step: "attach_worker",
       level: "error",
-      message: expectedMessage,
+      message: "Provisioning failed during attach_worker.",
     });
   });
 
@@ -974,15 +942,7 @@ describe("vault Cloudflare Worker attachments", () => {
         return cloudflareResponse([{ id: accountId, name: "Ada Cloudflare", type: "standard" }]);
       }
       if (method === "GET" && url.pathname.endsWith("/workers/workers/managed-worker")) {
-        return jsonResponse(
-          {
-            success: false,
-            errors: [{ code: 10007, message: "Worker not found" }],
-            messages: [],
-            result: null,
-          },
-          404,
-        );
+        return jsonResponse(observedMissingWorkerResponse, 404);
       }
       if (method === "POST" && url.pathname.endsWith("/workers/workers")) {
         return cloudflareResponse(workerDetails("managed-worker", "managed-worker-tag"));

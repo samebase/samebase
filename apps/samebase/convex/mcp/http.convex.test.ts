@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
+import { observedMissingWorkerResponse } from "../cloudflareApi/fixtures/observedWorkerErrors";
 import { makeConvexTest } from "../test.setup";
 import { actionContracts } from "../toolRuntime/actionCatalog";
 import { ACCESS_KEYS } from "../../shared/accessModel";
@@ -501,15 +502,7 @@ describe("MCP tools/call access enforcement", () => {
         ]);
       }
       if (method === "GET" && url.pathname.endsWith("/workers/workers/mcp-worker")) {
-        return jsonResponse(
-          {
-            success: false,
-            errors: [{ code: 10007, message: "Worker not found" }],
-            messages: [],
-            result: null,
-          },
-          404,
-        );
+        return jsonResponse(observedMissingWorkerResponse, 404);
       }
       if (method === "POST" && url.pathname.endsWith("/workers/workers")) {
         return cloudflareResponse(workerDetails());

@@ -347,9 +347,13 @@ function CreateResourceNameInlineAction({
 
 function CreateControlMessageSlot({
   children,
+  id,
+  invalid = false,
   size = "compact",
 }: {
   children: ReactNode;
+  id?: string;
+  invalid?: boolean;
   size?: "compact" | "comfortable";
 }) {
   const isEmpty =
@@ -358,8 +362,10 @@ function CreateControlMessageSlot({
 
   return (
     <div
+      id={id}
       className={clsx("min-w-0", sizeClassName, isEmpty && "invisible pointer-events-none")}
       aria-hidden={isEmpty ? true : undefined}
+      role={!isEmpty && invalid ? "alert" : undefined}
     >
       {children}
     </div>
@@ -367,16 +373,20 @@ function CreateControlMessageSlot({
 }
 
 function CreateProviderNameInput({
+  describedBy,
   disabled,
   icon,
+  invalid = false,
   onChange,
   onBlur,
   onKeyDown,
   placeholder,
   value,
 }: {
+  describedBy?: string;
   disabled: boolean;
   icon: ReactNode;
+  invalid?: boolean;
   onChange: (value: string) => void;
   onBlur?: () => void;
   onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
@@ -402,6 +412,8 @@ function CreateProviderNameInput({
         className="w-full pl-9"
         disabled={disabled}
         aria-label={placeholder}
+        aria-describedby={describedBy}
+        aria-invalid={invalid || undefined}
       />
     </div>
   );
@@ -409,10 +421,13 @@ function CreateProviderNameInput({
 
 export function NewAppCreateFormFields({
   cloudflareWorkerName,
+  cloudflareWorkerNameInvalid,
   cloudflareWorkerNameSupport,
   convexProjectName,
+  convexProjectNameInvalid,
   convexProjectNameSupport,
   githubConnected,
+  githubRepositoryNameInvalid,
   githubRepositoryNameSupport,
   githubRepositoryOwnerOptions,
   hasRequiredCreateConnections,
@@ -428,10 +443,13 @@ export function NewAppCreateFormFields({
   selectedGithubRepositoryOwner,
 }: {
   cloudflareWorkerName: string;
+  cloudflareWorkerNameInvalid: boolean;
   cloudflareWorkerNameSupport: ReactNode;
   convexProjectName: string;
+  convexProjectNameInvalid: boolean;
   convexProjectNameSupport: ReactNode;
   githubConnected: boolean;
+  githubRepositoryNameInvalid: boolean;
   githubRepositoryNameSupport: ReactNode;
   githubRepositoryOwnerOptions: GitHubRepositoryOwnerOption[];
   hasRequiredCreateConnections: boolean;
@@ -486,13 +504,20 @@ export function NewAppCreateFormFields({
         </Select>
       )}
       <CreateProviderNameInput
+        describedBy="new-app-github-repository-name-support"
         placeholder="GitHub repo name"
         value={newRepositoryName}
         onChange={onNewRepositoryNameChange}
         icon={<GitHubProviderLogo />}
+        invalid={githubRepositoryNameInvalid}
         disabled={!hasRequiredCreateConnections || isCreating}
       />
-      <CreateControlMessageSlot>{githubRepositoryNameSupport}</CreateControlMessageSlot>
+      <CreateControlMessageSlot
+        id="new-app-github-repository-name-support"
+        invalid={githubRepositoryNameInvalid}
+      >
+        {githubRepositoryNameSupport}
+      </CreateControlMessageSlot>
       <div
         className={clsx(
           "flex w-full flex-col items-stretch gap-2",
@@ -501,23 +526,37 @@ export function NewAppCreateFormFields({
         aria-hidden={canEditProviderResourceNames ? undefined : true}
       >
         <CreateProviderNameInput
+          describedBy="new-app-convex-project-name-support"
           placeholder="Convex project name"
           value={convexProjectName}
           onChange={onConvexProjectNameChange}
           onBlur={onConvexProjectNameBlur}
           icon={<ConvexProviderLogo />}
+          invalid={convexProjectNameInvalid}
           disabled={providerResourceNameInputDisabled}
         />
-        <CreateControlMessageSlot>{convexProjectNameSupport}</CreateControlMessageSlot>
+        <CreateControlMessageSlot
+          id="new-app-convex-project-name-support"
+          invalid={convexProjectNameInvalid}
+        >
+          {convexProjectNameSupport}
+        </CreateControlMessageSlot>
         <CreateProviderNameInput
+          describedBy="new-app-cloudflare-worker-name-support"
           placeholder="Cloudflare Worker name"
           value={cloudflareWorkerName}
           onChange={onCloudflareWorkerNameChange}
           onBlur={onCloudflareWorkerNameBlur}
           icon={<CloudflareProviderLogo />}
+          invalid={cloudflareWorkerNameInvalid}
           disabled={providerResourceNameInputDisabled}
         />
-        <CreateControlMessageSlot>{cloudflareWorkerNameSupport}</CreateControlMessageSlot>
+        <CreateControlMessageSlot
+          id="new-app-cloudflare-worker-name-support"
+          invalid={cloudflareWorkerNameInvalid}
+        >
+          {cloudflareWorkerNameSupport}
+        </CreateControlMessageSlot>
       </div>
     </>
   );
@@ -977,6 +1016,12 @@ export function NewAppPage() {
   const createFormFields = (
     <NewAppCreateFormFields
       cloudflareWorkerName={resolvedCloudflareWorkerName}
+      cloudflareWorkerNameInvalid={Boolean(
+        createRepositoryName &&
+        (!cloudflareWorkerNameValidation.valid ||
+          createResourceNameCheckError ||
+          isCloudflareWorkerNameAvailabilityBlocking),
+      )}
       cloudflareWorkerNameSupport={renderCreateResourceNameSupport({
         availability: cloudflareWorkerNameAvailability,
         checkedName: checkedCloudflareWorkerName,
@@ -991,6 +1036,12 @@ export function NewAppPage() {
         },
       })}
       convexProjectName={resolvedConvexProjectName}
+      convexProjectNameInvalid={Boolean(
+        createRepositoryName &&
+        (!convexProjectNameValidation.valid ||
+          createResourceNameCheckError ||
+          isConvexProjectNameAvailabilityBlocking),
+      )}
       convexProjectNameSupport={renderCreateResourceNameSupport({
         availability: convexProjectNameAvailability,
         checkedName: checkedConvexProjectName,
@@ -1005,6 +1056,9 @@ export function NewAppPage() {
         },
       })}
       githubConnected={githubConnected}
+      githubRepositoryNameInvalid={Boolean(
+        createRepositoryName && (createResourceNameCheckError || isGitHubRepositoryNameBlocking),
+      )}
       githubRepositoryNameSupport={renderGitHubRepositoryNameSupport()}
       githubRepositoryOwnerOptions={githubRepositoryOwnerOptions}
       hasRequiredCreateConnections={hasRequiredCreateConnections}

@@ -516,11 +516,7 @@ export function VaultCloudflareDialog({
       : defaultSelectedWorkerTags;
   const inventoryState = workersQuery.data?.inventoryState ?? null;
   const resourceQueryError = accountsQuery.error ?? workersQuery.error;
-  const resourceError = resourceQueryError
-    ? resourceQueryError instanceof Error
-      ? resourceQueryError.message
-      : "Could not load Cloudflare resources."
-    : null;
+  const resourceError = resourceQueryError ? "Could not load Cloudflare resources." : null;
   const isLoading =
     !repairWorker &&
     (accountsQuery.isPending || (selectedAccountId !== "" && workersQuery.isPending));
@@ -597,9 +593,7 @@ export function VaultCloudflareDialog({
       setSubmitError(
         error instanceof ConvexError && typeof error.data === "string"
           ? error.data
-          : error instanceof Error
-            ? error.message
-            : "Could not add Cloudflare Workers.",
+          : "Could not add Cloudflare Workers.",
       );
       setIsSubmitting(false);
     }
@@ -624,7 +618,10 @@ export function VaultCloudflareDialog({
         setSubmitError(null);
         setWorkerToConnect(null);
       }}
-      onCreateRootDirectoryChange={setCreateRootDirectory}
+      onCreateRootDirectoryChange={(rootDirectory) => {
+        setCreateRootDirectory(rootDirectory);
+        setSubmitError(null);
+      }}
       onCreateWorkerNameChange={(workerName) => {
         setCreateWorkerName(workerName);
         setSubmitError(null);
@@ -637,6 +634,7 @@ export function VaultCloudflareDialog({
       onConnectWorkerBack={() => {
         setWorkerToConnect(null);
         setMode("existing");
+        setSubmitError(null);
       }}
       onModeChange={(nextMode) => {
         setMode(nextMode);
@@ -661,6 +659,7 @@ export function VaultCloudflareDialog({
             ? selectedWorkerTags.filter((candidate) => candidate !== workerTag)
             : [...selectedWorkerTags, workerTag],
         });
+        setSubmitError(null);
       }}
       selectedAccountId={selectedAccountId}
       selectedWorkerTags={selectedWorkerTags}
