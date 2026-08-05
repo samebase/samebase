@@ -7,6 +7,7 @@
 - Last updated: 2026-08-05
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Replacement branch: `codex-github-app-organizations`
+- Replacement PR: [#1367](https://github.com/samebase/samebase/pull/1367)
 - Superseded draft: [#1355](https://github.com/samebase/samebase/pull/1355)
 - Current checkpoint: Development implementation, reduction, and manual validation complete
 
