@@ -287,6 +287,32 @@ function assertMatchingInstallations(args: {
   }
 }
 
+async function assertGitHubOrganizationAdministrator(args: {
+  octokit: Octokit;
+  githubOwnerId: string;
+  githubOwnerLogin: string;
+}): Promise<void> {
+  const response = await args.octokit.request("GET /user/memberships/orgs/{org}", {
+    org: args.githubOwnerLogin,
+  });
+  const membership: unknown = response.data;
+  if (!isRecord(membership) || !isRecord(membership.organization)) {
+    throw new Error("GitHub returned an invalid organization membership.");
+  }
+
+  const githubOwnerId = requireProviderPositiveSafeInteger(
+    membership.organization.id,
+    "organization ID",
+  );
+  if (
+    membership.state !== "active" ||
+    membership.role !== "admin" ||
+    String(githubOwnerId) !== args.githubOwnerId
+  ) {
+    throw new Error("GitHub organization administrator verification failed.");
+  }
+}
+
 export async function verifyGitHubAppInstallation(args: {
   code: string;
   state: string;
@@ -317,6 +343,13 @@ export async function verifyGitHubAppInstallation(args: {
     userInstallation,
     appInstallation,
   });
+  if (appInstallation.githubOwnerType === "organization") {
+    await assertGitHubOrganizationAdministrator({
+      octokit: userOctokit,
+      githubOwnerId: appInstallation.githubOwnerId,
+      githubOwnerLogin: appInstallation.githubOwnerLogin,
+    });
+  }
 
   return {
     ...authentication,

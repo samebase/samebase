@@ -6,10 +6,10 @@
 - Owner: Samebase backend
 - Last updated: 2026-08-05
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
-- Replacement branch: `codex-github-app-organizations`
+- Replacement branch: `codex-live-github-app-organizations`
 - Replacement PR: [#1367](https://github.com/samebase/samebase/pull/1367)
 - Superseded draft: [#1355](https://github.com/samebase/samebase/pull/1355)
-- Current checkpoint: Development implementation, reduction, and manual validation complete
+- Current checkpoint: Focused post-review corrections in progress before production cutover
 
 ## Purpose
 
@@ -30,7 +30,8 @@ review transcripts, or a per-commit journal.
 - User-specific GitHub App authorization stays user-owned and separate.
 - Convex and Cloudflare connections are organization-owned and record who connected them.
 - Several Convex or Cloudflare connections per organization are valid in the schema.
-- Vaults, billing, quotas, provider resources, and MCP organization grants are organization-owned.
+- Vaults, billing, quotas, and provider resources are organization-owned. MCP grants act as their
+  Samebase user across that user's current organization memberships.
 - Vault routes derive organization context from `/vault/<owner>/<repository>` and have no opaque
   organization query parameter.
 - User deletion is not organization deletion.
@@ -48,7 +49,7 @@ made. The old branch remains untouched as a reference. The clean branch starts f
 `origin/main` so rejected tests and compatibility code do not control the final model.
 
 Useful concepts to reapply are membership access, organization-owned resources, exact Convex and
-Cloudflare connection references, organization billing, and organization-bound MCP grants.
+Cloudflare connection references, and organization billing.
 
 ## GitHub Apps
 
@@ -105,7 +106,7 @@ Status: Complete on the replacement branch
 - Move Convex and Cloudflare connections to organization ownership.
 - Move vaults and attached resources to organization ownership.
 - Use GitHub installation tokens for repository operations.
-- Bind MCP grants to one organization.
+- Keep MCP grants user-wide and apply current organization membership at each target operation.
 - Remove opaque organization URL selection.
 - Keep user deletion separate from organization deletion.
 
@@ -116,12 +117,13 @@ Status: Complete on the replacement branch
 - Rejected user-owned, GitHub-provider, compatibility, and broad stale test code is removed.
 - Full TypeScript validation and the focused organization test set pass.
 - The implementation diff removes substantially more code than it adds.
-- An organization-bound MCP grant no longer exposes the full-user browser handoff tool.
+- MCP grants do not expose the browser handoff tool.
 - Development data reset complete. Later Google sign-in checks left six test users: four approved
   accounts and two pending accounts. Disposable product data was rebuilt from the final model.
 - The real two-user flow passed with GitHub App, Convex OAuth, and Cloudflare OAuth credentials.
 - Vault reload, provider observations, shared provisioning, and denied browser access passed.
-- Multiple-owner, membership-role, owner-route, and MCP organization-boundary checks passed.
+- Multiple-owner, membership-role, and owner-route checks passed. The earlier organization-bound MCP
+  result is superseded by the accepted user-wide MCP decision below.
 - The final deletion audit removed a duplicate owner lookup subscription and unused provider
   selection APIs. The branch remains deletion-heavy against `origin/main`.
 - Shared staged rows no longer store or authorize through a user owner. Vault organization
@@ -160,9 +162,9 @@ Status: Complete on the replacement branch
 - The owner provider page kept reconnect, disconnect, account-selection, and billing actions. The
   second member saw the same provider status and vaults, but only the read-only access checks. The
   owner session was restored after this check.
-- An MCP grant bound to `samebase` returned only the two `samebase` vaults. A Convex discovery call
-  using the known `nicu-typescript` vault failed with
-  `Vault not found in the authorized organization.` Both temporary MCP grants were then revoked.
+- The earlier manual MCP run used one organization per grant. That result is retained as historical
+  evidence only. The accepted final model makes MCP grants user-wide and relies on current
+  membership and role checks for each target.
 - Real provisioning found two strict Convex argument-boundary defects. The saved fixes construct
   only the arguments accepted by the target query. No compatibility path was added.
 - A final Chrome run tested the current owner routes from their base pages. With two memberships,
@@ -209,14 +211,29 @@ Status: Complete on the replacement branch
 9. Reload `/vault/<owner>/<repository>` with no organization query parameter.
 10. Confirm both members see the same provider resources and observations.
 11. Confirm a non-member cannot read or change the vault.
-12. Confirm an organization-bound MCP grant can access the vault and a different organization
-    cannot.
+12. Confirm one MCP grant can access both organizations of its user, then confirm that removing one
+    membership removes access to that organization's vault.
+
+## Focused Review Decisions
+
+- A first Samebase organization claim for a GitHub organization requires an active GitHub
+  administrator membership whose stable organization ID matches the installation owner.
+- GitHub organization repositories can be created by any Samebase member. A personal-owner
+  repository requires the acting Samebase user's exact GitHub user authorization.
+- MCP acts on behalf of the Samebase user across current memberships. The organization chooser and
+  organization ID on MCP grants are removed instead of extended.
+- Cloudflare account visibility remains a simple business rule for this rollout. The schema already
+  keeps the selected account plus exact account and connection IDs on attachments, so account
+  visibility can be refined before member invitations ship without changing the ownership model.
+- The operator membership function accepts a required role so an organization without an owner is
+  manually recoverable. No invitation UI, role editor, or last-owner workflow is added.
 
 ## Reset Boundary
 
 Before final schema deployment, the operator can clear organizations, memberships, organization
 billing, provider connections, vaults, staging, workflows, and MCP authorization data. Keep users,
-authentication accounts, approval, and waitlist state. Do not run a production reset until the exact
+authentication accounts, approval, and waitlist state. Remove the legacy user billing fields that
+are not accepted by the final strict user schema. Do not run a production reset until the exact
 targets and final schema deployment are ready.
 
 Clear `observations_vaultConvexSchema_snapshots` before deploying the schema that removes its old
@@ -224,11 +241,13 @@ Clear `observations_vaultConvexSchema_snapshots` before deploying the schema tha
 
 ## Current Blockers
 
-- No development organization-flow blocker remains.
+- Focused GitHub first-claim, personal-owner, MCP simplification, operator-recovery, and privacy
+  corrections remain before the production cutover.
 - Production GitHub App secrets block production deployment only.
 - Webhook setup is deferred until the main installation and repository flows work.
 
 ## Next Exact Task
 
-Review the replacement pull request. Generate and configure the production GitHub App secrets before
-production deployment, then perform the accepted pre-beta product-data reset.
+Finish the focused review corrections and repeat the realistic manual organization flows. Then
+generate and configure the production GitHub App secrets and perform the accepted pre-beta
+product-data reset.

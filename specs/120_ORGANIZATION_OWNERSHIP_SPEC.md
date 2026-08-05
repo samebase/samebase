@@ -34,10 +34,13 @@ use Google login and does not need a GitHub account for operations that use orga
 credentials.
 
 Each membership has one required role: `owner` or `member`. Both roles can read and operate the
-organization's vaults and use organization credentials to create apps. Only owners can manage
-provider connections, reconnect the GitHub organization, or manage billing. The first verified
-GitHub App installation creates an owner membership. Until an invitation UI exists, an idempotent
-internal function adds an existing Samebase user as a member.
+organization's vaults and use organization credentials. Both roles can create repositories for a
+GitHub organization. Creating a repository for a personal GitHub owner additionally requires the
+acting Samebase user to have a GitHub App user authorization for that exact GitHub user. Only owners
+can manage provider connections, reconnect the GitHub organization, or manage billing. The first
+verified GitHub App installation creates an owner membership. Until an invitation UI exists, an
+idempotent internal function adds an existing Samebase user with an explicit `owner` or `member`
+role.
 
 The first release has no invitation records, role-editing flow, last-owner transition rules,
 permission arrays, or custom roles.
@@ -64,10 +67,14 @@ An organization is always bound to its GitHub owner when it is created. There is
 organization and no automatic personal organization during signup.
 
 Creating an organization requires a verified installation of the environment's Samebase GitHub App.
-The signed-in Samebase user who completes setup becomes the first owner. The same transaction
-creates the organization's Free billing row. Reinstalling the app for the same owner updates the
-installation ID and does not create another organization. Reconnecting an existing organization
-requires an owner membership.
+For a GitHub organization, the signed-in GitHub user must have an active organization membership
+with the GitHub administrator role, and the membership's stable organization ID must match the
+installation owner ID. For a personal owner, the GitHub user ID must match the installation owner
+ID. This GitHub authority check also applies when the App is reinstalled or reconnected. The
+signed-in Samebase user who completes the first verified setup becomes the first owner. The same
+transaction creates the organization's Free billing row. Reinstalling the app for the same owner
+updates the installation ID and does not create another organization. Reconnecting an existing
+organization also requires a Samebase owner membership.
 
 The installation is not a `providerConnections` row and is not a Samebase login method. Samebase
 creates short-lived installation access tokens for repository operations and does not store those
@@ -153,7 +160,7 @@ Durable ownership is:
 | Convex or Cloudflare connection            | Organization, with connecting-user provenance     |
 | Attached Convex or Cloudflare resource     | Parent vault and exact provider connection        |
 | Billing, quota, and usage                  | Organization                                      |
-| MCP grant                                  | User delegation bound to one organization         |
+| MCP grant                                  | User delegation across current memberships        |
 | Auth accounts, sessions, profile, approval | User                                              |
 | GitHub App user authorization              | Exact user                                        |
 | Actor provenance and personal UI settings  | User                                              |
@@ -163,13 +170,16 @@ for this rollout. A staged row has no user owner. Parent-vault organization memb
 access, and `lastEditUserId` records the user who made the latest edit. Multi-writer FileView
 recovery is outside this contract.
 
-MCP consent binds each grant to one explicit organization membership. Removing the membership
-revokes its authority. Vault tools derive the organization from the grant or the loaded vault. They
-do not select a user's first membership.
+MCP consent delegates a subset of one user's Samebase access. It does not select or store an
+organization. Each tool call uses the current user and the target resource or GitHub owner, then
+applies the same current membership and role checks as the browser application. Existing-resource
+tools derive the organization from the loaded resource. Root creation tools identify the GitHub
+owner without accepting an opaque Samebase organization ID. A new membership becomes available to an
+existing MCP grant, and removing a membership removes that organization's access on the next call.
+Revoking the grant removes that MCP client's access for the user.
 
-An organization-bound MCP grant cannot mint a normal Samebase browser session. A normal session can
-access every organization of its user, so browser handoff would exceed the grant boundary. Agents
-that need the web app use the normal user login flow outside MCP authorization.
+An MCP grant cannot mint a normal Samebase browser session. Agents that need the web app use the
+normal user login flow outside MCP authorization.
 
 ## Billing And Lifecycle
 
@@ -233,18 +243,22 @@ The rollout is ready only when focused tests and real manual checks prove:
 - One user can belong to several organizations, and one organization can have several users.
 - A second member can use the organization's App and provider connections without GitHub login or
   personal provider credentials.
+- Every member can create a repository for a GitHub organization. A repository for a personal GitHub
+  owner can be created only by a Samebase user authorized as that exact GitHub user.
 - A vault owner ID must match its organization owner ID.
 - `/vault/<owner>/<repository>` reloads without an organization query parameter and shows the same
   repository, Cloudflare Worker, Convex project, and observations.
 - `/providers/<owner>`, `/new-app/<owner>`, and `/connect-repo/<owner>` reload with the same
   selected organization and never show an internal organization ID.
 - Both members see the same organization vaults, provider status, billing state, and observations.
-- A member can create and reload a GitHub repository, Convex project, and Cloudflare Worker.
+- A member can create and reload a GitHub organization repository, Convex project, and Cloudflare
+  Worker.
 - A user outside the organization cannot read or change its resources.
 - Convex and Cloudflare connections are organization-owned, allow several rows per kind, record the
   connecting user, and never return credentials to clients.
 - Billing and quotas belong to the organization.
 - User deletion does not delete the organization or shared resources.
-- MCP consent and tool calls use the exact organization membership and resource boundary.
+- An MCP grant acts as its Samebase user across all current memberships, and each tool call applies
+  current membership and role checks for its target.
 - No caller or test keeps automatic personal organizations, GitHub provider connections, or opaque
   organization URL selection.
