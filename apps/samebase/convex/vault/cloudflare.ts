@@ -1242,7 +1242,7 @@ export async function createWorkerForUser(
 ): Promise<Id<"vaultCloudflareWorkers">> {
   const validation = validateAppResourceName(args.workerName, "cloudflare");
   if (!validation.valid) {
-    throw new Error(validation.message);
+    throw new ConvexError(validation.message);
   }
   const accountId = args.accountId.trim();
   if (!accountId) {
