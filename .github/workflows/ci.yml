@@ -194,6 +194,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Bootstrap Convex for Windows predev
+        run: node ./scripts/ci-bootstrap-convex.ts
+
       - name: Run anonymous predev smoke on Windows
         working-directory: apps/samebase
         env:
