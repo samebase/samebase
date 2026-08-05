@@ -401,6 +401,28 @@ describe("vault Convex project attachments", () => {
     expect(fetchMock.mock.calls.some(([input]) => input.method === "POST")).toBe(false);
   });
 
+  it("returns the shared required project name before a manual provider request", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { asUser, vaultId } = await createConnectedVault();
+
+    await expect(
+      asUser.action(api.vault.convex.createProject, {
+        vaultId,
+        projectName: " ",
+        codeLocation: {
+          kind: "config",
+          convexConfigPath: "convex.json",
+          blobSha: "root-sha",
+        },
+      }),
+    ).rejects.toMatchObject({
+      name: "ConvexError",
+      data: "Convex project name is required.",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("blocks a managed Convex create before the provider write at the free limit", async () => {
     const { runId, t, userId, vaultId } = await createManagedProjectCreatingFixture();
     await seedConvexProjects(t, { userId, vaultId });
@@ -423,6 +445,23 @@ describe("vault Convex project attachments", () => {
     ).rejects.toThrow("Convex project attachment limit reached (5).");
 
     expect(fetchMock.mock.calls.some(([input]) => input.method === "POST")).toBe(false);
+  });
+
+  it("rejects the shared required project name before a managed provider request", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { runId, t, userId, vaultId } = await createManagedProjectCreatingFixture();
+
+    await expect(
+      t.action(internal.vault.convex.ensureConvexProjectConnection, {
+        vaultId,
+        runId,
+        userId,
+        convexConfigPath: "convex.json",
+        projectName: " ",
+      }),
+    ).rejects.toThrow("Convex project name is required.");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("names the created managed Convex project when another attachment takes the last slot", async () => {

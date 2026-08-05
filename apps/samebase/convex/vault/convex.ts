@@ -398,7 +398,7 @@ async function createProjectForUser(
 ): Promise<Id<"vaultConvexProjects">> {
   const validation = validateAppResourceName(args.projectName, "convex");
   if (!validation.valid) {
-    throw new Error(validation.message);
+    throw new ConvexError(validation.message);
   }
   const codeLocation = normalizeConvexCodeLocationSelection(args.codeLocation);
   const actionId = crypto.randomUUID();

@@ -1964,6 +1964,40 @@ describe("VaultConvexDialogContent", () => {
     expect(markup).toContain("could not be fully scanned");
     expect(markup).not.toContain("No valid convex.json files were found");
   });
+
+  it("requires a project name inline before creating a Convex project", () => {
+    const markup = renderToStaticMarkup(
+      <VaultConvexDialogContent
+        codeLocations={codeLocations}
+        createCodeLocationKey="config:convex.json"
+        createProjectName=" "
+        projects={projects}
+        error={null}
+        isLoading={false}
+        isSubmitting={false}
+        mode="create"
+        onCreateCodeLocationKeyChange={() => {}}
+        onCreateProjectNameChange={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onProjectCodeLocationKeyChange={() => {}}
+        onProjectToggle={() => {}}
+        onSubmit={() => {}}
+        repairProject={null}
+        selectedProjectCodeLocationKeys={{}}
+        sourceCompleteness="complete"
+        vault={vault}
+      />,
+    );
+    const createButton = markup.match(/<button[^>]*>Create project<\/button>/)?.[0];
+
+    expect(markup).toContain("Convex project name is required.");
+    expect(markup).toContain('aria-invalid="true"');
+    expect(markup).toContain('aria-describedby="convex-project-name-error"');
+    expect(markup).toContain('id="convex-project-name-error" role="alert"');
+    expect(createButton).toBeDefined();
+    expect(createButton).toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
+  });
 });
 
 describe("VaultCloudflareDialogContent", () => {
@@ -2166,6 +2200,49 @@ describe("VaultCloudflareDialogContent", () => {
     expect(markup).toContain("Repository root");
     expect(markup).toContain('value="apps/web"');
     expect(markup).toContain("Create Worker");
+  });
+
+  it("rejects an invalid Worker name inline before submission", () => {
+    const markup = renderToStaticMarkup(
+      <VaultCloudflareDialogContent
+        accounts={[{ accountId: "account-1", accountName: "Ada" }]}
+        createRootDirectory="apps/web"
+        createWorkerName="samebase_app"
+        didAddWorker={false}
+        error={null}
+        folderSuggestions={[]}
+        isLoading={false}
+        isSubmitting={false}
+        inventoryState="complete"
+        mode="create"
+        onAccountChange={() => {}}
+        onCreateRootDirectoryChange={() => {}}
+        onCreateWorkerNameChange={() => {}}
+        onConnectWorker={() => {}}
+        onConnectWorkerBack={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onSubmit={() => {}}
+        onWorkerToggle={() => {}}
+        repairWorker={null}
+        selectedAccountId="account-1"
+        selectedWorkerTags={[]}
+        vault={vault}
+        workerToConnect={null}
+        workers={[]}
+      />,
+    );
+    const createButton = markup.match(/<button[^>]*>Create Worker<\/button>/)?.[0];
+
+    expect(markup).toContain(
+      "Cloudflare Worker name can use lowercase letters, numbers, and dashes, and must start and end with a letter or number.",
+    );
+    expect(markup).toContain("Use samebase-app");
+    expect(markup).toContain('aria-invalid="true"');
+    expect(markup).toContain('aria-describedby="cloudflare-worker-name-error"');
+    expect(markup).toContain('id="cloudflare-worker-name-error" role="alert"');
+    expect(createButton).toBeDefined();
+    expect(createButton).toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
   });
 
   it("shows the operation block reason and disables confirmation", () => {

@@ -552,6 +552,25 @@ describe("vault Cloudflare Worker attachments", () => {
     ).toBe(false);
   });
 
+  it("returns the shared invalid Worker name before a manual provider request", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { asUser, vaultId } = await createCloudflareConnectedVault();
+
+    await expect(
+      asUser.action(api.vault.cloudflare.createWorker, {
+        vaultId,
+        accountId,
+        workerName: "samebase_app",
+        rootDirectory: "/",
+      }),
+    ).rejects.toMatchObject({
+      name: "ConvexError",
+      data: "Cloudflare Worker name can use lowercase letters, numbers, and dashes, and must start and end with a letter or number.",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("blocks a managed Cloudflare create before the provider write at the free limit", async () => {
     const { runId, t, userId, vaultId } = await createManagedWorkerCreatingFixture();
     await seedCloudflareWorkers(t, { userId, vaultId });
@@ -591,6 +610,25 @@ describe("vault Cloudflare Worker attachments", () => {
         ([input, init]) => (input instanceof Request ? input.method : init?.method) === "POST",
       ),
     ).toBe(false);
+  });
+
+  it("rejects the shared invalid Worker name before a managed provider request", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { runId, t, userId, vaultId } = await createManagedWorkerCreatingFixture();
+
+    await expect(
+      t.action(internal.vault.cloudflare.ensureCloudflareWorkerConnection, {
+        vaultId,
+        runId,
+        userId,
+        accountId,
+        workerName: "samebase_app",
+      }),
+    ).rejects.toThrow(
+      "Cloudflare Worker name can use lowercase letters, numbers, and dashes, and must start and end with a letter or number.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("names the created managed Cloudflare Worker when another attachment takes the last slot", async () => {

@@ -7,7 +7,10 @@ import { Loader2 } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
-import { buildDefaultAppResourceName } from "../../../shared/appResourceNames";
+import {
+  buildDefaultAppResourceName,
+  validateAppResourceName,
+} from "../../../shared/appResourceNames";
 import {
   getConvexCodeLocationKey,
   getConvexCodeLocationPath,
@@ -25,6 +28,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { VaultProviderDiscoveryLoadingState } from "./VaultProviderDiscoveryLoadingState";
 
@@ -136,6 +140,7 @@ export function VaultConvexDialogContent({
   }));
   const sortedProjects = [...projects].sort(compareConvexProjectOption);
   const selectedProjectCount = Object.keys(selectedProjectCodeLocationKeys).length;
+  const createProjectNameValidation = validateAppResourceName(createProjectName, "convex");
   const submitDisabled =
     Boolean(blockedReason) ||
     isLoading ||
@@ -146,7 +151,7 @@ export function VaultConvexDialogContent({
       : mode === "existing"
         ? selectedProjectCount === 0 ||
           Object.values(selectedProjectCodeLocationKeys).some((key) => !key)
-        : !createProjectName.trim() || !createCodeLocationKey);
+        : !createProjectNameValidation.valid || !createCodeLocationKey);
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
@@ -289,12 +294,29 @@ export function VaultConvexDialogContent({
                 )
               ) : (
                 <div className="grid gap-3">
-                  <Input
-                    value={createProjectName}
-                    onChange={(event) => onCreateProjectNameChange(event.target.value)}
-                    disabled={isSubmitting}
-                    placeholder="Project name"
-                  />
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="convex-project-name">Project name</Label>
+                    <Input
+                      id="convex-project-name"
+                      value={createProjectName}
+                      onChange={(event) => onCreateProjectNameChange(event.target.value)}
+                      disabled={isSubmitting}
+                      placeholder="Project name"
+                      aria-invalid={!createProjectNameValidation.valid}
+                      aria-describedby={
+                        createProjectNameValidation.valid ? undefined : "convex-project-name-error"
+                      }
+                    />
+                    {!createProjectNameValidation.valid ? (
+                      <p
+                        id="convex-project-name-error"
+                        role="alert"
+                        className="text-xs text-red-600"
+                      >
+                        {createProjectNameValidation.message}
+                      </p>
+                    ) : null}
+                  </div>
                   <Select
                     modal={false}
                     value={createCodeLocationKey}
@@ -464,9 +486,13 @@ export function VaultConvexDialog({
         if (!codeLocation) {
           throw new Error("Choose a discovered Convex code location.");
         }
+        const projectNameValidation = validateAppResourceName(createProjectName, "convex");
+        if (!projectNameValidation.valid) {
+          throw new ConvexError(projectNameValidation.message);
+        }
         await createProject({
           vaultId: vault._id,
-          projectName: createProjectName,
+          projectName: projectNameValidation.value,
           codeLocation: getConvexCodeLocationSelection(codeLocation),
         });
       }
@@ -495,7 +521,10 @@ export function VaultConvexDialog({
       isSubmitting={isSubmitting}
       mode={mode}
       onCreateCodeLocationKeyChange={setSelectedCreateCodeLocationKey}
-      onCreateProjectNameChange={setCreateProjectName}
+      onCreateProjectNameChange={(projectName) => {
+        setCreateProjectName(projectName);
+        setSubmitError(null);
+      }}
       onModeChange={setMode}
       onOpenChange={(isOpen) => {
         if (!isOpen && (!isSubmitting || blockedReason)) {

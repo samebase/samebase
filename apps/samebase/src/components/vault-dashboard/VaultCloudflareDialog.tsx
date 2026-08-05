@@ -7,7 +7,10 @@ import { Loader2 } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
-import { buildDefaultAppResourceName } from "../../../shared/appResourceNames";
+import {
+  buildDefaultAppResourceName,
+  validateAppResourceName,
+} from "../../../shared/appResourceNames";
 import { AppDialogContent } from "@/components/AppDialogContent";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { Button } from "@/components/ui/button";
@@ -142,6 +145,10 @@ export function VaultCloudflareDialogContent({
         left.workerTag.localeCompare(right.workerTag),
     );
   const selectedAccount = sortedAccounts.find((account) => account.accountId === selectedAccountId);
+  const createWorkerNameValidation = validateAppResourceName(createWorkerName, "cloudflare");
+  const createWorkerNameSuggestion = createWorkerNameValidation.valid
+    ? null
+    : createWorkerNameValidation.suggestion;
   const submitDisabled =
     Boolean(blockedReason) ||
     isSubmitting ||
@@ -153,7 +160,7 @@ export function VaultCloudflareDialogContent({
           ? selectedWorkerTags.length === 0
           : mode === "connect"
             ? !workerToConnect || !createRootDirectory.trim()
-            : !createWorkerName.trim() || !createRootDirectory.trim()));
+            : !createWorkerNameValidation.valid || !createRootDirectory.trim()));
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
@@ -314,12 +321,40 @@ export function VaultCloudflareDialogContent({
                 </div>
               ) : (
                 <div className="grid gap-3">
-                  <Input
-                    value={createWorkerName}
-                    onChange={(event) => onCreateWorkerNameChange(event.target.value)}
-                    disabled={isSubmitting}
-                    placeholder="Worker name"
-                  />
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="cloudflare-worker-name">Worker name</Label>
+                    <Input
+                      id="cloudflare-worker-name"
+                      value={createWorkerName}
+                      onChange={(event) => onCreateWorkerNameChange(event.target.value)}
+                      disabled={isSubmitting}
+                      placeholder="Worker name"
+                      aria-invalid={!createWorkerNameValidation.valid}
+                      aria-describedby={
+                        createWorkerNameValidation.valid
+                          ? undefined
+                          : "cloudflare-worker-name-error"
+                      }
+                    />
+                    {!createWorkerNameValidation.valid ? (
+                      <p
+                        id="cloudflare-worker-name-error"
+                        role="alert"
+                        className="text-xs text-red-600"
+                      >
+                        {createWorkerNameValidation.message}
+                        {createWorkerNameSuggestion ? (
+                          <button
+                            type="button"
+                            className="ml-1 text-left text-blue-600 underline underline-offset-2"
+                            onClick={() => onCreateWorkerNameChange(createWorkerNameSuggestion)}
+                          >
+                            Use {createWorkerNameSuggestion}
+                          </button>
+                        ) : null}
+                      </p>
+                    ) : null}
+                  </div>
                   <VaultRepositoryRootInput
                     disabled={isSubmitting}
                     folderSuggestions={folderSuggestions}
@@ -546,10 +581,14 @@ export function VaultCloudflareDialog({
           workers: selectedWorkers,
         });
       } else {
+        const workerNameValidation = validateAppResourceName(createWorkerName, "cloudflare");
+        if (!workerNameValidation.valid) {
+          throw new ConvexError(workerNameValidation.message);
+        }
         await createWorker({
           vaultId: vault._id,
           accountId: selectedAccountId,
-          workerName: createWorkerName,
+          workerName: workerNameValidation.value,
           rootDirectory: createRootDirectory,
         });
       }
@@ -586,7 +625,10 @@ export function VaultCloudflareDialog({
         setWorkerToConnect(null);
       }}
       onCreateRootDirectoryChange={setCreateRootDirectory}
-      onCreateWorkerNameChange={setCreateWorkerName}
+      onCreateWorkerNameChange={(workerName) => {
+        setCreateWorkerName(workerName);
+        setSubmitError(null);
+      }}
       onConnectWorker={(worker) => {
         setWorkerToConnect(worker);
         setCreateRootDirectory("");

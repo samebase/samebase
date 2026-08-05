@@ -1,6 +1,6 @@
 "use node";
 
-import { v, type Infer } from "convex/values";
+import { ConvexError, v, type Infer } from "convex/values";
 import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -724,6 +724,14 @@ export async function createAppForUser(
   if (!ghRepoOwnerInput) {
     throw new Error("GitHub owner is required.");
   }
+  const convexNameValidation = validateAppResourceName(args.convexProjectName, "convex");
+  if (!convexNameValidation.valid) {
+    throw new ConvexError(convexNameValidation.message);
+  }
+  const cloudflareNameValidation = validateAppResourceName(args.cloudflareWorkerName, "cloudflare");
+  if (!cloudflareNameValidation.valid) {
+    throw new ConvexError(cloudflareNameValidation.message);
+  }
 
   const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
     userId: args.userId,
@@ -746,20 +754,6 @@ export async function createAppForUser(
       username: githubUsername,
     }),
   });
-
-  const convexNameValidation = validateCreateResourceName("convex", args.convexProjectName);
-  if (!convexNameValidation.valid) {
-    throw new Error(convexNameValidation.availability.message ?? "Invalid Convex project name.");
-  }
-  const cloudflareNameValidation = validateCreateResourceName(
-    "cloudflare",
-    args.cloudflareWorkerName,
-  );
-  if (!cloudflareNameValidation.valid) {
-    throw new Error(
-      cloudflareNameValidation.availability.message ?? "Invalid Cloudflare Worker name.",
-    );
-  }
 
   const [convexConnection, cloudflareConnection] = await Promise.all([
     resolveConvexProvisioningConnection(ctx, args.userId),
