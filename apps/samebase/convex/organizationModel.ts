@@ -54,7 +54,8 @@ export const organizationTables = {
     role: vOrganizationMembershipRole,
   })
     .index("by_user", ["userId"])
-    .index("by_organization_and_user", ["organizationId", "userId"]),
+    .index("by_organization_and_user", ["organizationId", "userId"])
+    .index("by_organization_and_role", ["organizationId", "role"]),
 
   /** Billing state for one organization. */
   organizationBillingAccounts: defineTable({

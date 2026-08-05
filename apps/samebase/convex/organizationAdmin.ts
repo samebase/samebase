@@ -2,6 +2,7 @@ import { v } from "convex/values";
 
 import { normalizeAccountEmail } from "../shared/accountPresentation";
 import { internalMutation } from "./_generated/server";
+import { requireAnotherActiveOrganizationOwner } from "./organizationAccess";
 import { vOrganizationMembershipRole } from "./organizationModel";
 
 const vAddExistingUserResult = v.union(
@@ -55,6 +56,12 @@ export const addExistingUserToOrganization = internalMutation({
       .unique();
     if (membership !== null) {
       if (membership.role !== args.role) {
+        if (membership.role === "owner" && args.role === "member") {
+          await requireAnotherActiveOrganizationOwner(ctx.db, {
+            organizationId: args.organizationId,
+            excludedUserId: user._id,
+          });
+        }
         await ctx.db.patch(membership._id, { role: args.role });
         return {
           state: "updated" as const,

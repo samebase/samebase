@@ -171,4 +171,50 @@ describe("GitHub-backed organizations", () => {
       }),
     ).resolves.toBe("owner");
   });
+
+  it("does not allow an organization to lose its last active owner", async () => {
+    const t = makeConvexTest();
+    const { firstUserId } = await t.run(async (ctx) => {
+      const firstUserId = await ctx.db.insert("users", {
+        email: "first-owner@example.com",
+        isApproved: true,
+      });
+      await ctx.db.insert("users", {
+        email: "second-owner@example.com",
+        isApproved: true,
+      });
+      return { firstUserId };
+    });
+    const organization = await t.mutation(
+      internal.organizations.createOrReconnectVerifiedOrganization,
+      {
+        userId: firstUserId,
+        githubOwnerId: "last-owner-check",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "last-owner-check",
+        githubInstallationId: "last-owner-installation",
+      },
+    );
+
+    await expect(
+      t.mutation(internal.organizationAdmin.addExistingUserToOrganization, {
+        organizationId: organization.organizationId,
+        role: "member",
+        userEmail: "first-owner@example.com",
+      }),
+    ).rejects.toThrowError("An organization must have at least one active owner.");
+
+    await t.mutation(internal.organizationAdmin.addExistingUserToOrganization, {
+      organizationId: organization.organizationId,
+      role: "owner",
+      userEmail: "second-owner@example.com",
+    });
+    await expect(
+      t.mutation(internal.organizationAdmin.addExistingUserToOrganization, {
+        organizationId: organization.organizationId,
+        role: "member",
+        userEmail: "first-owner@example.com",
+      }),
+    ).resolves.toMatchObject({ state: "updated" });
+  });
 });

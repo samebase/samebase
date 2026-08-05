@@ -41,7 +41,7 @@ async function seedRunningDeletion() {
     await ctx.db.insert("organizationMemberships", {
       organizationId,
       userId: teammateUserId,
-      role: "member",
+      role: "owner",
     });
     const organizationBillingId = await ctx.db.insert("organizationBillingAccounts", {
       organizationId,

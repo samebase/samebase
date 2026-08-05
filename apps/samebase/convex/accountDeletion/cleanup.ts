@@ -1,6 +1,7 @@
 import type { Id, TableNames } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
+import { requireAnotherActiveOrganizationOwner } from "../organizationAccess";
 import { readOwnedActiveRun } from "./stepContext";
 
 type AccountDeletionTablePolicy =
@@ -97,6 +98,14 @@ const ACCOUNT_DATA_CLEANUP_HANDLERS = {
       .query("organizationMemberships")
       .withIndex("by_user", (query) => query.eq("userId", userId))
       .take(ACCOUNT_DATA_BATCH_SIZE);
+    for (const membership of rows) {
+      if (membership.role === "owner") {
+        await requireAnotherActiveOrganizationOwner(ctx.db, {
+          organizationId: membership.organizationId,
+          excludedUserId: userId,
+        });
+      }
+    }
     return await deleteRowsById(ctx, rows);
   },
   githubAppSetupStates: async (ctx, userId) => {

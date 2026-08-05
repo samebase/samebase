@@ -65,6 +65,31 @@ export async function requireOrganizationOwnerAccessContext(
   return access;
 }
 
+/** Require an active owner other than the user whose owner role will be removed. */
+export async function requireAnotherActiveOrganizationOwner(
+  db: DatabaseReader,
+  args: {
+    organizationId: Id<"organizations">;
+    excludedUserId: Id<"users">;
+  },
+): Promise<void> {
+  for await (const membership of db
+    .query("organizationMemberships")
+    .withIndex("by_organization_and_role", (query) =>
+      query.eq("organizationId", args.organizationId).eq("role", "owner"),
+    )) {
+    if (membership.userId === args.excludedUserId) {
+      continue;
+    }
+    const user = await db.get(membership.userId);
+    if (user !== null && user.accountDeletion === undefined) {
+      return;
+    }
+  }
+
+  throw new Error("An organization must have at least one active owner.");
+}
+
 /** List every organization the user can access in stable identifier order. */
 export async function listOrganizationIdsForUser(
   db: DatabaseReader,
