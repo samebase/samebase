@@ -1,9 +1,25 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
 
 describe("GitHub-backed organizations", () => {
+  it("lets a pending-access user load an empty organization list for Settings", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        email: "pending@example.com",
+        isApproved: false,
+      });
+    });
+    const asPendingUser = t.withIdentity({
+      subject: `${userId}|pending-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    await expect(asPendingUser.query(api.organizations.listForViewer, {})).resolves.toEqual([]);
+  });
+
   it("creates one organization graph and reconnects it without duplicates", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {

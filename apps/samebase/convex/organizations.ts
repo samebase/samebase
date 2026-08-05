@@ -34,7 +34,7 @@ function requireProviderIdentity(value: string, label: string): string {
 }
 
 export const listForViewer = query({
-  access: "access_dashboard",
+  access: "access_user_preferences",
   args: {},
   returns: v.array(vOrganizationSummary),
   handler: async (ctx) => {
