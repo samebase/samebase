@@ -238,7 +238,7 @@ export const getUserVaultsContract = {
     inputDescriptions: {},
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Returns every vault the authenticated account can see in the web app. An MCP call returns
-only vaults in the organization selected when its grant was approved. Repository connection,
+vaults across all organizations where that account is a current member. Repository connection,
 source setup, provider setup, and deletion are independent axes; a source-setup failure does not
 revoke an already connected repository. Provider resources are stable identities only. Current
 Cloudflare and Convex state, including the Worker-to-project marker, is loaded from those providers

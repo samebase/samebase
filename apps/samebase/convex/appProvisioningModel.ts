@@ -208,6 +208,7 @@ export const vaultProvisioningTables = {
   })
     .index("by_vault_and_updated_at", ["vaultId", "updatedAt"])
     .index("by_vault_and_state", ["vaultId", "state"])
+    .index("by_user_and_state_and_updated_at", ["userId", "state", "updatedAt"])
     .index("by_workflow_id", ["workflowId"]),
 
   /** Ordered user-visible progress messages for one vault provisioning run. */

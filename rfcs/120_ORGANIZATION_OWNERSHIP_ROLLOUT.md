@@ -33,7 +33,9 @@ review transcripts, or a per-commit journal.
 - User-specific GitHub App authorization stays user-owned and separate. One Samebase user has one
   current personal GitHub authorization.
 - Convex and Cloudflare connections are organization-owned and record who connected them.
-- Several Convex or Cloudflare connections per organization are valid in the schema.
+- The current schema permits several Convex or Cloudflare connections per organization. This is not
+  a long-term cardinality decision. A focused provider task must define multi-connection behavior
+  and disconnect semantics before that behavior is expanded.
 - Long-lived Convex and Cloudflare resource rows use stable external team, project, account, and
   Worker IDs. They do not depend on a replaceable `providerConnections` ID.
 - Persistent provisioning plans and deletion retry snapshots also use external provider resource
@@ -279,6 +281,12 @@ Status: Complete on the replacement branch
   with no invitation UI or general role editor in this rollout.
 - Vaults use `organizations.githubOwnerLogin` as current route and display data. Historical workflow
   snapshots can retain the owner login observed when the workflow started.
+- Do not add a repository-only rename patch. A future GitHub identity synchronization task must
+  define organization-owner and repository rename behavior together.
+- Account deletion waits for queued or running vault provisioning and deletion work started by the
+  deleting user before it revokes credentials or removes memberships. Manual provider-write locks do
+  not record an actor, so exact manual-write dependency tracking stays in a future provider
+  operation-lifecycle task.
 
 ## Reset Boundary
 

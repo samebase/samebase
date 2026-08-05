@@ -281,6 +281,7 @@ export const vaultDeletionTables = {
     .index("by_vault_and_updated_at", ["vaultId", "updatedAt"])
     .index("by_organization_and_updated_at", ["organizationId", "updatedAt"])
     .index("by_organization_and_state_and_updated_at", ["organizationId", "state", "updatedAt"])
+    .index("by_user_and_state_and_updated_at", ["userId", "state", "updatedAt"])
     .index("by_workflow_id", ["workflow.workflowId"])
     .index("by_retry_of", ["attempt.retryOf"]),
 

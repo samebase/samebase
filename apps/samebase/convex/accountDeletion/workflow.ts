@@ -35,6 +35,7 @@ const vClaimedWorkflowRun = object({
 });
 
 const SAFE_WORKFLOW_ERROR = "Account deletion needs staff attention.";
+const MAX_QUIESCE_CHECKS = 130;
 const MAX_BATCH_STEPS = 96;
 
 type AccountDeletionStep = Infer<typeof vAccountDeletionStep>;
@@ -273,6 +274,32 @@ export const deleteAccountWorkflow = workflow.define({
       if (batch === MAX_BATCH_STEPS - 1) {
         throw new Error(SAFE_WORKFLOW_ERROR);
       }
+    }
+
+    await step.runMutation(
+      internal.accountDeletion.workflow.appendRunEvent,
+      {
+        ...ownedArgs,
+        step: "request_accepted",
+        level: "info",
+        message: "Waiting for active Samebase work to stop.",
+      },
+      { name: "start_quiescence" },
+    );
+    for (let check = 0; check < MAX_QUIESCE_CHECKS; check += 1) {
+      const result = await step.runMutation(
+        internal.accountDeletion.cleanup.inspectQuiescence,
+        ownedArgs,
+        { name: `inspect_quiescence_${check}` },
+      );
+      if (result.state === "done") {
+        break;
+      }
+      if (check === MAX_QUIESCE_CHECKS - 1) {
+        throw new Error(SAFE_WORKFLOW_ERROR);
+      }
+
+      await step.sleep(1_000, { name: `wait_for_active_work_${check}` });
     }
 
     if (claimed.outcomes.providerRevocation.state !== "completed") {

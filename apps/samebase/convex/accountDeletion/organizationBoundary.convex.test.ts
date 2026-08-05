@@ -195,6 +195,98 @@ async function cleanAccountData(
 }
 
 describe("account deletion organization boundary", () => {
+  it("waits for the deleting member's active vault work", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    const provisioningRunId = await t.run(async (ctx) => {
+      return await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId: ids.deletingUserId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "example/shared",
+        trigger: "connect_existing_repository",
+        state: "running",
+        currentStep: "fetch_github_repo",
+        createdAt: 2,
+        updatedAt: 2,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({ state: "waiting", blocker: "active_app_provisioning" });
+
+    const deletionRunId = await t.run(async (ctx) => {
+      await ctx.db.patch(provisioningRunId, {
+        state: "succeeded",
+        currentStep: "finish",
+        updatedAt: 3,
+        completedAt: 3,
+      });
+      return await ctx.db.insert("workflow_vaultDeletion_runs", {
+        state: "queued",
+        organizationId: ids.organizationId,
+        userId: ids.deletingUserId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "example/shared",
+        createdAt: 4,
+        updatedAt: 4,
+        attempt: { kind: "initial" },
+        workflow: { state: "not_started" },
+        currentStep: "initialize_deletion",
+        snapshot: {
+          state: "retained_for_retry",
+          plan: {
+            target: {
+              kind: "failed_repository_setup",
+              githubMode: "connect_existing_repository",
+              owner: "example",
+              name: "shared",
+              repositoryFullName: "example/shared",
+            },
+            convex: { action: "skip", reason: "not_requested" },
+            cloudflare: { action: "skip", reason: "not_requested" },
+            githubRepository: { action: "skip", reason: "no_confirmed_identity" },
+          },
+        },
+      });
+    });
+
+    await expect(
+      t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({ state: "waiting", blocker: "active_vault_deletion" });
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(deletionRunId, {
+        state: "failed",
+        updatedAt: 5,
+        lastError: "Expected test failure.",
+        completedAt: 5,
+      });
+      await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId: ids.teammateUserId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "example/shared",
+        trigger: "retry",
+        state: "running",
+        currentStep: "claim_infra",
+        createdAt: 6,
+        updatedAt: 6,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({ state: "done" });
+  });
+
   it("removes the member's credentials and personal access but preserves shared data", async () => {
     const { ids, t } = await seedRunningDeletion();
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client");

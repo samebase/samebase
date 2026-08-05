@@ -1,6 +1,6 @@
 import type { Id, TableNames } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import { requireAnotherActiveOrganizationOwner } from "../organizationAccess";
 import { readOwnedActiveRun } from "./stepContext";
 
@@ -74,6 +74,53 @@ type AccountDataTableName = {
 
 const ACCOUNT_DATA_BATCH_SIZE = 25;
 type AccountDataCleanupCtx = Pick<MutationCtx, "db">;
+
+const accountDeletionQuiescenceResult = v.union(
+  v.object({ state: v.literal("done") }),
+  v.object({ state: v.literal("waiting"), blocker: v.literal("active_vault_deletion") }),
+  v.object({ state: v.literal("waiting"), blocker: v.literal("active_app_provisioning") }),
+);
+type AccountDeletionQuiescenceResult = Infer<typeof accountDeletionQuiescenceResult>;
+
+async function findActiveVaultDeletion(
+  ctx: AccountDataCleanupCtx,
+  userId: Id<"users">,
+): Promise<Id<"workflow_vaultDeletion_runs"> | null> {
+  for (const state of ["queued", "running"] as const) {
+    const run = await ctx.db
+      .query("workflow_vaultDeletion_runs")
+      .withIndex("by_user_and_state_and_updated_at", (query) =>
+        query.eq("userId", userId).eq("state", state),
+      )
+      .order("asc")
+      .first();
+    if (run !== null) {
+      return run._id;
+    }
+  }
+
+  return null;
+}
+
+async function findActiveAppProvisioning(
+  ctx: AccountDataCleanupCtx,
+  userId: Id<"users">,
+): Promise<Id<"workflow_vaultProvisioning_runs"> | null> {
+  for (const state of ["queued", "running"] as const) {
+    const run = await ctx.db
+      .query("workflow_vaultProvisioning_runs")
+      .withIndex("by_user_and_state_and_updated_at", (query) =>
+        query.eq("userId", userId).eq("state", state),
+      )
+      .order("asc")
+      .first();
+    if (run !== null) {
+      return run._id;
+    }
+  }
+
+  return null;
+}
 
 async function deleteRowsById<TableName extends TableNames>(
   ctx: AccountDataCleanupCtx,
@@ -252,5 +299,25 @@ export const cleanupAccountDataBatch = internalMutation({
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
     return await cleanupAccountDataBatchForUser(ctx, { userId: run.identity.userId });
+  },
+});
+
+export const inspectQuiescence = internalMutation({
+  args: {
+    runId: v.id("workflow_accountDeletion_runs"),
+    workflowId: v.string(),
+  },
+  returns: accountDeletionQuiescenceResult,
+  handler: async (ctx, args): Promise<AccountDeletionQuiescenceResult> => {
+    const run = await readOwnedActiveRun(ctx, args);
+
+    if (await findActiveVaultDeletion(ctx, run.identity.userId)) {
+      return { state: "waiting", blocker: "active_vault_deletion" };
+    }
+    if (await findActiveAppProvisioning(ctx, run.identity.userId)) {
+      return { state: "waiting", blocker: "active_app_provisioning" };
+    }
+
+    return { state: "done" };
   },
 });

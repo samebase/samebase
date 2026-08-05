@@ -111,13 +111,14 @@ connectedByUserId: Id<"users">
 kind: "convex" | "cloudflare"
 ```
 
-The schema permits several connections of one kind in one organization. The first UI can show and
-use one current connection without adding a database uniqueness rule. The organization stores an
-optional selected Convex connection ID and an optional selected Cloudflare connection ID for this
-current UI. It never stores a selected GitHub connection ID. The user who connects a credential is
-provenance, not the authorization boundary. Organization membership controls use. Any member can run
-operations through the selected connection. Only an owner can create, replace, select, reauthorize,
-or disconnect an organization connection.
+The current schema permits several connections of one kind in one organization. This storage shape
+is not a long-term cardinality promise. A focused provider-connection task can keep or replace it
+when multi-connection behavior and disconnect semantics are defined. The first UI shows and uses one
+selected connection. The organization stores an optional selected Convex connection ID and an
+optional selected Cloudflare connection ID for this UI. It never stores a selected GitHub connection
+ID. The user who connects a credential is provenance, not the authorization boundary. Organization
+membership controls use. Any member can run operations through the selected connection. Only an
+owner can create, replace, select, reauthorize, or disconnect an organization connection.
 
 Provider credentials stay in backend-only functions. Product clients can request authorized
 operations and read non-secret status. They cannot retrieve credentials or raw provider errors.
@@ -255,6 +256,8 @@ required before production deployment, not before development implementation and
 - Persisted active-organization state or opaque organization query parameters
 - WorkOS, Clerk, SSO, Directory Sync, or SCIM implementation
 - GitHub installation lifecycle webhooks before the main installation flow works
+- Unified GitHub organization and repository rename synchronization
+- Multi-connection provider management and final provider-connection cardinality
 - Changing the temporary waitlist and approval gate
 - Multi-member FileView commit coordination
 - Backward-compatible pre-beta migration machinery
