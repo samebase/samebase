@@ -126,8 +126,8 @@ Status: Complete on the replacement branch
   selection APIs. The branch remains deletion-heavy against `origin/main`.
 - Shared staged rows no longer store or authorize through a user owner. Vault organization
   membership authorizes writes, and `lastEditUserId` keeps latest-actor provenance.
-- Samebase typecheck, app build, focused lint and format checks, and 69 focused role and route tests
-  pass after the final reduction.
+- `pnpm check` and the full unit suite pass after the final reduction: 265 test files passed, with
+  1,890 tests passed and one skipped.
 
 ## Development Manual Results
 
@@ -188,6 +188,11 @@ Status: Complete on the replacement branch
   test organization, two selected organization provider connections, organization-matching vault
   resources and provisioning plans for both new apps, and isolation for the `nicu-typescript` vault.
   Credential fields were not printed or copied.
+- A post-review browser pass confirmed that a pending account can open Settings without blocked
+  setup actions. Invalid owner routes recovered and kept other query parameters. Owner and member
+  reloads restored the member-created vault with its GitHub repository, Worker, Convex project, and
+  `3/3 passed` state. The member stayed isolated from `nicu-typescript` and did not receive
+  owner-only provider controls.
 
 ## Manual Acceptance Order
 
