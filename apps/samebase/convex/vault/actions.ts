@@ -457,7 +457,10 @@ async function checkConvexProjectNameAvailability(
 
   try {
     return await checkConvexProjectNameAvailabilityForConnection({
-      connection: await resolveSelectedConvexProvisioningConnection(ctx, args),
+      connection: await resolveSelectedConvexProvisioningConnection(ctx, {
+        userId: args.userId,
+        organizationId: args.organizationId,
+      }),
       projectName: args.projectName,
     });
   } catch (error) {

@@ -77,9 +77,11 @@ Both Apps have repository Administration read/write, Checks read, Commit statuse
 read/write, Pull requests read/write, Workflows read/write, and automatic Metadata read.
 
 Development Convex has the App ID, slug, client ID, client secret, private key, and OAuth callback
-URL. The client secret and private key were validated against GitHub without printing them.
-Production credentials are required before production deployment, not for local or development
-validation.
+URL. The client secret and private key were validated against GitHub without printing them. Convert
+each GitHub-generated RSA private key to unencrypted PKCS#8 before storing it as
+`GITHUB_APP_PRIVATE_KEY`; the GitHub download is PKCS#1, which the Convex Web Crypto runtime cannot
+import. Production credentials are required before production deployment, not for local or
+development validation.
 
 ## Implementation Checkpoints
 
@@ -112,7 +114,8 @@ Status: In progress
 - Full TypeScript validation and the focused organization test set pass.
 - The implementation diff removes substantially more code than it adds.
 - An organization-bound MCP grant no longer exposes the full-user browser handoff tool.
-- Reset disposable local product data.
+- Development data reset complete: four user and authentication records remain; organization,
+  membership, billing, provider, vault, workflow, staging, and MCP authorization rows were removed.
 - Run real two-user and multiple-organization manual flows with OAuth credentials.
 - Validate vault reload, GitHub, Convex, Cloudflare, observations, MCP, and denied access.
 - Record exact evidence and remaining production cutover work.
