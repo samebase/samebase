@@ -7,7 +7,10 @@ import { guard, isRecord } from "@samebase/dependent";
 import { readEnvFile, type EnvFile } from "./lib/envFile.ts";
 import { resolveRepoRoot } from "./lib/scriptRuntime.ts";
 import { samebaseAppFilePath } from "./lib/trackedFilePath.ts";
-import { WORKTREE_ENV_ALLOWLIST } from "./worktree-env-allowlist.ts";
+import {
+  WORKTREE_ENV_ALLOWLIST,
+  WORKTREE_REQUIRED_SOURCE_ENV_NAMES,
+} from "./worktree-env-allowlist.ts";
 import {
   buildCloudDeploymentUrl,
   extractMatchingDeploymentDeployKey,
@@ -140,13 +143,25 @@ async function main() {
   // classify them. Never copy the source's value: it would override the local anonymous
   // specifier written below and re-profile the worktree deployment as convex_dev, which
   // disables password account seeding.
-  const entries = (
-    await listDeploymentEnvVars({
-      appDir,
-      envFile: validatedSource.path,
-      sourceDeployment: validatedSource.deployment,
-    })
-  ).filter(({ name }) => WORKTREE_ENV_ALLOWLIST.has(name) && name !== "CONVEX_DEPLOYMENT");
+  const sourceEntries = await listDeploymentEnvVarsWithDeployKey({
+    appDir,
+    deploymentName: validatedSource.deployment.name,
+    deployKey: validatedSource.deployKey,
+  });
+  const sourceEntryNames = new Set(
+    sourceEntries.filter(({ value }) => value.trim().length > 0).map(({ name }) => name),
+  );
+  const missingRequiredNames = WORKTREE_REQUIRED_SOURCE_ENV_NAMES.filter(
+    (name) => !sourceEntryNames.has(name),
+  );
+  if (missingRequiredNames.length > 0) {
+    exitWithError(
+      `Source development deployment is missing required worktree env values: ${missingRequiredNames.join(", ")}`,
+    );
+  }
+  const entries = sourceEntries.filter(
+    ({ name }) => WORKTREE_ENV_ALLOWLIST.has(name) && name !== "CONVEX_DEPLOYMENT",
+  );
 
   const sorted = entries.slice().sort((a, b) => a.name.localeCompare(b.name));
 
@@ -267,8 +282,8 @@ function isAnonymousLikeDeploymentName(name: string): boolean {
 
 function validateSourceEnvPrereqs(): {
   path: string;
-  envFile: EnvFile;
   deployment: Deployment;
+  deployKey: string;
 } | null {
   const sourceEnvPath = options.sourceEnv
     ? path.resolve(options.sourceEnv)
@@ -300,7 +315,8 @@ function validateSourceEnvPrereqs(): {
     );
   }
 
-  if (findMatchingSourceDeployKey(sourceEnv, sourceDeployment) === null) {
+  const deployKey = findMatchingSourceDeployKey(sourceEnv, sourceDeployment);
+  if (deployKey === null) {
     exitWithMissingSourceDeployKeyError({
       envFile: sourceEnv.path,
       deployment: sourceDeployment.raw,
@@ -309,8 +325,8 @@ function validateSourceEnvPrereqs(): {
 
   return {
     path: sourceEnv.path,
-    envFile: sourceEnv,
     deployment: sourceDeployment,
+    deployKey,
   };
 }
 
@@ -330,64 +346,6 @@ function findMatchingSourceDeployKey(
     rawDeployKey: sourceEnv.vars.CONVEX_DEPLOY_KEY,
     sourceDeployment,
   });
-}
-
-async function listDeploymentEnvVars({
-  appDir,
-  envFile,
-  sourceDeployment,
-}: {
-  appDir: string;
-  envFile: string;
-  sourceDeployment: Deployment;
-}): Promise<EnvEntry[]> {
-  const matchingDeployKey = extractMatchingDeploymentDeployKey({
-    rawDeployKey: process.env.CONVEX_DEPLOY_KEY,
-    sourceDeployment,
-  });
-
-  if (matchingDeployKey !== null) {
-    return await listDeploymentEnvVarsWithDeployKey({
-      appDir,
-      deploymentName: sourceDeployment.name,
-      deployKey: matchingDeployKey,
-    });
-  }
-
-  const result = spawnSync("npx", ["convex", "env", "list", "--env-file", envFile], {
-    cwd: appDir,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-
-  if (result.status !== 0) {
-    const output = `${result.stdout || ""}\n${result.stderr || ""}`.trim();
-    if (output.includes("MissingAccessToken")) {
-      exitWithMissingSourceDeployKeyError({
-        envFile,
-        deployment: sourceDeployment.raw,
-      });
-    }
-    const message = output || "convex env list failed";
-    exitWithError(message);
-  }
-
-  const output = (result.stdout || "").trim();
-  if (!output || output === "No environment variables set.") {
-    return [];
-  }
-
-  const entries: EnvEntry[] = [];
-  for (const line of output.split(/\r?\n/)) {
-    const eqIndex = line.indexOf("=");
-    if (eqIndex <= 0) {
-      continue;
-    }
-    const name = line.slice(0, eqIndex);
-    const value = line.slice(eqIndex + 1);
-    entries.push({ name, value });
-  }
-  return entries;
 }
 
 async function listDeploymentEnvVarsWithDeployKey({

@@ -140,9 +140,7 @@ describe("run-worktree-dev", () => {
       ["validate anonymous seed env prerequisites", "once-bootstrap"],
       ["bootstrap the current worktree", "always"],
       ["generate tracked file path types", "always"],
-      ["bootstrap the anonymous local backend once", "always"],
-      ["sync allowlisted seed env values into the local backend", "once-bootstrap"],
-      ["seed the local password-auth development account", "once-bootstrap"],
+      ["bootstrap and seed the anonymous local backend", "once-bootstrap"],
       ["refresh anonymous auth keys", "once-bootstrap"],
       ["launch the long-running worktree dev server", "long-running"],
     ]);
@@ -166,7 +164,7 @@ describe("run-worktree-dev", () => {
 
     expect(plan.filter(({ stdio }) => stdio !== undefined)).toEqual([
       expect.objectContaining({
-        label: "bootstrap the anonymous local backend once",
+        label: "bootstrap and seed the anonymous local backend",
         stdio: ["ignore", "inherit", "inherit"],
       }),
     ]);

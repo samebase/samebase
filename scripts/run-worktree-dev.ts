@@ -233,39 +233,18 @@ export function buildWorktreeDevCommandPlan(
       phase: "always",
     },
     {
-      label: "bootstrap the anonymous local backend once",
-      cwd: appDir,
-      command: process.execPath,
-      args: [
-        path.join(appDir, samebaseAppFilePath("scripts/convex-dev.ts")),
-        "--once",
-        "--codegen=enable",
-        "--tail-logs=disable",
-        "--typecheck=disable",
-      ],
-      env: anonymousEnv,
-      phase: "always",
-      // Convex uses TTY stdin as the condition to refresh tracked AI files during
-      // first-time local deployment setup. Backend bootstrap needs no input.
-      stdio: ["ignore", "inherit", "inherit"],
-    },
-    {
-      label: "sync allowlisted seed env values into the local backend",
+      label: "bootstrap and seed the anonymous local backend",
       cwd: repoRoot,
       command: process.execPath,
       args: [
-        path.join(repoRoot, trackedFilePath("scripts/convex-sync-dev-env.ts")),
+        path.join(repoRoot, trackedFilePath("scripts/convex-seed-dev-auth.ts")),
         ...buildWorktreeDevSeedEnvArgs(options, "sync"),
       ],
       env: seedEnv,
       phase: "once-bootstrap",
-    },
-    {
-      label: "seed the local password-auth development account",
-      cwd: repoRoot,
-      command: process.execPath,
-      args: [path.join(repoRoot, trackedFilePath("scripts/convex-seed-dev-auth.ts"))],
-      phase: "once-bootstrap",
+      // Convex uses TTY stdin as the condition to refresh tracked AI files during
+      // first-time local deployment setup. Backend bootstrap needs no input.
+      stdio: ["ignore", "inherit", "inherit"],
     },
     {
       label: "refresh anonymous auth keys",
