@@ -76,19 +76,22 @@ Production App:
 - Client ID: `Iv23lidFhcIUMzBjZUdN`
 - Callback: `https://api.samebase.com/oauth/github/callback`
 - Public page: https://github.com/apps/samebase
-- Production public Convex settings: Configured
-- Production client secret and private key: Not generated yet
+- Production Convex settings and credentials: Configured and validated
+- User authorization during installation: Enabled
+- Expiring user tokens: Enabled
+- Webhooks: Disabled for the first main-flow implementation
 
 Both Apps have repository Administration read/write, Checks read, Commit statuses read, Contents
-read/write, Pull requests read/write, Workflows read/write, and automatic Metadata read. Both Apps
-still require organization Members read before the next installation or reconnection.
+read/write, Pull requests read/write, Workflows read/write, organization Members read, and automatic
+Metadata read. Both development installations accepted the added Members permission.
 
 Development Convex has the App ID, slug, client ID, client secret, private key, and OAuth callback
 URL. The client secret and private key were validated against GitHub without printing them. Convert
 each GitHub-generated RSA private key to unencrypted PKCS#8 before storing it as
 `GITHUB_APP_PRIVATE_KEY`; the GitHub download is PKCS#1, which the Convex Web Crypto runtime cannot
-import. Production credentials are required before production deployment, not for local or
-development validation.
+import. Production Convex now has all six required GitHub App settings. The stored private key
+successfully authenticated the exact production App through GitHub's API. Only one active client
+secret and one private key remain after setup, and the downloaded private-key file was removed.
 
 ## Implementation Checkpoints
 
@@ -260,8 +263,6 @@ Clear `observations_vaultConvexSchema_snapshots` before deploying the schema tha
 
 ## Current Blockers
 
-- Add organization Members read to the development and production GitHub Apps.
-- Generate and configure the production GitHub App client secret and private key.
 - Cancel the active pre-beta Polar test subscription before removing its legacy user billing state.
 - Revoke the eight old user-owned provider connections before the production data reset.
 
@@ -270,5 +271,6 @@ blocker for this rollout.
 
 ## Next Exact Task
 
-Generate and configure the production GitHub App secrets. Then perform the accepted pre-beta
-product-data reset and deploy the strict schema.
+Cancel the pre-beta Polar test subscription and revoke old provider credentials. Then take a
+production backup, perform the accepted product-data reset, merge the PR, and verify the strict
+schema deployment.
