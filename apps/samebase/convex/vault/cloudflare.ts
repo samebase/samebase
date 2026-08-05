@@ -408,10 +408,9 @@ async function createWorkerForManagedWorkflow(
   if (!plan) {
     throw new Error("Infrastructure provisioning plan not found for vault.");
   }
-  const connection = await resolveCloudflareConnection(ctx, {
+  const connection = await resolveSelectedCloudflareConnection(ctx, {
     userId: args.userId,
     organizationId: context.organizationId,
-    providerConnectionId: plan.cloudflareProviderConnectionId,
   });
   const account = await resolveAccount({
     token: connection.token,
@@ -480,6 +479,7 @@ async function createWorkerForManagedWorkflow(
       vaultId: args.vaultId,
       runId: args.runId,
       userId: args.userId,
+      providerConnectionId: connection.providerConnectionId,
       accountId: account.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,

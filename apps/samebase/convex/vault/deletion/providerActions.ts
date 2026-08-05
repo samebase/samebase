@@ -74,18 +74,29 @@ export const deleteCloudflare = internalAction({
     if (workers.length === 0) {
       throw new Error("Cloudflare deletion plan must include at least one Worker.");
     }
+    const selectedConnection = await ctx.runQuery(
+      internal.providerConnections.loadSelectedForOrganization,
+      {
+        organizationId: run.organizationId,
+        userId: run.userId,
+        kind: "cloudflare",
+      },
+    );
+    if (selectedConnection?.kind !== "cloudflare") {
+      throw new Error("Cloudflare connection is required to remove resources.");
+    }
+    const connection = await ctx.runAction(
+      internal.cloudflareOAuth.resolveConnectionForOrganization,
+      {
+        organizationId: run.organizationId,
+        providerConnectionId: selectedConnection._id,
+        userId: run.userId,
+      },
+    );
+    if (!connection) {
+      throw new Error("Cloudflare connection is required to remove resources.");
+    }
     for (const worker of workers) {
-      const connection = await ctx.runAction(
-        internal.cloudflareOAuth.resolveConnectionForOrganization,
-        {
-          organizationId: run.organizationId,
-          providerConnectionId: worker.providerConnectionId,
-          userId: run.userId,
-        },
-      );
-      if (!connection) {
-        throw new Error("Cloudflare connection is required to remove resources.");
-      }
       try {
         await deleteCloudflareResources({
           accountId: worker.accountId,
@@ -126,13 +137,15 @@ export const deleteConvex = internalAction({
       throw new Error("Convex deletion plan must include at least one project.");
     }
     for (const project of plan.convex.projects) {
-      const connection = await ctx.runQuery(internal.providerConnections.loadByIdForOrganization, {
-        organizationId: run.organizationId,
-        providerConnectionId: project.providerConnectionId,
-        userId: run.userId,
-        kind: "convex",
-      });
-      if (connection?.kind !== "convex" || connection.teamId !== project.teamId) {
+      const connection = await ctx.runQuery(
+        internal.providerConnections.loadConvexForOrganizationTeam,
+        {
+          organizationId: run.organizationId,
+          teamId: project.teamId,
+          userId: run.userId,
+        },
+      );
+      if (connection === null) {
         throw new Error("Convex connection is required to remove resources.");
       }
       try {

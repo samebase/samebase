@@ -86,7 +86,6 @@ const providerCleanupPlan = {
       action: literal("delete_projects"),
       projects: array(
         object({
-          providerConnectionId: id("providerConnections"),
           teamId: string(),
           projectId: string(),
         }),
@@ -107,7 +106,6 @@ const providerCleanupPlan = {
       action: literal("delete_workers"),
       workers: array(
         object({
-          providerConnectionId: id("providerConnections"),
           accountId: string(),
           workerName: string(),
           workerTag: string(),

@@ -235,12 +235,25 @@ async function readCloudflareObservationInput(
   ctx: Pick<ActionCtx, "runAction" | "runQuery">,
   args: {
     organizationId: Id<"organizations">;
-    providerConnectionId: Id<"providerConnections">;
     userId: Id<"users">;
   },
 ) {
+  const selectedConnection = await ctx.runQuery(
+    internal.providerConnections.loadSelectedForOrganization,
+    {
+      organizationId: args.organizationId,
+      userId: args.userId,
+      kind: "cloudflare",
+    },
+  );
+  if (selectedConnection?.kind !== "cloudflare") {
+    return { state: "failed" as const, reason: "connection_required" as const };
+  }
   const connectionResolution = await ctx
-    .runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, args)
+    .runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
+      ...args,
+      providerConnectionId: selectedConnection._id,
+    })
     .then(
       (connection) => ({ state: "available" as const, connection }),
       () => ({ state: "failed" as const }),
@@ -279,12 +292,11 @@ export const observeCloudflareWorkers = action({
       >
     >();
     const readAccountSubdomain = (input: {
-      providerConnectionId: Id<"providerConnections">;
       accountId: string;
       token: string;
       transport: ReturnType<typeof resolveCloudflareApiTransport>;
     }) => {
-      const key = `${input.providerConnectionId}:${input.accountId}`;
+      const key = input.accountId;
       const existing = accountSubdomainRequests.get(key);
       if (existing) {
         return existing;
@@ -306,7 +318,6 @@ export const observeCloudflareWorkers = action({
         try {
           const input = await readCloudflareObservationInput(ctx, {
             organizationId: context.organizationId,
-            providerConnectionId: worker.providerConnectionId,
             userId: ctx.viewer.userId,
           });
           if (input.state === "failed") {
@@ -320,7 +331,6 @@ export const observeCloudflareWorkers = action({
               workerName: worker.workerName,
             }),
             readAccountSubdomain({
-              providerConnectionId: worker.providerConnectionId,
               accountId: worker.accountId,
               token: input.token,
               transport: input.transport,
@@ -394,7 +404,6 @@ export const observeCloudflareWorkerBuilds = action({
         try {
           const input = await readCloudflareObservationInput(ctx, {
             organizationId: context.organizationId,
-            providerConnectionId: worker.providerConnectionId,
             userId: ctx.viewer.userId,
           });
           if (input.state === "failed") {
@@ -505,7 +514,6 @@ export const observeCloudflareWorkerConvexBuildAccess = action({
         try {
           const input = await readCloudflareObservationInput(ctx, {
             organizationId: context.organizationId,
-            providerConnectionId: worker.providerConnectionId,
             userId: ctx.viewer.userId,
           });
           if (input.state === "failed") {
@@ -608,12 +616,11 @@ export const observeConvexProjects = action({
         }
 
         const connection = await ctx.runQuery(
-          internal.providerConnections.loadByIdForOrganization,
+          internal.providerConnections.loadConvexForOrganizationTeam,
           {
             userId: ctx.viewer.userId,
             organizationId: context.organizationId,
-            providerConnectionId: project.providerConnectionId,
-            kind: "convex",
+            teamId: project.teamId,
           },
         );
         const token = connection?.kind === "convex" ? connection.auth.credential.trim() : "";

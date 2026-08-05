@@ -17,7 +17,6 @@ const vVaultProviderObservationContext = object({
   cloudflareWorkers: array(
     object({
       workerId: id("vaultCloudflareWorkers"),
-      providerConnectionId: id("providerConnections"),
       accountId: string(),
       workerName: string(),
       workerTag: string(),
@@ -26,7 +25,6 @@ const vVaultProviderObservationContext = object({
   convexProjects: array(
     object({
       convexProjectId: id("vaultConvexProjects"),
-      providerConnectionId: id("providerConnections"),
       teamId: string(),
       projectId: string(),
       codeLocation: vConvexCodeLocation,
@@ -99,7 +97,6 @@ export const readVaultProviderObservationContext = internalQuery({
       cloudflareWorkers: workers
         .map((worker) => ({
           workerId: worker._id,
-          providerConnectionId: worker.providerConnectionId,
           accountId: worker.accountId,
           workerName: worker.workerName,
           workerTag: worker.workerTag,
@@ -112,7 +109,6 @@ export const readVaultProviderObservationContext = internalQuery({
       convexProjects: projects
         .map((project) => ({
           convexProjectId: project._id,
-          providerConnectionId: project.providerConnectionId,
           teamId: project.teamId,
           projectId: project.projectId,
           codeLocation: readConvexCodeLocation(project),

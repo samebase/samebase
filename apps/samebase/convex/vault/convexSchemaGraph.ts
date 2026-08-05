@@ -9,6 +9,7 @@ import { internalMutation, internalQuery, type MutationCtx } from "../_generated
 import { action, mutation, query } from "../functions";
 import { isRecord, readBoolean, readString, toErrorMessage } from "../jsonUtils";
 import { findVaultForUser, requireVaultForUser } from "../organizationAccess";
+import { getConvexProviderConnectionForTeam } from "../providerConnections";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import { isLiveConnectedVault } from "./state";
 import {
@@ -1178,18 +1179,17 @@ export const readRefreshTarget = internalQuery({
       throw new Error("Convex project not found.");
     }
 
-    const connection = await ctx.db.get(project.providerConnectionId);
-    if (connection?.kind !== "convex" || connection.organizationId !== vault.organizationId) {
+    const connection = await getConvexProviderConnectionForTeam(ctx.db, {
+      organizationId: vault.organizationId,
+      teamId: project.teamId,
+    });
+    if (connection === null) {
       throw new Error("Convex connection is required.");
     }
     const token = connection.auth.credential.trim();
     if (!token || !connection.teamId.trim()) {
       throw new Error("Convex connection is required.");
     }
-    if (connection.teamId !== project.teamId) {
-      throw new Error("Connect the Convex team that owns this project.");
-    }
-
     return {
       token,
       authMethod: connection.auth.method,

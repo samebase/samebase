@@ -71,7 +71,6 @@ export const readEmbeddedDashboardProject = internalQuery({
     object({
       teamId: string(),
       projectId: string(),
-      providerConnectionId: id("providerConnections"),
     }),
     nullValue(),
   ),
@@ -91,7 +90,6 @@ export const readEmbeddedDashboardProject = internalQuery({
     return {
       teamId: project.teamId,
       projectId: project.projectId,
-      providerConnectionId: project.providerConnectionId,
     };
   },
 });
@@ -160,12 +158,14 @@ async function readVaultDatabaseDeploymentContext(
     return { kind: "missing_deployment" };
   }
 
-  const connection = await ctx.runQuery(internal.providerConnections.loadByIdForOrganization, {
-    userId: ctx.viewer.userId,
-    organizationId: vault.organizationId,
-    providerConnectionId: project.providerConnectionId,
-    kind: "convex",
-  });
+  const connection = await ctx.runQuery(
+    internal.providerConnections.loadConvexForOrganizationTeam,
+    {
+      userId: ctx.viewer.userId,
+      organizationId: vault.organizationId,
+      teamId: project.teamId,
+    },
+  );
   if (connection?.kind !== "convex") {
     return { kind: "missing_connection" };
   }

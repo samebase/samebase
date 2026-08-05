@@ -35,6 +35,8 @@ review transcripts, or a per-commit journal.
 - Several Convex or Cloudflare connections per organization are valid in the schema.
 - Long-lived Convex and Cloudflare resource rows use stable external team, project, account, and
   Worker IDs. They do not depend on a replaceable `providerConnections` ID.
+- Persistent provisioning plans and deletion retry snapshots also use external provider resource
+  IDs. They resolve the current usable connection when work runs or retries.
 - Vaults, billing, quotas, and provider resources are organization-owned. MCP grants act as their
   Samebase user across that user's current organization memberships.
 - Vault routes derive organization context from `/vault/<owner>/<repository>` and have no opaque
@@ -260,7 +262,8 @@ Status: Complete on the replacement branch
 - MCP acts on behalf of the Samebase user across current memberships. The organization chooser and
   organization ID on MCP grants are removed instead of extended.
 - Cloudflare account visibility remains a simple business rule for this rollout. Attached resources
-  keep stable external account IDs and resolve a current organization credential for that account.
+  keep stable external account IDs. Operations use the current selected organization credential, and
+  Cloudflare verifies its access to the resource account.
 - The operator membership function accepts a required role. Every organization must retain an owner,
   with no invitation UI or general role editor in this rollout.
 - Vaults use `organizations.githubOwnerLogin` as current route and display data. Historical workflow

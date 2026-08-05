@@ -120,8 +120,6 @@ export const vaultProvisioningTables = {
    */
   workflow_vaultProvisioning_plans: defineTable({
     vaultId: id("vaults"),
-    convexProviderConnectionId: id("providerConnections"),
-    cloudflareProviderConnectionId: id("providerConnections"),
     convexConfigPath: string(),
     convex: union(
       object({

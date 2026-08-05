@@ -159,7 +159,6 @@ export const readComposedInfrastructureState = internalQuery({
       convexProject &&
       (convexProject.vaultId !== args.vaultId ||
         convexProject.organizationId !== vault.organizationId ||
-        convexProject.providerConnectionId !== plan.convexProviderConnectionId ||
         !convexCheckpoint ||
         convexProject.teamId !== convexCheckpoint.teamId ||
         !("convexConfigPath" in convexProject) ||
@@ -171,7 +170,6 @@ export const readComposedInfrastructureState = internalQuery({
       worker &&
       (worker.vaultId !== args.vaultId ||
         worker.organizationId !== vault.organizationId ||
-        worker.providerConnectionId !== plan.cloudflareProviderConnectionId ||
         !cloudflareCheckpoint ||
         worker.accountId !== cloudflareCheckpoint.accountId ||
         worker.workerName !== cloudflareCheckpoint.workerName ||

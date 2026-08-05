@@ -46,7 +46,7 @@ async function seedDatabaseEditorVault(
       githubOwnerType: "user",
     });
     await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
-    const providerConnectionId = await ctx.db.insert("providerConnections", {
+    await ctx.db.insert("providerConnections", {
       kind: "convex",
       organizationId,
       connectedByUserId: userId,
@@ -88,7 +88,6 @@ async function seedDatabaseEditorVault(
     const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
       vaultId,
       organizationId,
-      providerConnectionId,
       teamId: "1000",
       projectId: "1001",
       convexConfigPath: "convex.json",

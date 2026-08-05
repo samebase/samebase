@@ -249,16 +249,14 @@ export const validateCreateAppConnections = internalAction({
       throw new Error("Infrastructure provisioning plan not found for vault.");
     }
     const [convexConnection, cloudflareConnection] = await Promise.all([
-      ctx.runQuery(internal.providerConnections.loadByIdForOrganization, {
+      ctx.runQuery(internal.providerConnections.loadConvexForOrganizationTeam, {
         userId: args.userId,
         organizationId: access.organizationId,
-        providerConnectionId: plan.convexProviderConnectionId,
-        kind: "convex",
+        teamId: plan.convex.teamId,
       }),
-      ctx.runQuery(internal.providerConnections.loadByIdForOrganization, {
+      ctx.runQuery(internal.providerConnections.loadSelectedForOrganization, {
         userId: args.userId,
         organizationId: access.organizationId,
-        providerConnectionId: plan.cloudflareProviderConnectionId,
         kind: "cloudflare",
       }),
     ]);

@@ -14,7 +14,10 @@ import { readVaultDeletionEligibility } from "./eligibility";
 import { isConnectedVault } from "../state";
 import { readVaultDeletionState } from "./state";
 import { requireVaultForUser } from "../../organizationAccess";
-import { getProviderConnectionByIdForOrganization } from "../../providerConnections";
+import {
+  getConvexProviderConnectionForTeam,
+  getSelectedProviderConnectionForOrganization,
+} from "../../providerConnections";
 
 const { boolean, id, literal, object, string, union } = v;
 
@@ -53,25 +56,16 @@ async function assertVaultIsQuiescentForDeletion(
 
 function buildConvexProjectDeletionPlan(
   projects: Array<{
-    providerConnectionId: Id<"providerConnections">;
     teamId: string;
     projectId: string;
   }>,
 ): Exclude<VaultDeletionPlan["convex"], { action: "skip" }> | null {
   const projectsByIdentity = new Map(
-    projects.map(
-      (project) =>
-        [
-          `${project.providerConnectionId}:${project.teamId}:${project.projectId}`,
-          project,
-        ] as const,
-    ),
+    projects.map((project) => [`${project.teamId}:${project.projectId}`, project] as const),
   );
   const uniqueProjects = [...projectsByIdentity.values()].sort(
     (left, right) =>
-      left.providerConnectionId.localeCompare(right.providerConnectionId) ||
-      left.teamId.localeCompare(right.teamId) ||
-      left.projectId.localeCompare(right.projectId),
+      left.teamId.localeCompare(right.teamId) || left.projectId.localeCompare(right.projectId),
   );
   if (uniqueProjects.length === 0) {
     return null;
@@ -96,7 +90,6 @@ async function buildConvexPlan(
     return { action: "skip", reason: "not_recorded" };
   }
   const createdProjects: Array<{
-    providerConnectionId: Id<"providerConnections">;
     teamId: string;
     projectId: string;
   }> = [];
@@ -107,7 +100,6 @@ async function buildConvexPlan(
     }
     if (project.origin === "provisioned") {
       createdProjects.push({
-        providerConnectionId: project.providerConnectionId,
         teamId: project.teamId,
         projectId: project.projectId,
       });
@@ -117,12 +109,11 @@ async function buildConvexPlan(
   const projectPlan = buildConvexProjectDeletionPlan(createdProjects);
   if (projectPlan) {
     for (const project of projectPlan.projects) {
-      const connection = await getProviderConnectionByIdForOrganization(ctx.db, {
+      const connection = await getConvexProviderConnectionForTeam(ctx.db, {
         organizationId: vault.organizationId,
-        providerConnectionId: project.providerConnectionId,
-        kind: "convex",
+        teamId: project.teamId,
       });
-      if (connection?.kind !== "convex" || connection.teamId !== project.teamId) {
+      if (connection === null) {
         throw new Error("Convex connection is required to remove resources.");
       }
     }
@@ -161,8 +152,7 @@ async function buildCloudflarePlan(
       (left, right) =>
         left.workerName.localeCompare(right.workerName) ||
         left.accountId.localeCompare(right.accountId) ||
-        left.workerTag.localeCompare(right.workerTag) ||
-        left.providerConnectionId.localeCompare(right.providerConnectionId),
+        left.workerTag.localeCompare(right.workerTag),
     );
   if (workers.some((worker) => worker.organizationId !== vault.organizationId)) {
     throw new Error("Vault Cloudflare Worker organization does not match its vault.");
@@ -171,21 +161,17 @@ async function buildCloudflarePlan(
     return { action: "skip", reason: "not_recorded" };
   }
 
-  for (const worker of provisionedWorkers) {
-    const connection = await getProviderConnectionByIdForOrganization(ctx.db, {
-      organizationId: vault.organizationId,
-      providerConnectionId: worker.providerConnectionId,
-      kind: "cloudflare",
-    });
-    if (connection?.kind !== "cloudflare") {
-      throw new Error("Cloudflare connection is required to remove resources.");
-    }
+  const connection = await getSelectedProviderConnectionForOrganization(ctx.db, {
+    organizationId: vault.organizationId,
+    kind: "cloudflare",
+  });
+  if (connection?.kind !== "cloudflare") {
+    throw new Error("Cloudflare connection is required to remove resources.");
   }
 
   return {
     action: "delete_workers",
     workers: provisionedWorkers.map((worker) => ({
-      providerConnectionId: worker.providerConnectionId,
       accountId: worker.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
@@ -291,27 +277,23 @@ async function assertPlanProviderConnections(
 ): Promise<void> {
   if (args.plan.convex.action !== "skip") {
     for (const project of args.plan.convex.projects) {
-      const connection = await getProviderConnectionByIdForOrganization(ctx.db, {
+      const connection = await getConvexProviderConnectionForTeam(ctx.db, {
         organizationId: args.organizationId,
-        providerConnectionId: project.providerConnectionId,
-        kind: "convex",
+        teamId: project.teamId,
       });
-      if (connection?.kind !== "convex" || connection.teamId !== project.teamId) {
+      if (connection === null) {
         throw new Error("Convex connection is required to remove resources.");
       }
     }
   }
 
   if (args.plan.cloudflare.action === "delete_workers") {
-    for (const worker of args.plan.cloudflare.workers) {
-      const connection = await getProviderConnectionByIdForOrganization(ctx.db, {
-        organizationId: args.organizationId,
-        providerConnectionId: worker.providerConnectionId,
-        kind: "cloudflare",
-      });
-      if (connection?.kind !== "cloudflare") {
-        throw new Error("Cloudflare connection is required to remove resources.");
-      }
+    const connection = await getSelectedProviderConnectionForOrganization(ctx.db, {
+      organizationId: args.organizationId,
+      kind: "cloudflare",
+    });
+    if (connection?.kind !== "cloudflare") {
+      throw new Error("Cloudflare connection is required to remove resources.");
     }
   }
 }

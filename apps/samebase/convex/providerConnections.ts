@@ -181,6 +181,22 @@ export async function getProviderConnectionByIdForOrganization(
   return connection;
 }
 
+export async function getConvexProviderConnectionForTeam(
+  db: DatabaseReader,
+  args: { organizationId: Id<"organizations">; teamId: string },
+) {
+  const connection = await db
+    .query("providerConnections")
+    .withIndex("by_organization_and_kind_and_team_id", (query) =>
+      query
+        .eq("organizationId", args.organizationId)
+        .eq("kind", "convex")
+        .eq("teamId", args.teamId),
+    )
+    .unique();
+  return connection?.kind === "convex" ? connection : null;
+}
+
 export async function getSelectedProviderConnectionForOrganization(
   db: DatabaseReader,
   args: {
@@ -229,6 +245,25 @@ export const loadByIdForOrganization = internalQuery({
   },
 });
 
+export const loadConvexForOrganizationTeam = internalQuery({
+  args: {
+    organizationId: id("organizations"),
+    userId: id("users"),
+    teamId: string(),
+  },
+  returns: union(
+    vConvexProviderConnection.extend({
+      _id: id("providerConnections"),
+      _creationTime: number(),
+    }),
+    vNull(),
+  ),
+  handler: async (ctx, args) => {
+    await requireOrganizationAccessContext(ctx.db, args);
+    return await getConvexProviderConnectionForTeam(ctx.db, args);
+  },
+});
+
 export const listByConnectedByUserId = internalQuery({
   args: {
     connectedByUserId: id("users"),
@@ -258,6 +293,28 @@ export const createConnected = internalMutation({
       userId: args.connectedByUserId,
     });
     const now = Date.now();
+    if (args.connection.kind === "convex") {
+      const existing = await getConvexProviderConnectionForTeam(ctx.db, {
+        organizationId: args.organizationId,
+        teamId: args.connection.teamId,
+      });
+      if (existing !== null) {
+        await ctx.db.replace(
+          existing._id,
+          buildProviderConnection({
+            ...args,
+            createdAt: existing.createdAt,
+            updatedAt: now,
+          }),
+        );
+        await patchSelectedProviderConnection(ctx.db, {
+          organizationId: args.organizationId,
+          providerConnectionId: existing._id,
+          kind: args.connection.kind,
+        });
+        return existing._id;
+      }
+    }
     const providerConnectionId = await ctx.db.insert(
       "providerConnections",
       buildProviderConnection({ ...args, createdAt: now, updatedAt: now }),

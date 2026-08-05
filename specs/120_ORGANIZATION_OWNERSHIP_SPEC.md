@@ -125,14 +125,18 @@ operations and read non-secret status. They cannot retrieve credentials or raw p
 Long-lived `vaultConvexProjects` rows identify external resources with `teamId` and `projectId`.
 Long-lived `vaultCloudflareWorkers` rows identify external resources with `accountId`, `workerName`,
 and `workerTag`. They do not store a `providerConnections` ID. Operations resolve a current
-organization connection whose external scope matches the resource's `teamId` or `accountId`.
-Short-lived provisioning and deletion workflow rows can keep an exact provider connection ID for one
-running operation.
+organization Convex connection whose `teamId` matches the resource. Cloudflare operations use the
+organization's current selected Cloudflare connection and address the resource through its
+`accountId`; Cloudflare remains the source of truth for whether that credential can access the
+account. Persistent provisioning plans and deletion retry snapshots also use external provider
+resource IDs. One action or mutation call can carry the resolved `providerConnections` ID while it
+runs, but it does not save that ID as resource identity.
 
 Disconnect revokes OAuth access when the provider supports revocation, then removes the local
 connection. If a user account is deleted, connections whose credential grant belongs to that user
-are revoked and removed. Other organization data remains. Reconnecting the same external team or
-account restores operations on existing resources without rewriting their rows.
+are revoked and removed. Other organization data remains. Reconnecting the same Convex team or a
+Cloudflare credential with access to the same account restores operations on existing resources
+without rewriting their rows.
 
 ## Vault Identity And Routing
 

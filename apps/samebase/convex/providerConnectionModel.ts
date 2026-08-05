@@ -95,6 +95,7 @@ export const providerConnectionTables = {
   providerConnections: defineTable(vProviderConnection)
     .index("by_organization", ["organizationId"])
     .index("by_organization_and_kind", ["organizationId", "kind"])
+    .index("by_organization_and_kind_and_team_id", ["organizationId", "kind", "teamId"])
     .index("by_connected_by_user", ["connectedByUserId"])
     .index("by_kind_method", ["kind", "auth.method"]),
 

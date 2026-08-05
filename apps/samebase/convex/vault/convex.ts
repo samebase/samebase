@@ -60,33 +60,6 @@ type ProviderAttachmentVaultContext = {
 };
 type ConvexWorkerReference = ConvexAttachmentProject["workerReferences"][number];
 
-async function resolveConvexConnection(
-  ctx: Pick<ActionCtx, "runQuery">,
-  args: {
-    userId: Id<"users">;
-    organizationId: Id<"organizations">;
-    providerConnectionId: Id<"providerConnections">;
-  },
-): Promise<ConvexActionConnection> {
-  const connection = await ctx.runQuery(internal.providerConnections.loadByIdForOrganization, {
-    userId: args.userId,
-    organizationId: args.organizationId,
-    providerConnectionId: args.providerConnectionId,
-    kind: "convex",
-  });
-  const token = connection?.kind === "convex" ? connection.auth.credential.trim() : "";
-  const teamId = connection?.kind === "convex" ? connection.teamId.trim() : "";
-  if (!token || !teamId) {
-    throw new Error("Convex connection is required.");
-  }
-  return {
-    organizationId: args.organizationId,
-    providerConnectionId: args.providerConnectionId,
-    token,
-    teamId,
-  };
-}
-
 async function resolveSelectedConvexConnection(
   ctx: Pick<ActionCtx, "runQuery">,
   args: { userId: Id<"users">; organizationId: Id<"organizations"> },
@@ -109,6 +82,29 @@ async function resolveSelectedConvexConnection(
     providerConnectionId: connection._id,
     token,
     teamId,
+  };
+}
+
+async function resolveConvexConnectionForTeam(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: { userId: Id<"users">; organizationId: Id<"organizations">; teamId: string },
+): Promise<ConvexActionConnection> {
+  const connection = await ctx.runQuery(
+    internal.providerConnections.loadConvexForOrganizationTeam,
+    args,
+  );
+  if (connection?.kind !== "convex") {
+    throw new Error("Convex connection is required for the attached project team.");
+  }
+  const token = connection.auth.credential.trim();
+  if (!token) {
+    throw new Error("Convex connection is required for the attached project team.");
+  }
+  return {
+    organizationId: args.organizationId,
+    providerConnectionId: connection._id,
+    token,
+    teamId: connection.teamId,
   };
 }
 
@@ -568,10 +564,10 @@ async function createProjectForManagedWorkflow(
   if (!plan) {
     throw new Error("Infrastructure provisioning plan not found for vault.");
   }
-  const connection = await resolveConvexConnection(ctx, {
+  const connection = await resolveConvexConnectionForTeam(ctx, {
     userId: args.userId,
     organizationId: context.organizationId,
-    providerConnectionId: plan.convexProviderConnectionId,
+    teamId: plan.convex.teamId,
   });
   const checkpoint = await ctx.runQuery(
     internal.vault.convexMutations.readManagedProjectCreateCheckpoint,
@@ -644,6 +640,7 @@ async function createProjectForManagedWorkflow(
       projectName: validation.value,
       teamId: connection.teamId,
       projectId,
+      providerConnectionId: connection.providerConnectionId,
     });
   } catch (error) {
     if (
@@ -726,10 +723,9 @@ export const reconcileProjectTeam = action({
         userId: ctx.viewer.userId,
       },
     );
-    const connection = await resolveConvexConnection(ctx, {
+    const connection = await resolveSelectedConvexConnection(ctx, {
       userId: ctx.viewer.userId,
       organizationId: attachment.organizationId,
-      providerConnectionId: attachment.providerConnectionId,
     });
     await readConvexProject({ connection, projectId: attachment.projectId });
     await ctx.runMutation(internal.vault.convexMutations.reconcileProjectTeam, {

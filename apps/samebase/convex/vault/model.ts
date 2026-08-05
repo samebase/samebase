@@ -57,7 +57,6 @@ export type VaultProviderResourceOrigin = Infer<typeof vVaultProviderResourceOri
 const vVaultConvexProjectConfig = object({
   vaultId: id("vaults"),
   organizationId: id("organizations"),
-  providerConnectionId: id("providerConnections"),
   teamId: string(),
   projectId: string(),
   convexConfigPath: string(),
@@ -66,7 +65,6 @@ const vVaultConvexProjectConfig = object({
 const vVaultConvexProjectDirectory = object({
   vaultId: id("vaults"),
   organizationId: id("organizations"),
-  providerConnectionId: id("providerConnections"),
   teamId: string(),
   projectId: string(),
   convexDirectoryPath: string(),
@@ -223,7 +221,6 @@ export const vaultTables = {
   vaultCloudflareWorkers: defineTable({
     vaultId: id("vaults"),
     organizationId: id("organizations"),
-    providerConnectionId: id("providerConnections"),
     accountId: string(),
     workerName: string(),
     workerTag: string(),

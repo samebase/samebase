@@ -465,8 +465,6 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     });
     await ctx.db.insert("workflow_vaultProvisioning_plans", {
       vaultId,
-      convexProviderConnectionId: args.convexProviderConnectionId,
-      cloudflareProviderConnectionId: args.cloudflareProviderConnectionId,
       convexConfigPath: "convex.json",
       convex: {
         state: "planned",

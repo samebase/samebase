@@ -74,8 +74,6 @@ async function createComposedVault() {
     });
     const planId = await ctx.db.insert("workflow_vaultProvisioning_plans", {
       vaultId,
-      convexProviderConnectionId,
-      cloudflareProviderConnectionId,
       convexConfigPath: "convex.json",
       convex: {
         state: "planned",
@@ -131,7 +129,6 @@ async function attachComposedResources({
     const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
       vaultId: ids.vaultId,
       organizationId: ids.organizationId,
-      providerConnectionId: ids.convexProviderConnectionId,
       teamId: "convex-team",
       projectId: "convex-project",
       convexConfigPath: "convex.json",
@@ -140,7 +137,6 @@ async function attachComposedResources({
     const workerId = await ctx.db.insert("vaultCloudflareWorkers", {
       vaultId: ids.vaultId,
       organizationId: ids.organizationId,
-      providerConnectionId: ids.cloudflareProviderConnectionId,
       accountId: "cloudflare-account",
       workerName: "composed-app",
       workerTag: "composed-worker-tag",

@@ -92,7 +92,6 @@ async function readMatchingProject(
   args: {
     vaultId: Id<"vaults">;
     organizationId: Id<"organizations">;
-    providerConnectionId: Id<"providerConnections">;
     teamId: string;
     projectId: string;
     codeLocation: ConvexCodeLocation;
@@ -108,7 +107,6 @@ async function readMatchingProject(
   if (
     existing.vaultId === args.vaultId &&
     existing.organizationId === args.organizationId &&
-    existing.providerConnectionId === args.providerConnectionId &&
     existing.teamId === args.teamId &&
     getConvexCodeLocationKey(readConvexCodeLocation(existing)) ===
       getConvexCodeLocationKey(args.codeLocation)
@@ -141,8 +139,10 @@ async function insertProject(
   }
   const codeLocation = normalizeConvexCodeLocation(args.codeLocation);
   const existing = await readMatchingProject(ctx, {
-    ...args,
+    vaultId: args.vaultId,
     organizationId: vault.organizationId,
+    teamId: args.teamId,
+    projectId: args.projectId,
     codeLocation,
   });
   if (existing) {
@@ -161,7 +161,6 @@ async function insertProject(
   const commonFields = {
     vaultId: args.vaultId,
     organizationId: vault.organizationId,
-    providerConnectionId: args.providerConnectionId,
     teamId: args.teamId,
     projectId: args.projectId,
     origin: args.origin,
@@ -203,7 +202,6 @@ export const readProjectAttachmentContext = internalQuery({
   },
   returns: object({
     organizationId: id("organizations"),
-    providerConnectionId: id("providerConnections"),
     teamId: string(),
     projectId: string(),
     codeLocation: vConvexCodeLocation,
@@ -220,7 +218,6 @@ export const readProjectAttachmentContext = internalQuery({
     }
     return {
       organizationId: project.organizationId,
-      providerConnectionId: project.providerConnectionId,
       teamId: project.teamId,
       projectId: project.projectId,
       codeLocation: readConvexCodeLocation(project),
@@ -303,6 +300,7 @@ export const recordManagedProjectCreated = internalMutation({
     runId: id("workflow_vaultProvisioning_runs"),
     convexConfigPath: string(),
     projectName: string(),
+    providerConnectionId: id("providerConnections"),
     teamId: string(),
     projectId: string(),
   },
@@ -327,7 +325,6 @@ export const recordManagedProjectCreated = internalMutation({
       }
       convexProjectId = await insertProject(ctx, vault, {
         ...args,
-        providerConnectionId: plan.convexProviderConnectionId,
         codeLocation: { kind: "config", convexConfigPath },
         origin: "provisioned",
       });
@@ -346,7 +343,6 @@ export const recordManagedProjectCreated = internalMutation({
       });
       convexProjectId = await insertProject(ctx, vault, {
         ...args,
-        providerConnectionId: plan.convexProviderConnectionId,
         codeLocation: { kind: "config", convexConfigPath },
         origin: "provisioned",
       });
@@ -489,7 +485,6 @@ export const reconcileProjectCodeLocation = internalMutation({
     const commonFields = {
       vaultId: project.vaultId,
       organizationId: project.organizationId,
-      providerConnectionId: project.providerConnectionId,
       teamId: project.teamId,
       projectId: project.projectId,
       origin: project.origin,
