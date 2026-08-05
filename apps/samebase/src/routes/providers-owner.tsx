@@ -1,11 +1,28 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Navigate, createFileRoute } from "@tanstack/react-router";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { ProviderConnectionsPage } from "@/components/ProviderConnectionsPage";
-import { PROVIDERS_OWNER_ROUTE } from "@/lib/providersRoute";
+import { useGitHubOwnerRouteSelection } from "@/components/useGitHubOwnerRouteSelection";
+import { PROVIDERS_OWNER_ROUTE, PROVIDERS_ROUTE } from "@/lib/providersRoute";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 function ProvidersOwnerRouteComponent() {
   const { owner } = Route.useParams();
+  const { githubOwners, selectedOwner } = useGitHubOwnerRouteSelection(owner);
+
+  if (githubOwners?.length === 1 && selectedOwner === null) {
+    return (
+      <Navigate
+        replace
+        search
+        to={PROVIDERS_OWNER_ROUTE}
+        params={{ owner: githubOwners[0].githubOwnerLogin }}
+      />
+    );
+  }
+
+  if (githubOwners !== undefined && selectedOwner === null) {
+    return <Navigate replace search to={PROVIDERS_ROUTE} />;
+  }
 
   return (
     <AuthenticatedAppRoutePage>
