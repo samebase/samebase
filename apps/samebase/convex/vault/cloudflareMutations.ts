@@ -252,12 +252,8 @@ async function insertWorker(
     providerConnectionId: args.providerConnectionId,
     kind: "cloudflare",
   });
-  if (
-    providerConnection?.kind !== "cloudflare" ||
-    providerConnection.defaultAccount.state !== "selected" ||
-    providerConnection.defaultAccount.accountId !== args.accountId
-  ) {
-    throw new Error("Cloudflare provider connection does not match the Worker account.");
+  if (providerConnection?.kind !== "cloudflare") {
+    throw new Error("Cloudflare provider connection is required for the Worker.");
   }
   const existing = await readMatchingWorker(ctx, {
     vaultId: args.vaultId,

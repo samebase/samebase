@@ -270,12 +270,6 @@ export const validateCreateAppConnections = internalAction({
     if (cloudflareConnection?.kind !== "cloudflare") {
       throw new Error("Cloudflare connection is required to create a Worker-backed app.");
     }
-    if (
-      cloudflareConnection.defaultAccount.state !== "selected" ||
-      cloudflareConnection.defaultAccount.accountId !== plan.cloudflare.accountId
-    ) {
-      throw new Error("Connected Cloudflare account does not match the provisioning plan.");
-    }
 
     return null;
   },

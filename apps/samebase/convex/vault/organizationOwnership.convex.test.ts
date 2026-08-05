@@ -531,7 +531,7 @@ describe("organization-owned vaults", () => {
           },
         ],
       }),
-    ).rejects.toThrow("Cloudflare provider connection does not match the Worker account.");
+    ).rejects.toThrow("Cloudflare provider connection is required for the Worker.");
 
     const [firstConvexProjectId] = await t.mutation(internal.vault.convexMutations.attachProjects, {
       vaultId: firstVault.vaultId,
@@ -568,7 +568,7 @@ describe("organization-owned vaults", () => {
       providerConnectionId: firstCloudflareConnectionId,
       workers: [
         {
-          accountId: "first-account",
+          accountId: "first-secondary-account",
           workerName: "first-worker",
           workerTag: "first-worker-tag",
           origin: "selected_existing",
@@ -658,7 +658,7 @@ describe("organization-owned vaults", () => {
       vaultId: firstVault.vaultId,
       userId,
       workerId: firstWorkerId,
-      accountId: "first-account",
+      accountId: "first-secondary-account",
       workerName: "first-worker",
       workerTag: "first-worker-tag",
     });

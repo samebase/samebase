@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase
-- Last updated: 2026-07-30
+- Last updated: 2026-08-05
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`
@@ -28,7 +28,6 @@ The durable Cloudflare attachment is:
 {
   vaultId;
   organizationId;
-  providerConnectionId;
   accountId;
   workerName;
   workerTag;
@@ -42,7 +41,6 @@ The durable Convex attachment is:
 {
   vaultId;
   organizationId;
-  providerConnectionId;
   teamId;
   projectId;
   convexConfigPath;
@@ -57,6 +55,11 @@ domain field.
 `accountId` plus Worker identity and `teamId` plus `projectId` are provider coordinates. `projectId`
 is the stable Convex project continuity key. `teamId` is the last team under which Samebase verified
 that project and is updated only by explicit provider-verified reconciliation.
+
+Attachments do not store `providerConnections._id`. Convex operations resolve a current organization
+connection whose `teamId` matches the attachment. Cloudflare operations use the organization's
+selected Cloudflare connection and ask Cloudflare whether that credential can access the
+attachment's `accountId`.
 
 Convex placement is exactly one of two row variants: `convexConfigPath` names an exact regular
 `convex.json` file, or `convexDirectoryPath` names an exact `convex/` tree whose parent contains a

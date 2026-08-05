@@ -2,7 +2,7 @@
 
 import { v, type Infer } from "convex/values";
 import { internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 import { action } from "../functions";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
@@ -615,18 +615,30 @@ export const observeConvexProjects = action({
           }
         }
 
-        const connection = await ctx.runQuery(
-          internal.providerConnections.loadConvexForOrganizationTeam,
-          {
+        const [matchingConnection, selectedConnection] = await Promise.all([
+          ctx.runQuery(internal.providerConnections.loadConvexForOrganizationTeam, {
             userId: ctx.viewer.userId,
             organizationId: context.organizationId,
             teamId: project.teamId,
-          },
-        );
-        const token = connection?.kind === "convex" ? connection.auth.credential.trim() : "";
-        const teamId = connection?.kind === "convex" ? connection.teamId.trim() : "";
+          }),
+          ctx.runQuery(internal.providerConnections.loadSelectedForOrganization, {
+            userId: ctx.viewer.userId,
+            organizationId: context.organizationId,
+            kind: "convex",
+          }),
+        ]);
+        const connections: Array<Extract<Doc<"providerConnections">, { kind: "convex" }>> = [];
+        if (matchingConnection?.kind === "convex") {
+          connections.push(matchingConnection);
+        }
+        if (
+          selectedConnection?.kind === "convex" &&
+          selectedConnection._id !== matchingConnection?._id
+        ) {
+          connections.push(selectedConnection);
+        }
         let provider: ConvexProjectProviderObservation;
-        if (!token || !teamId) {
+        if (connections.length === 0) {
           provider = { state: "unavailable", reason: "connection_required" };
           return {
             convexProjectId: project.convexProjectId,
@@ -637,61 +649,76 @@ export const observeConvexProjects = action({
           };
         }
 
-        try {
-          const details = await requestConvexManagementApi(token, "GET", "/projects/{project_id}", {
-            params: { path: { project_id: project.projectId } },
-          });
-          if (details.id !== project.projectId || details.teamId !== teamId) {
-            throw new Error("Convex returned an inconsistent project identity or team.");
+        let requestAttempted = false;
+        let requestFailed = false;
+        for (const connection of connections) {
+          const token = connection.auth.credential.trim();
+          if (!token) {
+            continue;
           }
-          const deployment = await readConvexProductionDeployment({
-            token,
-            projectId: project.projectId,
-          });
-          const providerDetails = {
-            projectSlug: details.slug,
-            teamSlug: details.teamSlug,
-            productionDeployment: deployment
-              ? {
-                  state: "available" as const,
-                  deploymentName: deployment.name,
-                  dashboardUrl: buildConvexDeploymentDashboardUrl({
-                    teamSlug: details.teamSlug,
-                    projectSlug: details.slug,
+          requestAttempted = true;
+          try {
+            const details = await requestConvexManagementApi(
+              token,
+              "GET",
+              "/projects/{project_id}",
+              {
+                params: { path: { project_id: project.projectId } },
+              },
+            );
+            if (details.id !== project.projectId || details.teamId !== connection.teamId) {
+              throw new Error("Convex returned an inconsistent project identity or team.");
+            }
+            const deployment = await readConvexProductionDeployment({
+              token,
+              projectId: project.projectId,
+            });
+            const providerDetails = {
+              projectSlug: details.slug,
+              teamSlug: details.teamSlug,
+              productionDeployment: deployment
+                ? {
+                    state: "available" as const,
                     deploymentName: deployment.name,
-                  }),
-                }
-              : { state: "missing" as const },
-          };
-          provider =
-            details.teamId === project.teamId
-              ? {
-                  state: "current",
-                  ...providerDetails,
-                }
-              : {
-                  state: "moved",
-                  ...providerDetails,
-                };
-          return {
-            convexProjectId: project.convexProjectId,
-            projectId: project.projectId,
-            codeLocation: project.codeLocation,
-            source,
-            provider,
-          };
-        } catch (error) {
-          provider = isConvexManagementNotFoundError(error)
-            ? { state: "missing_ambiguous" }
-            : { state: "unavailable", reason: "request_failed" };
-          return {
-            convexProjectId: project.convexProjectId,
-            projectId: project.projectId,
-            codeLocation: project.codeLocation,
-            source,
-            provider,
-          };
+                    dashboardUrl: buildConvexDeploymentDashboardUrl({
+                      teamSlug: details.teamSlug,
+                      projectSlug: details.slug,
+                      deploymentName: deployment.name,
+                    }),
+                  }
+                : { state: "missing" as const },
+            };
+            provider =
+              details.teamId === project.teamId
+                ? { state: "current", ...providerDetails }
+                : { state: "moved", ...providerDetails };
+            return {
+              convexProjectId: project.convexProjectId,
+              projectId: project.projectId,
+              codeLocation: project.codeLocation,
+              source,
+              provider,
+            };
+          } catch (error) {
+            if (!isConvexManagementNotFoundError(error)) {
+              requestFailed = true;
+            }
+          }
         }
+        if (!requestAttempted) {
+          provider = { state: "unavailable", reason: "connection_required" };
+        } else if (requestFailed) {
+          provider = { state: "unavailable", reason: "request_failed" };
+        } else {
+          provider = { state: "missing_ambiguous" };
+        }
+        return {
+          convexProjectId: project.convexProjectId,
+          projectId: project.projectId,
+          codeLocation: project.codeLocation,
+          source,
+          provider,
+        };
       }),
     );
   },

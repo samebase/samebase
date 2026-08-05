@@ -67,7 +67,7 @@ Vault creation succeeds even if downstream provisioning partially fails.
 
 ### `workflow_vaultProvisioning_plans`
 
-- `vaultId`, `convexProviderConnectionId`, `cloudflareProviderConnectionId`
+- `vaultId`
 - `convexConfigPath`
 - `convex`: `{ state: "planned", projectName, teamId }`,
   `{ state: "creating", projectName, teamId }`, or
@@ -77,15 +77,16 @@ Vault creation succeeds even if downstream provisioning partially fails.
   `{ state: "created", accountId, workerName, workerTag, rootDirectory }`
 - `createdAt`, `updatedAt`
 
-The plan row records selected provider names and exact organization provider connections before side
-effects happen. The Convex team and Cloudflare account do not change during retry. If an exact
-provider connection no longer belongs to the vault organization, Samebase stops and reports the
-mismatch. `creating` means the provider create request started but Samebase never recorded a
-confirmed result. Retry checks the exact planned name. If that provider resource exists, Samebase
-requires the user to delete it in the provider dashboard before retrying. If it is absent, Samebase
-repeats the create request without adding another workflow state. A same-named resource is never
-adopted implicitly. `created` is the exact provider identity checkpoint used by retry. Samebase
-writes that checkpoint and its stable `provisioned` resource attachment in one database transaction.
+The plan row records provider resource names and stable external coordinates before side effects
+happen. The Convex team and Cloudflare account do not change during retry. Each attempt resolves a
+current organization Convex connection for the planned `teamId` and the organization's selected
+Cloudflare connection. Cloudflare then verifies that credential against the planned `accountId`.
+`creating` means the provider create request started but Samebase never recorded a confirmed result.
+Retry checks the exact planned name. If that provider resource exists, Samebase requires the user to
+delete it in the provider dashboard before retrying. If it is absent, Samebase repeats the create
+request without adding another workflow state. A same-named resource is never adopted implicitly.
+`created` is the exact external provider identity checkpoint used by retry. Samebase writes that
+checkpoint and its stable `provisioned` resource attachment in one database transaction.
 Checkbox-controlled cleanup derives ownership only from the stable attachment, never from an
 unattached checkpoint. Current connected resource identities live in the durable resource tables
 used by the dashboard.
@@ -138,7 +139,7 @@ reader, data migration, or fallback for an older row shape.
 
 ### `vaultConvexProjects`
 
-- `vaultId`, `organizationId`, `providerConnectionId`
+- `vaultId`, `organizationId`
 - `teamId`, `projectId`, `convexConfigPath`
 - `origin: "provisioned" | "selected_existing"`
 
@@ -156,7 +157,7 @@ Indexes:
 
 ### `vaultCloudflareWorkers`
 
-- `vaultId`, `organizationId`, `providerConnectionId`
+- `vaultId`, `organizationId`
 - `accountId`, `workerName`, `workerTag`
 - `origin: "provisioned" | "selected_existing"`
 
