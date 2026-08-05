@@ -9,8 +9,8 @@
 - Replacement branch: `codex-github-app-organizations`
 - Replacement PR: [#1367](https://github.com/samebase/samebase/pull/1367)
 - Superseded draft: [#1355](https://github.com/samebase/samebase/pull/1355)
-- Current checkpoint: Final implementation and focused validation complete; final review, CI, and
-  merge remain
+- Current checkpoint: PR #1367 merged as `db069c026`; the linked-worktree organization seed
+  follow-up passed focused and manual validation
 
 ## Purpose
 
@@ -247,6 +247,11 @@ Status: Complete on the replacement branch
   changed the URL to `/settings?owner=samebase`, showed that organization's plan and usage, and
   survived reload. Selecting `nicu-typescript` changed the URL to `/settings?owner=nicu-typescript`
   and showed its separate zero usage. Neither URL exposed an internal organization ID.
+- Two fresh linked worktrees completed `pnpm dev --once`. Each had separate local Convex document
+  IDs and one GitHub-backed organization, owner membership, Free billing account, Convex connection,
+  and Cloudflare connection. Both organizations reused the same non-secret development GitHub owner
+  and installation identity. `pnpm dev` then loaded the vault, provider, and New App pages. The
+  Connect repository page listed repositories through the shared GitHub App installation.
 
 ## Manual Acceptance Order
 
@@ -324,5 +329,5 @@ blocker for this rollout.
 
 ## Next Exact Task
 
-Review the final diff for accidental feature deletion, run focused validation and CI, then merge.
-Keep production provider housekeeping separate from the organization model.
+Merge the focused linked-worktree setup follow-up after review and CI. Keep production provider
+housekeeping separate from the organization model.

@@ -9,7 +9,7 @@ discovery and worktree seed setup behave consistently.
 
 - Main checkout is available.
 - No existing `/tmp/samebase-wt-a` or `/tmp/samebase-wt-b` worktrees.
-- No long-running `pnpm dev:worktree` processes in temporary worktrees.
+- No long-running `pnpm dev` processes in temporary worktrees.
 
 ## Steps
 
@@ -18,7 +18,7 @@ discovery and worktree seed setup behave consistently.
 2. Create a runner worktree:
 
 ```bash
-git worktree add /tmp/samebase-wt-runner -b codex/wt-meta-runner
+git worktree add /tmp/samebase-wt-runner -b codex-wt-meta-runner
 ```
 
 3. From `/tmp/samebase-wt-runner`, re-run `manual-tests/worktree/WT-001-anon-worktree-isolation.md`
@@ -26,8 +26,8 @@ git worktree add /tmp/samebase-wt-runner -b codex/wt-meta-runner
 4. Remove the runner worktree:
 
 ```bash
-git worktree remove --force /tmp/samebase-wt-runner
-git branch -D codex/wt-meta-runner
+git worktree remove /tmp/samebase-wt-runner
+git branch -d codex-wt-meta-runner
 ```
 
 ## Expected Results
