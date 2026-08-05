@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { mutation, query } from "../functions";
+import { requireVaultForUser } from "../organizationAccess";
 import { vVaultFolder, vVaultFolderAssignment } from "./folderModel";
 
 const { array, boolean, id, literal, null: vNull, object, string, union } = v;
@@ -27,11 +28,7 @@ async function assertOwnedVault(
   ctx: FolderMutationCtx,
   args: { userId: Id<"users">; vaultId: Id<"vaults"> },
 ): Promise<Doc<"vaults">> {
-  const vault = await ctx.db.get(args.vaultId);
-  if (!vault || vault.userId !== args.userId) {
-    throw new Error("Vault not found");
-  }
-  return vault;
+  return await requireVaultForUser(ctx.db, args);
 }
 
 async function assertOwnedFolder(

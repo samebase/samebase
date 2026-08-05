@@ -18,18 +18,11 @@ const queryState = vi.hoisted(() => ({
       email: "person_name@example.test",
       latestSafeError: "Provider revocation needs staff attention.",
       outcomes: {
-        billing: {
-          state: "failed",
-          safeError: "Billing cancellation could not be confirmed.",
-        },
         providerRevocation: {
           state: "completed",
-          github: {
-            state: "unconfirmed",
-            safeError: "GitHub OAuth revocation could not be confirmed.",
-          },
-          cloudflare: { state: "revoked" },
-          convex: {
+          githubUserAuthorization: { state: "cleared" },
+          cloudflareConnections: { state: "cleared" },
+          convexConnections: {
             state: "manual_revocation_required",
             safeNotice: "Convex OAuth requires manual revocation.",
           },
@@ -92,7 +85,7 @@ describe("AdminAccountDeletionsPage", () => {
         (row) => row.querySelector("dt")?.textContent === "Account",
       );
       const convexDetail = detailRows.find(
-        (row) => row.querySelector("dt")?.textContent === "Convex",
+        (row) => row.querySelector("dt")?.textContent === "Convex connections",
       );
       const completionEmailDetail = detailRows.find(
         (row) => row.querySelector("dt")?.textContent === "Completion email",
@@ -102,11 +95,9 @@ describe("AdminAccountDeletionsPage", () => {
       expect(accountDetail?.querySelector("dd")?.textContent).toBe("person_name@example.test");
       expect(convexDetail?.querySelector("dd")?.textContent).toBe("manual revocation required");
       expect(completionEmailDetail?.querySelector("dd")?.textContent).toBe("delivery failed");
-      expect(rootElement.textContent).toContain("Billing cancellation could not be confirmed.");
       expect(rootElement.textContent).toContain(
         "Completion email delivery could not be confirmed.",
       );
-      expect(rootElement.textContent).toContain("GitHub OAuth revocation could not be confirmed.");
       expect(rootElement.textContent).toContain("Convex OAuth requires manual revocation.");
       const retry = Array.from(rootElement.querySelectorAll("button")).find(
         (button) => button.textContent === "Retry",

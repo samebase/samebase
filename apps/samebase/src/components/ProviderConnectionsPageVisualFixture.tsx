@@ -2,12 +2,19 @@ import {
   ProviderConnectionsPageView,
   type ProviderConnectionsPageConnectionState,
 } from "@/components/ProviderConnectionsPage";
+import type { Id } from "../../convex/_generated/dataModel";
 
 export type ProviderConnectionsPageVisualMode = "providers-page-connected";
 
 const PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW = Date.UTC(2026, 5, 22, 12, 0, 0);
-const PROVIDER_CONNECTIONS_VISUAL_FIXTURE_GITHUB_MANAGE_URL =
-  "https://github.com/settings/connections/applications/samebase-local-fixture";
+
+function fakeOrganizationId(): Id<"organizations"> {
+  // @ts-expect-error Convex ids are strings at runtime; this fixture only
+  // needs a stable value for static rendering.
+  return "organization_samebase";
+}
+
+const PROVIDER_CONNECTIONS_VISUAL_FIXTURE_ORGANIZATION_ID = fakeOrganizationId();
 
 const providerConnectionsVisualFixtureState = {
   cloudflareAccess: {
@@ -143,113 +150,6 @@ const providerConnectionsVisualFixtureState = {
       type: "team_token",
     },
   },
-  githubHealth: {
-    authMethod: "oauth",
-    checkedAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW - 8 * 60_000,
-    checks: [
-      {
-        key: "profile",
-        label: "Profile",
-        message: "Authenticated as octo-operator.",
-        status: "ok",
-      },
-      {
-        key: "repositories",
-        label: "Repository listing",
-        message:
-          "GitHub could not list repositories for this credential. Reauthorize GitHub and approve organization access if prompted.",
-        status: "error",
-      },
-      {
-        key: "organizations",
-        label: "Organization access",
-        message: "GitHub returned 2 organizations visible to this credential.",
-        status: "ok",
-      },
-    ],
-    connected: true,
-    grantedScopes: ["repo", "user", "read:org"],
-    manageUrl: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_GITHUB_MANAGE_URL,
-    organizations: [
-      {
-        canCreateRepository: false,
-        login: "acme-product",
-        role: "member",
-      },
-      {
-        canCreateRepository: true,
-        login: "samebase",
-        role: "admin",
-      },
-    ],
-    reauthorizeAvailable: true,
-    requiredScopes: [
-      {
-        label: "List and edit repositories",
-        scope: "repo",
-        status: "granted",
-      },
-      {
-        label: "Delete Samebase-managed repositories",
-        scope: "delete_repo",
-        status: "missing",
-      },
-      {
-        label: "Read GitHub profile",
-        scope: "user",
-        status: "granted",
-      },
-      {
-        label: "Read GitHub email addresses",
-        scope: "user:email",
-        status: "granted",
-      },
-      {
-        label: "Read organization memberships",
-        scope: "read:org",
-        status: "granted",
-      },
-      {
-        label: "Read packages",
-        scope: "read:packages",
-        status: "missing",
-      },
-    ],
-    username: "octo-operator",
-  },
-  githubProviderSummary: {
-    authMethod: "oauth",
-    connected: true,
-    manageUrl: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_GITHUB_MANAGE_URL,
-    reauthorizeAvailable: true,
-    requiredScopes: [
-      {
-        label: "List and edit repositories",
-        scope: "repo",
-      },
-      {
-        label: "Delete Samebase-managed repositories",
-        scope: "delete_repo",
-      },
-      {
-        label: "Read GitHub profile",
-        scope: "user",
-      },
-      {
-        label: "Read GitHub email addresses",
-        scope: "user:email",
-      },
-      {
-        label: "Read organization memberships",
-        scope: "read:org",
-      },
-      {
-        label: "Read packages",
-        scope: "read:packages",
-      },
-    ],
-    username: "octo-operator",
-  },
   now: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW,
 } satisfies ProviderConnectionsPageConnectionState;
 
@@ -274,15 +174,21 @@ export function ProviderConnectionsPageVisualFixture() {
       convexAccessError={null}
       convexConnection={providerConnectionsVisualFixtureState.convexConnection}
       disconnectingProvider={null}
-      githubDisconnectedNotice={null}
-      githubHealth={providerConnectionsVisualFixtureState.githubHealth}
-      githubHealthError={null}
-      githubProviderSummary={providerConnectionsVisualFixtureState.githubProviderSummary}
+      githubAppSetupError={null}
+      githubOwners={[
+        {
+          canCreateRepository: true,
+          githubOwnerId: "456",
+          githubOwnerLogin: "samebase",
+          githubOwnerType: "organization",
+          organizationId: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_ORGANIZATION_ID,
+          role: "owner",
+        },
+      ]}
       isAutoCheckingCloudflareToken={false}
       isCheckingCloudflareAccess={false}
       isCheckingConvexAccess={false}
-      isCheckingGithubAccess={false}
-      isReauthorizingGithub={false}
+      isStartingGitHubAppSetup={false}
       mcpGrantError={null}
       mcpGrants={[
         {
@@ -306,18 +212,19 @@ export function ProviderConnectionsPageVisualFixture() {
       now={providerConnectionsVisualFixtureState.now}
       onCheckCloudflareAccess={noop}
       onCheckConvexAccess={noop}
-      onCheckGithubAccess={noop}
       onCloudflareAccountChange={noop}
       onCloudflareAccountOpenChange={noop}
       onCloudflareAccountSubmit={noop}
       onConnect={noop}
       onDisconnect={noop}
+      onGitHubOwnerChange={noop}
+      onInstallGitHubApp={noop}
       onLoadMoreMcpGrants={noop}
       onOpenApiKeyDialog={noop}
       onOpenCloudflareAccountDialog={noop}
-      onReauthorizeGithub={noop}
       onRevokeMcpGrant={noop}
       revokingMcpGrantId={null}
+      selectedOrganizationId={PROVIDER_CONNECTIONS_VISUAL_FIXTURE_ORGANIZATION_ID}
     />
   );
 }

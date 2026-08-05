@@ -61,7 +61,6 @@ export const vaultConvexSchemaGraphTables = {
    * One fetched production-deployment schema linked to its stable Convex project.
    */
   observations_vaultConvexSchema_snapshots: defineTable({
-    userId: id("users"),
     vaultId: id("vaults"),
     convexProjectId: id("vaultConvexProjects"),
     deploymentName: string(),
@@ -72,7 +71,6 @@ export const vaultConvexSchemaGraphTables = {
     fetchedAt: number(),
   })
     .index("by_vault", ["vaultId"])
-    .index("by_user", ["userId"])
     .index("by_project_and_fetched_at", ["convexProjectId", "fetchedAt"]),
 
   /** Per-user node positions kept separate from refreshed schema snapshots. */

@@ -404,18 +404,18 @@ describe("recoverGitHubVaultSidebarSummariesFromError", () => {
 });
 
 describe("vaultSidebarSummaryBatches", () => {
-  it("bounds each GitHub query while preserving every repository in order", () => {
+  it("separates GitHub owners while bounding each query and preserving order", () => {
     const repositories = Array.from({ length: 41 }, (_, index) => ({
       vaultId: fakeVaultId(),
       ghRepoId: String(1_000 + index),
-      owner: `owner-${index}`,
+      owner: index < 21 ? "owner-a" : "owner-b",
       name: `repository-${index}`,
       defaultBranch: index % 2 === 0 ? "main" : "trunk",
     }));
 
     const batches = vaultSidebarSummaryBatches(repositories);
 
-    expect(batches.map((batch) => batch.length)).toEqual([20, 20, 1]);
+    expect(batches.map((batch) => batch.length)).toEqual([20, 1, 20]);
     expect(batches.flat()).toEqual(repositories);
   });
 });

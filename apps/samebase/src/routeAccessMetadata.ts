@@ -32,6 +32,10 @@ const routeAccessMetadataByPath = {
     access: "access_repo_connect",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
+  "/connect-repo/$owner": {
+    access: "access_repo_connect",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+  },
   "/indexDB": { access: "access_admin" },
   "/landing": { access: "access_public", pathSuggestion: "redirect", prerender: false },
   "/docs/do-it-yourself": { access: "access_public", pathSuggestion: "hidden" },
@@ -81,6 +85,10 @@ const routeAccessMetadataByPath = {
     access: "access_app_create",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
+  "/new-app/$owner": {
+    access: "access_app_create",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+  },
   "/oauth/mcp/consent": {
     access: "access_public",
     appWorkspaceRouteChrome: { leftPane: "none" },
@@ -95,6 +103,10 @@ const routeAccessMetadataByPath = {
   "/pricing": { access: "access_public", pathSuggestion: "hidden" },
   "/privacy": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/providers": {
+    access: "access_provider_connections",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+  },
+  "/providers/$owner": {
     access: "access_provider_connections",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },

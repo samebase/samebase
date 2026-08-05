@@ -11,6 +11,7 @@ import {
 import { readVaultInfrastructureState } from "./vault/infrastructureOperation";
 import { assertConnectedVault } from "./vault/state";
 import { startVaultInfrastructureProvisioningWorkflow } from "./appProvisioningWorkflow";
+import { requireVaultForUser, requireVaultOrganization } from "./organizationAccess";
 
 const { id, literal, string, union } = v;
 const MAX_EVENTS_TO_LINK_TO_VAULT = 20;
@@ -55,6 +56,18 @@ export const getById = internalQuery({
   },
 });
 
+export const getPlanByVaultId = internalQuery({
+  args: {
+    vaultId: id("vaults"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("workflow_vaultProvisioning_plans")
+      .withIndex("by_vault", (query) => query.eq("vaultId", args.vaultId))
+      .unique();
+  },
+});
+
 export const createRetryForVault = internalMutation({
   args: {
     userId: id("users"),
@@ -62,16 +75,16 @@ export const createRetryForVault = internalMutation({
   },
   returns: id("workflow_vaultProvisioning_runs"),
   handler: async (ctx, args) => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== args.userId) {
-      throw new Error("Vault not found for provisioning run.");
-    }
+    const vault = await requireVaultForUser(ctx.db, args);
     const user = await ctx.db.get(args.userId);
     if (!user || user.accountDeletion !== undefined) {
       throw new Error("App provisioning is unavailable during account deletion.");
     }
     const connectedVault = assertConnectedVault(vault);
-    const infrastructure = await readVaultInfrastructureState(ctx, connectedVault);
+    const [infrastructure, organization] = await Promise.all([
+      readVaultInfrastructureState(ctx, connectedVault),
+      requireVaultOrganization(ctx.db, connectedVault),
+    ]);
     if (infrastructure.operation.kind !== "none") {
       throw new Error("Another vault infrastructure operation is active.");
     }
@@ -84,12 +97,7 @@ export const createRetryForVault = internalMutation({
       throw new Error("Infrastructure retry is available only after managed setup fails.");
     }
     const failedRun = await ctx.db.get(failedWrite.owner.runId);
-    if (
-      !failedRun ||
-      failedRun.state !== "failed" ||
-      failedRun.vaultId !== args.vaultId ||
-      failedRun.userId !== args.userId
-    ) {
+    if (!failedRun || failedRun.state !== "failed" || failedRun.vaultId !== args.vaultId) {
       throw new Error("Failed managed setup does not match this vault.");
     }
     if (
@@ -101,7 +109,7 @@ export const createRetryForVault = internalMutation({
     }
 
     const now = Date.now();
-    const repositoryFullName = `${connectedVault.owner}/${connectedVault.name}`;
+    const repositoryFullName = `${organization.githubOwnerLogin}/${connectedVault.name}`;
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
       userId: args.userId,
       vaultId: args.vaultId,

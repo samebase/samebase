@@ -76,6 +76,12 @@ function fakeVaultId(): Id<"vaults"> {
   return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
+function fakeOrganizationId(): Id<"organizations"> {
+  // @ts-expect-error Convex ids are strings at runtime; this static render
+  // test only needs a stable organization id.
+  return "organization-samebase";
+}
+
 function fakeVaultFolderId(): Id<"ui_vaultFolders"> {
   // @ts-expect-error Convex ids are strings at runtime; this static render
   // test only needs a stable folder id for the query result.
@@ -243,6 +249,7 @@ function makeRepositorySettingsBuilderVault(
 ): RepositorySettingsBuilderVault {
   const vault: RepositorySettingsBuilderVault = {
     _id: fakeVaultId(),
+    organizationId: fakeOrganizationId(),
     ghRepoOwner: "ada",
     ghRepoName: "demo",
     repositoryFullName: "ada/demo",

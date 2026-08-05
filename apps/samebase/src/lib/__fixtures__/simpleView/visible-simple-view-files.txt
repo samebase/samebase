@@ -199,7 +199,6 @@ apps/samebase/public/docs/actions/attach_cloudflare_workers.md
 apps/samebase/public/docs/actions/attach_convex_projects.md
 apps/samebase/public/docs/actions/configure_workers_builds_for_github.md
 apps/samebase/public/docs/actions/connect_existing_repository.md
-apps/samebase/public/docs/actions/create_browser_handoff.md
 apps/samebase/public/docs/actions/create_cloudflare_worker.md
 apps/samebase/public/docs/actions/create_repository.md
 apps/samebase/public/docs/actions/discover_cloudflare_workers.md
@@ -336,6 +335,7 @@ notes/react-router-remix-research-2026-03-22.md
 packages/agent-plugins/LICENSE
 packages/agent-plugins/NOTICE
 packages/agent-plugins/plugins/samebase/assets/icon.png
+packages/agent-plugins/plugins/samebase/skills/samebase/references/existing-repository-adoption.md
 packages/agent-plugins/plugins/samebase/skills/samebase/SKILL.md
 packages/agent-plugins/README.md
 packages/agent-plugins/SECURITY.md
@@ -522,9 +522,9 @@ rfcs/089_MCP_CONVEX_FUNCTION_EXPOSURE_SPEC.md
 rfcs/091_WORKSPACE_LAYOUT_V2_SEPARATOR_TRACK_PLAN.md
 rfcs/092_VAULT_BRANCH_PAGINATION_AND_VIRTUAL_LIST_PLAN.md
 rfcs/093_AGENT_NATIVE_ONE_BASE_PLAN.md
-rfcs/096_AGENT_BROWSER_HANDOFF_PLAN.md
 rfcs/097_ACCOUNT_DELETION_RELEASE_PLAN.md
 rfcs/098_POLAR_MONTHLY_BILLING_LAUNCH_PLAN.md
+rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md
 rfcs/assets/079-editor-sidebar-return-drag/monaco-return-drag.png
 rfcs/assets/079-editor-sidebar-return-drag/prosemark-return-drag.png
 rfcs/README.md
@@ -594,7 +594,6 @@ specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md
 specs/107_ROUTE_URL_EDITOR_SUGGESTION_MODEL_SPEC.md
 specs/109_ROUTE_URL_EDITOR_REBUILD_REQUIREMENTS_SPEC.md
 specs/110_VAULT_ROUTE_SURFACE_SPEC.md
-specs/111_AGENT_BROWSER_HANDOFF_SPEC.md
 specs/112_CLOUDFLARE_EMAIL_SENDING_SPEC.md
 specs/113_ACCOUNT_DELETION_SPEC.md
 specs/114_CONVEX_TABLE_TAXONOMY_AND_OWNERSHIP_SPEC.md
@@ -603,6 +602,7 @@ specs/116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md
 specs/117_MANUAL_PASSWORD_AUTH_SPEC.md
 specs/118_VAULT_FOLDER_SPEC.md
 specs/119_POLAR_MONTHLY_BILLING_SPEC.md
+specs/120_ORGANIZATION_OWNERSHIP_SPEC.md
 specs/README.md
 TODO.md
 VISION.md

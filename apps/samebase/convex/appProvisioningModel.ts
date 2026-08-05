@@ -120,7 +120,6 @@ export const vaultProvisioningTables = {
    */
   workflow_vaultProvisioning_plans: defineTable({
     vaultId: id("vaults"),
-    userId: id("users"),
     convexConfigPath: string(),
     convex: union(
       object({
@@ -209,7 +208,6 @@ export const vaultProvisioningTables = {
   })
     .index("by_vault_and_updated_at", ["vaultId", "updatedAt"])
     .index("by_vault_and_state", ["vaultId", "state"])
-    .index("by_user_and_updated_at", ["userId", "updatedAt"])
     .index("by_user_and_state_and_updated_at", ["userId", "state", "updatedAt"])
     .index("by_workflow_id", ["workflowId"]),
 

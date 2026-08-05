@@ -1,18 +1,21 @@
 import { isInIframe } from "@/authClient";
-import { useApiKeyConnectDialog, type ApiKeyProvider } from "@/components/ApiKeyConnectDialog";
+import { useApiKeyConnectDialog } from "@/components/ApiKeyConnectDialog";
+import { GitHubOwnerSelect, type GitHubOwner } from "@/components/GitHubOwnerSelect";
 import { Button } from "@/components/ui/button";
 import { VaultDashboardCloudflareAccountDialog } from "@/components/vault-dashboard/VaultDashboardCloudflareAccountDialog";
 import { type CloudflareAccountOption } from "@/components/vault-dashboard/vaultDashboardCloudflareAccountOptions";
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
-  GitHubProviderLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { useNow } from "@/hooks/useNow";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
-import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
+import { getCurrentRootRelativeUrl, openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
+import { PROVIDERS_OWNER_ROUTE } from "@/lib/providersRoute";
 import { claimRefreshDebounce, releaseRefreshDebounce } from "@/lib/refreshDebounce";
+import { useGitHubOwnerRouteSelection } from "@/components/useGitHubOwnerRouteSelection";
 import { isRecord, notEmpty } from "@samebase/dependent";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import {
   useAction,
   useMutation,
@@ -34,12 +37,11 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS } from "../../shared/cloudflareTokenRefresh";
 
-const PROVIDER_KEYS = ["github", "convex", "cloudflare"] as const;
+const PROVIDER_KEYS = ["convex", "cloudflare"] as const;
 const MCP_GRANTS_PAGE_SIZE = 20;
 
 type ProviderKey = (typeof PROVIDER_KEYS)[number];
 type ProviderMetadata = {
-  apiKeyProvider: ApiKeyProvider | null;
   completionEventType: string;
   icon: ReactElement;
   label: string;
@@ -70,8 +72,6 @@ type ProviderConnectionRowViewModel = {
   label: string;
   status: string;
 };
-type AppGithubProviderSummary = (typeof api.users.getGithubProviderSummary)["_returnType"];
-type AppGithubConnectionHealth = (typeof api.users.checkGithubConnectionHealth)["_returnType"];
 type AppConvexConnection = (typeof api.users.getConvexConnectionStatus)["_returnType"];
 type AppConvexConnectionAccess =
   (typeof api.convexProviderAccess.checkConvexConnectionAccess)["_returnType"];
@@ -93,8 +93,6 @@ export type ProviderConnectionsPageConnectionState = {
   cloudflareConnection: AppCloudflareConnection | undefined;
   convexAccess: AppConvexConnectionAccess | null;
   convexConnection: AppConvexConnection | undefined;
-  githubHealth: AppGithubConnectionHealth | null;
-  githubProviderSummary: AppGithubProviderSummary | undefined;
   now: number;
 };
 type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState & {
@@ -103,43 +101,34 @@ type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState &
   disconnectingProvider: ProviderKey | null;
   cloudflareAccessError: string | null;
   convexAccessError: string | null;
-  githubDisconnectedNotice: string | null;
-  githubHealthError: string | null;
+  githubAppSetupError: string | null;
+  githubOwners: GitHubOwner[];
   isAutoCheckingCloudflareToken: boolean;
   isCheckingCloudflareAccess: boolean;
   isCheckingConvexAccess: boolean;
-  isCheckingGithubAccess: boolean;
-  isReauthorizingGithub: boolean;
+  isStartingGitHubAppSetup: boolean;
   mcpGrantError: string | null;
   mcpGrants: readonly AppMcpGrant[];
   mcpGrantPaginationStatus: PaginationStatus;
   onCheckCloudflareAccess: () => void;
   onCheckConvexAccess: () => void;
-  onCheckGithubAccess: () => void;
   onCloudflareAccountChange: (accountId: string) => void;
   onCloudflareAccountOpenChange: (isOpen: boolean) => void;
   onCloudflareAccountSubmit: () => void;
   onConnect: (provider: ProviderKey) => void;
   onDisconnect: (provider: ProviderKey) => void;
+  onGitHubOwnerChange: (owner: GitHubOwner) => void;
+  onInstallGitHubApp: () => void;
   onLoadMoreMcpGrants: () => void;
-  onOpenApiKeyDialog: (provider: ApiKeyProvider) => void;
+  onOpenApiKeyDialog: () => void;
   onOpenCloudflareAccountDialog: (accountId: string | undefined) => void;
   onRevokeMcpGrant: (grantId: string) => void;
-  onReauthorizeGithub: () => void;
   revokingMcpGrantId: string | null;
+  selectedOrganizationId: Id<"organizations"> | null;
 };
 
 const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
-  github: {
-    apiKeyProvider: "github",
-    completionEventType: "github-oauth-complete",
-    icon: <GitHubProviderLogo />,
-    label: "GitHub",
-    oauthButtonLabel: "GitHub OAuth",
-    popupName: "github-oauth",
-  },
   convex: {
-    apiKeyProvider: "convex",
     completionEventType: "convex-oauth-complete",
     icon: <ConvexProviderLogo />,
     label: "Convex",
@@ -147,7 +136,6 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
     popupName: "convex-oauth",
   },
   cloudflare: {
-    apiKeyProvider: null,
     completionEventType: "cloudflare-oauth-complete",
     icon: <CloudflareProviderLogo />,
     label: "Cloudflare",
@@ -188,162 +176,6 @@ function getRedirectOrigin(oauthUrl: string): string | null {
   } catch {
     return null;
   }
-}
-
-function getCurrentRootRelativeUrl(): string {
-  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
-}
-
-function GitHubConnectionDetails({
-  error,
-  health,
-  isChecking,
-  now,
-  summary,
-}: {
-  error: string | null;
-  health: AppGithubConnectionHealth | null;
-  isChecking: boolean;
-  now: number;
-  summary: AppGithubProviderSummary | undefined;
-}) {
-  if (summary?.connected !== true) {
-    return null;
-  }
-
-  const isOAuth = summary.authMethod === "oauth";
-  const grantedScopes =
-    health && health.grantedScopes.length > 0 ? health.grantedScopes.join(", ") : null;
-
-  return (
-    <div className="space-y-3 text-xs leading-5">
-      {isOAuth ? (
-        <div className="space-y-2">
-          <div className="font-medium text-foreground">Required access</div>
-          <div className="flex flex-wrap gap-1.5">
-            {health
-              ? health.requiredScopes.map((scope) => (
-                  <span
-                    key={scope.scope}
-                    className={
-                      scope.status === "granted"
-                        ? "rounded-sm border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800"
-                        : scope.status === "missing"
-                          ? "rounded-sm border border-destructive/30 bg-destructive/5 px-2 py-0.5 text-destructive"
-                          : "rounded-sm border border-border bg-muted/40 px-2 py-0.5 text-muted-foreground"
-                    }
-                    title={scope.label}
-                  >
-                    {scope.scope}{" "}
-                    {scope.status === "granted"
-                      ? "Granted"
-                      : scope.status === "missing"
-                        ? "Missing"
-                        : "Unknown"}
-                  </span>
-                ))
-              : summary.requiredScopes.map((scope) => (
-                  <span
-                    key={scope.scope}
-                    className="rounded-sm border border-border bg-muted/40 px-2 py-0.5 text-muted-foreground"
-                    title={scope.label}
-                  >
-                    {scope.scope} Unknown
-                  </span>
-                ))}
-          </div>
-          <div className="text-muted-foreground">
-            Granted scopes: {grantedScopes ?? (health ? "None reported" : "Not checked")}
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-1 text-muted-foreground">
-          <div>Repository access is checked with live GitHub requests.</div>
-          {grantedScopes ? <div>Reported token scopes: {grantedScopes}</div> : null}
-        </div>
-      )}
-      {health ? (
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <div className="font-medium text-foreground">Organizations</div>
-            {health.organizations.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {health.organizations.map((organization) => {
-                  const role =
-                    organization.role === "admin"
-                      ? "Admin"
-                      : organization.role === "member"
-                        ? "Member"
-                        : organization.role === "billing_manager"
-                          ? "Billing manager"
-                          : organization.role;
-                  return (
-                    <span
-                      key={organization.login}
-                      className="rounded-sm border border-border bg-background px-2 py-0.5 text-foreground"
-                    >
-                      {organization.login} · {role} ·{" "}
-                      {organization.canCreateRepository ? "Can create repos" : "No repo creation"}
-                    </span>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-muted-foreground">
-                No organizations visible to this credential.
-              </div>
-            )}
-          </div>
-          <div className="space-y-1">
-            <div className="font-medium text-foreground">Live checks</div>
-            <div className="space-y-1 text-muted-foreground">
-              {health.checks.map((check) => (
-                <div key={check.key}>
-                  <span
-                    className={
-                      check.status === "ok"
-                        ? "text-emerald-700"
-                        : check.status === "error"
-                          ? "text-destructive"
-                          : "text-muted-foreground"
-                    }
-                  >
-                    {check.label}:{" "}
-                    {check.status === "ok"
-                      ? "OK"
-                      : check.status === "error"
-                        ? "Needs attention"
-                        : "Not checked"}
-                  </span>
-                  {check.message ? ` - ${check.message}` : ""}
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="text-muted-foreground">
-            Last checked {formatRelativeTimeAgo(health.checkedAt, now)}.
-          </div>
-        </div>
-      ) : (
-        <div className="text-muted-foreground">
-          {isChecking
-            ? "Checking GitHub access..."
-            : "Run Check access to see live checks and organizations."}
-        </div>
-      )}
-      {isOAuth ? (
-        <div className="text-muted-foreground">
-          Need more org access? Reauthorize revokes the current GitHub grant before opening OAuth
-          again; closing the OAuth window leaves GitHub disconnected until you reconnect.
-        </div>
-      ) : null}
-      {error ? <div>Error: {error}</div> : null}
-    </div>
-  );
-}
-
-function GitHubDisconnectedDetails({ notice }: { notice: string }) {
-  return <div className="space-y-1 text-xs leading-5 text-muted-foreground">{notice}</div>;
 }
 
 function formatProviderTimestamp(timestamp: number) {
@@ -809,117 +641,35 @@ export function ProviderConnectionsPageView({
   convexAccessError,
   convexConnection,
   disconnectingProvider,
-  githubDisconnectedNotice,
-  githubHealth,
-  githubHealthError,
-  githubProviderSummary,
+  githubAppSetupError,
+  githubOwners,
   isAutoCheckingCloudflareToken,
   isCheckingCloudflareAccess,
   isCheckingConvexAccess,
-  isCheckingGithubAccess,
-  isReauthorizingGithub,
+  isStartingGitHubAppSetup,
   mcpGrantError,
   mcpGrants,
   mcpGrantPaginationStatus,
   now,
   onCheckCloudflareAccess,
   onCheckConvexAccess,
-  onCheckGithubAccess,
   onCloudflareAccountChange,
   onCloudflareAccountOpenChange,
   onCloudflareAccountSubmit,
   onConnect,
   onDisconnect,
+  onGitHubOwnerChange,
+  onInstallGitHubApp,
   onLoadMoreMcpGrants,
   onOpenApiKeyDialog,
   onOpenCloudflareAccountDialog,
   onRevokeMcpGrant,
-  onReauthorizeGithub,
   revokingMcpGrantId,
+  selectedOrganizationId,
 }: ProviderConnectionsPageViewProps) {
-  const githubActionsDisabled =
-    disconnectingProvider !== null || isCheckingGithubAccess || isReauthorizingGithub;
-  const githubProviderRow =
-    githubProviderSummary?.connected === true
-      ? ({
-          actions: [
-            {
-              disabled: githubActionsDisabled,
-              isPending: isCheckingGithubAccess,
-              key: "check-github-access",
-              label: "Check access",
-              onClick: onCheckGithubAccess,
-              pendingLabel: "Checking...",
-            },
-            ...(githubProviderSummary.manageUrl
-              ? [
-                  {
-                    disabled: githubActionsDisabled,
-                    href: githubProviderSummary.manageUrl,
-                    key: "manage-github-access",
-                    label: "Manage access",
-                    target: "_blank" as const,
-                  },
-                ]
-              : []),
-            ...(githubProviderSummary.reauthorizeAvailable
-              ? [
-                  {
-                    disabled: githubActionsDisabled,
-                    isPending: isReauthorizingGithub,
-                    key: "reauthorize-github",
-                    label: "Reauthorize",
-                    onClick: onReauthorizeGithub,
-                    pendingLabel: "Reauthorizing...",
-                  },
-                ]
-              : []),
-            {
-              disabled: githubActionsDisabled,
-              isPending: disconnectingProvider === "github",
-              key: "disconnect",
-              label: "Disconnect",
-              onClick: () => onDisconnect("github"),
-              pendingLabel: "Disconnecting...",
-            },
-          ],
-          details: (
-            <GitHubConnectionDetails
-              error={githubHealthError}
-              health={githubHealth}
-              isChecking={isCheckingGithubAccess}
-              now={now}
-              summary={githubProviderSummary}
-            />
-          ),
-          icon: PROVIDER_METADATA.github.icon,
-          key: "github",
-          label: PROVIDER_METADATA.github.label,
-          status: `Connected as ${githubProviderSummary.username ?? "GitHub user"} (${formatAuthMethod(githubProviderSummary.authMethod)})`,
-        } satisfies ProviderConnectionRowViewModel)
-      : ({
-          actions: [
-            {
-              disabled: disconnectingProvider !== null || isReauthorizingGithub,
-              key: "oauth",
-              label: PROVIDER_METADATA.github.oauthButtonLabel,
-              onClick: () => onConnect("github"),
-            },
-            {
-              disabled: disconnectingProvider !== null || isReauthorizingGithub,
-              key: "api-key",
-              label: "Use API key",
-              onClick: () => onOpenApiKeyDialog("github"),
-            },
-          ],
-          details: githubDisconnectedNotice ? (
-            <GitHubDisconnectedDetails notice={githubDisconnectedNotice} />
-          ) : undefined,
-          icon: PROVIDER_METADATA.github.icon,
-          key: "github",
-          label: PROVIDER_METADATA.github.label,
-          status: "Not connected",
-        } satisfies ProviderConnectionRowViewModel);
+  const canManageSelectedOrganization = githubOwners.some(
+    (owner) => owner.organizationId === selectedOrganizationId && owner.role === "owner",
+  );
   const convexProviderRow =
     convexConnection?.connected === true
       ? (() => {
@@ -939,7 +689,7 @@ export function ProviderConnectionsPageView({
                 href: getConvexManageAccessUrl(convexConnection.teamSlug),
                 key: "manage-convex-access",
                 label: "Manage access",
-                target: "_blank",
+                target: "_blank" as const,
               },
               ...(convexConnection.authMethod === "oauth"
                 ? [
@@ -955,7 +705,7 @@ export function ProviderConnectionsPageView({
                       disabled: convexActionsDisabled,
                       key: "update-convex-token",
                       label: "Update token",
-                      onClick: () => onOpenApiKeyDialog("convex"),
+                      onClick: onOpenApiKeyDialog,
                     },
                   ]),
               {
@@ -966,7 +716,9 @@ export function ProviderConnectionsPageView({
                 onClick: () => onDisconnect("convex"),
                 pendingLabel: "Disconnecting...",
               },
-            ],
+            ].filter(
+              (action) => canManageSelectedOrganization || action.key === "check-convex-access",
+            ),
             details: (
               <ConvexConnectionDetails
                 access={convexAccess}
@@ -983,20 +735,22 @@ export function ProviderConnectionsPageView({
           } satisfies ProviderConnectionRowViewModel;
         })()
       : ({
-          actions: [
-            {
-              disabled: disconnectingProvider !== null,
-              key: "oauth",
-              label: PROVIDER_METADATA.convex.oauthButtonLabel,
-              onClick: () => onConnect("convex"),
-            },
-            {
-              disabled: disconnectingProvider !== null,
-              key: "api-key",
-              label: "Use API key",
-              onClick: () => onOpenApiKeyDialog("convex"),
-            },
-          ],
+          actions: canManageSelectedOrganization
+            ? [
+                {
+                  disabled: disconnectingProvider !== null,
+                  key: "oauth",
+                  label: PROVIDER_METADATA.convex.oauthButtonLabel,
+                  onClick: () => onConnect("convex"),
+                },
+                {
+                  disabled: disconnectingProvider !== null,
+                  key: "api-key",
+                  label: "Use API key",
+                  onClick: onOpenApiKeyDialog,
+                },
+              ]
+            : [],
           icon: PROVIDER_METADATA.convex.icon,
           key: "convex",
           label: PROVIDER_METADATA.convex.label,
@@ -1027,7 +781,7 @@ export function ProviderConnectionsPageView({
           href: getCloudflareManageAccessUrl(cloudflareConnection.authMethod),
           key: "manage-cloudflare-access",
           label: "Manage access",
-          target: "_blank",
+          target: "_blank" as const,
         },
         {
           disabled: cloudflareActionsDisabled,
@@ -1049,7 +803,9 @@ export function ProviderConnectionsPageView({
           onClick: () => onDisconnect("cloudflare"),
           pendingLabel: "Disconnecting...",
         },
-      ],
+      ].filter(
+        (action) => canManageSelectedOrganization || action.key === "check-cloudflare-access",
+      ),
       details: (
         <CloudflareConnectionDetails
           access={cloudflareAccess}
@@ -1068,33 +824,72 @@ export function ProviderConnectionsPageView({
     };
   } else {
     cloudflareProviderRow = {
-      actions: [
-        {
-          disabled: disconnectingProvider !== null,
-          key: "oauth",
-          label: PROVIDER_METADATA.cloudflare.oauthButtonLabel,
-          onClick: () => onConnect("cloudflare"),
-        },
-      ],
+      actions: canManageSelectedOrganization
+        ? [
+            {
+              disabled: disconnectingProvider !== null,
+              key: "oauth",
+              label: PROVIDER_METADATA.cloudflare.oauthButtonLabel,
+              onClick: () => onConnect("cloudflare"),
+            },
+          ]
+        : [],
       icon: PROVIDER_METADATA.cloudflare.icon,
       key: "cloudflare",
       label: PROVIDER_METADATA.cloudflare.label,
       status: "Not connected",
     };
   }
-  const providerRows = [githubProviderRow, convexProviderRow, cloudflareProviderRow];
+  const providerRows = [convexProviderRow, cloudflareProviderRow];
 
   return (
     <div
       data-testid="provider-connections-page"
       className="container flex min-h-0 flex-1 flex-col py-6"
     >
-      <div className="mb-6 flex-shrink-0">
+      <div className="mb-6 flex flex-shrink-0 flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold @2xl:text-2xl">Providers</h1>
+        <Button
+          disabled={isStartingGitHubAppSetup}
+          onClick={onInstallGitHubApp}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          {isStartingGitHubAppSetup ? (
+            <>
+              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              Opening...
+            </>
+          ) : (
+            "Install GitHub App"
+          )}
+        </Button>
       </div>
+      {githubAppSetupError ? (
+        <div className="mb-4 text-sm text-destructive" role="alert">
+          {githubAppSetupError}
+        </div>
+      ) : null}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl">
-          <ProviderConnectionRows providerRows={providerRows} />
+          {githubOwners.length > 0 ? (
+            <>
+              <div className="mb-6 max-w-xs">
+                <GitHubOwnerSelect
+                  disabled={disconnectingProvider !== null}
+                  onChange={onGitHubOwnerChange}
+                  owners={githubOwners}
+                  selectedOrganizationId={selectedOrganizationId}
+                />
+              </div>
+              {selectedOrganizationId ? (
+                <ProviderConnectionRows providerRows={providerRows} />
+              ) : (
+                <div className="text-sm text-muted-foreground">Select a GitHub owner.</div>
+              )}
+            </>
+          ) : null}
           <McpClientGrants
             error={mcpGrantError}
             grants={mcpGrants}
@@ -1114,7 +909,7 @@ export function ProviderConnectionsPageView({
         onAccountChange={onCloudflareAccountChange}
         onOpenChange={onCloudflareAccountOpenChange}
         onSubmit={onCloudflareAccountSubmit}
-        open={cloudflareAccountDialog.isOpen}
+        open={canManageSelectedOrganization && cloudflareAccountDialog.isOpen}
         selectedAccountId={cloudflareAccountDialog.selectedAccountId}
       />
       {apiKeyDialog}
@@ -1127,17 +922,11 @@ function useProviderOAuthPopupCompletionReload({
   cloudflarePopupRef,
   convexPopupOriginRef,
   convexPopupRef,
-  githubPopupOriginRef,
-  githubPopupRef,
-  onProviderComplete,
 }: {
   cloudflarePopupOriginRef: MutableRefObject<string | null>;
   cloudflarePopupRef: MutableRefObject<Window | null>;
   convexPopupOriginRef: MutableRefObject<string | null>;
   convexPopupRef: MutableRefObject<Window | null>;
-  githubPopupOriginRef: MutableRefObject<string | null>;
-  githubPopupRef: MutableRefObject<Window | null>;
-  onProviderComplete: (provider: ProviderKey) => void;
 }) {
   useEffect(() => {
     const expectedOrigin = window.location.origin;
@@ -1149,11 +938,6 @@ function useProviderOAuthPopupCompletionReload({
         popupRef: MutableRefObject<Window | null>;
       }
     > = {
-      github: {
-        completionEventType: PROVIDER_METADATA.github.completionEventType,
-        popupOriginRef: githubPopupOriginRef,
-        popupRef: githubPopupRef,
-      },
       convex: {
         completionEventType: PROVIDER_METADATA.convex.completionEventType,
         popupOriginRef: convexPopupOriginRef,
@@ -1181,7 +965,6 @@ function useProviderOAuthPopupCompletionReload({
         if (event.origin !== (popupConfig.popupOriginRef.current ?? expectedOrigin)) {
           return;
         }
-        onProviderComplete(provider);
         window.location.reload();
         return;
       }
@@ -1191,41 +974,34 @@ function useProviderOAuthPopupCompletionReload({
     return () => {
       window.removeEventListener("message", handler);
     };
-  }, [
-    cloudflarePopupOriginRef,
-    cloudflarePopupRef,
-    convexPopupOriginRef,
-    convexPopupRef,
-    githubPopupOriginRef,
-    githubPopupRef,
-    onProviderComplete,
-  ]);
+  }, [cloudflarePopupOriginRef, cloudflarePopupRef, convexPopupOriginRef, convexPopupRef]);
 }
 
 function useCloudflareMcpTokenAutoCheck({
   cloudflareConnection,
+  organizationId,
   refreshCloudflareMcpTokenIfNeeded,
   setIsAutoCheckingCloudflareToken,
-  userId,
 }: {
   cloudflareConnection: AppCloudflareConnection | undefined;
+  organizationId: Id<"organizations"> | null;
   refreshCloudflareMcpTokenIfNeeded: (args: {
     force: false;
+    organizationId: Id<"organizations">;
     trigger: CloudflareTokenAutoCheckTrigger;
   }) => Promise<unknown>;
   setIsAutoCheckingCloudflareToken: (isChecking: boolean) => void;
-  userId: Id<"users"> | undefined;
 }) {
   const cloudflareAutoCheckInFlightRef = useRef(false);
   const connectedCloudflareConnection =
     cloudflareConnection?.connected === true ? cloudflareConnection : null;
 
   useEffect(() => {
-    if (connectedCloudflareConnection?.authMethod !== "mcp_oauth") {
+    if (connectedCloudflareConnection?.authMethod !== "mcp_oauth" || organizationId === null) {
       return;
     }
 
-    const debounceKey = userId ?? "cloudflare-providers-page";
+    const debounceKey = organizationId;
     const runAutoCheck = (trigger: CloudflareTokenAutoCheckTrigger) => {
       if (cloudflareAutoCheckInFlightRef.current) {
         return;
@@ -1242,7 +1018,7 @@ function useCloudflareMcpTokenAutoCheck({
 
       cloudflareAutoCheckInFlightRef.current = true;
       setIsAutoCheckingCloudflareToken(true);
-      void refreshCloudflareMcpTokenIfNeeded({ trigger, force: false })
+      void refreshCloudflareMcpTokenIfNeeded({ organizationId, trigger, force: false })
         .catch((error: unknown) => {
           console.error("Failed to auto-check Cloudflare token:", error);
         })
@@ -1297,18 +1073,20 @@ function useCloudflareMcpTokenAutoCheck({
   }, [
     connectedCloudflareConnection?.authMethod,
     connectedCloudflareConnection?.mcpTokenNextAutoCheckAt,
+    organizationId,
     refreshCloudflareMcpTokenIfNeeded,
     setIsAutoCheckingCloudflareToken,
-    userId,
   ]);
 }
 
-export function ProviderConnectionsPage() {
-  const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
-  const reauthorizeGithubOAuth = useAction(api.githubOAuth.reauthorizeGithubOAuth);
+export function ProviderConnectionsPage({ githubOwnerLogin }: { githubOwnerLogin: string | null }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const getGitHubAppInstallationUrl = useMutation(
+    api.githubAppInstallation.getGitHubAppInstallationUrl,
+  );
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
   const getCloudflareOAuthUrl = useAction(api.cloudflareOAuth.getCloudflareOAuthUrl);
-  const checkGithubConnectionHealth = useAction(api.users.checkGithubConnectionHealth);
   const checkConvexConnectionAccess = useAction(
     api.convexProviderAccess.checkConvexConnectionAccess,
   );
@@ -1318,29 +1096,30 @@ export function ProviderConnectionsPage() {
   const refreshCloudflareMcpTokenIfNeeded = useAction(api.users.refreshCloudflareMcpTokenIfNeeded);
   const listCloudflareAccounts = useAction(api.vault.cloudflare.listAccounts);
   const selectCloudflareDefaultAccount = useAction(api.vault.cloudflare.selectDefaultAccount);
-  const connectGithubWithApiKey = useAction(api.users.connectGithubWithApiKey);
   const connectConvexWithApiKey = useAction(api.users.connectConvexWithApiKey);
-  const disconnectGithub = useMutation(api.users.disconnectGithub);
-  const disconnectConvex = useMutation(api.users.disconnectConvex);
-  const disconnectCloudflare = useMutation(api.users.disconnectCloudflare);
+  const disconnectConvex = useAction(api.users.disconnectConvex);
+  const disconnectCloudflare = useAction(api.users.disconnectCloudflare);
   const revokeMcpGrant = useMutation(api.mcp.grants.revokeCurrentUserGrant);
-  const githubProviderSummary = useConvexQuery(api.users.getGithubProviderSummary);
-  const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus);
-  const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus);
-  const user = useConvexQuery(api.users.viewer);
+  const { githubOwners, selectedOwner } = useGitHubOwnerRouteSelection(githubOwnerLogin);
+  const selectedOrganizationId = selectedOwner?.organizationId ?? null;
+  const convexConnection = useConvexQuery(
+    api.users.getConvexConnectionStatus,
+    selectedOrganizationId ? { organizationId: selectedOrganizationId } : "skip",
+  );
+  const cloudflareConnection = useConvexQuery(
+    api.users.getCloudflareConnectionStatus,
+    selectedOrganizationId ? { organizationId: selectedOrganizationId } : "skip",
+  );
   const mcpGrants = usePaginatedQuery(
     api.mcp.grants.listCurrentUserGrants,
     {},
     { initialNumItems: MCP_GRANTS_PAGE_SIZE },
   );
-  const githubPopupRef = useRef<Window | null>(null);
   const convexPopupRef = useRef<Window | null>(null);
   const cloudflarePopupRef = useRef<Window | null>(null);
-  const githubPopupOriginRef = useRef<string | null>(null);
   const convexPopupOriginRef = useRef<string | null>(null);
   const cloudflarePopupOriginRef = useRef<string | null>(null);
   const cloudflareAccountDialogRequestIdRef = useRef(0);
-  const githubReauthorizePopupCloseTimerRef = useRef<number | null>(null);
   const [disconnectingProvider, setDisconnectingProvider] = useState<ProviderKey | null>(null);
   const [cloudflareAccess, setCloudflareAccess] = useState<AppCloudflareConnectionAccess | null>(
     null,
@@ -1348,15 +1127,12 @@ export function ProviderConnectionsPage() {
   const [cloudflareAccessError, setCloudflareAccessError] = useState<string | null>(null);
   const [convexAccess, setConvexAccess] = useState<AppConvexConnectionAccess | null>(null);
   const [convexAccessError, setConvexAccessError] = useState<string | null>(null);
-  const [githubHealth, setGithubHealth] = useState<AppGithubConnectionHealth | null>(null);
-  const [githubHealthError, setGithubHealthError] = useState<string | null>(null);
-  const [githubDisconnectedNotice, setGithubDisconnectedNotice] = useState<string | null>(null);
+  const [githubAppSetupError, setGitHubAppSetupError] = useState<string | null>(null);
   const [mcpGrantError, setMcpGrantError] = useState<string | null>(null);
   const [revokingMcpGrantId, setRevokingMcpGrantId] = useState<string | null>(null);
-  const [isCheckingGithubAccess, setIsCheckingGithubAccess] = useState(false);
   const [isCheckingConvexAccess, setIsCheckingConvexAccess] = useState(false);
   const [isCheckingCloudflareAccess, setIsCheckingCloudflareAccess] = useState(false);
-  const [isReauthorizingGithub, setIsReauthorizingGithub] = useState(false);
+  const [isStartingGitHubAppSetup, setIsStartingGitHubAppSetup] = useState(false);
   const [isAutoCheckingCloudflareToken, setIsAutoCheckingCloudflareToken] = useState(false);
   const [cloudflareAccountDialog, setCloudflareAccountDialog] =
     useState<CloudflareAccountDialogState>({
@@ -1368,21 +1144,27 @@ export function ProviderConnectionsPage() {
       selectedAccountId: "",
     });
   const providerRuntimeConfig: Record<ProviderKey, ProviderRuntimeConfig> = {
-    github: {
-      disconnect: disconnectGithub,
-      getOAuthUrl: () => getGithubOAuthUrl({}),
-      popupOriginRef: githubPopupOriginRef,
-      popupRef: githubPopupRef,
-    },
     convex: {
-      disconnect: disconnectConvex,
-      getOAuthUrl: getConvexOAuthUrl,
+      disconnect: async () => {
+        if (selectedOrganizationId === null) return;
+        await disconnectConvex({ organizationId: selectedOrganizationId });
+      },
+      getOAuthUrl: async () => {
+        if (selectedOrganizationId === null) throw new Error("Select a GitHub owner.");
+        return await getConvexOAuthUrl({ organizationId: selectedOrganizationId });
+      },
       popupOriginRef: convexPopupOriginRef,
       popupRef: convexPopupRef,
     },
     cloudflare: {
-      disconnect: disconnectCloudflare,
-      getOAuthUrl: getCloudflareOAuthUrl,
+      disconnect: async () => {
+        if (selectedOrganizationId === null) return;
+        await disconnectCloudflare({ organizationId: selectedOrganizationId });
+      },
+      getOAuthUrl: async () => {
+        if (selectedOrganizationId === null) throw new Error("Select a GitHub owner.");
+        return await getCloudflareOAuthUrl({ organizationId: selectedOrganizationId });
+      },
       popupOriginRef: cloudflarePopupOriginRef,
       popupRef: cloudflarePopupRef,
     },
@@ -1390,103 +1172,47 @@ export function ProviderConnectionsPage() {
   const now = useNow();
   const connectConvexWithApiKeyAndClearAccess = useCallback(
     async (args: { token: string }) => {
-      const result = await connectConvexWithApiKey(args);
+      if (selectedOrganizationId === null) {
+        throw new Error("Select a GitHub owner.");
+      }
+      const result = await connectConvexWithApiKey({
+        organizationId: selectedOrganizationId,
+        token: args.token,
+      });
       setConvexAccess(null);
       setConvexAccessError(null);
       return result;
     },
-    [connectConvexWithApiKey],
+    [connectConvexWithApiKey, selectedOrganizationId],
   );
   const { openApiKeyDialog, apiKeyDialog } = useApiKeyConnectDialog({
     connectConvexWithApiKey: connectConvexWithApiKeyAndClearAccess,
-    connectGithubWithApiKey,
   });
-
-  const clearGithubReauthorizePopupCloseTimer = useCallback(() => {
-    if (githubReauthorizePopupCloseTimerRef.current === null) {
-      return;
-    }
-    window.clearInterval(githubReauthorizePopupCloseTimerRef.current);
-    githubReauthorizePopupCloseTimerRef.current = null;
-  }, []);
-
-  const handleProviderOAuthPopupCompletion = useCallback(
-    (provider: ProviderKey) => {
-      if (provider !== "github") {
-        return;
-      }
-      clearGithubReauthorizePopupCloseTimer();
-      setGithubDisconnectedNotice(null);
-      setIsReauthorizingGithub(false);
-    },
-    [clearGithubReauthorizePopupCloseTimer],
-  );
 
   useProviderOAuthPopupCompletionReload({
     cloudflarePopupOriginRef,
     cloudflarePopupRef,
     convexPopupOriginRef,
     convexPopupRef,
-    githubPopupOriginRef,
-    githubPopupRef,
-    onProviderComplete: handleProviderOAuthPopupCompletion,
   });
   useCloudflareMcpTokenAutoCheck({
     cloudflareConnection,
+    organizationId: selectedOrganizationId,
     refreshCloudflareMcpTokenIfNeeded,
     setIsAutoCheckingCloudflareToken,
-    userId: user?._id,
   });
 
-  useEffect(() => {
-    return () => {
-      clearGithubReauthorizePopupCloseTimer();
-    };
-  }, [clearGithubReauthorizePopupCloseTimer]);
-
-  const watchGithubReauthorizePopupClose = (popup: Window) => {
-    clearGithubReauthorizePopupCloseTimer();
-    githubReauthorizePopupCloseTimerRef.current = window.setInterval(() => {
-      if (!popup.closed) {
-        return;
-      }
-      clearGithubReauthorizePopupCloseTimer();
-      githubPopupRef.current = null;
-      githubPopupOriginRef.current = null;
-      setGithubHealth(null);
-      setGithubHealthError(null);
-      setGithubDisconnectedNotice("GitHub was disconnected. Finish reauthorizing to reconnect.");
-      setIsReauthorizingGithub(false);
-    }, 500);
-  };
-
-  const runGithubHealthCheck = useCallback(async () => {
-    if (isCheckingGithubAccess) {
-      return;
-    }
-
-    setGithubHealthError(null);
-    setIsCheckingGithubAccess(true);
-    try {
-      setGithubHealth(await checkGithubConnectionHealth({}));
-    } catch (error) {
-      setGithubHealthError(
-        error instanceof Error ? error.message : "Could not check GitHub access.",
-      );
-    } finally {
-      setIsCheckingGithubAccess(false);
-    }
-  }, [checkGithubConnectionHealth, isCheckingGithubAccess]);
-
   const runConvexAccessCheck = useCallback(async () => {
-    if (isCheckingConvexAccess) {
+    if (isCheckingConvexAccess || selectedOrganizationId === null) {
       return;
     }
 
     setConvexAccessError(null);
     setIsCheckingConvexAccess(true);
     try {
-      setConvexAccess(await checkConvexConnectionAccess({}));
+      setConvexAccess(
+        await checkConvexConnectionAccess({ organizationId: selectedOrganizationId }),
+      );
     } catch (error) {
       setConvexAccessError(
         error instanceof Error ? error.message : "Could not check Convex access.",
@@ -1494,17 +1220,19 @@ export function ProviderConnectionsPage() {
     } finally {
       setIsCheckingConvexAccess(false);
     }
-  }, [checkConvexConnectionAccess, isCheckingConvexAccess]);
+  }, [checkConvexConnectionAccess, isCheckingConvexAccess, selectedOrganizationId]);
 
   const runCloudflareAccessCheck = useCallback(async () => {
-    if (isCheckingCloudflareAccess) {
+    if (isCheckingCloudflareAccess || selectedOrganizationId === null) {
       return;
     }
 
     setCloudflareAccessError(null);
     setIsCheckingCloudflareAccess(true);
     try {
-      setCloudflareAccess(await checkCloudflareConnectionAccess({}));
+      setCloudflareAccess(
+        await checkCloudflareConnectionAccess({ organizationId: selectedOrganizationId }),
+      );
     } catch (error) {
       setCloudflareAccessError(
         error instanceof Error ? error.message : "Could not check Cloudflare access.",
@@ -1512,9 +1240,10 @@ export function ProviderConnectionsPage() {
     } finally {
       setIsCheckingCloudflareAccess(false);
     }
-  }, [checkCloudflareConnectionAccess, isCheckingCloudflareAccess]);
+  }, [checkCloudflareConnectionAccess, isCheckingCloudflareAccess, selectedOrganizationId]);
 
   const loadCloudflareAccountDialogResources = async (preferredAccountId: string | undefined) => {
+    if (selectedOrganizationId === null) return;
     const requestId = cloudflareAccountDialogRequestIdRef.current + 1;
     cloudflareAccountDialogRequestIdRef.current = requestId;
     setCloudflareAccountDialog((current) => ({
@@ -1523,7 +1252,7 @@ export function ProviderConnectionsPage() {
       isLoadingAccounts: true,
     }));
     try {
-      const accounts = await listCloudflareAccounts({});
+      const accounts = await listCloudflareAccounts({ organizationId: selectedOrganizationId });
       if (cloudflareAccountDialogRequestIdRef.current !== requestId) {
         return;
       }
@@ -1561,9 +1290,6 @@ export function ProviderConnectionsPage() {
   const handleConnect = async (provider: ProviderKey) => {
     const providerConfig = providerRuntimeConfig[provider];
     const providerMetadata = PROVIDER_METADATA[provider];
-    if (provider === "github") {
-      setGithubDisconnectedNotice(null);
-    }
     if (provider === "cloudflare") {
       setCloudflareAccess(null);
       setCloudflareAccessError(null);
@@ -1573,19 +1299,15 @@ export function ProviderConnectionsPage() {
       setConvexAccessError(null);
     }
     try {
-      const oauthUrl =
-        provider === "github"
-          ? await getGithubOAuthUrl({
-              returnToPath: getCurrentRootRelativeUrl(),
-            })
-          : await providerConfig.getOAuthUrl();
+      const oauthUrl = await providerConfig.getOAuthUrl();
       if (isInIframe()) {
         providerConfig.popupOriginRef.current =
           getRedirectOrigin(oauthUrl) ?? window.location.origin;
-        providerConfig.popupRef.current =
-          provider === "github"
-            ? openGithubOAuthPopup(oauthUrl)
-            : window.open(oauthUrl, providerMetadata.popupName, "width=600,height=700,popup=true");
+        providerConfig.popupRef.current = window.open(
+          oauthUrl,
+          providerMetadata.popupName,
+          "width=600,height=700,popup=true",
+        );
         if (providerConfig.popupRef.current) {
           return;
         }
@@ -1596,32 +1318,22 @@ export function ProviderConnectionsPage() {
     }
   };
 
-  const handleReauthorizeGithub = async () => {
-    if (isReauthorizingGithub) {
-      return;
-    }
-
-    setGithubHealthError(null);
-    setGithubDisconnectedNotice(null);
-    setIsReauthorizingGithub(true);
+  const handleInstallGitHubApp = async () => {
+    if (isStartingGitHubAppSetup) return;
+    setGitHubAppSetupError(null);
+    setIsStartingGitHubAppSetup(true);
     try {
-      const oauthUrl = await reauthorizeGithubOAuth({
-        returnToPath: getCurrentRootRelativeUrl(),
+      await openGitHubAppSetupPopup(async () => {
+        return await getGitHubAppInstallationUrl({
+          returnToPath: getCurrentRootRelativeUrl(),
+        });
       });
-      if (isInIframe()) {
-        githubPopupOriginRef.current = getRedirectOrigin(oauthUrl) ?? window.location.origin;
-        githubPopupRef.current = openGithubOAuthPopup(oauthUrl);
-        if (githubPopupRef.current) {
-          watchGithubReauthorizePopupClose(githubPopupRef.current);
-          return;
-        }
-      }
-      window.location.assign(oauthUrl);
     } catch (error) {
-      setGithubHealthError(
-        error instanceof Error ? error.message : "Could not reauthorize GitHub.",
+      setGitHubAppSetupError(
+        error instanceof Error ? error.message : "Could not open GitHub App setup.",
       );
-      setIsReauthorizingGithub(false);
+    } finally {
+      setIsStartingGitHubAppSetup(false);
     }
   };
 
@@ -1632,14 +1344,6 @@ export function ProviderConnectionsPage() {
     setDisconnectingProvider(provider);
     try {
       await providerConfig.disconnect();
-      if (provider === "github") {
-        clearGithubReauthorizePopupCloseTimer();
-        setGithubHealth(null);
-        setGithubHealthError(null);
-        setGithubDisconnectedNotice(null);
-        setIsCheckingGithubAccess(false);
-        setIsReauthorizingGithub(false);
-      }
       if (provider === "cloudflare") {
         setCloudflareAccess(null);
         setCloudflareAccessError(null);
@@ -1680,13 +1384,18 @@ export function ProviderConnectionsPage() {
   };
 
   const handleSubmitCloudflareAccount = async () => {
-    if (cloudflareAccountDialog.isSubmitting || !cloudflareAccountDialog.selectedAccountId) {
+    if (
+      cloudflareAccountDialog.isSubmitting ||
+      !cloudflareAccountDialog.selectedAccountId ||
+      selectedOrganizationId === null
+    ) {
       return;
     }
     setCloudflareAccountDialog((current) => ({ ...current, error: null, isSubmitting: true }));
     try {
       await selectCloudflareDefaultAccount({
         accountId: cloudflareAccountDialog.selectedAccountId,
+        organizationId: selectedOrganizationId,
       });
       setCloudflareAccess(null);
       setCloudflareAccessError(null);
@@ -1701,6 +1410,24 @@ export function ProviderConnectionsPage() {
     }
   };
 
+  const handleGitHubOwnerChange = (owner: GitHubOwner) => {
+    setCloudflareAccess(null);
+    setCloudflareAccessError(null);
+    setConvexAccess(null);
+    setConvexAccessError(null);
+    cloudflareAccountDialogRequestIdRef.current += 1;
+    setCloudflareAccountDialog((current) => ({ ...current, isOpen: false }));
+    void navigate({
+      to: PROVIDERS_OWNER_ROUTE,
+      params: { owner: owner.githubOwnerLogin },
+      search: location.search,
+    });
+  };
+
+  if (githubOwners === undefined) {
+    return null;
+  }
+
   return (
     <ProviderConnectionsPageView
       apiKeyDialog={apiKeyDialog}
@@ -1712,15 +1439,12 @@ export function ProviderConnectionsPage() {
       convexAccessError={convexAccessError}
       convexConnection={convexConnection}
       disconnectingProvider={disconnectingProvider}
-      githubDisconnectedNotice={githubDisconnectedNotice}
-      githubHealth={githubHealth}
-      githubHealthError={githubHealthError}
-      githubProviderSummary={githubProviderSummary}
+      githubAppSetupError={githubAppSetupError}
+      githubOwners={githubOwners}
       isAutoCheckingCloudflareToken={isAutoCheckingCloudflareToken}
       isCheckingCloudflareAccess={isCheckingCloudflareAccess}
       isCheckingConvexAccess={isCheckingConvexAccess}
-      isCheckingGithubAccess={isCheckingGithubAccess}
-      isReauthorizingGithub={isReauthorizingGithub}
+      isStartingGitHubAppSetup={isStartingGitHubAppSetup}
       mcpGrantError={mcpGrantError}
       mcpGrants={mcpGrants.results}
       mcpGrantPaginationStatus={mcpGrants.status}
@@ -1730,9 +1454,6 @@ export function ProviderConnectionsPage() {
       }}
       onCheckConvexAccess={() => {
         void runConvexAccessCheck();
-      }}
-      onCheckGithubAccess={() => {
-        void runGithubHealthCheck();
       }}
       onCloudflareAccountChange={(accountId) => {
         setCloudflareAccountDialog((current) => ({
@@ -1751,19 +1472,21 @@ export function ProviderConnectionsPage() {
       onDisconnect={(provider) => {
         void handleDisconnect(provider);
       }}
+      onGitHubOwnerChange={handleGitHubOwnerChange}
+      onInstallGitHubApp={() => {
+        void handleInstallGitHubApp();
+      }}
       onLoadMoreMcpGrants={() => mcpGrants.loadMore(MCP_GRANTS_PAGE_SIZE)}
       onOpenApiKeyDialog={openApiKeyDialog}
       onOpenCloudflareAccountDialog={(accountId) => {
         setCloudflareAccountDialog((current) => ({ ...current, isOpen: true }));
         void loadCloudflareAccountDialogResources(accountId);
       }}
-      onReauthorizeGithub={() => {
-        void handleReauthorizeGithub();
-      }}
       onRevokeMcpGrant={(grantId) => {
         void handleRevokeMcpGrant(grantId);
       }}
       revokingMcpGrantId={revokingMcpGrantId}
+      selectedOrganizationId={selectedOrganizationId}
     />
   );
 }

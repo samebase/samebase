@@ -2,12 +2,21 @@
 
 Status: Accepted
 
-Related: `rfcs/096_AGENT_BROWSER_HANDOFF_PLAN.md`
+Related:
+
+- `rfcs/096_AGENT_BROWSER_HANDOFF_PLAN.md`
+- `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 
 ## Current Contract
 
 Samebase exposes an MCP tool named `create_browser_handoff` for clients that need to open the
 Samebase web UI as the same user behind the current MCP grant.
+
+The scope is an explicit full-account login capability. The handoff authenticates one Samebase user,
+not one organization. It stores no organization ID or membership snapshot. After sign-in, the normal
+browser application checks that user's current organization memberships and roles for each resource.
+A user with zero organizations receives a normal session with no organization resources, and a user
+with several organizations receives the same access as a normal Google or password sign-in.
 
 The tool is listed and callable only when all of these conditions hold:
 

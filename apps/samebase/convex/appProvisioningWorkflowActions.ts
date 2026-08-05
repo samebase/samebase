@@ -1,10 +1,11 @@
 "use node";
 
-import { Octokit } from "@octokit/rest";
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import { internalAction, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
+import { requireGitHubRepositoryOwnerId, resolveGitHubAppAccess } from "./githubAppAccess";
+import { resolveGitHubUserOctokit } from "./githubUserAuthorizations";
 import { toErrorMessage } from "./jsonUtils";
 import { toSafeRepoName } from "../shared/repoName";
 import type {
@@ -29,6 +30,7 @@ const githubRepositoryResult = object({
   defaultBranch: string(),
   visibility: union(literal("private"), literal("public")),
 });
+type GitHubRepositoryResult = Infer<typeof githubRepositoryResult>;
 const vaultCreatedResult = object({
   vaultId: id("vaults"),
 });
@@ -86,21 +88,18 @@ async function getProvisioningRun(
   return run;
 }
 
-async function resolveGitHubOctokit(
-  ctx: Pick<ActionCtx, "runQuery">,
-  userId: Id<"users">,
-): Promise<Octokit> {
-  const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-    userId,
-    kind: "github",
-  });
-  if (githubConnection?.kind !== "github") {
-    throw new Error("GitHub is not connected.");
+function requireMatchingGitHubOwnerLogin(args: {
+  expectedOwnerLogin: string;
+  repositoryOwner: string;
+}): string {
+  const repositoryOwner = args.repositoryOwner.trim();
+  if (
+    repositoryOwner.length === 0 ||
+    repositoryOwner.toLowerCase() !== args.expectedOwnerLogin.toLowerCase()
+  ) {
+    throw new Error("GitHub repository owner does not match the vault organization.");
   }
-
-  return new Octokit({
-    auth: githubConnection.auth.credential,
-  });
+  return args.expectedOwnerLogin;
 }
 
 async function appendRunEvent(
@@ -220,7 +219,7 @@ export const validateCreateAppConnections = internalAction({
     repositoryOwner: string(),
   },
   returns: v.null(),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<null> => {
     await assertCreateRun(ctx, args);
 
     await appendRunEvent(ctx, {
@@ -235,35 +234,38 @@ export const validateCreateAppConnections = internalAction({
     if (!repoName) {
       throw new Error("Repository name is required.");
     }
-    if (!args.repositoryOwner.trim()) {
-      throw new Error("GitHub owner is required.");
+    const access = await resolveGitHubAppAccess(ctx, {
+      userId: args.userId,
+      target: { kind: "vault", vaultId: args.vaultId },
+    });
+    requireMatchingGitHubOwnerLogin({
+      expectedOwnerLogin: access.githubOwnerLogin,
+      repositoryOwner: args.repositoryOwner,
+    });
+    const plan = await ctx.runQuery(internal.appProvisioningRuns.getPlanByVaultId, {
+      vaultId: args.vaultId,
+    });
+    if (!plan) {
+      throw new Error("Infrastructure provisioning plan not found for vault.");
     }
+    const [convexConnection, cloudflareConnection] = await Promise.all([
+      ctx.runQuery(internal.providerConnections.loadConvexForOrganizationTeam, {
+        userId: args.userId,
+        organizationId: access.organizationId,
+        teamId: plan.convex.teamId,
+      }),
+      ctx.runQuery(internal.providerConnections.loadSelectedForOrganization, {
+        userId: args.userId,
+        organizationId: access.organizationId,
+        kind: "cloudflare",
+      }),
+    ]);
 
-    const [currentUser, githubConnection, convexConnection, cloudflareConnection] =
-      await Promise.all([
-        ctx.runQuery(internal.users.getById, { userId: args.userId }),
-        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId: args.userId,
-          kind: "github",
-        }),
-        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId: args.userId,
-          kind: "convex",
-        }),
-        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId: args.userId,
-          kind: "cloudflare",
-        }),
-      ]);
-
-    if (!currentUser) {
-      throw new Error("User not found.");
-    }
-    if (githubConnection?.kind !== "github") {
-      throw new Error("GitHub is not connected.");
-    }
     if (convexConnection?.kind !== "convex") {
       throw new Error("Convex connection is required to create a project.");
+    }
+    if (convexConnection.teamId !== plan.convex.teamId) {
+      throw new Error("Connected Convex team does not match the provisioning plan.");
     }
     if (cloudflareConnection?.kind !== "cloudflare") {
       throw new Error("Cloudflare connection is required to create a Worker-backed app.");
@@ -284,17 +286,21 @@ export const createGitHubRepository = internalAction({
     private: boolean(),
   },
   returns: githubRepositoryResult,
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<GitHubRepositoryResult> => {
     await assertCreateRun(ctx, args);
 
     const repoName = toSafeRepoName(args.repositoryName);
     if (!repoName) {
       throw new Error("Repository name is required.");
     }
-    const repositoryOwner = args.repositoryOwner.trim();
-    if (!repositoryOwner) {
-      throw new Error("GitHub owner is required.");
-    }
+    const access = await resolveGitHubAppAccess(ctx, {
+      userId: args.userId,
+      target: { kind: "vault", vaultId: args.vaultId },
+    });
+    const repositoryOwner = requireMatchingGitHubOwnerLogin({
+      expectedOwnerLogin: access.githubOwnerLogin,
+      repositoryOwner: args.repositoryOwner,
+    });
 
     await appendRunEvent(ctx, {
       runId: args.runId,
@@ -304,18 +310,11 @@ export const createGitHubRepository = internalAction({
       state: "running",
     });
 
-    const octokit = await resolveGitHubOctokit(ctx, args.userId);
     const description = args.description?.trim();
     const recordApiCall = createProviderApiCallRecorder(ctx, {
       runId: args.runId,
       step: "create_github_repo",
     });
-    await recordApiCall({
-      provider: "GitHub",
-      method: "GET",
-      endpoint: "/user",
-    });
-    const viewer = await octokit.rest.users.getAuthenticated();
     const repositoryBody = {
       name: repoName,
       auto_init: false,
@@ -323,31 +322,41 @@ export const createGitHubRepository = internalAction({
       ...(description ? { description } : {}),
     };
     const repo = await (async () => {
-      if (viewer.data.login === repositoryOwner) {
-        await recordApiCall({
-          provider: "GitHub",
-          method: "POST",
-          endpoint: "/user/repos",
-          values: { body: repositoryBody },
-        });
-        return await octokit.rest.repos.createForAuthenticatedUser(repositoryBody);
+      switch (access.githubOwnerType) {
+        case "user": {
+          const octokit = await resolveGitHubUserOctokit(ctx, {
+            userId: args.userId,
+            githubUserId: access.githubOwnerId,
+          });
+          await recordApiCall({
+            provider: "GitHub",
+            method: "POST",
+            endpoint: "/user/repos",
+            values: { body: repositoryBody },
+          });
+          return await octokit.rest.repos.createForAuthenticatedUser(repositoryBody);
+        }
+        case "organization":
+          await recordApiCall({
+            provider: "GitHub",
+            method: "POST",
+            endpoint: "/orgs/{org}/repos",
+            values: {
+              body: repositoryBody,
+              params: { path: { org: repositoryOwner } },
+            },
+          });
+          return await access.octokit.rest.repos.createInOrg({
+            ...repositoryBody,
+            org: repositoryOwner,
+          });
       }
-
-      await recordApiCall({
-        provider: "GitHub",
-        method: "POST",
-        endpoint: "/orgs/{org}/repos",
-        values: {
-          body: repositoryBody,
-          params: { path: { org: repositoryOwner } },
-        },
-      });
-      return await octokit.rest.repos.createInOrg({
-        ...repositoryBody,
-        org: repositoryOwner,
-      });
     })();
 
+    requireGitHubRepositoryOwnerId({
+      expectedOwnerId: access.githubOwnerId,
+      repositoryOwnerId: repo.data.owner.id,
+    });
     const ownerName = repo.data.owner.login;
     const repoFinalName = repo.data.name;
     const repositoryFullName = `${ownerName}/${repoFinalName}`;
@@ -383,7 +392,7 @@ export const validateExistingRepositoryConnection = internalAction({
     repoName: string(),
   },
   returns: v.null(),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<null> => {
     await assertConnectExistingRepositoryRun(ctx, args);
 
     await appendRunEvent(ctx, {
@@ -394,22 +403,15 @@ export const validateExistingRepositoryConnection = internalAction({
       state: "running",
     });
 
-    readRepositoryCoordinates(args);
-
-    const [currentUser, githubConnection] = await Promise.all([
-      ctx.runQuery(internal.users.getById, { userId: args.userId }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId: args.userId,
-        kind: "github",
-      }),
-    ]);
-
-    if (!currentUser) {
-      throw new Error("User not found.");
-    }
-    if (githubConnection?.kind !== "github") {
-      throw new Error("GitHub is not connected.");
-    }
+    const repository = readRepositoryCoordinates(args);
+    const access = await resolveGitHubAppAccess(ctx, {
+      userId: args.userId,
+      target: { kind: "vault", vaultId: args.vaultId },
+    });
+    requireMatchingGitHubOwnerLogin({
+      expectedOwnerLogin: access.githubOwnerLogin,
+      repositoryOwner: repository.ownerName,
+    });
 
     return null;
   },
@@ -424,7 +426,7 @@ export const fetchExistingGitHubRepository = internalAction({
     repoName: string(),
   },
   returns: githubRepositoryResult,
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<GitHubRepositoryResult> => {
     await assertConnectExistingRepositoryRun(ctx, args);
     const requestedRepository = readRepositoryCoordinates(args);
 
@@ -436,7 +438,14 @@ export const fetchExistingGitHubRepository = internalAction({
       state: "running",
     });
 
-    const octokit = await resolveGitHubOctokit(ctx, args.userId);
+    const access = await resolveGitHubAppAccess(ctx, {
+      userId: args.userId,
+      target: { kind: "vault", vaultId: args.vaultId },
+    });
+    requireMatchingGitHubOwnerLogin({
+      expectedOwnerLogin: access.githubOwnerLogin,
+      repositoryOwner: requestedRepository.ownerName,
+    });
     const recordApiCall = createProviderApiCallRecorder(ctx, {
       runId: args.runId,
       step: "fetch_github_repo",
@@ -451,9 +460,13 @@ export const fetchExistingGitHubRepository = internalAction({
         },
       },
     });
-    const repo = await octokit.rest.repos.get({
+    const repo = await access.octokit.rest.repos.get({
       owner: requestedRepository.ownerName,
       repo: requestedRepository.repoName,
+    });
+    requireGitHubRepositoryOwnerId({
+      expectedOwnerId: access.githubOwnerId,
+      repositoryOwnerId: repo.data.owner.id,
     });
     const defaultBranch = readRequiredDefaultBranch(repo.data);
     await recordApiCall({
@@ -470,7 +483,7 @@ export const fetchExistingGitHubRepository = internalAction({
         },
       },
     });
-    await octokit.rest.repos.getBranch({
+    await access.octokit.rest.repos.getBranch({
       owner: repo.data.owner.login,
       repo: repo.data.name,
       branch: defaultBranch,
@@ -524,14 +537,21 @@ export const seedStarterRepository = internalAction({
       state: "running",
     });
 
-    const octokit = await resolveGitHubOctokit(ctx, args.userId);
+    const access = await resolveGitHubAppAccess(ctx, {
+      userId: args.userId,
+      target: { kind: "vault", vaultId: args.vaultId },
+    });
+    requireMatchingGitHubOwnerLogin({
+      expectedOwnerLogin: access.githubOwnerLogin,
+      repositoryOwner: args.ownerName,
+    });
     const recordApiCall = createProviderApiCallRecorder(ctx, {
       runId: args.runId,
       step: "seed_starter",
     });
     try {
       await seedRepositoryWithStarter({
-        client: createStarterSeedGitClient(octokit, { recordApiCall }),
+        client: createStarterSeedGitClient(access.octokit, { recordApiCall }),
         owner: args.ownerName,
         repo: args.repoName,
         defaultBranch: args.defaultBranch,
@@ -670,7 +690,14 @@ export const syncVaultTreeForRepository = internalAction({
       state: "running",
     });
 
-    const octokit = await resolveGitHubOctokit(ctx, args.userId);
+    const access = await resolveGitHubAppAccess(ctx, {
+      userId: args.userId,
+      target: { kind: "vault", vaultId: args.vaultId },
+    });
+    requireMatchingGitHubOwnerLogin({
+      expectedOwnerLogin: access.githubOwnerLogin,
+      repositoryOwner: args.ownerName,
+    });
     const recordApiCall = createProviderApiCallRecorder(ctx, {
       runId: args.runId,
       step: "sync_tree",
@@ -689,7 +716,7 @@ export const syncVaultTreeForRepository = internalAction({
         },
       },
     });
-    const branchData = await octokit.rest.repos.getBranch({
+    const branchData = await access.octokit.rest.repos.getBranch({
       owner: args.ownerName,
       repo: args.repoName,
       branch: args.defaultBranch,
@@ -712,7 +739,7 @@ export const syncVaultTreeForRepository = internalAction({
         },
       },
     });
-    const tree = await octokit.rest.git.getTree({
+    const tree = await access.octokit.rest.git.getTree({
       owner: args.ownerName,
       repo: args.repoName,
       tree_sha: treeSha,

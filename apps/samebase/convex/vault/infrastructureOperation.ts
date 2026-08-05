@@ -13,6 +13,7 @@ import {
   type ManualProviderWriteAction,
 } from "../appProvisioningModel";
 import { toErrorMessage } from "../jsonUtils";
+import { requireVaultForUser } from "../organizationAccess";
 import { assertConnectedVault, isLiveConnectedVault } from "./state";
 
 type InfrastructureOperationReadCtx = Pick<QueryCtx, "db">;
@@ -115,8 +116,8 @@ export async function requireUserVaultInfrastructureIdle(
   ctx: InfrastructureOperationReadCtx,
   args: { vaultId: Id<"vaults">; userId: Id<"users"> },
 ): Promise<Extract<Doc<"vaults">, { state: "connected" }>> {
-  const vault = await ctx.db.get(args.vaultId);
-  if (!vault || vault.state !== "connected" || vault.userId !== args.userId) {
+  const vault = await requireVaultForUser(ctx.db, args);
+  if (vault.state !== "connected") {
     throw new Error("Vault not found.");
   }
   const connectedVault = assertConnectedVault(vault);
@@ -233,8 +234,11 @@ export const claimManualProviderWrite = internalMutation({
   },
   returns: vManualProviderWriteClaim,
   handler: async (ctx, args): Promise<ManualProviderWriteClaim> => {
-    const [vault, user] = await Promise.all([ctx.db.get(args.vaultId), ctx.db.get(args.userId)]);
-    if (!vault || vault.state !== "connected" || vault.userId !== args.userId) {
+    const [vault, user] = await Promise.all([
+      requireVaultForUser(ctx.db, args),
+      ctx.db.get(args.userId),
+    ]);
+    if (vault.state !== "connected") {
       throw new Error("Vault not found.");
     }
     const connectedVault = assertConnectedVault(vault);

@@ -38,9 +38,18 @@ async function seedDatabaseEditorVault(
       email: "ada@example.com",
       isApproved: true,
     });
+    const organizationId = await ctx.db.insert("organizations", {
+      githubInstallationId: "database-editor-installation",
+      githubOwnerId: "database-editor-owner",
+      githubOwnerLogin: "ada",
+      githubOwnerLoginNormalized: "ada",
+      githubOwnerType: "user",
+    });
+    await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
     await ctx.db.insert("providerConnections", {
       kind: "convex",
-      userId,
+      organizationId,
+      connectedByUserId: userId,
       auth: convexAuth,
       teamId: "1000",
       teamSlug: "ada-team",
@@ -48,7 +57,7 @@ async function seedDatabaseEditorVault(
       updatedAt: 2,
     });
     const vaultId = await ctx.db.insert("vaults", {
-      userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
@@ -64,13 +73,12 @@ async function seedDatabaseEditorVault(
       completedAt: 20,
     });
     await ctx.db.replace(vaultId, {
-      userId,
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "connect_existing_repository",
       runId,
       ghRepoId: "123",
-      owner: "ada",
       name: "demo",
       visibility: "private",
       defaultBranch: "main",
@@ -78,7 +86,7 @@ async function seedDatabaseEditorVault(
     });
     const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
       vaultId,
-      userId,
+      organizationId,
       teamId: "1000",
       projectId: "1001",
       convexConfigPath: "convex.json",

@@ -36,14 +36,15 @@ function McpConsentView({ requestId }: { requestId: string }) {
     if (pendingAction !== null) {
       return;
     }
+    let actionPromise;
+    if (action === "approve") {
+      actionPromise = completeAuthorizationRequest({ requestId });
+    } else {
+      actionPromise = denyAuthorizationRequest({ requestId });
+    }
 
     setError(null);
     setPendingAction(action);
-
-    const actionPromise =
-      action === "approve"
-        ? completeAuthorizationRequest({ requestId })
-        : denyAuthorizationRequest({ requestId });
 
     void actionPromise
       .then(({ redirectUrl }) => {
@@ -107,6 +108,12 @@ function McpConsentView({ requestId }: { requestId: string }) {
           <div>
             <div className="font-medium">Client</div>
             <div className="text-muted-foreground">{clientName}</div>
+          </div>
+          <div>
+            <div className="font-medium">Access</div>
+            <div className="text-muted-foreground">
+              Organizations and vaults that your account can currently access
+            </div>
           </div>
           <div>
             <div className="font-medium">Resource</div>
@@ -174,7 +181,7 @@ export function McpConsentRoutePage() {
     <>
       <Authenticated>
         <ApprovalGate>
-          {requestId === null ? null : <McpConsentView requestId={requestId} />}
+          {requestId === null ? null : <McpConsentView key={requestId} requestId={requestId} />}
         </ApprovalGate>
       </Authenticated>
       <Unauthenticated>

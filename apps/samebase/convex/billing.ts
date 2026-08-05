@@ -2,8 +2,15 @@ import type { Checkout } from "@polar-sh/sdk/models/components/checkout";
 import { ConvexError, Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
-import { internalMutation } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { action, query } from "./functions";
+import {
+  findBillingAccountForOrganization,
+  patchBillingAccount,
+  readBillingAccountState,
+  requireBillingAccountForOrganization,
+  requireOwnerBillingAccountForOrganization,
+} from "./organizationBilling";
 import { randomToken } from "./oauthUtils";
 import { reconcilePolarCustomerBilling } from "./polarBillingState";
 import {
@@ -19,6 +26,8 @@ import {
   resolvePolarServer,
   type PolarServer,
 } from "./polarClient";
+import schema from "./schema";
+import { vOrganizationMembershipRole } from "./organizationModel";
 
 const { boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -56,6 +65,22 @@ const vPolarCustomerSeed = object({
   externalCustomerId: string(),
   name: optional(string()),
   email: optional(string()),
+});
+
+const vUserDoc = schema.tables.users.validator.extend({
+  _id: id("users"),
+  _creationTime: number(),
+});
+
+const vOrganizationBillingAccountDoc = schema.tables.organizationBillingAccounts.validator.extend({
+  _id: id("organizationBillingAccounts"),
+  _creationTime: number(),
+});
+
+const vUserBillingAccount = object({
+  account: vOrganizationBillingAccountDoc,
+  role: vOrganizationMembershipRole,
+  user: vUserDoc,
 });
 
 function validateReturnUrlPair(args: {
@@ -99,34 +124,50 @@ function hasStoredProEntitlement(plan: BillingPlan, status: BillingStatus): bool
 
 export const getViewerBillingStatus = query({
   access: "access_user_preferences",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: vViewerBillingStatus,
-  handler: async (ctx): Promise<ViewerBillingStatus> => {
-    const user = ctx.viewer.user;
+  handler: async (ctx, args): Promise<ViewerBillingStatus> => {
+    const billing = await requireBillingAccountForOrganization(ctx.db, {
+      userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
+    });
+    const state = readBillingAccountState(billing.account);
 
     return {
-      provider: user.billingProvider,
-      plan: user.billingPlan ?? "free",
-      status: user.billingStatus ?? "inactive",
-      currentPeriodEndAt: user.billingCurrentPeriodEndAt,
-      cancelAtPeriodEnd: user.billingCancelAtPeriodEnd,
-      canStartCheckout: ctx.viewer.accessKeys.includes("access_dashboard"),
+      provider: state.provider,
+      plan: state.plan,
+      status: state.status,
+      currentPeriodEndAt: state.currentPeriodEndAt,
+      cancelAtPeriodEnd: state.cancelAtPeriodEnd,
+      canStartCheckout:
+        billing.role === "owner" && ctx.viewer.accessKeys.includes("access_dashboard"),
     };
   },
+});
+
+export const getBillingAccountForOrganization = internalQuery({
+  args: {
+    userId: id("users"),
+    organizationId: id("organizations"),
+  },
+  returns: union(vUserBillingAccount, v.null()),
+  handler: async (ctx, args) => await findBillingAccountForOrganization(ctx.db, args),
 });
 
 export const ensurePolarExternalCustomerId = internalMutation({
   args: {
     userId: id("users"),
+    organizationId: id("organizations"),
   },
   returns: vPolarCustomerSeed,
   handler: async (ctx, args) => {
-    const user = await ctx.db.get(args.userId);
-    if (!user) {
-      throw new Error("User not found.");
-    }
+    const billing = await requireOwnerBillingAccountForOrganization(ctx.db, args);
+    const state = readBillingAccountState(billing.account);
+    const user = billing.user;
 
-    const existing = user.billingPolarExternalCustomerId?.trim() ?? "";
+    const existing = state.polarExternalCustomerId?.trim() ?? "";
     if (existing.length > 0) {
       return {
         externalCustomerId: existing,
@@ -136,8 +177,8 @@ export const ensurePolarExternalCustomerId = internalMutation({
     }
 
     const externalCustomerId = `samebase_${randomToken(24)}`;
-    await ctx.db.patch(args.userId, {
-      billingPolarExternalCustomerId: externalCustomerId,
+    await patchBillingAccount(ctx.db, billing.account, {
+      polarExternalCustomerId: externalCustomerId,
     });
 
     return {
@@ -151,16 +192,25 @@ export const ensurePolarExternalCustomerId = internalMutation({
 export const createPolarCheckoutSession = action({
   access: "access_dashboard",
   args: object({
+    organizationId: id("organizations"),
     successUrl: string(),
     returnUrl: string(),
   }),
   returns: vPolarCheckoutSession,
   handler: async (ctx, args): Promise<{ url: string }> => {
     const userId = ctx.viewer.userId;
-    const currentUser = await ctx.runQuery(internal.users.getById, { userId });
-    if (!currentUser) {
+    const organizationId = args.organizationId;
+    const currentBilling = await ctx.runQuery(internal.billing.getBillingAccountForOrganization, {
+      userId,
+      organizationId,
+    });
+    if (!currentBilling) {
       throw new Error("User not found.");
     }
+    if (currentBilling.role !== "owner") {
+      throw new Error("Organization owner access is required.");
+    }
+    const storedBilling = readBillingAccountState(currentBilling.account);
 
     const productId = readPolarProMonthlyProductId();
     if (!productId) {
@@ -174,15 +224,16 @@ export const createPolarCheckoutSession = action({
       server,
     });
 
-    const storedPlan = currentUser.billingPlan ?? "free";
-    const storedStatus = currentUser.billingStatus ?? "inactive";
-    const storedExternalCustomerId = currentUser.billingPolarExternalCustomerId?.trim();
+    const storedPlan = storedBilling.plan;
+    const storedStatus = storedBilling.status;
+    const storedExternalCustomerId = storedBilling.polarExternalCustomerId?.trim();
     if (!storedExternalCustomerId && hasStoredProEntitlement(storedPlan, storedStatus)) {
       throw new ConvexError("Samebase could not verify your current subscription.");
     }
 
     const customer = await ctx.runMutation(internal.billing.ensurePolarExternalCustomerId, {
       userId,
+      organizationId,
     });
 
     if (storedExternalCustomerId) {
@@ -205,7 +256,7 @@ export const createPolarCheckoutSession = action({
 
     let reservation: PolarCheckoutReservation = await ctx.runMutation(
       internal.polarCheckout.reserveAttempt,
-      { userId },
+      { userId, organizationId },
     );
     if (reservation.state === "open") {
       let storedCheckout: Checkout;
@@ -244,13 +295,17 @@ export const createPolarCheckoutSession = action({
 
       const cleared: boolean = await ctx.runMutation(internal.polarCheckout.clearOpen, {
         userId,
+        organizationId,
         attemptId: reservation.attemptId,
         checkoutId: reservation.checkoutId,
       });
       if (!cleared) {
         throw new ConvexError("Samebase could not verify your open checkout.");
       }
-      reservation = await ctx.runMutation(internal.polarCheckout.reserveAttempt, { userId });
+      reservation = await ctx.runMutation(internal.polarCheckout.reserveAttempt, {
+        userId,
+        organizationId,
+      });
     }
 
     if (reservation.state !== "pending" || !reservation.canCreate) {
@@ -279,6 +334,7 @@ export const createPolarCheckoutSession = action({
       if (isDefinitivePolarCheckoutFailure(error)) {
         await ctx.runMutation(internal.polarCheckout.clearPending, {
           userId,
+          organizationId,
           attemptId: reservation.attemptId,
         });
       }
@@ -303,6 +359,7 @@ export const createPolarCheckoutSession = action({
 
     const recorded: boolean = await ctx.runMutation(internal.polarCheckout.recordOpen, {
       userId,
+      organizationId,
       attemptId: reservation.attemptId,
       checkoutId: checkout.id,
     });
@@ -314,19 +371,28 @@ export const createPolarCheckoutSession = action({
 });
 
 export const createPolarCustomerPortalSession = action({
-  access: "access_user_preferences",
+  access: "access_dashboard",
   args: object({
+    organizationId: id("organizations"),
     returnUrl: string(),
   }),
   returns: vPolarPortalSession,
   handler: async (ctx, args): Promise<{ url: string }> => {
     const userId = ctx.viewer.userId;
-    const currentUser = await ctx.runQuery(internal.users.getById, { userId });
-    if (!currentUser) {
+    const currentBilling = await ctx.runQuery(internal.billing.getBillingAccountForOrganization, {
+      userId,
+      organizationId: args.organizationId,
+    });
+    if (!currentBilling) {
       throw new Error("User not found.");
     }
+    if (currentBilling.role !== "owner") {
+      throw new Error("Organization owner access is required.");
+    }
 
-    const externalCustomerId = currentUser.billingPolarExternalCustomerId?.trim();
+    const externalCustomerId = readBillingAccountState(
+      currentBilling.account,
+    ).polarExternalCustomerId?.trim();
     if (!externalCustomerId) {
       throw new ConvexError("No billing account exists yet.");
     }
@@ -356,14 +422,27 @@ export const createPolarCustomerPortalSession = action({
 
 export const reconcileViewerBillingFromPolar = action({
   access: "access_user_preferences",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: vPolarBillingReconciliationResult,
-  handler: async (ctx): Promise<PolarBillingReconciliationResult> => {
+  handler: async (ctx, args): Promise<PolarBillingReconciliationResult> => {
     const userId = ctx.viewer.userId;
-    const currentUser = await ctx.runQuery(internal.users.getById, { userId });
-    const externalCustomerId = currentUser?.billingPolarExternalCustomerId?.trim();
+    const organizationId = args.organizationId;
+    const currentBilling = await ctx.runQuery(internal.billing.getBillingAccountForOrganization, {
+      userId,
+      organizationId,
+    });
+    if (currentBilling === null) {
+      return { state: "unavailable" };
+    }
+    if (currentBilling.role !== "owner") {
+      throw new Error("Organization owner access is required.");
+    }
+    const storedBilling = readBillingAccountState(currentBilling.account);
+    const externalCustomerId = storedBilling.polarExternalCustomerId?.trim();
     const productId = readPolarProMonthlyProductId();
-    if (!currentUser || !externalCustomerId || !productId) {
+    if (!externalCustomerId || !productId) {
       return { state: "unavailable" };
     }
 
@@ -377,7 +456,7 @@ export const reconcileViewerBillingFromPolar = action({
         return { state: "unavailable" };
       }
 
-      const attempt = currentUser.billingPolarCheckoutAttempt;
+      const attempt = storedBilling.polarCheckoutAttempt;
       if (attempt?.state === "open") {
         try {
           const checkout = await polar.checkouts.get({ id: attempt.checkoutId });
@@ -392,6 +471,7 @@ export const reconcileViewerBillingFromPolar = action({
           ) {
             await ctx.runMutation(internal.polarCheckout.clearOpen, {
               userId,
+              organizationId,
               attemptId: attempt.attemptId,
               checkoutId: attempt.checkoutId,
             });

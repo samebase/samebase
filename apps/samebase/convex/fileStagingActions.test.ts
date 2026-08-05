@@ -339,7 +339,6 @@ describe("draft pull request helpers", () => {
     const record = {
       _id: "file-staging-1",
       _creationTime: 1_712_345_678_901,
-      ownerId: "user-1",
       vaultId: "vault-1",
       fileDeleted: false,
       kind: "binary" as const,
@@ -360,7 +359,6 @@ describe("draft pull request helpers", () => {
 
     expect(stripCreationTimeFromStagingRecord(record)).toEqual({
       _id: "file-staging-1",
-      ownerId: "user-1",
       vaultId: "vault-1",
       fileDeleted: false,
       kind: "binary",

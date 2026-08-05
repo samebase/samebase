@@ -5,7 +5,7 @@ import { vMcpTokenHealth } from "./mcpTokenHealth";
 
 const { id, literal, number, object, optional, string, union } = v;
 
-export const vProviderKind = union(literal("github"), literal("convex"), literal("cloudflare"));
+export const vProviderKind = union(literal("convex"), literal("cloudflare"));
 export type ProviderKind = Infer<typeof vProviderKind>;
 
 export const vOAuthAuth = object({
@@ -43,64 +43,65 @@ export const vCloudflareDefaultAccount = union(
 );
 export type CloudflareDefaultAccount = Infer<typeof vCloudflareDefaultAccount>;
 
+const vProviderConnectionIdentity = {
+  organizationId: id("organizations"),
+  connectedByUserId: id("users"),
+  createdAt: number(),
+  updatedAt: number(),
+};
+
+export const vConvexProviderConnection = object({
+  kind: literal("convex"),
+  ...vProviderConnectionIdentity,
+  auth: vStandardProviderAuth,
+  teamId: string(),
+  teamSlug: optional(string()),
+});
+export const vCloudflareProviderConnection = object({
+  kind: literal("cloudflare"),
+  ...vProviderConnectionIdentity,
+  auth: vCloudflareProviderAuth,
+  defaultAccount: vCloudflareDefaultAccount,
+  tokenHealth: optional(vMcpTokenHealth),
+  tokenRefreshStartedAt: optional(number()),
+  lastTokenRefreshAt: optional(number()),
+});
+export const vProviderConnection = union(vConvexProviderConnection, vCloudflareProviderConnection);
+export type ProviderConnection = Infer<typeof vProviderConnection>;
+
+export const vOAuthProvider = union(
+  literal("convex"),
+  literal("cloudflare"),
+  literal("cloudflare_mcp"),
+);
+export type OAuthProvider = Infer<typeof vOAuthProvider>;
+
+export const vProviderOAuthCallbackState = object({
+  provider: vOAuthProvider,
+  userId: id("users"),
+  organizationId: id("organizations"),
+  providerConnectionId: optional(id("providerConnections")),
+  state: string(),
+  returnToPath: optional(string()),
+  codeVerifier: optional(string()),
+  clientId: optional(string()),
+  clientSecret: optional(string()),
+  createdAt: number(),
+  expiresAt: number(),
+});
+
 export const providerConnectionTables = {
-  /** Provider credentials and account choices saved by one Samebase user. */
-  providerConnections: defineTable(
-    union(
-      object({
-        kind: literal("github"),
-        userId: id("users"),
-        auth: vStandardProviderAuth,
-        username: optional(string()),
-        createdAt: number(),
-        updatedAt: number(),
-      }),
-      object({
-        kind: literal("convex"),
-        userId: id("users"),
-        auth: vStandardProviderAuth,
-        teamId: string(),
-        teamSlug: optional(string()),
-        createdAt: number(),
-        updatedAt: number(),
-      }),
-      object({
-        kind: literal("cloudflare"),
-        userId: id("users"),
-        auth: vCloudflareProviderAuth,
-        defaultAccount: vCloudflareDefaultAccount,
-        tokenHealth: optional(vMcpTokenHealth),
-        tokenRefreshStartedAt: optional(number()),
-        lastTokenRefreshAt: optional(number()),
-        createdAt: number(),
-        updatedAt: number(),
-      }),
-    ),
-  )
-    .index("by_user", ["userId"])
-    .index("by_user_kind", ["userId", "kind"])
+  /** Provider credentials and account choices saved for one organization. */
+  providerConnections: defineTable(vProviderConnection)
+    .index("by_organization", ["organizationId"])
+    .index("by_organization_and_kind", ["organizationId", "kind"])
+    .index("by_organization_and_kind_and_team_id", ["organizationId", "kind", "teamId"])
+    .index("by_connected_by_user", ["connectedByUserId"])
     .index("by_kind_method", ["kind", "auth.method"]),
 
-  /**
-   * Short-lived requests that bind a provider OAuth callback to the user who
-   * started it and retain callback data such as PKCE credentials until use.
-   */
-  providerOAuthCallbackStates: defineTable({
-    provider: union(
-      literal("github"),
-      literal("convex"),
-      literal("cloudflare"),
-      literal("cloudflare_mcp"),
-    ),
-    userId: id("users"),
-    state: string(),
-    returnToPath: optional(string()),
-    codeVerifier: optional(string()),
-    clientId: optional(string()),
-    clientSecret: optional(string()),
-    createdAt: number(),
-    expiresAt: number(),
-  })
+  /** Short-lived requests that bind a provider OAuth callback to an organization. */
+  providerOAuthCallbackStates: defineTable(vProviderOAuthCallbackState)
     .index("by_state", ["state"])
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    .index("by_organization", ["organizationId"]),
 };

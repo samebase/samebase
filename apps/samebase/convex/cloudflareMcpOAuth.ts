@@ -1,7 +1,6 @@
 import { Infer, v } from "convex/values";
 import { httpAction, internalAction, internalMutation } from "./_generated/server";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { z } from "zod";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -277,15 +276,7 @@ async function exchangeCloudflareMcpOAuthCode(args: {
 }
 
 function sanitizeTokenHealthError(error: unknown): string | undefined {
-  const rawMessage = error instanceof Error ? error.message : String(error);
-  const trimmed = rawMessage.trim();
-  if (trimmed.length === 0) {
-    return undefined;
-  }
-  if (trimmed.length <= 160) {
-    return trimmed;
-  }
-  return `${trimmed.slice(0, 157)}...`;
+  return error instanceof Error ? "Cloudflare token refresh failed." : undefined;
 }
 
 function isLikelyInvalidCloudflareTokenError(error: unknown): boolean {
@@ -358,7 +349,14 @@ export async function revokeCloudflareMcpOAuthGrant(args: {
   }
 }
 
-async function buildCloudflareMcpOAuthUrl(ctx: OAuthContext, userId: Id<"users">): Promise<string> {
+async function buildCloudflareMcpOAuthUrl(
+  ctx: OAuthContext,
+  args: {
+    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+    providerConnectionId?: Id<"providerConnections">;
+  },
+): Promise<string> {
   const redirectUri = readRequiredEnv("PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL");
 
   const state = randomToken();
@@ -370,7 +368,9 @@ async function buildCloudflareMcpOAuthUrl(ctx: OAuthContext, userId: Id<"users">
   const now = Date.now();
   await ctx.runMutation(internal.oauthState.createOauthState, {
     provider: "cloudflare_mcp",
-    userId,
+    userId: args.userId,
+    organizationId: args.organizationId,
+    providerConnectionId: args.providerConnectionId,
     state,
     codeVerifier,
     clientId,
@@ -379,7 +379,7 @@ async function buildCloudflareMcpOAuthUrl(ctx: OAuthContext, userId: Id<"users">
   });
 
   console.log("cloudflare:mcp_oauth:url_built", {
-    userId,
+    organizationId: args.organizationId,
     redirectUri,
     clientIdLength: clientId.length,
     oauthStateExpiresAt: now + OAUTH_STATE_TTL_MS,
@@ -394,7 +394,9 @@ async function buildCloudflareMcpOAuthUrl(ctx: OAuthContext, userId: Id<"users">
 }
 
 const storeCloudflareMcpOauthConnectionArgs = {
-  userId: id("users"),
+  organizationId: id("organizations"),
+  connectedByUserId: id("users"),
+  providerConnectionId: optional(id("providerConnections")),
   accessToken: string(),
   refreshToken: string(),
   expiresAt: number(),
@@ -409,10 +411,10 @@ export const storeCloudflareMcpOauthConnection = internalMutation({
   returns: storeCloudflareMcpOauthConnectionResultValidator,
   handler: async (ctx, args) => {
     const checkedAt = Date.now();
-    await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
-      userId: args.userId,
+    const connection = {
+      kind: "cloudflare" as const,
       auth: {
-        method: "mcp_oauth",
+        method: "mcp_oauth" as const,
         credential: args.accessToken,
         refreshCredential: args.refreshToken,
         credentialExpiresAt: args.expiresAt,
@@ -423,11 +425,25 @@ export const storeCloudflareMcpOauthConnection = internalMutation({
         status: deriveMcpTokenStatusFromExpiry(args.expiresAt, checkedAt),
         checkedAt,
         expiresAt: args.expiresAt,
-        source: "expiry_metadata",
+        source: "expiry_metadata" as const,
       },
-    });
+    };
+    if (args.providerConnectionId !== undefined) {
+      await ctx.runMutation(internal.providerConnections.reauthorizeConnected, {
+        organizationId: args.organizationId,
+        connectedByUserId: args.connectedByUserId,
+        providerConnectionId: args.providerConnectionId,
+        connection,
+      });
+    } else {
+      await ctx.runMutation(internal.providerConnections.createConnected, {
+        organizationId: args.organizationId,
+        connectedByUserId: args.connectedByUserId,
+        connection,
+      });
+    }
     console.log("cloudflare:mcp_oauth:connection_stored", {
-      userId: args.userId,
+      organizationId: args.organizationId,
       clientIdLength: args.clientId.length,
       expiresAt: args.expiresAt,
     });
@@ -462,22 +478,26 @@ const resolvedCloudflareConnectionValidator = object({
   defaultAccount: vCloudflareDefaultAccount,
   tokenHealth: optional(vMcpTokenHealth),
 });
-const resolveConnectionForUserResultValidator = union(
+const resolveConnectionForOrganizationResultValidator = union(
   resolvedCloudflareConnectionValidator,
   nullValue(),
 );
 const getCloudflareMcpOAuthUrlResultValidator = string();
 type ResolvedCloudflareConnection = Infer<typeof resolvedCloudflareConnectionValidator>;
 
-export const resolveConnectionForUser = internalAction({
+export const resolveConnectionForOrganization = internalAction({
   args: {
+    organizationId: id("organizations"),
+    providerConnectionId: id("providerConnections"),
     userId: id("users"),
     forceRefresh: optional(boolean()),
   },
-  returns: resolveConnectionForUserResultValidator,
+  returns: resolveConnectionForOrganizationResultValidator,
   handler: async (ctx, args): Promise<ResolvedCloudflareConnection | null> => {
-    const connection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+    const connection = await ctx.runQuery(internal.providerConnections.loadByIdForOrganization, {
+      organizationId: args.organizationId,
       userId: args.userId,
+      providerConnectionId: args.providerConnectionId,
       kind: "cloudflare",
     });
     if (connection?.kind !== "cloudflare") {
@@ -505,7 +525,7 @@ export const resolveConnectionForUser = internalAction({
       derivedTokenHealth.status === "expiring_soon" ||
       derivedTokenHealth.status === "expired";
     console.log("cloudflare:mcp_token:status_query", {
-      userId: args.userId,
+      organizationId: args.organizationId,
       forceRefresh: args.forceRefresh === true,
       derivedStatus: derivedTokenHealth.status,
       effectiveStatus: effectiveTokenHealth.status,
@@ -532,14 +552,16 @@ export const resolveConnectionForUser = internalAction({
         source: "refresh_attempt",
         errorMessage: message,
       };
-      await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
+      await ctx.runMutation(internal.providerConnections.updateCloudflareConnected, {
+        organizationId: args.organizationId,
         userId: args.userId,
+        providerConnectionId: args.providerConnectionId,
         auth: connection.auth,
         defaultAccount: connection.defaultAccount,
         tokenHealth,
       });
       console.log("cloudflare:mcp_token:refresh_failed", {
-        userId: args.userId,
+        organizationId: args.organizationId,
         reason: "empty_refresh_token",
         derivedStatus: derivedTokenHealth.status,
         expiresAt,
@@ -557,14 +579,16 @@ export const resolveConnectionForUser = internalAction({
         source: "refresh_attempt",
         errorMessage: message,
       };
-      await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
+      await ctx.runMutation(internal.providerConnections.updateCloudflareConnected, {
+        organizationId: args.organizationId,
         userId: args.userId,
+        providerConnectionId: args.providerConnectionId,
         auth: connection.auth,
         defaultAccount: connection.defaultAccount,
         tokenHealth,
       });
       console.log("cloudflare:mcp_token:refresh_failed", {
-        userId: args.userId,
+        organizationId: args.organizationId,
         reason: "empty_client_metadata",
         derivedStatus: derivedTokenHealth.status,
         expiresAt,
@@ -573,7 +597,7 @@ export const resolveConnectionForUser = internalAction({
     }
 
     console.log("cloudflare:mcp_token:refresh_start", {
-      userId: args.userId,
+      organizationId: args.organizationId,
       derivedStatus: derivedTokenHealth.status,
       expiresAt,
       clientIdLength: clientId.length,
@@ -595,7 +619,7 @@ export const resolveConnectionForUser = internalAction({
         errorMessage: sanitizeTokenHealthError(error),
       };
       console.log("cloudflare:mcp_token:refresh_failed", {
-        userId: args.userId,
+        organizationId: args.organizationId,
         reason: "refresh_request_failed",
         derivedStatus: derivedTokenHealth.status,
         expiresAt,
@@ -603,8 +627,10 @@ export const resolveConnectionForUser = internalAction({
         clientIdLength: clientId.length,
         errorMessage: tokenHealth.errorMessage,
       });
-      await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
+      await ctx.runMutation(internal.providerConnections.updateCloudflareConnected, {
+        organizationId: args.organizationId,
         userId: args.userId,
+        providerConnectionId: args.providerConnectionId,
         auth: connection.auth,
         defaultAccount: connection.defaultAccount,
         tokenHealth,
@@ -627,14 +653,16 @@ export const resolveConnectionForUser = internalAction({
       source: "refresh_attempt",
     };
 
-    await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
+    await ctx.runMutation(internal.providerConnections.updateCloudflareConnected, {
+      organizationId: args.organizationId,
       userId: args.userId,
+      providerConnectionId: args.providerConnectionId,
       auth: refreshedAuth,
       defaultAccount: connection.defaultAccount,
       tokenHealth: refreshedTokenHealth,
     });
     console.log("cloudflare:mcp_token:refresh_success", {
-      userId: args.userId,
+      organizationId: args.organizationId,
       previousExpiresAt: expiresAt,
       nextExpiresAt,
       clientIdLength: clientId.length,
@@ -650,20 +678,32 @@ export const resolveConnectionForUser = internalAction({
 
 export const getCloudflareMcpOAuthUrl = action({
   access: "access_provider_connections",
-  args: {},
-  returns: getCloudflareMcpOAuthUrlResultValidator,
-  handler: async (ctx) => {
-    return await buildCloudflareMcpOAuthUrl(ctx, ctx.viewer.userId);
+  args: {
+    organizationId: id("organizations"),
   },
-});
-
-export const startCloudflareMcpOAuth = httpAction(async (ctx) => {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-  const authorizeUrl = await buildCloudflareMcpOAuthUrl(ctx, userId);
-  return Response.redirect(authorizeUrl, 302);
+  returns: getCloudflareMcpOAuthUrlResultValidator,
+  handler: async (ctx, args): Promise<string> => {
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.requireOrganizationOwnerIdForUser,
+      {
+        userId: ctx.viewer.userId,
+        organizationId: args.organizationId,
+      },
+    );
+    const connection = await ctx.runQuery(
+      internal.providerConnections.loadSelectedForOrganization,
+      {
+        organizationId,
+        userId: ctx.viewer.userId,
+        kind: "cloudflare",
+      },
+    );
+    return await buildCloudflareMcpOAuthUrl(ctx, {
+      userId: ctx.viewer.userId,
+      organizationId,
+      providerConnectionId: connection?._id,
+    });
+  },
 });
 
 export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
@@ -676,8 +716,8 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
   if (error) {
     console.log("cloudflare:mcp_oauth:callback_provider_error", {
       statePresent: state !== null,
-      error,
-      errorDescription: errorDescription ?? undefined,
+      errorPresent: error.length > 0,
+      errorDescriptionPresent: errorDescription !== null,
     });
     if (state) {
       const oauthState = await ctx.runQuery(internal.oauthState.getOauthStateByState, {
@@ -690,7 +730,7 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
         });
       }
     }
-    return new Response(`Cloudflare OAuth error: ${errorDescription ?? error}`, { status: 400 });
+    return new Response("Cloudflare OAuth authorization was not completed.", { status: 400 });
   }
 
   if (!code || !state) {
@@ -718,7 +758,7 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
       id: oauthState._id,
     });
     console.log("cloudflare:mcp_oauth:callback_state_expired", {
-      userId: oauthState.userId,
+      organizationId: oauthState.organizationId,
       stateCreatedAt: oauthState.createdAt,
       stateExpiresAt: oauthState.expiresAt,
     });
@@ -732,7 +772,7 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
       id: oauthState._id,
     });
     console.log("cloudflare:mcp_oauth:callback_missing_pkce", {
-      userId: oauthState.userId,
+      organizationId: oauthState.organizationId,
       hasClientId: !!clientId,
       hasCodeVerifier: !!codeVerifier,
     });
@@ -761,7 +801,9 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
     );
 
     await ctx.runMutation(internal.cloudflareMcpOAuth.storeCloudflareMcpOauthConnection, {
-      userId: oauthState.userId,
+      organizationId: oauthState.organizationId,
+      connectedByUserId: oauthState.userId,
+      providerConnectionId: oauthState.providerConnectionId,
       accessToken: token.access_token,
       refreshToken: token.refresh_token,
       expiresAt,
@@ -770,7 +812,7 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
       oauthStateId: oauthState._id,
     });
     console.log("cloudflare:mcp_oauth:exchange_succeeded", {
-      userId: oauthState.userId,
+      organizationId: oauthState.organizationId,
       expiresIn: token.expires_in,
       expiresAt,
       clientIdLength: clientId.length,
@@ -779,12 +821,11 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
     await ctx.runMutation(internal.oauthState.deleteOauthState, {
       id: oauthState._id,
     });
-    const message = err instanceof Error ? err.message : String(err);
     console.log("cloudflare:mcp_oauth:exchange_failed", {
-      userId: oauthState.userId,
+      organizationId: oauthState.organizationId,
       clientIdLength: clientId.length,
       hasCodeVerifier: codeVerifier.length > 0,
-      message,
+      errorName: err instanceof Error ? err.name : "UnknownError",
     });
     return new Response("Cloudflare OAuth exchange failed", { status: 400 });
   }

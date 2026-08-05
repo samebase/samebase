@@ -7,58 +7,25 @@ release plan and manual acceptance evidence.
 
 ## User Contract
 
-A signed-in, non-staff user can start account deletion from `/settings`. The `Delete account` action
-opens the URL-owned `?delete-account` confirmation dialog. The confirmation must say that Samebase
-data and uncommitted staged changes are permanently deleted, while nothing outside Samebase is
-deleted: apps, GitHub repositories, Convex projects and deployments, Cloudflare Workers, domains,
-and other external resources keep running. The permanent-deletion statement and the
-external-resource reassurance are visually separate, with stronger emphasis on what is deleted.
+A signed-in, non-staff user can start account deletion from `/settings`. The confirmation requires
+the exact phrase `delete my account`.
 
-When uncommitted file changes exist, the dialog shows the exact count and says they will be
-permanently deleted without being pushed to GitHub. It lists every affected repository and branch,
-including the per-branch count, with direct links to staged-changes review. A bounded internal
-scroller contains long lists. The warning is absent for a confirmed zero count and while stakes are
-loading. Above the 500-change cap, or when the backend cannot produce a complete reviewable list,
-the dialog links to the vault list instead of showing a partial list.
+The confirmation must distinguish the user's Samebase identity from organization data. Account
+deletion removes the user's login, profile, personal preferences, organization memberships, MCP
+access, pending provider authorization states, GitHub App user authorization, and every provider
+connection that user created. It does not delete an organization, organization billing, vault,
+staged file, attached resource, observation, or organization workflow record.
 
-The confirmation dialog shows the viewer's current deletion stakes and requires typing a dynamic
-confirmation phrase before the destructive action enables. The base phrase is `delete my account`;
-nonzero counts extend it with the vault count and the uncommitted file change count, for example
-`delete my account, 3 vaults, and 5 uncommitted file changes`. Counting uncommitted file changes
-stops at 500, after which the phrase reads `more than 500 uncommitted file changes`. The displayed
-phrase is selectable and pasting is allowed. The request mutation recomputes the phrase from current
-data and compares the complete displayed stakes, including affected repositories, branches, and
-cancellable-subscription state. It rejects either mismatch with a `stakes_changed` result instead of
-creating a run. The subscribed stakes query remains the only source of displayed details, and the
-dialog clears the typed phrase and asks for confirmation again.
+Account deletion is rejected while the user is the last active owner of any organization. The user
+must add or promote another owner first. Account deletion can then remove the user's memberships
+without leaving an organization with no owner. Removing the user who connected a provider removes
+that provider credential and can make operations that depend on it unavailable until a member
+reconnects the provider.
 
 Acceptance creates one durable deletion run, marks the user as deleting, and routes every signed-in
 session to `/account-deletion`. Repeated requests return the same active run without rechecking the
 phrase. A deleting user cannot use ordinary authenticated product routes or create new user-owned
 data.
-
-The request rejects while a manual provider change is active and tells the user to wait for it to
-finish. A manual provider change rejects after the request marks the user as deleting. These two
-start checks prevent account deletion and a provider change from owning the same account at the same
-time.
-
-If a deletion request reports a pending billing checkout, the dialog attempts one Polar
-reconciliation and repeats the same request once, even if reconciliation fails, before it shows the
-support message.
-
-The deletion page is a direct projection of persisted backend progress. It shows these groups:
-
-- Vaults and staged changes, including the number of deleted vaults and current cleanup phase.
-- Preferences.
-- App access and tokens.
-- Access requests and history.
-
-Vault and staged-data cleanup repeats bounded mutations until the persisted group reaches
-completion. It has no fixed batch-count ceiling. Each action attempt remains subject to Convex's
-execution limit and the workflow retry policy, while committed progress lets staff retry continue
-from the last completed batch. Every destructive batch rechecks active vault deletion, provisioning,
-and repository-refresh work before deleting rows. The UI does not estimate percent complete or
-display steps the backend does not persist.
 
 ## Completion And Browser Recovery
 
@@ -81,15 +48,15 @@ Samebase tabs and retry.
 
 The workflow must:
 
-1. Stop other sessions and wait for active Samebase work to quiesce.
-2. Cancel active Samebase billing.
-3. Attempt supported provider authorization revocation, then remove local provider credentials.
-4. Delete Samebase-owned vault, staged, storage, profile, preference, access, and workflow data in
-   retryable batches.
-5. Recheck billing, then attempt the completion email with the opaque deletion operation ID as the
-   user's support reference.
-6. Recheck late sessions, credentials, and cleanup invariants.
-7. Delete the final auth session, auth account, and user row.
+1. Stop the user's other Samebase sessions.
+2. Revoke the user's GitHub App user authorization.
+3. Revoke supported Cloudflare authorizations, then delete the user's Cloudflare connections.
+4. Delete the user's Convex connections. When a connection used Convex OAuth, retain the manual
+   revocation notice because Samebase cannot revoke the upstream authorization.
+5. Delete personal preferences, organization memberships, MCP grants and tokens, provider callback
+   states, and GitHub App setup states in bounded batches.
+6. Attempt the completion email with the opaque deletion operation ID as the support reference.
+7. Delete the final auth session, auth accounts, and user row.
 8. Retain only the scrubbed operation receipt in application tables. The workflow component can
    retain an identity-free execution journal for operational recovery.
 
@@ -99,15 +66,24 @@ attention. It never silently reactivates the account. Staff can inspect and retr
 
 ## Data And External Resources
 
-Every application table has an explicit account-deletion policy. Executable cleanup registries and
-tests separately prove that owned rows are deleted, detached, anonymized, or intentionally retained.
-The active `users` row is workflow state, not a soft-deleted account, and is removed at completion.
+Every application table has an explicit account-deletion policy. The executable registry must fail
+type checking when a new table has no policy.
 
-Samebase never deletes provider-owned infrastructure during account deletion. Existing deployments
-continue running. Previously distributed Convex production and preview deploy keys remain usable
-after Samebase deletes its local account and provider data. They remain usable until the user
-manually revokes Samebase in Convex Authorized Applications. Samebase does not promise that future
-builds keep working after that manual upstream revocation.
+The following organization-owned data always remains:
+
+- Organizations and organization billing.
+- Vaults, staged files, file update history, observations, and provider resource attachments.
+- Vault provisioning and deletion plans, locks, runs, and events.
+- External GitHub repositories, Convex projects and deployments, Cloudflare Workers, and domains.
+
+Provider credentials are organization connections with a `connectedByUserId` provenance field.
+Deleting that user revokes supported remote authorization before deleting each matching local
+connection. The organization and provider-owned infrastructure remain.
+
+Previously distributed Convex production and preview deploy keys remain usable after Samebase
+deletes its local credential. They remain usable until the user manually revokes Samebase in Convex
+Authorized Applications. Samebase does not promise that future builds keep working after that manual
+upstream revocation.
 
 PostHog processor deletion is not automated or a workflow completion gate in this release. Browser
 PostHog reset is device cleanup only. Identified processor deletion remains a manual operator task
@@ -116,16 +92,14 @@ until real deletion volume justifies automation.
 ## Required Validation
 
 - A request is idempotent and capability retries keep observing the same run.
-- Account deletion and manual provider changes reject each other at their start mutations.
-- More than 96 vault cleanup batches complete successfully.
-- Every detailed destructive batch fails closed when conflicting work appears.
 - Normal routes and writes reject a deleting user.
-- Billing failure prevents success, while completion-email failure remains visible without retaining
-  the account indefinitely.
-- Provider-owned infrastructure is never deleted.
-- Successful runs remove identity and owned data while retaining only the scrubbed application
-  receipt plus identity-free workflow execution state.
-- Desktop and mobile route tests cover confirmation, running progress, and needs-attention states.
-  Component tests cover staff retry and capability-gated browser completion.
+- Supported remote provider revocation succeeds before its local credential is removed.
+- Multiple Convex and Cloudflare connections are processed in bounded batches.
+- Personal preferences, memberships, OAuth states, MCP grants and tokens, GitHub user authorization,
+  auth data, and the user row are removed.
+- Organizations, billing, vaults, staged files, attached resources, observations, and organization
+  workflows survive unchanged.
+- Completion-email failure remains visible without retaining the account indefinitely.
+- Successful runs retain only the scrubbed application receipt plus identity-free workflow state.
 
 The release acceptance walkthrough and its evidence remain in RFC 097 until rollout is complete.

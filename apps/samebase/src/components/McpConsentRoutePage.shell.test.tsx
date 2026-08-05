@@ -20,6 +20,10 @@ const routeSearchState = vi.hoisted(() => ({
 const authorizationRequestState = vi.hoisted((): { value: unknown } => ({
   value: undefined,
 }));
+const authorizationActions = vi.hoisted(() => ({
+  approve: vi.fn(),
+  deny: vi.fn(),
+}));
 
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
@@ -34,6 +38,7 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
+  const { getFunctionName } = await import("convex/server");
 
   return {
     ...actual,
@@ -41,7 +46,16 @@ vi.mock("convex/react", async (importOriginal) => {
       authState.isAuthenticated ? <>{children}</> : null,
     Unauthenticated: ({ children }: { children: ReactNode }) =>
       authState.isAuthenticated || authState.isLoading ? null : <>{children}</>,
-    useAction: () => vi.fn(),
+    useAction: (reference: Parameters<typeof getFunctionName>[0]) => {
+      switch (getFunctionName(reference)) {
+        case "mcp/oauth:completeAuthorizationRequestForCurrentUser":
+          return authorizationActions.approve;
+        case "mcp/oauth:denyAuthorizationRequestForCurrentUser":
+          return authorizationActions.deny;
+        default:
+          throw new Error(`Unexpected MCP consent action: ${getFunctionName(reference)}`);
+      }
+    },
     useConvexAuth: () => authState,
     useMutation: () => vi.fn(),
     useQuery: () => authorizationRequestState.value,
@@ -81,6 +95,8 @@ describe("McpConsentRoutePage workspace shell", () => {
       mcp_consent_request: "mcpar_test",
     };
     authorizationRequestState.value = undefined;
+    authorizationActions.approve.mockReset();
+    authorizationActions.deny.mockReset();
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
       value: vi.fn((query: string) => ({
@@ -134,20 +150,21 @@ describe("McpConsentRoutePage workspace shell", () => {
     expect(rootElement.textContent).not.toContain("https://x.com/samebasecom");
   });
 
-  it("renders a readable label for the browser handoff scope", async () => {
+  it("approves account-wide access without an organization selection", async () => {
     authState.isAuthenticated = true;
     authorizationRequestState.value = {
       requestId: "mcpar_test",
       clientId: "mcpc_test",
-      clientName: "Local Codex handoff smoke",
-      resource: "http://127.0.0.1:12469/mcp",
-      scope: "access_browser_login_handoff",
-      scopes: ["access_browser_login_handoff"],
+      clientName: "Codex",
+      scope: "access_dashboard access_browser_login_handoff",
+      scopes: ["access_dashboard", "access_browser_login_handoff"],
+      resource: "https://api.samebase.test/mcp",
       status: "pending",
       dynamicallyRegistered: true,
       createdAt: 1,
-      expiresAt: 2,
+      expiresAt: 2_000_000_000_000,
     };
+    authorizationActions.approve.mockReturnValue(new Promise(() => {}));
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     root = createRoot(rootElement);
@@ -160,7 +177,19 @@ describe("McpConsentRoutePage workspace shell", () => {
       );
     });
 
+    expect(rootElement.textContent).toContain("access to your Samebase account");
     expect(rootElement.textContent).toContain("Open Samebase in a browser as your account");
-    expect(rootElement.textContent).not.toContain("access_browser_login_handoff");
+    expect(rootElement.textContent).not.toContain("Select an organization");
+    const approveButton = [...rootElement.querySelectorAll("button")].find(
+      (button) => button.textContent === "Approve",
+    );
+    if (!approveButton) {
+      throw new Error("Approve button was not rendered.");
+    }
+    await act(async () => {
+      approveButton.click();
+    });
+
+    expect(authorizationActions.approve).toHaveBeenCalledWith({ requestId: "mcpar_test" });
   });
 });

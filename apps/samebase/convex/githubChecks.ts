@@ -3,8 +3,8 @@
 import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { action } from "./functions";
-import { Octokit } from "@octokit/rest";
 import { describeRepositoryTreeRefreshFailure } from "./github";
+import { resolveGitHubAppAccess } from "./githubAppAccess";
 import { isRecord } from "./jsonUtils";
 
 const { array, literal, number, object, string, union } = v;
@@ -209,17 +209,11 @@ export const getCommitStatus = action({
       return cooldownResult;
     }
 
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+    const githubAccess = await resolveGitHubAppAccess(ctx, {
       userId: ctx.viewer.userId,
-      kind: "github",
+      target: { kind: "vault", vaultId: vault._id },
     });
-    if (githubConnection?.kind !== "github") {
-      throw new Error("GitHub is not connected");
-    }
-
-    const octokit: Octokit = new Octokit({
-      auth: githubConnection.auth.credential,
-    });
+    const octokit = githubAccess.octokit;
 
     try {
       const [checksResponse, combinedStatusResponse] = await Promise.all([

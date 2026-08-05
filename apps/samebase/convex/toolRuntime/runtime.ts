@@ -22,6 +22,7 @@ import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vau
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 import { buildAgentBrowserHandoffUrl } from "../../shared/agentBrowserHandoff";
+import { parseRepositoryFullName } from "../vault/model";
 import type { AccessKey } from "../../shared/accessModel";
 import {
   createAppForUser,
@@ -55,9 +56,8 @@ const vToolFailure = object({
   text: string(),
 });
 
-type McpToolContract<Args extends PropertyValidators> = {
+type McpToolContract = {
   access: AccessKey;
-  args: Args;
   mcp: { name: string };
 };
 
@@ -74,7 +74,8 @@ function defineMcpTool<
   const Args extends PropertyValidators,
   const SuccessFields extends PropertyValidators,
 >(config: {
-  contract: McpToolContract<Args>;
+  contract: McpToolContract;
+  args: Args;
   successFields: SuccessFields;
   run: (
     ctx: ActionCtx,
@@ -88,7 +89,7 @@ function defineMcpTool<
   });
   const vToolResult = union(vToolSuccess, vToolFailure);
   const vToolArgs = object({
-    ...config.contract.args,
+    ...config.args,
     ...vToolInvocationArgs,
   });
   type ToolReturn = ReturnValueForOptionalValidator<typeof vToolResult>;
@@ -129,11 +130,16 @@ function defineMcpTool<
 
 export const createRepositoryTool = defineMcpTool({
   contract: createRepositoryContract,
+  args: createRepositoryContract.mcpArgs,
   successFields: {
     structuredContent: createRepositoryContract.structuredContent,
   },
   run: async (ctx, args) => {
-    const structuredContent = await createAppForUser(ctx, args);
+    const { githubOwnerLogin, ...createArgs } = args;
+    const structuredContent = await createAppForUser(ctx, {
+      ...createArgs,
+      target: { kind: "owner", githubOwnerLogin },
+    });
     return {
       text: JSON.stringify(structuredContent, null, 2),
       structuredContent,
@@ -143,6 +149,7 @@ export const createRepositoryTool = defineMcpTool({
 
 export const getUserVaultsTool = defineMcpTool({
   contract: getUserVaultsContract,
+  args: getUserVaultsContract.args,
   successFields: {
     structuredContent: getUserVaultsContract.structuredContent,
   },
@@ -160,11 +167,16 @@ export const getUserVaultsTool = defineMcpTool({
 
 export const connectRepositoryTool = defineMcpTool({
   contract: connectRepositoryContract,
+  args: connectRepositoryContract.mcpArgs,
   successFields: {
     structuredContent: connectRepositoryContract.structuredContent,
   },
   run: async (ctx, args) => {
-    const structuredContent = await connectRepositoryForUser(ctx, args);
+    const repository = parseRepositoryFullName(args.repositoryFullName);
+    const structuredContent = await connectRepositoryForUser(ctx, {
+      ...args,
+      target: { kind: "owner", githubOwnerLogin: repository.owner },
+    });
     return {
       text: JSON.stringify(structuredContent, null, 2),
       structuredContent,
@@ -174,6 +186,7 @@ export const connectRepositoryTool = defineMcpTool({
 
 export const convexDiscoverProjectsTool = defineMcpTool({
   contract: convexDiscoverProjectsContract,
+  args: convexDiscoverProjectsContract.args,
   successFields: {
     structuredContent: convexDiscoverProjectsContract.structuredContent,
   },
@@ -188,11 +201,22 @@ export const convexDiscoverProjectsTool = defineMcpTool({
 
 export const cloudflareListAccountsTool = defineMcpTool({
   contract: cloudflareListAccountsContract,
+  args: cloudflareListAccountsContract.mcpArgs,
   successFields: {
     structuredContent: cloudflareListAccountsContract.structuredContent,
   },
   run: async (ctx, args) => {
-    const accounts = await listCloudflareAccountsForUser(ctx, { userId: args.userId });
+    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+      userId: args.userId,
+      vaultId: args.vaultId,
+    });
+    if (vault === null) {
+      throw new Error("Vault not found");
+    }
+    const accounts = await listCloudflareAccountsForUser(ctx, {
+      userId: args.userId,
+      organizationId: vault.organizationId,
+    });
     return {
       text: `Found ${accounts.length} ${accounts.length === 1 ? "account" : "accounts"}.`,
       structuredContent: { accounts },
@@ -202,6 +226,7 @@ export const cloudflareListAccountsTool = defineMcpTool({
 
 export const cloudflareCreateWorkerTool = defineMcpTool({
   contract: cloudflareCreateWorkerContract,
+  args: cloudflareCreateWorkerContract.args,
   successFields: {
     structuredContent: cloudflareCreateWorkerContract.structuredContent,
   },
@@ -216,6 +241,7 @@ export const cloudflareCreateWorkerTool = defineMcpTool({
 
 export const cloudflareDiscoverWorkersTool = defineMcpTool({
   contract: cloudflareDiscoverWorkersContract,
+  args: cloudflareDiscoverWorkersContract.args,
   successFields: {
     structuredContent: cloudflareDiscoverWorkersContract.structuredContent,
   },
@@ -230,6 +256,7 @@ export const cloudflareDiscoverWorkersTool = defineMcpTool({
 
 export const convexAttachProjectsTool = defineMcpTool({
   contract: convexAttachProjectsContract,
+  args: convexAttachProjectsContract.args,
   successFields: {
     structuredContent: convexAttachProjectsContract.structuredContent,
   },
@@ -244,6 +271,7 @@ export const convexAttachProjectsTool = defineMcpTool({
 
 export const cloudflareAttachWorkersTool = defineMcpTool({
   contract: cloudflareAttachWorkersContract,
+  args: cloudflareAttachWorkersContract.args,
   successFields: {
     structuredContent: cloudflareAttachWorkersContract.structuredContent,
   },
@@ -258,6 +286,7 @@ export const cloudflareAttachWorkersTool = defineMcpTool({
 
 export const cloudflareConfigureWorkersBuildsForGitHubTool = defineMcpTool({
   contract: cloudflareConfigureWorkersBuildsForGitHubContract,
+  args: cloudflareConfigureWorkersBuildsForGitHubContract.args,
   successFields: {},
   run: async (ctx, args) => {
     await configureWorkersBuildsForGitHubForUser(ctx, args);
@@ -267,6 +296,7 @@ export const cloudflareConfigureWorkersBuildsForGitHubTool = defineMcpTool({
 
 export const cloudflareRotateConvexDeployKeysForWorkersBuildsTool = defineMcpTool({
   contract: cloudflareRotateConvexDeployKeysForWorkersBuildsContract,
+  args: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.args,
   successFields: {},
   run: async (ctx, args) => {
     await rotateConvexDeployKeysForWorkersBuildsForUser(ctx, args);
@@ -278,6 +308,7 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsTool = defineMcpToo
 
 export const retryInfrastructureProvisioningTool = defineMcpTool({
   contract: retryInfrastructureProvisioningContract,
+  args: retryInfrastructureProvisioningContract.args,
   successFields: {},
   run: async (ctx, args) => {
     await retryInfrastructureProvisioningForUser(ctx, args);

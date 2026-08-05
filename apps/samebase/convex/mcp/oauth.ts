@@ -1,5 +1,6 @@
 import { Infer, v } from "convex/values";
 import { internal } from "../_generated/api";
+import type { Doc } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { action, query } from "../functions";
 import { randomToken } from "../oauthUtils";
@@ -74,6 +75,7 @@ const issueAuthorizationCodeForAuthRequestArgsValidator = object({
   userId: id("users"),
   codeHash: string(),
   codeExpiresAt: number(),
+  grantMode: union(literal("create_or_reuse"), literal("reuse_only")),
   allowLoopbackHttpRedirectUris: optional(boolean()),
   now: number(),
 });
@@ -390,34 +392,6 @@ export const getAuthorizationRequestForCurrentUser = query({
   },
 });
 
-export const hasActiveGrantForAuthRequest = internalQuery({
-  args: {
-    requestId: string(),
-    userId: id("users"),
-  },
-  returns: v.boolean(),
-  handler: async (ctx, args) => {
-    const authRequest = await ctx.db
-      .query("mcpAuthorizationRequests")
-      .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
-      .first();
-    if (!authRequest) {
-      return false;
-    }
-    const userGrants = await ctx.db
-      .query("mcpGrants")
-      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
-      .collect();
-    return userGrants.some(
-      (grant) =>
-        grant.clientId === authRequest.clientId &&
-        grant.resource === authRequest.resource &&
-        grant.scope === authRequest.scope &&
-        grant.status === "active",
-    );
-  },
-});
-
 export const issueAuthorizationCodeForAuthRequest = internalMutation({
   args: issueAuthorizationCodeForAuthRequestArgsValidator,
   returns: issueAuthorizationCodeForAuthRequestResultValidator,
@@ -482,24 +456,32 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
       });
     }
 
-    const userGrants = await ctx.db
+    let existingGrant: Doc<"mcpGrants"> | null = null;
+    for await (const grant of ctx.db
       .query("mcpGrants")
-      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
-      .collect();
-    const existingGrant = userGrants.find(
-      (grant) =>
+      .withIndex("by_user_id_and_status", (query) =>
+        query.eq("userId", args.userId).eq("status", "active"),
+      )) {
+      if (
         grant.clientId === authRequest.clientId &&
         grant.resource === authRequest.resource &&
-        grant.scope === authRequest.scope &&
-        grant.status === "active",
-    );
+        grant.scope === authRequest.scope
+      ) {
+        existingGrant = grant;
+        break;
+      }
+    }
+
+    if (existingGrant === null && args.grantMode === "reuse_only") {
+      return oauthError({
+        status: 403,
+        error: "consent_required",
+        errorDescription: "Authorization consent is required.",
+      });
+    }
 
     const grantId = existingGrant?.grantId ?? `mcpg_${randomToken(24)}`;
-    if (existingGrant) {
-      await ctx.db.patch(existingGrant._id, {
-        updatedAt: args.now,
-      });
-    } else {
+    if (existingGrant === null) {
       await ctx.db.insert("mcpGrants", {
         grantId,
         userId: args.userId,
@@ -510,6 +492,8 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
         createdAt: args.now,
         updatedAt: args.now,
       });
+    } else {
+      await ctx.db.patch(existingGrant._id, { updatedAt: args.now });
     }
 
     await ctx.db.insert("mcpAuthorizationCodes", {
@@ -603,6 +587,7 @@ export const completeAuthorizationRequestForCurrentUser = action({
         userId: ctx.viewer.userId,
         codeHash: authorizationCodeHash,
         codeExpiresAt: now + MCP_AUTHORIZATION_CODE_TTL_MS,
+        grantMode: "create_or_reuse",
         allowLoopbackHttpRedirectUris:
           protocolValidationOptions.allowLoopbackHttpRedirectUris === true,
         now,

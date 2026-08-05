@@ -11,6 +11,7 @@ import {
   type ConvexDeployKeyAllowedAction,
 } from "./convexDeployKeys";
 import { readConvexProductionDeployment } from "./convexProjectResources";
+import { requireVaultForUser } from "../organizationAccess";
 
 const { id, literal, null: nullValue, object, string, union } = v;
 
@@ -45,6 +46,7 @@ const embeddedDashboardCredentialsResult = union(
 type EmbeddedDashboardCredentialsResult = Infer<typeof embeddedDashboardCredentialsResult>;
 type VaultDatabaseLookup = {
   _id: Id<"vaults">;
+  organizationId: Id<"organizations">;
   defaultBranch: string | undefined;
 } | null;
 type VaultDatabaseActionCtx = Pick<ActionCtx, "runQuery"> & {
@@ -73,8 +75,15 @@ export const readEmbeddedDashboardProject = internalQuery({
     nullValue(),
   ),
   handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.convexProjectId);
-    if (!project || project.vaultId !== args.vaultId || project.userId !== args.userId) {
+    const [vault, project] = await Promise.all([
+      requireVaultForUser(ctx.db, args),
+      ctx.db.get(args.convexProjectId),
+    ]);
+    if (
+      !project ||
+      project.vaultId !== args.vaultId ||
+      project.organizationId !== vault.organizationId
+    ) {
       return null;
     }
 
@@ -139,23 +148,25 @@ async function readVaultDatabaseDeploymentContext(
     };
   }
 
-  const [project, connection] = await Promise.all([
-    ctx.runQuery(internal.vault.database.readEmbeddedDashboardProject, {
-      vaultId: vault._id,
-      userId: ctx.viewer.userId,
-      convexProjectId: args.convexProjectId,
-    }),
-    ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: ctx.viewer.userId,
-      kind: "convex",
-    }),
-  ]);
+  const project = await ctx.runQuery(internal.vault.database.readEmbeddedDashboardProject, {
+    vaultId: vault._id,
+    userId: ctx.viewer.userId,
+    convexProjectId: args.convexProjectId,
+  });
 
   if (!project) {
     return { kind: "missing_deployment" };
   }
 
-  if (!connection || connection.kind !== "convex") {
+  const connection = await ctx.runQuery(
+    internal.providerConnections.loadConvexForOrganizationTeam,
+    {
+      userId: ctx.viewer.userId,
+      organizationId: vault.organizationId,
+      teamId: project.teamId,
+    },
+  );
+  if (connection?.kind !== "convex") {
     return { kind: "missing_connection" };
   }
   if (connection.teamId !== project.teamId) {

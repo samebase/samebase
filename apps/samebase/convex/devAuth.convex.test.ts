@@ -51,7 +51,7 @@ describe("devAuth password account seed", () => {
     });
   });
 
-  it("adds provider keys to the explicit seed user", async () => {
+  it("approves the explicit seed user without creating an organization", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -60,34 +60,28 @@ describe("devAuth password account seed", () => {
     });
 
     await expect(
-      t.mutation(internal.devAuth.seedProviderConnectionsForUser, {
-        userId,
-        githubApiKey: "github-token",
-        convexManagementApiKey: "convex-token",
-        convexTeamId: "team-id",
-        convexTeamSlug: "team-slug",
-        cloudflareApiKey: "cloudflare-token",
-        cloudflareAccountId: "cloudflare-account-id",
-      }),
+      t.mutation(internal.devAuth.approveSeedPasswordAccount, { userId }),
     ).resolves.toBeNull();
 
     const snapshot = await t.run(async (ctx) => {
       const connections = await ctx.db
         .query("providerConnections")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect();
+        .withIndex("by_connected_by_user", (query) => query.eq("connectedByUserId", userId))
+        .take(1);
+      const memberships = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_user", (query) => query.eq("userId", userId))
+        .take(1);
       return {
         connections,
+        memberships,
         user: await ctx.db.get(userId),
       };
     });
 
     expect(snapshot.user?.isApproved).toBe(true);
-    expect(snapshot.connections.map((connection) => connection.kind).sort()).toEqual([
-      "cloudflare",
-      "convex",
-      "github",
-    ]);
+    expect(snapshot.connections).toEqual([]);
+    expect(snapshot.memberships).toEqual([]);
   });
 
   it("fails closed when the seed user is missing", async () => {
@@ -101,9 +95,7 @@ describe("devAuth password account seed", () => {
     });
 
     await expect(
-      t.mutation(internal.devAuth.seedProviderConnectionsForUser, {
-        userId,
-      }),
-    ).rejects.toThrowError("Cannot seed provider connections for missing user");
+      t.mutation(internal.devAuth.approveSeedPasswordAccount, { userId }),
+    ).rejects.toThrowError("Cannot approve missing seed user");
   });
 });

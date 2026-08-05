@@ -6,6 +6,7 @@ import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { action } from "./functions";
+import { resolveGitHubAppAccess } from "./githubAppAccess";
 import { guessMime, withRetry } from "./gitOperationsActions";
 import { isRecord } from "./jsonUtils";
 import {
@@ -89,7 +90,6 @@ const exactRepositoryBranchRefreshResult = union(
 );
 type ExactRepositoryBranchRefreshResult = Infer<typeof exactRepositoryBranchRefreshResult>;
 
-const GITHUB_REPOSITORY_DISCOVERY_AFFILIATION = "owner,collaborator,organization_member";
 const GITHUB_REPOSITORY_PREVIEW_PAGE_SIZE = 10;
 const GITHUB_REPOSITORY_DISCOVERY_PAGE_SIZE = 100;
 const MAX_GITHUB_REPOSITORY_PAGES = 100;
@@ -336,25 +336,6 @@ export function describeRepositoryTreeRefreshFailure(
   };
 }
 
-function buildGitHubRepositoryDiscoveryUrl(perPage: number): string {
-  return `https://api.github.com/user/repos?sort=updated&per_page=${perPage}&affiliation=${GITHUB_REPOSITORY_DISCOVERY_AFFILIATION}`;
-}
-
-export function readGitHubNextPageUrl(linkHeader: string | null | undefined): string | null {
-  if (typeof linkHeader !== "string" || linkHeader.trim().length === 0) {
-    return null;
-  }
-
-  for (const match of linkHeader.matchAll(/<([^>]+)>\s*;\s*rel="([^"]+)"/g)) {
-    const [, url, rel] = match;
-    if (rel === "next") {
-      return url;
-    }
-  }
-
-  return null;
-}
-
 export function normalizeGitHubRepositoryListItem(value: unknown): GitHubRepositoryListItem | null {
   if (!isRecord(value)) {
     return null;
@@ -425,31 +406,32 @@ function normalizeGitHubRepositoryList(value: unknown): GitHubRepositoryList {
   return Array.from(repositoriesById.values());
 }
 
-async function fetchGitHubRepositoryPage(args: {
-  accessToken: string;
-  url: string;
-  fetchImpl?: typeof fetch;
+async function fetchGitHubInstallationRepositoryPage(args: {
+  octokit: Octokit;
+  page: number;
+  perPage: number;
 }): Promise<{
   repositories: GitHubRepositoryList;
-  nextPageUrl: string | null;
+  totalCount: number;
 }> {
-  const fetchImpl = args.fetchImpl ?? fetch;
-  const response = await fetchImpl(args.url, {
-    headers: {
-      Authorization: `Bearer ${args.accessToken}`,
-      Accept: "application/vnd.github+json",
-      "User-Agent": "samebase-app",
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
+  const response = await args.octokit.request("GET /installation/repositories", {
+    page: args.page,
+    per_page: args.perPage,
   });
-
-  if (!response.ok) {
-    throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+  const payload: unknown = response.data;
+  if (
+    !isRecord(payload) ||
+    typeof payload.total_count !== "number" ||
+    !Number.isSafeInteger(payload.total_count) ||
+    payload.total_count < 0 ||
+    !Array.isArray(payload.repositories)
+  ) {
+    throw new Error("Unexpected GitHub installation repository payload");
   }
 
   return {
-    repositories: normalizeGitHubRepositoryList(await response.json()),
-    nextPageUrl: readGitHubNextPageUrl(response.headers.get("link")),
+    repositories: normalizeGitHubRepositoryList(payload.repositories),
+    totalCount: payload.total_count,
   };
 }
 
@@ -458,90 +440,73 @@ async function fetchGitHubRepositoryPage(args: {
  * with the full discovery scan in the background.
  */
 export async function listGitHubRepositoryPreview(args: {
-  accessToken: string;
-  fetchImpl?: typeof fetch;
+  octokit: Octokit;
 }): Promise<GitHubRepositoryPreviewResult> {
-  const page = await fetchGitHubRepositoryPage({
-    accessToken: args.accessToken,
-    fetchImpl: args.fetchImpl,
-    url: buildGitHubRepositoryDiscoveryUrl(GITHUB_REPOSITORY_PREVIEW_PAGE_SIZE),
+  const page = await fetchGitHubInstallationRepositoryPage({
+    octokit: args.octokit,
+    page: 1,
+    perPage: GITHUB_REPOSITORY_PREVIEW_PAGE_SIZE,
   });
 
   return {
     repositories: page.repositories,
-    hasMore: page.nextPageUrl !== null,
+    hasMore: page.totalCount > page.repositories.length,
   };
 }
 
 export async function listGitHubRepositories(args: {
-  accessToken: string;
-  fetchImpl?: typeof fetch;
+  octokit: Octokit;
 }): Promise<GitHubRepositoryList> {
   const repositoriesById = new Map<number, GitHubRepositoryListItem>();
-  const seenPageUrls = new Set<string>();
-  let nextPageUrl: string | null = buildGitHubRepositoryDiscoveryUrl(
-    GITHUB_REPOSITORY_DISCOVERY_PAGE_SIZE,
-  );
-
-  while (nextPageUrl) {
-    if (seenPageUrls.has(nextPageUrl)) {
-      throw new Error("GitHub repository pagination loop detected");
-    }
-    if (seenPageUrls.size >= MAX_GITHUB_REPOSITORY_PAGES) {
-      throw new Error(`GitHub repository pagination exceeded ${MAX_GITHUB_REPOSITORY_PAGES} pages`);
-    }
-    seenPageUrls.add(nextPageUrl);
-
-    const page = await fetchGitHubRepositoryPage({
-      accessToken: args.accessToken,
-      fetchImpl: args.fetchImpl,
-      url: nextPageUrl,
+  for (let pageNumber = 1; pageNumber <= MAX_GITHUB_REPOSITORY_PAGES; pageNumber += 1) {
+    const page = await fetchGitHubInstallationRepositoryPage({
+      octokit: args.octokit,
+      page: pageNumber,
+      perPage: GITHUB_REPOSITORY_DISCOVERY_PAGE_SIZE,
     });
 
     for (const repository of page.repositories) {
       repositoriesById.set(repository.id, repository);
     }
 
-    nextPageUrl = page.nextPageUrl;
+    if (
+      page.repositories.length < GITHUB_REPOSITORY_DISCOVERY_PAGE_SIZE ||
+      repositoriesById.size >= page.totalCount
+    ) {
+      return Array.from(repositoriesById.values());
+    }
   }
 
-  return Array.from(repositoriesById.values());
+  throw new Error(`GitHub repository pagination exceeded ${MAX_GITHUB_REPOSITORY_PAGES} pages`);
 }
 
 export const listRepositoriesPreview = action({
   access: "access_repo_connect",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: githubRepositoryPreviewResult,
-  handler: async (ctx): Promise<GitHubRepositoryPreviewResult> => {
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+  handler: async (ctx, args): Promise<GitHubRepositoryPreviewResult> => {
+    const access = await resolveGitHubAppAccess(ctx, {
       userId: ctx.viewer.userId,
-      kind: "github",
+      target: { kind: "organization", organizationId: args.organizationId },
     });
-    if (githubConnection?.kind !== "github") {
-      throw new Error("GitHub is not connected");
-    }
-
-    const accessToken = githubConnection.auth.credential;
-    return await listGitHubRepositoryPreview({ accessToken });
+    return await listGitHubRepositoryPreview({ octokit: access.octokit });
   },
 });
 
-// List the current user's GitHub repositories
 export const listRepositories = action({
   access: "access_repo_connect",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: array(githubRepositoryListItem),
-  handler: async (ctx): Promise<GitHubRepositoryList> => {
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+  handler: async (ctx, args): Promise<GitHubRepositoryList> => {
+    const access = await resolveGitHubAppAccess(ctx, {
       userId: ctx.viewer.userId,
-      kind: "github",
+      target: { kind: "organization", organizationId: args.organizationId },
     });
-    if (githubConnection?.kind !== "github") {
-      throw new Error("GitHub is not connected");
-    }
-
-    const accessToken = githubConnection.auth.credential;
-    return await listGitHubRepositories({ accessToken });
+    return await listGitHubRepositories({ octokit: access.octokit });
   },
 });
 
@@ -859,16 +824,9 @@ export const getRepositoryFileContent = action({
       }
     }
 
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+    const { octokit } = await resolveGitHubAppAccess(ctx, {
       userId,
-      kind: "github",
-    });
-    if (githubConnection?.kind !== "github") {
-      throw new Error("GitHub is not connected");
-    }
-
-    const octokit: Octokit = new Octokit({
-      auth: githubConnection.auth.credential,
+      target: { kind: "vault", vaultId: vault._id },
     });
 
     try {
@@ -991,16 +949,9 @@ export const getRepositoryMediaAsset = action({
       }
     }
 
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+    const { octokit } = await resolveGitHubAppAccess(ctx, {
       userId,
-      kind: "github",
-    });
-    if (githubConnection?.kind !== "github") {
-      throw new Error("GitHub is not connected");
-    }
-
-    const octokit: Octokit = new Octokit({
-      auth: githubConnection.auth.credential,
+      target: { kind: "vault", vaultId: vault._id },
     });
 
     try {
@@ -1115,17 +1066,22 @@ async function refreshExactRepositoryBranchForUser(
     return { kind: "ready", refreshed: false };
   }
 
-  const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-    userId: args.userId,
-    kind: "github",
-  });
-  if (githubConnection?.kind !== "github") {
+  let octokit: Octokit;
+  try {
+    ({ octokit } = await resolveGitHubAppAccess(ctx, {
+      userId: args.userId,
+      target: { kind: "vault", vaultId: args.vaultId },
+    }));
+  } catch {
     return { kind: "unavailable" };
   }
 
-  const claim = await ctx.runMutation(internal.vault.branches.claimTreeRefresh, {
-    vaultId: args.vaultId,
-  });
+  const claim:
+    | { claimed: true; startedAt: number }
+    | { claimed: false; reason: "cooldown" | "in_progress" | "unavailable" } =
+    await ctx.runMutation(internal.vault.branches.claimTreeRefresh, {
+      vaultId: args.vaultId,
+    });
   if (!claim.claimed) {
     switch (claim.reason) {
       case "cooldown":
@@ -1139,9 +1095,6 @@ async function refreshExactRepositoryBranchForUser(
     }
   }
 
-  const octokit = new Octokit({
-    auth: githubConnection.auth.credential,
-  });
   const read = await readExactRepositoryBranch({
     getBranch: async () => {
       const response = await octokit.rest.repos.getBranch({
@@ -1262,11 +1215,15 @@ export const refreshRepositoryTree = action({
     if (!vault || vault.state !== "connected" || vault.deletion.state !== "not_deleting") {
       throw new Error("Vault not found.");
     }
+    const githubAccess = await resolveGitHubAppAccess(ctx, {
+      userId,
+      target: { kind: "vault", vaultId: args.vaultId },
+    });
 
     return await refreshExactRepositoryBranchForUser(ctx, {
       userId,
       vaultId: args.vaultId,
-      owner: vault.owner,
+      owner: githubAccess.githubOwnerLogin,
       repo: vault.name,
       branch: args.branch,
       intent: args.intent,
@@ -1278,26 +1235,28 @@ export const refreshRepositoryTree = action({
 export const updateRepositoryTree = internalAction({
   args: {
     userId: id("users"),
-    owner: string(),
-    repo: string(),
+    vaultId: id("vaults"),
     branch: string(),
   },
   returns: nullValidator(),
   handler: async (ctx, args) => {
     const branch = normalizeRequiredRepositoryBranch(args.branch);
-    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
-      repositoryFullName: `${args.owner}/${args.repo}`,
+    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+      vaultId: args.vaultId,
       userId: args.userId,
-      branch,
     });
-    if (!vault) {
+    if (!vault || vault.state !== "connected" || vault.deletion.state !== "not_deleting") {
       throw new Error("Vault not found");
     }
+    const githubAccess = await resolveGitHubAppAccess(ctx, {
+      userId: args.userId,
+      target: { kind: "vault", vaultId: args.vaultId },
+    });
     const refresh = await refreshExactRepositoryBranchForUser(ctx, {
       userId: args.userId,
       vaultId: vault._id,
-      owner: args.owner,
-      repo: args.repo,
+      owner: githubAccess.githubOwnerLogin,
+      repo: vault.name,
       branch,
       intent: "manual",
     });

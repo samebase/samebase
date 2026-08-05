@@ -67,7 +67,7 @@ Vault creation succeeds even if downstream provisioning partially fails.
 
 ### `workflow_vaultProvisioning_plans`
 
-- `vaultId`, `userId`
+- `vaultId`
 - `convexConfigPath`
 - `convex`: `{ state: "planned", projectName, teamId }`,
   `{ state: "creating", projectName, teamId }`, or
@@ -77,17 +77,19 @@ Vault creation succeeds even if downstream provisioning partially fails.
   `{ state: "created", accountId, workerName, workerTag, rootDirectory }`
 - `createdAt`, `updatedAt`
 
-The plan row records user-selected provider names and exact provider owners before side effects
-happen. The Convex team and Cloudflare account do not change during retry. If the active provider
-connection does not match the plan, Samebase stops and tells the user about the mismatch. `creating`
-means the provider create request started but Samebase never recorded a confirmed result. Retry
-checks the exact planned name. If that provider resource exists, Samebase requires the user to
+The plan row records provider resource names and stable external coordinates before side effects
+happen. The Convex team and Cloudflare account do not change during retry. Each attempt resolves a
+current organization Convex connection for the planned `teamId` and the organization's selected
+Cloudflare connection. Cloudflare then verifies that credential against the planned `accountId`.
+`creating` means the provider create request started but Samebase never recorded a confirmed result.
+Retry checks the exact planned name. If that provider resource exists, Samebase requires the user to
 delete it in the provider dashboard before retrying. If it is absent, Samebase repeats the create
 request without adding another workflow state. A same-named resource is never adopted implicitly.
-`created` is the exact provider identity checkpoint used by retry. Samebase writes that checkpoint
-and its stable `provisioned` resource attachment in one database transaction. Checkbox-controlled
-cleanup derives ownership only from the stable attachment, never from an unattached checkpoint.
-Current connected resource identities live in the durable resource tables used by the dashboard.
+`created` is the exact external provider identity checkpoint used by retry. Samebase writes that
+checkpoint and its stable `provisioned` resource attachment in one database transaction.
+Checkbox-controlled cleanup derives ownership only from the stable attachment, never from an
+unattached checkpoint. Current connected resource identities live in the durable resource tables
+used by the dashboard.
 
 Indexes:
 
@@ -137,7 +139,7 @@ reader, data migration, or fallback for an older row shape.
 
 ### `vaultConvexProjects`
 
-- `vaultId`, `userId`
+- `vaultId`, `organizationId`
 - `teamId`, `projectId`, `convexConfigPath`
 - `origin: "provisioned" | "selected_existing"`
 
@@ -150,12 +152,12 @@ deployments, URLs, and deploy keys are provider state and must not be mirrored i
 Indexes:
 
 - `by_vault`
-- `by_user`
+- `by_organization`
 - `by_project` (global attachment exclusivity)
 
 ### `vaultCloudflareWorkers`
 
-- `vaultId`, `userId`
+- `vaultId`, `organizationId`
 - `accountId`, `workerName`, `workerTag`
 - `origin: "provisioned" | "selected_existing"`
 
@@ -237,7 +239,7 @@ database.
 Indexes:
 
 - `by_vault`
-- `by_user`
+- `by_organization`
 - `by_account_and_worker` (global attachment exclusivity)
 - `by_account_and_worker_tag` (global attachment exclusivity)
 
@@ -281,15 +283,16 @@ Repository default branch:
 
 - Args: `{ vaultId: Id<"vaults"> }`
 - Returns: `null`
-- Behavior: validates ownership and Samebase management, then replaces the failed managed write with
-  one managed provisioning retry. The write must name a failed managed run for the same vault and
-  user. The failed create run must have reached provider setup. A source setup failure, successful
-  run, or later manual provider action does not permit provider retry.
+- Behavior: validates organization membership and Samebase management, then replaces the failed
+  managed write with one managed provisioning retry. The write must name a failed managed run for
+  the same vault. The new run records the current member as its actor. The failed create run must
+  have reached provider setup. A source setup failure, successful run, or later manual provider
+  action does not permit provider retry.
 
 3. `api.vault.dashboard.getUserVaults`
 
 - Returns: stable attachments, the managed `providerPlan`, and the vault `providerWrite` summary for
-  the authenticated user
+  the organizations of the authenticated member
 - An active `providerWrite` returns `status`, the owner `kind`, and the independent provider write
   times. A manual owner also returns the affected providers. An idle summary returns `status` and
   the provider write times. The public result does not expose run IDs, action IDs, manual action
@@ -325,7 +328,8 @@ Repository default branch:
 9. `api.vault.cloudflare.createWorker` and `api.vault.cloudflare.detachWorker`
 
 - Create records a provisioned attachment before later provider configuration can fail.
-- Detach changes only Samebase user intent and never deletes a selected existing Worker.
+- Detach changes only the organization's attachment intent and never deletes a selected existing
+  Worker.
 
 10. `api.vault.convex.discoverProjects` and `api.vault.convex.attachProjects`
 
@@ -336,7 +340,7 @@ Repository default branch:
 11. `api.vault.convex.createProject` and `api.vault.convex.detachProject`
 
 - Create records the provider checkpoint and provisioned attachment before metadata refresh.
-- Detach changes only Samebase user intent.
+- Detach changes only the organization's attachment intent.
 
 12. `api.vault.convex.changeProjectCodeLocation` and `api.vault.convex.reconcileProjectTeam`
 
@@ -435,8 +439,8 @@ In `VaultDashboard`:
 - Failed Samebase-managed Convex or Cloudflare setup shows a `Retry` action that calls
   `api.vault.actions.retryInfrastructureProvisioning`.
 - Missing or inaccessible provider resources remain attached and surface attention. Removal is an
-  explicit change to user intent and never follows automatically from provider absence. A Convex 404
-  under the stored team is ambiguous because the project may have transferred.
+  explicit change to organization attachment intent and never follows automatically from provider
+  absence. A Convex 404 under the stored team is ambiguous because the project may have transferred.
 - An attached Cloudflare Worker whose Builds connection is missing shows
   `Cloudflare is not connected to this GitHub repository.` with a
   `Configure Workers Builds for GitHub` action.

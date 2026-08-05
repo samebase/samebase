@@ -63,7 +63,6 @@ export const deleteVaultWorkflow = workflow.define({
       internal.vault.deletion.providerActions.deleteCloudflare,
       {
         runId: args.runId,
-        userId: args.userId,
       },
       { name: "delete_cloudflare", retry: idempotentProviderStepRetry },
     );
@@ -71,7 +70,6 @@ export const deleteVaultWorkflow = workflow.define({
       internal.vault.deletion.providerActions.deleteConvex,
       {
         runId: args.runId,
-        userId: args.userId,
       },
       { name: "delete_convex", retry: idempotentProviderStepRetry },
     );
@@ -79,7 +77,6 @@ export const deleteVaultWorkflow = workflow.define({
       internal.vault.deletion.providerActions.deleteGitHubRepository,
       {
         runId: args.runId,
-        userId: args.userId,
       },
       { name: "delete_github_repo", retry: idempotentProviderStepRetry },
     );

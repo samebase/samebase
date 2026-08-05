@@ -3,6 +3,10 @@ import { ConvexError, Infer, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalQuery, type QueryCtx } from "./_generated/server";
 import { query } from "./functions";
+import {
+  readBillingAccountState,
+  requireBillingAccountForOrganization,
+} from "./organizationBilling";
 
 const { id, literal, null: nullValue, number, object, union } = v;
 
@@ -36,11 +40,9 @@ const vBillingResourceUsage = object({
 });
 export type BillingResourceUsage = Infer<typeof vBillingResourceUsage>;
 
-function readResourceAttachmentLimit(
-  user: Pick<Doc<"users">, "billingPlan" | "billingStatus">,
-): number {
-  return user.billingPlan === "pro" &&
-    (user.billingStatus === "active" || user.billingStatus === "past_due")
+function readResourceAttachmentLimit(account: Doc<"organizationBillingAccounts">): number {
+  const state = readBillingAccountState(account);
+  return state.plan === "pro" && (state.status === "active" || state.status === "past_due")
     ? PRO_RESOURCE_ATTACHMENT_LIMIT
     : FREE_RESOURCE_ATTACHMENT_LIMIT;
 }
@@ -49,29 +51,33 @@ async function readResourceAttachmentCount(
   ctx: BillingResourceReadCtx,
   args: {
     kind: BillingResourceKind;
-    userId: Id<"users">;
+    organizationId: Id<"organizations">;
     maximumRows: number;
   },
 ): Promise<number> {
+  let count: number;
   switch (args.kind) {
     case "cloudflare_worker":
-      return (
+      count = (
         await ctx.db
           .query("vaultCloudflareWorkers")
-          .withIndex("by_user", (q) => q.eq("userId", args.userId))
+          .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))
           .take(args.maximumRows)
       ).length;
+      break;
     case "convex_project":
-      return (
+      count = (
         await ctx.db
           .query("vaultConvexProjects")
-          .withIndex("by_user", (q) => q.eq("userId", args.userId))
+          .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))
           .take(args.maximumRows)
       ).length;
+      break;
     default:
       args.kind satisfies never;
       return 0;
   }
+  return count;
 }
 
 function throwBillingResourceLimit(kind: BillingResourceKind, limit: number): never {
@@ -90,18 +96,15 @@ export async function requireBillingResourceCapacity(
   ctx: BillingResourceReadCtx,
   args: {
     kind: BillingResourceKind;
+    organizationId: Id<"organizations">;
     userId: Id<"users">;
   },
 ): Promise<void> {
-  const user = await ctx.db.get(args.userId);
-  if (!user) {
-    throw new Error("User not found.");
-  }
-
-  const limit = readResourceAttachmentLimit(user);
+  const billing = await requireBillingAccountForOrganization(ctx.db, args);
+  const limit = readResourceAttachmentLimit(billing.account);
   const used = await readResourceAttachmentCount(ctx, {
     kind: args.kind,
-    userId: args.userId,
+    organizationId: billing.account.organizationId,
     maximumRows: limit + 1,
   });
   if (used >= limit) {
@@ -112,6 +115,7 @@ export async function requireBillingResourceCapacity(
 export const requireBillingResourceCapacityForProviderCreate = internalQuery({
   args: {
     userId: id("users"),
+    organizationId: id("organizations"),
     kind: vBillingResourceKind,
   },
   returns: nullValue(),
@@ -123,19 +127,25 @@ export const requireBillingResourceCapacityForProviderCreate = internalQuery({
 
 export const getViewerBillingResourceUsage = query({
   access: "access_user_preferences",
-  args: {},
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: vBillingResourceUsage,
-  handler: async (ctx): Promise<BillingResourceUsage> => {
-    const limit = readResourceAttachmentLimit(ctx.viewer.user);
+  handler: async (ctx, args): Promise<BillingResourceUsage> => {
+    const billing = await requireBillingAccountForOrganization(ctx.db, {
+      userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
+    });
+    const limit = readResourceAttachmentLimit(billing.account);
     const [cloudflareWorkers, convexProjects] = await Promise.all([
       readResourceAttachmentCount(ctx, {
         kind: "cloudflare_worker",
-        userId: ctx.viewer.userId,
+        organizationId: billing.account.organizationId,
         maximumRows: RESOURCE_USAGE_READ_LIMIT,
       }),
       readResourceAttachmentCount(ctx, {
         kind: "convex_project",
-        userId: ctx.viewer.userId,
+        organizationId: billing.account.organizationId,
         maximumRows: RESOURCE_USAGE_READ_LIMIT,
       }),
     ]);

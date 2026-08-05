@@ -9,7 +9,6 @@ export const vaultEditorTables = {
    * including edits, renames, deletions, and binary uploads.
    */
   vaultStagedFiles: defineTable({
-    ownerId: id("users"),
     vaultId: id("vaults"),
     fileDeleted: boolean(),
     kind: optional(union(literal("text"), literal("binary"))),
@@ -35,8 +34,7 @@ export const vaultEditorTables = {
     .index("by_vault_and_branch_and_initial_path", ["vaultId", "branch", "initialFilePath"])
     .index("by_vault", ["vaultId"])
     .index("by_vault_and_storageId", ["vaultId", "storageId"])
-    .index("by_storageId", ["storageId"])
-    .index("by_user", ["lastEditUserId"]),
+    .index("by_storageId", ["storageId"]),
 
   /** Git blob contents observed by SHA and cached inline or in Convex storage. */
   observations_vaultFiles_blobs: defineTable({

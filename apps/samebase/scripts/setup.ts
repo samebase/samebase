@@ -35,53 +35,13 @@ if (!isInteractive) {
   process.exit(0);
 }
 
-// The fallback should never be used.
-const configuredDeployment = Object.prototype.hasOwnProperty.call(config, "CONVEX_DEPLOYMENT")
-  ? config.CONVEX_DEPLOYMENT
-  : undefined;
-const deploymentName = configuredDeployment?.split(":").slice(-1)[0] ?? "<your deployment name>";
-
-const variables = JSON.stringify({
-  help: "This command configures the additional Convex environment variables for GitHub OAuth.",
-  providers: [
-    {
-      name: "GitHub OAuth",
-      help:
-        "Create a GitHub OAuth App, follow the instruction here: " +
-        "https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app\n\n" +
-        `When you're asked for a callback URL use:\n\n` +
-        `  https://${deploymentName}.convex.site/oauth/github/callback`,
-      variables: [
-        {
-          name: "PROVIDER_GITHUB_OAUTH_CLIENT_ID",
-          description: "the Client ID of your GitHub OAuth App",
-        },
-        {
-          name: "PROVIDER_GITHUB_OAUTH_CLIENT_SECRET",
-          description: "the generated client secret",
-        },
-        {
-          name: "PROVIDER_GITHUB_OAUTH_REDIRECT_URL",
-          description: "the callback URL from above",
-        },
-      ],
-    },
-  ],
-  success:
-    "You're all set. If you need to, you can rerun this command with `node ./scripts/setup.ts`.",
-});
-
 console.error(
   "You chose Convex Auth as the auth solution. " +
     "This command will walk you through setting up " +
     "the required Convex environment variables",
 );
 
-const result = spawnSync(
-  "npx",
-  ["@convex-dev/auth", "--variables", variables, "--skip-git-check"],
-  { stdio: "inherit" },
-);
+const result = spawnSync("npx", ["@convex-dev/auth", "--skip-git-check"], { stdio: "inherit" });
 
 if (runOnceWorkflow) {
   fs.writeFileSync(".env.local", `\nSETUP_SCRIPT_RAN=1\n`, { flag: "a" });

@@ -1,7 +1,6 @@
 "use node";
 
 import { RequestError } from "@octokit/request-error";
-import { Octokit } from "@octokit/rest";
 import { v } from "convex/values";
 import { internalAction, type ActionCtx } from "../../_generated/server";
 import { internal } from "../../_generated/api";
@@ -13,12 +12,9 @@ import {
   isCloudflareWorkerNotFoundError,
 } from "../../cloudflareResources";
 import { resolveCloudflareApiTransport } from "../../cloudflareApi/client";
+import { resolveGitHubAppAccess } from "../../githubAppAccess";
 import { readRetainedSnapshot } from "./runs";
-import {
-  type VaultDeletionEventLevel,
-  type VaultDeletionPlan,
-  type VaultDeletionStep,
-} from "./model";
+import { type VaultDeletionEventLevel, type VaultDeletionStep } from "./model";
 
 const { id } = v;
 
@@ -41,14 +37,6 @@ async function getDeletionRun(
   return run;
 }
 
-async function getDeletionPlan(
-  ctx: Pick<ActionCtx, "runQuery">,
-  runId: Id<"workflow_vaultDeletion_runs">,
-): Promise<VaultDeletionPlan> {
-  const run = await getDeletionRun(ctx, runId);
-  return readRetainedSnapshot(run).plan;
-}
-
 async function appendRunEvent(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
@@ -64,31 +52,14 @@ async function appendRunEvent(
   });
 }
 
-async function resolveGitHubOctokit(
-  ctx: Pick<ActionCtx, "runQuery">,
-  userId: Id<"users">,
-): Promise<Octokit> {
-  const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-    userId,
-    kind: "github",
-  });
-  if (githubConnection?.kind !== "github") {
-    throw new Error("GitHub is not connected.");
-  }
-
-  return new Octokit({
-    auth: githubConnection.auth.credential,
-  });
-}
-
 export const deleteCloudflare = internalAction({
   args: {
     runId: id("workflow_vaultDeletion_runs"),
-    userId: id("users"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const plan = await getDeletionPlan(ctx, args.runId);
+    const run = await getDeletionRun(ctx, args.runId);
+    const plan = readRetainedSnapshot(run).plan;
     await appendRunEvent(ctx, {
       runId: args.runId,
       step: "delete_cloudflare",
@@ -99,29 +70,39 @@ export const deleteCloudflare = internalAction({
       return null;
     }
 
-    const cloudflareConnection = await ctx.runAction(
-      internal.cloudflareOAuth.resolveConnectionForUser,
-      {
-        userId: args.userId,
-      },
-    );
-    if (!cloudflareConnection) {
-      throw new Error("Cloudflare connection is required to remove resources.");
-    }
-    const cloudflareTransport = resolveCloudflareApiTransport(cloudflareConnection.auth.method);
-
-    const workers =
-      plan.cloudflare.action === "delete_worker" ? [plan.cloudflare] : plan.cloudflare.workers;
+    const workers = plan.cloudflare.workers;
     if (workers.length === 0) {
       throw new Error("Cloudflare deletion plan must include at least one Worker.");
+    }
+    const selectedConnection = await ctx.runQuery(
+      internal.providerConnections.loadSelectedForOrganization,
+      {
+        organizationId: run.organizationId,
+        userId: run.userId,
+        kind: "cloudflare",
+      },
+    );
+    if (selectedConnection?.kind !== "cloudflare") {
+      throw new Error("Cloudflare connection is required to remove resources.");
+    }
+    const connection = await ctx.runAction(
+      internal.cloudflareOAuth.resolveConnectionForOrganization,
+      {
+        organizationId: run.organizationId,
+        providerConnectionId: selectedConnection._id,
+        userId: run.userId,
+      },
+    );
+    if (!connection) {
+      throw new Error("Cloudflare connection is required to remove resources.");
     }
     for (const worker of workers) {
       try {
         await deleteCloudflareResources({
           accountId: worker.accountId,
           workerTag: worker.workerTag,
-          cloudflareToken: cloudflareConnection.auth.credential,
-          transport: cloudflareTransport,
+          cloudflareToken: connection.auth.credential,
+          transport: resolveCloudflareApiTransport(connection.auth.method),
         });
       } catch (error) {
         if (!isCloudflareWorkerNotFoundError(error)) {
@@ -137,11 +118,11 @@ export const deleteCloudflare = internalAction({
 export const deleteConvex = internalAction({
   args: {
     runId: id("workflow_vaultDeletion_runs"),
-    userId: id("users"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const plan = await getDeletionPlan(ctx, args.runId);
+    const run = await getDeletionRun(ctx, args.runId);
+    const plan = readRetainedSnapshot(run).plan;
     await appendRunEvent(ctx, {
       runId: args.runId,
       step: "delete_convex",
@@ -152,53 +133,32 @@ export const deleteConvex = internalAction({
       return null;
     }
 
-    const convexConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: args.userId,
-      kind: "convex",
-    });
-    if (convexConnection?.kind !== "convex") {
-      throw new Error("Convex connection is required to remove resources.");
+    if (plan.convex.projects.length === 0) {
+      throw new Error("Convex deletion plan must include at least one project.");
     }
-    if (convexConnection.teamId !== plan.convex.teamId) {
-      throw new Error("Connect the Convex team that owns these projects before removing them.");
-    }
-
-    try {
-      switch (plan.convex.action) {
-        case "delete_project": {
-          await requestConvexManagementApi(
-            convexConnection.auth.credential,
-            "POST",
-            "/projects/{project_id}/delete",
-            { params: { path: { project_id: plan.convex.projectId } } },
-          );
-          break;
-        }
-        case "delete_projects": {
-          for (const projectId of plan.convex.projectIds) {
-            try {
-              await requestConvexManagementApi(
-                convexConnection.auth.credential,
-                "POST",
-                "/projects/{project_id}/delete",
-                { params: { path: { project_id: projectId } } },
-              );
-            } catch (error) {
-              if (!isConvexManagementNotFoundError(error)) {
-                throw error;
-              }
-            }
-          }
-          break;
-        }
-        default: {
-          plan.convex satisfies never;
-          throw new Error("Unsupported Convex deletion action.");
-        }
+    for (const project of plan.convex.projects) {
+      const connection = await ctx.runQuery(
+        internal.providerConnections.loadConvexForOrganizationTeam,
+        {
+          organizationId: run.organizationId,
+          teamId: project.teamId,
+          userId: run.userId,
+        },
+      );
+      if (connection === null) {
+        throw new Error("Convex connection is required to remove resources.");
       }
-    } catch (error) {
-      if (!isConvexManagementNotFoundError(error)) {
-        throw error;
+      try {
+        await requestConvexManagementApi(
+          connection.auth.credential,
+          "POST",
+          "/projects/{project_id}/delete",
+          { params: { path: { project_id: project.projectId } } },
+        );
+      } catch (error) {
+        if (!isConvexManagementNotFoundError(error)) {
+          throw error;
+        }
       }
     }
 
@@ -209,11 +169,11 @@ export const deleteConvex = internalAction({
 export const deleteGitHubRepository = internalAction({
   args: {
     runId: id("workflow_vaultDeletion_runs"),
-    userId: id("users"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const plan = await getDeletionPlan(ctx, args.runId);
+    const run = await getDeletionRun(ctx, args.runId);
+    const plan = readRetainedSnapshot(run).plan;
     await appendRunEvent(ctx, {
       runId: args.runId,
       step: "delete_github_repo",
@@ -224,9 +184,12 @@ export const deleteGitHubRepository = internalAction({
       return null;
     }
 
-    const octokit = await resolveGitHubOctokit(ctx, args.userId);
+    const githubAccess = await resolveGitHubAppAccess(ctx, {
+      userId: run.userId,
+      target: { kind: "organization", organizationId: run.organizationId },
+    });
     try {
-      const repository = await octokit.rest.repos.get({
+      const repository = await githubAccess.octokit.rest.repos.get({
         owner: plan.githubRepository.owner,
         repo: plan.githubRepository.name,
       });
@@ -234,7 +197,7 @@ export const deleteGitHubRepository = internalAction({
         throw new Error("GitHub repository identity changed.");
       }
 
-      await octokit.rest.repos.delete({
+      await githubAccess.octokit.rest.repos.delete({
         owner: plan.githubRepository.owner,
         repo: plan.githubRepository.name,
       });

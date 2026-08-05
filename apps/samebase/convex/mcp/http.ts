@@ -77,9 +77,9 @@ import { parseScopeTokens } from "./scopes";
 const MCP_PROVISIONAL_CLIENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MCP_AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 const MCP_PROTOCOL_VERSION = "2025-03-26";
-const MCP_SERVER_INSTRUCTIONS = `Samebase is only for repository-backed apps and explicit attachments to user-owned Convex and Cloudflare resources. Never use Samebase for unrelated Git work or standalone provider resources.
+const MCP_SERVER_INSTRUCTIONS = `Samebase is only for repository-backed apps and explicit attachments to user-owned Convex and Cloudflare resources. The MCP acts as the authenticated Samebase account across every organization that the account can currently access. Never request or send an opaque Samebase organization ID. Never use Samebase for unrelated Git work or standalone provider resources.
 
-For managed app creation, use only this closed sequence: read ${getUserVaultsContract.mcp.name}, call ${createRepositoryContract.mcp.name} directly, then poll ${getUserVaultsContract.mcp.name}. Do not call ${cloudflareListAccountsContract.mcp.name} first. ${createRepositoryContract.mcp.name} does not accept an accountId and uses the connected Cloudflare provider.
+For managed app creation, use only this closed sequence: read ${getUserVaultsContract.mcp.name}, call ${createRepositoryContract.mcp.name} directly with the human GitHub owner login, then poll ${getUserVaultsContract.mcp.name}. Ask the user for the GitHub owner login when it is unclear. Do not call ${cloudflareListAccountsContract.mcp.name} first. ${createRepositoryContract.mcp.name} does not accept an accountId and uses the connected Cloudflare provider.
 
 For other writes, read ${getUserVaultsContract.mcp.name} whenever a repository may already be connected, and reuse the returned vault and attachment identifiers. After ${createRepositoryContract.mcp.name}, poll ${getUserVaultsContract.mcp.name} until source setup is ready or failed. Once source setup is ready, treat provider setup as an independent ready, failed, or not-applicable axis. A connected repository remains usable while provider setup continues or fails. A started provisioning run, requested build, or successful Git push is not proof of a successful deployment.
 
@@ -240,7 +240,10 @@ const mcpToolCatalog = actionContracts.map((contract) => ({
   name: contract.mcp.name,
   description: contract.mcp.description,
   annotations: contract.mcp.annotations,
-  inputSchema: convexArgsToToolInputSchema(contract.args, contract.mcp.inputDescriptions),
+  inputSchema: convexArgsToToolInputSchema(
+    "mcpArgs" in contract ? contract.mcpArgs : contract.args,
+    contract.mcp.inputDescriptions,
+  ),
   outputSchema:
     "structuredContent" in contract
       ? convexValidatorToToolOutputSchema(contract.structuredContent)
@@ -598,71 +601,53 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
     expiresAt: now + MCP_AUTH_REQUEST_TTL_MS,
   });
 
-  if (!userId) {
-    const consentRedirect = buildMcpConsentRedirectUrl({
-      request,
-      requestId,
-      loginRequired: true,
-    });
-    if (!consentRedirect.ok) {
+  if (userId !== null) {
+    const authorizationCode = createAuthorizationCodeValue();
+    const authorizationCodeHash = await sha256Hex(authorizationCode);
+    const issueResult = await ctx.runMutation(
+      internal.mcp.oauth.issueAuthorizationCodeForAuthRequest,
+      {
+        requestId,
+        userId,
+        codeHash: authorizationCodeHash,
+        codeExpiresAt: now + MCP_AUTHORIZATION_CODE_TTL_MS,
+        grantMode: "reuse_only",
+        allowLoopbackHttpRedirectUris:
+          protocolValidationOptions.allowLoopbackHttpRedirectUris === true,
+        now,
+      },
+    );
+    if (issueResult.ok) {
+      return Response.redirect(
+        buildUrlWithSearchParams(issueResult.redirectUri, {
+          code: authorizationCode,
+          state: issueResult.state,
+        } satisfies McpAuthorizationSuccessSearchParams),
+        302,
+      );
+    }
+    if (issueResult.error !== "consent_required") {
       return oauthErrorResponse({
-        status: 500,
-        error: "server_error",
-        errorDescription: consentRedirect.errorDescription,
+        status: issueResult.status,
+        error: issueResult.error,
+        errorDescription: issueResult.errorDescription,
       });
     }
-    return Response.redirect(consentRedirect.value, 302);
   }
 
-  const hasExistingGrant = await ctx.runQuery(internal.mcp.oauth.hasActiveGrantForAuthRequest, {
+  const consentRedirect = buildMcpConsentRedirectUrl({
+    request,
     requestId,
-    userId,
+    loginRequired: userId === null,
   });
-  if (!hasExistingGrant) {
-    const consentRedirect = buildMcpConsentRedirectUrl({
-      request,
-      requestId,
-      loginRequired: false,
-    });
-    if (!consentRedirect.ok) {
-      return oauthErrorResponse({
-        status: 500,
-        error: "server_error",
-        errorDescription: consentRedirect.errorDescription,
-      });
-    }
-    return Response.redirect(consentRedirect.value, 302);
-  }
-
-  const authorizationCode = createAuthorizationCodeValue();
-  const authorizationCodeHash = await sha256Hex(authorizationCode);
-  const issueResult = await ctx.runMutation(
-    internal.mcp.oauth.issueAuthorizationCodeForAuthRequest,
-    {
-      requestId,
-      userId,
-      codeHash: authorizationCodeHash,
-      codeExpiresAt: now + MCP_AUTHORIZATION_CODE_TTL_MS,
-      allowLoopbackHttpRedirectUris:
-        protocolValidationOptions.allowLoopbackHttpRedirectUris === true,
-      now,
-    },
-  );
-  if (!issueResult.ok) {
+  if (!consentRedirect.ok) {
     return oauthErrorResponse({
-      status: issueResult.status,
-      error: issueResult.error,
-      errorDescription: issueResult.errorDescription,
+      status: 500,
+      error: "server_error",
+      errorDescription: consentRedirect.errorDescription,
     });
   }
-
-  return Response.redirect(
-    buildUrlWithSearchParams(issueResult.redirectUri, {
-      code: authorizationCode,
-      state: issueResult.state,
-    } satisfies McpAuthorizationSuccessSearchParams),
-    302,
-  );
+  return Response.redirect(consentRedirect.value, 302);
 });
 
 export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {

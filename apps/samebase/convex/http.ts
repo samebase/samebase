@@ -1,9 +1,9 @@
 import { httpRouter } from "convex/server";
 import { auth } from "./auth";
-import { finishCloudflareOAuth, startCloudflareOAuth } from "./cloudflareOAuth";
-import { finishCloudflareMcpOAuth, startCloudflareMcpOAuth } from "./cloudflareMcpOAuth";
-import { finishConvexOAuth, startConvexOAuth } from "./convexOAuth";
-import { finishGithubOAuth, startGithubOAuth } from "./githubOAuth";
+import { finishCloudflareOAuth } from "./cloudflareOAuth";
+import { finishCloudflareMcpOAuth } from "./cloudflareMcpOAuth";
+import { finishConvexOAuth } from "./convexOAuth";
+import { finishGitHubAppInstallation } from "./githubAppInstallation";
 import {
   authorizeMcpOauthRequest,
   exchangeMcpOauthToken,
@@ -41,21 +41,9 @@ const openAiAppsChallenge = httpAction(async () => {
 auth.addHttpRoutes(http);
 
 http.route({
-  path: "/oauth/convex/start",
-  method: "GET",
-  handler: startConvexOAuth,
-});
-
-http.route({
   path: "/oauth/convex/callback",
   method: "GET",
   handler: finishConvexOAuth,
-});
-
-http.route({
-  path: "/oauth/cloudflare/start",
-  method: "GET",
-  handler: startCloudflareOAuth,
 });
 
 http.route({
@@ -65,27 +53,15 @@ http.route({
 });
 
 http.route({
-  path: "/oauth/cloudflare-mcp/start",
-  method: "GET",
-  handler: startCloudflareMcpOAuth,
-});
-
-http.route({
   path: "/oauth/cloudflare-mcp/callback",
   method: "GET",
   handler: finishCloudflareMcpOAuth,
 });
 
 http.route({
-  path: "/oauth/github/start",
-  method: "GET",
-  handler: startGithubOAuth,
-});
-
-http.route({
   path: "/oauth/github/callback",
   method: "GET",
-  handler: finishGithubOAuth,
+  handler: finishGitHubAppInstallation,
 });
 
 http.route({

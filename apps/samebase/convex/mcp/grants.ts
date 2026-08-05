@@ -69,6 +69,7 @@ export const listCurrentUserGrants = query({
             .query("mcpOauthClients")
             .withIndex("by_client_id", (q) => q.eq("clientId", grant.clientId))
             .first();
+
           return {
             clientId: grant.clientId,
             ...(client?.clientName !== undefined ? { clientName: client.clientName } : {}),

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   CHECKOUT_QUERY_PARAM,
   DELETE_ACCOUNT_QUERY_PARAM,
+  GITHUB_OWNER_QUERY_PARAM,
   POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM,
   SETTINGS_ROUTE_SEARCH_STATIC_DATA,
   validateSettingsRouteSearch,
@@ -33,10 +34,18 @@ describe("settings route search", () => {
     ).toEqual({ [POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM]: true });
   });
 
+  it("accepts a GitHub owner login for billing returns", () => {
+    expect(validateSettingsRouteSearch({ [GITHUB_OWNER_QUERY_PARAM]: "  acme  " })).toEqual({
+      [GITHUB_OWNER_QUERY_PARAM]: "acme",
+    });
+    expect(validateSettingsRouteSearch({ [GITHUB_OWNER_QUERY_PARAM]: "  " })).toEqual({});
+  });
+
   it("publishes the access-controlled settings params", () => {
     expect(SETTINGS_ROUTE_SEARCH_STATIC_DATA).toEqual({
       acceptedSearchKeys: [
         CHECKOUT_QUERY_PARAM,
+        GITHUB_OWNER_QUERY_PARAM,
         POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM,
         DELETE_ACCOUNT_QUERY_PARAM,
       ],
@@ -44,6 +53,10 @@ describe("settings route search", () => {
         {
           access: "access_user_preferences",
           key: CHECKOUT_QUERY_PARAM,
+        },
+        {
+          access: "access_user_preferences",
+          key: GITHUB_OWNER_QUERY_PARAM,
         },
         {
           access: "access_user_preferences",

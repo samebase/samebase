@@ -12,20 +12,32 @@ type CloudflareCreateWorkerToolResult = FunctionReturnType<
 
 async function seedToolRuntimeOwner() {
   const t = makeConvexTest();
-  const { userId, vaultId } = await t.run(async (ctx) => {
+  const { organizationId, userId, vaultId } = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       name: "Ada",
       email: "ada@example.com",
       isApproved: true,
     });
-    const vaultId = await ctx.db.insert("vaults", {
+    const organizationId = await ctx.db.insert("organizations", {
+      githubInstallationId: "tool_runtime_installation",
+      githubOwnerId: "tool_runtime_owner",
+      githubOwnerLogin: "tool-runtime-owner",
+      githubOwnerLoginNormalized: "tool-runtime-owner",
+      githubOwnerType: "organization",
+    });
+    await ctx.db.insert("organizationMemberships", {
+      organizationId,
       userId,
+      role: "owner",
+    });
+    const vaultId = await ctx.db.insert("vaults", {
+      organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    return { userId, vaultId };
+    return { organizationId, userId, vaultId };
   });
-  return { t, userId, vaultId };
+  return { organizationId, t, userId, vaultId };
 }
 
 describe("MCP tool runtime boundaries", () => {
@@ -60,6 +72,97 @@ describe("MCP tool runtime boundaries", () => {
       status: "blocked",
       text: "Insufficient scope for vault_cloudflare_createWorker.",
     });
+  });
+
+  it("lists vaults across every current organization membership", async () => {
+    const { organizationId, t, userId } = await seedToolRuntimeOwner();
+    const { authorizedVaultId, otherOrganizationId } = await t.run(async (ctx) => {
+      const authorizedVaultId = await ctx.db.insert("vaults", {
+        organizationId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const authorizedRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId,
+        vaultId: authorizedVaultId,
+        repositoryFullName: "tool-runtime-owner/authorized",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 1,
+        completedAt: 1,
+      });
+      await ctx.db.replace(authorizedVaultId, {
+        organizationId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId: authorizedRunId,
+        ghRepoId: "authorized-repository",
+        name: "authorized",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 1,
+      });
+      const otherOrganizationId = await ctx.db.insert("organizations", {
+        githubInstallationId: "other_installation",
+        githubOwnerId: "other_owner",
+        githubOwnerLogin: "other-owner",
+        githubOwnerLoginNormalized: "other-owner",
+        githubOwnerType: "organization",
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId: otherOrganizationId,
+        userId,
+        role: "member",
+      });
+      const otherRunVaultId = await ctx.db.insert("vaults", {
+        organizationId: otherOrganizationId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const otherRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId,
+        vaultId: otherRunVaultId,
+        repositoryFullName: "other-owner/hidden",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 1,
+        completedAt: 1,
+      });
+      await ctx.db.replace(otherRunVaultId, {
+        organizationId: otherOrganizationId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId: otherRunId,
+        ghRepoId: "hidden-repository",
+        name: "hidden",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 1,
+      });
+      return { authorizedVaultId, otherOrganizationId };
+    });
+
+    const result = await t.action(internal.toolRuntime.runtime.getUserVaultsTool, {
+      userId,
+      grantedScopes: ["access_dashboard"],
+    });
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") {
+      throw new Error(result.text);
+    }
+    expect(result.structuredContent.vaults).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ _id: authorizedVaultId, organizationId }),
+        expect.objectContaining({ organizationId: otherOrganizationId }),
+      ]),
+    );
   });
 
   it("converts a product helper error into a tool error without a provider write", async () => {

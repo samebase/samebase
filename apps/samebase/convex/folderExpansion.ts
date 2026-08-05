@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./functions";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { findVaultForUser } from "./organizationAccess";
 
 const { boolean, id, object, string } = v;
 
@@ -14,8 +15,7 @@ async function canAccessFolderExpansionVault(
     userId: Id<"users">;
   },
 ) {
-  const vault = await ctx.db.get(args.vaultId);
-  return vault?.userId === args.userId;
+  return (await findVaultForUser(ctx.db, args)) !== null;
 }
 
 // MARK: Public

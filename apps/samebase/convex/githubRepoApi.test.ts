@@ -22,11 +22,14 @@ vi.mock("@octokit/rest", () => ({
   },
 }));
 
+import { Octokit } from "@octokit/rest";
 import {
   fetchGitHubConvexCodeLocationDiscovery,
   fetchGitHubDefaultBranchHead,
   fetchGitHubRepoIdentity,
 } from "./githubRepoApi";
+
+const octokit = new Octokit();
 
 describe("GitHub repository API", () => {
   beforeEach(() => {
@@ -43,7 +46,7 @@ describe("GitHub repository API", () => {
 
     await expect(
       fetchGitHubRepoIdentity({
-        githubAccessToken: "github-token",
+        octokit,
         owner: "samebase",
         repo: "samebase",
         expectedRepoId: "123",
@@ -66,7 +69,7 @@ describe("GitHub repository API", () => {
 
     await expect(
       fetchGitHubDefaultBranchHead({
-        githubAccessToken: "github-token",
+        octokit,
         owner: "samebase",
         repo: "samebase",
         expectedRepoId: "123",
@@ -96,7 +99,7 @@ describe("GitHub repository API", () => {
 
     await expect(
       fetchGitHubDefaultBranchHead({
-        githubAccessToken: "github-token",
+        octokit,
         owner: "samebase",
         repo: "samebase",
         expectedRepoId: "123",
@@ -140,7 +143,7 @@ describe("GitHub repository API", () => {
     });
     await expect(
       fetchGitHubConvexCodeLocationDiscovery({
-        githubAccessToken: "github-token",
+        octokit,
         owner: "samebase",
         repo: "samebase",
         expectedRepoId: "123",
@@ -245,7 +248,7 @@ describe("GitHub repository API", () => {
     });
     await expect(
       fetchGitHubConvexCodeLocationDiscovery({
-        githubAccessToken: "github-token",
+        octokit,
         owner: "samebase",
         repo: "samebase",
         expectedRepoId: "123",
@@ -290,7 +293,7 @@ describe("GitHub repository API", () => {
 
     await expect(
       fetchGitHubConvexCodeLocationDiscovery({
-        githubAccessToken: "github-token",
+        octokit,
         owner: "samebase",
         repo: "samebase",
         expectedRepoId: "123",

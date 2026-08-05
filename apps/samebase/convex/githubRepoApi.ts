@@ -38,7 +38,7 @@ export type GitHubConvexCodeLocationDiscovery = {
 };
 
 export async function fetchGitHubRepoIdentity(args: {
-  githubAccessToken: string;
+  octokit: Octokit;
   owner: string;
   repo: string;
   expectedRepoId: string;
@@ -59,9 +59,8 @@ export async function fetchGitHubRepoIdentity(args: {
     },
   });
 
-  const octokit = new Octokit({ auth: args.githubAccessToken });
   const signal = args.signal ?? createGitHubRequestDeadlineSignal();
-  const response = await octokit.rest.repos.get({
+  const response = await args.octokit.rest.repos.get({
     owner: args.owner,
     repo: args.repo,
     request: { signal },
@@ -87,7 +86,7 @@ function requireGitHubCommitSha(value: string): string {
 }
 
 export async function fetchGitHubDefaultBranchHead(args: {
-  githubAccessToken: string;
+  octokit: Octokit;
   owner: string;
   repo: string;
   expectedRepoId: string;
@@ -108,8 +107,7 @@ export async function fetchGitHubDefaultBranchHead(args: {
     },
   });
 
-  const octokit = new Octokit({ auth: args.githubAccessToken });
-  const ref = await octokit.rest.git.getRef({
+  const ref = await args.octokit.rest.git.getRef({
     owner: args.owner,
     repo: args.repo,
     ref: `heads/${repository.defaultBranch}`,
@@ -138,20 +136,19 @@ function getPackageJsonPath(rootDirectory: string): string {
 }
 
 export async function fetchGitHubConvexCodeLocationDiscovery(args: {
-  githubAccessToken: string;
+  octokit: Octokit;
   owner: string;
   repo: string;
   expectedRepoId: string;
   recordApiCall?: ProviderApiCallRecorder;
 }): Promise<GitHubConvexCodeLocationDiscovery> {
-  const octokit = new Octokit({ auth: args.githubAccessToken });
   await args.recordApiCall?.({
     provider: "GitHub",
     method: "GET",
     endpoint: "/repos/{owner}/{repo}",
     values: { params: { path: { owner: args.owner, repo: args.repo } } },
   });
-  const repository = await octokit.rest.repos.get({ owner: args.owner, repo: args.repo });
+  const repository = await args.octokit.rest.repos.get({ owner: args.owner, repo: args.repo });
   if (String(repository.data.id) !== args.expectedRepoId) {
     throw new Error("GitHub repository response did not match the vault repo.");
   }
@@ -170,7 +167,7 @@ export async function fetchGitHubConvexCodeLocationDiscovery(args: {
       },
     },
   });
-  const ref = await octokit.rest.git.getRef({
+  const ref = await args.octokit.rest.git.getRef({
     owner: args.owner,
     repo: args.repo,
     ref: `heads/${defaultBranch}`,
@@ -185,7 +182,7 @@ export async function fetchGitHubConvexCodeLocationDiscovery(args: {
       params: { path: { owner: args.owner, repo: args.repo, commit_sha: commitSha } },
     },
   });
-  const commit = await octokit.rest.git.getCommit({
+  const commit = await args.octokit.rest.git.getCommit({
     owner: args.owner,
     repo: args.repo,
     commit_sha: commitSha,
@@ -203,7 +200,7 @@ export async function fetchGitHubConvexCodeLocationDiscovery(args: {
       },
     },
   });
-  const tree = await octokit.rest.git.getTree({
+  const tree = await args.octokit.rest.git.getTree({
     owner: args.owner,
     repo: args.repo,
     tree_sha: treeSha,

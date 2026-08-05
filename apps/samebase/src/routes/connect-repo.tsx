@@ -7,7 +7,7 @@ import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 function ConnectRepositoryRouteComponent() {
   return (
     <AuthenticatedAppRoutePage>
-      <ConnectRepository />
+      <ConnectRepository githubOwnerLogin={null} />
     </AuthenticatedAppRoutePage>
   );
 }

@@ -2,7 +2,7 @@ import { v } from "convex/values";
 
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
-import { cleanupAccountLocalDataBatchForUser } from "./cleanup";
+import { cleanupAccountDataBatchForUser } from "./cleanup";
 import { readOwnedActiveRun } from "./stepContext";
 
 const AUTH_CHILD_BATCH_SIZE = 64;
@@ -176,11 +176,7 @@ export async function assertIdentityDeletionReady(
   ctx: MutationCtx,
   run: RunningAccountDeletionRun,
 ): Promise<void> {
-  if (run.outcomes.billing.state === "not_started" || run.outcomes.billing.state === "failed") {
-    throw new Error("Billing cancellation is not complete.");
-  }
-
-  if (run.outcomes.providerRevocation.state === "not_started") {
+  if (run.outcomes.providerRevocation.state !== "completed") {
     throw new Error("Provider revocation is not complete.");
   }
 
@@ -188,11 +184,11 @@ export async function assertIdentityDeletionReady(
     throw new Error("Completion email was not attempted.");
   }
 
-  const accountLocalData = await cleanupAccountLocalDataBatchForUser(ctx, {
+  const accountDataRemoved = await cleanupAccountDataBatchForUser(ctx, {
     userId: run.identity.userId,
   });
 
-  if (accountLocalData.state !== "done") {
+  if (!accountDataRemoved) {
     throw new Error("Samebase account data remains during finalization.");
   }
 
@@ -257,11 +253,22 @@ export async function assertIdentityDeletionReady(
 
   const remainingProviderConnection = await ctx.db
     .query("providerConnections")
-    .withIndex("by_user", (query) => query.eq("userId", run.identity.userId))
+    .withIndex("by_connected_by_user", (query) =>
+      query.eq("connectedByUserId", run.identity.userId),
+    )
     .first();
 
   if (remainingProviderConnection !== null) {
     throw new Error("Provider connections remain for the deleting account.");
+  }
+
+  const remainingGitHubAuthorization = await ctx.db
+    .query("githubUserAuthorizations")
+    .withIndex("by_user", (query) => query.eq("userId", run.identity.userId))
+    .first();
+
+  if (remainingGitHubAuthorization !== null) {
+    throw new Error("GitHub user authorization remains for the deleting account.");
   }
 }
 

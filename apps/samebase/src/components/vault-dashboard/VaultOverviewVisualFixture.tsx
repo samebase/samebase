@@ -88,6 +88,12 @@ function fakeVaultId(value = "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a"): Id<"vaults"> {
   return value;
 }
 
+function fakeOrganizationId(value: string): Id<"organizations"> {
+  // @ts-expect-error Convex ids are strings at runtime; this fixture only
+  // needs a stable value for static rendering.
+  return value;
+}
+
 function fakeVaultFolderId(value: string): Id<"ui_vaultFolders"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
@@ -113,11 +119,13 @@ function fakeVaultProvisioningRunId(value: string): Id<"workflow_vaultProvisioni
 }
 
 const LIST_SPACING_VAULT_ID = fakeVaultId();
+const VISUAL_ORGANIZATION_ID = fakeOrganizationId("organization-samebase");
 const LIST_SPACING_DOMAIN_WORKER_ID = fakeCloudflareWorkerId("worker-domain-router");
 const LIST_SPACING_SAMEBASE_WORKER_ID = fakeCloudflareWorkerId("worker-samebase");
 const LIST_SPACING_CONVEX_PROJECT_ID = fakeConvexProjectId("convex-project-samebase");
 const LIST_SPACING_VAULT = {
   _id: LIST_SPACING_VAULT_ID,
+  organizationId: VISUAL_ORGANIZATION_ID,
   ghRepoOwner: "samebase",
   ghRepoName: "samebase",
   repositoryFullName: "samebase/samebase",

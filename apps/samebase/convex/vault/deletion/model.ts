@@ -83,14 +83,13 @@ const providerCleanupPlan = {
       ),
     }),
     object({
-      action: literal("delete_project"),
-      teamId: string(),
-      projectId: string(),
-    }),
-    object({
       action: literal("delete_projects"),
-      teamId: string(),
-      projectIds: array(string()),
+      projects: array(
+        object({
+          teamId: string(),
+          projectId: string(),
+        }),
+      ),
     }),
   ),
   cloudflare: union(
@@ -102,12 +101,6 @@ const providerCleanupPlan = {
         literal("not_samebase_managed"),
         literal("not_recorded"),
       ),
-    }),
-    object({
-      action: literal("delete_worker"),
-      accountId: string(),
-      workerName: string(),
-      workerTag: string(),
     }),
     object({
       action: literal("delete_workers"),
@@ -180,6 +173,7 @@ export const vaultDeletionTables = {
     union(
       object({
         state: literal("queued"),
+        organizationId: id("organizations"),
         userId: id("users"),
         vaultId: id("vaults"),
         repositoryFullName: string(),
@@ -202,6 +196,7 @@ export const vaultDeletionTables = {
       }),
       object({
         state: literal("running"),
+        organizationId: id("organizations"),
         userId: id("users"),
         vaultId: id("vaults"),
         repositoryFullName: string(),
@@ -225,6 +220,7 @@ export const vaultDeletionTables = {
       }),
       object({
         state: literal("failed"),
+        organizationId: id("organizations"),
         userId: id("users"),
         vaultId: id("vaults"),
         repositoryFullName: string(),
@@ -255,6 +251,7 @@ export const vaultDeletionTables = {
       }),
       object({
         state: literal("succeeded"),
+        organizationId: id("organizations"),
         userId: id("users"),
         vaultId: id("vaults"),
         repositoryFullName: string(),
@@ -282,7 +279,8 @@ export const vaultDeletionTables = {
     ),
   )
     .index("by_vault_and_updated_at", ["vaultId", "updatedAt"])
-    .index("by_user_and_updated_at", ["userId", "updatedAt"])
+    .index("by_organization_and_updated_at", ["organizationId", "updatedAt"])
+    .index("by_organization_and_state_and_updated_at", ["organizationId", "state", "updatedAt"])
     .index("by_user_and_state_and_updated_at", ["userId", "state", "updatedAt"])
     .index("by_workflow_id", ["workflow.workflowId"])
     .index("by_retry_of", ["attempt.retryOf"]),
@@ -292,6 +290,7 @@ export const vaultDeletionTables = {
    * provider payloads or credentials.
    */
   workflow_vaultDeletion_events: defineTable({
+    organizationId: id("organizations"),
     userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
@@ -301,6 +300,7 @@ export const vaultDeletionTables = {
     message: string(),
     createdAt: number(),
   })
+    .index("by_organization_and_created_at", ["organizationId", "createdAt"])
     .index("by_vault_and_created_at", ["vaultId", "createdAt"])
     .index("by_run_and_created_at", ["runId", "createdAt"]),
 };

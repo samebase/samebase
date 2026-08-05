@@ -4,14 +4,15 @@
 
 - Status: Accepted
 - Owner: Vault add flow + GitHub integration
-- Last updated: 2026-03-25
+- Last updated: 2026-08-05
 - Related specs:
   - `specs/065_GITHUB_REPOSITORY_PICKER_DISCOVERY_SPEC.md`
+  - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 
 ## Summary
 
-The `/add` route should feel immediate for users with large GitHub accounts without regressing the
-full-discovery guarantee from Spec 065.
+The `/connect-repo/<owner>` route should feel immediate for GitHub App installations with many
+repositories without regressing the full-discovery guarantee from Spec 065.
 
 The add-vault repository picker therefore adopts a two-phase load:
 
@@ -25,8 +26,8 @@ Samebase can connect.
 
 ## Problem Statement
 
-Today `/add` waits for `github.listRepositories` to enumerate the full accessible repository set
-before the user can interact with the list.
+The repository picker previously waited for `github.listRepositories` to enumerate the full
+installation repository set before the user can interact with the list.
 
 That is correct for completeness, but it delays first paint for users with many accessible
 repositories even though the most recently updated repositories are usually the ones they are trying
@@ -37,7 +38,7 @@ worse because the backend would still block on every page before returning.
 
 ## Product Decisions (Locked)
 
-1. Default ordering remains GitHub `sort=updated`.
+1. The preview preserves GitHub's installation-repository endpoint order.
 2. The initial preview fetch requests `per_page=10`.
 3. The authoritative full discovery pass remains `per_page=100`.
 4. `github.listRepositories` remains the source of truth for the complete candidate set required by
@@ -49,48 +50,47 @@ worse because the backend would still block on every page before returning.
 
 Today:
 
-1. `github.listRepositories` calls GitHub `GET /user/repos` with
-   `sort=updated&per_page=100&affiliation=owner,collaborator,organization_member`.
-2. The backend follows pagination until exhaustion before returning.
-3. `AddRepository` renders only after that action resolves.
-4. Search is client-side over the final in-memory result set.
+1. `github.listRepositories` calls GitHub `GET /installation/repositories` with `per_page=100`
+   through the selected organization's installation token.
+2. `ConnectRepository` renders the first ten repositories immediately.
+3. The complete `per_page=100` scan continues in the background when more repositories exist.
+4. Search is client-side and reports when its current results are still partial.
 
 ## Source of Truth Files
 
 - `apps/samebase/convex/github.ts`
-- `apps/samebase/src/components/AddRepository.tsx`
+- `apps/samebase/src/components/ConnectRepository.tsx`
 - `apps/samebase/src/lib/repositorySearch.ts`
 
 ## Runtime Contract
 
 ### Phase 1: Preview fetch
 
-Add a lightweight preview discovery path for `/add`.
+Add a lightweight preview discovery path for `/connect-repo/<owner>`.
 
 Behavior:
 
-1. Read the connected GitHub OAuth token from `providerConnections`.
-2. Call GitHub `GET /user/repos` with:
-   - `sort=updated`
+1. Resolve the selected Samebase organization and its GitHub App installation.
+2. Call GitHub `GET /installation/repositories` with:
    - `per_page=10`
-   - `affiliation=owner,collaborator,organization_member`
 3. Normalize repositories to the existing `githubRepositoryListItem` contract.
 4. Return:
    - the preview repositories
    - whether more repositories remain to be loaded
 
-The preview order must match GitHub's `updated` ordering exactly.
+The preview order must match the GitHub installation endpoint order exactly.
 
 ### Phase 2: Background full discovery
 
-If the preview response indicates that more repositories exist, `/add` immediately starts the
-existing full discovery action in the background.
+If the preview response indicates that more repositories exist, `/connect-repo/<owner>` immediately
+starts the existing full discovery action in the background.
 
 Behavior:
 
 1. Reuse `github.listRepositories` as the authoritative full-set fetch.
 2. Keep its current `per_page=100` GitHub requests.
-3. Follow pagination until GitHub no longer returns `rel="next"`.
+3. Follow pagination until a short page arrives or the number of unique repositories reaches
+   GitHub's `total_count`.
 4. Deduplicate by GitHub repository id.
 5. Replace or merge the preview list with the completed full list once ready.
 

@@ -1,28 +1,20 @@
 import { getAuthSessionId } from "@convex-dev/auth/server";
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
-import { v, type Infer } from "convex/values";
+import { v } from "convex/values";
 
-import type { Doc, Id } from "../_generated/dataModel";
-import type { DatabaseReader } from "../_generated/server";
+import type { Doc } from "../_generated/dataModel";
+import { ACCOUNT_DELETION_CONFIRMATION_PHRASE } from "../../shared/accountDeletionPhrase";
 import { mutation, query } from "../functions";
+import { requireAnotherActiveOrganizationOwner } from "../organizationAccess";
 import { isAdminUser } from "../userAccess";
-import { isLiveConnectedVault } from "../vault/state";
 import {
-  ACCOUNT_DELETION_UNCOMMITTED_FILE_CHANGE_COUNT_CAP,
-  buildAccountDeletionConfirmationPhrase,
-  serializeAccountDeletionConfirmationStakes,
-} from "../../shared/accountDeletionPhrase";
-import { hasStagedFileChanges } from "../../shared/stagedFiles";
-import {
-  INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
-  vAccountDeletionDataProgress,
   vAccountDeletionEventLevel,
   vAccountDeletionOutcomeSummary,
   vAccountDeletionStep,
 } from "./model";
 import { startAccountDeletionWorkflow } from "./workflow";
 
-const { array, boolean, id, literal, number, object, optional, string, union } = v;
+const { array, id, literal, number, object, optional, string, union } = v;
 
 const vActiveAccountDeletionRunState = union(
   literal("queued"),
@@ -44,45 +36,11 @@ const vAccountDeletionStatus = object({
   currentStep: vAccountDeletionStep,
   requestedAt: number(),
   latestProgressAt: number(),
-  dataDeletion: union(
-    vAccountDeletionDataProgress,
-    object({ state: literal("legacy_unavailable") }),
-  ),
 });
-
-const vAccountDeletionAffectedBranch = object({
-  branch: string(),
-  uncommittedFileChangeCount: number(),
-});
-
-const vAccountDeletionAffectedVault = object({
-  vaultId: id("vaults"),
-  repositoryFullName: string(),
-  uncommittedFileChangeCount: number(),
-  branches: array(vAccountDeletionAffectedBranch),
-});
-
-const vAccountDeletionAffectedVaults = union(
-  object({
-    state: literal("complete"),
-    vaults: array(vAccountDeletionAffectedVault),
-  }),
-  object({ state: literal("unavailable") }),
-);
-
-const accountDeletionStakesFields = {
-  vaultCount: number(),
-  uncommittedFileChangeCount: union(number(), literal("more_than_cap")),
-  hasActiveSubscription: boolean(),
-  affectedVaults: vAccountDeletionAffectedVaults,
-} as const;
-
-const vAccountDeletionStakes = object(accountDeletionStakesFields);
 
 const vAccountDeletionRequestResult = union(
   object({ state: literal("accepted"), status: vAccountDeletionStatus }),
-  object({ state: literal("billing_checkout_pending") }),
-  object({ state: literal("stakes_changed") }),
+  object({ state: literal("confirmation_mismatch") }),
 );
 
 const vAccountDeletionEvent = object({
@@ -108,18 +66,9 @@ const adminAccountDeletionFields = {
   email: optional(string()),
   latestSafeError: optional(string()),
   completedAt: optional(number()),
-} as const;
+};
 
 const vAdminAccountDeletionListItem = object(adminAccountDeletionFields);
-
-const vAdminAccountDeletionDetail = object({
-  ...adminAccountDeletionFields,
-  dataDeletion: union(
-    vAccountDeletionDataProgress,
-    object({ state: literal("legacy_unavailable") }),
-    object({ state: literal("receipt_scrubbed") }),
-  ),
-});
 
 function projectStatus(run: Doc<"workflow_accountDeletion_runs">) {
   if (run.state === "succeeded") {
@@ -133,7 +82,6 @@ function projectStatus(run: Doc<"workflow_accountDeletion_runs">) {
     currentStep: run.currentStep,
     requestedAt: run.requestedAt,
     latestProgressAt: run.updatedAt,
-    dataDeletion: run.dataDeletion ?? { state: "legacy_unavailable" as const },
   };
 }
 
@@ -152,132 +100,11 @@ function projectAdminListItem(run: Doc<"workflow_accountDeletion_runs">) {
   };
 }
 
-const STAKES_FILE_STAGING_READ_BATCH_SIZE = 200;
-
-async function readAccountDeletionVaults(
-  db: DatabaseReader,
-  userId: Id<"users">,
-): Promise<Doc<"vaults">[]> {
-  return await db
-    .query("vaults")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .collect();
-}
-
-/**
-Counts what deletion would destroy for the confirmation phrase. vaultStagedFiles
-reads walk the by_vault index in take() batches cursored on _creationTime
-(unique per table), and stop at the cap so one huge vault cannot make the
-stakes read unbounded.
-*/
-async function countAccountDeletionStakes(
-  db: DatabaseReader,
-  vaults: Doc<"vaults">[],
-  hasActiveSubscription: boolean,
-): Promise<Infer<typeof vAccountDeletionStakes>> {
-  const affectedVaults: Array<Infer<typeof vAccountDeletionAffectedVault>> = [];
-  let affectedVaultsComplete = true;
-  let uncommittedFileChangeCount = 0;
-
-  for (const vault of vaults) {
-    const reviewableVault = isLiveConnectedVault(vault) ? vault : null;
-    const uncommittedFileChangesByBranch = new Map<string, number>();
-    let vaultUncommittedFileChangeCount = 0;
-    let cursorCreationTime: number | undefined;
-
-    for (;;) {
-      const batch = await db
-        .query("vaultStagedFiles")
-        .withIndex("by_vault", (q) =>
-          cursorCreationTime === undefined
-            ? q.eq("vaultId", vault._id)
-            : q.eq("vaultId", vault._id).gt("_creationTime", cursorCreationTime),
-        )
-        .take(STAKES_FILE_STAGING_READ_BATCH_SIZE);
-
-      for (const file of batch) {
-        if (!hasStagedFileChanges(file)) {
-          continue;
-        }
-
-        uncommittedFileChangeCount += 1;
-        vaultUncommittedFileChangeCount += 1;
-
-        if (reviewableVault === null) {
-          affectedVaultsComplete = false;
-        } else {
-          uncommittedFileChangesByBranch.set(
-            file.branch,
-            (uncommittedFileChangesByBranch.get(file.branch) ?? 0) + 1,
-          );
-        }
-
-        if (uncommittedFileChangeCount > ACCOUNT_DELETION_UNCOMMITTED_FILE_CHANGE_COUNT_CAP) {
-          return {
-            vaultCount: vaults.length,
-            uncommittedFileChangeCount: "more_than_cap",
-            hasActiveSubscription,
-            affectedVaults: { state: "unavailable" },
-          };
-        }
-      }
-
-      if (batch.length < STAKES_FILE_STAGING_READ_BATCH_SIZE) {
-        break;
-      }
-      cursorCreationTime = batch[batch.length - 1]._creationTime;
-    }
-
-    if (reviewableVault !== null && vaultUncommittedFileChangeCount > 0) {
-      affectedVaults.push({
-        vaultId: reviewableVault._id,
-        repositoryFullName: `${reviewableVault.owner}/${reviewableVault.name}`,
-        uncommittedFileChangeCount: vaultUncommittedFileChangeCount,
-        branches: Array.from(uncommittedFileChangesByBranch, ([branch, count]) => ({
-          branch,
-          uncommittedFileChangeCount: count,
-        })).sort((left, right) => left.branch.localeCompare(right.branch)),
-      });
-    }
-  }
-
-  return {
-    vaultCount: vaults.length,
-    uncommittedFileChangeCount,
-    hasActiveSubscription,
-    affectedVaults: affectedVaultsComplete
-      ? {
-          state: "complete",
-          vaults: affectedVaults.sort(
-            (left, right) =>
-              left.repositoryFullName.localeCompare(right.repositoryFullName) ||
-              left.vaultId.localeCompare(right.vaultId),
-          ),
-        }
-      : { state: "unavailable" },
-  };
-}
-
-export const stakes = query({
-  access: "access_account_deletion",
-  args: {},
-  returns: vAccountDeletionStakes,
-  handler: async (ctx) => {
-    const vaults = await readAccountDeletionVaults(ctx.db, ctx.viewer.userId);
-    return await countAccountDeletionStakes(
-      ctx.db,
-      vaults,
-      ctx.viewer.user.billingStatus === "active" || ctx.viewer.user.billingStatus === "past_due",
-    );
-  },
-});
-
 export const request = mutation({
   access: "access_account_deletion",
   args: {
     completionCapability: string(),
     confirmationPhrase: string(),
-    confirmationStakesSnapshot: string(),
   },
   returns: vAccountDeletionRequestResult,
   handler: async (ctx, args) => {
@@ -295,21 +122,17 @@ export const request = mutation({
       ) {
         throw new Error("Account deletion state is inconsistent.");
       }
-
-      // The run is already committed; re-requests stay idempotent and do not
-      // recheck the phrase against counts the running deletion is changing.
       return { state: "accepted" as const, status: projectStatus(existingRun) };
     }
 
-    if (ctx.viewer.user.billingPolarCheckoutAttempt) {
-      return { state: "billing_checkout_pending" as const };
+    if (args.confirmationPhrase !== ACCOUNT_DELETION_CONFIRMATION_PHRASE) {
+      return { state: "confirmation_mismatch" as const };
     }
 
     const initiatingSessionId = await getAuthSessionId(ctx);
     if (initiatingSessionId === null) {
       throw new Error("Authentication session is required to delete an account.");
     }
-
     if (!/^[0-9a-f]{64}$/.test(args.completionCapability)) {
       throw new Error("Account deletion completion capability is invalid.");
     }
@@ -319,37 +142,20 @@ export const request = mutation({
       .withIndex("by_completion_capability", (query) =>
         query.eq("completionCapability", args.completionCapability),
       )
-      .first();
-
+      .unique();
     if (existingCapability !== null) {
       throw new Error("Account deletion completion capability is already in use.");
     }
 
-    const vaults = await readAccountDeletionVaults(ctx.db, ctx.viewer.userId);
-    for (const vault of vaults) {
-      const write = await ctx.db
-        .query("workflow_vaultProvisioning_writeLocks")
-        .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-        .unique();
-      if (write?.owner.kind === "manual_provider_write" && write.state === "active") {
-        throw new Error(
-          "A provider change is active. Wait for it to finish before you delete the account.",
-        );
+    for await (const membership of ctx.db
+      .query("organizationMemberships")
+      .withIndex("by_user", (query) => query.eq("userId", ctx.viewer.userId))) {
+      if (membership.role === "owner") {
+        await requireAnotherActiveOrganizationOwner(ctx.db, {
+          organizationId: membership.organizationId,
+          excludedUserId: ctx.viewer.userId,
+        });
       }
-    }
-    const currentStakes = await countAccountDeletionStakes(
-      ctx.db,
-      vaults,
-      ctx.viewer.user.billingStatus === "active" || ctx.viewer.user.billingStatus === "past_due",
-    );
-    if (
-      args.confirmationPhrase !== buildAccountDeletionConfirmationPhrase(currentStakes) ||
-      args.confirmationStakesSnapshot !== serializeAccountDeletionConfirmationStakes(currentStakes)
-    ) {
-      // Expected UI state: any displayed stake moved after the dialog rendered,
-      // or the phrase was mistyped. Nothing is created; the subscribed stakes
-      // query supplies the current confirmation details.
-      return { state: "stakes_changed" as const };
     }
 
     const now = Date.now();
@@ -366,11 +172,9 @@ export const request = mutation({
       initiatingSessionId,
       retryCount: 0,
       outcomes: {
-        billing: { state: "not_started" },
         providerRevocation: { state: "not_started" },
         completionEmail: { state: "not_started" },
       },
-      dataDeletion: INITIAL_ACCOUNT_DELETION_DATA_PROGRESS,
     } as const;
 
     const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
@@ -378,7 +182,6 @@ export const request = mutation({
       state: "queued",
       workflow: { state: "not_started" },
     });
-
     await ctx.db.insert("workflow_accountDeletion_events", {
       runId,
       step: "request_accepted",
@@ -386,7 +189,6 @@ export const request = mutation({
       message: "Account deletion was requested.",
       createdAt: now,
     });
-
     await ctx.db.patch(ctx.viewer.userId, {
       accountDeletion: {
         state: "deleting",
@@ -396,7 +198,6 @@ export const request = mutation({
     });
 
     const workflowId = await startAccountDeletionWorkflow(ctx, runId);
-
     await ctx.db.replace(runId, {
       ...activeRunFields,
       state: "running",
@@ -404,11 +205,9 @@ export const request = mutation({
     });
 
     const run = await ctx.db.get(runId);
-
     if (run === null || run.identity.state !== "active") {
       throw new Error("Account deletion run was not created.");
     }
-
     return { state: "accepted" as const, status: projectStatus(run) };
   },
 });
@@ -424,14 +223,12 @@ export const retry = mutation({
     }
 
     const user = await ctx.db.get(run.identity.userId);
-
     if (user === null || user.accountDeletion?.runId !== run._id) {
       throw new Error("Account deletion marker is inconsistent.");
     }
 
     const workflowId = await startAccountDeletionWorkflow(ctx, run._id);
     const now = Date.now();
-
     await ctx.db.replace(run._id, {
       identity: run.identity,
       completionCapability: run.completionCapability,
@@ -447,9 +244,7 @@ export const retry = mutation({
       initiatingSessionId: run.initiatingSessionId,
       retryCount: run.retryCount + 1,
       outcomes: run.outcomes,
-      dataDeletion: run.dataDeletion,
     });
-
     await ctx.db.patch(user._id, {
       accountDeletion: {
         state: "deleting",
@@ -457,7 +252,6 @@ export const retry = mutation({
         requestedAt: run.requestedAt,
       },
     });
-
     await ctx.db.insert("workflow_accountDeletion_events", {
       runId: run._id,
       step: run.currentStep,
@@ -467,11 +261,9 @@ export const retry = mutation({
     });
 
     const retried = await ctx.db.get(run._id);
-
     if (retried === null) {
       throw new Error("Account deletion run was not restarted.");
     }
-
     return projectStatus(retried);
   },
 });
@@ -487,7 +279,6 @@ export const status = query({
     }
 
     const run = await ctx.db.get(marker.runId);
-
     if (
       run === null ||
       run.identity.state !== "active" ||
@@ -495,7 +286,6 @@ export const status = query({
     ) {
       throw new Error("Account deletion state is inconsistent.");
     }
-
     return projectStatus(run);
   },
 });
@@ -514,12 +304,10 @@ export const completion = query({
       .withIndex("by_completion_capability", (query) =>
         query.eq("completionCapability", args.completionCapability),
       )
-      .first();
-
+      .unique();
     if (run === null || run.identity.state !== "scrubbed" || run.state !== "succeeded") {
       return null;
     }
-
     return { state: run.state, completedAt: run.completedAt };
   },
 });
@@ -552,33 +340,23 @@ export const detailForAdmin = query({
   returns: union(
     v.null(),
     object({
-      run: vAdminAccountDeletionDetail,
+      run: vAdminAccountDeletionListItem,
       events: array(vAccountDeletionEvent),
     }),
   ),
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.runId);
-
     if (run === null) {
       return null;
     }
 
     const events = await ctx.db
       .query("workflow_accountDeletion_events")
-      .withIndex("by_run_and_created_at", (q) => q.eq("runId", args.runId))
+      .withIndex("by_run_and_created_at", (query) => query.eq("runId", args.runId))
       .order("desc")
       .take(100);
-
-    const dataDeletion =
-      run.state === "succeeded"
-        ? ({ state: "receipt_scrubbed" } as const)
-        : (run.dataDeletion ?? ({ state: "legacy_unavailable" } as const));
-
     return {
-      run: {
-        ...projectAdminListItem(run),
-        dataDeletion,
-      },
+      run: projectAdminListItem(run),
       events: events.reverse().map(({ step, level, message, createdAt }) => ({
         step,
         level,

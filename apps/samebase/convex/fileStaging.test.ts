@@ -5,7 +5,6 @@ import {
   buildDeletionSnapshotSeed,
   buildDeletedFileRestoreCandidate,
   buildClearAllStagingPlan,
-  canAccessVaultStaging,
   clearMatchingStagingSnapshotImpl,
   clearAllStagingImpl,
   selectRepositoryTreeForBranch,
@@ -112,7 +111,6 @@ function createClearMatchingStagingSnapshotTestContext(args: {
   stagedFiles: Array<{
     _id: string;
     _creationTime: number;
-    ownerId: string;
     vaultId: string;
     fileDeleted: boolean;
     filePath: string;
@@ -277,26 +275,6 @@ describe("summarizeStagedFilesByBranch", () => {
   });
 });
 
-describe("canAccessVaultStaging", () => {
-  it("allows owner access", () => {
-    expect(
-      canAccessVaultStaging({
-        vaultOwnerId: "users:owner",
-        requesterUserId: "users:owner",
-      }),
-    ).toBe(true);
-  });
-
-  it("rejects non-owner access", () => {
-    expect(
-      canAccessVaultStaging({
-        vaultOwnerId: "users:owner",
-        requesterUserId: "users:other",
-      }),
-    ).toBe(false);
-  });
-});
-
 describe("buildDeletedFileRestoreCandidate", () => {
   it("clears the deleted flag while preserving rename and content changes", () => {
     expect(
@@ -368,8 +346,6 @@ describe("buildClearAllStagingPlan", () => {
         cleanupCutoffTimestamp: 123,
         vault: {
           userId: "users:owner",
-          owner: "octo",
-          name: "repo",
           defaultBranch: "main",
         },
       }),
@@ -386,8 +362,7 @@ describe("buildClearAllStagingPlan", () => {
       },
       treeRefreshArgs: {
         userId: "users:owner",
-        owner: "octo",
-        repo: "repo",
+        vaultId: "vault-1",
         branch: "feature/login",
       },
     });
@@ -400,8 +375,6 @@ describe("buildClearAllStagingPlan", () => {
         cleanupCutoffTimestamp: 456,
         vault: {
           userId: "users:owner",
-          owner: "octo",
-          name: "repo",
           defaultBranch: "main",
         },
       }),
@@ -417,8 +390,7 @@ describe("buildClearAllStagingPlan", () => {
       },
       treeRefreshArgs: {
         userId: "users:owner",
-        owner: "octo",
-        repo: "repo",
+        vaultId: "vault-1",
         branch: "main",
       },
     });
@@ -471,6 +443,7 @@ describe("buildClearAllStagingPlan", () => {
     // @ts-expect-error Regression test uses a minimal MutationCtx stub that only includes accessed fields.
     await clearAllStagingImpl(context.ctx, {
       vaultId: targetVaultId,
+      userId: "users:owner",
       branch: targetBranch,
     });
 
@@ -500,8 +473,7 @@ describe("buildClearAllStagingPlan", () => {
         fnRef: internal.github.updateRepositoryTree,
         args: {
           userId: "users:owner",
-          owner: "octo",
-          repo: "repo",
+          vaultId: targetVaultId,
           branch: targetBranch,
         },
       },
@@ -516,7 +488,6 @@ describe("clearMatchingStagingSnapshotImpl", () => {
         {
           _id: "matching-1",
           _creationTime: 1,
-          ownerId: "users:owner",
           vaultId: "vault-1",
           fileDeleted: false,
           filePath: "src/new-name.ts",
@@ -532,7 +503,6 @@ describe("clearMatchingStagingSnapshotImpl", () => {
         {
           _id: "changed-1",
           _creationTime: 2,
-          ownerId: "users:owner",
           vaultId: "vault-1",
           fileDeleted: false,
           filePath: "src/keep.ts",
@@ -555,7 +525,6 @@ describe("clearMatchingStagingSnapshotImpl", () => {
       stagedFiles: [
         {
           _id: "matching-1",
-          ownerId: "users:owner",
           vaultId: "vault-1",
           fileDeleted: false,
           filePath: "src/new-name.ts",
@@ -570,7 +539,6 @@ describe("clearMatchingStagingSnapshotImpl", () => {
         },
         {
           _id: "changed-1",
-          ownerId: "users:owner",
           vaultId: "vault-1",
           fileDeleted: false,
           filePath: "src/keep.ts",

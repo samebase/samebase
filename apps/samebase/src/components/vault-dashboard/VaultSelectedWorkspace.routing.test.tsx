@@ -57,6 +57,11 @@ function fakeVaultId(): Id<"vaults"> {
   return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
+function fakeOrganizationId(): Id<"organizations"> {
+  // @ts-expect-error Convex ids are strings at runtime; this route test only needs a stable id.
+  return "organization-samebase";
+}
+
 function fakeRunId(): Id<"workflow_vaultProvisioning_runs"> {
   // @ts-expect-error Convex ids are strings at runtime; this route test only needs a stable id.
   return "kx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
@@ -76,6 +81,7 @@ function makeVault({
 }): UserVaultResult {
   return {
     _id: fakeVaultId(),
+    organizationId: fakeOrganizationId(),
     ghRepoOwner: "ada",
     ghRepoName: "demo",
     repositoryFullName: "ada/demo",

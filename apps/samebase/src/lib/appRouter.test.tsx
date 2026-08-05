@@ -1,16 +1,49 @@
 // @vitest-environment jsdom
 
 import * as React from "react";
+import { type GitHubOwner } from "@/components/GitHubOwnerSelect";
 import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import type { Id } from "../../convex/_generated/dataModel";
 
-const { appWorkspaceMountMock, appWorkspaceUnmountMock, useConvexAuthMock } = vi.hoisted(() => ({
+const {
+  appWorkspaceMountMock,
+  appWorkspaceUnmountMock,
+  useConvexAuthMock,
+  useGitHubOwnerRouteSelectionMock,
+} = vi.hoisted(() => ({
   appWorkspaceMountMock: vi.fn(),
   appWorkspaceUnmountMock: vi.fn(),
   useConvexAuthMock: vi.fn(),
+  useGitHubOwnerRouteSelectionMock: vi.fn<
+    (githubOwnerLogin: string | null) => {
+      githubOwners: GitHubOwner[] | undefined;
+      selectedOwner: GitHubOwner | null;
+    }
+  >(),
 }));
+
+function fakeOrganizationId(value: string): Id<"organizations"> {
+  // @ts-expect-error Convex ids are strings at runtime; this test only needs
+  // stable values for client route selection.
+  return value;
+}
+
+function githubOwner(githubOwnerLogin: string, organizationId: Id<"organizations">): GitHubOwner {
+  return {
+    canCreateRepository: true,
+    githubOwnerId: organizationId,
+    githubOwnerLogin,
+    githubOwnerType: "organization",
+    organizationId,
+    role: "owner",
+  };
+}
+
+const SAMEBASE_OWNER = githubOwner("samebase", fakeOrganizationId("organization_samebase"));
+const ACME_OWNER = githubOwner("acme", fakeOrganizationId("organization_acme"));
 
 vi.mock("@/components/RootIndexRoutePage", () => ({
   RootIndexRoutePage: () => <div data-testid="root-index-route">Root index route</div>,
@@ -127,15 +160,31 @@ vi.mock("@/components/AgentsConnectRoutePage", () => ({
 }));
 
 vi.mock("@/components/ConnectRepository", () => ({
-  ConnectRepository: () => <div data-testid="connect-repository-page">Connect repository page</div>,
+  ConnectRepository: ({ githubOwnerLogin }: { githubOwnerLogin: string | null }) => (
+    <div data-testid="connect-repository-page" data-owner={githubOwnerLogin ?? undefined}>
+      Connect repository page
+    </div>
+  ),
 }));
 
 vi.mock("@/components/NewAppPage", () => ({
-  NewAppPage: () => <div data-testid="new-app-page">New app page</div>,
+  NewAppPage: ({ githubOwnerLogin }: { githubOwnerLogin: string | null }) => (
+    <div data-testid="new-app-page" data-owner={githubOwnerLogin ?? undefined}>
+      New app page
+    </div>
+  ),
 }));
 
 vi.mock("@/components/ProviderConnectionsPage", () => ({
-  ProviderConnectionsPage: () => <div data-testid="providers-page">Providers page</div>,
+  ProviderConnectionsPage: ({ githubOwnerLogin }: { githubOwnerLogin: string | null }) => (
+    <div data-testid="providers-page" data-owner={githubOwnerLogin ?? undefined}>
+      Providers page
+    </div>
+  ),
+}));
+
+vi.mock("@/components/useGitHubOwnerRouteSelection", () => ({
+  useGitHubOwnerRouteSelection: useGitHubOwnerRouteSelectionMock,
 }));
 
 vi.mock("@/components/UserSettingsPage", () => ({
@@ -312,6 +361,11 @@ describe("appRouter", () => {
     useConvexAuthMock.mockReturnValue({
       isAuthenticated: false,
       isLoading: false,
+    });
+    useGitHubOwnerRouteSelectionMock.mockReset();
+    useGitHubOwnerRouteSelectionMock.mockReturnValue({
+      githubOwners: [SAMEBASE_OWNER],
+      selectedOwner: SAMEBASE_OWNER,
     });
     document.documentElement.className = "";
     window.localStorage.removeItem("theme");
@@ -748,6 +802,62 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
+  it("passes the GitHub owner slug to the connect repository route", async () => {
+    await renderRoute("/connect-repo/Samebase");
+
+    expect(
+      rootElement
+        ?.querySelector('[data-testid="connect-repository-page"]')
+        ?.getAttribute("data-owner"),
+    ).toBe("Samebase");
+  });
+
+  it.each([
+    ["connect repository", "/connect-repo/stale", "/connect-repo/samebase"],
+    ["new app", "/new-app/stale", "/new-app/samebase"],
+    ["providers", "/providers/stale", "/providers/samebase"],
+  ])(
+    "replaces an unmatched %s owner with the only membership and keeps search params",
+    async (_name, sourcePath, destinationPath) => {
+      useGitHubOwnerRouteSelectionMock.mockReturnValue({
+        githubOwners: [SAMEBASE_OWNER],
+        selectedOwner: null,
+      });
+
+      const router = await renderRoute(`${sourcePath}?devtools&primary=red-600&prod-ui`);
+      const searchParams = new URLSearchParams(router.state.location.searchStr);
+
+      expect(router.state.location.pathname).toBe(destinationPath);
+      expect(router.history.canGoBack()).toBe(false);
+      expect(searchParams.has("devtools")).toBe(true);
+      expect(searchParams.get("primary")).toBe("red-600");
+      expect(searchParams.has("prod-ui")).toBe(true);
+    },
+  );
+
+  it.each([
+    ["connect repository", "/connect-repo/stale", "/connect-repo"],
+    ["new app", "/new-app/stale", "/new-app"],
+    ["providers", "/providers/stale", "/providers"],
+  ])(
+    "replaces an unmatched %s owner with the chooser when several memberships exist",
+    async (_name, sourcePath, destinationPath) => {
+      useGitHubOwnerRouteSelectionMock.mockReturnValue({
+        githubOwners: [ACME_OWNER, SAMEBASE_OWNER],
+        selectedOwner: null,
+      });
+
+      const router = await renderRoute(`${sourcePath}?devtools&primary=red-600&prod-ui`);
+      const searchParams = new URLSearchParams(router.state.location.searchStr);
+
+      expect(router.state.location.pathname).toBe(destinationPath);
+      expect(router.history.canGoBack()).toBe(false);
+      expect(searchParams.has("devtools")).toBe(true);
+      expect(searchParams.get("primary")).toBe("red-600");
+      expect(searchParams.has("prod-ui")).toBe(true);
+    },
+  );
+
   it("accepts a trailing slash on the promoted pricing route", async () => {
     await renderRoute("/pricing/");
 
@@ -775,6 +885,14 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
+  it("passes the GitHub owner slug to the new app route", async () => {
+    await renderRoute("/new-app/Samebase");
+
+    expect(
+      rootElement?.querySelector('[data-testid="new-app-page"]')?.getAttribute("data-owner"),
+    ).toBe("Samebase");
+  });
+
   it("accepts a trailing slash on the promoted new app route", async () => {
     await renderRoute("/new-app/");
 
@@ -791,6 +909,14 @@ describe("appRouter", () => {
       "Providers page",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("passes the GitHub owner slug to the providers route", async () => {
+    await renderRoute("/providers/Samebase");
+
+    expect(
+      rootElement?.querySelector('[data-testid="providers-page"]')?.getAttribute("data-owner"),
+    ).toBe("Samebase");
   });
 
   it("accepts a trailing slash on the promoted providers route", async () => {

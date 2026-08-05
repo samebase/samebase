@@ -124,12 +124,12 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
   await expect(settingsPage.getByRole("heading", { name: "Profile" })).toBeVisible();
   await expect(settingsPage.getByRole("heading", { name: "Billing" })).toBeVisible();
   await expect(settingsPage.getByRole("heading", { name: "Account" })).toBeVisible();
-  await expect(
-    settingsPage.getByRole("button", { name: "Upgrade to Pro, $4/month" }),
-  ).toBeVisible();
-  await expect(settingsPage.getByText("Cloudflare Workers", { exact: true })).toBeVisible();
-  await expect(settingsPage.getByText("Convex projects", { exact: true })).toBeVisible();
-  await expect(settingsPage.getByText("0 of 5", { exact: true })).toHaveCount(2);
+  await expect(settingsPage.getByRole("button", { name: "Install GitHub App" })).toBeVisible();
+  await expect(settingsPage.getByRole("button", { name: "Upgrade to Pro, $4/month" })).toHaveCount(
+    0,
+  );
+  await expect(settingsPage.getByText("Cloudflare Workers", { exact: true })).toHaveCount(0);
+  await expect(settingsPage.getByText("Convex projects", { exact: true })).toHaveCount(0);
   await expect(settingsPage.getByLabel("Display name")).toHaveCSS("font-size", "16px");
   await expect(settingsPage).toHaveScreenshot("settings-page-desktop.png", {
     ...screenshotOptions,
@@ -141,13 +141,14 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
   await expect(page).toHaveURL(/\/settings\?delete-account$/u);
   const deleteDialog = page.getByRole("dialog", { name: "Delete account?" });
   await expect(
-    deleteDialog.getByText("This permanently deletes your Samebase account and data.", {
-      exact: true,
-    }),
+    deleteDialog.getByText(
+      "This permanently deletes your Samebase account, removes your organization access, and disconnects provider connections you added.",
+      { exact: true },
+    ),
   ).toBeVisible();
   await expect(
     deleteDialog.getByText(
-      "Nothing outside Samebase is deleted: your apps, GitHub repositories, Convex projects, and Cloudflare Workers keep running.",
+      "Organization subscriptions are not canceled. Organizations, vaults, staged changes, GitHub repositories, Convex projects, and Cloudflare Workers are not deleted.",
       { exact: true },
     ),
   ).toBeVisible();
@@ -169,17 +170,18 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
   await expect(deleteDialog).toBeHidden();
 });
 
-test("full-page Settings checkout return survives auth restoration", async ({ page }) => {
+test("full-page Settings checkout return stays safe without an organization", async ({ page }) => {
   await openSettings(page);
 
   await page.goto("/settings?checkout=cancel", { waitUntil: "domcontentloaded" });
 
   await expect(page).toHaveURL(/\/settings\?checkout=cancel$/u);
+  const settingsPage = page.getByTestId("user-settings-page");
+  await expect(settingsPage).toBeVisible();
+  await expect(settingsPage.getByRole("button", { name: "Install GitHub App" })).toBeVisible();
   await expect(
-    page
-      .getByTestId("user-settings-page")
-      .getByText("Checkout canceled. Your plan did not change.", { exact: true }),
-  ).toBeVisible();
+    settingsPage.getByText("Checkout canceled. Your plan did not change.", { exact: true }),
+  ).toHaveCount(0);
 });
 
 test("Settings link preserves the selected mobile pane", async ({ browser }, testInfo) => {
@@ -239,7 +241,8 @@ test("Settings link preserves the selected mobile pane", async ({ browser }, tes
     const settingsPage = page.getByTestId("user-settings-page");
     await expect(settingsPage).toBeVisible();
     await expect(settingsPage.getByRole("button", { name: "Sign out" })).toBeVisible();
-    await expect(settingsPage.getByRole("heading", { name: "Billing" })).toBeVisible();
+    await expect(settingsPage.getByRole("heading", { name: "Billing" })).toHaveCount(0);
+    await expect(settingsPage.getByRole("button", { name: "Install GitHub App" })).toHaveCount(0);
     await expect(
       settingsPage.getByRole("button", { name: "Upgrade to Pro, $4/month" }),
     ).toHaveCount(0);
@@ -360,6 +363,7 @@ test("pending users save a private display name and refresh prehydration", async
   await expect(page).toHaveURL(/\/settings$/u);
   await expect(page.getByTestId("user-settings-page")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Account access pending" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Install GitHub App" })).toHaveCount(0);
   await expect
     .poll(() => page.evaluate(() => document.documentElement.dataset.settingsNavigation))
     .toBe("spa");

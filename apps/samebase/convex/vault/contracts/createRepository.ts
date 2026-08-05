@@ -10,16 +10,24 @@ const vCreateRepositoryResult = object({
   runId: id("workflow_vaultProvisioning_runs"),
 });
 
+const createRepositoryFields = {
+  name: string(),
+  convexProjectName: string(),
+  cloudflareWorkerName: string(),
+  description: optional(string()),
+  private: optional(boolean()),
+};
+
 export const createRepositoryContract = {
   id: "create_repository",
   access: ACCESS_APP_CREATE,
   args: {
-    name: string(),
-    owner: string(),
-    convexProjectName: string(),
-    cloudflareWorkerName: string(),
-    description: optional(string()),
-    private: optional(boolean()),
+    organizationId: id("organizations"),
+    ...createRepositoryFields,
+  },
+  mcpArgs: {
+    githubOwnerLogin: string(),
+    ...createRepositoryFields,
   },
   returns: vCreateRepositoryResult,
   structuredContent: vCreateRepositoryResult,
@@ -35,27 +43,28 @@ export const createRepositoryContract = {
       destructiveHint: false,
     },
     inputDescriptions: {
+      githubOwnerLogin: "GitHub owner login that will own the new repository.",
       name: "Name for the new app and GitHub repository.",
-      owner: "GitHub user or organization where Samebase should create the app repository.",
       convexProjectName: "Convex project name to provision for the app.",
       cloudflareWorkerName: "Cloudflare Worker name to provision for the app.",
       description: "Optional GitHub repository description.",
       private: "Whether to create a private GitHub repository. Defaults to true.",
     },
   } as const satisfies AppFunctionMcpMetadata,
-  doc: `Creates a complete Samebase app in one action: a GitHub repository under the caller's
-connected owner, seeded with the starter template, a Convex project and dev/prod deployments, a
+  doc: `Creates a complete Samebase app in one action: a GitHub repository under the selected
+organization's verified GitHub owner, seeded with the starter template, a Convex project and dev/prod deployments, a
 Cloudflare Worker, Workers Builds configured for the repository (push to the default branch deploys,
 pull requests get preview deploys), and Convex deploy keys placed into the build triggers.
 
-Preconditions: the account must have GitHub, Convex, and Cloudflare provider connections; the
+Preconditions: the caller must be an organization member. Its GitHub App installation and selected
+Convex and Cloudflare provider connections must be available. The
 target names must be available on each provider. A name collision fails the call immediately before
 any vault or run is created, so pick different names and call again; failures after
 provisioning starts surface through \`get_user_vaults\` instead.
 
 What it writes: one repository (private by default), one Convex project, one Worker, and two
 Workers Builds triggers that each carry \`CONVEX_DEPLOY_KEY\` and
-\`PREVIEW_CONVEX_DEPLOY_KEY\` variables. All resources live in the caller's own provider accounts.
+\`PREVIEW_CONVEX_DEPLOY_KEY\` variables. All resources live in the organization's provider accounts.
 Deleting the Samebase account does not remove or stop any of them.
 
 Progress and failure are readable through \`get_user_vaults\`: while running, \`providerSetup\`

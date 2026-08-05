@@ -13,6 +13,11 @@ import {
 import { readVaultDeletionEligibility } from "./eligibility";
 import { isConnectedVault } from "../state";
 import { readVaultDeletionState } from "./state";
+import { requireVaultForUser, requireVaultOrganization } from "../../organizationAccess";
+import {
+  getConvexProviderConnectionForTeam,
+  getSelectedProviderConnectionForOrganization,
+} from "../../providerConnections";
 
 const { boolean, id, literal, object, string, union } = v;
 
@@ -24,70 +29,6 @@ const deletionRequestOptions = object({
 type DeletionRequestOptions = Infer<typeof deletionRequestOptions>;
 
 const deletionRunEventState = union(literal("unchanged"), literal("running"));
-
-type ProviderKind = "github" | "convex" | "cloudflare";
-
-function getRepositoryFullName(vault: Exclude<Doc<"vaults">, { state: "not_connected" }>): string {
-  return `${vault.owner}/${vault.name}`;
-}
-
-function providerConnectionMessage(kind: ProviderKind): string {
-  switch (kind) {
-    case "github":
-      return "GitHub is not connected.";
-    case "convex":
-      return "Convex connection is required to remove resources.";
-    case "cloudflare":
-      return "Cloudflare connection is required to remove resources.";
-    default: {
-      kind satisfies never;
-      return "Provider is not connected.";
-    }
-  }
-}
-
-async function hasProviderConnection(
-  ctx: MutationCtx,
-  args: {
-    userId: Id<"users">;
-    kind: ProviderKind;
-  },
-): Promise<boolean> {
-  const connection = await ctx.db
-    .query("providerConnections")
-    .withIndex("by_user_kind", (q) => q.eq("userId", args.userId).eq("kind", args.kind))
-    .unique();
-  return connection?.kind === args.kind;
-}
-
-async function requireProviderConnection(
-  ctx: MutationCtx,
-  args: {
-    userId: Id<"users">;
-    kind: ProviderKind;
-  },
-): Promise<void> {
-  if (await hasProviderConnection(ctx, args)) {
-    return;
-  }
-  throw new Error(providerConnectionMessage(args.kind));
-}
-
-async function requireConvexProviderTeam(
-  ctx: MutationCtx,
-  args: { userId: Id<"users">; teamId: string },
-): Promise<void> {
-  const connection = await ctx.db
-    .query("providerConnections")
-    .withIndex("by_user_kind", (q) => q.eq("userId", args.userId).eq("kind", "convex"))
-    .unique();
-  if (connection?.kind !== "convex") {
-    throw new Error(providerConnectionMessage("convex"));
-  }
-  if (connection.teamId !== args.teamId) {
-    throw new Error("Connect the Convex team that owns these projects before removing them.");
-  }
-}
 
 async function listVaultConvexProjects(
   ctx: MutationCtx,
@@ -110,7 +51,10 @@ async function assertVaultIsQuiescentForDeletion(
 }
 
 function buildConvexProjectDeletionPlan(
-  projects: Array<{ teamId: string; projectId: string }>,
+  projects: Array<{
+    teamId: string;
+    projectId: string;
+  }>,
 ): Exclude<VaultDeletionPlan["convex"], { action: "skip" }> | null {
   const projectsByIdentity = new Map(
     projects.map((project) => [`${project.teamId}:${project.projectId}`, project] as const),
@@ -122,18 +66,7 @@ function buildConvexProjectDeletionPlan(
   if (uniqueProjects.length === 0) {
     return null;
   }
-  const project = uniqueProjects[0];
-  if (uniqueProjects.some((candidate) => candidate.teamId !== project.teamId)) {
-    throw new Error("Managed Convex projects span more than one team.");
-  }
-  if (uniqueProjects.length === 1) {
-    return { action: "delete_project", teamId: project.teamId, projectId: project.projectId };
-  }
-  return {
-    action: "delete_projects",
-    teamId: project.teamId,
-    projectIds: uniqueProjects.map((candidate) => candidate.projectId),
-  };
+  return { action: "delete_projects", projects: uniqueProjects };
 }
 
 async function buildConvexPlan(
@@ -152,20 +85,34 @@ async function buildConvexPlan(
   if (!isConnectedVault(vault)) {
     return { action: "skip", reason: "not_recorded" };
   }
-  const createdProjects: Array<{ teamId: string; projectId: string }> = [];
+  const createdProjects: Array<{
+    teamId: string;
+    projectId: string;
+  }> = [];
 
   for (const project of convexProjects) {
+    if (project.organizationId !== vault.organizationId) {
+      throw new Error("Vault Convex project organization does not match its vault.");
+    }
     if (project.origin === "provisioned") {
-      createdProjects.push({ teamId: project.teamId, projectId: project.projectId });
+      createdProjects.push({
+        teamId: project.teamId,
+        projectId: project.projectId,
+      });
     }
   }
 
   const projectPlan = buildConvexProjectDeletionPlan(createdProjects);
   if (projectPlan) {
-    await requireConvexProviderTeam(ctx, {
-      userId: vault.userId,
-      teamId: projectPlan.teamId,
-    });
+    for (const project of projectPlan.projects) {
+      const connection = await getConvexProviderConnectionForTeam(ctx.db, {
+        organizationId: vault.organizationId,
+        teamId: project.teamId,
+      });
+      if (connection === null) {
+        throw new Error("Convex connection is required to remove resources.");
+      }
+    }
     return projectPlan;
   }
 
@@ -203,23 +150,21 @@ async function buildCloudflarePlan(
         left.accountId.localeCompare(right.accountId) ||
         left.workerTag.localeCompare(right.workerTag),
     );
+  if (workers.some((worker) => worker.organizationId !== vault.organizationId)) {
+    throw new Error("Vault Cloudflare Worker organization does not match its vault.");
+  }
   if (provisionedWorkers.length === 0) {
     return { action: "skip", reason: "not_recorded" };
   }
 
-  await requireProviderConnection(ctx, {
-    userId: vault.userId,
+  const connection = await getSelectedProviderConnectionForOrganization(ctx.db, {
+    organizationId: vault.organizationId,
     kind: "cloudflare",
   });
-  if (provisionedWorkers.length === 1) {
-    const worker = provisionedWorkers[0];
-    return {
-      action: "delete_worker",
-      accountId: worker.accountId,
-      workerName: worker.workerName,
-      workerTag: worker.workerTag,
-    };
+  if (connection?.kind !== "cloudflare") {
+    throw new Error("Cloudflare connection is required to remove resources.");
   }
+
   return {
     action: "delete_workers",
     workers: provisionedWorkers.map((worker) => ({
@@ -234,13 +179,14 @@ async function buildDeletionPlan(
   ctx: MutationCtx,
   args: {
     vault: Exclude<Doc<"vaults">, { state: "not_connected" | "provisioning" }>;
+    githubOwnerLogin: string;
     convexProjects: Doc<"vaultConvexProjects">[];
     options: DeletionRequestOptions;
   },
 ): Promise<VaultDeletionPlan> {
   const convex = await buildConvexPlan(ctx, args);
   const cloudflare = await buildCloudflarePlan(ctx, args);
-  const repositoryFullName = getRepositoryFullName(args.vault);
+  const repositoryFullName = `${args.githubOwnerLogin}/${args.vault.name}`;
 
   switch (args.vault.state) {
     case "connected": {
@@ -256,7 +202,7 @@ async function buildDeletionPlan(
           target: {
             kind: "existing_repository",
             ghRepoId: args.vault.ghRepoId,
-            owner: args.vault.owner,
+            owner: args.githubOwnerLogin,
             name: args.vault.name,
             repositoryFullName,
           },
@@ -267,20 +213,13 @@ async function buildDeletionPlan(
         };
       }
 
-      if (args.options.removeGithubRepo) {
-        await requireProviderConnection(ctx, {
-          userId: args.vault.userId,
-          kind: "github",
-        });
-      }
-
       return {
         convex,
         cloudflare,
         target: {
           kind: "samebase_managed_repository",
           ghRepoId: args.vault.ghRepoId,
-          owner: args.vault.owner,
+          owner: args.githubOwnerLogin,
           name: args.vault.name,
           repositoryFullName,
         },
@@ -288,7 +227,7 @@ async function buildDeletionPlan(
           ? {
               action: "delete_repository",
               ghRepoId: args.vault.ghRepoId,
-              owner: args.vault.owner,
+              owner: args.githubOwnerLogin,
               name: args.vault.name,
             }
           : {
@@ -309,7 +248,7 @@ async function buildDeletionPlan(
         target: {
           kind: "failed_repository_setup",
           githubMode: args.vault.githubMode,
-          owner: args.vault.owner,
+          owner: args.githubOwnerLogin,
           name: args.vault.name,
           repositoryFullName,
         },
@@ -329,32 +268,30 @@ async function buildDeletionPlan(
 async function assertPlanProviderConnections(
   ctx: MutationCtx,
   args: {
-    userId: Id<"users">;
+    organizationId: Id<"organizations">;
     plan: VaultDeletionPlan;
   },
 ): Promise<void> {
-  if (args.plan.githubRepository.action === "delete_repository") {
-    await requireProviderConnection(ctx, {
-      userId: args.userId,
-      kind: "github",
-    });
-  }
-
   if (args.plan.convex.action !== "skip") {
-    await requireConvexProviderTeam(ctx, {
-      userId: args.userId,
-      teamId: args.plan.convex.teamId,
-    });
+    for (const project of args.plan.convex.projects) {
+      const connection = await getConvexProviderConnectionForTeam(ctx.db, {
+        organizationId: args.organizationId,
+        teamId: project.teamId,
+      });
+      if (connection === null) {
+        throw new Error("Convex connection is required to remove resources.");
+      }
+    }
   }
 
-  if (
-    args.plan.cloudflare.action === "delete_worker" ||
-    args.plan.cloudflare.action === "delete_workers"
-  ) {
-    await requireProviderConnection(ctx, {
-      userId: args.userId,
+  if (args.plan.cloudflare.action === "delete_workers") {
+    const connection = await getSelectedProviderConnectionForOrganization(ctx.db, {
+      organizationId: args.organizationId,
       kind: "cloudflare",
     });
+    if (connection?.kind !== "cloudflare") {
+      throw new Error("Cloudflare connection is required to remove resources.");
+    }
   }
 }
 
@@ -369,6 +306,7 @@ async function appendDeletionEvent(
   },
 ): Promise<void> {
   await ctx.runMutation(internal.vault.deletion.events.append, {
+    organizationId: args.run.organizationId,
     userId: args.run.userId,
     vaultId: args.run.vaultId,
     repositoryFullName: args.run.repositoryFullName,
@@ -403,23 +341,25 @@ export const createInitialRun = internalMutation({
     if (!user || user.accountDeletion) {
       throw new Error("Account deletion is in progress.");
     }
-    const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== args.userId) {
-      throw new Error("Vault not found");
-    }
+    const vault = await requireVaultForUser(ctx.db, args);
     await assertVaultIsQuiescentForDeletion(ctx, vault);
     if (vault.state === "not_connected" || vault.state === "provisioning") {
       throw new Error("Vault is not ready to delete yet.");
     }
 
-    const convexProjects = await listVaultConvexProjects(ctx, args.vaultId);
+    const [convexProjects, organization] = await Promise.all([
+      listVaultConvexProjects(ctx, args.vaultId),
+      requireVaultOrganization(ctx.db, vault),
+    ]);
     const plan = await buildDeletionPlan(ctx, {
       vault,
+      githubOwnerLogin: organization.githubOwnerLogin,
       convexProjects,
       options: args.options,
     });
     const now = Date.now();
     const deletionRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
+      organizationId: vault.organizationId,
       userId: args.userId,
       vaultId: args.vaultId,
       repositoryFullName: plan.target.repositoryFullName,
@@ -472,16 +412,19 @@ export const createRetryRun = internalMutation({
       throw new Error("Account deletion is in progress.");
     }
     const failedRun = await ctx.db.get(args.failedRunId);
-    if (!failedRun || failedRun.userId !== args.userId) {
+    if (!failedRun) {
       throw new Error("Deletion run not found.");
     }
     if (failedRun.state !== "failed") {
       throw new Error("Only failed vault deletion runs can be retried.");
     }
 
-    const vault = await ctx.db.get(failedRun.vaultId);
-    if (!vault || vault.userId !== args.userId) {
-      throw new Error("Vault not found");
+    const vault = await requireVaultForUser(ctx.db, {
+      userId: args.userId,
+      vaultId: failedRun.vaultId,
+    });
+    if (vault.organizationId !== failedRun.organizationId) {
+      throw new Error("Deletion run does not match vault organization.");
     }
     const deletion = readVaultDeletionState(vault);
     if (deletion.state !== "delete_failed" || deletion.runId !== args.failedRunId) {
@@ -490,12 +433,13 @@ export const createRetryRun = internalMutation({
 
     const retainedSnapshot = readRetainedSnapshot(failedRun);
     await assertPlanProviderConnections(ctx, {
-      userId: args.userId,
+      organizationId: vault.organizationId,
       plan: retainedSnapshot.plan,
     });
 
     const now = Date.now();
     const deletionRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
+      organizationId: vault.organizationId,
       userId: args.userId,
       vaultId: failedRun.vaultId,
       repositoryFullName: failedRun.repositoryFullName,
@@ -625,9 +569,9 @@ export const claimWorkflowRun = internalMutation({
       throw new Error("Deletion run does not match vault.");
     }
 
-    const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== args.userId) {
-      throw new Error("Vault not found");
+    const vault = await requireVaultForUser(ctx.db, args);
+    if (run.organizationId !== vault.organizationId) {
+      throw new Error("Deletion run does not match vault organization.");
     }
     const deletion = readVaultDeletionState(vault);
     if (deletion.state !== "deleting" || deletion.runId !== args.runId) {
