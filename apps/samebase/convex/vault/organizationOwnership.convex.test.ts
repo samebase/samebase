@@ -309,4 +309,269 @@ describe("organization-owned vaults", () => {
     expect(plan).not.toHaveProperty("userId");
     expect(plan).not.toHaveProperty("githubProviderConnectionId");
   });
+
+  it("keeps provider attachment writes inside the vault organization", async () => {
+    const t = makeConvexTest();
+    const userId = await createUser(t, "provider-owner@example.com");
+    const firstOrganizationId = await createOrganization(t, {
+      userId,
+      ownerId: "501",
+      ownerLogin: "first-provider-owner",
+    });
+    const secondOrganizationId = await createOrganization(t, {
+      userId,
+      ownerId: "502",
+      ownerLogin: "second-provider-owner",
+    });
+    const firstVault = await createConnectedVault(t, {
+      organizationId: firstOrganizationId,
+      userId,
+      owner: "first-provider-owner",
+      name: "first-app",
+      ghRepoId: "repository-501",
+    });
+    const secondVault = await createConnectedVault(t, {
+      organizationId: secondOrganizationId,
+      userId,
+      owner: "second-provider-owner",
+      name: "second-app",
+      ghRepoId: "repository-502",
+    });
+    const firstConvexConnectionId = await t.mutation(internal.providerConnections.createConnected, {
+      organizationId: firstOrganizationId,
+      connectedByUserId: userId,
+      connection: {
+        kind: "convex",
+        auth: { method: "api_key", credential: "first-convex-credential" },
+        teamId: "first-team",
+      },
+    });
+    const secondConvexConnectionId = await t.mutation(
+      internal.providerConnections.createConnected,
+      {
+        organizationId: secondOrganizationId,
+        connectedByUserId: userId,
+        connection: {
+          kind: "convex",
+          auth: { method: "api_key", credential: "second-convex-credential" },
+          teamId: "second-team",
+        },
+      },
+    );
+    const firstCloudflareConnectionId = await t.mutation(
+      internal.providerConnections.createConnected,
+      {
+        organizationId: firstOrganizationId,
+        connectedByUserId: userId,
+        connection: {
+          kind: "cloudflare",
+          auth: { method: "api_key", credential: "first-cloudflare-credential" },
+          defaultAccount: {
+            state: "selected",
+            accountId: "first-account",
+            accountName: "First Account",
+          },
+        },
+      },
+    );
+    const secondCloudflareConnectionId = await t.mutation(
+      internal.providerConnections.createConnected,
+      {
+        organizationId: secondOrganizationId,
+        connectedByUserId: userId,
+        connection: {
+          kind: "cloudflare",
+          auth: { method: "api_key", credential: "second-cloudflare-credential" },
+          defaultAccount: {
+            state: "selected",
+            accountId: "second-account",
+            accountName: "Second Account",
+          },
+        },
+      },
+    );
+
+    await expect(
+      t.mutation(internal.vault.convexMutations.attachProjects, {
+        vaultId: firstVault.vaultId,
+        userId,
+        providerConnectionId: secondConvexConnectionId,
+        projects: [
+          {
+            teamId: "second-team",
+            projectId: "cross-organization-project",
+            codeLocation: { kind: "config", convexConfigPath: "convex.json" },
+            origin: "selected_existing",
+          },
+        ],
+      }),
+    ).rejects.toThrow("Convex provider connection does not match the project team.");
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
+        vaultId: firstVault.vaultId,
+        userId,
+        providerConnectionId: secondCloudflareConnectionId,
+        workers: [
+          {
+            accountId: "second-account",
+            workerName: "cross-organization-worker",
+            workerTag: "cross-organization-worker-tag",
+            origin: "selected_existing",
+          },
+        ],
+      }),
+    ).rejects.toThrow("Cloudflare provider connection does not match the Worker account.");
+
+    const [firstConvexProjectId] = await t.mutation(internal.vault.convexMutations.attachProjects, {
+      vaultId: firstVault.vaultId,
+      userId,
+      providerConnectionId: firstConvexConnectionId,
+      projects: [
+        {
+          teamId: "first-team",
+          projectId: "first-project",
+          codeLocation: { kind: "config", convexConfigPath: "convex.json" },
+          origin: "selected_existing",
+        },
+      ],
+    });
+    const [secondConvexProjectId] = await t.mutation(
+      internal.vault.convexMutations.attachProjects,
+      {
+        vaultId: secondVault.vaultId,
+        userId,
+        providerConnectionId: secondConvexConnectionId,
+        projects: [
+          {
+            teamId: "second-team",
+            projectId: "second-project",
+            codeLocation: { kind: "config", convexConfigPath: "convex.json" },
+            origin: "selected_existing",
+          },
+        ],
+      },
+    );
+    const [firstWorkerId] = await t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
+      vaultId: firstVault.vaultId,
+      userId,
+      providerConnectionId: firstCloudflareConnectionId,
+      workers: [
+        {
+          accountId: "first-account",
+          workerName: "first-worker",
+          workerTag: "first-worker-tag",
+          origin: "selected_existing",
+        },
+      ],
+    });
+    const [secondWorkerId] = await t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
+      vaultId: secondVault.vaultId,
+      userId,
+      providerConnectionId: secondCloudflareConnectionId,
+      workers: [
+        {
+          accountId: "second-account",
+          workerName: "second-worker",
+          workerTag: "second-worker-tag",
+          origin: "selected_existing",
+        },
+      ],
+    });
+
+    await expect(
+      t.mutation(internal.vault.convexMutations.reconcileProjectTeam, {
+        vaultId: firstVault.vaultId,
+        userId,
+        convexProjectId: secondConvexProjectId,
+        projectId: "second-project",
+        expectedTeamId: "second-team",
+        nextTeamId: "first-team",
+      }),
+    ).rejects.toThrow("Convex project attachment changed before team reconciliation.");
+    await expect(
+      t.mutation(internal.vault.convexMutations.reconcileProjectCodeLocation, {
+        vaultId: firstVault.vaultId,
+        userId,
+        convexProjectId: secondConvexProjectId,
+        projectId: "second-project",
+        expectedCodeLocation: { kind: "config", convexConfigPath: "convex.json" },
+        nextCodeLocation: { kind: "directory", convexDirectoryPath: "convex" },
+      }),
+    ).rejects.toThrow("Convex project attachment changed before code location reconciliation.");
+    await expect(
+      t.mutation(internal.vault.convexMutations.detachProject, {
+        vaultId: firstVault.vaultId,
+        userId,
+        convexProjectId: secondConvexProjectId,
+        teamId: "second-team",
+        projectId: "second-project",
+        codeLocation: { kind: "config", convexConfigPath: "convex.json" },
+      }),
+    ).rejects.toThrow("Convex project attachment not found.");
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.detachWorker, {
+        vaultId: firstVault.vaultId,
+        userId,
+        workerId: secondWorkerId,
+        accountId: "second-account",
+        workerName: "second-worker",
+        workerTag: "second-worker-tag",
+      }),
+    ).rejects.toThrow("Cloudflare Worker attachment not found.");
+
+    await t.mutation(internal.vault.convexMutations.reconcileProjectTeam, {
+      vaultId: firstVault.vaultId,
+      userId,
+      convexProjectId: firstConvexProjectId,
+      projectId: "first-project",
+      expectedTeamId: "first-team",
+      nextTeamId: "first-team-refreshed",
+    });
+    await t.mutation(internal.vault.convexMutations.reconcileProjectCodeLocation, {
+      vaultId: firstVault.vaultId,
+      userId,
+      convexProjectId: firstConvexProjectId,
+      projectId: "first-project",
+      expectedCodeLocation: { kind: "config", convexConfigPath: "convex.json" },
+      nextCodeLocation: { kind: "directory", convexDirectoryPath: "convex" },
+    });
+    await t.mutation(internal.vault.convexMutations.detachProject, {
+      vaultId: firstVault.vaultId,
+      userId,
+      convexProjectId: firstConvexProjectId,
+      teamId: "first-team-refreshed",
+      projectId: "first-project",
+      codeLocation: { kind: "directory", convexDirectoryPath: "convex" },
+    });
+    await t.mutation(internal.vault.cloudflareMutations.detachWorker, {
+      vaultId: firstVault.vaultId,
+      userId,
+      workerId: firstWorkerId,
+      accountId: "first-account",
+      workerName: "first-worker",
+      workerTag: "first-worker-tag",
+    });
+
+    const resources = await t.run(async (ctx) => ({
+      firstProject: await ctx.db.get(firstConvexProjectId),
+      firstWorker: await ctx.db.get(firstWorkerId),
+      secondProject: await ctx.db.get(secondConvexProjectId),
+      secondWorker: await ctx.db.get(secondWorkerId),
+    }));
+    expect(resources).toMatchObject({
+      firstProject: null,
+      firstWorker: null,
+      secondProject: {
+        organizationId: secondOrganizationId,
+        vaultId: secondVault.vaultId,
+        teamId: "second-team",
+        convexConfigPath: "convex.json",
+      },
+      secondWorker: {
+        organizationId: secondOrganizationId,
+        vaultId: secondVault.vaultId,
+        accountId: "second-account",
+      },
+    });
+  });
 });
