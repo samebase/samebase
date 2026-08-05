@@ -305,12 +305,17 @@ function findMatchingSourceDeployKey(
   sourceEnv: EnvFile,
   sourceDeployment: Deployment,
 ): string | null {
-  const envDeployKey = extractMatchingDeploymentDeployKey({
-    rawDeployKey: process.env.CONVEX_DEPLOY_KEY,
-    sourceDeployment,
-  });
-  if (envDeployKey !== null) {
-    return envDeployKey;
+  for (const rawDeployKey of [
+    process.env.WORKTREE_DEV_SOURCE_DEPLOY_KEY,
+    process.env.CONVEX_DEPLOY_KEY,
+  ]) {
+    const envDeployKey = extractMatchingDeploymentDeployKey({
+      rawDeployKey,
+      sourceDeployment,
+    });
+    if (envDeployKey !== null) {
+      return envDeployKey;
+    }
   }
 
   return extractMatchingDeploymentDeployKey({

@@ -90,7 +90,7 @@ describe("run-worktree-dev", () => {
         showHelp: false,
       },
       "/repo",
-      {},
+      { CONVEX_DEPLOY_KEY: "dev:ambient|token" },
     );
 
     expect(plan.at(-1)).toMatchObject({
@@ -110,6 +110,17 @@ describe("run-worktree-dev", () => {
       args: ["/repo/scripts/killport.ts"],
       phase: "always",
     });
+    const localBootstrap = plan.find(
+      ({ label }) => label === "bootstrap and seed the anonymous local backend",
+    );
+    expect(localBootstrap).toMatchObject({
+      env: {
+        WORKTREE_DEV_SOURCE_DEPLOY_KEY: "dev:key|token",
+      },
+    });
+    expect(localBootstrap).not.toHaveProperty("env.CONVEX_DEPLOY_KEY");
+    expect(plan.at(-1)).not.toHaveProperty("env.CONVEX_DEPLOY_KEY");
+    expect(plan.at(-1)).not.toHaveProperty("env.WORKTREE_DEV_SOURCE_DEPLOY_KEY");
   });
 
   it("marks one-time seed and auth work separately from always-on startup work", () => {

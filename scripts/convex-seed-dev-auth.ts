@@ -16,6 +16,13 @@ const appDir = path.join(repoRoot, "apps", "samebase");
 const localEnvPath = path.join(appDir, ".env.local");
 const seedEnvPath = path.join(appDir, ".env.anon-seed.local");
 const FUNCTIONS_READY_MARKER = "Convex functions ready!";
+const localConvexEnv: NodeJS.ProcessEnv = {
+  ...process.env,
+  CONVEX_AGENT_MODE: "anonymous",
+};
+// Source deploy keys only authorize env sync. Local Convex commands must never receive them.
+delete localConvexEnv.CONVEX_DEPLOY_KEY;
+delete localConvexEnv.WORKTREE_DEV_SOURCE_DEPLOY_KEY;
 
 let functionsReady = false;
 let backendOutputTail = "";
@@ -31,7 +38,7 @@ const backend = spawn(
   ],
   {
     cwd: appDir,
-    env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" },
+    env: localConvexEnv,
     stdio: ["ignore", "pipe", "pipe"],
   },
 );
@@ -141,6 +148,7 @@ try {
   for (const [name, value] of seedEntries) {
     const result = spawnSync("npx", ["convex", "env", "set", name, "--env-file", localEnvPath], {
       cwd: appDir,
+      env: localConvexEnv,
       input: value,
       encoding: "utf8",
       stdio: ["pipe", "inherit", "inherit"],
@@ -167,7 +175,7 @@ try {
       "--codegen",
       "disable",
     ],
-    { cwd: appDir, stdio: "inherit" },
+    { cwd: appDir, env: localConvexEnv, stdio: "inherit" },
   );
   if (runResult.status !== 0) {
     exitWithError("Failed to run devAuth:seedPasswordAccount");

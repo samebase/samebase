@@ -175,16 +175,21 @@ export function buildWorktreeDevCommandPlan(
   env: NodeJS.ProcessEnv = process.env,
 ): CommandSpec[] {
   const appDir = path.join(repoRoot, "apps", "samebase");
-  const seedEnv = options.sourceDeployKey
-    ? {
-        ...env,
-        CONVEX_DEPLOY_KEY: options.sourceDeployKey,
-      }
-    : env;
-  const anonymousEnv = {
+  const seedEnv = { ...env };
+  const sourceDeployKey =
+    options.sourceDeployKey ?? readOptionalEnvValue(seedEnv.CONVEX_DEPLOY_KEY);
+  // Convex uses CONVEX_DEPLOY_KEY to choose the target before anonymous mode.
+  // Carry the read-only source key under a worktree-only name.
+  delete seedEnv.CONVEX_DEPLOY_KEY;
+  if (sourceDeployKey !== null) {
+    seedEnv.WORKTREE_DEV_SOURCE_DEPLOY_KEY = sourceDeployKey;
+  }
+  const anonymousEnv: NodeJS.ProcessEnv = {
     ...env,
     CONVEX_AGENT_MODE: "anonymous",
   };
+  delete anonymousEnv.CONVEX_DEPLOY_KEY;
+  delete anonymousEnv.WORKTREE_DEV_SOURCE_DEPLOY_KEY;
 
   const plan: CommandSpec[] = [
     {
