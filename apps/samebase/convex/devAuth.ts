@@ -10,8 +10,11 @@ import { internalAction, internalMutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { readOptionalEnv } from "./oauthUtils";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
+import { vGitHubOwnerType } from "./organizationModel";
+import { getSelectedProviderConnectionForOrganization } from "./providerConnections";
+import type { CloudflareDefaultAccount } from "./providerConnectionModel";
 
-const { boolean, id, literal, null: vNull, object, string, union } = v;
+const { boolean, id, literal, null: vNull, object, optional, string, union } = v;
 
 function readSeedValue(envName: string): string | undefined {
   const value = readOptionalEnv(envName);
@@ -47,28 +50,138 @@ function readRequiredSeedPasswordAccountConfig(args: {
   };
 }
 
+function requireSeedValue(value: string | undefined, envName: string): string {
+  if (value === undefined) {
+    throw new Error(`${envName} is required`);
+  }
+  return value;
+}
+
+function readSeedGitHubOwnerType(value: string): "organization" | "user" {
+  switch (value) {
+    case "organization":
+    case "user":
+      return value;
+    default:
+      throw new Error('DEV_SEED_GITHUB_OWNER_TYPE must be "organization" or "user"');
+  }
+}
+
+const vSeedWorktreeOrganizationConfig = object({
+  githubOwnerId: string(),
+  githubOwnerType: vGitHubOwnerType,
+  githubOwnerLogin: string(),
+  githubInstallationId: string(),
+  convexConnection: union(
+    vNull(),
+    object({
+      credential: string(),
+      teamId: string(),
+      teamSlug: optional(string()),
+    }),
+  ),
+  cloudflareConnection: union(
+    vNull(),
+    object({
+      credential: string(),
+      accountId: optional(string()),
+    }),
+  ),
+});
+type SeedWorktreeOrganizationConfig = Infer<typeof vSeedWorktreeOrganizationConfig>;
+
+function readSeedWorktreeOrganizationConfig(): SeedWorktreeOrganizationConfig | null {
+  const githubOwnerId = readSeedValue("DEV_SEED_GITHUB_OWNER_ID");
+  const githubOwnerType = readSeedValue("DEV_SEED_GITHUB_OWNER_TYPE");
+  const githubOwnerLogin = readSeedValue("DEV_SEED_GITHUB_OWNER_LOGIN");
+  const githubInstallationId = readSeedValue("DEV_SEED_GITHUB_INSTALLATION_ID");
+  const convexCredential = readSeedValue("DEV_SEED_CONVEX_MANAGEMENT_API_KEY");
+  const convexTeamId = readSeedValue("DEV_SEED_CONVEX_TEAM_ID");
+  const convexTeamSlug = readSeedValue("DEV_SEED_CONVEX_TEAM_SLUG");
+  const cloudflareCredential = readSeedValue("DEV_SEED_CLOUDFLARE_API_KEY");
+  const cloudflareAccountId = readSeedValue("DEV_SEED_CLOUDFLARE_ACCOUNT_ID");
+
+  const githubValues = [githubOwnerId, githubOwnerType, githubOwnerLogin, githubInstallationId];
+  if (githubValues.every((value) => value === undefined)) {
+    const hasProviderSeed = [
+      convexCredential,
+      convexTeamId,
+      convexTeamSlug,
+      cloudflareCredential,
+      cloudflareAccountId,
+    ].some((value) => value !== undefined);
+    if (hasProviderSeed) {
+      throw new Error("GitHub owner and installation seed values are required for provider seeds");
+    }
+    return null;
+  }
+
+  let convexConnection: SeedWorktreeOrganizationConfig["convexConnection"] = null;
+  if (
+    convexCredential !== undefined ||
+    convexTeamId !== undefined ||
+    convexTeamSlug !== undefined
+  ) {
+    convexConnection = {
+      credential: requireSeedValue(convexCredential, "DEV_SEED_CONVEX_MANAGEMENT_API_KEY"),
+      teamId: requireSeedValue(convexTeamId, "DEV_SEED_CONVEX_TEAM_ID"),
+      ...(convexTeamSlug === undefined ? {} : { teamSlug: convexTeamSlug }),
+    };
+  }
+
+  let cloudflareConnection: SeedWorktreeOrganizationConfig["cloudflareConnection"] = null;
+  if (cloudflareCredential !== undefined || cloudflareAccountId !== undefined) {
+    cloudflareConnection = {
+      credential: requireSeedValue(cloudflareCredential, "DEV_SEED_CLOUDFLARE_API_KEY"),
+      ...(cloudflareAccountId === undefined ? {} : { accountId: cloudflareAccountId }),
+    };
+  }
+
+  return {
+    githubOwnerId: requireSeedValue(githubOwnerId, "DEV_SEED_GITHUB_OWNER_ID"),
+    githubOwnerType: readSeedGitHubOwnerType(
+      requireSeedValue(githubOwnerType, "DEV_SEED_GITHUB_OWNER_TYPE"),
+    ),
+    githubOwnerLogin: requireSeedValue(githubOwnerLogin, "DEV_SEED_GITHUB_OWNER_LOGIN"),
+    githubInstallationId: requireSeedValue(githubInstallationId, "DEV_SEED_GITHUB_INSTALLATION_ID"),
+    convexConnection,
+    cloudflareConnection,
+  };
+}
+
 /**
  * Password account seeding follows the explicit deployment profile instead of
  * inferring preview-vs-local behavior from env var presence alone.
  */
-function readSeedPasswordAccountConfig(): {
-  email: string;
-  password: string;
-} {
+function readSeedPasswordAccountConfig():
+  | {
+      kind: "local_worktree_seed";
+      email: string;
+      password: string;
+    }
+  | {
+      kind: "preview_seed";
+      email: string;
+      password: string;
+    } {
   const deploymentProfile = resolveDeploymentProfile();
   const passwordAuthMode = resolvePasswordAuthMode(deploymentProfile);
 
   switch (passwordAuthMode) {
     case "local_worktree_seed":
       return {
+        kind: passwordAuthMode,
         email: normalizeAccountEmail(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL),
         password: LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
       };
     case "preview_seed":
-      return readRequiredSeedPasswordAccountConfig({
-        emailEnvName: "PREVIEW_SEED_AUTH_EMAIL",
-        passwordEnvName: "PREVIEW_SEED_AUTH_PASSWORD",
-      });
+      return {
+        kind: passwordAuthMode,
+        ...readRequiredSeedPasswordAccountConfig({
+          emailEnvName: "PREVIEW_SEED_AUTH_EMAIL",
+          passwordEnvName: "PREVIEW_SEED_AUTH_PASSWORD",
+        }),
+      };
     case "manual":
     case "off":
       throw new Error("Password account seeding is disabled for this deployment profile");
@@ -93,6 +206,77 @@ export const approveSeedPasswordAccount = internalMutation({
     if (user.isApproved !== true) {
       await ctx.db.patch(args.userId, { isApproved: true });
     }
+    return null;
+  },
+});
+
+export const seedWorktreeOrganization = internalMutation({
+  args: {
+    userId: id("users"),
+    ...vSeedWorktreeOrganizationConfig.fields,
+  },
+  returns: vNull(),
+  handler: async (ctx, args) => {
+    const organization = await ctx.runMutation(
+      internal.organizations.createOrReconnectVerifiedOrganization,
+      {
+        userId: args.userId,
+        githubOwnerId: args.githubOwnerId,
+        githubOwnerType: args.githubOwnerType,
+        githubOwnerLogin: args.githubOwnerLogin,
+        githubInstallationId: args.githubInstallationId,
+      },
+    );
+
+    if (args.convexConnection !== null) {
+      await ctx.runMutation(internal.providerConnections.createConnected, {
+        organizationId: organization.organizationId,
+        connectedByUserId: args.userId,
+        connection: {
+          kind: "convex",
+          auth: { method: "api_key", credential: args.convexConnection.credential },
+          teamId: args.convexConnection.teamId,
+          ...(args.convexConnection.teamSlug === undefined
+            ? {}
+            : { teamSlug: args.convexConnection.teamSlug }),
+        },
+      });
+    }
+
+    if (args.cloudflareConnection !== null) {
+      const defaultAccount: CloudflareDefaultAccount =
+        args.cloudflareConnection.accountId === undefined
+          ? { state: "not_selected" }
+          : {
+              state: "selected",
+              accountId: args.cloudflareConnection.accountId,
+              accountName: args.cloudflareConnection.accountId,
+            };
+      const selectedConnection = await getSelectedProviderConnectionForOrganization(ctx.db, {
+        organizationId: organization.organizationId,
+        kind: "cloudflare",
+      });
+      const connection = {
+        kind: "cloudflare",
+        auth: { method: "api_key", credential: args.cloudflareConnection.credential },
+        defaultAccount,
+      } as const;
+      if (selectedConnection === null) {
+        await ctx.runMutation(internal.providerConnections.createConnected, {
+          organizationId: organization.organizationId,
+          connectedByUserId: args.userId,
+          connection,
+        });
+      } else {
+        await ctx.runMutation(internal.providerConnections.reauthorizeConnected, {
+          organizationId: organization.organizationId,
+          connectedByUserId: args.userId,
+          providerConnectionId: selectedConnection._id,
+          connection,
+        });
+      }
+    }
+
     return null;
   },
 });
@@ -141,7 +325,10 @@ export const seedPasswordAccount = internalAction({
   args: {},
   returns: seedPasswordAccountReturns,
   handler: async (ctx): Promise<SeedPasswordAccountResult> => {
-    const { email, password } = readSeedPasswordAccountConfig();
+    const accountConfig = readSeedPasswordAccountConfig();
+    const { email, password } = accountConfig;
+    const worktreeOrganizationConfig =
+      accountConfig.kind === "local_worktree_seed" ? readSeedWorktreeOrganizationConfig() : null;
 
     let created = false;
     let userId: Id<"users">;
@@ -179,6 +366,12 @@ export const seedPasswordAccount = internalAction({
     }
 
     await ctx.runMutation(internal.devAuth.approveSeedPasswordAccount, { userId });
+    if (worktreeOrganizationConfig !== null) {
+      await ctx.runMutation(internal.devAuth.seedWorktreeOrganization, {
+        userId,
+        ...worktreeOrganizationConfig,
+      });
+    }
 
     return { email, created };
   },

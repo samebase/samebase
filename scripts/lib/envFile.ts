@@ -7,6 +7,21 @@ export type EnvFile = {
   vars: Record<string, string>;
 };
 
+function parseEnvFileValue(rawValue: string): string {
+  if (rawValue.startsWith('"') && rawValue.endsWith('"')) {
+    try {
+      const parsed: unknown = JSON.parse(rawValue);
+      if (typeof parsed === "string") {
+        return parsed;
+      }
+    } catch {
+      // Keep permissive dotenv parsing for hand-written quoted values.
+    }
+  }
+
+  return stripWrappingQuotes(rawValue);
+}
+
 export function readEnvFile(filePath: string): EnvFile | null {
   if (!fs.existsSync(filePath)) {
     return null;
@@ -32,7 +47,7 @@ export function readEnvFile(filePath: string): EnvFile | null {
     }
 
     const rawValue = trimmed.slice(eqIndex + 1).trim();
-    vars[key] = stripWrappingQuotes(rawValue);
+    vars[key] = parseEnvFileValue(rawValue);
   }
 
   return { path: filePath, vars };

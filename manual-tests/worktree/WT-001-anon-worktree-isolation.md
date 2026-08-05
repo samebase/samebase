@@ -2,94 +2,156 @@
 
 ## Purpose
 
-Verify two worktrees can run anonymous local Convex independently, with separate backend URLs/ports
-and isolated seed data.
+Verify that two linked worktrees use separate anonymous local Convex backends. Each backend must
+seed a valid GitHub-backed organization from the same development GitHub App installation.
 
 ## Preconditions
 
-- Run from the main checkout root.
-- `pnpm` dependencies can install.
-- No long-running `pnpm dev:worktree` processes in the two temporary test worktrees.
+- Run from a Samebase checkout root.
+- The shared development Convex deployment has the required GitHub App settings, GitHub owner seed
+  facts, GitHub installation seed fact, and Convex and Cloudflare seed credentials.
+- `pnpm` can install dependencies.
+- `/tmp/samebase-wt-a` and `/tmp/samebase-wt-b` do not exist.
+- No `pnpm dev` process runs in the two temporary test worktrees.
 
 ## Steps
 
 1. Create two test worktrees on new temporary branches:
 
 ```bash
-git worktree add /tmp/samebase-wt-a -b codex/wt-isolation-a
-git worktree add /tmp/samebase-wt-b -b codex/wt-isolation-b
+git worktree add /tmp/samebase-wt-a -b codex-wt-isolation-a
+git worktree add /tmp/samebase-wt-b -b codex-wt-isolation-b
 ```
 
-2. In each worktree, bootstrap anonymous mode:
+2. In each worktree, set up anonymous development mode and exit:
 
 ```bash
-make -C /tmp/samebase-wt-a dev:worktree:once
-make -C /tmp/samebase-wt-b dev:worktree:once
+(cd /tmp/samebase-wt-a && pnpm dev --once)
+(cd /tmp/samebase-wt-b && pnpm dev --once)
 ```
 
-3. Compare backend URLs written by each worktree:
+3. Compare the backend URLs that each worktree writes:
 
 ```bash
 grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/samebase-wt-a/apps/samebase/.env.local
 grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/samebase-wt-b/apps/samebase/.env.local
 ```
 
-4. Confirm each worktree captured allowlisted env vars in `.env.anon-seed.local` and applied seed
-   API keys to provider connections (auth method is `api_key`). Cloudflare should appear when
-   `DEV_SEED_CLOUDFLARE_API_KEY` is set on the cloud dev deployment:
+4. Print only the copied environment variable names. Do not print their values:
 
 ```bash
-grep -E '^DEV_SEED_[^=]+=' /tmp/samebase-wt-a/apps/samebase/.env.anon-seed.local | cut -d= -f1
-grep -E '^DEV_SEED_[^=]+=' /tmp/samebase-wt-b/apps/samebase/.env.anon-seed.local | cut -d= -f1
-
-(cd /tmp/samebase-wt-a/apps/samebase && \
-  CONVEX_AGENT_MODE=anonymous node convex-dev.js --tail-logs=disable --typecheck=disable --codegen=disable & \
-  pid=$!; sleep 5; \
-  npx convex data providerConnections --limit 50 --format json | node -e 'const rows=JSON.parse(require(\"fs\").readFileSync(0,\"utf8\")); console.log(rows.map(row => ({ kind: row.kind, method: row.auth?.method, accountId: row.accountId })));'; \
-  kill $pid; wait $pid 2>/dev/null || true)
-
-(cd /tmp/samebase-wt-b/apps/samebase && \
-  CONVEX_AGENT_MODE=anonymous node convex-dev.js --tail-logs=disable --typecheck=disable --codegen=disable & \
-  pid=$!; sleep 5; \
-  npx convex data providerConnections --limit 50 --format json | node -e 'const rows=JSON.parse(require(\"fs\").readFileSync(0,\"utf8\")); console.log(rows.map(row => ({ kind: row.kind, method: row.auth?.method, accountId: row.accountId })));'; \
-  kill $pid; wait $pid 2>/dev/null || true)
+sed -E 's/=.*$//' /tmp/samebase-wt-a/apps/samebase/.env.anon-seed.local | sort
+sed -E 's/=.*$//' /tmp/samebase-wt-b/apps/samebase/.env.anon-seed.local | sort
 ```
 
-5. In the `make ... dev:worktree:once` outputs from step 2, confirm each worktree prints:
+5. In the outputs from step 2, confirm that each first run prints:
 
 ```txt
 "created": true
 ```
 
+6. Start `pnpm dev` in each worktree in a separate terminal. Keep each process running while you
+   inspect its local data:
+
+```bash
+(cd /tmp/samebase-wt-a && pnpm dev)
+(cd /tmp/samebase-wt-b && pnpm dev)
+```
+
+7. In another terminal, print only the organization model fields. Repeat these commands for both
+   worktree paths:
+
+```bash
+cd /tmp/samebase-wt-a/apps/samebase
+
+npx convex data organizations --limit 20 --format json | node -e '
+const rows = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+console.log(rows.map((row) => ({
+  id: row._id,
+  githubOwnerId: row.githubOwnerId,
+  githubOwnerType: row.githubOwnerType,
+  githubOwnerLogin: row.githubOwnerLogin,
+  githubInstallationId: row.githubInstallationId,
+  selectedConvexProviderConnectionId: row.selectedConvexProviderConnectionId,
+  selectedCloudflareProviderConnectionId: row.selectedCloudflareProviderConnectionId,
+})));
+'
+
+npx convex data organizationMemberships --limit 20 --format json | node -e '
+const rows = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+console.log(rows.map((row) => ({
+  id: row._id,
+  organizationId: row.organizationId,
+  userId: row.userId,
+  role: row.role,
+})));
+'
+
+npx convex data organizationBillingAccounts --limit 20 --format json | node -e '
+const rows = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+console.log(rows.map((row) => ({
+  id: row._id,
+  organizationId: row.organizationId,
+  plan: row.plan,
+  status: row.status,
+})));
+'
+
+npx convex data providerConnections --limit 20 --format json | node -e '
+const rows = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+console.log(rows.map((row) => ({
+  id: row._id,
+  organizationId: row.organizationId,
+  connectedByUserId: row.connectedByUserId,
+  kind: row.kind,
+  method: row.auth.method,
+})));
+'
+```
+
+8. Sign in with the local worktree password shortcut. Confirm these pages load:
+
+- Vaults shows an empty vault list.
+- Providers shows connected Convex and Cloudflare credentials.
+- New App shows the repository name input.
+- Connect repository lists repositories from the seeded GitHub App installation.
+
 ## Expected Results
 
-1. Both `make ... dev:worktree:once` commands complete successfully.
-2. `VITE_CONVEX_URL` values differ between `/tmp/samebase-wt-a` and `/tmp/samebase-wt-b`.
-3. Each worktree can run seed/auth setup without cross-worktree admin/auth conflicts.
-4. Each `.env.anon-seed.local` includes `DEV_SEED_*` entries from the dev seed env (API keys
-   present).
-5. Each worktree's `providerConnections` includes the seeded providers (GitHub/Convex/Netlify, plus
-   Cloudflare if `DEV_SEED_CLOUDFLARE_API_KEY` is set) with `auth.method: "api_key"`.
-6. On first clean run, both step 2 outputs report `"created": true` (if shared DB, second worktree
-   would typically report `"created": false`).
+1. Both `pnpm dev --once` commands complete successfully.
+2. The two `VITE_CONVEX_URL` values are different.
+3. Both environment files include the GitHub App deployment settings, GitHub owner seed facts,
+   GitHub installation seed fact, and provider seed credentials.
+4. Each first setup output reports `"created": true`.
+5. Each worktree has one organization, one `owner` membership, one Free billing account, and two
+   provider connections.
+6. The Convex and Cloudflare provider rows use the local organization ID and the seeded user as
+   `connectedByUserId`. Their authentication method is `api_key`.
+7. Each organization selects its local Convex and Cloudflare connection IDs.
+8. Local document IDs are different between worktrees. The GitHub owner and installation facts are
+   the same.
+9. No GitHub provider connection row exists. GitHub repository access uses the organization App
+   installation.
+10. The normal development pages load without a cross-worktree data or authentication conflict.
 
 ## Optional Evidence
 
-- Save command transcript to local file (not committed):
+Save command output only to a local untracked file:
 
 ```bash
 mkdir -p manual-tests/.runs
-# Use tee while running step 2:
-# make -C /tmp/samebase-wt-a dev:worktree:once | tee manual-tests/.runs/wt-001-a.log
-# make -C /tmp/samebase-wt-b dev:worktree:once | tee manual-tests/.runs/wt-001-b.log
+# (cd /tmp/samebase-wt-a && pnpm dev --once) | tee manual-tests/.runs/wt-001-a.log
+# (cd /tmp/samebase-wt-b && pnpm dev --once) | tee manual-tests/.runs/wt-001-b.log
 ```
 
-- Avoid saving `npx convex data ...` outputs to disk unless you redact API keys.
+Do not save raw `npx convex data` output. It can contain provider credentials.
 
 ## Cleanup
 
+Stop both `pnpm dev` processes. Then remove the temporary worktrees and branches:
+
 ```bash
-git worktree remove --force /tmp/samebase-wt-a
-git worktree remove --force /tmp/samebase-wt-b
-git branch -D codex/wt-isolation-a codex/wt-isolation-b
+git worktree remove /tmp/samebase-wt-a
+git worktree remove /tmp/samebase-wt-b
+git branch -d codex-wt-isolation-a codex-wt-isolation-b
 ```

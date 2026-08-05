@@ -110,10 +110,8 @@ Notes:
 - `pnpm dev` now tries to stop stale local `convex-local-backend` listeners on `3210` before
   bootstrap. If it still reports that `3210` is occupied, stop the leftover backend process manually
   and retry.
-- The primary checkout path above works without GNU Make, and the worktree bootstrap flow now uses
-  root package scripts too. Prefer `pnpm dev` as the normal command in both primary and worktree
-  checkouts. Use `pnpm dev:worktree` / `pnpm dev:worktree:once` only when you need to force the
-  worktree-specific path directly.
+- The primary checkout path above works without GNU Make. Use `pnpm dev` in both primary and linked
+  worktree checkouts. In a new linked worktree, use `pnpm dev --once` to complete setup and exit.
 
 ### Installation
 
@@ -131,13 +129,16 @@ pnpm dev
 
 ### Worktrees
 
-For a git worktree, use the repo-standard worktree bootstrap commands instead of the
-primary-checkout flow:
+For a git worktree, complete setup once and then use the normal development command:
 
 ```bash
-pnpm dev:worktree:once
-pnpm dev:worktree
+pnpm dev --once
+pnpm dev
 ```
+
+The setup copies the allowlisted development GitHub App settings and non-secret owner and
+installation seed facts. It seeds organization-owned Convex and Cloudflare connections when their
+development seed credentials exist. Each worktree keeps its own local Convex data.
 
 ### Build
 
@@ -174,7 +175,8 @@ pnpm test
 2. Configure app-login providers. Google is the default. Local worktrees use their seeded password
    account. Preview deployments use `PREVIEW_SEED_AUTH_EMAIL` and `PREVIEW_SEED_AUTH_PASSWORD`.
    Other deployments can use the [manual password account runbook](docs/manual-password-auth.md).
-3. Configure provider connection OAuth/API keys (GitHub/Convex/Cloudflare).
+3. Configure the GitHub App deployment settings and the Convex and Cloudflare connection OAuth/API
+   keys.
 
 ## Contributing
 

@@ -40,7 +40,6 @@ Options:
   --force-bootstrap          Ignore the completed --once marker and rerun seed/auth setup.
   --source-env <path>        Explicit cloud dev source env file for local seed generation.
   --source-deploy-key <key>  Explicit cloud deploy key for source-env queries.
-  --allow-missing-source-env Allow local-only seed generation when no cloud source env exists.
   -h, --help                 Show this help message.
 `;
 
@@ -51,7 +50,6 @@ type WorktreeDevOptions = {
   vitePort: number;
   sourceEnv: string | null;
   sourceDeployKey: string | null;
-  allowMissingSourceEnv: boolean;
   showHelp: boolean;
 };
 
@@ -88,7 +86,6 @@ export function parseWorktreeDevArgs(
     vitePort: readDefaultVitePort(env),
     sourceEnv: readOptionalEnvValue(env.WORKTREE_DEV_SOURCE_ENV),
     sourceDeployKey: readOptionalEnvValue(env.WORKTREE_DEV_SOURCE_DEPLOY_KEY),
-    allowMissingSourceEnv: readBooleanEnvValue(env.WORKTREE_DEV_ALLOW_MISSING_SOURCE_ENV),
     showHelp: false,
   };
 
@@ -111,10 +108,6 @@ export function parseWorktreeDevArgs(
     }
     if (arg === "--force-bootstrap") {
       options.forceBootstrap = true;
-      continue;
-    }
-    if (arg === "--allow-missing-source-env") {
-      options.allowMissingSourceEnv = true;
       continue;
     }
     if (arg === "--vite-port") {
@@ -166,9 +159,6 @@ export function buildWorktreeDevSeedEnvArgs(
   if (mode === "check-prereqs") {
     args.push("--check-prereqs");
   }
-  if (options.allowMissingSourceEnv) {
-    args.push("--allow-missing-source-env");
-  }
   if (options.sourceEnv) {
     args.push("--source-env", options.sourceEnv);
   }
@@ -185,16 +175,21 @@ export function buildWorktreeDevCommandPlan(
   env: NodeJS.ProcessEnv = process.env,
 ): CommandSpec[] {
   const appDir = path.join(repoRoot, "apps", "samebase");
-  const seedEnv = options.sourceDeployKey
-    ? {
-        ...env,
-        CONVEX_DEPLOY_KEY: options.sourceDeployKey,
-      }
-    : env;
-  const anonymousEnv = {
+  const seedEnv = { ...env };
+  const sourceDeployKey =
+    options.sourceDeployKey ?? readOptionalEnvValue(seedEnv.CONVEX_DEPLOY_KEY);
+  // Convex uses CONVEX_DEPLOY_KEY to choose the target before anonymous mode.
+  // Carry the read-only source key under a worktree-only name.
+  delete seedEnv.CONVEX_DEPLOY_KEY;
+  if (sourceDeployKey !== null) {
+    seedEnv.WORKTREE_DEV_SOURCE_DEPLOY_KEY = sourceDeployKey;
+  }
+  const anonymousEnv: NodeJS.ProcessEnv = {
     ...env,
     CONVEX_AGENT_MODE: "anonymous",
   };
+  delete anonymousEnv.CONVEX_DEPLOY_KEY;
+  delete anonymousEnv.WORKTREE_DEV_SOURCE_DEPLOY_KEY;
 
   const plan: CommandSpec[] = [
     {
@@ -233,39 +228,18 @@ export function buildWorktreeDevCommandPlan(
       phase: "always",
     },
     {
-      label: "bootstrap the anonymous local backend once",
-      cwd: appDir,
-      command: process.execPath,
-      args: [
-        path.join(appDir, samebaseAppFilePath("scripts/convex-dev.ts")),
-        "--once",
-        "--codegen=enable",
-        "--tail-logs=disable",
-        "--typecheck=disable",
-      ],
-      env: anonymousEnv,
-      phase: "always",
-      // Convex uses TTY stdin as the condition to refresh tracked AI files during
-      // first-time local deployment setup. Backend bootstrap needs no input.
-      stdio: ["ignore", "inherit", "inherit"],
-    },
-    {
-      label: "sync allowlisted seed env values into the local backend",
+      label: "bootstrap and seed the anonymous local backend",
       cwd: repoRoot,
       command: process.execPath,
       args: [
-        path.join(repoRoot, trackedFilePath("scripts/convex-sync-dev-env.ts")),
+        path.join(repoRoot, trackedFilePath("scripts/convex-seed-dev-auth.ts")),
         ...buildWorktreeDevSeedEnvArgs(options, "sync"),
       ],
       env: seedEnv,
       phase: "once-bootstrap",
-    },
-    {
-      label: "seed the local password-auth development account",
-      cwd: repoRoot,
-      command: process.execPath,
-      args: [path.join(repoRoot, trackedFilePath("scripts/convex-seed-dev-auth.ts"))],
-      phase: "once-bootstrap",
+      // Convex uses TTY stdin as the condition to refresh tracked AI files during
+      // first-time local deployment setup. Backend bootstrap needs no input.
+      stdio: ["ignore", "inherit", "inherit"],
     },
     {
       label: "refresh anonymous auth keys",

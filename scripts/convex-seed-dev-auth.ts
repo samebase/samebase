@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
-import { readEnvFile } from "./lib/envFile.ts";
+import { readEnvFile, type EnvFile } from "./lib/envFile.ts";
 import { resolveRepoRoot } from "./lib/scriptRuntime.ts";
-import { samebaseAppFilePath } from "./lib/trackedFilePath.ts";
+import { samebaseAppFilePath, trackedFilePath } from "./lib/trackedFilePath.ts";
 import path from "node:path";
 import { WORKTREE_ENV_ALLOWLIST } from "./worktree-env-allowlist.ts";
 import {
@@ -15,45 +15,30 @@ const repoRoot = resolveRepoRoot();
 const appDir = path.join(repoRoot, "apps", "samebase");
 const localEnvPath = path.join(appDir, ".env.local");
 const seedEnvPath = path.join(appDir, ".env.anon-seed.local");
+const FUNCTIONS_READY_MARKER = "Convex functions ready!";
+const localConvexEnv: NodeJS.ProcessEnv = {
+  ...process.env,
+  CONVEX_AGENT_MODE: "anonymous",
+};
+// Source deploy keys only authorize env sync. Local Convex commands must never receive them.
+delete localConvexEnv.CONVEX_DEPLOY_KEY;
+delete localConvexEnv.WORKTREE_DEV_SOURCE_DEPLOY_KEY;
 
-const localEnv = readEnvFile(localEnvPath);
-if (!localEnv) {
-  exitWithError(`Local env file not found: ${localEnvPath}`);
-}
-
-const seedEnv = readEnvFile(seedEnvPath);
-if (!seedEnv) {
-  exitWithError(
-    `Missing required worktree seed env file: ${seedEnvPath}\n` +
-      `Worktree bootstrap requires ${seedEnvPath} before auth seeding can continue.\n` +
-      "Run `node ./scripts/convex-sync-dev-env.ts` to generate it, then retry `pnpm dev:worktree`.",
-  );
-}
-
-const backendPort = resolveBackendPort(localEnv.vars);
-if (!backendPort) {
-  exitWithError(`Local env file does not contain VITE_CONVEX_URL or CONVEX_URL: ${localEnvPath}`);
-}
-
-const seedEntries = Object.entries(seedEnv.vars).filter(([name]) =>
-  WORKTREE_ENV_ALLOWLIST.has(name),
-);
-const BACKEND_READY_MARKERS = ["Convex functions ready!", "Preparing to watch files..."];
-
-let backendReady = false;
+let functionsReady = false;
 let backendOutputTail = "";
 
 const backend = spawn(
   "node",
   [
     samebaseAppFilePath("scripts/convex-dev.ts"),
+    "--until-success",
     "--tail-logs=disable",
     "--typecheck=disable",
-    "--codegen=disable",
+    "--codegen=enable",
   ],
   {
     cwd: appDir,
-    env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" },
+    env: localConvexEnv,
     stdio: ["ignore", "pipe", "pipe"],
   },
 );
@@ -121,15 +106,49 @@ const terminateListeningPidsOnPort = async (port: number): Promise<void> => {
 };
 
 let exitCode = 0;
+let backendPort: number | null = null;
 try {
+  const localEnv = await waitForLocalEnv();
+  if (localEnv === null) {
+    exitWithError(`Local backend did not write ${localEnvPath}`);
+  }
+  backendPort = resolveBackendPort(localEnv.vars);
+  if (backendPort === null) {
+    exitWithError(`Local env file does not contain VITE_CONVEX_URL or CONVEX_URL: ${localEnvPath}`);
+  }
+
   const ready = await waitForBackend(backendPort);
   if (!ready) {
     exitWithError(`Local backend did not start on port ${backendPort}`);
   }
 
+  const syncResult = spawnSync(
+    process.execPath,
+    [
+      path.join(repoRoot, trackedFilePath("scripts/convex-sync-dev-env.ts")),
+      ...process.argv.slice(2),
+    ],
+    {
+      cwd: repoRoot,
+      stdio: "inherit",
+    },
+  );
+  if (syncResult.status !== 0) {
+    exitWithError("Failed to sync the worktree seed environment");
+  }
+
+  const seedEnv = readEnvFile(seedEnvPath);
+  if (seedEnv === null) {
+    exitWithError(`Missing required worktree seed env file: ${seedEnvPath}`);
+  }
+  const seedEntries = Object.entries(seedEnv.vars).filter(([name]) =>
+    WORKTREE_ENV_ALLOWLIST.has(name),
+  );
+
   for (const [name, value] of seedEntries) {
     const result = spawnSync("npx", ["convex", "env", "set", name, "--env-file", localEnvPath], {
       cwd: appDir,
+      env: localConvexEnv,
       input: value,
       encoding: "utf8",
       stdio: ["pipe", "inherit", "inherit"],
@@ -137,6 +156,10 @@ try {
     if (result.status !== 0) {
       exitWithError(`Failed to set ${name} in local Convex env`);
     }
+  }
+
+  if (!(await waitForFunctions())) {
+    exitWithError("Local Convex functions did not become ready after seed environment setup");
   }
 
   const runResult = spawnSync(
@@ -152,7 +175,7 @@ try {
       "--codegen",
       "disable",
     ],
-    { cwd: appDir, stdio: "inherit" },
+    { cwd: appDir, env: localConvexEnv, stdio: "inherit" },
   );
   if (runResult.status !== 0) {
     exitWithError("Failed to run devAuth:seedPasswordAccount");
@@ -163,7 +186,9 @@ try {
   console.error(message);
 } finally {
   await waitForBackendExit();
-  await terminateListeningPidsOnPort(backendPort);
+  if (backendPort !== null) {
+    await terminateListeningPidsOnPort(backendPort);
+  }
 }
 
 process.exit(exitCode);
@@ -182,6 +207,21 @@ function resolveBackendPort(vars: Record<string, string | undefined>): number | 
   return null;
 }
 
+async function waitForLocalEnv(): Promise<EnvFile | null> {
+  const deadline = Date.now() + 20000;
+  while (Date.now() < deadline) {
+    if (backend.exitCode !== null || backend.signalCode !== null) {
+      return null;
+    }
+    const localEnv = readEnvFile(localEnvPath);
+    if (localEnv !== null && resolveBackendPort(localEnv.vars) !== null) {
+      return localEnv;
+    }
+    await sleep(250);
+  }
+  return null;
+}
+
 async function waitForBackend(port: number): Promise<boolean> {
   const deadline = Date.now() + 20000;
   while (Date.now() < deadline) {
@@ -193,11 +233,25 @@ async function waitForBackend(port: number): Promise<boolean> {
       const response = await fetch(`http://127.0.0.1:${port}/instance_name`, {
         signal: AbortSignal.timeout(500),
       });
-      if (response.ok && backendReady) {
+      if (response.ok) {
         return true;
       }
     } catch {
       // ignore and retry
+    }
+    await sleep(250);
+  }
+  return false;
+}
+
+async function waitForFunctions(): Promise<boolean> {
+  const deadline = Date.now() + 60000;
+  while (Date.now() < deadline) {
+    if (functionsReady) {
+      return true;
+    }
+    if (backend.exitCode !== null || backend.signalCode !== null) {
+      return false;
     }
     await sleep(250);
   }
@@ -222,13 +276,9 @@ function attachBackendStream(
       return;
     }
     target.write(chunk);
-    if (backendReady) {
-      return;
-    }
-
     backendOutputTail = `${backendOutputTail}${chunk}`.slice(-2048);
-    if (BACKEND_READY_MARKERS.some((marker) => backendOutputTail.includes(marker))) {
-      backendReady = true;
+    if (backendOutputTail.includes(FUNCTIONS_READY_MARKER)) {
+      functionsReady = true;
     }
   });
 }

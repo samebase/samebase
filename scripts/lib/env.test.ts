@@ -52,6 +52,7 @@ describe("readEnvFile", () => {
         `# comment
 FOO=bar
 QUOTED="value"
+ESCAPED="line one\\nline two"
 EMPTY=
 SPACED=' spaced value '
 `,
@@ -63,6 +64,7 @@ SPACED=' spaced value '
         vars: {
           FOO: "bar",
           QUOTED: "value",
+          ESCAPED: "line one\nline two",
           EMPTY: "",
           SPACED: " spaced value ",
         },

@@ -51,7 +51,7 @@ describe("devAuth password account seed", () => {
     });
   });
 
-  it("approves the explicit seed user without creating an organization", async () => {
+  it("approves the explicit seed user", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -63,25 +63,91 @@ describe("devAuth password account seed", () => {
       t.mutation(internal.devAuth.approveSeedPasswordAccount, { userId }),
     ).resolves.toBeNull();
 
+    await expect(t.run(async (ctx) => (await ctx.db.get(userId))?.isApproved)).resolves.toBe(true);
+  });
+
+  it("seeds one repeat-safe organization graph with selected provider connections", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        email: "seed@example.com",
+        isApproved: true,
+      });
+    });
+    const seed = {
+      userId,
+      githubOwnerId: "285392744",
+      githubOwnerType: "organization",
+      githubOwnerLogin: "samebase",
+      githubInstallationId: "151325701",
+      convexConnection: {
+        credential: "convex-test-credential",
+        teamId: "convex-team-id",
+        teamSlug: "samebase",
+      },
+      cloudflareConnection: {
+        credential: "cloudflare-test-credential",
+        accountId: "cloudflare-account-id",
+      },
+    } as const;
+
+    await t.mutation(internal.devAuth.seedWorktreeOrganization, seed);
+    await t.mutation(internal.devAuth.seedWorktreeOrganization, seed);
+
     const snapshot = await t.run(async (ctx) => {
-      const connections = await ctx.db
-        .query("providerConnections")
-        .withIndex("by_connected_by_user", (query) => query.eq("connectedByUserId", userId))
-        .take(1);
-      const memberships = await ctx.db
-        .query("organizationMemberships")
-        .withIndex("by_user", (query) => query.eq("userId", userId))
-        .take(1);
       return {
-        connections,
-        memberships,
-        user: await ctx.db.get(userId),
+        organizations: await ctx.db.query("organizations").collect(),
+        memberships: await ctx.db.query("organizationMemberships").collect(),
+        billingAccounts: await ctx.db.query("organizationBillingAccounts").collect(),
+        providerConnections: await ctx.db.query("providerConnections").collect(),
       };
     });
 
-    expect(snapshot.user?.isApproved).toBe(true);
-    expect(snapshot.connections).toEqual([]);
-    expect(snapshot.memberships).toEqual([]);
+    expect(snapshot.organizations).toHaveLength(1);
+    expect(snapshot.memberships).toHaveLength(1);
+    expect(snapshot.billingAccounts).toHaveLength(1);
+    expect(snapshot.providerConnections).toHaveLength(2);
+
+    const organization = snapshot.organizations[0];
+    expect(organization).toMatchObject({
+      githubOwnerId: seed.githubOwnerId,
+      githubOwnerType: seed.githubOwnerType,
+      githubOwnerLogin: seed.githubOwnerLogin,
+      githubOwnerLoginNormalized: seed.githubOwnerLogin,
+      githubInstallationId: seed.githubInstallationId,
+    });
+    expect(snapshot.memberships[0]).toMatchObject({
+      organizationId: organization._id,
+      userId,
+      role: "owner",
+    });
+    expect(snapshot.billingAccounts[0]).toMatchObject({
+      organizationId: organization._id,
+      plan: "free",
+      status: "inactive",
+    });
+
+    const convexConnection = snapshot.providerConnections.find(
+      (connection) => connection.kind === "convex",
+    );
+    const cloudflareConnection = snapshot.providerConnections.find(
+      (connection) => connection.kind === "cloudflare",
+    );
+    expect(convexConnection).toMatchObject({
+      organizationId: organization._id,
+      connectedByUserId: userId,
+      teamId: seed.convexConnection.teamId,
+    });
+    expect(cloudflareConnection).toMatchObject({
+      organizationId: organization._id,
+      connectedByUserId: userId,
+      defaultAccount: {
+        state: "selected",
+        accountId: seed.cloudflareConnection.accountId,
+      },
+    });
+    expect(organization.selectedConvexProviderConnectionId).toBe(convexConnection?._id);
+    expect(organization.selectedCloudflareProviderConnectionId).toBe(cloudflareConnection?._id);
   });
 
   it("fails closed when the seed user is missing", async () => {
