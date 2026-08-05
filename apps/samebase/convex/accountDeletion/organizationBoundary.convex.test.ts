@@ -76,7 +76,6 @@ async function seedRunningDeletion() {
       deletion: { state: "not_deleting" },
     });
     const stagedFileId = await ctx.db.insert("vaultStagedFiles", {
-      ownerId: deletingUserId,
       vaultId,
       fileDeleted: false,
       filePath: "README.md",
@@ -310,6 +309,49 @@ describe("account deletion organization boundary", () => {
         },
       },
     });
+  });
+
+  it("lets the remaining member edit the shared staged file", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    await t.run(async (ctx) => {
+      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        userId: ids.teammateUserId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "example/shared",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 3,
+      });
+      await ctx.db.replace(ids.vaultId, {
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        organizationId: ids.organizationId,
+        deletion: { state: "not_deleting" },
+        runId,
+        ghRepoId: "701",
+        defaultBranch: "main",
+        connectedAt: 3,
+        owner: "example",
+        name: "shared",
+        visibility: "private",
+      });
+    });
+
+    const stagedFile = await t.mutation(internal.fileStaging.saveToStaging, {
+      vaultId: ids.vaultId,
+      initialFilePath: "README.md",
+      content: "teammate edit",
+      initialContent: "",
+      parentCommitSha: null,
+      branch: "main",
+      userId: ids.teammateUserId,
+    });
+
+    expect(stagedFile.content).toBe("teammate edit");
+    expect(stagedFile.lastEditUserId).toBe(ids.teammateUserId);
   });
 
   it("keeps a Cloudflare credential when remote revocation fails", async () => {

@@ -111,7 +111,6 @@ function createClearMatchingStagingSnapshotTestContext(args: {
   stagedFiles: Array<{
     _id: string;
     _creationTime: number;
-    ownerId: string;
     vaultId: string;
     fileDeleted: boolean;
     filePath: string;
@@ -496,7 +495,6 @@ describe("clearMatchingStagingSnapshotImpl", () => {
         {
           _id: "matching-1",
           _creationTime: 1,
-          ownerId: "users:owner",
           vaultId: "vault-1",
           fileDeleted: false,
           filePath: "src/new-name.ts",
@@ -512,7 +510,6 @@ describe("clearMatchingStagingSnapshotImpl", () => {
         {
           _id: "changed-1",
           _creationTime: 2,
-          ownerId: "users:owner",
           vaultId: "vault-1",
           fileDeleted: false,
           filePath: "src/keep.ts",
@@ -535,7 +532,6 @@ describe("clearMatchingStagingSnapshotImpl", () => {
       stagedFiles: [
         {
           _id: "matching-1",
-          ownerId: "users:owner",
           vaultId: "vault-1",
           fileDeleted: false,
           filePath: "src/new-name.ts",
@@ -550,7 +546,6 @@ describe("clearMatchingStagingSnapshotImpl", () => {
         },
         {
           _id: "changed-1",
-          ownerId: "users:owner",
           vaultId: "vault-1",
           fileDeleted: false,
           filePath: "src/keep.ts",

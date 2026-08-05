@@ -764,7 +764,6 @@ type StagedFileForCommit = {
 type DraftSourceStagingSnapshot = Omit<StagedFileForCommit, "branch"> & {
   branch: string;
   _id: Id<"vaultStagedFiles">;
-  ownerId: Id<"users">;
   vaultId: Id<"vaults">;
   lastEditTime: number;
   lastEditUserId: Id<"users">;

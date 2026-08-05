@@ -159,7 +159,9 @@ Durable ownership is:
 | Actor provenance and personal UI settings  | User                                              |
 
 Staged files remain one shared draft for a vault, branch, and path. FileView is not a release gate
-for this rollout. Multi-writer FileView recovery is outside this contract.
+for this rollout. A staged row has no user owner. Parent-vault organization membership authorizes
+access, and `lastEditUserId` records the user who made the latest edit. Multi-writer FileView
+recovery is outside this contract.
 
 MCP consent binds each grant to one explicit organization membership. Removing the membership
 revokes its authority. Vault tools derive the organization from the grant or the loaded vault. They

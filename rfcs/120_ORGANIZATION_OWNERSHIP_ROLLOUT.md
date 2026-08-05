@@ -123,8 +123,9 @@ Status: Complete on the replacement branch
 - Vault reload, provider observations, shared provisioning, and denied browser access passed.
 - Multiple-owner, membership-role, owner-route, and MCP organization-boundary checks passed.
 - The final deletion audit removed a duplicate owner lookup subscription and unused provider
-  selection APIs. The branch now has 9,571 additions and 27,012 deletions against `origin/main`.
-  Production code has 6,384 additions and 7,876 deletions.
+  selection APIs. The branch remains deletion-heavy against `origin/main`.
+- Shared staged rows no longer store or authorize through a user owner. Vault organization
+  membership authorizes writes, and `lastEditUserId` keeps latest-actor provenance.
 - Samebase typecheck, app build, focused lint and format checks, and 69 focused role and route tests
   pass after the final reduction.
 

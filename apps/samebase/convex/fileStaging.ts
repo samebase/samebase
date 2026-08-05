@@ -35,7 +35,6 @@ const nullResultValidator = nullValue();
 const stagedFileValidator = object({
   _id: fileStagingIdValidator,
   _creationTime: number(),
-  ownerId: userIdValidator,
   vaultId: vaultIdValidator,
   fileDeleted: boolean(),
   kind: optional(stagedFileKindValidator),
@@ -56,7 +55,6 @@ const stagedFileValidator = object({
 type StagedFile = Infer<typeof stagedFileValidator>;
 const stagedFileSnapshotValidator = object({
   _id: fileStagingIdValidator,
-  ownerId: userIdValidator,
   vaultId: vaultIdValidator,
   fileDeleted: boolean(),
   kind: optional(stagedFileKindValidator),
@@ -633,7 +631,6 @@ export const duplicateBranchStaging = internalMutation({
       }
 
       await ctx.db.insert("vaultStagedFiles", {
-        ownerId: file.ownerId,
         vaultId: file.vaultId,
         fileDeleted: file.fileDeleted,
         kind: file.kind,
@@ -663,7 +660,6 @@ function matchesStagedFileSnapshot(args: {
 }): boolean {
   return (
     args.current._id === args.snapshot._id &&
-    args.current.ownerId === args.snapshot.ownerId &&
     args.current.vaultId === args.snapshot.vaultId &&
     args.current.fileDeleted === args.snapshot.fileDeleted &&
     args.current.kind === args.snapshot.kind &&
@@ -1032,7 +1028,6 @@ export const markFileForDeletion = mutation({
 
       // Create new staging record for deletion
       await ctx.db.insert("vaultStagedFiles", {
-        ownerId: ctx.viewer.userId,
         vaultId: args.vaultId,
         filePath: args.filePath,
         initialFilePath: args.filePath,
@@ -1108,7 +1103,6 @@ export const createFileInStaging = mutation({
 
     // Create new staging record for a new file (parentCommitSha is null)
     await ctx.db.insert("vaultStagedFiles", {
-      ownerId: ctx.viewer.userId,
       vaultId: args.vaultId,
       filePath: args.filePath,
       initialFilePath: args.filePath,
@@ -1148,10 +1142,6 @@ export const revertDeletedFileInStaging = mutation({
       throw new Error("Deleted staged file not found");
     }
 
-    if (existingStaging.ownerId !== ctx.viewer.userId) {
-      throw new Error("Unauthorized");
-    }
-
     if (!existingStaging.fileDeleted) {
       throw new Error("Staged file is not deleted");
     }
@@ -1183,9 +1173,6 @@ export const updateStagedFileContent = mutation({
       throw new Error("Staged file not found");
     }
 
-    if (existingStaging.ownerId !== ctx.viewer.userId) {
-      throw new Error("Unauthorized");
-    }
     await assertConnectedVaultForStagingWrite(ctx, {
       vaultId: existingStaging.vaultId,
       userId: ctx.viewer.userId,
@@ -1268,7 +1255,6 @@ export const saveToStaging = internalMutation({
     } else {
       // Create new staging record
       await ctx.db.insert("vaultStagedFiles", {
-        ownerId: args.userId,
         vaultId: args.vaultId,
         filePath: args.initialFilePath,
         initialFilePath: args.initialFilePath,
@@ -1381,7 +1367,6 @@ export const saveBinaryUploadToStaging = internalMutation({
       const preservedParentCommitSha = parentCommitSha ?? existingStaging.parentCommitSha;
 
       await ctx.db.patch(existingStaging._id, {
-        ownerId: args.userId,
         fileDeleted: false,
         kind: "binary",
         filePath: args.filePath,
@@ -1421,7 +1406,6 @@ export const saveBinaryUploadToStaging = internalMutation({
     }
 
     const insertedId = await ctx.db.insert("vaultStagedFiles", {
-      ownerId: args.userId,
       vaultId: args.vaultId,
       fileDeleted: false,
       kind: "binary",
@@ -1471,9 +1455,6 @@ export const rename = internalMutation({
     if (!file) {
       throw new Error("File not found");
     }
-    if (file.ownerId !== args.userId) {
-      throw new Error("Unauthorized");
-    }
 
     if (file.filePath === args.newPath) {
       return file;
@@ -1504,6 +1485,8 @@ export const rename = internalMutation({
 
     await ctx.db.patch(file._id, {
       filePath: args.newPath,
+      lastEditTime: Date.now(),
+      lastEditUserId: args.userId,
     });
 
     const updatedFile = await ctx.db
