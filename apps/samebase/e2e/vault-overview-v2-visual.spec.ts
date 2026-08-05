@@ -490,12 +490,20 @@ test("covers Convex connection dialog states", async ({ page }) => {
     ["vault-overview-v2-convex-dialog", "vault-overview-v2-convex-dialog.png"],
     ["vault-overview-v2-convex-dialog-loading", "vault-overview-v2-convex-dialog-loading.png"],
     ["vault-overview-v2-convex-dialog-error", "vault-overview-v2-convex-dialog-error.png"],
+    [
+      "vault-overview-v2-convex-dialog-required-name",
+      "vault-overview-v2-convex-dialog-required-name.png",
+    ],
   ] as const satisfies readonly [VaultOverviewV2VisualMode, string][];
 
   for (const [mode, screenshotName] of cases) {
     await openVaultOverviewV2(page, mode);
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
+    if (mode === "vault-overview-v2-convex-dialog-required-name") {
+      await expect(dialog.getByRole("alert")).toHaveText("Convex project name is required.");
+      await expect(dialog.getByRole("button", { name: "Create project" })).toBeDisabled();
+    }
     await expect(dialog).toHaveScreenshot(screenshotName, {
       animations: "disabled",
       caret: "hide",
@@ -510,6 +518,10 @@ test("covers Cloudflare connection and Builds repair states", async ({ page }) =
   const cases = [
     ["vault-overview-v2-cloudflare-dialog", "vault-overview-v2-cloudflare-dialog-mobile.png"],
     [
+      "vault-overview-v2-cloudflare-dialog-invalid-name",
+      "vault-overview-v2-cloudflare-dialog-invalid-name-mobile.png",
+    ],
+    [
       "vault-overview-v2-cloudflare-dialog-loading",
       "vault-overview-v2-cloudflare-dialog-loading-mobile.png",
     ],
@@ -523,6 +535,12 @@ test("covers Cloudflare connection and Builds repair states", async ({ page }) =
     await openVaultOverviewV2(page, mode);
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
+    if (mode === "vault-overview-v2-cloudflare-dialog-invalid-name") {
+      await expect(dialog.getByRole("alert")).toContainText(
+        "Cloudflare Worker name can use lowercase letters, numbers, and dashes",
+      );
+      await expect(dialog.getByRole("button", { name: "Create Worker" })).toBeDisabled();
+    }
     await expect(dialog).toHaveScreenshot(screenshotName, {
       animations: "disabled",
       caret: "hide",

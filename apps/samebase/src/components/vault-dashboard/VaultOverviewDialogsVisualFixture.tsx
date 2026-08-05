@@ -9,10 +9,12 @@ import { VaultDeleteDialogContent } from "./VaultDeleteDialog";
 export type VaultOverviewDialogsVisualMode =
   | "vault-overview-v2-cloudflare-builds-repair"
   | "vault-overview-v2-cloudflare-dialog"
+  | "vault-overview-v2-cloudflare-dialog-invalid-name"
   | "vault-overview-v2-cloudflare-dialog-loading"
   | "vault-overview-v2-convex-dialog"
   | "vault-overview-v2-convex-dialog-error"
   | "vault-overview-v2-convex-dialog-loading"
+  | "vault-overview-v2-convex-dialog-required-name"
   | "vault-overview-v2-delete-dialog";
 
 type CloudflareDialogWorker = Parameters<typeof VaultCloudflareDialogContent>[0]["workers"][number];
@@ -136,10 +138,12 @@ function DialogFixture({
 }
 
 function ConvexDialogFixture({
+  connectMode,
   error,
   isLoading,
   mode,
 }: {
+  connectMode: "create" | "existing";
   error: string | null;
   isLoading: boolean;
   mode: Extract<VaultOverviewDialogsVisualMode, `vault-overview-v2-convex-dialog${string}`>;
@@ -154,7 +158,7 @@ function ConvexDialogFixture({
         error={error}
         isLoading={isLoading}
         isSubmitting={false}
-        mode="existing"
+        mode={connectMode}
         onCreateCodeLocationKeyChange={() => {}}
         onCreateProjectNameChange={() => {}}
         onModeChange={() => {}}
@@ -179,10 +183,14 @@ function ConvexDialogFixture({
 }
 
 function CloudflareDialogFixture({
+  connectMode,
+  createWorkerName,
   isLoading,
   mode,
   repair,
 }: {
+  connectMode: "create" | "existing";
+  createWorkerName: string;
   isLoading: boolean;
   mode: Extract<VaultOverviewDialogsVisualMode, `vault-overview-v2-cloudflare-${string}`>;
   repair: boolean;
@@ -194,14 +202,14 @@ function CloudflareDialogFixture({
           isLoading || repair ? [] : [{ accountId: "samebase-account", accountName: "Samebase" }]
         }
         createRootDirectory={repair ? "apps/portal" : "/"}
-        createWorkerName=""
+        createWorkerName={createWorkerName}
         didAddWorker={false}
         error={null}
         folderSuggestions={["apps", "apps/admin", "apps/portal", "apps/web", "packages/backend"]}
         isLoading={isLoading}
         isSubmitting={false}
         inventoryState={isLoading || repair ? null : "complete"}
-        mode="existing"
+        mode={connectMode}
         onAccountChange={() => {}}
         onCreateRootDirectoryChange={() => {}}
         onCreateWorkerNameChange={() => {}}
@@ -260,23 +268,64 @@ export function VaultOverviewDialogsVisualFixture({
         </DialogFixture>
       );
     case "vault-overview-v2-convex-dialog":
-      return <ConvexDialogFixture error={null} isLoading={false} mode={mode} />;
+      return (
+        <ConvexDialogFixture connectMode="existing" error={null} isLoading={false} mode={mode} />
+      );
     case "vault-overview-v2-convex-dialog-loading":
-      return <ConvexDialogFixture error={null} isLoading mode={mode} />;
+      return <ConvexDialogFixture connectMode="existing" error={null} isLoading mode={mode} />;
     case "vault-overview-v2-convex-dialog-error":
       return (
         <ConvexDialogFixture
+          connectMode="existing"
           error="Could not discover Convex projects. Try again."
           isLoading={false}
           mode={mode}
         />
       );
+    case "vault-overview-v2-convex-dialog-required-name":
+      return (
+        <ConvexDialogFixture connectMode="create" error={null} isLoading={false} mode={mode} />
+      );
     case "vault-overview-v2-cloudflare-dialog":
-      return <CloudflareDialogFixture isLoading={false} mode={mode} repair={false} />;
+      return (
+        <CloudflareDialogFixture
+          connectMode="existing"
+          createWorkerName=""
+          isLoading={false}
+          mode={mode}
+          repair={false}
+        />
+      );
+    case "vault-overview-v2-cloudflare-dialog-invalid-name":
+      return (
+        <CloudflareDialogFixture
+          connectMode="create"
+          createWorkerName="samebase_app"
+          isLoading={false}
+          mode={mode}
+          repair={false}
+        />
+      );
     case "vault-overview-v2-cloudflare-dialog-loading":
-      return <CloudflareDialogFixture isLoading mode={mode} repair={false} />;
+      return (
+        <CloudflareDialogFixture
+          connectMode="existing"
+          createWorkerName=""
+          isLoading
+          mode={mode}
+          repair={false}
+        />
+      );
     case "vault-overview-v2-cloudflare-builds-repair":
-      return <CloudflareDialogFixture isLoading={false} mode={mode} repair />;
+      return (
+        <CloudflareDialogFixture
+          connectMode="existing"
+          createWorkerName=""
+          isLoading={false}
+          mode={mode}
+          repair
+        />
+      );
     default:
       mode satisfies never;
       return null;
