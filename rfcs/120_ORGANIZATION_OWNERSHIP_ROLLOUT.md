@@ -214,6 +214,9 @@ billing, provider connections, vaults, staging, workflows, and MCP authorization
 authentication accounts, approval, and waitlist state. Do not run a production reset until the exact
 targets and final schema deployment are ready.
 
+Clear `observations_vaultConvexSchema_snapshots` before deploying the schema that removes its old
+`userId` field. Product code has no compatibility reader for those disposable snapshot rows.
+
 ## Current Blockers
 
 - No development organization-flow blocker remains.

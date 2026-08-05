@@ -236,6 +236,9 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 Key domain entities:
 
 - `users`
+- `organizations`
+- `organizationMemberships`
+- `organizationBillingAccounts`
 - `providerConnections`
 - `vaults`
 - `workflow_vaultProvisioning_plans`

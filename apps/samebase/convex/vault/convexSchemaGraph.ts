@@ -1253,7 +1253,6 @@ export const recordSnapshot = internalMutation({
     }
 
     const snapshotId = await ctx.db.insert("observations_vaultConvexSchema_snapshots", {
-      userId: args.userId,
       vaultId: args.vaultId,
       convexProjectId: args.convexProjectId,
       deploymentName: args.deploymentName,

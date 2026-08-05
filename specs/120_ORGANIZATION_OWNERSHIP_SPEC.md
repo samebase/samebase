@@ -126,7 +126,7 @@ The route `/vault/<owner>/<repository>` resolves the vault and then derives the 
 organization. It does not use an opaque `?organization=<id>` parameter. Internal Samebase IDs are
 database and authorization identities, not URL selectors.
 
-Organization setup pages use the same stable GitHub owner login in `/providers/<owner>`,
+Organization setup pages use the current GitHub owner login in `/providers/<owner>`,
 `/new-app/<owner>`, and `/connect-repo/<owner>`. Their base routes are chooser pages when the user
 has several memberships. Selecting an owner navigates to the owner route, and a reload resolves the
 internal organization ID through the viewer's membership. These pages do not store a hidden active

@@ -118,7 +118,7 @@ type VaultRow = VaultBase & VaultGitHubState;
 /** Fields every vault row has regardless of GitHub connection state. */
 type VaultBase = {
   /** Ownership and authorization boundary for the vault. */
-  userId: Id<"users">;
+  organizationId: Id<"organizations">;
 };
 ```
 
@@ -304,7 +304,8 @@ prefer deriving it so bad states become unrepresentable.
 
 Base vault fields:
 
-1. `userId`: required ownership and authorization boundary.
+1. `organizationId`: required durable ownership boundary. Authorization requires a current
+   membership in that organization.
 2. Convex `_creationTime`: stable creation ordering and audit timestamp. Do not duplicate this as
    `createdAt` unless a non-Convex boundary needs that name.
 

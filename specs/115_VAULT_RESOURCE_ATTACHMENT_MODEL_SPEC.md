@@ -15,8 +15,9 @@
 
 ### Domain entities
 
-A vault is a user's connection to one GitHub repository. A provider resource attachment records the
-user's intent to include one independently identified provider resource in that vault.
+A vault belongs to one Samebase organization and connects it to one GitHub repository. A provider
+resource attachment records the organization's intent to include one independently identified
+provider resource in that vault.
 
 Samebase has no durable app, folder, or root-group entity. In particular, there is no `vaultApps`
 table and provider attachments do not carry an `appId`.
@@ -26,7 +27,8 @@ The durable Cloudflare attachment is:
 ```ts
 {
   vaultId;
-  userId;
+  organizationId;
+  providerConnectionId;
   accountId;
   workerName;
   workerTag;
@@ -39,7 +41,8 @@ The durable Convex attachment is:
 ```ts
 {
   vaultId;
-  userId;
+  organizationId;
+  providerConnectionId;
   teamId;
   projectId;
   convexConfigPath;
@@ -163,8 +166,8 @@ offers reconciliation. Confirmation compare-and-swaps only `teamId`; it preserve
 code location, origin, and creation time. Provider writes fail closed while the stored team is
 stale.
 
-Removing either provider attachment is an explicit change to user intent. Provider absence may
-explain why removal is useful, but is not the mutation authority.
+Removing either provider attachment is an explicit change to organization attachment intent.
+Provider absence may explain why removal is useful, but is not the mutation authority.
 
 ### Resource-specific routes
 
@@ -187,7 +190,7 @@ provider observation, or active operation.
 - Inferring packages, applications, ownership, or parent-child relationships from repository
   folders.
 - Persisting a Worker-to-Convex edge derived from `SAMEBASE_CONVEX_PROJECT`.
-- Treating current provider observations as user intent.
+- Treating current provider observations as organization attachment intent.
 - Reconstructing or preserving rows from the removed app-root model.
 - Rejecting unusual repository layouts because they do not contain an expected sibling file.
 
