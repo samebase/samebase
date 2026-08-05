@@ -156,6 +156,10 @@ has several memberships. Selecting an owner navigates to the owner route, and a 
 internal organization ID through the viewer's membership. These pages do not store a hidden active
 organization or expose an internal organization ID in the URL or selector.
 
+Billing stays on the user settings page and selects an organization with
+`/settings?owner=<github-owner-login>`. Checkout and subscription return URLs keep that owner login.
+They never include an internal organization ID.
+
 An operation on an existing resource loads that resource and derives its organization before it
 checks membership. A root creation operation identifies the GitHub owner through the verified App
 installation and checks membership. Client-supplied user IDs, actor fields, organization IDs, or

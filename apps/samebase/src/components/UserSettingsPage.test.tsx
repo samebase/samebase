@@ -270,8 +270,8 @@ describe("UserSettingsPage", () => {
 
     expect(createCheckout).toHaveBeenCalledWith({
       organizationId: ORGANIZATION_ID,
-      returnUrl: `${window.location.origin}/settings?checkout=cancel`,
-      successUrl: `${window.location.origin}/settings?checkout=success`,
+      returnUrl: `${window.location.origin}/settings?checkout=cancel&owner=samebase`,
+      successUrl: `${window.location.origin}/settings?checkout=success&owner=samebase`,
     });
   });
 
@@ -309,6 +309,38 @@ describe("UserSettingsPage", () => {
     expect(testState.queryCalls).toContainEqual({
       args: "skip",
       name: getFunctionName(api.billing.getViewerBillingStatus),
+    });
+  });
+
+  it("uses the GitHub owner login to reconcile a multi-organization checkout return", async () => {
+    setDefaultQueries([
+      organization,
+      {
+        canCreateRepository: true,
+        githubOwnerId: "789",
+        githubOwnerLogin: "acme",
+        githubOwnerType: "organization",
+        organizationId: SECOND_ORGANIZATION_ID,
+        role: "owner",
+      },
+    ]);
+    testState.route.search = { checkout: "success", owner: "ACME" };
+    const reconcileBilling = vi.fn(async () => ({ plan: "pro", state: "observed" }));
+    testState.actions.set(
+      getFunctionName(api.billing.reconcileViewerBillingFromPolar),
+      reconcileBilling,
+    );
+
+    await mountSettingsPage();
+
+    expect(testState.queryCalls).toContainEqual({
+      args: { organizationId: SECOND_ORGANIZATION_ID },
+      name: getFunctionName(api.billing.getViewerBillingStatus),
+    });
+    await vi.waitFor(() => {
+      expect(reconcileBilling).toHaveBeenCalledWith({
+        organizationId: SECOND_ORGANIZATION_ID,
+      });
     });
   });
 

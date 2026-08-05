@@ -4,13 +4,13 @@ import { ConvexError } from "convex/values";
 import { useEffect, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
 import type { BillingResourceUsage } from "../../convex/billingResourceQuotas";
 import { type AccountPresentation } from "../../shared/accountPresentation";
 import { ACCESS_APP_CREATE } from "../../shared/accessModel";
 import { useAppAuthActions } from "@/authClient";
 import { AccountDeletionDialog } from "@/components/AccountDeletionDialog";
 import { GitHubOwnerSelect } from "@/components/GitHubOwnerSelect";
+import { useGitHubOwnerRouteSelection } from "@/components/useGitHubOwnerRouteSelection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +21,7 @@ import { getRouteApi, useLocation, useRouter } from "@tanstack/react-router";
 import {
   CHECKOUT_QUERY_PARAM,
   DELETE_ACCOUNT_QUERY_PARAM,
+  GITHUB_OWNER_QUERY_PARAM,
   POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM,
 } from "@/routeSearch/settings";
 import { readBrowserRouteEnvironment } from "@/routing/availability";
@@ -66,14 +67,9 @@ export function UserSettingsPage() {
   });
   const settings = useQuery(api.users.getUserSettings);
   const viewerAccess = useQuery(api.users.currentViewerAccess);
-  const githubOwners = useQuery(api.organizations.listForViewer);
-  const [requestedOrganizationId, setSelectedOrganizationId] = useState<Id<"organizations"> | null>(
-    null,
+  const { githubOwners, selectedOwner } = useGitHubOwnerRouteSelection(
+    search[GITHUB_OWNER_QUERY_PARAM] ?? null,
   );
-  const selectedOwner =
-    githubOwners?.length === 1
-      ? githubOwners[0]
-      : (githubOwners?.find((owner) => owner.organizationId === requestedOrganizationId) ?? null);
   const selectedOrganizationId = selectedOwner?.organizationId ?? null;
   const billingStatus = useQuery(
     api.billing.getViewerBillingStatus,
@@ -266,25 +262,24 @@ export function UserSettingsPage() {
   const buildSettingsBillingUrl = (checkout: "success" | "cancel" | null) => {
     const location = router.buildLocation({
       search: (currentSearch) =>
-        applySearchPatch(currentSearch, { [CHECKOUT_QUERY_PARAM]: checkout }),
+        applySearchPatch(currentSearch, {
+          [CHECKOUT_QUERY_PARAM]: checkout,
+          [GITHUB_OWNER_QUERY_PARAM]: selectedOwner?.githubOwnerLogin ?? null,
+        }),
       to: "/settings",
     });
     return new URL(location.href, window.location.origin).toString();
   };
 
   const handleUpgrade = async () => {
-    if (
-      !billingActionsAvailable ||
-      billingRequestState !== "idle" ||
-      selectedOrganizationId === null
-    ) {
+    if (!billingActionsAvailable || billingRequestState !== "idle") {
       return;
     }
 
     setBillingRequestState("checkout");
     try {
       const session = await createCheckoutSession({
-        organizationId: selectedOrganizationId,
+        organizationId: selectedOwner.organizationId,
         returnUrl: buildSettingsBillingUrl("cancel"),
         successUrl: buildSettingsBillingUrl("success"),
       });
@@ -300,18 +295,14 @@ export function UserSettingsPage() {
   };
 
   const handleManageSubscription = async () => {
-    if (
-      !billingActionsAvailable ||
-      billingRequestState !== "idle" ||
-      selectedOrganizationId === null
-    ) {
+    if (!billingActionsAvailable || billingRequestState !== "idle") {
       return;
     }
 
     setBillingRequestState("portal");
     try {
       const session = await createCustomerPortalSession({
-        organizationId: selectedOrganizationId,
+        organizationId: selectedOwner.organizationId,
         returnUrl: buildSettingsBillingUrl(null),
       });
       window.location.assign(session.url);
@@ -507,7 +498,17 @@ export function UserSettingsPage() {
                 <GitHubOwnerSelect
                   disabled={billingRequestState !== "idle"}
                   onChange={(owner) => {
-                    setSelectedOrganizationId(owner.organizationId);
+                    void navigate({
+                      replace: true,
+                      resetScroll: false,
+                      search: (currentSearch) =>
+                        applySearchPatch(currentSearch, {
+                          [CHECKOUT_QUERY_PARAM]: null,
+                          [GITHUB_OWNER_QUERY_PARAM]: owner.githubOwnerLogin,
+                          [POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM]: null,
+                        }),
+                      to: ".",
+                    });
                     setBillingReconciliationDelayed(false);
                   }}
                   owners={githubOwners}
