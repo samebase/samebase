@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
 
 describe("verified GitHub App installation completion", () => {
@@ -60,5 +60,13 @@ describe("verified GitHub App installation completion", () => {
       refreshToken: "refresh-token",
     });
     expect(snapshot.setupState).toBeNull();
+    await expect(
+      t
+        .withIdentity({
+          subject: `${userId}|test-session`,
+          tokenIdentifier: `test:${userId}`,
+        })
+        .query(api.organizations.listForViewer, {}),
+    ).resolves.toMatchObject([{ canCreateRepository: true }]);
   });
 });

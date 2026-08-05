@@ -145,7 +145,6 @@ async function seedRunningDeletion() {
     await ctx.db.insert("mcpGrants", {
       grantId: "grant-1",
       userId: deletingUserId,
-      organizationId,
       clientId: "client-1",
       resource: "https://api.example.invalid",
       scope: "vault:read",

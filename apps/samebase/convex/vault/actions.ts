@@ -8,7 +8,12 @@ import { Octokit } from "@octokit/rest";
 import { RequestError } from "@octokit/request-error";
 import { action } from "../functions";
 import { toErrorMessage } from "../jsonUtils";
-import { requireGitHubRepositoryOwnerId, resolveGitHubAppAccess } from "../githubAppAccess";
+import {
+  requireGitHubRepositoryOwnerId,
+  resolveGitHubAppAccess,
+  type GitHubAppAccessTarget,
+} from "../githubAppAccess";
+import { resolveGitHubUserOctokit } from "../githubUserAuthorizations";
 import { parseRepositoryFullName } from "./model";
 import { isLiveConnectedVault, isSamebaseManagedVault } from "./state";
 import { toSafeRepoName } from "../../shared/repoName";
@@ -640,7 +645,7 @@ export async function connectRepositoryForUser(
   ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   args: {
     userId: Id<"users">;
-    organizationId: Id<"organizations">;
+    target: GitHubAppAccessTarget;
     repositoryFullName: string;
   },
 ): Promise<ConnectRepositoryResult> {
@@ -648,7 +653,7 @@ export async function connectRepositoryForUser(
   const requestedRepository = parseRepositoryFullName(args.repositoryFullName);
   const access = await resolveGitHubAppAccess(ctx, {
     userId,
-    target: { kind: "organization", organizationId: args.organizationId },
+    target: args.target,
   });
   const repository = await access.octokit.rest.repos.get({
     owner: requestedRepository.owner,
@@ -688,15 +693,19 @@ export const connectRepository = action({
   mcp: connectRepositoryContract.mcp,
   handler: async (ctx, args): Promise<ConnectRepositoryResult> => {
     return await connectRepositoryForUser(ctx, {
-      ...args,
       userId: ctx.viewer.userId,
+      target: { kind: "organization", organizationId: args.organizationId },
+      repositoryFullName: args.repositoryFullName,
     });
   },
 });
 
 export async function createAppForUser(
   ctx: Pick<ActionCtx, "runAction" | "runQuery" | "runMutation">,
-  args: CreateRepositoryArgs & { userId: Id<"users"> },
+  args: Omit<CreateRepositoryArgs, "organizationId"> & {
+    userId: Id<"users">;
+    target: GitHubAppAccessTarget;
+  },
 ): Promise<CreateRepositoryResult> {
   const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, {
     userId: args.userId,
@@ -711,8 +720,14 @@ export async function createAppForUser(
   }
   const githubAccess = await resolveGitHubAppAccess(ctx, {
     userId: args.userId,
-    target: { kind: "organization", organizationId: args.organizationId },
+    target: args.target,
   });
+  if (githubAccess.githubOwnerType === "user") {
+    await resolveGitHubUserOctokit(ctx, {
+      userId: args.userId,
+      githubUserId: githubAccess.githubOwnerId,
+    });
+  }
 
   const convexNameValidation = validateCreateResourceName("convex", args.convexProjectName);
   if (!convexNameValidation.valid) {
@@ -790,8 +805,13 @@ export const createRepository = action({
   mcp: createRepositoryContract.mcp,
   handler: async (ctx, args): Promise<CreateRepositoryResult> => {
     return await createAppForUser(ctx, {
-      ...args,
       userId: ctx.viewer.userId,
+      target: { kind: "organization", organizationId: args.organizationId },
+      name: args.name,
+      convexProjectName: args.convexProjectName,
+      cloudflareWorkerName: args.cloudflareWorkerName,
+      ...(args.description !== undefined ? { description: args.description } : {}),
+      ...(args.private !== undefined ? { private: args.private } : {}),
     });
   },
 });

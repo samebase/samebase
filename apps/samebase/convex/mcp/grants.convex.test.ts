@@ -29,23 +29,6 @@ async function seedGrants() {
       isApproved: true,
       name: "Other",
     });
-    const organizationId = await ctx.db.insert("organizations", {
-      githubInstallationId: "installation_owner",
-      githubOwnerId: "owner",
-      githubOwnerLogin: "samebase",
-      githubOwnerLoginNormalized: "samebase",
-      githubOwnerType: "organization",
-    });
-    await ctx.db.insert("organizationMemberships", {
-      organizationId,
-      userId: ownerId,
-      role: "owner",
-    });
-    await ctx.db.insert("organizationMemberships", {
-      organizationId,
-      userId: otherUserId,
-      role: "member",
-    });
     await ctx.db.insert("mcpOauthClients", {
       clientId: "mcpc_named",
       clientName: "Codex",
@@ -76,7 +59,6 @@ async function seedGrants() {
       clientId: "mcpc_named",
       createdAt: now,
       grantId: "mcpg_older",
-      organizationId,
       lastUsedAt: now + 5,
       resource,
       scope: "access_dashboard",
@@ -88,7 +70,6 @@ async function seedGrants() {
       clientId: "mcpc_unnamed",
       createdAt: now + 1,
       grantId: "mcpg_newer",
-      organizationId,
       resource,
       scope: "access_dashboard",
       status: "active",
@@ -99,7 +80,6 @@ async function seedGrants() {
       clientId: "mcpc_named",
       createdAt: now + 2,
       grantId: "mcpg_revoked",
-      organizationId,
       resource,
       scope: "access_dashboard",
       status: "revoked",
@@ -110,7 +90,6 @@ async function seedGrants() {
       clientId: "mcpc_named",
       createdAt: now + 3,
       grantId: "mcpg_other",
-      organizationId,
       resource,
       scope: "access_dashboard",
       status: "active",
@@ -118,7 +97,7 @@ async function seedGrants() {
       userId: otherUserId,
     });
 
-    return { organizationId, otherUserId, ownerId };
+    return { otherUserId, ownerId };
   });
   return { ids, t };
 }
@@ -136,8 +115,6 @@ describe("MCP grant management", () => {
         clientId: "mcpc_unnamed",
         createdAt: now + 1,
         grantId: "mcpg_newer",
-        githubOwnerLogin: "samebase",
-        organizationId: ids.organizationId,
         resource,
         scopes: ["access_dashboard"],
       },
@@ -153,9 +130,7 @@ describe("MCP grant management", () => {
         clientName: "Codex",
         createdAt: now,
         grantId: "mcpg_older",
-        githubOwnerLogin: "samebase",
         lastUsedAt: now + 5,
-        organizationId: ids.organizationId,
         resource,
         scopes: ["access_dashboard"],
       },

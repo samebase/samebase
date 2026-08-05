@@ -9,13 +9,18 @@ const vConnectRepositoryResult = object({
   runId: id("workflow_vaultProvisioning_runs"),
 });
 
+const connectRepositoryFields = {
+  repositoryFullName: string(),
+};
+
 export const connectRepositoryContract = {
   id: "connect_existing_repository",
   access: "access_repo_connect",
   args: {
     organizationId: id("organizations"),
-    repositoryFullName: string(),
+    ...connectRepositoryFields,
   },
+  mcpArgs: connectRepositoryFields,
   returns: vConnectRepositoryResult,
   structuredContent: vConnectRepositoryResult,
   mcp: {
@@ -30,8 +35,6 @@ export const connectRepositoryContract = {
       destructiveHint: false,
     },
     inputDescriptions: {
-      organizationId:
-        "Samebase organization whose GitHub App installation can read the repository.",
       repositoryFullName: 'Full repository name to import, as "owner/name".',
     },
   } as const satisfies AppFunctionMcpMetadata,

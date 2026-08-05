@@ -16,8 +16,6 @@ failure are readable through `get_user_vaults` (`sourceSetup` running/failed wit
 
 ## Arguments
 
-- `organizationId` (string, required): Samebase organization whose GitHub App installation can read
-  the repository.
 - `repositoryFullName` (string, required): Full repository name to import, as "owner/name".
 
 ## Returns

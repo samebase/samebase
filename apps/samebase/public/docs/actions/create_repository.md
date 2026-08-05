@@ -27,7 +27,7 @@ an idle app costs $0/month.
 
 ## Arguments
 
-- `organizationId` (string, required): Samebase organization that owns the new app.
+- `githubOwnerLogin` (string, required): GitHub owner login that will own the new repository.
 - `name` (string, required): Name for the new app and GitHub repository.
 - `convexProjectName` (string, required): Convex project name to provision for the app.
 - `cloudflareWorkerName` (string, required): Cloudflare Worker name to provision for the app.

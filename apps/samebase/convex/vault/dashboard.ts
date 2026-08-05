@@ -6,7 +6,6 @@ import { mutation, query } from "../functions";
 import {
   findVaultForUser,
   listOrganizationIdsForUser,
-  requireOrganizationAccessContext,
   requireVaultForUser,
 } from "../organizationAccess";
 import { isConnectedVault, isLiveConnectedVault, isSamebaseManagedVault } from "./state";
@@ -827,7 +826,6 @@ export const getUserVaults = query({
 export const getUserVaultsForUser = internalQuery({
   args: {
     userId: id("users"),
-    organizationId: id("organizations"),
   },
   returns: getUserVaultsContract.returns,
   handler: async (ctx, args): Promise<UserVaultsResult> => {
@@ -838,7 +836,7 @@ export const getUserVaultsForUser = internalQuery({
       throw new Error("Access denied");
     }
 
-    await requireOrganizationAccessContext(ctx.db, args);
-    return await readOrganizationVaults(ctx, [args.organizationId]);
+    const organizationIds = await listOrganizationIdsForUser(ctx.db, args.userId);
+    return await readOrganizationVaults(ctx, organizationIds);
   },
 });

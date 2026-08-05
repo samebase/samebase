@@ -2,6 +2,7 @@ import { v } from "convex/values";
 
 import { normalizeAccountEmail } from "../shared/accountPresentation";
 import { internalMutation } from "./_generated/server";
+import { vOrganizationMembershipRole } from "./organizationModel";
 
 const vAddExistingUserResult = v.union(
   v.object({
@@ -12,12 +13,17 @@ const vAddExistingUserResult = v.union(
     state: v.literal("already_member"),
     membershipId: v.id("organizationMemberships"),
   }),
+  v.object({
+    state: v.literal("updated"),
+    membershipId: v.id("organizationMemberships"),
+  }),
 );
 
 /** Add an existing Samebase account to an organization without an invitation flow. */
 export const addExistingUserToOrganization = internalMutation({
   args: {
     organizationId: v.id("organizations"),
+    role: vOrganizationMembershipRole,
     userEmail: v.string(),
   },
   returns: vAddExistingUserResult,
@@ -48,6 +54,13 @@ export const addExistingUserToOrganization = internalMutation({
       )
       .unique();
     if (membership !== null) {
+      if (membership.role !== args.role) {
+        await ctx.db.patch(membership._id, { role: args.role });
+        return {
+          state: "updated" as const,
+          membershipId: membership._id,
+        };
+      }
       return {
         state: "already_member" as const,
         membershipId: membership._id,
@@ -57,7 +70,7 @@ export const addExistingUserToOrganization = internalMutation({
     const membershipId = await ctx.db.insert("organizationMemberships", {
       organizationId: args.organizationId,
       userId: user._id,
-      role: "member",
+      role: args.role,
     });
 
     return {

@@ -1,10 +1,14 @@
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { makeConvexTest } from "../test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 async function createUser(t: ConvexTest, email: string): Promise<Id<"users">> {
   return await t.run(async (ctx) => {
@@ -65,6 +69,62 @@ async function createConnectedVault(
 }
 
 describe("organization-owned vaults", () => {
+  it("does not start personal repository creation without the matching GitHub user authorization", async () => {
+    vi.stubEnv("GITHUB_APP_ID", "123");
+    vi.stubEnv("GITHUB_APP_SLUG", "samebase-test");
+    vi.stubEnv("GITHUB_APP_CLIENT_ID", "test-client");
+    vi.stubEnv("GITHUB_APP_CLIENT_SECRET", "test-secret");
+    vi.stubEnv("GITHUB_APP_PRIVATE_KEY", "test-private-key");
+    vi.stubEnv("GITHUB_APP_OAUTH_CALLBACK_URL", "https://samebase.test/github/callback");
+
+    const t = makeConvexTest();
+    const ownerUserId = await createUser(t, "personal-owner@example.com");
+    const memberUserId = await createUser(t, "personal-member@example.com");
+    const organization = await t.mutation(
+      internal.organizations.createOrReconnectVerifiedOrganization,
+      {
+        userId: ownerUserId,
+        githubOwnerId: "101",
+        githubOwnerType: "user",
+        githubOwnerLogin: "personal-owner",
+        githubInstallationId: "1001",
+      },
+    );
+    await t.run(async (ctx) => {
+      await ctx.db.insert("organizationMemberships", {
+        organizationId: organization.organizationId,
+        userId: memberUserId,
+        role: "member",
+      });
+    });
+    const asMember = t.withIdentity({
+      subject: `${memberUserId}|test-session`,
+      tokenIdentifier: `test:${memberUserId}`,
+    });
+
+    await expect(asMember.query(api.organizations.listForViewer, {})).resolves.toMatchObject([
+      { canCreateRepository: false },
+    ]);
+
+    await expect(
+      asMember.action(api.vault.actions.createRepository, {
+        organizationId: organization.organizationId,
+        name: "member-app",
+        convexProjectName: "member-app",
+        cloudflareWorkerName: "member-app",
+        private: true,
+      }),
+    ).rejects.toThrow("GitHub user authorization is not available for this owner.");
+    await expect(
+      t.run(async (ctx) => {
+        return {
+          runs: await ctx.db.query("workflow_vaultProvisioning_runs").collect(),
+          vaults: await ctx.db.query("vaults").collect(),
+        };
+      }),
+    ).resolves.toEqual({ runs: [], vaults: [] });
+  });
+
   it("requires membership and the organization GitHub owner for root creation", async () => {
     const t = makeConvexTest();
     const ownerUserId = await createUser(t, "owner@example.com");

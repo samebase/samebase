@@ -57,11 +57,10 @@ describe("MCP tool runtime boundaries", () => {
   });
 
   it("blocks a generic runtime tool before its product helper runs", async () => {
-    const { organizationId, t, userId, vaultId } = await seedToolRuntimeOwner();
+    const { t, userId, vaultId } = await seedToolRuntimeOwner();
 
     const result = await t.action(internal.toolRuntime.runtime.cloudflareCreateWorkerTool, {
       userId,
-      organizationId,
       grantedScopes: [],
       vaultId,
       accountId: "account_1",
@@ -75,7 +74,7 @@ describe("MCP tool runtime boundaries", () => {
     });
   });
 
-  it("lists vaults only from the grant organization", async () => {
+  it("lists vaults across every current organization membership", async () => {
     const { organizationId, t, userId } = await seedToolRuntimeOwner();
     const { authorizedVaultId, otherOrganizationId } = await t.run(async (ctx) => {
       const authorizedVaultId = await ctx.db.insert("vaults", {
@@ -153,7 +152,6 @@ describe("MCP tool runtime boundaries", () => {
 
     const result = await t.action(internal.toolRuntime.runtime.getUserVaultsTool, {
       userId,
-      organizationId,
       grantedScopes: ["access_dashboard"],
     });
 
@@ -161,20 +159,19 @@ describe("MCP tool runtime boundaries", () => {
     if (result.status !== "ok") {
       throw new Error(result.text);
     }
-    expect(result.structuredContent.vaults).toEqual([
-      expect.objectContaining({ _id: authorizedVaultId, organizationId }),
-    ]);
-    expect(result.structuredContent.vaults).not.toContainEqual(
-      expect.objectContaining({ organizationId: otherOrganizationId }),
+    expect(result.structuredContent.vaults).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ _id: authorizedVaultId, organizationId }),
+        expect.objectContaining({ organizationId: otherOrganizationId }),
+      ]),
     );
   });
 
   it("converts a product helper error into a tool error without a provider write", async () => {
-    const { organizationId, t, userId, vaultId } = await seedToolRuntimeOwner();
+    const { t, userId, vaultId } = await seedToolRuntimeOwner();
 
     const result = await t.action(internal.toolRuntime.runtime.cloudflareCreateWorkerTool, {
       userId,
-      organizationId,
       grantedScopes: ["access_provider_connections"],
       vaultId,
       accountId: "account_1",

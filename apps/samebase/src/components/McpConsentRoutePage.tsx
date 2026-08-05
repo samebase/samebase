@@ -8,7 +8,6 @@ import { getRouteApi } from "@tanstack/react-router";
 import { Authenticated, Unauthenticated, useAction, useConvexAuth, useQuery } from "convex/react";
 import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 const mcpConsentRouteApi = getRouteApi(MCP_CONSENT_APP_PATH);
@@ -22,9 +21,6 @@ function McpConsentView({ requestId }: { requestId: string }) {
   );
   const denyAuthorizationRequest = useAction(api.mcp.oauth.denyAuthorizationRequestForCurrentUser);
   const [pendingAction, setPendingAction] = useState<"approve" | "deny" | null>(null);
-  const [selectedOrganizationId, setSelectedOrganizationId] = useState<Id<"organizations"> | null>(
-    null,
-  );
   const [error, setError] = useState<string | null>(null);
 
   const runAction = (action: "approve" | "deny") => {
@@ -33,14 +29,7 @@ function McpConsentView({ requestId }: { requestId: string }) {
     }
     let actionPromise;
     if (action === "approve") {
-      if (selectedOrganizationId === null) {
-        setError("Select an organization to authorize.");
-        return;
-      }
-      actionPromise = completeAuthorizationRequest({
-        requestId,
-        organizationId: selectedOrganizationId,
-      });
+      actionPromise = completeAuthorizationRequest({ requestId });
     } else {
       actionPromise = denyAuthorizationRequest({ requestId });
     }
@@ -102,7 +91,7 @@ function McpConsentView({ requestId }: { requestId: string }) {
         <div className="text-center">
           <h2 className="text-xl font-semibold tracking-tight">Authorize MCP client</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            {clientName} is requesting access to a Samebase organization.
+            {clientName} is requesting access to your Samebase account.
           </p>
         </div>
 
@@ -112,31 +101,10 @@ function McpConsentView({ requestId }: { requestId: string }) {
             <div className="text-muted-foreground">{clientName}</div>
           </div>
           <div>
-            <div className="font-medium">Organization</div>
-            {authorizationRequest.organizations.length === 0 ? (
-              <div className="text-muted-foreground">
-                You need a GitHub-backed organization before you can approve this request.
-              </div>
-            ) : (
-              <div className="mt-1 space-y-2">
-                {authorizationRequest.organizations.map((organization) => (
-                  <label
-                    key={organization.organizationId}
-                    className="flex items-center gap-2 text-muted-foreground"
-                  >
-                    <input
-                      type="radio"
-                      name="mcp-organization"
-                      checked={selectedOrganizationId === organization.organizationId}
-                      onChange={() => {
-                        setSelectedOrganizationId(organization.organizationId);
-                      }}
-                    />
-                    <span>{organization.githubOwnerLogin}</span>
-                  </label>
-                ))}
-              </div>
-            )}
+            <div className="font-medium">Access</div>
+            <div className="text-muted-foreground">
+              Organizations and vaults that your account can currently access
+            </div>
           </div>
           <div>
             <div className="font-medium">Resource</div>
@@ -174,7 +142,7 @@ function McpConsentView({ requestId }: { requestId: string }) {
             onClick={() => {
               runAction("approve");
             }}
-            disabled={pendingAction !== null || selectedOrganizationId === null}
+            disabled={pendingAction !== null}
           >
             {pendingAction === "approve" ? "Approving..." : "Approve"}
           </Button>

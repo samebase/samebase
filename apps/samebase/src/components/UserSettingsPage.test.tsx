@@ -19,6 +19,7 @@ const ORGANIZATION_ID = fakeOrganizationId("organization_samebase");
 const SECOND_ORGANIZATION_ID = fakeOrganizationId("organization_acme");
 
 const organization = {
+  canCreateRepository: true,
   githubOwnerId: "456",
   githubOwnerLogin: "samebase",
   githubOwnerType: "organization" as const,
@@ -293,6 +294,7 @@ describe("UserSettingsPage", () => {
     setDefaultQueries([
       organization,
       {
+        canCreateRepository: true,
         githubOwnerId: "789",
         githubOwnerLogin: "acme",
         githubOwnerType: "organization",

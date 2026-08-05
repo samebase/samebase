@@ -571,9 +571,7 @@ function McpClientGrants({
               <div className="min-w-0 flex-1 basis-80">
                 <div className="text-sm font-medium">{clientLabel}</div>
                 <div className="min-w-0 text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
-                  {clientName
-                    ? `${grant.clientId}, ${grant.githubOwnerLogin}, ${activity}`
-                    : `${grant.githubOwnerLogin}, ${activity}`}
+                  {clientName ? `${grant.clientId}, ${activity}` : activity}
                 </div>
                 <div className="mt-2 min-w-0 text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
                   <div>{grant.scopes.join(", ")}</div>

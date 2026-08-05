@@ -33,6 +33,7 @@ function fakeOrganizationId(value: string): Id<"organizations"> {
 
 function githubOwner(githubOwnerLogin: string, organizationId: Id<"organizations">): GitHubOwner {
   return {
+    canCreateRepository: true,
     githubOwnerId: organizationId,
     githubOwnerLogin,
     githubOwnerType: "organization",

@@ -5,8 +5,8 @@
 MCP tool `vault_cloudflare_listAccounts` · scope `access_provider_connections` · write
 
 Discovery read for manual existing-Worker attachment or new-Worker creation on an existing connected
-vault: returns the accounts on the organization's selected Cloudflare connection. Use the chosen
-`accountId` with `discover_cloudflare_workers`, then attach one or more verified results with
+vault: returns the accounts on the vault organization's selected Cloudflare connection. Use the
+chosen `accountId` with `discover_cloudflare_workers`, then attach one or more verified results with
 `attach_cloudflare_workers`, or create and attach a new Worker with `create_cloudflare_worker`. This
 action is not a preflight for `vault_actions_createRepository`. Managed app creation uses the
 connected Cloudflare provider and does not accept an `accountId`. Requires a Cloudflare provider
@@ -15,7 +15,7 @@ connection; reads from Cloudflare's API. The only writes are Samebase's own conn
 
 ## Arguments
 
-- `organizationId` (string, required): Samebase organization whose selected Cloudflare connection is
+- `vaultId` (string, required): Existing Samebase vault whose selected Cloudflare connection is
   used.
 
 ## Returns

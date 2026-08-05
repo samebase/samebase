@@ -277,7 +277,7 @@ export const revokeAndDeleteByUser = internalAction({
 });
 
 export async function resolveGitHubUserOctokit(
-  ctx: ActionCtx,
+  ctx: Pick<ActionCtx, "runMutation">,
   args: {
     userId: Id<"users">;
     githubUserId: string;

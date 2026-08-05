@@ -474,7 +474,8 @@ export function NewAppPage({ githubOwnerLogin }: { githubOwnerLogin: string | nu
   const hasRequiredCreateConnections = Boolean(
     hasConnectedCreateProviders && !cloudflareAccountSelectionRequired,
   );
-  const canCreateRepo = hasRequiredCreateConnections;
+  const canCreateRepositoryForSelectedOwner = selectedOwner?.canCreateRepository === true;
+  const canCreateRepo = hasRequiredCreateConnections && canCreateRepositoryForSelectedOwner;
   const createRepositoryName = newRepositoryName.trim();
   const defaultConvexProjectName = buildDefaultAppResourceName({
     repositoryName: newRepositoryName,
@@ -495,7 +496,7 @@ export function NewAppPage({ githubOwnerLogin }: { githubOwnerLogin: string | nu
     manualName: cloudflareWorkerName,
   });
   const shouldCheckResourceNames = Boolean(
-    hasRequiredCreateConnections && selectedOrganizationId !== null && createRepositoryName,
+    canCreateRepo && selectedOrganizationId !== null && createRepositoryName,
   );
   const resourceNameCheckKey = buildCreateResourceNameCheckKey({
     organizationId: selectedOrganizationId,
@@ -840,8 +841,10 @@ export function NewAppPage({ githubOwnerLogin }: { githubOwnerLogin: string | nu
         {createError && <div className="text-sm text-red-600">{createError}</div>}
         {!canCreateRepo && (
           <div className="text-xs text-muted-foreground">
-            {selectedOrganizationId === null ? (
+            {selectedOwner === null ? (
               "Choose a GitHub owner."
+            ) : !canCreateRepositoryForSelectedOwner ? (
+              `Only a Samebase user authorized as ${selectedOwner.githubOwnerLogin} can create repositories for this personal GitHub owner.`
             ) : cloudflareAccountSelectionRequired ? (
               canManageSelectedOrganization ? (
                 <>
@@ -930,6 +933,12 @@ export function NewAppPage({ githubOwnerLogin }: { githubOwnerLogin: string | nu
     }
     if (selectedOwner === null) {
       setCreateError("Choose a GitHub owner before creating an app.");
+      return;
+    }
+    if (!selectedOwner.canCreateRepository) {
+      setCreateError(
+        `Only a Samebase user authorized as ${selectedOwner.githubOwnerLogin} can create repositories for this personal GitHub owner.`,
+      );
       return;
     }
     if (!hasConnectedCreateProviders) {

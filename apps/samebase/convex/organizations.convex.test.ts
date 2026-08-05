@@ -82,7 +82,7 @@ describe("GitHub-backed organizations", () => {
     });
   });
 
-  it("adds one membership idempotently and denies reconnect by a nonmember", async () => {
+  it("adds or updates one membership and denies owner work to a member", async () => {
     const t = makeConvexTest();
     const { ownerUserId, secondUserId } = await t.run(async (ctx) => {
       const ownerUserId = await ctx.db.insert("users", {
@@ -115,10 +115,12 @@ describe("GitHub-backed organizations", () => {
 
     const added = await t.mutation(internal.organizationAdmin.addExistingUserToOrganization, {
       organizationId: created.organizationId,
+      role: "member",
       userEmail: "MEMBER@example.com",
     });
     const repeated = await t.mutation(internal.organizationAdmin.addExistingUserToOrganization, {
       organizationId: created.organizationId,
+      role: "member",
       userEmail: "member@example.com",
     });
 
@@ -152,5 +154,21 @@ describe("GitHub-backed organizations", () => {
         organizationId: created.organizationId,
       }),
     ).rejects.toThrowError("Organization owner access is required.");
+
+    await expect(
+      t.mutation(internal.organizationAdmin.addExistingUserToOrganization, {
+        organizationId: created.organizationId,
+        role: "owner",
+        userEmail: "member@example.com",
+      }),
+    ).resolves.toEqual({
+      state: "updated",
+      membershipId: added.membershipId,
+    });
+    await expect(
+      t.run(async (ctx) => {
+        return (await ctx.db.get(added.membershipId))?.role;
+      }),
+    ).resolves.toBe("owner");
   });
 });

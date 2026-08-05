@@ -13,6 +13,7 @@ export const cloudflareListAccountsContract = {
   id: "list_cloudflare_accounts",
   access: "access_provider_connections",
   args: { organizationId: id("organizations") },
+  mcpArgs: { vaultId: id("vaults") },
   returns: array(vCloudflareAccountResult),
   structuredContent: object({ accounts: array(vCloudflareAccountResult) }),
   mcp: {
@@ -27,11 +28,11 @@ export const cloudflareListAccountsContract = {
       destructiveHint: false,
     },
     inputDescriptions: {
-      organizationId: "Samebase organization whose selected Cloudflare connection is used.",
+      vaultId: "Existing Samebase vault whose selected Cloudflare connection is used.",
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Discovery read for manual existing-Worker attachment or new-Worker creation on an existing
-connected vault: returns the accounts on the organization's selected Cloudflare connection. Use the chosen
+connected vault: returns the accounts on the vault organization's selected Cloudflare connection. Use the chosen
 \`accountId\` with \`discover_cloudflare_workers\`, then attach one or more verified results with
 \`attach_cloudflare_workers\`, or create and attach a new Worker with
 \`create_cloudflare_worker\`. This action is not a preflight for

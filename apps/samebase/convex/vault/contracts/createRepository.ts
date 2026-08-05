@@ -10,16 +10,24 @@ const vCreateRepositoryResult = object({
   runId: id("workflow_vaultProvisioning_runs"),
 });
 
+const createRepositoryFields = {
+  name: string(),
+  convexProjectName: string(),
+  cloudflareWorkerName: string(),
+  description: optional(string()),
+  private: optional(boolean()),
+};
+
 export const createRepositoryContract = {
   id: "create_repository",
   access: ACCESS_APP_CREATE,
   args: {
     organizationId: id("organizations"),
-    name: string(),
-    convexProjectName: string(),
-    cloudflareWorkerName: string(),
-    description: optional(string()),
-    private: optional(boolean()),
+    ...createRepositoryFields,
+  },
+  mcpArgs: {
+    githubOwnerLogin: string(),
+    ...createRepositoryFields,
   },
   returns: vCreateRepositoryResult,
   structuredContent: vCreateRepositoryResult,
@@ -35,7 +43,7 @@ export const createRepositoryContract = {
       destructiveHint: false,
     },
     inputDescriptions: {
-      organizationId: "Samebase organization that owns the new app.",
+      githubOwnerLogin: "GitHub owner login that will own the new repository.",
       name: "Name for the new app and GitHub repository.",
       convexProjectName: "Convex project name to provision for the app.",
       cloudflareWorkerName: "Cloudflare Worker name to provision for the app.",

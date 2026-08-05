@@ -14,7 +14,6 @@ import { randomToken } from "../oauthUtils";
 import {
   convexArgsToToolInputSchema,
   convexValidatorToToolOutputSchema,
-  type ToolJsonSchema,
 } from "../toolRuntime/convexSchemas";
 import {
   logMcpHttpUsageContext,
@@ -72,9 +71,9 @@ import { parseScopeTokens } from "./scopes";
 const MCP_PROVISIONAL_CLIENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MCP_AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 const MCP_PROTOCOL_VERSION = "2025-03-26";
-const MCP_SERVER_INSTRUCTIONS = `Samebase is only for repository-backed apps and explicit attachments to user-owned Convex and Cloudflare resources. Never use Samebase for unrelated Git work or standalone provider resources.
+const MCP_SERVER_INSTRUCTIONS = `Samebase is only for repository-backed apps and explicit attachments to user-owned Convex and Cloudflare resources. The MCP acts as the authenticated Samebase account across every organization that the account can currently access. Never request or send an opaque Samebase organization ID. Never use Samebase for unrelated Git work or standalone provider resources.
 
-For managed app creation, use only this closed sequence: read ${getUserVaultsContract.mcp.name}, call ${createRepositoryContract.mcp.name} directly, then poll ${getUserVaultsContract.mcp.name}. Do not call ${cloudflareListAccountsContract.mcp.name} first. ${createRepositoryContract.mcp.name} does not accept an accountId and uses the connected Cloudflare provider.
+For managed app creation, use only this closed sequence: read ${getUserVaultsContract.mcp.name}, call ${createRepositoryContract.mcp.name} directly with the human GitHub owner login, then poll ${getUserVaultsContract.mcp.name}. Ask the user for the GitHub owner login when it is unclear. Do not call ${cloudflareListAccountsContract.mcp.name} first. ${createRepositoryContract.mcp.name} does not accept an accountId and uses the connected Cloudflare provider.
 
 For other writes, read ${getUserVaultsContract.mcp.name} whenever a repository may already be connected, and reuse the returned vault and attachment identifiers. After ${createRepositoryContract.mcp.name}, poll ${getUserVaultsContract.mcp.name} until source setup is ready or failed. Once source setup is ready, treat provider setup as an independent ready, failed, or not-applicable axis. A connected repository remains usable while provider setup continues or fails. A started provisioning run, requested build, or successful Git push is not proof of a successful deployment.
 
@@ -93,10 +92,7 @@ async function readMcpViewer(ctx: ActionCtx, userId: Id<"users">) {
 type McpResolvedViewer = Awaited<ReturnType<typeof readMcpViewer>>;
 
 export type McpToolInvocation = {
-  clientId: string;
-  grantId: string;
   input: JsonRecord;
-  organizationId: Id<"organizations">;
   userId: Id<"users">;
   grantedScopes: string[];
   viewer: McpResolvedViewer;
@@ -108,11 +104,9 @@ export function buildMcpToolInvocationArgs(invocation: McpToolInvocation) {
   delete input.grantedScopes;
   delete input.grantId;
   delete input.clientId;
-  delete input.organizationId;
   return {
     ...input,
     userId: invocation.userId,
-    organizationId: invocation.organizationId,
     grantedScopes: invocation.grantedScopes,
   };
 }
@@ -220,27 +214,15 @@ const mcpToolCalls: Record<ActionContractMcpName, McpToolCall> = {
   [getAuthenticationStatusContract.mcp.name]: callGetAuthenticationStatusMcpTool,
 };
 
-function removeTrustedOrganizationFromMcpInputSchema(inputSchema: ToolJsonSchema): ToolJsonSchema {
-  const properties = { ...inputSchema.properties };
-  delete properties.organizationId;
-  const required = inputSchema.required?.filter((name) => name !== "organizationId");
-
-  return {
-    type: inputSchema.type,
-    properties,
-    ...(required !== undefined && required.length > 0 ? { required } : {}),
-    additionalProperties: inputSchema.additionalProperties,
-  };
-}
-
 const mcpToolCatalog = actionContracts.map((contract) => ({
   access: contract.access,
   title: contract.mcp.title,
   name: contract.mcp.name,
   description: contract.mcp.description,
   annotations: contract.mcp.annotations,
-  inputSchema: removeTrustedOrganizationFromMcpInputSchema(
-    convexArgsToToolInputSchema(contract.args, contract.mcp.inputDescriptions),
+  inputSchema: convexArgsToToolInputSchema(
+    "mcpArgs" in contract ? contract.mcpArgs : contract.args,
+    contract.mcp.inputDescriptions,
   ),
   outputSchema:
     "structuredContent" in contract
@@ -949,10 +931,7 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
 
     try {
       const result = await tool.call(ctx, {
-        clientId: tokenValidation.clientId,
-        grantId: tokenValidation.grantId,
         input,
-        organizationId: tokenValidation.organizationId,
         userId: tokenValidation.userId,
         grantedScopes,
         viewer: currentViewer,

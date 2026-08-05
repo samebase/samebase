@@ -16,6 +16,10 @@ export const vGitHubAppAccessTarget = union(
     organizationId: id("organizations"),
   }),
   object({
+    kind: literal("owner"),
+    githubOwnerLogin: string(),
+  }),
+  object({
     kind: literal("vault"),
     vaultId: id("vaults"),
   }),
@@ -48,6 +52,27 @@ export const loadInstallationAccess = internalQuery({
         });
         organizationId = args.target.organizationId;
         break;
+      case "owner": {
+        const githubOwnerLoginNormalized = args.target.githubOwnerLogin.trim().toLowerCase();
+        if (githubOwnerLoginNormalized.length === 0) {
+          throw new Error("GitHub owner login is required.");
+        }
+        const organization = await ctx.db
+          .query("organizations")
+          .withIndex("by_github_owner_login_normalized", (query) =>
+            query.eq("githubOwnerLoginNormalized", githubOwnerLoginNormalized),
+          )
+          .unique();
+        if (organization === null) {
+          throw new Error("GitHub owner is not available to this user.");
+        }
+        await requireOrganizationAccessContext(ctx.db, {
+          userId: args.userId,
+          organizationId: organization._id,
+        });
+        organizationId = organization._id;
+        break;
+      }
       case "vault": {
         const vault = await requireVaultForUser(ctx.db, {
           userId: args.userId,

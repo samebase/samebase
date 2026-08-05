@@ -20,6 +20,7 @@ import {
 import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub";
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
+import { parseRepositoryFullName } from "../vault/model";
 import type { AccessKey } from "../../shared/accessModel";
 import {
   createAppForUser,
@@ -41,7 +42,6 @@ import { mcpScopeAllowsAccess } from "./mcpScopes";
 const { array, id, literal, object, string, union } = v;
 const vToolInvocationArgs = {
   userId: id("users"),
-  organizationId: id("organizations"),
   grantedScopes: array(string()),
 };
 const vToolFailure = object({
@@ -49,15 +49,13 @@ const vToolFailure = object({
   text: string(),
 });
 
-type McpToolContract<Args extends PropertyValidators> = {
+type McpToolContract = {
   access: AccessKey;
-  args: Args;
   mcp: { name: string };
 };
 
 type RegisteredMcpToolArgs<Args extends PropertyValidators> = ObjectType<Args> & {
   userId: Id<"users">;
-  organizationId: Id<"organizations">;
   grantedScopes: string[];
 };
 type McpToolArgs<Args extends PropertyValidators> = Omit<
@@ -69,7 +67,8 @@ function defineMcpTool<
   const Args extends PropertyValidators,
   const SuccessFields extends PropertyValidators,
 >(config: {
-  contract: McpToolContract<Args>;
+  contract: McpToolContract;
+  args: Args;
   successFields: SuccessFields;
   run: (
     ctx: ActionCtx,
@@ -83,7 +82,7 @@ function defineMcpTool<
   });
   const vToolResult = union(vToolSuccess, vToolFailure);
   const vToolArgs = object({
-    ...config.contract.args,
+    ...config.args,
     ...vToolInvocationArgs,
   });
   type ToolReturn = ReturnValueForOptionalValidator<typeof vToolResult>;
@@ -122,30 +121,18 @@ function defineMcpTool<
   });
 }
 
-async function requireMcpVaultOrganization(
-  ctx: Pick<ActionCtx, "runQuery">,
-  args: {
-    userId: Id<"users">;
-    organizationId: Id<"organizations">;
-    vaultId: Id<"vaults">;
-  },
-): Promise<void> {
-  const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
-    userId: args.userId,
-    vaultId: args.vaultId,
-  });
-  if (vault === null || vault.organizationId !== args.organizationId) {
-    throw new Error("Vault not found in the authorized organization.");
-  }
-}
-
 export const createRepositoryTool = defineMcpTool({
   contract: createRepositoryContract,
+  args: createRepositoryContract.mcpArgs,
   successFields: {
     structuredContent: createRepositoryContract.structuredContent,
   },
   run: async (ctx, args) => {
-    const structuredContent = await createAppForUser(ctx, args);
+    const { githubOwnerLogin, ...createArgs } = args;
+    const structuredContent = await createAppForUser(ctx, {
+      ...createArgs,
+      target: { kind: "owner", githubOwnerLogin },
+    });
     return {
       text: JSON.stringify(structuredContent, null, 2),
       structuredContent,
@@ -155,6 +142,7 @@ export const createRepositoryTool = defineMcpTool({
 
 export const getUserVaultsTool = defineMcpTool({
   contract: getUserVaultsContract,
+  args: getUserVaultsContract.args,
   successFields: {
     structuredContent: getUserVaultsContract.structuredContent,
   },
@@ -162,7 +150,6 @@ export const getUserVaultsTool = defineMcpTool({
     const vaults: Infer<typeof getUserVaultsContract.structuredContent>["vaults"] =
       await ctx.runQuery(internal.vault.dashboard.getUserVaultsForUser, {
         userId: args.userId,
-        organizationId: args.organizationId,
       });
     return {
       text: `Found ${vaults.length} ${vaults.length === 1 ? "vault" : "vaults"}.`,
@@ -173,11 +160,16 @@ export const getUserVaultsTool = defineMcpTool({
 
 export const connectRepositoryTool = defineMcpTool({
   contract: connectRepositoryContract,
+  args: connectRepositoryContract.mcpArgs,
   successFields: {
     structuredContent: connectRepositoryContract.structuredContent,
   },
   run: async (ctx, args) => {
-    const structuredContent = await connectRepositoryForUser(ctx, args);
+    const repository = parseRepositoryFullName(args.repositoryFullName);
+    const structuredContent = await connectRepositoryForUser(ctx, {
+      ...args,
+      target: { kind: "owner", githubOwnerLogin: repository.owner },
+    });
     return {
       text: JSON.stringify(structuredContent, null, 2),
       structuredContent,
@@ -187,11 +179,11 @@ export const connectRepositoryTool = defineMcpTool({
 
 export const convexDiscoverProjectsTool = defineMcpTool({
   contract: convexDiscoverProjectsContract,
+  args: convexDiscoverProjectsContract.args,
   successFields: {
     structuredContent: convexDiscoverProjectsContract.structuredContent,
   },
   run: async (ctx, args) => {
-    await requireMcpVaultOrganization(ctx, args);
     const structuredContent = await discoverProjectsForUser(ctx, args);
     return {
       text: `Found ${structuredContent.projects.length} ${structuredContent.projects.length === 1 ? "project" : "projects"} and ${structuredContent.source.locations.length} code ${structuredContent.source.locations.length === 1 ? "location" : "locations"}.`,
@@ -202,13 +194,21 @@ export const convexDiscoverProjectsTool = defineMcpTool({
 
 export const cloudflareListAccountsTool = defineMcpTool({
   contract: cloudflareListAccountsContract,
+  args: cloudflareListAccountsContract.mcpArgs,
   successFields: {
     structuredContent: cloudflareListAccountsContract.structuredContent,
   },
   run: async (ctx, args) => {
+    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+      userId: args.userId,
+      vaultId: args.vaultId,
+    });
+    if (vault === null) {
+      throw new Error("Vault not found");
+    }
     const accounts = await listCloudflareAccountsForUser(ctx, {
       userId: args.userId,
-      organizationId: args.organizationId,
+      organizationId: vault.organizationId,
     });
     return {
       text: `Found ${accounts.length} ${accounts.length === 1 ? "account" : "accounts"}.`,
@@ -219,11 +219,11 @@ export const cloudflareListAccountsTool = defineMcpTool({
 
 export const cloudflareCreateWorkerTool = defineMcpTool({
   contract: cloudflareCreateWorkerContract,
+  args: cloudflareCreateWorkerContract.args,
   successFields: {
     structuredContent: cloudflareCreateWorkerContract.structuredContent,
   },
   run: async (ctx, args) => {
-    await requireMcpVaultOrganization(ctx, args);
     const workerId = await createWorkerForUser(ctx, args);
     return {
       text: `Created and attached Cloudflare Worker ${args.workerName}.`,
@@ -234,11 +234,11 @@ export const cloudflareCreateWorkerTool = defineMcpTool({
 
 export const cloudflareDiscoverWorkersTool = defineMcpTool({
   contract: cloudflareDiscoverWorkersContract,
+  args: cloudflareDiscoverWorkersContract.args,
   successFields: {
     structuredContent: cloudflareDiscoverWorkersContract.structuredContent,
   },
   run: async (ctx, args) => {
-    await requireMcpVaultOrganization(ctx, args);
     const structuredContent = await discoverCloudflareWorkersForUser(ctx, args);
     return {
       text: `Found ${structuredContent.workers.length} ${structuredContent.workers.length === 1 ? "worker" : "workers"} in a ${structuredContent.inventoryState} inventory.`,
@@ -249,11 +249,11 @@ export const cloudflareDiscoverWorkersTool = defineMcpTool({
 
 export const convexAttachProjectsTool = defineMcpTool({
   contract: convexAttachProjectsContract,
+  args: convexAttachProjectsContract.args,
   successFields: {
     structuredContent: convexAttachProjectsContract.structuredContent,
   },
   run: async (ctx, args) => {
-    await requireMcpVaultOrganization(ctx, args);
     const convexProjectIds = await attachExistingProjectsForUser(ctx, args);
     return {
       text: `Attached ${convexProjectIds.length} Convex ${convexProjectIds.length === 1 ? "project" : "projects"}.`,
@@ -264,11 +264,11 @@ export const convexAttachProjectsTool = defineMcpTool({
 
 export const cloudflareAttachWorkersTool = defineMcpTool({
   contract: cloudflareAttachWorkersContract,
+  args: cloudflareAttachWorkersContract.args,
   successFields: {
     structuredContent: cloudflareAttachWorkersContract.structuredContent,
   },
   run: async (ctx, args) => {
-    await requireMcpVaultOrganization(ctx, args);
     const workerIds = await attachExistingCloudflareWorkersForUser(ctx, args);
     return {
       text: `Attached ${workerIds.length} Cloudflare ${workerIds.length === 1 ? "Worker" : "Workers"}.`,
@@ -279,9 +279,9 @@ export const cloudflareAttachWorkersTool = defineMcpTool({
 
 export const cloudflareConfigureWorkersBuildsForGitHubTool = defineMcpTool({
   contract: cloudflareConfigureWorkersBuildsForGitHubContract,
+  args: cloudflareConfigureWorkersBuildsForGitHubContract.args,
   successFields: {},
   run: async (ctx, args) => {
-    await requireMcpVaultOrganization(ctx, args);
     await configureWorkersBuildsForGitHubForUser(ctx, args);
     return { text: "Configured Workers Builds for GitHub." };
   },
@@ -289,9 +289,9 @@ export const cloudflareConfigureWorkersBuildsForGitHubTool = defineMcpTool({
 
 export const cloudflareRotateConvexDeployKeysForWorkersBuildsTool = defineMcpTool({
   contract: cloudflareRotateConvexDeployKeysForWorkersBuildsContract,
+  args: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.args,
   successFields: {},
   run: async (ctx, args) => {
-    await requireMcpVaultOrganization(ctx, args);
     await rotateConvexDeployKeysForWorkersBuildsForUser(ctx, args);
     return { text: "Rotated Convex deploy keys for Workers Builds." };
   },
@@ -301,9 +301,9 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsTool = defineMcpToo
 
 export const retryInfrastructureProvisioningTool = defineMcpTool({
   contract: retryInfrastructureProvisioningContract,
+  args: retryInfrastructureProvisioningContract.args,
   successFields: {},
   run: async (ctx, args) => {
-    await requireMcpVaultOrganization(ctx, args);
     await retryInfrastructureProvisioningForUser(ctx, args);
     return { text: "Started retry_infrastructure_provisioning run." };
   },

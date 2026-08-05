@@ -8,6 +8,7 @@ import { vGitHubOwnerType, vOrganizationMembershipRole } from "./organizationMod
 const { boolean, id, object, string } = v;
 
 const vOrganizationSummary = object({
+  canCreateRepository: boolean(),
   organizationId: id("organizations"),
   githubOwnerId: string(),
   githubOwnerType: vGitHubOwnerType,
@@ -39,6 +40,10 @@ export const listForViewer = query({
   returns: v.array(vOrganizationSummary),
   handler: async (ctx) => {
     const organizations = [];
+    const githubUserAuthorization = await ctx.db
+      .query("githubUserAuthorizations")
+      .withIndex("by_user", (query) => query.eq("userId", ctx.viewer.userId))
+      .unique();
 
     for await (const membership of ctx.db
       .query("organizationMemberships")
@@ -49,6 +54,9 @@ export const listForViewer = query({
       }
 
       organizations.push({
+        canCreateRepository:
+          organization.githubOwnerType === "organization" ||
+          githubUserAuthorization?.githubUserId === organization.githubOwnerId,
         organizationId: organization._id,
         githubOwnerId: organization.githubOwnerId,
         githubOwnerType: organization.githubOwnerType,

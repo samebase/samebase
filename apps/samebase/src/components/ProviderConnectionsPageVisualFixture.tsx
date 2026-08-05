@@ -177,6 +177,7 @@ export function ProviderConnectionsPageVisualFixture() {
       githubAppSetupError={null}
       githubOwners={[
         {
+          canCreateRepository: true,
           githubOwnerId: "456",
           githubOwnerLogin: "samebase",
           githubOwnerType: "organization",
@@ -195,9 +196,7 @@ export function ProviderConnectionsPageVisualFixture() {
           clientName: "Codex",
           createdAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW - 10 * 24 * 60 * 60_000,
           grantId: "mcpg_codex_local_fixture",
-          githubOwnerLogin: "samebase",
           lastUsedAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW - 2 * 60_000,
-          organizationId: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_ORGANIZATION_ID,
           resource: "https://api.samebase.com/mcp",
           scopes: ["access_dashboard"],
         },
@@ -205,8 +204,6 @@ export function ProviderConnectionsPageVisualFixture() {
           clientId: "mcpc_cli_local_fixture",
           createdAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW - 24 * 60 * 60_000,
           grantId: "mcpg_cli_local_fixture",
-          githubOwnerLogin: "samebase",
-          organizationId: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_ORGANIZATION_ID,
           resource: "https://api.samebase.com/mcp",
           scopes: ["access_dashboard"],
         },

@@ -112,7 +112,8 @@ async function loadCatalog(): Promise<LoadedCatalog> {
       ) {
         throw new Error(`Contract ${contract.mcp.name} lost its raw shape during load.`);
       }
-      const converted = convertArgs(rawContract.args, rawContract.mcp.inputDescriptions);
+      const rawMcpArgs = isObject(rawContract.mcpArgs) ? rawContract.mcpArgs : rawContract.args;
+      const converted = convertArgs(rawMcpArgs, rawContract.mcp.inputDescriptions);
       const [schemaIsValid, schema] = toolJsonSchema(converted);
       if (!schemaIsValid || !isObject(converted) || !isObject(converted.properties)) {
         throw new Error(`Tool input schema for ${contract.mcp.name} has an unexpected shape.`);

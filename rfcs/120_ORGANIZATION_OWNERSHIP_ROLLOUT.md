@@ -6,10 +6,11 @@
 - Owner: Samebase backend
 - Last updated: 2026-08-05
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
-- Replacement branch: `codex-live-github-app-organizations`
+- Replacement branch: `codex-github-app-organizations`
 - Replacement PR: [#1367](https://github.com/samebase/samebase/pull/1367)
 - Superseded draft: [#1355](https://github.com/samebase/samebase/pull/1355)
-- Current checkpoint: Focused post-review corrections in progress before production cutover
+- Current checkpoint: Focused post-review corrections complete; final manual validation and
+  production cutover remain
 
 ## Purpose
 
@@ -241,13 +242,14 @@ Clear `observations_vaultConvexSchema_snapshots` before deploying the schema tha
 
 ## Current Blockers
 
-- Focused GitHub first-claim, personal-owner, MCP simplification, operator-recovery, and privacy
-  corrections remain before the production cutover.
+- Repeat the realistic organization and MCP flows on the corrected model before the production
+  cutover.
 - Production GitHub App secrets block production deployment only.
-- Webhook setup is deferred until the main installation and repository flows work.
+
+Webhook setup is deferred until the main installation and repository flows work. It is not a release
+blocker for this rollout.
 
 ## Next Exact Task
 
-Finish the focused review corrections and repeat the realistic manual organization flows. Then
-generate and configure the production GitHub App secrets and perform the accepted pre-beta
-product-data reset.
+Repeat the realistic manual organization and MCP flows. Then generate and configure the production
+GitHub App secrets and perform the accepted pre-beta product-data reset.

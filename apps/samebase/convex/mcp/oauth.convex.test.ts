@@ -26,12 +26,11 @@ const inactiveGrantError = {
   errorDescription: "Grant is no longer active.",
 };
 
-function successfulExchange(userId: Id<"users">, organizationId: Id<"organizations">) {
+function successfulExchange(userId: Id<"users">) {
   return {
     ok: true,
     grantId,
     userId,
-    organizationId,
     clientId,
     scope,
     resource,
@@ -46,18 +45,6 @@ async function seedRefreshTokenFamily() {
       email: "refresh-replay@example.test",
       isApproved: true,
       name: "Refresh Replay User",
-    });
-    const organizationId = await ctx.db.insert("organizations", {
-      githubInstallationId: "refresh_replay_installation",
-      githubOwnerId: "refresh_replay_owner",
-      githubOwnerLogin: "refresh-replay-owner",
-      githubOwnerLoginNormalized: "refresh-replay-owner",
-      githubOwnerType: "organization",
-    });
-    await ctx.db.insert("organizationMemberships", {
-      organizationId,
-      userId: seededUserId,
-      role: "owner",
     });
     await ctx.db.insert("mcpOauthClients", {
       clientId,
@@ -75,7 +62,6 @@ async function seedRefreshTokenFamily() {
     await ctx.db.insert("mcpGrants", {
       grantId,
       userId: seededUserId,
-      organizationId,
       clientId,
       resource,
       scope,
@@ -92,7 +78,7 @@ async function seedRefreshTokenFamily() {
       createdAt: now,
       expiresAt: now + 60_000,
     });
-    return { organizationId, userId: seededUserId };
+    return { userId: seededUserId };
   });
 
   const exchange = async (args: {
@@ -164,7 +150,7 @@ async function seedRefreshTokenFamily() {
 
 describe("MCP OAuth refresh token replay", () => {
   it("revokes the grant once without walking the replacement chain", async () => {
-    const { exchange, organizationId, readContainmentState, readDatabaseState, userId } =
+    const { exchange, readContainmentState, readDatabaseState, userId } =
       await seedRefreshTokenFamily();
 
     await expect(
@@ -174,7 +160,7 @@ describe("MCP OAuth refresh token replay", () => {
         accessTokenHash: "access_hash_1",
         now: now + 1,
       }),
-    ).resolves.toEqual(successfulExchange(userId, organizationId));
+    ).resolves.toEqual(successfulExchange(userId));
     await expect(
       exchange({
         refreshTokenHash: "refresh_hash_descendant_1",
@@ -182,7 +168,7 @@ describe("MCP OAuth refresh token replay", () => {
         accessTokenHash: "access_hash_2",
         now: now + 2,
       }),
-    ).resolves.toEqual(successfulExchange(userId, organizationId));
+    ).resolves.toEqual(successfulExchange(userId));
 
     await expect(
       exchange({
@@ -290,7 +276,7 @@ describe("MCP OAuth authorization request boundaries", () => {
 
   it("applies the same pending request checks before approval and denial", async () => {
     const t = makeConvexTest();
-    const { organizationId, otherUserId, ownerUserId } = await t.run(async (ctx) => {
+    const { otherUserId, ownerUserId } = await t.run(async (ctx) => {
       const ownerUserId = await ctx.db.insert("users", {
         email: "authorization-owner@example.test",
         isApproved: true,
@@ -299,19 +285,6 @@ describe("MCP OAuth authorization request boundaries", () => {
         email: "authorization-other@example.test",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {
-        githubInstallationId: "authorization_boundary_installation",
-        githubOwnerId: "authorization_boundary_owner",
-        githubOwnerLogin: "authorization-boundary-owner",
-        githubOwnerLoginNormalized: "authorization-boundary-owner",
-        githubOwnerType: "organization",
-      });
-      await ctx.db.insert("organizationMemberships", {
-        organizationId,
-        userId: ownerUserId,
-        role: "owner",
-      });
-
       for (const operation of ["issue", "deny"] as const) {
         const sharedRequest = {
           clientId,
@@ -343,14 +316,13 @@ describe("MCP OAuth authorization request boundaries", () => {
         });
       }
 
-      return { organizationId, otherUserId, ownerUserId };
+      return { otherUserId, ownerUserId };
     });
 
     const issue = async (requestId: string, userId: Id<"users">, invokedAt: number) => {
       return await t.mutation(internal.mcp.oauth.issueAuthorizationCodeForAuthRequest, {
         requestId,
         userId,
-        organizationId,
         codeHash: `${requestId}_code_hash`,
         codeExpiresAt: invokedAt + 60_000,
         now: invokedAt,
@@ -511,13 +483,6 @@ describe("MCP OAuth account deletion access", () => {
         email: "missing-code-owner@example.test",
         isApproved: true,
       });
-      const organizationId = await ctx.db.insert("organizations", {
-        githubInstallationId: "deleting_code_installation",
-        githubOwnerId: "deleting_code_owner",
-        githubOwnerLogin: "deleting-code-owner",
-        githubOwnerLoginNormalized: "deleting-code-owner",
-        githubOwnerType: "organization",
-      });
       const initiatingSessionId = await ctx.db.insert("authSessions", {
         userId: deletingUserId,
         expirationTime: now + 60_000,
@@ -576,7 +541,7 @@ describe("MCP OAuth account deletion access", () => {
         });
       }
       await ctx.db.delete(missingUserId);
-      return { deletingUserId, missingUserId, organizationId };
+      return { deletingUserId, missingUserId };
     });
 
     const readIssuanceState = async () => {
@@ -597,7 +562,6 @@ describe("MCP OAuth account deletion access", () => {
         t.mutation(internal.mcp.oauth.issueAuthorizationCodeForAuthRequest, {
           requestId: request.requestId,
           userId: request.userId,
-          organizationId: ids.organizationId,
           codeHash: `${request.requestId}_code_hash`,
           codeExpiresAt: now + 60_000,
           now: now + 1,
@@ -616,13 +580,6 @@ describe("MCP OAuth account deletion access", () => {
       const userId = await ctx.db.insert("users", {
         email: "deleting-mcp@example.test",
         isApproved: true,
-      });
-      const organizationId = await ctx.db.insert("organizations", {
-        githubInstallationId: "deleting_mcp_installation",
-        githubOwnerId: "deleting_mcp_owner",
-        githubOwnerLogin: "deleting-mcp-owner",
-        githubOwnerLoginNormalized: "deleting-mcp-owner",
-        githubOwnerType: "organization",
       });
       const initiatingSessionId = await ctx.db.insert("authSessions", {
         userId,
@@ -677,7 +634,6 @@ describe("MCP OAuth account deletion access", () => {
       await ctx.db.insert("mcpGrants", {
         grantId,
         userId,
-        organizationId,
         clientId,
         resource,
         scope,

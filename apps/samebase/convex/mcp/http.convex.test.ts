@@ -29,21 +29,7 @@ describe("MCP HTTP tool invocation args", () => {
         email: "argument@example.com",
         isApproved: true,
       });
-      const tokenOrganizationId = await ctx.db.insert("organizations", {
-        githubInstallationId: "token_installation",
-        githubOwnerId: "token_owner",
-        githubOwnerLogin: "token-owner",
-        githubOwnerLoginNormalized: "token-owner",
-        githubOwnerType: "organization",
-      });
-      const argumentOrganizationId = await ctx.db.insert("organizations", {
-        githubInstallationId: "argument_installation",
-        githubOwnerId: "argument_owner",
-        githubOwnerLogin: "argument-owner",
-        githubOwnerLoginNormalized: "argument-owner",
-        githubOwnerType: "organization",
-      });
-      return { argumentOrganizationId, argumentUserId, tokenOrganizationId, tokenUserId };
+      return { argumentUserId, tokenUserId };
     });
     const viewer = await t.query(internal.functions.resolveViewerForUserId, {
       userId: ids.tokenUserId,
@@ -52,30 +38,25 @@ describe("MCP HTTP tool invocation args", () => {
     const toolArgs = buildMcpToolInvocationArgs({
       input: {
         name: "test-app",
-        owner: "samebase",
+        githubOwnerLogin: "samebase",
         convexProjectName: "test-app",
         cloudflareWorkerName: "test-app",
         userId: ids.argumentUserId,
         grantedScopes: ["access_app_create"],
         grantId: "raw_grant",
         clientId: "raw_client",
-        organizationId: ids.argumentOrganizationId,
       },
       userId: ids.tokenUserId,
-      organizationId: ids.tokenOrganizationId,
       grantedScopes: [],
-      grantId: "trusted_grant",
-      clientId: "trusted_client",
       viewer,
     });
 
     expect(toolArgs).toMatchObject({
       name: "test-app",
-      owner: "samebase",
+      githubOwnerLogin: "samebase",
       convexProjectName: "test-app",
       cloudflareWorkerName: "test-app",
       userId: ids.tokenUserId,
-      organizationId: ids.tokenOrganizationId,
       grantedScopes: [],
     });
     expect(isRecord(toolArgs) && "grantId" in toolArgs).toBe(false);
@@ -143,7 +124,7 @@ describe("MCP tool listing access", () => {
     );
   });
 
-  it("keeps the grant organization out of MCP tool input schemas", () => {
+  it("uses resource ids or GitHub owner names instead of Samebase organization ids", () => {
     const tools = listMcpToolsForAccess({
       grantedScopes: ["access_app_create", "access_repo_connect"],
       currentAccessKeys: ["access_app_create", "access_repo_connect"],
@@ -153,6 +134,12 @@ describe("MCP tool listing access", () => {
       expect(tool.inputSchema.properties).not.toHaveProperty("organizationId");
       expect(tool.inputSchema.required ?? []).not.toContain("organizationId");
     }
+    expect(tools.find((tool) => tool.name === "vault_actions_createRepository")).toMatchObject({
+      inputSchema: {
+        properties: { githubOwnerLogin: { type: "string" } },
+        required: expect.arrayContaining(["githubOwnerLogin"]),
+      },
+    });
   });
 
   it("publishes human titles and structured output schemas", () => {
@@ -316,7 +303,6 @@ describe("MCP tools/call access enforcement", () => {
       await ctx.db.insert("mcpGrants", {
         grantId: "grant_test",
         userId: seededUserId,
-        organizationId,
         clientId: "client_test",
         resource,
         scope,
@@ -382,7 +368,7 @@ describe("MCP tools/call access enforcement", () => {
     await expect(response.json()).resolves.toMatchObject({
       result: {
         instructions: expect.stringMatching(
-          /^Samebase is only for repository-backed apps.*Never use Samebase for unrelated Git work or standalone provider resources[\s\S]*For managed app creation, use only this closed sequence: read vault_dashboard_getUserVaults, call vault_actions_createRepository directly, then poll vault_dashboard_getUserVaults\. Do not call vault_cloudflare_listAccounts first\.[\s\S]*A started provisioning run, requested build, or successful Git push is not proof of a successful deployment\./,
+          /^Samebase is only for repository-backed apps.*The MCP acts as the authenticated Samebase account across every organization that the account can currently access\..*Never request or send an opaque Samebase organization ID\.[\s\S]*call vault_actions_createRepository directly with the human GitHub owner login[\s\S]*A started provisioning run, requested build, or successful Git push is not proof of a successful deployment\./,
         ),
         serverInfo: {
           name: "Samebase",

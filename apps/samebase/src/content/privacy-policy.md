@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: July 28, 2026
+Last updated: August 5, 2026
 
 This Privacy Policy explains how Samebase handles information when you use samebase.com, the
 Samebase web app, the Samebase remote MCP server, or a published Samebase agent plugin.
@@ -163,10 +163,14 @@ revocation is required.
 You can delete a vault from the dashboard. Samebase can also remove related GitHub, Convex, and
 Cloudflare resources when the deletion options and resource ownership allow it.
 
-You can delete your account from Settings. Account deletion locks the account, cancels an active
-Samebase subscription, removes Samebase account, authentication, workspace, stored credential, MCP,
-and related product data, and keeps a scrubbed operation receipt without your email address or user
-ID.
+You can delete your account from Settings. Account deletion locks and removes your Samebase account,
+authentication data, personal settings, organization memberships, MCP authorization, GitHub user
+authorization, and provider connections that you added. Samebase keeps a scrubbed deletion receipt
+without your email address or an active account link.
+
+Account deletion does not cancel an organization subscription or delete shared organization data.
+Organizations, billing records, vaults, staged changes, and shared workflow history remain for other
+members.
 
 Account deletion does not delete external repositories, projects, deployments, Workers, domains, or
 other provider resources. Convex OAuth credentials stored by Samebase are deleted, but existing
