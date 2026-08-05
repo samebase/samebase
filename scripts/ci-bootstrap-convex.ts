@@ -80,6 +80,12 @@ async function main(): Promise<void> {
     for (const [key, value] of [
       ...buildConvexAuthEnvEntries(),
       ["CONVEX_AGENT_MODE", "anonymous"],
+      ["GITHUB_APP_CLIENT_ID", "ci-placeholder"],
+      ["GITHUB_APP_CLIENT_SECRET", "ci-placeholder"],
+      ["GITHUB_APP_ID", "1"],
+      ["GITHUB_APP_OAUTH_CALLBACK_URL", "https://example.com/github/callback"],
+      ["GITHUB_APP_PRIVATE_KEY", "ci-placeholder"],
+      ["GITHUB_APP_SLUG", "samebase-ci"],
       ["PROVIDER_GITHUB_OAUTH_CLIENT_ID", "ci-placeholder"],
       ["PROVIDER_GITHUB_OAUTH_CLIENT_SECRET", "ci-placeholder"],
       ["PROVIDER_GITHUB_OAUTH_REDIRECT_URL", "https://example.com/oauth/github/callback"],
