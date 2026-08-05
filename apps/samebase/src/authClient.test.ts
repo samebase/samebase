@@ -46,7 +46,12 @@ vi.mock("@tanstack/react-router", () => ({
   }),
 }));
 
-import { openAuthPopup, signOutWithAnalytics, useAutoSignIn } from "./authClient";
+import {
+  openAuthPopup,
+  signInWithAgentBrowserHandoffAction,
+  signOutWithAnalytics,
+  useAutoSignIn,
+} from "./authClient";
 
 describe("useAutoSignIn", () => {
   afterEach(() => {
@@ -221,6 +226,32 @@ describe("useAutoSignIn", () => {
 
     expect(replaceStateMock).not.toHaveBeenCalled();
     expect(signInMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts only a completed browser handoff sign-in", async () => {
+    signInMock.mockResolvedValue({ signingIn: true });
+
+    await expect(
+      signInWithAgentBrowserHandoffAction({
+        signIn: signInMock,
+        token: `agbh_${"a".repeat(43)}`,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(signInMock).toHaveBeenCalledWith("agent-browser-handoff", {
+      token: `agbh_${"a".repeat(43)}`,
+    });
+  });
+
+  it("rejects a browser handoff when Convex Auth creates no session", async () => {
+    signInMock.mockResolvedValue({ signingIn: false });
+
+    await expect(
+      signInWithAgentBrowserHandoffAction({
+        signIn: signInMock,
+        token: `agbh_${"a".repeat(43)}`,
+      }),
+    ).rejects.toThrow("Browser handoff is invalid or no longer available.");
   });
 
   it("always signs out even if PostHog reset throws", async () => {

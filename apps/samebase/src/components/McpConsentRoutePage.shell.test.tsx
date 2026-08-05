@@ -156,8 +156,8 @@ describe("McpConsentRoutePage workspace shell", () => {
       requestId: "mcpar_test",
       clientId: "mcpc_test",
       clientName: "Codex",
-      scope: "access_dashboard",
-      scopes: ["access_dashboard"],
+      scope: "access_dashboard access_browser_login_handoff",
+      scopes: ["access_dashboard", "access_browser_login_handoff"],
       resource: "https://api.samebase.test/mcp",
       status: "pending",
       dynamicallyRegistered: true,
@@ -178,6 +178,7 @@ describe("McpConsentRoutePage workspace shell", () => {
     });
 
     expect(rootElement.textContent).toContain("access to your Samebase account");
+    expect(rootElement.textContent).toContain("Open Samebase in a browser as your account");
     expect(rootElement.textContent).not.toContain("Select an organization");
     const approveButton = [...rootElement.querySelectorAll("button")].find(
       (button) => button.textContent === "Approve",

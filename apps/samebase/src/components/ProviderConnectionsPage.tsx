@@ -884,23 +884,21 @@ export function ProviderConnectionsPageView({
                 />
               </div>
               {selectedOrganizationId ? (
-                <>
-                  <ProviderConnectionRows providerRows={providerRows} />
-                  <McpClientGrants
-                    error={mcpGrantError}
-                    grants={mcpGrants}
-                    now={now}
-                    onLoadMore={onLoadMoreMcpGrants}
-                    onRevoke={onRevokeMcpGrant}
-                    paginationStatus={mcpGrantPaginationStatus}
-                    revokingGrantId={revokingMcpGrantId}
-                  />
-                </>
+                <ProviderConnectionRows providerRows={providerRows} />
               ) : (
                 <div className="text-sm text-muted-foreground">Select a GitHub owner.</div>
               )}
             </>
           ) : null}
+          <McpClientGrants
+            error={mcpGrantError}
+            grants={mcpGrants}
+            now={now}
+            onLoadMore={onLoadMoreMcpGrants}
+            onRevoke={onRevokeMcpGrant}
+            paginationStatus={mcpGrantPaginationStatus}
+            revokingGrantId={revokingMcpGrantId}
+          />
         </div>
       </div>
       <VaultDashboardCloudflareAccountDialog

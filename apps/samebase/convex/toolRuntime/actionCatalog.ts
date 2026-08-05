@@ -15,6 +15,7 @@ import {
 import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub";
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
+import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 
 /**
 The one base for operational actions (rfcs/093): every entry is a contract module colocated with
@@ -24,8 +25,8 @@ entries, and the ChatGPT submission file. `id` is the catalog vocabulary in snak
 `mcp.name` is the wire-level MCP tool name.
 
 Order is the presentation order in generated docs: app inventory first, then create/import,
-discovery reads, attach, and repairs. Authentication status is last because it is a diagnostic
-action, not a preflight.
+discovery reads, attach, and repairs. Browser handoff stays near the end, and authentication status
+is last because it is a diagnostic action, not a preflight.
 */
 export const actionContracts = [
   getUserVaultsContract,
@@ -40,6 +41,7 @@ export const actionContracts = [
   cloudflareConfigureWorkersBuildsForGitHubContract,
   cloudflareRotateConvexDeployKeysForWorkersBuildsContract,
   retryInfrastructureProvisioningContract,
+  createBrowserHandoffContract,
   getAuthenticationStatusContract,
 ] as const;
 

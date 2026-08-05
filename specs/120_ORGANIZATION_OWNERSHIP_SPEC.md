@@ -181,8 +181,10 @@ owner without accepting an opaque Samebase organization ID. A new membership bec
 existing MCP grant, and removing a membership removes that organization's access on the next call.
 Revoking the grant removes that MCP client's access for the user.
 
-An MCP grant cannot mint a normal Samebase browser session. Agents that need the web app use the
-normal user login flow outside MCP authorization.
+An MCP grant with the explicit `access_browser_login_handoff` scope can create a short-lived,
+one-time sign-in URL for the grant user. The handoff stores no organization ID or membership
+snapshot. The resulting browser session uses that user's current memberships and roles in the same
+way as any other Samebase session.
 
 ## Billing And Lifecycle
 

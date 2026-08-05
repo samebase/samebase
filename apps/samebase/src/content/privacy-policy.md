@@ -34,7 +34,8 @@ their own privacy terms for the information that they process.
   operational data.
 - MCP and agent-client data. Samebase processes the tool requests and results needed to perform the
   requested action. Samebase stores OAuth client registrations, authorization requests and codes,
-  grants, hashed access-token and refresh-token records, and security or audit events.
+  grants, hashed access-token and refresh-token records, browser-handoff token hashes, and security
+  or audit events.
 - Billing data. If you use a paid plan, Samebase stores the billing provider, plan, status, renewal
   period end, and a Polar external customer ID. Polar can receive your name, email address, plan
   choice, customer ID, and checkout or portal return URLs. Samebase does not store raw payment card
@@ -71,6 +72,9 @@ The client receives tool results that can include:
 - Convex team, project, deployment-location, and connection data
 - provisioning, deletion, and provider status, error messages, and action confirmations
 
+The browser-handoff tool can return a short-lived, one-time Samebase sign-in URL. The URL contains a
+sensitive bearer value. It expires after five minutes and should be opened promptly.
+
 Your agent provider can process and retain prompts, tool arguments, and Samebase tool results under
 its own privacy terms. Deleting your Samebase account does not delete copies that remain in an agent
 client's task or conversation history.
@@ -82,6 +86,8 @@ Samebase does not use your repository or workspace content to train its own AI m
 
 - Local storage can contain Convex Auth access and refresh tokens, sign-in helper state, file-view
   or workspace-shell preferences, and an account-deletion completion capability.
+- Per-tab session storage and browser history state briefly hold a browser-handoff token. The app
+  removes the token from the URL before the app loads and clears the stored value after use.
 - Browser IndexedDB caches some Convex query results under the `convexQueryCache` database. Cached
   results can include workspace data.
 - PostHog can use cookies and local storage for browser identifiers and session state. Sign-in
@@ -152,6 +158,8 @@ The current MCP expiry periods are:
 - access tokens stop working after 1 hour
 - refresh tokens stop working after 30 days
 - provisional client registrations stop working after 7 days
+- browser-handoff links stop working after 5 minutes, and their database rows are scheduled for
+  deletion
 
 Expiry stops a record from being used. It does not always delete the database row. Other expired MCP
 records can remain until account deletion or operational cleanup.
@@ -193,11 +201,12 @@ nicu@samebase.com to request more information about a specific transfer.
 ## Security
 
 Samebase uses HTTPS, access controls, OAuth scopes, and short-lived authorization records. Samebase
-stores MCP authorization codes, access tokens, and refresh tokens as hashes. Input and editor
-masking reduces the content recorded by session replay. No security method can remove all risk.
+stores MCP authorization codes, access tokens, refresh tokens, and browser-handoff token values as
+hashes. Input and editor masking reduces the content recorded by session replay. No security method
+can remove all risk.
 
-Treat provider credentials as sensitive. Do not send credentials or other highly sensitive data
-unless a Samebase feature requires them and you are authorized to use them.
+Treat browser-handoff URLs and provider credentials as sensitive. Do not send credentials or other
+highly sensitive data unless a Samebase feature requires them and you are authorized to use them.
 
 ## Your Rights and Choices
 

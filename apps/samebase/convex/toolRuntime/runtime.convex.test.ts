@@ -185,4 +185,20 @@ describe("MCP tool runtime boundaries", () => {
     });
     expect(result).not.toHaveProperty("structuredContent");
   });
+
+  it("keeps browser handoff behind its dedicated trusted scope", async () => {
+    const { t, userId } = await seedToolRuntimeOwner();
+
+    const result = await t.action(internal.toolRuntime.runtime.createBrowserHandoffTool, {
+      userId,
+      grantId: "grant_1",
+      clientId: "client_1",
+      grantedScopes: [],
+    });
+
+    expect(result).toEqual({
+      status: "blocked",
+      text: "Insufficient scope for create_browser_handoff.",
+    });
+  });
 });

@@ -137,6 +137,20 @@ describe("ProviderConnectionsPage", () => {
 
   it("offers GitHub App installation before an organization exists", async () => {
     setProviderQueries([]);
+    testState.mcpGrants = {
+      loadMore: vi.fn(),
+      results: [
+        {
+          clientId: "mcpc_manual_smoke",
+          clientName: "Manual smoke",
+          createdAt: 1,
+          grantId: "mcpg_manual_smoke",
+          resource: "https://api.samebase.com/mcp",
+          scopes: ["access_browser_login_handoff"],
+        },
+      ],
+      status: "Exhausted",
+    };
     const getInstallationUrl = vi.fn(
       async () => "https://github.com/apps/samebase-dev/installations/new",
     );
@@ -150,6 +164,8 @@ describe("ProviderConnectionsPage", () => {
     expect(container.textContent).not.toContain("Convex OAuth");
     expect(container.textContent).not.toContain("Cloudflare OAuth");
     expect(container.textContent).not.toContain("GitHub OAuth");
+    expect(container.textContent).toContain("Manual smoke");
+    expect(container.textContent).toContain("access_browser_login_handoff");
 
     await act(async () => {
       container.querySelector("button")?.click();
@@ -288,6 +304,7 @@ describe("ProviderConnectionsPage", () => {
     expect(markup).toContain("Connected to samebase");
     expect(markup).toContain("Connected (OAuth). Account Samebase Preview.");
     expect(markup).toContain("MCP clients");
+    expect(markup).toContain("access_browser_login_handoff");
     expect(markup).toContain("Install GitHub App");
     expect(markup).not.toContain("GitHub OAuth");
     expect(markup).not.toContain("Reauthorize GitHub");

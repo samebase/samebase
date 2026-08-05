@@ -10,6 +10,7 @@ import { resetSamebasePostHogClient } from "@/lib/posthogClient";
 const POPUP_WATCH_INTERVAL_MS = 500;
 const POPUP_WATCH_TIMEOUT_MS = 120_000;
 type AuthActions = ReturnType<typeof useAuthActions>;
+type SignInAction = AuthActions["signIn"];
 type SignOutAction = AuthActions["signOut"];
 type PostHogResetClient = {
   reset: () => void;
@@ -53,6 +54,16 @@ const isAuthPopupRedirectTo = guard<unknown, string>((value) => {
     return null;
   }
 });
+
+export async function signInWithAgentBrowserHandoffAction(args: {
+  signIn: SignInAction;
+  token: string;
+}): Promise<void> {
+  const result = await args.signIn("agent-browser-handoff", { token: args.token });
+  if (!result.signingIn) {
+    throw new Error("Browser handoff is invalid or no longer available.");
+  }
+}
 
 /**
  * Sign-out should always continue even if PostHog cleanup fails, otherwise a

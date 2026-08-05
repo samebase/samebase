@@ -118,6 +118,14 @@ export const toolJustifications = {
     destructive_justification:
       "Can overwrite existing Workers Builds trigger configuration and rotate or revoke previously recorded Convex deploy keys while repairing the app.",
   },
+  create_browser_handoff: {
+    read_only_justification:
+      "Creates a short-lived Samebase browser sign-in URL for the user behind the current MCP grant and records Samebase audit state.",
+    open_world_justification:
+      "Writes only Samebase-owned handoff state; it does not create, publish, or modify GitHub, Convex, Cloudflare, or other external resources.",
+    destructive_justification:
+      "Consumes the one-time handoff token on redemption or account mismatch; does not delete user data, repositories, deployments, Workers, or provider resources.",
+  },
 } as const satisfies Record<string, ToolJustifications>;
 
 type SubmissionToolName = keyof typeof toolJustifications;
@@ -136,6 +144,7 @@ type SubmissionNegativeTestCase = Omit<SubmissionTestCase, "tools_triggered"> & 
 };
 
 type SubmissionTestCases = readonly [
+  SubmissionTestCase,
   SubmissionTestCase,
   SubmissionTestCase,
   SubmissionTestCase,
@@ -188,6 +197,16 @@ export const testCases = [
     tools_triggered: ["vault_dashboard_getUserVaults", "vault_actions_createRepository"],
     expected_output:
       "Reads inventory, then creates one private repository-backed app without a provider-account preflight. It uses the selected name for the app and its new provider resources. It polls only inventory until source setup is ready or failed. After source setup is ready, it also polls only inventory until provider setup is ready or failed. It reports the repository and final states without treating the initial run IDs as completion.",
+    expected_output_url: null,
+  },
+  {
+    description:
+      "Create a browser handoff for the authenticated reviewer account without changing provider resources.",
+    user_prompt: "Open my Samebase dashboard in the browser.",
+    file_attachment_urls: null,
+    tools_triggered: ["create_browser_handoff"],
+    expected_output:
+      "Creates and presents one short-lived Samebase sign-in URL for the current MCP account. It does not create or modify GitHub, Convex, or Cloudflare resources.",
     expected_output_url: null,
   },
 ] as const satisfies SubmissionTestCases;

@@ -198,7 +198,7 @@ export function ProviderConnectionsPageVisualFixture() {
           grantId: "mcpg_codex_local_fixture",
           lastUsedAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW - 2 * 60_000,
           resource: "https://api.samebase.com/mcp",
-          scopes: ["access_dashboard"],
+          scopes: ["access_dashboard", "access_browser_login_handoff"],
         },
         {
           clientId: "mcpc_cli_local_fixture",

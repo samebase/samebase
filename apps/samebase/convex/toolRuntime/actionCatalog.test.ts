@@ -17,6 +17,7 @@ describe("action catalog presentation order", () => {
       "configure_workers_builds_for_github",
       "rotate_convex_deploy_keys_for_workers_builds",
       "retry_infrastructure_provisioning",
+      "create_browser_handoff",
       "get_authentication_status",
     ]);
   });

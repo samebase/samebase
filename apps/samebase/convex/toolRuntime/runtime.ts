@@ -20,6 +20,8 @@ import {
 import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub";
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
+import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
+import { buildAgentBrowserHandoffUrl } from "../../shared/agentBrowserHandoff";
 import { parseRepositoryFullName } from "../vault/model";
 import type { AccessKey } from "../../shared/accessModel";
 import {
@@ -28,6 +30,11 @@ import {
   retryInfrastructureProvisioningForUser,
 } from "../vault/actions";
 import { attachExistingProjectsForUser, discoverProjectsForUser } from "../vault/convex";
+import {
+  AGENT_BROWSER_HANDOFF_TTL_MS,
+  createAgentBrowserHandoffTokenValue,
+  sha256Hex,
+} from "../mcp/tokens";
 import {
   attachExistingCloudflareWorkersForUser,
   createWorkerForUser,
@@ -306,5 +313,87 @@ export const retryInfrastructureProvisioningTool = defineMcpTool({
   run: async (ctx, args) => {
     await retryInfrastructureProvisioningForUser(ctx, args);
     return { text: "Started retry_infrastructure_provisioning run." };
+  },
+});
+
+const vCreateBrowserHandoffToolResult = union(
+  object({
+    status: literal("ok"),
+    text: string(),
+    structuredContent: createBrowserHandoffContract.structuredContent,
+  }),
+  vToolFailure,
+);
+type CreateBrowserHandoffToolResult = Infer<typeof vCreateBrowserHandoffToolResult>;
+
+export const createBrowserHandoffTool = internalAction({
+  args: object({
+    userId: id("users"),
+    grantId: string(),
+    clientId: string(),
+    grantedScopes: array(string()),
+    ...createBrowserHandoffContract.args,
+  }),
+  returns: vCreateBrowserHandoffToolResult,
+  handler: async (ctx, args): Promise<CreateBrowserHandoffToolResult> => {
+    if (!args.grantedScopes.includes(createBrowserHandoffContract.access)) {
+      return {
+        status: "blocked",
+        text: `Insufficient scope for ${createBrowserHandoffContract.mcp.name}.`,
+      };
+    }
+
+    const siteUrl = process.env.SITE_URL;
+    if (!siteUrl) {
+      return {
+        status: "error",
+        text: "SITE_URL must be configured to create browser handoff URLs.",
+      };
+    }
+
+    const now = Date.now();
+    const expiresAt = now + AGENT_BROWSER_HANDOFF_TTL_MS;
+    const token = createAgentBrowserHandoffTokenValue();
+    const tokenHash = await sha256Hex(token);
+    let url: string;
+    try {
+      url = buildAgentBrowserHandoffUrl({
+        returnToPath: args.returnToPath,
+        siteUrl,
+        token,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Invalid SITE_URL.";
+      return {
+        status: "error",
+        text: message,
+      };
+    }
+
+    const result = await ctx.runMutation(internal.agentBrowserHandoff.createForMcp, {
+      tokenHash,
+      userId: args.userId,
+      grantId: args.grantId,
+      clientId: args.clientId,
+      createdAt: now,
+      expiresAt,
+    });
+
+    if (!result.ok) {
+      return {
+        status: "error",
+        text: `Could not create browser handoff: ${result.reason}.`,
+      };
+    }
+
+    const structuredContent = {
+      url,
+      expiresAt,
+    };
+    return {
+      status: "ok",
+      text: JSON.stringify(structuredContent, null, 2),
+      structuredContent,
+    };
   },
 });

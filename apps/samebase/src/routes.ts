@@ -10,6 +10,7 @@ import {
 } from "./routeSearch/landingPreview";
 import { LOCAL_STORAGE_ROUTE } from "./lib/localStorageRoute";
 import { NEW_APP_OWNER_ROUTE, NEW_APP_ROUTE } from "./lib/newAppRoute";
+import { AGENT_BROWSER_HANDOFF_ROUTE } from "../shared/agentBrowserHandoff";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 import { PROVIDERS_OWNER_ROUTE, PROVIDERS_ROUTE } from "./lib/providersRoute";
 import { SETTINGS_ROUTE } from "./lib/settingsRoute";
@@ -42,6 +43,7 @@ export const routes = rootRoute("root.tsx", [
   route("/pitch/print", "pitch-print.tsx"),
   route("/pitch/print/mobile", "pitch-print-mobile.tsx"),
   route("/visual-fixture", "visual-fixture.tsx"),
+  route(AGENT_BROWSER_HANDOFF_ROUTE, "agents-connect.tsx"),
   route(MCP_CONSENT_APP_PATH, "mcp-consent.tsx"),
   route("/landing", "landing.tsx"),
   route(DOCS_DO_IT_YOURSELF_ROUTE, "docs-do-it-yourself.tsx"),

@@ -61,7 +61,7 @@ async function seedGrants() {
       grantId: "mcpg_older",
       lastUsedAt: now + 5,
       resource,
-      scope: "access_dashboard",
+      scope: "access_dashboard access_browser_login_handoff",
       status: "active",
       updatedAt: now + 5,
       userId: ownerId,
@@ -132,7 +132,7 @@ describe("MCP grant management", () => {
         grantId: "mcpg_older",
         lastUsedAt: now + 5,
         resource,
-        scopes: ["access_dashboard"],
+        scopes: ["access_dashboard", "access_browser_login_handoff"],
       },
     ]);
     expect(secondPage.isDone).toBe(true);
@@ -187,7 +187,7 @@ describe("MCP grant management", () => {
         expiresAt: now + 60_000,
         grantId: "mcpg_older",
         resource,
-        scope: "access_dashboard",
+        scope: "access_dashboard access_browser_login_handoff",
         tokenHash: "access_hash",
         userId: ids.ownerId,
       });
@@ -198,6 +198,14 @@ describe("MCP grant management", () => {
         grantId: "mcpg_older",
         status: "active",
         tokenHash: "refresh_hash",
+        userId: ids.ownerId,
+      });
+      await ctx.db.insert("mcpBrowserLoginTokens", {
+        clientId: "mcpc_named",
+        createdAt: now,
+        expiresAt: now + 60_000,
+        grantId: "mcpg_older",
+        tokenHash: "handoff_hash",
         userId: ids.ownerId,
       });
     });
@@ -231,5 +239,11 @@ describe("MCP grant management", () => {
       ok: false,
       status: 400,
     });
+    await expect(
+      t.mutation(internal.agentBrowserHandoff.redeemForAuth, {
+        now: now + 1,
+        tokenHash: "handoff_hash",
+      }),
+    ).resolves.toEqual({ ok: false, reason: "grant_inactive" });
   });
 });

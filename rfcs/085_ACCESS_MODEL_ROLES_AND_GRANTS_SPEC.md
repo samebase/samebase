@@ -40,12 +40,13 @@ resolution, role management, audit, or admin/debug surfaces should prefer `acces
 
 Member MVP: `role_member` holds `access_public`, `access_account_deletion`,
 `access_user_preferences`, `access_dashboard`, `access_provider_connections`, `access_repo_connect`,
-`access_app_create`, `access_app_refresh`, `access_mcp`, and `access_schema_graph`. Members can sign
-in, persist signed-in app-shell preferences, connect provider accounts, connect/import their own
-repositories, create Samebase-managed apps after provider-readiness checks pass, monitor/resync app
-state, inspect embedded deployment data, and inspect schema graphs behind per-vault ownership
-checks. File viewing, file editing, and admin surfaces stay staff-only until deliberately opened.
-Enabling more later is a grant edit plus route/function reclassification, not a redesign.
+`access_app_create`, `access_app_refresh`, `access_mcp`, `access_browser_login_handoff`, and
+`access_schema_graph`. Members can sign in, persist signed-in app-shell preferences, connect
+provider accounts, connect/import their own repositories, create Samebase-managed apps after
+provider-readiness checks pass, monitor/resync app state, inspect embedded deployment data, and
+inspect schema graphs behind per-vault ownership checks. File viewing, file editing, and admin
+surfaces stay staff-only until deliberately opened. Enabling more later is a grant edit plus
+route/function reclassification, not a redesign.
 
 This RFC also closes the approval enforcement gap that existed before the backend wrapper rollout:
 `users.isApproved` was enforced only by the client-side `ApprovalGate`, so backend enforcement

@@ -40,6 +40,7 @@ import {
 import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub";
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
+import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 import { canAccess, type AccessKey } from "../../shared/accessModel";
 import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
@@ -92,6 +93,8 @@ async function readMcpViewer(ctx: ActionCtx, userId: Id<"users">) {
 type McpResolvedViewer = Awaited<ReturnType<typeof readMcpViewer>>;
 
 export type McpToolInvocation = {
+  clientId: string;
+  grantId: string;
   input: JsonRecord;
   userId: Id<"users">;
   grantedScopes: string[];
@@ -174,6 +177,17 @@ function createMcpRuntimeToolCall<
     );
 }
 
+async function callCreateBrowserHandoffMcpTool(
+  ctx: ActionCtx,
+  invocation: McpToolInvocation,
+): Promise<McpToolResult> {
+  return await ctx.runAction(internal.toolRuntime.runtime.createBrowserHandoffTool, {
+    ...buildMcpToolInvocationArgs(invocation),
+    grantId: invocation.grantId,
+    clientId: invocation.clientId,
+  });
+}
+
 const mcpToolCalls: Record<ActionContractMcpName, McpToolCall> = {
   [getUserVaultsContract.mcp.name]: createMcpRuntimeToolCall(
     internal.toolRuntime.runtime.getUserVaultsTool,
@@ -211,6 +225,7 @@ const mcpToolCalls: Record<ActionContractMcpName, McpToolCall> = {
   [retryInfrastructureProvisioningContract.mcp.name]: createMcpRuntimeToolCall(
     internal.toolRuntime.runtime.retryInfrastructureProvisioningTool,
   ),
+  [createBrowserHandoffContract.mcp.name]: callCreateBrowserHandoffMcpTool,
   [getAuthenticationStatusContract.mcp.name]: callGetAuthenticationStatusMcpTool,
 };
 
@@ -931,6 +946,8 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
 
     try {
       const result = await tool.call(ctx, {
+        clientId: tokenValidation.clientId,
+        grantId: tokenValidation.grantId,
         input,
         userId: tokenValidation.userId,
         grantedScopes,

@@ -122,7 +122,11 @@ Status: Complete on the replacement branch
 - Rejected user-owned, GitHub-provider, compatibility, and broad stale test code is removed.
 - Full TypeScript validation and the focused organization test set pass.
 - The implementation diff removes substantially more code than it adds.
-- MCP grants do not expose the browser handoff tool.
+- MCP grants are user-wide and can expose browser handoff only through the explicit
+  `access_browser_login_handoff` scope. The handoff creates a session for the grant user and stores
+  no organization identity.
+- The focused browser-handoff suite passes with 178 tests across 16 files. The provider-page,
+  handoff-route, and trusted MCP request-boundary follow-up passes with 28 tests across three files.
 - Development data reset complete. Later Google sign-in checks left six test users: four approved
   accounts and two pending accounts. Disposable product data was rebuilt from the final model.
 - The real two-user flow passed with GitHub App, Convex OAuth, and Cloudflare OAuth credentials.
@@ -214,6 +218,11 @@ Status: Complete on the replacement branch
   grant called `vault_dashboard_getUserVaults` and returned seven vaults across the `samebase` and
   `nicu-typescript` memberships. This confirms that the grant represents the Samebase user and that
   inventory uses all current memberships.
+- A real local MCP OAuth flow requested the explicit browser-handoff scope. One link opened `/vault`
+  for the grant user, a replay of that link failed, and a second link signed the same browser in
+  after a full sign-out. The resulting session saw vaults across the user's current memberships.
+  `/providers` showed the user-wide MCP grant before an owner was selected, and the temporary grant
+  was revoked after the check.
 - Temporary password sign-in and MCP OAuth data used for this development check were disabled or
   cleared after validation.
 

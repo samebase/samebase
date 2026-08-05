@@ -1,4 +1,5 @@
 export const ACCESS_APP_CREATE = "access_app_create";
+export const ACCESS_BROWSER_LOGIN_HANDOFF = "access_browser_login_handoff";
 export const ACCESS_ACCOUNT_DELETION = "access_account_deletion";
 
 export const ACCESS_KEYS = [
@@ -13,6 +14,7 @@ export const ACCESS_KEYS = [
   "access_files_read",
   "access_files_write",
   "access_mcp",
+  ACCESS_BROWSER_LOGIN_HANDOFF,
   "access_schema_graph",
   "access_admin",
 ] as const;
@@ -45,6 +47,7 @@ export const ROLE_ACCESS_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
     ACCESS_APP_CREATE,
     "access_app_refresh",
     "access_mcp",
+    ACCESS_BROWSER_LOGIN_HANDOFF,
     "access_schema_graph",
   ],
   role_staff: ACCESS_KEYS,

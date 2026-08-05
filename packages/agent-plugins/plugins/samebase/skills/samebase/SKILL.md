@@ -2,8 +2,8 @@
 name: samebase
 description:
   Build, connect, change, publish, or operate Samebase web apps through GitHub, Convex, and
-  Cloudflare. Use for Samebase app inventory, provisioning, provider attachment, repair, repository
-  work, deployment checks, logs, environment values, migrations, and domains.
+  Cloudflare. Use for Samebase app inventory, provisioning, provider attachment, repair, browser
+  handoff, repository work, deployment checks, logs, environment values, migrations, and domains.
 ---
 
 # Samebase
@@ -14,7 +14,7 @@ description:
 - Do not use Samebase for unrelated Git work or standalone provider resources. A standalone
   Cloudflare Worker means no Samebase.
 - For a deletion request, direct the user to the Samebase dashboard. Do not call any Samebase or
-  provider tool, and do not delete attached resources.
+  provider tool, including app inventory and browser handoff, and do not delete attached resources.
 
 Use Samebase for repository-backed apps and work that joins GitHub, Convex, and Cloudflare.
 
@@ -24,9 +24,11 @@ Choose the route from the user request before you read live tool descriptions. D
 actions. Each action reports missing authentication itself.
 
 - For an app-inventory request, call only the Samebase app inventory. Do not call authentication
-  status as a preflight.
+  status or browser handoff as a preflight.
 - For a Cloudflare account-list request, call only the Cloudflare account list. Do not call app
-  inventory or authentication status as a preflight.
+  inventory, authentication status, or browser handoff as a preflight.
+- For a dashboard request, call only browser handoff. Do not call app inventory or authentication
+  status as a preflight.
 - Use authentication status only when the user asks about authentication or after an action reports
   missing authentication.
 - For a new app, use only this closed flow:
@@ -34,10 +36,10 @@ actions. Each action reports missing authentication itself.
   2. Create the app.
   3. Read only the inventory until source setup is `ready` or `failed`.
   4. If source setup is ready, separately read only the inventory until provider setup is `ready` or
-     `failed`. Authentication-status and provider-account reads are not part of this flow. The
-     complete sequence contains only inventory, create, and inventory polls. Call create directly
-     after inventory. Do not list Cloudflare accounts first. Create has no `accountId` and uses the
-     connected Cloudflare provider.
+     `failed`. Authentication-status, browser-handoff, and provider-account reads are not part of
+     this flow. The complete sequence contains only inventory, create, and inventory polls. Call
+     create directly after inventory. Do not list Cloudflare accounts first. Create has no
+     `accountId` and uses the connected Cloudflare provider.
 
 After you select the route, use live tool descriptions only for the exact tool name and arguments.
 Match an inventory `nextAction` to its action contract at

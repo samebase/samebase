@@ -21,6 +21,7 @@ describe("buildMcpProtectedResourceMetadata", () => {
       "access_app_create",
       "access_repo_connect",
       "access_provider_connections",
+      "access_browser_login_handoff",
     ]);
   });
 });

@@ -1,3 +1,17 @@
+/agents/connect
+  Cache-Control: no-store
+  Content-Security-Policy: frame-ancestors 'none'
+  Referrer-Policy: no-referrer
+  X-Frame-Options: DENY
+  X-Robots-Tag: noindex, nofollow
+
+/agents/connect/
+  Cache-Control: no-store
+  Content-Security-Policy: frame-ancestors 'none'
+  Referrer-Policy: no-referrer
+  X-Frame-Options: DENY
+  X-Robots-Tag: noindex, nofollow
+
 /oauth/mcp/consent
   Cache-Control: no-store
   Content-Security-Policy: frame-ancestors 'none'

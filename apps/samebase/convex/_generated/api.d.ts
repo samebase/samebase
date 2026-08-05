@@ -17,6 +17,8 @@ import type * as accountDeletion_model from "../accountDeletion/model.js";
 import type * as accountDeletion_providerActions from "../accountDeletion/providerActions.js";
 import type * as accountDeletion_stepContext from "../accountDeletion/stepContext.js";
 import type * as accountDeletion_workflow from "../accountDeletion/workflow.js";
+import type * as agentBrowserHandoff from "../agentBrowserHandoff.js";
+import type * as agentBrowserHandoff_contracts_createBrowserHandoff from "../agentBrowserHandoff/contracts/createBrowserHandoff.js";
 import type * as appProvisioningEvents from "../appProvisioningEvents.js";
 import type * as appProvisioningModel from "../appProvisioningModel.js";
 import type * as appProvisioningRuns from "../appProvisioningRuns.js";
@@ -166,6 +168,8 @@ declare const fullApi: ApiFromModules<{
   "accountDeletion/providerActions": typeof accountDeletion_providerActions;
   "accountDeletion/stepContext": typeof accountDeletion_stepContext;
   "accountDeletion/workflow": typeof accountDeletion_workflow;
+  agentBrowserHandoff: typeof agentBrowserHandoff;
+  "agentBrowserHandoff/contracts/createBrowserHandoff": typeof agentBrowserHandoff_contracts_createBrowserHandoff;
   appProvisioningEvents: typeof appProvisioningEvents;
   appProvisioningModel: typeof appProvisioningModel;
   appProvisioningRuns: typeof appProvisioningRuns;

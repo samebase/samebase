@@ -40,6 +40,7 @@ import { Route as docsTheStackRouteImport } from "./routes/docs-the-stack";
 import { Route as docsReceiptsRouteImport } from "./routes/docs-receipts";
 import { Route as docsDoItYourselfRouteImport } from "./routes/docs-do-it-yourself";
 import { Route as connectRepoOwnerRouteImport } from "./routes/connect-repo-owner";
+import { Route as agentsConnectRouteImport } from "./routes/agents-connect";
 import { Route as adminAccountDeletionsRouteImport } from "./routes/admin-account-deletions";
 import { Route as vaultDashboardRootRouteImport } from "./routes/vault-dashboard-root";
 import { Route as vaultDashboardRouteImport } from "./routes/vault-dashboard";
@@ -208,6 +209,11 @@ const connectRepoOwnerRoute = connectRepoOwnerRouteImport.update({
   path: "/connect-repo/$owner",
   getParentRoute: () => rootRouteImport,
 } as any);
+const agentsConnectRoute = agentsConnectRouteImport.update({
+  id: "/agents/connect",
+  path: "/agents/connect",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const adminAccountDeletionsRoute = adminAccountDeletionsRouteImport.update({
   id: "/admin/account-deletions",
   path: "/admin/account-deletions",
@@ -291,6 +297,7 @@ export interface FileRoutesByFullPath {
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault/": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
+  "/agents/connect": typeof agentsConnectRoute;
   "/connect-repo/$owner": typeof connectRepoOwnerRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
@@ -336,6 +343,7 @@ export interface FileRoutesByTo {
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
+  "/agents/connect": typeof agentsConnectRoute;
   "/connect-repo/$owner": typeof connectRepoOwnerRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
@@ -382,6 +390,7 @@ export interface FileRoutesById {
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault/": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
+  "/agents/connect": typeof agentsConnectRoute;
   "/connect-repo/$owner": typeof connectRepoOwnerRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
@@ -429,6 +438,7 @@ export interface FileRouteTypes {
     | "/visual-fixture"
     | "/vault/"
     | "/admin/account-deletions"
+    | "/agents/connect"
     | "/connect-repo/$owner"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
@@ -474,6 +484,7 @@ export interface FileRouteTypes {
     | "/visual-fixture"
     | "/vault"
     | "/admin/account-deletions"
+    | "/agents/connect"
     | "/connect-repo/$owner"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
@@ -519,6 +530,7 @@ export interface FileRouteTypes {
     | "/visual-fixture"
     | "/vault/"
     | "/admin/account-deletions"
+    | "/agents/connect"
     | "/connect-repo/$owner"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
@@ -565,6 +577,7 @@ export interface RootRouteChildren {
   visualFixtureRoute: typeof visualFixtureRoute;
   vaultDashboardRootRoute: typeof vaultDashboardRootRoute;
   adminAccountDeletionsRoute: typeof adminAccountDeletionsRoute;
+  agentsConnectRoute: typeof agentsConnectRoute;
   connectRepoOwnerRoute: typeof connectRepoOwnerRoute;
   docsDoItYourselfRoute: typeof docsDoItYourselfRoute;
   docsReceiptsRoute: typeof docsReceiptsRoute;
@@ -810,6 +823,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof connectRepoOwnerRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/agents/connect": {
+      id: "/agents/connect";
+      path: "/agents/connect";
+      fullPath: "/agents/connect";
+      preLoaderRoute: typeof agentsConnectRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/admin/account-deletions": {
       id: "/admin/account-deletions";
       path: "/admin/account-deletions";
@@ -917,6 +937,7 @@ const rootRouteChildren: RootRouteChildren = {
   visualFixtureRoute: visualFixtureRoute,
   vaultDashboardRootRoute: vaultDashboardRootRoute,
   adminAccountDeletionsRoute: adminAccountDeletionsRoute,
+  agentsConnectRoute: agentsConnectRoute,
   connectRepoOwnerRoute: connectRepoOwnerRoute,
   docsDoItYourselfRoute: docsDoItYourselfRoute,
   docsReceiptsRoute: docsReceiptsRoute,

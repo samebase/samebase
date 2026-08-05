@@ -48,6 +48,8 @@ describe("MCP HTTP tool invocation args", () => {
       },
       userId: ids.tokenUserId,
       grantedScopes: [],
+      grantId: "trusted_grant",
+      clientId: "trusted_client",
       viewer,
     });
 
@@ -246,7 +248,7 @@ describe("MCP tools/call access enforcement", () => {
     expect(header).toContain('resource_metadata="');
     expect(header).toContain('/.well-known/oauth-protected-resource/mcp"');
     expect(header).toContain(
-      'scope="access_dashboard access_app_create access_repo_connect access_provider_connections"',
+      'scope="access_dashboard access_app_create access_repo_connect access_provider_connections access_browser_login_handoff"',
     );
     expect(header).toContain('error="invalid_token"');
     expect(header).toContain(`error_description="${errorDescription}"`);
@@ -444,6 +446,42 @@ describe("MCP tools/call access enforcement", () => {
           },
         ],
       },
+    });
+  });
+
+  it("creates a browser handoff from trusted bearer grant values", async () => {
+    vi.stubEnv("SITE_URL", "https://samebase.com");
+    const { callTool, t, userId } = await seedMcpBearer({
+      isApproved: true,
+      scopes: ["access_browser_login_handoff"],
+    });
+
+    const payload = await callTool("create_browser_handoff", {
+      clientId: "raw_client",
+      grantId: "raw_grant",
+      returnToPath: "/vault/",
+    });
+    expect(payload).toMatchObject({
+      result: {
+        structuredContent: {
+          expiresAt: expect.any(Number),
+          url: expect.stringContaining("https://samebase.com/agents/connect#"),
+        },
+      },
+    });
+
+    const rows = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query("mcpBrowserLoginTokens")
+          .withIndex("by_user_id", (query) => query.eq("userId", userId))
+          .collect(),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      clientId: "client_test",
+      grantId: "grant_test",
+      userId,
     });
   });
 

@@ -8,9 +8,18 @@ import { getRouteApi } from "@tanstack/react-router";
 import { Authenticated, Unauthenticated, useAction, useConvexAuth, useQuery } from "convex/react";
 import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
+import { ACCESS_BROWSER_LOGIN_HANDOFF } from "../../shared/accessModel";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 const mcpConsentRouteApi = getRouteApi(MCP_CONSENT_APP_PATH);
+
+function readMcpConsentScopeLabel(scope: string): string {
+  if (scope === ACCESS_BROWSER_LOGIN_HANDOFF) {
+    return "Open Samebase in a browser as your account";
+  }
+
+  return scope;
+}
 
 function McpConsentView({ requestId }: { requestId: string }) {
   const authorizationRequest = useQuery(api.mcp.oauth.getAuthorizationRequestForCurrentUser, {
@@ -114,7 +123,7 @@ function McpConsentView({ requestId }: { requestId: string }) {
             <div className="font-medium">Requested scopes</div>
             <ul className="mt-1 list-disc pl-5 text-muted-foreground">
               {authorizationRequest.scopes.map((scope) => (
-                <li key={scope}>{scope}</li>
+                <li key={scope}>{readMcpConsentScopeLabel(scope)}</li>
               ))}
             </ul>
           </div>

@@ -9,6 +9,10 @@ import {
 } from "@/routeSearch/landingPreview";
 import { LOCAL_STORAGE_ROUTE } from "./localStorageRoute";
 import { SAMEBASE_BRAND_COPY } from "./samebaseBrandCopy";
+import {
+  AGENT_BROWSER_HANDOFF_ROUTE,
+  isAgentBrowserHandoffRoute,
+} from "../../shared/agentBrowserHandoff";
 
 export type PageMetadata = {
   title: string;
@@ -143,6 +147,14 @@ export const DOCS_PRICING_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
+export const AGENT_BROWSER_HANDOFF_PAGE_METADATA: PageMetadata = {
+  title: "Connect Samebase | Samebase",
+  description: "One-time browser connection route for Samebase MCP clients.",
+  canonicalPath: AGENT_BROWSER_HANDOFF_ROUTE,
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
+
 export function resolveAppPageTitle(pathname: string): string {
   if (pathname === DASHBOARD_ROUTE || pathname === `${DASHBOARD_ROUTE}/`) {
     return "Vaults | Samebase";
@@ -249,6 +261,10 @@ export function resolvePageMetadata(args: {
 
   if (args.pathname === INDEXED_DB_ROUTE) {
     return INDEXED_DB_PAGE_METADATA;
+  }
+
+  if (isAgentBrowserHandoffRoute(args.pathname)) {
+    return AGENT_BROWSER_HANDOFF_PAGE_METADATA;
   }
 
   if (args.pathname === "/") {

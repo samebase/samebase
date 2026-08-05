@@ -1,6 +1,6 @@
 {
   "name": "samebase",
-  "version": "0.2.17",
+  "version": "0.2.18",
   "description": "Build and ship web apps with Samebase through a GitHub repository, Convex backend, and Cloudflare Workers delivery.",
   "author": {
     "name": "Samebase",

@@ -1,6 +1,7 @@
 import Google from "@auth/core/providers/google";
+import { ConvexCredentials } from "@convex-dev/auth/providers/ConvexCredentials";
 import { Password } from "@convex-dev/auth/providers/Password";
-import { convexAuth } from "@convex-dev/auth/server";
+import { convexAuth, getAuthSessionId, getAuthUserId } from "@convex-dev/auth/server";
 import { guard } from "@samebase/dependent/main";
 import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktreePasswordAuth";
 import { buildAuthTokenProfileCustomClaims } from "../shared/authTokenClaims";
@@ -14,6 +15,7 @@ import {
   resolvePasswordAuthMode,
 } from "./deploymentProfile";
 import { buildNewUserNotification } from "./newUserNotification";
+import { isAgentBrowserHandoffTokenValue, sha256Hex } from "./mcp/tokens";
 import { readOptionalEnv } from "./oauthUtils";
 
 const isNonEmptyString = guard<unknown, string>((value) =>
@@ -78,6 +80,34 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     },
   },
   providers: [
+    ConvexCredentials({
+      id: "agent-browser-handoff",
+      authorize: async (params, ctx) => {
+        const rawToken = params.token;
+        if (!isNonEmptyString(rawToken) || !isAgentBrowserHandoffTokenValue(rawToken)) {
+          throw new Error("Browser handoff is invalid or no longer available.");
+        }
+
+        const [currentUserId, currentSessionId] = await Promise.all([
+          getAuthUserId(ctx),
+          getAuthSessionId(ctx),
+        ]);
+        const result = await ctx.runMutation(internal.agentBrowserHandoff.redeemForAuth, {
+          tokenHash: await sha256Hex(rawToken),
+          now: Date.now(),
+          ...(currentUserId !== null ? { currentUserId } : {}),
+          ...(currentSessionId !== null ? { currentSessionId } : {}),
+        });
+        if (!result.ok) {
+          throw new Error("Browser handoff is invalid or no longer available.");
+        }
+
+        return {
+          userId: result.userId,
+          ...(result.sessionId !== undefined ? { sessionId: result.sessionId } : {}),
+        };
+      },
+    }),
     Password({
       profile: (params) => {
         assertPasswordAuthLogLevelAllowed(readOptionalEnv("AUTH_LOG_LEVEL"));
