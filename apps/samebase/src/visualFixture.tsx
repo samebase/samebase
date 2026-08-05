@@ -162,6 +162,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-overview-v2-cloudflare-build-status-unavailable",
   "vault-overview-v2-cloudflare-builds-repair",
   "vault-overview-v2-cloudflare-dialog",
+  "vault-overview-v2-cloudflare-dialog-invalid-name",
   "vault-overview-v2-cloudflare-dialog-loading",
   "vault-overview-v2-convex-dialog",
   "vault-overview-v2-convex-dialog-error",

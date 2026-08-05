@@ -7,7 +7,10 @@ import { Loader2 } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
-import { buildDefaultAppResourceName } from "../../../shared/appResourceNames";
+import {
+  buildDefaultAppResourceName,
+  validateAppResourceName,
+} from "../../../shared/appResourceNames";
 import { AppDialogContent } from "@/components/AppDialogContent";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { Button } from "@/components/ui/button";
@@ -142,6 +145,7 @@ export function VaultCloudflareDialogContent({
         left.workerTag.localeCompare(right.workerTag),
     );
   const selectedAccount = sortedAccounts.find((account) => account.accountId === selectedAccountId);
+  const createWorkerNameValidation = validateAppResourceName(createWorkerName, "cloudflare");
   const submitDisabled =
     Boolean(blockedReason) ||
     isSubmitting ||
@@ -153,7 +157,7 @@ export function VaultCloudflareDialogContent({
           ? selectedWorkerTags.length === 0
           : mode === "connect"
             ? !workerToConnect || !createRootDirectory.trim()
-            : !createWorkerName.trim() || !createRootDirectory.trim()));
+            : !createWorkerNameValidation.valid || !createRootDirectory.trim()));
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
@@ -314,12 +318,29 @@ export function VaultCloudflareDialogContent({
                 </div>
               ) : (
                 <div className="grid gap-3">
-                  <Input
-                    value={createWorkerName}
-                    onChange={(event) => onCreateWorkerNameChange(event.target.value)}
-                    disabled={isSubmitting}
-                    placeholder="Worker name"
-                  />
+                  <div className="grid gap-1.5">
+                    <Input
+                      value={createWorkerName}
+                      onChange={(event) => onCreateWorkerNameChange(event.target.value)}
+                      disabled={isSubmitting}
+                      placeholder="Worker name"
+                      aria-invalid={!createWorkerNameValidation.valid || undefined}
+                      aria-describedby={
+                        createWorkerNameValidation.valid
+                          ? undefined
+                          : "cloudflare-worker-name-error"
+                      }
+                    />
+                    {!createWorkerNameValidation.valid ? (
+                      <p
+                        id="cloudflare-worker-name-error"
+                        role="alert"
+                        className="text-xs text-red-600"
+                      >
+                        {createWorkerNameValidation.message}
+                      </p>
+                    ) : null}
+                  </div>
                   <VaultRepositoryRootInput
                     disabled={isSubmitting}
                     folderSuggestions={folderSuggestions}
@@ -481,11 +502,7 @@ export function VaultCloudflareDialog({
       : defaultSelectedWorkerTags;
   const inventoryState = workersQuery.data?.inventoryState ?? null;
   const resourceQueryError = accountsQuery.error ?? workersQuery.error;
-  const resourceError = resourceQueryError
-    ? resourceQueryError instanceof Error
-      ? resourceQueryError.message
-      : "Could not load Cloudflare resources."
-    : null;
+  const resourceError = resourceQueryError ? "Could not load Cloudflare resources." : null;
   const isLoading =
     !repairWorker &&
     (accountsQuery.isPending || (selectedAccountId !== "" && workersQuery.isPending));
@@ -558,9 +575,7 @@ export function VaultCloudflareDialog({
       setSubmitError(
         error instanceof ConvexError && typeof error.data === "string"
           ? error.data
-          : error instanceof Error
-            ? error.message
-            : "Could not add Cloudflare Workers.",
+          : "Could not add Cloudflare Workers.",
       );
       setIsSubmitting(false);
     }

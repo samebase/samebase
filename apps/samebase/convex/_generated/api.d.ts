@@ -31,6 +31,7 @@ import type * as billingResourceQuotas from "../billingResourceQuotas.js";
 import type * as cloudflareAccountDiscovery from "../cloudflareAccountDiscovery.js";
 import type * as cloudflareApi_client from "../cloudflareApi/client.js";
 import type * as cloudflareApi_fixtures_observedWorkerBuilds from "../cloudflareApi/fixtures/observedWorkerBuilds.js";
+import type * as cloudflareApi_fixtures_observedWorkerErrors from "../cloudflareApi/fixtures/observedWorkerErrors.js";
 import type * as cloudflareMcp from "../cloudflareMcp.js";
 import type * as cloudflareMcpOAuth from "../cloudflareMcpOAuth.js";
 import type * as cloudflareOAuth from "../cloudflareOAuth.js";
@@ -182,6 +183,7 @@ declare const fullApi: ApiFromModules<{
   cloudflareAccountDiscovery: typeof cloudflareAccountDiscovery;
   "cloudflareApi/client": typeof cloudflareApi_client;
   "cloudflareApi/fixtures/observedWorkerBuilds": typeof cloudflareApi_fixtures_observedWorkerBuilds;
+  "cloudflareApi/fixtures/observedWorkerErrors": typeof cloudflareApi_fixtures_observedWorkerErrors;
   cloudflareMcp: typeof cloudflareMcp;
   cloudflareMcpOAuth: typeof cloudflareMcpOAuth;
   cloudflareOAuth: typeof cloudflareOAuth;
