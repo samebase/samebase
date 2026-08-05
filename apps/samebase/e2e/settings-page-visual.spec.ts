@@ -241,8 +241,8 @@ test("Settings link preserves the selected mobile pane", async ({ browser }, tes
     const settingsPage = page.getByTestId("user-settings-page");
     await expect(settingsPage).toBeVisible();
     await expect(settingsPage.getByRole("button", { name: "Sign out" })).toBeVisible();
-    await expect(settingsPage.getByRole("heading", { name: "Billing" })).toBeVisible();
-    await expect(settingsPage.getByRole("button", { name: "Install GitHub App" })).toBeVisible();
+    await expect(settingsPage.getByRole("heading", { name: "Billing" })).toHaveCount(0);
+    await expect(settingsPage.getByRole("button", { name: "Install GitHub App" })).toHaveCount(0);
     await expect(
       settingsPage.getByRole("button", { name: "Upgrade to Pro, $4/month" }),
     ).toHaveCount(0);
@@ -363,6 +363,7 @@ test("pending users save a private display name and refresh prehydration", async
   await expect(page).toHaveURL(/\/settings$/u);
   await expect(page.getByTestId("user-settings-page")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Account access pending" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Install GitHub App" })).toHaveCount(0);
   await expect
     .poll(() => page.evaluate(() => document.documentElement.dataset.settingsNavigation))
     .toBe("spa");

@@ -7,6 +7,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import type { BillingResourceUsage } from "../../convex/billingResourceQuotas";
 import { type AccountPresentation } from "../../shared/accountPresentation";
+import { ACCESS_APP_CREATE } from "../../shared/accessModel";
 import { useAppAuthActions } from "@/authClient";
 import { AccountDeletionDialog } from "@/components/AccountDeletionDialog";
 import { GitHubOwnerSelect } from "@/components/GitHubOwnerSelect";
@@ -64,6 +65,7 @@ export function UserSettingsPage() {
     select: (location) => location.state.settingsDeleteAccountDialog,
   });
   const settings = useQuery(api.users.getUserSettings);
+  const viewerAccess = useQuery(api.users.currentViewerAccess);
   const githubOwners = useQuery(api.organizations.listForViewer);
   const [requestedOrganizationId, setSelectedOrganizationId] = useState<Id<"organizations"> | null>(
     null,
@@ -169,9 +171,12 @@ export function UserSettingsPage() {
     selectedOrganizationId,
   ]);
 
-  if (settings === undefined || githubOwners === undefined) {
+  if (settings === undefined || viewerAccess === undefined || githubOwners === undefined) {
     return null;
   }
+
+  const canInstallGitHubApp = viewerAccess.accessKeys.includes(ACCESS_APP_CREATE);
+  const showBilling = githubOwners.length > 0 || canInstallGitHubApp;
 
   const refreshSession = async (expectedPresentation: AccountPresentation) => {
     const token = await fetchAccessToken({ forceRefreshToken: true });
@@ -465,7 +470,11 @@ export function UserSettingsPage() {
         </form>
       </section>
 
-      <section className="mt-8 border-t pt-6" aria-labelledby="settings-billing-heading">
+      <section
+        className="mt-8 border-t pt-6"
+        aria-labelledby="settings-billing-heading"
+        hidden={!showBilling}
+      >
         <h2 id="settings-billing-heading" className="text-base font-semibold">
           Billing
         </h2>

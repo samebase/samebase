@@ -142,6 +142,10 @@ function createJwt(accountPresentation: AccountPresentation) {
 }
 
 function setDefaultQueries(organizations: unknown[]) {
+  testState.queries.set(getFunctionName(api.users.currentViewerAccess), {
+    accessKeys: ["access_public", "access_user_preferences", "access_app_create"],
+    role: "role_member",
+  });
   testState.queries.set(getFunctionName(api.users.getUserSettings), {
     displayName: "Current name",
     signInEmail: "nicu@samebase.com",
@@ -224,6 +228,23 @@ describe("UserSettingsPage", () => {
     });
 
     expect(getInstallationUrl).toHaveBeenCalledWith({ returnToPath: "/settings" });
+  });
+
+  it("hides billing setup from a pending account", async () => {
+    setDefaultQueries([]);
+    testState.queries.set(getFunctionName(api.users.currentViewerAccess), {
+      accessKeys: ["access_public", "access_account_deletion", "access_user_preferences"],
+      role: "role_pending_access",
+    });
+
+    const container = await mountSettingsPage();
+    const billingSection = [...container.querySelectorAll("section")].find(
+      (section) => section.querySelector("h2")?.textContent === "Billing",
+    );
+
+    expect(container.textContent).toContain("Profile");
+    expect(container.textContent).toContain("Account");
+    expect(billingSection?.hidden).toBe(true);
   });
 
   it("reads and starts billing for the only organization", async () => {
