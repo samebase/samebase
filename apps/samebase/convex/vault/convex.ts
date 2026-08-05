@@ -118,7 +118,10 @@ async function readProviderAttachmentVaultContext(
 ): Promise<ProviderAttachmentVaultContext> {
   return await ctx.runQuery(
     internal.vault.providerObservationQueries.readProviderAttachmentVaultContext,
-    args,
+    {
+      vaultId: args.vaultId,
+      userId: args.userId,
+    },
   );
 }
 
