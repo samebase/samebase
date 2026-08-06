@@ -905,6 +905,7 @@ function buildFixtureWorkspace({
         connected: true,
         accountId: cloudflareAccountId,
         accountName: cloudflareAccountName,
+        authMethod: "oauth",
       },
     },
     cloudflareObservations,

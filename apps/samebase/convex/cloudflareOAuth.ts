@@ -261,7 +261,9 @@ async function buildCloudflareOAuthUrl(
     provider: "cloudflare",
     userId: args.userId,
     organizationId: args.organizationId,
-    providerConnectionId: args.providerConnectionId,
+    ...(args.providerConnectionId !== undefined
+      ? { providerConnectionId: args.providerConnectionId }
+      : {}),
     state,
     createdAt: now,
     expiresAt: now + OAUTH_STATE_TTL_MS,
@@ -549,7 +551,7 @@ export const getCloudflareOAuthUrl = action({
     return await buildCloudflareOAuthUrl(ctx, {
       userId: ctx.viewer.userId,
       organizationId,
-      providerConnectionId: connection?._id,
+      ...(connection !== null ? { providerConnectionId: connection._id } : {}),
     });
   },
 });
@@ -667,7 +669,9 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
     await ctx.runMutation(internal.cloudflareOAuth.storeCloudflareOauthConnection, {
       organizationId: oauthState.organizationId,
       connectedByUserId: oauthState.userId,
-      providerConnectionId: oauthState.providerConnectionId,
+      ...(oauthState.providerConnectionId !== undefined
+        ? { providerConnectionId: oauthState.providerConnectionId }
+        : {}),
       accessToken: token.accessToken,
       refreshToken: token.refreshToken,
       expiresAt,

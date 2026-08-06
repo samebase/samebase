@@ -55,6 +55,19 @@ function readAuthTokenAuthProvider(provider: string): AuthTokenAuthProvider | nu
 }
 
 const vProviderAuthMethod = union(literal("oauth"), literal("mcp_oauth"), literal("api_key"));
+const vConvexConnectionStatus = union(
+  object({
+    connected: literal(false),
+  }),
+  object({
+    connected: literal(true),
+    teamId: string(),
+    teamSlug: optional(string()),
+    authMethod: union(literal("oauth"), literal("api_key")),
+  }),
+);
+type ConvexConnectionStatus = Infer<typeof vConvexConnectionStatus>;
+
 const vCloudflareDisconnectedConnectionStatus = object({
   connected: literal(false),
 });
@@ -62,7 +75,7 @@ const vCloudflareConnectedConnectionStatus = object({
   connected: literal(true),
   accountId: optional(string()),
   accountName: optional(string()),
-  authMethod: optional(vProviderAuthMethod),
+  authMethod: vProviderAuthMethod,
   mcpTokenStatus: optional(vMcpTokenHealthStatus),
   mcpTokenExpiresAt: optional(number()),
   mcpTokenCheckedAt: optional(number()),
@@ -134,7 +147,7 @@ function buildCloudflareConnectionStatus(
   connection: CloudflareConnectionStatusInput,
   options?: {
     now?: number;
-    nextAutoCheckAt?: number;
+    nextAutoCheckAt?: number | undefined;
   },
 ): ConnectedCloudflareConnectionStatus {
   const now = options?.now ?? Date.now();
@@ -147,8 +160,12 @@ function buildCloudflareConnectionStatus(
         }
       : {}),
     authMethod: connection.auth.method,
-    mcpTokenRefreshStartedAt: connection.tokenRefreshStartedAt,
-    mcpTokenLastRefreshAt: connection.lastTokenRefreshAt,
+    ...(connection.tokenRefreshStartedAt !== undefined
+      ? { mcpTokenRefreshStartedAt: connection.tokenRefreshStartedAt }
+      : {}),
+    ...(connection.lastTokenRefreshAt !== undefined
+      ? { mcpTokenLastRefreshAt: connection.lastTokenRefreshAt }
+      : {}),
   };
 
   if (connection.auth.method !== "mcp_oauth") {
@@ -183,7 +200,9 @@ function buildCloudflareConnectionStatus(
     ...baseStatus,
     mcpTokenStatus,
     mcpTokenExpiresAt: effectiveExpiresAt,
-    mcpTokenCheckedAt: connection.tokenHealth?.checkedAt,
+    ...(connection.tokenHealth?.checkedAt !== undefined
+      ? { mcpTokenCheckedAt: connection.tokenHealth.checkedAt }
+      : {}),
     ...(typeof nextAutoCheckAt === "number" ? { mcpTokenNextAutoCheckAt: nextAutoCheckAt } : {}),
   };
 }
@@ -243,8 +262,9 @@ export const getUserSettings = query({
   handler: async (ctx) => {
     const user = ctx.viewer.user;
     return {
-      displayName:
-        user.displayName === undefined ? undefined : normalizeDisplayName(user.displayName),
+      ...(user.displayName !== undefined
+        ? { displayName: normalizeDisplayName(user.displayName) }
+        : {}),
       signInEmail: normalizeAccountEmail(user.email),
     };
   },
@@ -371,13 +391,8 @@ export const getConvexConnectionStatus = query({
   args: {
     organizationId: id("organizations"),
   },
-  returns: v.object({
-    connected: boolean(),
-    teamId: v.optional(v.string()),
-    teamSlug: v.optional(v.string()),
-    authMethod: v.optional(vProviderAuthMethod),
-  }),
-  handler: async (ctx, args) => {
+  returns: vConvexConnectionStatus,
+  handler: async (ctx, args): Promise<ConvexConnectionStatus> => {
     const access = await requireOrganizationAccessContext(ctx.db, {
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
@@ -393,7 +408,7 @@ export const getConvexConnectionStatus = query({
     return {
       connected: true,
       teamId: connection.teamId,
-      teamSlug: connection.teamSlug,
+      ...(connection.teamSlug !== undefined ? { teamSlug: connection.teamSlug } : {}),
       authMethod: connection.auth.method,
     };
   },
@@ -463,7 +478,7 @@ async function runCloudflareMcpTokenRefresh(args: {
   organizationId: Id<"organizations">;
   userId: Id<"users">;
   trigger: CloudflareAutoRefreshTrigger;
-  force?: boolean;
+  force?: boolean | undefined;
 }): Promise<CloudflareConnectionStatus> {
   const organizationId = await args.ctx.runQuery(
     internal.organizationAccess.requireOrganizationIdForUser,

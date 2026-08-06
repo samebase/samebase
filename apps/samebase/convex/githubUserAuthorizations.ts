@@ -111,11 +111,13 @@ export async function upsertGitHubUserAuthorization(
     accessTokenExpiresAt: args.accessTokenExpiresAt,
     refreshToken: args.refreshToken,
     refreshTokenExpiresAt: args.refreshTokenExpiresAt,
-    refreshStartedAt: undefined,
     updatedAt: now,
   };
   if (existing !== null) {
-    await db.patch(existing._id, authorization);
+    await db.patch(existing._id, {
+      ...authorization,
+      refreshStartedAt: undefined,
+    });
     return;
   }
 

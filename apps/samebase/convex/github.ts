@@ -56,9 +56,9 @@ const githubRepositoryPreviewResult = object({
 type GitHubRepositoryPreviewResult = Infer<typeof githubRepositoryPreviewResult>;
 
 type CachedRepositoryBlob = {
-  size?: number | null;
-  storageId?: string | null;
-  text?: string | null;
+  size?: number | null | undefined;
+  storageId?: string | null | undefined;
+  text?: string | null | undefined;
   mime?: string | undefined;
 };
 type HeaderValue = string | number | readonly string[] | undefined;
@@ -214,7 +214,7 @@ function getErrorStatus(error: unknown): number | null {
     return null;
   }
 
-  const status = error.status;
+  const status = error["status"];
   return typeof status === "number" ? status : null;
 }
 
@@ -223,7 +223,7 @@ function getErrorMessage(error: unknown): string | null {
     return null;
   }
 
-  const message = error.message;
+  const message = error["message"];
   return typeof message === "string" && message.length > 0 ? message : null;
 }
 
@@ -232,12 +232,12 @@ function getErrorHeaders(error: unknown): HeaderMap | null {
     return null;
   }
 
-  const response = error.response;
+  const response = error["response"];
   if (!isRecord(response)) {
     return null;
   }
 
-  return toHeaderMap(response.headers);
+  return toHeaderMap(response["headers"]);
 }
 
 function getHeaderValue(headers: HeaderMap | null, name: string): string | null {
@@ -419,19 +419,23 @@ async function fetchGitHubInstallationRepositoryPage(args: {
     per_page: args.perPage,
   });
   const payload: unknown = response.data;
+  if (!isRecord(payload)) {
+    throw new Error("Unexpected GitHub installation repository payload");
+  }
+  const totalCount = payload["total_count"];
+  const repositories = payload["repositories"];
   if (
-    !isRecord(payload) ||
-    typeof payload.total_count !== "number" ||
-    !Number.isSafeInteger(payload.total_count) ||
-    payload.total_count < 0 ||
-    !Array.isArray(payload.repositories)
+    typeof totalCount !== "number" ||
+    !Number.isSafeInteger(totalCount) ||
+    totalCount < 0 ||
+    !Array.isArray(repositories)
   ) {
     throw new Error("Unexpected GitHub installation repository payload");
   }
 
   return {
-    repositories: normalizeGitHubRepositoryList(payload.repositories),
-    totalCount: payload.total_count,
+    repositories: normalizeGitHubRepositoryList(repositories),
+    totalCount,
   };
 }
 
@@ -834,7 +838,7 @@ export const getRepositoryFileContent = action({
         owner: vault.owner,
         repo: vault.name,
         path: args.filePath,
-        ref: requestedBranch,
+        ...(requestedBranch !== undefined ? { ref: requestedBranch } : {}),
       });
 
       if (Array.isArray(file.data) || file.data.type !== "file") {
@@ -882,7 +886,7 @@ export const getRepositoryMediaAsset = action({
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
-      branch: requestedBranch,
+      ...(requestedBranch !== undefined ? { branch: requestedBranch } : {}),
     });
     if (!vault) {
       throw new Error("Vault not found");
@@ -1010,7 +1014,6 @@ export const getRepositoryMediaAsset = action({
         sha: targetFileSha,
         size: buffer.byteLength,
         mime: mimeType,
-        text: undefined,
         storageId,
         ext: getRepositoryMediaExtension(args.filePath),
         debugFilePath: args.filePath,

@@ -136,11 +136,15 @@ export const getViewerBillingStatus = query({
     const state = readBillingAccountState(billing.account);
 
     return {
-      provider: state.provider,
+      ...(state.provider !== undefined ? { provider: state.provider } : {}),
       plan: state.plan,
       status: state.status,
-      currentPeriodEndAt: state.currentPeriodEndAt,
-      cancelAtPeriodEnd: state.cancelAtPeriodEnd,
+      ...(state.currentPeriodEndAt !== undefined
+        ? { currentPeriodEndAt: state.currentPeriodEndAt }
+        : {}),
+      ...(state.cancelAtPeriodEnd !== undefined
+        ? { cancelAtPeriodEnd: state.cancelAtPeriodEnd }
+        : {}),
       canStartCheckout:
         billing.role === "owner" && ctx.viewer.accessKeys.includes("access_dashboard"),
     };

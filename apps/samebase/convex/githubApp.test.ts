@@ -39,12 +39,12 @@ function installation() {
 describe("GitHub App installation verification", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.GITHUB_APP_ID = "42";
-    process.env.GITHUB_APP_SLUG = "samebase-development";
-    process.env.GITHUB_APP_CLIENT_ID = "client-id";
-    process.env.GITHUB_APP_CLIENT_SECRET = "client-secret";
-    process.env.GITHUB_APP_PRIVATE_KEY = "private-key";
-    process.env.GITHUB_APP_OAUTH_CALLBACK_URL = "https://example.com/github/callback";
+    process.env["GITHUB_APP_ID"] = "42";
+    process.env["GITHUB_APP_SLUG"] = "samebase-development";
+    process.env["GITHUB_APP_CLIENT_ID"] = "client-id";
+    process.env["GITHUB_APP_CLIENT_SECRET"] = "client-secret";
+    process.env["GITHUB_APP_PRIVATE_KEY"] = "private-key";
+    process.env["GITHUB_APP_OAUTH_CALLBACK_URL"] = "https://example.com/github/callback";
 
     githubMocks.owner.id = 101;
     githubMocks.owner.login = "samebase";

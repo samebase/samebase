@@ -370,7 +370,9 @@ async function buildCloudflareMcpOAuthUrl(
     provider: "cloudflare_mcp",
     userId: args.userId,
     organizationId: args.organizationId,
-    providerConnectionId: args.providerConnectionId,
+    ...(args.providerConnectionId !== undefined
+      ? { providerConnectionId: args.providerConnectionId }
+      : {}),
     state,
     codeVerifier,
     clientId,
@@ -702,7 +704,7 @@ export const getCloudflareMcpOAuthUrl = action({
     return await buildCloudflareMcpOAuthUrl(ctx, {
       userId: ctx.viewer.userId,
       organizationId,
-      providerConnectionId: connection?._id,
+      ...(connection !== null ? { providerConnectionId: connection._id } : {}),
     });
   },
 });
@@ -804,7 +806,9 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
     await ctx.runMutation(internal.cloudflareMcpOAuth.storeCloudflareMcpOauthConnection, {
       organizationId: oauthState.organizationId,
       connectedByUserId: oauthState.userId,
-      providerConnectionId: oauthState.providerConnectionId,
+      ...(oauthState.providerConnectionId !== undefined
+        ? { providerConnectionId: oauthState.providerConnectionId }
+        : {}),
       accessToken: token.access_token,
       refreshToken: token.refresh_token,
       expiresAt,

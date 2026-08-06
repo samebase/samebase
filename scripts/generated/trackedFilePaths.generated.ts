@@ -1843,6 +1843,7 @@ export const trackedFilePaths = [
   "tsconfig.base.json",
   "tsconfig.json",
   "tsconfig.scripts.json",
+  "tsconfig.strict.json",
   "vite.config.ts",
 ] as const;
 

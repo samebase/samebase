@@ -1,3 +1,5 @@
+import { pick } from "@samebase/dependent/object";
+
 import type { Doc, Id } from "./_generated/dataModel";
 import type { DatabaseReader, DatabaseWriter } from "./_generated/server";
 import { requireOrganizationMembership } from "./organizationAccess";
@@ -22,6 +24,12 @@ export type BillingAccountState = Pick<
   | "polarAppliedObservationRevision"
   | "polarCheckoutAttempt"
 >;
+
+type BillingAccountPatch = {
+  [Field in keyof BillingAccountState]?: undefined extends BillingAccountState[Field]
+    ? BillingAccountState[Field] | undefined
+    : BillingAccountState[Field];
+};
 
 export async function findBillingAccountForOrganization(
   db: DatabaseReader,
@@ -88,32 +96,25 @@ export async function findBillingAccountByPolarExternalCustomerId(
 export function readBillingAccountState(
   account: Doc<"organizationBillingAccounts">,
 ): BillingAccountState {
-  return {
-    provider: account.provider,
-    plan: account.plan,
-    status: account.status,
-    updatedAt: account.updatedAt,
-    currentPeriodEndAt: account.currentPeriodEndAt,
-    cancelAtPeriodEnd: account.cancelAtPeriodEnd,
-    polarExternalCustomerId: account.polarExternalCustomerId,
-    polarStateChangedAt: account.polarStateChangedAt,
-    polarObservationRevision: account.polarObservationRevision,
-    polarAppliedObservationRevision: account.polarAppliedObservationRevision,
-    polarCheckoutAttempt: account.polarCheckoutAttempt,
-  };
+  return pick(account, [
+    "provider",
+    "plan",
+    "status",
+    "updatedAt",
+    "currentPeriodEndAt",
+    "cancelAtPeriodEnd",
+    "polarExternalCustomerId",
+    "polarStateChangedAt",
+    "polarObservationRevision",
+    "polarAppliedObservationRevision",
+    "polarCheckoutAttempt",
+  ]);
 }
 
 export async function patchBillingAccount(
   db: DatabaseWriter,
   account: Doc<"organizationBillingAccounts">,
-  patch: Partial<BillingAccountState>,
+  patch: BillingAccountPatch,
 ): Promise<void> {
-  if (
-    ("plan" in patch && patch.plan === undefined) ||
-    ("status" in patch && patch.status === undefined)
-  ) {
-    throw new Error("Billing plan and status cannot be removed.");
-  }
-
   await db.patch(account._id, patch);
 }
